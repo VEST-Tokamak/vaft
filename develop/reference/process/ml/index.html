@@ -390,7 +390,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4e7badb</code>. What is described
+  <code>506f668</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -421,7 +421,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.process.ml</code>:
-<strong>22</strong> public functions. Each entry is what
+<strong>24</strong> public functions. Each entry is what
 <code>vaft.process.describe("ml.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/process/">All process categories</a></p>
 
@@ -452,7 +452,7 @@ version and manifest SHA-256, never only a stage alias.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 22 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 24 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="build_dataset"><td><a href="#build_dataset"><code>build_dataset</code></a></td><td>Assemble a fingerprinted dataset from arrays.
@@ -469,6 +469,8 @@ version and manifest SHA-256, never only a stage alias.</p>
 </td></tr>
   <tr data-ref-row="fetch_model"><td><a href="#fetch_model"><code>fetch_model</code></a></td><td>Download a published model’s release assets into the cache, verified.
 </td></tr>
+  <tr data-ref-row="import_data_roles"><td><a href="#import_data_roles"><code>import_data_roles</code></a></td><td>Import exact group roles without recomputing a scientific split.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="load_dataset"><td><a href="#load_dataset"><code>load_dataset</code></a></td><td>Load a dataset written by <code class="language-plaintext highlighter-rouge">save_dataset</code>, verifying its fingerprint.
 </td></tr>
   <tr data-ref-row="load_model"><td><a href="#load_model"><code>load_model</code></a></td><td>Resolve a published model and load it, ready for <code class="language-plaintext highlighter-rouge">predict</code>.
@@ -479,6 +481,8 @@ version and manifest SHA-256, never only a stage alias.</p>
 </td></tr>
   <tr data-ref-row="predict"><td><a href="#predict"><code>predict</code></a></td><td>Run a model on new data and stamp the result with its exact identity.
 </td></tr>
+  <tr data-ref-row="record_data_use"><td><a href="#record_data_use"><code>record_data_use</code></a></td><td>Check a declared use and return its provenance receipt.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="register_architecture"><td><a href="#register_architecture"><code>register_architecture</code></a></td><td>Make a task-defined network available to a backend by name.
 </td></tr>
   <tr data-ref-row="register_augmentation"><td><a href="#register_augmentation"><code>register_augmentation</code></a></td><td>Make a train-time augmentation available by name.
@@ -510,7 +514,7 @@ version and manifest SHA-256, never only a stage alias.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#build_dataset"><code>build_dataset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="build_dataset" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/dataset.py#L90-L175" title="vaft/process/ml/dataset.py, lines 90–175 at 4e7badb">source</a>
+<a class="ref-source" data-source="build_dataset" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/dataset.py#L90-L175" title="vaft/process/ml/dataset.py, lines 90–175 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>build_dataset(inputs, groups, *, spec, targets=None, sample_meta=None, feature_spec=None, available=None)</code></pre>
 
@@ -576,7 +580,7 @@ second stage lacks a diagnostic builds that stage’s dataset with its own
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#build_structured_dataset"><code>build_structured_dataset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="build_structured_dataset" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/structured.py#L199-L261" title="vaft/process/ml/structured.py, lines 199–261 at 4e7badb">source</a>
+<a class="ref-source" data-source="build_structured_dataset" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/structured.py#L199-L261" title="vaft/process/ml/structured.py, lines 199–261 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>build_structured_dataset(source, groups, *, input_specs, target_specs, spec, sample_meta=None, available=None)</code></pre>
 
@@ -718,7 +722,7 @@ source. Fixed output shapes are required; this is not an IMAS data model.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calibrate_threshold"><code>calibrate_threshold</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="calibrate_threshold" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/training.py#L412-L502" title="vaft/process/ml/training.py, lines 412–502 at 4e7badb">source</a>
+<a class="ref-source" data-source="calibrate_threshold" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/training.py#L422-L515" title="vaft/process/ml/training.py, lines 422–515 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>calibrate_threshold(model, dataset, split, *, partition=&#39;validation&#39;, output=&#39;score&#39;, quantile=0.99, name=None, mask=None, population=None)</code></pre>
 
@@ -787,7 +791,7 @@ task decision (the VEST IRE prototype used 0.85-0.90).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dataset_fingerprint"><code>dataset_fingerprint</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="dataset_fingerprint" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/dataset.py#L46-L87" title="vaft/process/ml/dataset.py, lines 46–87 at 4e7badb">source</a>
+<a class="ref-source" data-source="dataset_fingerprint" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/dataset.py#L46-L87" title="vaft/process/ml/dataset.py, lines 46–87 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>dataset_fingerprint(dataset)</code></pre>
 
@@ -882,11 +886,11 @@ prefixed by its name, dtype and shape.</li>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#evaluate_model"><code>evaluate_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="evaluate_model" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/training.py#L337-L409" title="vaft/process/ml/training.py, lines 337–409 at 4e7badb">source</a>
+<a class="ref-source" data-source="evaluate_model" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/training.py#L342-L419" title="vaft/process/ml/training.py, lines 342–419 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>evaluate_model(model, dataset, split, partition=&#39;test&#39;, *, metrics=None)</code></pre>
 
-    <details class="ref-code" data-source-code="evaluate_model"><summary>Show source <span class="ref-note">vaft/process/ml/training.py, lines 337–409</span></summary>
+    <details class="ref-code" data-source-code="evaluate_model"><summary>Show source <span class="ref-note">vaft/process/ml/training.py, lines 342–419</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">split</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="sh">"</span><span class="s">test</span><span class="sh">"</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
     <span class="sh">"""</span><span class="s">Standard ML metrics of a model on one partition, overall and per group.
@@ -931,10 +935,14 @@ prefixed by its name, dtype and shape.</li>
     -------------
     Machine-independent.
     </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">.usage</span> <span class="kn">import</span> <span class="n">record_data_use</span>
+    <span class="n">usage</span> <span class="o">=</span> <span class="nf">record_data_use</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">split</span><span class="p">,</span> <span class="sh">"</span><span class="s">evaluate</span><span class="sh">"</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="nf">set</span><span class="p">(</span><span class="n">dataset</span><span class="p">.</span><span class="n">group_labels</span><span class="p">[</span><span class="n">split</span><span class="p">.</span><span class="nf">mask</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">partition</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">dataset</span><span class="p">.</span><span class="n">available_mask</span><span class="p">]))</span>
     <span class="kn">from</span> <span class="n">.structured</span> <span class="kn">import</span> <span class="n">StructuredDatasetArtifact</span>
     <span class="k">if</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">StructuredDatasetArtifact</span><span class="p">):</span>
         <span class="kn">from</span> <span class="n">._structured_lifecycle</span> <span class="kn">import</span> <span class="n">evaluate_structured</span>
-        <span class="k">return</span> <span class="nf">evaluate_structured</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">split</span><span class="p">,</span> <span class="n">partition</span><span class="p">,</span> <span class="n">metrics</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="nf">evaluate_structured</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">split</span><span class="p">,</span> <span class="n">partition</span><span class="p">,</span> <span class="n">metrics</span><span class="p">)</span>
+        <span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">replace</span>
+        <span class="k">return</span> <span class="nf">replace</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">provenance</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">data_use</span><span class="sh">"</span><span class="p">:</span> <span class="n">usage</span><span class="p">})</span> <span class="k">if</span> <span class="n">usage</span> <span class="k">else</span> <span class="n">result</span>
     <span class="kn">from</span> <span class="n">.inference</span> <span class="kn">import</span> <span class="n">_check_columns</span><span class="p">,</span> <span class="n">_forward</span>
 
     <span class="nf">_check_columns</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">dataset</span><span class="p">)</span>
@@ -960,6 +968,7 @@ prefixed by its name, dtype and shape.</li>
         <span class="n">per_group</span><span class="o">=</span><span class="n">per_group</span><span class="p">,</span>
         <span class="n">n_samples</span><span class="o">=</span><span class="nf">int</span><span class="p">(</span><span class="n">mask</span><span class="p">.</span><span class="nf">sum</span><span class="p">()),</span>
         <span class="n">model_identity</span><span class="o">=</span><span class="n">model</span><span class="p">.</span><span class="nf">resolved_identity</span><span class="p">(),</span>
+        <span class="n">provenance</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">data_use</span><span class="sh">"</span><span class="p">:</span> <span class="n">usage</span><span class="p">}</span> <span class="k">if</span> <span class="n">usage</span> <span class="k">else</span> <span class="p">{},</span>
     <span class="p">)</span></code></pre></figure>
 
 </details>
@@ -1014,7 +1023,7 @@ task-specific verdict for <code class="language-plaintext highlighter-rouge">vaf
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#export_model"><code>export_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="export_model" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/artifact.py#L295-L356" title="vaft/process/ml/artifact.py, lines 295–356 at 4e7badb">source</a>
+<a class="ref-source" data-source="export_model" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/artifact.py#L295-L356" title="vaft/process/ml/artifact.py, lines 295–356 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>export_model(model, directory, *, format=&#39;onnx&#39;)</code></pre>
 
@@ -1149,7 +1158,7 @@ returns <code class="language-plaintext highlighter-rouge">scores</code>, the es
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fetch_model"><code>fetch_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="fetch_model" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/resolver.py#L263-L350" title="vaft/process/ml/resolver.py, lines 263–350 at 4e7badb">source</a>
+<a class="ref-source" data-source="fetch_model" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/resolver.py#L263-L350" title="vaft/process/ml/resolver.py, lines 263–350 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>fetch_model(name, *, version=None, stage=None, registry=None, cache=None, env=None)</code></pre>
 
@@ -1224,11 +1233,152 @@ repository; VAFT reads no token itself.</p>
 
   </section>
 
+  <section class="ref-entry" id="import_data_roles" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#import_data_roles"><code>import_data_roles</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="import_data_roles" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/usage.py#L47-L113" title="vaft/process/ml/usage.py, lines 47–113 at 506f668">source</a>
+</header>
+    <pre class="ref-signature"><code>import_data_roles(dataset, assignments, allowed_operations, *, role_to_partition=None, provenance=None)</code></pre>
+
+    <details class="ref-code" data-source-code="import_data_roles"><summary>Show source <span class="ref-note">vaft/process/ml/usage.py, lines 47–113</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">import_data_roles</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">assignments</span><span class="p">,</span> <span class="n">allowed_operations</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">role_to_partition</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">provenance</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Import exact group roles without recomputing a scientific split.
+
+    Parameters
+    ----------
+    dataset : DatasetArtifact or StructuredDatasetArtifact
+        Existing stable, fingerprinted samples [-].
+    assignments : mapping of str to str
+        Actual independent group-to-role assignments, including absent groups [-].
+    allowed_operations : mapping of str to sequence of str
+        Explicit role permissions: train, preprocess, calibrate, select,
+        evaluate or infer [-].
+    role_to_partition : mapping or None, optional
+        Explicit mapping to execution partitions; None preserves role names [-].
+    provenance : mapping or None, optional
+        Split/protocol revisions, origins, label methods and dependencies [-].
+
+    Returns
+    -------
+    tuple
+        Re-fingerprinted dataset and exact Split, without random reassignment [-].
+
+    Processing steps
+    ----------------
+    1. Copy the declared assignments, permissions, mapping and provenance.
+    2. Validate role coverage and record the full assignment digest.
+    3. Recompute dataset identity and construct a fixed split for its groups.
+
+    Convention
+    ----------
+    Roles are owner-defined; neither machine restrictions nor salts are inferred.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Re-fingerprinting streams structured samples. Sources must remain stable.
+    Supplied historical provenance is a declaration, not retrospective proof.
+
+    Provenance
+    ----------
+    .. [vaft2047] VEST-Tokamak/vaft#2047, exact assignment and usage provenance.
+    </span><span class="sh">"""</span>
+    <span class="n">roles</span> <span class="o">=</span> <span class="p">{</span><span class="nf">str</span><span class="p">(</span><span class="n">k</span><span class="p">):</span> <span class="nf">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">assignments</span><span class="p">.</span><span class="nf">items</span><span class="p">()}</span>
+    <span class="n">mapping</span> <span class="o">=</span> <span class="nf">dict</span><span class="p">(</span><span class="n">role_to_partition</span><span class="p">)</span> <span class="k">if</span> <span class="n">role_to_partition</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">roles</span><span class="p">.</span><span class="nf">values</span><span class="p">()}</span>
+    <span class="n">policy</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">schema_version</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="sh">"</span><span class="s">group_roles</span><span class="sh">"</span><span class="p">:</span> <span class="n">roles</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">allowed_operations</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="nf">str</span><span class="p">(</span><span class="n">k</span><span class="p">):</span> <span class="nf">sorted</span><span class="p">(</span><span class="nf">set</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">allowed_operations</span><span class="p">.</span><span class="nf">items</span><span class="p">()},</span>
+        <span class="sh">"</span><span class="s">role_to_partition</span><span class="sh">"</span><span class="p">:</span> <span class="n">mapping</span><span class="p">,</span> <span class="sh">"</span><span class="s">assignment_sha256</span><span class="sh">"</span><span class="p">:</span> <span class="nf">_hash</span><span class="p">(</span><span class="n">roles</span><span class="p">),</span>
+        <span class="sh">"</span><span class="s">provenance</span><span class="sh">"</span><span class="p">:</span> <span class="nf">dict</span><span class="p">(</span><span class="n">provenance</span> <span class="ow">or</span> <span class="p">{}),</span> <span class="sh">"</span><span class="s">history_basis</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">owner_declaration</span><span class="sh">"</span><span class="p">}</span>
+    <span class="n">spec</span> <span class="o">=</span> <span class="nf">replace</span><span class="p">(</span><span class="n">dataset</span><span class="p">.</span><span class="n">spec</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="o">**</span><span class="n">dataset</span><span class="p">.</span><span class="n">spec</span><span class="p">.</span><span class="n">metadata</span><span class="p">,</span> <span class="sh">"</span><span class="s">data_use_policy</span><span class="sh">"</span><span class="p">:</span> <span class="n">policy</span><span class="p">,</span> <span class="sh">"</span><span class="s">data_use_policy_sha256</span><span class="sh">"</span><span class="p">:</span> <span class="nf">_hash</span><span class="p">(</span><span class="n">policy</span><span class="p">)})</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="nf">replace</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">spec</span><span class="o">=</span><span class="n">spec</span><span class="p">)</span>
+    <span class="nf">_policy</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="kn">from</span> <span class="n">.structured</span> <span class="kn">import</span> <span class="n">StructuredDatasetArtifact</span><span class="p">,</span> <span class="n">build_structured_dataset</span>
+    <span class="k">if</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">StructuredDatasetArtifact</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="nf">build_structured_dataset</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">source</span><span class="p">,</span> <span class="n">data</span><span class="p">.</span><span class="n">groups</span><span class="p">,</span> <span class="n">input_specs</span><span class="o">=</span><span class="n">data</span><span class="p">.</span><span class="n">input_specs</span><span class="p">,</span>
+            <span class="n">target_specs</span><span class="o">=</span><span class="n">data</span><span class="p">.</span><span class="n">target_specs</span><span class="p">,</span> <span class="n">spec</span><span class="o">=</span><span class="n">spec</span><span class="p">,</span> <span class="n">sample_meta</span><span class="o">=</span><span class="n">data</span><span class="p">.</span><span class="n">sample_meta</span><span class="p">,</span> <span class="n">available</span><span class="o">=</span><span class="n">data</span><span class="p">.</span><span class="n">available</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="n">.dataset</span> <span class="kn">import</span> <span class="n">dataset_fingerprint</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="nf">replace</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">fingerprint</span><span class="o">=</span><span class="nf">dataset_fingerprint</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+    <span class="n">fixed</span> <span class="o">=</span> <span class="p">{</span><span class="n">g</span><span class="p">:</span> <span class="n">mapping</span><span class="p">[</span><span class="n">roles</span><span class="p">[</span><span class="n">g</span><span class="p">]]</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="nf">sorted</span><span class="p">(</span><span class="nf">set</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">group_labels</span><span class="p">))}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">fixed</span> <span class="ow">or</span> <span class="nf">any</span><span class="p">(</span><span class="ow">not</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fixed</span><span class="p">.</span><span class="nf">values</span><span class="p">()):</span>
+        <span class="k">raise</span> <span class="nc">ModelContractError</span><span class="p">(</span><span class="sh">"</span><span class="s">execution partitions must be nonempty strings</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="nf">sorted</span><span class="p">(</span><span class="nf">set</span><span class="p">(</span><span class="n">fixed</span><span class="p">.</span><span class="nf">values</span><span class="p">()))</span>
+    <span class="n">split</span> <span class="o">=</span> <span class="nc">Split</span><span class="p">(</span><span class="n">spec</span><span class="o">=</span><span class="nc">SplitSpec</span><span class="p">(</span><span class="n">fractions</span><span class="o">=</span><span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="mi">1</span> <span class="o">/</span> <span class="nf">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">names</span><span class="p">},</span> <span class="n">fixed</span><span class="o">=</span><span class="n">fixed</span><span class="p">),</span> <span class="n">assignment</span><span class="o">=</span><span class="n">fixed</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">split</span></code></pre></figure>
+
+</details>
+
+    <p>Import exact group roles without recomputing a scientific split.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>dataset</code></td><td class="ref-type">DatasetArtifact or StructuredDatasetArtifact</td><td class="ref-unit">-</td><td><p>Existing stable, fingerprinted samples.</p>
+</td></tr>
+  <tr><td><code>assignments</code></td><td class="ref-type">mapping of str to str</td><td class="ref-unit">-</td><td><p>Actual independent group-to-role assignments, including absent groups.</p>
+</td></tr>
+  <tr><td><code>allowed_operations</code></td><td class="ref-type">mapping of str to sequence of str</td><td class="ref-unit">-</td><td><p>Explicit role permissions: train, preprocess, calibrate, select, evaluate or infer.</p>
+</td></tr>
+  <tr><td><code>role_to_partition</code></td><td class="ref-type">mapping or None, optional</td><td class="ref-unit">-</td><td><p>Explicit mapping to execution partitions; None preserves role names.</p>
+</td></tr>
+  <tr><td><code>provenance</code></td><td class="ref-type">mapping or None, optional</td><td class="ref-unit">-</td><td><p>Split/protocol revisions, origins, label methods and dependencies.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple</td><td class="ref-unit">-</td><td><p>Re-fingerprinted dataset and exact Split, without random reassignment.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Roles are owner-defined; neither machine restrictions nor salts are inferred.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Copy the declared assignments, permissions, mapping and provenance.</li>
+        <li>Validate role coverage and record the full assignment digest.</li>
+        <li>Recompute dataset identity and construct a fixed split for its groups.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Re-fingerprinting streams structured samples. Sources must remain stable.
+Supplied historical provenance is a declaration, not retrospective proof.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>VEST-Tokamak/vaft#2047, exact assignment and usage provenance.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="load_dataset" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#load_dataset"><code>load_dataset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="load_dataset" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/dataset.py#L447-L515" title="vaft/process/ml/dataset.py, lines 447–515 at 4e7badb">source</a>
+<a class="ref-source" data-source="load_dataset" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/dataset.py#L447-L515" title="vaft/process/ml/dataset.py, lines 447–515 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>load_dataset(directory)</code></pre>
 
@@ -1344,7 +1494,7 @@ repository; VAFT reads no token itself.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#load_model"><code>load_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="load_model" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/resolver.py#L353-L409" title="vaft/process/ml/resolver.py, lines 353–409 at 4e7badb">source</a>
+<a class="ref-source" data-source="load_model" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/resolver.py#L353-L409" title="vaft/process/ml/resolver.py, lines 353–409 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>load_model(name, *, version=None, stage=None, registry=None, cache=None, env=None, fetch=False)</code></pre>
 
@@ -1452,7 +1602,7 @@ repository; VAFT reads no token itself.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#load_model_artifact"><code>load_model_artifact</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="load_model_artifact" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/artifact.py#L190-L243" title="vaft/process/ml/artifact.py, lines 190–243 at 4e7badb">source</a>
+<a class="ref-source" data-source="load_model_artifact" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/artifact.py#L190-L243" title="vaft/process/ml/artifact.py, lines 190–243 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>load_model_artifact(directory, *, manifest=None, verify=True)</code></pre>
 
@@ -1566,7 +1716,7 @@ repository; VAFT reads no token itself.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#load_model_bundle"><code>load_model_bundle</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="load_model_bundle" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/bundle.py#L137-L195" title="vaft/process/ml/bundle.py, lines 137–195 at 4e7badb">source</a>
+<a class="ref-source" data-source="load_model_bundle" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/bundle.py#L137-L195" title="vaft/process/ml/bundle.py, lines 137–195 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>load_model_bundle(directory, *, manifest=None, verify=True)</code></pre>
 
@@ -1678,11 +1828,11 @@ repository; VAFT reads no token itself.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#predict"><code>predict</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="predict" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/inference.py#L69-L140" title="vaft/process/ml/inference.py, lines 69–140 at 4e7badb">source</a>
+<a class="ref-source" data-source="predict" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/inference.py#L69-L146" title="vaft/process/ml/inference.py, lines 69–146 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>predict(model, data)</code></pre>
 
-    <details class="ref-code" data-source-code="predict"><summary>Show source <span class="ref-note">vaft/process/ml/inference.py, lines 69–140</span></summary>
+    <details class="ref-code" data-source-code="predict"><summary>Show source <span class="ref-note">vaft/process/ml/inference.py, lines 69–146</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
     <span class="sh">"""</span><span class="s">Run a model on new data and stamp the result with its exact identity.
@@ -1730,10 +1880,14 @@ repository; VAFT reads no token itself.</p>
     -------------
     Machine-independent.
     </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">.usage</span> <span class="kn">import</span> <span class="n">_inference_use</span>
+    <span class="n">usage</span> <span class="o">=</span> <span class="nf">_inference_use</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="k">if</span> <span class="nf">hasattr</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="sh">"</span><span class="s">spec</span><span class="sh">"</span><span class="p">)</span> <span class="k">else</span> <span class="bp">None</span>
     <span class="kn">from</span> <span class="n">.structured</span> <span class="kn">import</span> <span class="n">StructuredDatasetArtifact</span>
     <span class="k">if</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">StructuredDatasetArtifact</span><span class="p">):</span>
         <span class="kn">from</span> <span class="n">._structured_lifecycle</span> <span class="kn">import</span> <span class="n">predict_structured</span>
-        <span class="k">return</span> <span class="nf">predict_structured</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="nf">predict_structured</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">replace</span>
+        <span class="k">return</span> <span class="nf">replace</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">provenance</span><span class="o">=</span><span class="p">{</span><span class="o">**</span><span class="n">result</span><span class="p">.</span><span class="n">provenance</span><span class="p">,</span> <span class="sh">"</span><span class="s">data_use</span><span class="sh">"</span><span class="p">:</span> <span class="n">usage</span><span class="p">})</span> <span class="k">if</span> <span class="n">usage</span> <span class="k">else</span> <span class="n">result</span>
     <span class="k">if</span> <span class="n">model</span><span class="p">.</span><span class="n">tensor_schema</span><span class="p">:</span>
         <span class="k">raise</span> <span class="nc">ModelContractError</span><span class="p">(</span><span class="sh">"</span><span class="s">structured models require a StructuredDatasetArtifact</span><span class="sh">"</span><span class="p">)</span>
     <span class="k">if</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">DatasetArtifact</span><span class="p">):</span>
@@ -1748,6 +1902,8 @@ repository; VAFT reads no token itself.</p>
         <span class="n">groups</span><span class="p">,</span> <span class="n">meta</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span> <span class="p">{}</span>
         <span class="n">digest</span> <span class="o">=</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha256</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">ascontiguousarray</span><span class="p">(</span><span class="n">x</span><span class="p">).</span><span class="nf">tobytes</span><span class="p">()).</span><span class="nf">hexdigest</span><span class="p">()</span>
         <span class="n">provenance</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">input</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">array</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">input_sha256</span><span class="sh">"</span><span class="p">:</span> <span class="n">digest</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">usage</span><span class="p">:</span>
+        <span class="n">provenance</span><span class="p">[</span><span class="sh">"</span><span class="s">data_use</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">usage</span>
     <span class="n">outputs</span> <span class="o">=</span> <span class="nf">_forward</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">available</span><span class="p">)</span>
     <span class="k">return</span> <span class="nc">InferenceResult</span><span class="p">(</span>
         <span class="n">outputs</span><span class="o">=</span><span class="n">outputs</span><span class="p">,</span>
@@ -1812,11 +1968,137 @@ physical event: an <code class="language-plaintext highlighter-rouge">IRE-like c
 
   </section>
 
+  <section class="ref-entry" id="record_data_use" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#record_data_use"><code>record_data_use</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="record_data_use" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/usage.py#L116-L173" title="vaft/process/ml/usage.py, lines 116–173 at 506f668">source</a>
+</header>
+    <pre class="ref-signature"><code>record_data_use(dataset, split, operation, *, groups=None)</code></pre>
+
+    <details class="ref-code" data-source-code="record_data_use"><summary>Show source <span class="ref-note">vaft/process/ml/usage.py, lines 116–173</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">record_data_use</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">split</span><span class="p">,</span> <span class="n">operation</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Check a declared use and return its provenance receipt.
+
+    Parameters
+    ----------
+    dataset : DatasetArtifact or StructuredDatasetArtifact
+        Dataset with an optional data_use_policy [-].
+    split : Split
+        Realized execution assignment to verify against the declaration [-].
+    operation : str
+        Requested train, preprocess, calibrate, select, evaluate or infer [-].
+    groups : iterable of str or None, optional
+        Groups actually consumed; None selects every dataset group [-].
+
+    Returns
+    -------
+    dict or None
+        Usage receipt; None means no policy was supplied, not validated history [-].
+
+    Processing steps
+    ----------------
+    1. Verify the dataset</span><span class="sh">'</span><span class="s">s execution assignment matches its declared mapping.
+    2. Check explicit permissions for every selected group.
+    3. Return dataset, policy and assignment identities with observed group roles.
+
+    Convention
+    ----------
+    Calling this reports a requested entrypoint use; it cannot inspect external
+    training history or intercept scientific operations outside this API.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [vaft2047] VEST-Tokamak/vaft#2047, opt-in operation-role checks.
+    </span><span class="sh">"""</span>
+    <span class="n">policy</span> <span class="o">=</span> <span class="nf">_policy</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">policy</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">None</span>
+    <span class="k">if</span> <span class="n">operation</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_OPERATIONS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ModelContractError</span><span class="p">(</span><span class="sh">"</span><span class="s">unknown data-use operation</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">roles</span> <span class="o">=</span> <span class="n">policy</span><span class="p">[</span><span class="sh">"</span><span class="s">group_roles</span><span class="sh">"</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nf">_hash</span><span class="p">(</span><span class="n">roles</span><span class="p">)</span> <span class="o">!=</span> <span class="n">policy</span><span class="p">[</span><span class="sh">"</span><span class="s">assignment_sha256</span><span class="sh">"</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="nc">ModelContractError</span><span class="p">(</span><span class="sh">"</span><span class="s">data assignment digest does not match declaration</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="nf">set</span><span class="p">(</span><span class="n">dataset</span><span class="p">.</span><span class="n">group_labels</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">split</span><span class="p">.</span><span class="n">assignment</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="o">!=</span> <span class="n">policy</span><span class="p">[</span><span class="sh">"</span><span class="s">role_to_partition</span><span class="sh">"</span><span class="p">][</span><span class="n">roles</span><span class="p">[</span><span class="n">g</span><span class="p">]]:</span>
+            <span class="k">raise</span> <span class="nc">ModelContractError</span><span class="p">(</span><span class="sh">"</span><span class="s">split differs from declared data roles</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">selected</span> <span class="o">=</span> <span class="nf">sorted</span><span class="p">(</span><span class="nf">set</span><span class="p">(</span><span class="n">dataset</span><span class="p">.</span><span class="n">group_labels</span> <span class="k">if</span> <span class="n">groups</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="nf">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">groups</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="nf">set</span><span class="p">(</span><span class="n">selected</span><span class="p">)</span> <span class="o">-</span> <span class="nf">set</span><span class="p">(</span><span class="n">dataset</span><span class="p">.</span><span class="n">group_labels</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ModelContractError</span><span class="p">(</span><span class="sh">"</span><span class="s">requested use contains groups outside the dataset</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">selected</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">operation</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">policy</span><span class="p">[</span><span class="sh">"</span><span class="s">allowed_operations</span><span class="sh">"</span><span class="p">][</span><span class="n">roles</span><span class="p">[</span><span class="n">g</span><span class="p">]]:</span>
+            <span class="k">raise</span> <span class="nc">ModelContractError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">operation</span><span class="si">}</span><span class="s"> is forbidden for role </span><span class="si">{</span><span class="n">roles</span><span class="p">[</span><span class="n">g</span><span class="p">]</span><span class="si">!r}</span><span class="s">, group </span><span class="si">{</span><span class="n">g</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">operation</span><span class="sh">"</span><span class="p">:</span> <span class="n">operation</span><span class="p">,</span> <span class="sh">"</span><span class="s">groups</span><span class="sh">"</span><span class="p">:</span> <span class="n">selected</span><span class="p">,</span> <span class="sh">"</span><span class="s">group_roles</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="n">g</span><span class="p">:</span> <span class="n">roles</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">selected</span><span class="p">},</span>
+        <span class="sh">"</span><span class="s">dataset_fingerprint</span><span class="sh">"</span><span class="p">:</span> <span class="n">dataset</span><span class="p">.</span><span class="n">fingerprint</span><span class="p">,</span> <span class="sh">"</span><span class="s">assignment_sha256</span><span class="sh">"</span><span class="p">:</span> <span class="n">policy</span><span class="p">[</span><span class="sh">"</span><span class="s">assignment_sha256</span><span class="sh">"</span><span class="p">],</span>
+        <span class="sh">"</span><span class="s">policy_sha256</span><span class="sh">"</span><span class="p">:</span> <span class="nf">_hash</span><span class="p">(</span><span class="n">policy</span><span class="p">),</span> <span class="sh">"</span><span class="s">history_basis</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">declared_use_at_entrypoint</span><span class="sh">"</span><span class="p">}</span></code></pre></figure>
+
+</details>
+
+    <p>Check a declared use and return its provenance receipt.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>dataset</code></td><td class="ref-type">DatasetArtifact or StructuredDatasetArtifact</td><td class="ref-unit">-</td><td><p>Dataset with an optional data_use_policy.</p>
+</td></tr>
+  <tr><td><code>split</code></td><td class="ref-type">Split</td><td class="ref-unit">-</td><td><p>Realized execution assignment to verify against the declaration.</p>
+</td></tr>
+  <tr><td><code>operation</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Requested train, preprocess, calibrate, select, evaluate or infer.</p>
+</td></tr>
+  <tr><td><code>groups</code></td><td class="ref-type">iterable of str or None, optional</td><td class="ref-unit">-</td><td><p>Groups actually consumed; None selects every dataset group.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict or None</td><td class="ref-unit">-</td><td><p>Usage receipt; None means no policy was supplied, not validated history.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Calling this reports a requested entrypoint use; it cannot inspect external
+training history or intercept scientific operations outside this API.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Verify the dataset’s execution assignment matches its declared mapping.</li>
+        <li>Check explicit permissions for every selected group.</li>
+        <li>Return dataset, policy and assignment identities with observed group roles.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>VEST-Tokamak/vaft#2047, opt-in operation-role checks.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="register_architecture" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#register_architecture"><code>register_architecture</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="register_architecture" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/_backends/__init__.py#L142-L201" title="vaft/process/ml/_backends/__init__.py, lines 142–201 at 4e7badb">source</a>
+<a class="ref-source" data-source="register_architecture" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/_backends/__init__.py#L142-L201" title="vaft/process/ml/_backends/__init__.py, lines 142–201 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>register_architecture(name, factory, *, kind, backend=&#39;torch&#39;)</code></pre>
 
@@ -1942,7 +2224,7 @@ manifest.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#register_augmentation"><code>register_augmentation</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="register_augmentation" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/_backends/__init__.py#L253-L287" title="vaft/process/ml/_backends/__init__.py, lines 253–287 at 4e7badb">source</a>
+<a class="ref-source" data-source="register_augmentation" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/_backends/__init__.py#L253-L287" title="vaft/process/ml/_backends/__init__.py, lines 253–287 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>register_augmentation(name, function)</code></pre>
 
@@ -2030,7 +2312,7 @@ augmented copy of a sample can never reach validation or test.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#register_loss"><code>register_loss</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="register_loss" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/_backends/__init__.py#L204-L250" title="vaft/process/ml/_backends/__init__.py, lines 204–250 at 4e7badb">source</a>
+<a class="ref-source" data-source="register_loss" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/_backends/__init__.py#L204-L250" title="vaft/process/ml/_backends/__init__.py, lines 204–250 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>register_loss(name, factory)</code></pre>
 
@@ -2137,7 +2419,7 @@ and scikit-learn backends refuse a <code class="language-plaintext highlighter-r
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resolve_model"><code>resolve_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="resolve_model" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/resolver.py#L139-L207" title="vaft/process/ml/resolver.py, lines 139–207 at 4e7badb">source</a>
+<a class="ref-source" data-source="resolve_model" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/resolver.py#L139-L207" title="vaft/process/ml/resolver.py, lines 139–207 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_model(name, *, version=None, stage=None, registry=None, cache=None, env=None)</code></pre>
 
@@ -2292,7 +2574,7 @@ for presence, size and SHA-256.</li>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#save_dataset"><code>save_dataset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="save_dataset" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/dataset.py#L392-L444" title="vaft/process/ml/dataset.py, lines 392–444 at 4e7badb">source</a>
+<a class="ref-source" data-source="save_dataset" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/dataset.py#L392-L444" title="vaft/process/ml/dataset.py, lines 392–444 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>save_dataset(dataset, directory)</code></pre>
 
@@ -2397,7 +2679,7 @@ on it are separate steps, often on separate machines; this is the hand-off.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#save_model_artifact"><code>save_model_artifact</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="save_model_artifact" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/artifact.py#L114-L173" title="vaft/process/ml/artifact.py, lines 114–173 at 4e7badb">source</a>
+<a class="ref-source" data-source="save_model_artifact" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/artifact.py#L114-L173" title="vaft/process/ml/artifact.py, lines 114–173 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>save_model_artifact(model, directory, *, version, model_card=None, applicability=None)</code></pre>
 
@@ -2531,7 +2813,7 @@ indent) pinning every hash and size.</li>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#save_model_bundle"><code>save_model_bundle</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="save_model_bundle" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/bundle.py#L30-L119" title="vaft/process/ml/bundle.py, lines 30–119 at 4e7badb">source</a>
+<a class="ref-source" data-source="save_model_bundle" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/bundle.py#L30-L119" title="vaft/process/ml/bundle.py, lines 30–119 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>save_model_bundle(bundle, directory, *, version, model_card=None, applicability=None)</code></pre>
 
@@ -2597,7 +2879,7 @@ and size, each member manifest’s SHA-256 and the composition record.</li>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#split_groups"><code>split_groups</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="split_groups" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/dataset.py#L178-L277" title="vaft/process/ml/dataset.py, lines 178–277 at 4e7badb">source</a>
+<a class="ref-source" data-source="split_groups" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/dataset.py#L178-L277" title="vaft/process/ml/dataset.py, lines 178–277 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>split_groups(groups, spec=None)</code></pre>
 
@@ -2675,7 +2957,7 @@ IRE prototype used [ire].</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#train_model"><code>train_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="train_model" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/training.py#L88-L284" title="vaft/process/ml/training.py, lines 88–284 at 4e7badb">source</a>
+<a class="ref-source" data-source="train_model" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/training.py#L88-L289" title="vaft/process/ml/training.py, lines 88–289 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>train_model(dataset, split, model_spec, config=None, *, name=None, train_mask=None, train_mask_record=None)</code></pre>
 
@@ -2775,7 +3057,7 @@ tuned for any task.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#window_dataset"><code>window_dataset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="window_dataset" href="https://github.com/VEST-Tokamak/vaft/blob/4e7badbcc5658801b8f51849855c1d0f5d30b3f5/vaft/process/ml/dataset.py#L290-L385" title="vaft/process/ml/dataset.py, lines 290–385 at 4e7badb">source</a>
+<a class="ref-source" data-source="window_dataset" href="https://github.com/VEST-Tokamak/vaft/blob/506f668e213247ebd145298f545adb51621e7c61/vaft/process/ml/dataset.py#L290-L385" title="vaft/process/ml/dataset.py, lines 290–385 at 506f668">source</a>
 </header>
     <pre class="ref-signature"><code>window_dataset(dataset, window, step, *, target_mode=None)</code></pre>
 
@@ -3068,7 +3350,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-14 15:43:48 +0000"
+        "time": "2026-10-14 17:21:20 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
