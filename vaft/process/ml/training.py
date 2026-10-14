@@ -5,8 +5,9 @@ from __future__ import annotations
 import numpy as np
 
 from ._backends import AUGMENTATIONS, KIND_OUTPUTS, get_backend
-from ._provenance import software_provenance
+from ._provenance import sha256_bytes, software_provenance
 from ._types import (
+    canonical_json,
     CalibrationResult,
     DatasetArtifact,
     EvaluationResult,
@@ -384,7 +385,12 @@ def evaluate_model(model, dataset, split, partition="test", *, metrics=None):
     """
     from .usage import record_data_use
     usage = record_data_use(dataset, split, "evaluate", groups=set(dataset.group_labels[split.mask(dataset, partition) & dataset.available_mask]))
-    evaluation_provenance = {"model_contract_sha256": model.contract_sha256, **({"data_use": usage} if usage else {})}
+    evaluation_provenance = {
+        "model_contract_sha256": model.contract_sha256,
+        "dataset_fingerprint": dataset.fingerprint,
+        "split_sha256": sha256_bytes(canonical_json(split.to_dict()).encode()),
+        **({"data_use": usage} if usage else {}),
+    }
     from .structured import StructuredDatasetArtifact
     if isinstance(dataset, StructuredDatasetArtifact):
         from ._structured_lifecycle import evaluate_structured

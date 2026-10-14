@@ -101,3 +101,26 @@ def test_empty_population_cannot_grade_supplied_metrics():
     report=build_ml_report(model,evaluation,empty,split,criteria,protocol=PROTOCOL)
     assert ml_report_evidence(report,model,evaluation,empty,split,criteria,protocol=PROTOCOL,
         expected_report_sha256=report["report_sha256"])[0].status == ValidationStatus.NOT_AVAILABLE
+
+
+def test_legacy_dataset_and_split_are_bound_at_evaluation_time():
+    data = ml.build_dataset(np.arange(16.).reshape(8, 2), np.repeat(["a", "b", "c", "d"], 2),
+        targets=np.arange(8.), spec=ml.DatasetSpec(name="legacy-report", task="regress"))
+    split = ml.Split(spec=ml.SplitSpec(fractions={"train": .5, "test": .5}),
+        assignment={"a": "train", "b": "train", "c": "test", "d": "test"})
+    model = ml.train_model(data, split, ml.ModelSpec(architecture="ridge", backend="numpy", task="regress"),
+        ml.TrainingConfig(validation_partition=None)).artifact
+    evaluation = ml.evaluate_model(model, data, split)
+    build_ml_report(model, evaluation, data, split, CRITERIA, protocol=PROTOCOL)
+    changed = ml.build_dataset(data.inputs, data.groups, targets=data.targets + 1000, spec=data.spec)
+    assert ml.evaluate_model(model, changed, split).metrics["mse"] > 1e5
+    with pytest.raises(ValueError, match="dataset fingerprint"):
+        build_ml_report(model, evaluation, changed, split, CRITERIA, protocol=PROTOCOL)
+    # Same evaluated samples, different whole-split contract.
+    changed_split = ml.Split(spec=split.spec, assignment={**split.assignment, "absent": "train"})
+    with pytest.raises(ValueError, match="split identity"):
+        build_ml_report(model, evaluation, data, changed_split, CRITERIA, protocol=PROTOCOL)
+    for key in ("dataset_fingerprint", "split_sha256"):
+        old = replace(evaluation, provenance={k: v for k, v in evaluation.provenance.items() if k != key})
+        with pytest.raises(ValueError, match="fingerprint|split identity"):
+            build_ml_report(model, old, data, split, CRITERIA, protocol=PROTOCOL)

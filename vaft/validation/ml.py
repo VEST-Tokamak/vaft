@@ -70,6 +70,10 @@ def _binding(model, evaluation, dataset, split, criteria, protocol):
         raise ValueError("model state identity mismatch")
     if not dataset.fingerprint:
         raise ValueError("report needs a fingerprinted stable dataset")
+    if evaluation.provenance.get("dataset_fingerprint") != dataset.fingerprint:
+        raise ValueError("evaluation dataset fingerprint mismatch")
+    if evaluation.provenance.get("split_sha256") != _digest(split.to_dict()):
+        raise ValueError("evaluation split identity mismatch")
     if any(not protocol.get(k) for k in ("name", "revision", "population")):
         raise ValueError("report protocol needs name/revision/population")
     criteria = tuple(criteria)
