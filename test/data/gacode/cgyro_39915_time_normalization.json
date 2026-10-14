@@ -1,0 +1,80 @@
+{
+  "normalization": {
+    "reference_length_m": 0.28950719222017623,
+    "electron_temperature_j": 1.7729478239492605e-17,
+    "reference_mass_kg": 3.34358e-27,
+    "sound_speed_m_s": 72819.09630504964,
+    "source": "retained SAT0 state.json at r/a=0.70, verified against CGYRO native local inputs",
+    "status": "available",
+    "gyrokinetic_time_scale_s": 3.975704271409646e-06,
+    "native_coordinate": "gyrokinetic_normalized_time",
+    "native_unit": "a/c_s",
+    "si_coordinate": "gyrokinetic_elapsed_time_s",
+    "origin": "solver time origin",
+    "mass_convention": "GACODE deuterium",
+    "experimental_trajectory_equivalence": false
+  },
+  "discharge_time_s": 0.317,
+  "state_identity": "fbc8e795d8e0278f43d40d40a79abeac00c8855286ba4dd7e59d515218252bc5",
+  "r_over_a": 0.7,
+  "source": {
+    "path": "3DST:/home/hs_yun/runs/gyrokinetic/sat/runs/39915-317-magnetics/tglf-sat0-em-bper/39915/magnetics/00317/state.json",
+    "sha256": "32aae12358883c32b42ec3c96c0e7494437b10d730657d25c46e7353f4ce8aca",
+    "native_input_file": "input.cgyro.gen",
+    "native_input_sha256": "733ce9b9fb50c703a460904c5f0093d148efb16ab014c981425a05facef85c2d"
+  },
+  "retained_local_normalisation": {
+    "a_m": 0.28950719222017623,
+    "b_unit_T": -0.2590337901583227,
+    "rho_s_m": -0.005866607786911276,
+    "c_s_m_s": 72819.09630504964,
+    "q_gb_W_m2": 1947.481722307669,
+    "gamma_gb_m2_s": 1.0984427719760147e+20
+  },
+  "verified_native_local_inputs": {
+    "Z": [
+      1.0,
+      6.0,
+      -1.0
+    ],
+    "MASS": [
+      0.50397,
+      6.0055,
+      0.000272443705
+    ],
+    "DENS": [
+      0.8,
+      0.03333333333333333,
+      1.0
+    ],
+    "TEMP": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "DLNNDR": [
+      2.7973898014562466,
+      2.7973898014561884,
+      2.7973898014562453
+    ],
+    "DLNTDR": [
+      1.0311346722811041,
+      1.0311346722811041,
+      1.0311346722811041
+    ],
+    "RMIN": 0.7,
+    "RMAJ": 1.4824066785981986,
+    "Q": 3.7442985723970303,
+    "S": 0.7111542597864631,
+    "SHIFT": -0.09441688104737589,
+    "KAPPA": 1.5501992100851443,
+    "S_KAPPA": -0.061707067170621265,
+    "DELTA": 0.2166120826638571,
+    "S_DELTA": 0.1513211710889441,
+    "ZETA": 0.0,
+    "S_ZETA": 0.0,
+    "ZMAG": 0.0,
+    "DZMAG": 0.0
+  },
+  "verification": "Species charge/mass/density/temperature/gradients and every converted local geometry value agree at rtol=1e-10. Absolute SI scales come from the retained state, not dimensionless native output."
+}

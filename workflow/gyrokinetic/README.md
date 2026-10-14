@@ -95,3 +95,15 @@ ODS and optionally adds the #39915 nonlinear CGYRO source and linear scan. See
 Baseline: develop `9744dbd73eebc1ca3a03857f19e35360c4052488`.
 Pinned native oracle: GACODE `b49339750a4aa4cf2b089fa9ff3afe098005f0f8`.
 No solver is launched; no server source file is modified. 3D is follow-up #1286/#2019.
+
+For #2040, the same offline field/flux workflow supports SI elapsed time:
+
+```bash
+python -m workflow.gyrokinetic.build_result_reference --out /tmp/vaft-time-ms \
+  --time-unit ms \
+  --time-normalization test/data/gacode/cgyro_39915_time_normalization.json
+```
+
+The retained normalization is tied to the native input hash and plasma-state
+identity. Native windows remain in `a/c_s`. The resulting millisecond coordinate
+starts at the solver's origin; the input state's discharge time remains separate.

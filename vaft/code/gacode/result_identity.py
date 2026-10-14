@@ -12,6 +12,18 @@ from pathlib import Path
 
 import numpy as np
 
+__all__ = [
+    "collection_record",
+    "digest",
+    "encode",
+    "input_value_status",
+    "parameters",
+    "plain",
+    "prepare_target",
+    "preserve_time_semantics",
+    "read_native_input",
+]
+
 
 def plain(value):
     if isinstance(value, np.ndarray):
@@ -275,6 +287,19 @@ def collection_record(
             "simulation_time_unit": "a/c_s" if solver == "CGYRO" else None,
             "averaging_window": list(windows[j]) if windows is not None else None,
         }
+        if solver == "CGYRO":
+            from vaft.code.gacode.cgyro.time import time_coordinate_metadata
+
+            run["time_normalization"] = time_coordinate_metadata(native, norm)
+            run["averaging_window_unit"] = "a/c_s"
+            if (
+                windows is not None
+                and run["time_normalization"]["status"] == "available"
+            ):
+                run["averaging_window_elapsed_s"] = (
+                    np.asarray(windows[j], dtype=float)
+                    * run["time_normalization"]["gyrokinetic_time_scale_s"]
+                ).tolist()
         run["physical_input_fingerprint"] = digest(state)
         run["local_run_id"] = digest(
             {

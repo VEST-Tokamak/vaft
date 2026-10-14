@@ -9,6 +9,9 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
+
+from .time import time_coordinate_metadata
 from typing import Any
 
 import numpy as np
@@ -20,6 +23,8 @@ from .outputs import (
     parse_equilibrium,
     parse_grids,
 )
+
+__all__ = ["FieldHistory", "read_field_history"]
 
 _FILES = {"phi": "phi", "a_parallel": "apar", "b_parallel": "bpar"}
 
@@ -141,6 +146,10 @@ def read_field_history(
         "version": _version(directory / "out.cgyro.version"),
         "normalization": "native CGYRO",
         "time_unit": "a/c_s",
+        "time_coordinate": "gyrokinetic_normalized_time",
+        "time_normalization": time_coordinate_metadata(
+            SimpleNamespace(equilibrium=eq, directory=str(directory))
+        ),
         "axis_order": ["radial_slot", "theta", "ky", "time"],
         "radial_start": start,
         "length_rho_s": length,

@@ -38,7 +38,7 @@ def build(root, out, *, nonlinear=None, window=(100, 1037)):
     profile = None
     for sat in range(4):
         directory = root / f"sat{sat}"
-        state = json.loads((directory / "state.json").read_text())
+        state = json.loads((directory / "state.json").read_text(encoding="utf-8"))
         rows = state["surfaces"]
         pairs = []
         grid = state["core_transport"]["surfaces"]
@@ -141,7 +141,8 @@ def build(root, out, *, nonlinear=None, window=(100, 1037)):
             ),
             indent=2,
         )
-        + "\n"
+        + "\n",
+        encoding="utf-8",
     )
     return loaded
 
@@ -159,7 +160,7 @@ def linear_reference(sat_root, linear_root, out):
     )
 
     root, linear_root, out = Path(sat_root), Path(linear_root), Path(out)
-    state = json.loads((root / "sat0/state.json").read_text())
+    state = json.loads((root / "sat0/state.json").read_text(encoding="utf-8"))
     info = next(row["local"] for row in state["surfaces"] if row["r_over_a"] == 0.7)
     n = info["normalisation"]
     ne = n["gamma_gb_m2_s"] / (n["c_s_m_s"] * (n["rho_s_m"] / n["a_m"]) ** 2)
@@ -261,7 +262,7 @@ def linear_reference(sat_root, linear_root, out):
         if name != "CGYRO"
     }
     (out / "linear_comparison.json").write_text(
-        json.dumps(plain(assessment), indent=2) + "\n"
+        json.dumps(plain(assessment), indent=2) + "\n", encoding="utf-8"
     )
     return entries
 

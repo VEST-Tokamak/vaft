@@ -51,7 +51,7 @@ def verify(run, reader, plot, *, window=(100.0, 104.0)):
     if not str(history.metadata["version"]["commit"]).startswith("b493397"):
         raise ValueError("this oracle is qualified for b493397 native output only")
     np.testing.assert_array_equal(history.raw, upstream.kxky_phi)
-    tree = ast.parse(plot.read_text())
+    tree = ast.parse(plot.read_text(encoding="utf-8"))
     fn = next(
         node
         for node in tree.body
@@ -94,4 +94,4 @@ if __name__ == "__main__":
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
     result = verify(args.run, args.reader, args.plot)
-    Path(args.out).write_text(json.dumps(result, indent=2) + "\n")
+    Path(args.out).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")

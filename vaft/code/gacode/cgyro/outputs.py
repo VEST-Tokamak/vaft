@@ -80,7 +80,8 @@ class CgyroOutputs:
         Local parameters and normalisations CGYRO actually used, from
         ``out.cgyro.equilibrium``; ``species`` is a sub-dict of arrays.
     time
-        ``t`` in ``a/c_s`` per print step.
+        Normalized gyrokinetic elapsed time ``t*c_s/a`` per print step, measured
+        from the solver origin, distinct from the experimental discharge timestamp.
     frequency, growth_rate
         ``(n_n, n_time)`` in ``c_s/a``, **as CGYRO wrote them**: the frequency sign is
         the native ``exp(-i omega t)`` one, which depends on the field orientation.
@@ -127,6 +128,26 @@ class CgyroOutputs:
     record_index: Optional[np.ndarray] = None
 
     # -- derived ---------------------------------------------------------------
+
+    @property
+    def gyrokinetic_normalized_time(self):
+        """Native elapsed time, unchanged and restart-aligned like ``time``."""
+        return self.time
+
+    @property
+    def time_normalization(self):
+        """Verified SI scales from native output; unavailable scales raise ValueError."""
+        from .time import CgyroTimeNormalization
+        return CgyroTimeNormalization.from_equilibrium(
+            self.equilibrium, source=f"{self.directory}/out.cgyro.equilibrium")
+
+    @property
+    def gyrokinetic_elapsed_time_s(self):
+        """Elapsed seconds from the solver origin, never a discharge timestamp."""
+        if self.time is None:
+            return None
+        from .time import gyrokinetic_elapsed_time_s
+        return gyrokinetic_elapsed_time_s(self.time, self.time_normalization)
 
     @property
     def ky(self) -> Optional[np.ndarray]:

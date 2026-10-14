@@ -942,6 +942,13 @@ def _retain_local_identity(ods, base, solver, local, outputs, provenance, effect
     record["experimental_time_s"] = time
     record["simulation_time_unit"] = "a/c_s" if solver == "CGYRO" else None
     record["averaging_window"] = window
+    if solver == "CGYRO":
+        record["averaging_window_unit"] = "a/c_s"
+        record["time_normalization"] = record["local_runs"][0]["time_normalization"]
+        if window is not None and record["time_normalization"]["status"] == "available":
+            record["averaging_window_elapsed_s"] = (
+                np.asarray(window) * record["time_normalization"]["gyrokinetic_time_scale_s"]
+            ).tolist()
     from vaft.code.gacode.result_identity import digest
     record["analysis_identity"] = digest({"window":window,"method":"gap-aware selected window" if window else "native linear/quasilinear output"})
     record["effective_supplied_parameters"] = effective

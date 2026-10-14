@@ -139,3 +139,10 @@ Which orderings a gyrokinetic run assumes ($\rho_s/L_T$, $k_\perp\rho_i$, $\omeg
 ## Scientific results and nonlinear fields
 
 See [Gyrokinetic scientific results]({{ site.baseurl }}/reference/gyrokinetic-results/) for multi-realization persistence, qualified comparisons, contribution-versus-density semantics, and the native CGYRO saved-theta 2D field/animation workflow.
+
+Native CGYRO time histories now label their coordinate as **Gyrokinetic elapsed
+time [a/c_s]**. Use `time_unit="ms"` and a verified per-run
+`time_normalization` for SI elapsed-time views; the default native values and
+averaging windows are unchanged. See [CGYRO elapsed time and discharge time](Gyrokinetic_results.md#cgyro-elapsed-time-and-discharge-time-2040)
+for conversion, provenance and the offline #39915 example. SI elapsed time does
+not denote the experimental discharge timestamp.

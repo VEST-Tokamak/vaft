@@ -53,7 +53,7 @@ def capture(source, destination, *, origin, window=(100.0, 104.0)):
     nr, ntheta, nky, _ = history.raw.shape
     grid = parse_grids(source / "out.cgyro.grids")
     previous = (
-        json.loads((dest / "manifest.json").read_text())
+        json.loads((dest / "manifest.json").read_text(encoding="utf-8"))
         if (dest / "manifest.json").is_file()
         else {}
     )
@@ -103,7 +103,10 @@ def capture(source, destination, *, origin, window=(100.0, 104.0)):
             target.write_bytes(data)
         elif p.name == "out.cgyro.time":
             target.write_text(
-                "".join(p.read_text().splitlines(keepends=True)[start:stop])
+                "".join(
+                    p.read_text(encoding="utf-8").splitlines(keepends=True)[start:stop]
+                ),
+                encoding="utf-8",
             )
         else:
             shutil.copy2(p, target)
@@ -118,7 +121,9 @@ def capture(source, destination, *, origin, window=(100.0, 104.0)):
         }
     for name in set(previous.get("files", {})) - set(manifest["files"]):
         (dest / name).unlink(missing_ok=True)
-    (dest / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (dest / "manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+    )
     return manifest
 
 

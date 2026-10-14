@@ -155,3 +155,106 @@ Mapper relocation is a separate compatibility-preserving series: first extract s
 The inspected import graph has `gpec_ideal` depending on shared helpers in `mhd_linear`, and both importing the GPEC package for native result types/readers. Moving only `gpec_ideal` into the eagerly exported GPEC package would risk a reader/mapper import cycle. Put solver projection exports behind lazy imports and move shared helpers before moving those modules. NEO and TGLF upstream call sites include `vaft.omas.vest_upstream`, `vaft.omas.neoclassical`, `workflow/transport_atlas/run_neo.py`, `run_tglf.py`, and `install/check_gacode.py`; CGYRO and registered plot examples import the current gyrokinetics mapper. Each needs a compatibility test before old aliases can be retired. No relocation is required to use the 2D result path.
 
 The 3D #2019 milestone remains open. It must use #1286's shared mesh/field representation and needs sufficient saved parallel information and validated geometry/metric conventions. Local periodic copies will remain explicitly local, rather than being presented as global simulations.
+
+## CGYRO elapsed time and discharge time (#2040)
+
+CGYRO's native coordinate is **normalized gyrokinetic elapsed time**, `t c_s/a`.
+The default plot label is `Gyrokinetic elapsed time [a/c_s]`. This is a physical
+solver evolution coordinate measured from the solver origin. The discharge
+state timestamp identifies the frozen background used to construct the input;
+it does not advance when the solver evolves.
+
+For verified per-run scales, `t_elapsed [s] = t_native * a/c_s`, with
+`c_s = sqrt(T_e,ref/m_D)`. Use the actual reference length, electron temperature
+and GACODE deuterium mass convention, even for hydrogen or mixed-ion plasmas.
+`CgyroTimeNormalization` reuses the mass from the existing local-profile
+normalization. `from_equilibrium` reads `a_meters` [m], `temp_norm` [keV],
+`mass_norm` [10^-27 kg], and `vth_norm` [m/s]. It validates positive finite scales,
+the mass convention and the recorded velocity against the temperature. It keeps
+the recorded velocity, allowing GACODE's rounded energy constant (relative
+consistency tolerance 10^-4). If the velocity alone is absent, it derives it from
+the other verified quantities. Zero scales, including dimensionless
+`PROFILE_MODEL=1` output, cannot establish SI conversion.
+
+```python
+from vaft.code.gacode.cgyro import (
+    collect_cgyro_outputs, CgyroTimeNormalization,
+    gyrokinetic_elapsed_time_s, gyrokinetic_normalized_time,
+)
+
+native = collect_cgyro_outputs(run_directory)
+# For output containing actual SI reference scales:
+norm = native.time_normalization
+seconds = gyrokinetic_elapsed_time_s(native.time, norm)
+restored_native_time = gyrokinetic_normalized_time(seconds, norm)
+# For dimensionless local runs, explicitly use the retained corresponding input:
+norm = CgyroTimeNormalization.from_normalisation(local_input.normalisation)
+```
+
+A retained local normalization must belong to that run. Native positive scales
+and retained local scales that disagree are recorded as unavailable, rather than
+silently replaced. Public `CgyroOutputs.time`, `CGYROConfig.max_time`, `delta_t`
+and averaging-window parameters retain their native units and existing behavior.
+Semantic accessors `gyrokinetic_normalized_time`, `time_normalization` and
+`gyrokinetic_elapsed_time_s` supplement them; unavailable conversion raises an
+error. Restart alignment, missing intervals and selection occur on the original
+native coordinate.
+
+`plot_flux_trace`, the predator–prey trace, phase-space and lag views, and
+`plot_gyrokinetics_field_potential` accept `time_unit="native"` (default), `"s"`
+or `"ms"`, together with `time_normalization=norm` for SI views. The field view
+can also restore verified normalization already retained in its metadata.
+Inputs, fits, peak times, lags and averaging windows stay native; plotting
+transforms their coordinates together. A shared figure uses one temporal domain
+for its field timestamp, diagnostic traces and animation driver. Playback FPS is
+independent of either time coordinate. Custom native time labels remain supported.
+These conversions are independent of the generic `xunit` display option.
+
+CGYRO-to-GKDB time remains a different normalization:
+`t_GKDB = t_native * sqrt(2)/RMAJ`, with `RMAJ=R0/a`. Its dimensional unit is
+`R0/(sqrt(2)*c_s)`, so conversion through GKDB recovers the same SI elapsed time.
+Experimental IMAS time leaves remain discharge time. Compact `code.parameters`
+provenance stores per-run native window/unit, SI window when available, reference
+scales, scale source, unavailable reasons and the conversion factor. It does not
+introduce IDS leaves or store a full native history inside IMAS.
+
+### Worked #39915 example
+
+The existing EM nonlinear run at `r/a=0.70` is dimensionless and writes zero SI
+scales. The companion `test/data/gacode/cgyro_39915_time_normalization.json` retains
+scales from the corresponding SAT0 state: `a=0.28950719222017623 m`,
+`T_e=1.7729478239492605e-17 J` and `c_s=72819.09630504964 m/s`. The fixture records
+the source-state hash and verifies the converted local geometry and species
+charge, mass, density, temperature and gradient inputs against CGYRO at
+`rtol=1e-10`. Absolute SI scales are retained-state evidence, not reconstructed
+from dimensionless output. The normalization file preserves the native input
+hash and state identity; the reproduction workflow rejects a mismatched run.
+
+Here `1 a/c_s = 3.975704271409646 microseconds`. The compact native interval
+`100–104 a/c_s` represents `0.397570427–0.413473244 ms` from the solver origin.
+The full run's `1037 a/c_s` corresponds to `4.122805329 ms`. The background state
+is associated with **discharge time 0.317 s**. These values do not demonstrate
+that the solver predicts the experimental plasma at 0.321122805 s. Any explicitly
+requested addition to discharge time would be a hypothetical alignment requiring
+that label; the default API never performs that addition.
+
+Reproduce flux/field/zonal diagnostics and synchronized MP4/WebM offline:
+
+```bash
+python -m workflow.gyrokinetic.build_result_reference \
+  --out /tmp/vaft-cgyro-time-ms --time-unit ms \
+  --time-normalization test/data/gacode/cgyro_39915_time_normalization.json \
+  --stride 2
+```
+
+Synthetic tests verify native/SI round trips, keV/J units, mass and missing-data
+rejection, and the GKDB factor. Real fixture tests verify matching elapsed-time
+coordinates across flux, field, zonal diagnostics, fits/peaks and averaging
+windows. These checks do not establish physical stationarity, numerical
+convergence, or discharge-trajectory equivalence.
+
+The common physics-normalized discharge-time interface in #2033 is not yet
+present on this implementation base. This adapter exposes explicit SI scales and
+solver-relative coordinates for that future bridge; it does not duplicate fixed
+reference or cumulative normalization algorithms. No discharge-relative alignment
+is inferred.

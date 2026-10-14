@@ -23,7 +23,17 @@ from vaft.process.gyrokinetics import (
 from workflow.gyrokinetic.capture_reference import sha
 
 
-def build(run, out, *, window=None, stride=5, video=True, fps=10.0):
+def build(
+    run,
+    out,
+    *,
+    window=None,
+    stride=5,
+    video=True,
+    fps=10.0,
+    time_unit="native",
+    time_normalization=None,
+):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -40,6 +50,28 @@ def build(run, out, *, window=None, stride=5, video=True, fps=10.0):
         weighting="unit-weight native saved-theta potential intensity; special radial slot excluded",
     )
     native = collect_cgyro_outputs(run)
+    from vaft.code.gacode.cgyro import CgyroTimeNormalization
+
+    normalization = None
+    time_evidence = None
+    if time_normalization is not None:
+        time_evidence = json.loads(Path(time_normalization).read_text(encoding="utf-8"))
+        source = time_evidence["source"]
+        # The retained absolute scales apply only to the verified native input.
+        input_name = source["native_input_file"]
+        if Path(input_name).name != input_name:
+            raise ValueError("normalization input file must be a basename")
+        if sha(run / input_name) != source["native_input_sha256"]:
+            raise ValueError("time normalization belongs to a different native input")
+        record = json.loads((run / "record.json").read_text(encoding="utf-8"))
+        if record.get("state_identity") != time_evidence["state_identity"]:
+            raise ValueError("time normalization belongs to a different plasma state")
+        normalization = CgyroTimeNormalization.from_metadata(
+            time_evidence["normalization"]
+        )
+    elif time_unit != "native":
+        normalization = native.time_normalization
+    time_options = {"time_unit": time_unit, "time_normalization": normalization}
     trace = native.flux_time_trace()
     if trace is None:
         raise ValueError("native flux history unavailable")
@@ -78,6 +110,10 @@ def build(run, out, *, window=None, stride=5, video=True, fps=10.0):
     )
     provenance = {
         "schema_version": 1,
+        "display_time_unit": time_unit,
+        "time_domain": "gyrokinetic elapsed time from solver origin",
+        "time_normalization_evidence": time_evidence,
+        "experimental_trajectory_equivalence": False,
         "source_directory": str(run.resolve()),
         "source_files": manifest,
         "source_identity": digest(manifest),
@@ -121,27 +157,30 @@ def build(run, out, *, window=None, stride=5, video=True, fps=10.0):
             component=component,
             frame_index=len(history.time) // 2,
             diagnostics=diagnostics,
+            **time_options,
         )
         fig.savefig(out / f"field_{component}.png", dpi=120)
         plt.close(fig)
-    fig, _ = plot_flux_trace(ft, {"Qi": qi, "Qe": qe}, window=(lo, hi))
+    fig, _ = plot_flux_trace(ft, {"Qi": qi, "Qe": qe}, window=(lo, hi), **time_options)
     fig.savefig(out / "flux_window.png", dpi=120)
     plt.close(fig)
     if video:
         movie = plot_gyrokinetics_field_potential(
-            history, animation=True, diagnostics=diagnostics, fps=fps
+            history, animation=True, diagnostics=diagnostics, fps=fps, **time_options
         )
         movie.save(out / "field_total.mp4")
         movie.save(out / "field_total.webm")
     (out / "reference.json").write_text(
-        json.dumps(plain(provenance), indent=2, allow_nan=False) + "\n"
+        json.dumps(plain(provenance), indent=2, allow_nan=False) + "\n",
+        encoding="utf-8",
     )
     (out / "output_audit.json").write_text(
         json.dumps(
             {"outputs": output_audit(), "transformations": mapping_transformations()},
             indent=2,
         )
-        + "\n"
+        + "\n",
+        encoding="utf-8",
     )
     return provenance
 
@@ -159,6 +198,12 @@ if __name__ == "__main__":
     p.add_argument("--stride", type=int, default=5)
     p.add_argument("--fps", type=float, default=10.0)
     p.add_argument("--skip-video", action="store_true")
+    p.add_argument("--time-unit", choices=("native", "s", "ms"), default="native")
+    p.add_argument(
+        "--time-normalization",
+        type=Path,
+        help="Retained normalization evidence, tied to native input and state identity",
+    )
     a = p.parse_args()
     build(
         a.run,
@@ -167,4 +212,6 @@ if __name__ == "__main__":
         stride=a.stride,
         video=not a.skip_video,
         fps=a.fps,
+        time_unit=a.time_unit,
+        time_normalization=a.time_normalization,
     )
