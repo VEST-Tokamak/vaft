@@ -59,7 +59,10 @@ immutable deployment example linking research preprocessing/geometry + network
 provider, source and criterion revision. Declare it before qualification; no
 bounds are inferred from scores. `build_ml_report` binds supplied numerical
 EvaluationResult to model identity **and the contract hash captured at evaluation
-time**, dataset, realized split, population, protocol and criteria. The contract
+time**, the evaluation-time dataset fingerprint and realized split digest,
+population, protocol and criteria. These snapshots are recorded even without
+an opt-in role policy; older external EvaluationResults lacking snapshots must
+be re-evaluated before using this bridge. The contract
 includes shapes/names, weights, normalization, configuration, calibration and
 declared/observed history, covering in-memory models whose state-only identity
 would miss altered normalization.
