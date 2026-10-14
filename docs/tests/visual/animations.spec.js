@@ -27,15 +27,36 @@ test('gallery is lazy, filters without transfer, and seeks authoritative SVG sta
 
 test('both routes share state URLs; playback is single and cleaned on navigation',async({page})=>{
   test.setTimeout(60000);
-  await page.goto('reference/animation/');const first=page.locator('[data-animation]').first();const url=await first.getAttribute('data-artifact');
+  await page.goto('reference/animation/');
+  const first=page.locator('[data-animation]').first();
+  const url=await first.getAttribute('data-artifact'),id=await first.getAttribute('data-animation');
+  // Inspect the generated consumer without laying out hundreds of unrelated SVGs.
+  const response=await page.request.get('reference/diagram/');expect(response.ok()).toBe(true);
+  const shared=await page.evaluate(({html,id})=>{
+    const document=new DOMParser().parseFromString(html,'text/html');
+    const root=[...document.querySelectorAll('[data-animation]')].find(root=>root.dataset.animation===id);
+    return root?{artifact:root.dataset.artifact,html:root.outerHTML}:null;
+  },{html:await response.text(),id});expect(shared?.artifact).toBe(url);
   await first.locator('[data-activate]').click();await expect(first.locator('.va-player')).toBeVisible();
   const second=page.locator('[data-animation]').nth(1);await second.locator('[data-activate]').click();await expect(second.locator('.va-player')).toBeVisible();
   await first.getByRole('button',{name:'Play',exact:true}).click();await second.getByRole('button',{name:'Play',exact:true}).click();await expect(first).toHaveAttribute('data-playing','false');
-  await page.goto('reference/diagram/#magnetic_island',{waitUntil:'domcontentloaded'});const matching=page.locator('[data-animation]').first();expect(await matching.getAttribute('data-artifact')).toBe(url);
-  await matching.locator('xpath=ancestor::details').evaluate(el=>el.open=true);await matching.locator('[data-activate]').click();await expect(matching.locator('.va-player')).toBeVisible();
-  await page.evaluate(()=>window.VAFTAnimationCleanup());await expect(page.locator('.va-player')).toHaveCount(0);await expect(matching.locator('[data-activate]')).toBeEnabled();
-  if(await page.evaluate(()=>innerWidth<=1240))await page.locator('.book-header .fa-align-justify').locator('..').click();
-  await page.locator('.book-summary a[href$="/reference/animation/"]').click();
+  // Mount the real Diagram Gallery component in isolation, using the same loader.
+  await page.evaluate(html=>{
+    const document=new DOMParser().parseFromString(html,'text/html');
+    const root=window.document.importNode(document.body.firstElementChild,true);
+    root.dataset.testDiagramPlayer='';window.document.querySelector('[data-animation-gallery]').append(root);
+  },shared.html);
+  const diagram=page.locator('[data-test-diagram-player]');
+  await diagram.locator('[data-activate]').click();await expect(diagram.locator('.va-player')).toBeVisible();
+  await page.evaluate(()=>window.VAFTAnimationCleanup());await expect(page.locator('.va-player')).toHaveCount(0);await expect(diagram.locator('[data-activate]')).toBeEnabled();await expect(first.locator('[data-activate]')).toBeEnabled();
+  await first.locator('[data-activate]').click();await expect(first.locator('.va-player')).toBeVisible();
+  async function navigate(route){
+    if(await page.evaluate(()=>!document.querySelector('.book').classList.contains('with-summary')))await page.locator('.book-header .fa-align-justify').locator('..').click();
+    await page.locator(`.book-summary a[href$="/${route}"]`).first().click();
+    await expect(page).toHaveURL(new RegExp(route));
+  }
+  await navigate('workflows/start-here/');await expect(page.locator('.va-player')).toHaveCount(0);
+  await navigate('reference/animation/');
   await expect(page.locator('[data-animation-gallery]')).toBeVisible();await expect(page.locator('.va-player')).toHaveCount(0);
   await page.locator('[data-animation]').first().locator('[data-activate]').click();await expect(page.locator('.va-player')).toHaveCount(1);
 });
