@@ -48,7 +48,17 @@
         "magnetic_floor_T": 1e-14,
         "provenance": {
           "gauge": "A=B cross x/2; Phi=-E dot x",
-          "geometry": "uniform"
+          "geometry": "uniform",
+          "B_T": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "E_V_per_m": [
+            0.0,
+            0.0,
+            0.0
+          ]
         }
       },
       "full_termination": "completed",
@@ -109,7 +119,7 @@
       "gc_energy_residual_max": 4.625929269271485e-16,
       "gc_P_phi_residual_max": 0.0,
       "ordering_warning": false,
-      "rho_over_L_B_max": 0.03523285802373267,
+      "rho_over_L_B_max": 0.035232858023732765,
       "orbit_class": "trapped_candidate",
       "bounce_cycles": [
         {
@@ -168,7 +178,7 @@
       "gc_energy_residual_max": 2.2204460492503126e-16,
       "gc_P_phi_residual_max": 0.0,
       "ordering_warning": false,
-      "rho_over_L_B_max": 0.0315834208066958,
+      "rho_over_L_B_max": 0.03158342080669582,
       "orbit_class": "no_resolved_turn",
       "bounce_cycles": [],
       "bounce_period_s": [],
@@ -221,7 +231,7 @@
       "gc_energy_residual_max": 4.625929269271485e-16,
       "gc_P_phi_residual_max": 0.0,
       "ordering_warning": false,
-      "rho_over_L_B_max": 0.03523285802373267,
+      "rho_over_L_B_max": 0.035232858023732765,
       "orbit_class": "trapped_candidate",
       "bounce_cycles": [
         {
@@ -285,7 +295,7 @@
       "gc_energy_residual_max": 1.6866736407513482e-15,
       "gc_P_phi_residual_max": 1.3852316457581215e-14,
       "ordering_warning": false,
-      "rho_over_L_B_max": 0.012141497008240116,
+      "rho_over_L_B_max": 0.012141497008239929,
       "orbit_class": "trapped_candidate",
       "bounce_cycles": [],
       "bounce_period_s": [
@@ -342,7 +352,7 @@
       "gc_energy_residual_max": 9.638253251657836e-16,
       "gc_P_phi_residual_max": 0.6607773861929012,
       "ordering_warning": false,
-      "rho_over_L_B_max": 0.01573484021745034,
+      "rho_over_L_B_max": 0.01573484021744984,
       "orbit_class": "trapped_candidate",
       "bounce_cycles": [],
       "bounce_period_s": [

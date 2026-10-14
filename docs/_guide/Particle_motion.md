@@ -130,7 +130,23 @@ same quadrature, plus a conductor exclusion region.
 A trace returns its valid accepted prefix with an explicit reason for domain
 exit, field null, nonfinite field/state, unresolved derivatives, GC singularity,
 or integration failure. Initial data errors raise exceptions. Boundary
-termination is not a computed wall-impact location.
+termination is not a computed wall-impact location. At valid boundary samples,
+local energy and center diagnostics remain available even when the derivative
+stencil would cross the domain: derivative diagnostics are `NaN`, with a
+`stencil_outside_domain` audit. Comparison records incomplete derivative coverage
+and raises its ordering warning rather than certifying an unavailable estimate.
+
+Steps smaller than the floating-point spacing of absolute timestamps are input
+errors. Shift `t0` toward zero for short gyro-resolving intervals at a large time
+origin. Full-orbit updates advance by the represented timestamp interval.
+
+Both diagram and diagnostic animation sidecars include `full_orbit` and
+`guiding_center` provenance records: charge, mass, initial state, field source,
+termination, integration method and solver settings. These records also cover
+custom comparisons created directly with the tracing APIs. Uniform-field
+provenance includes the supplied Cartesian B and E vectors. Straight background
+field lines follow the supplied uniform-field direction; arbitrary field
+geometries retain the sampled field arrow without invented straight lines.
 
 ## Reproduction and limits
 
