@@ -289,6 +289,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-results" data-path="/vaft/develop/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
                     
                         <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
@@ -390,7 +396,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>63ddc33</code>. What is described
+  <code>02ced17</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -421,7 +427,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.process.gyrokinetics</code>:
-<strong>4</strong> public functions. Each entry is what
+<strong>17</strong> public functions. Each entry is what
 <code>vaft.process.describe("gyrokinetics.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/process/">All process categories</a></p>
 
@@ -476,13 +482,39 @@ cross-correlation lag.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 4 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 17 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
+  <tr data-ref-row="assess_comparison"><td><a href="#assess_comparison"><code>assess_comparison</code></a></td><td>Assess signatures grouped by display/state/model/qualification.
+</td></tr>
+  <tr data-ref-row="field_transport_contributions"><td><a href="#field_transport_contributions"><code>field_transport_contributions</code></a></td><td>Signed field totals and fractions; cancellation is explicit, never clipped.
+</td></tr>
   <tr data-ref-row="fit_predator_prey_model"><td><a href="#fit_predator_prey_model"><code>fit_predator_prey_model</code></a></td><td>Fit the two-variable Lotka–Volterra model to turbulence and zonal-flow traces.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="local_result_signature"><td><a href="#local_result_signature"><code>local_result_signature</code></a></td><td>Non-mutating IMAS signature with explicit missing physical/provenance evidence.
+</td></tr>
   <tr data-ref-row="predator_prey_cycle_metrics"><td><a href="#predator_prey_cycle_metrics"><code>predator_prey_cycle_metrics</code></a></td><td>Cycle observables of a turbulence / zonal-flow pair: periods, peak lag, correlation lag.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="prepare_diagnostic_traces"><td><a href="#prepare_diagnostic_traces"><code>prepare_diagnostic_traces</code></a></td><td>Prepare causal, gap-broken traces; renderers never interpolate or reduce.
+</td></tr>
+  <tr data-ref-row="radial_correlation_from_spectrum"><td><a href="#radial_correlation_from_spectrum"><code>radial_correlation_from_spectrum</code></a></td><td>Cosine autocorrelation 1/e crossing and integral scale; unresolved is a bound.
+</td></tr>
+  <tr data-ref-row="rebin_contributions"><td><a href="#rebin_contributions"><code>rebin_contributions</code></a></td><td>Conserve signed flux using piecewise-uniform density within audited bins.
+</td></tr>
+  <tr data-ref-row="reconstruct_field"><td><a href="#reconstruct_field"><code>reconstruct_field</code></a></td><td>Reconstruct CGYRO’s half-sum Re phi exp(+ikx<em>x-i</em>ky*y).
+</td></tr>
+  <tr data-ref-row="reduce_time_series"><td><a href="#reduce_time_series"><code>reduce_time_series</code></a></td><td>Time-weighted window reduction with explicit coverage and independent evidence.
+</td></tr>
+  <tr data-ref-row="saturated_intensity"><td><a href="#saturated_intensity"><code>saturated_intensity</code></a></td><td>TGLF moment intensity = QL intensity weight * saturated phi intensity.
+</td></tr>
+  <tr data-ref-row="select_time"><td><a href="#select_time"><code>select_time</code></a></td><td>Nearest finite time and evidence; no implicit scientific tolerance.
+</td></tr>
+  <tr data-ref-row="spectral_integral"><td><a href="#spectral_integral"><code>spectral_integral</code></a></td><td>Integrate signed bin contributions or densities with explicit bin edges.
+</td></tr>
+  <tr data-ref-row="time_window_average"><td><a href="#time_window_average"><code>time_window_average</code></a></td><td>Average aligned scalar or multi-channel histories with the shared gap policy.
+</td></tr>
+  <tr data-ref-row="zonal_fraction"><td><a href="#zonal_fraction"><code>zonal_fraction</code></a></td><td>I_Z/(I_Z+I_T); all-zero intensity is undefined, not zero.
+</td></tr>
   <tr data-ref-row="zonal_shear_proxy"><td><a href="#zonal_shear_proxy"><code>zonal_shear_proxy</code></a></td><td>Spectral proxies for the zonal-flow energy and the zonal shear.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="zonal_turbulence_intensity"><td><a href="#zonal_turbulence_intensity"><code>zonal_turbulence_intensity</code></a></td><td>Split fluctuation intensity into its zonal ($k_y = 0$) and non-zonal parts.
@@ -494,11 +526,165 @@ cross-correlation lag.</p>
 
 <div class="ref-entries">
 
+  <section class="ref-entry" id="assess_comparison" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#assess_comparison"><code>assess_comparison</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="assess_comparison" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetic_comparison.py#L83-L166" title="vaft/process/gyrokinetic_comparison.py, lines 83–166 at 02ced17">source</a>
+</header>
+    <pre class="ref-signature"><code>assess_comparison(left, right, *, intent=&#39;exploratory_overlay&#39;, controlled=(), rtol=0.001)</code></pre>
+
+    <p>Assess signatures grouped by display/state/model/qualification.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>left</code></td><td class="ref-type">mapping</td><td class="ref-unit">-</td><td><p>Left result evidence grouped by display/state/model/qualification.</p>
+</td></tr>
+  <tr><td><code>right</code></td><td class="ref-type">mapping</td><td class="ref-unit">-</td><td><p>Right result evidence with the same axis/key vocabulary.</p>
+</td></tr>
+  <tr><td><code>intent</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Matched baseline, controlled sensitivity or exploratory overlay.</p>
+</td></tr>
+  <tr><td><code>controlled</code></td><td class="ref-type">sequence of str, optional</td><td class="ref-unit">-</td><td><p>Explicit controlled changes named axis.key; display mismatches cannot be controlled.</p>
+</td></tr>
+  <tr><td><code>rtol</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Relative numerical tolerance for compatible scalar/array evidence.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ComparisonAssessment</td><td class="ref-unit">-</td><td><p>Independent per-axis status, reasons and supporting evidence.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Notes · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Requires the declared physical definitions, source identity and units.
+Matching display conventions alone does not establish physical equivalence or convergence.</p>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>Assess signatures grouped by display/state/model/qualification.</p>
+
+      <p>Each axis is a mapping of named evidence. Missing keys/None are unverified.
+Controlled variations must be named ‘axis.key’, never inferred from intent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#2030 four-axis comparison and time-selection contract; #2028 diagnostic ownership.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="field_transport_contributions" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#field_transport_contributions"><code>field_transport_contributions</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="field_transport_contributions" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetics.py#L987-L1028" title="vaft/process/gyrokinetics.py, lines 987–1028 at 02ced17">source</a>
+</header>
+    <pre class="ref-signature"><code>field_transport_contributions(values, *, axis=0, cancellation_rtol=1e-08)</code></pre>
+
+    <details class="ref-code" data-source-code="field_transport_contributions"><summary>Show source <span class="ref-note">vaft/process/gyrokinetics.py, lines 987–1028</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">field_transport_contributions</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">cancellation_rtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Signed field totals and fractions; cancellation is explicit, never clipped.
+
+    Parameters
+    ----------
+    values : array-like
+        Signed spectral contributions or aligned time samples [quantity].
+    axis : int, optional
+        Axis containing spectral bins or additive field contributions [-].
+    cancellation_rtol : float, optional
+        Numerical threshold for total versus absolute summed magnitude [-].
+
+    Returns
+    -------
+    dict
+        Signed total, unbounded signed fractions and cancellation mask [quantity; fractions -].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    Signed field totals and fractions; cancellation is explicit, never clipped.
+
+    Provenance
+    ----------
+    .. [1] Canonical mathematical definition in #2028; uses the retained-source and weighting contract of #2025.
+    </span><span class="sh">"""</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">)</span>
+    <span class="n">magnitude</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">values</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">)</span>
+    <span class="n">cancelled</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">total</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">cancellation_rtol</span> <span class="o">*</span> <span class="n">magnitude</span>
+    <span class="n">good</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">total</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">total</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">cancelled</span>
+    <span class="n">fractions</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">divide</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">expand_dims</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">good</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">),</span> <span class="n">axis</span><span class="p">))</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">total</span><span class="sh">"</span><span class="p">:</span> <span class="n">total</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">fractions</span><span class="sh">"</span><span class="p">:</span> <span class="n">fractions</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">cancellation</span><span class="sh">"</span><span class="p">:</span> <span class="n">cancelled</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">definition</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">signed contribution / signed total</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">}</span></code></pre></figure>
+
+</details>
+
+    <p>Signed field totals and fractions; cancellation is explicit, never clipped.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>values</code></td><td class="ref-type">array-like</td><td class="ref-unit">quantity</td><td><p>Signed spectral contributions or aligned time samples.</p>
+</td></tr>
+  <tr><td><code>axis</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Axis containing spectral bins or additive field contributions.</p>
+</td></tr>
+  <tr><td><code>cancellation_rtol</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Numerical threshold for total versus absolute summed magnitude.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">quantity; fractions -</td><td><p>Signed total, unbounded signed fractions and cancellation mask.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Notes · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Requires the declared spectral convention, retained axes and units.
+These are numerical reductions of solver data, not independent evidence of physical validity.</p>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>Signed field totals and fractions; cancellation is explicit, never clipped.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Canonical mathematical definition in #2028; uses the retained-source and weighting contract of #2025.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="fit_predator_prey_model" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_predator_prey_model"><code>fit_predator_prey_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="fit_predator_prey_model" href="https://github.com/VEST-Tokamak/vaft/blob/63ddc33b4d89b1585b2260ebcdd20254968b314f/vaft/process/gyrokinetics.py#L518-L697" title="vaft/process/gyrokinetics.py, lines 518–697 at 63ddc33">source</a>
+<a class="ref-source" data-source="fit_predator_prey_model" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetics.py#L529-L734" title="vaft/process/gyrokinetics.py, lines 529–734 at 02ced17">source</a>
 </header>
     <pre class="ref-signature"><code>fit_predator_prey_model(time, turbulence, zonal, *, method=&#39;trajectory&#39;, initial_parameters=None, normalization=None, window=None, fit_initial_state=True, min_r2=0.5)</code></pre>
 
@@ -612,11 +798,57 @@ poorly by construction, and that misfit is the information.</p>
 
   </section>
 
+  <section class="ref-entry" id="local_result_signature" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#local_result_signature"><code>local_result_signature</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="local_result_signature" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetic_comparison.py#L313-L445" title="vaft/process/gyrokinetic_comparison.py, lines 313–445 at 02ced17">source</a>
+</header>
+    <pre class="ref-signature"><code>local_result_signature(obj)</code></pre>
+
+    <p>Non-mutating IMAS signature with explicit missing physical/provenance evidence.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>obj</code></td><td class="ref-type">object</td><td class="ref-unit">-</td><td><p>IMAS/OMAS entry supporting the shared non-mutating dotted-path accessor.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p>Display, physical-state, model and qualification evidence with unknowns kept as None.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Notes · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Requires the declared physical definitions, source identity and units.
+Matching display conventions alone does not establish physical equivalence or convergence.</p>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>Non-mutating IMAS signature with explicit missing physical/provenance evidence.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#2030 four-axis comparison and time-selection contract; #2028 diagnostic ownership.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="predator_prey_cycle_metrics" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#predator_prey_cycle_metrics"><code>predator_prey_cycle_metrics</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="predator_prey_cycle_metrics" href="https://github.com/VEST-Tokamak/vaft/blob/63ddc33b4d89b1585b2260ebcdd20254968b314f/vaft/process/gyrokinetics.py#L328-L491" title="vaft/process/gyrokinetics.py, lines 328–491 at 63ddc33">source</a>
+<a class="ref-source" data-source="predator_prey_cycle_metrics" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetics.py#L339-L502" title="vaft/process/gyrokinetics.py, lines 339–502 at 02ced17">source</a>
 </header>
     <pre class="ref-signature"><code>predator_prey_cycle_metrics(time, turbulence, zonal, *, transport=None, min_cycles=2, prominence=0.2, scale=&#39;log&#39;)</code></pre>
 
@@ -716,15 +948,1000 @@ resolved.</p>
 
   </section>
 
+  <section class="ref-entry" id="prepare_diagnostic_traces" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#prepare_diagnostic_traces"><code>prepare_diagnostic_traces</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="prepare_diagnostic_traces" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetic_comparison.py#L239-L310" title="vaft/process/gyrokinetic_comparison.py, lines 239–310 at 02ced17">source</a>
+</header>
+    <pre class="ref-signature"><code>prepare_diagnostic_traces(diagnostics, frame_times)</code></pre>
+
+    <details class="ref-code" data-source-code="prepare_diagnostic_traces"><summary>Show source <span class="ref-note">vaft/process/gyrokinetic_comparison.py, lines 239–310</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">prepare_diagnostic_traces</span><span class="p">(</span><span class="n">diagnostics</span><span class="p">,</span> <span class="n">frame_times</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Prepare causal, gap-broken traces; renderers never interpolate or reduce.
+
+    Parameters
+    ----------
+    diagnostics : mapping
+        Labelled traces with time, values, unit and optional maximum gap [declared trace units].
+    frame_times : array-like
+        Simulation timestamps of the selected field frames [trace time units].
+
+    Returns
+    -------
+    dict
+        Causal per-frame traces, broken gaps and fixed display limits [input trace units].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared physical definitions, source identity and units.
+    Matching display conventions alone does not establish physical equivalence or convergence.
+
+    Notes
+    -----
+    Prepare causal, gap-broken traces; renderers never interpolate or reduce.
+
+    Provenance
+    ----------
+    .. [issue] #2030 four-axis comparison and time-selection contract; #2028 diagnostic ownership.
+    </span><span class="sh">"""</span>
+    <span class="n">frame_times</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">frame_times</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">frame_times</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">frame_times</span><span class="p">).</span><span class="nf">all</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">frame times must be finite and one-dimensional</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">trace</span> <span class="ow">in</span> <span class="n">diagnostics</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">trace</span><span class="p">[</span><span class="sh">"</span><span class="s">time</span><span class="sh">"</span><span class="p">],</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">trace</span><span class="p">[</span><span class="sh">"</span><span class="s">values</span><span class="sh">"</span><span class="p">],</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="nf">if </span><span class="p">(</span>
+            <span class="n">t</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span>
+            <span class="ow">or</span> <span class="n">y</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">t</span><span class="p">.</span><span class="n">shape</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="nf">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">t</span><span class="p">).</span><span class="nf">all</span><span class="p">()</span>
+            <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">invalid diagnostic trace </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">gap</span> <span class="o">=</span> <span class="n">trace</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span>
+            <span class="sh">"</span><span class="s">max_gap</span><span class="sh">"</span><span class="p">,</span> <span class="mi">3</span> <span class="o">*</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">median</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">t</span><span class="p">)))</span> <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">np</span><span class="p">.</span><span class="n">inf</span>
+        <span class="p">)</span>
+        <span class="n">gap</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">gap</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">isnan</span><span class="p">(</span><span class="n">gap</span><span class="p">)</span> <span class="ow">or</span> <span class="n">gap</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">diagnostic max_gap must be positive and not NaN</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">frames</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">instant</span> <span class="ow">in</span> <span class="n">frame_times</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">searchsorted</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">instant</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="sh">"</span><span class="s">right</span><span class="sh">"</span><span class="p">))</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">t</span><span class="p">[:</span><span class="n">n</span><span class="p">]</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">y</span><span class="p">[:</span><span class="n">n</span><span class="p">].</span><span class="nf">copy</span><span class="p">()</span>
+            <span class="c1"># Insert separators; retain the first observed sample after each gap.
+</span>            <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">breaks</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">flatnonzero</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">gap</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">insert</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">breaks</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">insert</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">breaks</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
+            <span class="n">frames</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
+        <span class="n">finite</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">y</span><span class="p">)]</span>
+        <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">finite</span><span class="p">.</span><span class="nf">min</span><span class="p">()),</span> <span class="nf">float</span><span class="p">(</span><span class="n">finite</span><span class="p">.</span><span class="nf">max</span><span class="p">()))</span> <span class="k">if</span> <span class="n">finite</span><span class="p">.</span><span class="n">size</span> <span class="nf">else </span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">pad</span> <span class="o">=</span> <span class="nf">max</span><span class="p">((</span><span class="n">high</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.05</span><span class="p">,</span> <span class="nf">abs</span><span class="p">(</span><span class="n">high</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">1e-12</span><span class="p">)</span>
+        <span class="n">result</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="sh">"</span><span class="s">frames</span><span class="sh">"</span><span class="p">:</span> <span class="n">frames</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">limits</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="n">low</span> <span class="o">-</span> <span class="n">pad</span><span class="p">,</span> <span class="n">high</span> <span class="o">+</span> <span class="n">pad</span><span class="p">),</span>
+            <span class="sh">"</span><span class="s">unit</span><span class="sh">"</span><span class="p">:</span> <span class="n">trace</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">unit</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">unspecified</span><span class="sh">"</span><span class="p">),</span>
+            <span class="sh">"</span><span class="s">max_gap</span><span class="sh">"</span><span class="p">:</span> <span class="n">gap</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="k">return</span> <span class="n">result</span></code></pre></figure>
+
+</details>
+
+    <p>Prepare causal, gap-broken traces; renderers never interpolate or reduce.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>diagnostics</code></td><td class="ref-type">mapping</td><td class="ref-unit">declared trace units</td><td><p>Labelled traces with time, values, unit and optional maximum gap.</p>
+</td></tr>
+  <tr><td><code>frame_times</code></td><td class="ref-type">array-like</td><td class="ref-unit">trace time units</td><td><p>Simulation timestamps of the selected field frames.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">input trace units</td><td><p>Causal per-frame traces, broken gaps and fixed display limits.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Notes · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Requires the declared physical definitions, source identity and units.
+Matching display conventions alone does not establish physical equivalence or convergence.</p>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>Prepare causal, gap-broken traces; renderers never interpolate or reduce.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#2030 four-axis comparison and time-selection contract; #2028 diagnostic ownership.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="radial_correlation_from_spectrum" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#radial_correlation_from_spectrum"><code>radial_correlation_from_spectrum</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="radial_correlation_from_spectrum" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetics.py#L1210-L1276" title="vaft/process/gyrokinetics.py, lines 1210–1276 at 02ced17">source</a>
+</header>
+    <pre class="ref-signature"><code>radial_correlation_from_spectrum(kx, spectrum, *, box_length, samples=513)</code></pre>
+
+    <details class="ref-code" data-source-code="radial_correlation_from_spectrum"><summary>Show source <span class="ref-note">vaft/process/gyrokinetics.py, lines 1210–1276</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">radial_correlation_from_spectrum</span><span class="p">(</span><span class="n">kx</span><span class="p">,</span> <span class="n">spectrum</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">box_length</span><span class="p">,</span> <span class="n">samples</span><span class="o">=</span><span class="mi">513</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Cosine autocorrelation 1/e crossing and integral scale; unresolved is a bound.
+
+    Parameters
+    ----------
+    kx : array-like
+        Radial Fourier wavenumbers [inverse perpendicular length].
+    spectrum : array-like
+        Nonnegative radial power spectrum on kx [intensity].
+    box_length : float
+        Positive periodic radial box extent [perpendicular length].
+    samples : int, optional
+        Number of separation samples across half the box; default 513 [-].
+
+    Returns
+    -------
+    dict
+        1/e crossing, lower bound if unresolved, and first-zero integral scale [perpendicular length].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    Cosine autocorrelation 1/e crossing and integral scale; unresolved is a bound.
+
+    Array-only counterpart of the CGYRO locality reader, with its existing
+    half-box search and first-zero integral definition preserved.
+
+    Provenance
+    ----------
+    .. [1] Existing CGYRO locality algorithm (#1354/#1484), spectrum-based cosine autocorrelation; #2028.
+    </span><span class="sh">"""</span>
+    <span class="n">kx</span><span class="p">,</span> <span class="n">power</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">kx</span><span class="p">,</span> <span class="nb">float</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">spectrum</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="n">length</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">box_length</span><span class="p">)</span>
+    <span class="nf">if </span><span class="p">(</span>
+        <span class="n">kx</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span>
+        <span class="ow">or</span> <span class="n">power</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">kx</span><span class="p">.</span><span class="n">shape</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">kx</span><span class="p">).</span><span class="nf">all</span><span class="p">()</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">power</span><span class="p">).</span><span class="nf">all</span><span class="p">()</span>
+        <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">power</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">length</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="n">length</span> <span class="o">&lt;=</span> <span class="mi">0</span>
+        <span class="ow">or</span> <span class="n">samples</span> <span class="o">&lt;</span> <span class="mi">2</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">finite kx/nonnegative spectrum and positive box required</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">power</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">reason</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">zero turbulent amplitude in the window</span><span class="sh">"</span><span class="p">}</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">length</span><span class="p">,</span> <span class="n">samples</span><span class="p">)</span>
+    <span class="n">correlation</span> <span class="o">=</span> <span class="p">(</span><span class="n">power</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">outer</span><span class="p">(</span><span class="n">dx</span><span class="p">,</span> <span class="n">kx</span><span class="p">))).</span><span class="nf">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">correlation</span> <span class="o">/=</span> <span class="n">correlation</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">below</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">flatnonzero</span><span class="p">(</span><span class="n">correlation</span> <span class="o">&lt;=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">))</span>
+    <span class="n">crossing</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">if</span> <span class="n">below</span><span class="p">.</span><span class="n">size</span><span class="p">:</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">below</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">x0</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">c0</span><span class="p">,</span> <span class="n">c1</span> <span class="o">=</span> <span class="n">dx</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">dx</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">correlation</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">correlation</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="n">crossing</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">x0</span> <span class="o">+</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">-</span> <span class="n">c0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">x1</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">c1</span> <span class="o">-</span> <span class="n">c0</span><span class="p">))</span>
+    <span class="n">zero</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">flatnonzero</span><span class="p">(</span><span class="n">correlation</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">stop</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">zero</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="n">zero</span><span class="p">.</span><span class="n">size</span> <span class="k">else</span> <span class="n">dx</span><span class="p">.</span><span class="n">size</span>
+    <span class="n">integrate</span> <span class="o">=</span> <span class="nf">getattr</span><span class="p">(</span><span class="n">np</span><span class="p">,</span> <span class="sh">"</span><span class="s">trapezoid</span><span class="sh">"</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="n">trapz</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">l_corr</span><span class="sh">"</span><span class="p">:</span> <span class="n">crossing</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">l_corr_lower_bound</span><span class="sh">"</span><span class="p">:</span> <span class="bp">None</span> <span class="k">if</span> <span class="n">crossing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">length</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">l_integral</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="nf">integrate</span><span class="p">(</span><span class="n">correlation</span><span class="p">[:</span><span class="n">stop</span><span class="p">],</span> <span class="n">dx</span><span class="p">[:</span><span class="n">stop</span><span class="p">])),</span>
+    <span class="p">}</span></code></pre></figure>
+
+</details>
+
+    <p>Cosine autocorrelation 1/e crossing and integral scale; unresolved is a bound.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>kx</code></td><td class="ref-type">array-like</td><td class="ref-unit">inverse perpendicular length</td><td><p>Radial Fourier wavenumbers.</p>
+</td></tr>
+  <tr><td><code>spectrum</code></td><td class="ref-type">array-like</td><td class="ref-unit">intensity</td><td><p>Nonnegative radial power spectrum on kx.</p>
+</td></tr>
+  <tr><td><code>box_length</code></td><td class="ref-type">float</td><td class="ref-unit">perpendicular length</td><td><p>Positive periodic radial box extent.</p>
+</td></tr>
+  <tr><td><code>samples</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Number of separation samples across half the box; default 513.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">perpendicular length</td><td><p>1/e crossing, lower bound if unresolved, and first-zero integral scale.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Notes · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Requires the declared spectral convention, retained axes and units.
+These are numerical reductions of solver data, not independent evidence of physical validity.</p>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>Cosine autocorrelation 1/e crossing and integral scale; unresolved is a bound.</p>
+
+      <p>Array-only counterpart of the CGYRO locality reader, with its existing
+half-box search and first-zero integral definition preserved.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Existing CGYRO locality algorithm (#1354/#1484), spectrum-based cosine autocorrelation; #2028.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="rebin_contributions" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#rebin_contributions"><code>rebin_contributions</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="rebin_contributions" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetics.py#L936-L984" title="vaft/process/gyrokinetics.py, lines 936–984 at 02ced17">source</a>
+</header>
+    <pre class="ref-signature"><code>rebin_contributions(values, edges, new_edges)</code></pre>
+
+    <details class="ref-code" data-source-code="rebin_contributions"><summary>Show source <span class="ref-note">vaft/process/gyrokinetics.py, lines 936–984</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">rebin_contributions</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">new_edges</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Conserve signed flux using piecewise-uniform density within audited bins.
+
+    Parameters
+    ----------
+    values : array-like
+        Signed spectral contributions or aligned time samples [quantity].
+    edges : array-like, optional
+        Audited increasing spectral bin edges [wavenumber].
+    new_edges : array-like
+        Destination bin edges spanning exactly the source interval [wavenumber].
+
+    Returns
+    -------
+    numpy.ndarray
+        Conservative destination-bin contributions under piecewise-uniform density [quantity].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    Conserve signed flux using piecewise-uniform density within audited bins.
+
+    The destination must cover exactly the same interval; no extrapolation.
+
+    Provenance
+    ----------
+    .. [1] Canonical mathematical definition in #2028; uses the retained-source and weighting contract of #2025.
+    </span><span class="sh">"""</span>
+    <span class="n">values</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">new</span> <span class="o">=</span> <span class="nf">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">float</span><span class="p">),</span> <span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">new_edges</span><span class="p">))</span>
+    <span class="nf">if </span><span class="p">(</span>
+        <span class="n">values</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">!=</span> <span class="nf">len</span><span class="p">(</span><span class="n">edges</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="nf">len</span><span class="p">(</span><span class="n">new</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">edges</span><span class="p">).</span><span class="nf">all</span><span class="p">()</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">new</span><span class="p">).</span><span class="nf">all</span><span class="p">()</span>
+        <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">edges</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">new</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">allclose</span><span class="p">([</span><span class="n">edges</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">edges</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]],</span> <span class="p">[</span><span class="n">new</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">new</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]],</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">audited increasing edges with identical coverage required</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">overlap</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">maximum</span><span class="p">(</span>
+        <span class="mi">0</span><span class="p">,</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">minimum</span><span class="p">(</span><span class="n">new</span><span class="p">[</span><span class="mi">1</span><span class="p">:,</span> <span class="bp">None</span><span class="p">],</span> <span class="n">edges</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="mi">1</span><span class="p">:])</span>
+        <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">maximum</span><span class="p">(</span><span class="n">new</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">None</span><span class="p">],</span> <span class="n">edges</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span>
+    <span class="p">)</span>
+    <span class="nf">return </span><span class="p">(</span><span class="n">values</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">edges</span><span class="p">))</span> <span class="o">@</span> <span class="n">overlap</span><span class="p">.</span><span class="n">T</span></code></pre></figure>
+
+</details>
+
+    <p>Conserve signed flux using piecewise-uniform density within audited bins.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>values</code></td><td class="ref-type">array-like</td><td class="ref-unit">quantity</td><td><p>Signed spectral contributions or aligned time samples.</p>
+</td></tr>
+  <tr><td><code>edges</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">wavenumber</td><td><p>Audited increasing spectral bin edges.</p>
+</td></tr>
+  <tr><td><code>new_edges</code></td><td class="ref-type">array-like</td><td class="ref-unit">wavenumber</td><td><p>Destination bin edges spanning exactly the source interval.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">quantity</td><td><p>Conservative destination-bin contributions under piecewise-uniform density.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Notes · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Requires the declared spectral convention, retained axes and units.
+These are numerical reductions of solver data, not independent evidence of physical validity.</p>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>Conserve signed flux using piecewise-uniform density within audited bins.</p>
+
+      <p>The destination must cover exactly the same interval; no extrapolation.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Canonical mathematical definition in #2028; uses the retained-source and weighting contract of #2025.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="reconstruct_field" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#reconstruct_field"><code>reconstruct_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="reconstruct_field" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetics.py#L747-L844" title="vaft/process/gyrokinetics.py, lines 747–844 at 02ced17">source</a>
+</header>
+    <pre class="ref-signature"><code>reconstruct_field(coefficients, kx, ky, *, length_x, component=&#39;total&#39;, nx=None, ny=None)</code></pre>
+
+    <p>Reconstruct CGYRO’s half-sum Re phi exp(+ikx<em>x-i</em>ky*y).</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>coefficients</code></td><td class="ref-type">array-like</td><td class="ref-unit">native potential</td><td><p>Complex Fourier coefficients (kx, ky), excluding native special slots.</p>
+</td></tr>
+  <tr><td><code>kx</code></td><td class="ref-type">array-like</td><td class="ref-unit">inverse perpendicular length</td><td><p>Radial Fourier wavenumbers.</p>
+</td></tr>
+  <tr><td><code>ky</code></td><td class="ref-type">array-like</td><td class="ref-unit">inverse perpendicular length</td><td><p>Binormal wavenumbers, including zero.</p>
+</td></tr>
+  <tr><td><code>length_x</code></td><td class="ref-type">float</td><td class="ref-unit">perpendicular length</td><td><p>Positive periodic radial box length.</p>
+</td></tr>
+  <tr><td><code>component</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Total, zonal (ky=0), or nonzonal field selection.</p>
+</td></tr>
+  <tr><td><code>nx</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Radial sample count; default resolves retained Fourier harmonics.</p>
+</td></tr>
+  <tr><td><code>ny</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Binormal sample count; default resolves retained Fourier harmonics.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">SpatialField</td><td class="ref-unit">native potential</td><td><p>Periodic coordinates, real potential and explicit half-sum convention.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Notes · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Requires the declared spectral convention, retained axes and units.
+These are numerical reductions of solver data, not independent evidence of physical validity.</p>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>Reconstruct CGYRO’s half-sum Re phi exp(+ikx<em>x-i</em>ky*y).</p>
+
+      <p>Matches pygacode b493397 plot_fluct.maptoreal, including half weight
+for ky=0. The caller must remove CGYRO’s special first radial slot.
+This is a saved-theta local plane, not a global or full 3D field.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>GACODE b493397 pygacode/cgyro/plot_fluct.py, maptoreal and maptoreal_fft; #2019.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="reduce_time_series" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#reduce_time_series"><code>reduce_time_series</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="reduce_time_series" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetics.py#L1031-L1170" title="vaft/process/gyrokinetics.py, lines 1031–1170 at 02ced17">source</a>
+</header>
+    <pre class="ref-signature"><code>reduce_time_series(time, values, *, window, blocks=4, max_gap=None, time_unit=&#39;a/c_s&#39;)</code></pre>
+
+    <p>Time-weighted window reduction with explicit coverage and independent evidence.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array-like</td><td class="ref-unit">time_unit</td><td><p>Finite strictly increasing simulation times.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td class="ref-type">array-like</td><td class="ref-unit">quantity</td><td><p>Signed spectral contributions or aligned time samples.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td class="ref-type">tuple of float</td><td class="ref-unit">time_unit</td><td><p>Selected closed integration interval; no extrapolation.</p>
+</td></tr>
+  <tr><td><code>blocks</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Equal-duration blocks; at least two observed samples per block.</p>
+</td></tr>
+  <tr><td><code>max_gap</code></td><td class="ref-type">float, optional</td><td class="ref-unit">time_unit</td><td><p>Largest integrated interval; default three median sample spacings.</p>
+</td></tr>
+  <tr><td><code>time_unit</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Time-coordinate unit recorded with the result; default a/c_s.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">quantity; time_unit</td><td><p>Mean, coverage, block evidence, drift and independent qualifications.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Notes · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Requires the declared spectral convention, retained axes and units.
+These are numerical reductions of solver data, not independent evidence of physical validity.</p>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>Time-weighted window reduction with explicit coverage and independent evidence.</p>
+
+      <p>Integrates linear segments only between finite adjacent observed samples.
+Without an explicit max_gap, gaps above 3*median cadence are excluded.
+No extrapolation or interpolation across missing samples. Blocks tile time,
+and their standard error is conditional on independence, never a confidence interval.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Existing nonlinear workflow batch-means implementation (#1484/#1820); piecewise-linear quadrature with explicit gaps; #2028.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="saturated_intensity" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#saturated_intensity"><code>saturated_intensity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="saturated_intensity" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetics.py#L1173-L1207" title="vaft/process/gyrokinetics.py, lines 1173–1207 at 02ced17">source</a>
+</header>
+    <pre class="ref-signature"><code>saturated_intensity(ql_weights, potential_intensity)</code></pre>
+
+    <details class="ref-code" data-source-code="saturated_intensity"><summary>Show source <span class="ref-note">vaft/process/gyrokinetics.py, lines 1173–1207</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">saturated_intensity</span><span class="p">(</span><span class="n">ql_weights</span><span class="p">,</span> <span class="n">potential_intensity</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">TGLF moment intensity = QL intensity weight * saturated phi intensity.
+
+    Parameters
+    ----------
+    ql_weights : array-like
+        Native TGLF quasilinear moment weights (species, ky, mode, moment) [native weight].
+    potential_intensity : array-like
+        Saturated potential intensity (ky, mode) [native phi squared].
+
+    Returns
+    -------
+    numpy.ndarray
+        Saturated moment intensity on the original four axes [native moment intensity].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    TGLF moment intensity = QL intensity weight * saturated phi intensity.
+
+    Weights: (species, ky, mode, moment); phi: (ky, mode). This is not a
+    transport-flux reconstruction: transport also needs its audited quadrature.
+
+    Provenance
+    ----------
+    .. [1] GACODE b493397 tglf_inout.f90 field/intensity writers; native SAT0/SAT2 fixture identities; #2025/#2028.
+    </span><span class="sh">"""</span>
+    <span class="n">q</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">ql_weights</span><span class="p">,</span> <span class="nb">float</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">potential_intensity</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">q</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">4</span> <span class="ow">or</span> <span class="n">p</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">q</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">QL weights and saturated phi intensity axes disagree</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">q</span> <span class="o">*</span> <span class="n">p</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="bp">None</span><span class="p">]</span></code></pre></figure>
+
+</details>
+
+    <p>TGLF moment intensity = QL intensity weight * saturated phi intensity.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ql_weights</code></td><td class="ref-type">array-like</td><td class="ref-unit">native weight</td><td><p>Native TGLF quasilinear moment weights (species, ky, mode, moment).</p>
+</td></tr>
+  <tr><td><code>potential_intensity</code></td><td class="ref-type">array-like</td><td class="ref-unit">native phi squared</td><td><p>Saturated potential intensity (ky, mode).</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">native moment intensity</td><td><p>Saturated moment intensity on the original four axes.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Notes · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Requires the declared spectral convention, retained axes and units.
+These are numerical reductions of solver data, not independent evidence of physical validity.</p>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>TGLF moment intensity = QL intensity weight * saturated phi intensity.</p>
+
+      <p>Weights: (species, ky, mode, moment); phi: (ky, mode). This is not a
+transport-flux reconstruction: transport also needs its audited quadrature.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>GACODE b493397 tglf_inout.f90 field/intensity writers; native SAT0/SAT2 fixture identities; #2025/#2028.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="select_time" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#select_time"><code>select_time</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="select_time" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetic_comparison.py#L169-L236" title="vaft/process/gyrokinetic_comparison.py, lines 169–236 at 02ced17">source</a>
+</header>
+    <pre class="ref-signature"><code>select_time(times, requested=None, *, tolerance=None)</code></pre>
+
+    <details class="ref-code" data-source-code="select_time"><summary>Show source <span class="ref-note">vaft/process/gyrokinetic_comparison.py, lines 169–236</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">select_time</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">requested</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Nearest finite time and evidence; no implicit scientific tolerance.
+
+    Parameters
+    ----------
+    times : array-like
+        Stored finite, distinct experimental timestamps [s].
+    requested : float, optional
+        Requested experimental time, or first stored time when omitted [s].
+    tolerance : float, optional
+        Explicit maximum time mismatch; absence leaves scientific alignment unverified [s].
+
+    Returns
+    -------
+    dict
+        Stored index, requested/selected time, difference and alignment status [s; index -].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared physical definitions, source identity and units.
+    Matching display conventions alone does not establish physical equivalence or convergence.
+
+    Notes
+    -----
+    Nearest finite time and evidence; no implicit scientific tolerance.
+
+    Provenance
+    ----------
+    .. [issue] #2030 four-axis comparison and time-selection contract; #2028 diagnostic ownership.
+    </span><span class="sh">"""</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="nf">if </span><span class="p">(</span>
+        <span class="n">t</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="nf">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">t</span><span class="p">).</span><span class="nf">all</span><span class="p">()</span>
+        <span class="ow">or</span> <span class="nf">len</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">unique</span><span class="p">(</span><span class="n">t</span><span class="p">))</span> <span class="o">!=</span> <span class="nf">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">unavailable or ambiguous time stamps</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">tolerance</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">tolerance</span><span class="p">)</span> <span class="ow">or</span> <span class="n">tolerance</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">time tolerance must be finite and nonnegative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">requested</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">requested</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">target</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">requested time must be finite</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">distances</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">target</span><span class="p">)</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">argmin</span><span class="p">(</span><span class="n">distances</span><span class="p">))</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">target</span><span class="p">)</span>
+    <span class="nf">if </span><span class="p">(</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">count_nonzero</span><span class="p">(</span>
+            <span class="n">np</span><span class="p">.</span><span class="nf">isclose</span><span class="p">(</span>
+                <span class="n">distances</span><span class="p">,</span>
+                <span class="n">distances</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+                <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">atol</span><span class="o">=</span><span class="mi">4</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">).</span><span class="n">eps</span> <span class="o">*</span> <span class="nf">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nf">abs</span><span class="p">(</span><span class="n">target</span><span class="p">)),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="o">&gt;</span> <span class="mi">1</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">ambiguous equidistant time slices</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">tolerance</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="nf">abs</span><span class="p">(</span><span class="n">delta</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">tolerance</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">selected experimental time outside tolerance</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">index</span><span class="sh">"</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">requested_time</span><span class="sh">"</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">selected_time</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span>
+        <span class="sh">"</span><span class="s">delta_time</span><span class="sh">"</span><span class="p">:</span> <span class="n">delta</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">tolerance</span><span class="sh">"</span><span class="p">:</span> <span class="n">tolerance</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">status</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">matched</span><span class="sh">"</span> <span class="k">if</span> <span class="n">tolerance</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="sh">"</span><span class="s">unverified</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">}</span></code></pre></figure>
+
+</details>
+
+    <p>Nearest finite time and evidence; no implicit scientific tolerance.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>times</code></td><td class="ref-type">array-like</td><td class="ref-unit">s</td><td><p>Stored finite, distinct experimental timestamps.</p>
+</td></tr>
+  <tr><td><code>requested</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Requested experimental time, or first stored time when omitted.</p>
+</td></tr>
+  <tr><td><code>tolerance</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Explicit maximum time mismatch; absence leaves scientific alignment unverified.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">s; index -</td><td><p>Stored index, requested/selected time, difference and alignment status.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Notes · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Requires the declared physical definitions, source identity and units.
+Matching display conventions alone does not establish physical equivalence or convergence.</p>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>Nearest finite time and evidence; no implicit scientific tolerance.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#2030 four-axis comparison and time-selection contract; #2028 diagnostic ownership.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="spectral_integral" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#spectral_integral"><code>spectral_integral</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="spectral_integral" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetics.py#L887-L933" title="vaft/process/gyrokinetics.py, lines 887–933 at 02ced17">source</a>
+</header>
+    <pre class="ref-signature"><code>spectral_integral(values, *, representation=&#39;contribution&#39;, edges=None, axis=-1)</code></pre>
+
+    <details class="ref-code" data-source-code="spectral_integral"><summary>Show source <span class="ref-note">vaft/process/gyrokinetics.py, lines 887–933</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">spectral_integral</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">contribution</span><span class="sh">"</span><span class="p">,</span> <span class="n">edges</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Integrate signed bin contributions or densities with explicit bin edges.
+
+    Parameters
+    ----------
+    values : array-like
+        Signed spectral contributions or aligned time samples [quantity].
+    representation : str
+        Contribution means bin-integrated values; density requires edges [-].
+    edges : array-like, optional
+        Audited increasing spectral bin edges [wavenumber].
+    axis : int, optional
+        Axis containing spectral bins or additive field contributions [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        Signed integral with the selected spectral axis removed [quantity].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    Integrate signed bin contributions or densities with explicit bin edges.
+
+    Provenance
+    ----------
+    .. [1] Canonical mathematical definition in #2028; uses the retained-source and weighting contract of #2025.
+    </span><span class="sh">"""</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">representation</span> <span class="o">==</span> <span class="sh">"</span><span class="s">contribution</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">representation</span> <span class="o">!=</span> <span class="sh">"</span><span class="s">density</span><span class="sh">"</span> <span class="ow">or</span> <span class="n">edges</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">density requires audited bin edges</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">edges</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">edges</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="nf">if </span><span class="p">(</span>
+        <span class="n">edges</span><span class="p">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">values</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">edges</span><span class="p">).</span><span class="nf">all</span><span class="p">()</span>
+        <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">edges</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">increasing finite edges must bracket every bin</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">values</span><span class="p">.</span><span class="n">ndim</span>
+    <span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">edges</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">values</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">edges</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="n">shape</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Integrate signed bin contributions or densities with explicit bin edges.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>values</code></td><td class="ref-type">array-like</td><td class="ref-unit">quantity</td><td><p>Signed spectral contributions or aligned time samples.</p>
+</td></tr>
+  <tr><td><code>representation</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Contribution means bin-integrated values; density requires edges.</p>
+</td></tr>
+  <tr><td><code>edges</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">wavenumber</td><td><p>Audited increasing spectral bin edges.</p>
+</td></tr>
+  <tr><td><code>axis</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Axis containing spectral bins or additive field contributions.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">quantity</td><td><p>Signed integral with the selected spectral axis removed.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Notes · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Requires the declared spectral convention, retained axes and units.
+These are numerical reductions of solver data, not independent evidence of physical validity.</p>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>Integrate signed bin contributions or densities with explicit bin edges.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Canonical mathematical definition in #2028; uses the retained-source and weighting contract of #2025.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="time_window_average" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#time_window_average"><code>time_window_average</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="time_window_average" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetics.py#L1279-L1314" title="vaft/process/gyrokinetics.py, lines 1279–1314 at 02ced17">source</a>
+</header>
+    <pre class="ref-signature"><code>time_window_average(time, values, *, window, max_gap=None)</code></pre>
+
+    <details class="ref-code" data-source-code="time_window_average"><summary>Show source <span class="ref-note">vaft/process/gyrokinetics.py, lines 1279–1314</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">time_window_average</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">max_gap</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Average aligned scalar or multi-channel histories with the shared gap policy.
+
+    Parameters
+    ----------
+    time : array-like
+        Strictly increasing sample times [time].
+    values : array-like
+        Histories with time on the final axis [quantity].
+    window : tuple of float
+        Selected integration bounds in the input time unit [time].
+    max_gap : float, optional
+        Largest integrated interval; default three median sample spacings [time].
+
+    Returns
+    -------
+    numpy.ndarray
+        Means with the time axis removed; unavailable integrals are NaN [quantity].
+
+    Applicability
+    -------------
+    Machine-independent. Uses observed adjacent samples only, with the same
+    no-extrapolation and missing-interval policy as reduce_time_series.
+
+    Provenance
+    ----------
+    .. [1] Shared piecewise-linear reduction contract in #2028.
+    </span><span class="sh">"""</span>
+    <span class="n">t</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="nb">float</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">y</span><span class="p">.</span><span class="n">ndim</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">y</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">t</span><span class="p">.</span><span class="n">size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">histories must end in the simulation time axis</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">means</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="nf">reduce_time_series</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span> <span class="n">max_gap</span><span class="o">=</span><span class="n">max_gap</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="mi">2</span><span class="p">)[</span><span class="sh">"</span><span class="s">mean</span><span class="sh">"</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">y</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">([</span><span class="n">np</span><span class="p">.</span><span class="n">nan</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">means</span><span class="p">]).</span><span class="nf">reshape</span><span class="p">(</span><span class="n">y</span><span class="p">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span></code></pre></figure>
+
+</details>
+
+    <p>Average aligned scalar or multi-channel histories with the shared gap policy.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array-like</td><td class="ref-unit">time</td><td><p>Strictly increasing sample times.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td class="ref-type">array-like</td><td class="ref-unit">quantity</td><td><p>Histories with time on the final axis.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td class="ref-type">tuple of float</td><td class="ref-unit">time</td><td><p>Selected integration bounds in the input time unit.</p>
+</td></tr>
+  <tr><td><code>max_gap</code></td><td class="ref-type">float, optional</td><td class="ref-unit">time</td><td><p>Largest integrated interval; default three median sample spacings.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">quantity</td><td><p>Means with the time axis removed; unavailable integrals are NaN.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Uses observed adjacent samples only, with the same
+no-extrapolation and missing-interval policy as reduce_time_series.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Shared piecewise-linear reduction contract in #2028.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="zonal_fraction" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#zonal_fraction"><code>zonal_fraction</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="zonal_fraction" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetics.py#L847-L884" title="vaft/process/gyrokinetics.py, lines 847–884 at 02ced17">source</a>
+</header>
+    <pre class="ref-signature"><code>zonal_fraction(phi, ky, *, weights=None, ky_tolerance=1e-12, weighting=None)</code></pre>
+
+    <details class="ref-code" data-source-code="zonal_fraction"><summary>Show source <span class="ref-note">vaft/process/gyrokinetics.py, lines 847–884</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">zonal_fraction</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">ky_tolerance</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span> <span class="n">weighting</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">I_Z/(I_Z+I_T); all-zero intensity is undefined, not zero.
+
+    Parameters
+    ----------
+    phi : array-like
+        Complex potential coefficients (kx, ky, time) [native potential].
+    ky : array-like
+        Binormal wavenumbers, including zero [inverse perpendicular length].
+    weights : array-like, optional
+        Nonnegative intensity weights broadcast over kx and ky [-].
+    ky_tolerance : float, optional
+        Numerical threshold identifying the zero binormal wavenumber [ky unit].
+    weighting : str, optional
+        Explicit interpretation of the supplied intensity weights [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        Zonal fraction at each time; all-zero intensity is NaN [-].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    I_Z/(I_Z+I_T); all-zero intensity is undefined, not zero.
+
+    Provenance
+    ----------
+    .. [1] Canonical mathematical definition in #2028; uses the retained-source and weighting contract of #2025.
+    </span><span class="sh">"""</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="nf">zonal_turbulence_intensity</span><span class="p">(</span>
+        <span class="n">phi</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span> <span class="n">ky_tolerance</span><span class="o">=</span><span class="n">ky_tolerance</span><span class="p">,</span> <span class="n">weighting</span><span class="o">=</span><span class="n">weighting</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span><span class="p">.</span><span class="n">fraction</span></code></pre></figure>
+
+</details>
+
+    <p>I_Z/(I_Z+I_T); all-zero intensity is undefined, not zero.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>phi</code></td><td class="ref-type">array-like</td><td class="ref-unit">native potential</td><td><p>Complex potential coefficients (kx, ky, time).</p>
+</td></tr>
+  <tr><td><code>ky</code></td><td class="ref-type">array-like</td><td class="ref-unit">inverse perpendicular length</td><td><p>Binormal wavenumbers, including zero.</p>
+</td></tr>
+  <tr><td><code>weights</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">-</td><td><p>Nonnegative intensity weights broadcast over kx and ky.</p>
+</td></tr>
+  <tr><td><code>ky_tolerance</code></td><td class="ref-type">float, optional</td><td class="ref-unit">ky unit</td><td><p>Numerical threshold identifying the zero binormal wavenumber.</p>
+</td></tr>
+  <tr><td><code>weighting</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Explicit interpretation of the supplied intensity weights.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>Zonal fraction at each time; all-zero intensity is NaN.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Notes · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Requires the declared spectral convention, retained axes and units.
+These are numerical reductions of solver data, not independent evidence of physical validity.</p>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>I_Z/(I_Z+I_T); all-zero intensity is undefined, not zero.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Canonical mathematical definition in #2028; uses the retained-source and weighting contract of #2025.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="zonal_shear_proxy" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#zonal_shear_proxy"><code>zonal_shear_proxy</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="zonal_shear_proxy" href="https://github.com/VEST-Tokamak/vaft/blob/63ddc33b4d89b1585b2260ebcdd20254968b314f/vaft/process/gyrokinetics.py#L263-L322" title="vaft/process/gyrokinetics.py, lines 263–322 at 63ddc33">source</a>
+<a class="ref-source" data-source="zonal_shear_proxy" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetics.py#L274-L333" title="vaft/process/gyrokinetics.py, lines 274–333 at 02ced17">source</a>
 </header>
     <pre class="ref-signature"><code>zonal_shear_proxy(phi, kx, ky, *, ky_tolerance=1e-12)</code></pre>
 
-    <details class="ref-code" data-source-code="zonal_shear_proxy"><summary>Show source <span class="ref-note">vaft/process/gyrokinetics.py, lines 263–322</span></summary>
+    <details class="ref-code" data-source-code="zonal_shear_proxy"><summary>Show source <span class="ref-note">vaft/process/gyrokinetics.py, lines 274–333</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">zonal_shear_proxy</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span> <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ky_tolerance</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Spectral proxies for the zonal-flow energy and the zonal shear.
@@ -860,11 +2077,11 @@ wavenumber as exact zero).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#zonal_turbulence_intensity"><code>zonal_turbulence_intensity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="zonal_turbulence_intensity" href="https://github.com/VEST-Tokamak/vaft/blob/63ddc33b4d89b1585b2260ebcdd20254968b314f/vaft/process/gyrokinetics.py#L189-L260" title="vaft/process/gyrokinetics.py, lines 189–260 at 63ddc33">source</a>
+<a class="ref-source" data-source="zonal_turbulence_intensity" href="https://github.com/VEST-Tokamak/vaft/blob/02ced17a8c4663221ec275c312df2518beaab918/vaft/process/gyrokinetics.py#L200-L271" title="vaft/process/gyrokinetics.py, lines 200–271 at 02ced17">source</a>
 </header>
     <pre class="ref-signature"><code>zonal_turbulence_intensity(phi, ky, *, weights=None, ky_tolerance=1e-12, weighting=None)</code></pre>
 
-    <details class="ref-code" data-source-code="zonal_turbulence_intensity"><summary>Show source <span class="ref-note">vaft/process/gyrokinetics.py, lines 189–260</span></summary>
+    <details class="ref-code" data-source-code="zonal_turbulence_intensity"><summary>Show source <span class="ref-note">vaft/process/gyrokinetics.py, lines 200–271</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">zonal_turbulence_intensity</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span> <span class="n">ky</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">ky_tolerance</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span> <span class="n">weighting</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Split fluctuation intensity into its zonal ($k_y = 0$) and non-zonal parts.
@@ -1232,7 +2449,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-14 17:42:35 +0000"
+        "time": "2026-10-14 18:20:33 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

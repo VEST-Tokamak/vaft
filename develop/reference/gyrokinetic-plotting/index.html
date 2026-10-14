@@ -289,6 +289,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-results" data-path="/vaft/develop/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
                     
                         <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
@@ -390,7 +396,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>63ddc33</code>. What is described
+  <code>02ced17</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -747,6 +753,17 @@ local calculation, not a radial collection of them.</p>
 
 <p>Which orderings a gyrokinetic run assumes ($\rho_s/L_T$, $k_\perp\rho_i$, $\omega/\Omega_i$), and why drift kinetics is not a lower-fidelity gyrokinetic model, is <a href="/vaft/develop/reference/characteristic-scales/">Characteristic scales and orderings</a>.</p>
 
+<h2 id="scientific-results-and-nonlinear-fields">Scientific results and nonlinear fields</h2>
+
+<p>See <a href="/vaft/develop/reference/gyrokinetic-results/">Gyrokinetic scientific results</a> for multi-realization persistence, qualified comparisons, contribution-versus-density semantics, and the native CGYRO saved-theta 2D field/animation workflow.</p>
+
+<p>Native CGYRO time histories now label their coordinate as <strong>Gyrokinetic elapsed
+time [a/c_s]</strong>. Use <code class="language-plaintext highlighter-rouge">time_unit="ms"</code> and a verified per-run
+<code class="language-plaintext highlighter-rouge">time_normalization</code> for SI elapsed-time views; the default native values and
+averaging windows are unchanged. See <a href="/vaft/develop/reference/gyrokinetic-results/#cgyro-elapsed-time-and-discharge-time-2040">CGYRO elapsed time and discharge time</a>
+for conversion, provenance and the offline #39915 example. SI elapsed time does
+not denote the experimental discharge timestamp.</p>
+
 
 <section class="related-resources" aria-labelledby="related-resources-title">
   <h2 id="related-resources-title">Related resources</h2>
@@ -852,7 +869,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#two-families-two-layers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Two families, two layers</a></li><li class="page-toc-item page-toc-level-2"><a href="#linear-quasilinear-and-nonlinear-coverage" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Linear, quasilinear and nonlinear coverage</a></li><li class="page-toc-item page-toc-level-2"><a href="#coverage-matrix-mitim-benchmark--vaft" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coverage matrix: MITIM benchmark → VAFT</a></li><li class="page-toc-item page-toc-level-2"><a href="#comparing-solvers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Comparing solvers</a></li><li class="page-toc-item page-toc-level-2"><a href="#example-one-vest-state" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Example: one VEST state</a></li><li class="page-toc-item page-toc-level-2"><a href="#turbulencezonal-flow-predatorprey-views" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Turbulence–zonal-flow (predator–prey) views</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-stays-outside-plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What stays outside plotting</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#two-families-two-layers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Two families, two layers</a></li><li class="page-toc-item page-toc-level-2"><a href="#linear-quasilinear-and-nonlinear-coverage" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Linear, quasilinear and nonlinear coverage</a></li><li class="page-toc-item page-toc-level-2"><a href="#coverage-matrix-mitim-benchmark--vaft" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coverage matrix: MITIM benchmark → VAFT</a></li><li class="page-toc-item page-toc-level-2"><a href="#comparing-solvers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Comparing solvers</a></li><li class="page-toc-item page-toc-level-2"><a href="#example-one-vest-state" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Example: one VEST state</a></li><li class="page-toc-item page-toc-level-2"><a href="#turbulencezonal-flow-predatorprey-views" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Turbulence–zonal-flow (predator–prey) views</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-stays-outside-plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What stays outside plotting</a></li><li class="page-toc-item page-toc-level-2"><a href="#scientific-results-and-nonlinear-fields" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Scientific results and nonlinear fields</a></li></ul>
     </nav>
 </aside>
 
@@ -970,7 +987,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-14 17:42:35 +0000"
+        "time": "2026-10-14 18:20:33 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
