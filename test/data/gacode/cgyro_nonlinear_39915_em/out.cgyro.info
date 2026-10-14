@@ -1,0 +1,45 @@
+INFO: (CGYRO) Velocity order 1
+INFO: (CGYRO) MPI rank alignment 2
+INFO: (CGYRO) Multiple toroidal harmonics
+INFO: (CGYRO) Ion direction: omega > 0
+INFO: (CGYRO) ExB shear: OFF
+INFO: (CGYRO) RESOLUTION WARNING -- n_radial not a multiple of box_size.
+INFO: (CGYRO) Time integrator: Cash-Karp 6:5(4) [adaptive]
+INFO: (CGYRO) Using gyrokinetic electrons
+INFO: (CGYRO) Profile model: local input (input.cgyro)
+INFO: (CGYRO) Equilibrium: Miller Extended Harmonic (MXH)
+INFO: (CGYRO) Transverse EM fluctuations (Phi,A_par)
+INFO: (CGYRO) Rotation terms: O(mach) only (traditional GYRO)
+INFO: (CGYRO) Collision model: Sugama
+INFO: (CGYRO) Collision terms: L D Rm Re kp ions field
+INFO: (CGYRO)                  x x x  x  x   x     x
+
+ n_theta | n_species | n_energy | n_xi 
+    24         3          8        16
+
+ nc_loc | nv_loc | nsplit | n_jtheta | n_MPI | n_OMP
+   768      192      288          2       32    1
+
+           n    Delta      Max     L/rho    n_fft
+ kx*rho:  64   -0.149   -4.617    -42.18       96  2(5)3(1)
+ ky*rho:  16   -0.100   -1.500     62.83       48  2(4)3(1)
+
+  D-theta:  6    D-radial:  6    D-alpha:  6   [dissipation order]
+ up_theta: 1.0  up_radial: 1.0  up_alpha: 0.0  [dissipation strength]
+ C(theta): 0.2
+
+  r/a  0.70000   R/a  1.48241   q  3.74430   zmag  0.00000    kappa  1.55020
+               shift -0.09442   s  0.71115  dzmag  0.00000  s_kappa -0.06171
+
+  c1  0.00000   s_c1  0.00000   delta  0.21661  s_delta  0.15132
+  c2  0.00000   s_c2  0.00000    zeta  0.00000   s_zeta  0.00000
+
+ gamma_e:  0.000E+00  gamma_p:  0.000E+00    mach:  0.000E+00  [rho/a]: -1.870E-02
+   betae:  2.440E-03   beta_*:  1.712E-02  lamb_*:  6.951E-03  [z_eff]:  2.000E+00
+
+ i  z  n/n_norm   T/T_norm   m/m_norm     a/Ln       a/Lt       nu
+ 1  1  8.000E-01  1.000E+00  5.040E-01  2.797E+00  1.031E+00  1.284E-02
+ 2  6  3.333E-02  1.000E+00  6.005E+00  2.797E+00  1.031E+00  2.009E-01
+ 3 -1  1.000E+00  1.000E+00  2.724E-04  2.797E+00  1.031E+00  6.903E-01
+
+INFO: (CGYRO) Restart data found.

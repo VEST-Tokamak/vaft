@@ -79,3 +79,19 @@ Long runs are chained allocations with `--restart`. **CGYRO counts `MAX_TIME` fr
 - the TGLF SAT0-3 reference and the locality QA on the same window.
 
 A bursty run, where turbulence and zonal flows trade energy, is not stationary on short windows. For such a run, quote the window mean ± its batch-means standard error, with blocks longer than the burst spacing. With `--blocks n` the standard error has only n - 1 degrees of freedom; the default 4 is a rough error bar, so quote more blocks when the run is long enough (39915 r/a 0.7: 9 blocks of 100 a/c_s). Do not quote the window standard deviation; it mostly measures the bursts.
+
+## Reusing retained outputs (#2020 / #2019 2D milestone)
+
+Use `python -m workflow.gyrokinetic.build_result_reference --out /tmp/gk-reference`
+for the offline compact real-native fixture, static fields, synchronized MP4/WebM,
+window statistics and machine-readable mapping/retention audit. `--skip-video`
+runs without PyAV. Full native fields remain outside IMAS.
+
+`build_multimodel_reference` remaps the retained SAT0–3 state/native trees into one
+ODS and optionally adds the #39915 nonlinear CGYRO source and linear scan. See
+`docs/_guide/Gyrokinetic_results.md` for source layout, commands and qualifications.
+`capture_reference` creates content-addressed contiguous native fixture slices.
+
+Baseline: develop `9744dbd73eebc1ca3a03857f19e35360c4052488`.
+Pinned native oracle: GACODE `b49339750a4aa4cf2b089fa9ff3afe098005f0f8`.
+No solver is launched; no server source file is modified. 3D is follow-up #1286/#2019.

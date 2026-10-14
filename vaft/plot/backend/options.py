@@ -65,6 +65,9 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("yunit", "str", description="display unit of the y axis"),
         OptionSpec("xunit", "str", description="display unit of the x axis"),
         OptionSpec("time_slice", "int", description="stored equilibrium slice index"),
+        OptionSpec("comparison_intent", "str", description="matched_baseline, controlled_sensitivity or exploratory_overlay"),
+        OptionSpec("controlled_differences", "any", description="explicit axis.key scientific variations"),
+        OptionSpec("time_tolerance", "float", description="maximum radial transport experimental-time mismatch [s]"),
         OptionSpec("time", "float", description="a time in seconds, snapped to a stored slice"),
         OptionSpec("time_range", "range",
                    description="(start, stop) in seconds: the window of a time history, honoured "
@@ -293,7 +296,7 @@ DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
     # issue #460: the Mirnov spectrogram's predicted mode tracks.
     "mode_overlay",
     # issue #1591: the linear gyrokinetic spectra's unconverged-mode switch.
-    "include_unconverged",
+    "include_unconverged", "time_tolerance", "comparison_intent", "controlled_differences",
     # roadmap #1242 C3: the vacuum benchmark's knobs.
     "resistance_scale", "n_tau",
     # issue #1837: the kinetic state's equilibrium occurrence.

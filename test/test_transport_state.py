@@ -730,7 +730,7 @@ def test_a_tglf_state_the_mapper_refuses_is_not_solved(driver, sample, tmp_path,
 
     monkeypatch.setattr(tglf, "run_tglf_case", _solved_tglf_run)
     monkeypatch.setattr(turbulence, "core_transport_from_tglf",
-                        lambda ods, pairs, profile, time: {"model": 0, "written": [],
+                        lambda ods, pairs, profile, time, **identity: {"model": 0, "written": [],
                                                            "skipped": ["rmin is not monotone"]})
     common = _one_state_filedb(sample, tmp_path)
     assert driver.main(common + ["--out", str(tmp_path / "out"), "--workers", "1",

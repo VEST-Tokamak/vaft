@@ -54,6 +54,7 @@ from .outputs import (
     CgyroOutputs,
     collect_cgyro_outputs,
 )
+from .fields import FieldHistory, read_field_history
 from .locality import (
     BOX_THRESHOLDS,
     LOCALITY_THRESHOLDS,
@@ -71,6 +72,7 @@ from .runner import (
 )
 
 __all__ = [
+    "FieldHistory", "read_field_history",
     "BOX_THRESHOLDS",
     "LOCALITY_THRESHOLDS",
     "locality_report",

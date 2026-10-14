@@ -33,6 +33,7 @@ import numpy as np
 from .style import axis_label, finalize, resolve_axes
 
 __all__ = [
+    "plot_gyrokinetics_field_potential",
     "cgyro_linear_spectrum",
     "plot_convergence",
     "plot_eigenfunction",
@@ -880,3 +881,154 @@ def plot_predator_prey_lag(
         axes.set_title(title)
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
+
+
+def plot_gyrokinetics_field_potential(
+    history,
+    *,
+    component="total",
+    theta_index=0,
+    frame_index=0,
+    animation=False,
+    diagnostics=None,
+    fps=10.0,
+    dpi=100,
+    show=False,
+):
+    """Draw a native saved-theta potential plane or canonical Animation.
+
+    Interpretation
+    --------------
+    Shows the local total, ky=0 or nonzonal potential in native CGYRO units,
+    with simulation timestamps and optional causally aligned diagnostic traces.
+    Scientific reductions are prepared by vaft.process, never by the renderer.
+
+    Parameters
+    ----------
+    history : FieldHistory
+        Native read_field_history result, not an IMAS ODS.
+    component : str, optional
+        Total, zonal or nonzonal selection, default total.
+    theta_index : int, optional
+        Index into actually saved theta planes, default zero.
+    frame_index : int, optional
+        Selected frame for a static figure, default zero.
+    animation : bool, optional
+        Return the existing canonical Animation when true.
+    diagnostics : mapping, optional
+        Prepared traces keyed by label, with time, values, unit and max_gap.
+    fps : float, optional
+        Playback frames per second, independent of simulation time.
+    dpi : int, optional
+        Animation raster resolution, default 100.
+    show : bool, optional
+        Display a static result immediately.
+
+    Returns
+    -------
+    tuple or Animation
+        Static figure/axes or a lazy sequence supporting MP4/WebM export.
+
+    Limitations
+    -----------
+    A single saved-theta plane does not establish full parallel structure or a
+    global solution. ky=0 here is not a flux-surface-averaged zonal flow. Missing
+    fields and diagnostics are never filled with invented zeros. Numerical
+    qualification is inherited from the prepared scientific results.
+    """
+    from vaft.process.gyrokinetics import reconstruct_field
+    from vaft.plot.models import Field2D
+    from vaft.plot.renderers.fields import render_field_2d
+    from vaft.plot._animation import Animation, Driver
+    from vaft.process.gyrokinetic_comparison import prepare_diagnostic_traces
+    import matplotlib.pyplot as plt
+
+    if not np.isfinite(fps) or fps <= 0:
+        raise ValueError("fps must be positive")
+    traces = prepare_diagnostic_traces(diagnostics or {}, history.time)
+
+    def build(selection):
+        i = int(selection["frame_index"])
+        plane = reconstruct_field(
+            history.read(slice(i, i + 1), theta_index)[..., 0],
+            history.kx,
+            history.ky,
+            length_x=history.metadata["length_rho_s"],
+            component=component,
+        )
+        return Field2D(
+            r=plane.x,
+            z=plane.y,
+            values=plane.values.T,
+            x_label=r"$x/\rho_s$ (local)",
+            y_label=r"$y/\rho_s$ (local)",
+            value_label=r"$\delta\phi$ [native CGYRO]",
+            title=f"{component} potential; saved theta={history.theta[theta_index]:g}; t={history.time[i]:g} a/c_s",
+            metadata={
+                "time": float(history.time[i]),
+                "frame_index": i,
+                **plane.metadata,
+            },
+        )
+
+    def draw(model, ax=None, show=False, **style):
+        fig, axes = plt.subplots(
+            1 + len(traces),
+            1,
+            figsize=(7, 5 + 2 * len(traces)),
+            squeeze=False,
+            gridspec_kw={"height_ratios": [3] + [1] * len(traces)},
+        )
+        render_field_2d(model, ax=axes[0, 0], cmap="RdBu_r", show=False)
+        i = model.metadata["frame_index"]
+        for axis, (label, trace) in zip(axes[1:, 0], traces.items()):
+            tx, vy = trace["frames"][i]
+            axis.plot(tx, vy, lw=1)
+            axis.axvline(model.metadata["time"], color="k", lw=0.6)
+            axis.set_xlim(history.time[0], history.time[-1])
+            axis.set_ylim(*trace["limits"])
+            axis.set_ylabel(f"{label} [{trace['unit']}]")
+            axis.set_xlabel("simulation time [a/c_s]")
+        fig.tight_layout()
+        if show:
+            plt.show()
+        return fig, axes[:, 0]
+
+    if not animation:
+        return draw(build({"frame_index": frame_index}), show=show)
+    if len(history.time) < 2:
+        raise ValueError("animation requires at least two frames")
+    driver = Driver(
+        "frame_index",
+        "CGYRO saved field",
+        "simulation time",
+        "a/c_s",
+        tuple(range(len(history.time))),
+        tuple(map(float, history.time)),
+    )
+    return Animation(
+        plot="gyrokinetics_field_potential",
+        label="native CGYRO local flux tube",
+        driver=driver,
+        selection={"theta_index": theta_index, "component": component},
+        fps=float(fps),
+        timing="uniform",
+        dpi=dpi,
+        image=False,
+        vmin=None,
+        vmax=None,
+        frame_label=True,
+        options={},
+        style={},
+        build=build,
+        draw=draw,
+        scientific_context={
+            **dict(history.metadata),
+            "diagnostics": {
+                k: {"unit": v["unit"], "max_gap": v["max_gap"]}
+                for k, v in traces.items()
+            },
+            "theta": float(history.theta[theta_index]),
+            "component": component,
+        },
+    )

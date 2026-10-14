@@ -320,8 +320,11 @@ def gyrokinetics_local_from_cgyro(
     put("model.include_b_field_parallel", int(n_field >= 3))
     put("model.adiabatic_electrons", 0)
     put("model.include_full_curvature_drift", 1)
-    put("model.include_coriolis_drift", 0)
-    put("model.include_centrifugal_effects", 0)
+    if float(parameters.get("MACH",0)) == 0:
+        put("model.include_coriolis_drift", 0)
+        put("model.include_centrifugal_effects", 0)
+    else:
+        skipped.append("model flow flags: nonzero rotation model has not been audited")
     if int(parameters.get("COLLISION_MODEL", 4)) == 4:
         put("model.collisions_pitch_only", 0)
         put("model.collisions_momentum_conservation", 1)
@@ -330,7 +333,7 @@ def gyrokinetics_local_from_cgyro(
     else:
         skipped.append("model.collisions_*: only COLLISION_MODEL=4 is classified")
 
-    _write_local_state(local, factors, put, skipped)
+    _write_local_state(local, factors, put, skipped, parameters)
 
     # -- linear -------------------------------------------------------------------
     if "NONLINEAR_FLAG" in parameters:
@@ -342,10 +345,12 @@ def gyrokinetics_local_from_cgyro(
         _write_linear(ods, base, local, outputs, factors, parameters, put, skipped)
     else:
         _write_nonlinear(ods, base, outputs, factors, n_field, flux_window, put, skipped)
+    _retain_local_identity(ods, base, "CGYRO", local, outputs, provenance,
+                           parameters, time, flux_window)
     return {"written": written, "skipped": skipped}
 
 
-def _write_local_state(local: Any, factors: Mapping[str, float], put, skipped: list) -> None:
+def _write_local_state(local: Any, factors: Mapping[str, float], put, skipped: list, parameters=None) -> None:
     """Species, flux surface and normalising quantities of one local input (CGYRO form).
 
     Shared by the CGYRO and TGLF writers: TGLF's local input is renamed into this form
@@ -353,6 +358,10 @@ def _write_local_state(local: Any, factors: Mapping[str, float], put, skipped: l
     so both codes' IDS describe the surface with the same numbers.
     """
     # -- species --------------------------------------------------------------
+    parameters = dict(parameters or {})
+    flow_keys = ("GAMMA_E", "GAMMA_P", "MACH", "VEXB_SHEAR", "VPAR_1", "VPAR_SHEAR_1")
+    nonzero_flow = any(float(value or 0) != 0 for key,value in parameters.items()
+                       if key in flow_keys or key.startswith(("VPAR_", "VPAR_SHEAR_")))
     species = local.species
     for index in range(local.n_species):
         prefix = f"species.{index}"
@@ -364,11 +373,15 @@ def _write_local_state(local: Any, factors: Mapping[str, float], put, skipped: l
             float(species["DLNNDR"][index]) * factors["rmaj"])
         put(f"{prefix}.temperature_log_gradient_norm",
             float(species["DLNTDR"][index]) * factors["rmaj"])
-        put(f"{prefix}.velocity_tor_gradient_norm", 0.0)
+        if not nonzero_flow:
+            put(f"{prefix}.velocity_tor_gradient_norm", 0.0)
     put("species_all.beta_reference", float(local.betae_unit) * factors["beta"])
     put("species_all.debye_length_norm", float(local.lambda_star) * factors["debye"])
-    put("species_all.shearing_rate_norm", 0.0)
-    put("species_all.velocity_tor_norm", 0.0)
+    if nonzero_flow:
+        skipped.append("flow/shear mapping: nonzero effective flow normalization is not audited; native values retained")
+    else:
+        put("species_all.shearing_rate_norm", 0.0)
+        put("species_all.velocity_tor_norm", 0.0)
     skipped.append("collisions.collisionality_norm: " + MAPPING_AUDIT["collisions.collisionality_norm"][1])
 
     # -- flux surface -----------------------------------------------------------
@@ -464,10 +477,9 @@ def _write_nonlinear(ods, base, outputs, factors, n_field, window, put, skipped)
     if np.count_nonzero(mask) < 2:
         skipped.append(f"non_linear.fluxes_1d: fewer than two samples in {window}")
         return
-    integrate = getattr(np, "trapezoid", None) or np.trapz
-    # (species, moment, field) after summing toroidal modes and averaging in time
-    summed = np.sum(outputs.flux[..., mask], axis=3)
-    average = integrate(summed, t[mask], axis=-1) / (t[mask][-1] - t[mask][0])
+    from vaft.process.gyrokinetics import time_window_average
+    per_mode = time_window_average(t, outputs.flux, window=window)
+    average = np.sum(per_mode, axis=3)
     for f in range(min(n_field, average.shape[2])):
         put(f"non_linear.fluxes_1d.particles_{_FIELD_DD[f]}",
             average[:, 0, f] * factors["flux"])
@@ -475,7 +487,6 @@ def _write_nonlinear(ods, base, outputs, factors, n_field, window, put, skipped)
             average[:, 1, f] * factors["flux"])
     # ky-resolved: the same time average without the sum over toroidal modes,
     # (species, moment, field, n); n is the binormal axis already written below.
-    per_mode = integrate(outputs.flux[..., mask], t[mask], axis=-1) / (t[mask][-1] - t[mask][0])
     for f in range(min(n_field, per_mode.shape[2])):
         put(f"non_linear.fluxes_2d_k_x_sum.particles_{_FIELD_DD[f]}",
             per_mode[:, 0, f, :] * factors["flux"])
@@ -616,7 +627,7 @@ def gyrokinetics_local_from_tglf(
     for key in ("model.collisions_*", "model.include_full_curvature_drift / coriolis / centrifugal"):
         skipped.append(f"{key}: {TGLF_MAPPING_AUDIT[key][1]}")
 
-    _write_local_state(renamed, factors, put, skipped)
+    _write_local_state(renamed, factors, put, skipped, parameters)
 
     ky = getattr(outputs, "ky_spectrum", None)
     gamma = getattr(outputs, "growth_rate", None)
@@ -678,6 +689,8 @@ def gyrokinetics_local_from_tglf(
                        + TGLF_MAPPING_AUDIT["non_linear.fluxes_1d.momentum_*"][1])
     skipped.append("fluctuation spectra: "
                    + TGLF_MAPPING_AUDIT["fluctuation amplitudes, cross phases, field intensities"][1])
+    _retain_local_identity(ods, base, "TGLF", renamed, outputs, provenance,
+                           parameters, time, None)
     return {"written": written, "skipped": skipped}
 
 
@@ -700,7 +713,7 @@ def _cgyro_model_position(ods: ODS) -> int:
     return count
 
 
-def core_transport_from_cgyro(
+def _core_transport_from_cgyro(
     ods: ODS,
     surfaces: Iterable[tuple[Any, Any, tuple[float, float]]],
     profile: Any,
@@ -708,6 +721,7 @@ def core_transport_from_cgyro(
     time: float = 0.0,
     time_index: int = 0,
     provenance: Optional[Mapping[str, Any]] = None,
+    _target_model: Optional[int] = None,
 ) -> dict[str, Any]:
     """Write saturated nonlinear CGYRO fluxes into ``core_transport``.
 
@@ -743,7 +757,7 @@ def core_transport_from_cgyro(
     if rho is None:
         return {"written": [], "skipped": skipped + ["profile cannot map r/a to rho_tor_norm"]}
 
-    m = _cgyro_model_position(ods)
+    m = _target_model if _target_model is not None else _cgyro_model_position(ods)
     model = f"core_transport.model.{m}"
     ods[f"{model}.identifier.index"] = ANOMALOUS_MODEL_INDEX
     ods[f"{model}.identifier.name"] = ANOMALOUS_MODEL_NAME
@@ -879,3 +893,91 @@ def merge_linear_scan(odss: Iterable[ODS], *, rtol: float = 1e-9) -> ODS:
     for k, (_ky, wave) in enumerate(sorted(waves, key=lambda pair: pair[0])):
         merged[f"{IDS}.linear.wavevector.{k}"] = copy.deepcopy(wave)
     return merged
+
+
+def core_transport_from_cgyro(ods, surfaces, profile, *, time=0.0, time_index=0,
+                             state_identity=None, realization_id=None,
+                             configuration=None, provenance=None):
+    """Map one radial realization transactionally, preserving scientific identity.
+
+    Existing positional entry points remain supported. Explicit state_identity,
+    realization_id and effective configuration are recommended. Legacy products
+    without identity are never reused. Same state/time is idempotent; a conflicting
+    time index or state raises before the original ODS changes.
+    """
+    from vaft.code.gacode.result_identity import collection_record, prepare_target, encode
+    surfaces = list(surfaces)
+    if not surfaces:
+        return {"written": [], "skipped": ["no surfaces"]}
+    retained = [row for row in surfaces if row[1] is not None and getattr(row[0],"normalisation",None) is not None
+                and row[1].time_average_flux(row[2]) is not None]
+    if not retained:
+        return _core_transport_from_cgyro(ods.copy(), surfaces, profile, time=time, time_index=time_index, provenance=provenance)
+    pairs = [(row[0], getattr(row[1], "outputs_native", row[1])) for row in retained]
+    record = collection_record("CGYRO", pairs, state_identity=state_identity,
+        realization_id=realization_id, configuration=configuration,
+        windows=[row[2] for row in retained])
+    model, index, record = prepare_target(ods, record, float(time), time_index)
+    candidate = ods.copy()
+    base = f"core_transport.model.{model}"
+    # Clear a re-applied slice so unavailable channels cannot leave stale data.
+    slice_path = f"{base}.profiles_1d.{index}"
+    if slice_path in candidate: candidate[slice_path].clear()
+    report = _core_transport_from_cgyro(candidate, surfaces, profile, time=time, time_index=index,
+        _target_model=model, provenance=provenance)
+    if report.get("written"):
+        from vaft.code.gacode.result_identity import preserve_time_semantics, plain
+        if provenance: record["source_provenance"] = plain(provenance)
+        candidate[f"{base}.code.parameters"] = encode(record, candidate.get(f"{base}.code.parameters", None))
+        preserve_time_semantics(candidate)
+        ods["core_transport"] = candidate["core_transport"]
+    report["model"] = model
+    return report
+
+
+def _retain_local_identity(ods, base, solver, local, outputs, provenance, effective, time, window):
+    from vaft.code.gacode.result_identity import collection_record, encode
+    record = collection_record(solver, [(local, outputs)],
+        state_identity=provenance.get("state_identity"), realization_id=provenance.get("realization_id"))
+    record["experimental_time_s"] = time
+    record["simulation_time_unit"] = "a/c_s" if solver == "CGYRO" else None
+    record["averaging_window"] = window
+    from vaft.code.gacode.result_identity import digest
+    record["analysis_identity"] = digest({"window":window,"method":"gap-aware selected window" if window else "native linear/quasilinear output"})
+    record["effective_supplied_parameters"] = effective
+    from vaft.code.gacode.result_identity import input_value_status
+    requested=record["local_runs"][0].get("requested_input", {})
+    effective_input=dict(record["local_runs"][0].get("native_input", {}))
+    effective_input.update(effective)
+    record["effective_input_provenance"] = input_value_status(
+        effective_input, requested or effective, getattr(local,"provenance",{}))
+    ods[f"{base}.code.parameters"] = encode(record, ods.get(f"{base}.code.parameters", None))
+
+
+def _transactional_local_mapper(mapper):
+    from functools import wraps
+    @wraps(mapper)
+    def wrapped(ods, *args, **kwargs):
+        from vaft.code.gacode.result_identity import parameters
+        old = parameters(ods.get(f"{IDS}.code.parameters", None))
+        if old is None and ods.get(f"{IDS}.code.name",None) is not None:
+            raise ValueError("legacy gyrokinetics_local identity is unverified; map into a fresh ODS")
+        candidate = ods.copy()
+        if IDS in candidate: candidate[IDS].clear()
+        report = mapper(candidate, *args, **kwargs)
+        if not report.get("written"): return report
+        new = parameters(candidate.get(f"{IDS}.code.parameters", None))
+        if old and new:
+            for key in ("solver", "configuration", "state_identity", "experimental_time_s"):
+                if old.get(key) != new.get(key):
+                    raise ValueError(f"one gyrokinetics_local IDS holds one simulation; conflicting {key}")
+            old_runs=old.get("local_runs",[]);new_runs=new.get("local_runs",[])
+            if old_runs and new_runs and old_runs[0].get("physical_input_fingerprint")!=new_runs[0].get("physical_input_fingerprint"):
+                raise ValueError("conflicting local physical input under the same state identity")
+        ods[IDS] = candidate[IDS]
+        return report
+    return wrapped
+
+
+gyrokinetics_local_from_cgyro = _transactional_local_mapper(gyrokinetics_local_from_cgyro)
+gyrokinetics_local_from_tglf = _transactional_local_mapper(gyrokinetics_local_from_tglf)

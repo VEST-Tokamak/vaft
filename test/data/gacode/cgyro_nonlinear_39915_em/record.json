@@ -1,0 +1,54 @@
+{
+ "shot": 39915,
+ "time_efit_s": 0.317,
+ "efit_lineage": "magnetics",
+ "state_identity": "fbc8e795d8e0278f43d40d40a79abeac00c8855286ba4dd7e59d515218252bc5",
+ "r_over_a": 0.7,
+ "field_model": "em-aperp",
+ "status": "executed",
+ "runtime_status": "completed",
+ "returncode": 0,
+ "elapsed_s": 97158.21975387598,
+ "sim_time": 500.0,
+ "exit_message": "Normal",
+ "errors": [],
+ "n_mpi": 32,
+ "restart": true,
+ "provenance": {
+  "gacode_commit": "b49339750a4aa4cf2b089fa9ff3afe098005f0f8",
+  "version": {
+   "line": "26-Oct-07 10:24:29 [b493397 [2026-08-20]][TDST_GNU][2.5000E+02]",
+   "revision": "b493397 [2026-08-20]",
+   "commit": "b493397",
+   "platform": "TDST_GNU",
+   "start_time": "2.5000E+02",
+   "starts": 2
+  },
+  "resolution": {
+   "n_energy": 8,
+   "n_xi": 16,
+   "n_theta": 24,
+   "n_radial": 64,
+   "n_toroidal": 16,
+   "box_size": 3,
+   "ky": 0.1,
+   "delta_t": 0.002,
+   "delta_t_method": 1,
+   "max_time": 250.0,
+   "freq_tol": 0.001
+  },
+  "formalism": {
+   "distribution_formulation": "delta_f",
+   "spatial_domain": "local",
+   "numerical_representation": "continuum",
+   "field_model": "em-aperp",
+   "regime": "nonlinear",
+   "topology_domain": "closed_flux_surface",
+   "geometry_model": "miller",
+   "species_model": "kinetic_electrons",
+   "solver": "cgyro",
+   "solver_version": "b49339750a4aa4cf2b089fa9ff3afe098005f0f8"
+  },
+  "input_sha256": "96f1ca3fe95eb0e3d0af25a45a9c3f814363c7e9cc40d818887922b9faf9cb5a"
+ }
+}

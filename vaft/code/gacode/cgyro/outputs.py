@@ -212,8 +212,8 @@ class CgyroOutputs:
         mask = (t >= window[0]) & (t <= window[1])
         if np.count_nonzero(mask) < 2:
             return None
-        integrate = getattr(np, "trapezoid", None) or np.trapz
-        return integrate(trace[..., mask], t[mask], axis=-1) / (t[mask][-1] - t[mask][0])
+        from vaft.process.gyrokinetics import time_window_average
+        return time_window_average(t, trace, window=window)
 
     def align_records(self, data: np.ndarray) -> Optional[np.ndarray]:
         """A raw time-history array (time on the last axis) aligned to :attr:`time`.
