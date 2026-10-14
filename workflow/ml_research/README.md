@@ -130,3 +130,5 @@ of symbolic shape/control-flow limitations; all six extracted with explicit
 conceptual graph labelled as executed.
 
 Sample-level unavailable structured inputs are excluded from moments and model execution and return NaN outputs. A generated lazy source is tested against identical eager content for fingerprint, history and model-state equality.
+
+Masked composite losses may additionally return `__aggregation__`, mapping every non-total component name to `(valid_element_count, total_coefficient)`. The trainer computes epoch component means using these counts and reconstructs the monitored total from the coefficients. Counts may be zero; coefficients must stay constant. Without this metadata existing losses retain sample-weighted aggregation. Built-in named masked MSE and the NeurIPS composite adapter supply this metadata.

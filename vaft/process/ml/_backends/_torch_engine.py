@@ -196,13 +196,39 @@ def run_training(net, spec, config, train_data, val_data, loss_fn, normalization
         else:
             result = loss_fn(prediction.float(), target, x)
             n = len(x)
-        components = result if isinstance(result, dict) else {"loss": result}
+        components = dict(result) if isinstance(result, dict) else {"loss": result}
+        aggregation = components.pop("__aggregation__", None)
+        if aggregation is not None:
+            if set(aggregation) != set(components) - {"loss"}:
+                raise ModelContractError("loss aggregation must describe every non-total component")
+            import math
+            for weight, coefficient in aggregation.values():
+                if not math.isfinite(weight) or weight < 0 or not math.isfinite(coefficient):
+                    raise ModelContractError("loss aggregation needs finite nonnegative counts and finite coefficients")
         if "loss" not in components:
             raise ModelContractError("composite loss mapping needs a differentiable 'loss' total")
         for name, value in components.items():
             if not torch.is_tensor(value) or value.ndim != 0 or not torch.isfinite(value):
                 raise ModelContractError(f"loss component {name!r} must be a finite scalar tensor")
-        return components, n
+        return components, n, aggregation
+
+    def accumulate(totals, counts, coefficients, components, n, aggregation):
+        for name, value in components.items():
+            if aggregation is not None and name == "loss":
+                continue
+            weight, coefficient = (n, None) if aggregation is None else aggregation[name]
+            if name in coefficients and coefficients[name] != coefficient:
+                raise ModelContractError("loss aggregation coefficients must remain constant across batches")
+            coefficients[name] = coefficient
+            totals[name] = totals.get(name, 0.0) + float(value.detach()) * weight
+            counts[name] = counts.get(name, 0.0) + weight
+
+    def record(prefix, totals, counts, coefficients):
+        values = {name: value / counts[name] if counts[name] else 0.0 for name, value in totals.items()}
+        if "loss" not in values:
+            values["loss"] = sum(values[name] * coefficients[name] for name in values)
+        for name, value in values.items():
+            history.setdefault(prefix + name, []).append(value)
 
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats(device)
@@ -214,11 +240,11 @@ def run_training(net, spec, config, train_data, val_data, loss_fn, normalization
             if config.early_stopping_patience is not None and stale >= config.early_stopping_patience:
                 break
             net.train()
-            totals, seen = {}, 0
+            totals, counts, coefficients = {}, {}, {}
             current = epoch_data(rng) if epoch_data is not None else train_data
             for batch in loader(current, True):
                 optimizer.zero_grad()
-                components, n = measured(batch)
+                components, n, aggregation = measured(batch)
                 scaler.scale(components["loss"]).backward()
                 scaler.unscale_(optimizer)
                 for parameter in net.parameters():
@@ -231,24 +257,18 @@ def run_training(net, spec, config, train_data, val_data, loss_fn, normalization
                 if scheduler is not None:
                     scheduler.step()
                 step += 1
-                seen += n
-                for name, value in components.items():
-                    totals[name] = totals.get(name, 0.0) + float(value.detach()) * n
-            for name, value in totals.items():
-                history.setdefault("train_" + name, []).append(value / seen)
+                accumulate(totals, counts, coefficients, components, n, aggregation)
+            record("train_", totals, counts, coefficients)
             history.setdefault("learning_rate", []).append(float(optimizer.param_groups[0]["lr"]))
             monitored = history["train_loss"][-1]
             net.eval()
             if has_val:
-                totals, seen = {}, 0
+                totals, counts, coefficients = {}, {}, {}
                 with torch.no_grad():
                     for batch in loader(val_data, False):
-                        components, n = measured(batch)
-                        seen += n
-                        for name, value in components.items():
-                            totals[name] = totals.get(name, 0.0) + float(value) * n
-                for name, value in totals.items():
-                    history.setdefault("validation_" + name, []).append(value / seen)
+                        components, n, aggregation = measured(batch)
+                        accumulate(totals, counts, coefficients, components, n, aggregation)
+                record("validation_", totals, counts, coefficients)
                 monitored = history["validation_loss"][-1]
             if monitored < best_loss:
                 best_loss, best_epoch, stale = monitored, epoch, 0

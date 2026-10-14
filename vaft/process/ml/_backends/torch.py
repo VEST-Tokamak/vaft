@@ -191,14 +191,16 @@ class TorchBackend(Backend):
         device = torch.device(config.device)
         schema = dataset.schema()
         def masked_mse(prediction, target, inputs):
-            terms = {}
+            terms, aggregation = {}, {}
             for name, values in target.items():
                 mask = inputs["__target_masks__"][name]
-                if mask.any():
-                    terms[name] = ((prediction[name] - values)[mask] ** 2).mean()
-            if not terms:
+                count = int(mask.sum())
+                component = "target/loss" if name == "loss" else name
+                terms[component] = ((prediction[name] - values)[mask] ** 2).mean() if count else prediction[name].sum() * 0
+                aggregation[component] = (count, 1.0)
+            if not any(count for count, _ in aggregation.values()):
                 raise ModelContractError("batch has no supervised target elements")
-            return {"loss": sum(terms.values()), **terms}
+            return {"loss": sum(terms.values()), **terms, "__aggregation__": aggregation}
         loss = masked_mse if spec.hyperparameters.get("loss", "mse") == "mse" else self._loss(spec, normalization)
         with torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
             torch.manual_seed(config.seed)
