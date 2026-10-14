@@ -166,3 +166,31 @@ def test_generated_lazy_source_matches_eager_content_and_training():
     a = ml.train_model(lazy, ml.split_groups(lazy), SPEC, config)
     b = ml.train_model(eager, ml.split_groups(eager), SPEC, config)
     assert a.history == b.history and a.artifact.state_sha256 == b.artifact.state_sha256
+
+
+def test_masked_epoch_loss_is_independent_of_batch_grouping():
+    def constant(spec, inputs, outputs):
+        class Constant(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.bias = torch.nn.Parameter(torch.zeros(3))
+            def forward(self, x):
+                n = len(x["x"])
+                return {"flux": self.bias[:2].expand(n, 2), "scalar": self.bias[2:].expand(n, 1)}
+        return Constant()
+    ml.register_architecture("masked_constant", constant, kind="supervised")
+    rows = [ml.StructuredSample({"x": np.zeros(1, np.float32)},
+        {"flux": np.array([10. if i == 0 else 0., 0.], np.float32), "scalar": np.array([2.], np.float32)},
+        {"flux": np.array([True, i != 0]), "scalar": np.array([i != 1])}) for i in range(3)]
+    data = ml.build_structured_dataset(rows * 2, ["train"] * 3 + ["val"] * 3,
+        input_specs={"x": ml.TensorSpec((1,))},
+        target_specs={"flux": ml.TensorSpec((2,)), "scalar": ml.TensorSpec((1,))},
+        spec=ml.DatasetSpec(name="masked", task="regress", group_key="shot"))
+    partition = ml.split_groups(data, ml.SplitSpec(fractions={"train": .5, "validation": .5, "test": 0.}, fixed={"train": "train", "val": "validation"}))
+    for batch_size in (1, 2, 3):
+        result = ml.train_model(data, partition, ml.ModelSpec(architecture="masked_constant", task="regress"),
+            ml.TrainingConfig(epochs=1, batch_size=batch_size, learning_rate=1e-30,
+                              normalize_inputs=False, normalize_targets=False, early_stopping_patience=None))
+        assert result.history["validation_flux"] == pytest.approx([20.])
+        assert result.history["validation_scalar"] == pytest.approx([4.])
+        assert result.history["validation_loss"] == pytest.approx([24.])
