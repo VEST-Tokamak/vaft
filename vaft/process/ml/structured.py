@@ -160,7 +160,10 @@ class StructuredDatasetArtifact:
         for role, schemas, values in (("inputs", self.input_specs, sample.inputs), ("targets", self.target_specs, sample.targets)):
             checked = {}
             for name, s in schemas.items():
-                a = np.asarray(values[name], dtype=s.dtype)
+                raw = np.asarray(values[name])
+                if np.dtype(s.dtype).kind == "b" and raw.dtype != bool:
+                    raise ModelContractError(f"boolean tensor {role}.{name} must be boolean, not numeric validity codes")
+                a = np.asarray(raw, dtype=s.dtype)
                 if a.ndim != len(s.shape) or any(want is not None and got != want for got, want in zip(a.shape, s.shape)):
                     raise ModelContractError(f"{role}.{name} has shape {a.shape}, expected {s.shape}")
                 checked[name] = a

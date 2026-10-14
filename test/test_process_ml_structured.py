@@ -115,6 +115,13 @@ def test_structured_backends_and_invalid_values_rejected():
                                  bad[0].targets, bad[0].target_masks)
     with pytest.raises(ml.ModelContractError, match="nonfinite"):
         ml.build_structured_dataset(bad, data.groups, input_specs=data.input_specs, target_specs=data.target_specs, spec=data.spec)
+    wrong_mask = list(data.source)
+    wrong_mask[0] = ml.StructuredSample({"tokens": np.zeros((1, 2)), "valid": np.array([-1])},
+                                       wrong_mask[0].targets, wrong_mask[0].target_masks)
+    with pytest.raises(ml.ModelContractError, match="boolean tensor"):
+        ml.build_structured_dataset(wrong_mask, data.groups, input_specs=data.input_specs,
+                                    target_specs=data.target_specs, spec=data.spec)
+
 
 
 def test_unavailable_samples_are_not_run_or_normalized():
