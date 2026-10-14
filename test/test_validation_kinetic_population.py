@@ -64,6 +64,26 @@ def test_a_clean_population_joins_one_to_one_with_no_issues():
     assert len(pop.profiles) == 4
 
 
+def test_optional_conditioning_is_unavailable_for_old_exports_and_masked_on_bad_products():
+    state, profiles, virial = _tables()
+    old = kp.virial_evidence(kp.assemble_kinetic_population(state, profiles, virial))
+    assert set(old.loc[old.family == "conditioning", "status"]) == {"unavailable"}
+    for column in kp.CONDITIONING_QUANTITIES:
+        virial[column] = 0.75
+    virial["rt_over_r0_available"] = [True, False, True]
+    virial.loc[0, "efit_product_sha256"] = "bad"
+    pop = kp.assemble_kinetic_population(state, profiles, virial)
+    evidence = kp.virial_evidence(pop)
+    conditioning = evidence.loc[evidence.family == "conditioning"]
+    bad = conditioning.loc[(conditioning.shot == 40000) & (conditioning.time_efit_s == 0.3201)]
+    assert set(bad.status) == {"failed"} and bad.value.isna().all()
+    rt = conditioning.loc[(conditioning.quantity == "rt_over_r0_available") & (conditioning.time_efit_s == 0.3221)]
+    assert rt.iloc[0].status == "available" and rt.iloc[0].value == 0
+    summary = kp.population_evidence_summary(pop)
+    alpha = summary.loc[(summary.quantity == "alpha") & (summary.efit_lineage == "magnetics")].iloc[0]
+    assert (alpha.states, alpha.available, alpha.failed) == (2, 1, 1)
+
+
 def test_time_keys_join_by_rounded_value_not_by_position():
     state, profiles, virial = _tables()
     virial = virial.iloc[::-1].reset_index(drop=True)  # shuffled
@@ -149,7 +169,7 @@ def test_pressure_support_and_roles_stay_separate_and_unmatched_states_are_count
     assert (r_w.states, r_w.available, r_w.unavailable, r_w.failed) == (2, 1, 1, 0)
     assert r_w.validation_role == "held_out_thomson" and r_w["median"] == 3.0
     families = set(summary.family)
-    assert families == {"pressure", "identity", "volume_integral", "pair_13_closure"}
+    assert families == {"pressure", "identity", "volume_integral", "pair_13_closure", "conditioning"}
 
 
 def test_the_study_verdict_rides_along_and_is_never_recomputed():
@@ -157,7 +177,8 @@ def test_the_study_verdict_rides_along_and_is_never_recomputed():
     state.loc[0, "virial_status"] = "fail"
     ev = kp.virial_evidence(kp.assemble_kinetic_population(state, profiles, virial))
     first = ev.loc[(ev.shot == 40000) & (ev.time_efit_s == 0.3201)]
-    assert set(first.virial_status) == {"fail"} and set(first.status) == {"available"}
+    assert set(first.virial_status) == {"fail"}
+    assert set(first.loc[first.family != "conditioning", "status"]) == {"available"}
     assert set(ev.loc[ev.efit_lineage == "electron_kinetic", "virial_status"]) == {"not_available"}
 
 
