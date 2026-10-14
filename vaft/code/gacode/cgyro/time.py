@@ -40,8 +40,8 @@ class CgyroTimeNormalization:
 
     Parameters are SI: length [m], electron temperature [J], mass [kg], speed
     [m/s]. Source identifies the effective run metadata or retained local input.
-    GACODE rounds its energy conversion constant; the recorded speed is retained
-    after a relative 1e-4 consistency check, rather than recomputed silently.
+    GACODE rounds its energy conversion constant; the recorded speed and mass are retained
+    after relative 1e-4 consistency checks, rather than recomputed silently.
     """
 
     reference_length_m: float
@@ -60,7 +60,7 @@ class CgyroTimeNormalization:
             object.__setattr__(self, key, _positive(getattr(self, key), key))
         if not self.source:
             raise ValueError("normalization source is required")
-        if not np.isclose(self.reference_mass_kg, _DEUTERIUM_KG, rtol=1e-6, atol=0):
+        if not np.isclose(self.reference_mass_kg, _DEUTERIUM_KG, rtol=1e-4, atol=0):
             raise ValueError(
                 "CGYRO reference mass must use GACODE deuterium convention"
             )

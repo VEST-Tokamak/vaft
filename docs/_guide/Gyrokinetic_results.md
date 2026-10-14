@@ -171,8 +171,8 @@ and GACODE deuterium mass convention, even for hydrogen or mixed-ion plasmas.
 normalization. `from_equilibrium` reads `a_meters` [m], `temp_norm` [keV],
 `mass_norm` [10^-27 kg], and `vth_norm` [m/s]. It validates positive finite scales,
 the mass convention and the recorded velocity against the temperature. It keeps
-the recorded velocity, allowing GACODE's rounded energy constant (relative
-consistency tolerance 10^-4). If the velocity alone is absent, it derives it from
+the recorded mass and velocity, allowing five-significant-figure output rounding
+and GACODE's rounded energy constant (relative consistency tolerance 10^-4). If the velocity alone is absent, it derives it from
 the other verified quantities. Zero scales, including dimensionless
 `PROFILE_MODEL=1` output, cannot establish SI conversion.
 

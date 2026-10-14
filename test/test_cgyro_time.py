@@ -273,3 +273,18 @@ def test_fields_animation_and_causal_diagnostics_use_same_coordinate(norm):
     )
     _, axes = plots.plot_gyrokinetics_field_potential(restored, time_unit="ms")
     assert "ms" in axes[0].get_title()
+
+
+@pytest.mark.parametrize("radius", ["0.7", "0.8"])
+def test_real_profile_model_two_rounded_normalization(radius):
+    from vaft.code.gacode.cgyro.outputs import parse_equilibrium
+
+    # Real PROFILE_MODEL=2 output writes only five significant figures, including
+    # mass_norm=3.3436 instead of the internal constant 3.34358. Do not reject it.
+    path = DATA / f"cgyro_oracle_48224/r{radius}/out.cgyro.equilibrium"
+    eq = parse_equilibrium(path, 3)
+    norm = CgyroTimeNormalization.from_equilibrium(eq, source=str(path))
+    assert norm.reference_mass_kg == pytest.approx(3.3436e-27)
+    assert norm.electron_temperature_j == eq["temp_norm"] * 1e3 * QE
+    assert norm.sound_speed_m_s == eq["vth_norm"]
+    assert gyrokinetic_elapsed_time_s(1.0, norm) == eq["a_meters"] / eq["vth_norm"]
