@@ -61,6 +61,8 @@ def main():
     matplotlib.rcParams["svg.hashsalt"] = "vaft-ml-research"
     fig, _ = render_line_series(learning_curves(result.history, keys=("train_loss", "validation_loss")))
     fig.savefig(args.out / "learning.svg", metadata={"Date": None})
+    svg_path = args.out / "learning.svg"
+    svg_path.write_text("\n".join(line.rstrip() for line in svg_path.read_text().splitlines()) + "\n")
     from mlflow.tracking import MlflowClient
     client = MlflowClient(tracking_uri=tracking["uri"])
     found = client.get_run(tracking["tracking_run_id"])
