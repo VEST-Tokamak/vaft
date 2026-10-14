@@ -392,6 +392,8 @@ CONVENTION_SENSITIVE = frozenset({
     "profile_ordering_quantities",
     # #1823 follow-up: vacuum b0 r0/R0, r = rho_tor_norm a, cross-section means, beta_tor fraction
     "ordering_inputs_from_ods",
+    "trace_guiding_center", "particle_to_guiding_center", "analyze_particle_orbit",
+    "mirror_particle_field", "toroidal_particle_field",
     # #1608: COCOS source profiles versus full-weber Green response orientation.
     "fit_free_boundary_coils",
     # resistive_zeff (#1214): Romero's full-Wb V = -dpsi/dt, not Ejima's (#354);

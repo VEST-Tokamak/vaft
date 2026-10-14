@@ -36,6 +36,11 @@ __all__ = [
     "psi_per_radian_from_cocos",
     "bounce_harmonic_detuning",
     "boris_orbit",
+    "guiding_center_rhs",
+    "mirror_force",
+    "effective_parallel_potential",
+    "mirror_loss_cone",
+    "bounce_action",
 ]
 
 
@@ -743,7 +748,7 @@ def bounce_harmonic_detuning(omega_b, omega_exb, omega_magnetic=0.0, *, l=1, n=1
     return float(result) if np.ndim(result) == 0 else result
 
 
-def boris_orbit(q, m, x0, v0, E_field: Callable, B_field: Callable, dt, n_steps) -> Tuple[np.ndarray, np.ndarray]:
+def boris_orbit(q, m, x0, v0, E_field: Callable, B_field: Callable, dt, n_steps, *, scheme="legacy") -> Tuple[np.ndarray, np.ndarray]:
     r"""Charged-particle orbit from the Lorentz force, by the Boris scheme.
 
     $$m\,\frac{\mathrm{d}\mathbf{v}}{\mathrm{d}t} = q\,(\mathbf{E} + \mathbf{v}\times\mathbf{B}),
@@ -767,6 +772,9 @@ def boris_orbit(q, m, x0, v0, E_field: Callable, B_field: Callable, dt, n_steps)
         Time step [s].
     n_steps : int
         Number of steps [-].
+    scheme : str, optional
+        ``"legacy"`` preserves historical kick-then-drift output;
+        ``"centered"`` uses a symmetric drift-kick-drift update [-].
 
     Returns
     -------
@@ -775,7 +783,8 @@ def boris_orbit(q, m, x0, v0, E_field: Callable, B_field: Callable, dt, n_steps)
     velocities : np.ndarray
         ``velocities[i + 1]`` is the velocity over the step from
         ``positions[i]`` to ``positions[i + 1]``; ``velocities[0]`` is
-        ``v0``. Shape ``(n_steps + 1, 3)`` [m/s].
+        ``v0``. With scheme="centered", velocities are simultaneous with
+        positions. Shape ``(n_steps + 1, 3)`` [m/s].
 
     Raises
     ------
@@ -821,15 +830,260 @@ def boris_orbit(q, m, x0, v0, E_field: Callable, B_field: Callable, dt, n_steps)
     positions = np.empty((n_steps + 1, 3))
     velocities = np.empty((n_steps + 1, 3))
     positions[0], velocities[0] = x, v
-    k = float(q) * dt / (2.0 * m)
+    if scheme not in ("legacy", "centered"):
+        raise ValueError("scheme must be legacy or centered")
     for i in range(n_steps):
-        e = _vector(E_field(x), "E_field(x)")
-        b = _vector(B_field(x), "B_field(x)")
-        v_minus = v + k * e
-        t = k * b
-        s = 2.0 * t / (1.0 + t @ t)
-        v_prime = v_minus + np.cross(v_minus, t)
-        v = v_minus + np.cross(v_prime, s) + k * e
-        x = x + dt * v
+        x, v = _boris_step(q, m, x, v, E_field, B_field, dt, scheme=scheme)
         positions[i + 1], velocities[i + 1] = x, v
     return positions, velocities
+
+
+def _boris_step(q, m, x, v, E_field, B_field, dt, *, scheme="centered"):
+    """Shared Boris update; centered states are positions and velocities at t_n."""
+    sample = x + 0.5 * dt * v if scheme == "centered" else x
+    k = float(q) * dt / (2.0 * m)
+    e = _vector(E_field(sample), "E_field(x)")
+    b = _vector(B_field(sample), "B_field(x)")
+    v_minus = v + k * e
+    t = k * b
+    s = 2.0 * t / (1.0 + t @ t)
+    v_prime = v_minus + np.cross(v_minus, t)
+    updated = v_minus + np.cross(v_prime, s) + k * e
+    position = sample + 0.5 * dt * updated if scheme == "centered" else x + dt * updated
+    return position, updated
+
+
+def guiding_center_rhs(q, m, p_parallel, mu, B, grad_B, curl_b, E):
+    r"""Hamiltonian guiding-center velocity and parallel force in static fields.
+
+    $$\mathbf B^*=\mathbf B+\frac{p_\parallel}{q}\nabla\times\mathbf b,\quad
+    \dot{\mathbf X}=\frac{(p_\parallel/m)\mathbf B^*
+    +\mathbf b\times(\mu\nabla B-q\mathbf E)/q}{\mathbf b\cdot\mathbf B^*},\quad
+    \dot p_\parallel=\frac{\mathbf B^*\cdot(q\mathbf E-\mu\nabla B)}
+    {\mathbf b\cdot\mathbf B^*}$$
+
+    Parameters
+    ----------
+    q : float
+        Signed nonzero charge [C].
+    m : float
+        Positive particle mass [kg].
+    p_parallel : float
+        Signed parallel kinetic momentum [kg m/s].
+    mu : float
+        Nonnegative magnetic moment, held fixed by the reduced model [J/T].
+    B : array_like
+        Cartesian magnetic field, shape (3,) [T].
+    grad_B : array_like
+        Gradient of field magnitude, shape (3,) [T/m].
+    curl_b : array_like
+        Curl of unit field direction, shape (3,) [1/m].
+    E : array_like
+        Static electric field, shape (3,) [V/m].
+
+    Returns
+    -------
+    velocity : np.ndarray
+        Guiding-center Cartesian velocity [m/s].
+    force : float
+        Parallel kinetic momentum derivative [N].
+
+    Convention
+    ----------
+    SI units, right-handed Cartesian axes; b = B/abs(B). The low-frequency,
+    weak-electric-drift Hamiltonian is p_parallel^2/(2m) + mu B + q Phi.
+    No separate drift velocities are added to this expression.
+
+    Validity
+    --------
+    Nonrelativistic magnetized particles in smooth static fields with small
+    gyroradius compared with field scales, and weak E-cross-B flow compared
+    with characteristic particle speed. This is the lowest-order Hamiltonian
+    GC model, not a high-flow or higher-order finite-Larmor-radius theory.
+
+    Limitations
+    -----------
+    The B-star parallel singularity must terminate integration. Holding mu
+    fixed is a model assumption, not a numerical proof of adiabaticity.
+
+    References
+    ----------
+    .. [1] J. R. Cary and A. J. Brizard, Rev. Mod. Phys. 81 (2009) 693,
+       doi:10.1103/RevModPhys.81.693.
+    """
+    if not all(np.isfinite([q, m, p_parallel, mu])) or q == 0 or m <= 0 or mu < 0:
+        raise ValueError("finite q != 0, m > 0 and mu >= 0 required")
+    vectors = [np.asarray(a, dtype=float) for a in (B, grad_B, curl_b, E)]
+    if any(a.shape != (3,) or not np.all(np.isfinite(a)) for a in vectors):
+        raise ValueError("B, grad_B, curl_b and E must be finite 3-vectors")
+    B, grad_B, curl_b, E = vectors
+    strength = np.linalg.norm(B)
+    if strength == 0:
+        raise ValueError("magnetic field must be nonzero")
+    b = B / strength
+    star = B + p_parallel / q * curl_b
+    denominator = float(b @ star)
+    if abs(denominator) <= 1e-10 * strength:
+        raise ValueError("guiding-center B-star parallel singularity")
+    force = q * E - mu * grad_B
+    return ((p_parallel / m * star - np.cross(b, force) / q) / denominator,
+            float(star @ force / denominator))
+
+
+def mirror_force(mu, dB_ds):
+    r"""Parallel magnetic mirror force along field-line arc length.
+
+    $$F_\parallel=-\mu\,\frac{\mathrm dB}{\mathrm ds}$$
+
+    Parameters
+    ----------
+    mu : float or np.ndarray
+        Nonnegative magnetic moment [J/T].
+    dB_ds : float or np.ndarray
+        Signed derivative along the magnetic field [T/m].
+
+    Returns
+    -------
+    float or np.ndarray
+        Parallel force [N].
+
+    Assumptions
+    -----------
+    Adiabatic magnetized motion, with s increasing along B.
+
+    References
+    ----------
+    .. [1] F. F. Chen, Introduction to Plasma Physics and Controlled Fusion,
+       3rd ed. (2016), Sec. 2.3.
+    """
+    mu, gradient = np.broadcast_arrays(np.asarray(mu, float), np.asarray(dB_ds, float))
+    if np.any(mu < 0) or not np.all(np.isfinite(mu + gradient)):
+        raise ValueError("finite gradient and nonnegative finite mu required")
+    return -mu * gradient
+
+
+def effective_parallel_potential(mu, B, q=0.0, potential=0.0):
+    r"""Effective parallel potential of a magnetized particle in static fields.
+
+    $$U_\mathrm{eff}=\mu B+q\Phi$$
+
+    Parameters
+    ----------
+    mu : float or np.ndarray
+        Nonnegative magnetic moment [J/T].
+    B : float or np.ndarray
+        Positive magnetic field magnitude [T].
+    q : float, optional
+        Signed particle charge; zero omits the electrostatic term [C].
+    potential : float or np.ndarray, optional
+        Electrostatic potential in a stated gauge [V].
+
+    Returns
+    -------
+    float or np.ndarray
+        Effective potential energy [J].
+
+    Assumptions
+    -----------
+    Static electrostatic field and adiabatic magnetic moment.
+
+    References
+    ----------
+    .. [1] F. F. Chen, Introduction to Plasma Physics and Controlled Fusion,
+       3rd ed. (2016), Sec. 2.3.
+    """
+    mu, B, q, potential = np.broadcast_arrays(*[np.asarray(v, float) for v in (mu, B, q, potential)])
+    if np.any(mu < 0) or np.any(B <= 0) or not np.all(np.isfinite(mu + B + q + potential)):
+        raise ValueError("finite inputs, mu >= 0 and B > 0 required")
+    return mu * B + q * potential
+
+
+def mirror_loss_cone(B_min, B_max):
+    r"""Loss-cone pitch angle at the minimum of a magnetic mirror.
+
+    $$\alpha_\mathrm{lc}=\arcsin\sqrt{B_\min/B_\max}$$
+
+    Parameters
+    ----------
+    B_min : float or np.ndarray
+        Positive minimum field [T].
+    B_max : float or np.ndarray
+        Maximum field, at least the minimum [T].
+
+    Returns
+    -------
+    float or np.ndarray
+        Loss-cone half angle; equality is the marginal separatrix [rad].
+
+    Convention
+    ----------
+    Pitch is measured from either parallel direction at B_min. Particles
+    inside either cone pass; outside they reflect in the adiabatic model.
+
+    Assumptions
+    -----------
+    Static mirror without electric potential and conserved magnetic moment.
+
+    References
+    ----------
+    .. [1] F. F. Chen, Introduction to Plasma Physics and Controlled Fusion,
+       3rd ed. (2016), Sec. 2.3.
+    """
+    lo, hi = np.broadcast_arrays(np.asarray(B_min, float), np.asarray(B_max, float))
+    if np.any(lo <= 0) or np.any(hi < lo) or not np.all(np.isfinite(lo + hi)):
+        raise ValueError("finite 0 < B_min <= B_max required")
+    return np.arcsin(np.sqrt(lo / hi))
+
+
+def bounce_action(s, p_parallel, *, closure_tolerance=1e-6):
+    r"""Unnormalized parallel action on one explicitly closed bounce cycle.
+
+    $$J_\parallel=\oint p_\parallel\,\mathrm ds$$
+
+    Parameters
+    ----------
+    s : array_like
+        Signed field-line arc coordinate in time order, returning to its
+        initial value after exactly one full bounce [m].
+    p_parallel : array_like
+        Parallel momentum at the same samples, returning to its initial value
+        and changing sign on both legs [kg m/s].
+    closure_tolerance : float, optional
+        Allowed endpoint mismatch relative to the sampled excursion,
+        a numerical closure tolerance in [0, 0.01] [-].
+
+    Returns
+    -------
+    float
+        Parallel action without a factor of 1/(2 pi) [J s].
+
+    Convention
+    ----------
+    s increases along B, not accumulated unsigned distance. Endpoint closure,
+    both momentum signs and positive oriented action are required. The caller
+    must identify one physical cycle; these checks cannot establish periodicity.
+
+    Limitations
+    -----------
+    Trapezoidal quadrature needs a resolved complete periodic bounce. Partial
+    histories, passing transits and separatrix orbits have no action here.
+
+    References
+    ----------
+    .. [1] J. R. Cary and A. J. Brizard, Rev. Mod. Phys. 81 (2009) 693.
+    """
+    s, p = np.asarray(s, float), np.asarray(p_parallel, float)
+    if s.ndim != 1 or p.shape != s.shape or len(s) < 5 or not np.all(np.isfinite(s + p)):
+        raise ValueError("a finite resolved one-dimensional bounce cycle is required")
+    if np.ptp(s) == 0 or np.ptp(p) == 0:
+        raise ValueError("degenerate bounce cycle")
+    if not np.isfinite(closure_tolerance) or not 0 <= closure_tolerance <= .01:
+        raise ValueError("closure_tolerance must be finite and in [0,0.01]")
+    if abs(s[-1] - s[0]) > closure_tolerance * np.ptp(s) or abs(p[-1] - p[0]) > closure_tolerance * np.ptp(p):
+        raise ValueError("bounce cycle is not closed")
+    if not (np.min(p) < 0 < np.max(p)):
+        raise ValueError("bounce cycle must contain both parallel directions")
+    result = float(np.sum(0.5 * (p[1:] + p[:-1]) * np.diff(s)))
+    if result <= 0:
+        raise ValueError("s must be oriented along the signed parallel momentum")
+    return result
