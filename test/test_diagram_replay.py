@@ -1,6 +1,8 @@
 """Scientific state parity and integrity for lazy documentation replay."""
 
 import shutil
+import json
+import gzip
 
 import pytest
 
@@ -108,4 +110,26 @@ def test_committed_artifacts_and_manifest_integrity(tmp_path):
     artifact = tmp_path / "docs" / rows[0]["artifact"]
     artifact.write_bytes(artifact.read_bytes() + b" ")
     with pytest.raises(ValueError, match="integrity"):
+        catalog_rows(tmp_path)
+
+
+@pytest.mark.parametrize("field", ["driver", "parameters"])
+def test_valid_checksum_cannot_hide_scientific_metadata_drift(tmp_path, field):
+    from vaft.diagram._replay import digest
+
+    shutil.copytree(ROOT / "docs/assets/animations", tmp_path / "docs/assets/animations")
+    manifest_path = tmp_path / "docs/assets/animations/manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    row = manifest["animations"][0]
+    path = tmp_path / "docs" / row["artifact"]
+    data = json.loads(path.read_text())
+    if field == "driver":
+        data[field]["unit"] = "degrees"
+    else:
+        data[field]["width"] = 0.5
+    raw = encode(data)
+    path.write_bytes(raw)
+    row.update(sha256=digest(raw), bytes=len(raw), gzip_bytes=len(gzip.compress(raw, mtime=0)))
+    manifest_path.write_bytes(encode(manifest))
+    with pytest.raises(ValueError, match="scientific (driver|inputs) disagree"):
         catalog_rows(tmp_path)
