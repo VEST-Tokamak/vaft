@@ -96,7 +96,7 @@ def test_pep610_revision_is_owned_by_installed_vaft(monkeypatch):
 
 def test_score_backend_does_not_claim_unused_validation():
     data, split, _ = declared()
-    result = ml.train_model(data, split, ml.ModelSpec(architecture="knn_distance", backend="numpy", task="score"))
+    result = ml.train_model(data, split, ml.ModelSpec(architecture="knn_distance", backend="numpy", task="score", hyperparameters={"k":1}))
     assert result.history == {}
     assert all("b" not in r["groups"] for r in result.artifact.training["data_uses"])
 
