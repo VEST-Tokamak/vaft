@@ -29,6 +29,14 @@ This page explains the diagrams family by family. The complete list -- every bui
 SVG and the exact call that draws it -- is the generated
 [diagram gallery]({{ site.baseurl }}/reference/diagram/).
 
+## Particle motion and computed animation
+
+The [particle-motion guide]({{ site.baseurl }}/guide/particle-motion/) describes
+VAFT's native Lorentz and guiding-center experiments, physical-time animation,
+stationary mirror wells and synchronized invariant diagnostics. Existing static
+references retain their default behavior; computed replay accepts an explicit
+trajectory and time coordinate.
+
 ## Magnetic island
 
 ```python

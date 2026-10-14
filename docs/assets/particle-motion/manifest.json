@@ -1,0 +1,358 @@
+{
+  "schema_version": 1,
+  "generator": "workflow/particle_motion/run.py",
+  "units": "SI",
+  "presentation": {
+    "frames": 12,
+    "dpi": 55
+  },
+  "scope": "nonrelativistic collisionless static fields; weak-flow Hamiltonian GC",
+  "deferred": [
+    "time-dependent fields",
+    "slowly varying mirror second-invariant experiment",
+    "collisions and transport",
+    "external-solver cross-validation"
+  ],
+  "examples": [
+    {
+      "id": "cartesian",
+      "builder": "gyration",
+      "case": "gyration",
+      "static": "cartesian.svg",
+      "animation": "cartesian.gif",
+      "quantitative_panels": "cartesian-diagnostics.png",
+      "driver": {
+        "name": "time",
+        "unit": "s",
+        "values": [
+          0.0,
+          2.1818181818181817,
+          4.363636363636363,
+          6.545454545454545,
+          8.727272727272727,
+          10.909090909090908,
+          13.09090909090909,
+          15.272727272727272,
+          17.454545454545453,
+          19.636363636363633,
+          21.818181818181817,
+          24.0
+        ]
+      },
+      "field": {
+        "name": "uniform Cartesian field",
+        "coordinates": "right-handed Cartesian x,y,z",
+        "units": "SI",
+        "static": true,
+        "derivative_step_m": 0.0001,
+        "magnetic_floor_T": 1e-14,
+        "provenance": {
+          "gauge": "A=B cross x/2; Phi=-E dot x",
+          "geometry": "uniform"
+        }
+      },
+      "full_termination": "completed",
+      "gc_termination": "completed",
+      "gc_energy_residual_max": 2.2204460492503126e-16,
+      "gc_P_phi_residual_max": 0.0,
+      "ordering_warning": false,
+      "rho_over_L_B_max": 0.0,
+      "orbit_class": "no_resolved_turn",
+      "bounce_cycles": [],
+      "bounce_period_s": [],
+      "transit_period_s": [],
+      "fidelity": "independent centered Boris and Hamiltonian GC integration; analytic benchmark field"
+    },
+    {
+      "id": "mirror",
+      "builder": "magnetic_mirror",
+      "case": "magnetic_mirror",
+      "static": "mirror.svg",
+      "animation": "mirror.gif",
+      "quantitative_panels": "mirror-diagnostics.png",
+      "driver": {
+        "name": "time",
+        "unit": "s",
+        "values": [
+          0.0,
+          14.545454545454545,
+          29.09090909090909,
+          43.63636363636363,
+          58.18181818181818,
+          72.72727272727272,
+          87.27272727272727,
+          101.81818181818181,
+          116.36363636363636,
+          130.9090909090909,
+          145.45454545454544,
+          160.0
+        ]
+      },
+      "field": {
+        "name": "solenoidal parabolic magnetic mirror",
+        "coordinates": "right-handed Cartesian x,y,z",
+        "units": "SI",
+        "static": true,
+        "derivative_step_m": null,
+        "magnetic_floor_T": 1e-14,
+        "provenance": {
+          "gauge": "A=(-y f/2,x f/2,0)",
+          "length_m": 10.0,
+          "B_min_T": 1.0,
+          "B0_T": 1.0,
+          "nominal_end_ratio": 2.0,
+          "on_axis_arc_coordinate": "z"
+        }
+      },
+      "full_termination": "completed",
+      "gc_termination": "completed",
+      "gc_energy_residual_max": 4.625929269271485e-16,
+      "gc_P_phi_residual_max": 0.0,
+      "ordering_warning": false,
+      "rho_over_L_B_max": 0.03523285802373267,
+      "orbit_class": "trapped_candidate",
+      "bounce_cycles": [
+        {
+          "start_s": 28.088885412271075,
+          "end_s": 140.44442571594016,
+          "period_s": 112.35554030366907,
+          "action_J_s": 2.655419025067328,
+          "closure_relative": 4.0614036912103985e-06,
+          "arc_velocity_relative_error": 0.00031981049072327995
+        }
+      ],
+      "bounce_period_s": [],
+      "transit_period_s": [],
+      "fidelity": "independent centered Boris and Hamiltonian GC integration; analytic benchmark field"
+    },
+    {
+      "id": "full-gc",
+      "builder": "grad_b_drift",
+      "case": "grad_b_drift",
+      "static": "full-gc.svg",
+      "animation": "full-gc.gif",
+      "quantitative_panels": "full-gc-diagnostics.png",
+      "driver": {
+        "name": "time",
+        "unit": "s",
+        "values": [
+          0.0,
+          9.090909090909092,
+          18.181818181818183,
+          27.272727272727273,
+          36.36363636363637,
+          45.45454545454546,
+          54.54545454545455,
+          63.63636363636364,
+          72.72727272727273,
+          81.81818181818183,
+          90.90909090909092,
+          100.0
+        ]
+      },
+      "field": {
+        "name": "divergence-free slab gradient",
+        "coordinates": "right-handed Cartesian x,y,z",
+        "units": "SI",
+        "static": true,
+        "derivative_step_m": null,
+        "magnetic_floor_T": 1e-14,
+        "provenance": {
+          "gauge": "Ay=B0(x+x^2/(2L))",
+          "length_m": 30.0,
+          "B0_T": 1.0
+        }
+      },
+      "full_termination": "completed",
+      "gc_termination": "completed",
+      "gc_energy_residual_max": 2.2204460492503126e-16,
+      "gc_P_phi_residual_max": 0.0,
+      "ordering_warning": false,
+      "rho_over_L_B_max": 0.0315834208066958,
+      "orbit_class": "no_resolved_turn",
+      "bounce_cycles": [],
+      "bounce_period_s": [],
+      "transit_period_s": [],
+      "fidelity": "independent centered Boris and Hamiltonian GC integration; analytic benchmark field"
+    },
+    {
+      "id": "invariants",
+      "builder": "guiding_center_invariants",
+      "case": "magnetic_mirror",
+      "static": "invariants.svg",
+      "animation": "invariants.gif",
+      "quantitative_panels": "invariants-diagnostics.png",
+      "driver": {
+        "name": "time",
+        "unit": "s",
+        "values": [
+          0.0,
+          14.545454545454545,
+          29.09090909090909,
+          43.63636363636363,
+          58.18181818181818,
+          72.72727272727272,
+          87.27272727272727,
+          101.81818181818181,
+          116.36363636363636,
+          130.9090909090909,
+          145.45454545454544,
+          160.0
+        ]
+      },
+      "field": {
+        "name": "solenoidal parabolic magnetic mirror",
+        "coordinates": "right-handed Cartesian x,y,z",
+        "units": "SI",
+        "static": true,
+        "derivative_step_m": null,
+        "magnetic_floor_T": 1e-14,
+        "provenance": {
+          "gauge": "A=(-y f/2,x f/2,0)",
+          "length_m": 10.0,
+          "B_min_T": 1.0,
+          "B0_T": 1.0,
+          "nominal_end_ratio": 2.0,
+          "on_axis_arc_coordinate": "z"
+        }
+      },
+      "full_termination": "completed",
+      "gc_termination": "completed",
+      "gc_energy_residual_max": 4.625929269271485e-16,
+      "gc_P_phi_residual_max": 0.0,
+      "ordering_warning": false,
+      "rho_over_L_B_max": 0.03523285802373267,
+      "orbit_class": "trapped_candidate",
+      "bounce_cycles": [
+        {
+          "start_s": 28.088885412271075,
+          "end_s": 140.44442571594016,
+          "period_s": 112.35554030366907,
+          "action_J_s": 2.655419025067328,
+          "closure_relative": 4.0614036912103985e-06,
+          "arc_velocity_relative_error": 0.00031981049072327995
+        }
+      ],
+      "bounce_period_s": [],
+      "transit_period_s": [],
+      "fidelity": "independent centered Boris and Hamiltonian GC integration; analytic benchmark field"
+    },
+    {
+      "id": "tokamak",
+      "builder": "trapped_and_passing_orbits",
+      "case": "tokamak_trapped",
+      "static": "tokamak.svg",
+      "animation": "tokamak.gif",
+      "quantitative_panels": "tokamak-diagnostics.png",
+      "driver": {
+        "name": "time",
+        "unit": "s",
+        "values": [
+          0.0,
+          90.9090909090909,
+          181.8181818181818,
+          272.72727272727275,
+          363.6363636363636,
+          454.5454545454545,
+          545.4545454545455,
+          636.3636363636364,
+          727.2727272727273,
+          818.1818181818181,
+          909.090909090909,
+          1000.0
+        ]
+      },
+      "field": {
+        "name": "analytic toroidal orbit benchmark",
+        "coordinates": "right-handed Cartesian x,y,z",
+        "units": "SI",
+        "static": true,
+        "derivative_step_m": 0.0001,
+        "magnetic_floor_T": 1e-14,
+        "provenance": {
+          "gauge": "A_phi=psi/R; A_z specified in toroidal_particle_field",
+          "R0_m": 3.0,
+          "B0_T": 3.0,
+          "poloidal_T": 1.35,
+          "perturbation": 0.0,
+          "mode": 6,
+          "axisymmetric": true,
+          "minor_radius_m": 0.95
+        }
+      },
+      "full_termination": "completed",
+      "gc_termination": "completed",
+      "gc_energy_residual_max": 1.6866736407513482e-15,
+      "gc_P_phi_residual_max": 1.3852316457581215e-14,
+      "ordering_warning": false,
+      "rho_over_L_B_max": 0.012141497008240116,
+      "orbit_class": "trapped_candidate",
+      "bounce_cycles": [],
+      "bounce_period_s": [
+        648.3124064803408
+      ],
+      "transit_period_s": [],
+      "fidelity": "independent centered Boris and Hamiltonian GC integration; analytic benchmark field"
+    },
+    {
+      "id": "symmetry-breaking",
+      "builder": "toroidal_symmetry_breaking",
+      "case": "symmetry_breaking",
+      "static": "symmetry-breaking.svg",
+      "animation": "symmetry-breaking.gif",
+      "quantitative_panels": "symmetry-breaking-diagnostics.png",
+      "driver": {
+        "name": "time",
+        "unit": "s",
+        "values": [
+          0.0,
+          90.9090909090909,
+          181.8181818181818,
+          272.72727272727275,
+          363.6363636363636,
+          454.5454545454545,
+          545.4545454545455,
+          636.3636363636364,
+          727.2727272727273,
+          818.1818181818181,
+          909.090909090909,
+          1000.0
+        ]
+      },
+      "field": {
+        "name": "analytic toroidal orbit benchmark",
+        "coordinates": "right-handed Cartesian x,y,z",
+        "units": "SI",
+        "static": true,
+        "derivative_step_m": 0.0001,
+        "magnetic_floor_T": 1e-14,
+        "provenance": {
+          "gauge": "A_phi=psi/R; A_z specified in toroidal_particle_field",
+          "R0_m": 3.0,
+          "B0_T": 3.0,
+          "poloidal_T": 1.35,
+          "perturbation": 0.02,
+          "mode": 6,
+          "axisymmetric": false,
+          "minor_radius_m": 0.95
+        }
+      },
+      "full_termination": "completed",
+      "gc_termination": "completed",
+      "gc_energy_residual_max": 9.638253251657836e-16,
+      "gc_P_phi_residual_max": 0.6607773861929012,
+      "ordering_warning": false,
+      "rho_over_L_B_max": 0.01573484021745034,
+      "orbit_class": "trapped_candidate",
+      "bounce_cycles": [],
+      "bounce_period_s": [
+        196.94820299692776,
+        198.93962299253644,
+        202.4208745228927,
+        207.08155282558266
+      ],
+      "transit_period_s": [],
+      "fidelity": "independent centered Boris and Hamiltonian GC integration; analytic benchmark field"
+    }
+  ]
+}
