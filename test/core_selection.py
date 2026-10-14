@@ -194,6 +194,7 @@ CORE_MODULES: tuple[str, ...] = (
     # scikit-learn (ONNX) and PyTorch backends, which skip where not installed;
     # and the checker of the vaft-nn registry they resolve published models from.
     "test_check_vaft_nn.py",
+    "test_ml_data_usage.py",
     "test_ml_graph_experiments.py",
     "test_process_ml_contract.py",
     "test_process_ml_sklearn.py",
