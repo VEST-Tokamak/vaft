@@ -18,6 +18,11 @@ from .utils import fit_profile
 
 API_VERSION = "regularized-flux-profile-v1"
 
+__all__ = [
+    "API_VERSION", "RegularizedProfileConfig", "RegularizedProfileFit",
+    "profile_basis", "evaluate_regularized_profile", "fit_regularized_profile",
+]
+
 
 @dataclass(frozen=True)
 class RegularizedProfileConfig:
@@ -62,10 +67,36 @@ class RegularizedProfileConfig:
 
 
 def profile_basis(psi_n, config, derivative=0):
-    """Basis in ascending Bernstein index / clamped B-spline index.
+    r"""Evaluate the positive profile basis or its flux-coordinate derivatives.
 
-    Derivatives are with respect to psi_N. Extrapolated basis values are
-    mathematical evaluations only; positivity is guaranteed on [0,domain_max].
+    $$B_j(u)={n\choose j}u^j(1-u)^{n-j},\qquad u=\psi_N/d$$
+
+    The spline alternative uses six clamped cubic B-splines [1]_. Ordering is
+    ascending Bernstein index or spline index; derivatives are in psi_N.
+
+    Parameters
+    ----------
+    psi_n : array_like
+        Finite normalized poloidal flux coordinates [-].
+    config : RegularizedProfileConfig
+        Basis, domain and knot declaration; scale is unused here [-].
+    derivative : int, optional
+        Derivative order, zero, one or two [-].
+
+    Returns
+    -------
+    basis : ndarray
+        Coordinates by ordered basis coefficients, with flux derivatives [-].
+
+    Limitations
+    -----------
+    Extrapolated basis values are mathematical evaluations only. Positive
+    partition-of-unity controls guarantee positivity only on the declared domain.
+
+    References
+    ----------
+    .. [1] C. de Boor, A Practical Guide to Splines, revised edition (2001),
+       Chapters IX-X, B-spline representation and differentiation.
     """
     x = np.asarray(psi_n, dtype=float)
     if not np.isfinite(x).all() or derivative not in (0, 1, 2):
@@ -87,10 +118,40 @@ def profile_basis(psi_n, config, derivative=0):
 
 def evaluate_regularized_profile(psi_n, parameters, config, *, derivative=0,
                                  allow_extrapolation=False):
-    """Evaluate F (or dF/dpsi_N), returning NaN outside the declared domain.
+    r"""Evaluate a positive regular flux profile or its flux derivative.
 
-    F=scale * B(psi_N) @ (floor + softplus(parameters)).  Parameter order
-    and basis are shared with the offline fit for differentiable consumers.
+    $$F(x)=s\sum_j B_j(x/d)\,[f+\log(1+\exp(\theta_j))]$$
+
+    Parameter order and basis [1]_ are shared with the offline fit. Finite
+    F' implies dF(rho_pol squared)/drho_pol=0 on axis without fixing F'(0).
+
+    Parameters
+    ----------
+    psi_n : array_like
+        Finite normalized poloidal flux coordinates [-].
+    parameters : array_like
+        Finite unconstrained softplus parameters in basis order [-].
+    config : RegularizedProfileConfig
+        Basis, floor and domain declaration, with physical scale s [-].
+    derivative : int, optional
+        Flux derivative order, zero, one or two [-].
+    allow_extrapolation : bool, optional
+        Enable diagnostic evaluations outside the positivity domain [-].
+
+    Returns
+    -------
+    values : ndarray
+        Profile or derivative in the physical unit y of config.scale [y].
+
+    Limitations
+    -----------
+    Outside the declared domain the default is NaN. Explicit extrapolation
+    carries no positivity guarantee. Numerical overflow is not clipped.
+
+    References
+    ----------
+    .. [1] C. de Boor, A Practical Guide to Splines, revised edition (2001),
+       Chapters IX-X, B-spline representation and differentiation.
     """
     x = np.asarray(psi_n, float)
     theta = np.asarray(parameters, float)
@@ -125,14 +186,40 @@ class RegularizedProfileFit:
 
 
 def fit_regularized_profile(psi_n, values, *, config=None):
-    """Fit independent samples with Huber residuals and quadratic curvature.
+    r"""Fit independent samples with Huber residuals and quadratic curvature.
 
-    Minimize mean Huber((F-y)/scale) + lambda/2 integral_0^1
-    [(d²(F/scale)/du²)]² du. Sigma weighting is not implemented; scale and
-    robust weights are numerical assumptions, never diagnostic sigma. Invalid
-    inputs are rejected, not dropped. Callers own masks and topology grouping.
+    $$J=\frac{1}{N}\sum_i H_\delta((F(x_i)-y_i)/s)
+    +\frac{\lambda}{2}\int_0^1 [d^2(F/s)/du^2]^2\,du$$
+
+    The Huber term [1]_ is quadratic within delta and linear outside it; the
+    curvature term remains separately quadratic in u=psi_N/domain_max.
     Reuses VAFT's legacy free-polynomial fit for initialization and SciPy's
     least-squares kernel. No boundary anchor or post-fit clipping is applied.
+
+    Parameters
+    ----------
+    psi_n : array_like
+        One-dimensional finite samples within the declared flux domain [-].
+    values : array_like
+        Independent quantity samples in the physical unit of config.scale [y].
+    config : RegularizedProfileConfig or None, optional
+        Serialized numerical objective, basis and convergence assumptions [-].
+
+    Returns
+    -------
+    fit : RegularizedProfileFit
+        Parameters, status and diagnostics; completion is not accuracy proof [-].
+
+    Limitations
+    -----------
+    Sigma weighting is not implemented. Scale and robust weights are numerical
+    assumptions, never diagnostic sigma. Invalid inputs are rejected, not
+    dropped. Callers own independent masks, branch grouping and support.
+
+    References
+    ----------
+    .. [1] P. J. Huber, Robust Estimation of a Location Parameter,
+       Annals of Mathematical Statistics 35 (1964), 73-101.
     """
     cfg = config or RegularizedProfileConfig()
     x, y = np.asarray(psi_n, float), np.asarray(values, float)

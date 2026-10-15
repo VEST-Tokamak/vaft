@@ -120,6 +120,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # collision time, ion-ion lnLambda, gamma_1'(Z), chi_perp,e and chi_perp,i.
         "kinetic": 7,
         "turbulence": 5,  # turbulence-zonal-flow predator-prey rhs, fixed point, invariant, period, lag (#1820)
+        "regularized_profiles": 3,  # explicit opt-in module, outside the star namespace
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
@@ -146,8 +147,20 @@ def test_aliases_resolve_to_their_canonical_spec(alias, canonical):
 
 def test_bare_name_lookup_agrees_with_package_attribute_resolution():
     for spec in catalog.list_formulas():
+        if spec.category in vaft.formula._CATALOG_ONLY_SUBMODULES:
+            assert catalog.describe(spec.qualname) is spec
+            with pytest.raises(KeyError):
+                catalog.describe(spec.name)
+            assert spec.name not in vaft.formula.__all__
+            continue
         resolved = catalog.describe(spec.name)
         assert resolved.module == getattr(vaft.formula, spec.name).__module__, spec.name
+
+
+def test_explicit_profile_api_is_discoverable_without_extending_star_imports():
+    loaded = _loaded_after("from vaft.formula import *")
+    assert "vaft.formula.regularized_profiles" not in loaded
+    assert catalog.describe("regularized_profiles.fit_regularized_profile").category == "regularized_profiles"
 
 
 def test_the_one_colliding_function_name_reports_who_wins():
@@ -326,12 +339,12 @@ def test_snapshot_schema():
     assert snapshot["schema_version"] == catalog.SCHEMA_VERSION
     assert set(snapshot) == {"schema_version", "generator", "source", "categories", "formulas"}
     assert [entry["path"] for entry in snapshot["source"]] == [
-        f"vaft/formula/{key}.py" for key in vaft.formula._IMPORT_ORDER
+        f"vaft/formula/{key}.py" for key in catalog._CATALOG_ORDER
     ]
     for entry in snapshot["source"]:
         assert re.fullmatch(r"[0-9a-f]{64}", entry["sha256"])
     category_names = [doc["name"] for doc in snapshot["categories"]]
-    assert category_names == list(vaft.formula._IMPORT_ORDER)
+    assert category_names == list(catalog._CATALOG_ORDER)
     ids = [row["id"] for row in snapshot["formulas"]]
     assert len(ids) == len(set(ids))
     for row in snapshot["formulas"]:
