@@ -86,7 +86,10 @@ class ExperimentStore:
         if not isinstance(identity, str) or len(identity) != 64 or any(
                 c not in "0123456789abcdef" for c in identity):
             raise ValueError("expected full content SHA256")
-        return verify(json.loads((self.directory / f"{identity}.json").read_text()))
+        value = verify(json.loads((self.directory / f"{identity}.json").read_text()))
+        if value["id"] != identity:
+            raise ValueError("record filename identity mismatch")
+        return value
 
     def put(self, value):
         verify(value)

@@ -60,3 +60,14 @@ def test_tampered_content_and_partial_controller_files(tmp_path):
     (tmp_path / f"{value['id']}.json").write_text(json.dumps(value))
     with pytest.raises(ValueError, match="identity"):
         store.get(value["id"])
+
+
+def test_content_address_cannot_be_rebound(tmp_path):
+    store = ExperimentStore(tmp_path)
+    a = hierarchy_record("campaign", {"name": "a"})
+    b = hierarchy_record("campaign", {"name": "b"})
+    store.put(a)
+    store.put(b)
+    (tmp_path / f"{a['id']}.json").write_text(json.dumps(b))
+    with pytest.raises(ValueError, match="filename identity"):
+        store.get(a["id"])
