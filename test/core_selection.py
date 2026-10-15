@@ -195,6 +195,7 @@ CORE_MODULES: tuple[str, ...] = (
     # and the checker of the vaft-nn registry they resolve published models from.
     "test_check_vaft_nn.py",
     "test_ml_data_usage.py",
+    "test_ml_experiment_store.py",
     "test_ml_graph_experiments.py",
     "test_ml_validation_evidence.py",
     "test_process_ml_contract.py",
