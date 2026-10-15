@@ -560,6 +560,11 @@
       "source_sha256": "072b2849777d5260ae148859d9cb88af75439bc8c51dd8b9449f1d09f6622fff",
       "svg_sha256": "bbdab57d56d7f6439a68142bd31165838d64f812643953706141f92cd6f55ac6"
     },
+    "magnetic_island_phase_scan.svg": {
+      "call": "vaft.diagram.magnetic_island(m=2, n=1, width=0.24, phase=0.0, projection='poloidal', labels=False)",
+      "source_sha256": "8ac7cd35dd0c91df9aff968c414c2ea260d364a439a9403f949d6c1d6df4ac7c",
+      "svg_sha256": "26214be915cd01bba26ab939cde1d7dafc239dcd400f235e554a4c066f5c3865"
+    },
     "magnetic_island_poloidal.svg": {
       "call": "vaft.diagram.magnetic_island(m=3, n=2, width=0.16, phase=0.0, r_s=0.55, elongation=1.7, triangularity=0.4, projection='poloidal')",
       "source_sha256": "180b4ccbd793a46db6766ea9e7a462db6978c0ecb5d554767b95670cb10afdaa",

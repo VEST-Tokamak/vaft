@@ -51,3 +51,13 @@ docs/assets/lib/** -text
 # vest_MID.dat to fc32c016... on Windows CI against the LF e718d702... it records.
 vaft/data/gpec/*.dat text=auto eol=lf
 vaft/data/nubeam/** text=auto eol=lf
+
+# Scientific replay manifests pin asset and source bytes across platforms.
+docs/assets/animations/** text=auto eol=lf
+vaft/diagram/_magnetic_island.py text eol=lf
+vaft/diagram/_particle_motion.py text eol=lf
+vaft/diagram/_replay.py text eol=lf
+vaft/diagram/_scene.py text eol=lf
+vaft/formula/equilibrium.py text eol=lf
+vaft/formula/particle.py text eol=lf
+vaft/formula/stability.py text eol=lf

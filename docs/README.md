@@ -232,3 +232,54 @@ organisation policy can still forbid it; the job checks for this and says so
 rather than failing at the push. The fallback is a deploy key with write access,
 stored as a repository secret, with the remote switched to SSH before
 `build.py --publish` runs.
+
+## Scientific animation assets and adaptive layout
+
+Both `/reference/animation/` and `/reference/diagram/` consume animation variants
+from `diagram_catalog.yml`. Recipes are declared next to the existing Scene
+exporter in `vaft.diagram._replay`; never infer a capability from a keyword or
+maintain a second YAML registry. Generate explicitly after changing the source:
+
+```bash
+python -m vaft.diagram._replay
+python -m vaft.diagram._replay --check
+python docs/scripts/animation_preview.py --output /tmp/vaft-animation-preview
+python docs/scripts/serve_animation_preview.py --directory /tmp/vaft-animation-preview
+```
+
+The last two commands provide an optional local comparison (48 identical island
+states through PyAV and the deployed HTML player). It keeps videos,
+stills, logs, status, source fingerprints and metadata outside the repository.
+Install `vaft[video]` for video output. Retry regenerates atomically and
+preserves existing good videos if a render fails.
+
+Published state JSON uses float64 coordinates, explicit units and no
+interpolation. Static geometry is stored once. E×B uses actual common stored
+ion/electron times and normalized units; it does not imply SI seconds. The
+initial island recipe declares eight supported phase states: seeking and
+playback select those actual states. It does not claim continuous interpolation.
+Source hashes fail validation when scientific code changes; regenerate rather
+than hiding stale assets. Routine documentation builds never integrate an orbit
+or encode a movie. Video output uses Matplotlib/PyAV, and canonical static
+diagrams remain TikZ-derived SVG. Manim is outside VAFT’s supported backends;
+a future teaching project can consume exported states for its own scene design.
+
+Animation state transfer before activation must be zero. The shared JavaScript
+budget is 100 KiB gzip; each initial 2-D state artifact is limited to 300 KiB gzip.
+`--check` verifies hashes, provenance, shapes, orphan assets and budgets. Gzip
+bytes record the generation environment's compressibility; compressor versions
+can produce different sizes. Validation enforces the budget for both recorded
+and locally measured sizes, with raw SHA-256 and byte length proving integrity.
+Actual transfer depends on hosting compression, so manifests also expose
+uncompressed sizes. The existing composed-site size
+budget in `build.py` applies independently. External media hosting is deferred.
+
+The adaptive shell retains the 1240px three-region boundary. Below it,
+independent navigation and page-ToC drawers overlay the reading column. Drawer
+focus is contained, Escape/backdrop close and restore focus, and the article is
+inert while a drawer is open. Resize and GitBook page changes reset temporary
+state. Keep component children at `min-width: 0`, wrap controls with 44px touch
+targets, and contain wide scientific content in scrollable elements. Do not
+conceal document overflow or disable browser zoom. The browser matrix covers
+320/390/768/1024/1440px in Chromium and WebKit; native viewport height controls
+portrait/landscape. Respect reduced motion, and require explicit playback.
