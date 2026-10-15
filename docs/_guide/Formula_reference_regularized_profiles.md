@@ -1,7 +1,7 @@
 ---
 title: "Formula reference: regularized profiles"
 author: VEST team
-date: 2026-10-15 11:35
+date: 2026-10-15
 category: guide
 layout: post
 permalink: /reference/formula/regularized_profiles/
