@@ -39,3 +39,7 @@
 @media (max-width: 700px) {
   .vg-canvas { height: 440px; }
 }
+/* Keep graph controls touch-safe without changing graph semantics. */
+.vg-toolbar button,.vg-controls button,.vg-controls select,.vg-option{min-height:44px}
+.vg-controls select{max-width:100%}.vg-layout,.vg-stage,.vg-details{min-width:0}
+@media(max-width:390px){.vg-canvas{height:360px}.vg-toolbar input[type=search]{flex-basis:100%}}

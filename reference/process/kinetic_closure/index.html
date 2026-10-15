@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
 
 <meta name="HandheldFriendly" content="true"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
@@ -24,6 +24,7 @@
 
 
 
+<link rel="stylesheet" href="/vaft/assets/animations/player.css">
 
             <link rel="prev" href="/vaft/reference/formula/kinetic/" />
         
@@ -289,6 +290,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.animation-reference" data-path="/vaft/reference/animation/">
+                    
+                        <a href="/vaft/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
                     
                         <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
@@ -455,7 +462,7 @@ the fast-ion inputs are in <code class="language-plaintext highlighter-rouge">pr
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#assemble_pressure"><code>assemble_pressure</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="assemble_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/296e34be12f962096973bde6ec32fe5395e43cc7/vaft/process/kinetic_closure.py#L121-L194" title="vaft/process/kinetic_closure.py, lines 121–194 at 296e34b">source</a>
+<a class="ref-source" data-source="assemble_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/c597d56a82357e20ed4eefe88a9eb4e3b8e366e6/vaft/process/kinetic_closure.py#L121-L194" title="vaft/process/kinetic_closure.py, lines 121–194 at c597d56">source</a>
 </header>
     <pre class="ref-signature"><code>assemble_pressure(n_e, T_e, ion_densities, ion_temperatures, *, p_fast=None, provenance=None)</code></pre>
 
@@ -602,7 +609,7 @@ and <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fast_ion_slowing_down_estimate"><code>fast_ion_slowing_down_estimate</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="fast_ion_slowing_down_estimate" href="https://github.com/VEST-Tokamak/vaft/blob/296e34be12f962096973bde6ec32fe5395e43cc7/vaft/process/kinetic_closure.py#L197-L328" title="vaft/process/kinetic_closure.py, lines 197–328 at 296e34b">source</a>
+<a class="ref-source" data-source="fast_ion_slowing_down_estimate" href="https://github.com/VEST-Tokamak/vaft/blob/c597d56a82357e20ed4eefe88a9eb4e3b8e366e6/vaft/process/kinetic_closure.py#L197-L328" title="vaft/process/kinetic_closure.py, lines 197–328 at c597d56">source</a>
 </header>
     <pre class="ref-signature"><code>fast_ion_slowing_down_estimate(n_e, T_e, field_ions, source_rate, beam_energy_eV, *, A_b, Z_b=1.0, ln_Lambda=None, time=None, rho=None)</code></pre>
 
@@ -693,7 +700,7 @@ pressure from above where those losses matter.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#infer_kinetic_closure"><code>infer_kinetic_closure</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="infer_kinetic_closure" href="https://github.com/VEST-Tokamak/vaft/blob/296e34be12f962096973bde6ec32fe5395e43cc7/vaft/process/kinetic_closure.py#L359-L571" title="vaft/process/kinetic_closure.py, lines 359–571 at 296e34b">source</a>
+<a class="ref-source" data-source="infer_kinetic_closure" href="https://github.com/VEST-Tokamak/vaft/blob/c597d56a82357e20ed4eefe88a9eb4e3b8e366e6/vaft/process/kinetic_closure.py#L359-L571" title="vaft/process/kinetic_closure.py, lines 359–571 at c597d56">source</a>
 </header>
     <pre class="ref-signature"><code>infer_kinetic_closure(ods, *, time=None, tolerance=0.0005, dilution=&#39;species&#39;, composition=None, machine_preset=None, shot=None, ti_te_ratio=None, ti_record=None, use_stored_inferred_ti=False, fast_ion=None)</code></pre>
 
@@ -1023,7 +1030,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-14 18:17:22 +0000"
+        "time": "2026-10-15 02:53:36 +0000"
     },
     "basePath": "/vaft",
     "book": {
@@ -1054,5 +1061,7 @@ window.MathJax = {
 <script src="/vaft/assets/gitbook/custom.js"></script>
 <script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
+<script src="/vaft/assets/animations/loader.js"></script>
+<script src="/vaft/assets/gitbook/adaptive.js"></script>
 </body>
 </html>

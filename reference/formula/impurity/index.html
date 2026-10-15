@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
 
 <meta name="HandheldFriendly" content="true"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
@@ -24,6 +24,7 @@
 
 
 
+<link rel="stylesheet" href="/vaft/assets/animations/player.css">
 
             <link rel="prev" href="/vaft/reference/process/resistive_zeff/" />
         
@@ -289,6 +290,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.animation-reference" data-path="/vaft/reference/animation/">
+                    
+                        <a href="/vaft/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
                     
                         <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
@@ -473,7 +480,7 @@ Z_i^2 n_i$; no other ion is present.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dilution_fraction_from_species"><code>dilution_fraction_from_species</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="dilution_fraction_from_species" href="https://github.com/VEST-Tokamak/vaft/blob/296e34be12f962096973bde6ec32fe5395e43cc7/vaft/formula/impurity.py#L580-L629" title="vaft/formula/impurity.py, lines 580–629 at 296e34b">source</a>
+<a class="ref-source" data-source="dilution_fraction_from_species" href="https://github.com/VEST-Tokamak/vaft/blob/c597d56a82357e20ed4eefe88a9eb4e3b8e366e6/vaft/formula/impurity.py#L580-L629" title="vaft/formula/impurity.py, lines 580–629 at c597d56">source</a>
 </header>
     <pre class="ref-signature"><code>dilution_fraction_from_species(n_e, impurity_densities, impurity_charges, main_ion_charge=1.0)</code></pre>
 
@@ -597,7 +604,7 @@ element at its $\langle Z\rangle$ – quasi-neutrality is linear in $Z$).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dilution_fraction_from_zeff"><code>dilution_fraction_from_zeff</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="dilution_fraction_from_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/296e34be12f962096973bde6ec32fe5395e43cc7/vaft/formula/impurity.py#L501-L536" title="vaft/formula/impurity.py, lines 501–536 at 296e34b">source</a>
+<a class="ref-source" data-source="dilution_fraction_from_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/c597d56a82357e20ed4eefe88a9eb4e3b8e366e6/vaft/formula/impurity.py#L501-L536" title="vaft/formula/impurity.py, lines 501–536 at c597d56">source</a>
 </header>
     <pre class="ref-signature"><code>dilution_fraction_from_zeff(z_eff, impurity_charge, main_ion_charge=1.0)</code></pre>
 
@@ -695,7 +702,7 @@ dilution_fraction_from_species</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#expand_effective_impurity"><code>expand_effective_impurity</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="expand_effective_impurity" href="https://github.com/VEST-Tokamak/vaft/blob/296e34be12f962096973bde6ec32fe5395e43cc7/vaft/formula/impurity.py#L361-L438" title="vaft/formula/impurity.py, lines 361–438 at 296e34b">source</a>
+<a class="ref-source" data-source="expand_effective_impurity" href="https://github.com/VEST-Tokamak/vaft/blob/c597d56a82357e20ed4eefe88a9eb4e3b8e366e6/vaft/formula/impurity.py#L361-L438" title="vaft/formula/impurity.py, lines 361–438 at c597d56">source</a>
 </header>
     <pre class="ref-signature"><code>expand_effective_impurity(density, charge, weights, charges, mass=None, masses=None)</code></pre>
 
@@ -849,7 +856,7 @@ weights are the extra information the round trip needs.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#impurity_mixture_moments"><code>impurity_mixture_moments</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="impurity_mixture_moments" href="https://github.com/VEST-Tokamak/vaft/blob/296e34be12f962096973bde6ec32fe5395e43cc7/vaft/formula/impurity.py#L142-L197" title="vaft/formula/impurity.py, lines 142–197 at 296e34b">source</a>
+<a class="ref-source" data-source="impurity_mixture_moments" href="https://github.com/VEST-Tokamak/vaft/blob/c597d56a82357e20ed4eefe88a9eb4e3b8e366e6/vaft/formula/impurity.py#L142-L197" title="vaft/formula/impurity.py, lines 142–197 at c597d56">source</a>
 </header>
     <pre class="ref-signature"><code>impurity_mixture_moments(weights, charges, masses=None)</code></pre>
 
@@ -977,7 +984,7 @@ reduce_impurity_mixture</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#main_ion_density_from_species"><code>main_ion_density_from_species</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="main_ion_density_from_species" href="https://github.com/VEST-Tokamak/vaft/blob/296e34be12f962096973bde6ec32fe5395e43cc7/vaft/formula/impurity.py#L632-L678" title="vaft/formula/impurity.py, lines 632–678 at 296e34b">source</a>
+<a class="ref-source" data-source="main_ion_density_from_species" href="https://github.com/VEST-Tokamak/vaft/blob/c597d56a82357e20ed4eefe88a9eb4e3b8e366e6/vaft/formula/impurity.py#L632-L678" title="vaft/formula/impurity.py, lines 632–678 at c597d56">source</a>
 </header>
     <pre class="ref-signature"><code>main_ion_density_from_species(n_e, impurity_densities, impurity_charges, main_ion_charge=1.0)</code></pre>
 
@@ -1086,7 +1093,7 @@ reduce_impurity_mixture</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#main_ion_density_from_zeff"><code>main_ion_density_from_zeff</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="main_ion_density_from_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/296e34be12f962096973bde6ec32fe5395e43cc7/vaft/formula/impurity.py#L539-L577" title="vaft/formula/impurity.py, lines 539–577 at 296e34b">source</a>
+<a class="ref-source" data-source="main_ion_density_from_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/c597d56a82357e20ed4eefe88a9eb4e3b8e366e6/vaft/formula/impurity.py#L539-L577" title="vaft/formula/impurity.py, lines 539–577 at c597d56">source</a>
 </header>
     <pre class="ref-signature"><code>main_ion_density_from_zeff(n_e, z_eff, impurity_charge, main_ion_charge=1.0)</code></pre>
 
@@ -1187,7 +1194,7 @@ reduce_impurity_mixture</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#main_ion_fraction_from_zeff"><code>main_ion_fraction_from_zeff</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="main_ion_fraction_from_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/296e34be12f962096973bde6ec32fe5395e43cc7/vaft/formula/impurity.py#L448-L498" title="vaft/formula/impurity.py, lines 448–498 at 296e34b">source</a>
+<a class="ref-source" data-source="main_ion_fraction_from_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/c597d56a82357e20ed4eefe88a9eb4e3b8e366e6/vaft/formula/impurity.py#L448-L498" title="vaft/formula/impurity.py, lines 448–498 at c597d56">source</a>
 </header>
     <pre class="ref-signature"><code>main_ion_fraction_from_zeff(z_eff, impurity_charge, main_ion_charge=1.0)</code></pre>
 
@@ -1308,7 +1315,7 @@ main_ion_density_from_species</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#reduce_impurity_mixture"><code>reduce_impurity_mixture</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="reduce_impurity_mixture" href="https://github.com/VEST-Tokamak/vaft/blob/296e34be12f962096973bde6ec32fe5395e43cc7/vaft/formula/impurity.py#L285-L358" title="vaft/formula/impurity.py, lines 285–358 at 296e34b">source</a>
+<a class="ref-source" data-source="reduce_impurity_mixture" href="https://github.com/VEST-Tokamak/vaft/blob/c597d56a82357e20ed4eefe88a9eb4e3b8e366e6/vaft/formula/impurity.py#L285-L358" title="vaft/formula/impurity.py, lines 285–358 at c597d56">source</a>
 </header>
     <pre class="ref-signature"><code>reduce_impurity_mixture(densities, charges, masses=None)</code></pre>
 
@@ -1464,7 +1471,7 @@ wherever the downstream code accepts one.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#solve_impurity_mixture_for_target_zeff"><code>solve_impurity_mixture_for_target_zeff</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="solve_impurity_mixture_for_target_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/296e34be12f962096973bde6ec32fe5395e43cc7/vaft/formula/impurity.py#L200-L282" title="vaft/formula/impurity.py, lines 200–282 at 296e34b">source</a>
+<a class="ref-source" data-source="solve_impurity_mixture_for_target_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/c597d56a82357e20ed4eefe88a9eb4e3b8e366e6/vaft/formula/impurity.py#L200-L282" title="vaft/formula/impurity.py, lines 200–282 at c597d56">source</a>
 </header>
     <pre class="ref-signature"><code>solve_impurity_mixture_for_target_zeff(target_zeff, weights, charges, main_ion_charge=1.0)</code></pre>
 
@@ -1756,7 +1763,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-14 18:17:22 +0000"
+        "time": "2026-10-15 02:53:36 +0000"
     },
     "basePath": "/vaft",
     "book": {
@@ -1787,5 +1794,7 @@ window.MathJax = {
 <script src="/vaft/assets/gitbook/custom.js"></script>
 <script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
+<script src="/vaft/assets/animations/loader.js"></script>
+<script src="/vaft/assets/gitbook/adaptive.js"></script>
 </body>
 </html>
