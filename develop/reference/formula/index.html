@@ -396,7 +396,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>02ced17</code>. What is described
+  <code>8bd7ef7</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -579,6 +579,10 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
     <td><a href="/vaft/develop/reference/formula/turbulence/">turbulence</a></td>
     <td><code>vaft.formula.turbulence</code></td><td>5</td><td>Two-variable turbulence--zonal-flow predator--prey model (Lotka--Volterra form).</td>
   </tr>
+  <tr id="regularized_profiles">
+    <td><a href="/vaft/develop/reference/formula/regularized_profiles/">regularized_profiles</a></td>
+    <td><code>vaft.formula.regularized_profiles</code></td><td>3</td><td>Positive, regular flux-function profiles; independent of machine and ODS.</td>
+  </tr>
   </tbody>
 </table>
 
@@ -640,7 +644,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 473 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 476 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -1648,6 +1652,12 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="predator_prey_rhs turbulence"><td><a href="/vaft/develop/reference/formula/turbulence/#predator_prey_rhs"><code>predator_prey_rhs</code></a></td><td><a href="/vaft/develop/reference/formula/turbulence/">turbulence</a></td><td>Time derivatives of the turbulence–zonal-flow predator–prey model.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="evaluate_regularized_profile regularized_profiles"><td><a href="/vaft/develop/reference/formula/regularized_profiles/#evaluate_regularized_profile"><code>evaluate_regularized_profile</code></a></td><td><a href="/vaft/develop/reference/formula/regularized_profiles/">regularized_profiles</a></td><td>Evaluate a positive regular flux profile or its flux derivative.
+</td></tr>
+  <tr data-ref-row="fit_regularized_profile regularized_profiles"><td><a href="/vaft/develop/reference/formula/regularized_profiles/#fit_regularized_profile"><code>fit_regularized_profile</code></a></td><td><a href="/vaft/develop/reference/formula/regularized_profiles/">regularized_profiles</a></td><td>Fit independent samples with Huber residuals and quadratic curvature.
+</td></tr>
+  <tr data-ref-row="profile_basis regularized_profiles"><td><a href="/vaft/develop/reference/formula/regularized_profiles/#profile_basis"><code>profile_basis</code></a></td><td><a href="/vaft/develop/reference/formula/regularized_profiles/">regularized_profiles</a></td><td>Evaluate the positive profile basis or its flux-coordinate derivatives.
+</td></tr>
   </tbody>
 </table></div>
 <p class="ref-filter-empty" hidden="">No formula matches.</p>
@@ -1914,7 +1924,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-15 02:56:57 +0000"
+        "time": "2026-10-15 04:44:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
