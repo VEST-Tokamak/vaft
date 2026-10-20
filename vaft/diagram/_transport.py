@@ -42,7 +42,7 @@ from ._render import Diagram
 from ._scene import Arrow, Label, Marker, Polyline, Scene
 
 #: seed of the sample trajectories, fixed so the reference SVG is deterministic
-_SEED = 1112
+_SEED = 1109
 
 
 def _check_labels(labels) -> bool:
@@ -68,14 +68,19 @@ def random_walk_diffusion(*, labels: bool = True) -> Diagram:
     ``diffusivity_from_mean_square_displacement`` applies only to the late
     slope. Right: the autocorrelation, whose area is
     ``diffusivity_from_velocity_autocorrelation``. Both give
-    $D = \langle v_r^2\rangle\tau_c$; a process with long memory or non-local
-    steps has no single $D$.
+    $D = \langle v_r^2\rangle\tau_c$ (the Einstein value is fitted to the drawn
+    curve's late slope, not assumed). A correlation with a non-integrable tail,
+    or non-local steps, has no finite $D$. The trajectory and MSD curves
+    illustrate the Ornstein--Uhlenbeck process; they are not ``vaft.formula``
+    definitions.
     """
     labels = _check_labels(labels)
     variance, tau_c, t_end = 1.0, 1.0, 12.0
     lag = np.linspace(0.0, 30.0 * tau_c, 3001)
     d_tgk = diffusivity_from_velocity_autocorrelation(lag, variance * np.exp(-lag / tau_c))
-    d_msd = diffusivity_from_mean_square_displacement(2.0 * variance * tau_c)  # the late (diffusive) slope
+    t_fit = np.linspace(8.0 * tau_c, 12.0 * tau_c, 41)
+    late_slope = float(np.polyfit(t_fit, _msd(t_fit, variance, tau_c), 1)[0])  # read off the drawn curve
+    d_msd = diffusivity_from_mean_square_displacement(late_slope)
 
     # sample trajectories: exact OU update of the velocity, integrated position
     rng = np.random.default_rng(_SEED)
@@ -92,6 +97,8 @@ def random_walk_diffusion(*, labels: bool = True) -> Diagram:
     items: List = []
 
     a = Chart(x_range=(0.0, t_end), y_range=(-8.0, 8.0))
+    if np.abs(paths).max() >= 8.0:
+        raise AssertionError("a sample trajectory leaves the plotted range")
     a.curves.update({f"trajectory_{k}": np.stack([t, paths[:, k]], -1) for k in range(paths.shape[1])})
     a.curves.update({"envelope_upper": np.stack([t, envelope], -1), "envelope_lower": np.stack([t, -envelope], -1)})
     sa = render_chart(a, x_label="$t/\\tau_c$", y_label="$\\Delta r$",
@@ -104,20 +111,21 @@ def random_walk_diffusion(*, labels: bool = True) -> Diagram:
     b.curves.update({"msd": np.stack([t, _msd(t, variance, tau_c)], -1),
                      "diffusive": np.stack([late, 2.0 * d_msd * (late - tau_c)], -1),
                      "ballistic": np.stack([t[t <= 4.0], variance * t[t <= 4.0] ** 2], -1)})
-    b.labels.update({"ballistic": (2.2, 15.0), "diffusive": (8.2, 7.0)})
+    b.labels.update({"ballistic": (2.2, 15.0), "diffusive": (9.3, 4.5)})
     sb = render_chart(b, x_label="$t/\\tau_c$", y_label="$\\langle(\\Delta r)^2\\rangle$",
                       curve_styles={"msd": "boundary", "diffusive": "approx", "ballistic": "slope plus"},
-                      region_text={"ballistic": "$\\propto t^2$", "diffusive": "$\\propto 2Dt$"} if labels else {},
+                      region_text={"ballistic": "$\\langle v_r^2\\rangle t^2$", "diffusive": "\\small $2D(t - \\tau_c)$"}
+                      if labels else {},
                       x_ticks=[0.0, 6.0, 12.0], x_tick_text=["0", "6", "12"])
 
     c = Chart(x_range=(0.0, 5.0), y_range=(0.0, 1.2))
     tc = np.linspace(0.0, 5.0, 201)
     corr = variance * np.exp(-tc / tau_c)
     c.curves["autocorrelation"] = np.stack([tc, corr], -1)
-    c.labels["area"] = (3.3, 0.55)
+    c.labels["area"] = (0.85, 0.12)
     sc = render_chart(c, x_label="$\\tau/\\tau_c$", y_label="$\\langle v_r(0)v_r(\\tau)\\rangle$",
                       curve_styles={"autocorrelation": "boundary"},
-                      region_text={"area": "\\small shaded area $= D$"} if labels else {},
+                      region_text={"area": "\\small area $= D$"} if labels else {},
                       x_ticks=[0.0, 1.0, 5.0], x_tick_text=["0", "1", "5"])
     area = c.to_cm(np.concatenate([np.stack([tc, corr], -1), [[5.0, 0.0], [0.0, 0.0]]]))
 
@@ -152,8 +160,8 @@ def random_walk_diffusion(*, labels: bool = True) -> Diagram:
                   Label((from_c[0] + 0.2, -1.6), f"$\\displaystyle {eq['tgk']}$", "small label", anchor="west",
                         role="taylor_green_kubo"),
                   Label((gap * 1.5 + CHART_WIDTH * scale / 2 - gap / 2, -3.55),
-                        "Diffusive only for $t \\gg \\tau_c$: a process with long memory or non-local steps "
-                        "has no single $D$", "note", anchor="north", role="note")]
+                        "Diffusive only for $t \\gg \\tau_c$; a correlation with a non-integrable tail, or "
+                        "non-local steps, has no finite $D$", "note", anchor="north", role="note")]
     return Diagram("random_walk_diffusion", Scene(tuple(items)),
                    model={"variance": variance, "correlation_time": tau_c, "seed": _SEED,
                           "diffusivity_einstein": d_msd, "diffusivity_taylor_green_kubo": d_tgk})
@@ -163,10 +171,10 @@ def random_walk_diffusion(*, labels: bool = True) -> Diagram:
 _CHANNELS = (
     ("particle", "$\\partial_r n$", "particle flux $\\Gamma$", "diffusion $-D\\,\\partial_r n$",
      "convection $nV$"),
-    ("heat", "$\\partial_r T$", "heat flux $q$", "conduction $-n\\chi\\,\\partial_r T$",
-     "heat pinch $nT\\,V_T$"),
+    ("heat", "$\\partial_r T$", "heat flux $q$",
+     "conduction $-n\\chi\\,\\partial_r T$", "heat pinch $nT\\,V_T$"),
     ("momentum", "$\\partial_r v_\\phi$", "momentum flux $\\Pi_\\phi$",
-     "viscosity $-mn\\chi_\\phi\\,\\partial_r v_\\phi$", "pinch $mn v_\\phi V_\\phi$ + residual stress"),
+     "viscosity $-mn\\chi_\\phi\\,\\partial_r v_\\phi$", "pinch $mn v_\\phi V_\\phi$"),
 )
 
 
@@ -186,6 +194,10 @@ def transport_flux_gradient(*, labels: bool = True) -> Diagram:
     separating $D$ from $V$ needs transient or modulated data.
     """
     labels = _check_labels(labels)
+    for term, fn in (("-D\\,\\partial_r n + nV", particle_flux_from_D_grad_n_V_n),
+                     ("-n\\chi\\,\\partial_r T", conductive_heat_flux_from_n_chi_grad_T)):
+        if term not in formula_equation(fn):
+            raise AssertionError(f"the drawn terms no longer match {fn.__name__}")
     items: List = []
     row_y = {"particle": 4.4, "heat": 2.2, "momentum": 0.0}
     for key, grad, flux, diffusive, convective in _CHANNELS:
@@ -198,6 +210,10 @@ def transport_flux_gradient(*, labels: bool = True) -> Diagram:
                   connector(dif, f, role="sums"), connector(con, f, role="sums")]
         if labels:
             items.append(Label((-1.15, y), key, "small label", anchor="east", role="channel"))
+        if key == "momentum":
+            res = box(7.6, y - 1.35, 3.8, 0.75, "residual stress $\\Pi^\\mathrm{res}$" if labels else "",
+                      latex=True, role="residual_stress")
+            items += [*res.items, connector(res, f, role="sums")]
 
     # the inverse problem: one flux, one gradient, a line of (D, V)
     n, grad_n, gamma = 1.0e19, -2.0e19, 1.0e19
@@ -225,7 +241,10 @@ def transport_flux_gradient(*, labels: bool = True) -> Diagram:
                   Label((11.4 + CHART_WIDTH * 0.25, 4.05),
                         "$\\Gamma = 10^{19}$, $\\partial_r n = -2\\times 10^{19}$, $n = 10^{19}$ (SI)",
                         "note", role="inverse_problem"),
-                  Label((5.5, -1.1), "Forward definitions; signs positive outward, gradients along $r$ in metres",
+                  Label((7.6, -2.0), "neither diffusive nor convective", "small label", anchor="north",
+                        role="residual_stress"),
+                  Label((5.5, -2.6), "Forward definitions, positive outward, gradients along $r$ in metres. $q$ here is "
+                        "conduction plus pinch, not the total energy flux; momentum per unit volume in $v_\\phi$",
                         "note", anchor="north", role="note")]
     return Diagram("transport_flux_gradient", Scene(tuple(items)),
                    model={"channels": [c[0] for c in _CHANNELS], "inverse_example": {"n": n, "grad_n": grad_n,
@@ -246,24 +265,24 @@ def transport_reference_scales(*, labels: bool = True) -> Diagram:
     ``vaft.formula.transport`` definitions.
     """
     labels = _check_labels(labels)
-    root = box(6.0, 5.2, 4.6, 0.85, "Transport reference scales" if labels else "", role="root")
+    root = box(6.4, 5.2, 4.6, 0.85, "Transport reference scales" if labels else "", role="root")
     groups = {
-        "collisional": box(1.8, 3.5, 3.4, 0.8, "collisional" if labels else "", role="group_collisional"),
-        "empirical": box(6.0, 3.5, 3.4, 0.8, "empirical reference" if labels else "", role="group_empirical"),
-        "turbulence": box(10.6, 3.5, 4.8, 0.8, "turbulence normalisation" if labels else "",
+        "turbulence": box(1.4, 3.5, 4.8, 0.8, "turbulence normalisation" if labels else "",
                           role="group_turbulence"),
+        "collisional": box(6.4, 3.5, 3.4, 0.8, "collisional" if labels else "", role="group_collisional"),
+        "empirical": box(10.8, 3.5, 3.4, 0.8, "empirical reference" if labels else "", role="group_empirical"),
     }
     eq = {name: formula_equation(fn) for name, fn in (
         ("classical", classical_diffusivity_from_nu_rho), ("bohm", bohm_diffusivity_from_T_B),
         ("gyrobohm", gyrobohm_diffusivity_from_rho_s_c_s_L_ref))}
     leaves = {
-        "classical": (box(0.0, 1.4, 3.4, 1.3, f"classical\\\\${eq['classical']}$" if labels else "", latex=True,
+        "classical": (box(4.6, 1.4, 3.4, 1.3, f"classical\\\\${eq['classical']}$" if labels else "", latex=True,
                           role="classical"), "collisional"),
-        "neoclassical": (box(3.6, 1.4, 3.4, 1.3, "neoclassical\\\\{\\small banana, plateau, P--S}" if labels else "",
+        "neoclassical": (box(8.2, 1.4, 3.4, 1.3, "neoclassical\\\\{\\small banana, plateau, P--S}" if labels else "",
                              latex=True, role="neoclassical"), "collisional"),
-        "bohm": (box(7.2, 1.4, 3.0, 1.3, f"Bohm\\\\${eq['bohm']}$" if labels else "", latex=True, role="bohm"),
+        "bohm": (box(11.8, 1.4, 3.0, 1.3, f"Bohm\\\\${eq['bohm']}$" if labels else "", latex=True, role="bohm"),
                  "empirical"),
-        "gyrobohm": (box(10.6, 1.4, 3.2, 1.3, f"gyro-Bohm\\\\${eq['gyrobohm']}$" if labels else "", latex=True,
+        "gyrobohm": (box(1.0, 1.4, 3.2, 1.3, f"gyro-Bohm\\\\${eq['gyrobohm']}$" if labels else "", latex=True,
                          role="gyrobohm"), "turbulence"),
     }
     items: List = list(root.items)
@@ -272,10 +291,10 @@ def transport_reference_scales(*, labels: bool = True) -> Diagram:
     for name, (leaf, parent) in leaves.items():
         items += [*leaf.items, connector(groups[parent], leaf, role="taxonomy")]
     if labels:
-        items += [Label((1.8, 0.45), "collisions decorrelate the orbit", "note", anchor="north", role="classical"),
-                  Label((10.6, 0.45), "$\\chi_\\mathrm{gB} = \\rho_*\\,\\rho_s c_s$ with "
-                        "$\\rho_* = \\rho_s/L_\\mathrm{ref}$", "note", anchor="north", role="gyrobohm"),
-                  Label((5.9, -0.3), "Roles, not a ranking: no universal ordering of their magnitudes",
+        items += [Label((6.4, 0.45), "collisions decorrelate the orbit", "note", anchor="north", role="classical"),
+                  Label((1.0, 0.45), "$\\chi_\\mathrm{gB} = \\rho_*\\,\\rho_s c_s$", "note", anchor="north",
+                        role="gyrobohm"),
+                  Label((6.4, -0.3), "Roles, not a ranking: no universal ordering of their magnitudes",
                         "note", anchor="north", role="note")]
     return Diagram("transport_reference_scales", Scene(tuple(items)),
                    model={"groups": {"collisional": ["classical", "neoclassical"], "empirical": ["bohm"],

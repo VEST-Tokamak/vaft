@@ -1385,7 +1385,8 @@ Both definitions, `diffusivity_from_mean_square_displacement` on the late slope 
 `diffusivity_from_velocity_autocorrelation` on the area, give $D = \langle v_r^2\rangle\tau_c$.
 
 `transport_flux_gradient` keeps the diffusive and convective terms apart for particles, heat and toroidal
-momentum (per unit volume in $v_\phi$; residual stress noted). Its inset shows the inverse problem: one
+momentum (per unit volume in $v_\phi$). The momentum flux's residual stress is a third term, neither diffusive nor
+convective. Its inset shows the inverse problem: one
 $\Gamma$ at one $\partial_r n$ is the line $V = (\Gamma + D\,\partial_r n)/n$, checked against
 `particle_flux_from_D_grad_n_V_n`.
 
@@ -1395,7 +1396,9 @@ $\Gamma$ at one $\partial_r n$ is the line $V = (\Gamma + D\,\partial_r n)/n$, c
 - turbulence normalisation: gyro-Bohm.
 
 It draws no magnitude axis, because their sizes are not universally ordered. The banana, plateau and
-Pfirsch–Schlüter regimes are `neoclassical_collisionality` above, which states its $\hat\nu$ convention.
+Pfirsch–Schlüter regimes are `neoclassical_collisionality` above. It states its $\hat\nu$ convention, and
+since #1112 it shades a transition range, a factor of 3 either side of each boundary, rather than
+drawing exact lines.
 
 ```python
 vaft.diagram.random_walk_diffusion()
