@@ -393,15 +393,60 @@ def test_max_wait_on_a_job_that_had_started_is_a_run_timeout(tmp_path, slurm):
     assert "max_wait" in result.stderr and "never started" not in result.stderr
 
 
+class _HeldClock:
+    """``time`` for ``vaft.code.slurm`` that holds a deadline until the job is ready.
+
+    The fake controller runs in real time (subprocesses), so a test that pits a
+    wall-clock ``max_wait`` against it races the machine's load (CI flake,
+    2026-10-12: the cancel landed while the job was starting and the run read
+    "completed"). ``monotonic`` follows real time but stays just short of
+    ``hold_at`` until ``ready()`` holds; the backend then reaches its deadline
+    with the job where the test needs it, however slow the machine is.
+    """
+
+    def __init__(self, ready, hold_at, timeout=60.0):
+        import time as real
+
+        self._real, self._ready, self._hold_at = real, ready, hold_at
+        self._origin = real.monotonic()
+        self._deadline = self._origin + timeout
+        self._released = False
+
+    def monotonic(self):
+        elapsed = self._real.monotonic() - self._origin
+        if not self._released and elapsed >= self._hold_at:
+            if not self._ready():
+                if self._real.monotonic() > self._deadline:
+                    raise AssertionError("the fake job never reached the state the test waits for")
+                return self._origin + self._hold_at - 1e-3
+            self._released = True
+        return self._origin + elapsed
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+
 def test_a_queued_jobs_running_time_leaves_out_the_queue_wait(tmp_path, slurm, monkeypatch):
     """cold review 0.8.0 execution-backend F2: elapsed_s counts from submission;
-    the reason line reports the program's own run time from the job's stamps."""
+    the reason line reports the program's own run time from the job's stamps.
+
+    max_wait is held until the job has left the queue and is killable (its
+    ``started`` stamp and the controller's pid file exist): on a loaded runner
+    the wall-clock cancel landed in between and the run read "completed"."""
+    import vaft.code.slurm as slurm_module
     from vaft.code.execution import timeout_reason
 
+    work = _workdir(tmp_path)
+
+    def running():
+        return any(slurm.directory.glob("*.pid")) and any(work.rglob("started"))
+
+    monkeypatch.setattr(slurm_module, "time", _HeldClock(running, hold_at=3.0))
     monkeypatch.setenv("FAKE_SLURM_OUTCOME", "QUEUE_FOR=2.0")
-    result = _batch(max_wait=3.0).run(
-        _python(_workdir(tmp_path), "import time; time.sleep(30)", timeout=600)
-    )
+    backend = _batch(max_wait=3.0)
+    # Upper bounds, not sleeps: each loop ends as soon as its record appears.
+    backend.status_grace = backend.accounting_grace = backend.cancel_grace = 30.0
+    result = backend.run(_python(work, "import time; time.sleep(30)", timeout=600))
     assert result.runtime_status == "timeout"
     assert result.elapsed_s >= 3.0
     assert result.run_s is not None and 0.0 <= result.run_s <= 2.0
@@ -411,16 +456,16 @@ def test_a_queued_jobs_running_time_leaves_out_the_queue_wait(tmp_path, slurm, m
 
 def test_a_queue_cancel_does_not_wait_the_status_grace(tmp_path, slurm, monkeypatch):
     """cold review 0.8.0 execution-backend F5: a job that never started has no
-    exit record to wait for."""
-    import time
-
+    exit record to wait for. Asserted on the wait itself rather than on wall
+    time, which slow subprocess polls on a loaded machine inflate."""
     monkeypatch.setenv("FAKE_SLURM_OUTCOME", "PENDING")
     backend = _batch(max_wait=0.05)
     backend.status_grace = 5.0
-    before = time.monotonic()
+    waited = []
+    monkeypatch.setattr(backend, "_recorded", lambda status: waited.append(status))
     result = backend.run(_python(_workdir(tmp_path), "pass"))
     assert result.runtime_status == "queue_timeout"
-    assert time.monotonic() - before < 3.0
+    assert waited == []
 
 
 def test_an_interrupt_while_waiting_cancels_the_job(tmp_path, slurm, monkeypatch):
