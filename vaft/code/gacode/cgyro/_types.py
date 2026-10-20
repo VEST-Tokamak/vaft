@@ -97,7 +97,7 @@ class CGYROConfig(GACODEConfig):
     #: surfaces with kinetic electrons (48224 r/a=0.7, 2026-10-01); adaptive settles
     #: near 0.0035 and converges by t ~ 17 a/c_s.
     delta_t_method: int = 1
-    #: Simulation time in ``a/c_s``. A linear run stops earlier when it converges.
+    #: Normalized gyrokinetic elapsed time in ``a/c_s`` from the solver origin. A linear run stops earlier when it converges.
     max_time: float = 200.0
     #: Linear convergence tolerance on the fractional frequency error.
     freq_tol: float = 1.0e-3

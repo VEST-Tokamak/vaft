@@ -135,3 +135,14 @@ The classical Lotka–Volterra orbit is one of a family of neutrally stable clos
 Descriptors such as $\gamma_{max}$, the $k_y$ of the flux peak, $f_e$ and $f_{EM}$ are computed in the analysis layer (`workflow/transport_atlas`, `vaft.process`) and only drawn here. The plot layer infers no turbulence-mode labels (ITG, TEM, ETG, KBM, MTM).
 
 Which orderings a gyrokinetic run assumes ($\rho_s/L_T$, $k_\perp\rho_i$, $\omega/\Omega_i$), and why drift kinetics is not a lower-fidelity gyrokinetic model, is [Characteristic scales and orderings]({{ '/reference/characteristic-scales/' | relative_url }}).
+
+## Scientific results and nonlinear fields
+
+See [Gyrokinetic scientific results]({{ site.baseurl }}/reference/gyrokinetic-results/) for multi-realization persistence, qualified comparisons, contribution-versus-density semantics, and the native CGYRO saved-theta 2D field/animation workflow.
+
+Native CGYRO time histories now label their coordinate as **Gyrokinetic elapsed
+time [a/c_s]**. Use `time_unit="ms"` and a verified per-run
+`time_normalization` for SI elapsed-time views; the default native values and
+averaging windows are unchanged. See [CGYRO elapsed time and discharge time]({{ '/reference/gyrokinetic-results/' | relative_url }}#cgyro-elapsed-time-and-discharge-time-2040)
+for conversion, provenance and the offline #39915 example. SI elapsed time does
+not denote the experimental discharge timestamp.

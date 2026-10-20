@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "origin": "3DST:/home/hs_yun/runs/gyrokinetic/nonlinear/39915/magnetics/00317/r0.70/em-aperp/nonlinear/",
+  "captured_at": "2026-10-14T13:46:46.596812+00:00",
+  "source_version": {
+    "line": "26-Oct-10 20:02:37 [b493397 [2026-08-20]][TDST_GNU][1.0140E+03]",
+    "revision": "b493397 [2026-08-20]",
+    "commit": "b493397",
+    "platform": "TDST_GNU",
+    "start_time": "1.0140E+03",
+    "starts": 6
+  },
+  "window": [
+    100.0,
+    104.0
+  ],
+  "raw_record_range": [
+    499,
+    520
+  ],
+  "extraction": "contiguous native Fortran records; no resampling; restart checkpoints excluded",
+  "files": {
+    "bin.cgyro.kxky_phi": {
+      "source_sha256": "4880be963a8a8ffe56e211b8f99cb495a70b8b54de26b5694776e8ece61a166f",
+      "source_bytes": 42475520,
+      "fixture_sha256": "cbfb66d6e76ed0e605e26b2b18b7c9a308c93046f01281884540b399a78c3241",
+      "fixture_bytes": 172032
+    },
+    "bin.cgyro.ky_flux": {
+      "source_sha256": "0adc16c46861f6b6f768538348afb1eca6f260e733b1d2f8948908d2ffac7b31",
+      "source_bytes": 5974272,
+      "fixture_sha256": "70212a9e80b59f0160853bbb929fcd9b963b1c928d41d5546b9a4e6d60fad790",
+      "fixture_bytes": 24192
+    },
+    "input.cgyro": {
+      "source_sha256": "933ac2dc169065cd765e85d164d4b9cae20c59e29c8ebed80441e4740c258247",
+      "source_bytes": 968,
+      "fixture_sha256": "933ac2dc169065cd765e85d164d4b9cae20c59e29c8ebed80441e4740c258247",
+      "fixture_bytes": 968
+    },
+    "input.cgyro.gen": {
+      "source_sha256": "733ce9b9fb50c703a460904c5f0093d148efb16ab014c981425a05facef85c2d",
+      "source_bytes": 4111,
+      "fixture_sha256": "733ce9b9fb50c703a460904c5f0093d148efb16ab014c981425a05facef85c2d",
+      "fixture_bytes": 4111
+    },
+    "out.cgyro.equilibrium": {
+      "source_sha256": "482e0ba823099a38c2e4bfd67fc7c6961c75667193ae0b1959e9a2192982cd81",
+      "source_bytes": 998,
+      "fixture_sha256": "482e0ba823099a38c2e4bfd67fc7c6961c75667193ae0b1959e9a2192982cd81",
+      "fixture_bytes": 998
+    },
+    "out.cgyro.grids": {
+      "source_sha256": "70e60b33f3fcfd37c0958b01e626aa0c4175bc0623636a4f268337ef75bb7a54",
+      "source_bytes": 9317,
+      "fixture_sha256": "70e60b33f3fcfd37c0958b01e626aa0c4175bc0623636a4f268337ef75bb7a54",
+      "fixture_bytes": 9317
+    },
+    "out.cgyro.info": {
+      "source_sha256": "455d381d017412e4ce2e9325ed6669a5cb28f7f027606aa8ec858986d7ab8e1e",
+      "source_bytes": 2003,
+      "fixture_sha256": "455d381d017412e4ce2e9325ed6669a5cb28f7f027606aa8ec858986d7ab8e1e",
+      "fixture_bytes": 2003
+    },
+    "out.cgyro.time": {
+      "source_sha256": "d3fd842a82bda63931d04e64577408ac4825d7928f5914a7842484bf316b02ff",
+      "source_bytes": 248880,
+      "fixture_sha256": "633d6e0b427b1791a3c132f7c51a0bdd670fa6d9d4f6037e4f9b2da984442edd",
+      "fixture_bytes": 1008
+    },
+    "out.cgyro.version": {
+      "source_sha256": "0a4569cf988f40b67788a008f66f9b2f635b124fef5d1fddfc7decab40281402",
+      "source_bytes": 377,
+      "fixture_sha256": "0a4569cf988f40b67788a008f66f9b2f635b124fef5d1fddfc7decab40281402",
+      "fixture_bytes": 377
+    },
+    "record.json": {
+      "source_sha256": "42400bc1aab5e43ce0b4f261d8f0bad92844e7dc0bf9ca8cfad0fc8b42e8b0b0",
+      "source_bytes": 1438,
+      "fixture_sha256": "42400bc1aab5e43ce0b4f261d8f0bad92844e7dc0bf9ca8cfad0fc8b42e8b0b0",
+      "fixture_bytes": 1438
+    }
+  }
+}

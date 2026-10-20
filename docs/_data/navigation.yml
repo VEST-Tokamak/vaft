@@ -107,6 +107,9 @@ sections:
       - id: gyrokinetic-plotting
         title: Gyrokinetic plotting
         url: /reference/gyrokinetic-plotting/
+      - id: gyrokinetic-results
+        title: Gyrokinetic scientific results
+        url: /reference/gyrokinetic-results/
       - id: process-reference
         title: Process reference
         url: /reference/process/

@@ -35,6 +35,8 @@ def train_structured(dataset, split, spec, config, *, name=None, train_mask=None
            if config.validation_partition is not None else np.zeros(dataset.n_samples, bool))
     if (train & val).any():
         raise ModelContractError("training and validation partitions must be distinct")
+    from .usage import _fit_uses
+    data_uses = _fit_uses(dataset, split, config, np.flatnonzero(train), np.flatnonzero(val))
     moments = fit_moments(dataset, np.flatnonzero(train), config)
     context = {"dataset_fingerprint": dataset.fingerprint, "split": split.to_dict(), "train_indices": np.flatnonzero(train).tolist()}
     state, history, best_epoch, resources = backend.fit_structured(spec, config, dataset,
@@ -45,6 +47,8 @@ def train_structured(dataset, split, spec, config, *, name=None, train_mask=None
         "epochs_run": len(history["train_loss"]), "resources": resources,
         "train_mask": None if train_mask is None else {"n_train_partition": int(initial.sum()),
             "n_kept": int(train.sum()), "record": dict(train_mask_record or {})}}
+    if data_uses:
+        record["data_uses"] = data_uses
     if config.resume_from or config.warm_start_from:
         path = config.resume_from or config.warm_start_from
         record["initial_state"] = {"mode": "resume" if config.resume_from else "warm_start", "sha256": sha256_file(path)}

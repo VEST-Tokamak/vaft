@@ -53,6 +53,12 @@ from typing import Any, Mapping, Optional
 import numpy as np
 
 __all__ = [
+    "ComparisonAssessment", "assess_comparison", "select_time",
+    "prepare_diagnostic_traces", "local_result_signature",
+    "time_window_average",
+    "saturated_intensity", "radial_correlation_from_spectrum",
+    "SpatialField", "reconstruct_field", "zonal_fraction", "spectral_integral",
+    "rebin_contributions", "field_transport_contributions", "reduce_time_series",
     "PredatorPreyCycleMetrics",
     "PredatorPreyFit",
     "ZonalShearProxy",
@@ -81,6 +87,11 @@ class ZonalTurbulenceIntensity:
     zonal: np.ndarray
     ratio: np.ndarray
     weighting: str
+
+    @property
+    def fraction(self):
+        total = self.zonal + self.turbulence
+        return np.divide(self.zonal, total, out=np.full_like(total, np.nan), where=total > 0)
 
 
 @dataclass(frozen=True)
@@ -651,8 +662,15 @@ def fit_predator_prey_model(time, turbulence, zonal, *, method="trajectory", ini
         def rhs(_, y):
             return predator_prey_rhs(max(y[0], 0.0), max(y[1], 0.0), g, c1, c2, gz)
 
-        sol = solve_ivp(rhs, (t[0], t[-1]), [n0, e0], t_eval=t, method="LSODA",
-                        rtol=1e-7, atol=1e-12 * max(n.max(), e.max()))
+        sol = solve_ivp(
+            rhs,
+            (t[0], t[-1]),
+            [n0, e0],
+            t_eval=t,
+            method="LSODA",
+            rtol=1e-7,
+            atol=1e-12 * max(n.max(), e.max()),
+        )
         if not sol.success or sol.y.shape[1] != t.size:
             return None
         return sol.y
@@ -672,7 +690,9 @@ def fit_predator_prey_model(time, turbulence, zonal, *, method="trajectory", ini
         reasons.append("the fitted coefficients do not integrate over the window")
 
     def r2(model_trace, data):
-        return float(1.0 - np.sum((model_trace - data) ** 2) / np.sum((data - data.mean()) ** 2))
+        return float(
+            1.0 - np.sum((model_trace - data) ** 2) / np.sum((data - data.mean()) ** 2)
+        )
 
     rms_n = float(np.sqrt(np.mean(((traces[0] - n) / np.mean(n)) ** 2)))
     rms_e = float(np.sqrt(np.mean(((traces[1] - e) / np.mean(e)) ** 2)))
@@ -685,13 +705,616 @@ def fit_predator_prey_model(time, turbulence, zonal, *, method="trajectory", ini
     record = dict(normalization or {})
     missing = [key for key in NORMALIZATION_KEYS if key not in record]
     if missing:
-        warnings.append(f"normalisation not recorded for {', '.join(missing)}; c1, c2 are not comparable")
-    initial = (float(coeffs[4]), float(coeffs[5])) if fit_initial_state else (float(n[0]), float(e[0]))
-    return PredatorPreyFit(
-        gamma_eff=float(coeffs[0]), coupling_suppression=float(coeffs[1]),
-        coupling_drive=float(coeffs[2]), gamma_zonal=float(coeffs[3]),
-        turbulence_fit=traces[0], zonal_fit=traces[1], rms_turbulence=rms_n, rms_zonal=rms_e,
-        success=not reasons, reasons=tuple(reasons), time_window=(float(t[0]), float(t[-1])),
-        normalization=record, initial_state=initial, method=method,
-        r2_turbulence=r2_n, r2_zonal=r2_e, warnings=tuple(warnings),
+        warnings.append(
+            f"normalisation not recorded for {', '.join(missing)}; c1, c2 are not comparable"
+        )
+    initial = (
+        (float(coeffs[4]), float(coeffs[5]))
+        if fit_initial_state
+        else (float(n[0]), float(e[0]))
     )
+    return PredatorPreyFit(
+        gamma_eff=float(coeffs[0]),
+        coupling_suppression=float(coeffs[1]),
+        coupling_drive=float(coeffs[2]),
+        gamma_zonal=float(coeffs[3]),
+        turbulence_fit=traces[0],
+        zonal_fit=traces[1],
+        rms_turbulence=rms_n,
+        rms_zonal=rms_e,
+        success=not reasons,
+        reasons=tuple(reasons),
+        time_window=(float(t[0]), float(t[-1])),
+        normalization=record,
+        initial_state=initial,
+        method=method,
+        r2_turbulence=r2_n,
+        r2_zonal=r2_e,
+        warnings=tuple(warnings),
+    )
+
+
+@dataclass(frozen=True)
+class SpatialField:
+    """One local saved-theta plane; values are native CGYRO potential units."""
+
+    x: np.ndarray
+    y: np.ndarray
+    values: np.ndarray
+    metadata: Mapping[str, Any]
+
+
+def reconstruct_field(
+    coefficients, kx, ky, *, length_x, component="total", nx=None, ny=None
+):
+    """Reconstruct CGYRO's half-sum Re phi exp(+ikx*x-i*ky*y).
+
+    Parameters
+    ----------
+    coefficients : array-like
+        Complex Fourier coefficients (kx, ky), excluding native special slots [native potential].
+    kx : array-like
+        Radial Fourier wavenumbers [inverse perpendicular length].
+    ky : array-like
+        Binormal wavenumbers, including zero [inverse perpendicular length].
+    length_x : float
+        Positive periodic radial box length [perpendicular length].
+    component : str
+        Total, zonal (ky=0), or nonzonal field selection [-].
+    nx : int, optional
+        Radial sample count; default resolves retained Fourier harmonics [-].
+    ny : int, optional
+        Binormal sample count; default resolves retained Fourier harmonics [-].
+
+    Returns
+    -------
+    SpatialField
+        Periodic coordinates, real potential and explicit half-sum convention [native potential].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    Reconstruct CGYRO's half-sum Re phi exp(+ikx*x-i*ky*y).
+
+    Matches pygacode b493397 plot_fluct.maptoreal, including half weight
+    for ky=0. The caller must remove CGYRO's special first radial slot.
+    This is a saved-theta local plane, not a global or full 3D field.
+
+    Provenance
+    ----------
+    .. [1] GACODE b493397 pygacode/cgyro/plot_fluct.py, maptoreal and maptoreal_fft; #2019.
+    """
+    c = np.asarray(coefficients, dtype=complex)
+    kx, ky = np.asarray(kx, float), np.asarray(ky, float)
+    if c.shape != (kx.size, ky.size) or not np.isfinite(c).all():
+        raise ValueError("finite coefficients must have shape (kx, ky)")
+    if component not in ("total", "zonal", "nonzonal"):
+        raise ValueError("component must be total, zonal or nonzonal")
+    if (
+        not np.isfinite(length_x)
+        or length_x <= 0
+        or not np.isfinite(kx).all()
+        or not np.isfinite(ky).all()
+    ):
+        raise ValueError("finite wavenumbers and positive radial length required")
+    if np.any(ky < 0) or not np.isclose(ky[0], 0) or ky.size < 2:
+        raise ValueError("reconstruction requires ky=0 and a one-sided multi-mode grid")
+    dky = ky[1]
+    if dky <= 0 or not np.allclose(ky, np.arange(ky.size) * dky):
+        raise ValueError("nonuniform ky grid is unsupported")
+    p = kx * length_x / (2 * np.pi)
+    if not np.allclose(p, np.rint(p)) or len(np.unique(np.rint(p))) != len(p):
+        raise ValueError("kx must be unique Fourier harmonics of the radial box")
+    # The ky=0 plane is its own Hermitian partner; validate symmetric radial grids.
+    opposite = np.array([np.argmin(abs(p + value)) for value in p])
+    if np.allclose(p[opposite], -p) and not np.allclose(
+        c[:, 0], c[opposite, 0].conj(), rtol=1e-6, atol=1e-12
+    ):
+        raise ValueError("ky=0 coefficients violate radial Hermitian symmetry")
+    nx = int(nx or (2 * int(np.max(np.abs(p))) + 1))
+    ny = int(ny or (2 * ky.size - 1))
+    if nx <= 2 * np.max(np.abs(p)) or ny < 2 * ky.size - 1:
+        raise ValueError("real-space grid would alias saved harmonics")
+    x, y = np.arange(nx) * length_x / nx, np.arange(ny) * (2 * np.pi / dky) / ny
+    weights = np.ones(ky.size)
+    weights[0] = 0.5
+    if component == "zonal":
+        weights[1:] = 0
+    if component == "nonzonal":
+        weights[0] = 0
+    values = np.real(
+        np.exp(1j * np.outer(x, kx)) @ (c * weights) @ np.exp(-1j * np.outer(ky, y))
+    )
+    return SpatialField(
+        x,
+        y,
+        values,
+        {
+            "component": component,
+            "length_unit": "rho_s",
+            "normalization": "native CGYRO",
+            "fourier_sign": "+kx*x-ky*y",
+            "ky_zero_weight": 0.5,
+            "domain": "local saved-theta flux-tube plane",
+        },
+    )
+
+
+def zonal_fraction(phi, ky, *, weights=None, ky_tolerance=1e-12, weighting=None):
+    """I_Z/(I_Z+I_T); all-zero intensity is undefined, not zero.
+
+    Parameters
+    ----------
+    phi : array-like
+        Complex potential coefficients (kx, ky, time) [native potential].
+    ky : array-like
+        Binormal wavenumbers, including zero [inverse perpendicular length].
+    weights : array-like, optional
+        Nonnegative intensity weights broadcast over kx and ky [-].
+    ky_tolerance : float, optional
+        Numerical threshold identifying the zero binormal wavenumber [ky unit].
+    weighting : str, optional
+        Explicit interpretation of the supplied intensity weights [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        Zonal fraction at each time; all-zero intensity is NaN [-].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    I_Z/(I_Z+I_T); all-zero intensity is undefined, not zero.
+
+    Provenance
+    ----------
+    .. [1] Canonical mathematical definition in #2028; uses the retained-source and weighting contract of #2025.
+    """
+    result = zonal_turbulence_intensity(
+        phi, ky, weights=weights, ky_tolerance=ky_tolerance, weighting=weighting
+    )
+    return result.fraction
+
+
+def spectral_integral(values, *, representation="contribution", edges=None, axis=-1):
+    """Integrate signed bin contributions or densities with explicit bin edges.
+
+    Parameters
+    ----------
+    values : array-like
+        Signed spectral contributions or aligned time samples [quantity].
+    representation : str
+        Contribution means bin-integrated values; density requires edges [-].
+    edges : array-like, optional
+        Audited increasing spectral bin edges [wavenumber].
+    axis : int, optional
+        Axis containing spectral bins or additive field contributions [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        Signed integral with the selected spectral axis removed [quantity].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    Integrate signed bin contributions or densities with explicit bin edges.
+
+    Provenance
+    ----------
+    .. [1] Canonical mathematical definition in #2028; uses the retained-source and weighting contract of #2025.
+    """
+    values = np.asarray(values, float)
+    if representation == "contribution":
+        return np.sum(values, axis=axis)
+    if representation != "density" or edges is None:
+        raise ValueError("density requires audited bin edges")
+    edges = np.asarray(edges, float)
+    if (
+        edges.size != values.shape[axis] + 1
+        or not np.isfinite(edges).all()
+        or np.any(np.diff(edges) <= 0)
+    ):
+        raise ValueError("increasing finite edges must bracket every bin")
+    shape = [1] * values.ndim
+    shape[axis] = len(edges) - 1
+    return np.sum(values * np.diff(edges).reshape(shape), axis=axis)
+
+
+def rebin_contributions(values, edges, new_edges):
+    """Conserve signed flux using piecewise-uniform density within audited bins.
+
+    Parameters
+    ----------
+    values : array-like
+        Signed spectral contributions or aligned time samples [quantity].
+    edges : array-like, optional
+        Audited increasing spectral bin edges [wavenumber].
+    new_edges : array-like
+        Destination bin edges spanning exactly the source interval [wavenumber].
+
+    Returns
+    -------
+    numpy.ndarray
+        Conservative destination-bin contributions under piecewise-uniform density [quantity].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    Conserve signed flux using piecewise-uniform density within audited bins.
+
+    The destination must cover exactly the same interval; no extrapolation.
+
+    Provenance
+    ----------
+    .. [1] Canonical mathematical definition in #2028; uses the retained-source and weighting contract of #2025.
+    """
+    values, edges, new = map(lambda x: np.asarray(x, float), (values, edges, new_edges))
+    if (
+        values.shape[-1] + 1 != len(edges)
+        or len(new) < 2
+        or not np.isfinite(edges).all()
+        or not np.isfinite(new).all()
+        or np.any(np.diff(edges) <= 0)
+        or np.any(np.diff(new) <= 0)
+        or not np.allclose([edges[0], edges[-1]], [new[0], new[-1]], rtol=0, atol=1e-12)
+    ):
+        raise ValueError("audited increasing edges with identical coverage required")
+    overlap = np.maximum(
+        0,
+        np.minimum(new[1:, None], edges[None, 1:])
+        - np.maximum(new[:-1, None], edges[None, :-1]),
+    )
+    return (values / np.diff(edges)) @ overlap.T
+
+
+def field_transport_contributions(values, *, axis=0, cancellation_rtol=1e-8):
+    """Signed field totals and fractions; cancellation is explicit, never clipped.
+
+    Parameters
+    ----------
+    values : array-like
+        Signed spectral contributions or aligned time samples [quantity].
+    axis : int, optional
+        Axis containing spectral bins or additive field contributions [-].
+    cancellation_rtol : float, optional
+        Numerical threshold for total versus absolute summed magnitude [-].
+
+    Returns
+    -------
+    dict
+        Signed total, unbounded signed fractions and cancellation mask [quantity; fractions -].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    Signed field totals and fractions; cancellation is explicit, never clipped.
+
+    Provenance
+    ----------
+    .. [1] Canonical mathematical definition in #2028; uses the retained-source and weighting contract of #2025.
+    """
+    values = np.asarray(values, float)
+    total = np.sum(values, axis=axis)
+    magnitude = np.sum(np.abs(values), axis=axis)
+    cancelled = np.abs(total) <= cancellation_rtol * magnitude
+    good = np.isfinite(total) & (total != 0) & ~cancelled
+    fractions = np.divide(values, np.expand_dims(np.where(good, total, np.nan), axis))
+    return {
+        "total": total,
+        "fractions": fractions,
+        "cancellation": cancelled,
+        "definition": "signed contribution / signed total",
+    }
+
+
+def reduce_time_series(
+    time, values, *, window, blocks=4, max_gap=None, time_unit="a/c_s"
+):
+    """Time-weighted window reduction with explicit coverage and independent evidence.
+
+    Parameters
+    ----------
+    time : array-like
+        Finite strictly increasing simulation times [time_unit].
+    values : array-like
+        Signed spectral contributions or aligned time samples [quantity].
+    window : tuple of float
+        Selected closed integration interval; no extrapolation [time_unit].
+    blocks : int, optional
+        Equal-duration blocks; at least two observed samples per block [-].
+    max_gap : float, optional
+        Largest integrated interval; default three median sample spacings [time_unit].
+    time_unit : str, optional
+        Time-coordinate unit recorded with the result; default a/c_s [-].
+
+    Returns
+    -------
+    dict
+        Mean, coverage, block evidence, drift and independent qualifications [quantity; time_unit].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    Time-weighted window reduction with explicit coverage and independent evidence.
+
+    Integrates linear segments only between finite adjacent observed samples.
+    Without an explicit max_gap, gaps above 3*median cadence are excluded.
+    No extrapolation or interpolation across missing samples. Blocks tile time,
+    and their standard error is conditional on independence, never a confidence interval.
+
+    Provenance
+    ----------
+    .. [1] Existing nonlinear workflow batch-means implementation (#1484/#1820); piecewise-linear quadrature with explicit gaps; #2028.
+    """
+    t, y = np.asarray(time, float), np.asarray(values, float)
+    lo, hi = map(float, window)
+    if (
+        t.ndim != 1
+        or y.shape != t.shape
+        or len(t) < 2
+        or not np.isfinite(t).all()
+        or np.any(np.diff(t) <= 0)
+        or not np.isfinite([lo, hi]).all()
+        or hi <= lo
+        or not isinstance(blocks, int)
+        or blocks < 2
+    ):
+        raise ValueError(
+            "increasing time, aligned trace, positive window and >=2 blocks required"
+        )
+    gap = 3 * float(np.median(np.diff(t))) if max_gap is None else float(max_gap)
+    if not np.isfinite(gap) or gap <= 0:
+        raise ValueError("max_gap must be positive")
+    ok = np.isfinite(y[:-1]) & np.isfinite(y[1:]) & (np.diff(t) <= gap)
+
+    def integrate(a, b):
+        left, right = np.maximum(t[:-1], a), np.minimum(t[1:], b)
+        valid = ok & (right > left)
+        dt = np.diff(t)[valid]
+        l = left[valid]
+        r = right[valid]
+        slope = (y[1:][valid] - y[:-1][valid]) / dt
+        yl = y[:-1][valid] + slope * (l - t[:-1][valid])
+        yr = y[:-1][valid] + slope * (r - t[:-1][valid])
+        duration = float(np.sum(r - l))
+        return (
+            float(np.sum((yl + yr) * 0.5 * (r - l)) / duration) if duration else None
+        ), duration
+
+    mean, duration = integrate(lo, hi)
+    edges = np.linspace(lo, hi, blocks + 1)
+    bm = [integrate(a, b) for a, b in zip(edges[:-1], edges[1:])]
+    block_samples = [
+        int(np.count_nonzero((t >= a) & (t <= b) & np.isfinite(y)))
+        for a, b in zip(edges[:-1], edges[1:])
+    ]
+    n_samples = int(np.count_nonzero((t >= lo) & (t <= hi) & np.isfinite(y)))
+    complete = all(
+        m is not None and count >= 2 and np.isclose(d / ((hi - lo) / blocks), 1.0, rtol=0, atol=1e-10)
+        for (m, d), count in zip(bm, block_samples)
+    )
+    stderr = (
+        float(np.std([m for m, d in bm], ddof=1) / np.sqrt(blocks))
+        if complete
+        else None
+    )
+    halves = [integrate(lo, (lo + hi) / 2)[0], integrate((lo + hi) / 2, hi)[0]]
+    drift = None if None in halves else halves[1] - halves[0]
+    selected_finite = y[(t >= lo) & (t <= hi) & np.isfinite(y)]
+    scale = float(np.max(np.abs(selected_finite))) if selected_finite.size else 0.0
+    relative = (
+        None
+        if mean is None or abs(mean) <= 1e-8 * scale or mean == 0
+        else abs(drift) / abs(mean)
+        if drift is not None
+        else None
+    )
+    return {
+        "mean": mean,
+        "window": [lo, hi],
+        "time_unit": time_unit,
+        "coverage": duration / (hi - lo),
+        "max_gap": gap,
+        "gap_policy": "exclude segments above max_gap and missing endpoints",
+        "n_samples": n_samples,
+        "blocks": blocks,
+        "block_length": (hi - lo) / blocks,
+        "block_samples": block_samples,
+        "block_means": [m for m, d in bm],
+        "block_coverage": [d / ((hi - lo) / blocks) for m, d in bm],
+        "standard_error": stderr,
+        "half_window_drift": drift,
+        "relative_drift": relative,
+        "qualification": {
+            "data_sufficiency": "sufficient"
+            if duration > 0 and n_samples >= 4
+            else "insufficient_data",
+            "stationarity": "screen_passed"
+            if n_samples >= 4
+            and np.isclose(duration / (hi - lo), 1.0, rtol=0, atol=1e-10)
+            and relative is not None
+            and relative < 0.2
+            else "unverified",
+            "uncertainty": "estimated_with_block_independence_assumption"
+            if stderr is not None
+            else "insufficient_data",
+            "numerical_convergence": "unverified",
+            "physical_applicability": "unverified",
+        },
+        "method": "piecewise-linear time integral; equal-duration batch means; relative drift screen <0.2 (heuristic)",
+    }
+
+
+def saturated_intensity(ql_weights, potential_intensity):
+    """TGLF moment intensity = QL intensity weight * saturated phi intensity.
+
+    Parameters
+    ----------
+    ql_weights : array-like
+        Native TGLF quasilinear moment weights (species, ky, mode, moment) [native weight].
+    potential_intensity : array-like
+        Saturated potential intensity (ky, mode) [native phi squared].
+
+    Returns
+    -------
+    numpy.ndarray
+        Saturated moment intensity on the original four axes [native moment intensity].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    TGLF moment intensity = QL intensity weight * saturated phi intensity.
+
+    Weights: (species, ky, mode, moment); phi: (ky, mode). This is not a
+    transport-flux reconstruction: transport also needs its audited quadrature.
+
+    Provenance
+    ----------
+    .. [1] GACODE b493397 tglf_inout.f90 field/intensity writers; native SAT0/SAT2 fixture identities; #2025/#2028.
+    """
+    q, p = np.asarray(ql_weights, float), np.asarray(potential_intensity, float)
+    if q.ndim != 4 or p.shape != q.shape[1:3]:
+        raise ValueError("QL weights and saturated phi intensity axes disagree")
+    return q * p[None, :, :, None]
+
+
+def radial_correlation_from_spectrum(kx, spectrum, *, box_length, samples=513):
+    """Cosine autocorrelation 1/e crossing and integral scale; unresolved is a bound.
+
+    Parameters
+    ----------
+    kx : array-like
+        Radial Fourier wavenumbers [inverse perpendicular length].
+    spectrum : array-like
+        Nonnegative radial power spectrum on kx [intensity].
+    box_length : float
+        Positive periodic radial box extent [perpendicular length].
+    samples : int, optional
+        Number of separation samples across half the box; default 513 [-].
+
+    Returns
+    -------
+    dict
+        1/e crossing, lower bound if unresolved, and first-zero integral scale [perpendicular length].
+
+    Applicability
+    -------------
+    Machine-independent. Requires the declared spectral convention, retained axes and units.
+    These are numerical reductions of solver data, not independent evidence of physical validity.
+
+    Notes
+    -----
+    Cosine autocorrelation 1/e crossing and integral scale; unresolved is a bound.
+
+    Array-only counterpart of the CGYRO locality reader, with its existing
+    half-box search and first-zero integral definition preserved.
+
+    Provenance
+    ----------
+    .. [1] Existing CGYRO locality algorithm (#1354/#1484), spectrum-based cosine autocorrelation; #2028.
+    """
+    kx, power = np.asarray(kx, float), np.asarray(spectrum, float)
+    length = float(box_length)
+    if (
+        kx.ndim != 1
+        or power.shape != kx.shape
+        or not np.isfinite(kx).all()
+        or not np.isfinite(power).all()
+        or np.any(power < 0)
+        or not np.isfinite(length)
+        or length <= 0
+        or samples < 2
+    ):
+        raise ValueError("finite kx/nonnegative spectrum and positive box required")
+    if not np.any(power > 0):
+        return {"reason": "zero turbulent amplitude in the window"}
+    dx = np.linspace(0, 0.5 * length, samples)
+    correlation = (power[None, :] * np.cos(np.outer(dx, kx))).sum(axis=1)
+    correlation /= correlation[0]
+    below = np.flatnonzero(correlation <= np.exp(-1.0))
+    crossing = None
+    if below.size:
+        j = int(below[0])
+        x0, x1, c0, c1 = dx[j - 1], dx[j], correlation[j - 1], correlation[j]
+        crossing = float(x0 + (np.exp(-1.0) - c0) * (x1 - x0) / (c1 - c0))
+    zero = np.flatnonzero(correlation <= 0)
+    stop = int(zero[0]) if zero.size else dx.size
+    integrate = getattr(np, "trapezoid", None) or np.trapz
+    return {
+        "l_corr": crossing,
+        "l_corr_lower_bound": None if crossing is not None else 0.5 * length,
+        "l_integral": float(integrate(correlation[:stop], dx[:stop])),
+    }
+
+
+def time_window_average(time, values, *, window, max_gap=None):
+    """Average aligned scalar or multi-channel histories with the shared gap policy.
+
+    Parameters
+    ----------
+    time : array-like
+        Strictly increasing sample times [time].
+    values : array-like
+        Histories with time on the final axis [quantity].
+    window : tuple of float
+        Selected integration bounds in the input time unit [time].
+    max_gap : float, optional
+        Largest integrated interval; default three median sample spacings [time].
+
+    Returns
+    -------
+    numpy.ndarray
+        Means with the time axis removed; unavailable integrals are NaN [quantity].
+
+    Applicability
+    -------------
+    Machine-independent. Uses observed adjacent samples only, with the same
+    no-extrapolation and missing-interval policy as reduce_time_series.
+
+    Provenance
+    ----------
+    .. [1] Shared piecewise-linear reduction contract in #2028.
+    """
+    t, y = np.asarray(time, float), np.asarray(values, float)
+    if y.ndim < 1 or y.shape[-1] != t.size:
+        raise ValueError("histories must end in the simulation time axis")
+    means = [
+        reduce_time_series(t, row, window=window, max_gap=max_gap, blocks=2)["mean"]
+        for row in y.reshape(-1, len(t))
+    ]
+    return np.asarray([np.nan if v is None else v for v in means]).reshape(y.shape[:-1])
+
+
+# Same public scientific family; the small implementation module prevents plot
+# recipes from owning scientific compatibility checks. No native/plot imports.
+from .gyrokinetic_comparison import (ComparisonAssessment, assess_comparison,
+    select_time, prepare_diagnostic_traces, local_result_signature)
