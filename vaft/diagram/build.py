@@ -208,6 +208,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("blob_polarization", "blob_velocity_scaling", "blob_regimes")},
     "blob_polarization_hole.svg": ("blob_polarization", {"perturbation": "hole"}),
     **{f"blob_current_closure_{r}.svg": ("blob_current_closure", {"regime": r}) for r in ("sheath", "inertial")},
+    # canonical transport concepts: random walk, flux and gradient, reference scales (#1112)
+    **{f"{name}.svg": (name, {}) for name in ("random_walk_diffusion", "transport_flux_gradient",
+                                              "transport_reference_scales")},
     # MARFE on the high-field side and next to the X-point, with Drake's condition (#1209)
     "marfe.svg": ("marfe", {}),
     "marfe_xpoint.svg": ("marfe", {"localization": "xpoint"}),
