@@ -52,6 +52,7 @@ _SUBMODULES = {
     "fast_ion": ".fast_ion",
     "kinetic": ".kinetic",
     "turbulence": ".turbulence",
+    "transport": ".transport",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -92,6 +93,7 @@ _IMPORT_ORDER = (
     "fast_ion",
     "kinetic",
     "turbulence",
+    "transport",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in

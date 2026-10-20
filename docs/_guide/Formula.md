@@ -45,7 +45,8 @@ flowchart LR
 | `vaft.formula.impurity` | Impurity-mixture moments, densities for a target $Z_\mathrm{eff}$, the reduced pseudo-impurity, main-ion dilution |
 | `vaft.formula.fast_ion` | Classical fast-ion slowing down: critical speed and energy, slowing-down times, distribution, density, energy density and pressure |
 | `vaft.formula.kinetic` | Multi-species electron and ion collision times, electron–ion energy-exchange time, and the Braginskii perpendicular heat diffusivities (classical baseline) |
-| `vaft.formula.turbulence` | Turbulence–zonal-flow predator–prey (Lotka–Volterra) model: right-hand side, fixed point, invariant, small-amplitude period and response lag |
+| `vaft.formula.turbulence` | Fluctuation-driven transport references (diamagnetic velocity and frequency, E×B velocity, turbulent and cross-phase fluxes, mixing length, E×B shearing rate, Reynolds stress, zonal-flow drive) and the turbulence–zonal-flow predator–prey (Lotka–Volterra) model |
+| `vaft.formula.transport` | Transport reference relations: mean-square-displacement and Taylor–Green–Kubo diffusivities, constitutive particle and conductive heat fluxes, classical, Bohm and gyro-Bohm scales |
 | `vaft.formula.statistics` | Residual, goodness-of-fit and solver-convergence statistics used by the validation layer |
 
 `vaft/formula/__init__.py` resolves its submodules lazily (PEP 562): importing one of them costs

@@ -370,6 +370,8 @@ EMPIRICAL = frozenset({
     "townsend_coefficients_for_gas",
     "townsend_breakdown_field_for_gas",
     "romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau",
+    # Bohm 1949: the 1/16 coefficient is an arc-discharge observation (#1112)
+    "bohm_diffusivity_from_T_B",
 })
 
 SPECS = catalog.list_formulas()
