@@ -5,13 +5,15 @@ raw scientific observations. Paths/references are recorded only by the caller.
 """
 from __future__ import annotations
 
-__all__ = ['experiment_record', 'save_experiment', 'load_experiment', 'index_mlflow']
+__all__ = ['experiment_record', 'save_experiment', 'load_experiment', 'index_mlflow',
+           'ExperimentStore', 'hierarchy_record', 'experiment_digest']
 
 import json
 from pathlib import Path
 import uuid
 
 from ._types import _jsonable, ModelContractError
+from ._experiment_store import ExperimentStore, hierarchy_record, experiment_digest
 
 
 def experiment_record(result, *, references=None, run_id=None):

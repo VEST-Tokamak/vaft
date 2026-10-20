@@ -30,7 +30,9 @@ module.exports = defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'bundle exec jekyll serve --host 127.0.0.1 --port 4000 --no-watch',
+    command: process.env.VAFT_DOCS_STATIC_ROOT
+      ? "python -m http.server 4000 --bind 127.0.0.1 --directory '" + process.env.VAFT_DOCS_STATIC_ROOT.replace(/'/g, "'\\''") + "'"
+      : 'bundle exec jekyll serve --host 127.0.0.1 --port 4000 --no-watch',
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
