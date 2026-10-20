@@ -504,9 +504,13 @@ class CalibrationResult:
     groups: tuple[str, ...] = ()
     #: How the calibration population was restricted within the partition, if at all.
     population: str | None = None
+    usage: dict | None = None
 
     def to_dict(self) -> dict:
-        return {**dataclasses.asdict(self), "groups": list(self.groups)}
+        record = {**dataclasses.asdict(self), "groups": list(self.groups)}
+        if self.usage is None:
+            record.pop("usage")
+        return record
 
 
 @dataclass(frozen=True, kw_only=True, eq=False)
@@ -552,6 +556,21 @@ class ModelArtifact:
         from ._provenance import sha256_bytes
 
         return sha256_bytes(self.state)
+
+    @property
+    def contract_sha256(self) -> str:
+        """Bind weights, normalization, configuration and declared use history.
+
+        In-memory state identity alone does not distinguish changed transforms.
+        A validation report also needs this contract captured at evaluation time.
+        """
+        from ._provenance import sha256_bytes
+        return sha256_bytes(canonical_json({"state_sha256": self.state_sha256,
+            "name": self.name, "kind": self.kind, "outputs": self.outputs,
+            "input_shape": self.input_shape, "target_shape": self.target_shape, "input_names": self.input_names,
+            "model_spec": self.model_spec.to_dict(), "normalization": dict(self.normalization),
+            "tensor_schema": dict(self.tensor_schema), "training": dict(self.training),
+            "calibration": {k: v.to_dict() for k, v in self.calibration.items()}}).encode())
 
     def resolved_identity(self) -> ModelIdentity:
         """The identity to stamp on a result: the resolved one, else in-memory."""
@@ -631,6 +650,8 @@ class EvaluationResult:
     per_group: Mapping[str, Mapping[str, float]]
     n_samples: int
     model_identity: ModelIdentity
+    #: Opt-in observed evaluation use, distinct from scientific validation.
+    provenance: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, kw_only=True, eq=False)

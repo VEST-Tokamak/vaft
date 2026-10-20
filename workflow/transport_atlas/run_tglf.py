@@ -337,7 +337,19 @@ def project_state(state, surfaces: list[dict], jobs: dict) -> dict:
     if not pairs:
         return {"written": [], "skipped": ["no solved surface"], "surfaces": []}
     ods = ODS(consistency_check=False)
-    report = core_transport_from_tglf(ods, pairs, state.profile, time=state.key.time_efit_s)
+    # Some legacy/partial exports retain fluxes but no effective controls. Keep
+    # those usable for an explicitly unverified, single projection; never reuse
+    # an invented shared model identity for them.
+    from vaft.code.gacode.result_identity import read_native_input
+    unknown_controls = all(not read_native_input(native.directory,"TGLF")[0]
+                           and not getattr(native,"saturation_parameters",None) for _,native in pairs)
+    identity_options = {}
+    if unknown_controls:
+        import uuid
+        identity_options={"configuration":{"effective_settings":None,"evidence":"legacy flux-only projection"},
+                          "realization_id":str(uuid.uuid4())}
+    report = core_transport_from_tglf(ods, pairs, state.profile, time=state.key.time_efit_s,
+                                      state_identity=state.identity, **identity_options)
     base = f"core_transport.model.{report['model']}.profiles_1d.0"
     if not report["written"] or f"{base}.grid_flux.rho_tor_norm" not in ods:
         return {"written": [], "skipped": report["skipped"], "surfaces": []}

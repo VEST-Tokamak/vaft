@@ -54,6 +54,11 @@ from .outputs import (
     CgyroOutputs,
     collect_cgyro_outputs,
 )
+from .fields import FieldHistory, read_field_history
+from .time import (
+    CgyroTimeNormalization, gyrokinetic_time_scale_s,
+    gyrokinetic_elapsed_time_s, gyrokinetic_normalized_time,
+)
 from .locality import (
     BOX_THRESHOLDS,
     LOCALITY_THRESHOLDS,
@@ -71,6 +76,9 @@ from .runner import (
 )
 
 __all__ = [
+    "CgyroTimeNormalization", "gyrokinetic_time_scale_s",
+    "gyrokinetic_elapsed_time_s", "gyrokinetic_normalized_time",
+    "FieldHistory", "read_field_history",
     "BOX_THRESHOLDS",
     "LOCALITY_THRESHOLDS",
     "locality_report",

@@ -1,0 +1,19 @@
+{
+  "upstream_revision": "b49339750a4aa4cf2b089fa9ff3afe098005f0f8",
+  "upstream_source_sha256": {
+    "upstream_data.py": "ba5c8003fb92cedcfdca4a7199a9512c10a3cf1c8b65d51c466ec586527b8286",
+    "upstream_plot_fluct.py": "5d8b303dd3a518407f4405c6464a49fd94c1f0ae2c0bafc2af2764fa78f641f1"
+  },
+  "raw_field_array_equal": true,
+  "reconstruction_max_abs_error": 5.412337245047638e-16,
+  "frame_time": 100.0,
+  "layout": [
+    64,
+    1,
+    16,
+    21
+  ],
+  "saved_theta": [
+    0.0
+  ]
+}
