@@ -78,12 +78,14 @@ def test_the_registry_reader_leaves_the_root_logger_alone(logger_levels, monkeyp
 
 def test_no_database_module_sets_the_root_level():
     """The loaders (ods.load, ids.load/save) carried the same root-level call."""
+    import re
     from pathlib import Path
 
+    root_level = re.compile(r"getLogger\((\"\"|''|None)?\)\.setLevel|logging\.root\.setLevel")
     package = Path(utils.__file__).parent
     offenders = [
         path.relative_to(package).as_posix()
         for path in sorted(package.rglob("*.py"))
-        if "getLogger().setLevel" in path.read_text(encoding="utf-8")
+        if root_level.search(path.read_text(encoding="utf-8"))
     ]
     assert offenders == []
