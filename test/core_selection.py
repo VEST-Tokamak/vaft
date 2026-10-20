@@ -366,6 +366,9 @@ CORE_MODULES: tuple[str, ...] = (
     # checked against a numerical orbit, and the process layer (intensity split,
     # cycle metrics, trajectory fit) on synthetic orbits. Under 30 s.
     "test_formula_turbulence.py",
+    # Transport and turbulence reference relations (#1112): analytic limits, sign
+    # conventions and the TGLF gyro-Bohm units. Pure NumPy, under 5 s.
+    "test_formula_transport.py",
     "test_process_gyrokinetics.py",
     # Retained native fields, scientific identity, statistics, comparisons and IMAS round trips.
     "test_cgyro_time.py",
