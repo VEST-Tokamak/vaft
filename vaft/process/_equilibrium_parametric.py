@@ -165,7 +165,7 @@ def _resolve_convention(
     CASE header, say -- is recorded rather than trusted in silence.  The
     declaration still wins: a caller asserting a convention is taken at their
     word, and the disagreement surfaces through
-    :func:`~vaft.process.cocos.validate_cocos` and ``convention.contradicted``.
+    :func:`~vaft.validation.cocos.validate_cocos` and ``convention.contradicted``.
     """
     from vaft.process.cocos import identify_convention
 
