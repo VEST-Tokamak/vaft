@@ -27,6 +27,7 @@ from typing import NamedTuple, Union, Tuple, Optional
 import numpy as np
 
 from ._exports import public_names
+from ._propagation import jacobian as _jacobian
 from .constants import (
     MU0, QE, ME, MI_P, EPS0, C_LIGHT,
     E_ALPHA, SIGMA_V_COEF,
@@ -1889,9 +1890,11 @@ def radial_magnetic_field_from_psi(psi: np.ndarray,
     Parameters
     ----------
     psi : np.ndarray
-        Poloidal flux along the vertical direction; a 1-D cut in $Z$ [Wb/rad or Wb].
+        Poloidal flux; a 1-D cut in $Z$ or a 2-D map indexed ``[Z, R]``
+        [Wb/rad or Wb].
     R : np.ndarray or float
-        Major radius of the samples [m].
+        Major radius of the samples: a scalar, an array of the shape of
+        ``psi``, or for a ``[Z, R]`` map the 1-D radial grid [m].
     Z : np.ndarray
         Vertical coordinate of the samples, monotonic [m].
     cocos : int or None, optional
@@ -1942,9 +1945,11 @@ def vertical_magnetic_field_from_psi(psi: np.ndarray,
     Parameters
     ----------
     psi : np.ndarray
-        Poloidal flux along the radial direction; a 1-D cut in $R$ [Wb/rad or Wb].
+        Poloidal flux; a 1-D cut in $R$ or a 2-D map indexed ``[R, Z]``
+        [Wb/rad or Wb].
     R : np.ndarray
-        Major radius of the samples, monotonic [m].
+        Major radius of the samples, 1-D and monotonic, of the length of the
+        first axis of ``psi`` [m].
     Z : np.ndarray
         Vertical coordinate of the samples, unused by the derivative [m].
     cocos : int or None, optional
@@ -1966,7 +1971,9 @@ def vertical_magnetic_field_from_psi(psi: np.ndarray,
     Assumptions
     -----------
     Axisymmetry.  The derivative is taken along the *first* axis of ``psi``
-    against ``R``, so the map must be indexed ``[R]`` or ``[R, Z]``.
+    against ``R``, so the map must be indexed ``[R]`` or ``[R, Z]``; the
+    $1/R$ prefactor is broadcast along that same axis.  A ``[Z, R]``-ordered
+    2-D array differentiates along the wrong axis.
 
     Numerical notes
     ---------------
@@ -1977,7 +1984,11 @@ def vertical_magnetic_field_from_psi(psi: np.ndarray,
     .. [1] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293,
            Eq. (20) and Table I.
     """
-    return -poloidal_field_factor(cocos)/R * gradient(R, psi)
+    R = np.asarray(R, dtype=float)
+    psi = np.asarray(psi)
+    # R is the first-axis grid; align 1/R with that axis, not the last one.
+    R_axis = R.reshape(R.shape + (1,) * (psi.ndim - 1)) if R.ndim == 1 else R
+    return -poloidal_field_factor(cocos)/R_axis * gradient(R, psi)
 
 
 
@@ -2233,6 +2244,60 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
            Ch. 3, Equilibrium (internal inductance).
     """
     return 2 * float(Bp2_dV) / (MU0**2 * float(Ip) ** 2 * float(R0))
+
+
+def li_1_from_Bp2_volume_integral(Bp2_dV: float,
+                                  volume: float,
+                                  Ip: float,
+                                  perimeter: float) -> float:
+    r"""Internal inductance in the circumference-normalized ``l_i(1)`` definition.
+
+    $$l_{i1} = \frac{\langle B_p^2 \rangle_V}{B_{pa}^2},\qquad
+      \langle B_p^2 \rangle_V = \frac{\int B_p^2 \, dV}{V},\qquad
+      B_{pa} = \frac{\mu_0 I_p}{\Gamma}$$
+
+    $B_{pa}$ is the poloidal field averaged along the boundary circumference $\Gamma$.
+    This is the $\ell_i$ of the DIII-D beta-limit scaling $\beta_{max} = 4\,\ell_i\,I/aB$
+    (Strait 1994), not the IMAS ``li_3`` of :func:`li_3_from_Bp2_volume_integral`.
+    The two differ by $l_{i1} = l_{i3}\,R_0 \Gamma^2 / (2V)
+    = l_{i3}\,(R_0/R_c)\,\Gamma^2/(4\pi A)$, with $A$ the cross-section area and
+    $R_c = V/(2\pi A)$ its centroid radius: a shape part $\Gamma^2/(4\pi A) \ge 1$ (1 for a
+    circle) and a radius part $R_0/R_c$ from the radius $l_{i3}$ normalizes by.
+
+    Parameters
+    ----------
+    Bp2_dV : float
+        Poloidal field squared integrated over the plasma volume [T^2 m^3].
+    volume : float
+        Plasma volume inside the boundary [m^3].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+    perimeter : float
+        Poloidal circumference of the boundary, Gamma [m].
+
+    Returns
+    -------
+    float
+        Internal inductance, ``l_i(1)`` definition [-].
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: global_descriptor
+
+    References
+    ----------
+    .. [1] E. J. Strait, Phys. Plasmas 1 (1994) 1415, doi:10.1063/1.870691, p. 1421:
+           $l_i = \langle B_p^2\rangle/B_{pa}^2$ with $B_{pa} = \mu_0 I/\Gamma$.
+    """
+    volume, perimeter = float(volume), float(perimeter)
+    if not (volume > 0 and perimeter > 0):
+        raise ValueError(f"volume and perimeter must be positive, got {volume!r} and {perimeter!r}")
+    b_pa = MU0 * abs(float(Ip)) / perimeter
+    return float(Bp2_dV) / volume / b_pa ** 2
 
 
 def internal_inductance_from_W_int_Ip(W_int: float, Ip: float) -> float:
@@ -3290,9 +3355,10 @@ def normalized_plasma_current(Ip: Union[float, np.ndarray],
 
     Convention
     ----------
-    SI current in, engineering-unit ratio out: the same $I_N$ that normalises
-    $\beta_N = \beta_t[\%]/I_N$ and that the ST beta-limit literature plots
-    against.
+    SI current in, engineering-unit ratio out: the Troyon normalisation
+    $I_N = I_p/(a B_t)$ [1] that turns $\beta_t$ into $\beta_N = \beta_t[\%]/I_N$,
+    and the current axis of the low-aspect-ratio $(I_N, \beta_N)$ stability
+    maps [2].
 
     Semantics
     ---------
@@ -3301,9 +3367,12 @@ def normalized_plasma_current(Ip: Union[float, np.ndarray],
 
     References
     ----------
-    .. [1] J. E. Menard et al., Phys. Plasmas 23 (2016) 072508,
-           https://doi.org/10.1063/1.4959808, Sec. II.
-    .. [2] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
+    .. [1] F. Troyon, R. Gruber, H. Saurenmann, S. Semenzato and S. Succi,
+           Plasma Phys. Control. Fusion 26 (1984) 209,
+           https://doi.org/10.1088/0741-3335/26/1A/319.
+    .. [2] J. E. Menard, S. C. Jardin, S. M. Kaye, C. E. Kessel and
+           J. Manickam, Nucl. Fusion 37 (1997) 595,
+           https://doi.org/10.1088/0029-5515/37/5/I03.
     """
     Ip = Ip / 1e6  # Convert A to MA
     return Ip / (a * Bt)
@@ -4028,6 +4097,12 @@ def inductive_voltage_from_dW_magdt_I_p(dW_magdt: float, I_p: float) -> float:
 # Power Balance
 # ------------------------------------------------------------------
 
+def _ohmic_heating_power_jacobian(I_p, V_res, **_):
+    """``[dP/dI_p, dP/dV_res]`` of :func:`ohmic_heating_power_from_I_p_V_res`."""
+    return [[V_res, I_p]]
+
+
+@_jacobian(_ohmic_heating_power_jacobian, wrt=("I_p", "V_res"))
 def ohmic_heating_power_from_I_p_V_res(I_p: float,
                                         V_res: float) -> float:
     r"""Ohmic heating power $P_{ohm} = I_pV_{res}$.
@@ -4051,6 +4126,19 @@ def ohmic_heating_power_from_I_p_V_res(I_p: float,
     With the *surface* loop voltage in place of $V_{res}$ the product also
     counts the inductive power $L\,dI_p/dt$ and the change of internal
     inductance, so it is a resistive-heating estimate only when $dI_p/dt \approx 0$.
+
+    Uncertainty propagation
+    -----------------------
+    Inputs in order $(I_p, V_{res})$ [A, V]; analytic Jacobian
+    $J = (V_{res},\ I_p)$ [V, A], so
+    $\sigma_P^2 = V_{res}^2\sigma_{I}^2 + I_p^2\sigma_{V}^2 + 2I_pV_{res}\,\mathrm{cov}(I_p, V_{res})$.
+    The product is bilinear: for Gaussian inputs first order misses only the
+    $\mathrm{cov}(I_p, V_{res})^2 + \sigma_I^2\sigma_V^2$ term of the variance and the
+    mean shift $E[I_pV_{res}] - I_pV_{res} = \mathrm{cov}(I_p, V_{res})$, both negligible
+    when the relative uncertainties are small. $I_p$ and $V_{res}$ share the
+    loop-voltage and Rogowski calibration chain, so their covariance is rarely
+    zero. $V_{res}$ already carries the inductive correction; its uncertainty
+    includes that of $L\,dI_p/dt$, which this formula cannot see.
 
     References
     ----------
@@ -5218,6 +5306,13 @@ calc_omega_i_tau_E = omega_i_tau_E_from_B_tau_E_M
 # ------------------------------------------------------------------
 # Confinement Time
 # ------------------------------------------------------------------
+def _confinement_time_jacobian(P_loss, W_th, **_):
+    """``[dtau/dP_loss, dtau/dW_th]`` of :func:`confinement_time_from_P_loss_W_th`."""
+    return [[-W_th / P_loss ** 2, 1.0 / P_loss]]
+
+
+@_jacobian(_confinement_time_jacobian, wrt=("P_loss", "W_th"),
+           domain=lambda P_loss, W_th, **_: P_loss > 0 and W_th >= 0)
 def confinement_time_from_P_loss_W_th(P_loss: float, W_th: float) -> float:
     r"""Energy confinement time as stored energy over loss power.
 
@@ -5245,6 +5340,20 @@ def confinement_time_from_P_loss_W_th(P_loss: float, W_th: float) -> float:
     ---------
     produces: energy_confinement_time
 
+    Uncertainty propagation
+    -----------------------
+    Inputs in order $(P_{loss}, W_{th})$ [W, J]; analytic Jacobian
+    $J = (-W_{th}/P_{loss}^2,\ 1/P_{loss})$ [s/W, s/J], so
+    $(\sigma_\tau/\tau)^2 = (\sigma_P/P)^2 + (\sigma_W/W)^2 - 2\,\mathrm{cov}(P, W)/(PW)$.
+    First order is local: the ratio is nonlinear in $P_{loss}$, and the
+    linearization stops describing the spread as $\sigma_P/P_{loss}$ grows
+    (it is singular at $P_{loss} = 0$ and undefined for $P_{loss} \le 0$, a
+    transient with $dW/dt$ larger than the heating power; the declared domain is
+    $P_{loss} > 0$, $W_{th} \ge 0$, so such a point or Monte Carlo draw is refused). A positive
+    correlation (both inputs from one equilibrium reconstruction, or $dW/dt$
+    in $P_{loss}$ from the same $W_{th}$) *reduces* the spread. Measured-input
+    covariance only; no confinement-scaling or model-form uncertainty.
+
     References
     ----------
     .. [1] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2, Sec. 3.
@@ -5263,6 +5372,7 @@ def confinement_time_from_engineering_parameters(
     scaling: str = "ITER89P",
     input_density_definition: str = "line_avg",
     line_to_volume_factor: Optional[float] = None,
+    delta: Optional[float] = None,
 ) -> float:
     r"""Thermal energy confinement time from an engineering-parameter scaling law.
 
@@ -5270,6 +5380,8 @@ def confinement_time_from_engineering_parameters(
 
     with the product running only over the variables the selected scaling
     declares, in the engineering units MA, T, MW, $10^{19}$ m^-3, amu and m.
+    The ITPA20 and ITPA20-IL fits also carry a triangularity factor
+    $(1+\delta)^{\alpha_{1+\delta}}$.
 
     Parameters
     ----------
@@ -5292,13 +5404,17 @@ def confinement_time_from_engineering_parameters(
     scaling : str, optional
         Scaling-law name; default ``"ITER89P"`` [str].
         One of ``"ITER89P"``, ``"H98y2"``, ``"ITER97L"``, ``"NSTX2006H"``,
-        ``"NSTX2006L"``, ``"Kurskiev2022"``.
+        ``"NSTX2006L"``, ``"Kurskiev2022"``, ``"ITPA20"``, ``"ITPA20_IL"``.
     input_density_definition : str, optional
         What ``n_e`` is: ``"line_avg"`` (default) or ``"volume_avg"`` [str].
     line_to_volume_factor : float or None, optional
         Volume-to-line density ratio, default ``None`` [-].
         Used only when the input and the scaling's density definitions differ,
         and required then.
+    delta : float or None, optional
+        Average LCFS triangularity $(\delta_u+\delta_l)/2$, default ``None`` [-].
+        Required by the scalings with a $(1+\delta)$ term (ITPA20, ITPA20-IL),
+        where $1+\delta$ must be > 0; ignored by the others.
 
     Returns
     -------
@@ -5308,8 +5424,9 @@ def confinement_time_from_engineering_parameters(
     Raises
     ------
     ValueError
-        Unknown scaling, non-positive input, or a density-definition mismatch
-        without ``line_to_volume_factor``.
+        Unknown scaling, non-positive input, a density-definition mismatch
+        without ``line_to_volume_factor``, or a triangularity scaling without
+        ``delta``.
 
     Convention
     ----------
@@ -5326,8 +5443,13 @@ def confinement_time_from_engineering_parameters(
     Empirical fit.  Multi-machine regressions of the ITER L-mode (ITER89P [1]_)
     and ELMy H-mode (IPB98(y,2) [2]_) databases, the ITER97-L thermal L-mode fit
     [5]_, the NSTX H- and L-mode fits of Kaye [3]_, and the spherical-tokamak
-    multi-machine H-mode fit of Kurskiev [4]_; each is valid over its database's parameter range and the ST fits are
-    the only ones that include low-aspect-ratio data.
+    multi-machine H-mode fit of Kurskiev [4]_, and the ITPA20 (all DB5.2.3-STD5
+    ELMy H-modes) and ITPA20-IL (its ITER-like subset) fits of Verdoolaege [6]_,
+    both on the thermal loss power $P_{l,th}$ (radiation inside the LCFS not
+    subtracted), the volume elongation $\kappa_a = V/(2\pi R\,\pi a^2)$ and the
+    average triangularity; each is valid over its database's parameter range and the ST fits and
+    ITPA20 (which keeps the NSTX, MAST and START points of STD5) are the only
+    ones that include low-aspect-ratio data.
 
     Limitations
     -----------
@@ -5351,6 +5473,8 @@ def confinement_time_from_engineering_parameters(
     .. [3] S. M. Kaye et al., Nucl. Fusion 46 (2006) 848, Table 2.
     .. [4] G. S. Kurskiev et al., Nucl. Fusion 62 (2022) 016011.
     .. [5] S. M. Kaye et al., Nucl. Fusion 37 (1997) 1303 (ITER97-L).
+    .. [6] G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006, eqs. (5)
+           (ITPA20-IL) and (7) (ITPA20).
     """
     def _normalise_density_definition(label: str) -> str:
         mapping = {
@@ -5434,6 +5558,16 @@ def confinement_time_from_engineering_parameters(
         "epsilon": epsilon,
         "kappa": kappa,
     }
+    if "one_plus_delta" in exponents:
+        if delta is None:
+            raise ValueError(
+                f"Scaling '{scaling}' has a (1 + delta) triangularity term; pass delta "
+                "(average LCFS triangularity)."
+            )
+        delta_array = np.asarray(delta, dtype=float)
+        if np.any(~np.isfinite(delta_array)) or np.any(1.0 + delta_array <= 0.0):
+            raise ValueError(f"delta must satisfy 1 + delta > 0, got {delta!r}")
+        variable_values["one_plus_delta"] = 1.0 + delta_array
 
     result = C
     used_variables = []
@@ -5459,7 +5593,7 @@ def confinement_time_from_engineering_parameters(
                 f"Confinement time calculation resulted in complex number for scaling '{scaling}'. "
                 f"Used variables: {used_variables}. "
                 f"Inputs: I_p={I_p}, B_t={B_t}, P_loss={P_loss}, n_e={n_e}, M={M}, R={R}, "
-                f"epsilon={epsilon}, kappa={kappa}"
+                f"epsilon={epsilon}, kappa={kappa}, delta={delta}"
             )
         result = np.real(result_complex)
 
@@ -5469,7 +5603,7 @@ def confinement_time_from_engineering_parameters(
             f"Invalid confinement time result: {result}. "
             f"Used variables: {used_variables}. "
             f"Inputs: I_p={I_p}, B_t={B_t}, P_loss={P_loss}, n_e={n_e}, M={M}, R={R}, "
-            f"epsilon={epsilon}, kappa={kappa}, scaling={scaling}"
+            f"epsilon={epsilon}, kappa={kappa}, delta={delta}, scaling={scaling}"
         )
 
     return float(result)
@@ -5679,7 +5813,8 @@ def confinement_scaling_basis(scaling: str) -> ConfinementScalingBasis:
     ----------
     scaling : str
         Scaling name: a key of ``_SCALING_COEFS`` (``"ITER89P"``, ``"ITER97L"``,
-        ``"H98y2"``, ``"NSTX2006H"``, ``"NSTX2006L"``, ``"Kurskiev2022"``) or
+        ``"H98y2"``, ``"NSTX2006H"``, ``"NSTX2006L"``, ``"Kurskiev2022"``,
+        ``"ITPA20"``, ``"ITPA20_IL"``) or
         one of the ohmic/L-mode forms ``"NeoAlcator"``, ``"Goldston84L"``,
         ``"Goldston84OhmicL"`` [str].
 

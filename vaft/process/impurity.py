@@ -1834,6 +1834,14 @@ def resolve_radial_composition(
     )
 
 
+#: The normalization fields :func:`resolve_radial_composition` records that a
+#: reader needs to know what the amplitude was closed on.
+_NORMALIZATION_FIELDS = ("target_zeff", "target_zeff_fully_stripped", "resistive_target", "at_rho", "scale")
+
+#: A record key, as ``key=value`` fields are read back.
+_RECORD_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
 def populate_radial_impurity_profiles(
     ods: Any,
     radial: RadialImpurityComposition,
@@ -1841,6 +1849,7 @@ def populate_radial_impurity_profiles(
     time: Optional[float] = None,
     tolerance: float = 5e-4,
     method: Optional[str] = None,
+    record_fields: Optional[Mapping[str, Any]] = None,
 ) -> Any:
     """A copy of ``ods`` whose ``core_profiles`` slice carries a charge-state-resolved composition.
 
@@ -1856,6 +1865,11 @@ def populate_radial_impurity_profiles(
         Largest ``|t_slice - time|`` accepted [s].
     method : str, optional
         ``method=`` field; default ``openadas_<ionization>`` [-].
+    record_fields : mapping, optional
+        The caller's provenance of the normalization target, appended to the
+        same record as ``key=value`` fields -- e.g. ``resistive_method``,
+        ``resistive_sigma``, ``resistive_window`` for a Romero-closed
+        amplitude [-].
 
     Returns
     -------
@@ -1873,7 +1887,11 @@ def populate_radial_impurity_profiles(
     Raises
     ------
     ValueError
-        As :func:`populate_impurity_profiles`.
+        As :func:`populate_impurity_profiles`; or a ``record_fields`` key that
+        would restate a field the writer owns (``origin``, ``method``,
+        ``normalization``, ``temperature``, ``rotation`` or one of the
+        normalization's own fields), a key outside ``[A-Za-z_][A-Za-z0-9_]*``,
+        or a value that is not a string or a number or holds ``;`` or ``=``.
 
     Processing steps
     ----------------
@@ -1882,7 +1900,10 @@ def populate_radial_impurity_profiles(
     3. Write each element bundled, with its charge-state densities, from the
        composition interpolated onto the slice rho grid.
     4. Write ``zeff`` (``origin=derived``, or ``inferred`` for a resistive
-       closure).
+       closure).  Every record names the normalization and its target as the
+       resolver stated them (``target_zeff``, ``target_zeff_fully_stripped``,
+       ``resistive_target``, ``at_rho``, ``scale``, ``weighting``), then
+       ``record_fields``.
 
     Input semantics
     ---------------
@@ -1937,9 +1958,27 @@ def populate_radial_impurity_profiles(
     origin = _WRITE_ORIGIN[radial.kind]
     tag = method or f"openadas_{radial.provenance.get('ionization')}"
     norm = radial.normalization.get("method")
+    stated: dict[str, Any] = {}
+    for key in _NORMALIZATION_FIELDS:
+        value = radial.normalization.get(key)
+        if value is not None and np.isfinite(float(value)):
+            stated[key] = float(value)
+    if radial.normalization.get("weighting"):
+        stated["weighting"] = str(radial.normalization["weighting"])
+    extra = dict(record_fields or {})
+    owned = {"origin", "method", "normalization", "weighting", "filled_points", "temperature", "rotation",
+             *_NORMALIZATION_FIELDS}
+    clash = sorted(owned & set(extra))
+    if clash:
+        raise ValueError(f"record_fields may not restate {clash}: the writer states them from the composition")
+    for key, value in extra.items():
+        if not _RECORD_KEY.fullmatch(str(key)):
+            raise ValueError(f"record_fields key {key!r} is not a record key ([A-Za-z_][A-Za-z0-9_]*)")
+        if isinstance(value, bool) or not isinstance(value, (str, int, float, np.integer, np.floating)):
+            raise ValueError(f"record_fields value of {key} must be a string or a number, got {value!r}")
     main, filled = grid(radial.main_ion_fraction)
     fill_note = f"; filled_points={filled}" if filled else ""
-    record = composition_record_text(origin, tag, normalization=norm) + fill_note
+    record = composition_record_text(origin, tag, normalization=norm, **stated, **extra) + fill_note
     work[f"{base}.ion.0.density"] = ne * main
     work[f"{base}.ion.0.density_thermal"] = ne * main
     work[f"{base}.ion.0.density_fit.parameters"] = record

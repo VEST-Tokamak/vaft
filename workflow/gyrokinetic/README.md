@@ -61,3 +61,49 @@ Every run is resumable: a `record.json` whose input hash matches and whose statu
 `linear_summary.csv`, `convergence.csv`, `schema.json`, and `runs/` with each native
 CGYRO directory (`input.cgyro`, `input.cgyro.gen`, `out.cgyro.*`, `bin.cgyro.*`), its
 `record.json`, `cgyro_outputs.json` and `gyrokinetics_local.json` (DD 3.41).
+
+## Nonlinear runs
+
+`run_nonlinear.py` runs one state and surface. Two things about it are not obvious:
+
+- **The default field model is EM (`em-aperp`).** An electrostatic run with kinetic electrons carries a spurious high-frequency branch at low `k_y` (the ω_H mode, |ω| ~ 200 c_s/a). Finer θ resolution makes it worse, and finite β removes it. On 39915 r/a 0.7 it drove the whole ES run (#1484). An ES run with `n=1` at `k_y <= 0.2` is therefore refused unless you pass `--allow-es-low-ky`.
+- **`--amp` sets CGYRO's `AMP`**, the seed amplitude of the `n>0` modes (CGYRO default 0.1). A 10x larger seed only saves about ln(10)/γ_max of linear growth.
+
+Long runs are chained allocations with `--restart`. **CGYRO counts `MAX_TIME` from the restart**, not from t = 0. A continuation therefore passes the *extra* span: a run at t = 250 continued with `--max-time 500` stops at t = 750. With Slurm, chain the jobs with `sbatch -d afterany:<previous>`. The restart file survives a job that hits its wall-time limit.
+
+`build_nonlinear.py` reports, for a window:
+- the window means of Q_tot, Q_i and Q_e;
+- a half-window drift test;
+- a **batch-means standard error** (`--blocks`, default 4);
+- the **zonal-fraction trace**;
+- the TGLF SAT0-3 reference and the locality QA on the same window.
+
+A bursty run, where turbulence and zonal flows trade energy, is not stationary on short windows. For such a run, quote the window mean ± its batch-means standard error, with blocks longer than the burst spacing. With `--blocks n` the standard error has only n - 1 degrees of freedom; the default 4 is a rough error bar, so quote more blocks when the run is long enough (39915 r/a 0.7: 9 blocks of 100 a/c_s). Do not quote the window standard deviation; it mostly measures the bursts.
+
+## Reusing retained outputs (#2020 / #2019 2D milestone)
+
+Use `python -m workflow.gyrokinetic.build_result_reference --out /tmp/gk-reference`
+for the offline compact real-native fixture, static fields, synchronized MP4/WebM,
+window statistics and machine-readable mapping/retention audit. `--skip-video`
+runs without PyAV. Full native fields remain outside IMAS.
+
+`build_multimodel_reference` remaps the retained SAT0–3 state/native trees into one
+ODS and optionally adds the #39915 nonlinear CGYRO source and linear scan. See
+`docs/_guide/Gyrokinetic_results.md` for source layout, commands and qualifications.
+`capture_reference` creates content-addressed contiguous native fixture slices.
+
+Baseline: develop `9744dbd73eebc1ca3a03857f19e35360c4052488`.
+Pinned native oracle: GACODE `b49339750a4aa4cf2b089fa9ff3afe098005f0f8`.
+No solver is launched; no server source file is modified. 3D is follow-up #1286/#2019.
+
+For #2040, the same offline field/flux workflow supports SI elapsed time:
+
+```bash
+python -m workflow.gyrokinetic.build_result_reference --out /tmp/vaft-time-ms \
+  --time-unit ms \
+  --time-normalization test/data/gacode/cgyro_39915_time_normalization.json
+```
+
+The retained normalization is tied to the native input hash and plasma-state
+identity. Native windows remain in `a/c_s`. The resulting millisecond coordinate
+starts at the solver's origin; the input state's discharge time remains separate.

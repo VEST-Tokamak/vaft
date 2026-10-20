@@ -181,6 +181,9 @@ def test_the_label_carries_its_inputs_so_a_cohort_can_be_recut():
     assert set(record) == {
         "time", "phase", "topology", "current", "current_rate",
         "fraction_of_peak", "limloc", "rule", "reasons",
+        # #1891 descriptors
+        "current_bin", "magnitude_rate", "rate_bin", "era", "event",
+        "eddy_current", "eddy_fraction", "version",
     }
     assert record["rule"] == "level"
     assert record["current"] == pytest.approx(100_000.0)

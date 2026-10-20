@@ -17,6 +17,8 @@ Only the Snakefile imports this module; the stage scripts receive explicit
 
 from __future__ import annotations
 
+import os
+import re
 from pathlib import PurePosixPath
 from typing import NamedTuple
 
@@ -30,6 +32,58 @@ from vaft.database.filedb import (
     StabilityProduct,
     stage_lineage,
 )
+
+
+_ENV_REFERENCE = re.compile(
+    r"\$(?:\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)(?::-(?P<default>[^}]*))?\}"
+    r"|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))"
+)
+
+
+def expand_config_environment(value):
+    """Expand ``$VAR`` / ``${VAR}`` / ``${VAR:-default}`` in config values.
+
+    Walks dicts and lists; strings are expanded, every other value is returned
+    as is.  The forms mean what they mean in the shell: ``${VAR}`` / ``$VAR``
+    is the variable's value, the empty string included when it is set but
+    empty (``EFIT="" snakemake ...`` keeps ``executable: ""``); only an
+    *unset* variable without a default is an error naming the variable, so a
+    run never falls back to a path it was not given.  ``${VAR:-default}`` is
+    the variable when it is set and non-empty, the default otherwise.  This
+    is what lets a shipped config name the production root as a default while
+    a host that sets ``VAFT_FILEDB_DIR`` is honoured -- both pipelines read
+    their config through this one function (cold review 0.7.0 data F12,
+    #1888; PR #1926 review F2).
+    """
+    if isinstance(value, dict):
+        return {key: expand_config_environment(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [expand_config_environment(item) for item in value]
+    if not isinstance(value, str):
+        return value
+
+    missing: list[str] = []
+
+    def substitute(match: re.Match) -> str:
+        name = match.group("braced") or match.group("bare")
+        found = os.environ.get(name)
+        default = match.group("default")
+        if default is not None:
+            return found if found else default
+        if found is not None:
+            return found
+        missing.append(name)
+        return match.group(0)
+
+    expanded = _ENV_REFERENCE.sub(substitute, value)
+    if missing:
+        names = ", ".join(sorted(set(missing)))
+        raise ValueError(
+            f"Unset environment variable(s) in config.yaml: {names} "
+            "(a variable set to the empty string expands to \"\"; give it a "
+            "${VAR:-default} to fall back instead)"
+        )
+    return expanded
 
 
 SHOT_FIRST = "shot_first"
@@ -202,6 +256,22 @@ SCIENTIFIC_REFERENCES = (
         "generate_core_profiles_ods", "efit", "efit_ods", "routine",
         "maps Thomson and CES onto the magnetic equilibrium's flux coordinate",
     ),
+    ScientificReference(
+        "generate_composition_ods", "efit", "efit_ods", "routine",
+        "weights the composition by the equilibrium's volume and records the lineage it was matched to",
+    ),
+    ScientificReference(
+        "generate_composition_ods", "diagnostics", "diagnostics_ods", "routine",
+        "supplies the plasma onset, hence the age that sets the transient charge states",
+    ),
+    ScientificReference(
+        "generate_ti_inferred_ods", "efit", "efit_ods", "routine",
+        "its pressure, partitioned into electron and ion parts, is where the inferred T_i comes from",
+    ),
+    ScientificReference(
+        "generate_resistive_zeff_ods", "efit", "efit_ods", "routine",
+        "its boundary flux, I_p and l_i give the observed resistance, and its geometry the model's",
+    ),
     *(
         reference
         for stage in ("electron_efit", "kinetic_efit")
@@ -359,6 +429,17 @@ _LOG_OWNER = {
     "generate_thomson_ods": ("omas", "thomson"),
     "generate_ces_ods": ("omas", "ces"),
     "generate_core_profiles_ods": ("omas", "core_profiles"),
+    "generate_composition_ods": ("omas", "composition"),
+    "generate_ti_inferred_ods": ("omas", "ti_inferred"),
+    "generate_resistive_zeff_ods": ("omas", "resistive_zeff"),
+    # The corrective stages' validation figures (#1842): one rule per stage.
+    **{
+        f"plot_{stage}": ("omas", stage)
+        for stage in (
+            "thomson", "ces", "core_profiles", "composition", "ti_inferred",
+            "resistive_zeff", "electron_efit", "kinetic_efit",
+        )
+    },
     "generate_electron_efit_ods": ("omas", "electron_efit"),
     "generate_kinetic_efit_ods": ("omas", "kinetic_efit"),
     **{
@@ -371,6 +452,9 @@ _LOG_OWNER = {
             "eddy",
             "efit",
             "core_profiles",
+            "composition",
+            "ti_inferred",
+            "resistive_zeff",
             "electron_efit",
             "kinetic_efit",
             "chease",
@@ -470,7 +554,14 @@ class PipelinePaths:
         `mhd_linear` and `gpec_ideal` -- and is refused for every other stage by
         `stage_lineage`, so passing it where it does not belong is an error
         rather than something silently dropped.
+
+        `turbulent_transport` is the exception: its product is a TGLF
+        configuration (`tglf-sat<n>-<field>`, #1900), not a stability product,
+        and it takes no refinement, so it is passed through for the FileDB
+        grammar to validate rather than through `stability_product`.
         """
+        if stage == "turbulent_transport":
+            return stage_lineage(stage, family=self.family, product=product)
         return stage_lineage(
             stage,
             family=self.family,
@@ -630,6 +721,30 @@ class PipelinePaths:
     def core_profiles_manifest(self, shot) -> str:
         self._canonical_only("core_profiles")
         return str(self._filedb.omas_manifest("core_profiles", shot=shot))
+
+    def composition_ods(self, shot) -> str:
+        self._canonical_only("composition")
+        return str(self._filedb.omas_product("composition", shot=shot))
+
+    def composition_manifest(self, shot) -> str:
+        self._canonical_only("composition")
+        return str(self._filedb.omas_manifest("composition", shot=shot))
+
+    def ti_inferred_ods(self, shot) -> str:
+        self._canonical_only("ti_inferred")
+        return str(self._filedb.omas_product("ti_inferred", shot=shot))
+
+    def ti_inferred_manifest(self, shot) -> str:
+        self._canonical_only("ti_inferred")
+        return str(self._filedb.omas_manifest("ti_inferred", shot=shot))
+
+    def resistive_zeff_ods(self, shot) -> str:
+        self._canonical_only("resistive_zeff")
+        return str(self._filedb.omas_product("resistive_zeff", shot=shot))
+
+    def resistive_zeff_manifest(self, shot) -> str:
+        self._canonical_only("resistive_zeff")
+        return str(self._filedb.omas_manifest("resistive_zeff", shot=shot))
 
     def electron_efit_ods(self, shot) -> str:
         self._canonical_only("electron_efit")

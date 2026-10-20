@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import json
 import os
 from pathlib import Path
@@ -17,6 +17,7 @@ from vaft.code.gpec import (
     GPECSuiteConfig,
     GPECSuiteResult,
     IdealGPECOptions,
+    ordering_state_for_case,
     run_gpec_suite_case,
 )
 
@@ -112,6 +113,12 @@ def main() -> int:
             "the canonical configuration instead of the packaged template."
         ),
     )
+    parser.add_argument(
+        "--z-eff",
+        default=None,
+        type=float,
+        help="Policy Z_eff for the advisory ordering state (#1987); unset leaves it unassumed.",
+    )
     args = parser.parse_args()
 
     coil_specs = []
@@ -145,7 +152,12 @@ def main() -> int:
     )
 
     results = []
+    ordering = []
     for gfile in gfiles:
+        # Advisory ordering state of this case (#1987): never raises, an empty
+        # state and the recorded error when the g-file cannot supply it.
+        state, provenance = ordering_state_for_case(gfile, z_eff=args.z_eff)
+        ordering.append(provenance)
         case = GPECCaseInputs(
             shot=args.shot,
             time_ms=_time_label(gfile),
@@ -153,7 +165,7 @@ def main() -> int:
             workdir=workdir,
             dcon_workdir=args.dcon_workdir,
         )
-        result = run_gpec_suite_case(case, config)
+        result = run_gpec_suite_case(case, replace(config, ordering_state=state))
         results.append(result)
 
     payload = {
@@ -174,6 +186,7 @@ def main() -> int:
                 for spec in coil_specs
             ],
         },
+        "ordering": ordering,
         "results": [_result_to_dict(result) for result in results],
     }
     args.output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")

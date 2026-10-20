@@ -233,7 +233,7 @@ def split_groups(groups, spec=None):
        reviewed in issue #669 section 15A.
     """
     spec = spec or SplitSpec()
-    labels = groups.group_labels if isinstance(groups, DatasetArtifact) else np.asarray([str(g) for g in np.asarray(groups)])
+    labels = groups.group_labels if hasattr(groups, "group_labels") else np.asarray([str(g) for g in np.asarray(groups)])
     unique = sorted(set(labels.tolist()))
     missing = sorted(set(spec.fixed) - set(unique))
     if missing:

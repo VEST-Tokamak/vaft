@@ -53,6 +53,7 @@ References
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Callable, Mapping, Optional
@@ -75,6 +76,8 @@ __all__ = [
     "boundary_value",
     "evaluate_boundary",
     "evaluate_window",
+    "BoundaryPropagation",
+    "propagate_boundary_uncertainty",
     "boundary_curve",
     "threshold_curve",
     "same_quantity",
@@ -88,6 +91,11 @@ _FORMS = ("power_law", "threshold", "function")
 _SIDES = ("below", "above")
 _HARDNESS = ("hard", "soft", "probabilistic")
 _ORIGINS = ("published", "derived", "reproduced", "fitted")
+#: What crossing a relation means (#1691). Only a ``limit`` has a forbidden side; the others are references a
+#: plot draws without shading: a ``stability_reference`` is a theoretical value for a class of equilibria, an
+#: ``experimental_envelope`` the level a machine class has operated at, an ``experimental_achievement`` a record
+#: (operation above it is not thereby unstable), a ``reduced_comparator`` a low-fidelity estimate for comparison.
+_KINDS = ("limit", "stability_reference", "experimental_envelope", "experimental_achievement", "reduced_comparator")
 
 
 def _frozen_mapping(value) -> Mapping:
@@ -139,11 +147,17 @@ class Applicability:
     machine_class: str = ""
     ranges: Mapping[str, tuple] = field(default_factory=dict, hash=False)
     assumptions: tuple = ()
+    #: Coordinate ranges the source's evidence covers, by quantity name (any quantity, not only an input): a
+    #: constant-beta_N record demonstrated over a finite normalised current is drawn as evidence there and as an
+    #: extrapolated reference elsewhere (#1691). ``(v, v)`` is a single demonstrated point.
+    evidence_ranges: Mapping[str, tuple] = field(default_factory=dict, hash=False)
 
     def __post_init__(self):
         object.__setattr__(self, "ranges", _frozen_mapping({k: tuple(v) for k, v in dict(self.ranges or {}).items()}))
+        object.__setattr__(self, "evidence_ranges",
+                           _frozen_mapping({k: tuple(v) for k, v in dict(self.evidence_ranges or {}).items()}))
         object.__setattr__(self, "assumptions", tuple(self.assumptions))
-        for name, bounds in self.ranges.items():
+        for name, bounds in list(self.ranges.items()) + list(self.evidence_ranges.items()):
             if len(bounds) != 2:
                 raise ValueError(f"range for {name!r} must be (low, high), not {bounds!r}")
             low, high = bounds
@@ -191,7 +205,7 @@ class Boundary:
       function so its coefficients are not restated.
 
     ``allowed_side`` says which side of $b$ the operating value is permitted
-    on. ``hardness`` records how the literature treats crossing it: ``soft``
+    on; for a ``kind`` other than ``"limit"`` (a reference, an envelope, a record) it only orients the margin. ``hardness`` records how the literature treats crossing it: ``soft``
     for an empirical limit that operation can exceed.
 
     A regime-transition threshold carries ``source_regime`` and
@@ -226,6 +240,7 @@ class Boundary:
     source_regime: str = ""
     target_regime: str = ""
     branch: str = ""
+    kind: str = "limit"
 
     def __post_init__(self):
         object.__setattr__(self, "inputs", tuple(self.inputs))
@@ -239,6 +254,8 @@ class Boundary:
             raise ValueError(f"hardness must be one of {_HARDNESS}, not {self.hardness!r}")
         if self.origin not in _ORIGINS:
             raise ValueError(f"origin must be one of {_ORIGINS}, not {self.origin!r}")
+        if self.kind not in _KINDS:
+            raise ValueError(f"kind must be one of {_KINDS}, not {self.kind!r}")
         if bool(self.source_regime) != bool(self.target_regime):
             raise ValueError(f"boundary {self.key!r} needs both source_regime and target_regime, or neither")
         if not self.sources:
@@ -496,6 +513,11 @@ def evaluate_boundary(boundary: Boundary, operating_value, **inputs) -> Boundary
             "the operating value is not finite at some inputs; margin and ratio are NaN "
             "and the state is not counted as permitted there",
         )
+    if boundary.kind != "limit":
+        warnings += (
+            f"{boundary.key!r} is a {boundary.kind.replace('_', ' ')}, not a limit: the margin is a signed distance "
+            "from it, and 'allowed' only says on which side the state lies",
+        )
     return BoundaryEvaluation(
         key=boundary.key,
         target=boundary.target,
@@ -509,6 +531,276 @@ def evaluate_boundary(boundary: Boundary, operating_value, **inputs) -> Boundary
         extrapolated=extrapolated,
         warnings=warnings,
     )
+
+
+@dataclass(frozen=True, eq=False)
+class BoundaryPropagation:
+    """Measured-input uncertainty of a boundary value and of a state's margin, beside the source's own.
+
+    Three things that are kept apart, never summed:
+
+    * ``boundary`` and ``margin`` -- :class:`vaft.formula.sensitivity.FormulaPropagation`
+      results for $b$ (over the boundary inputs) and for the signed margin
+      (over the operating value and the inputs): how *measurement* uncertainty
+      moves them;
+    * ``source_parameters_relative`` -- the relative one-sigma spread of $b$
+      from the uncertainty its source reports for the coefficient and the
+      exponents, and ``source_scatter_relative`` -- the source's RMS scatter
+      of individual points about the fit.  ``None`` means the source reports
+      none, or none that can be propagated (unknown, not zero).
+      ``source_parameters_complete`` is False when the source reports only
+      some of the parameters: the value then covers those alone and is a lower
+      bound.  ``source_note`` says what was assumed and what was left out;
+    * ``margin_std_from_source_*`` -- the same two components carried to the
+      margin.
+
+    Nothing here says whether the state satisfies the boundary.  That is an
+    assessment, made from ``margin`` and these spreads by the caller or by
+    :mod:`vaft.validation`; ``boundary.uncertainty`` is passed through as
+    ``source``, unchanged.
+    """
+
+    key: str
+    boundary: object
+    margin: object
+    source: "Uncertainty"
+    source_parameters_relative: Optional[float]
+    source_scatter_relative: Optional[float]
+    margin_std_from_source_parameters: Optional[float]
+    margin_std_from_source_scatter: Optional[float]
+    source_note: str
+    source_parameters_complete: bool = False
+    extrapolated: tuple = ()
+    warnings: tuple = ()
+
+
+def _source_relative_spread(boundary: "Boundary", inputs: Mapping) -> tuple:
+    r"""First-order relative spread of ``b`` from the source's coefficient and exponent uncertainty.
+
+    $\sigma_{\ln b}^2 = \sigma_{\ln C}^2 + \sum_i (\sigma_{\alpha_i}\ln x_i)^2$, with
+    the parameters taken as independent because sources rarely publish their
+    covariance.  Returns ``(value, complete, notes)``: ``value`` is ``None``
+    when nothing usable is reported, and ``complete`` is False when only some
+    of the parameters are (the value then covers those alone).
+    """
+    u = boundary.uncertainty
+    terms, notes, complete = [], [], True
+    if u.coefficient_factor is not None:
+        terms.append(np.log(u.coefficient_factor) ** 2)
+        notes.append("the coefficient factor e^s is taken as one sigma (the source's confidence level, if "
+                     "stated, is in source.note)")
+    elif u.coefficient is not None:
+        if boundary.coefficient:
+            terms.append((u.coefficient / boundary.coefficient) ** 2)
+        else:
+            complete = False
+            notes.append("the coefficient uncertainty is absolute but the boundary states no coefficient to "
+                         "normalise it by; it is not propagated")
+    elif boundary.form == "power_law":
+        complete = False
+        notes.append("the source reports no coefficient uncertainty")
+    for name, sigma in u.exponents.items():
+        if name not in inputs:
+            complete = False
+            notes.append(f"the exponent uncertainty of {name} names no input; it is not propagated")
+            continue
+        value = float(inputs[name])
+        if not value > 0:
+            complete = False
+            notes.append(f"{name} = {value} is not positive, so its exponent uncertainty has no log-space "
+                         "spread; it is not propagated")
+            continue
+        terms.append((sigma * np.log(value)) ** 2)
+    if boundary.form == "power_law":
+        missing = [name for name in boundary.exponents if name not in u.exponents]
+        if missing:
+            complete = False
+            notes.append(f"the source reports no uncertainty for the exponents of {', '.join(missing)}")
+    if u.exponents and boundary.form != "power_law":
+        notes.append("exponent uncertainties are applied as if the boundary were a power law in those inputs")
+    if not terms:
+        return None, False, notes
+    notes.append("source coefficient and exponent uncertainties are taken as independent (no covariance is "
+                 "published), so the spread may be over- or under-stated")
+    if not complete:
+        notes.append("source_parameters_relative covers the reported parameters only: a lower bound")
+    spread = float(np.sqrt(sum(terms)))
+    if spread > 0.3:
+        notes.append(f"the spread of ln b is {spread:.2f}: first order in it understates the margin spread")
+    return spread, complete, notes
+
+
+def propagate_boundary_uncertainty(boundary: "Boundary", operating_value: float, *, inputs: Mapping[str, float],
+                                   std=None, covariance=None, input_names=None, method: str = "linear",
+                                   fd_step=None, samples: int = 2000, seed: int = 0) -> BoundaryPropagation:
+    r"""Propagate measured-input uncertainty into a boundary value and a state's margin (#1874).
+
+    $$\Sigma_b \approx J_b\Sigma J_b^{\mathsf T},\qquad
+      \Sigma_m \approx J_m\Sigma J_m^{\mathsf T},\qquad
+      m = \pm\frac{b - x}{b}$$
+
+    Parameters
+    ----------
+    boundary : Boundary
+        The boundary [-].
+    operating_value : float
+        Operating value $x$ of the target quantity, in its unit [varies].
+    inputs : mapping
+        Every boundary input by name, in the units its ``BoundaryQuantity``
+        declares [varies].
+    std : array-like, optional
+        Standard deviations in ``input_names`` order. Exactly one of ``std``
+        and ``covariance`` [varies].
+    covariance : array-like, optional
+        Covariance in ``input_names`` order, or 1-D variances; this is how the
+        operating value and the inputs share a measurement (a density and the
+        current from one shot) [varies].
+    input_names : sequence of str, optional
+        Uncertain quantities: ``"operating_value"`` and any boundary inputs.
+        Default ``("operating_value", *the boundary inputs)`` [-].
+    method : str, optional
+        ``"linear"`` or ``"monte_carlo"``, as in
+        :func:`vaft.formula.sensitivity.propagate_formula_uncertainty` [-].
+    fd_step : float, array-like or mapping, optional
+        Finite-difference steps in ``input_names`` order (or by name), needed
+        for a quantity whose mean is zero [varies].
+    samples : int, optional
+        Monte Carlo draws [-].
+    seed : int, optional
+        Monte Carlo seed [-].
+
+    Returns
+    -------
+    BoundaryPropagation
+        The input-measurement propagation of $b$ and of the margin, and the
+        source-reported spreads kept apart from them [-].
+
+    Raises
+    ------
+    ValueError
+        Everything :func:`vaft.formula.sensitivity.propagate_formula_uncertainty`
+        refuses; a non-scalar input or operating value; or a boundary whose
+        value is not positive and finite at the inputs (no margin is defined
+        there).
+    TypeError
+        An input is missing or not one of the boundary's inputs.
+
+    Assumptions
+    -----------
+    First order unless ``method="monte_carlo"``; the margin is linear in $x$
+    and in $1/b$, so near the boundary ($m \to 0$) the linear result stays
+    accurate while $b$ is well determined. The three uncertainty parts are
+    independent by construction: measurement, source parameters, source
+    scatter. Combining them, and deciding what a margin within a few of
+    them means, is an assessment and is not done here.
+
+    Limitations
+    -----------
+    Scalar inputs only. The source parameters are taken as uncorrelated. A
+    boundary with a jump (a branch switch) near the inputs gives a spread a
+    finite difference cannot describe; ``warnings`` says so when the margin's
+    linearity check fails. With ``method="monte_carlo"`` the margin and the
+    boundary value are sampled separately, so their draws are not joint.
+
+    References
+    ----------
+    .. [1] JCGM 100:2008, *Guide to the expression of uncertainty in
+           measurement*, Sec. 5.2 (first-order propagation with correlations).
+    .. [2] Issue #1874, Phase C (measurement, source-parameter and scatter
+           uncertainty kept apart for an operational boundary).
+    """
+    from . import sensitivity
+
+    _check_inputs(boundary, inputs)
+    names_in = [quantity.name for quantity in boundary.inputs]
+    if np.ndim(operating_value) != 0 or any(np.ndim(inputs[name]) != 0 for name in names_in):
+        raise ValueError("propagate_boundary_uncertainty takes scalar inputs and a scalar operating value")
+    b0 = float(boundary_value(boundary, **inputs))
+    if not (np.isfinite(b0) and b0 > 0):
+        raise ValueError(f"{boundary.key!r} is not positive and finite at these inputs: no margin is defined")
+    sign = -1.0 if boundary.allowed_side == "below" else 1.0
+    parameters = [inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY) for name in names_in]
+
+    def value_of(**arguments):
+        return float(boundary_value(boundary, **arguments))
+
+    def margin_of(operating_value, **arguments):
+        b = float(boundary_value(boundary, **arguments))
+        return sign * (operating_value - b) / b
+
+    def positive(**arguments):
+        try:
+            b = float(boundary_value(boundary, **{name: arguments[name] for name in names_in}))
+        except (ArithmeticError, ValueError):
+            return False
+        return bool(np.isfinite(b) and b > 0)
+
+    value_of.__signature__ = inspect.Signature(parameters)
+    value_of.__name__ = f"{boundary.key}_value"
+    margin_of.__signature__ = inspect.Signature(
+        [inspect.Parameter("operating_value", inspect.Parameter.KEYWORD_ONLY), *parameters])
+    margin_of.__name__ = f"{boundary.key}_margin"
+
+    names = tuple(input_names) if input_names is not None else ("operating_value", *names_in)
+    unknown = [name for name in names if name != "operating_value" and name not in names_in]
+    if unknown:
+        raise ValueError(f"{boundary.key!r} has no input {', '.join(unknown)}")
+    cov = sensitivity._covariance_from(std, covariance, len(names))
+    in_margin = {"operating_value": float(operating_value), **{name: float(inputs[name]) for name in names_in}}
+    margin = sensitivity.propagate_formula_uncertainty(margin_of, in_margin, input_names=names, covariance=cov,
+                                                       method=method, samples=samples, seed=seed, domain=positive,
+                                                       fd_step=_steps_for(fd_step, names, names))
+    boundary_names = tuple(name for name in names if name != "operating_value")
+    if boundary_names:
+        index = [names.index(name) for name in boundary_names]
+        boundary_result = sensitivity.propagate_formula_uncertainty(
+            value_of, {name: float(inputs[name]) for name in names_in}, input_names=boundary_names,
+            covariance=cov[np.ix_(index, index)], method=method, samples=samples, seed=seed, domain=positive,
+            fd_step=_steps_for(fd_step, names, boundary_names))
+    else:
+        boundary_result = None  # every boundary input exact: b carries no measurement uncertainty
+
+    parameters_relative, complete, notes = _source_relative_spread(boundary, inputs)
+    scatter = boundary.uncertainty.rms_relative
+    extrapolated = _extrapolated(boundary, inputs)
+    warnings = tuple(
+        f"{name} lies outside the range {boundary.applicability.ranges[name]} "
+        f"[{boundary.input(name).unit}] covered by {boundary.key!r}" for name in extrapolated)
+    if boundary.kind != "limit":
+        warnings += (f"{boundary.key!r} is a {boundary.kind.replace('_', ' ')}, not a limit: the margin is a "
+                     "signed distance from it",)
+    if margin.linearity is not None and not margin.linearity < 0.3:
+        warnings += (f"the margin's linearity ratio is {margin.linearity:.3g}: first order does not describe the "
+                     "spread here (a nonlinear or discontinuous boundary); compare method='monte_carlo'",)
+    # m = sign (x - b)/b, so dm/d ln b = -sign x/b
+    dm_dlnb = abs(float(operating_value) / b0)
+    return BoundaryPropagation(
+        key=boundary.key,
+        boundary=boundary_result,
+        margin=margin,
+        source=boundary.uncertainty,
+        source_parameters_relative=parameters_relative,
+        source_scatter_relative=scatter,
+        margin_std_from_source_parameters=None if parameters_relative is None else dm_dlnb * parameters_relative,
+        margin_std_from_source_scatter=None if scatter is None else dm_dlnb * scatter,
+        source_note="; ".join(notes) if notes else (
+            "the source reports no coefficient or exponent uncertainty" if parameters_relative is None else ""),
+        source_parameters_complete=complete,
+        extrapolated=extrapolated,
+        warnings=warnings,
+    )
+
+
+def _steps_for(fd_step, names: tuple, subset: tuple):
+    """``fd_step`` restricted to ``subset``: a mapping by name, an array in ``names`` order, or a scalar."""
+    if fd_step is None or np.ndim(fd_step) == 0 and not isinstance(fd_step, Mapping):
+        return fd_step
+    if isinstance(fd_step, Mapping):
+        return {name: fd_step[name] for name in subset if name in fd_step} or None
+    steps = np.asarray(fd_step, dtype=float)
+    if steps.shape != (len(names),):
+        raise ValueError(f"fd_step has {steps.size} entries for {len(names)} uncertain quantities")
+    return steps[[names.index(name) for name in subset]]
 
 
 def evaluate_window(window: BoundaryWindow, operating_value, **inputs) -> WindowEvaluation:
@@ -1143,6 +1435,9 @@ _register(Boundary(
     origin="published",
     basis="ideal_mhd_numerical",
     event="beta_limit",
+    # a theoretical value for optimised conventional equilibria, not a universal limit: conventional tokamaks and
+    # spherical tokamaks have operated well above it (#1691), so a plot draws it without a forbidden side
+    kind="stability_reference",
     applicability=Applicability(
         machine_class="tokamak",
         assumptions=(
@@ -1168,6 +1463,187 @@ _register(Boundary(
     ),
     notes="Coefficient 2.2 * mu0 * 1e6 ~ 2.76 %·m·T/MA (substituting T_S = R B_T into I_N). Compare with "
           "stability.beta_N_from_beta_a_B0_Ip, which returns beta_N in the same %·m·T/MA convention (#349).",
+))
+
+
+# Experimental beta references on the Troyon plane (#1691): constant-beta_N levels that machines have operated at,
+# drawn without a forbidden side. Each value was read in the source named; the verification level is in notes.
+_register(Boundary(
+    key="strait_1988_diiid_beta_n_envelope",
+    family="beta_reference",
+    target=_NORMALIZED_BETA,
+    inputs=(),
+    form="threshold",
+    coefficient=3.5,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="beta_reference",
+    kind="experimental_envelope",
+    applicability=Applicability(
+        machine_class="conventional tokamak (DIII-D)",
+        assumptions=(
+            "neutral-beam-heated H-mode divertor discharges, no conducting-wall stabilisation; 'an operational "
+            "beta limit of beta <= 3.5 I/aB', linear in I/aB over a threefold range (absolute range not stated)",
+            "terminated by hard disruptions from the ideal 2/1 kink",
+        ),
+    ),
+    sources=(
+        BoundarySource("E.J. Strait, L.L. Lao, T.S. Taylor, M.S. Chu, J.K. Lee, A.D. Turnbull et al., "
+                       "'Stability of high beta discharges in the DIII-D tokamak', Proc. 12th IAEA Conf., Nice "
+                       "(1988), GA-A19444",
+                       equation="abstract: 'an operational beta limit of beta <= 3.5 I/aB'",
+                       note="OSTI 6854291; read from the abstract only"),
+    ),
+    notes="Verification level: abstract (#1691 source check). beta in % with the vacuum field (GA convention).",
+))
+
+_register(Boundary(
+    key="taylor_1995_diiid_beta_n_record",
+    family="beta_reference",
+    target=_NORMALIZED_BETA,
+    inputs=(),
+    form="threshold",
+    coefficient=4.3,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="beta_reference",
+    kind="experimental_achievement",
+    applicability=Applicability(
+        machine_class="conventional tokamak (DIII-D)",
+        # discharge 80108: beta_T = 12.6 % at beta_N = 4.3, so I/aB = 12.6 / 4.3 = 2.93 MA/(m T): one point
+        evidence_ranges={"normalized_current": (12.6 / 4.3, 12.6 / 4.3)},
+        assumptions=(
+            "wall-stabilised (rotation essential), transient high-beta phase of discharge 80108 with q(0) < 1",
+            "beta_T = <p> 2 mu0 / B_T^2 with the vacuum B_T at R_geo = (R_max + R_min)/2; beta_N = beta_T/(I/aB)",
+        ),
+    ),
+    sources=(
+        BoundarySource("T.S. Taylor, E.J. Strait, L.L. Lao et al., 'Wall stabilization of high beta plasmas in "
+                       "DIII-D', General Atomics report GA-A21914 (1995); Phys. Plasmas 2 (1995) 2390",
+                       equation="discharge 80108: beta_T = 12.6 %, beta_N = 4.3",
+                       note="read from the GA report's full text; the issue's 'beta_N ~ 5' was not found in a "
+                            "primary source, so the verified 4.3 is used (#1691, user decision 2026-10-06)"),
+    ),
+    notes="Verification level: full text (GA-A21914).",
+))
+
+_register(Boundary(
+    key="garstka_2002_st_beta_n_reference",
+    family="beta_reference",
+    target=_NORMALIZED_BETA,
+    inputs=(),
+    form="threshold",
+    coefficient=6.0,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="beta_reference",
+    kind="experimental_envelope",
+    applicability=Applicability(
+        machine_class="spherical tokamak (START, PEGASUS)",
+        assumptions=(
+            "the beta_N = 6 reference slope drawn with beta_N = 3.5 in the (I_N, beta_t) plane of the source's "
+            "Fig. 2, with START (neutral-beam) and PEGASUS (ohmic, A = 1.1-1.4) data",
+        ),
+    ),
+    sources=(
+        BoundarySource("G.D. Garstka, R.J. Fonck, S. Diem et al., 'Performance and stability of near-unity "
+                       "aspect-ratio plasmas in the Pegasus Toroidal Experiment', 29th EPS Conf., Montreux "
+                       "(2002), ECA 26B P-1.120",
+                       equation="Fig. 2, beta_t vs I_N for Pegasus and START",
+                       note="read from the full text; the START region is cited there to A. Sykes, PPCF 43 (2001) 127"),
+    ),
+    notes="Verification level: full text (EPS 2002 paper). A reference slope, not a stability limit.",
+))
+
+_register(Boundary(
+    key="sabbagh_2006_nstx_beta_n_record",
+    family="beta_reference",
+    target=_NORMALIZED_BETA,
+    inputs=(),
+    form="threshold",
+    coefficient=7.2,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="beta_reference",
+    kind="experimental_achievement",
+    applicability=Applicability(
+        machine_class="spherical tokamak (NSTX)",
+        assumptions=(
+            "wall-stabilised (passive plates and rotation); 'the highest beta_N yet achieved in the ST'",
+            "beta_N = 1e8 <beta_t> a B0 / I_p with B0 the vacuum field at the plasma geometric centre",
+            "beta_t = 39 % is quoted alongside but not stated to be simultaneous, so no I_N is attached",
+        ),
+    ),
+    sources=(
+        BoundarySource("S.A. Sabbagh, A.C. Sontag, J.M. Bialek et al., 'Resistive wall stabilized operation in "
+                       "rotating high beta NSTX plasmas', Nucl. Fusion 46 (2006) 635",
+                       doi="10.1088/0029-5515/46/5/014",
+                       equation="p. 635, abstract and Sec. 1: 'beta_t = 39% and beta_N = 7.2' (ref. [2])",
+                       note="read from the full text; cited there to S.M. Kaye et al., Nucl. Fusion 45 (2005) S168"),
+    ),
+    notes="Verification level: full text. A record, not a stability limit.",
+))
+
+# The DIII-D/JET current-profile scaling beta_N <= 4 l_i (#1691, #1700). Its l_i is l_i(1), <B_p^2>/B_pa^2 with
+# B_pa = mu0 I / Gamma (Strait 1994, p. 1421), not the IMAS l_i(3): a quantity of its own, so the line is never
+# placed on an l_i(3) axis.
+_LI1 = BoundaryQuantity(
+    "internal_inductance_li1", "l_i(1)", "-",
+    "<B_p^2>_V / B_pa^2 with B_pa = mu0 I_p / Gamma, Gamma the boundary circumference "
+    "(equilibrium.li_1_from_Bp2_volume_integral); the DIII-D l_i. Not l_i(3): l_i(1) = l_i(3) R_0 Gamma^2 / (2V).",
+)
+
+_register(Boundary(
+    key="strait_1994_beta_n_li",
+    family="beta_reference",
+    target=_NORMALIZED_BETA,
+    inputs=(_LI1,),
+    form="power_law",
+    coefficient=4.0,
+    exponents={"internal_inductance_li1": 1.0},
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="beta_reference",
+    kind="experimental_envelope",
+    applicability=Applicability(
+        machine_class="conventional tokamak (DIII-D, JET)",
+        assumptions=(
+            "an empirical scaling of the experimental beta limit with the current profile, 'which describes "
+            "DIII-D and JET data well' (Strait 1994, p. 1422); 'l_i cannot be increased indefinitely, but within "
+            "the stable range of l_i this scaling seems to provide a reasonable first-order representation'",
+            "beta is 2 mu0 <p> / B^2 with B the toroidal field (Strait 1994, abstract and p. 1415)",
+            "wall-stabilised DIII-D discharges exceed it at l_i < 1 (Strait et al. 1995, Fig. 2)",
+            "the PRL's l_i, which bounds the evidence range, is not defined there; it is taken to be Strait 1994's "
+            "l_i(1) (same first author, same DIII-D data and relation)",
+        ),
+        evidence_ranges={"internal_inductance_li1": (1.0, 2.0)},
+    ),
+    sources=(
+        BoundarySource("E.J. Strait, 'Stability of high beta tokamak plasmas', Phys. Plasmas 1 (1994) 1415",
+                       doi="10.1063/1.870691",
+                       equation="p. 1422: 'beta_max = 4 l_i (I/aB)'; l_i defined on p. 1421 as <B_p^2>/B_pa^2, "
+                                "B_pa = mu0 I/Gamma",
+                       note="read from the full text; the relation is cited there to Strait et al., 18th EPS "
+                            "(1991), Vol. 15C, Part II, p. 105 (ref. 72)"),
+        BoundarySource("E.J. Strait, T.S. Taylor, A.D. Turnbull et al., 'Wall stabilization of high beta tokamak "
+                       "discharges in DIII-D', Phys. Rev. Lett. 74 (1995) 2483",
+                       equation="p. 2484: beta_N <= 4 l_i is 'a good representation of the beta limit for DIII-D "
+                                "discharges with 1 < l_i < 2'",
+                       note="read from the full text; the source of the evidence range 1 < l_i < 2. The PRL does "
+                            "not define l_i: read as Strait 1994's l_i(1)"),
+    ),
+    notes="Verification level: full text (both sources). An empirical envelope of conventional tokamaks, drawn "
+          "without a forbidden side; beyond 1 < l_i < 2 the line is an extrapolated reference slope.",
 ))
 
 

@@ -261,6 +261,49 @@ sources. Use `vaft.database.compose(shot)` when analysis needs products from
 `python -m vaft.cli summary sources` lists the catalog; custom namespaces must
 be declared in `VAFT_HSDS_EXTRA_SOURCES`.
 
+### Transitional TGLF configuration sources
+
+TGLF results depend on the saturation rule (SAT0–SAT3) and the field model
+(`es`, `em-bper`, `em-bper-bpar`), and no configuration is the default
+([#1482](https://github.com/VEST-Tokamak/vaft/issues/1482)). Each
+configuration is therefore stored as its own sparse source beneath the
+reconstruction its state was mapped on, so alternative configurations of one
+state coexist instead of overwriting one another
+([#1900](https://github.com/VEST-Tokamak/vaft/issues/1900)). The
+`turbulent_transport` stage owns `core_transport` only. Its FileDB product is
+`omas/turbulent_transport/{family}/tglf-sat<n>-<field>/{shot}/`, and
+`replication_for_stage("turbulent_transport", family=..., product="tglf-sat3-em-bper")`
+names its destination. There is no default configuration: a call without
+`product` is refused.
+
+These sources are **transitional**. In the self-describing occurrence model of
+[#1128](https://github.com/VEST-Tokamak/vaft/issues/1128) and
+[#1129](https://github.com/VEST-Tokamak/vaft/issues/1129), each one becomes a
+named `core_transport` occurrence. The builder already writes the future name
+into `ids_properties.name`, so migration renames nothing:
+
+| Transitional source | IDS | Future `ids_properties.name` | Occurrence |
+|---|---|---|---|
+| `main/tglf-sat<n>-<field>` | `core_transport` | `tglf-sat<n>-<field>-from-magnetic-efit` | allocated by the #1129 VEST catalog (not assigned yet) |
+| `electron-efit/tglf-sat<n>-<field>` | `core_transport` | `tglf-sat<n>-<field>-from-electron-efit` | allocated by the #1129 VEST catalog (not assigned yet) |
+| `kinetic-efit/tglf-sat<n>-<field>` | `core_transport` | `tglf-sat<n>-<field>-from-kinetic-efit` | allocated by the #1129 VEST catalog (not assigned yet) |
+
+For example, SAT3 with `em-bper` on a magnetic-EFIT state is stored in
+`main/tglf-sat3-em-bper` and named `tglf-sat3-em-bper-from-magnetic-efit`.
+The routine driver's lineage `magnetics` maps to the magnetic family and
+`electron_kinetic` to the electron family. The kinetic family has no TGLF
+states yet, but its sources are catalogued. The full list of 36 rows is
+`vaft.database.sources.turbulent_transport_migration()`. The upstream state's
+identity (state identity, run identities, TGLF parameters, GACODE revision)
+travels in `core_transport.model[:].code.parameters` and in the stage manifest.
+
+Coexistence holds across configurations and lineages. Alternative Ti
+assumptions of one state (a different `--ti-te-ratio`, `--use-inferred-ti` or
+`--rho-max` gives a different state identity on the same path) are refused, not
+stored side by side, until #1128/#1129: writing a product whose state
+identities differ from the stored one raises, and rewriting the same states is
+allowed.
+
 Eager `load()` stages a complete shot when `paths` is absent. With
 `paths=["equilibrium"]`, it stages only that IDS and `dataset_description`,
 normally using a validated local domain cache. Byte-exact per-IDS images avoid
@@ -556,6 +599,10 @@ digitiser origin: 0.24 s for `shot < 41446`, 0.26 s for shots 41446–41451, 0.2
 0.26 s from 41660 on.
 
 ### Processing new shots automatically
+
+The Thomson lineage (pipeline 2) has its own worker, `vaft corrective-worker run`, which watches the upload
+directory instead of the SQL table; it is described in the Pipelines guide and in
+`workflow/automatic_pipeline_2_corrective_data_update/DEPLOYMENT.md`. The rest of this section is the routine worker.
 
 On the VEST server, `vaft pipeline-worker run` polls the SQL `shot` table and runs the routine
 Snakemake pipeline on each new shot as soon as its upload has finished (issue #58). The upload

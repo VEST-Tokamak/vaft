@@ -48,8 +48,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 MANIFEST_NAME="$VAFT_EXTERNAL_MANIFEST_NAME"
 PREFIX_CREATED=0
 
-#: The executables install/check_gpec.py looks for, in its order.
-PROGRAMS=(dcon match rdcon rmatch stride gpec)
+#: The executables install/check_gpec.py looks for, in its order, then pentrc:
+#: run_pentrc resolves $GPECHOME/bin/pentrc, so it is installed with the suite (#1883).
+PROGRAMS=(dcon match rdcon rmatch stride gpec pentrc)
 #: `all` minus `v` (a no-op report) and `xdraw` (X11).
 TARGETS=(neededdeps equil lsode zlange zvode orbit vacuum pentrc dcon match
          rdcon rmatch multi sum slayer coil gpec stride)
@@ -315,9 +316,13 @@ TARGETS_LINE="$(printf '%s ' "${TARGETS[@]}")"
 PROGRAMS_LINE="$(printf '%s ' "${PROGRAMS[@]}")"
 MAKE_COMMAND="make -j$JOBS ${TARGETS_LINE% }"
 note "building with $JOBS jobs (log: $LOG)"
-(cd "$BUILD_DIR" && make -j"$JOBS" "${TARGETS[@]}") >>"$LOG" 2>&1 || die "build failed; see $LOG"
+# The default is parallel: upstream's install/TARGETS.inc layout (which the
+# marker check above requires) orders its targets, and the verified builds in
+# install/README.md were made with it. A tree that still breaks under -j is
+# not something this script can diagnose, so both failures say what to retry.
+(cd "$BUILD_DIR" && make -j"$JOBS" "${TARGETS[@]}") >>"$LOG" 2>&1 || die "build failed; see $LOG. If the log shows a module compiled before the one it uses, retry with --jobs 1"
 for program in "${PROGRAMS[@]}"; do
-  [[ -s "$SOURCE/bin/$program" ]] || die "$program was not produced at $SOURCE/bin/$program, or is empty (see $LOG)"
+  [[ -s "$SOURCE/bin/$program" ]] || die "$program was not produced at $SOURCE/bin/$program, or is empty (see $LOG; retry with --jobs 1 if the log shows a missing module)"
 done
 
 # --- install ------------------------------------------------------------------

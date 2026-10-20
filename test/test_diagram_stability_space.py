@@ -174,15 +174,21 @@ def test_the_troyon_low_q_cutoff_is_where_q_cyl_reaches_the_limit():
     assert q == pytest.approx(2.5, rel=1e-4)
 
 
-def test_the_troyon_regions_are_on_the_right_sides():
-    chart = vaft.diagram.troyon(q_limit=2.0).model
+def test_the_troyon_diagram_draws_references_without_a_stable_side():
+    """#1691: Troyon is a stability reference and the experimental levels are records, so no region is called
+    stable or unstable; the names sit by their lines and the note takes its values from the registry."""
+    diagram = vaft.diagram.troyon(q_limit=2.0)
+    chart = diagram.model
     beta_N_max, x_q = chart.parameters["beta_N_max"], chart.parameters["current_at_q_limit"]
-    x, y = chart.labels["stable"]
-    assert y < beta_N_max * x and x < x_q
+    assert "stable" not in chart.labels
     x, y = chart.labels["beta"]
-    assert y > beta_N_max * x
+    assert y < beta_N_max * x            # the Troyon name just below its own line
     x, y = chart.labels["low_q"]
     assert x > x_q
+    refs = [k for k in chart.curves if k.startswith("ref")]
+    assert len(refs) == 4                # the projection's experimental levels, dashed
+    for key in ("strait_1988_diiid_beta_n_envelope", "sabbagh_2006_nstx_beta_n_record"):
+        assert f"{B.get_boundary(key).coefficient:.3g}" in diagram.tikz
 
 
 @pytest.mark.parametrize("fn, kw", [

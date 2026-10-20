@@ -15,6 +15,7 @@ from omas import ODS
 from vaft.machine_mapping.core_profiles import classify_ti_record, inferred_ti_text
 from vaft.validation import kinetic_state as ks
 from vaft.validation.equilibrium import _thomson_pressure, thomson_pressure_samples
+from vaft.process.kinetic_closure import infer_ti_pressure_partition
 
 E = 1.602176634e-19
 R0, A, KAPPA = 0.40, 0.25, 1.6
@@ -453,7 +454,7 @@ def test_ti_follows_the_closure_not_p_over_pe_minus_one():
     n_e, t_e = np.full(4, 1e19), np.full(4, 20.0)
     p_e = E * n_e * t_e
     ratio = np.array([1.5, 2.0, 2.4, 3.0])
-    got = ks.infer_ti_pressure_partition(ratio * p_e, n_e, t_e, composition=comp, sigma_p_eq=0.0,
+    got = infer_ti_pressure_partition(ratio * p_e, n_e, t_e, composition=comp, sigma_p_eq=0.0,
                                          sigma_n_e=0.0, sigma_t_e=0.0, equilibrium_lineage="magnetics")
     np.testing.assert_allclose(got["ti_te"], 1.2 * (ratio - 1.0))
     np.testing.assert_allclose(got["t_i"], 1.2 * (ratio - 1.0) * 20.0)
@@ -461,7 +462,7 @@ def test_ti_follows_the_closure_not_p_over_pe_minus_one():
 
 
 def test_ti_from_a_kinetic_equilibrium_is_refused_as_circular():
-    got = ks.infer_ti_pressure_partition([1.0], [1e19], [10.0], composition=ks.ion_composition(),
+    got = infer_ti_pressure_partition([1.0], [1e19], [10.0], composition=ks.ion_composition(),
                                          sigma_p_eq=0, sigma_n_e=0, sigma_t_e=0,
                                          equilibrium_lineage="electron_kinetic")
     assert got["eligible"] is False and got["reason"].startswith("circular")
@@ -473,12 +474,12 @@ def test_unphysical_points_are_flagged_not_filled():
     n_e, t_e = np.full(4, 1e19), np.full(4, 20.0)
     p_e = E * n_e * t_e
     p_eq = np.array([0.8, 1.0, 1.05, 2.0]) * p_e
-    got = ks.infer_ti_pressure_partition(p_eq, n_e, t_e, composition=comp, sigma_p_eq=0.1 * p_e,
+    got = infer_ti_pressure_partition(p_eq, n_e, t_e, composition=comp, sigma_p_eq=0.1 * p_e,
                                          sigma_n_e=0.0, sigma_t_e=0.0, equilibrium_lineage="magnetics")
     assert got["flags"] == [["p_i_nonpositive"], ["p_i_nonpositive"], ["p_i_not_significant"], []]
     assert np.isnan(got["t_i"][:3]).all() and np.isfinite(got["t_i"][3])
     assert np.isnan(got["sigma_t_i"][:3]).all()
-    missing = ks.infer_ti_pressure_partition([2 * p_e[0]], [np.nan], [20.0], composition=comp, sigma_p_eq=0,
+    missing = infer_ti_pressure_partition([2 * p_e[0]], [np.nan], [20.0], composition=comp, sigma_p_eq=0,
                                              sigma_n_e=0, sigma_t_e=0, equilibrium_lineage="magnetics")
     assert missing["flags"] == [["non_finite_input"]]
 
@@ -487,7 +488,7 @@ def test_ti_uncertainty_matches_finite_differences():
     comp = ks.ion_composition()
     p_eq, n_e, t_e = 300.0, 8e18, 40.0
     s_p, s_n, s_t = 30.0, 1e18, 6.0
-    got = ks.infer_ti_pressure_partition([p_eq], [n_e], [t_e], composition=comp, sigma_p_eq=s_p,
+    got = infer_ti_pressure_partition([p_eq], [n_e], [t_e], composition=comp, sigma_p_eq=s_p,
                                          sigma_n_e=s_n, sigma_t_e=s_t, equilibrium_lineage="magnetics")
 
     def ti(p, n, t):
@@ -635,7 +636,7 @@ def test_the_inferred_marker_is_the_shared_spelling_so_producer_and_consumer_can
 
 def test_a_missing_sigma_keeps_the_ti_and_says_so():
     comp = ks.ion_composition()
-    got = ks.infer_ti_pressure_partition([2 * E * 1e19 * 20], [1e19], [20.0], composition=comp,
+    got = infer_ti_pressure_partition([2 * E * 1e19 * 20], [1e19], [20.0], composition=comp,
                                          sigma_p_eq=[np.nan], sigma_n_e=0.0, sigma_t_e=0.0,
                                          equilibrium_lineage="magnetics")
     assert got["flags"] == [["sigma_unavailable"]]
@@ -645,7 +646,7 @@ def test_a_missing_sigma_keeps_the_ti_and_says_so():
 
 def test_scalar_inputs_broadcast():
     comp = ks.ion_composition()
-    got = ks.infer_ti_pressure_partition(E * 1e19 * 20 * np.array([2.0, 3.0]), 1e19, 20.0, composition=comp,
+    got = infer_ti_pressure_partition(E * 1e19 * 20 * np.array([2.0, 3.0]), 1e19, 20.0, composition=comp,
                                          sigma_p_eq=0.0, sigma_n_e=0.0, sigma_t_e=0.0,
                                          equilibrium_lineage="magnetics")
     np.testing.assert_allclose(got["ti_te"], [1.2, 2.4])
@@ -733,3 +734,31 @@ def test_an_empty_density_thermal_falls_back_to_density():
     got = ks.core_profiles_electron_pressure(cp, time_s=0.314)
     assert got["available"] and got["density_leaf"] == "density"
     np.testing.assert_allclose(got["n_e"], 3e18)
+
+
+
+def test_the_old_import_path_still_works_and_warns():
+    """It moved to vaft.process.kinetic_closure (#1842); the name here only delegates."""
+    comp = ks.ion_composition()
+    args = ([2 * E * 1e19 * 20], [1e19], [20.0])
+    kwargs = dict(composition=comp, sigma_p_eq=0.0, sigma_n_e=0.0, sigma_t_e=0.0,
+                  equilibrium_lineage="magnetics")
+    with pytest.warns(DeprecationWarning, match="vaft.process.kinetic_closure"):
+        old = ks.infer_ti_pressure_partition(*args, **kwargs)
+    new = infer_ti_pressure_partition(*args, **kwargs)
+    assert old["eligible"] and np.array_equal(old["t_i"], new["t_i"], equal_nan=True)
+    assert ks.INDEPENDENT_LINEAGES is infer_ti_pressure_partition.__globals__["INDEPENDENT_LINEAGES"]
+    assert ks.TI_FLAGS is infer_ti_pressure_partition.__globals__["TI_FLAGS"]
+
+
+def test_a_composition_given_per_point_is_applied_per_point():
+    """The dilution varies with radius, so f may be an array on the points (#1842)."""
+    f = np.array([0.8, 0.9, 1.0])
+    ti = np.array([10.0, 20.0, 30.0])
+    te = np.array([50.0, 50.0, 50.0])
+    ne = np.full(3, 1e19)
+    p_eq = E * ne * (te + f * ti)
+    got = infer_ti_pressure_partition(
+        p_eq, ne, te, composition={"ion_density_per_electron": f, "composition_source": "test"},
+        sigma_p_eq=0.0, sigma_n_e=0.0, sigma_t_e=0.0, equilibrium_lineage="magnetics")
+    assert np.allclose(got["t_i"], ti)

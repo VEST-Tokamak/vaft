@@ -10,6 +10,7 @@ than discovering on a server.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -42,17 +43,26 @@ pytestmark = [
 ]
 
 
-def _dry_run(tmp_path: Path, shot: int = 48226, extra: list[str] | None = None):
+from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE, DEFAULT_STAGES  # noqa: E402
+
+
+def _dry_run(
+    tmp_path: Path, shot: int = 48226, extra: list[str] | None = None,
+    *, base_dir: str | None = None, env: dict | None = None,
+    stages: list[str] | None = None,
+):
+    """``stages`` defaults to the whole lineage so the opt-in stages are exercised too."""
     config = tmp_path / "config.yaml"
     config.write_text(
         json.dumps(
             {
-                "base_dir": str(tmp_path / "filedb"),
+                "base_dir": base_dir or str(tmp_path / "filedb"),
                 "layout": "filedb",
                 "shots": [shot],
                 "external": {"data_root": str(tmp_path / "incoming"), "ces_options": "ids"},
                 "kinetic": {"encoding": "raw6", "executable": ""},
                 "hsds": {"replicate": False},
+                "stages": stages if stages is not None else list(CORRECTIVE_LINEAGE),
                 "conda": None,
             }
         ),
@@ -69,7 +79,17 @@ def _dry_run(tmp_path: Path, shot: int = 48226, extra: list[str] | None = None):
         ],
         capture_output=True,
         text=True,
+        env=env,
     )
+
+
+def test_the_default_scope_leaves_the_opt_in_stages_out(tmp_path):
+    """<Z_eff> = 2 and T_i = T_e reach main by default; the inferred T_i and the resistive Z_eff do not (#1842)."""
+    result = _dry_run(tmp_path, stages=list(DEFAULT_STAGES))
+    assert result.returncode == 0, result.stderr
+    assert "generate_composition_ods" in result.stdout
+    assert "generate_ti_inferred_ods" not in result.stdout
+    assert "generate_resistive_zeff_ods" not in result.stdout
 
 
 def test_the_snakefile_parses_and_builds_every_stage(tmp_path):
@@ -79,6 +99,9 @@ def test_the_snakefile_parses_and_builds_every_stage(tmp_path):
         "generate_thomson_ods",
         "generate_ces_ods",
         "generate_core_profiles_ods",
+        "generate_composition_ods",
+        "generate_ti_inferred_ods",
+        "generate_resistive_zeff_ods",
         "generate_electron_efit_ods",
         "generate_kinetic_efit_ods",
     ):
@@ -95,7 +118,7 @@ def test_both_kinetic_lineages_become_their_own_rule(tmp_path):
 def test_replication_adds_one_rule_per_stage(tmp_path):
     result = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": true}'])
     assert result.returncode == 0, result.stderr[-3000:]
-    for stage in ("thomson", "ces", "core_profiles", "electron_efit", "kinetic_efit"):
+    for stage in ("thomson", "ces", "core_profiles", "composition", "ti_inferred", "resistive_zeff", "electron_efit", "kinetic_efit"):
         assert f"replicate_{stage}_to_hsds" in result.stdout, result.stdout[-2000:]
 
 
@@ -123,7 +146,7 @@ def test_the_lineage_is_checked_against_the_registry():
     from vaft.database.sources import replicable_stages
 
     corrective = set(replicable_stages(produced_by="corrective"))
-    lineage = {"thomson", "ces", "core_profiles", "electron_efit", "kinetic_efit"}
+    lineage = {"thomson", "ces", "core_profiles", "composition", "ti_inferred", "resistive_zeff", "electron_efit", "kinetic_efit"}
     assert lineage <= corrective, sorted(lineage - corrective)
 
 
@@ -151,3 +174,195 @@ def test_pipeline2_loads_its_own_config_under_a_run_directory(tmp_path):
     no_base.write_text(json.dumps({"layout": "filedb", "shots": [48226], "conda": None}), encoding="utf-8")
     refused = subprocess.run(base + ["--configfile", str(no_base)], capture_output=True, text=True)
     assert refused.returncode != 0 and "does not set base_dir" in refused.stdout + refused.stderr
+
+
+def _job(stdout: str, rule: str) -> str:
+    """One dry-run job's text: from its ``rule`` line to the next one."""
+    return stdout.split(f"rule {rule}:", 1)[1].split("\nrule ", 1)[0]
+
+
+def _input_line(job: str) -> str:
+    return next(line for line in job.splitlines() if line.strip().startswith("input:"))
+
+
+def test_the_composition_overlay_is_replicated_after_the_measured_core_profiles(tmp_path):
+    """Both stages own `core_profiles` in `main`; the later replication wins, so the order is the contract."""
+    result = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": true}', "-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    inputs = _input_line(_job(result.stdout, "replicate_composition_to_hsds"))
+    assert "omas/core_profiles/48226/metadata/replication.json" in inputs
+    # and no other stage is held back by it
+    assert "replication.json" not in _input_line(_job(result.stdout, "replicate_core_profiles_to_hsds"))
+
+
+def test_the_composition_rule_reads_pipeline_ones_products_as_params_not_inputs(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    job = _job(result.stdout, "generate_composition_ods")
+    inputs = _input_line(job)
+    assert inputs.count("/omas/") == 1 and "core_profiles" in inputs, inputs  # only the measured product
+    assert "--efit-product" in job and "--diagnostics-product" in job
+    assert "--ionization transient" in job
+
+
+def test_the_composition_ionization_is_configurable(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p", "--config", 'composition={"ionization": "coronal"}'])
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "--ionization coronal" in result.stdout
+
+
+def test_the_run_config_reads_the_filedb_root_from_the_environment(tmp_path):
+    """`${VAFT_FILEDB_DIR}` in a pipeline-2 config means the same as in pipeline 1.
+
+    Pipeline 2 read `base_dir` raw, so the reference stayed a literal
+    `${VAFT_FILEDB_DIR}` directory name (cold review 0.7.0 data F12, #1888).
+    """
+    root = tmp_path / "from-env"
+    env = dict(os.environ, VAFT_FILEDB_DIR=str(root))
+    result = _dry_run(tmp_path, base_dir="${VAFT_FILEDB_DIR}", env=env)
+    assert result.returncode == 0, result.stderr[-3000:]
+    # Snakemake prints the expanded root with forward slashes on every platform.
+    assert root.as_posix() in result.stdout or str(root) in result.stdout, result.stdout[-2000:]
+    assert "${VAFT_FILEDB_DIR}" not in result.stdout
+
+    env.pop("VAFT_FILEDB_DIR")
+    refused = _dry_run(tmp_path, base_dir="${VAFT_FILEDB_DIR}", env=env)
+    assert refused.returncode != 0
+    assert "VAFT_FILEDB_DIR" in refused.stdout + refused.stderr
+
+
+def test_both_kinetic_lineages_read_the_composed_product_and_default_to_species_dilution(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    for stage in ("electron_efit", "kinetic_efit"):
+        job = _job(result.stdout, f"generate_{stage}_ods")
+        inputs = _input_line(job)
+        assert "omas/composition/48226/output/composition" in inputs, inputs
+        assert "omas/core_profiles/" not in inputs, "they no longer read the measured product directly"
+        assert "--dilution species" in job
+
+
+def test_the_kinetic_dilution_is_configurable_and_validated(tmp_path):
+    result = _dry_run(
+        tmp_path,
+        extra=["-p", "--config", 'kinetic={"encoding": "raw6", "executable": "", "dilution": "none"}'],
+    )
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert result.stdout.count("--dilution none") == 2
+    bad = _dry_run(tmp_path, extra=["--config", 'kinetic={"dilution": "partial"}'])
+    assert bad.returncode != 0 and "dilution" in (bad.stdout + bad.stderr)
+
+
+def test_the_inferred_ti_is_a_leaf_read_by_neither_kinetic_lineage(tmp_path):
+    """The kinetic EFIT pressure would otherwise be partitioned back into the T_i it was built from."""
+    result = _dry_run(tmp_path, extra=["-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    job = _job(result.stdout, "generate_ti_inferred_ods")
+    inputs = _input_line(job)
+    assert "omas/composition/48226/output/composition" in inputs and "omas/core_profiles/" not in inputs
+    assert "--efit-product" in job and "--floor 0.17" in job
+    for stage in ("electron_efit", "kinetic_efit"):
+        assert "omas/ti_inferred/" not in _input_line(_job(result.stdout, f"generate_{stage}_ods"))
+
+
+def test_the_inferred_ti_is_replicated_after_the_composition(tmp_path):
+    result = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": true}', "-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    inputs = _input_line(_job(result.stdout, "replicate_ti_inferred_to_hsds"))
+    assert "omas/composition/48226/metadata/replication.json" in inputs
+    assert "omas/ti_inferred/" not in _input_line(_job(result.stdout, "replicate_composition_to_hsds"))
+
+
+def test_the_ti_inference_floor_and_window_are_configurable(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p", "--config", 'ti_inference={"floor": 0.25, "window_s": 0.002}'])
+    assert result.returncode == 0, result.stderr[-3000:]
+    job = _job(result.stdout, "generate_ti_inferred_ods")
+    assert "--floor 0.25" in job and "--window-s 0.002" in job
+
+
+def test_the_resistive_zeff_is_a_leaf_built_on_the_inferred_ti_product(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    job = _job(result.stdout, "generate_resistive_zeff_ods")
+    inputs = _input_line(job)
+    assert "omas/ti_inferred/48226/output/ti_inferred" in inputs and inputs.count("/omas/") == 1
+    assert "--efit-product" in job
+    # Lane Z's estimator has no defaults: every setting is stated on the command line
+    for flag in ("--model redl", "--ln-lambda sauter", "--bounds 1.0 8.0", "--i-ni 0.0",
+                 "--max-excluded-current 0.05", "--inductive-max 1.0"):
+        assert flag in job, flag
+    assert "--smoothing-window-s" not in job, "no smoothing unless asked for"
+    for stage in ("electron_efit", "kinetic_efit"):
+        assert "omas/resistive_zeff/" not in _input_line(_job(result.stdout, f"generate_{stage}_ods"))
+
+
+def test_the_resistive_zeff_is_replicated_last_after_the_inferred_ti(tmp_path):
+    result = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": true}', "-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    inputs = _input_line(_job(result.stdout, "replicate_resistive_zeff_to_hsds"))
+    assert "omas/ti_inferred/48226/metadata/replication.json" in inputs
+    assert "omas/resistive_zeff/" not in _input_line(_job(result.stdout, "replicate_ti_inferred_to_hsds"))
+
+
+def test_the_resistive_zeff_settings_are_configurable(tmp_path):
+    options = 'resistive_zeff={"model": "sauter", "ln_lambda": 17, "bounds": [1.0, 6.0], "i_ni_a": 500.0, ' \
+              '"smoothing": {"window_s": 0.002, "order": 3}, "max_excluded_current": 0.1, "inductive_max": 0.8}'
+    result = _dry_run(tmp_path, extra=["-p", "--config", options])
+    assert result.returncode == 0, result.stderr[-3000:]
+    job = _job(result.stdout, "generate_resistive_zeff_ods")
+    for flag in ("--model sauter", "--ln-lambda 17", "--bounds 1.0 6.0", "--i-ni 500.0",
+                 "--smoothing-window-s 0.002 --smoothing-order 3", "--max-excluded-current 0.1",
+                 "--inductive-max 0.8"):
+        assert flag in job, flag
+
+
+def test_the_stage_scope_narrows_rule_all_to_the_stages_asked_for(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p", "--config", 'stages=["thomson","ces"]'])
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "rule generate_thomson_ods" in result.stdout and "rule generate_ces_ods" in result.stdout
+    for later in ("generate_core_profiles_ods", "generate_composition_ods", "generate_kinetic_efit_ods"):
+        assert f"rule {later}" not in result.stdout, later
+
+
+def test_the_stage_scope_narrows_replication_too(tmp_path):
+    result = _dry_run(tmp_path, extra=["--config", 'stages=["thomson","ces"]', 'hsds={"replicate": true}'])
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "replicate_thomson_to_hsds" in result.stdout and "replicate_ces_to_hsds" in result.stdout
+    assert "replicate_composition_to_hsds" not in result.stdout
+
+
+def test_a_scope_whose_upstream_is_missing_stops_the_run(tmp_path):
+    result = _dry_run(tmp_path, extra=["--config", 'stages=["composition"]'])
+    assert result.returncode != 0
+    assert "core_profiles" in (result.stdout + result.stderr)
+
+
+def test_every_stage_gets_a_plot_rule_whose_only_declared_output_is_its_manifest(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE
+
+    for stage in CORRECTIVE_LINEAGE:
+        job = _job(result.stdout, f"plot_{stage}")
+        assert f"omas/{stage}/48226/output/{stage}" in _input_line(job)
+        output = next(line for line in job.splitlines() if line.strip().startswith("output:"))
+        assert output.count("/") and output.strip().endswith("plot_manifest.json"), output
+        assert f"--stage {stage}" in job and "generate_stage_plots.py" in job
+
+
+def test_the_plots_can_be_switched_off_and_follow_the_stage_scope(tmp_path):
+    off = _dry_run(tmp_path, extra=["-p", "--config", 'plots={"enabled": false}'])
+    assert off.returncode == 0, off.stderr[-3000:]
+    assert "rule plot_" not in off.stdout
+    scoped = _dry_run(tmp_path, extra=["--config", 'stages=["thomson","ces"]'])
+    assert scoped.returncode == 0, scoped.stderr[-3000:]
+    assert "rule plot_thomson" in scoped.stdout and "rule plot_composition" not in scoped.stdout
+
+
+def test_a_switch_given_as_false_on_the_command_line_is_off(tmp_path):
+    """`--config key={"x": false}` arrives as the string "false"; read as truthy it would enable replication."""
+    off = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": false}', 'plots={"enabled": false}'])
+    assert off.returncode == 0, off.stderr[-3000:]
+    assert "replicate_" not in off.stdout and "rule plot_" not in off.stdout
+    on = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": true}'])
+    assert "replicate_thomson_to_hsds" in on.stdout

@@ -65,11 +65,16 @@ _SUBMODULES = {
     "impurity": ".impurity",
     "species": ".species",
     "kinetic_closure": ".kinetic_closure",
+    "gyrokinetics": ".gyrokinetics",
     "zeff_projection": ".zeff_projection",
     "mode_frequency": ".mode_frequency",
     "mhd_stability": ".mhd_stability",
     "q_profile_context": ".q_profile_context",
     "ordering_state": ".ordering_state",
+    "ntv_coil_response": ".ntv_coil_response",
+    "coil_operating_space": ".coil_operating_space",
+    "resonant_coil_response": ".resonant_coil_response",
+    "local_mhd_criteria": ".local_mhd_criteria",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -133,6 +138,9 @@ _IMPORT_ORDER = (
     # Dilution-aware pressure and the classical fast-ion baseline (#1606); nothing
     # it exports collides.
     "kinetic_closure",
+    # Turbulence-zonal-flow intensities, cycle metrics and the predator-prey fit
+    # (#1820); nothing it exports collides.
+    "gyrokinetics",
     # Z_eff(rho) -> R_p -> Z_eff^res,equiv (#1566); nothing it exports collides.
     "zeff_projection",
     # Predicted mode-frequency tracks from rotation at q = m/n (#460); nothing
@@ -149,6 +157,18 @@ _IMPORT_ORDER = (
     # Asymptotic ordering quantities of measured states (#1627 §2, #1629);
     # nothing it exports collides.
     "ordering_state",
+    # Quadratic coil-response model of a signed NTV torque and its
+    # qualification (#1887); solver-free, nothing it exports collides.
+    "ntv_coil_response",
+    # The common coil operating-space result of #1178 (schema settled on
+    # #1886); nothing it exports collides.
+    "coil_operating_space",
+    # Verified linear resonant-field operator Phi = H conj(c) and its optima
+    # (#1884); nothing it exports collides.
+    "resonant_coil_response",
+    # Equilibrium-native Mercier / GGJ interchange indices, DCON's formulas
+    # (#1902); nothing it exports collides.
+    "local_mhd_criteria",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a
@@ -248,6 +268,14 @@ def __getattr__(name: str):
         value = _public_names()
         globals()["__all__"] = value
         return value
+
+    if name.startswith("_"):
+        # No submodule exports a private or dunder name, so there is nothing
+        # to hunt for: answering `hasattr(vaft.process, "__wrapped__")` (what
+        # inspect, pickle and doctest probe) by importing every submodule cost
+        # the whole package for a guaranteed "no" (cold review 0.7.0 process
+        # F6, #1888).
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
     value = _resolve(name)
     globals()[name] = value

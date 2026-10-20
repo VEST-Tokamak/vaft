@@ -44,7 +44,7 @@ _SPECS = (
             N("ti_cx", "Measured ion temperature (CX)", "measured", ids=f"{_CP}.ion[:].temperature",
               symbols=r"T_i^{\mathrm{CX}}(\rho)"),
             N("ti_pressure", "Pressure-partition ion temperature", "inferred",
-              api="vaft.validation.kinetic_state.infer_ti_pressure_partition",
+              api="vaft.process.kinetic_closure.infer_ti_pressure_partition",
               relation=r"T_i = \frac{p_{\mathrm{eq}} - e\,n_e T_e}{e\,f_i\,n_e}"),
             N("ti_ratio", "Temperature ratio", "prior", api="vaft.machine_mapping.core_profiles.vest_core_profiles_policy",
               relation=r"T_i = r\,T_e,\ \ r\ \mathrm{from\ record\ or\ machine\ policy}"),
@@ -507,7 +507,7 @@ _SPECS = (
               symbols=r"\mathrm{common}\ T_i,\ \mathrm{impurity\ species},\ Z_{\mathrm{eff}}\qquad "
                       r"\sigma_\parallel:\ \mathrm{Spitzer\ or\ neoclassical},\ \ln\Lambda"),
             N("thermo", "Thermodynamic closure", "inferred",
-              api="vaft.validation.kinetic_state.infer_ti_pressure_partition",
+              api="vaft.process.kinetic_closure.infer_ti_pressure_partition",
               relation=r"p_{\mathrm{eq}} = e\,n_e T_e + e\sum_s n_s T_i\qquad T_i = \frac{p_{\mathrm{eq}} - e n_e T_e}"
                        r"{e f n_e}"),
             N("composition", "Impurity closure", "inferred",
@@ -557,7 +557,7 @@ _SPECS = (
               references=(_WESSON,),
               equation="vaft.formula.impurity.main_ion_density_from_species"),
             N("ti", "Pressure-partition ion temperature", "inferred",
-              api="vaft.validation.kinetic_state.infer_ti_pressure_partition",
+              api="vaft.process.kinetic_closure.infer_ti_pressure_partition",
               relation=r"T_i = \frac{p_{\mathrm{eq}}}{e f n_e} - \frac{T_e}{f}\qquad \sigma_{T_i}\ \mathrm{propagated};"
                        r"\ p_i \le \sigma_{p_i}\ \mathrm{flagged,\ never\ filled}"),
             N("pi", "Ion pressure", "derived", equation="vaft.formula.equilibrium.ion_pressure",

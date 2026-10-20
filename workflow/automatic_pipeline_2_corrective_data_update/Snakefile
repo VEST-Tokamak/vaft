@@ -16,6 +16,7 @@
 # paths.SCIENTIFIC_REFERENCES, and built from that declaration, so the lineage
 # graph (#1647) shows exactly what these rules consult.
 
+import os
 import sys
 from pathlib import Path
 
@@ -30,10 +31,20 @@ configfile: str(Path(workflow.basedir) / "config.yaml")
 SCRIPT_DIR = Path(workflow.basedir)
 PIPELINE1_DIR = SCRIPT_DIR.parent / "automatic_pipeline_1_routine_data_processing"
 sys.path.insert(0, str(PIPELINE1_DIR))
-from paths import FILEDB, PipelinePaths, require_run_config_keys, scientific_reference
+from paths import (
+    FILEDB,
+    PipelinePaths,
+    expand_config_environment,
+    require_run_config_keys,
+    scientific_reference,
+)
 
 require_run_config_keys(workflow)
+# `${VAFT_FILEDB_DIR:-/srv/vest.filedb}` and friends, read the way pipeline 1
+# reads its config (cold review 0.7.0 data F12, #1888).
+config.update(expand_config_environment(config))
 
+from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE, scoped, stage_scope
 from vaft.database.sources import replicable_stages
 
 PATHS = PipelinePaths.from_config(config)
@@ -57,13 +68,56 @@ KINETIC_ENCODING = KINETIC_CONFIG.get("encoding", "raw6")
 KINETIC_EXECUTABLE = KINETIC_CONFIG.get("executable", "")
 # Named EFIT configuration for the base magnetic kfile (vaft.code.efit.PRESETS);
 # empty is the library default (statistical_891), `routine` the legacy one. Checked here so a typo fails the DAG.
+KINETIC_DILUTION = KINETIC_CONFIG.get("dilution", "species")
+if KINETIC_DILUTION not in ("species", "none"):
+    raise WorkflowError(
+        "kinetic.dilution must be 'species' or 'none', got " + repr(KINETIC_DILUTION)
+    )
 KINETIC_EFIT_PRESET = KINETIC_CONFIG.get("efit_preset") or ""
 if KINETIC_EFIT_PRESET:
     from vaft.code.efit import efit_preset as _efit_preset
     _efit_preset(KINETIC_EFIT_PRESET)
 
+COMPOSITION_CONFIG = config.get("composition", {}) or {}
+COMPOSITION_IONIZATION = COMPOSITION_CONFIG.get("ionization", "transient")
+COMPOSITION_NORMALIZATION = COMPOSITION_CONFIG.get("normalization", "ne_weighted_mean")
+COMPOSITION_ADF11_CACHE = COMPOSITION_CONFIG.get("adf11_cache_dir", "") or ""
+
+TI_INFERENCE_CONFIG = config.get("ti_inference", {}) or {}
+TI_INFERENCE_FLOOR = TI_INFERENCE_CONFIG.get("floor", 0.17)
+TI_INFERENCE_WINDOW_S = TI_INFERENCE_CONFIG.get("window_s", 1e-3)
+
+RESISTIVE_CONFIG = config.get("resistive_zeff", {}) or {}
+RESISTIVE_MODEL = RESISTIVE_CONFIG.get("model", "redl")
+RESISTIVE_LN_LAMBDA = RESISTIVE_CONFIG.get("ln_lambda", "sauter")
+RESISTIVE_BOUNDS = list(RESISTIVE_CONFIG.get("bounds", [1.0, 8.0]))
+RESISTIVE_I_NI = RESISTIVE_CONFIG.get("i_ni_a", 0.0)
+RESISTIVE_SMOOTHING = RESISTIVE_CONFIG.get("smoothing", {}) or {}
+RESISTIVE_SMOOTHING_WINDOW_S = RESISTIVE_SMOOTHING.get("window_s")
+RESISTIVE_SMOOTHING_ORDER = RESISTIVE_SMOOTHING.get("order", 2)
+RESISTIVE_MAX_EXCLUDED = RESISTIVE_CONFIG.get("max_excluded_current", 0.05)
+RESISTIVE_INDUCTIVE_MAX = RESISTIVE_CONFIG.get("inductive_max", 1.0)
+if len(RESISTIVE_BOUNDS) != 2:
+    raise WorkflowError("resistive_zeff.bounds must be [z_min, z_max]")
+
+def _flag(value, default):
+    """A configuration switch. A value given as `--config key={"x": false}` reaches the
+    Snakefile as the *string* "false", which `bool()` would read as true: and for
+    `hsds.replicate` that switches HSDS replication on when the operator said off."""
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value.strip().lower() not in ("", "false", "0", "no", "off", "none", "null")
+    return bool(value)
+
+
+COMPOSITION_ASSUME_TI = _flag(COMPOSITION_CONFIG.get("assume_ti_eq_te"), True)
+
+
+PLOTS_ENABLED = _flag((config.get("plots") or {}).get("enabled"), True)
+
 HSDS_CONFIG = config.get("hsds", {}) or {}
-REPLICATION_ENABLED = bool(HSDS_CONFIG.get("replicate", False))
+REPLICATION_ENABLED = _flag(HSDS_CONFIG.get("replicate"), False)
 REPLICATION_ATTEMPTS = HSDS_CONFIG.get("attempts", 3)
 REPLICATION_RETRY_DELAY = HSDS_CONFIG.get("retry_delay", 5.0)
 # Same bound as pipeline 1: uploads are limited by the HSDS deployment, not by
@@ -74,13 +128,14 @@ workflow.global_resources.setdefault("hsds", REPLICATION_CONCURRENCY)
 
 # The Thomson lineage: a deliberate *subset* of the corrective stages, not all
 # of them. Soft X-ray and camera are ingested by
-# `ingest_external_diagnostics.py`, and `neoclassical` belongs to the GACODE
-# chain, so each has its own producer and none of them belongs in this DAG.
+# `ingest_external_diagnostics.py`, and `neoclassical` and `turbulent_transport`
+# belong to the GACODE chain, so each has its own producer and none of them
+# belongs in this DAG.
 #
 # Named here rather than derived, because "which stages does this pipeline
 # build" is a real decision -- but checked against the registry, so a stage
 # renamed or retired there fails the run instead of silently dropping out of it.
-THOMSON_LINEAGE = ("thomson", "ces", "core_profiles", "electron_efit", "kinetic_efit")
+THOMSON_LINEAGE = CORRECTIVE_LINEAGE
 _CORRECTIVE = frozenset(replicable_stages(produced_by="corrective"))
 _UNREGISTERED = tuple(stage for stage in THOMSON_LINEAGE if stage not in _CORRECTIVE)
 if _UNREGISTERED:
@@ -92,13 +147,30 @@ if _UNREGISTERED:
         "stage renamed there must be renamed here too."
     )
 
-STAGES = THOMSON_LINEAGE
+# `stages` in the configuration narrows what `rule all` requests (and what the
+# corrective worker judges). Unset is the whole lineage. A stage outside the scope
+# is never scheduled; one whose upstream is left out is refused, not pulled in.
+try:
+    STAGE_SCOPE = stage_scope(config.get("stages"))
+except ValueError as error:
+    raise WorkflowError(str(error))
+STAGES = scoped(STAGE_SCOPE)
 REPLICATE_SCRIPT = PIPELINE1_DIR / "replicate_to_hsds.py"
+PLOT_SCRIPT = PIPELINE1_DIR / "generate_stage_plots.py"
 
 
 def stage_products(shots):
     return [PATHS.shot_pattern(stage + "_ods").format(shot=shot)
             for shot in shots for stage in STAGES]
+
+
+def plot_directory(stage):
+    """The ``plot/`` directory of a stage, with the shot left as a wildcard."""
+    return os.path.dirname(PATHS.shot_pattern("stage_plot", stage, "x.png"))
+
+
+def stage_plot_manifests(shots):
+    return [PATHS.stage_plot_manifest(shot, stage) for shot in shots for stage in STAGES]
 
 
 def replication_records(shots):
@@ -108,7 +180,8 @@ def replication_records(shots):
 
 rule all:
     input:
-        replication_records(SHOTS) if REPLICATION_ENABLED else stage_products(SHOTS)
+        replication_records(SHOTS) if REPLICATION_ENABLED else stage_products(SHOTS),
+        stage_plot_manifests(SHOTS) if PLOTS_ENABLED else []
 
 
 ############################################################
@@ -193,6 +266,136 @@ rule generate_core_profiles_ods:
 
 
 ############################################################
+# The composition overlay
+############################################################
+# The measured core_profiles plus the assumed C/O composition, diluted n_i and
+# Z_eff(rho). Its own stage and manifest, so a shot that cannot be composed is
+# recorded and keeps the measured product. Both efit and diagnostics are pipeline
+# 1's products, passed as params for the reason given in the header.
+rule generate_composition_ods:
+    input:
+        core_profiles=PATHS.shot_pattern("core_profiles_ods")
+    output:
+        ods=PATHS.shot_pattern("composition_ods"),
+        manifest=PATHS.shot_pattern("composition_manifest")
+    log:
+        PATHS.shot_pattern("log", "generate_composition_ods")
+    params:
+        efit=scientific_reference(PATHS, "generate_composition_ods", "efit"),
+        diagnostics=scientific_reference(PATHS, "generate_composition_ods", "diagnostics"),
+        ionization=COMPOSITION_IONIZATION,
+        normalization=COMPOSITION_NORMALIZATION,
+        adf11_cache=COMPOSITION_ADF11_CACHE,
+        assume_ti="--assume-ti-eq-te" if COMPOSITION_ASSUME_TI else "--no-assume-ti-eq-te"
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_composition_ods.py \
+            --shot {wildcards.shot} \
+            --core-profiles-product {input.core_profiles} \
+            --efit-product {params.efit} \
+            --diagnostics-product {params.diagnostics} \
+            --ionization {params.ionization} \
+            --normalization {params.normalization} \
+            {params.assume_ti} \
+            --adf11-cache-dir "{params.adf11_cache}" \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
+        """
+
+
+############################################################
+# The inferred ion temperature
+############################################################
+# T_i on the electron-only slices, from the magnetic EFIT's pressure partition,
+# written over the composed profiles. It is a leaf: the kinetic lineages below
+# read the composed product, never this one, because their pressure would then be
+# partitioned back into the T_i it was built from.
+rule generate_ti_inferred_ods:
+    input:
+        core_profiles=PATHS.shot_pattern("composition_ods")
+    output:
+        ods=PATHS.shot_pattern("ti_inferred_ods"),
+        manifest=PATHS.shot_pattern("ti_inferred_manifest")
+    log:
+        PATHS.shot_pattern("log", "generate_ti_inferred_ods")
+    params:
+        efit=scientific_reference(PATHS, "generate_ti_inferred_ods", "efit"),
+        floor=TI_INFERENCE_FLOOR,
+        window_s=TI_INFERENCE_WINDOW_S
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_ti_inferred_ods.py \
+            --shot {wildcards.shot} \
+            --core-profiles-product {input.core_profiles} \
+            --efit-product {params.efit} \
+            --floor {params.floor} \
+            --window-s {params.window_s} \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
+        """
+
+
+############################################################
+# The Romero resistive Z_eff
+############################################################
+# Lane Z's window estimate (#1214), stored in `global_quantities.z_eff_resistive`
+# beside, never over, the composition Z_eff. It is built on the inferred-T_i
+# product so that replacing `core_profiles` in `main` keeps what the stages before
+# it wrote, and it is a leaf: nothing reads it. Its settings are stated, not
+# defaulted in code -- the estimator has none -- and recorded in the product.
+rule generate_resistive_zeff_ods:
+    input:
+        core_profiles=PATHS.shot_pattern("ti_inferred_ods")
+    output:
+        ods=PATHS.shot_pattern("resistive_zeff_ods"),
+        manifest=PATHS.shot_pattern("resistive_zeff_manifest")
+    log:
+        PATHS.shot_pattern("log", "generate_resistive_zeff_ods")
+    params:
+        efit=scientific_reference(PATHS, "generate_resistive_zeff_ods", "efit"),
+        model=RESISTIVE_MODEL,
+        ln_lambda=RESISTIVE_LN_LAMBDA,
+        z_min=RESISTIVE_BOUNDS[0],
+        z_max=RESISTIVE_BOUNDS[1],
+        i_ni=RESISTIVE_I_NI,
+        smoothing=(
+            "" if RESISTIVE_SMOOTHING_WINDOW_S is None
+            else "--smoothing-window-s " + str(RESISTIVE_SMOOTHING_WINDOW_S)
+            + " --smoothing-order " + str(RESISTIVE_SMOOTHING_ORDER)
+        ),
+        max_excluded=RESISTIVE_MAX_EXCLUDED,
+        inductive_max=RESISTIVE_INDUCTIVE_MAX
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_resistive_zeff_ods.py \
+            --shot {wildcards.shot} \
+            --core-profiles-product {input.core_profiles} \
+            --efit-product {params.efit} \
+            --model {params.model} \
+            --ln-lambda {params.ln_lambda} \
+            --bounds {params.z_min} {params.z_max} \
+            --i-ni {params.i_ni} \
+            {params.smoothing} \
+            --max-excluded-current {params.max_excluded} \
+            --inductive-max {params.inductive_max} \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
+        """
+
+
+############################################################
 # The kinetic lineages
 ############################################################
 # Both are asked for every shot and at most one can apply: whichever the
@@ -202,7 +405,10 @@ for _stage in ("electron_efit", "kinetic_efit"):
     rule:
         name: "generate_" + _stage + "_ods"
         input:
-            core_profiles=PATHS.shot_pattern("core_profiles_ods")
+            # The composed product: it is the measured one plus the diluted ions
+            # when the composition stage succeeded, and the measured one itself
+            # (unchanged) when it did not, so this never depends on its outcome.
+            core_profiles=PATHS.shot_pattern("composition_ods")
         output:
             ods=PATHS.shot_pattern(_stage + "_ods"),
             manifest=PATHS.shot_pattern(_stage + "_manifest")
@@ -214,6 +420,7 @@ for _stage in ("electron_efit", "kinetic_efit"):
             efit=scientific_reference(PATHS, "generate_" + _stage + "_ods", "efit"),
             encoding=KINETIC_ENCODING,
             executable=KINETIC_EXECUTABLE,
+            dilution=KINETIC_DILUTION,
             efit_preset=KINETIC_EFIT_PRESET
         conda:
             CONDA if CONDA else None
@@ -227,12 +434,51 @@ for _stage in ("electron_efit", "kinetic_efit"):
                 --constraints-product {params.constraints} \
                 --efit-product {params.efit} \
                 --encoding {params.encoding} \
+                --dilution {params.dilution} \
                 --executable "{params.executable}" \
                 --efit-preset "{params.efit_preset}" \
                 --output {output.ods} \
                 --metadata {output.manifest} \
                 > {log} 2>&1
             """
+
+
+############################################################
+# Validation figures
+############################################################
+# One figure set per stage, declared once in vaft.database.production_qa and
+# rendered by pipeline 1's driver. Every figure is optional (most shots have no
+# Thomson upload), so the plot manifest is the only declared output: it records
+# which figures were generated and which were skipped, with the reason. The worker
+# does not judge figures; a stage's verdict is its manifest.
+if PLOTS_ENABLED:
+
+    for _stage in STAGES:
+
+        rule:
+            name: "plot_" + _stage
+            input:
+                ods=PATHS.shot_pattern(_stage + "_ods")
+            output:
+                manifest=PATHS.shot_pattern("stage_plot_manifest", _stage)
+            log:
+                PATHS.shot_pattern("log", "plot_" + _stage)
+            params:
+                stage=_stage,
+                directory=plot_directory(_stage)
+            conda:
+                CONDA if CONDA else None
+            shell:
+                """
+                mkdir -p $(dirname {log})
+                python {PLOT_SCRIPT} \
+                    --stage {params.stage} \
+                    --shot {wildcards.shot} \
+                    --input {input.ods} \
+                    --output-dir "{params.directory}" \
+                    --metadata {output.manifest} \
+                    > {log} 2>&1
+                """
 
 
 ############################################################
@@ -243,13 +489,25 @@ for _stage in ("electron_efit", "kinetic_efit"):
 # `main`, and a retry re-sends only what failed.
 if REPLICATION_ENABLED:
 
+    # Four stages own `core_profiles` in `main`; each lands after the one it overlays.
+    OVERLAID_BY = {
+        "composition": [PATHS.shot_pattern("replication_record", "core_profiles")],
+        "ti_inferred": [PATHS.shot_pattern("replication_record", "composition")],
+        "resistive_zeff": [PATHS.shot_pattern("replication_record", "ti_inferred")],
+    }
+
     for _stage in STAGES:
 
         rule:
             name: "replicate_" + _stage + "_to_hsds"
             input:
                 ods=PATHS.shot_pattern(_stage + "_ods"),
-                manifest=PATHS.shot_pattern(_stage + "_manifest")
+                manifest=PATHS.shot_pattern(_stage + "_manifest"),
+                # `composition` overlays the IDS `core_profiles` owns in the same
+                # source, so it must reach `main` second: its record waits for
+                # the measured product's, whatever its outcome (a skipped
+                # replication writes a record too).
+                after=OVERLAID_BY.get(_stage, [])
             output:
                 record=PATHS.shot_pattern("replication_record", _stage)
             log:

@@ -115,7 +115,7 @@ vaft.diagram.peeling_ballooning()
 vaft.diagram.s_alpha_ballooning(s_max=1.5, alpha_max=3.5)
 vaft.diagram.hugill(elongation=1.0)                       # no size parameter: R, a, B cancel
 vaft.diagram.hugill_st(elongation=1.8)                   # spherical-tokamak q_cyl (Sykes et al. 2000, MAST)
-vaft.diagram.troyon(aspect_ratio=3.0, elongation=1.7)      # registered Troyon limit, ~2.76
+vaft.diagram.troyon(aspect_ratio=3.0, elongation=1.7)      # Troyon stability reference ~2.76, experimental levels dashed
 vaft.diagram.li_qa(reference="wesson_1989")                # JET empirical l_i-q_psi space
 vaft.diagram.li_qa(reference="cheng_1987")                 # theoretical MHD-stable l_i-q(a) domain
 ```
@@ -133,7 +133,7 @@ vaft.diagram.li_qa(reference="cheng_1987")                 # theoretical MHD-sta
 | Hugill | Where is the density limit? | $\bar n_e R/B_T$, $1/q_\mathrm{cyl}$ | The registered `greenwald_hugill` line (slope $\pi/50\kappa_a$ in $1/q_\mathrm{cyl}$ against $\bar n_e R/B_T$) and `murakami_hugill` ($\bar n_e R/B_T = 1$). The registered `low_q` is on the equilibrium $q_\psi$, not $q_\mathrm{cyl}$, so it is not drawn; `q_limit=` adds a dashed *reference* $q_\mathrm{cyl}$ line |
 | Hugill (ST) | Where is the density limit in a spherical tokamak? | $\bar n_e R/B_T$, $1/q^{ST}_\mathrm{cyl}$ with $q^{ST}_\mathrm{cyl} = 2.5a^2(1+\kappa^2)B_T/(RI_p)$ | `vaft.diagram.hugill_st(elongation=1.8)`: the Hugill limit as Sykes et al. (2000, MAST) define it (`sykes_2000_st_hugill`) and the Greenwald limit on these axes (`greenwald_hugill_st`, derived); Murakami dashed as a historical conventional-tokamak reference. Not substitutable with the conventional `hugill` axes (#1602) |
 | $l_i$–$q$ | Where do current-profile peaking and edge q allow stable operation? | Wesson: $q_\psi$, $l_i(3)$. Cheng: cylinder $q(a)$, $l_i$ | Two separate references, never mixed. Wesson 1989 Fig. 6: the JET *empirical* boundaries (kink and double tearing below, density-limit disruptions above), with the registered `low_q` closing $q_\psi = 2$. Cheng 1987 Fig. 4: the *theoretical* MHD-stable domain of a cylinder with $q(0) = 1.01$ (ideal kink below, resistive kinks above), plotted as $l_i$ rather than $l_i/2$ |
-| Troyon | How much pressure can the current hold? | $I_p/(aB_T)$, $\beta_T$ | The registered `troyon` limit, $\beta_N \le 2.2\,\mu_0 10^6 \approx 2.76$, through $\beta_T = \beta_N I_p/(aB_T)$. `beta_N_max=` draws a what-if value and the note says so; `q_limit=` adds a dashed reference $q_\mathrm{cyl}$ cutoff |
+| Troyon | How much pressure has the current held, against which references? | $I_p/(aB_T)$, $\beta_T$ | The registered `troyon` *stability reference*, $\beta_N = 2.2\,\mu_0 10^6 \approx 2.76$, through $\beta_T = \beta_N I_p/(aB_T)$, with the experimental $\beta_N$ levels of the `troyon` projection dashed (DIII-D envelope and record, ST reference, NSTX record; #1691). None is a limit, so no side is shaded or called stable. `beta_N_max=` draws a what-if value and the note says so; `q_limit=` adds a dashed reference $q_\mathrm{cyl}$ cutoff |
 
 These charts show the *boundaries* of an operating space. Each one reads its lines from
 `vaft.formula.boundaries` through a canonical projection (#1425), and a population of measured or
@@ -143,7 +143,9 @@ by quantity identity (`murakami_parameter`, `inverse_cylindrical_q`, `normalized
 units in `table.attrs["units"]`. A boundary is drawn only when both plotted columns are exactly the
 projection's quantities in its units: a `q95` column never carries a $q_\psi$ or $q_\mathrm{cyl}$
 boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fraction_power`,
-`li_qa_wesson`, `li_qa_cheng`. See
+`li_qa_wesson`, `li_qa_cheng`, `beta_n_li1` (Strait's $\beta_N = 4\,l_i(1)$ envelope), and the #1691 beta-normalisation views `volume_beta_in`,
+`beta_n_normalizations` (with a $y = x$ guide), `aspect_ratio_beta_n`, `aspect_ratio_volume_beta_n`;
+`list_projections()` gives the full set. See
 #944 and #636.
 
 ### Dimensionless similarity spaces
@@ -336,17 +338,46 @@ vaft.diagram.mhd_mode_geometry_map()
 
 The scale separations a reduced model assumes, evaluated rather than assumed. The kernels are in
 `vaft.formula.ordering`, and [Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }}) (#1627)
-explains them.
+explains them. Which diagrams the scale-to-model chain needs, and which are still planned, is
+[Characteristic scales and orderings]({{ '/reference/characteristic-scales/' | relative_url }}), "Diagram contracts".
 
 ```python
 vaft.diagram.timescale_hierarchy()
+vaft.diagram.spatial_scale_orderings()
 vaft.diagram.ordering_contract_map()
+vaft.diagram.adapter_contract_map()
 ```
 
 | Diagram | Concept |
 | --- | --- |
-| `timescale_hierarchy` | Inverse gyrofrequencies, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
-| `ordering_contract_map` | Which model needs which ordering, read from `vaft.validation.orderings.CONTRACTS`. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered |
+| `timescale_hierarchy` | Inverse gyrofrequencies, collision, Alfvén, sound-crossing, inverse ion transit and bounce frequencies, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$. Drift precession (no kernel) and $\tau_E$ (no inventory) are left out |
+| `spatial_scale_orderings` | Electron and ion Larmor radii, $\rho_s$, $d_i$, the banana width, an illustrative gradient length, $a$, $R_0$ and $qR_0$ of the same state on one logarithmic axis. Below it are $\rho_i/L$, $\Delta_b/L$, $d_i/a$, with brackets for the ratios that need a mode ($k_\perp\rho$, $k_\parallel/k_\perp$, $\omega/\Omega_c$) |
+| `ordering_contract_map` | Which model needs which ordering, read from `vaft.validation.orderings.CONTRACTS`. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered. |
+| `adapter_contract_map` | Which ordering contracts each VAFT code-adapter mode consumes, and how each enters the calculation: governing (filled), RDCON's outer solution and layer solution, DCON-kinetic's fluid part and kinetic part, PENTRC's closure, inherited by a reduced model that does not solve its parent theory (dashed). An empty cell is no registered contract, not physical independence (`vaft.validation.model_contracts`, #1823) |
+
+## Plasma-model guide
+
+Figures for the [plasma-model guide]({{ '/reference/plasma-model-guide/' | relative_url }}) (#1739). Every node is
+read from the formalism records: a node lists the `adapter:mode` ids of `vaft.validation.model_contracts.ADAPTER_MODES`
+whose record matches it, and codes not in VAFT (`vaft.diagram.EXTERNAL_CODES`) are hollow and labelled so. Four edge
+kinds are used: asymptotic reduction (solid), model coupling (double-headed), software dependency (dotted) and
+surrogate ancestry (dashed). No direction is a fidelity axis.
+
+```python
+vaft.diagram.plasma_model_reduction_map()
+vaft.diagram.formalism_axes_map()
+vaft.diagram.solver_placement_map()
+vaft.diagram.kinetic_mhd_coupling()
+vaft.diagram.reduced_model_ancestry()
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `plasma_model_reduction_map` | One starting point (Vlasov / Fokker–Planck + Maxwell, no VAFT solver) and the reductions to the fluid, drift-kinetic, gyrokinetic, particle, hybrid, reduced and equilibrium descriptions, each edge labelled with its ordering, each node with its VAFT modes |
+| `formalism_axes_map` | The independent axes of `vaft.code.formalism.AXES`, one column each with an N/A cell, and three runs (CGYRO nonlinear, DCON kinetic, NUBEAM) drawn across them. The numerical representation is a separate box, not an axis |
+| `solver_placement_map` | Every adapter mode against bulk, model, spatial domain and regime, filled from its record, unclassified modes greyed; then the codes not in VAFT, hollow |
+| `kinetic_mhd_coupling` | Kinetic-MHD as a coupling loop between an ideal-MHD bulk and a drift-kinetic population: energy closes it (DCON, GPEC kinetic), closure is one-way (PENTRC), and RDCON's T_e, n_e input is a coefficient, not a coupling |
+| `reduced_model_ancestry` | Parent theory, model reduction and VAFT realization of every reduced mode; TGLF-NN descends from TGLF. Every row inherits its parent's contract and adds a closure no contract covers |
 
 ## Reduced representations
 
@@ -358,12 +389,14 @@ are built from the formulas' `Reduction` docstring sections and the relation met
 
 ```python
 vaft.diagram.reduced_representation_hierarchy()
+vaft.diagram.reduced_representation_hierarchy_compact()
 vaft.diagram.reduction_graph(family="current_q")   # "pressure_energy", "kinetic_profiles", "dimensionless_similarity"
 ```
 
 | Diagram | Concept |
 | --- | --- |
 | `reduced_representation_hierarchy` | Spatial reduction (field, profile, scalar) down, dimensionless normalisation across, so a dimensionless quantity can still be a profile. Each cell counts the catalogued formulas that land there |
+| `reduced_representation_hierarchy_compact` | The same axes and arrows with only the example symbols in each box, without the counts, at reduced box height and spacing, for slides and overview pages |
 | `reduction_graph` | One family as a layered graph of quantities. A solid edge is a formula, and its catalogued reduction kind is shown as *via*. A dashed edge is a step VAFT performs elsewhere |
 
 ## Tokamak geometry and flux coordinates
@@ -1460,7 +1493,10 @@ vaft.diagram.machine_research_archive()
 ![Machine and research archive]({{ '/assets/diagrams/machine_research_archive.svg' | relative_url }})
 
 The interoperability figures read as one progression, from data interoperability through scientific
-integration to infrastructure and implementation:
+integration to infrastructure and implementation. The four nodes of the network and framework figures are
+research modes, not physics domains;
+[Research domains]({{ '/reference/research-domains/' | relative_url }}) sets out how the two classifications
+cross:
 
 1. pairwise interfaces, `experiment_modeling_theory_data_network("point_to_point")`;
 2. a shared scientific representation, `experiment_modeling_theory_data_network("common_model")`;
@@ -1794,7 +1830,7 @@ Measured electron profiles and the equilibrium resolved into an ion temperature,
 | Electron profiles | measured | $T_e(\rho),\ n_e(\rho)$ |  | `core_profiles.profiles_1d[:].electrons.{temperature, density_thermal}` |
 | Equilibrium | reconstructed | $p_{\mathrm{eq}}(\psi),\ r(\psi)$ |  | `equilibrium.time_slice[:].profiles_1d.{pressure, r_inboard, r_outboard}` |
 | Measured ion temperature (CX) | measured | $T_i^{\mathrm{CX}}(\rho)$ |  | `core_profiles.profiles_1d[:].ion[:].temperature` |
-| Pressure-partition ion temperature | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
+| Pressure-partition ion temperature | inferred |  | `vaft.process.kinetic_closure.infer_ti_pressure_partition` |  |
 | Temperature ratio | model assumption / prior |  | `vaft.machine_mapping.core_profiles.vest_core_profiles_policy` |  |
 | Ion-temperature branch selection | derived | $\mathrm{measured} \succ \mathrm{pressure\ partition} \succ \mathrm{ratio}$ | `vaft.process.transport_state.resolve_transport_state` |  |
 | Zeff and one impurity species | model assumption / prior (enters Species resolution) | $Z_{\mathrm{eff}},\ Z_I\ (\mathrm{default\ C})$ |  | `core_profiles.profiles_1d[:].zeff` |
@@ -2095,7 +2131,7 @@ Where inference sits: diagnostics and the equilibrium give reconstructed but inc
 | Reconstructed kinetic profiles | reconstructed | $T_e(\rho),\ n_e(\rho)\ (\mathrm{fitted}),\ [T_i(\rho)], p_{\mathrm{eq}}(\rho),\ q(\rho)$ |  | `core_profiles.profiles_1d[:].electrons` |
 | Fitting assumptions | model choice / convention (enters Reconstructed kinetic profiles) | $\mathrm{polynomial\ \|\ core\text{-}poly/edge\text{-}exp\ \|\ GP}, \mathrm{order}\ N,\ x = \rho_{\mathrm{tor},N}\ \mathrm{or}\ \psi_N, T, n > 0,\ \sigma\text{-}\mathrm{weighted}$ | `vaft.process.profile.profile_fitting_thomson_scattering` |  |
 | Closure assumptions | model assumption / prior (enters Reconstructed kinetic profiles) | $\mathrm{common}\ T_i,\ \mathrm{impurity\ species},\ Z_{\mathrm{eff}}, \sigma_\parallel:\ \mathrm{Spitzer\ or\ neoclassical},\ \ln\Lambda$ |  |  |
-| Thermodynamic closure | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
+| Thermodynamic closure | inferred |  | `vaft.process.kinetic_closure.infer_ti_pressure_partition` |  |
 | Impurity closure | inferred |  | `vaft.process.impurity.resolve_impurity_composition` |  |
 | Resistive closure | inferred | $V_R^{\mathrm{obs}} \to Z_{\mathrm{eff}}^{\mathrm{res}}\ (\mathrm{scalar}), \sigma_\parallel:\ \mathrm{Spitzer\ \|\ neoclassical\ (Sauter,\ Redl)}$ | `vaft.process.resistive_zeff.infer_resistive_zeff` |  |
 | Completed kinetic profiles | derived | $n_e, T_e, T_i, n_s, Z_{\mathrm{eff}}, \mathrm{each\ with\ origin=\ldots;\ method=\ldots}$ |  | `core_profiles.profiles_1d[:].{electrons, ion[:], zeff}` |
@@ -2128,7 +2164,7 @@ Provenance propagates: a composition assumption fixes the ion densities, which s
 | Equilibrium pressure | reconstructed | $p_{\mathrm{eq}}(\psi)\ \ (\mathrm{independent\ lineage})$ |  | `equilibrium.time_slice[:].profiles_1d.pressure` |
 | Impurity source | model assumption / prior (enters Ion densities) | $\mathrm{measured} \succ \mathrm{explicit} \succ \mathrm{derived} \succ \mathrm{assumed}$ |  |  |
 | Ion densities | derived |  | `vaft.process.impurity.resolve_impurity_composition` |  |
-| Pressure-partition ion temperature | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
+| Pressure-partition ion temperature | inferred |  | `vaft.process.kinetic_closure.infer_ti_pressure_partition` |  |
 | Ion pressure | derived | $p_i(\rho),\ dp_i/dr$ |  |  |
 | Normalized gradients | derived | $a/L_{T_i},\ a/L_{n_i},\ T_i/T_e$ | `vaft.code.gacode.tglf.prepare_tglf_input` |  |
 | ExB shear | model assumption / prior (enters Gyrokinetic input) | $\gamma_E = 0\ \ (\mathrm{assumed})$ |  |  |

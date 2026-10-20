@@ -288,3 +288,68 @@ def test_run_kinetic_efit_skipped_bad_executable_path(tmp_path, monkeypatch):
     )
     result = km.run_kinetic_efit(inputs, config)
     assert result.status == "skipped"
+
+
+# --------------------------------------------------------------------------- #
+# impurity dilution of the raw ion pressure (#1842)
+# --------------------------------------------------------------------------- #
+
+def _fake_geq():
+    """A GEQDSK whose psi_N depends on R alone: psi_N = ((R - 0.4) / 0.3)**2."""
+    nw = nh = 33
+    r = 0.1 + np.arange(nw) / (nw - 1) * 0.6
+    psirz = np.repeat((((r - 0.4) / 0.3) ** 2)[:, None], nh, axis=1)
+    return {"NW": nw, "NH": nh, "RDIM": 0.6, "ZDIM": 1.0, "RLEFT": 0.1, "ZMID": 0.0,
+            "PSIRZ": psirz.ravel(), "SIMAG": 0.0, "SIBRY": 1.0}
+
+
+def test_no_dilution_function_is_the_legacy_one_ion_per_electron():
+    ods = _make_raw_ods()
+    legacy = km.kinetic_pressure_points(ods, 300.0, _fake_geq(), encoding="raw5")
+    same = km.kinetic_pressure_points(ods, 300.0, _fake_geq(), encoding="raw5", ion_density_ratio=None)
+    assert np.allclose(legacy.pressr, same.pressr) and np.allclose(legacy.sigpre, same.sigpre)
+
+
+def test_a_dilution_function_scales_the_ion_part_of_the_pressure_only():
+    ods = _make_raw_ods()
+    geq = _fake_geq()
+    R, ne, Te, sne, sTe, Ti, sTi = km._raw_ne_te_ti(ods, 300.0, geq)
+    from vaft.code.efit.kinetic import _psin_of_r
+
+    psin = _psin_of_r(geq, R)
+    f = 0.9 - 0.2 * psin          # more dilution toward the edge, below 1 everywhere
+    pts = km.kinetic_pressure_points(
+        ods, 300.0, geq, encoding="raw5", ion_density_ratio=lambda x: 0.9 - 0.2 * x
+    )
+    assert np.allclose(pts.pressr, km.EQE * ne * (Te + f * Ti))
+    sig = km.EQE * np.sqrt(((Te + f * Ti) * sne) ** 2 + (ne * sTe) ** 2 + (ne * f * sTi) ** 2)
+    assert np.allclose(pts.sigpre, np.maximum(sig, 0.05 * np.asarray(pts.pressr)))
+    legacy = km.kinetic_pressure_points(ods, 300.0, geq, encoding="raw5")
+    assert np.all(np.asarray(pts.pressr) < np.asarray(legacy.pressr))
+    # the electron part is untouched: removing the ion term recovers e*ne*Te exactly
+    assert np.allclose(km.EQE * ne * Te, np.asarray(pts.pressr) - km.EQE * ne * f * Ti)
+
+
+def test_a_dilution_function_without_a_flux_map_is_refused_not_skipped():
+    with pytest.raises(ValueError, match="needs geq"):
+        km.kinetic_pressure_points(_make_raw_ods(), 300.0, None, encoding="raw5",
+                                   ion_density_ratio=lambda x: 0.9 + 0 * x)
+
+
+@pytest.mark.parametrize("bad", [lambda x: 0.0 * x, lambda x: -1.0 + 0 * x, lambda x: np.nan * x, lambda x: np.array([0.9])])
+def test_a_dilution_function_that_is_not_a_positive_finite_ratio_is_refused(bad):
+    with pytest.raises(ValueError, match="finite positive"):
+        km.kinetic_pressure_points(_make_raw_ods(), 300.0, _fake_geq(), encoding="raw5", ion_density_ratio=bad)
+
+
+def test_the_statistical_ti_fallback_carries_the_dilution_through_its_correlated_sigma():
+    ods = _make_raw_ods()
+    ods["charge_exchange"] = FakeNode(time=ods["thomson_scattering.time"], channel=[])
+    geq = _fake_geq()
+    f0 = 0.85
+    pts = km.kinetic_pressure_points(ods, 300.0, geq, encoding="raw5", ti_te_ratio=1.0,
+                                     ti_te_ratio_sigma=0.5, ion_density_ratio=lambda x: f0 + 0 * x)
+    R, ne, Te, sne, sTe, *_ = km._raw_ne_te_ti(ods, 300.0, geq, ti_te_ratio=1.0, ti_te_ratio_sigma=0.5)
+    assert np.allclose(pts.pressr, km.EQE * ne * Te * (1.0 + f0 * 1.0))
+    sig = km.EQE * np.sqrt(((1 + f0) * Te * sne) ** 2 + (ne * (1 + f0) * sTe) ** 2 + (ne * Te * f0 * 0.5) ** 2)
+    assert np.allclose(pts.sigpre, np.maximum(sig, 0.05 * np.asarray(pts.pressr)))

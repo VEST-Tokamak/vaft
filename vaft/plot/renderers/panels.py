@@ -46,6 +46,7 @@ __all__ = [
     "current_overview_reconstruction",
     "diagnostics_overview",
     "kinetic_overview_profiles",
+    "kinetic_overview_state",
     "equilibrium_overview",
     "equilibrium_overview_constraint_coverage",
     "equilibrium_overview_constraints",
@@ -974,6 +975,232 @@ def kinetic_overview_profiles(
     """Four cross-diagnostic kinetic profile panels."""
     style.setdefault("figsize", (14.0, 7.0))
     return render_panels(model, ax=ax, show=show, **style)
+
+
+#: Below this canvas width [in] a legend beside each panel leaves the panels no
+#: room, so the legends go inside them (issue #1837).
+_KINETIC_STATE_OUTSIDE_LEGEND_MIN_WIDTH_IN = 6.0
+#: ``layout="stages"`` without a format: inches per stage column (#1957).
+_KINETIC_STAGE_COLUMN_IN = 1.9
+#: The narrowest canvas ``layout="stages"`` is drawn on [in]; a narrower one is refused.
+_KINETIC_STAGES_MIN_WIDTH_IN = 8.0
+#: Its column titles (the stage names) against the format's title size.
+_KINETIC_STAGE_TITLE_SCALE = 0.8
+#: Its row legends against the format's base type size.
+_KINETIC_STAGE_LEGEND_SCALE = 0.55
+
+
+def _kinetic_stage_legend_pt(axis: Any) -> float:
+    """The row legends' type: a fraction of the axis-label size the format drew with."""
+    from ..style import LEGEND_MIN_PT
+
+    return max(LEGEND_MIN_PT, _KINETIC_STAGE_LEGEND_SCALE * float(axis.xaxis.label.get_fontsize()))
+
+
+@_panel_renderer(
+    domain="core_profiles", subject="kinetic", view="overview", quantity="state",
+    description=(
+        "One matched kinetic state in four panels -- pressure, density, temperature and Z_eff "
+        "against rho_tor_norm -- from stored core_profiles, the equilibrium of the same time and "
+        "the Thomson channels mapped through it, each trace labelled by its recorded evidence role."
+    ),
+    ids=("core_profiles", "equilibrium", "thomson_scattering"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+        "core_profiles.profiles_1d.{i}.electrons.density",
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+    ),
+    optional_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.pressure",
+        "core_profiles.profiles_1d.{i}.t_i_average",
+        "core_profiles.profiles_1d.{i}.pressure_ion_total",
+        "core_profiles.profiles_1d.{i}.ion.{j}.density",
+        "core_profiles.profiles_1d.{i}.ion.{j}.pressure",
+        "core_profiles.profiles_1d.{i}.ion.{j}.temperature_fit.parameters",
+        "core_profiles.profiles_1d.{i}.zeff",
+        "core_profiles.profiles_1d.{i}.zeff_fit.parameters",
+        "core_profiles.global_quantities.z_eff_resistive",
+        "thomson_scattering.channel.{i}.n_e.data",
+        "thomson_scattering.channel.{i}.t_e.data",
+    ),
+)
+def kinetic_overview_state(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """One matched kinetic state: pressure, density, temperature and Z_eff panels (issue #1837).
+
+    Interpretation
+    --------------
+    The four views of a single selected kinetic state, on one radial
+    coordinate.  Pressure compares the equilibrium pressure with the electron
+    and ion pressures stored in core_profiles and their sum; density shows the
+    electron, main-ion and charged impurity-ion densities; temperature the
+    electron and ion temperatures; the last panel the effective charge with
+    its stored resistive value or the recorded composition target as a
+    reference.  Thomson channels are mapped from their own (R, Z) through the
+    selected equilibrium and drawn with their 1 sigma errors; where no
+    channel lies, every profile is extrapolated.  Each legend entry names the role its quantity's provenance
+    record states -- measurement, fit, assumed, inferred -- and the plot
+    derives two more from the records: Thomson points are the fit input of
+    fitted profiles, and the Thomson pressure is independent validation of a
+    magnetics-only equilibrium but fit input of an electron-kinetic one.
+    p_e + p_i is labelled a closure identity when T_i was inferred by
+    partitioning the equilibrium pressure, because it then equals p_eq by
+    construction and is no agreement test.  A stored impurity pressure is
+    drawn as the part of p_i it is (p_i is the total over every ion), never
+    added to the sum again.  What the records say was assumed -- T_i = T_e,
+    n_C = n_O, a preset Z_eff target -- is listed under the title, and the
+    resistive (Romero) Z_eff a composition was closed on, with its sigma, on
+    an "Inferred" line below it.
+
+    The figure can also be read as the inference chain that built the state:
+    Thomson and equilibrium data (1), the n_e and T_e fits (2), T_i (3), the
+    Z_eff reference such as Romero's resistive estimate (4), the impurity
+    density (5), the main-ion density (6), the Z_eff profile (7) and the
+    pressure closure (8).  The stage of a trace is fixed by its quantity, not
+    by the data, so a state built in another order is drawn as stored.
+
+    Options
+    -------
+    ``time=`` picks the core_profiles slice nearest that time, refused when
+    it is more than one core_profiles step away, and the equilibrium slice
+    nearest the core slice, refused when more than one equilibrium step away.
+    Each Thomson signal takes its sample nearest the core slice, left empty
+    when more than one Thomson sampling step away.  ``equilibrium_occurrence=``
+    states which equilibrium occurrence the input carries; it is refused when
+    the ion-temperature record names another, and shown as unverified when no
+    record names one.  ``coordinate=`` draws against the stored toroidal-flux
+    radius (refused when it is the sqrt(psi_N) proxy, never relabelled) or
+    the normalized poloidal flux.  ``layout=`` arranges the same four panels
+    as a 2 x 2 grid or a 4 x 1 stack; ``format=`` and ``theme=`` size and
+    style the figure.  ``stage=`` (1-8) draws the chain up to that stage,
+    every trace as in the full figure and every axis on the full figure's
+    limits, so the data scale does not jump between the images of a
+    procedure -- one per stage, from a loop over ``stage=k``; each legend
+    names only what its stage draws, so the layout may shift.
+    ``animation=True`` walks the eight stages (``stage=[...]`` picks some) at
+    the selected ``time=`` as one movie.  ``layout="stages"`` draws the four
+    quantities as rows and one column per stage of ``stages=`` (default 1,
+    2, 4, 5, 7, 8), each the cumulative figure at that stage, with one
+    legend of symbols per row; it is sized for ``format="slide"``, refused
+    on a canvas narrower than 8 inches and with ``backend="plotly"`` (its row
+    legends live in cells of their own), and cannot be animated.
+
+    Limitations
+    -----------
+    Nothing is computed beyond presentation: ion densities, T_i and Z_eff are
+    what the stage stored, and by design no uncertainty band is drawn on p_eq,
+    p_i, T_i, the ion densities or Z_eff -- the contract carries none for
+    them.  The Thomson pressure error assumes independent n_e and T_e errors.
+    A quantity without a provenance record is labelled "stored" (a Thomson
+    channel "measured"), not guessed; a record in no known grammar is
+    refused.  Non-finite T_i, p_i and Z_eff points stay empty.  On a canvas
+    narrower than 6 inches the legends move inside the panels and may cover
+    data.  The stages layout's legends name symbols only; the roles are the
+    single figure's to state.
+
+    See Also
+    --------
+    kinetic_overview_profiles : local Thomson/CX points and the core-profile fits.
+    core_profiles_profile_zeff : the stored Z_eff alone, labelled by its origin.
+    """
+    from ..presentation import FORMATS
+
+    if not isinstance(model, Panels):
+        raise TypeError(
+            f"expected a vaft.plot.models.Panels; got {type(model).__name__}. "
+            "Adapters such as vaft.omas.plot_* build the model from data objects."
+        )
+    stages = getattr(model.models[0], "metadata", {}).get("layout") == "stages"
+    fmt = FORMATS.get(style.get("format")) if isinstance(style.get("format"), str) else None
+    if fmt is not None and fmt.width_in < _KINETIC_STATE_OUTSIDE_LEGEND_MIN_WIDTH_IN and model.member_styles:
+        inside = {"legend_placement": {"loc": "best", "fontsize_scale": 0.58}}
+        model = replace(model, member_styles=tuple(
+            {**dict(m), **inside} if dict(m).get("legend", True) is not False else dict(m)
+            for m in model.member_styles), suptitle=model.suptitle.replace(" (", "\n(", 1))
+    if stages and ax is None:
+        width = fmt.width_in if fmt is not None else (style["figsize"][0] if style.get("figsize") else None)
+        if width is not None and width < _KINETIC_STAGES_MIN_WIDTH_IN:
+            raise ValueError(
+                f"layout='stages' needs a canvas at least {_KINETIC_STAGES_MIN_WIDTH_IN:g} in wide for "
+                f"{model.ncols - 1} stage columns and their legends; this one is {width:g} in -- use "
+                "format='slide' (or 'poster'), or fewer stages=, or layout='grid' with stage="
+            )
+    if stages and fmt is None and ax is None and style.get("figsize") is None:
+        # No format: a canvas as wide as its columns, not the 6.5-inch screen
+        # format a 2 x 2 grid is drawn on (format="slide" for a slide).
+        style["figsize"] = (_KINETIC_STAGE_COLUMN_IN * model.ncols + 1.0, 7.5)
+    # Shown once the layout below is done.
+    deferred = ax is None
+    figure, axes = render_panels(model, ax=ax, show=show and not deferred, **style)
+    grid = np.asarray(axes, dtype=object)
+    if stages and grid.ndim == 2:
+        # Narrow columns: the radius is marked at its ends only, labelled once
+        # under the first column; every column of a row shares the full
+        # figure's y range, so the first carries the row's label and ticks.
+        # The last column holds each row's legend, the symbols of the row's
+        # last stage (the roles are the single figure's to state).
+        hosts, data = grid[:, -1], grid[:, :-1]
+        legend_pt = _kinetic_stage_legend_pt(data[-1, 0])
+        for axis in data.ravel():
+            axis.set_xticks((0.0, 1.0), ("0", "1"))
+        for axis in data[-1, 1:]:
+            axis.set_xlabel("")
+        for axis in data[:, 1:].ravel():
+            axis.tick_params(labelleft=False)
+            axis.set_ylabel("")
+        for host, source in zip(hosts, data[:, -1]):
+            handles, labels = source.get_legend_handles_labels()
+            if handles:
+                # Two columns past five symbols: a row is short, the cell wide enough.
+                host.legend(handles, labels, loc="center left", frameon=False, borderaxespad=0.0,
+                            fontsize=legend_pt, labelspacing=0.2, handlelength=1.4, handletextpad=0.4,
+                            ncols=1 if len(handles) <= 5 else 2, columnspacing=0.8)
+        for axis in data[0]:
+            axis.title.set_fontsize(axis.title.get_fontsize() * _KINETIC_STAGE_TITLE_SCALE)
+        for axis in data[:, 0]:
+            # A row is short: the unit goes under the symbol, in smaller type.
+            label = axis.yaxis.label
+            label.set_text(label.get_text().replace(" [", "\n[", 1))
+            label.set_fontsize(label.get_fontsize() * _KINETIC_STAGE_TITLE_SCALE)
+        if ax is None:
+            # Laid out again for what changed above, with the format's padding.
+            from ..style import finalize
+
+            finalize(figure, grid, show=False, tight_layout=True, pad=_kinetic_pad(style, ax))
+        if show:
+            plt.show()
+    else:
+        if model.ncols > 1:
+            # The legends stand beside the panels, so a grid's axes are narrow:
+            # three ticks across the normalized radius keep their labels apart.
+            for axis in grid.ravel():
+                axis.locator_params(axis="x", nbins=3)
+        if ax is None:
+            # A legend hung beside its axes moves with it, so one layout pass
+            # leaves it where the axes were: laid out again until it settles,
+            # the column gap then holds the legend and the next y label.
+            from ..style import finalize
+
+            for _ in range(5):
+                before = np.array([a.get_position().bounds for a in grid.ravel()])
+                finalize(figure, grid, show=False, tight_layout=True, pad=_kinetic_pad(style, ax))
+                if np.allclose(before, [a.get_position().bounds for a in grid.ravel()], atol=1e-4):
+                    break
+        if show and deferred:
+            plt.show()
+    return figure, axes
+
+
+def _kinetic_pad(style: Mapping[str, Any], ax: Any) -> float | None:
+    """The layout padding the presentation format of this render used, or ``None``."""
+    from ..presentation import DEFAULT_FORMAT, FORMATS
+
+    name = style.get("format")
+    if name in (None, "", "none") and ax is None and style.get("figsize") is None:
+        name = DEFAULT_FORMAT
+    fmt = FORMATS.get(name) if isinstance(name, str) else None
+    return None if fmt is None else fmt.outer_pad_pt / fmt.base_font_pt
 
 
 @_panel_renderer(

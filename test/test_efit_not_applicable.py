@@ -302,3 +302,66 @@ def test_the_same_reverse_current_in_the_dark_is_pickup():
     ods = _class_shot(_small_pulse_then_large_reverse)
     reason = CONSTRAINTS._efit_not_applicable(ods, _error())
     assert reason is not None and "in the discharge direction" in reason
+
+
+def _diagnostics_without_tf(tmp_path, tf_status):
+    from vaft.omas import save as save_ods
+
+    diagnostics = tmp_path / "diagnostics.json"
+    ods = synthetic_ods(ip=current(grid()), t=grid())
+    if "tf" in ods:
+        del ods["tf"]
+    save_ods(ods, diagnostics)
+    manifest = tmp_path / "diagnostics-manifest.json"
+    manifest.write_text(json.dumps({"channel_status": {"tf": tf_status} if tf_status else {}}), encoding="utf-8")
+    return ods, diagnostics, manifest
+
+
+TF_RAW_ABSENT = {"status": "unavailable", "reason": (
+    "Required VEST raw signal is unavailable for shot 42675, field 1 (TF coil current): "
+    "the data source returned no waveform. Verify that the raw archive contains this field "
+    "or that the VEST SQL service returned data.")}
+
+
+def test_a_tf_current_absent_from_the_raw_data_is_a_verdict(monkeypatch, tmp_path):
+    """42675 (#1799): the diagnostics manifest records the TF coil current as
+    absent from the raw dump. BTOR has no other source, so EFIT does not apply;
+    the stage used to crash with ``float * ODS`` and the shot was retried."""
+    ods, diagnostics, manifest = _diagnostics_without_tf(tmp_path, TF_RAW_ABSENT)
+    monkeypatch.setattr(CONSTRAINTS, "compose_stage_products", lambda **_: (ods, {}))
+    output = tmp_path / "constraints" / "42675_constraints.json"
+    monkeypatch.setattr(sys, "argv", [
+        "generate_constraints_ods.py", "--shot", "42675", "--eddy-ods", "e",
+        "--diagnostics-ods", str(diagnostics), "--diagnostics-manifest", str(manifest), "--output", str(output),
+    ])
+
+    assert CONSTRAINTS.main() == 0
+    reason = constraints_not_applicable_reason(load_omas_json(str(output), consistency_check=False))
+    assert reason.startswith("required input absent from the raw data: tf: ")
+    assert "field 1 (TF coil current)" in reason
+
+
+@pytest.mark.parametrize("tf_status", [
+    None,  # missing with no record of why: possibly a mapping fault
+    {"status": "unavailable", "reason": "Every sample is saturated at [-5.0, 5.0]"},
+    {"status": "unavailable", "reason": "Required VEST raw signal is unavailable for shot 42675, field 1: time and data lengths differ"},
+])
+def test_a_tf_missing_for_any_other_reason_is_not_a_verdict(tmp_path, tf_status):
+    from vaft.omas.vest_upstream import efit_constraint_inputs_absent_from_data
+
+    _, diagnostics, manifest = _diagnostics_without_tf(tmp_path, tf_status)
+    assert efit_constraint_inputs_absent_from_data(diagnostics, manifest) is None
+    assert efit_constraint_inputs_absent_from_data(diagnostics, tmp_path / "no-manifest.json") is None
+
+
+def test_a_shot_with_its_tf_needs_no_explanation(tmp_path):
+    from vaft.omas import save as save_ods
+    from vaft.omas.vest_upstream import efit_constraint_inputs_absent_from_data
+
+    ods = synthetic_ods(ip=current(grid()), t=grid())
+    ods["tf.b_field_tor_vacuum_r.data"] = np.full(grid().size, 0.1)
+    diagnostics = tmp_path / "diagnostics.json"
+    save_ods(ods, diagnostics)
+    manifest = tmp_path / "m.json"
+    manifest.write_text(json.dumps({"channel_status": {"tf": TF_RAW_ABSENT}}), encoding="utf-8")
+    assert efit_constraint_inputs_absent_from_data(diagnostics, manifest) is None

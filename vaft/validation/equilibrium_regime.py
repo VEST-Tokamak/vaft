@@ -16,6 +16,11 @@ Two things the labels deliberately do **not** do:
   ``unknown``, not ``limited``.  #76 asks for exactly this separation, and it
   is the difference between "we looked and there was no X-point" and "we never
   looked".
+* An event is ``unknown`` unless the caller supplied annotations for the
+  discharge.  With annotations, a slice outside every annotated interval is
+  ``none`` -- an annotated discharge that had no VDE there -- and only then.
+  No VEST annotation data exists in the repository today; the hook is the
+  ``events`` argument.
 * Nothing is discarded.  Every label carries the numbers it was derived from
   -- the current, the rate, the fraction of peak, the raw ``limloc`` -- so a
   cohort can be re-cut under a different threshold without re-running EFIT.
@@ -38,7 +43,7 @@ unaffected -- it is derived from the plasma current, which survives.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, replace
 from typing import Any, Mapping, Sequence
 
 import numpy as np
@@ -81,6 +86,20 @@ class RegimeLabels:
     rule: str
     #: Why a label is ``unknown``, when it is.
     reasons: tuple[str, ...] = ()
+    #: ``|Ip|`` bin from the policy's edges, or ``unknown``.
+    current_bin: str = "unknown"
+    #: ``d|Ip|/dt`` [A/s] -- the rate of the magnitude -- and its bin.
+    magnitude_rate: float | None = None
+    rate_bin: str = "unknown"
+    #: Machine-configuration era, as the caller's era metadata names it.
+    era: str = "unknown"
+    #: Annotated event (``vde``, ``ire``, ``disruption``, ...), ``none`` on an
+    #: annotated discharge outside every event, ``unknown`` without annotations.
+    event: str = "unknown"
+    #: Net passive-structure current at the slice [A], and ``|I_passive|/|Ip|``.
+    eddy_current: float | None = None
+    eddy_fraction: float | None = None
+    version: int = 1
 
     def as_dict(self) -> dict[str, Any]:
         """A JSON-safe record; the inputs travel with the label."""
@@ -96,6 +115,14 @@ class RegimeLabels:
             "limloc": self.limloc,
             "rule": self.rule,
             "reasons": list(self.reasons),
+            "current_bin": self.current_bin,
+            "magnitude_rate": None if self.magnitude_rate is None else float(self.magnitude_rate),
+            "rate_bin": self.rate_bin,
+            "era": self.era,
+            "event": self.event,
+            "eddy_current": None if self.eddy_current is None else float(self.eddy_current),
+            "eddy_fraction": None if self.eddy_fraction is None else float(self.eddy_fraction),
+            "version": int(self.version),
         }
 
 
@@ -141,13 +168,40 @@ def _rates(times: np.ndarray, currents: np.ndarray) -> np.ndarray:
 
 
 def classify_equilibrium_regimes(
-    ods: Any, *, policy: EquilibriumRegimePolicy | None = None
+    ods: Any,
+    *,
+    policy: EquilibriumRegimePolicy | None = None,
+    era: str | None = None,
+    passive_current: tuple[Sequence[float], Sequence[float]] | None = None,
+    events: Sequence[tuple[float, float, str]] | None = None,
+    limloc: Mapping[int, str] | None = None,
 ) -> tuple[RegimeLabels, ...]:
     """Label every slice of one reconstruction.
 
     The whole discharge at once, because the level rule needs this
     discharge's peak current -- see the policy module for why that
     non-causality was accepted.
+
+    ``ods`` needs only ``equilibrium.time`` and each slice's
+    ``constraints.ip.measured``, so a constraints ODS works as well as a
+    reconstruction -- and it is the one to pass for a cohort of *attempts*:
+    it holds every slice EFIT was asked for, where a reconstruction holds
+    only the slices that wrote a g-file.
+
+    The rest is optional evidence the ODS does not carry:
+
+    * ``era`` -- the machine-configuration era, from the caller's era
+      metadata (``vaft.omas.vest_upstream.machine_era_for_shot(shot).name``
+      for VEST); this module does not know the machine.
+    * ``passive_current`` -- ``(time [s], net passive-structure current [A])``,
+      e.g. the eddy product's ``pf_passive.loop[*].current`` summed; read at
+      each slice by linear interpolation, ``None`` outside its span.
+    * ``events`` -- ``(start [s], end [s], label)`` annotations for this
+      discharge. Supplying any (an empty list included) asserts the
+      discharge was annotated.
+    * ``limloc`` -- EFIT's ``limloc`` by whole millisecond, for an ODS that
+      does not carry it (a constraints ODS, a replicated product); it is used
+      only where the ODS has none.
     """
     resolved = policy or vest_equilibrium_regime_policy()
     count = _slice_count(ods)
@@ -162,26 +216,94 @@ def classify_equilibrium_regimes(
     peak_index = int(np.argmax(np.where(plasma, np.abs(currents), -np.inf))) if plasma.any() else -1
     peak_rate = float(np.nanmax(np.abs(rates))) if np.isfinite(rates).any() else 0.0
 
+    eddy = _sample(passive_current, times)
+
     labels = []
     for index in range(count):
+        own = path_value(ods, _LIMLOC.format(index=index), None)
+        if own is None and limloc is not None and np.isfinite(times[index]):
+            own = limloc.get(int(round(float(times[index]) * 1000.0)))
+        label = _label_one(
+            index,
+            times[index],
+            currents[index],
+            rates[index],
+            peak=peak,
+            peak_index=peak_index,
+            peak_rate=peak_rate,
+            limloc=own,
+            policy=resolved,
+        )
         labels.append(
-            _label_one(
-                index,
-                times[index],
-                currents[index],
-                rates[index],
-                peak=peak,
-                peak_index=peak_index,
-                peak_rate=peak_rate,
-                limloc=path_value(ods, _LIMLOC.format(index=index), None),
-                policy=resolved,
-            )
+            _describe(label, currents[index], rates[index], eddy[index], era, events, resolved)
         )
     return tuple(labels)
 
 
+def _sample(series: tuple[Sequence[float], Sequence[float]] | None, times: np.ndarray) -> np.ndarray:
+    """``series`` read at ``times``; NaN outside its span or where absent."""
+    out = np.full(times.shape, np.nan)
+    if series is None:
+        return out
+    t = np.asarray(series[0], dtype=float).reshape(-1)
+    v = np.asarray(series[1], dtype=float).reshape(-1)
+    keep = np.isfinite(t) & np.isfinite(v)
+    t, v = t[keep], v[keep]
+    if t.size < 2 or t.size != v.size:
+        return out
+    order = np.argsort(t)
+    t, v = t[order], v[order]
+    inside = np.isfinite(times) & (times >= t[0]) & (times <= t[-1])
+    out[inside] = np.interp(times[inside], t, v)
+    return out
+
+
+def _event(time: float, events: Sequence[tuple[float, float, str]] | None) -> str:
+    if events is None:
+        return "unknown"
+    if not np.isfinite(time):
+        return "unknown"
+    hits = sorted({str(label) for start, end, label in events if float(start) <= time <= float(end)})
+    return "+".join(hits) if hits else "none"
+
+
+def _describe(
+    label: RegimeLabels,
+    current: float,
+    rate: float,
+    eddy: float,
+    era: str | None,
+    events: Sequence[tuple[float, float, str]] | None,
+    policy: EquilibriumRegimePolicy,
+) -> RegimeLabels:
+    """The descriptors added for #1891, on top of phase and topology."""
+    readable = np.isfinite(current)
+    magnitude_rate = float(np.sign(current) * rate) if readable and np.isfinite(rate) else None
+    eddy_current = float(eddy) if np.isfinite(eddy) else None
+    eddy_fraction = (
+        abs(eddy_current) / abs(float(current))
+        if eddy_current is not None and readable and abs(float(current)) > 0.0
+        else None
+    )
+    return replace(
+        label,
+        current_bin=policy.current_bin(float(current) if readable else None),
+        magnitude_rate=magnitude_rate,
+        rate_bin=policy.rate_bin(magnitude_rate),
+        era=str(era) if era else "unknown",
+        event=_event(float(label.time), events),
+        eddy_current=eddy_current,
+        eddy_fraction=eddy_fraction,
+        version=int(policy.version),
+    )
+
+
 def classify_equilibrium_regime(
-    ods: Any, *, time_index: int, policy: EquilibriumRegimePolicy | None = None
+    ods: Any,
+    *,
+    time_index: int,
+    policy: EquilibriumRegimePolicy | None = None,
+    **evidence: Any,
 ) -> RegimeLabels:
     """Label one slice, by classifying the discharge and taking that slice.
 
@@ -189,7 +311,7 @@ def classify_equilibrium_regime(
     discharge, so a single slice cannot be labelled on its own. Classifying
     the whole reconstruction and selecting is the honest spelling of that.
     """
-    labels = classify_equilibrium_regimes(ods, policy=policy)
+    labels = classify_equilibrium_regimes(ods, policy=policy, **evidence)
     if not labels:
         raise ValueError("the product carries no equilibrium time slices to classify")
     if not 0 <= int(time_index) < len(labels):

@@ -87,6 +87,7 @@ __all__ = [
     "PanelRecipe",
     "ProfileRecipe",
     "RECIPES",
+    "SequenceDeclaration",
     "required_ids",
     "SpectrogramRecipe",
     "build_model",
@@ -990,6 +991,42 @@ CoordinateDeclaration = ChoiceDeclaration
 
 
 @dataclass(frozen=True)
+class SequenceDeclaration:
+    """A categorical sequence a computed view declares: states that are not times (issue #1957).
+
+    ``option`` is the keyword one state is drawn with (``stage=``),
+    ``states`` the integer values it accepts in order and ``labels`` the text
+    of each.  ``default`` is the state the static call draws, ``None`` when
+    the static call draws no state of it (the full figure); ``coordinate``
+    names what the states are.  Discovery publishes it as the plot's
+    sequence, so the slice control, the GUI player and ``animation=True``
+    walk these states exactly as they walk stored slices -- with the values
+    the states themselves, and ``time=`` a fixed option beside them.
+    """
+
+    option: str
+    states: tuple[int, ...]
+    labels: tuple[str, ...]
+    label: str = ""
+    default: int | None = None
+    coordinate: str = "stage"
+    #: Option values the sequence cannot be walked with, as ``{option:
+    #: values}``: ``animation=True`` refuses them up front.
+    refused_with: Mapping[str, tuple[Any, ...]] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "refused_with", {k: tuple(v) for k, v in self.refused_with.items()})
+        object.__setattr__(self, "states", tuple(int(v) for v in self.states))
+        object.__setattr__(self, "labels", tuple(str(v) for v in self.labels))
+        if len(self.states) < 2 or len(set(self.states)) != len(self.states):
+            raise ValueError("a SequenceDeclaration needs at least two distinct states")
+        if len(self.labels) != len(self.states):
+            raise ValueError(f"one label per state: {len(self.labels)} for {len(self.states)}")
+        if self.default is not None and self.default not in self.states:
+            raise ValueError(f"default {self.default!r} is not one of {self.states}")
+
+
+@dataclass(frozen=True)
 class CallableRecipe:
     """A plot whose extraction needs real computation, not just path reads.
 
@@ -1037,6 +1074,9 @@ class CallableRecipe:
     #: Other choice options the builder declares, by option name; each must be
     #: an option of the schema (:mod:`vaft.plot.backend.options`).
     choices: Mapping[str, "ChoiceDeclaration"] = field(default_factory=dict)
+    #: A categorical sequence of states that are not times
+    #: (:class:`SequenceDeclaration`), or ``None``.
+    sequence: "SequenceDeclaration | None" = None
 
     def __post_init__(self) -> None:
         if self.backend not in BACKENDS:
@@ -5622,6 +5662,12 @@ def _gk_signature(obj: Any) -> dict[str, Any]:
         "q": _get(obj, f"{_GK}.flux_surface.q"),
         "magnetic shear": _get(obj, f"{_GK}.flux_surface.magnetic_shear_r_minor"),
         "species": charges,
+        "species state": tuple(tuple(_get(obj, f"{_GK}.species.{i}.{key}") for key in
+            ("mass_norm", "density_norm", "temperature_norm", "density_log_gradient_norm", "temperature_log_gradient_norm"))
+            for i in range(_count(obj, f"{_GK}.species"))),
+        "beta": _get(obj, f"{_GK}.species_all.beta_reference"),
+        "rotation": _get(obj, f"{_GK}.species_all.velocity_tor_norm"),
+        "ExB shear": _get(obj, f"{_GK}.species_all.shearing_rate_norm"),
         "field model": (_get(obj, f"{_GK}.model.include_a_field_parallel"),
                         _get(obj, f"{_GK}.model.include_b_field_parallel")),
         "frequency sign convention": _gk_parameter(obj, "frequency_sign_convention"),
@@ -5655,9 +5701,27 @@ def _labelled(entries: Sequence[tuple[str, Any]]) -> list[tuple[str, Any]]:
     return entries if len(entries) > 1 else [("", obj) for _label, obj in entries]
 
 
-def _gk_title(base: str, entries: Sequence[tuple[str, Any]]) -> str:
+def _gk_assessments(entries, options=None):
+    from vaft.process.gyrokinetic_comparison import local_result_signature, assess_comparison
+    options = options or {}
+    if len(entries)<2: return []
+    first = local_result_signature(entries[0][1])
+    return [{"entry":label,"intent":result.intent,"axes":dict(result.axes)}
+            for label,obj in entries[1:]
+            for result in [assess_comparison(first,local_result_signature(obj),
+                intent=options.get("comparison_intent","exploratory_overlay"),
+                controlled=options.get("controlled_differences",()))]]
+
+
+def _gk_title(base: str, entries: Sequence[tuple[str, Any]], options=None) -> str:
     mismatches = _gk_mismatches(entries)
-    return base + (f" — unmatched: {', '.join(mismatches)}" if mismatches else "")
+    title = base + (f" — unmatched: {', '.join(mismatches)}" if mismatches else "")
+    assessments = _gk_assessments(entries,options)
+    if assessments:
+        flags = sorted({axis+": "+v["status"] for assessment in assessments
+                        for axis,v in assessment["axes"].items() if v["status"]!="matched"})
+        if flags: title += " ["+"; ".join(flags)+"]"
+    return title
 
 
 #: The plots that read ``include_unconverged=`` (declared-only, see
@@ -5738,8 +5802,8 @@ def _build_gk_growth_rate(entries: Sequence[tuple[str, Any]], **options: Any) ->
         series=tuple(series),
         coordinate_label=r"$k_y\rho_{ref}$",
         y_label=r"$\gamma\,R_0/v_{th,ref}$",
-        title=_gk_title("Growth rate", entries),
-        metadata={"x": "binormal_wavevector_norm", "y": "growth_rate_norm",
+        title=_gk_title("Growth rate", entries, options),
+        metadata={"comparison": _gk_assessments(entries, options), "x": "binormal_wavevector_norm", "y": "growth_rate_norm",
                   "normalisation": "GKDB: L_ref=R0, B_ref=Btor(R0), v_thref=sqrt(2Te/mD)"},
     )
 
@@ -5762,8 +5826,8 @@ def _build_gk_frequency(entries: Sequence[tuple[str, Any]], **options: Any) -> P
         series=tuple(series),
         coordinate_label=r"$k_y\rho_{ref}$",
         y_label=fr"$\omega\,R_0/v_{{th,ref}}$ ({sign})",
-        title=_gk_title("Frequency", entries),
-        metadata={"x": "binormal_wavevector_norm", "y": "frequency_norm",
+        title=_gk_title("Frequency", entries, options),
+        metadata={"comparison": _gk_assessments(entries, options), "x": "binormal_wavevector_norm", "y": "frequency_norm",
                   "frequency_sign_convention": sorted(c or "unrecorded" for c in conventions)},
     )
 
@@ -5832,9 +5896,9 @@ def _gk_flux_builder(quantity: str, y_label: str):
             series=tuple(series),
             x_limits=x_limits,
             coordinate_label=r"$k_y\rho_{ref}$",
-            y_label=y_label + " per $k_y$",
-            title=_gk_title(f"{_FLUX_WORD[quantity]} flux, {kind}", entries),
-            metadata={"x": "non_linear.binormal_wavevector_norm",
+            y_label=y_label + " (bin contribution)",
+            title=_gk_title(f"{_FLUX_WORD[quantity]} flux, {kind}", entries, options),
+            metadata={"comparison": _gk_assessments(entries, options), "representation": "discrete bin-integrated contribution", "x": "non_linear.binormal_wavevector_norm",
                       "y": f"non_linear.fluxes_2d_k_x_sum.{quantity}_* (summed over fields)"},
         )
     return builder
@@ -5957,6 +6021,9 @@ _GK_COMMON_READS = (
     f"{_GK}.model.include_a_field_parallel", f"{_GK}.model.include_b_field_parallel",
     f"{_GK}.flux_surface.r_minor_norm", f"{_GK}.flux_surface.q",
     f"{_GK}.flux_surface.magnetic_shear_r_minor", f"{_GK}.species.{{i}}.charge_norm",
+    *(f"{_GK}.species.{{i}}.{key}" for key in ("mass_norm","density_norm","temperature_norm","density_log_gradient_norm","temperature_log_gradient_norm")),
+    f"{_GK}.species_all.beta_reference", f"{_GK}.species_all.velocity_tor_norm", f"{_GK}.species_all.shearing_rate_norm",
+    f"{_GK}.flux_surface.elongation", f"{_GK}.normalizing_quantities.t_e", f"{_GK}.normalizing_quantities.n_e", f"{_GK}.time",
 )
 _GK_LINEAR_READS = (
     f"{_GK}.linear.wavevector.{{i}}.binormal_wavevector_norm",
@@ -6084,17 +6151,16 @@ def _tt_reference_time(entries: Sequence[tuple[str, Any]]) -> float | None:
     return None
 
 
-def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
+def _tt_slice(obj: Any, m: int, time: Any, tolerance=None) -> int | None:
     base = f"core_transport.model.{m}.profiles_1d"
     count = _count(obj, base)
     if not count:
         return None
-    if time is None:
-        return 0
     times = _tt_slice_times(obj, m)
-    if np.all(np.isnan(times)):
+    if time is None and tolerance is None:
         return 0
-    return int(np.nanargmin(np.abs(times - float(time))))
+    from vaft.process.gyrokinetic_comparison import select_time
+    return select_time(times, time, tolerance=tolerance)["index"]
 
 
 def _tt_builder(quantity: str, y_label: str, y_unit: str):
@@ -6106,9 +6172,10 @@ def _tt_builder(quantity: str, y_label: str, y_unit: str):
         if time is None:
             time = _tt_reference_time(entries)
         slice_times: dict[str, float | None] = {}
+        model_metadata = {}
         for label, obj in _labelled(entries):
             for m in _tt_models(obj):
-                t = _tt_slice(obj, m, time)
+                t = _tt_slice(obj, m, time, options.get("time_tolerance"))
                 if t is None:
                     continue
                 base = f"core_transport.model.{m}.profiles_1d.{t}"
@@ -6117,15 +6184,33 @@ def _tt_builder(quantity: str, y_label: str, y_unit: str):
                 if rho is None or electrons is None:
                     continue
                 code = _get(obj, f"core_transport.model.{m}.code.name") or f"model {m}"
-                name = (label if str(code) in label else f"{label} ({code})") if label else str(code)
+                from vaft.code.gacode.result_identity import parameters as result_parameters
+                identity = result_parameters(_get(obj, f"core_transport.model.{m}.code.parameters")) or {}
+                config = identity.get("configuration", {})
+                tokens = [str(code)]
+                if str(code)=="TGLF" and identity: tokens.append("QL")
+                if str(code)=="CGYRO" and "NONLINEAR_FLAG" in config: tokens.append("NL" if config["NONLINEAR_FLAG"] else "linear")
+                if "SAT_RULE" in config: tokens.append(f"SAT{int(config['SAT_RULE'])}")
+                if "USE_BPER" in config: tokens.append("EM" if config["USE_BPER"] else "ES")
+                if "N_FIELD" in config: tokens.append(f"N_FIELD={int(config['N_FIELD'])}")
+                if identity.get("realization_id"): tokens.append(str(identity["realization_id"])[:7])
+                model_label = " ".join(tokens)
+                name = (label if model_label in label else f"{label} ({model_label})") if label else model_label
                 stored = _get(obj, f"{base}.time", None)
                 slice_times[name] = None if stored is None else float(stored)
+                selected_record=next((item for item in identity.get("slices",[]) if item.get("index")==t),{})
+                model_metadata[name]={"realization_id":identity.get("realization_id"),
+                    "configuration":config,"state_identity":selected_record.get("state_identity"),
+                    "state_evidence":selected_record.get("state_evidence","unverified"),
+                    "source_runs":[{key:run.get(key) for key in ("local_run_id","radius","grid_index","input_sha256","analysis_identity","averaging_window","selected_window_statistics")}
+                                   for run in selected_record.get("local_runs",[])]}
                 # one colour per model; electrons solid, ions dashed
                 color = palette(sum(1 for item in series if item.label.endswith(' e')))
                 series.append(Series(x=rho, y=electrons, label=f"{name} e", style={"color": color}))
                 ions = [_array(obj, f"{base}.ion.{i}.{quantity}.flux")
                         for i in range(_count(obj, f"{base}.ion"))]
-                ions = [v for v in ions if v is not None and v.shape == rho.shape]
+                if any(v is None or v.shape != rho.shape for v in ions):
+                    raise ValueError(f"{name}: incomplete ion flux or incompatible radial grid; cannot form an ion sum")
                 if ions:
                     series.append(Series(x=rho, y=np.sum(ions, axis=0), label=f"{name} i",
                                          style={"linestyle": "--", "color": color}))
@@ -6134,15 +6219,18 @@ def _tt_builder(quantity: str, y_label: str, y_unit: str):
         return Profile1D(
             series=tuple(series), coordinate_label=r"$\rho_{tor,N}$",
             y_label=y_label, y_unit=y_unit,
-            title=f"{_FLUX_WORD[quantity]} flux",
-            metadata={"time": time, "slice_time": slice_times},
+            title=f"{_FLUX_WORD[quantity]} flux" + (" [nearest time; alignment unverified]" if options.get("time_tolerance") is None else ""),
+            metadata={"time": time, "slice_time": slice_times, "models": model_metadata,
+                      "time_tolerance": options.get("time_tolerance"),
+                      "time_qualification": "unverified" if options.get("time_tolerance") is None else "matched",
+                      "delta_time": {k: None if v is None or time is None else v-float(time) for k,v in slice_times.items()}},
         )
     return builder
 
 
 def _tt_reads(quantity: str) -> tuple[str, ...]:
     base = "core_transport.model.{i}"
-    return (f"{base}.identifier.index", f"{base}.code.name",
+    return (f"{base}.identifier.index", f"{base}.code.name", f"{base}.code.parameters",
             f"{base}.profiles_1d.{{j}}.time", f"{base}.profiles_1d.{{j}}.grid_flux.rho_tor_norm",
             f"{base}.profiles_1d.{{j}}.electrons.{quantity}.flux",
             f"{base}.profiles_1d.{{j}}.ion.{{k}}.{quantity}.flux")
@@ -9145,6 +9233,7 @@ def _build_line_series(
             "drop synthetic=."
         )
     resolved: list[str] = []
+    overlaid: set[int] = set()
     smooth = _smooth_option(options, abscissa)
     for entry_label, ods in entries:
         measured = _build_line_traces(
@@ -9162,20 +9251,35 @@ def _build_line_series(
             measured = [_smoothed_trace(trace, smooth) for trace in measured]
         traces.extend(measured)
         if synthetic:
-            traces.extend(_synthetic_traces(ods, spec.name, recipe, measured, synthetic))
+            overlay = _synthetic_traces(ods, spec.name, recipe, measured, synthetic)
+            overlaid.update(id(trace) for trace in overlay)
+            traces.extend(overlay)
     # One figure carries one abscissa: a trace this input cannot place on the
     # requested one puts every trace on the sample index, and the axis says
     # index rather than labelling one as a time (issues #276, #481).
     drawn = abscissa
+    xunit = options.get("xunit")
     if any(name != abscissa.name for name in resolved):
         drawn = INDEX_ABSCISSA
+        # The fallback changes what the caller asked for, so it says so: a
+        # unit conversion has nothing to convert on an index, and a per-slice
+        # overlay has no index of its own on the waveforms' sample axis.
+        dropped = ", the reconstruction overlay is dropped" if overlaid else ""
+        ignored = f", xunit={xunit!r} is ignored" if xunit else ""
+        warnings.warn(
+            f"{spec.name if spec is not None else recipe.title}: an entry cannot be placed "
+            f"on {abscissa.name!r}; every trace is drawn on the sample index{ignored}{dropped}",
+            stacklevel=2,
+        )
+        xunit = None
         traces = [
             dataclasses.replace(trace, x=np.arange(np.asarray(trace.y).size, dtype=float))
             for trace in traces
+            if id(trace) not in overlaid
         ]
     x_display = _resolve_axis_display(
         drawn.unit or ("s" if drawn.name == "time" else ""),
-        unit=options.get("xunit"), subject=subject,
+        unit=xunit, subject=subject,
         series_values=[trace.x for trace in traces],
     )
     y_display = _resolve_axis_display(
@@ -9746,11 +9850,28 @@ def declares_option(name: str, option: str) -> bool:
         return name in RATIONAL_SURFACE_PLOTS
     if option in MODE_OVERLAY_OPTIONS:
         return name in MODE_OVERLAY_PLOTS
+    if option == "time_tolerance":
+        return name.startswith("turbulent_transport_")
+    if option in ("comparison_intent", "controlled_differences"):
+        return name.startswith("gyrokinetics_")
     if option == "include_unconverged":
         return name in UNCONVERGED_MODE_PLOTS
     if option in VACUUM_BENCHMARK_OPTIONS:
         return name in VACUUM_BENCHMARK_PLOTS
+    if option in KINETIC_STATE_OPTIONS:
+        return name in KINETIC_STATE_PLOTS
+    if sequence_declaration_for(name, option) is not None:
+        return True
     return choice_options_for(name, option) is not None
+
+
+def sequence_declaration_for(name: str, option: str | None = None) -> "SequenceDeclaration | None":
+    """The categorical sequence plot ``name`` declares (for ``option``, when given), or ``None``."""
+    recipe = RECIPES.get(name)
+    declared = recipe.sequence if isinstance(recipe, CallableRecipe) else None
+    if declared is None or (option is not None and declared.option != option):
+        return None
+    return declared
 
 
 def _rational_request(options: Mapping[str, Any]) -> tuple[tuple[float, ...], tuple[tuple[int, int], ...]] | None:
@@ -16416,6 +16537,85 @@ RECIPES["kinetic_overview_profiles"] = CallableRecipe(
     backend=OMAS_BOUND,
     reason="vaft.process.profile.equilibrium_mapping_points maps local positions through the input equilibrium",
     coordinates=CoordinateDeclaration("auto", KINETIC_OVERVIEW_COORDINATES),
+)
+
+
+# ---------------------------------------------------------------------------
+# One matched kinetic state in four panels (issue #1837)
+#
+# Reads the stored state only: the pipeline-2 stages (#1842) write the
+# composition, T_i and Z_eff into core_profiles, with their evidence roles,
+# equilibrium lineage and Z_eff target in the per-quantity *_fit.parameters
+# records (the contract as amended on #1837); the view maps Thomson through
+# the selected equilibrium and draws.  No EFIT, fit, OpenADAS or composition call.
+# ---------------------------------------------------------------------------
+
+from .kinetic_state import (  # noqa: E402
+    COORDINATES as KINETIC_STATE_COORDINATES,
+    LAYOUTS as KINETIC_STATE_LAYOUTS,
+    STAGES as KINETIC_STATE_STAGES,
+    _available as _kinetic_state_available,
+    build_kinetic_state,
+)
+
+#: Options only ``kinetic_overview_state`` takes (DECLARED_ONLY_OPTIONS).
+KINETIC_STATE_OPTIONS = frozenset({"equilibrium_occurrence", "stage", "stages"})
+KINETIC_STATE_PLOTS = frozenset({"kinetic_overview_state"})
+
+_KINETIC_STATE_CORE = "core_profiles.profiles_1d.{i}"
+RECIPES["kinetic_overview_state"] = CallableRecipe(
+    builder=build_kinetic_state,
+    description=(
+        "One matched kinetic state: equilibrium, electron, ion and kinetic pressure; electron, "
+        "main-ion and impurity-ion density; T_e and T_i; Z_eff -- with mapped Thomson points, "
+        "each trace labelled by its stored evidence role."
+    ),
+    available=_kinetic_state_available,
+    reads=(*_PROFILE_FIT_READS["thomson_scattering"],
+           *_PROFILE_FIT_EQUILIBRIUM_READS,
+           "thomson_scattering.ids_properties.homogeneous_time",
+           "thomson_scattering.channel.{i}.n_e.time", "thomson_scattering.channel.{i}.t_e.time",
+           "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
+           "core_profiles.time", f"{_KINETIC_STATE_CORE}.time",
+           f"{_KINETIC_STATE_CORE}.grid.rho_tor_norm", f"{_KINETIC_STATE_CORE}.grid.psi",
+           f"{_KINETIC_STATE_CORE}.grid.rho_pol_norm",
+           f"{_KINETIC_STATE_CORE}.electrons.density",
+           f"{_KINETIC_STATE_CORE}.electrons.density_error_upper",
+           f"{_KINETIC_STATE_CORE}.electrons.density_fit.parameters",
+           f"{_KINETIC_STATE_CORE}.electrons.density_thermal",
+           f"{_KINETIC_STATE_CORE}.electrons.density_thermal_error_upper",
+           f"{_KINETIC_STATE_CORE}.electrons.temperature",
+           f"{_KINETIC_STATE_CORE}.electrons.temperature_error_upper",
+           f"{_KINETIC_STATE_CORE}.electrons.temperature_fit.parameters",
+           f"{_KINETIC_STATE_CORE}.electrons.pressure",
+           f"{_KINETIC_STATE_CORE}.electrons.pressure_error_upper",
+           f"{_KINETIC_STATE_CORE}.ion.{{j}}.label",
+           f"{_KINETIC_STATE_CORE}.ion.{{j}}.element.0.z_n",
+           f"{_KINETIC_STATE_CORE}.ion.{{j}}.density",
+           f"{_KINETIC_STATE_CORE}.ion.{{j}}.density_fit.parameters",
+           f"{_KINETIC_STATE_CORE}.ion.{{j}}.state.{{k}}.density",
+           f"{_KINETIC_STATE_CORE}.ion.{{j}}.pressure",
+           f"{_KINETIC_STATE_CORE}.ion.{{j}}.temperature_fit.parameters",
+           f"{_KINETIC_STATE_CORE}.t_i_average",
+           f"{_KINETIC_STATE_CORE}.t_i_average_fit.parameters",
+           f"{_KINETIC_STATE_CORE}.pressure_ion_total",
+           f"{_KINETIC_STATE_CORE}.zeff",
+           f"{_KINETIC_STATE_CORE}.zeff_fit.parameters",
+           "core_profiles.global_quantities.z_eff_resistive"),
+    backend=OMAS_BOUND,
+    reason="vaft.process.profile.equilibrium_mapping_points maps the Thomson channels through the input equilibrium",
+    time_axis=OWN_TIME,
+    coordinates=CoordinateDeclaration("rho_tor_norm", KINETIC_STATE_COORDINATES),
+    choices={"layout": ChoiceDeclaration("grid", KINETIC_STATE_LAYOUTS)},
+    # The inference stages (#1957): stage=k cuts the figure; animation=True
+    # walks them.  The static call draws the full figure, no stage cut.
+    sequence=SequenceDeclaration(
+        "stage", tuple(number for number, _ in KINETIC_STATE_STAGES),
+        tuple(f"Stage {number}/{len(KINETIC_STATE_STAGES)}: {name}" for number, name in KINETIC_STATE_STAGES),
+        label="Inference stage",
+        # The small multiples already show every stage at once.
+        refused_with={"layout": ("stages",)},
+    ),
 )
 
 

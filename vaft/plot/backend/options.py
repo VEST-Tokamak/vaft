@@ -65,6 +65,9 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("yunit", "str", description="display unit of the y axis"),
         OptionSpec("xunit", "str", description="display unit of the x axis"),
         OptionSpec("time_slice", "int", description="stored equilibrium slice index"),
+        OptionSpec("comparison_intent", "str", description="matched_baseline, controlled_sensitivity or exploratory_overlay"),
+        OptionSpec("controlled_differences", "any", description="explicit axis.key scientific variations"),
+        OptionSpec("time_tolerance", "float", description="maximum radial transport experimental-time mismatch [s]"),
         OptionSpec("time", "float", description="a time in seconds, snapped to a stored slice"),
         OptionSpec("time_range", "range",
                    description="(start, stop) in seconds: the window of a time history, honoured "
@@ -254,6 +257,21 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "edge-q estimate: START (Akers 2000) or ITER (Post 1991)"),
         OptionSpec("start_configuration", "choice", "recipes.START_CONFIGURATIONS",
                    "edge-q estimate: START scaling C, limiter (1.0) or double_null (0.77)"),
+        # One matched kinetic state (#1837): the equilibrium occurrence the
+        # caller says the input's equilibrium is, refused when it contradicts
+        # the occurrence the kinetic state was built on.  Only
+        # kinetic_overview_state takes it (DECLARED_ONLY_OPTIONS).
+        OptionSpec("equilibrium_occurrence", "int",
+                   description="kinetic state: the equilibrium occurrence the Thomson channels are mapped "
+                               "through; must match the one the state records"),
+        # Inference stages (#1957): stage= cuts the kinetic state at one stage
+        # of its chain (and is what animation=True walks); stages= names the
+        # columns of its layout="stages" small multiples.
+        OptionSpec("stage", "int",
+                   description="kinetic state: draw the inference chain up to this stage (1-8) on the full "
+                               "figure's axis limits; default the full figure"),
+        OptionSpec("stages", "any",
+                   description="kinetic state: the stages layout='stages' draws as columns, increasing"),
         # Linear gyrokinetic spectra (#1591): an initial-value eigenmode that
         # reached no growth-rate tolerance is left out unless asked for.  Only
         # the plots in recipes.UNCONVERGED_MODE_PLOTS take it (DECLARED_ONLY_OPTIONS).
@@ -278,9 +296,13 @@ DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
     # issue #460: the Mirnov spectrogram's predicted mode tracks.
     "mode_overlay",
     # issue #1591: the linear gyrokinetic spectra's unconverged-mode switch.
-    "include_unconverged",
+    "include_unconverged", "time_tolerance", "comparison_intent", "controlled_differences",
     # roadmap #1242 C3: the vacuum benchmark's knobs.
     "resistance_scale", "n_tau",
+    # issue #1837: the kinetic state's equilibrium occurrence.
+    "equilibrium_occurrence",
+    # issue #1957: the kinetic state's inference stages.
+    "stage", "stages",
 })
 
 #: Options an adapter passes on internally (besides leading-underscore keys);

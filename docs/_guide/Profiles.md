@@ -823,7 +823,7 @@ The rest of the chain -- `shafranov_integrals`, `efit_virial_volume_integrals`, 
 - Source: [vaft/process/profile.py](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/process/profile.py)
 - Source: [vaft/plot/profile.py](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/plot/profile.py)
 - Source: [vaft/formula/utils.py](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/formula/utils.py)
-- Batch pipeline: [workflow/automatic_pipeline_2_corrective_data_update/update_thomson_scattering_and_core_profile.py](https://github.com/VEST-Tokamak/vaft/blob/main/workflow/automatic_pipeline_2_corrective_data_update/update_thomson_scattering_and_core_profile.py)
+- Batch pipeline: [workflow/automatic_pipeline_2_corrective_data_update/legacy/update_thomson_scattering_and_core_profile.py](https://github.com/VEST-Tokamak/vaft/blob/main/workflow/automatic_pipeline_2_corrective_data_update/legacy/update_thomson_scattering_and_core_profile.py)
 - Related: [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) ·
   [Data structures]({{ site.baseurl }}/guide/Data_structures/) ·
   [Physics formulas]({{ site.baseurl }}/guide/Formula/) ·

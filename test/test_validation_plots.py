@@ -40,6 +40,8 @@ MACHINE_VERSION = "vest-45968-plus-pf2507"
 REQUIRED_RAW_FIELDS = (1, 12, 25, 59, 109)
 
 
+from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE  # noqa: E402
+
 def _rule_filedb(root: str) -> FileDB:
     filedb = FileDB(root)
     filedb.root = PurePosixPath(filedb.root.as_posix())
@@ -88,7 +90,9 @@ def test_filenames_are_unique_and_deterministic_within_a_stage():
         assert len(names) == len(set(names)), stage
         assert all(name.endswith(".png") for name in names), stage
         required = stage_plot_filenames(stage, required_only=True)
-        assert required, f"{stage} declares no required validation plot"
+        # The corrective (Thomson lineage) stages are optional by design: most shots
+        # have no Thomson upload and record `unavailable` (production_qa, #1842).
+        assert required or stage in CORRECTIVE_LINEAGE, f"{stage} declares no required validation plot"
         assert list(required) == [name for name in names if name in set(required)]
 
 
@@ -101,7 +105,7 @@ def test_the_declared_stage_set():
         "mhd_linear",
         "raw",
         "static",
-    }
+    } | set(CORRECTIVE_LINEAGE)
 
 
 def test_unknown_kind_and_empty_plot_name_are_refused():

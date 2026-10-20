@@ -68,7 +68,7 @@ _DUMMY_ENVIRONMENT = ("VAFT_FILEDB_DIR", "VAFT_DATA_DIR", "EFIT", "CHEASE", "GPE
 #: and config-file locations never reach it, and HOME is the temporary workspace).
 _FORWARDED_ENVIRONMENT = (
     "PATH", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "TEMP", "TMP",
-    "SYSTEMROOT", "COMSPEC", "PATHEXT", "WINDIR",
+    "SYSTEMROOT", "SYSTEMDRIVE", "COMSPEC", "PATHEXT", "WINDIR",
     "CONDA_PREFIX", "CONDA_DEFAULT_ENV", "VIRTUAL_ENV",
 )
 
@@ -96,6 +96,8 @@ class DocumentationPipeline:
     branches: tuple[str, ...] = ()
 
 
+from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE  # noqa: E402
+
 PIPELINES = (
     DocumentationPipeline(
         id="routine",
@@ -121,7 +123,10 @@ PIPELINES = (
         directory="automatic_pipeline_2_corrective_data_update",
         target="all",
         shot=48226,
-        config={"layout": "filedb", "hsds": {"replicate": True}, "conda": None},
+        # stages: every stage, so the opt-in ones are drawn although a run builds
+        # only the default scope.
+        config={"layout": "filedb", "hsds": {"replicate": True}, "conda": None,
+                "stages": list(CORRECTIVE_LINEAGE)},
         branches=("HSDS replication", "kinetic profiles"),
     ),
 )
@@ -144,6 +149,14 @@ def _environment(workspace: Path) -> dict[str, str]:
     environment = {key: os.environ[key] for key in _FORWARDED_ENVIRONMENT if key in os.environ}
     (workspace / "home").mkdir(parents=True, exist_ok=True)
     environment["HOME"] = environment["USERPROFILE"] = str(workspace / "home")
+    # Windows resolves its shell folders (snakemake's appdirs asks for the common and
+    # per-user application-data directories while building its CLI) by expanding these
+    # variables; without them the lookup raises.  They point into the workspace, like
+    # HOME, so no user or machine Snakemake profile reaches the dry run.
+    for name, folder in (("APPDATA", "home/AppData/Roaming"), ("LOCALAPPDATA", "home/AppData/Local"),
+                         ("PROGRAMDATA", "programdata"), ("ALLUSERSPROFILE", "programdata")):
+        (workspace / folder).mkdir(parents=True, exist_ok=True)
+        environment[name] = str(workspace / folder)
     for name in _DUMMY_ENVIRONMENT:
         environment[name] = str(workspace / "unused" / name.lower())
     # Snakemake keeps a source cache under the user cache directory; keep it here.
@@ -353,9 +366,16 @@ def rule_locations(snakefile: Path) -> tuple[dict[str, int], set[str], list[tupl
     checkpoints = {match.group(1) for match in _CHECKPOINT_LINE.finditer(text)}
     templates = []
     for match in _DYNAMIC_NAME.finditer(text):
-        literals = re.findall(r'"([^"]*)"', match.group(1))
+        expression = match.group(1).strip()
+        literals = re.findall(r'"([^"]*)"', expression)
         if literals:
-            pattern = re.compile("^" + ".+".join(re.escape(piece) for piece in literals) + "$")
+            # A name that starts or ends with a variable (`"plot_" + stage`) has an
+            # unknown head or tail, which is as much a wildcard as one in the middle.
+            head = "" if expression.startswith(('"', "'")) else ".+"
+            tail = "" if expression.endswith(('"', "'")) else ".+"
+            pattern = re.compile(
+                "^" + head + ".+".join(re.escape(piece) for piece in literals) + tail + "$"
+            )
             templates.append((pattern, line_of(match.start())))
     return static, checkpoints, templates
 

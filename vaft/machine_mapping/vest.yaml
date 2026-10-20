@@ -746,6 +746,37 @@
               probes:
                 - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe acquisition saturated at the DAQ rail (field 170)"}
                 - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            # Z=+0.06 (field 170 in the pre-39438 layout) fault windows found by
+            # a per-shot neighbour-gain scan of every >=30 kA plasma shot in
+            # 37400-39500 (#1896): the probe's least-squares gain against the
+            # interpolation of its two array neighbours. Healthy shots read
+            # 0.99-1.05 (a drift to 1.07-1.18 over 37861-38068 is not recorded);
+            # bounds are the first and last bad plasma shot.
+            - from_shot: 37586
+              to_shot: 37800
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) sign-flipped: gain -0.3 to -0.6 against its array neighbours, 37586-37800 (37559 and 37832 read 0.99-1.18) (#1896)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            - from_shot: 38126
+              to_shot: 38252
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) gain 0.24-0.29 against its array neighbours, 38126-38252 (38068 and 38253 read 0.99-1.18) (#1896)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            - from_shot: 38254
+              to_shot: 38622
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) gain 1.5-2.6 against its array neighbours, 38254-38622 (38253 and 38672 read 0.99-1.18) (#1896)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            - from_shot: 38692
+              to_shot: 38740
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) gain 1.3-3.4 against its array neighbours, 38692-38740 (38675 and 38743 read 0.99-1.18) (#1896)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            - from_shot: 39040
+              to_shot: 39098
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) gain 1.2-1.5 against its array neighbours, 39040-39098 (39038 and 39107 read 0.99-1.18) (#1896)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
             # Flux-loop acquisition faults (issue #1543), from a per-shot scan of
             # every loop's integrated amplitude against its siblings. A dead loop
             # reads 1e-5..2e-3 Wb/rad where the others read ~1e-2; the waveform
@@ -1867,6 +1898,10 @@ diagnostics_time_policies:
 # changed between discharges could not group them.
 equilibrium_regime:
 
+  # Carried on every label and every exported row, so a cohort table says
+  # which rule drew it. Bump it when a threshold or a label set changes.
+  version: 2
+
   phase:
     # `level`: flat where |Ip| >= flat_fraction_of_peak * peak|Ip|, and
     # ramp_up / ramp_down by which side of the peak the slice falls on.
@@ -1922,6 +1957,34 @@ equilibrium_regime:
       values are listed because EFIT can write them, not because VEST has
       been observed to produce one -- shot 46742 was checked and its eight
       converged slices are all IN. Nothing here claims VEST diverts.
+
+  current_bins:
+    # |Ip| bin edges; below the first edge is the vacuum bin, the same number
+    # as phase.vacuum_current_amperes and EFIT's CUTIP. Labels are derived
+    # from the edges ("15-50kA", "ge150kA").
+    edges_amperes: [15000.0, 50000.0, 100000.0, 150000.0]
+    status: measured
+    provenance: >-
+      Every attempted EFIT slice in production on 2026-10-11 (2,703 shots,
+      38,246 slices from the constraints ODS, so slices that wrote no g-file
+      count too): |Ip| percentiles 5/25/50/75/95 = 18/36/65/107/207 kA, and
+      38 %, 72 % and 87 % of slices lie below 50, 100 and 150 kA. The edges
+      are round numbers near the quartiles, so no bin is starved.
+
+  ramp_rate_bins:
+    # Bins of d|Ip|/dt -- the rate of the current's magnitude, so "rising"
+    # means the same thing whichever way the current flows.
+    edges_amperes_per_second: [-1.0e7, -2.0e6, 2.0e6, 1.0e7]
+    labels: [falling_fast, falling, steady, rising, rising_fast]
+    status: measured
+    provenance: >-
+      Same 38,246 slices: d|Ip|/dt percentiles 5/25/50/75/95 = -27.7/-8.8/
+      -0.1/+9.6/+31.0 MA/s; 21 % of slices lie within +-2 MA/s and 53 %
+      within +-10 MA/s. +-2 MA/s is the steady band (a 100 kA plasma changing
+      by under 2 % per ms), +-10 MA/s splits the ramps near their quartiles.
+      This is an absolute rate, unlike phase: a cohort axis wants the same
+      MA/s everywhere, whereas phase asks how flat a plasma is relative to
+      its own peak.
 
 # How an edge safety factor is estimated for a shot with no equilibrium
 # (#1583). Pipeline policy like `equilibrium_regime`, outside the `0:` / shot
@@ -2357,7 +2420,7 @@ diagnostic_registry:
     ids: dataset_description
     ids_path: dataset_description
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:dataset_description_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2371,7 +2434,7 @@ diagnostic_registry:
     ids: pf_active
     ids_path: pf_active
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:pf_active_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2399,7 +2462,7 @@ diagnostic_registry:
     ids: tf
     ids_path: tf
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:tf_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2453,7 +2516,7 @@ diagnostic_registry:
     ids: ec_launchers
     ids_path: ec_launchers
     responsible: [{name: 변준혁}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:ech_raw_fields"}
     availability: If-requested
     lifecycle: in_maintenance
     # 6 kW 2.45 GHz line only (fields 27/28, issue #165). Launching position
@@ -2495,7 +2558,7 @@ diagnostic_registry:
     ids: magnetics
     ids_path: magnetics.ip
     responsible: [{name: Joint}]
-    source: {type: derived, derived_from: [magnetics.rogowski_coil]}
+    source: {type: derived, derived_from: [magnetics.rogowski_coil], raw_fields: "vaft.machine_mapping.raw_daq_sources:ip_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2511,7 +2574,7 @@ diagnostic_registry:
     ids: magnetics
     ids_path: magnetics.flux_loop
     responsible: [{name: 남건우}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:flux_loop_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2530,7 +2593,7 @@ diagnostic_registry:
     ids: magnetics
     ids_path: magnetics.b_field_pol_probe
     responsible: [{name: 남건우}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:b_field_pol_probe_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2544,7 +2607,7 @@ diagnostic_registry:
     ids: magnetics
     ids_path: magnetics.diamagnetic_flux
     responsible: [{name: 김태경}]
-    source: {type: derived, derived_from: [magnetics.rogowski_coil]}
+    source: {type: derived, derived_from: [magnetics.rogowski_coil], raw_fields: "vaft.machine_mapping.raw_daq_sources:diamagnetic_flux_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2560,7 +2623,7 @@ diagnostic_registry:
     ids: magnetics
     ids_path: magnetics.rogowski_coil
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:rogowski_coil_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2582,7 +2645,7 @@ diagnostic_registry:
     ids_path: magnetics.b_field_tor_probe
     publication: {stage: impa, source: impa}
     responsible: [{name: 남건우}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:internal_probe_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2630,7 +2693,7 @@ diagnostic_registry:
     ids: spectrometer_uv
     ids_path: spectrometer_uv
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:spectrometer_uv_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2643,7 +2706,7 @@ diagnostic_registry:
     ids: langmuir_probes
     ids_path: langmuir_probes.embedded
     responsible: [{name: 변준혁}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:langmuir_probes_raw_fields"}
     availability: If-requested
     lifecycle: in_maintenance
     mapping_status: implemented
@@ -2673,7 +2736,7 @@ diagnostic_registry:
     ids: disruption
     ids_path: disruption.halo_currents
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:halo_currents_raw_fields"}
     availability: If-requested
     lifecycle: in_maintenance
     mapping_status: not_implemented
@@ -2698,7 +2761,7 @@ diagnostic_registry:
     ids: barometry
     ids_path: barometry.gauge
     responsible: [{name: 정원익}, {name: 전찬휘}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:barometry_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented

@@ -1,0 +1,70 @@
+# systemd unit for an ISOLATED TEST INSTANCE of the hosted `vaft gui` (#1862).
+#
+# It runs next to a production `vaft-gui.service` without touching it: its own
+# user, venv, environment file, state directory, port (5016) and URL prefix
+# (/gui-test). It listens on loopback only; nginx-vaft-gui-test-locations.conf
+# publishes it to internal addresses, or reach it with an SSH tunnel:
+#   ssh -L 5016:127.0.0.1:5016 <host>   then open http://localhost:5016/gui-test/
+#
+# Install (as root, after the maintainer approved this exact file):
+#   useradd --system --home-dir /var/lib/vaft-gui-test --create-home --shell /usr/sbin/nologin vaft-gui-test
+#   python3 -m venv /opt/vaft-gui-test
+#   /opt/vaft-gui-test/bin/pip install "vaft[gui] @ git+https://github.com/VEST-Tokamak/vaft@<commit>"
+#   install -m 0600 -o root -g root vaft-gui-test.env.example /etc/vaft-gui-test.env   # then fill it in
+#   install -m 0644 vaft-gui-test.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now vaft-gui-test
+# Remove (rollback): systemctl disable --now vaft-gui-test, then delete the four
+# paths above; the production unit is not involved.
+#
+# Sign-in is HSDS (--auth hsds): it decides who may open the page. It is NOT
+# per-user data authorization -- every reader reads with the service account in
+# /etc/vaft-gui-test.env, which must be the dedicated read-only account limited
+# to the approved datasets, never a production or admin account.
+
+[Unit]
+Description=VAFT browser GUI (hosted, isolated test instance)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vaft-gui-test
+Group=vaft-gui-test
+WorkingDirectory=/var/lib/vaft-gui-test
+EnvironmentFile=/etc/vaft-gui-test.env
+Environment=HOME=/var/lib/vaft-gui-test
+Environment=PATH=/opt/vaft-gui-test/bin:/usr/bin:/bin
+Environment=MPLCONFIGDIR=/var/lib/vaft-gui-test/.cache/matplotlib
+ExecStart=/opt/vaft-gui-test/bin/vaft gui --hosted --auth hsds --prefix /gui-test \
+    --address 127.0.0.1 --port 5016 --no-show \
+    --allow-websocket-origin 147.46.36.244 --allow-websocket-origin vest.hsds.snu.ac.kr
+Restart=on-failure
+RestartSec=5
+
+# A test instance must never starve production or HSDS: smaller caps than
+# vaft-gui.service. Capacity limits proper come from #1863's measurements.
+MemoryMax=8G
+TasksMax=256
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/vaft-gui-test
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

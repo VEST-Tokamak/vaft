@@ -91,5 +91,11 @@ python workflow/reference_validation/audit_portfolio.py report server_scan.json 
 Each FileDB root is judged as its own chain. A product is
 `regeneration-required` when an input stage in the same root is newer, or is itself
 stale. It is `validation-failed` when its stage manifest is not `success`/`partial`.
-A missing VAFT commit is reported as a provenance gap. The dated outputs under
-`audit/` are the 2026-10-06 baseline.
+A missing VAFT commit is reported as a provenance gap. The product file is the
+canonical `<stage><suffix>` that `FileDB.omas_product` opens; only in a legacy
+directory without it does the scanner fall back to the manifest's recorded name,
+then the newest stage-named file (`chosen_by` says which). Any other file in
+`output/` (for example a pre-10-02 `efit.json` beside the current `efit.json.gz`)
+is listed under `other_files` with its date and never read, and a manifest that
+names a different file is flagged as `manifest_names`. The dated outputs under `audit/` are the
+2026-10-11 baseline; it replaces the 2026-10-06 one, which read those stale siblings.

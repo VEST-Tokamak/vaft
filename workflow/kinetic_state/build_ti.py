@@ -163,6 +163,7 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
 
     from vaft.omas import save
 
+    from vaft.process.kinetic_closure import infer_ti_pressure_partition
     from vaft.validation import kinetic_state as ks
     from vaft.validation.equilibrium import _pressure_on
 
@@ -194,7 +195,7 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
         key = {k: row[k] for k in KEY}
         out = {**key, "ti_lineage": "pressure_partition_inferred"}
         if row["efit_lineage"] != "magnetics":
-            refused = ks.infer_ti_pressure_partition([], [], [], composition=composition, sigma_p_eq=0,
+            refused = infer_ti_pressure_partition([], [], [], composition=composition, sigma_p_eq=0,
                                                      sigma_n_e=0, sigma_t_e=0,
                                                      equilibrium_lineage=row["efit_lineage"])
             states.append({**out, "eligible": "false", "reason": refused["reason"]})
@@ -230,7 +231,7 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
         n_c, t_c = np.array([_f(c["n_e_m3"]) for c in chans]), np.array([_f(c["t_e_ev"]) for c in chans])
         sn_c, st_c = np.array([_f(c["n_e_error_m3"]) for c in chans]), np.array([_f(c["t_e_error_ev"]) for c in chans])
         sp_c, basis_c = sigma_at(psi_c, p_eq_c)
-        res_c = ks.infer_ti_pressure_partition(p_eq_c, n_c, t_c, composition=composition, sigma_p_eq=sp_c,
+        res_c = infer_ti_pressure_partition(p_eq_c, n_c, t_c, composition=composition, sigma_p_eq=sp_c,
                                                sigma_n_e=sn_c, sigma_t_e=st_c, equilibrium_lineage=lineage)
         for k, (c, flags) in enumerate(zip(chans, _flags(res_c))):
             points.append({**key, "kind": "channel", "channel": int(c["channel"]), "rho_tor_norm": _f(c["rho_tor_norm"]),
@@ -282,7 +283,7 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
         # (the fit is extrapolated there), which the outside_ts_span flag marks.
         rel_n, rel_t = relative(sn_c, n_c), relative(st_c, t_c)
         sp_g, basis_g = sigma_at(psi_g, p_eq_g)
-        res_g = ks.infer_ti_pressure_partition(p_eq_g, n_g, t_g, composition=composition, sigma_p_eq=sp_g,
+        res_g = infer_ti_pressure_partition(p_eq_g, n_g, t_g, composition=composition, sigma_p_eq=sp_g,
                                                sigma_n_e=rel_n * n_g, sigma_t_e=rel_t * t_g,
                                                equilibrium_lineage=lineage)
         rho_c = np.array([_f(c["rho_tor_norm"]) for c in chans])
@@ -342,7 +343,7 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
                 # of ion.temperature (vaft.process.profile.strip_electron_only_pressure
                 # reads it as measured) has this to check, not only the comment.
                 ods[f"{ion}.temperature_fit.parameters"] = marker
-                ods[f"{ion}.temperature_fit.source"] = ["vaft.validation.kinetic_state.infer_ti_pressure_partition"]
+                ods[f"{ion}.temperature_fit.source"] = ["vaft.process.kinetic_closure.infer_ti_pressure_partition"]
                 ods[f"{ion}.label"] = species["label"]
                 ods[f"{ion}.z_ion"] = species["z_ion"]
                 ods[f"{ion}.element.0.z_n"] = species["z_ion"]

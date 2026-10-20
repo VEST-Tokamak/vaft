@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from . import _IMPORT_ORDER, _submodule
+from . import _CATALOG_ONLY_SUBMODULES, _IMPORT_ORDER, _submodule
 from ._docstring import (
     CUSTOM_SECTIONS,
     SECTION_VOCABULARY,
@@ -63,6 +63,15 @@ from ._taxonomy import (
 )
 from .._semantics import Semantics, parse_semantics
 
+#: Where :func:`vaft.formula._propagation.jacobian` records an analytic Jacobian.  Read by
+#: name so describing a formula never imports the propagation layer (#1874).
+_JACOBIAN_ATTRIBUTE = "__vaft_jacobian__"
+
+
+def _analytic_jacobian(fn):
+    """The ``(derivative, wrt)`` a formula carries, or ``None``."""
+    return getattr(fn, _JACOBIAN_ATTRIBUTE, None)
+
 __all__ = [
     "CATEGORIES",
     "CategoryDoc",
@@ -78,9 +87,10 @@ __all__ = [
 
 #: Submodules whose functions the catalog covers, in package import order.
 #: ``constants`` defines no functions and appears only through :func:`categories`.
-CATEGORIES: tuple[str, ...] = tuple(key for key in _IMPORT_ORDER if key != "constants")
+_CATALOG_ORDER = _IMPORT_ORDER + tuple(_CATALOG_ONLY_SUBMODULES)
+CATEGORIES: tuple[str, ...] = tuple(key for key in _CATALOG_ORDER if key != "constants")
 
-SCHEMA_VERSION = 5  # +reduction (#1626), +semantics (#1702)
+SCHEMA_VERSION = 6  # +reduction (#1626), +semantics (#1702), +uncertainty propagation (#1874)
 _GENERATOR = "python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml"
 
 #: A displayed equation of the description, ``$$...$$``, possibly over several lines.
@@ -128,6 +138,8 @@ class FormulaSpec:
     definitions: tuple[str, ...] = ()
     reduction: Reduction | None = None
     semantics: Semantics | None = None
+    uncertainty_propagation: bool = False
+    analytic_jacobian: bool = False
 
     @property
     def qualname(self) -> str:
@@ -157,6 +169,8 @@ class FormulaSpec:
             flags.append("empirical fit")
         if self.convention_sensitive:
             flags.append("convention-sensitive")
+        if self.uncertainty_propagation:
+            flags.append("uncertainty propagation")
         if self.deprecated:
             flags.append("deprecated")
         lines = [f"{self.qualname}{self.signature}"]
@@ -263,6 +277,7 @@ class FormulaSpec:
                 for label, on in (
                     ("empirical fit", self.empirical),
                     ("convention-sensitive", self.convention_sensitive),
+                    ("uncertainty propagation", self.uncertainty_propagation),
                     ("deprecated", self.deprecated),
                 )
                 if on
@@ -363,6 +378,8 @@ class FormulaSpec:
             ],
             "empirical": self.empirical,
             "convention_sensitive": self.convention_sensitive,
+            "uncertainty_propagation": self.uncertainty_propagation,
+            "analytic_jacobian": self.analytic_jacobian,
             "deprecated": self.deprecated,
             "raises": [
                 {"type": item.type, "description": strip_roles(item.description)}
@@ -459,7 +476,9 @@ def _defined_names(category: str) -> frozenset[str]:
 
 def _shadowing_category(category: str, name: str) -> str | None:
     """The later category whose own definition of ``name`` wins the package lookup."""
-    later = CATEGORIES[CATEGORIES.index(category) + 1 :]
+    if category not in _IMPORT_ORDER:
+        return None
+    later = _IMPORT_ORDER[_IMPORT_ORDER.index(category) + 1 :]
     winner = None
     for other in later:
         if name in _defined_names(other):
@@ -492,10 +511,18 @@ def _reduction(parsed: ParsedDocstring) -> tuple[Reduction | None, tuple[str, ..
     return reduction, errors
 
 
+def _propagation(fn, parsed: ParsedDocstring) -> tuple[str, ...]:
+    """An analytic Jacobian is a contract only when the docstring states it (#1874)."""
+    if _analytic_jacobian(fn) is not None and not parsed.flags.get("uncertainty_propagation", False):
+        return ("an analytic Jacobian is attached but there is no Uncertainty propagation section",)
+    return ()
+
+
 def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ...]) -> FormulaSpec:
     parsed: ParsedDocstring = parse_docstring(fn.__doc__)
     reduction, reduction_errors = _reduction(parsed)
     semantics, semantics_errors = parse_semantics(parsed.section("Semantics"))
+    propagation_errors = _propagation(fn, parsed)
     span = source_span(fn, Path(__file__).resolve().parents[2])
     return FormulaSpec(
         name=name,
@@ -513,7 +540,7 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         deprecated=parsed.deprecated,
         aliases=aliases,
         shadowed_by=_shadowing_category(category, name),
-        errors=parsed.errors + reduction_errors + semantics_errors,
+        errors=parsed.errors + reduction_errors + semantics_errors + propagation_errors,
         raises=parsed.raises,
         source_path=span["path"],
         source_line=span["line"],
@@ -522,6 +549,8 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         definitions=tuple(equation.strip() for equation in _DISPLAY_MATH.findall(parsed.description)),
         reduction=reduction,
         semantics=semantics,
+        uncertainty_propagation=parsed.flags.get("uncertainty_propagation", False),
+        analytic_jacobian=_analytic_jacobian(fn) is not None,
     )
 
 
@@ -576,7 +605,9 @@ def _alias_index(category: str) -> dict[str, str]:
 def _resolve_category(name: str) -> str | None:
     """Which category ``vaft.formula.<name>`` binds, by the package's own rule."""
     winner = None
-    for category in CATEGORIES:
+    for category in _IMPORT_ORDER:
+        if category == "constants":
+            continue
         if name in _defined_names(category):
             winner = category
     return winner
@@ -678,7 +709,7 @@ def categories() -> list[CategoryDoc]:
     """Every submodule as a documentation category, ``constants`` included."""
     _require_docstrings()
     result: list[CategoryDoc] = []
-    for key in _IMPORT_ORDER:
+    for key in _CATALOG_ORDER:
         module = _submodule(key)
         doc: ModuleDoc = parse_module_docstring(module.__doc__)
         count = len(_specs_for(key)) if key in CATEGORIES else 0
@@ -707,7 +738,7 @@ def documentation_snapshot(
                 "path": f"vaft/formula/{key}.py",
                 "sha256": hashlib.sha256(_source_path(key).read_bytes()).hexdigest(),
             }
-            for key in _IMPORT_ORDER
+            for key in _CATALOG_ORDER
         ],
         "categories": [doc.as_dict() for doc in categories()],
         "formulas": [spec.as_dict() for spec in list_formulas(category)],

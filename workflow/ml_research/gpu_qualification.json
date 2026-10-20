@@ -1,0 +1,840 @@
+{
+  "slurm_job_id": "785019",
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+  "python": "3.12.15",
+  "torch": "2.7.1+cu128",
+  "cuda": "12.8",
+  "vaft_revision": "9744dbd73eebc1ca3a03857f19e35360c4052488",
+  "neurips_revision": "362eeeb",
+  "source_manifest_sha256": "155080353c464357c7149e59e80021d1820eb26b9a7f3773d72cae3176fa9a8c",
+  "fixtures": [
+    {
+      "shot": "d3d_shot_00000a10ac",
+      "source_sha256": "a0efcb8546ff5fc52dc31f25903abc16e78ac88bb3e96d66bd6cf9e16252cfcd",
+      "frame_indices": [
+        0,
+        8,
+        16,
+        24,
+        33,
+        41,
+        49,
+        58
+      ]
+    },
+    {
+      "shot": "d3d_shot_00000c4a7b",
+      "source_sha256": "6f219065896a79d8329a46e6f2cb1cd95223730db96c79a06c481075e8efd1a8",
+      "frame_indices": [
+        4,
+        54,
+        105,
+        155,
+        206,
+        256,
+        307,
+        358
+      ]
+    },
+    {
+      "shot": "d3d_shot_0003ff34e7",
+      "source_sha256": "dddb631df68f7fb46d06836451375ec96d2e3f0a4d8d4c9b956ef7af00418c7b",
+      "frame_indices": [
+        0,
+        12,
+        25,
+        38,
+        50,
+        63,
+        76,
+        89
+      ]
+    },
+    {
+      "shot": "d3d_shot_0011c2afc9",
+      "source_sha256": "6dee89660f4b92cef58f820ce325c99a9cd67b54c74df7b1b8ce147809286fa2",
+      "frame_indices": [
+        0,
+        10,
+        20,
+        30,
+        41,
+        51,
+        61,
+        72
+      ]
+    },
+    {
+      "shot": "d3d_shot_001270afa9",
+      "source_sha256": "6d06eeb0f8f33f7d24b544368aa581b7d0e452f6d456135e2a1302692b16dd71",
+      "frame_indices": [
+        0,
+        35,
+        71,
+        107,
+        143,
+        179,
+        215,
+        251
+      ]
+    },
+    {
+      "shot": "d3d_shot_001554e054",
+      "source_sha256": "99debec4ee9d805b82a8b2493f2e41ce8226c6b755c350a44080002d1718e570",
+      "frame_indices": [
+        0,
+        41,
+        82,
+        123,
+        165,
+        206,
+        247,
+        289
+      ]
+    }
+  ],
+  "budget": {
+    "epochs": 2,
+    "batch_size": 8,
+    "max_steps_per_model": 8,
+    "grid": [
+      17,
+      17
+    ]
+  },
+  "models": {
+    "pca": {
+      "original_prediction_max_abs": {
+        "psi_int": 1.511885838745286e-09,
+        "q95": 0.0,
+        "betaN": 0.0
+      },
+      "runs": {
+        "fp32": {
+          "metrics": {
+            "coef/mse": 0.7464088109777723,
+            "coef/mae": 0.43623033046605997,
+            "scalars/mse": 0.7303248956182393,
+            "scalars/mae": 0.6822528326883912
+          },
+          "resources": {
+            "fit_seconds": 0.890784471295774,
+            "device": "cuda",
+            "precision": "fp32",
+            "optimizer_steps": 8,
+            "peak_device_bytes": 18224640
+          },
+          "history": {
+            "train_loss": [
+              1.3183548599481583,
+              1.2823125645518303
+            ],
+            "validation_loss": [
+              0.20381148159503937,
+              0.19916677474975586
+            ],
+            "train_flux": [
+              1.0441363118588924,
+              1.0215307138860226
+            ],
+            "train_scalars": [
+              0.9140617698431015,
+              0.869272843003273
+            ],
+            "learning_rate": [
+              0.0005559840141227015,
+              7.664159383425633e-05
+            ],
+            "validation_flux": [
+              0.11733320355415344,
+              0.11497125029563904
+            ],
+            "validation_scalars": [
+              0.28826090693473816,
+              0.2806517481803894
+            ]
+          }
+        },
+        "bf16": {
+          "metrics": {
+            "coef/mse": 0.7464302705530417,
+            "coef/mae": 0.43622556334594265,
+            "scalars/mse": 0.7302623123115071,
+            "scalars/mae": 0.6822195192798972
+          },
+          "resources": {
+            "fit_seconds": 0.2310543400235474,
+            "device": "cuda",
+            "precision": "bf16",
+            "optimizer_steps": 8,
+            "peak_device_bytes": 18286592
+          },
+          "history": {
+            "train_loss": [
+              1.3182995915412903,
+              1.2823158502578735
+            ],
+            "validation_loss": [
+              0.20394593477249146,
+              0.19930779933929443
+            ],
+            "train_flux": [
+              1.0440549030900002,
+              1.0215119887143373
+            ],
+            "train_scalars": [
+              0.9141490757465363,
+              0.8693461865186691
+            ],
+            "learning_rate": [
+              0.0005559840141227015,
+              7.664159383425633e-05
+            ],
+            "validation_flux": [
+              0.1174461841583252,
+              0.1150999441742897
+            ],
+            "validation_scalars": [
+              0.288332462310791,
+              0.28069281578063965
+            ]
+          }
+        }
+      },
+      "amp_forward_relative_l2": {
+        "coef": 0.0041265240870416164,
+        "scalars": 0.003176779253408313
+      },
+      "cpu_adapter_seconds_per_frame": 0.008820751740131527,
+      "graph_feasibility": {
+        "fx": {
+          "supported": true,
+          "diagnostics": []
+        },
+        "export": {
+          "supported": true,
+          "diagnostics": []
+        }
+      },
+      "measured_tensor_bytes": {
+        "whole_source": 12384,
+        "one_collated_batch": 2064
+      }
+    },
+    "cnn": {
+      "original_prediction_max_abs": {
+        "psi_int": 2.062805931624112e-08,
+        "q95": 7.618431929756753e-08,
+        "betaN": 0.0
+      },
+      "runs": {
+        "fp32": {
+          "metrics": {
+            "plasma/mse": 0.6375707221627496,
+            "plasma/mae": 0.6371545651347528,
+            "scalars/mse": 0.16393968686241567,
+            "scalars/mae": 0.3206985699944198
+          },
+          "resources": {
+            "fit_seconds": 0.875390412285924,
+            "device": "cuda",
+            "precision": "fp32",
+            "optimizer_steps": 8,
+            "peak_device_bytes": 22336000
+          },
+          "history": {
+            "train_loss": [
+              0.8311387896537781,
+              0.701701819896698
+            ],
+            "validation_loss": [
+              0.5373998880386353,
+              0.49864891171455383
+            ],
+            "train_flux": [
+              0.6930914521217346,
+              0.6177190691232681
+            ],
+            "train_scalars": [
+              0.46015775203704834,
+              0.27994250506162643
+            ],
+            "learning_rate": [
+              0.0005559840141227015,
+              7.664159383425633e-05
+            ],
+            "validation_flux": [
+              0.5137953758239746,
+              0.4813408851623535
+            ],
+            "validation_scalars": [
+              0.07868175208568573,
+              0.05769339203834534
+            ]
+          }
+        },
+        "bf16": {
+          "metrics": {
+            "plasma/mse": 0.6375497130199126,
+            "plasma/mae": 0.6371350803841099,
+            "scalars/mse": 0.16386472897293286,
+            "scalars/mae": 0.32062115240842104
+          },
+          "resources": {
+            "fit_seconds": 0.386184873059392,
+            "device": "cuda",
+            "precision": "bf16",
+            "optimizer_steps": 8,
+            "peak_device_bytes": 21545472
+          },
+          "history": {
+            "train_loss": [
+              0.8312684297561646,
+              0.7020471841096878
+            ],
+            "validation_loss": [
+              0.5376527309417725,
+              0.4984436631202698
+            ],
+            "train_flux": [
+              0.6932248026132584,
+              0.617995135486126
+            ],
+            "train_scalars": [
+              0.46014534682035446,
+              0.2801734432578087
+            ],
+            "learning_rate": [
+              0.0005559840141227015,
+              7.664159383425633e-05
+            ],
+            "validation_flux": [
+              0.5139530897140503,
+              0.4811149537563324
+            ],
+            "validation_scalars": [
+              0.07899881899356842,
+              0.05776238441467285
+            ]
+          }
+        }
+      },
+      "amp_forward_relative_l2": {
+        "plasma": 0.0023458776995539665,
+        "scalars": 0.0015747296856716275
+      },
+      "cpu_adapter_seconds_per_frame": 0.0016570011503063142,
+      "graph_feasibility": {
+        "fx": {
+          "supported": true,
+          "diagnostics": []
+        },
+        "export": {
+          "supported": true,
+          "diagnostics": []
+        }
+      },
+      "measured_tensor_bytes": {
+        "whole_source": 348816,
+        "one_collated_batch": 58136
+      }
+    },
+    "fno": {
+      "original_prediction_max_abs": {
+        "psi_int": 1.2682189409751743e-08,
+        "q95": 0.0,
+        "betaN": 0.0
+      },
+      "runs": {
+        "fp32": {
+          "metrics": {
+            "plasma/mse": 0.6971242298352959,
+            "plasma/mae": 0.6805894818240744,
+            "scalars/mse": 0.16014753579491486,
+            "scalars/mae": 0.31738019455224276
+          },
+          "resources": {
+            "fit_seconds": 0.34806028567254543,
+            "device": "cuda",
+            "precision": "fp32",
+            "optimizer_steps": 8,
+            "peak_device_bytes": 22038016
+          },
+          "history": {
+            "train_loss": [
+              0.9446911662817001,
+              0.7574186623096466
+            ],
+            "validation_loss": [
+              0.6596512198448181,
+              0.6041231751441956
+            ],
+            "train_flux": [
+              0.8135230988264084,
+              0.6733128875494003
+            ],
+            "train_scalars": [
+              0.43722693622112274,
+              0.28035251796245575
+            ],
+            "learning_rate": [
+              0.0005559840141227015,
+              7.664159383425633e-05
+            ],
+            "validation_flux": [
+              0.6356179714202881,
+              0.586477518081665
+            ],
+            "validation_scalars": [
+              0.08011080324649811,
+              0.05881878361105919
+            ]
+          }
+        },
+        "bf16": {
+          "metrics": {
+            "plasma/mse": 0.6972373034902618,
+            "plasma/mae": 0.680678041097563,
+            "scalars/mse": 0.1601728741917558,
+            "scalars/mae": 0.31747369142249227
+          },
+          "resources": {
+            "fit_seconds": 0.1324045113287866,
+            "device": "cuda",
+            "precision": "bf16",
+            "optimizer_steps": 8,
+            "peak_device_bytes": 23760896
+          },
+          "history": {
+            "train_loss": [
+              0.9447014182806015,
+              0.7577837556600571
+            ],
+            "validation_loss": [
+              0.659787654876709,
+              0.6048429012298584
+            ],
+            "train_flux": [
+              0.8134442865848541,
+              0.67364851385355
+            ],
+            "train_scalars": [
+              0.4375237971544266,
+              0.28045083582401276
+            ],
+            "learning_rate": [
+              0.0005559840141227015,
+              7.664159383425633e-05
+            ],
+            "validation_flux": [
+              0.6357760429382324,
+              0.5871741771697998
+            ],
+            "validation_scalars": [
+              0.08003879338502884,
+              0.05889570713043213
+            ]
+          }
+        }
+      },
+      "amp_forward_relative_l2": {
+        "plasma": 0.004320576786994934,
+        "scalars": 0.0032196517568081617
+      },
+      "cpu_adapter_seconds_per_frame": 0.0016194601194001734,
+      "graph_feasibility": {
+        "fx": {
+          "supported": false,
+          "diagnostics": [
+            "TypeError: zeros() received an invalid combination of arguments - got (Proxy, Proxy, Proxy, Proxy, device=Attribute, dtype=torch.dtype), but expected one of:\n * (tuple of ints size, *, tuple of names names, torch.dtype dtype = None, torch.layout layout = None, torch.device device = None, bool pin_memory = False, bool requires_grad = False)\n * (tuple of ints size, *, Tensor out = None, torch.dtype dtype = None, torch.layout layout = None, torch.device device = None, bool pin_memory = False, bool requires_grad = False)\n",
+            "No complete computational graph was extracted."
+          ]
+        },
+        "export": {
+          "supported": true,
+          "diagnostics": []
+        }
+      },
+      "measured_tensor_bytes": {
+        "whole_source": 348816,
+        "one_collated_batch": 58136
+      }
+    },
+    "set_pca": {
+      "original_prediction_max_abs": {
+        "psi_int": 8.955312047476127e-10,
+        "q95": 0.0,
+        "betaN": 0.0
+      },
+      "runs": {
+        "fp32": {
+          "metrics": {
+            "coef/mse": 0.7230905628231714,
+            "coef/mae": 0.3734678120817989,
+            "scalars/mse": 0.7089476778997822,
+            "scalars/mae": 0.674078161129728
+          },
+          "resources": {
+            "fit_seconds": 0.23705417988821864,
+            "device": "cuda",
+            "precision": "fp32",
+            "optimizer_steps": 8,
+            "peak_device_bytes": 18903040
+          },
+          "history": {
+            "train_loss": [
+              1.2860522419214249,
+              1.2508475705981255
+            ],
+            "validation_loss": [
+              0.17413704097270966,
+              0.16319811344146729
+            ],
+            "train_flux": [
+              1.0021766927093267,
+              0.9856146778911352
+            ],
+            "train_scalars": [
+              0.946251779794693,
+              0.8841096013784409
+            ],
+            "learning_rate": [
+              0.0005559840141227015,
+              7.664159383425633e-05
+            ],
+            "validation_flux": [
+              0.08780674636363983,
+              0.08002782613039017
+            ],
+            "validation_scalars": [
+              0.2877676486968994,
+              0.2772342562675476
+            ]
+          }
+        },
+        "bf16": {
+          "metrics": {
+            "coef/mse": 0.7231132581643922,
+            "coef/mae": 0.3736194561352022,
+            "scalars/mse": 0.7090804353907162,
+            "scalars/mae": 0.6741462519858032
+          },
+          "resources": {
+            "fit_seconds": 0.22763111302629113,
+            "device": "cuda",
+            "precision": "bf16",
+            "optimizer_steps": 8,
+            "peak_device_bytes": 18763776
+          },
+          "history": {
+            "train_loss": [
+              1.2863969579339027,
+              1.2506836578249931
+            ],
+            "validation_loss": [
+              0.17408788204193115,
+              0.16320562362670898
+            ],
+            "train_flux": [
+              1.0024431757628918,
+              0.9854658897966146
+            ],
+            "train_scalars": [
+              0.9465126097202301,
+              0.8840591460466385
+            ],
+            "learning_rate": [
+              0.0005559840141227015,
+              7.664159383425633e-05
+            ],
+            "validation_flux": [
+              0.08774305135011673,
+              0.08003304898738861
+            ],
+            "validation_scalars": [
+              0.2878161072731018,
+              0.27724188566207886
+            ]
+          }
+        }
+      },
+      "amp_forward_relative_l2": {
+        "coef": 0.008597982116043568,
+        "scalars": 0.009016587398946285
+      },
+      "cpu_adapter_seconds_per_frame": 0.002071127004455775,
+      "graph_feasibility": {
+        "fx": {
+          "supported": true,
+          "diagnostics": []
+        },
+        "export": {
+          "supported": true,
+          "diagnostics": []
+        }
+      },
+      "measured_tensor_bytes": {
+        "whole_source": 42480,
+        "one_collated_batch": 7384
+      }
+    },
+    "set_current": {
+      "original_prediction_max_abs": {
+        "psi_int": 2.3609204524710492e-07,
+        "q95": 0.0,
+        "betaN": 0.0
+      },
+      "runs": {
+        "fp32": {
+          "metrics": {
+            "plasma/mse": 0.01212172650181366,
+            "plasma/mae": 0.06812087790943863,
+            "scalars/mse": 0.7057716241575519,
+            "scalars/mae": 0.6686740983277559
+          },
+          "resources": {
+            "fit_seconds": 0.21811444777995348,
+            "device": "cuda",
+            "precision": "fp32",
+            "optimizer_steps": 8,
+            "peak_device_bytes": 20367360
+          },
+          "history": {
+            "train_loss": [
+              2.0203029215335846,
+              1.9824890047311783
+            ],
+            "validation_loss": [
+              0.6292023062705994,
+              0.622901439666748
+            ],
+            "train_flux": [
+              1.7638782560825348,
+              1.7605366334319115
+            ],
+            "train_scalars": [
+              0.8547490239143372,
+              0.739841066300869
+            ],
+            "learning_rate": [
+              0.0005559840141227015,
+              7.664159383425633e-05
+            ],
+            "validation_flux": [
+              0.5545744299888611,
+              0.553386390209198
+            ],
+            "validation_scalars": [
+              0.24875964224338531,
+              0.23171685636043549
+            ]
+          }
+        },
+        "bf16": {
+          "metrics": {
+            "plasma/mse": 0.012121760026825043,
+            "plasma/mae": 0.06812101758365555,
+            "scalars/mse": 0.7059103386942692,
+            "scalars/mae": 0.6687712580896914
+          },
+          "resources": {
+            "fit_seconds": 0.21132856607437134,
+            "device": "cuda",
+            "precision": "bf16",
+            "optimizer_steps": 8,
+            "peak_device_bytes": 20173312
+          },
+          "history": {
+            "train_loss": [
+              2.0204415172338486,
+              1.983112171292305
+            ],
+            "validation_loss": [
+              0.629335880279541,
+              0.6235965490341187
+            ],
+            "train_flux": [
+              1.763984963297844,
+              1.7611779272556305
+            ],
+            "train_scalars": [
+              0.8548549562692642,
+              0.7397808283567429
+            ],
+            "learning_rate": [
+              0.0005559840141227015,
+              7.664159383425633e-05
+            ],
+            "validation_flux": [
+              0.5546674728393555,
+              0.5540830492973328
+            ],
+            "validation_scalars": [
+              0.2488946169614792,
+              0.23171165585517883
+            ]
+          }
+        }
+      },
+      "amp_forward_relative_l2": {
+        "plasma": 0.002358627738431096,
+        "scalars": 0.0038949050940573215
+      },
+      "cpu_adapter_seconds_per_frame": 0.00255248777102679,
+      "graph_feasibility": {
+        "fx": {
+          "supported": false,
+          "diagnostics": [
+            "TraceError: symbolically traced variables cannot be used as inputs to control flow",
+            "No complete computational graph was extracted."
+          ]
+        },
+        "export": {
+          "supported": true,
+          "diagnostics": []
+        }
+      },
+      "measured_tensor_bytes": {
+        "whole_source": 7544064,
+        "one_collated_batch": 1260672
+      }
+    },
+    "set_current+pca": {
+      "original_prediction_max_abs": {
+        "psi_int": 1.803658645216366e-07,
+        "q95": 0.0,
+        "betaN": 0.0
+      },
+      "runs": {
+        "fp32": {
+          "metrics": {
+            "plasma/mse": 0.007175023599034545,
+            "plasma/mae": 0.04829706653153401,
+            "scalars/mse": 0.7210035019383878,
+            "scalars/mae": 0.6834458356024697
+          },
+          "resources": {
+            "fit_seconds": 0.1953895422630012,
+            "device": "cuda",
+            "precision": "fp32",
+            "optimizer_steps": 8,
+            "peak_device_bytes": 20803584
+          },
+          "history": {
+            "train_loss": [
+              1.5221671909093857,
+              1.4252282530069351
+            ],
+            "validation_loss": [
+              0.2697541415691376,
+              0.2430628091096878
+            ],
+            "train_flux": [
+              1.2589315734803677,
+              1.188632793724537
+            ],
+            "train_scalars": [
+              0.8774519264698029,
+              0.7886514663696289
+            ],
+            "learning_rate": [
+              0.0005559840141227015,
+              7.664159383425633e-05
+            ],
+            "validation_flux": [
+              0.19162724912166595,
+              0.1695222705602646
+            ],
+            "validation_scalars": [
+              0.260422945022583,
+              0.2451351135969162
+            ]
+          }
+        },
+        "bf16": {
+          "metrics": {
+            "plasma/mse": 0.0071724583175563185,
+            "plasma/mae": 0.04828571266684823,
+            "scalars/mse": 0.720855248205158,
+            "scalars/mae": 0.6833767326315865
+          },
+          "resources": {
+            "fit_seconds": 0.20741129480302334,
+            "device": "cuda",
+            "precision": "bf16",
+            "optimizer_steps": 8,
+            "peak_device_bytes": 21162496
+          },
+          "history": {
+            "train_loss": [
+              1.5232177376747131,
+              1.4253594055771828
+            ],
+            "validation_loss": [
+              0.2704754173755646,
+              0.24356068670749664
+            ],
+            "train_flux": [
+              1.2599525824189186,
+              1.1886776611208916
+            ],
+            "train_scalars": [
+              0.8775503188371658,
+              0.788938894867897
+            ],
+            "learning_rate": [
+              0.0005559840141227015,
+              7.664159383425633e-05
+            ],
+            "validation_flux": [
+              0.19238601624965668,
+              0.17011958360671997
+            ],
+            "validation_scalars": [
+              0.2602980136871338,
+              0.24480366706848145
+            ]
+          }
+        }
+      },
+      "amp_forward_relative_l2": {
+        "plasma": 0.0021757876966148615,
+        "scalars": 0.003299082163721323
+      },
+      "cpu_adapter_seconds_per_frame": 0.0026316827861592174,
+      "graph_feasibility": {
+        "fx": {
+          "supported": false,
+          "diagnostics": [
+            "TraceError: symbolically traced variables cannot be used as inputs to control flow",
+            "No complete computational graph was extracted."
+          ]
+        },
+        "export": {
+          "supported": true,
+          "diagnostics": []
+        }
+      },
+      "measured_tensor_bytes": {
+        "whole_source": 7766016,
+        "one_collated_batch": 1297664
+      }
+    }
+  },
+  "mast_label_free": {
+    "shot": "mast_shot_0035568738",
+    "source_sha256": "eb90480f9ec75c28ce09bb6c54c04787af19842dd3bfb4906f8de1094568ecde",
+    "frame_indices": [
+      0,
+      7,
+      14,
+      22,
+      29,
+      37,
+      44,
+      52
+    ],
+    "finite_predictions": true
+  },
+  "status": "passed"
+}
