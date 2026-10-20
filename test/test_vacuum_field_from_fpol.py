@@ -276,7 +276,7 @@ def test_a_healthy_shot_is_left_where_it_was():
 
 
 def test_the_stored_sign_survives_the_rebuild():
-    # f is negative and b0 positive on VEST; flipping the column's sign would
+    # The repair replaces the magnitude only; flipping the column's sign would
     # look like a physics change rather than a repair.
     from vaft.database._summary import _normalize_vacuum_field
 
@@ -356,3 +356,30 @@ def test_both_g_file_readers_take_the_field_from_the_same_place():
     assert direct.bt0 == pytest.approx(via_ods.bt0, rel=1e-12)
     fpol_edge = float(np.asarray(g["FPOL"]).reshape(-1)[-1])
     assert direct.bt0 * float(g["RCENTR"]) == pytest.approx(fpol_edge, rel=1e-9)
+
+
+def test_an_f_and_b0_sign_disagreement_is_logged_not_reconciled(caplog):
+    # f and b0 are both TOR under a COCOS change, so opposite signs are a data
+    # inconsistency rather than two conventions (#692). The stored sign is kept.
+    import logging
+
+    from vaft.database._summary import _normalize_vacuum_field
+
+    ods = _legacy_ods([0.15, 0.20], r0=0.4, f_edge=-0.06, tf_field=0.06)
+    with caplog.at_level(logging.INFO, logger="vaft.database._summary"):
+        _normalize_vacuum_field(ods, 12345)
+
+    b0 = np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float).reshape(-1)
+    assert np.all(b0 > 0)
+    assert any("inconsistent" in record.getMessage() for record in caplog.records)
+
+
+def test_agreeing_signs_log_no_inconsistency(caplog):
+    import logging
+
+    from vaft.database._summary import _normalize_vacuum_field
+
+    ods = _legacy_ods([-0.15, -0.20], r0=0.4, f_edge=-0.06, tf_field=0.06)
+    with caplog.at_level(logging.INFO, logger="vaft.database._summary"):
+        _normalize_vacuum_field(ods, 12345)
+    assert not any("inconsistent" in record.getMessage() for record in caplog.records)
