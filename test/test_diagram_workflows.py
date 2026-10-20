@@ -42,7 +42,9 @@ def test_the_spine_reads_from_inference_through_reconstruction_to_transport():
         "kinetic_efit", "analytic_mhd_equilibrium", "chease_coupling", "tokamaker_coupling", "dcon_rdcon_stability",
         "gpec_plasma_response", "flare_field_line_topology", "neo_neoclassical", "tglf_cgyro_local_transport",
         "parameter_inference_overview", "parameter_inference_dependency_graph", "eddy_current_model",
-        "kinetic_profile_fitting", "transport_hierarchy", "neoclassical_model_comparison"]
+        "kinetic_profile_fitting", "transport_hierarchy", "neoclassical_model_comparison",
+        "machine_model_history", "signal_processing", "quality_validation", "fault_anomaly_detection",
+        "shot_classification", "event_detection"]
 
 
 @pytest.mark.parametrize("spec", SPECS, ids=lambda s: s.key)
