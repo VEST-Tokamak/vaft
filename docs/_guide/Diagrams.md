@@ -1777,6 +1777,10 @@ vaft.diagram.neo_neoclassical()
 vaft.diagram.tglf_cgyro_local_transport()
 vaft.diagram.parameter_inference_overview()
 vaft.diagram.parameter_inference_dependency_graph()
+vaft.diagram.eddy_current_model()
+vaft.diagram.kinetic_profile_fitting()
+vaft.diagram.transport_hierarchy()
+vaft.diagram.neoclassical_model_comparison()
 ```
 
 ### Plasma parameter inference: ion temperature and species
@@ -2138,6 +2142,110 @@ References:
 Follow-up TODOs (implementation or IMAS mapping):
 
 - E_r, rotation and gamma_E are not inferred from data (#553): gamma_E = 0 enters the gyrokinetic input as an assumption, and force balance is future scope.
+
+### Vessel eddy currents: a circuit driven by the coils and the plasma
+
+The passive structure is a set of resistive loops driven by the changing PF and plasma currents. VAFT solves that circuit forward from rest -- it does not fit the vessel currents to the magnetics -- and checks the result against the pre-plasma flux loops and probes.
+
+![Vessel eddy currents: a circuit driven by the coils and the plasma]({{ '/assets/diagrams/eddy_current_model.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| PF coil currents | measured | $I_{\mathrm{PF},j}(t)$ | `vaft.machine_mapping.pf_active.vfit_pf_active_dynamic` | `pf_active.coil[:].current.data` |
+| Plasma current | measured | $I_p(t)$ |  | `magnetics.ip[0].data` |
+| Plasma filaments | model assumption / prior (enters Circuit matrices) | $(R_k, Z_k),\ f_k\ \mathrm{set\ by\ the\ caller}, I_k = f_k I_p$ |  |  |
+| Loops and mutual inductances | machine geometry / static data (enters Circuit matrices) | $R = \mathrm{diag}(R_k),\ M_{\mathrm{pp}},\ M_{\mathrm{pa}}$ | `vaft.omas.process_wrapper.ensure_em_coupling` | `{pf_passive.loop[:].resistance, em_coupling.mutual_passive_passive}` |
+| Circuit matrices | derived | $M,\ R,\ L = [M_{\mathrm{pa}},\ M_{\mathrm{plasma}}], M_{\mathrm{plasma}}\ \mathrm{from\ Green's\ functions}$ | `vaft.process.electromagnetics.compute_impedance_matrices` |  |
+| Forward circuit solve | solver / model |  | `vaft.process.electromagnetics.solve_eddy_currents` |  |
+| Vessel loop currents | standardized IMAS | $I_{\mathrm{loop},k}(t)$ | `vaft.omas.vest_upstream.build_eddy_ods` | `pf_passive.loop[:].current` |
+| Pre-plasma magnetics | measured | $\psi_{\mathrm{FL}},\ B_p\ \mathrm{before\ breakdown}$ |  | `magnetics.{flux_loop, b_field_pol_probe}` |
+| Eddy improvement | derived |  | `vaft.omas.vacuum_magnetics.eddy_improvement` |  |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- Vessel currents are a forward model, not fitted to the magnetics; EFIT then treats them as known (IFITVS=0).
+- The plasma filaments are placed by the caller, not taken from the equilibrium.
+- The circuit is constant in time and starts from zero current; the 50 us substep is coarser than the 40 us diagnostics grid (#425).
+- A missing PF channel (PF5 48644-48760, PF6 48534-48537) leaves NaN currents and the stage refuses to run.
+
+### Kinetic profile fitting: point measurements to profiles
+
+Thomson and charge-exchange points are placed on flux surfaces by the equilibrium and fitted to smooth profiles with declared fitting choices; each fitted profile keeps its origin record.
+
+![Kinetic profile fitting: point measurements to profiles]({{ '/assets/diagrams/kinetic_profile_fitting.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Thomson scattering | measured | $T_e,\ n_e \pm \sigma\ \mathrm{at}\ (R, Z)$ |  | `thomson_scattering.channel[:].{t_e, n_e, position}` |
+| Magnetic equilibrium | reconstructed | $\psi(R, Z),\ q(\psi)$ |  | `equilibrium.time_slice[:].{profiles_2d, profiles_1d.q}` |
+| Charge exchange (optional) | measured | $T_i,\ v_\phi\ \mathrm{at}\ (R, Z)$ |  | `charge_exchange.channel[:].ion[:].{t_i, velocity_tor}` |
+| Flux-surface mapping | derived | $(R,Z) \to \psi_N \to \rho_{\mathrm{pol}} = \sqrt{\psi_N}, \rho_{\mathrm{tor},N}\ \mathrm{from}\ \Phi = \int q\,d\psi;\ \mathrm{outside\ the\ LCFS:\ dropped}$ | `vaft.process.profile.equilibrium_mapping_thomson_scattering` |  |
+| Fitting coordinate | model choice / convention (enters Flux-surface mapping) | $x = \rho_{\mathrm{tor},N}\ (\mathrm{default})\ \|\ \psi_N\ \|\ \rho_{\mathrm{pol},N}$ |  |  |
+| Electron profile fit | derived | $T_e(x),\ n_e(x)$ | `vaft.process.profile.profile_fitting_thomson_scattering` |  |
+| Ion profile fit | derived | $T_i(x),\ v_\phi(x)$ | `vaft.process.profile.profile_fitting_charge_exchange` |  |
+| Fit model and order | model choice / convention (enters Electron profile fit) | $\mathrm{polynomial\ \|\ core\text{-}poly/edge\text{-}exp\ \|\ tanh\ \|\ GP},\ N = 3, \sigma\text{-}\mathrm{weighted};\ T > 0:\ \mathrm{order\ stepped\ down}$ | `vaft.formula.utils.fit_profile` |  |
+| Ion temperature without CX | model assumption / prior (enters Ion profile fit) | $T_i = r\,T_e,\ r\ \mathrm{fitted\ or\ assumed}$ | `vaft.process.profile.fit_ti_te_ratio` |  |
+| Kinetic profiles | standardized IMAS | $T_e, n_e, T_i, v_\phi, \mathrm{each\ with\ origin=\ldots;\ method=\ldots}$ | `vaft.process.profile.core_profiles` | `core_profiles.profiles_1d[:].{electrons, ion[0], *_fit}` |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- Thomson and charge exchange are fitted separately and combined only in core_profiles; there is no joint multi-diagnostic fit.
+- The kinetic-profile evidence framework (#1204) is not yet referenced by the fit records.
+
+### Transport hierarchy: classical, neoclassical, turbulent
+
+One resolved local state, five independent routes: each is computed from the state itself, not from another route. The VAFT routes (Braginskii, Sauter/Redl) always run; NEO, TGLF and CGYRO are optional external codes. Every route with a writer lands in its own core_transport model.
+
+![Transport hierarchy: classical, neoclassical, turbulent]({{ '/assets/diagrams/transport_hierarchy.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Resolved local state | derived | $T_s,\ n_s,\ a/L_{T,n},\ q,\ \hat s,\ \hat\nu$ | `vaft.process.transport_state.resolve_transport_state` |  |
+| Classical (Braginskii) | derived | $\chi_{\perp,e},\ \chi_{\perp,i}, \mathrm{in\ VAFT:\ always\ available}$ | `vaft.process.transport_state.classical_heat_fluxes` |  |
+| Neoclassical: Sauter / Redl | derived | $j_{\mathrm{bs}},\ \sigma_\parallel, \mathrm{in\ VAFT:\ always\ available}$ | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
+| Neoclassical: NEO | solver / model | $\Gamma_s,\ Q_s,\ j_{\mathrm{bs}},\ \sigma_\parallel, \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.neo.runner.run_neo_pair` |  |
+| Turbulent: TGLF | solver / model | $Q_s,\ \Gamma_s\ (\mathrm{quasilinear}), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.tglf.run_tglf` |  |
+| Turbulent: CGYRO | solver / model | $\gamma,\ \omega;\ \langle Q_s\rangle_t\ (\mathrm{gyrokinetic}), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.cgyro.run_cgyro` |  |
+| Classical transport | standardized IMAS | $\chi_e,\ \chi_i\ (\mathrm{private\ index})$ | `vaft.machine_mapping.classical.core_transport_from_classical` | `core_transport.model[:] (index -1)` |
+| Neoclassical transport | standardized IMAS | $\Gamma_s,\ Q_s\ (\mathrm{from\ NEO})$ | `vaft.machine_mapping.neoclassical.core_transport_from_neo` | `core_transport.model[:] (index 5)` |
+| Anomalous transport | standardized IMAS | $\Gamma_s,\ Q_s,\ \Pi_\phi$ | `vaft.machine_mapping.turbulence.core_transport_from_tglf` | `core_transport.model[:] (index 6)` |
+
+References:
+
+1. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834
+2. A. Redl et al., Phys. Plasmas 28 (2021) 022502
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- The closed-form Sauter/Redl results have no core_transport writer; they are returned, not stored.
+- Classical transport uses a private model index (-1): the data dictionary has no classical entry.
+- The TGLF-NN surrogate (vaft.code.gacode.tglf.surrogate) refuses VEST inputs as out of domain and has no IMAS writer.
+
+### Sauter / Redl against NEO at one state
+
+The closed-form bootstrap fits and the drift-kinetic solution evaluated from the same kinetic state and compared with NEO as the reference; the comparison is end-to-end, so its basis is stated with it.
+
+![Sauter / Redl against NEO at one state]({{ '/assets/diagrams/neoclassical_model_comparison.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Kinetic profiles and equilibrium | reconstructed | $T_s,\ n_s,\ Z_{\mathrm{eff}},\ q,\ f_t,\ \epsilon$ |  | `{core_profiles.profiles_1d[:], equilibrium.time_slice[:].profiles_1d}` |
+| Sauter fit | derived | $\mathrm{in\ VAFT:\ always\ available}$ | `vaft.validation.neoclassical.bootstrap_models` |  |
+| Redl fit | derived | $j_{\mathrm{bs}}\ \mathrm{with\ Redl's\ refitted}\ L_{31}, L_{32}, \alpha, \mathrm{in\ VAFT:\ always\ available}$ | `vaft.validation.neoclassical.bootstrap_models` |  |
+| NEO drift-kinetic solve | solver / model | $j_{\mathrm{bs}},\ \sigma_\parallel, \mathbf{optional}\ \mathrm{external\ code:\ no\ NEO,\ no\ comparison}$ | `vaft.code.gacode.neo.runner.run_neo_pair` |  |
+| Comparison basis | model choice / convention (enters Model agreement) | $\mathrm{end\text{-}to\text{-}end:\ grid\ and}\ f_t\ \mathrm{not\ shared}, \mathrm{reference = NEO}$ |  |  |
+| Model agreement | derived | $j_{\mathrm{bs}}^{\mathrm{Sauter}},\ j_{\mathrm{bs}}^{\mathrm{Redl}}\ \mathrm{vs}\ j_{\mathrm{bs}}^{\mathrm{NEO}}(\rho)$ | `vaft.validation.neoclassical.model_comparison` |  |
+| NEO bootstrap and conductivity | standardized IMAS | $j_{\mathrm{bs}},\ \sigma_\parallel$ | `vaft.machine_mapping.neoclassical.core_profiles_from_neo` | `core_profiles.profiles_1d[:].{j_bootstrap, conductivity_parallel}` |
+
+References:
+
+1. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834
+2. A. Redl et al., Phys. Plasmas 28 (2021) 022502
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- The like-for-like check against NEO's own Sauter/Redl columns (agreement to 1e-7) is a test, not a product.
+- The closed-form results are not written to IMAS; only NEO's are.
 
 ## Using the committed assets
 

@@ -575,6 +575,174 @@ _SPECS = (
         todos=("E_r, rotation and gamma_E are not inferred from data (#553): gamma_E = 0 enters the gyrokinetic "
                "input as an assumption, and force balance is future scope.",),
     ),
+    # ------------------------------------------------------------------ reconstruction inputs (#1901)
+    WorkflowSpec(
+        key="eddy_current_model", title="Vessel eddy currents: a circuit driven by the coils and the plasma",
+        family="reconstruction", status="implemented",
+        summary="The passive structure is a set of resistive loops driven by the changing PF and plasma currents. "
+                "VAFT solves that circuit forward from rest -- it does not fit the vessel currents to the "
+                "magnetics -- and checks the result against the pre-plasma flux loops and probes.",
+        nodes=(
+            N("pf", "PF coil currents", "measured", ids="pf_active.coil[:].current.data",
+              api="vaft.machine_mapping.pf_active.vfit_pf_active_dynamic", symbols=r"I_{\mathrm{PF},j}(t)"),
+            N("ip", "Plasma current", "measured", ids="magnetics.ip[0].data", symbols=r"I_p(t)"),
+            N("filaments", "Plasma filaments", "prior",
+              symbols=r"(R_k, Z_k),\ f_k\ \mathrm{set\ by\ the\ caller}\qquad I_k = f_k I_p"),
+            N("machine", "Loops and mutual inductances", "machine",
+              api="vaft.omas.process_wrapper.ensure_em_coupling",
+              ids="{pf_passive.loop[:].resistance, em_coupling.mutual_passive_passive}",
+              symbols=r"R = \mathrm{diag}(R_k),\ M_{\mathrm{pp}},\ M_{\mathrm{pa}}"),
+            N("matrices", "Circuit matrices", "derived",
+              api="vaft.process.electromagnetics.compute_impedance_matrices",
+              symbols=r"M,\ R,\ L = [M_{\mathrm{pa}},\ M_{\mathrm{plasma}}]\qquad M_{\mathrm{plasma}}\ "
+                      r"\mathrm{from\ Green's\ functions}"),
+            N("solve", "Forward circuit solve", "solver", api="vaft.process.electromagnetics.solve_eddy_currents",
+              relation=r"M\,\dot{\mathbf I} + R\,\mathbf I = -L\,\frac{d}{dt}[\mathbf I_{\mathrm{PF}},\ I_p]"
+                       r"\qquad e^{-M^{-1}R\,\Delta t},\ \Delta t = 50\ \mu\mathrm{s},\ \mathbf I(0) = 0"),
+            N("currents", "Vessel loop currents", "standardized", api="vaft.omas.vest_upstream.build_eddy_ods",
+              ids="pf_passive.loop[:].current", symbols=r"I_{\mathrm{loop},k}(t)"),
+            N("vacuum", "Pre-plasma magnetics", "measured", ids="magnetics.{flux_loop, b_field_pol_probe}",
+              symbols=r"\psi_{\mathrm{FL}},\ B_p\ \mathrm{before\ breakdown}"),
+            N("check", "Eddy improvement", "derived", api="vaft.omas.vacuum_magnetics.eddy_improvement",
+              relation=r"1 - \frac{\mathrm{RMS}(m - m_{\mathrm{coil}} - m_{\mathrm{eddy}})}"
+                       r"{\mathrm{RMS}(m - m_{\mathrm{coil}})}"),
+        ),
+        rows=(("matrices",), ("pf", "solve", "ip"), ("currents", "vacuum"), ("check",)),
+        edges=(("pf", "solve", ""), ("ip", "solve", ""), ("matrices", "solve", ""), ("solve", "currents", ""),
+               ("currents", "check", ""), ("vacuum", "check", "")),
+        side=(("machine", "matrices"), ("filaments", "matrices")),
+        todos=("Vessel currents are a forward model, not fitted to the magnetics; EFIT then treats them as known "
+               "(IFITVS=0).",
+               "The plasma filaments are placed by the caller, not taken from the equilibrium.",
+               "The circuit is constant in time and starts from zero current; the 50 us substep is coarser than "
+               "the 40 us diagnostics grid (#425).",
+               "A missing PF channel (PF5 48644-48760, PF6 48534-48537) leaves NaN currents and the stage refuses "
+               "to run."),
+    ),
+    WorkflowSpec(
+        key="kinetic_profile_fitting", title="Kinetic profile fitting: point measurements to profiles",
+        family="reconstruction", status="implemented",
+        summary="Thomson and charge-exchange points are placed on flux surfaces by the equilibrium and fitted to "
+                "smooth profiles with declared fitting choices; each fitted profile keeps its origin record.",
+        nodes=(
+            N("ts", "Thomson scattering", "measured", ids="thomson_scattering.channel[:].{t_e, n_e, position}",
+              symbols=r"T_e,\ n_e \pm \sigma\ \mathrm{at}\ (R, Z)"),
+            N("eq", "Magnetic equilibrium", "reconstructed", ids="equilibrium.time_slice[:].{profiles_2d, profiles_1d.q}",
+              symbols=r"\psi(R, Z),\ q(\psi)"),
+            N("cx", "Charge exchange (optional)", "measured",
+              ids="charge_exchange.channel[:].ion[:].{t_i, velocity_tor}",
+              symbols=r"T_i,\ v_\phi\ \mathrm{at}\ (R, Z)"),
+            N("mapping", "Flux-surface mapping", "derived",
+              api="vaft.process.profile.equilibrium_mapping_thomson_scattering",
+              symbols=r"(R,Z) \to \psi_N \to \rho_{\mathrm{pol}} = \sqrt{\psi_N}\qquad \rho_{\mathrm{tor},N}\ "
+                      r"\mathrm{from}\ \Phi = \int q\,d\psi;\ \mathrm{outside\ the\ LCFS:\ dropped}"),
+            N("coordinate", "Fitting coordinate", "convention",
+              symbols=r"x = \rho_{\mathrm{tor},N}\ (\mathrm{default})\ |\ \psi_N\ |\ \rho_{\mathrm{pol},N}"),
+            N("fit_e", "Electron profile fit", "derived",
+              api="vaft.process.profile.profile_fitting_thomson_scattering",
+              symbols=r"T_e(x),\ n_e(x)"),
+            N("fit_i", "Ion profile fit", "derived", api="vaft.process.profile.profile_fitting_charge_exchange",
+              symbols=r"T_i(x),\ v_\phi(x)"),
+            N("model", "Fit model and order", "convention", api="vaft.formula.utils.fit_profile",
+              symbols=r"\mathrm{polynomial\ |\ core\text{-}poly/edge\text{-}exp\ |\ tanh\ |\ GP},\ N = 3"
+                      r"\qquad \sigma\text{-}\mathrm{weighted};\ T > 0:\ \mathrm{order\ stepped\ down}"),
+            N("ratio", "Ion temperature without CX", "prior", api="vaft.process.profile.fit_ti_te_ratio",
+              symbols=r"T_i = r\,T_e,\ r\ \mathrm{fitted\ or\ assumed}"),
+            N("profiles", "Kinetic profiles", "standardized", api="vaft.process.profile.core_profiles",
+              ids="core_profiles.profiles_1d[:].{electrons, ion[0], *_fit}",
+              symbols=r"T_e, n_e, T_i, v_\phi\qquad \mathrm{each\ with\ origin=\ldots;\ method=\ldots}"),
+        ),
+        rows=(("ts", "eq", "cx"), ("mapping",), ("fit_e", "fit_i"), ("profiles",)),
+        edges=(("ts", "mapping", ""), ("eq", "mapping", ""), ("cx", "mapping", ""), ("mapping", "fit_e", ""),
+               ("mapping", "fit_i", ""), ("fit_e", "profiles", ""), ("fit_i", "profiles", "")),
+        side=(("coordinate", "mapping"), ("model", "fit_e"), ("ratio", "fit_i")),
+        todos=("Thomson and charge exchange are fitted separately and combined only in core_profiles; there is "
+               "no joint multi-diagnostic fit.",
+               "The kinetic-profile evidence framework (#1204) is not yet referenced by the fit records."),
+    ),
+    # ------------------------------------------------------------------ transport hierarchy (#1901)
+    WorkflowSpec(
+        key="transport_hierarchy", title="Transport hierarchy: classical, neoclassical, turbulent",
+        family="transport", status="implemented",
+        summary="One resolved local state, five independent routes: each is computed from the state itself, not "
+                "from another route. The VAFT routes (Braginskii, Sauter/Redl) always run; NEO, TGLF and CGYRO are "
+                "optional external codes. Every route with a writer lands in its own core_transport model.",
+        nodes=(
+            N("state", "Resolved local state", "derived", api="vaft.process.transport_state.resolve_transport_state",
+              symbols=r"T_s,\ n_s,\ a/L_{T,n},\ q,\ \hat s,\ \hat\nu"),
+            N("classical", "Classical (Braginskii)", "derived", api="vaft.process.transport_state.classical_heat_fluxes",
+              equation="vaft.formula.equilibrium.coulomb_logarithm_from_n_T",
+              symbols=r"\chi_{\perp,e},\ \chi_{\perp,i}\qquad \mathrm{in\ VAFT:\ always\ available}"),
+            N("neo_fit", "Neoclassical: Sauter / Redl", "derived",
+              api="vaft.omas.neoclassical.compute_bootstrap_current", references=(_SAUTER, _REDL),
+              symbols=r"j_{\mathrm{bs}},\ \sigma_\parallel\qquad \mathrm{in\ VAFT:\ always\ available}"),
+            N("neo_code", "Neoclassical: NEO", "solver", api="vaft.code.gacode.neo.runner.run_neo_pair",
+              symbols=r"\Gamma_s,\ Q_s,\ j_{\mathrm{bs}},\ \sigma_\parallel\qquad "
+                      r"\mathbf{optional}\ \mathrm{external\ code}"),
+            N("turb_ql", "Turbulent: TGLF", "solver", api="vaft.code.gacode.tglf.run_tglf",
+              symbols=r"Q_s,\ \Gamma_s\ (\mathrm{quasilinear})\qquad \mathbf{optional}\ \mathrm{external\ code}"),
+            N("turb_gk", "Turbulent: CGYRO", "solver", api="vaft.code.gacode.cgyro.run_cgyro",
+              symbols=r"\gamma,\ \omega;\ \langle Q_s\rangle_t\ (\mathrm{gyrokinetic})\qquad "
+                      r"\mathbf{optional}\ \mathrm{external\ code}"),
+            N("ct_classical", "Classical transport", "standardized",
+              api="vaft.machine_mapping.classical.core_transport_from_classical",
+              ids="core_transport.model[:] (index -1)", symbols=r"\chi_e,\ \chi_i\ (\mathrm{private\ index})"),
+            N("ct_neo", "Neoclassical transport", "standardized",
+              api="vaft.machine_mapping.neoclassical.core_transport_from_neo",
+              ids="core_transport.model[:] (index 5)", symbols=r"\Gamma_s,\ Q_s\ (\mathrm{from\ NEO})"),
+            N("ct_turb", "Anomalous transport", "standardized",
+              api="vaft.machine_mapping.turbulence.core_transport_from_tglf",
+              ids="core_transport.model[:] (index 6)", symbols=r"\Gamma_s,\ Q_s,\ \Pi_\phi"),
+        ),
+        rows=(("state",), ("classical", "neo_fit", "neo_code", "turb_ql", "turb_gk"),
+              ("ct_classical", None, "ct_neo", "ct_turb", None)),
+        edges=(("state", "classical", ""), ("state", "neo_fit", ""), ("state", "neo_code", ""),
+               ("state", "turb_ql", ""), ("state", "turb_gk", ""), ("classical", "ct_classical", ""),
+               ("neo_code", "ct_neo", ""), ("turb_ql", "ct_turb", ""), ("turb_gk", "ct_turb", "")),
+        todos=("The closed-form Sauter/Redl results have no core_transport writer; they are returned, not stored.",
+               "Classical transport uses a private model index (-1): the data dictionary has no classical entry.",
+               "The TGLF-NN surrogate (vaft.code.gacode.tglf.surrogate) refuses VEST inputs as out of domain and "
+               "has no IMAS writer."),
+    ),
+    WorkflowSpec(
+        key="neoclassical_model_comparison", title="Sauter / Redl against NEO at one state",
+        family="transport", status="implemented",
+        summary="The closed-form bootstrap fits and the drift-kinetic solution evaluated from the same kinetic "
+                "state and compared with NEO as the reference; the comparison is end-to-end, so its basis is "
+                "stated with it.",
+        nodes=(
+            N("state", "Kinetic profiles and equilibrium", "reconstructed",
+              ids="{core_profiles.profiles_1d[:], equilibrium.time_slice[:].profiles_1d}",
+              symbols=r"T_s,\ n_s,\ Z_{\mathrm{eff}},\ q,\ f_t,\ \epsilon"),
+            N("sauter", "Sauter fit", "derived", api="vaft.validation.neoclassical.bootstrap_models",
+              equation="vaft.formula.neoclassical.sauter_bootstrap_current", references=(_SAUTER,),
+              symbols=r"\mathrm{in\ VAFT:\ always\ available}"),
+            N("redl", "Redl fit", "derived", api="vaft.validation.neoclassical.bootstrap_models",
+              references=(_REDL,),
+              symbols=r"j_{\mathrm{bs}}\ \mathrm{with\ Redl's\ refitted}\ L_{31}, L_{32}, \alpha\qquad "
+                      r"\mathrm{in\ VAFT:\ always\ available}"),
+            N("neo", "NEO drift-kinetic solve", "solver", api="vaft.code.gacode.neo.runner.run_neo_pair",
+              symbols=r"j_{\mathrm{bs}},\ \sigma_\parallel\qquad \mathbf{optional}\ \mathrm{external\ code:\ "
+                      r"no\ NEO,\ no\ comparison}"),
+            N("basis", "Comparison basis", "convention",
+              symbols=r"\mathrm{end\text{-}to\text{-}end:\ grid\ and}\ f_t\ \mathrm{not\ shared}\qquad "
+                      r"\mathrm{reference = NEO}"),
+            N("compare", "Model agreement", "derived", api="vaft.validation.neoclassical.model_comparison",
+              symbols=r"j_{\mathrm{bs}}^{\mathrm{Sauter}},\ j_{\mathrm{bs}}^{\mathrm{Redl}}\ \mathrm{vs}\ "
+                      r"j_{\mathrm{bs}}^{\mathrm{NEO}}(\rho)"),
+            N("profiles", "NEO bootstrap and conductivity", "standardized",
+              api="vaft.machine_mapping.neoclassical.core_profiles_from_neo",
+              ids="core_profiles.profiles_1d[:].{j_bootstrap, conductivity_parallel}",
+              symbols=r"j_{\mathrm{bs}},\ \sigma_\parallel"),
+        ),
+        rows=(("state",), ("sauter", "redl", "neo"), ("compare", None, "profiles")),
+        edges=(("state", "sauter", ""), ("state", "redl", ""), ("state", "neo", ""), ("sauter", "compare", ""),
+               ("redl", "compare", ""), ("neo", "compare", "reference"), ("neo", "profiles", "")),
+        side=(("basis", "compare"),),
+        todos=("The like-for-like check against NEO's own Sauter/Redl columns (agreement to 1e-7) is a test, not a "
+               "product.",
+               "The closed-form results are not written to IMAS; only NEO's are."),
+    ),
 )
 
 #: every spine workflow, by key, in reading order
@@ -660,3 +828,23 @@ def parameter_inference_dependency_graph(*, labels: bool = True, references: boo
     ``references=True`` numbers the representative papers and lists them under the legend.
     """
     return _render_workflow(WORKFLOWS["parameter_inference_dependency_graph"], labels=labels, references=references)
+
+
+def eddy_current_model(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Vessel eddy currents from the PF and plasma current circuit (#1901)."""
+    return _render_workflow(WORKFLOWS["eddy_current_model"], labels=labels, references=references)
+
+
+def kinetic_profile_fitting(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Kinetic profile fitting from Thomson and charge exchange (#1901)."""
+    return _render_workflow(WORKFLOWS["kinetic_profile_fitting"], labels=labels, references=references)
+
+
+def transport_hierarchy(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Classical, neoclassical and turbulent transport from one state (#1901)."""
+    return _render_workflow(WORKFLOWS["transport_hierarchy"], labels=labels, references=references)
+
+
+def neoclassical_model_comparison(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Sauter / Redl against NEO at one kinetic state (#1901)."""
+    return _render_workflow(WORKFLOWS["neoclassical_model_comparison"], labels=labels, references=references)

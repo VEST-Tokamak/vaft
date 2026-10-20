@@ -41,7 +41,8 @@ def test_the_spine_reads_from_inference_through_reconstruction_to_transport():
         "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",
         "kinetic_efit", "analytic_mhd_equilibrium", "chease_coupling", "tokamaker_coupling", "dcon_rdcon_stability",
         "gpec_plasma_response", "flare_field_line_topology", "neo_neoclassical", "tglf_cgyro_local_transport",
-        "parameter_inference_overview", "parameter_inference_dependency_graph"]
+        "parameter_inference_overview", "parameter_inference_dependency_graph", "eddy_current_model",
+        "kinetic_profile_fitting", "transport_hierarchy", "neoclassical_model_comparison"]
 
 
 @pytest.mark.parametrize("spec", SPECS, ids=lambda s: s.key)
@@ -239,3 +240,25 @@ def test_references_are_optional_numbered_by_first_use_and_listed():
     assert "[3,4,5,6]" in resistive and "Spitzer" in resistive
     with pytest.raises(ValueError):
         vaft.diagram.parameter_inference_overview(references="yes")
+
+
+def test_every_transport_route_starts_from_the_state_and_external_codes_are_optional():
+    """#1901: no route is drawn as feeding another; NEO, TGLF and CGYRO are optional external codes."""
+    spec = WORKFLOWS["transport_hierarchy"]
+    routes = ("classical", "neo_fit", "neo_code", "turb_ql", "turb_gk")
+    assert {(src, dst) for src, dst, _ in spec.edges if dst in routes} == {("state", r) for r in routes}
+    for key in ("neo_code", "turb_ql", "turb_gk"):
+        assert spec.node(key).kind == "solver" and "optional" in spec.node(key).symbols, key
+    for key in ("classical", "neo_fit"):
+        assert "always" in spec.node(key).symbols, key
+    # Sauter/Redl has no core_transport writer: no edge from it to a standardized node
+    assert not [e for e in spec.edges if e[0] == "neo_fit"]
+    comparison = WORKFLOWS["neoclassical_model_comparison"]
+    assert "optional" in comparison.node("neo").symbols
+
+
+def test_the_eddy_model_is_a_forward_solve_checked_against_vacuum_magnetics():
+    spec = WORKFLOWS["eddy_current_model"]
+    assert spec.node("solve").kind == "solver" and spec.node("currents").ids == "pf_passive.loop[:].current"
+    assert spec.node("machine").kind == "machine" and spec.node("filaments").kind == "prior"
+    assert ("vacuum", "check", "") in spec.edges and any("not fitted" in t for t in spec.todos)
