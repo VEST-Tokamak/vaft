@@ -115,8 +115,11 @@ def main():
         destination=args.output/'batches'/f'batch_{offset//args.batch_size:05d}'
         marker=destination/'complete.json'
         if args.resume and marker.exists():
-            completed+=len(batch)
-            continue
+            # A marker from a run with another batch size covers other shots.
+            if json.loads(marker.read_text()).get('shots') == batch:
+                completed+=len(batch)
+                continue
+            print('stale_marker', destination, flush=True)
         if destination.exists():
             stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%f')
             destination.rename(destination.with_name(destination.name+'_incomplete_'+stamp))

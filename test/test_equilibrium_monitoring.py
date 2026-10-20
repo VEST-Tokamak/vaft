@@ -122,6 +122,20 @@ def test_hsds_optional_absence_does_not_erase_equilibrium(monkeypatch):
     assert e.errors
 
 
+def test_unreadable_shot_is_reported_and_scan_continues():
+    class Broken:
+        backend = 'filedb'
+        def read(self, shot):
+            if shot == 1:
+                raise RuntimeError('corrupt manifest')
+            return ShotEvidence(shot, 'filedb', 'main', ods=ODS(consistency_check=False),
+                                availability='no_equilibrium')
+    result = equilibrium_summary([1, 2], backends=[Broken()], magnetics=False)
+    assert result.shots.shot.tolist() == [1, 2]
+    assert result.shots.availability.tolist() == ['read_error', 'no_equilibrium']
+    assert 'corrupt manifest' in result.shots.errors_json.iloc[0]
+
+
 def test_hsds_transport_failure_stops_immediately(monkeypatch):
     from vaft import database
     calls = []
@@ -296,3 +310,41 @@ def test_population_runner_retries_transport_and_records_exhaustion(monkeypatch,
     with pytest.raises(ConnectionError):
         runner.collect_with_retries(42738, **kwargs)
     assert json.loads(path.read_text())['state'] == 'failed'
+
+
+def test_slice_index_follows_slice_time_not_requested_times(monkeypatch):
+    import vaft.validation.equilibrium as validation
+    monkeypatch.setattr(validation, 'validate_equilibrium', lambda *a, **k: {})
+    constraints = ods_with_times([.32])
+    # prepare_efit_inputs overwrites equilibrium.time with the requested times.
+    constraints['equilibrium.time'] = np.array([.31, .32])
+    e = ShotEvidence(1, 'filedb', 'main', ods=ODS(consistency_check=False), constraints=constraints)
+    rows = collect_evidence(e, magnetics=False)
+    assert [r['time_s'] for r in rows['attempts']] == [.32]
+
+
+def test_partial_hsds_equilibrium_is_not_validated(monkeypatch):
+    from vaft import database
+    import vaft.validation.equilibrium as validation
+    called = []
+    monkeypatch.setattr(validation, 'validate_equilibrium', lambda *a, **k: called.append(1) or {})
+    import vaft.database._equilibrium_monitoring as module
+    def open_shot(shot, source, paths):
+        if paths[0] != 'equilibrium':
+            raise FileNotFoundError(paths[0])
+        return nullcontext(ods_with_times([.31]))
+    def copy_then_fail(source, target, branch):
+        target['equilibrium.time_slice.0.time'] = .31
+        raise KeyError('No HSDS dataset maps to OMAS path')
+    monkeypatch.setattr(database, 'open', open_shot)
+    monkeypatch.setattr(module, '_copy_branch', copy_then_fail)
+    e = HSDSEvidenceBackend(magnetics=False).read(1)
+    assert e.availability == 'read_partial'
+    rows = collect_evidence(e, magnetics=False)
+    assert not called
+    assert rows['shots'][0]['availability'] == 'read_partial'
+
+
+def test_backend_labels_match_observation_backend():
+    assert HSDSEvidenceBackend.backend == 'hsds'
+    assert FileDBEvidenceBackend.backend == 'filedb'

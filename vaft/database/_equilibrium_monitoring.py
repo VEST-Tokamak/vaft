@@ -128,6 +128,8 @@ class HSDSEvidenceBackend:
     (camera data, for example) are never requested. Only occurrence 0 is supported
     by the current database.open API.
     """
+    backend = "hsds"
+
     def __init__(self, source="main", family="magnetic", *, magnetics=True, vacuum=False):
         self.source, self.family = source, family
         self.magnetics, self.vacuum = magnetics, vacuum
@@ -171,6 +173,10 @@ class HSDSEvidenceBackend:
                     evidence.errors.append(f"{root}: unavailable: {exc}")
                 else:
                     evidence.errors.append(f"{root}: error: {type(exc).__name__}: {exc}")
+                if root == "equilibrium" and path_count(evidence.ods, "equilibrium.time_slice"):
+                    # Slices copied before the failure are a storage defect, not
+                    # a reconstruction to validate.
+                    evidence.availability = "read_partial"
         evidence.collection = _collection(evidence.ods)
         if not path_count(evidence.ods, "equilibrium.time_slice"):
             evidence.availability = "no_equilibrium"
@@ -184,6 +190,8 @@ class FileDBEvidenceBackend:
     pass a mounted FileDB root. Source is explicit, since a campaign FileDB need
     not be the product currently published to that HSDS namespace.
     """
+    backend = "filedb"
+
     def __init__(self, root, source="main", family="magnetic", *, magnetics=True, vacuum=False):
         from .filedb import FileDB
         self.filedb = root if isinstance(root, FileDB) else FileDB(root)
@@ -295,7 +303,11 @@ class FileDBEvidenceBackend:
                 try:
                     payload = read_keqdsk(path).namelists
                     from vaft.code.efit.magnetic import _efit_case_time, _efit_case_key
-                    e.kfiles.append({"time": _efit_case_time(_efit_case_key(path)),
+                    case_time = _efit_case_time(_efit_case_key(path))
+                    if not np.isfinite(case_time):
+                        e.errors.append(f"{path}: k-file name carries no time; not joined")
+                        continue
+                    e.kfiles.append({"time": case_time,
                                      "path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                                      "namelists": payload})
                 except Exception as exc:
@@ -347,11 +359,21 @@ class EquilibriumSummary:
 
 
 def _times(ods):
-    times = path_value(ods, "equilibrium.time", None)
-    if times is None:
-        times = [path_value(ods, f"equilibrium.time_slice.{i}.time", None)
-                 for i in range(path_count(ods, "equilibrium.time_slice"))]
-    return list(times)
+    """Time of each ``time_slice[i]``, so positions are slice indices.
+
+    ``equilibrium.time`` is only a fallback: a constraints ODS may carry the
+    requested times there, which need not be 1:1 with its stored slices.
+    """
+    count = path_count(ods, "equilibrium.time_slice")
+    if not count:
+        return []
+    times = [path_value(ods, f"equilibrium.time_slice.{i}.time", None) for i in range(count)]
+    if all(t is not None for t in times):
+        return times
+    fallback = path_value(ods, "equilibrium.time", None)
+    if fallback is not None and len(fallback) == count:
+        return list(fallback)
+    raise ValueError("equilibrium time_slice times are missing; refusing positional pairing")
 
 
 def _time_key(time):
@@ -388,7 +410,9 @@ def collect_evidence(e: ShotEvidence, *, magnetics=True, vacuum=False):
     keys = sorted(set(statuses) | set(eq) | set(constraints) | set(kfiles))
     # The temporal check must see every slice, not one-slice copies.
     report = {}
-    if eq:
+    if e.availability == "read_partial":
+        e.errors.append("equilibrium validation skipped: equilibrium read was partial")
+    elif eq:
         try:
             from vaft.validation.equilibrium import validate_equilibrium
             report = validate_equilibrium(e.ods, diagnostics=e.ods)
@@ -548,7 +572,15 @@ def equilibrium_summary(shots: Iterable[int], *, mode="hsds", source=None, famil
     tables = {name: [] for name in TABLE_COLUMNS}
     for shot in shots:
         for backend in backends:
-            evidence = backend.read(shot)
+            try:
+                evidence = backend.read(shot)
+            except ConnectionError:
+                raise
+            except Exception as exc:
+                # One unreadable shot is an observation, not the end of the scan.
+                evidence = ShotEvidence(shot, getattr(backend, "backend", type(backend).__name__),
+                                        source, family, availability="read_error",
+                                        errors=[f"{type(exc).__name__}: {exc}"])
             try:
                 rows = collect_evidence(evidence, magnetics=magnetics, vacuum=vacuum)
             except Exception as exc:

@@ -99,3 +99,6 @@ def write_monitoring_figures(summary, directory):
                 plt.close(fig)
                 written.append(path)
     return written
+
+
+__all__ = ["write_monitoring_figures"]
