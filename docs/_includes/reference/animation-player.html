@@ -1,0 +1,8 @@
+{%- assign animation = include.animation -%}
+<div class="va-animation" data-animation="{{ animation.id }}" data-artifact="{{ site.baseurl }}/{{ animation.artifact }}" data-sha256="{{ animation.sha256 }}" data-player="{{ site.baseurl }}/assets/animations/player.js">
+<a href="{{ site.baseurl }}/assets/diagrams/{{ animation.poster }}"><img class="va-poster" loading="lazy" src="{{ site.baseurl }}/assets/diagrams/{{ animation.poster }}" alt="{{ animation.title | escape }}: canonical static diagram"></a>
+<p>{{ animation.title }} · <code>{{ animation.driver.name }}</code> [{{ animation.driver.unit }}] · {{ animation.count }} stored states</p>
+<button type="button" data-activate>Interactive</button>
+<p data-animation-status role="status">Static poster. Scientific states load only when activated.</p>
+<details class="va-animation-details"><summary>Scientific state and provenance</summary><p>{{ animation.representation }} · float64 · interpolation: {{ animation.interpolation }} · {{ animation.fps }} presentation fps</p><p>Scientific inputs: <code>{{ animation.parameters | jsonify | escape }}</code></p><p>Recipe: <code>{{ animation.recipe_source }}</code> · generated commit: <code>{{ animation.generated_commit }}</code></p><p>{{ animation.bytes }} bytes ({{ animation.gzip_bytes }} gzip bytes) · SHA-256 <code>{{ animation.sha256 }}</code></p><p><a data-state-download hidden download href="{{ site.baseurl }}/{{ animation.artifact }}">Download scientific states</a> · <a href="{{ site.baseurl }}/reference/diagram/#{{ animation.builder }}">Canonical builder and source</a></p></details>
+</div>

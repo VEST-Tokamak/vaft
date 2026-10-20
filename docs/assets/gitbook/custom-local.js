@@ -7,6 +7,7 @@ require(['gitbook', 'jquery'], function (gitbook, $) {
 
         $book.toggleClass('with-page-toc', open);
         $toggles.attr('aria-expanded', open ? 'true' : 'false');
+        if (window.VAFTDrawerSync) window.VAFTDrawerSync(open ? 'toc' : null);
 
         if (open) {
             var toc = document.getElementById('page-toc');

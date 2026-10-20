@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import json
+import os
 import re
 import subprocess
 import sys
@@ -270,6 +272,33 @@ def test_windows_application_data_folders_point_into_the_workspace(monkeypatch, 
         assert environment[name].startswith(str(tmp_path)), name
         assert Path(environment[name]).is_dir(), name
     assert environment["APPDATA"].startswith(environment["USERPROFILE"])
+
+
+def test_windows_appdata_is_existing_and_isolated(monkeypatch, tmp_path):
+    names = ("APPDATA", "LOCALAPPDATA", "PROGRAMDATA", "ALLUSERSPROFILE")
+    for name in names:
+        monkeypatch.setenv(name, str(tmp_path / "host-configuration" / name))
+    before = dict(os.environ)
+    environment = pipeline_graph._environment(tmp_path / "workspace")
+    for name in names:
+        directory = Path(environment[name])
+        assert directory.is_relative_to(tmp_path / "workspace")
+        assert directory.is_dir()
+        assert environment[name] != before[name]
+    assert environment["PROGRAMDATA"] == environment["ALLUSERSPROFILE"]
+    assert dict(os.environ) == before
+    # The same provider is used by the actual dry-run child on every platform.
+    result = subprocess.run(
+        [sys.executable, "-c",
+         "from vaft._pipeline_graph import _configure_snakemake_appdirs; "
+         "_configure_snakemake_appdirs(); import snakemake.common,json; "
+         "print(json.dumps(vars(snakemake.common.get_appdirs())))"],
+        env=environment, capture_output=True, text=True, check=True,
+    )
+    for location in json.loads(result.stdout).values():
+        directory = Path(location)
+        assert directory.is_relative_to(tmp_path / "workspace")
+        assert directory.is_dir()
 
 
 def test_the_source_receipt_build_py_checks(snapshot):

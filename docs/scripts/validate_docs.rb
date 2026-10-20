@@ -257,6 +257,20 @@ if (ROOT / "_data" / "diagram_catalog.yml").file?
       errors << "diagram asset #{item['asset']} has no SVG at #{item['svg']}"
     end
   end
+  animations = builders.flat_map { |b| Array(b["animations"]) }
+  require_fields(errors, "animation variant", animations, %w[id builder variant driver poster artifact sha256 bytes gzip_bytes count sources generated_commit representation interpolation])
+  animation_ids = animations.map { |a| a["id"] }
+  errors << "duplicate animation variants" unless animation_ids.uniq.size == animation_ids.size
+  animations.each do |a|
+    artifact = ROOT / a["artifact"].to_s
+    if a["artifact"].to_s !~ %r{\Aassets/animations/[A-Za-z0-9_-]+\.json\z} || !artifact.file?
+      errors << "missing/invalid animation state #{a['id']}"
+    else
+      errors << "animation integrity mismatch #{a['id']}" unless Digest::SHA256.file(artifact).hexdigest == a["sha256"] && artifact.size == a["bytes"]
+    end
+    errors << "animation state budget exceeded #{a['id']}" unless a["gzip_bytes"].is_a?(Integer) && a["gzip_bytes"] <= 300 * 1024
+    errors << "animation poster is not canonical #{a['id']}" unless assets.any? { |asset| asset["asset"] == a["poster"] && asset["builder"] == a["builder"] }
+  end
   # Hand-written pages may show a diagram only if it is still canonical.
   catalogued_svgs = assets.map { |item| item["asset"] }.to_set
   (ROOT.glob("{_guide,_pages,guide}/*.md") + ROOT.glob("*.{md,markdown,html}")).each do |page|
@@ -575,6 +589,18 @@ if diagram_snapshot
   compare_rendered(errors, "diagram", url, diagram_snapshot.fetch("builders", []).map { |item| item["name"] }, '[data-catalog="diagram"]')
   compare_rendered(errors, "diagram asset", url, diagram_snapshot.fetch("assets", []).map { |item| item["asset"] }, '[data-catalog="diagram-asset"]', "data-asset")
   compare_rendered(errors, "diagram formats", url, diagram_snapshot.fetch("builders", []).map { |item| item["name"] }, "[data-formats]", "data-formats")
+  animation_ids = diagram_snapshot.fetch("builders", []).flat_map { |b| Array(b["animations"]).map { |a| a["id"] } }
+  if !animation_ids.empty?
+    compare_rendered(errors, "animation", "#{BASEURL}/reference/animation/", animation_ids, '[data-catalog="animation"]')
+    [url, "#{BASEURL}/reference/animation/"].each do |route|
+      if (page = output_path(route))
+        Nokogiri::HTML(page.read).css('[data-animation]').each do |element|
+          errors << "animation state URL does not resolve #{element['data-artifact']}" unless output_path(element['data-artifact'].to_s)
+          errors << "animation player URL does not resolve #{element['data-player']}" unless output_path(element['data-player'].to_s)
+        end
+      end
+    end
+  end
   check_sources(errors, "diagram", url, diagram_snapshot, diagram_snapshot.fetch("builders", []).to_h { |item| [item["name"], item["source"]] })
   if (built = output_path(url))
     Nokogiri::HTML(built.read).css('[data-catalog="diagram-asset"] img').each do |image|

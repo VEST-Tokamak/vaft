@@ -58,3 +58,13 @@ vaft/data/nubeam/** text=auto eol=lf
 
 # Content-addressed native nonlinear reference.
 test/data/gacode/cgyro_nonlinear_39915_em/** -text
+
+# Scientific replay manifests pin asset and source bytes across platforms.
+docs/assets/animations/** text=auto eol=lf
+vaft/diagram/_magnetic_island.py text eol=lf
+vaft/diagram/_particle_motion.py text eol=lf
+vaft/diagram/_replay.py text eol=lf
+vaft/diagram/_scene.py text eol=lf
+vaft/formula/equilibrium.py text eol=lf
+vaft/formula/particle.py text eol=lf
+vaft/formula/stability.py text eol=lf
