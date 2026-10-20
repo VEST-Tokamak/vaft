@@ -472,8 +472,10 @@ def main() -> int:
         type=int,
         help="Recovery backend: 0 none, 1 Gaussian family fit for rejected probes, 2 for every probe.",
     )
-    parser.add_argument("--npprime", default=2, type=int, help="EFIT KPPCUR value.")
-    parser.add_argument("--nffprime", default=2, type=int, help="EFIT KFFCUR value.")
+    # Accepted and ignored: the constraints product no longer records a
+    # profile basis it does not choose; the k-file stage's configuration does (#869).
+    parser.add_argument("--npprime", default=None, type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--nffprime", default=None, type=int, help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     # force=True: vaft.database.raw installs a root handler at import time, which makes
@@ -572,8 +574,6 @@ def main() -> int:
         _csv_floats(args.uncertainty),
         _csv_floats(args.weighting),
         fl_correct_coeff=fl_correct_coeff,
-        FFCUR=args.nffprime,
-        PPCUR=args.npprime,
         decisions=decisions,
         recovery=recovery,
         average_window=args.average_window,
