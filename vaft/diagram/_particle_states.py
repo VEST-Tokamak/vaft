@@ -64,11 +64,14 @@ def _project(points, projection):
 
 
 def _trail(trajectory, time):
-    before = trajectory.position[trajectory.time < time]
-    last = trajectory.sample(time)["position"]
-    # Rendering density does not change scientific samples or marker position.
-    stride = max(1, int(np.ceil(len(before) / 1200)))
-    return np.vstack([before[::stride], last])
+    start = float(trajectory.time[0])
+    if time <= start:
+        return trajectory.sample(time)["position"]
+    # Draw on a fixed physical-time grid, not the solver's adaptive nodes: their
+    # placement follows platform-dependent step-size control, and a committed
+    # reference SVG must hash the same on every platform. Rendering density
+    # does not change scientific samples or marker position.
+    return trajectory.sample(np.linspace(start, time, 1200))["position"]
 
 
 def _scene(comparison, time, projection, labels, name):
