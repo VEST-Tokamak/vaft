@@ -1400,6 +1400,63 @@ vaft.diagram.wall_conditioning_sequence(("baking", "D2_gdc", "He_gdc", "boroniza
 | `wall_conditioning_boronization` | A B-containing precursor in a deposition plasma leaves a B-rich surface layer, a change of surface state rather than cleaning |
 | `wall_conditioning_sequence` | The single stages in the caller's order, each arrow a wall-state transition, ending in plasma operation. The order is not a recommended procedure |
 
+## Canonical turbulence concepts
+
+Six concept figures built on the fluctuation-driven transport definitions in `vaft.formula.turbulence`. Geometry
+is slab: $x$ radial (outward), $y$ binormal, $\mathbf B = B\hat z$. They explain mechanisms; none is a turbulence
+model, a stability classifier or a transport prediction.
+
+```text
+gradient -> omega_* -> growth gamma -> n~, phi~ -> v_E -> flux <n~ v_r> -> relaxation (reduced drive)
+turbulence -> Reynolds stress -> zonal flow -> E x B shear --| turbulence
+```
+
+- `drift_wave_transport_cycle` draws that loop. Each step names its definition:
+  - $\omega_* = \mathbf k\cdot\mathbf v_*$;
+  - $\mathbf v_E = \mathbf B\times\nabla\phi/B^2$ (it calls `particle.exb_drift_velocity`);
+  - $\Gamma = \langle\tilde n\tilde v_r\rangle$.
+- `cross_phase_transport` shows one mode at $\theta_{n\phi} = 0, \pm\pi/2$. Each flux comes from
+  `coherent_particle_flux_from_amplitudes_phase` and is checked against a direct average of $\tilde n\,\tilde v_x$.
+  The convention ($\theta_{n\phi}$ is the lead of $\tilde\phi$ over $\tilde n$, real cosine fields) is in the model
+  and on the figure.
+- `mixing_length_saturation`: growth $\gamma$ against decorrelation $k_\perp\tilde v$. They cross at
+  $\tilde v = \gamma/k_\perp$, which gives `mixing_length_diffusivity_from_gamma_k_perp`. It is an estimate, not a closure.
+- `exb_shear_decorrelation`: a round eddy, and the same eddy after the shear map $y \to y + St\,x$. A radial cut through
+  its centre shrinks by $\sqrt{1 + (St)^2}$. This is geometry only: measured $E_r$ and shearing-rate profiles are plots.
+- `zonal_flow_feedback`: the self-regulation loop with the Reynolds-stress and zonal-flow-drive definitions. The
+  damping $\mu$ is a stated choice, and no coefficient model is assumed (`predator_prey_rhs` is the reduced one).
+- `turbulence_scale_hierarchy`: representative $2\pi/k_\perp$ bands against the lengths of the
+  `spatial_scale_orderings` state:
+  - ITG/TEM at $k_\perp\rho_i \sim 0.1$–$1$;
+  - ETG at $k_\perp\rho_e \sim 0.1$–$1$;
+  - a dashed TEM extension to $k_\perp\rho_s \sim 5$.
+
+  The bands are conventions, not thresholds. At VEST's low field the ion band reaches $a$.
+
+```python
+vaft.diagram.drift_wave_transport_cycle()
+vaft.diagram.cross_phase_transport()
+vaft.diagram.mixing_length_saturation()
+vaft.diagram.exb_shear_decorrelation(shear=1.6)
+vaft.diagram.zonal_flow_feedback()
+vaft.diagram.turbulence_scale_hierarchy()
+```
+
+| | |
+| --- | --- |
+| ![drift-wave cycle]({{ '/assets/diagrams/drift_wave_transport_cycle.svg' | relative_url }}) | ![zonal-flow feedback]({{ '/assets/diagrams/zonal_flow_feedback.svg' | relative_url }}) |
+| ![cross-phase]({{ '/assets/diagrams/cross_phase_transport.svg' | relative_url }}) | ![mixing length]({{ '/assets/diagrams/mixing_length_saturation.svg' | relative_url }}) |
+| ![shear decorrelation]({{ '/assets/diagrams/exb_shear_decorrelation.svg' | relative_url }}) | ![scales]({{ '/assets/diagrams/turbulence_scale_hierarchy.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `drift_wave_transport_cycle` | Gradient, drift frequency, growth, fluctuations, $E\times B$ velocity, radial flux, and the relaxation that reduces the drive |
+| `cross_phase_transport` | Zero flux in phase, outward at $+\pi/2$, inward at $-\pi/2$, with the sign convention stated |
+| `mixing_length_saturation` | $\gamma$ against $k_\perp\tilde v$: saturation at $\tilde v = \gamma/k_\perp$ gives $D \sim \gamma/k_\perp^2$ |
+| `exb_shear_decorrelation` | An unsheared and a sheared eddy: tilted, stretched, with a shorter radial cut |
+| `zonal_flow_feedback` | Turbulence, Reynolds stress, zonal flow, shear, with the inhibition of the turbulence drawn without an arrowhead |
+| `turbulence_scale_hierarchy` | Electron- and ion-scale bands and an open TEM range against the equilibrium lengths |
+
 ## SOL blobs and filaments
 
 A blob is a localized positive density (pressure) perturbation in the scrape-off layer, and a hole is a

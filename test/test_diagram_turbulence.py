@@ -1,0 +1,104 @@
+"""Canonical turbulence concept diagrams (#1112): structure from roles and the model, not pixels."""
+
+import math
+
+import numpy as np
+import pytest
+
+import vaft.diagram
+from vaft.diagram._equations import formula_equation
+from vaft.diagram._scene import Arrow, Label, Marker, Polyline
+from vaft.formula import turbulence
+
+BUILDERS = ("drift_wave_transport_cycle", "cross_phase_transport", "mixing_length_saturation",
+            "exb_shear_decorrelation", "zonal_flow_feedback", "turbulence_scale_hierarchy")
+
+
+@pytest.mark.parametrize("name", BUILDERS)
+def test_every_turbulence_diagram_builds_a_deterministic_scene_and_strips_its_text(name):
+    build = getattr(vaft.diagram, name)
+    diagram = build()
+    assert diagram.name == name and diagram.scene == build().scene
+    bare = build(labels=False)
+    assert not [it for it in bare.scene.items if isinstance(it, Label) and it.role not in ("axes", "ticks")
+                and it.text.strip()]
+
+
+def test_the_drift_wave_cycle_closes_through_profile_relaxation():
+    diagram = vaft.diagram.drift_wave_transport_cycle()
+    cycle = diagram.model["cycle"]
+    assert cycle[0] == "gradient" and cycle[-1] == "radial_flux"
+    assert diagram.model["feedback"] == ("radial_flux", "gradient")
+    scene = diagram.scene
+    assert len([it for it in scene.role("cycle") if isinstance(it, Arrow)]) == len(cycle) - 1
+    assert [it for it in scene.role("relaxation") if isinstance(it, Arrow)]
+    for role in ("gradient", "exb_velocity", "radial_flux"):
+        assert scene.role(role), role
+    assert diagram.model["equations"]["radial_flux"] == formula_equation(
+        turbulence.turbulent_particle_flux_from_fluctuations)
+
+
+def test_cross_phase_flux_is_zero_positive_and_negative():
+    diagram = vaft.diagram.cross_phase_transport()
+    fluxes = diagram.model["fluxes"]
+    assert fluxes["zero"] == pytest.approx(0.0, abs=1e-12)
+    assert fluxes["plus"] > 0 and fluxes["minus"] == pytest.approx(-fluxes["plus"])
+    assert "theta = alpha_phi - alpha_n" in diagram.model["convention"]
+    scene = diagram.scene
+    assert len(scene.role("fluctuation_density")) >= 3 and len(scene.role("fluctuation_potential")) >= 3
+    flux_marks = [it for it in scene.role("radial_flux") if not isinstance(it, Label)]
+    assert [type(it) for it in flux_marks] == [Marker, Arrow, Arrow]
+    outward, inward = flux_marks[1], flux_marks[2]
+    assert outward.end[0] > outward.start[0] and inward.end[0] < inward.start[0]
+
+
+def test_mixing_length_saturates_where_decorrelation_reaches_growth():
+    model = vaft.diagram.mixing_length_saturation().model
+    assert model["saturated_amplitude"] == pytest.approx(model["gamma"] / model["k_perp"])
+    assert model["diffusivity"] == pytest.approx(
+        turbulence.mixing_length_diffusivity_from_gamma_k_perp(model["gamma"], model["k_perp"]))
+    assert model["steps"][-1] == "diffusivity"
+
+
+def test_shear_tilts_the_eddy_and_shortens_its_radial_cut():
+    diagram = vaft.diagram.exb_shear_decorrelation(shear=1.6)
+    cut = diagram.model["radial_cut"]
+    assert cut["sheared"] == pytest.approx(cut["unsheared"] / math.sqrt(1.0 + 1.6 ** 2))
+    scene = diagram.scene
+    assert scene.role("eddy") and scene.role("sheared_eddy")
+    # the sheared eddy is tilted: its contour is taller than it is wide, the round one is not
+    def aspect(role):
+        pts = np.array(max((it for it in scene.role(role) if isinstance(it, Polyline)), key=lambda p: len(p.points))
+                       .points)
+        return np.ptp(pts[:, 1]) / np.ptp(pts[:, 0])
+    assert aspect("eddy") == pytest.approx(1.0, rel=1e-3) and aspect("sheared_eddy") > 1.5
+    # the flow is uniform on the left and changes sign across the sheared eddy
+    shear_arrows = [it for it in scene.role("shear") if isinstance(it, Arrow)]
+    assert {np.sign(a.end[1] - a.start[1]) for a in shear_arrows} == {-1.0, 1.0}
+    assert diagram.model["shearing_rate"] == pytest.approx(1.6)
+    with pytest.raises(ValueError):
+        vaft.diagram.exb_shear_decorrelation(shear=0.0)
+
+
+def test_zonal_flow_loop_runs_turbulence_to_shear_and_back():
+    diagram = vaft.diagram.zonal_flow_feedback()
+    assert diagram.model["loop"] == ["gradient", "turbulence", "reynolds_stress", "zonal_flow", "shear"]
+    assert diagram.model["suppression"] == ("shear", "turbulence")
+    scene = diagram.scene
+    assert len([it for it in scene.role("feedback_loop") if isinstance(it, Arrow)]) == 4
+    # the suppression is drawn without an arrow head (an inhibition bar)
+    assert scene.role("suppression") and not [it for it in scene.role("suppression") if isinstance(it, Arrow)]
+    for role in ("reynolds_stress", "zonal_flow", "shear"):
+        assert scene.role(role), role
+
+
+def test_scale_hierarchy_keeps_electron_below_ion_scales_and_tem_open():
+    model = vaft.diagram.turbulence_scale_hierarchy().model
+    lengths, bands = model["lengths"], model["bands"]
+    assert lengths["rho_e"] < lengths["rho_i"] < lengths["minor"]
+    assert bands["electron_scale"][1] < bands["ion_scale"][1]
+    # TEM is not confined to the ion band: it reaches below it
+    assert bands["tem_extent"][0] < bands["ion_scale"][0]
+    scene = vaft.diagram.turbulence_scale_hierarchy().scene
+    for role in ("ion_scale", "electron_scale", "tem_extent", "equilibrium_scale"):
+        assert scene.role(role), role
