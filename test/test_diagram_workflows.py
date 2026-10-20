@@ -306,7 +306,7 @@ def test_synthetic_diagnostics_are_the_three_forward_models_and_the_rest_is_a_ga
     models = {n.api.rsplit(".", 1)[1] for n in spec.nodes if n.key in ("vacuum", "diamagnetic", "sxr")}
     assert models == {"synthetic_vacuum_magnetics", "compute_reconstructed_diamagnetic_flux",
                       "synthetic_island_soft_x_rays"}
-    assert spec.node("sxr_out").kind == "synthetic" and spec.node("island").kind == "prior"
+    assert spec.node("island").kind == "prior" and ("chords", "sxr") in spec.side
     gap = spec.todos[0]
     assert all(word in gap for word in ("Thomson", "interferometer", "camera"))
     assert spec.node("vac_out").mapping_todo and spec.node("sxr_out").mapping_todo
@@ -325,13 +325,13 @@ def test_cocos_is_transformed_at_two_independent_layers():
 
 def test_the_two_power_balances_stay_apart_and_write_no_summary():
     spec = WORKFLOWS["power_balance_confinement"]
-    experimental, modelled = {"split", "balance", "tau", "scaling"}, {"spitzer", "radiation", "budget"}
+    experimental, modelled = {"split", "balance", "tau", "evidence", "scaling"}, {"spitzer", "radiation", "budget"}
     assert not [e for e in spec.edges if {e[0], e[1]} & experimental and {e[0], e[1]} & modelled]
     assert spec.node("tau").api == "vaft.omas.confinement.ohmic_confinement_ods"
     assert spec.node("budget").api == "vaft.omas.formula_wrapper.compute_power_balance"
     for key in ("tau", "budget"):
-        assert "not written to summary" in spec.node(key).mapping_todo, key
-    assert "NaN" in spec.node("balance").symbols and spec.node("radiation").kind == "inferred"
+        assert "not written to the summary IDS" in spec.node(key).mapping_todo, key
+    assert "NaN" in spec.node("balance").symbols
     assert not [n for n in spec.nodes if n.ids and n.ids.startswith("summary")]
 
 
