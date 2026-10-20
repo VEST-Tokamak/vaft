@@ -243,18 +243,30 @@ def test_references_are_optional_numbered_by_first_use_and_listed():
 
 
 def test_every_transport_route_starts_from_the_state_and_external_codes_are_optional():
-    """#1901: no route is drawn as feeding another; NEO, TGLF and CGYRO are optional external codes."""
+    """#1901: no route feeds another; NEO, TGLF and CGYRO are optional external codes, each with its own writer."""
     spec = WORKFLOWS["transport_hierarchy"]
     routes = ("classical", "neo_fit", "neo_code", "turb_ql", "turb_gk")
     assert {(src, dst) for src, dst, _ in spec.edges if dst in routes} == {("state", r) for r in routes}
     for key in ("neo_code", "turb_ql", "turb_gk"):
         assert spec.node(key).kind == "solver" and "optional" in spec.node(key).symbols, key
     for key in ("classical", "neo_fit"):
-        assert "always" in spec.node(key).symbols, key
-    # Sauter/Redl has no core_transport writer: no edge from it to a standardized node
-    assert not [e for e in spec.edges if e[0] == "neo_fit"]
-    comparison = WORKFLOWS["neoclassical_model_comparison"]
-    assert "optional" in comparison.node("neo").symbols
+        assert "software" in spec.node(key).symbols and "always" in spec.node(key).symbols, key
+    # closures, not fluxes: Sauter/Redl has no writer and no flux
+    assert not [e for e in spec.edges if e[0] == "neo_fit"] and "no" in spec.node("neo_fit").symbols
+    # TGLF and CGYRO land in separate entries; CGYRO needs a saturation window
+    assert ("turb_ql", "ct_tglf", "") in spec.edges and ("turb_gk", "ct_cgyro", "") in spec.edges
+    assert ("window", "ct_cgyro") in spec.side
+    for key in ("ct_classical", "ct_neo", "ct_tglf", "ct_cgyro"):
+        assert "model[k]" in spec.node(key).ids and "identifier.index" in spec.node(key).ids, key
+
+
+def test_the_comparison_separates_the_shared_state_from_two_input_paths():
+    spec = WORKFLOWS["neoclassical_model_comparison"]
+    assert ("state", "analytic_in", "VAFT path") in spec.edges and ("state", "neo_in", "GACODE path") in spec.edges
+    assert ("neo_in", "neo_cond", "") in spec.edges and "E_\\parallel = 1" in spec.node("neo_cond").symbols
+    assert "not\\ ground\\ truth" in spec.node("compare").symbols
+    assert "B_0" in spec.node("basis").symbols and "COCOS" in spec.node("mapping").symbols
+    assert ("mapping", "compare", "reference") in spec.edges
 
 
 def test_the_eddy_model_is_a_forward_solve_checked_against_vacuum_magnetics():

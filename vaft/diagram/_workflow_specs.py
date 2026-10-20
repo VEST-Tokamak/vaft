@@ -25,8 +25,13 @@ _LAO = "L. L. Lao et al., Nucl. Fusion 25 (1985) 1611"
 _WESSON = "J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 4.25"
 _ROMERO = "J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002"
 _SPITZER = "L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977"
-_SAUTER = "O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834"
+_SAUTER = "O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834; 9 (2002) 5140 (erratum)"
 _REDL = "A. Redl et al., Phys. Plasmas 28 (2021) 022502"
+_BRAGINSKII = "S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205"
+_BELLI_2008 = "E. A. Belli and J. Candy, Plasma Phys. Control. Fusion 50 (2008) 095010"
+_BELLI_2012 = "E. A. Belli and J. Candy, Plasma Phys. Control. Fusion 54 (2012) 015015"
+_STAEBLER = "G. M. Staebler, J. E. Kinsey and R. E. Waltz, Phys. Plasmas 14 (2007) 055909"
+_CANDY_2016 = "J. Candy, E. A. Belli and R. V. Bravenec, J. Comput. Phys. 324 (2016) 73"
 
 _SPECS = (
     # ------------------------------------------------------------------ inference
@@ -664,84 +669,120 @@ _SPECS = (
     WorkflowSpec(
         key="transport_hierarchy", title="Transport hierarchy: classical, neoclassical, turbulent",
         family="transport", status="implemented",
-        summary="One resolved local state, five independent routes: each is computed from the state itself, not "
-                "from another route. The VAFT routes (Braginskii, Sauter/Redl) always run; NEO, TGLF and CGYRO are "
-                "optional external codes. Every route with a writer lands in its own core_transport model.",
+        summary="One resolved local state and five independently computed routes; none feeds another. "
+                "'Always available' means the route needs no external code, not that its physics applies "
+                "everywhere. Each route with a writer lands in its own core_transport.model entry, found by its "
+                "identifier.index and code name -- the array position k is assigned at write time.",
         nodes=(
             N("state", "Resolved local state", "derived", api="vaft.process.transport_state.resolve_transport_state",
               symbols=r"T_s,\ n_s,\ a/L_{T,n},\ q,\ \hat s,\ \hat\nu"),
-            N("classical", "Classical (Braginskii)", "derived", api="vaft.process.transport_state.classical_heat_fluxes",
-              equation="vaft.formula.equilibrium.coulomb_logarithm_from_n_T",
-              symbols=r"\chi_{\perp,e},\ \chi_{\perp,i}\qquad \mathrm{in\ VAFT:\ always\ available}"),
-            N("neo_fit", "Neoclassical: Sauter / Redl", "derived",
+            N("classical", "Classical: Braginskii", "derived", api="vaft.process.transport_state.classical_heat_fluxes",
+              references=(_BRAGINSKII,),
+              symbols=r"\mathrm{perpendicular\ conductive}\ q_{\perp,e},\ q_{\perp,i}\qquad "
+                      r"\mathrm{strongly\ magnetized}:\ \kappa_\perp \propto nT/(m\Omega^2\tau)\qquad "
+                      r"\mathrm{software:\ always\ available}"),
+            N("neo_fit", "Neoclassical closures: Sauter / Redl", "derived",
               api="vaft.omas.neoclassical.compute_bootstrap_current", references=(_SAUTER, _REDL),
-              symbols=r"j_{\mathrm{bs}},\ \sigma_\parallel\qquad \mathrm{in\ VAFT:\ always\ available}"),
+              symbols=r"j_{\mathrm{bs}},\ \sigma_\parallel\ \mathrm{only:\ no}\ \Gamma_s,\ Q_s\qquad "
+                      r"\mathrm{software:\ always\ available}"),
             N("neo_code", "Neoclassical: NEO", "solver", api="vaft.code.gacode.neo.runner.run_neo_pair",
-              symbols=r"\Gamma_s,\ Q_s,\ j_{\mathrm{bs}},\ \sigma_\parallel\qquad "
+              references=(_BELLI_2008, _BELLI_2012),
+              symbols=r"\Gamma_s,\ Q_s,\ j_{\mathrm{bs}}\ (\mathrm{transport\ run})\qquad "
+                      r"\sigma_\parallel\ (\mathrm{separate}\ E_\parallel\ \mathrm{run})\qquad "
                       r"\mathbf{optional}\ \mathrm{external\ code}"),
-            N("turb_ql", "Turbulent: TGLF", "solver", api="vaft.code.gacode.tglf.run_tglf",
+            N("turb_ql", "Turbulent: TGLF", "solver", api="vaft.code.gacode.tglf.run_tglf", references=(_STAEBLER,),
               symbols=r"Q_s,\ \Gamma_s\ (\mathrm{quasilinear})\qquad \mathbf{optional}\ \mathrm{external\ code}"),
-            N("turb_gk", "Turbulent: CGYRO", "solver", api="vaft.code.gacode.cgyro.run_cgyro",
-              symbols=r"\gamma,\ \omega;\ \langle Q_s\rangle_t\ (\mathrm{gyrokinetic})\qquad "
-                      r"\mathbf{optional}\ \mathrm{external\ code}"),
+            N("turb_gk", "Turbulent: CGYRO", "solver", api="vaft.code.gacode.cgyro.run_cgyro", references=(_CANDY_2016,),
+              symbols=r"\mathrm{nonlinear}\ Q_s(t),\ \Gamma_s(t)\qquad \mathbf{optional}\ \mathrm{external\ code}"),
+            N("window", "Saturation window", "prior", symbols=r"(t_0, t_1)\ [a/c_s],\ \mathrm{chosen\ by\ the\ caller}"),
             N("ct_classical", "Classical transport", "standardized",
               api="vaft.machine_mapping.classical.core_transport_from_classical",
-              ids="core_transport.model[:] (index -1)", symbols=r"\chi_e,\ \chi_i\ (\mathrm{private\ index})"),
+              ids="core_transport.model[k] (identifier.index -1)", symbols=r"\chi_e,\ \chi_i\ (\mathrm{private\ index})"),
             N("ct_neo", "Neoclassical transport", "standardized",
               api="vaft.machine_mapping.neoclassical.core_transport_from_neo",
-              ids="core_transport.model[:] (index 5)", symbols=r"\Gamma_s,\ Q_s\ (\mathrm{from\ NEO})"),
-            N("ct_turb", "Anomalous transport", "standardized",
+              ids="core_transport.model[k] (identifier.index 5)", symbols=r"\Gamma_s,\ Q_s\ (\mathrm{NEO})"),
+            N("ct_tglf", "Anomalous transport (TGLF)", "standardized",
               api="vaft.machine_mapping.turbulence.core_transport_from_tglf",
-              ids="core_transport.model[:] (index 6)", symbols=r"\Gamma_s,\ Q_s,\ \Pi_\phi"),
+              ids="core_transport.model[k] (identifier.index 6, code TGLF)", symbols=r"\Gamma_s,\ Q_s,\ \Pi_\phi"),
+            N("ct_cgyro", "Anomalous transport (CGYRO)", "standardized",
+              api="vaft.machine_mapping.gyrokinetics.core_transport_from_cgyro",
+              ids="core_transport.model[k] (identifier.index 6, code CGYRO)",
+              symbols=r"\langle\Gamma_s\rangle_t,\ \langle Q_s\rangle_t\ \mathrm{over}\ (t_0, t_1)"),
         ),
         rows=(("state",), ("classical", "neo_fit", "neo_code", "turb_ql", "turb_gk"),
-              ("ct_classical", None, "ct_neo", "ct_turb", None)),
+              ("ct_classical", None, "ct_neo", "ct_tglf", "ct_cgyro")),
         edges=(("state", "classical", ""), ("state", "neo_fit", ""), ("state", "neo_code", ""),
                ("state", "turb_ql", ""), ("state", "turb_gk", ""), ("classical", "ct_classical", ""),
-               ("neo_code", "ct_neo", ""), ("turb_ql", "ct_turb", ""), ("turb_gk", "ct_turb", "")),
-        todos=("The closed-form Sauter/Redl results have no core_transport writer; they are returned, not stored.",
-               "Classical transport uses a private model index (-1): the data dictionary has no classical entry.",
+               ("neo_code", "ct_neo", ""), ("turb_ql", "ct_tglf", ""), ("turb_gk", "ct_cgyro", "")),
+        side=(("window", "ct_cgyro"),),
+        todos=("The closed-form Sauter/Redl results have no core_transport writer (and carry no particle or heat "
+               "flux to write); they are returned, not stored.",
+               "Classical transport uses a private identifier.index (-1): the data dictionary has no classical "
+               "entry. The Braginskii forms assume a strongly magnetized plasma, and ln Lambda is flagged invalid "
+               "below 10 eV.",
+               "core_transport.model[k]: k is the array position the writer finds or appends (matching "
+               "identifier.index and code.name); it is not the identifier.index.",
+               "A nonlinear CGYRO run writes no fluxes without a saturation window: choosing it is the caller's "
+               "judgement.",
                "The TGLF-NN surrogate (vaft.code.gacode.tglf.surrogate) refuses VEST inputs as out of domain and "
                "has no IMAS writer."),
     ),
     WorkflowSpec(
         key="neoclassical_model_comparison", title="Sauter / Redl against NEO at one state",
         family="transport", status="implemented",
-        summary="The closed-form bootstrap fits and the drift-kinetic solution evaluated from the same kinetic "
-                "state and compared with NEO as the reference; the comparison is end-to-end, so its basis is "
-                "stated with it.",
+        summary="One shared source state, two independently prepared input paths, and an end-to-end comparison "
+                "against NEO as the numerical reference -- not as ground truth. The bootstrap current is compared "
+                "in one definition, <J.B>/B0 with the vacuum B0 and its sign, on one grid; a plasma mismatch is "
+                "refused, while differences in grid construction, trapped fraction and collisionality between the "
+                "two input paths remain part of the gap.",
         nodes=(
-            N("state", "Kinetic profiles and equilibrium", "reconstructed",
-              ids="{core_profiles.profiles_1d[:], equilibrium.time_slice[:].profiles_1d}",
-              symbols=r"T_s,\ n_s,\ Z_{\mathrm{eff}},\ q,\ f_t,\ \epsilon"),
-            N("sauter", "Sauter fit", "derived", api="vaft.validation.neoclassical.bootstrap_models",
-              equation="vaft.formula.neoclassical.sauter_bootstrap_current", references=(_SAUTER,),
-              symbols=r"\mathrm{in\ VAFT:\ always\ available}"),
-            N("redl", "Redl fit", "derived", api="vaft.validation.neoclassical.bootstrap_models",
+            N("state", "Shared source state", "reconstructed",
+              ids="{core_profiles.profiles_1d[:], equilibrium.time_slice[:]}",
+              symbols=r"T_s,\ n_s,\ Z_{\mathrm{eff}},\ \mathrm{impurity},\ \psi,\ q\ (\mathrm{one\ time\ slice})"),
+            N("analytic_in", "Analytic-model inputs (VAFT)", "derived",
+              api="vaft.omas.neoclassical.compute_bootstrap_current",
+              symbols=r"\rho_{\mathrm{tor},N}\ \mathrm{from\ the\ equilibrium};\ f_t\ \mathrm{from\ the\ equilibrium}"
+                      r"\qquad \nu^*\ (\mathrm{Sauter\ definition});\ Z_{\mathrm{eff}},\ n_i/n_e"),
+            N("neo_in", "NEO inputs (GACODE conversion)", "code_input", api="vaft.code.gacode.neo.inputs.prepare_neo_case",
+              symbols=r"\mathrm{input.gacode\ grid\ and\ geometry};\ f_t,\ \nu\ \mathrm{as\ NEO\ forms\ them}"
+                      r"\qquad \mathrm{species\ list}\ (Z_{\mathrm{eff}}\ \mathrm{from\ it})"),
+            N("sauter", "Sauter closure", "derived", api="vaft.validation.neoclassical.bootstrap_models",
+              equation="vaft.formula.neoclassical.sauter_bootstrap_current", references=(_SAUTER,)),
+            N("redl", "Redl closure", "derived", api="vaft.validation.neoclassical.bootstrap_models",
               references=(_REDL,),
-              symbols=r"j_{\mathrm{bs}}\ \mathrm{with\ Redl's\ refitted}\ L_{31}, L_{32}, \alpha\qquad "
-                      r"\mathrm{in\ VAFT:\ always\ available}"),
-            N("neo", "NEO drift-kinetic solve", "solver", api="vaft.code.gacode.neo.runner.run_neo_pair",
-              symbols=r"j_{\mathrm{bs}},\ \sigma_\parallel\qquad \mathbf{optional}\ \mathrm{external\ code:\ "
-                      r"no\ NEO,\ no\ comparison}"),
-            N("basis", "Comparison basis", "convention",
-              symbols=r"\mathrm{end\text{-}to\text{-}end:\ grid\ and}\ f_t\ \mathrm{not\ shared}\qquad "
-                      r"\mathrm{reference = NEO}"),
-            N("compare", "Model agreement", "derived", api="vaft.validation.neoclassical.model_comparison",
-              symbols=r"j_{\mathrm{bs}}^{\mathrm{Sauter}},\ j_{\mathrm{bs}}^{\mathrm{Redl}}\ \mathrm{vs}\ "
-                      r"j_{\mathrm{bs}}^{\mathrm{NEO}}(\rho)"),
-            N("profiles", "NEO bootstrap and conductivity", "standardized",
+              symbols=r"j_{\mathrm{bs}}\ \mathrm{with\ Redl's\ refitted}\ L_{31}, L_{32}, \alpha"),
+            N("neo_tr", "NEO transport solve", "solver", api="vaft.code.gacode.neo.runner.run_neo_case",
+              references=(_BELLI_2008, _BELLI_2012),
+              symbols=r"j_{\mathrm{bs}},\ \Gamma_s,\ Q_s\qquad \mathbf{optional}\ \mathrm{external\ code}"),
+            N("neo_cond", "NEO conductivity solve", "solver", api="vaft.code.gacode.neo.runner.run_neo_conductivity_case",
+              symbols=r"\sigma_\parallel = j_\parallel / E_\parallel\qquad E_\parallel = 1,\ \mathrm{all\ gradients\ off}"),
+            N("mapping", "NEO into the IMAS definition", "standardized",
               api="vaft.machine_mapping.neoclassical.core_profiles_from_neo",
               ids="core_profiles.profiles_1d[:].{j_bootstrap, conductivity_parallel}",
-              symbols=r"j_{\mathrm{bs}},\ \sigma_\parallel"),
+              symbols=r"\langle J\cdot B\rangle/B_{\mathrm{unit}} \to \langle J\cdot B\rangle/B_0\qquad "
+                      r"\mathrm{signed}\ B_{\mathrm{unit}}\ (\mathrm{GACODE\ COCOS\ 2})"),
+            N("basis", "Comparison basis", "convention",
+              symbols=r"j_{\mathrm{bs}} = \langle J\cdot B\rangle/B_0,\ \mathrm{vacuum}\ B_0,\ \mathrm{signed}"
+                      r"\qquad \mathrm{same}\ \rho_{\mathrm{tor},N}\ \mathrm{grid};\ Z_{\mathrm{eff}},\ n_i/n_e\ "
+                      r"\mathrm{must\ match}"),
+            N("compare", "Model agreement", "derived", api="vaft.validation.neoclassical.model_comparison",
+              symbols=r"\mathrm{reference = NEO\ (numerical,\ not\ ground\ truth)}\qquad "
+                      r"\mathrm{integrated,\ RMS/peak,\ peak\ differences}"),
         ),
-        rows=(("state",), ("sauter", "redl", "neo"), ("compare", None, "profiles")),
-        edges=(("state", "sauter", ""), ("state", "redl", ""), ("state", "neo", ""), ("sauter", "compare", ""),
-               ("redl", "compare", ""), ("neo", "compare", "reference"), ("neo", "profiles", "")),
+        rows=(("state",), ("analytic_in", None, "neo_in", None), ("sauter", "redl", "neo_tr", "neo_cond"),
+              ("compare", None, "mapping", None)),
+        edges=(("state", "analytic_in", "VAFT path"), ("state", "neo_in", "GACODE path"), ("analytic_in", "sauter", ""),
+               ("analytic_in", "redl", ""), ("neo_in", "neo_tr", ""), ("neo_in", "neo_cond", ""),
+               ("neo_tr", "mapping", ""), ("neo_cond", "mapping", ""), ("sauter", "compare", ""),
+               ("redl", "compare", ""), ("mapping", "compare", "reference")),
         side=(("basis", "compare"),),
-        todos=("The like-for-like check against NEO's own Sauter/Redl columns (agreement to 1e-7) is a test, not a "
-               "product.",
-               "The closed-form results are not written to IMAS; only NEO's are."),
+        todos=("End-to-end, not like-for-like: the two input paths differ in grid construction, trapped fraction "
+               "and collisionality definition, so part of any gap is the input path. The like-for-like check "
+               "against NEO's own Sauter/Redl columns (agreement to 1e-7) is a test, not a product.",
+               "A stored NEO profile on a different rho_tor_norm grid is refused, not interpolated; a run whose "
+               "Z_eff or n_i/n_e differs is refused when the solver's values are passed.",
+               "Without NEO there is no reference and no comparison; the closed-form results are not written to "
+               "IMAS."),
     ),
 )
 

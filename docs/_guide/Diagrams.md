@@ -2143,7 +2143,7 @@ References:
 2. J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 4.25
 3. J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002
 4. L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977
-5. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834
+5. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834; 9 (2002) 5140 (erratum)
 6. A. Redl et al., Phys. Plasmas 28 (2021) 022502
 
 Follow-up TODOs (implementation or IMAS mapping):
@@ -2230,58 +2230,73 @@ Follow-up TODOs (implementation or IMAS mapping):
 
 ### Transport hierarchy: classical, neoclassical, turbulent
 
-One resolved local state, five independent routes: each is computed from the state itself, not from another route. The VAFT routes (Braginskii, Sauter/Redl) always run; NEO, TGLF and CGYRO are optional external codes. Every route with a writer lands in its own core_transport model.
+One resolved local state and five independently computed routes; none feeds another. 'Always available' means the route needs no external code, not that its physics applies everywhere. Each route with a writer lands in its own core_transport.model entry, found by its identifier.index and code name -- the array position k is assigned at write time.
 
 ![Transport hierarchy: classical, neoclassical, turbulent]({{ '/assets/diagrams/transport_hierarchy.svg' | relative_url }})
 
 | Node | Kind | Variables | API | IDS |
 | --- | --- | --- | --- | --- |
 | Resolved local state | derived | $T_s,\ n_s,\ a/L_{T,n},\ q,\ \hat s,\ \hat\nu$ | `vaft.process.transport_state.resolve_transport_state` |  |
-| Classical (Braginskii) | derived | $\chi_{\perp,e},\ \chi_{\perp,i}, \mathrm{in\ VAFT:\ always\ available}$ | `vaft.process.transport_state.classical_heat_fluxes` |  |
-| Neoclassical: Sauter / Redl | derived | $j_{\mathrm{bs}},\ \sigma_\parallel, \mathrm{in\ VAFT:\ always\ available}$ | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
-| Neoclassical: NEO | solver / model | $\Gamma_s,\ Q_s,\ j_{\mathrm{bs}},\ \sigma_\parallel, \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.neo.runner.run_neo_pair` |  |
+| Classical: Braginskii | derived | $\mathrm{perpendicular\ conductive}\ q_{\perp,e},\ q_{\perp,i}, \mathrm{strongly\ magnetized}:\ \kappa_\perp \propto nT/(m\Omega^2\tau), \mathrm{software:\ always\ available}$ | `vaft.process.transport_state.classical_heat_fluxes` |  |
+| Neoclassical closures: Sauter / Redl | derived | $j_{\mathrm{bs}},\ \sigma_\parallel\ \mathrm{only:\ no}\ \Gamma_s,\ Q_s, \mathrm{software:\ always\ available}$ | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
+| Neoclassical: NEO | solver / model | $\Gamma_s,\ Q_s,\ j_{\mathrm{bs}}\ (\mathrm{transport\ run}), \sigma_\parallel\ (\mathrm{separate}\ E_\parallel\ \mathrm{run}), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.neo.runner.run_neo_pair` |  |
 | Turbulent: TGLF | solver / model | $Q_s,\ \Gamma_s\ (\mathrm{quasilinear}), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.tglf.run_tglf` |  |
-| Turbulent: CGYRO | solver / model | $\gamma,\ \omega;\ \langle Q_s\rangle_t\ (\mathrm{gyrokinetic}), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.cgyro.run_cgyro` |  |
-| Classical transport | standardized IMAS | $\chi_e,\ \chi_i\ (\mathrm{private\ index})$ | `vaft.machine_mapping.classical.core_transport_from_classical` | `core_transport.model[:] (index -1)` |
-| Neoclassical transport | standardized IMAS | $\Gamma_s,\ Q_s\ (\mathrm{from\ NEO})$ | `vaft.machine_mapping.neoclassical.core_transport_from_neo` | `core_transport.model[:] (index 5)` |
-| Anomalous transport | standardized IMAS | $\Gamma_s,\ Q_s,\ \Pi_\phi$ | `vaft.machine_mapping.turbulence.core_transport_from_tglf` | `core_transport.model[:] (index 6)` |
+| Turbulent: CGYRO | solver / model | $\mathrm{nonlinear}\ Q_s(t),\ \Gamma_s(t), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.cgyro.run_cgyro` |  |
+| Saturation window | model assumption / prior (enters Anomalous transport (CGYRO)) | $(t_0, t_1)\ [a/c_s],\ \mathrm{chosen\ by\ the\ caller}$ |  |  |
+| Classical transport | standardized IMAS | $\chi_e,\ \chi_i\ (\mathrm{private\ index})$ | `vaft.machine_mapping.classical.core_transport_from_classical` | `core_transport.model[k] (identifier.index -1)` |
+| Neoclassical transport | standardized IMAS | $\Gamma_s,\ Q_s\ (\mathrm{NEO})$ | `vaft.machine_mapping.neoclassical.core_transport_from_neo` | `core_transport.model[k] (identifier.index 5)` |
+| Anomalous transport (TGLF) | standardized IMAS | $\Gamma_s,\ Q_s,\ \Pi_\phi$ | `vaft.machine_mapping.turbulence.core_transport_from_tglf` | `core_transport.model[k] (identifier.index 6, code TGLF)` |
+| Anomalous transport (CGYRO) | standardized IMAS | $\langle\Gamma_s\rangle_t,\ \langle Q_s\rangle_t\ \mathrm{over}\ (t_0, t_1)$ | `vaft.machine_mapping.gyrokinetics.core_transport_from_cgyro` | `core_transport.model[k] (identifier.index 6, code CGYRO)` |
 
 References:
 
-1. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834
-2. A. Redl et al., Phys. Plasmas 28 (2021) 022502
+1. S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205
+2. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834; 9 (2002) 5140 (erratum)
+3. A. Redl et al., Phys. Plasmas 28 (2021) 022502
+4. E. A. Belli and J. Candy, Plasma Phys. Control. Fusion 50 (2008) 095010
+5. E. A. Belli and J. Candy, Plasma Phys. Control. Fusion 54 (2012) 015015
+6. G. M. Staebler, J. E. Kinsey and R. E. Waltz, Phys. Plasmas 14 (2007) 055909
+7. J. Candy, E. A. Belli and R. V. Bravenec, J. Comput. Phys. 324 (2016) 73
 
 Follow-up TODOs (implementation or IMAS mapping):
 
-- The closed-form Sauter/Redl results have no core_transport writer; they are returned, not stored.
-- Classical transport uses a private model index (-1): the data dictionary has no classical entry.
+- The closed-form Sauter/Redl results have no core_transport writer (and carry no particle or heat flux to write); they are returned, not stored.
+- Classical transport uses a private identifier.index (-1): the data dictionary has no classical entry. The Braginskii forms assume a strongly magnetized plasma, and ln Lambda is flagged invalid below 10 eV.
+- core_transport.model[k]: k is the array position the writer finds or appends (matching identifier.index and code.name); it is not the identifier.index.
+- A nonlinear CGYRO run writes no fluxes without a saturation window: choosing it is the caller's judgement.
 - The TGLF-NN surrogate (vaft.code.gacode.tglf.surrogate) refuses VEST inputs as out of domain and has no IMAS writer.
 
 ### Sauter / Redl against NEO at one state
 
-The closed-form bootstrap fits and the drift-kinetic solution evaluated from the same kinetic state and compared with NEO as the reference; the comparison is end-to-end, so its basis is stated with it.
+One shared source state, two independently prepared input paths, and an end-to-end comparison against NEO as the numerical reference -- not as ground truth. The bootstrap current is compared in one definition, <J.B>/B0 with the vacuum B0 and its sign, on one grid; a plasma mismatch is refused, while differences in grid construction, trapped fraction and collisionality between the two input paths remain part of the gap.
 
 ![Sauter / Redl against NEO at one state]({{ '/assets/diagrams/neoclassical_model_comparison.svg' | relative_url }})
 
 | Node | Kind | Variables | API | IDS |
 | --- | --- | --- | --- | --- |
-| Kinetic profiles and equilibrium | reconstructed | $T_s,\ n_s,\ Z_{\mathrm{eff}},\ q,\ f_t,\ \epsilon$ |  | `{core_profiles.profiles_1d[:], equilibrium.time_slice[:].profiles_1d}` |
-| Sauter fit | derived | $\mathrm{in\ VAFT:\ always\ available}$ | `vaft.validation.neoclassical.bootstrap_models` |  |
-| Redl fit | derived | $j_{\mathrm{bs}}\ \mathrm{with\ Redl's\ refitted}\ L_{31}, L_{32}, \alpha, \mathrm{in\ VAFT:\ always\ available}$ | `vaft.validation.neoclassical.bootstrap_models` |  |
-| NEO drift-kinetic solve | solver / model | $j_{\mathrm{bs}},\ \sigma_\parallel, \mathbf{optional}\ \mathrm{external\ code:\ no\ NEO,\ no\ comparison}$ | `vaft.code.gacode.neo.runner.run_neo_pair` |  |
-| Comparison basis | model choice / convention (enters Model agreement) | $\mathrm{end\text{-}to\text{-}end:\ grid\ and}\ f_t\ \mathrm{not\ shared}, \mathrm{reference = NEO}$ |  |  |
-| Model agreement | derived | $j_{\mathrm{bs}}^{\mathrm{Sauter}},\ j_{\mathrm{bs}}^{\mathrm{Redl}}\ \mathrm{vs}\ j_{\mathrm{bs}}^{\mathrm{NEO}}(\rho)$ | `vaft.validation.neoclassical.model_comparison` |  |
-| NEO bootstrap and conductivity | standardized IMAS | $j_{\mathrm{bs}},\ \sigma_\parallel$ | `vaft.machine_mapping.neoclassical.core_profiles_from_neo` | `core_profiles.profiles_1d[:].{j_bootstrap, conductivity_parallel}` |
+| Shared source state | reconstructed | $T_s,\ n_s,\ Z_{\mathrm{eff}},\ \mathrm{impurity},\ \psi,\ q\ (\mathrm{one\ time\ slice})$ |  | `{core_profiles.profiles_1d[:], equilibrium.time_slice[:]}` |
+| Analytic-model inputs (VAFT) | derived | $\rho_{\mathrm{tor},N}\ \mathrm{from\ the\ equilibrium};\ f_t\ \mathrm{from\ the\ equilibrium}, \nu^*\ (\mathrm{Sauter\ definition});\ Z_{\mathrm{eff}},\ n_i/n_e$ | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
+| NEO inputs (GACODE conversion) | code input | $\mathrm{input.gacode\ grid\ and\ geometry};\ f_t,\ \nu\ \mathrm{as\ NEO\ forms\ them}, \mathrm{species\ list}\ (Z_{\mathrm{eff}}\ \mathrm{from\ it})$ | `vaft.code.gacode.neo.inputs.prepare_neo_case` |  |
+| Sauter closure | derived |  | `vaft.validation.neoclassical.bootstrap_models` |  |
+| Redl closure | derived | $j_{\mathrm{bs}}\ \mathrm{with\ Redl's\ refitted}\ L_{31}, L_{32}, \alpha$ | `vaft.validation.neoclassical.bootstrap_models` |  |
+| NEO transport solve | solver / model | $j_{\mathrm{bs}},\ \Gamma_s,\ Q_s, \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.neo.runner.run_neo_case` |  |
+| NEO conductivity solve | solver / model | $\sigma_\parallel = j_\parallel / E_\parallel, E_\parallel = 1,\ \mathrm{all\ gradients\ off}$ | `vaft.code.gacode.neo.runner.run_neo_conductivity_case` |  |
+| NEO into the IMAS definition | standardized IMAS | $\langle J\cdot B\rangle/B_{\mathrm{unit}} \to \langle J\cdot B\rangle/B_0, \mathrm{signed}\ B_{\mathrm{unit}}\ (\mathrm{GACODE\ COCOS\ 2})$ | `vaft.machine_mapping.neoclassical.core_profiles_from_neo` | `core_profiles.profiles_1d[:].{j_bootstrap, conductivity_parallel}` |
+| Comparison basis | model choice / convention (enters Model agreement) | $j_{\mathrm{bs}} = \langle J\cdot B\rangle/B_0,\ \mathrm{vacuum}\ B_0,\ \mathrm{signed}, \mathrm{same}\ \rho_{\mathrm{tor},N}\ \mathrm{grid};\ Z_{\mathrm{eff}},\ n_i/n_e\ \mathrm{must\ match}$ |  |  |
+| Model agreement | derived | $\mathrm{reference = NEO\ (numerical,\ not\ ground\ truth)}, \mathrm{integrated,\ RMS/peak,\ peak\ differences}$ | `vaft.validation.neoclassical.model_comparison` |  |
 
 References:
 
-1. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834
+1. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834; 9 (2002) 5140 (erratum)
 2. A. Redl et al., Phys. Plasmas 28 (2021) 022502
+3. E. A. Belli and J. Candy, Plasma Phys. Control. Fusion 50 (2008) 095010
+4. E. A. Belli and J. Candy, Plasma Phys. Control. Fusion 54 (2012) 015015
 
 Follow-up TODOs (implementation or IMAS mapping):
 
-- The like-for-like check against NEO's own Sauter/Redl columns (agreement to 1e-7) is a test, not a product.
-- The closed-form results are not written to IMAS; only NEO's are.
+- End-to-end, not like-for-like: the two input paths differ in grid construction, trapped fraction and collisionality definition, so part of any gap is the input path. The like-for-like check against NEO's own Sauter/Redl columns (agreement to 1e-7) is a test, not a product.
+- A stored NEO profile on a different rho_tor_norm grid is refused, not interpolated; a run whose Z_eff or n_i/n_e differs is refused when the solver's values are passed.
+- Without NEO there is no reference and no comparison; the closed-form results are not written to IMAS.
 
 ## Using the committed assets
 
