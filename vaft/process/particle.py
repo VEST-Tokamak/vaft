@@ -598,6 +598,8 @@ def analyze_particle_orbit(trajectory, *, bounce_coordinate=None):
         )
         if not events and abs(poloidal_angle[-1] - poloidal_angle[0]) >= 2 * np.pi:
             result["orbit_class"] = "passing"
+        # anti-alias: scalar sampling at turning instants of a solver trajectory,
+        # not a rate change -- the unwrapped angle is read at two times per cycle.
         result["bounce_precession_rad_s"] = [
             float(
                 (
@@ -619,6 +621,8 @@ def analyze_particle_orbit(trajectory, *, bounce_coordinate=None):
             and np.all(direction * np.diff(poloidal_angle) > 0)
         ):
             count = int(abs(excursion[-1]) / (2 * np.pi))
+            # anti-alias: inverse lookup of the monotonic poloidal angle to find the
+            # 2*pi*k crossing times; no time series is resampled.
             crossings = [float(tr.time[0])] + [
                 float(np.interp(2 * np.pi * k, direction * excursion, tr.time))
                 for k in range(1, count + 1)
@@ -634,6 +638,8 @@ def analyze_particle_orbit(trajectory, *, bounce_coordinate=None):
         result["bounce_status"] = "incomplete_cycle"
         for start, end in cycles:
             times = np.r_[start, tr.time[(tr.time > start) & (tr.time < end)], end]
+            # anti-alias: `times` is the native samples inside the cycle plus its two
+            # turning endpoints, so this only inserts points -- never a rate reduction.
             arc = np.interp(times, tr.time, s)
             momentum = m * np.interp(times, tr.time, vpar)
             # Turning endpoints have zero p by construction, not by snapping arbitrary samples.
@@ -742,6 +748,9 @@ def compare_particle_orbits(full, guiding_center, *, time=None):
             "comparison would extrapolate outside the common valid interval"
         )
     diagnostics = analyze_particle_orbit(full)
+    # anti-alias: evaluates the deterministic solver trajectory at comparison
+    # instants, not acquired data; the estimate already removes the gyration to
+    # leading order, and a low-pass would bias the residual being compared.
     center = np.column_stack(
         [
             np.interp(time, full.time, diagnostics["guiding_center_estimate"][:, j])
@@ -756,6 +765,7 @@ def compare_particle_orbits(full, guiding_center, *, time=None):
         np.linspace(0, len(time) - 1, min(256, len(time))).astype(int)
     )
     for t in time[average_selection]:
+        # anti-alias: scalar sampling of the local gyroperiod at one instant.
         width = float(np.interp(t, full.time, period))
         a, z = t - width / 2, t + width / 2
         if a < full.time[0] or z > full.time[-1]:
