@@ -42,7 +42,9 @@ def test_the_spine_reads_from_inference_through_reconstruction_to_transport():
         "kinetic_efit", "analytic_mhd_equilibrium", "chease_coupling", "tokamaker_coupling", "dcon_rdcon_stability",
         "gpec_plasma_response", "flare_field_line_topology", "neo_neoclassical", "tglf_cgyro_local_transport",
         "parameter_inference_overview", "parameter_inference_dependency_graph", "eddy_current_model",
-        "kinetic_profile_fitting", "transport_hierarchy", "neoclassical_model_comparison"]
+        "kinetic_profile_fitting", "transport_hierarchy", "neoclassical_model_comparison",
+        "vacuum_field_proxies", "derived_mhd_parameters", "synthetic_diagnostics",
+        "coordinate_cocos_conversions", "power_balance_confinement"]
 
 
 @pytest.mark.parametrize("spec", SPECS, ids=lambda s: s.key)
@@ -274,3 +276,71 @@ def test_the_eddy_model_is_a_forward_solve_checked_against_vacuum_magnetics():
     assert spec.node("solve").kind == "solver" and spec.node("currents").ids == "pf_passive.loop[:].current"
     assert spec.node("machine").kind == "machine" and spec.node("filaments").kind == "prior"
     assert ("vacuum", "check", "") in spec.edges and any("not fitted" in t for t in spec.todos)
+
+
+def test_vacuum_products_are_returned_and_the_vessel_write_is_drawn():
+    """#1901: the evaluators return dicts; the only IDS write is the vessel currents they solve when absent."""
+    spec = WORKFLOWS["vacuum_field_proxies"]
+    assert spec.node("vessel").kind == "standardized" and spec.node("vessel").ids.startswith("pf_passive.")
+    assert ("pf", "vessel", "if absent") in spec.edges and ("vessel", "field", "") in spec.edges
+    written = [n.key for n in spec.nodes if n.kind == "standardized"]
+    assert written == ["vessel"]
+    assert spec.node("summary").mapping_todo and any("No vacuum field" in t for t in spec.todos)
+    assert "not\\ Wb/rad" in spec.node("field").symbols  # full weber from the Green's functions
+
+
+def test_mhd_parameters_write_the_dd_leaves_and_return_the_rest():
+    spec = WORKFLOWS["derived_mhd_parameters"]
+    for key in ("beta_pol", "beta_tor", "li", "beta_n", "energy"):
+        node = spec.node(key)
+        assert node.kind == "standardized" and ".global_quantities." in node.ids and node.equation, key
+    assert spec.node("beta_pol").equation.endswith("beta_poloidal_from_pressure_integral")  # the DD form
+    assert "LCFS" in spec.node("descriptors").relation  # the boundary-average form, kept apart
+    for key in ("descriptors", "edge_q"):
+        assert "not written" in spec.node(key).mapping_todo, key
+    assert ("reference", "surfaces") in spec.side and "tf.r0" in spec.node("reference").ids
+
+
+def test_synthetic_diagnostics_are_the_three_forward_models_and_the_rest_is_a_gap():
+    spec = WORKFLOWS["synthetic_diagnostics"]
+    models = {n.api.rsplit(".", 1)[1] for n in spec.nodes if n.key in ("vacuum", "diamagnetic", "sxr")}
+    assert models == {"synthetic_vacuum_magnetics", "compute_reconstructed_diamagnetic_flux",
+                      "synthetic_island_soft_x_rays"}
+    assert spec.node("sxr_out").kind == "synthetic" and spec.node("island").kind == "prior"
+    gap = spec.todos[0]
+    assert all(word in gap for word in ("Thomson", "interferometer", "camera"))
+    assert spec.node("vac_out").mapping_todo and spec.node("sxr_out").mapping_todo
+
+
+def test_cocos_is_transformed_at_two_independent_layers():
+    spec = WORKFLOWS["coordinate_cocos_conversions"]
+    assert spec.node("normalize").api == "vaft.omas.general.equilibrium_psi_to_weber"
+    assert spec.node("convert").api == "vaft.process.equilibrium.convert_cocos"
+    ods_lane, record_lane = {"normalize", "ods11", "psi_norm", "grid", "rho_tor"}, {"record", "convert", "radial", "sfl"}
+    assert not [e for e in spec.edges if {e[0], e[1]} & ods_lane and {e[0], e[1]} & record_lane]
+    assert ("declared", "normalize") in spec.side and ("target", "convert") in spec.side
+    assert "grid_type 11" in spec.node("grid").mapping_todo and not spec.node("grid").equation
+    assert spec.node("sfl").equation.endswith("straight_field_line_angle")
+
+
+def test_the_two_power_balances_stay_apart_and_write_no_summary():
+    spec = WORKFLOWS["power_balance_confinement"]
+    experimental, modelled = {"split", "balance", "tau", "scaling"}, {"spitzer", "radiation", "budget"}
+    assert not [e for e in spec.edges if {e[0], e[1]} & experimental and {e[0], e[1]} & modelled]
+    assert spec.node("tau").api == "vaft.omas.confinement.ohmic_confinement_ods"
+    assert spec.node("budget").api == "vaft.omas.formula_wrapper.compute_power_balance"
+    for key in ("tau", "budget"):
+        assert "not written to summary" in spec.node(key).mapping_todo, key
+    assert "NaN" in spec.node("balance").symbols and spec.node("radiation").kind == "inferred"
+    assert not [n for n in spec.nodes if n.ids and n.ids.startswith("summary")]
+
+
+def test_every_platform_science_box_has_a_diagram_or_a_tracked_gap():
+    from vaft.diagram import _architecture_coverage as C
+
+    assert [(row.area, row.box) for row in C.COVERAGE] == C.platform_boxes()
+    for row in C.COVERAGE:
+        assert row.diagrams or re.search(r"#\d+", row.gaps), row.box
+        for key in row.diagrams:
+            assert key in vaft.diagram.__all__, key
+    assert C.coverage_markdown() in DIAGRAMS_MD.read_text(encoding="utf-8")

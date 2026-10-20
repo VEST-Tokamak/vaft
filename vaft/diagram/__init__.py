@@ -61,7 +61,9 @@ spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
 inference (#1601): ``parameter_inference_overview`` and
 ``parameter_inference_dependency_graph``; reconstruction inputs and transport (#1901):
 ``eddy_current_model``, ``kinetic_profile_fitting``, ``transport_hierarchy`` and
-``neoclassical_model_comparison``; the spatial
+``neoclassical_model_comparison``; derived physics (#1901):
+``vacuum_field_proxies``, ``derived_mhd_parameters``, ``synthetic_diagnostics``,
+``coordinate_cocos_conversions`` and ``power_balance_confinement``; the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
 ``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
@@ -286,6 +288,11 @@ __all__ = [
     "kinetic_profile_fitting",
     "transport_hierarchy",
     "neoclassical_model_comparison",
+    "vacuum_field_proxies",
+    "derived_mhd_parameters",
+    "synthetic_diagnostics",
+    "coordinate_cocos_conversions",
+    "power_balance_confinement",
     "tokamak_top_view",
     "cocos_orientation",
     "machine_and_equilibrium_geometry",
@@ -501,6 +508,11 @@ _LOCATIONS = {
     "kinetic_profile_fitting": "._workflow_specs",
     "transport_hierarchy": "._workflow_specs",
     "neoclassical_model_comparison": "._workflow_specs",
+    "vacuum_field_proxies": "._workflow_specs",
+    "derived_mhd_parameters": "._workflow_specs",
+    "synthetic_diagnostics": "._workflow_specs",
+    "coordinate_cocos_conversions": "._workflow_specs",
+    "power_balance_confinement": "._workflow_specs",
     "tokamak_top_view": "._spatial",
     "cocos_orientation": "._spatial",
     "machine_and_equilibrium_geometry": "._spatial",

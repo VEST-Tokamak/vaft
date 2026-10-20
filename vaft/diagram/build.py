@@ -266,6 +266,12 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "kinetic_profile_fitting.svg": ("kinetic_profile_fitting", {}),
     "transport_hierarchy.svg": ("transport_hierarchy", {"references": True}),
     "neoclassical_model_comparison.svg": ("neoclassical_model_comparison", {"references": True}),
+    # derived physics (#1901)
+    "vacuum_field_proxies.svg": ("vacuum_field_proxies", {}),
+    "derived_mhd_parameters.svg": ("derived_mhd_parameters", {}),
+    "synthetic_diagnostics.svg": ("synthetic_diagnostics", {}),
+    "coordinate_cocos_conversions.svg": ("coordinate_cocos_conversions", {}),
+    "power_balance_confinement.svg": ("power_balance_confinement", {}),
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),
     "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),
