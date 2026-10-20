@@ -4161,7 +4161,7 @@ def alpha_heating_power_from_n_D_n_T_T_keV_V(
     ``DeprecationWarning`` is emitted.
 
     $$P_\alpha = n_D\,n_T\,\langle\sigma v\rangle\,E_\alpha\,V, \qquad
-      \langle\sigma v\rangle \approx 1.1\times10^{-24}\,T_{\mathrm{keV}}^2\ \mathrm{m^3/s}$$
+      \langle\sigma v\rangle \approx 1.1\times10^{-24}\,T_{\mathrm{keV}}^2\ \mathrm{m^3\,s^{-1}}\quad(T\ \mathrm{in\ keV})$$
 
     Parameters
     ----------
@@ -4202,8 +4202,8 @@ def alpha_heating_power_from_n_D_n_T_T_keV_V(
            Sec. 1.3.
     .. [2] H.-S. Bosch and G. M. Hale, Nucl. Fusion 32 (1992) 611, Table VII.
     .. [3] H.-S. Bosch and G. M. Hale, erratum, Nucl. Fusion 33 (1993) 1919;
-           corrects the Table VII coefficients, so an implementation from the
-           original paper alone is wrong.
+           corrects coefficients of the 1992 parametrisation, so an
+           implementation from the original paper alone is wrong.
     """
     warnings.warn(
         "`alpha_heating_power_from_n_D_n_T_T_keV_V` (alias `alpha_heating_power`) is deprecated (#360): "
