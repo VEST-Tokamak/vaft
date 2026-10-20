@@ -1,6 +1,7 @@
 """The database helpers quieten the HTTP stack, never the root logger (#1936).
 
-``is_connect``, ``exist_shot`` and the processed-registry reader used to call
+``is_connect``, ``exist_shot``, the processed-registry reader and the ODS/IDS
+loaders used to call
 ``logging.getLogger().setLevel(logging.WARNING)``: one *Test connection* click
 in the hosted GUI silenced INFO logging for every session in the process.
 """
@@ -75,7 +76,14 @@ def test_the_registry_reader_leaves_the_root_logger_alone(logger_levels, monkeyp
     assert logging.getLogger().level == logging.INFO
 
 
-def test_no_database_helper_sets_the_root_level():
-    import inspect
+def test_no_database_module_sets_the_root_level():
+    """The loaders (ods.load, ids.load/save) carried the same root-level call."""
+    from pathlib import Path
 
-    assert "getLogger().setLevel" not in inspect.getsource(utils)
+    package = Path(utils.__file__).parent
+    offenders = [
+        path.relative_to(package).as_posix()
+        for path in sorted(package.rglob("*.py"))
+        if "getLogger().setLevel" in path.read_text(encoding="utf-8")
+    ]
+    assert offenders == []
