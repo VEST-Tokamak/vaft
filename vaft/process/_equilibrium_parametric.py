@@ -522,10 +522,12 @@ def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> Equilibriu
     -----------
     Refuses rather than guesses when the source convention is ambiguous, which is
     the common case for a file that declares nothing and whose flux exponent could
-    not be identified.  The identified-candidate list carried on the result is
-    shifted on the assumption that every candidate shares the source's storage
-    family, which is not guaranteed and can produce an out-of-range index; tracked
-    in #601.
+    not be identified.  The identified-candidate list is carried to the result by
+    applying the same transform to each candidate (:func:`_carry_identified`).  When
+    the conversion crosses storage families, a candidate in the other family has
+    no image -- the ``2*pi`` lands on the wrong side -- so it is dropped and named
+    in the result's ``source`` rather than shifted to an index that does not
+    exist (#601).
 
     Provenance
     ----------
@@ -546,19 +548,20 @@ def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> Equilibriu
     factors = cocos_transform(source_cocos, target_cocos)
     scale = lambda value, key: None if value is None else np.asarray(value) * factors[key]
     axis = equilibrium.magnetic_axis
+    identified, dropped = _carry_identified(equilibrium.convention.identified, source_cocos, target_cocos)
+    source = f"converted from COCOS {source_cocos}"
+    if dropped:
+        source += f"; identified {dropped} have no image in COCOS {target_cocos} and were dropped"
     convention = EquilibriumConvention(
         cocos=target_cocos, candidates=(target_cocos,), psi_per_radian=target_cocos < 10,
         clockwise_phi=equilibrium.convention.clockwise_phi,
         ip_sign=_sign(None if equilibrium.ip is None else equilibrium.ip * factors["IP"]),
         bt_sign=_sign(None if equilibrium.bt0 is None else equilibrium.bt0 * factors["BT"]),
         q_sign=_sign(None if equilibrium.q is None else float(np.nanmedian(equilibrium.q * factors["Q"]))),
-        source=f"converted from COCOS {source_cocos}",
+        source=source,
         # Carried so a declaration the data contradicts stays visible after a
         # conversion instead of being laundered into a clean-looking record.
-        identified=tuple(
-            value + 10 * (target_cocos >= 11) - 10 * (source_cocos >= 11)
-            for value in equilibrium.convention.identified
-        ) if equilibrium.convention.identified else (),
+        identified=identified,
     )
     return replace(
         equilibrium, psi=scale(equilibrium.psi, "PSI"),
@@ -573,6 +576,45 @@ def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> Equilibriu
         bt0=None if equilibrium.bt0 is None else float(equilibrium.bt0 * factors["BT"]),
         magnetic_axis=axis, convention=convention,
     )
+
+
+def _carry_identified(
+    identified: Sequence[int], source_cocos: int, target_cocos: int,
+) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """Map identified candidates through the ``source -> target`` transform.
+
+    Data that really is in candidate ``c`` and receives the transform for
+    ``source -> target`` ends up in the convention ``c'`` with
+    ``T(c -> c') == T(source -> target)``.  Every factor in
+    ``omas.cocos_transform`` is a product of the per-convention signs and a power
+    of ``2*pi``, so ``c'`` takes each sign as ``sigma(c) sigma(source)
+    sigma(target)`` and ``e_Bp(c') = e_Bp(c) + e_Bp(target) - e_Bp(source)``.
+    ``c == source`` maps to ``target``.  A candidate whose exponent leaves 0..1
+    -- one in the other storage family, when the conversion crosses families --
+    describes no COCOS after the conversion and is returned in the second tuple
+    instead.  Simply adding ten
+    across families is not this map: it ignores the sign changes and turns a
+    cross-family candidate into an index that does not exist.
+    """
+    from vaft.data.cocos import COCOS_INDICES, cocos_spec
+
+    def key(spec) -> tuple[int, int, int, int]:
+        return spec.sigma_bp, spec.sigma_rpz, spec.sigma_rhotp, spec.exp_bp
+
+    by_key = {key(cocos_spec(index)): index for index in COCOS_INDICES}
+    src, tgt = cocos_spec(source_cocos), cocos_spec(target_cocos)
+    carried: list[int] = []
+    dropped: list[int] = []
+    for value in identified:
+        cand = cocos_spec(int(value))
+        image = by_key.get((
+            cand.sigma_bp * src.sigma_bp * tgt.sigma_bp,
+            cand.sigma_rpz * src.sigma_rpz * tgt.sigma_rpz,
+            cand.sigma_rhotp * src.sigma_rhotp * tgt.sigma_rhotp,
+            cand.exp_bp + tgt.exp_bp - src.exp_bp,
+        ))
+        (carried if image is not None else dropped).append(image if image is not None else int(value))
+    return tuple(carried), tuple(dropped)
 
 
 def _provenance(eq: EquilibriumData, method: str, fields: Sequence[str] = (), **kwargs: Any) -> DerivationProvenance:
