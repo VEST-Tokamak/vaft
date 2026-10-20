@@ -61,7 +61,9 @@ spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
 inference (#1601): ``parameter_inference_overview`` and
 ``parameter_inference_dependency_graph``; reconstruction inputs and transport (#1901):
 ``eddy_current_model``, ``kinetic_profile_fitting``, ``transport_hierarchy`` and
-``neoclassical_model_comparison``; derived physics (#1901):
+``neoclassical_model_comparison``; experimental processing (#1901):
+``machine_model_history``, ``signal_processing``, ``quality_validation``,
+``fault_anomaly_detection``, ``shot_classification`` and ``event_detection``; derived physics (#1901):
 ``vacuum_field_proxies``, ``derived_mhd_parameters``, ``synthetic_diagnostics``,
 ``coordinate_cocos_conversions`` and ``power_balance_confinement``; the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
@@ -288,6 +290,12 @@ __all__ = [
     "kinetic_profile_fitting",
     "transport_hierarchy",
     "neoclassical_model_comparison",
+    "machine_model_history",
+    "signal_processing",
+    "quality_validation",
+    "fault_anomaly_detection",
+    "shot_classification",
+    "event_detection",
     "vacuum_field_proxies",
     "derived_mhd_parameters",
     "synthetic_diagnostics",
@@ -508,6 +516,12 @@ _LOCATIONS = {
     "kinetic_profile_fitting": "._workflow_specs",
     "transport_hierarchy": "._workflow_specs",
     "neoclassical_model_comparison": "._workflow_specs",
+    "machine_model_history": "._workflow_specs",
+    "signal_processing": "._workflow_specs",
+    "quality_validation": "._workflow_specs",
+    "fault_anomaly_detection": "._workflow_specs",
+    "shot_classification": "._workflow_specs",
+    "event_detection": "._workflow_specs",
     "vacuum_field_proxies": "._workflow_specs",
     "derived_mhd_parameters": "._workflow_specs",
     "synthetic_diagnostics": "._workflow_specs",

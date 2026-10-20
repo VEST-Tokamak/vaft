@@ -25,11 +25,19 @@ def _simulation_box(domain: str, concept: str, code: str) -> str:
     return f"{domain}: {concept} ({code})"
 
 
-#: the Part B diagrams of #1901 are not yet on this branch; the boxes stay tracked by the issue until they land
-_PART_B = "#1901 part B (experimental processing): diagram in progress"
-
 COVERAGE: Tuple[Coverage, ...] = (
-    *(Coverage("Experimental data processing", box, (), _PART_B) for box in EXPERIMENTAL_PROCESSING),
+    Coverage("Experimental data processing", EXPERIMENTAL_PROCESSING[0], ("machine_model_history",),
+             "no single shot-to-machine object; VEST COCOS index unresolved"),
+    Coverage("Experimental data processing", EXPERIMENTAL_PROCESSING[1], ("signal_processing",),
+             "no shared drift-correction, synchronization or integration stage"),
+    Coverage("Experimental data processing", EXPERIMENTAL_PROCESSING[2], ("quality_validation",),
+             "only source validity reaches IMAS"),
+    Coverage("Experimental data processing", EXPERIMENTAL_PROCESSING[3], ("fault_anomaly_detection",),
+             "no general anomaly model runs in the pipeline"),
+    Coverage("Experimental data processing", EXPERIMENTAL_PROCESSING[4], ("shot_classification",),
+             "the four-way physics class is not implemented (#57); no disruption labels"),
+    Coverage("Experimental data processing", EXPERIMENTAL_PROCESSING[5], ("event_detection",),
+             "no breakdown, flat-top, IRE, sawtooth or disruption detector"),
     Coverage("Reconstruction", "Eddy Current Model", ("eddy_current_model",), ""),
     Coverage("Reconstruction", "Magnetic EFIT", ("magnetic_efit",), ""),
     Coverage("Reconstruction", "Profile Fitting", ("kinetic_profile_fitting",),
