@@ -2394,7 +2394,7 @@ There is no single anomaly model: each diagnostic has its own checks. Magnetics 
 | H-alpha usability | derived | $\mathrm{finite,\ not\ railed,\ live\ baseline}$ | `vaft.omas.plasma_timing.halpha_usability` |  |
 | Channel validity | standardized IMAS | $0,\ 1,\ -2$ | `vaft.validation.magnetics.project_validity` | `magnetics.{flux_loop[:].flux | b_field_pol_probe[:].field | ip[:]}.validity_timed` |
 | Repaired interval | derived | $x_i(t)\ \mathrm{across\ the\ clipped\ samples}$ | `vaft.process.signal_processing.repair_clipped_interval` |  |
-| Light sources for timing | derived | $\mathrm{usable\ H_\alpha\ channels}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
+| Light sources for timing | derived | $\mathrm{usable}\ H_\alpha\ \mathrm{channels}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
 
 Follow-up TODOs (implementation or IMAS mapping):
 
@@ -2441,7 +2441,7 @@ Each waveform gets a robust baseline and spread from its quiet reference, a thre
 | Detection rules | model choice / convention (enters Activity threshold) | $f,\ k,\ t_{\mathrm{hold}}\ \mathrm{per\ signal}$ |  |  |
 | Activity threshold | derived |  | `vaft.process.onset.excess_threshold` |  |
 | Active window | derived | $x > x_{\mathrm{th}}\ \mathrm{for\ at\ least}\ t_{\mathrm{hold}}$ | `vaft.process.onset.active_window` |  |
-| Light against current | derived | $\mathrm{consistent,\ I_p\ before\ H_\alpha,\ offset\ disagreement}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
+| Light against current | derived | $\mathrm{consistent},\ I_p\ \mathrm{before}\ H_\alpha,\ \mathrm{offset\ disagreement}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
 | Plasma window | derived | $t_{\mathrm{start}},\ t_{\mathrm{end}}$ |  | **IMAS mapping TODO:** a dataclass; not written to an IDS |
 | Coil onsets | derived | $t_{\mathrm{on},j},\ t_{\mathrm{OH}}$ | `vaft.omas.discharge_timing.coil_onsets` |  |
 | Loop-voltage event | derived | $\mathrm{zero\ crossing\ after\ the\ OH\ onset}$ | `vaft.omas.discharge_timing.loop_voltage_event` | **IMAS mapping TODO:** a dataclass; not written to an IDS |
