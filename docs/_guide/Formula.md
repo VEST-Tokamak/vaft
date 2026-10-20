@@ -108,7 +108,7 @@ import vaft
 psi  = vaft.formula.psi_from_RBtheta(R, B_theta, l, psi_axis=0.0)   # psi = int R B_theta dl + psi_a
 psiN = vaft.formula.psi_normalised(psi, psi_axis, psi_boundary)     # psi_N = (psi-psi_a)/(psi_b-psi_a)
 
-phi  = vaft.formula.phi_from_Bphi(B_phi, dA)                        # Phi = int B_phi dA
+phi  = vaft.formula.phi_from_Bphi(B_phi, R, Z, mask=psiN_2d <= 1)  # Phi = int B_phi dR dZ
 rhoN = vaft.formula.rhoN_from_phi(phi, phi_boundary)                # rho_N = sqrt(Phi/Phi_b)
 
 q    = vaft.formula.q_from_phi(psi, phi)                            # q = dPhi/dpsi

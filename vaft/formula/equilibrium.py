@@ -40,12 +40,12 @@ from scipy.integrate import cumulative_trapezoid
 
 from .utils import (
     _guarded_ratio,
+    _toroidal_flux,
     calculate_peaking_factor,
     gradient,
     trapz_integral,
     normalize_profile,
     calculate_poloidal_flux,
-    calculate_toroidal_flux,
     calculate_volume_weighted_average
 )
 
@@ -230,17 +230,29 @@ def normalize_psi(*args, **kw):  # noqa: N802
 # ------------------------------------------------------------------
 
 def phi_from_Bphi(B_phi: np.ndarray,
-                  dA: np.ndarray) -> float:
+                  R: np.ndarray = None,
+                  Z: np.ndarray = None,
+                  mask: np.ndarray = None,
+                  *,
+                  dA: np.ndarray = None) -> float:
     r"""Toroidal flux $\Phi$ through a poloidal cross-section.
 
-    $$\Phi = \int_{S} B_\varphi\,dA \approx \sum_i B_{\varphi,i}\,\Delta A_i$$
+    $$\Phi = \int_{S} B_\varphi\,dA = \iint_{S} B_\varphi\,dR\,dZ$$
 
     Parameters
     ----------
     B_phi : np.ndarray
-        Toroidal magnetic field on the area elements [T].
-    dA : np.ndarray
-        Poloidal-plane area element of each sample, same shape as ``B_phi`` [m^2].
+        Toroidal magnetic field on a rectilinear grid, indexed ``[R, Z]`` [T].
+    R : np.ndarray, optional
+        Major-radius axis (1-D) or ``ij`` mesh (2-D) of the grid [m].
+    Z : np.ndarray, optional
+        Height axis (1-D) or ``ij`` mesh (2-D) of the grid [m].
+    mask : np.ndarray, optional
+        Boolean map, ``True`` inside the cross-section bounded by the flux
+        surface of interest; default the whole grid [-].
+    dA : np.ndarray, optional
+        Deprecated (#358): caller-supplied area elements of the old bare sum,
+        also accepted as the second positional argument [m^2].
 
     Returns
     -------
@@ -255,20 +267,21 @@ def phi_from_Bphi(B_phi: np.ndarray,
 
     Assumptions
     -----------
-    ``dA`` are true area elements of the cross-section bounded by the flux surface
-    of interest; the routine does not construct them.
+    ``mask`` selects the cross-section bounded by the flux surface of interest;
+    the routine integrates what it is given and does not trace the surface.
 
     Numerical notes
     ---------------
-    A Riemann sum, not a quadrature rule: accuracy is first order in the cell size
-    of the caller's grid.
+    :func:`vaft.formula.utils.calculate_toroidal_flux`: 2-D trapezoidal rule,
+    second order on the full grid, first order in the cell size at a masked
+    (staircase) boundary.
 
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 3.4 (toroidal flux and the safety factor).
     """
-    return calculate_toroidal_flux(B_phi, dA)
+    return _toroidal_flux(B_phi, R, Z, mask, dA, stacklevel=3)
 
 
 def rhoN_from_phi(phi: Union[np.ndarray, float],
