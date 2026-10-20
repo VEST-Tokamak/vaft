@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
 
 <meta name="HandheldFriendly" content="true"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
@@ -24,8 +24,9 @@
 
 
 
+<link rel="stylesheet" href="/vaft/develop/assets/animations/player.css">
 
-            <link rel="prev" href="/vaft/develop/reference/process/ml/research/" />
+            <link rel="prev" href="/vaft/develop/reference/animation/" />
         
 
         
@@ -313,6 +314,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.animation-reference" data-path="/vaft/develop/reference/animation/">
+                    
+                        <a href="/vaft/develop/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
                     
                         <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
@@ -396,7 +403,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>e3ab53e</code>. What is described
+  <code>d766f71</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -460,7 +467,7 @@ The legacy <code class="language-plaintext highlighter-rouge">utils.fit_profile<
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#evaluate_regularized_profile"><code>evaluate_regularized_profile</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="evaluate_regularized_profile" href="https://github.com/VEST-Tokamak/vaft/blob/e3ab53e8389af4ddd5ab0aa183148f12d6ea5c13/vaft/formula/regularized_profiles.py#L119-L164" title="vaft/formula/regularized_profiles.py, lines 119–164 at e3ab53e">source</a>
+<a class="ref-source" data-source="evaluate_regularized_profile" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/regularized_profiles.py#L119-L164" title="vaft/formula/regularized_profiles.py, lines 119–164 at d766f71">source</a>
 </header>
     <pre class="ref-signature"><code>evaluate_regularized_profile(psi_n, parameters, config, *, derivative=0, allow_extrapolation=False)</code></pre>
 
@@ -566,7 +573,7 @@ carries no positivity guarantee. Numerical overflow is not clipped.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_regularized_profile"><code>fit_regularized_profile</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="fit_regularized_profile" href="https://github.com/VEST-Tokamak/vaft/blob/e3ab53e8389af4ddd5ab0aa183148f12d6ea5c13/vaft/formula/regularized_profiles.py#L188-L305" title="vaft/formula/regularized_profiles.py, lines 188–305 at e3ab53e">source</a>
+<a class="ref-source" data-source="fit_regularized_profile" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/regularized_profiles.py#L188-L305" title="vaft/formula/regularized_profiles.py, lines 188–305 at d766f71">source</a>
 </header>
     <pre class="ref-signature"><code>fit_regularized_profile(psi_n, values, *, config=None)</code></pre>
 
@@ -621,7 +628,7 @@ dropped. Callers own independent masks, branch grouping and support.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#profile_basis"><code>profile_basis</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="profile_basis" href="https://github.com/VEST-Tokamak/vaft/blob/e3ab53e8389af4ddd5ab0aa183148f12d6ea5c13/vaft/formula/regularized_profiles.py#L69-L116" title="vaft/formula/regularized_profiles.py, lines 69–116 at e3ab53e">source</a>
+<a class="ref-source" data-source="profile_basis" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/regularized_profiles.py#L69-L116" title="vaft/formula/regularized_profiles.py, lines 69–116 at d766f71">source</a>
 </header>
     <pre class="ref-signature"><code>profile_basis(psi_n, config, derivative=0)</code></pre>
 
@@ -801,7 +808,7 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/process/ml/research/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Scientific ML: structured observations, training and model graphs">
+                        <a href="/vaft/develop/reference/animation/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Animation gallery">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
@@ -941,7 +948,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-20 21:15:36 +0000"
+        "time": "2026-10-20 22:48:21 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -972,5 +979,7 @@ window.MathJax = {
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
 <script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
+<script src="/vaft/develop/assets/animations/loader.js"></script>
+<script src="/vaft/develop/assets/gitbook/adaptive.js"></script>
 </body>
 </html>

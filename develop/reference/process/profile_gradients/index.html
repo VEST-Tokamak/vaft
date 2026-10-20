@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
 
 <meta name="HandheldFriendly" content="true"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
@@ -24,6 +24,7 @@
 
 
 
+<link rel="stylesheet" href="/vaft/develop/assets/animations/player.css">
 
             <link rel="prev" href="/vaft/develop/reference/mcp/" />
         
@@ -313,6 +314,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.animation-reference" data-path="/vaft/develop/reference/animation/">
+                    
+                        <a href="/vaft/develop/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
                     
                         <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
@@ -396,7 +403,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>e3ab53e</code>. What is described
+  <code>d766f71</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -525,7 +532,7 @@ reads <code class="language-plaintext highlighter-rouge">RADIAL_COORDINATES</cod
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#profile_gradient"><code>profile_gradient</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="profile_gradient" href="https://github.com/VEST-Tokamak/vaft/blob/e3ab53e8389af4ddd5ab0aa183148f12d6ea5c13/vaft/process/profile_gradients.py#L1165-L1440" title="vaft/process/profile_gradients.py, lines 1165–1440 at e3ab53e">source</a>
+<a class="ref-source" data-source="profile_gradient" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/process/profile_gradients.py#L1165-L1440" title="vaft/process/profile_gradients.py, lines 1165–1440 at d766f71">source</a>
 </header>
     <pre class="ref-signature"><code>profile_gradient(profile, grid, profile_coordinate, *, equilibrium, coordinate=None, gradient_coordinate=UNSET, reference_length=UNSET, convention=None, metadata=None, at=None, time=None, quantity=None, source_quantity=&#39;f&#39;)</code></pre>
 
@@ -655,7 +662,7 @@ responsibility, and <em>time</em> only selects the slice.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#radial_coordinate_map"><code>radial_coordinate_map</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="radial_coordinate_map" href="https://github.com/VEST-Tokamak/vaft/blob/e3ab53e8389af4ddd5ab0aa183148f12d6ea5c13/vaft/process/profile_gradients.py#L311-L442" title="vaft/process/profile_gradients.py, lines 311–442 at e3ab53e">source</a>
+<a class="ref-source" data-source="radial_coordinate_map" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/process/profile_gradients.py#L311-L442" title="vaft/process/profile_gradients.py, lines 311–442 at d766f71">source</a>
 </header>
     <pre class="ref-signature"><code>radial_coordinate_map(source, time=None)</code></pre>
 
@@ -746,7 +753,7 @@ sensitivity (#317).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#radial_coordinate_map_from_arrays"><code>radial_coordinate_map_from_arrays</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="radial_coordinate_map_from_arrays" href="https://github.com/VEST-Tokamak/vaft/blob/e3ab53e8389af4ddd5ab0aa183148f12d6ea5c13/vaft/process/profile_gradients.py#L549-L676" title="vaft/process/profile_gradients.py, lines 549–676 at e3ab53e">source</a>
+<a class="ref-source" data-source="radial_coordinate_map_from_arrays" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/process/profile_gradients.py#L549-L676" title="vaft/process/profile_gradients.py, lines 549–676 at d766f71">source</a>
 </header>
     <pre class="ref-signature"><code>radial_coordinate_map_from_arrays(*, r_inboard, r_outboard, psi_norm=None, rho_tor_norm=None, magnetic_axis_r=None, time=None, source=&#39;caller-supplied arrays&#39;)</code></pre>
 
@@ -837,7 +844,7 @@ The proxy test needs <code class="language-plaintext highlighter-rouge">psi_norm
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resolve_convention"><code>resolve_convention</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="resolve_convention" href="https://github.com/VEST-Tokamak/vaft/blob/e3ab53e8389af4ddd5ab0aa183148f12d6ea5c13/vaft/process/profile_gradients.py#L914-L1023" title="vaft/process/profile_gradients.py, lines 914–1023 at e3ab53e">source</a>
+<a class="ref-source" data-source="resolve_convention" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/process/profile_gradients.py#L914-L1023" title="vaft/process/profile_gradients.py, lines 914–1023 at d766f71">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_convention(name, metadata=None)</code></pre>
 
@@ -926,7 +933,7 @@ publicly available, so no GENE rule is encoded.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resolve_reference_length"><code>resolve_reference_length</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="resolve_reference_length" href="https://github.com/VEST-Tokamak/vaft/blob/e3ab53e8389af4ddd5ab0aa183148f12d6ea5c13/vaft/process/profile_gradients.py#L734-L816" title="vaft/process/profile_gradients.py, lines 734–816 at e3ab53e">source</a>
+<a class="ref-source" data-source="resolve_reference_length" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/process/profile_gradients.py#L734-L816" title="vaft/process/profile_gradients.py, lines 734–816 at d766f71">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_reference_length(name, coordinate_map, metadata=None)</code></pre>
 
@@ -1216,7 +1223,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-20 21:15:36 +0000"
+        "time": "2026-10-20 22:48:21 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
@@ -1247,5 +1254,7 @@ window.MathJax = {
 <script src="/vaft/develop/assets/gitbook/custom.js"></script>
 <script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
 
+<script src="/vaft/develop/assets/animations/loader.js"></script>
+<script src="/vaft/develop/assets/gitbook/adaptive.js"></script>
 </body>
 </html>
