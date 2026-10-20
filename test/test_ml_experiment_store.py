@@ -71,3 +71,14 @@ def test_content_address_cannot_be_rebound(tmp_path):
     (tmp_path / f"{a['id']}.json").write_text(json.dumps(b))
     with pytest.raises(ValueError, match="filename identity"):
         store.get(a["id"])
+
+
+def test_unpublished_parent_and_missing_record(tmp_path):
+    store = ExperimentStore(tmp_path)
+    family = hierarchy_record("family", {"name": "ridge"})
+    trial = hierarchy_record("trial", {}, links={"family": family["id"]})
+    with pytest.raises(ValueError, match="unpublished family"):
+        store.put(trial)
+    with pytest.raises(KeyError):
+        store.get(family["id"])
+    assert not list(tmp_path.glob("*.json"))

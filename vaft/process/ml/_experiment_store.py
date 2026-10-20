@@ -86,7 +86,10 @@ class ExperimentStore:
         if not isinstance(identity, str) or len(identity) != 64 or any(
                 c not in "0123456789abcdef" for c in identity):
             raise ValueError("expected full content SHA256")
-        value = verify(json.loads((self.directory / f"{identity}.json").read_text()))
+        path = self.directory / f"{identity}.json"
+        if not path.is_file():
+            raise KeyError(f"no record with identity {identity}")
+        value = verify(json.loads(path.read_text()))
         if value["id"] != identity:
             raise ValueError("record filename identity mismatch")
         return value
@@ -95,13 +98,20 @@ class ExperimentStore:
         verify(value)
         for name, kind in REQUIRED_LINKS.get(value["kind"], {}).items():
             identity = value["links"].get(name)
-            if not identity or self.get(identity)["kind"] != kind:
+            if not identity or self._linked(identity, name)["kind"] != kind:
                 raise ValueError(f"missing/invalid {name} reference")
         for name, identities in value["links"].items():
             for identity in identities if isinstance(identities, list) else [identities]:
-                self.get(identity)
+                self._linked(identity, name)
         atomic_json(self.directory / f"{value['id']}.json", value)
         return value["id"]
+
+    def _linked(self, identity, name):
+        # A parent must already be published; report it as an invalid record.
+        try:
+            return self.get(identity)
+        except KeyError:
+            raise ValueError(f"unpublished {name} reference: {identity}") from None
 
     def all(self, kind=None):
         for path in sorted(self.directory.glob("*.json")):
