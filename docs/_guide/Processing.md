@@ -170,6 +170,7 @@ Every time-domain rate change in `vaft.machine_mapping` and `vaft.process`, clas
 | `machine_mapping/impa.py` | IMPA raw → 25 kHz | ≤10× | `impa_lowpass` filters first, but the configured `sample_rate` may not match the channels ([#425]) |
 | `process/electromagnetics.py` | EVD substepping | 1.25× | `dt_sub` ships coarser than the diagnostics grid — a solver-parameter bug, tracked separately |
 | `code/efit/legacy.py` | 4e-5 data on a 1e-4 `ave_time` step | — | Pseudo-average, tracked separately |
+| `process/particle.py` | solver trajectory → turning/crossing instants, comparison grid | — | Evaluates a deterministic ODE solution, not acquired data; no action |
 | `process/profile.py`, `process/equilibrium.py`, `omas/update.py`, `omas/process_wrapper.py`, `code/*`, `formula/*` | ψ, ρ, R–Z grids; scalar sampling at one instant | — | Not time-domain rate changes; no action |
 
 This table will rot. `test/test_no_bare_downsample.py` will not: it walks the AST of
