@@ -381,7 +381,11 @@ def _render_workflow(spec: WorkflowSpec, *, labels: bool = True, references: boo
             if len(path) == 3:  # label the leg leaving the source
                 (ax, ay), (bx, by) = path[0], path[1]
             mx, my = 0.5 * (ax + bx), 0.5 * (ay + by)
-            items.append(Label((mx - 0.15, my), escape_latex(text), "concept annotation", anchor="east",
+            if abs(by - ay) < 0.3:  # a horizontal leg: the label sits above it, not over the boxes it joins
+                at, anchor = (mx, my + 0.12), "south"
+            else:
+                at, anchor = (mx - 0.15, my), "east"
+            items.append(Label(at, escape_latex(text), "concept annotation", anchor=anchor,
                                role=f"edge label:{src}->{dst}"))
     equations = {n.key: node_equation(n) for n in spec.nodes if n.equation}
     if labels:
