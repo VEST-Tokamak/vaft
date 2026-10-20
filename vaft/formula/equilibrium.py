@@ -249,10 +249,12 @@ def phi_from_Bphi(B_phi: np.ndarray,
         Height axis (1-D) or ``ij`` mesh (2-D) of the grid [m].
     mask : np.ndarray, optional
         Boolean map, ``True`` inside the cross-section bounded by the flux
-        surface of interest; default the whole grid [-].
+        surface of interest (for the LCFS of a diverted plasma, ``psi_N <= 1``
+        *and* inside the LCFS, excluding the private-flux region); default the
+        whole grid [-].
     dA : np.ndarray, optional
         Deprecated (#358): caller-supplied area elements of the old bare sum,
-        also accepted as the second positional argument [m^2].
+        also accepted as the second positional argument for a 1-D ``B_phi`` [m^2].
 
     Returns
     -------

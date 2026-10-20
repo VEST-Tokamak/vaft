@@ -577,8 +577,16 @@ def _rectilinear_axis(coord: np.ndarray, axis: int, name: str, shape: tuple) -> 
 def _toroidal_flux(B_phi, R, Z, mask, dA, stacklevel: int) -> float:
     """Shared body of :func:`calculate_toroidal_flux` and ``phi_from_Bphi``."""
     if dA is None and Z is None and R is not None:
-        # Legacy positional call ``f(B_phi, dA)``: the second argument is the
-        # area-element array of the bare sum.
+        if np.ndim(B_phi) == 2:
+            # A 2-D map with a second argument and no Z is ambiguous: a grid
+            # call that forgot Z, or the old area map.  Summing B_phi * R would
+            # be silently wrong, so refuse rather than guess.
+            raise TypeError(
+                "toroidal flux over a 2-D map needs both R and Z; for the deprecated "
+                "area-element sum pass dA= by keyword"
+            )
+        # Legacy positional call ``f(B_phi, dA)`` on samples: the second
+        # argument is the area-element array of the bare sum.
         dA, R = R, None
     if dA is not None:
         if R is not None or Z is not None or mask is not None:
@@ -592,7 +600,7 @@ def _toroidal_flux(B_phi, R, Z, mask, dA, stacklevel: int) -> float:
         )
         return float(np.sum(np.asarray(B_phi, dtype=float) * np.asarray(dA, dtype=float)))
     if R is None or Z is None:
-        raise TypeError("toroidal flux needs the grid: pass R and Z")
+        raise TypeError("toroidal flux needs the grid: pass both R and Z")
     B_phi = np.asarray(B_phi, dtype=float)
     if B_phi.ndim != 2:
         raise ValueError(f"B_phi must be a 2-D map indexed [R, Z], got ndim={B_phi.ndim}")
@@ -603,6 +611,9 @@ def _toroidal_flux(B_phi, R, Z, mask, dA, stacklevel: int) -> float:
         mask = np.asarray(mask)
         if mask.shape != B_phi.shape:
             raise ValueError(f"mask has shape {mask.shape}, B_phi has {B_phi.shape}")
+        if mask.dtype.kind not in "bi":
+            # A float mask turns nan into True; insist on the boolean it means.
+            raise ValueError(f"mask must be boolean, got dtype {mask.dtype}")
         integrand = np.where(mask.astype(bool), B_phi, 0.0)
     flux = trapz_compat(trapz_compat(integrand, x=z_line, axis=1), x=r_line)
     # Integrate over the area, whichever way the axes are stored.
@@ -635,11 +646,14 @@ def calculate_toroidal_flux(B_phi: np.ndarray,
         ``ij``-indexed 2-D mesh of the shape of ``B_phi`` [m].
     mask : np.ndarray, optional
         Boolean map of the shape of ``B_phi``; ``True`` marks the samples inside
-        the cross-section (e.g. ``psi_N <= 1``).  Default: the whole grid [-].
+        the cross-section.  ``psi_N <= 1`` alone also selects the private-flux
+        region below a diverted X-point; combine it with an inside-the-LCFS
+        test there.  Default: the whole grid [-].
     dA : np.ndarray, optional
         Deprecated (#358).  Caller-supplied area elements of the old bare sum
         $\sum_i B_{\varphi,i}\,\Delta A_i$; also taken from a two-argument call
-        ``calculate_toroidal_flux(B_phi, dA)``.  Emits a ``DeprecationWarning`` [m^2].
+        ``calculate_toroidal_flux(B_phi, dA)`` when ``B_phi`` is not 2-D (a 2-D
+        map must pass ``dA=`` by keyword).  Emits a ``DeprecationWarning`` [m^2].
 
     Returns
     -------
@@ -649,10 +663,11 @@ def calculate_toroidal_flux(B_phi: np.ndarray,
     Raises
     ------
     ValueError
-        If the grid is not rectilinear, an axis is not strictly monotonic, or a
-        shape does not match ``B_phi``.
+        If the grid is not rectilinear, an axis is not strictly monotonic, a
+        shape does not match ``B_phi``, or ``mask`` is not boolean.
     TypeError
-        If neither the grid nor ``dA`` is given, or both are.
+        If neither the grid nor ``dA`` is given, both are, or a 2-D map is
+        given a second argument without ``Z``.
 
     Convention
     ----------

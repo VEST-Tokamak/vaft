@@ -132,8 +132,16 @@ def test_toroidal_flux_rejects_a_grid_that_does_not_match():
         calculate_toroidal_flux(B_phi, RR, ZZ)
     with pytest.raises(ValueError, match="mask"):
         calculate_toroidal_flux(B_phi, R, Z, mask=np.ones((2, 2), bool))
+    with pytest.raises(ValueError, match="boolean"):
+        calculate_toroidal_flux(B_phi, R, Z, mask=np.full(B_phi.shape, np.nan))
     with pytest.raises(TypeError):
         calculate_toroidal_flux(B_phi)
+    # A 2-D map with R but no Z is a forgotten argument, not the old area sum.
+    RR, ZZ = np.meshgrid(R, Z, indexing="ij")
+    with pytest.raises(TypeError, match="both R and Z"):
+        calculate_toroidal_flux(B_phi, RR)
+    with pytest.raises(TypeError, match="both R and Z"):
+        calculate_toroidal_flux(B_phi, R, mask=np.ones_like(B_phi, bool))
     with pytest.raises(TypeError):
         calculate_toroidal_flux(B_phi, R, Z, dA=np.ones_like(B_phi))
 
@@ -146,6 +154,11 @@ def test_toroidal_flux_legacy_area_sum_is_deprecated_but_unchanged():
         assert calculate_toroidal_flux(B_phi, dA) == pytest.approx(expected, rel=1e-13, abs=0.0)
     with pytest.warns(DeprecationWarning, match="#358"):
         assert calculate_toroidal_flux(B_phi, dA=dA) == pytest.approx(expected, rel=1e-13, abs=0.0)
+    # A 2-D area map still works, by keyword.
+    with pytest.warns(DeprecationWarning, match="#358"):
+        assert calculate_toroidal_flux(np.tile(B_phi, (2, 1)), dA=np.tile(dA, (2, 1))) == (
+            pytest.approx(2 * expected, rel=1e-13, abs=0.0)
+        )
 
 
 def test_the_equilibrium_wrappers_are_these_primitives():
