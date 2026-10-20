@@ -40,4 +40,11 @@ d.save("{{ lead.id }}{{ f.suffix }}")  # {{ f.description }}{% if f.requires.siz
 {% if b.formula.size > 0 %}<p class="ref-note">Formula functions referenced:
 {% for f in b.formula %}{% assign entry = formula.formulas | where: "category", f.category | where: "name", f.name | first %}{% if f.category != "" %}{% assign label = f.category | append: "." | append: f.name %}{% else %}{% assign label = f.name %}{% endif %}{% if entry %}<a href="{{ site.baseurl }}/reference/formula/{{ f.category }}/#{{ f.name }}"><code>{{ label }}</code></a>{% else %}<code>{{ label }}</code>{% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}</p>
 {% endif %}
+{% if b.animations.size > 0 %}
+<details><summary>Animation variants ({{ b.animations.size }})</summary>
+{% for animation in b.animations %}
+<p><a href="{{ site.baseurl }}/reference/animation/#{{ animation.id }}">Open in Animation gallery</a></p>
+{% include reference/animation-player.html animation=animation %}
+{% endfor %}</details>
+{% endif %}
 </section>
