@@ -93,16 +93,12 @@ def scale_lengths(local: Any) -> dict[str, Optional[float]]:
 
 
 def _kxky_phi(directory: Path, grid: Mapping[str, Any], hiprec: bool) -> Optional[np.ndarray]:
-    path = directory / "bin.cgyro.kxky_phi"
-    if not path.is_file():
+    # Compatibility entry point: one canonical native parser, raw time order.
+    from .fields import read_field_history
+    try:
+        return read_field_history(directory).raw
+    except (FileNotFoundError, ValueError):
         return None
-    data = np.fromfile(path, dtype=np.complex128 if hiprec else np.complex64)
-    per_step = grid["n_radial"] * grid["theta_plot"] * grid["n_n"]
-    steps = data.size // per_step
-    if steps < 1:
-        return None
-    return data[: per_step * steps].reshape(
-        (grid["n_radial"], grid["theta_plot"], grid["n_n"], steps), order="F")
 
 
 def radial_correlation_length(
@@ -128,16 +124,14 @@ def radial_correlation_length(
     grid = getattr(outputs, "grid", None)
     if not grid or int(grid.get("n_n", 1)) < 2:
         return {"reason": "not a multi-mode (nonlinear) run"}
-    hiprec = bool((outputs.equilibrium or {}).get("hiprec_flag"))
-    field = _kxky_phi(Path(outputs.directory), grid, hiprec)
-    if field is None:
-        return {"reason": "no bin.cgyro.kxky_phi in the run"}
-    if hasattr(outputs, "align_records"):
-        field = outputs.align_records(field)
-        time = np.asarray(outputs.time, dtype=float)[: field.shape[-1]]
-    else:
-        time = np.asarray(outputs.time, dtype=float)[: field.shape[-1]]
-        field = field[..., : time.size]
+    from .fields import read_field_history
+    try:
+        history = read_field_history(outputs.directory)
+    except (FileNotFoundError, ValueError) as error:
+        return {"reason": str(error)}
+    # Preserve this API's original inclusion of the special radial slot.
+    field = history.raw[..., history.records]
+    time = history.time
     if window is None:
         window = (0.5 * float(time[-1]), float(time[-1]))
     mask = (time >= window[0]) & (time <= window[1])
@@ -149,28 +143,11 @@ def radial_correlation_length(
     # S(k_x): turbulent modes only (n >= 1; n = 0 is the zonal flow), averaged over the
     # stored poloidal angles and the time window.
     spectrum = np.mean(np.abs(field[:, :, 1:, mask]) ** 2, axis=(1, 3)).sum(axis=1)
-    if not np.any(spectrum > 0):
-        return {"reason": "zero turbulent amplitude in the window"}
-    kx = 2.0 * np.pi * p / length
-    dx = np.linspace(0.0, 0.5 * length, 513)
-    correlation = (spectrum[None, :] * np.cos(np.outer(dx, kx))).sum(axis=1)
-    correlation /= correlation[0]
-    below = np.flatnonzero(correlation <= np.exp(-1.0))
-    l_corr = None
-    if below.size:
-        j = int(below[0])
-        x0, x1, c0, c1 = dx[j - 1], dx[j], correlation[j - 1], correlation[j]
-        l_corr = float(x0 + (np.exp(-1.0) - c0) * (x1 - x0) / (c1 - c0))
-    zero = np.flatnonzero(correlation <= 0.0)
-    stop = int(zero[0]) if zero.size else dx.size
-    integrate = getattr(np, "trapezoid", None) or np.trapz
-    l_integral = float(integrate(correlation[:stop], dx[:stop]))
+    from vaft.process.gyrokinetics import radial_correlation_from_spectrum
+    reduced = radial_correlation_from_spectrum(2*np.pi*p/length, spectrum, box_length=length)
+    if "reason" in reduced: return reduced
     return {
-        "l_corr": l_corr,
-        # The autocorrelation never fell to 1/e inside half the (periodic) box: the box
-        # truncates the turbulence, and l_corr is only known to exceed L_x/2.
-        "l_corr_lower_bound": None if l_corr is not None else 0.5 * length,
-        "l_integral": l_integral,
+        **reduced,
         "window": [float(window[0]), float(window[1])],
         "n_samples": int(np.count_nonzero(mask)),
         "method": "1/e crossing of the radial autocorrelation of phi (n>=1, theta_plot, "

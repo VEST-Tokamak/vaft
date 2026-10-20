@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from . import _IMPORT_ORDER, _submodule
+from . import _CATALOG_ONLY_SUBMODULES, _IMPORT_ORDER, _submodule
 from ._docstring import (
     CUSTOM_SECTIONS,
     SECTION_VOCABULARY,
@@ -87,7 +87,8 @@ __all__ = [
 
 #: Submodules whose functions the catalog covers, in package import order.
 #: ``constants`` defines no functions and appears only through :func:`categories`.
-CATEGORIES: tuple[str, ...] = tuple(key for key in _IMPORT_ORDER if key != "constants")
+_CATALOG_ORDER = _IMPORT_ORDER + tuple(_CATALOG_ONLY_SUBMODULES)
+CATEGORIES: tuple[str, ...] = tuple(key for key in _CATALOG_ORDER if key != "constants")
 
 SCHEMA_VERSION = 6  # +reduction (#1626), +semantics (#1702), +uncertainty propagation (#1874)
 _GENERATOR = "python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml"
@@ -475,7 +476,9 @@ def _defined_names(category: str) -> frozenset[str]:
 
 def _shadowing_category(category: str, name: str) -> str | None:
     """The later category whose own definition of ``name`` wins the package lookup."""
-    later = CATEGORIES[CATEGORIES.index(category) + 1 :]
+    if category not in _IMPORT_ORDER:
+        return None
+    later = _IMPORT_ORDER[_IMPORT_ORDER.index(category) + 1 :]
     winner = None
     for other in later:
         if name in _defined_names(other):
@@ -602,7 +605,9 @@ def _alias_index(category: str) -> dict[str, str]:
 def _resolve_category(name: str) -> str | None:
     """Which category ``vaft.formula.<name>`` binds, by the package's own rule."""
     winner = None
-    for category in CATEGORIES:
+    for category in _IMPORT_ORDER:
+        if category == "constants":
+            continue
         if name in _defined_names(category):
             winner = category
     return winner
@@ -704,7 +709,7 @@ def categories() -> list[CategoryDoc]:
     """Every submodule as a documentation category, ``constants`` included."""
     _require_docstrings()
     result: list[CategoryDoc] = []
-    for key in _IMPORT_ORDER:
+    for key in _CATALOG_ORDER:
         module = _submodule(key)
         doc: ModuleDoc = parse_module_docstring(module.__doc__)
         count = len(_specs_for(key)) if key in CATEGORIES else 0
@@ -733,7 +738,7 @@ def documentation_snapshot(
                 "path": f"vaft/formula/{key}.py",
                 "sha256": hashlib.sha256(_source_path(key).read_bytes()).hexdigest(),
             }
-            for key in _IMPORT_ORDER
+            for key in _CATALOG_ORDER
         ],
         "categories": [doc.as_dict() for doc in categories()],
         "formulas": [spec.as_dict() for spec in list_formulas(category)],

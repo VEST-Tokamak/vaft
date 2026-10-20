@@ -33,6 +33,7 @@ import numpy as np
 from .style import axis_label, finalize, resolve_axes
 
 __all__ = [
+    "plot_gyrokinetics_field_potential",
     "cgyro_linear_spectrum",
     "plot_convergence",
     "plot_eigenfunction",
@@ -247,10 +248,17 @@ def plot_convergence(
     return finalize(figure, panels, show=show, tight_layout=ax is None)
 
 
+def _elapsed_coordinate(time, unit, normalization):
+    from vaft.code.gacode.cgyro.time import display_time
+    return display_time(time, unit=unit, normalization=normalization)
+
+
 def plot_flux_trace(
     time: Any,
     traces: Mapping[str, Any],
     *,
+    time_unit: str = "native",
+    time_normalization: Any = None,
     window: Optional[tuple[float, float]] = None,
     references: Optional[Mapping[str, float]] = None,
     ax: Any = None,
@@ -263,18 +271,21 @@ def plot_flux_trace(
 
     ``traces`` maps a label (``"Q_i"``, ``"Q_e"``) to a flux time series in gyro-Bohm
     units; ``references`` maps a label (``"TGLF SAT2"``) to a level drawn dashed, so the
-    saturated CGYRO flux reads directly against the SAT rules.
+    saturated CGYRO flux reads directly against the SAT rules. ``time`` and
+    ``window`` always use native units. ``time_unit="ms"`` (or "s") requires
+    verified ``time_normalization`` and transforms both for display only.
     """
     figure, axes = resolve_axes(ax, figsize=figsize or (6.5, 3.5))
-    t = np.asarray(time, dtype=float)
+    t, time_label = _elapsed_coordinate(time, time_unit, time_normalization)
     for label, values in traces.items():
         values = np.asarray(values, dtype=float)
         axes.plot(t[: values.size], values, label=label)
     if window is not None:
-        axes.axvspan(window[0], window[1], color="0.9", zorder=0, label="average window")
+        bounds, _ = _elapsed_coordinate(window, time_unit, time_normalization)
+        axes.axvspan(*bounds, color="0.9", zorder=0, label="Gyrokinetic averaging window")
     for label, level in (references or {}).items():
         axes.axhline(float(level), linestyle="--", linewidth=0.9, label=label)
-    axes.set_xlabel(axis_label(r"$t$", "a/c_s"))
+    axes.set_xlabel(time_label)
     axes.set_ylabel(ylabel)
     axes.legend(fontsize="small")
     if title:
@@ -688,7 +699,9 @@ def plot_predator_prey_trace(
     ax: Any = None,
     show: bool = False,
     figsize: Optional[tuple[float, float]] = None,
-    time_label: str = axis_label(r"$t$", "a/c_s"),
+    time_label: Optional[str] = None,
+    time_unit: str = "native",
+    time_normalization: Any = None,
     transport_label: str = axis_label(r"$Q/Q_{GB}$"),
     title: Optional[str] = None,
 ) -> tuple[Any, Any]:
@@ -700,7 +713,9 @@ def plot_predator_prey_trace(
     :class:`~vaft.process.gyrokinetics.PredatorPreyCycleMetrics`) marks the peaks it
     found. Nothing is detected or fitted here.
     """
-    t = np.asarray(time, dtype=float)
+    native_time = np.asarray(time, dtype=float)
+    t, default_label = _elapsed_coordinate(native_time, time_unit, time_normalization)
+    time_label = time_label or default_label
     n = np.asarray(turbulence, dtype=float)
     e = np.asarray(zonal, dtype=float)
     rows = 3 if transport is not None else 2
@@ -710,14 +725,14 @@ def plot_predator_prey_trace(
     panels[0].plot(t, n, color="C3", label="N (turbulence)")
     panels[1].plot(t, e, color="C2", label="E (zonal)")
     if fit is not None:
-        tf = _fit_times(t, fit)
+        tf, _ = _elapsed_coordinate(_fit_times(native_time, fit), time_unit, time_normalization)
         panels[0].plot(tf, fit.turbulence_fit, label=f"LV fit (R$^2$ {fit.r2_turbulence:.2f})", **_FIT_STYLE)
         panels[1].plot(tf, fit.zonal_fit, label=f"LV fit (R$^2$ {fit.r2_zonal:.2f})", **_FIT_STYLE)
     if metrics is not None:
         for peak in metrics.turbulence_peak_times:
-            panels[0].axvline(peak, color="C3", linewidth=0.6, alpha=0.5)
+            panels[0].axvline(float(_elapsed_coordinate(peak, time_unit, time_normalization)[0]), color="C3", linewidth=0.6, alpha=0.5)
         for peak in metrics.zonal_peak_times:
-            panels[1].axvline(peak, color="C2", linewidth=0.6, alpha=0.5)
+            panels[1].axvline(float(_elapsed_coordinate(peak, time_unit, time_normalization)[0]), color="C2", linewidth=0.6, alpha=0.5)
     panels[0].set_ylabel(axis_label("N", "potential intensity"))
     panels[1].set_ylabel(axis_label("E", "potential intensity"))
     if transport is not None:
@@ -741,6 +756,8 @@ def plot_predator_prey_phase_space(
     zonal: Any,
     *,
     time: Optional[Any] = None,
+    time_unit: str = "native",
+    time_normalization: Any = None,
     fit: Optional[Any] = None,
     arrows: int = 8,
     vector_field: bool = True,
@@ -768,18 +785,22 @@ def plot_predator_prey_phase_space(
     if log and (np.any(n <= 0) or np.any(e <= 0)):
         raise ValueError("log axes need strictly positive intensities")
     segments = np.stack([np.column_stack([n[:-1], e[:-1]]), np.column_stack([n[1:], e[1:]])], axis=1)
-    colour = np.asarray(time, dtype=float)[:-1] if time is not None else np.arange(n.size - 1)
+    if time is not None:
+        display, time_label = _elapsed_coordinate(time, time_unit, time_normalization)
+        colour = display[:-1]
+    else:
+        colour = np.arange(n.size - 1)
     line = LineCollection(segments, cmap="viridis", linewidths=1.2)
     line.set_array(colour)
     axes.add_collection(line)
     if time is not None:
-        figure.colorbar(line, ax=axes, label=axis_label(r"$t$", "a/c_s"))
+        figure.colorbar(line, ax=axes, label=time_label)
     step = max(1, n.size // max(int(arrows), 1))
     for k in (range(step // 2, n.size - 1, step) if int(arrows) > 0 else ()):
         axes.annotate("", xy=(n[k + 1], e[k + 1]), xytext=(n[k], e[k]),
                       arrowprops={"arrowstyle": "->", "color": "0.2", "lw": 1.0})
     if fit is not None:
-        from vaft.formula.turbulence import predator_prey_fixed_point, predator_prey_rhs
+        from vaft.formula.turbulence import predator_prey_fixed_point
 
         params = (fit.gamma_eff, fit.coupling_suppression, fit.coupling_drive, fit.gamma_zonal)
         n_star, e_star = predator_prey_fixed_point(*params)
@@ -847,7 +868,9 @@ def plot_predator_prey_lag(
     ax: Any = None,
     show: bool = False,
     figsize: Optional[tuple[float, float]] = None,
-    time_label: str = axis_label(r"lag $\tau$ (zonal after turbulence)", "a/c_s"),
+    time_label: Optional[str] = None,
+    time_unit: str = "native",
+    time_normalization: Any = None,
     title: Optional[str] = None,
 ) -> tuple[Any, Any]:
     """Cross-correlation of ``N`` and ``E`` against lag, with the lag estimates marked.
@@ -859,7 +882,8 @@ def plot_predator_prey_lag(
     are drawn as vertical markers. The correlation is not recomputed.
     """
     figure, axes = resolve_axes(ax, figsize=figsize or (5.5, 3.4))
-    tau = np.asarray(lags, dtype=float)
+    tau, elapsed_label = _elapsed_coordinate(lags, time_unit, time_normalization)
+    time_label = time_label or elapsed_label.replace("elapsed time", "elapsed lag (zonal after turbulence)")
     cc = np.asarray(cross_correlation, dtype=float)
     if tau.shape != cc.shape:
         raise ValueError("lags and cross_correlation must have the same shape")
@@ -872,6 +896,7 @@ def plot_predator_prey_lag(
         (model_lag, "LV model lag", {"color": "C2", "linestyle": ":"}),
     ):
         if value is not None and np.isfinite(value):
+            value = float(_elapsed_coordinate(value, time_unit, time_normalization)[0])
             axes.axvline(float(value), linewidth=1.3, label=f"{label} {float(value):.3g}", **style)
     axes.set_xlabel(time_label)
     axes.set_ylabel("cross-correlation")
@@ -880,3 +905,188 @@ def plot_predator_prey_lag(
         axes.set_title(title)
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
+
+
+def plot_gyrokinetics_field_potential(
+    history,
+    *,
+    component="total",
+    time_unit="native",
+    time_normalization=None,
+    theta_index=0,
+    frame_index=0,
+    animation=False,
+    diagnostics=None,
+    fps=10.0,
+    dpi=100,
+    show=False,
+):
+    """Draw a native saved-theta potential plane or canonical Animation.
+
+    Interpretation
+    --------------
+    Shows the local total, ky=0 or nonzonal potential in native CGYRO units,
+    with gyrokinetic elapsed timestamps and optional causally aligned diagnostic traces.
+    Scientific reductions are prepared by vaft.process, never by the renderer.
+
+    Parameters
+    ----------
+    history : FieldHistory
+        Native read_field_history result, not an IMAS ODS.
+    time_unit : str, optional
+        Native (default), s or ms; converts every panel and frame timestamp.
+    time_normalization : CgyroTimeNormalization, optional
+        Verified run scales. When omitted for SI, use saved native metadata.
+    component : str, optional
+        Total, zonal or nonzonal selection, default total.
+    theta_index : int, optional
+        Index into actually saved theta planes, default zero.
+    frame_index : int, optional
+        Selected frame for a static figure, default zero.
+    animation : bool, optional
+        Return the existing canonical Animation when true.
+    diagnostics : mapping, optional
+        Prepared traces keyed by label, with time, values, unit and max_gap.
+    fps : float, optional
+        Playback frames per second, independent of gyrokinetic elapsed time.
+    dpi : int, optional
+        Animation raster resolution, default 100.
+    show : bool, optional
+        Display a static result immediately.
+
+    Returns
+    -------
+    tuple or Animation
+        Static figure/axes or a lazy sequence supporting MP4/WebM export.
+
+    Limitations
+    -----------
+    A single saved-theta plane does not establish full parallel structure or a
+    global solution. ky=0 here is not a flux-surface-averaged zonal flow. Missing
+    fields and diagnostics are never filled with invented zeros. Numerical
+    qualification is inherited from the prepared scientific results.
+    """
+    from vaft.code.gacode.cgyro.time import _normalization
+    from vaft.process.gyrokinetics import reconstruct_field
+    from vaft.plot.models import Field2D
+    from vaft.plot.renderers.fields import render_field_2d
+    from vaft.plot._animation import Animation, Driver
+    from vaft.process.gyrokinetic_comparison import prepare_diagnostic_traces
+    import matplotlib.pyplot as plt
+
+    if not np.isfinite(fps) or fps <= 0:
+        raise ValueError("fps must be positive")
+    if time_unit != "native" and time_normalization is None:
+        from vaft.code.gacode.cgyro.time import CgyroTimeNormalization
+        norm = history.metadata.get("time_normalization", {})
+        if norm.get("status") != "available":
+            raise ValueError("field history has no verified SI time normalization")
+        time_normalization = CgyroTimeNormalization.from_metadata(norm)
+    if time_unit != "native" and time_normalization is not None:
+        from vaft.code.gacode.cgyro.time import CgyroTimeNormalization
+        recorded = history.metadata.get("time_normalization", {})
+        if recorded.get("status") == "available":
+            known = CgyroTimeNormalization.from_metadata(recorded)
+            supplied = _normalization(time_normalization)
+            for key in ("reference_length_m", "electron_temperature_j", "sound_speed_m_s"):
+                if not np.isclose(getattr(known, key), getattr(supplied, key), rtol=1e-4, atol=0):
+                    raise ValueError(f"supplied time normalization contradicts native field scales: {key}")
+    display_times, time_label = _elapsed_coordinate(history.time, time_unit, time_normalization)
+    display_unit = "a/c_s" if time_unit == "native" else time_unit
+    # Align and censor in native time first; convert the retained coordinates together.
+    traces = prepare_diagnostic_traces(diagnostics or {}, history.time)
+
+    def build(selection):
+        i = int(selection["frame_index"])
+        plane = reconstruct_field(
+            history.read(slice(i, i + 1), theta_index)[..., 0],
+            history.kx,
+            history.ky,
+            length_x=history.metadata["length_rho_s"],
+            component=component,
+        )
+        return Field2D(
+            r=plane.x,
+            z=plane.y,
+            values=plane.values.T,
+            x_label=r"$x/\rho_s$ (local)",
+            y_label=r"$y/\rho_s$ (local)",
+            value_label=r"$\delta\phi$ [native CGYRO]",
+            title=f"{component} potential; saved theta={history.theta[theta_index]:g}\nGyrokinetic elapsed time={display_times[i]:g} {display_unit}",
+            metadata={
+                "time": float(display_times[i]),
+                "gyrokinetic_normalized_time": float(history.time[i]),
+                "time_unit": display_unit,
+                "frame_index": i,
+                **plane.metadata,
+            },
+        )
+
+    def draw(model, ax=None, show=False, **style):
+        fig, axes = plt.subplots(
+            1 + len(traces),
+            1,
+            figsize=(7, 5 + 2 * len(traces)),
+            squeeze=False,
+            gridspec_kw={"height_ratios": [3] + [1] * len(traces)},
+        )
+        render_field_2d(model, ax=axes[0, 0], cmap="RdBu_r", show=False)
+        i = model.metadata["frame_index"]
+        for axis, (label, trace) in zip(axes[1:, 0], traces.items()):
+            tx, vy = trace["frames"][i]
+            tx, _ = _elapsed_coordinate(tx, time_unit, time_normalization)
+            axis.plot(tx, vy, lw=1)
+            axis.axvline(model.metadata["time"], color="k", lw=0.6)
+            axis.set_xlim(display_times[0], display_times[-1])
+            axis.set_ylim(*trace["limits"])
+            axis.set_ylabel(f"{label} [{trace['unit']}]")
+            axis.set_xlabel(time_label)
+        fig.tight_layout()
+        if show:
+            plt.show()
+        return fig, axes[:, 0]
+
+    if not animation:
+        return draw(build({"frame_index": frame_index}), show=show)
+    if len(history.time) < 2:
+        raise ValueError("animation requires at least two frames")
+    driver = Driver(
+        "frame_index",
+        "CGYRO saved field",
+        "Gyrokinetic elapsed time",
+        display_unit,
+        tuple(range(len(history.time))),
+        tuple(map(float, display_times)),
+    )
+    return Animation(
+        plot="gyrokinetics_field_potential",
+        label="native CGYRO local flux tube",
+        driver=driver,
+        selection={"theta_index": theta_index, "component": component},
+        fps=float(fps),
+        timing="uniform",
+        dpi=dpi,
+        image=False,
+        vmin=None,
+        vmax=None,
+        frame_label=True,
+        options={},
+        style={},
+        build=build,
+        draw=draw,
+        scientific_context={
+            **dict(history.metadata),
+            "display_time_unit": display_unit,
+            "time_domain": "gyrokinetic elapsed time from solver origin",
+            "display_time_normalization": (
+                _normalization(time_normalization).metadata()
+                if time_normalization is not None else history.metadata.get("time_normalization")
+            ),
+            "diagnostics": {
+                k: {"unit": v["unit"], "max_gap": v["max_gap"]}
+                for k, v in traces.items()
+            },
+            "theta": float(history.theta[theta_index]),
+            "component": component,
+        },
+    )

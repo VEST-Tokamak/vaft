@@ -1,0 +1,199 @@
+{
+  "base_commit": "9744dbd73eebc1ca3a03857f19e35360c4052488",
+  "native_commit": "b49339750a4aa4cf2b089fa9ff3afe098005f0f8",
+  "retained_source": "3DST:/home/hs_yun/runs/gyrokinetic/nonlinear/39915/magnetics/00317/r0.70/em-aperp/nonlinear/",
+  "remote_local_sha256_match_files": 19,
+  "native_field_oracle": {
+    "upstream_revision": "b49339750a4aa4cf2b089fa9ff3afe098005f0f8",
+    "upstream_source_sha256": {
+      "upstream_data.py": "ba5c8003fb92cedcfdca4a7199a9512c10a3cf1c8b65d51c466ec586527b8286",
+      "upstream_plot_fluct.py": "5d8b303dd3a518407f4405c6464a49fd94c1f0ae2c0bafc2af2764fa78f641f1"
+    },
+    "raw_field_array_equal": true,
+    "reconstruction_max_abs_error": 5.412337245047638e-16,
+    "frame_time": 100.0,
+    "layout": [
+      64,
+      1,
+      16,
+      21
+    ],
+    "saved_theta": [
+      0.0
+    ]
+  },
+  "multimodel": {
+    "TGLF_SAT_rules": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "TGLF_radial_surfaces": 6,
+    "CGYRO_nonlinear_surfaces": 1,
+    "TGLF_native_SI_flux_match_rtol": 1e-12,
+    "OMAS_JSON_identity_roundtrip": true,
+    "IMAS_netCDF_identity_roundtrip": true
+  },
+  "nonlinear_window": [
+    100.0,
+    1037.0
+  ],
+  "nonlinear_statistics": {
+    "Qi": {
+      "mean": 1.0049795592238973,
+      "window": [
+        100.0,
+        1037.0
+      ],
+      "time_unit": "a/c_s",
+      "coverage": 0.9982924226254002,
+      "max_gap": 0.5999999999999979,
+      "gap_policy": "exclude segments above max_gap and missing endpoints",
+      "n_samples": 4679,
+      "blocks": 4,
+      "block_length": 234.25,
+      "block_samples": [
+        1172,
+        1171,
+        1171,
+        1165
+      ],
+      "block_means": [
+        1.0965386627133986,
+        1.8133162040687036,
+        0.4425483243037601,
+        0.6651942066888898
+      ],
+      "block_coverage": [
+        1.0,
+        1.0,
+        1.0,
+        0.9931696905016008
+      ],
+      "standard_error": null,
+      "half_window_drift": -0.901437655806288,
+      "relative_drift": 0.8969711349178383,
+      "qualification": {
+        "data_sufficiency": "sufficient",
+        "stationarity": "unverified",
+        "uncertainty": "insufficient_data",
+        "numerical_convergence": "unverified",
+        "physical_applicability": "unverified"
+      },
+      "method": "piecewise-linear time integral; equal-duration batch means; relative drift screen <0.2 (heuristic)"
+    },
+    "Qe": {
+      "mean": 2.006455745772694,
+      "window": [
+        100.0,
+        1037.0
+      ],
+      "time_unit": "a/c_s",
+      "coverage": 0.9982924226254002,
+      "max_gap": 0.5999999999999979,
+      "gap_policy": "exclude segments above max_gap and missing endpoints",
+      "n_samples": 4679,
+      "blocks": 4,
+      "block_length": 234.25,
+      "block_samples": [
+        1172,
+        1171,
+        1171,
+        1165
+      ],
+      "block_means": [
+        2.1473112795079965,
+        3.5462189620963804,
+        0.9508786530387394,
+        1.377115499787785
+      ],
+      "block_coverage": [
+        1.0,
+        1.0,
+        1.0,
+        0.9931696905016008
+      ],
+      "standard_error": null,
+      "half_window_drift": -1.683498370962923,
+      "relative_drift": 0.8390408682124215,
+      "qualification": {
+        "data_sufficiency": "sufficient",
+        "stationarity": "unverified",
+        "uncertainty": "insufficient_data",
+        "numerical_convergence": "unverified",
+        "physical_applicability": "unverified"
+      },
+      "method": "piecewise-linear time integral; equal-duration batch means; relative drift screen <0.2 (heuristic)"
+    },
+    "Qtotal": {
+      "mean": 3.0114353049965916,
+      "window": [
+        100.0,
+        1037.0
+      ],
+      "time_unit": "a/c_s",
+      "coverage": 0.9982924226254002,
+      "max_gap": 0.5999999999999979,
+      "gap_policy": "exclude segments above max_gap and missing endpoints",
+      "n_samples": 4679,
+      "blocks": 4,
+      "block_length": 234.25,
+      "block_samples": [
+        1172,
+        1171,
+        1171,
+        1165
+      ],
+      "block_means": [
+        3.243849942221396,
+        5.359535166165084,
+        1.3934269773424994,
+        2.042309706476675
+      ],
+      "block_coverage": [
+        1.0,
+        1.0,
+        1.0,
+        0.9931696905016008
+      ],
+      "standard_error": null,
+      "half_window_drift": -2.5849360267692125,
+      "relative_drift": 0.8583734216306328,
+      "qualification": {
+        "data_sufficiency": "sufficient",
+        "stationarity": "unverified",
+        "uncertainty": "insufficient_data",
+        "numerical_convergence": "unverified",
+        "physical_applicability": "unverified"
+      },
+      "method": "piecewise-linear time integral; equal-duration batch means; relative drift screen <0.2 (heuristic)"
+    }
+  },
+  "zonal_fraction_definition": "unit-weight native saved-theta potential intensity; special radial slot excluded",
+  "legacy_fraction_max_abs_difference": 4.0531158447265625e-06,
+  "video_decode": {
+    "mp4": {
+      "frames": 48,
+      "size": [
+        700,
+        1100
+      ]
+    },
+    "webm": {
+      "frames": 48,
+      "size": [
+        700,
+        1100
+      ]
+    }
+  },
+  "limits": [
+    "only phi spatial history available",
+    "saved theta=0 only",
+    "convergence unverified",
+    "stationarity and independent blocks not demonstrated across restart gaps",
+    "no new solver run",
+    "3D out of scope"
+  ]
+}

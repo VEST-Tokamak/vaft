@@ -100,45 +100,29 @@ def batch_means(t: np.ndarray, y: np.ndarray, blocks: int) -> dict:
     with the correlation time of ``y``; for a bursty trace that means longer than the
     burst spacing, which the caller chooses through ``blocks``.
     """
-    t = np.asarray(t, dtype=float)
-    y = np.asarray(y, dtype=float)
-    if blocks < 2:
-        raise ValueError("batch means needs at least two blocks")
-    edges = np.linspace(t[0], t[-1], blocks + 1)
-    edge_values = np.interp(edges, t, y)
-    means = []
-    for k, (a, b) in enumerate(zip(edges[:-1], edges[1:])):
-        # interior samples plus the trace interpolated at both edges, so the blocks
-        # tile the window exactly and their equal-weight mean is the window mean
-        inside = (t > a) & (t < b)
-        if np.count_nonzero(inside) < 1:
-            raise ValueError(f"block [{a:g}, {b:g}] holds no interior sample")
-        tb = np.concatenate([[a], t[inside], [b]])
-        yb = np.concatenate([[edge_values[k]], y[inside], [edge_values[k + 1]]])
-        means.append(_mean(tb, yb))
-    means = np.asarray(means)
-    return {"mean": float(means.mean()), "block_means": means.tolist(), "blocks": int(blocks),
-            "block_length": float(edges[1] - edges[0]),
-            "standard_error": float(np.std(means, ddof=1) / np.sqrt(blocks))}
+    from vaft.process.gyrokinetics import reduce_time_series
+    reduced = reduce_time_series(t, y, window=(float(t[0]), float(t[-1])), blocks=blocks)
+    if reduced["standard_error"] is None:
+        raise ValueError("insufficient contiguous coverage for batch means")
+    return {"mean": reduced["mean"], "block_means": reduced["block_means"],
+            "blocks": blocks, "block_length": (float(t[-1])-float(t[0]))/blocks,
+            "standard_error": reduced["standard_error"], "qualification": reduced["qualification"]}
 
 
 def zonal_fraction(run) -> Optional[dict]:
     """``|phi_{n=0}|^2 / sum_n |phi_n|^2`` versus time, from ``bin.cgyro.kxky_phi``
     (radial and theta_plot averaged); ``None`` when the run did not write it."""
-    from vaft.code.gacode.cgyro.locality import _kxky_phi
-
-    grid = getattr(run, "grid", None) or {}
-    if int(grid.get("n_n", 1)) < 2 or run.directory is None:
+    from vaft.code.gacode.cgyro import read_field_history
+    from vaft.process.gyrokinetics import zonal_fraction as fraction
+    try:
+        history = read_field_history(run.directory)
+    except (FileNotFoundError, ValueError):
         return None
-    field = _kxky_phi(Path(run.directory), grid, bool((run.equilibrium or {}).get("hiprec_flag")))
-    if field is None:
-        return None
-    field = run.align_records(field)
-    time = np.asarray(run.time, dtype=float)[: field.shape[-1]]
-    power = (np.abs(field) ** 2).mean(axis=1)                      # (radial, n, time)
-    zonal = power[:, 0].sum(axis=0)
-    total = power.sum(axis=(0, 1))
-    return {"time": time.tolist(), "fraction": (zonal / np.where(total > 0, total, np.nan)).tolist()}
+    # Retain legacy raw-slot, theta-average, unit-weighted observable explicitly.
+    field = history.raw[..., history.records]
+    cube = field.reshape(field.shape[0]*field.shape[1], field.shape[2], field.shape[3])
+    return {"time": history.time.tolist(), "fraction": fraction(cube, history.ky).tolist(),
+            "definition": "legacy unweighted all-native-slot ky=0 intensity fraction"}
 
 
 def main(argv: Optional[list[str]] = None) -> int:

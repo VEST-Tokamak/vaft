@@ -234,7 +234,8 @@ def _run_cgyro_job(job: dict, workdir: Path) -> dict:
                 "rho_star", "L_x_over_a", "scale_lengths_over_a", "limiting_scale",
                 "distance_to_edge_over_a")}
             report = gyrokinetics_local_from_cgyro(
-                ods, job["local"], native, provenance=result.provenance,
+                ods, job["local"], native, provenance={**result.provenance,
+                    "state_identity":job["state_key"].get("state_identity")},
                 time=job["state_key"]["time_efit_s"], locality=locality)
             if report["written"]:
                 save_ods(ods, workdir / "gyrokinetics_local.json")

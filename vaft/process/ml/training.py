@@ -5,8 +5,9 @@ from __future__ import annotations
 import numpy as np
 
 from ._backends import AUGMENTATIONS, KIND_OUTPUTS, get_backend
-from ._provenance import software_provenance
+from ._provenance import sha256_bytes, software_provenance
 from ._types import (
+    canonical_json,
     CalibrationResult,
     DatasetArtifact,
     EvaluationResult,
@@ -202,6 +203,9 @@ def train_model(dataset, split, model_spec, config=None, *, name=None, train_mas
         if config.validation_partition is not None
         else np.zeros(dataset.n_samples, dtype=bool)
     )
+    from .usage import _fit_uses
+    data_uses = _fit_uses(dataset, split, config, np.flatnonzero(fit_mask), np.flatnonzero(val_mask),
+        iterative=backend.iterative, supervised=supervised, validation_used=backend.iterative or kind != "score")
     x = np.asarray(dataset.inputs, dtype=np.float64)
     x_mean, x_std = _moments(x[fit_mask], config.normalize_inputs, config.normalize_axes)
     xn = (x - x_mean) / x_std
@@ -257,6 +261,8 @@ def train_model(dataset, split, model_spec, config=None, *, name=None, train_mas
         "resources": {"fit_seconds": time.perf_counter() - started, "device": config.device, "precision": config.precision, **resources},
         "history": {k: list(v) for k, v in history.items()},
     }
+    if data_uses:
+        training["data_uses"] = data_uses
     if config.resume_from or config.warm_start_from:
         from ._provenance import sha256_file
         training["initial_state"] = {"mode": "resume" if config.resume_from else "warm_start",
@@ -377,10 +383,20 @@ def evaluate_model(model, dataset, split, partition="test", *, metrics=None):
     -------------
     Machine-independent.
     """
+    from .usage import record_data_use
+    usage = record_data_use(dataset, split, "evaluate", groups=set(dataset.group_labels[split.mask(dataset, partition) & dataset.available_mask]))
+    evaluation_provenance = {
+        "model_contract_sha256": model.contract_sha256,
+        "dataset_fingerprint": dataset.fingerprint,
+        "split_sha256": sha256_bytes(canonical_json(split.to_dict()).encode()),
+        **({"data_use": usage} if usage else {}),
+    }
     from .structured import StructuredDatasetArtifact
     if isinstance(dataset, StructuredDatasetArtifact):
         from ._structured_lifecycle import evaluate_structured
-        return evaluate_structured(model, dataset, split, partition, metrics)
+        result = evaluate_structured(model, dataset, split, partition, metrics)
+        from dataclasses import replace
+        return replace(result, provenance=evaluation_provenance)
     from .inference import _check_columns, _forward
 
     _check_columns(model, dataset)
@@ -406,6 +422,7 @@ def evaluate_model(model, dataset, split, partition="test", *, metrics=None):
         per_group=per_group,
         n_samples=int(mask.sum()),
         model_identity=model.resolved_identity(),
+        provenance=evaluation_provenance,
     )
 
 
@@ -476,9 +493,7 @@ def calibrate_threshold(
         raise ModelContractError(f"quantile must be in (0, 1); got {quantile}")
     _check_columns(model, dataset)
     _check_holdout(model, split, partition, allow_train_partition=False)
-    outputs = _forward(model, np.asarray(dataset.inputs), dataset.available)
-    if output not in outputs or outputs[output].ndim != 1:
-        raise ModelContractError(f"output {output!r} is not a per-sample scalar of this model")
+    from .usage import record_data_use
     selected = split.mask(dataset, partition) & dataset.available_mask
     if mask is not None:
         extra = np.asarray(mask)
@@ -489,6 +504,10 @@ def calibrate_threshold(
         selected &= extra
     if not selected.any():
         raise ModelContractError(f"no available sample of partition {partition!r} is in the population")
+    usage = record_data_use(dataset, split, "calibrate", groups=set(dataset.group_labels[selected]))
+    outputs = _forward(model, np.asarray(dataset.inputs), dataset.available)
+    if output not in outputs or outputs[output].ndim != 1:
+        raise ModelContractError(f"output {output!r} is not a per-sample scalar of this model")
     return CalibrationResult(
         name=name or output,
         output=output,
@@ -499,4 +518,5 @@ def calibrate_threshold(
         n_samples=int(selected.sum()),
         groups=tuple(g for g in split.groups(partition) if (selected & (dataset.group_labels == g)).any()),
         population=population,
+        usage=usage,
     )
