@@ -1813,6 +1813,16 @@ vaft.diagram.neo_neoclassical()
 vaft.diagram.tglf_cgyro_local_transport()
 vaft.diagram.parameter_inference_overview()
 vaft.diagram.parameter_inference_dependency_graph()
+vaft.diagram.eddy_current_model()
+vaft.diagram.kinetic_profile_fitting()
+vaft.diagram.transport_hierarchy()
+vaft.diagram.neoclassical_model_comparison()
+vaft.diagram.machine_model_history()
+vaft.diagram.signal_processing()
+vaft.diagram.quality_validation()
+vaft.diagram.fault_anomaly_detection()
+vaft.diagram.shot_classification()
+vaft.diagram.event_detection()
 ```
 
 ### Plasma parameter inference: ion temperature and species
@@ -2139,7 +2149,7 @@ References:
 2. J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 4.25
 3. J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002
 4. L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977
-5. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834
+5. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834; 9 (2002) 5140 (erratum)
 6. A. Redl et al., Phys. Plasmas 28 (2021) 022502
 
 Follow-up TODOs (implementation or IMAS mapping):
@@ -2174,6 +2184,273 @@ References:
 Follow-up TODOs (implementation or IMAS mapping):
 
 - E_r, rotation and gamma_E are not inferred from data (#553): gamma_E = 0 enters the gyrokinetic input as an assumption, and force balance is future scope.
+
+### Vessel eddy currents: a circuit driven by the coils and the plasma
+
+The passive structure is a set of resistive loops driven by the changing PF and plasma currents. VAFT solves that circuit forward from rest -- it does not fit the vessel currents to the magnetics -- and checks the result against the pre-plasma flux loops and probes.
+
+![Vessel eddy currents: a circuit driven by the coils and the plasma]({{ '/assets/diagrams/eddy_current_model.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| PF coil currents | measured | $I_{\mathrm{PF},j}(t)$ | `vaft.machine_mapping.pf_active.vfit_pf_active_dynamic` | `pf_active.coil[:].current.data` |
+| Plasma current | measured | $I_p(t)$ |  | `magnetics.ip[0].data` |
+| Plasma filaments | model assumption / prior (enters Circuit matrices) | $(R_k, Z_k),\ f_k\ \mathrm{set\ by\ the\ caller}, I_k = f_k I_p$ |  |  |
+| Loops and mutual inductances | machine geometry / static data (enters Circuit matrices) | $R = \mathrm{diag}(R_k),\ M_{\mathrm{pp}},\ M_{\mathrm{pa}}$ | `vaft.omas.process_wrapper.ensure_em_coupling` | `{pf_passive.loop[:].resistance, em_coupling.mutual_passive_passive}` |
+| Circuit matrices | derived | $M,\ R,\ L = [M_{\mathrm{pa}},\ M_{\mathrm{plasma}}], M_{\mathrm{plasma}}\ \mathrm{from\ Green's\ functions}$ | `vaft.process.electromagnetics.compute_impedance_matrices` |  |
+| Forward circuit solve | solver / model |  | `vaft.process.electromagnetics.solve_eddy_currents` |  |
+| Vessel loop currents | standardized IMAS | $I_{\mathrm{loop},k}(t)$ | `vaft.omas.vest_upstream.build_eddy_ods` | `pf_passive.loop[:].current` |
+| Pre-plasma magnetics | measured | $\psi_{\mathrm{FL}},\ B_p\ \mathrm{before\ breakdown}$ |  | `magnetics.{flux_loop, b_field_pol_probe}` |
+| Eddy improvement | derived |  | `vaft.omas.vacuum_magnetics.eddy_improvement` |  |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- Vessel currents are a forward model, not fitted to the magnetics; EFIT then treats them as known (IFITVS=0).
+- The plasma filaments are placed by the caller, not taken from the equilibrium.
+- The circuit is constant in time and starts from zero current; the 50 us substep is coarser than the 40 us diagnostics grid (#425).
+- A missing PF channel (PF5 48644-48760, PF6 48534-48537) leaves NaN currents and the stage refuses to run.
+
+### Kinetic profile fitting: point measurements to profiles
+
+Thomson and charge-exchange points are placed on flux surfaces by the equilibrium and fitted to smooth profiles with declared fitting choices; each fitted profile keeps its origin record.
+
+![Kinetic profile fitting: point measurements to profiles]({{ '/assets/diagrams/kinetic_profile_fitting.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Thomson scattering | measured | $T_e,\ n_e \pm \sigma\ \mathrm{at}\ (R, Z)$ |  | `thomson_scattering.channel[:].{t_e, n_e, position}` |
+| Magnetic equilibrium | reconstructed | $\psi(R, Z),\ q(\psi)$ |  | `equilibrium.time_slice[:].{profiles_2d, profiles_1d.q}` |
+| Charge exchange (optional) | measured | $T_i,\ v_\phi\ \mathrm{at}\ (R, Z)$ |  | `charge_exchange.channel[:].ion[:].{t_i, velocity_tor}` |
+| Flux-surface mapping | derived | $(R,Z) \to \psi_N \to \rho_{\mathrm{pol}} = \sqrt{\psi_N}, \rho_{\mathrm{tor},N}\ \mathrm{from}\ \Phi = \int q\,d\psi;\ \mathrm{outside\ the\ LCFS:\ dropped}$ | `vaft.process.profile.equilibrium_mapping_thomson_scattering` |  |
+| Fitting coordinate | model choice / convention (enters Flux-surface mapping) | $x = \rho_{\mathrm{tor},N}\ (\mathrm{default})\ \|\ \psi_N\ \|\ \rho_{\mathrm{pol},N}$ |  |  |
+| Electron profile fit | derived | $T_e(x),\ n_e(x)$ | `vaft.process.profile.profile_fitting_thomson_scattering` |  |
+| Ion profile fit | derived | $T_i(x),\ v_\phi(x)$ | `vaft.process.profile.profile_fitting_charge_exchange` |  |
+| Fit model and order | model choice / convention (enters Electron profile fit) | $\mathrm{polynomial\ \|\ core\text{-}poly/edge\text{-}exp\ \|\ tanh\ \|\ GP},\ N = 3, \sigma\text{-}\mathrm{weighted};\ T > 0:\ \mathrm{order\ stepped\ down}$ | `vaft.formula.utils.fit_profile` |  |
+| Ion temperature without CX | model assumption / prior (enters Ion profile fit) | $T_i = r\,T_e,\ r\ \mathrm{fitted\ or\ assumed}$ | `vaft.process.profile.fit_ti_te_ratio` |  |
+| Kinetic profiles | standardized IMAS | $T_e, n_e, T_i, v_\phi, \mathrm{each\ with\ origin=\ldots;\ method=\ldots}$ | `vaft.process.profile.core_profiles` | `core_profiles.profiles_1d[:].{electrons, ion[0], *_fit}` |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- Thomson and charge exchange are fitted separately and combined only in core_profiles; there is no joint multi-diagnostic fit.
+- The kinetic-profile evidence framework (#1204) is not yet referenced by the fit records.
+
+### Transport hierarchy: classical, neoclassical, turbulent
+
+One resolved local state and five independently computed routes; none feeds another. 'Always available' means the route needs no external code, not that its physics applies everywhere. Each route with a writer lands in its own core_transport.model entry, found by its identifier.index and code name -- the array position k is assigned at write time.
+
+![Transport hierarchy: classical, neoclassical, turbulent]({{ '/assets/diagrams/transport_hierarchy.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Resolved local state | derived | $T_s,\ n_s,\ a/L_{T,n},\ q,\ \hat s,\ \hat\nu$ | `vaft.process.transport_state.resolve_transport_state` |  |
+| Classical: Braginskii | derived | $\mathrm{perpendicular\ conductive}\ q_{\perp,e},\ q_{\perp,i}, \mathrm{strongly\ magnetized}:\ \kappa_\perp \propto nT/(m\Omega^2\tau), \mathrm{software:\ always\ available}$ | `vaft.process.transport_state.classical_heat_fluxes` |  |
+| Neoclassical closures: Sauter / Redl | derived | $j_{\mathrm{bs}},\ \sigma_\parallel\ \mathrm{only:\ no}\ \Gamma_s,\ Q_s, \mathrm{software:\ always\ available}$ | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
+| Neoclassical: NEO | solver / model | $\Gamma_s,\ Q_s,\ j_{\mathrm{bs}}\ (\mathrm{transport\ run}), \sigma_\parallel\ (\mathrm{separate}\ E_\parallel\ \mathrm{run}), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.neo.runner.run_neo_pair` |  |
+| Turbulent: TGLF | solver / model | $Q_s,\ \Gamma_s\ (\mathrm{quasilinear}), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.tglf.run_tglf` |  |
+| Turbulent: CGYRO | solver / model | $\mathrm{nonlinear}\ Q_s(t),\ \Gamma_s(t), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.cgyro.run_cgyro` |  |
+| Saturation window | model assumption / prior (enters Anomalous transport (CGYRO)) | $(t_0, t_1)\ [a/c_s],\ \mathrm{chosen\ by\ the\ caller}$ |  |  |
+| Classical transport | standardized IMAS | $\chi_e,\ \chi_i\ (\mathrm{private\ index})$ | `vaft.machine_mapping.classical.core_transport_from_classical` | `core_transport.model[k] (identifier.index -1)` |
+| Neoclassical transport | standardized IMAS | $\Gamma_s,\ Q_s\ (\mathrm{NEO})$ | `vaft.machine_mapping.neoclassical.core_transport_from_neo` | `core_transport.model[k] (identifier.index 5)` |
+| Anomalous transport (TGLF) | standardized IMAS | $\Gamma_s,\ Q_s,\ \Pi_\phi$ | `vaft.machine_mapping.turbulence.core_transport_from_tglf` | `core_transport.model[k] (identifier.index 6, code TGLF)` |
+| Anomalous transport (CGYRO) | standardized IMAS | $\langle\Gamma_s\rangle_t,\ \langle Q_s\rangle_t\ \mathrm{over}\ (t_0, t_1)$ | `vaft.machine_mapping.gyrokinetics.core_transport_from_cgyro` | `core_transport.model[k] (identifier.index 6, code CGYRO)` |
+
+References:
+
+1. S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205
+2. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834; 9 (2002) 5140 (erratum)
+3. A. Redl et al., Phys. Plasmas 28 (2021) 022502
+4. E. A. Belli and J. Candy, Plasma Phys. Control. Fusion 50 (2008) 095010
+5. E. A. Belli and J. Candy, Plasma Phys. Control. Fusion 54 (2012) 015015
+6. G. M. Staebler, J. E. Kinsey and R. E. Waltz, Phys. Plasmas 14 (2007) 055909
+7. J. Candy, E. A. Belli and R. V. Bravenec, J. Comput. Phys. 324 (2016) 73
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- The closed-form Sauter/Redl results have no core_transport writer (and carry no particle or heat flux to write); they are returned, not stored.
+- Classical transport uses a private identifier.index (-1): the data dictionary has no classical entry. The Braginskii forms assume a strongly magnetized plasma, and ln Lambda is flagged invalid below 10 eV.
+- core_transport.model[k]: k is the array position the writer finds or appends (matching identifier.index and code.name); it is not the identifier.index.
+- A nonlinear CGYRO run writes no fluxes without a saturation window: choosing it is the caller's judgement.
+- The TGLF-NN surrogate (vaft.code.gacode.tglf.surrogate) refuses VEST inputs as out of domain and has no IMAS writer.
+
+### Sauter / Redl against NEO at one state
+
+One shared source state, two independently prepared input paths, and an end-to-end comparison against NEO as the numerical reference -- not as ground truth. The bootstrap current is compared in one definition, <J.B>/B0 with the vacuum B0 and its sign, on one grid; a plasma mismatch is refused, while differences in grid construction, trapped fraction and collisionality between the two input paths remain part of the gap.
+
+![Sauter / Redl against NEO at one state]({{ '/assets/diagrams/neoclassical_model_comparison.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Shared source state | reconstructed | $T_s,\ n_s,\ Z_{\mathrm{eff}},\ \mathrm{impurity},\ \psi,\ q\ (\mathrm{one\ time\ slice})$ |  | `{core_profiles.profiles_1d[:], equilibrium.time_slice[:]}` |
+| Analytic-model inputs (VAFT) | derived | $\rho_{\mathrm{tor},N}\ \mathrm{from\ the\ equilibrium};\ f_t\ \mathrm{from\ the\ equilibrium}, \nu^*\ (\mathrm{Sauter\ definition});\ Z_{\mathrm{eff}},\ n_i/n_e$ | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
+| NEO inputs (GACODE conversion) | code input | $\mathrm{input.gacode\ grid\ and\ geometry};\ f_t,\ \nu\ \mathrm{as\ NEO\ forms\ them}, \mathrm{species\ list}\ (Z_{\mathrm{eff}}\ \mathrm{from\ it})$ | `vaft.code.gacode.neo.inputs.prepare_neo_case` |  |
+| Sauter closure | derived |  | `vaft.validation.neoclassical.bootstrap_models` |  |
+| Redl closure | derived | $j_{\mathrm{bs}}\ \mathrm{with\ Redl's\ refitted}\ L_{31}, L_{32}, \alpha$ | `vaft.validation.neoclassical.bootstrap_models` |  |
+| NEO transport solve | solver / model | $j_{\mathrm{bs}},\ \Gamma_s,\ Q_s, \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.neo.runner.run_neo_case` |  |
+| NEO conductivity solve | solver / model | $\sigma_\parallel = j_\parallel / E_\parallel, E_\parallel = 1,\ \mathrm{all\ gradients\ off}$ | `vaft.code.gacode.neo.runner.run_neo_conductivity_case` |  |
+| NEO into the IMAS definition | standardized IMAS | $\langle J\cdot B\rangle/B_{\mathrm{unit}} \to \langle J\cdot B\rangle/B_0, \mathrm{signed}\ B_{\mathrm{unit}}\ (\mathrm{GACODE\ COCOS\ 2})$ | `vaft.machine_mapping.neoclassical.core_profiles_from_neo` | `core_profiles.profiles_1d[:].{j_bootstrap, conductivity_parallel}` |
+| Comparison basis | model choice / convention (enters Model agreement) | $j_{\mathrm{bs}} = \langle J\cdot B\rangle/B_0,\ \mathrm{vacuum}\ B_0,\ \mathrm{signed}, \mathrm{same}\ \rho_{\mathrm{tor},N}\ \mathrm{grid};\ Z_{\mathrm{eff}},\ n_i/n_e\ \mathrm{must\ match}$ |  |  |
+| Model agreement | derived | $\mathrm{reference = NEO\ (numerical,\ not\ ground\ truth)}, \mathrm{integrated,\ RMS/peak,\ peak\ differences}$ | `vaft.validation.neoclassical.model_comparison` |  |
+
+References:
+
+1. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834; 9 (2002) 5140 (erratum)
+2. A. Redl et al., Phys. Plasmas 28 (2021) 022502
+3. E. A. Belli and J. Candy, Plasma Phys. Control. Fusion 50 (2008) 095010
+4. E. A. Belli and J. Candy, Plasma Phys. Control. Fusion 54 (2012) 015015
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- End-to-end, not like-for-like: the two input paths differ in grid construction, trapped fraction and collisionality definition, so part of any gap is the input path. The like-for-like check against NEO's own Sauter/Redl columns (agreement to 1e-7) is a test, not a product.
+- A stored NEO profile on a different rho_tor_norm grid is refused, not interpolated; a run whose Z_eff or n_i/n_e differs is refused when the solver's values are passed.
+- Without NEO there is no reference and no comparison; the closed-form results are not written to IMAS.
+
+### Machine model and shot history: one shot number selects the machine
+
+The shot number is the only key. It selects the machine era (PF and wall geometry), each diagnostic's revision (wiring, gains, baseline windows) and the shot-log record; the static machine description is built once per era and the processing era is reported per diagnostic.
+
+![Machine model and shot history: one shot number selects the machine]({{ '/assets/diagrams/machine_model_history.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Shot number | measured | $s$ |  | `dataset_description.data_entry.pulse` |
+| Machine era | machine geometry / static data | $\mathrm{PF\ 1906\ /\ 2507},\ \mathrm{wall\ 1512\ /\ 2409}$ | `vaft.omas.vest_upstream.machine_era_for_shot` |  |
+| Diagnostic revisions | machine geometry / static data | $\mathrm{from\_shot} \le s \le \mathrm{to\_shot}, \mathrm{wiring,\ gain,\ baseline}$ | `vaft.machine_mapping.utils.resolve_vest_diagnostic` |  |
+| Shot log | measured | $\mathrm{set\ points,\ gas,\ timing}$ | `vaft.machine_mapping.pulse_schedule.mapping.pulse_schedule` | `pulse_schedule` |
+| IMAS sign and angle conventions | model choice / convention (enters Static machine description) | $\phi = (-30^\circ\,h) \bmod 360^\circ, \mathrm{discharge\ sign\ contract}$ | `vaft.machine_mapping.registry.port_phi` |  |
+| Static machine description | standardized IMAS | $\mathrm{geometry},\ M_{ij},\ \mathrm{sensor\ positions}$ | `vaft.omas.vest_upstream.build_static_ods` | `{wall | pf_active | pf_passive | em_coupling | magnetics | tf}` |
+| Processing era per diagnostic | derived | $\mathrm{calibration\ lineage}$ | `vaft.machine_mapping.provenance.vest_processing_provenance` | **IMAS mapping TODO:** returned as a dict; not written to an IDS |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- The VEST COCOS index is not resolved yet (vaft.machine_mapping.conventions.equilibrium_orientation_is_resolved); the discharge sign contract stands in for it.
+- The shot-log mapper writes pulse_schedule when called (vaft shotlog CLI) but build_diagnostics_ods does not call it.
+- Wall and limiter history is the era table only; there is no per-component calibration lineage.
+- There is no single shot-to-machine object: era, revisions and provenance are separate lookups.
+
+### Signal processing: raw digitizer records to a diagnostic IDS
+
+A representative chain, in the order the magnetic probes use it: anti-alias low-pass on the native grid, calibration, time integration of the inductive voltage, a linear baseline over the era's leading samples, then interpolation onto the analysis grid. Other diagnostics reorder or skip steps.
+
+![Signal processing: raw digitizer records to a diagnostic IDS]({{ '/assets/diagrams/signal_processing.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Raw digitizer record | measured | $V(t)\ \mathrm{per\ DAQ\ field}$ | `vaft.database.raw.load` |  |
+| DAQ field codes | machine geometry / static data (enters Raw digitizer record) | $(\mathrm{diagnostic},\ s) \rightarrow \mathrm{field\ codes}$ | `vaft.machine_mapping.raw_daq_sources.raw_sources` |  |
+| Anti-alias low-pass | derived | $\mathrm{FIR\ on\ the\ native\ fast\ grid}$ | `vaft.process.signal_processing.fir_filter` |  |
+| Calibration | derived |  | `vaft.machine_mapping.utils.calibrate_vest_signal` |  |
+| Calibration revision | machine geometry / static data (enters Calibration) | $c,\ \mathrm{sign},\ \mathrm{baseline\ window}$ | `vaft.machine_mapping.utils.resolve_vest_diagnostic` |  |
+| Time integration | derived |  | `vaft.process.magnetics.vest_b_field_pol_probe_legacy` |  |
+| Baseline subtraction | derived | $\mathrm{linear\ fit\ over\ the\ era's\ leading\ samples}$ | `vaft.process.signal_processing.subtract_baseline` |  |
+| Resampling | derived | $t_k = t_{\mathrm{start}} + k\,\Delta t$ | `vaft.process.signal_processing.resample_to_time` |  |
+| Analysis time grid | model choice / convention (enters Resampling) | $t_{\mathrm{start}},\ t_{\mathrm{end}},\ \Delta t$ | `vaft.machine_mapping.utils.resolve_diagnostics_time_policies` |  |
+| Diagnostic IDS | standardized IMAS | $\psi_{\mathrm{FL}},\ B_p,\ I_p,\ I_{\mathrm{PF}}$ | `vaft.omas.vest_upstream.build_diagnostics_ods` | `{magnetics | pf_active | tf | spectrometer_uv | barometry}` |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- The order is per diagnostic: PF coils subtract a baseline mean, filter, scale and align; H-alpha shifts in time and resamples with an anti-aliased resampler; flux loops integrate per radian.
+- There is no drift-correction stage separate from the baseline fit, and no cross-DAQ synchronization module: each mapper applies its own time shift and interpolation.
+- Integration is inline in each mapper; vaft.process has no shared integration helper.
+- Thomson scattering and the interferometer read post-processed files, so this chain does not apply to them.
+
+### Quality and validation: measurements against references to evidence
+
+Three separate kinds of evidence: per-sample source validity (written to the IDS validity nodes), agreement with the vacuum model before the plasma (a report), and equilibrium fit quality turned into a slice class. Model disagreement never sets a channel's validity.
+
+![Quality and validation: measurements against references to evidence]({{ '/assets/diagrams/quality_validation.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Processed magnetics | measured | $m_i(t)$ |  | `magnetics.{flux_loop, b_field_pol_probe, ip}` |
+| Synthetic vacuum magnetics | derived | $\hat m_i = m_{\mathrm{coil}} + m_{\mathrm{eddy}}$ | `vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics` |  |
+| Magnetic equilibrium | reconstructed | $\psi(R, Z),\ \chi^2$ |  | `equilibrium.time_slice[:]` |
+| Source validity checks | derived | $\mathrm{per\ sample,\ per\ channel}$ | `vaft.validation.magnetics.validate_magnetics_signals` |  |
+| Residual metrics | derived | $m_i - \hat m_i:\ \mathrm{RMS},\ \mathrm{correlation}$ | `vaft.omas.vacuum_magnetics.vacuum_magnetics_metrics` |  |
+| Fit and convergence quality | derived | $\chi^2_\nu,\ \mathrm{residual\ bias},\ \mathrm{convergence}$ | `vaft.omas.efit_quality.efit_quality_metrics` |  |
+| Channel validity | standardized IMAS | $0\ \mathrm{valid},\ 1\ \mathrm{flagged},\ -2\ \mathrm{rejected}$ | `vaft.validation.imas.write_validity` | `magnetics.{flux_loop[:].flux | b_field_pol_probe[:].field | ip[:]}.validity_timed` |
+| Vacuum-model quality gate | derived | $\mathrm{pass\ /\ fail\ per\ sensor\ group}$ | `vaft.omas.vacuum_magnetics.quality_gate` | **IMAS mapping TODO:** a report; not written to an IDS |
+| Slice quality class | derived | $\mathrm{good\ /\ admissible\ /\ unreconstructible}$ | `vaft.validation.equilibrium_quality.equilibrium_quality_table` | **IMAS mapping TODO:** a table; not written to an IDS |
+| Acceptance criteria | model choice / convention (enters Slice quality class) | $\mathrm{versioned\ thresholds}$ |  |  |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- Only source validity reaches IMAS; model-agreement and fit-quality metrics are returned as dicts and tables in the stage manifests.
+- Flux-loop agreement with the vacuum model is report-only by default; only source validity can reject a loop.
+- The vacuum check covers the pre-plasma window only; there is no plasma-phase synthetic magnetics check outside the EFIT residuals.
+
+### Fault and anomaly evidence: diagnostic-specific checks
+
+There is no single anomaly model: each diagnostic has its own checks. Magnetics separate hard faults from soft flags and honour the recorded fault list; the Rogowski coil has a square-wave test; clipped PF, diamagnetic and TF records are repaired over the clipped interval; H-alpha channels are screened before they time the plasma.
+
+![Fault and anomaly evidence: diagnostic-specific checks]({{ '/assets/diagrams/fault_anomaly_detection.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Processed channels | measured | $x_i(t)$ |  | `{magnetics | pf_active | tf | spectrometer_uv}` |
+| Recorded faults | machine geometry / static data (enters Magnetics channel checks) | $(\mathrm{kind},\ i) \rightarrow \mathrm{reason}$ | `vaft.machine_mapping.magnetics.known_magnetics_faults` |  |
+| Magnetics channel checks | derived | $\mathrm{hard:\ non\text{-}finite,\ flatline,\ magnitude,\ outlier},\mathrm{soft:\ spike,\ offset\ jump,\ drift,\ noise}$ | `vaft.validation.magnetics.validate_magnetics_signals` |  |
+| Rogowski square-wave test | derived | $I_p(t)\ \mathrm{shape}$ | `vaft.validation.plasma_current.assess_plasma_rogowski` |  |
+| Clipping detection | derived | $\mathrm{PF,\ diamagnetic,\ TF}$ | `vaft.process.signal_processing.detect_clipped_samples` |  |
+| H-alpha usability | derived | $\mathrm{finite,\ not\ railed,\ live\ baseline}$ | `vaft.omas.plasma_timing.halpha_usability` |  |
+| Channel validity | standardized IMAS | $0,\ 1,\ -2$ | `vaft.validation.magnetics.project_validity` | `magnetics.{flux_loop[:].flux | b_field_pol_probe[:].field | ip[:]}.validity_timed` |
+| Repaired interval | derived | $x_i(t)\ \mathrm{across\ the\ clipped\ samples}$ | `vaft.process.signal_processing.repair_clipped_interval` |  |
+| Light sources for timing | derived | $\mathrm{usable}\ H_\alpha\ \mathrm{channels}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- No general anomaly model runs in the pipeline: vaft.process.ml provides the framework (PCA autoencoder, k-NN, one-class SVM) but no trained model ships with the package.
+- The spectrometer and barometry fault registry (known_diagnostic_faults) has no pipeline consumer.
+- Missing raw data marks the component unavailable or partial; it is not a per-channel fault flag.
+
+### Shot classification: rules over derived features
+
+A shot class is a rule applied to derived features -- the plasma window, the gauge-pressure response, the peak current -- under stated thresholds, and it records which rule decided. It is not a measurement. A separate pre-run check classifies DAQ completeness, and equilibrium slices get a phase label from their own rule.
+
+![Shot classification: rules over derived features]({{ '/assets/diagrams/shot_classification.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Raw field inventory | measured | $\mathrm{field\ codes\ in\ the\ DAQ\ database}$ |  |  |
+| Gauge pressure | measured | $p(t)$ |  | `barometry.gauge[0].pressure.data` |
+| Plasma current and H-alpha | measured | $I_p(t),\ H_\alpha(t)$ |  | `magnetics.ip[0].data; spectrometer_uv` |
+| Equilibrium slices | reconstructed | $I_p(t_k)$ |  | `equilibrium.time_slice[:].global_quantities.ip` |
+| DAQ completeness | derived | $\mathrm{daq\_missing\ /\ raw\_incomplete}$ | `vaft.database.worker.classify.RawFieldClassifier` |  |
+| Pressure response | derived | $\Delta p\ \mathrm{during\ the\ shot}$ | `vaft.omas.shot_class.pressure_response` |  |
+| Plasma window | derived | $t_{\mathrm{start}},\ t_{\mathrm{end}}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
+| Slice phase | derived | $\mathrm{ramp\text{-}up\ /\ flat\ /\ ramp\text{-}down}:\ \mathrm{level}\ 0.9\,\|I_p\|_{\max}$ | `vaft.validation.equilibrium_regime.classify_equilibrium_regimes` |  |
+| Shot class | derived | $\mathrm{Plasma\ /\ BD\ failure\ /\ Vacuum},\ \mathrm{decided\ by}$ | `vaft.omas.shot_class.shot_class` | **IMAS mapping TODO:** kept in the database worker record, not in an IDS |
+| Default thresholds | model choice / convention (enters Shot class) | $p_{\mathrm{th}} = 10^{-2},\ I_{p,\min} = 2\ \mathrm{kA}$ |  |  |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- The four-way physics class of #57 is not implemented; the class is Plasma, BD failure or Vacuum.
+- There are no disruption labels and no label-provenance store; vaft.process.ml datasets take targets from the caller.
+- Events passed to the slice classifier (VDE, IRE, disruption) are caller annotations, not detections.
+
+### Event detection: onsets and windows from a robust baseline
+
+Each waveform gets a robust baseline and spread from its quiet reference, a threshold that is the larger of a fraction of the peak and a number of robust sigmas, and an active window that must stay above it. The plasma window is then confirmed across signals: H-alpha light against the plasma current. Coil onsets anchor the loop-voltage time base.
+
+![Event detection: onsets and windows from a robust baseline]({{ '/assets/diagrams/event_detection.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| H-alpha and plasma current | measured | $H_\alpha(t),\ I_p(t)$ |  | `spectrometer_uv; magnetics.ip[0].data` |
+| Coil currents | measured | $I_{\mathrm{PF},j}(t)$ |  | `pf_active.coil[:].current.data` |
+| Robust baseline | derived | $b,\ \sigma\ \mathrm{from\ the\ median\ and\ MAD}$ | `vaft.process.onset.robust_baseline` |  |
+| Detection rules | model choice / convention (enters Activity threshold) | $f,\ k,\ t_{\mathrm{hold}}\ \mathrm{per\ signal}$ |  |  |
+| Activity threshold | derived |  | `vaft.process.onset.excess_threshold` |  |
+| Active window | derived | $x > x_{\mathrm{th}}\ \mathrm{for\ at\ least}\ t_{\mathrm{hold}}$ | `vaft.process.onset.active_window` |  |
+| Light against current | derived | $\mathrm{consistent},\ I_p\ \mathrm{before}\ H_\alpha,\ \mathrm{offset\ disagreement}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
+| Plasma window | derived | $t_{\mathrm{start}},\ t_{\mathrm{end}}$ |  | **IMAS mapping TODO:** a dataclass; not written to an IDS |
+| Coil onsets | derived | $t_{\mathrm{on},j},\ t_{\mathrm{OH}}$ | `vaft.omas.discharge_timing.coil_onsets` |  |
+| Loop-voltage event | derived | $\mathrm{zero\ crossing\ after\ the\ OH\ onset}$ | `vaft.omas.discharge_timing.loop_voltage_event` | **IMAS mapping TODO:** a dataclass; not written to an IDS |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- Breakdown time is the plasma-window start; there is no separate breakdown detector.
+- There is no flat-top detector (only the post-hoc slice phase) and no IRE, sawtooth or disruption detector.
+- current_quench and current_spike (vaft.process.transients) measure a quench or spike in a given window; nothing in the pipeline calls them, and they do not label it an IRE or a disruption.
 
 ## Using the committed assets
 

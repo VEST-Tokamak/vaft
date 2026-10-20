@@ -319,7 +319,6 @@
   body,
   .book {
     max-width: 100%;
-    overflow-x: hidden;
   }
 
   .book .book-body .page-wrapper .page-inner section.normal {
@@ -1142,4 +1141,34 @@
     left: 50%;
     content: "\2193";
   }
+}
+
+/* Adaptive reading contract (#2036): overlays below the three-region boundary. */
+.book .markdown-section,.book .ref-entry,.book .ref-head{min-width:0;overflow-wrap:anywhere}
+.book .markdown-section pre,.book .ref-table-wrap,.book .MathJax_Display{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain}
+.book .markdown-section pre code{overflow-wrap:normal;white-space:pre}
+.book .markdown-section .ref-head{flex-wrap:wrap}
+.book .markdown-section .ref-filter{max-width:100%;min-width:0}
+.book .body-inner{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.va-drawer-backdrop{display:none}
+@media(max-width:1240px){
+  .book.with-summary .book-body,.book .book-body{left:0;right:0;transform:none;transition:none}
+  .book.with-summary .book-body .book-header,.book .book-body .book-header{width:100%;left:0;z-index:12;overflow:visible}
+  .book .book-summary{position:fixed;width:min(86vw,32rem);left:0;z-index:11;visibility:hidden;transform:translateX(-100%);transition:transform 250ms ease,visibility 250ms}
+  .book.with-summary .book-summary{visibility:visible;transform:none}
+  .book .page-toc{position:fixed;visibility:hidden}
+  .book.with-page-toc .page-toc{visibility:visible}
+  .book.va-drawer-open .body-inner{overflow-y:hidden}
+  .book.va-drawer-open .va-drawer-backdrop{display:block;position:fixed;inset:50px 0 0;z-index:8;background:#10253d66;border:0;cursor:pointer}
+  .book .page-toc-close,.book .page-toc-toggle,.book .book-header .btn{min-width:44px;min-height:44px}
+  .book .page-toc-link,.book-summary .summary a{min-height:44px;display:flex;align-items:center}
+  .book .markdown-section .ref-gallery{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:390px){
+  .book .page-inner{padding-left:12px;padding-right:12px}
+  .book .book-header h1{font-size:15px}
+  .book .markdown-section .ref-name code{font-size:1.3rem}
+}
+@media(prefers-reduced-motion:reduce){
+  .book .book-summary,.book .book-body,.book .page-toc{transition:none!important;scroll-behavior:auto!important}
 }

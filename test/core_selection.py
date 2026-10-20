@@ -99,6 +99,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagnostics_interactive.py",
     "test_display_policy.py",
     "test_equilibrium_field_2d.py",
+    # Read-only monitoring tables (#2067): stub backends and tmp FileDB, ~5 s.
+    "test_equilibrium_monitoring.py",
     # Regime bins, export and cohort cases (#1891): hand-built ODS, no solver.
     "test_equilibrium_regime_descriptors.py",
     "test_layout_contract.py",

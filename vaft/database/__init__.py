@@ -42,6 +42,7 @@ __all__ = [
     "open",
     "save",
     "summary",
+    "equilibrium_summary",
     "export_summary",
     "get_summary_preset",
     "export",
@@ -357,6 +358,17 @@ def summary(shot_range=None, *, preset="equilibrium_global", source=None, direct
     # Resolve here so a deprecated alias is reported against the caller's frame
     # rather than this wrapper.
     return _summary(shot_range, preset=preset, source=resolve(source, directory=directory))
+
+
+def equilibrium_summary(shots, **kwargs):
+    """Collect equilibrium monitoring tables from HSDS or HSDS plus FileDB.
+
+    See :func:`vaft.database._equilibrium_monitoring.equilibrium_summary` for the
+    backend contract, storage provenance and failure-coverage semantics.
+    """
+    from ._equilibrium_monitoring import equilibrium_summary as collect
+    return collect(shots, **kwargs)
+
 
 
 def get_summary_preset(name):
