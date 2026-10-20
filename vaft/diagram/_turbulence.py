@@ -95,7 +95,7 @@ def drift_wave_transport_cycle(*, labels: bool = True) -> Diagram:
     if labels:
         items += [Label((-0.15, 1.6), "profile relaxation:\\\\reduced drive", "small label,align=right",
                         anchor="east", role="relaxation"),
-                  Label((4.6, -1.3), "Slab, $\\mathbf B = B\\hat z$; the loop is a sequence of definitions, "
+                  Label((4.6, -1.3), "Slab, $\\mathbf B = B\\hat z$; definitions and one mechanism (growth), "
                         "not a turbulence model", "note", anchor="north", role="note")]
     return Diagram("drift_wave_transport_cycle", Scene(tuple(items)),
                    model={"cycle": list(chain), "feedback": ("radial_flux", "gradient"),
@@ -147,28 +147,32 @@ def cross_phase_transport(*, labels: bool = True) -> Diagram:
                   Polyline.of(np.stack([x0 + width * y, 0.45 * height * phi], -1), "approx",
                               role="fluctuation_potential"),
                   Polyline.of([(x0, 0.0), (x0 + width, 0.0)], "connector line", role="axes")]
-        cx, ay = x0 + 0.5 * width, -1.35
-        length = 1.2 * gamma / peak
+        cx, ay = x0 + 0.5 * width, -1.6
+        length = 0.9 * gamma / peak
         if abs(length) < 1e-6:
             items.append(Marker((cx, ay), "o", "opoint", role="radial_flux"))
-        else:
-            items.append(Arrow((cx - 0.5 * length, ay), (cx + 0.5 * length, ay), "exb", role="radial_flux"))
+        else:  # the flux is along x (radial), drawn up the page
+            items.append(Arrow((cx, ay - 0.5 * length), (cx, ay + 0.5 * length), "exb", role="radial_flux"))
         if labels:
             phase = {"zero": "0", "plus": "+\\pi/2", "minus": "-\\pi/2"}[key]
             sign = {"zero": "$\\Gamma_k = 0$", "plus": "$\\Gamma_k > 0$ (outward)",
                     "minus": "$\\Gamma_k < 0$ (inward)"}[key]
             items += [Label((cx, 0.5 * height + 0.25), f"$\\theta_{{n\\phi}} = {phase}$", "small label",
                             anchor="south", role="phase"),
-                      Label((cx, ay - 0.35), sign, "small label", anchor="north", role="radial_flux")]
+                      Label((cx + 0.3, ay), sign, "small label", anchor="west", role="radial_flux")]
+    total = 3 * width + 2 * gap
+    items += [Arrow((-1.4, -2.1), (-0.6, -2.1), "chart axis", role="axes"),
+              Arrow((-1.4, -2.1), (-1.4, -1.3), "chart axis", role="axes")]
     if labels:
-        total = 3 * width + 2 * gap
-        items += [Label((total + 0.2, 0.3), "$\\tilde n$", "small label", anchor="west", role="fluctuation_density"),
+        items += [Label((-0.55, -2.1), "$y$", "small label", anchor="west", role="axes"),
+                  Label((-1.4, -1.25), "$x$ (outward)", "small label", anchor="south", role="axes"),
+                  Label((total + 0.2, 0.3), "$\\tilde n$", "small label", anchor="west", role="fluctuation_density"),
                   Label((total + 0.2, -0.3), "$\\tilde\\phi$ (dashed)", "small label", anchor="west",
                         role="fluctuation_potential"),
-                  Label((0.5 * total, -2.35), _eq(coherent_particle_flux_from_amplitudes_phase), "small label",
+                  Label((0.5 * total, -2.55), _eq(coherent_particle_flux_from_amplitudes_phase), "small label",
                         anchor="north", role="equation"),
-                  Label((0.5 * total, -3.35), "Slab: $x$ radial (outward), $y$ binormal, $\\mathbf B = B\\hat z$, "
-                        "real cosine fields; $\\theta_{n\\phi}$ is the lead of $\\tilde\\phi$ over $\\tilde n$. "
+                  Label((0.5 * total, -3.55), "Slab: $x$ radial (outward), $y$ binormal along the page, "
+                        "$\\mathbf B = B\\hat z$, real cosine fields; $\\theta_{n\\phi} = \\alpha_\\phi - \\alpha_n$. "
                         "Another Fourier or field sign convention flips the sign.", "note", anchor="north",
                         role="note")]
     return Diagram("cross_phase_transport", Scene(tuple(items)),
@@ -208,7 +212,7 @@ def mixing_length_saturation(*, labels: bool = True) -> Diagram:
                          if labels else {},
                          x_ticks=[v_sat], x_tick_text=["$\\gamma/k_\\perp$"], y_ticks=[gamma],
                          y_tick_text=["$\\gamma$"])
-    scale = 0.55
+    scale = 0.7
     items: List = list(scene.transformed(scale=scale).items)
     items.append(Marker(tuple(float(c) for c in chart.to_cm(np.array(chart.points["saturation"])) * scale), "o",
                         "opoint", role="saturation"))
@@ -249,8 +253,9 @@ def exb_shear_decorrelation(*, shear: float = 1.6, labels: bool = True) -> Diagr
     Left: a round eddy in a uniform flow. Right: the same eddy after the
     differential $E\times B$ motion $v_y = S x$ has acted for a time $t$
     (``shear`` $= St$), the map $y \to y + St\,x$: it is tilted and stretched,
-    and along a radial cut through its centre it spans $2a/\sqrt{1 + (St)^2}$
-    instead of $2a$ -- the reduced radial correlation of
+    and along a radial cut through its centre (at fixed $y$) it spans
+    $2a/\sqrt{1 + (St)^2}$ instead of $2a$, although its total radial extent is
+    unchanged -- the reduced radial correlation of
     ``exb_shearing_rate_from_velocity_gradient`` ($\gamma_E = |S|$). Geometry
     only: real $E_r$ and shearing-rate profiles are plots, and whether the
     shear suppresses turbulence depends on $\gamma_E$ against $\gamma$.
@@ -268,7 +273,7 @@ def exb_shear_decorrelation(*, shear: float = 1.6, labels: bool = True) -> Diagr
             items.append(Polyline.of(contour, "surface", role="eddy" if s == 0 else "sheared_eddy", closed=True))
         half = a / math.sqrt(1.0 + s * s)
         cut[key] = 2.0 * half
-        items.append(Arrow((cx - half, -0.0), (cx + half, -0.0), "width arrow", role="correlation_length",
+        items.append(Arrow((cx - half, 0.0), (cx + half, 0.0), "width arrow", role="correlation_length",
                            both=True))
         # the flow profile: arrows along y whose length grows with x (sheared) or not
         for xx in np.linspace(-1.2, 1.2, 5):
@@ -277,15 +282,16 @@ def exb_shear_decorrelation(*, shear: float = 1.6, labels: bool = True) -> Diagr
                 items.append(Arrow((cx + xx, -2.2 - 0.5 * length), (cx + xx, -2.2 + 0.5 * length), "exb",
                                    role="exb_velocity" if s == 0 else "shear"))
         if labels:
-            items += [Label((cx, 1.9), "uniform flow" if s == 0 else f"sheared flow, $St = {s:g}$", "small label",
-                            anchor="south", role="title"),
-                      Label((cx + 1.05, -0.95), f"$\\ell_x = {cut[key]:.2g}\\,a$", "small label", anchor="west",
+            title = "uniform flow" if s == 0 else f"sheared flow, $St = {s:g}$ (eddy frame)"
+            items += [Label((cx, 1.9), title, "small label", anchor="south", role="title"),
+                      Label((cx + 1.05, -0.95), f"$\\ell_x = {cut[key]:.2g}\\,a$ at fixed $y$", "small label",
+                            anchor="west",
                             role="correlation_length")]
     items.append(Arrow((4.2, 0.0), (5.2, 0.0), "connector", role="decorrelation"))
+    items.append(Arrow((-0.2, -3.0), (0.6, -3.0), "chart axis", role="axes"))
     if labels:
         items += [Label((4.7, 0.2), "\\small $v_y = Sx$", "small label", anchor="south", role="decorrelation"),
                   Label((-0.4, -2.2), "$v_y(x)$", "small label", anchor="east", role="flow_profile"),
-                  Arrow((-0.2, -3.0), (0.6, -3.0), "chart axis", role="axes"),
                   Label((0.65, -3.0), "$x$ (radial)", "small label", anchor="west", role="axes"),
                   Label((4.7, -3.3), f"{_eq(exb_shearing_rate_from_velocity_gradient)} $= |S|$; "
                         "radial cut through the centre: $2a/\\sqrt{1 + (St)^2}$. Geometry only.",
@@ -326,16 +332,17 @@ def zonal_flow_feedback(*, labels: bool = True) -> Diagram:
     # inhibition: shear decorrelates the turbulence (a bar instead of a head)
     start = boxes["shear"].boundary_point(boxes["turbulence"].center)
     end = boxes["turbulence"].boundary_point(boxes["shear"].center)
-    s = (start[0], start[1] + 0.08)
-    e = (end[0], end[1] - 0.14)
+    d = np.subtract(end, start) / np.hypot(*np.subtract(end, start))
+    s, e = np.add(start, 0.08 * d), np.subtract(end, 0.14 * d)
+    bar = 0.3 * np.array([-d[1], d[0]])  # perpendicular to the line: an inhibition bar
     items += [Polyline.of([s, e], "connector line", role="suppression"),
-              Polyline.of([(e[0] - 0.3, e[1]), (e[0] + 0.3, e[1])], "connector line", role="suppression")]
+              Polyline.of([e - bar, e + bar], "connector line", role="suppression")]
     if labels:
         items += [Label((5.6, 1.5), "decorrelates ($-$)", "small label", anchor="west", role="suppression"),
                   Label((13.9, -0.3), "damping $\\mu$\\\\(model choice)", "small label,align=left", anchor="west",
                         role="damping"),
-                  Label((6.5, -1.9), "Self-regulation without coefficients; the reduced intensity model is "
-                        "predator\\_prey\\_rhs", "note", anchor="north", role="note")]
+                  Label((6.5, -1.9), "Self-regulation drawn without committing to a coefficient model",
+                        "note", anchor="north", role="note")]
     return Diagram("zonal_flow_feedback", Scene(tuple(items)),
                    model={"loop": list(chain), "suppression": ("shear", "turbulence"),
                           "equations": {"reynolds_stress": formula_equation(reynolds_stress_from_velocity_fluctuations),
@@ -358,12 +365,13 @@ def turbulence_scale_hierarchy(*, labels: bool = True) -> Diagram:
     illustrative gradient length $a/2$, $a$ and $R_0$ from
     ``vaft.diagram._orderings.lengths`` (the state of
     ``spatial_scale_orderings``). Above it, representative perpendicular
-    wavelength bands $2\pi/k_\perp$: ion-scale ITG/TEM at
+    scale bands $1/k_\perp$: ion-scale ITG/TEM at
     $k_\perp\rho_i \sim 0.1$--$1$, electron-scale ETG at
     $k_\perp\rho_e \sim 0.1$--$1$, and a dashed TEM extension towards
     $k_\perp\rho_s \sim 5$, because TEM is not confined to one scale. The
     bands are conventions of :data:`TURBULENCE_BANDS`, not stability
-    thresholds; the separation $\rho_e \ll \rho_i \ll L$ is the state's.
+    thresholds; the separation $\rho_e \ll \rho_i \ll L$ is the state's, and
+    every band stays below the minor radius.
     """
     from ._orderings import ILLUSTRATIVE_STATE, lengths
 
@@ -392,7 +400,9 @@ def turbulence_scale_hierarchy(*, labels: bool = True) -> Diagram:
     bands = {}
     rows = {"ion_scale": 0.7, "tem_extent": 2.6, "electron_scale": 0.7}
     for key, (rho, (k_lo, k_hi), text) in TURBULENCE_BANDS.items():
-        lo, hi = 2.0 * math.pi * values[rho] / k_hi, 2.0 * math.pi * values[rho] / k_lo
+        lo, hi = values[rho] / k_hi, values[rho] / k_lo   # perpendicular scale 1/k_perp
+        if hi >= values["minor"]:
+            raise AssertionError(f"the {key} band reaches the minor radius")
         bands[key] = (lo, hi)
         y = rows[key]
         style = "approx" if key == "tem_extent" else "boundary"
@@ -409,9 +419,10 @@ def turbulence_scale_hierarchy(*, labels: bool = True) -> Diagram:
                         anchor="south", role="equilibrium_scale"),
                   Label((span * decade + 0.5, -0.2), "length [m]", "xlabel", anchor="north west", role="axes"),
                   Label((0.5 * span * decade, -2.3),
-                        f"Wavelength bands $2\\pi/k_\\perp$; illustrative state ($B = {s['B']:g}$ T, "
-                        f"$T_e = {s['T_e']:g}$ eV, $T_i = {s['T_i']:g}$ eV), conventions, not thresholds. At this low "
-                        f"field $\\rho_i/a \\approx {values['rho_i'] / values['minor']:.2g}$: the ion band reaches $a$.",
+                        f"Perpendicular scales $1/k_\\perp$ of an illustrative state ($B = {s['B']:g}$ T, "
+                        f"$T_e = {s['T_e']:g}$ eV, $T_i = {s['T_i']:g}$ eV; $\\rho_i/a \\approx "
+                        f"{values['rho_i'] / values['minor']:.2g}$): conventions, not thresholds; "
+                        "ITG on $\\rho_i$, the TEM extension on $\\rho_s$.",
                         "note", anchor="north", role="note")]
     return Diagram("turbulence_scale_hierarchy", Scene(tuple(items)),
                    model={"lengths": values, "bands": bands,

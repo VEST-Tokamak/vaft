@@ -1417,21 +1417,21 @@ turbulence -> Reynolds stress -> zonal flow -> E x B shear --| turbulence
   - $\Gamma = \langle\tilde n\tilde v_r\rangle$.
 - `cross_phase_transport` shows one mode at $\theta_{n\phi} = 0, \pm\pi/2$. Each flux comes from
   `coherent_particle_flux_from_amplitudes_phase` and is checked against a direct average of $\tilde n\,\tilde v_x$.
-  The convention ($\theta_{n\phi}$ is the lead of $\tilde\phi$ over $\tilde n$, real cosine fields) is in the model
-  and on the figure.
+  The convention ($\theta_{n\phi} = \alpha_\phi - \alpha_n$, real cosine fields, flux along $x$ drawn up the page)
+  is in the model and on the figure.
 - `mixing_length_saturation`: growth $\gamma$ against decorrelation $k_\perp\tilde v$. They cross at
   $\tilde v = \gamma/k_\perp$, which gives `mixing_length_diffusivity_from_gamma_k_perp`. It is an estimate, not a closure.
 - `exb_shear_decorrelation`: a round eddy, and the same eddy after the shear map $y \to y + St\,x$. A radial cut through
-  its centre shrinks by $\sqrt{1 + (St)^2}$. This is geometry only: measured $E_r$ and shearing-rate profiles are plots.
+  its centre (at fixed $y$) shrinks by $\sqrt{1 + (St)^2}$, while its total radial extent is unchanged. This is geometry only: measured $E_r$ and shearing-rate profiles are plots.
 - `zonal_flow_feedback`: the self-regulation loop with the Reynolds-stress and zonal-flow-drive definitions. The
-  damping $\mu$ is a stated choice, and no coefficient model is assumed (`predator_prey_rhs` is the reduced one).
-- `turbulence_scale_hierarchy`: representative $2\pi/k_\perp$ bands against the lengths of the
+  damping $\mu$ is a stated choice, and no coefficient model is assumed.
+- `turbulence_scale_hierarchy`: representative perpendicular scales $1/k_\perp$ against the lengths of the
   `spatial_scale_orderings` state:
   - ITG/TEM at $k_\perp\rho_i \sim 0.1$–$1$;
   - ETG at $k_\perp\rho_e \sim 0.1$–$1$;
   - a dashed TEM extension to $k_\perp\rho_s \sim 5$.
 
-  The bands are conventions, not thresholds. At VEST's low field the ion band reaches $a$.
+  The bands are conventions, not thresholds, and the state is illustrative, not a VEST measurement.
 
 ```python
 vaft.diagram.drift_wave_transport_cycle()

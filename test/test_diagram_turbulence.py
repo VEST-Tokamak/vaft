@@ -31,7 +31,8 @@ def test_the_drift_wave_cycle_closes_through_profile_relaxation():
     assert diagram.model["feedback"] == ("radial_flux", "gradient")
     scene = diagram.scene
     assert len([it for it in scene.role("cycle") if isinstance(it, Arrow)]) == len(cycle) - 1
-    assert [it for it in scene.role("relaxation") if isinstance(it, Arrow)]
+    relax = [it for it in scene.role("relaxation") if isinstance(it, Arrow)]
+    assert len(relax) == 1 and relax[0].end[1] > relax[0].start[1]  # from the flux (bottom) back up to the gradient
     for role in ("gradient", "exb_velocity", "radial_flux"):
         assert scene.role(role), role
     assert diagram.model["equations"]["radial_flux"] == formula_equation(
@@ -46,10 +47,13 @@ def test_cross_phase_flux_is_zero_positive_and_negative():
     assert "theta = alpha_phi - alpha_n" in diagram.model["convention"]
     scene = diagram.scene
     assert len(scene.role("fluctuation_density")) >= 3 and len(scene.role("fluctuation_potential")) >= 3
-    flux_marks = [it for it in scene.role("radial_flux") if not isinstance(it, Label)]
-    assert [type(it) for it in flux_marks] == [Marker, Arrow, Arrow]
-    outward, inward = flux_marks[1], flux_marks[2]
-    assert outward.end[0] > outward.start[0] and inward.end[0] < inward.start[0]
+    marks = sorted((it for it in scene.role("radial_flux") if not isinstance(it, Label)),
+                   key=lambda it: it.at[0] if isinstance(it, Marker) else it.start[0])
+    assert [type(it) for it in marks] == [Marker, Arrow, Arrow]  # left to right: 0, +pi/2, -pi/2
+    outward, inward = marks[1], marks[2]
+    # the flux is along x (radial), drawn up the page: vertical arrows, up for outward
+    assert outward.start[0] == outward.end[0] and outward.end[1] > outward.start[1]
+    assert inward.start[0] == inward.end[0] and inward.end[1] < inward.start[1]
 
 
 def test_mixing_length_saturates_where_decorrelation_reaches_growth():
@@ -87,7 +91,14 @@ def test_zonal_flow_loop_runs_turbulence_to_shear_and_back():
     scene = diagram.scene
     assert len([it for it in scene.role("feedback_loop") if isinstance(it, Arrow)]) == 4
     # the suppression is drawn without an arrow head (an inhibition bar)
-    assert scene.role("suppression") and not [it for it in scene.role("suppression") if isinstance(it, Arrow)]
+    suppression = scene.role("suppression")
+    assert suppression and not [it for it in suppression if isinstance(it, Arrow)]
+    # the line runs from the shear box up to the turbulence box
+    line = max((it for it in suppression if isinstance(it, Polyline)), key=lambda p: np.hypot(
+        *np.subtract(p.points[-1], p.points[0])))
+    shear_y = np.mean([p[1] for p in next(it for it in scene.role("shear") if isinstance(it, Polyline)).points])
+    turb_y = np.mean([p[1] for p in next(it for it in scene.role("turbulence") if isinstance(it, Polyline)).points])
+    assert line.points[0][1] > shear_y and line.points[-1][1] < turb_y and line.points[-1][1] > line.points[0][1]
     for role in ("reynolds_stress", "zonal_flow", "shear"):
         assert scene.role(role), role
 
@@ -96,7 +107,9 @@ def test_scale_hierarchy_keeps_electron_below_ion_scales_and_tem_open():
     model = vaft.diagram.turbulence_scale_hierarchy().model
     lengths, bands = model["lengths"], model["bands"]
     assert lengths["rho_e"] < lengths["rho_i"] < lengths["minor"]
-    assert bands["electron_scale"][1] < bands["ion_scale"][1]
+    # every band is a perpendicular scale below the machine: none reaches the minor radius
+    assert all(hi < lengths["minor"] for lo, hi in bands.values())
+    assert bands["electron_scale"][1] < bands["ion_scale"][0]
     # TEM is not confined to the ion band: it reaches below it
     assert bands["tem_extent"][0] < bands["ion_scale"][0]
     scene = vaft.diagram.turbulence_scale_hierarchy().scene
