@@ -784,6 +784,248 @@ _SPECS = (
                "Without NEO there is no reference and no comparison; the closed-form results are not written to "
                "IMAS."),
     ),
+    # ------------------------------------------------------------------ experimental processing (#1901 part B)
+    WorkflowSpec(
+        key="machine_model_history", title="Machine model and shot history: one shot number selects the machine",
+        family="experimental_processing", status="implemented",
+        summary="The shot number is the only key. It selects the machine era (PF and wall geometry), each "
+                "diagnostic's revision (wiring, gains, baseline windows) and the shot-log record; the static "
+                "machine description is built once per era and the processing era is reported per diagnostic.",
+        nodes=(
+            N("shot", "Shot number", "measured", ids="dataset_description.data_entry.pulse", symbols=r"s"),
+            N("era", "Machine era", "machine", api="vaft.omas.vest_upstream.machine_era_for_shot",
+              symbols=r"\mathrm{PF\ 1906\ /\ 2507},\ \mathrm{wall\ 1512\ /\ 2409}"),
+            N("revisions", "Diagnostic revisions", "machine", api="vaft.machine_mapping.utils.resolve_vest_diagnostic",
+              symbols=r"\mathrm{from\_shot} \le s \le \mathrm{to\_shot}\qquad \mathrm{wiring,\ gain,\ baseline}"),
+            N("schedule", "Shot log", "measured", api="vaft.machine_mapping.pulse_schedule.mapping.pulse_schedule",
+              ids="pulse_schedule", symbols=r"\mathrm{set\ points,\ gas,\ timing}"),
+            N("conventions", "IMAS sign and angle conventions", "convention",
+              api="vaft.machine_mapping.registry.port_phi",
+              symbols=r"\phi = (-30^\circ\,h) \bmod 360^\circ\qquad \mathrm{discharge\ sign\ contract}"),
+            N("static", "Static machine description", "standardized", api="vaft.omas.vest_upstream.build_static_ods",
+              ids="{wall | pf_active | pf_passive | em_coupling | magnetics | tf}",
+              symbols=r"\mathrm{geometry},\ M_{ij},\ \mathrm{sensor\ positions}"),
+            N("provenance", "Processing era per diagnostic", "derived",
+              api="vaft.machine_mapping.provenance.vest_processing_provenance",
+              symbols=r"\mathrm{calibration\ lineage}",
+              mapping_todo="returned as a dict; not written to an IDS"),
+        ),
+        rows=(("shot",), ("era", "revisions", "schedule"), ("static", "provenance")),
+        edges=(("shot", "era", ""), ("shot", "revisions", ""), ("shot", "schedule", ""), ("era", "static", ""),
+               ("revisions", "static", "wiring"), ("revisions", "provenance", "")),
+        side=(("conventions", "static"),),
+        todos=("The VEST COCOS index is not resolved yet (vaft.machine_mapping.conventions."
+               "equilibrium_orientation_is_resolved); the discharge sign contract stands in for it.",
+               "The shot-log mapper writes pulse_schedule when called (vaft shotlog CLI) but "
+               "build_diagnostics_ods does not call it.",
+               "Wall and limiter history is the era table only; there is no per-component calibration lineage.",
+               "There is no single shot-to-machine object: era, revisions and provenance are separate lookups."),
+    ),
+    WorkflowSpec(
+        key="signal_processing", title="Signal processing: raw digitizer records to a diagnostic IDS",
+        family="experimental_processing", status="implemented",
+        summary="A representative chain, in the order the magnetic probes use it: anti-alias low-pass on the "
+                "native grid, calibration, time integration of the inductive voltage, a linear baseline over the "
+                "era's leading samples, then interpolation onto the analysis grid. Other diagnostics reorder or "
+                "skip steps.",
+        nodes=(
+            N("raw", "Raw digitizer record", "measured", api="vaft.database.raw.load",
+              symbols=r"V(t)\ \mathrm{per\ DAQ\ field}"),
+            N("fields", "DAQ field codes", "machine", api="vaft.machine_mapping.raw_daq_sources.raw_sources",
+              symbols=r"(\mathrm{diagnostic},\ s) \rightarrow \mathrm{field\ codes}"),
+            N("lowpass", "Anti-alias low-pass", "derived", api="vaft.process.signal_processing.fir_filter",
+              symbols=r"\mathrm{FIR\ on\ the\ native\ fast\ grid}"),
+            N("calibrate", "Calibration", "derived", api="vaft.machine_mapping.utils.calibrate_vest_signal",
+              relation=r"x = c\,V\ \mathrm{(linear)}\qquad \mathrm{or\ an\ exponential\ gauge\ law}"),
+            N("revision", "Calibration revision", "machine", api="vaft.machine_mapping.utils.resolve_vest_diagnostic",
+              symbols=r"c,\ \mathrm{sign},\ \mathrm{baseline\ window}"),
+            N("integrate", "Time integration", "derived",
+              api="vaft.process.magnetics.vest_b_field_pol_probe_legacy",
+              relation=r"B(t) = -\int_0^t \dot B\,dt'\qquad \dot B\ \mathrm{the\ calibrated\ record}"),
+            N("baseline", "Baseline subtraction", "derived", api="vaft.process.signal_processing.subtract_baseline",
+              symbols=r"\mathrm{linear\ fit\ over\ the\ era's\ leading\ samples}"),
+            N("resample", "Resampling", "derived", api="vaft.process.signal_processing.resample_to_time",
+              symbols=r"t_k = t_{\mathrm{start}} + k\,\Delta t"),
+            N("grid", "Analysis time grid", "convention",
+              api="vaft.machine_mapping.utils.resolve_diagnostics_time_policies",
+              symbols=r"t_{\mathrm{start}},\ t_{\mathrm{end}},\ \Delta t"),
+            N("ids", "Diagnostic IDS", "standardized", api="vaft.omas.vest_upstream.build_diagnostics_ods",
+              ids="{magnetics | pf_active | tf | spectrometer_uv | barometry}",
+              symbols=r"\psi_{\mathrm{FL}},\ B_p,\ I_p,\ I_{\mathrm{PF}}"),
+        ),
+        rows=(("raw",), ("lowpass",), ("calibrate",), ("integrate",), ("baseline",), ("resample",), ("ids",)),
+        edges=(("raw", "lowpass", ""), ("lowpass", "calibrate", ""), ("calibrate", "integrate", ""),
+               ("integrate", "baseline", ""), ("baseline", "resample", ""), ("resample", "ids", "")),
+        side=(("fields", "raw"), ("revision", "calibrate"), ("grid", "resample")),
+        todos=("The order is per diagnostic: PF coils subtract a baseline mean, filter, scale and align; H-alpha "
+               "shifts in time and resamples with an anti-aliased resampler; flux loops integrate per radian.",
+               "There is no drift-correction stage separate from the baseline fit, and no cross-DAQ "
+               "synchronization module: each mapper applies its own time shift and interpolation.",
+               "Integration is inline in each mapper; vaft.process has no shared integration helper.",
+               "Thomson scattering and the interferometer read post-processed files, so this chain does not apply "
+               "to them."),
+    ),
+    WorkflowSpec(
+        key="quality_validation", title="Quality and validation: measurements against references to evidence",
+        family="experimental_processing", status="implemented",
+        summary="Three separate kinds of evidence: per-sample source validity (written to the IDS validity "
+                "nodes), agreement with the vacuum model before the plasma (a report), and equilibrium fit "
+                "quality turned into a slice class. Model disagreement never sets a channel's validity.",
+        nodes=(
+            N("meas", "Processed magnetics", "measured", ids="magnetics.{flux_loop, b_field_pol_probe, ip}",
+              symbols=r"m_i(t)"),
+            N("model", "Synthetic vacuum magnetics", "derived",
+              api="vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics",
+              symbols=r"\hat m_i = m_{\mathrm{coil}} + m_{\mathrm{eddy}}"),
+            N("eq", "Magnetic equilibrium", "reconstructed", ids="equilibrium.time_slice[:]",
+              symbols=r"\psi(R, Z),\ \chi^2"),
+            N("source", "Source validity checks", "derived", api="vaft.validation.magnetics.validate_magnetics_signals",
+              symbols=r"\mathrm{per\ sample,\ per\ channel}"),
+            N("residual", "Residual metrics", "derived", api="vaft.omas.vacuum_magnetics.vacuum_magnetics_metrics",
+              symbols=r"m_i - \hat m_i:\ \mathrm{RMS},\ \mathrm{correlation}"),
+            N("efitq", "Fit and convergence quality", "derived", api="vaft.omas.efit_quality.efit_quality_metrics",
+              symbols=r"\chi^2_\nu,\ \mathrm{residual\ bias},\ \mathrm{convergence}"),
+            N("validity", "Channel validity", "standardized", api="vaft.validation.imas.write_validity",
+              ids="magnetics.{flux_loop[:].flux | b_field_pol_probe[:].field | ip[:]}.validity_timed",
+              symbols=r"0\ \mathrm{valid},\ 1\ \mathrm{flagged},\ -2\ \mathrm{rejected}"),
+            N("gate", "Vacuum-model quality gate", "derived", api="vaft.omas.vacuum_magnetics.quality_gate",
+              symbols=r"\mathrm{pass\ /\ fail\ per\ sensor\ group}", mapping_todo="a report; not written to an IDS"),
+            N("classes", "Slice quality class", "derived",
+              api="vaft.validation.equilibrium_quality.equilibrium_quality_table",
+              symbols=r"\mathrm{good\ /\ admissible\ /\ unreconstructible}",
+              mapping_todo="a table; not written to an IDS"),
+            N("criteria", "Acceptance criteria", "convention", symbols=r"\mathrm{versioned\ thresholds}"),
+        ),
+        rows=(("meas", "model", "eq"), ("source", "residual", "efitq"), ("validity", "gate", "classes")),
+        edges=(("meas", "source", ""), ("meas", "residual", ""), ("model", "residual", "reference"),
+               ("eq", "efitq", ""), ("source", "validity", ""), ("residual", "gate", ""),
+               ("efitq", "classes", "")),
+        side=(("criteria", "classes"),),
+        todos=("Only source validity reaches IMAS; model-agreement and fit-quality metrics are returned as "
+               "dicts and tables in the stage manifests.",
+               "Flux-loop agreement with the vacuum model is report-only by default; only source validity can "
+               "reject a loop.",
+               "The vacuum check covers the pre-plasma window only; there is no plasma-phase synthetic "
+               "magnetics check outside the EFIT residuals."),
+    ),
+    WorkflowSpec(
+        key="fault_anomaly_detection", title="Fault and anomaly evidence: diagnostic-specific checks",
+        family="experimental_processing", status="implemented",
+        summary="There is no single anomaly model: each diagnostic has its own checks. Magnetics separate hard "
+                "faults from soft flags and honour the recorded fault list; the Rogowski coil has a square-wave "
+                "test; clipped PF, diamagnetic and TF records are repaired over the clipped interval; H-alpha "
+                "channels are screened before they time the plasma.",
+        nodes=(
+            N("signals", "Processed channels", "measured", ids="{magnetics | pf_active | tf | spectrometer_uv}",
+              symbols=r"x_i(t)"),
+            N("known", "Recorded faults", "machine", api="vaft.machine_mapping.magnetics.known_magnetics_faults",
+              symbols=r"(\mathrm{kind},\ i) \rightarrow \mathrm{reason}"),
+            N("mag", "Magnetics channel checks", "derived", api="vaft.validation.magnetics.validate_magnetics_signals",
+              symbols=r"\mathrm{hard:\ non\text{-}finite,\ flatline,\ magnitude,\ outlier}\qquad"
+                      r"\mathrm{soft:\ spike,\ offset\ jump,\ drift,\ noise}"),
+            N("rog", "Rogowski square-wave test", "derived", api="vaft.validation.plasma_current.assess_plasma_rogowski",
+              symbols=r"I_p(t)\ \mathrm{shape}"),
+            N("clip", "Clipping detection", "derived", api="vaft.process.signal_processing.detect_clipped_samples",
+              symbols=r"\mathrm{PF,\ diamagnetic,\ TF}"),
+            N("halpha", "H-alpha usability", "derived", api="vaft.omas.plasma_timing.halpha_usability",
+              symbols=r"\mathrm{finite,\ not\ railed,\ live\ baseline}"),
+            N("validity", "Channel validity", "standardized", api="vaft.validation.magnetics.project_validity",
+              ids="magnetics.{flux_loop[:].flux | b_field_pol_probe[:].field | ip[:]}.validity_timed",
+              symbols=r"0,\ 1,\ -2"),
+            N("repair", "Repaired interval", "derived", api="vaft.process.signal_processing.repair_clipped_interval",
+              symbols=r"x_i(t)\ \mathrm{across\ the\ clipped\ samples}"),
+            N("usable", "Light sources for timing", "derived", api="vaft.omas.plasma_timing.plasma_timing",
+              symbols=r"\mathrm{usable}\ H_\alpha\ \mathrm{channels}"),
+        ),
+        rows=(("signals",), ("mag", "rog", "clip", "halpha"), ("validity", None, "repair", "usable")),
+        edges=(("signals", "mag", ""), ("signals", "rog", ""), ("signals", "clip", ""), ("signals", "halpha", ""),
+               ("mag", "validity", ""), ("rog", "validity", ""), ("clip", "repair", ""), ("halpha", "usable", "")),
+        side=(("known", "mag"),),
+        todos=("No general anomaly model runs in the pipeline: vaft.process.ml provides the framework "
+               "(PCA autoencoder, k-NN, one-class SVM) but no trained model ships with the package.",
+               "The spectrometer and barometry fault registry (known_diagnostic_faults) has no pipeline consumer.",
+               "Missing raw data marks the component unavailable or partial; it is not a per-channel fault flag."),
+    ),
+    WorkflowSpec(
+        key="shot_classification", title="Shot classification: rules over derived features",
+        family="experimental_processing", status="implemented",
+        summary="A shot class is a rule applied to derived features -- the plasma window, the gauge-pressure "
+                "response, the peak current -- under stated thresholds, and it records which rule decided. It is "
+                "not a measurement. A separate pre-run check classifies DAQ completeness, and equilibrium slices "
+                "get a phase label from their own rule.",
+        nodes=(
+            N("fields", "Raw field inventory", "measured", symbols=r"\mathrm{field\ codes\ in\ the\ DAQ\ database}"),
+            N("pressure", "Gauge pressure", "measured", ids="barometry.gauge[0].pressure.data", symbols=r"p(t)"),
+            N("signals", "Plasma current and H-alpha", "measured", ids="magnetics.ip[0].data; spectrometer_uv",
+              symbols=r"I_p(t),\ H_\alpha(t)"),
+            N("eq", "Equilibrium slices", "reconstructed", ids="equilibrium.time_slice[:].global_quantities.ip",
+              symbols=r"I_p(t_k)"),
+            N("daq", "DAQ completeness", "derived", api="vaft.database.worker.classify.RawFieldClassifier",
+              symbols=r"\mathrm{daq\_missing\ /\ raw\_incomplete}"),
+            N("response", "Pressure response", "derived", api="vaft.omas.shot_class.pressure_response",
+              symbols=r"\Delta p\ \mathrm{during\ the\ shot}"),
+            N("timing", "Plasma window", "derived", api="vaft.omas.plasma_timing.plasma_timing",
+              symbols=r"t_{\mathrm{start}},\ t_{\mathrm{end}}"),
+            N("regime", "Slice phase", "derived", api="vaft.validation.equilibrium_regime.classify_equilibrium_regimes",
+              symbols=r"\mathrm{ramp\text{-}up\ /\ flat\ /\ ramp\text{-}down}:\ \mathrm{level}\ 0.9\,|I_p|_{\max}"),
+            N("rule", "Shot class", "derived", api="vaft.omas.shot_class.shot_class",
+              symbols=r"\mathrm{Plasma\ /\ BD\ failure\ /\ Vacuum},\ \mathrm{decided\ by}",
+              mapping_todo="kept in the database worker record, not in an IDS"),
+            N("thresholds", "Default thresholds", "convention",
+              symbols=r"p_{\mathrm{th}} = 10^{-2},\ I_{p,\min} = 2\ \mathrm{kA}"),
+        ),
+        rows=(("fields", "pressure", "signals", "eq"), ("daq", "response", "timing", "regime"),
+              (None, "rule", None, None)),
+        edges=(("fields", "daq", ""), ("pressure", "response", ""), ("signals", "timing", ""), ("eq", "regime", ""),
+               ("response", "rule", ""), ("timing", "rule", "")),
+        side=(("thresholds", "rule"),),
+        todos=("The four-way physics class of #57 is not implemented; the class is Plasma, BD failure or Vacuum.",
+               "There are no disruption labels and no label-provenance store; vaft.process.ml datasets take "
+               "targets from the caller.",
+               "Events passed to the slice classifier (VDE, IRE, disruption) are caller annotations, not "
+               "detections."),
+    ),
+    WorkflowSpec(
+        key="event_detection", title="Event detection: onsets and windows from a robust baseline",
+        family="experimental_processing", status="implemented",
+        summary="Each waveform gets a robust baseline and spread from its quiet reference, a threshold that is "
+                "the larger of a fraction of the peak and a number of robust sigmas, and an active window that "
+                "must stay above it. The plasma window is then confirmed across signals: H-alpha light against "
+                "the plasma current. Coil onsets anchor the loop-voltage time base.",
+        nodes=(
+            N("light", "H-alpha and plasma current", "measured", ids="spectrometer_uv; magnetics.ip[0].data",
+              symbols=r"H_\alpha(t),\ I_p(t)"),
+            N("coils", "Coil currents", "measured", ids="pf_active.coil[:].current.data",
+              symbols=r"I_{\mathrm{PF},j}(t)"),
+            N("baseline", "Robust baseline", "derived", api="vaft.process.onset.robust_baseline",
+              symbols=r"b,\ \sigma\ \mathrm{from\ the\ median\ and\ MAD}"),
+            N("rules", "Detection rules", "convention", symbols=r"f,\ k,\ t_{\mathrm{hold}}\ \mathrm{per\ signal}"),
+            N("threshold", "Activity threshold", "derived", api="vaft.process.onset.excess_threshold",
+              relation=r"x_{\mathrm{th}} = b + \max(f\,x_{\mathrm{peak}},\ k\,\sigma)"),
+            N("window", "Active window", "derived", api="vaft.process.onset.active_window",
+              symbols=r"x > x_{\mathrm{th}}\ \mathrm{for\ at\ least}\ t_{\mathrm{hold}}"),
+            N("confirm", "Light against current", "derived", api="vaft.omas.plasma_timing.plasma_timing",
+              symbols=r"\mathrm{consistent},\ I_p\ \mathrm{before}\ H_\alpha,\ \mathrm{offset\ disagreement}"),
+            N("plasma", "Plasma window", "derived", symbols=r"t_{\mathrm{start}},\ t_{\mathrm{end}}",
+              mapping_todo="a dataclass; not written to an IDS"),
+            N("onsets", "Coil onsets", "derived", api="vaft.omas.discharge_timing.coil_onsets",
+              symbols=r"t_{\mathrm{on},j},\ t_{\mathrm{OH}}"),
+            N("vloop", "Loop-voltage event", "derived", api="vaft.omas.discharge_timing.loop_voltage_event",
+              symbols=r"\mathrm{zero\ crossing\ after\ the\ OH\ onset}",
+              mapping_todo="a dataclass; not written to an IDS"),
+        ),
+        rows=(("light", "coils"), ("baseline", "onsets"), ("threshold", "vloop"), ("window", None),
+              ("confirm", None), ("plasma", None)),
+        edges=(("light", "baseline", ""), ("baseline", "threshold", ""), ("threshold", "window", ""),
+               ("window", "confirm", ""), ("confirm", "plasma", ""), ("coils", "onsets", ""),
+               ("onsets", "vloop", "")),
+        side=(("rules", "threshold"),),
+        todos=("Breakdown time is the plasma-window start; there is no separate breakdown detector.",
+               "There is no flat-top detector (only the post-hoc slice phase) and no IRE, sawtooth or disruption "
+               "detector.",
+               "current_quench and current_spike (vaft.process.transients) measure a quench or spike in a given "
+               "window; nothing in the pipeline calls them, and they do not label it an IRE or a disruption."),
+    ),
 )
 
 #: every spine workflow, by key, in reading order
@@ -889,3 +1131,33 @@ def transport_hierarchy(*, labels: bool = True, references: bool = False) -> Dia
 def neoclassical_model_comparison(*, labels: bool = True, references: bool = False) -> Diagram:
     """Sauter / Redl against NEO at one kinetic state (#1901)."""
     return _render_workflow(WORKFLOWS["neoclassical_model_comparison"], labels=labels, references=references)
+
+
+def machine_model_history(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Shot number to machine era, diagnostic revisions and the static machine description (#1901)."""
+    return _render_workflow(WORKFLOWS["machine_model_history"], labels=labels, references=references)
+
+
+def signal_processing(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Raw digitizer records to a diagnostic IDS, in the magnetic-probe order (#1901)."""
+    return _render_workflow(WORKFLOWS["signal_processing"], labels=labels, references=references)
+
+
+def quality_validation(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Source validity, vacuum-model agreement and fit quality as separate evidence (#1901)."""
+    return _render_workflow(WORKFLOWS["quality_validation"], labels=labels, references=references)
+
+
+def fault_anomaly_detection(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Diagnostic-specific fault checks; no universal anomaly model (#1901)."""
+    return _render_workflow(WORKFLOWS["fault_anomaly_detection"], labels=labels, references=references)
+
+
+def shot_classification(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Shot and slice classes as rules over derived features (#1901)."""
+    return _render_workflow(WORKFLOWS["shot_classification"], labels=labels, references=references)
+
+
+def event_detection(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Plasma window and coil onsets from robust-baseline thresholds (#1901)."""
+    return _render_workflow(WORKFLOWS["event_detection"], labels=labels, references=references)

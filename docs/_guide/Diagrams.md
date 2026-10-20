@@ -1817,6 +1817,12 @@ vaft.diagram.eddy_current_model()
 vaft.diagram.kinetic_profile_fitting()
 vaft.diagram.transport_hierarchy()
 vaft.diagram.neoclassical_model_comparison()
+vaft.diagram.machine_model_history()
+vaft.diagram.signal_processing()
+vaft.diagram.quality_validation()
+vaft.diagram.fault_anomaly_detection()
+vaft.diagram.shot_classification()
+vaft.diagram.event_detection()
 ```
 
 ### Plasma parameter inference: ion temperature and species
@@ -2297,6 +2303,154 @@ Follow-up TODOs (implementation or IMAS mapping):
 - End-to-end, not like-for-like: the two input paths differ in grid construction, trapped fraction and collisionality definition, so part of any gap is the input path. The like-for-like check against NEO's own Sauter/Redl columns (agreement to 1e-7) is a test, not a product.
 - A stored NEO profile on a different rho_tor_norm grid is refused, not interpolated; a run whose Z_eff or n_i/n_e differs is refused when the solver's values are passed.
 - Without NEO there is no reference and no comparison; the closed-form results are not written to IMAS.
+
+### Machine model and shot history: one shot number selects the machine
+
+The shot number is the only key. It selects the machine era (PF and wall geometry), each diagnostic's revision (wiring, gains, baseline windows) and the shot-log record; the static machine description is built once per era and the processing era is reported per diagnostic.
+
+![Machine model and shot history: one shot number selects the machine]({{ '/assets/diagrams/machine_model_history.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Shot number | measured | $s$ |  | `dataset_description.data_entry.pulse` |
+| Machine era | machine geometry / static data | $\mathrm{PF\ 1906\ /\ 2507},\ \mathrm{wall\ 1512\ /\ 2409}$ | `vaft.omas.vest_upstream.machine_era_for_shot` |  |
+| Diagnostic revisions | machine geometry / static data | $\mathrm{from\_shot} \le s \le \mathrm{to\_shot}, \mathrm{wiring,\ gain,\ baseline}$ | `vaft.machine_mapping.utils.resolve_vest_diagnostic` |  |
+| Shot log | measured | $\mathrm{set\ points,\ gas,\ timing}$ | `vaft.machine_mapping.pulse_schedule.mapping.pulse_schedule` | `pulse_schedule` |
+| IMAS sign and angle conventions | model choice / convention (enters Static machine description) | $\phi = (-30^\circ\,h) \bmod 360^\circ, \mathrm{discharge\ sign\ contract}$ | `vaft.machine_mapping.registry.port_phi` |  |
+| Static machine description | standardized IMAS | $\mathrm{geometry},\ M_{ij},\ \mathrm{sensor\ positions}$ | `vaft.omas.vest_upstream.build_static_ods` | `{wall | pf_active | pf_passive | em_coupling | magnetics | tf}` |
+| Processing era per diagnostic | derived | $\mathrm{calibration\ lineage}$ | `vaft.machine_mapping.provenance.vest_processing_provenance` | **IMAS mapping TODO:** returned as a dict; not written to an IDS |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- The VEST COCOS index is not resolved yet (vaft.machine_mapping.conventions.equilibrium_orientation_is_resolved); the discharge sign contract stands in for it.
+- The shot-log mapper writes pulse_schedule when called (vaft shotlog CLI) but build_diagnostics_ods does not call it.
+- Wall and limiter history is the era table only; there is no per-component calibration lineage.
+- There is no single shot-to-machine object: era, revisions and provenance are separate lookups.
+
+### Signal processing: raw digitizer records to a diagnostic IDS
+
+A representative chain, in the order the magnetic probes use it: anti-alias low-pass on the native grid, calibration, time integration of the inductive voltage, a linear baseline over the era's leading samples, then interpolation onto the analysis grid. Other diagnostics reorder or skip steps.
+
+![Signal processing: raw digitizer records to a diagnostic IDS]({{ '/assets/diagrams/signal_processing.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Raw digitizer record | measured | $V(t)\ \mathrm{per\ DAQ\ field}$ | `vaft.database.raw.load` |  |
+| DAQ field codes | machine geometry / static data (enters Raw digitizer record) | $(\mathrm{diagnostic},\ s) \rightarrow \mathrm{field\ codes}$ | `vaft.machine_mapping.raw_daq_sources.raw_sources` |  |
+| Anti-alias low-pass | derived | $\mathrm{FIR\ on\ the\ native\ fast\ grid}$ | `vaft.process.signal_processing.fir_filter` |  |
+| Calibration | derived |  | `vaft.machine_mapping.utils.calibrate_vest_signal` |  |
+| Calibration revision | machine geometry / static data (enters Calibration) | $c,\ \mathrm{sign},\ \mathrm{baseline\ window}$ | `vaft.machine_mapping.utils.resolve_vest_diagnostic` |  |
+| Time integration | derived |  | `vaft.process.magnetics.vest_b_field_pol_probe_legacy` |  |
+| Baseline subtraction | derived | $\mathrm{linear\ fit\ over\ the\ era's\ leading\ samples}$ | `vaft.process.signal_processing.subtract_baseline` |  |
+| Resampling | derived | $t_k = t_{\mathrm{start}} + k\,\Delta t$ | `vaft.process.signal_processing.resample_to_time` |  |
+| Analysis time grid | model choice / convention (enters Resampling) | $t_{\mathrm{start}},\ t_{\mathrm{end}},\ \Delta t$ | `vaft.machine_mapping.utils.resolve_diagnostics_time_policies` |  |
+| Diagnostic IDS | standardized IMAS | $\psi_{\mathrm{FL}},\ B_p,\ I_p,\ I_{\mathrm{PF}}$ | `vaft.omas.vest_upstream.build_diagnostics_ods` | `{magnetics | pf_active | tf | spectrometer_uv | barometry}` |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- The order is per diagnostic: PF coils subtract a baseline mean, filter, scale and align; H-alpha shifts in time and resamples with an anti-aliased resampler; flux loops integrate per radian.
+- There is no drift-correction stage separate from the baseline fit, and no cross-DAQ synchronization module: each mapper applies its own time shift and interpolation.
+- Integration is inline in each mapper; vaft.process has no shared integration helper.
+- Thomson scattering and the interferometer read post-processed files, so this chain does not apply to them.
+
+### Quality and validation: measurements against references to evidence
+
+Three separate kinds of evidence: per-sample source validity (written to the IDS validity nodes), agreement with the vacuum model before the plasma (a report), and equilibrium fit quality turned into a slice class. Model disagreement never sets a channel's validity.
+
+![Quality and validation: measurements against references to evidence]({{ '/assets/diagrams/quality_validation.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Processed magnetics | measured | $m_i(t)$ |  | `magnetics.{flux_loop, b_field_pol_probe, ip}` |
+| Synthetic vacuum magnetics | derived | $\hat m_i = m_{\mathrm{coil}} + m_{\mathrm{eddy}}$ | `vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics` |  |
+| Magnetic equilibrium | reconstructed | $\psi(R, Z),\ \chi^2$ |  | `equilibrium.time_slice[:]` |
+| Source validity checks | derived | $\mathrm{per\ sample,\ per\ channel}$ | `vaft.validation.magnetics.validate_magnetics_signals` |  |
+| Residual metrics | derived | $m_i - \hat m_i:\ \mathrm{RMS},\ \mathrm{correlation}$ | `vaft.omas.vacuum_magnetics.vacuum_magnetics_metrics` |  |
+| Fit and convergence quality | derived | $\chi^2_\nu,\ \mathrm{residual\ bias},\ \mathrm{convergence}$ | `vaft.omas.efit_quality.efit_quality_metrics` |  |
+| Channel validity | standardized IMAS | $0\ \mathrm{valid},\ 1\ \mathrm{flagged},\ -2\ \mathrm{rejected}$ | `vaft.validation.imas.write_validity` | `magnetics.{flux_loop[:].flux | b_field_pol_probe[:].field | ip[:]}.validity_timed` |
+| Vacuum-model quality gate | derived | $\mathrm{pass\ /\ fail\ per\ sensor\ group}$ | `vaft.omas.vacuum_magnetics.quality_gate` | **IMAS mapping TODO:** a report; not written to an IDS |
+| Slice quality class | derived | $\mathrm{good\ /\ admissible\ /\ unreconstructible}$ | `vaft.validation.equilibrium_quality.equilibrium_quality_table` | **IMAS mapping TODO:** a table; not written to an IDS |
+| Acceptance criteria | model choice / convention (enters Slice quality class) | $\mathrm{versioned\ thresholds}$ |  |  |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- Only source validity reaches IMAS; model-agreement and fit-quality metrics are returned as dicts and tables in the stage manifests.
+- Flux-loop agreement with the vacuum model is report-only by default; only source validity can reject a loop.
+- The vacuum check covers the pre-plasma window only; there is no plasma-phase synthetic magnetics check outside the EFIT residuals.
+
+### Fault and anomaly evidence: diagnostic-specific checks
+
+There is no single anomaly model: each diagnostic has its own checks. Magnetics separate hard faults from soft flags and honour the recorded fault list; the Rogowski coil has a square-wave test; clipped PF, diamagnetic and TF records are repaired over the clipped interval; H-alpha channels are screened before they time the plasma.
+
+![Fault and anomaly evidence: diagnostic-specific checks]({{ '/assets/diagrams/fault_anomaly_detection.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Processed channels | measured | $x_i(t)$ |  | `{magnetics | pf_active | tf | spectrometer_uv}` |
+| Recorded faults | machine geometry / static data (enters Magnetics channel checks) | $(\mathrm{kind},\ i) \rightarrow \mathrm{reason}$ | `vaft.machine_mapping.magnetics.known_magnetics_faults` |  |
+| Magnetics channel checks | derived | $\mathrm{hard:\ non\text{-}finite,\ flatline,\ magnitude,\ outlier},\mathrm{soft:\ spike,\ offset\ jump,\ drift,\ noise}$ | `vaft.validation.magnetics.validate_magnetics_signals` |  |
+| Rogowski square-wave test | derived | $I_p(t)\ \mathrm{shape}$ | `vaft.validation.plasma_current.assess_plasma_rogowski` |  |
+| Clipping detection | derived | $\mathrm{PF,\ diamagnetic,\ TF}$ | `vaft.process.signal_processing.detect_clipped_samples` |  |
+| H-alpha usability | derived | $\mathrm{finite,\ not\ railed,\ live\ baseline}$ | `vaft.omas.plasma_timing.halpha_usability` |  |
+| Channel validity | standardized IMAS | $0,\ 1,\ -2$ | `vaft.validation.magnetics.project_validity` | `magnetics.{flux_loop[:].flux | b_field_pol_probe[:].field | ip[:]}.validity_timed` |
+| Repaired interval | derived | $x_i(t)\ \mathrm{across\ the\ clipped\ samples}$ | `vaft.process.signal_processing.repair_clipped_interval` |  |
+| Light sources for timing | derived | $\mathrm{usable}\ H_\alpha\ \mathrm{channels}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- No general anomaly model runs in the pipeline: vaft.process.ml provides the framework (PCA autoencoder, k-NN, one-class SVM) but no trained model ships with the package.
+- The spectrometer and barometry fault registry (known_diagnostic_faults) has no pipeline consumer.
+- Missing raw data marks the component unavailable or partial; it is not a per-channel fault flag.
+
+### Shot classification: rules over derived features
+
+A shot class is a rule applied to derived features -- the plasma window, the gauge-pressure response, the peak current -- under stated thresholds, and it records which rule decided. It is not a measurement. A separate pre-run check classifies DAQ completeness, and equilibrium slices get a phase label from their own rule.
+
+![Shot classification: rules over derived features]({{ '/assets/diagrams/shot_classification.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Raw field inventory | measured | $\mathrm{field\ codes\ in\ the\ DAQ\ database}$ |  |  |
+| Gauge pressure | measured | $p(t)$ |  | `barometry.gauge[0].pressure.data` |
+| Plasma current and H-alpha | measured | $I_p(t),\ H_\alpha(t)$ |  | `magnetics.ip[0].data; spectrometer_uv` |
+| Equilibrium slices | reconstructed | $I_p(t_k)$ |  | `equilibrium.time_slice[:].global_quantities.ip` |
+| DAQ completeness | derived | $\mathrm{daq\_missing\ /\ raw\_incomplete}$ | `vaft.database.worker.classify.RawFieldClassifier` |  |
+| Pressure response | derived | $\Delta p\ \mathrm{during\ the\ shot}$ | `vaft.omas.shot_class.pressure_response` |  |
+| Plasma window | derived | $t_{\mathrm{start}},\ t_{\mathrm{end}}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
+| Slice phase | derived | $\mathrm{ramp\text{-}up\ /\ flat\ /\ ramp\text{-}down}:\ \mathrm{level}\ 0.9\,\|I_p\|_{\max}$ | `vaft.validation.equilibrium_regime.classify_equilibrium_regimes` |  |
+| Shot class | derived | $\mathrm{Plasma\ /\ BD\ failure\ /\ Vacuum},\ \mathrm{decided\ by}$ | `vaft.omas.shot_class.shot_class` | **IMAS mapping TODO:** kept in the database worker record, not in an IDS |
+| Default thresholds | model choice / convention (enters Shot class) | $p_{\mathrm{th}} = 10^{-2},\ I_{p,\min} = 2\ \mathrm{kA}$ |  |  |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- The four-way physics class of #57 is not implemented; the class is Plasma, BD failure or Vacuum.
+- There are no disruption labels and no label-provenance store; vaft.process.ml datasets take targets from the caller.
+- Events passed to the slice classifier (VDE, IRE, disruption) are caller annotations, not detections.
+
+### Event detection: onsets and windows from a robust baseline
+
+Each waveform gets a robust baseline and spread from its quiet reference, a threshold that is the larger of a fraction of the peak and a number of robust sigmas, and an active window that must stay above it. The plasma window is then confirmed across signals: H-alpha light against the plasma current. Coil onsets anchor the loop-voltage time base.
+
+![Event detection: onsets and windows from a robust baseline]({{ '/assets/diagrams/event_detection.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| H-alpha and plasma current | measured | $H_\alpha(t),\ I_p(t)$ |  | `spectrometer_uv; magnetics.ip[0].data` |
+| Coil currents | measured | $I_{\mathrm{PF},j}(t)$ |  | `pf_active.coil[:].current.data` |
+| Robust baseline | derived | $b,\ \sigma\ \mathrm{from\ the\ median\ and\ MAD}$ | `vaft.process.onset.robust_baseline` |  |
+| Detection rules | model choice / convention (enters Activity threshold) | $f,\ k,\ t_{\mathrm{hold}}\ \mathrm{per\ signal}$ |  |  |
+| Activity threshold | derived |  | `vaft.process.onset.excess_threshold` |  |
+| Active window | derived | $x > x_{\mathrm{th}}\ \mathrm{for\ at\ least}\ t_{\mathrm{hold}}$ | `vaft.process.onset.active_window` |  |
+| Light against current | derived | $\mathrm{consistent},\ I_p\ \mathrm{before}\ H_\alpha,\ \mathrm{offset\ disagreement}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
+| Plasma window | derived | $t_{\mathrm{start}},\ t_{\mathrm{end}}$ |  | **IMAS mapping TODO:** a dataclass; not written to an IDS |
+| Coil onsets | derived | $t_{\mathrm{on},j},\ t_{\mathrm{OH}}$ | `vaft.omas.discharge_timing.coil_onsets` |  |
+| Loop-voltage event | derived | $\mathrm{zero\ crossing\ after\ the\ OH\ onset}$ | `vaft.omas.discharge_timing.loop_voltage_event` | **IMAS mapping TODO:** a dataclass; not written to an IDS |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- Breakdown time is the plasma-window start; there is no separate breakdown detector.
+- There is no flat-top detector (only the post-hoc slice phase) and no IRE, sawtooth or disruption detector.
+- current_quench and current_spike (vaft.process.transients) measure a quench or spike in a given window; nothing in the pipeline calls them, and they do not label it an IRE or a disruption.
 
 ## Using the committed assets
 
