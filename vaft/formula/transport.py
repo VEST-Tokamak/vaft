@@ -10,7 +10,8 @@ complete Braginskii heat diffusivities are
 :func:`vaft.formula.kinetic.classical_electron_heat_diffusivity_from_T_e_B`
 and its ion counterpart; the gyroradius, sound speed and $\rho_*$ have their
 own owners in :mod:`vaft.formula.ordering`, :mod:`vaft.formula.sol` and
-:mod:`vaft.formula.particle`, and are inputs here.
+:mod:`vaft.formula.equilibrium` (``rho_star_from_M_T_B_R_epsilon``),
+and are inputs here.
 
 Notation
 --------
@@ -146,7 +147,7 @@ def diffusivity_from_mean_square_displacement(msd_rate, dimensions=1):
     .. [1] G. I. Taylor, Proc. London Math. Soc. s2-20 (1922) 196.
     """
     rate = _non_negative(msd_rate, "msd_rate")
-    if isinstance(dimensions, bool) or int(dimensions) != dimensions or dimensions < 1:
+    if not isinstance(dimensions, (int, np.integer)) or isinstance(dimensions, bool) or dimensions < 1:
         raise ValueError("dimensions must be a positive integer")
     return _out(rate / (2.0 * int(dimensions)))
 

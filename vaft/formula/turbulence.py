@@ -66,7 +66,7 @@ __all__ = [
     "diamagnetic_velocity_from_grad_p_q_n_B",
     "exb_shearing_rate_from_velocity_gradient",
     "exb_velocity_from_potential_gradient",
-    "growth_to_shear_rate_ratio",
+    "shear_to_growth_rate_ratio",
     "mixing_length_diffusivity_from_gamma_k_perp",
     "predator_prey_fixed_point",
     "predator_prey_invariant",
@@ -456,13 +456,11 @@ def _positive(value, name):
 def _ensemble_mean(a, b, axis, names):
     a = _finite(a, names[0])
     b = _finite(b, names[1])
-    try:
-        product = a * b
-    except ValueError as error:
-        raise ValueError(f"{names[0]} and {names[1]} must broadcast together") from error
-    if product.ndim == 0 or product.shape[axis] < 1:
-        raise ValueError("the averaging axis must hold at least one sample")
-    return _out(np.mean(product, axis=axis))
+    if a.shape != b.shape:  # broadcasting (N,) against (N, 1) would average an outer product
+        raise ValueError(f"{names[0]} and {names[1]} must have the same shape, not {a.shape} and {b.shape}")
+    if a.ndim == 0 or not -a.ndim <= axis < a.ndim or a.shape[axis] < 1:
+        raise ValueError("the averaging axis must exist and hold at least one sample")
+    return _out(np.mean(a * b, axis=axis))
 
 
 def diamagnetic_velocity_from_grad_p_q_n_B(grad_p, q, n, B):
@@ -520,7 +518,12 @@ def diamagnetic_velocity_from_grad_p_q_n_B(grad_p, q, n, B):
     if np.any(charge == 0.0):
         raise ValueError("q must be non-zero")
     density = _positive(n, "n")
-    return np.cross(b, gp) / (charge * density * b2)[..., None]
+    lead = np.broadcast_shapes(gp.shape[:-1], b.shape[:-1])
+    try:
+        scale = np.broadcast_to(charge * density, lead)
+    except ValueError as error:
+        raise ValueError(f"q and n must broadcast to the vectors' leading shape {lead}") from error
+    return np.cross(b, gp) / (scale * np.broadcast_to(b2, lead))[..., None]
 
 
 def diamagnetic_frequency_from_k_v_star(k, v_star):
@@ -630,7 +633,7 @@ def turbulent_particle_flux_from_fluctuations(n_fluct, v_r_fluct, axis=-1):
     Raises
     ------
     ValueError
-        Non-finite input, inputs that do not broadcast, or an empty averaging axis.
+        Non-finite input, inputs of different shapes, or a missing or empty averaging axis.
 
     Convention
     ----------
@@ -676,7 +679,7 @@ def turbulent_heat_flux_from_fluctuations(p_fluct, v_r_fluct, axis=-1):
     Raises
     ------
     ValueError
-        Non-finite input, inputs that do not broadcast, or an empty averaging axis.
+        Non-finite input, inputs of different shapes, or a missing or empty averaging axis.
 
     Convention
     ----------
@@ -844,7 +847,7 @@ def exb_shearing_rate_from_velocity_gradient(dv_E_dr):
     Limitations
     -----------
     No geometry factor and no sign; it does not decide whether turbulence is
-    suppressed (see :func:`growth_to_shear_rate_ratio`).
+    suppressed (see :func:`shear_to_growth_rate_ratio`).
 
     References
     ----------
@@ -854,7 +857,7 @@ def exb_shearing_rate_from_velocity_gradient(dv_E_dr):
     return _out(np.abs(_finite(dv_E_dr, "dv_E_dr")))
 
 
-def growth_to_shear_rate_ratio(gamma_E, gamma_lin):
+def shear_to_growth_rate_ratio(gamma_E, gamma_lin):
     r"""Ratio of the E-cross-B shearing rate to a linear growth rate.
 
     $$\frac{\gamma_E}{\gamma_\mathrm{lin}}$$
@@ -920,7 +923,7 @@ def reynolds_stress_from_velocity_fluctuations(v_r_fluct, v_theta_fluct, axis=-1
     Raises
     ------
     ValueError
-        Non-finite input, inputs that do not broadcast, or an empty averaging axis.
+        Non-finite input, inputs of different shapes, or a missing or empty averaging axis.
 
     Convention
     ----------

@@ -122,10 +122,35 @@ def test_reynolds_stress_sign_follows_the_velocity_convention():
         tb.zonal_flow_drive_from_reynolds_stress_gradient(0.0, 1.0, -1.0)
 
 
-def test_shearing_rate_is_a_magnitude_and_the_ratio_is_not_a_classifier():
+def test_shearing_rate_is_a_magnitude_and_the_ratio_is_shear_over_growth():
     assert tb.exb_shearing_rate_from_velocity_gradient(-4e4) == pytest.approx(4e4)
     np.testing.assert_allclose(tb.exb_shearing_rate_from_velocity_gradient([1.0, -2.0]), [1.0, 2.0])
-    ratio = tb.growth_to_shear_rate_ratio(4e4, 2e4)
+    ratio = tb.shear_to_growth_rate_ratio(4e4, 2e4)
     assert ratio == pytest.approx(2.0) and isinstance(ratio, float)
     with pytest.raises(ValueError):
-        tb.growth_to_shear_rate_ratio(1.0, 0.0)
+        tb.shear_to_growth_rate_ratio(1.0, 0.0)
+
+
+def test_fluctuation_means_refuse_an_outer_product_and_a_missing_axis():
+    n, v = np.ones(4), np.ones((4, 1))
+    with pytest.raises(ValueError):
+        tb.turbulent_particle_flux_from_fluctuations(n, v)
+    with pytest.raises(ValueError):
+        tb.reynolds_stress_from_velocity_fluctuations(np.ones(3), np.ones(3), axis=1)
+    rows = np.arange(6.0).reshape(2, 3)
+    np.testing.assert_allclose(tb.turbulent_particle_flux_from_fluctuations(rows, rows, axis=0),
+                               np.mean(rows * rows, axis=0))
+
+
+def test_diamagnetic_velocity_refuses_a_charge_that_does_not_match_the_vectors():
+    with pytest.raises(ValueError):
+        tb.diamagnetic_velocity_from_grad_p_q_n_B([1.0, 0.0, 0.0], [QE, -QE, 2 * QE], 1e19, [0.0, 0.0, 1.0])
+    grads = np.array([[1.0, 0.0, 0.0], [2.0, 0.0, 0.0]])
+    v = tb.diamagnetic_velocity_from_grad_p_q_n_B(grads, [QE, -QE], 1e19, [0.0, 0.0, 1.0])
+    assert v.shape == (2, 3) and v[0, 1] * v[1, 1] < 0
+
+
+def test_dimensions_must_be_a_positive_integer():
+    for bad in (None, 2.5, True, 0):
+        with pytest.raises(ValueError):
+            tr.diffusivity_from_mean_square_displacement(1.0, dimensions=bad)
