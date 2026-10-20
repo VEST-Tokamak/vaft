@@ -88,7 +88,7 @@ from vaft.formula.constants import MU0, EPS0, QE, ME, MI_P, E_ALPHA
 | `ME` | $9.10938356 \times 10^{-31}$ | Electron mass [kg] |
 | `MI_P` | $1.67262192 \times 10^{-27}$ | Proton mass [kg] |
 | `E_ALPHA` | $3.5\,\mathrm{MeV} \times$ `QE` | Alpha particle energy [J] |
-| `SIGMA_V_COEF` | $1.1 \times 10^{-24}$ | Fusion cross-section coefficient [m³/s] |
+| `SIGMA_V_COEF` | $1.1 \times 10^{-24}$ | D-T reactivity fit prefactor, $\langle\sigma v\rangle = $ `SIGMA_V_COEF` $T_{keV}^2$ [m³ s⁻¹ keV⁻²]; deprecated with `alpha_heating_power` (#360) |
 | `SPITZER_RESISTIVITY_COEF` | $5.2 \times 10^{-5}$ | Spitzer resistivity prefactor [Ω·m] |
 | `COLLISIONALITY_COEF` | $6.921 \times 10^{-18}$ | Collisionality coefficient, declared dimensionless [-] in the source; its only consumer is `collisionality_from_n_T_B_R` |
 

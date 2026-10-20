@@ -25,7 +25,7 @@ QE                       : elementary charge                         [C]
 ME                       : electron mass                             [kg]
 MI_P                     : proton mass                               [kg]
 E_ALPHA                  : D-T alpha particle birth energy, 3.5 MeV  [J]
-SIGMA_V_COEF             : prefactor of the rough D-T reactivity fit 1.1e-24 T_keV^2  [m^3/s/keV^2]
+SIGMA_V_COEF             : prefactor of the rough D-T reactivity fit 1.1e-24 T_keV^2, deprecated (#360)  [m^3/s/keV^2]
 SPITZER_RESISTIVITY_COEF : prefactor of eta = 5.2e-5 Z_eff ln(Lambda) / T_eV^1.5  [Ohm m eV^1.5]
 COLLISIONALITY_COEF      : prefactor of the IPB98 nu_star = 6.921e-18 n_19 R / (T_keV^2 B_t) form  [-]
 
@@ -73,7 +73,7 @@ AMU = 1.66053906660e-27     # [kg] - Atomic mass unit (CODATA 2018)
 
 # Fusion related constants
 E_ALPHA = 3.5e6 * QE        # [J] - Alpha particle energy
-SIGMA_V_COEF = 1.1e-24      # [m³/s] - Fusion cross section coefficient
+SIGMA_V_COEF = 1.1e-24      # [m³ s⁻¹ keV⁻²] - D-T <sigma v> / T_keV² (deprecated fit, #360)
 
 # Transport coefficients
 SPITZER_RESISTIVITY_COEF = 5.2e-5  # [Ω·m] - Spitzer resistivity coefficient

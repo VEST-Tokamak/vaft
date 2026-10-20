@@ -4151,7 +4151,14 @@ def ohmic_heating_power_from_I_p_V_res(I_p: float,
 def alpha_heating_power_from_n_D_n_T_T_keV_V(
     n_D_1e19: float, n_T_1e19: float, T_keV: float, V_m3: float
 ) -> float:
-    r"""D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit.
+    r"""Deprecated: D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit; no replacement.
+
+    VEST runs hydrogen (and occasionally helium), so a D-T reactivity is
+    physics nothing in VAFT calls, and the quadratic fit is not worth
+    reimplementing as Bosch-Hale [2]_ (with its erratum [3]_) for it (#360).
+    A caller who needs D-T power should evaluate the Bosch-Hale
+    parametrisation with the erratum coefficients.  Results are unchanged; a
+    ``DeprecationWarning`` is emitted.
 
     $$P_\alpha = n_D\,n_T\,\langle\sigma v\rangle\,E_\alpha\,V, \qquad
       \langle\sigma v\rangle \approx 1.1\times10^{-24}\,T_{\mathrm{keV}}^2\ \mathrm{m^3/s}$$
@@ -4179,22 +4186,33 @@ def alpha_heating_power_from_n_D_n_T_T_keV_V(
 
     Validity
     --------
-    Empirical fit.  The quadratic $\langle\sigma v\rangle$ is Wesson's
-    interpolation of the D-T reactivity, accurate to ~10 % for $10 < T <
-    20$ keV [1]_; outside that window use the Bosch-Hale parametrisation [2]_.
+    The quadratic $\langle\sigma v\rangle$ is Wesson's interpolation of the D-T
+    reactivity, accurate to ~10 % for $10 < T < 20$ keV [1]_; ``T_keV`` is not
+    checked against that window, and at the sub-keV temperatures of a
+    spherical tokamak the number is meaningless.
 
     Limitations
     -----------
-    Irrelevant for a hydrogen device such as VEST, which runs hydrogen and
-    occasionally helium and so sustains no D-T reaction; kept for power-balance
-    completeness.  Tracked in #360 (Bosch-Hale replacement).
+    Irrelevant for a hydrogen device such as VEST, which sustains no D-T
+    reaction; deprecated rather than replaced (#360).
 
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 1.3.
     .. [2] H.-S. Bosch and G. M. Hale, Nucl. Fusion 32 (1992) 611, Table VII.
+    .. [3] H.-S. Bosch and G. M. Hale, erratum, Nucl. Fusion 33 (1993) 1919;
+           corrects the Table VII coefficients, so an implementation from the
+           original paper alone is wrong.
     """
+    warnings.warn(
+        "`alpha_heating_power_from_n_D_n_T_T_keV_V` (alias `alpha_heating_power`) is deprecated (#360): "
+        "the <sigma v> = 1.1e-24 T_keV^2 fit holds only for 10-20 keV and VEST runs no D-T. "
+        "For D-T power use the Bosch-Hale reactivity, Nucl. Fusion 32 (1992) 611 with the "
+        "erratum Nucl. Fusion 33 (1993) 1919.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     n_D = n_D_1e19 * 1e19  # m^-3
     n_T = n_T_1e19 * 1e19  # m^-3
     sigma_v = SIGMA_V_COEF * T_keV**2  # m^3/s (rough fit)

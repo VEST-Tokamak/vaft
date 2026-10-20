@@ -856,6 +856,12 @@ def test_alpha_heating_power_is_the_same_object_as_its_long_name():
     assert alpha_heating_power is alpha_heating_power_from_n_D_n_T_T_keV_V
 
 
+def test_alpha_heating_power_is_deprecated_and_cites_the_bosch_hale_erratum():
+    with pytest.warns(DeprecationWarning, match=r"#360.*Nucl\. Fusion 33 \(1993\) 1919"):
+        alpha_heating_power(0.5, 0.5, 10.0, 2.5)
+
+
+@pytest.mark.filterwarnings("ignore:.*alpha_heating_power.*:DeprecationWarning")
 def test_alpha_heating_power_matches_its_closed_form():
     n_D, n_T, T, V = 0.5, 0.5, 10.0, 2.5
     assert alpha_heating_power(n_D, n_T, T, V) == pytest.approx(
@@ -865,6 +871,7 @@ def test_alpha_heating_power_matches_its_closed_form():
     )
 
 
+@pytest.mark.filterwarnings("ignore:.*alpha_heating_power.*:DeprecationWarning")
 def test_alpha_heating_power_is_quadratic_in_the_temperature_fit():
     base = alpha_heating_power(0.5, 0.5, 10.0, 2.5)
     assert alpha_heating_power(0.5, 0.5, 20.0, 2.5) == pytest.approx(
