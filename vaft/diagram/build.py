@@ -261,6 +261,11 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # plasma parameter inference: architecture and provenance (#1601)
     "parameter_inference_overview.svg": ("parameter_inference_overview", {"references": True}),
     "parameter_inference_dependency_graph.svg": ("parameter_inference_dependency_graph", {"references": True}),
+    # reconstruction inputs and the transport hierarchy (#1901)
+    "eddy_current_model.svg": ("eddy_current_model", {}),
+    "kinetic_profile_fitting.svg": ("kinetic_profile_fitting", {}),
+    "transport_hierarchy.svg": ("transport_hierarchy", {"references": True}),
+    "neoclassical_model_comparison.svg": ("neoclassical_model_comparison", {"references": True}),
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),
     "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),
