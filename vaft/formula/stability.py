@@ -60,8 +60,6 @@ __all__ = [
     "kink_stability_criterion",
     "li_from_qa_empirical",
     "plasma_stability_margins",
-    "power_limit_from_beta",
-    "power_limit_from_q",
     "resonant_flux_from_delta",
     "s_alpha_ballooning_stable",
     "s_alpha_marginal_alpha",
@@ -652,82 +650,6 @@ def greenwald_fraction(n_e: float,
     .. [1] M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27, Sec. 2.
     """
     return n_e / n_G
-
-
-# ------------------------------------------------------------------
-# Power Limits
-# ------------------------------------------------------------------
-
-def power_limit_from_beta(beta_N: float,
-                         B0: float,
-                         V: float) -> float:
-    r"""Energy-like figure $\beta_N B_0^2 V/(2\mu_0)$ labelled a power limit.
-
-    $$P = \beta_N\,\frac{B_0^2}{2\mu_0}\,V$$
-
-    Parameters
-    ----------
-    beta_N : float
-        Normalised beta, any convention [-].
-    B0 : float
-        Toroidal field on axis [T].
-    V : float
-        Plasma volume [m^3].
-
-    Returns
-    -------
-    float
-        The expression above, dimensionally an energy [J].
-
-    Limitations
-    -----------
-    $\beta B_0^2V/2\mu_0$ is the pressure volume integral $\langle p\rangle V$
-    at beta $\beta$ (:func:`vaft.formula.equilibrium.stored_energy_from_beta_V`),
-    two thirds of the thermal energy, and not a power;
-    no time scale enters, and no source records what limit was intended.  Kept
-    for compatibility.  Tracked in #362.
-
-    References
-    ----------
-    .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209 (the
-           $\beta_N$ limit the expression appears to draw on).
-    """
-    return beta_N * B0**2 * V / (2 * MU0)
-
-
-def power_limit_from_q(q_95: float,
-                      I_p: float,
-                      R0: float) -> float:
-    r"""Expression $2\pi R_0 I_p/(\mu_0 q_{95})$ labelled a power limit.
-
-    $$P = \frac{2\pi R_0\,I_p}{\mu_0\,q_{95}}$$
-
-    Parameters
-    ----------
-    q_95 : float
-        Safety factor at the 95% flux surface [-].
-    I_p : float
-        Plasma current [A].
-    R0 : float
-        Major radius [m].
-
-    Returns
-    -------
-    float
-        The expression above [A^2].
-
-    Limitations
-    -----------
-    Dimensionally $I_p R/\mu_0 q$ is A$^2$ (current times $R/L$), not a power;
-    no derivation or source is recorded.  Kept for compatibility.  Tracked in
-    #362.
-
-    References
-    ----------
-    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
-           Sec. 3.4 (cylindrical $q$, the relation this seems to rearrange).
-    """
-    return 2 * np.pi * R0 * I_p / (MU0 * q_95)
 
 
 # ------------------------------------------------------------------

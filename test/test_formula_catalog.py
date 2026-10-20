@@ -78,7 +78,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # #1691 added the volume beta and its normalized form: 105 + 2 = 107.
         "equilibrium": 111,  # +li_1_from_Bp2_volume_integral, Strait's l_i(1) (#1691), +volume-radius shear and Miller alpha (#1637), +thermal_energy_from_p_V (W_th = 3/2 int p dV), +volume beta and its normalized form (#1691), +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
-        "stability": 45,  # +ggj_resistive_interchange_index_from_ideal (#939), +Suydam, circular Mercier, GGJ D_I/D_R, magnetic well, Bussac beta_p1/delta W (#1635), +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
+        "stability": 43,  # -power_limit_from_beta, -power_limit_from_q, not powers (#362), +ggj_resistive_interchange_index_from_ideal (#939), +Suydam, circular Mercier, GGJ D_I/D_R, magnetic well, Bussac beta_p1/delta W (#1635), +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
         "atomic": 11,  # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952), +hydrogenic levels and wavelengths (#1046), +mean square charge, transient abundances, coronal relaxation time (#1565)
         "statistics": 22,

@@ -642,14 +642,25 @@ def test_kink_safety_factor_rejects_an_unknown_shape():
         kink_safety_factor(1.8, 0.4, 1.6, 1.0e5, 0.2, "spheromak")
 
 
-def test_current_limits_from_q_and_from_beta_share_one_closed_form():
-    # The beta form is the q form with beta_N substituted for q_95, which is
-    # exactly what its docstring says; equal arguments must give equal results.
+def test_current_limit_from_q_inverts_the_cylindrical_safety_factor():
+    # q_cyl = 2 pi a^2 B0 / (mu0 R0 I_p): the current must come back in amperes
+    # and reproduce q_95 when put back in (#362 added the missing 1/R0).
+    a, B0, R0, q_95 = 0.4, 0.2, 0.45, 3.0
+    I_p = current_limit_from_q(q_95, a, B0, R0)
+    assert I_p == pytest.approx(2 * np.pi * a**2 * B0 / (MU0 * R0 * q_95), rel=1e-12, abs=0.0)
+    assert 2 * np.pi * a**2 * B0 / (MU0 * R0 * I_p) == pytest.approx(q_95, rel=1e-12)
+    # VEST-like numbers land at a ~100 kA current, not ~45 kA m.
+    assert 1e4 < I_p < 1e6
+    # The old three-argument call returned I_p R0 [A m]; it now fails loudly.
+    with pytest.raises(TypeError):
+        current_limit_from_q(q_95, a, B0)
+
+
+def test_current_limit_from_beta_is_deprecated_but_unchanged():
     a, B0 = 0.4, 0.2
-    assert current_limit_from_q(3.0, a, B0) == pytest.approx(
-        2 * np.pi * a**2 * B0 / (MU0 * 3.0), rel=1e-12, abs=0.0
-    )
-    assert current_limit_from_beta(3.0, a, B0) == current_limit_from_q(3.0, a, B0)
+    with pytest.warns(DeprecationWarning, match="#362"):
+        value = current_limit_from_beta(3.0, a, B0)
+    assert value == pytest.approx(2 * np.pi * a**2 * B0 / (MU0 * 3.0), rel=1e-12, abs=0.0)
 
 
 def test_normalized_plasma_current_converts_amps_to_megaamps():
