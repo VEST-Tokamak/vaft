@@ -217,8 +217,10 @@ def test_the_assumptions_are_recorded_in_the_fit_parameters(sample, tables):
     assert fields["equilibrium_lineage"] == "magnetics" and fields["equilibrium_occurrence"] == "0"
     zeff = ti_record_fields(result.product[f"{base}.zeff_fit.parameters"])
     assert zeff["normalization"] == "resistive_closure" and zeff["assume_nc_eq_no"] == "1"
-    assert zeff["n_c_over_n_o"] == "1.0" and float(zeff["resistive_target"]) == pytest.approx(
-        result.stage("romero_zeff").fields["z_eff_resistive"])
+    # the composition writer states the target first, in the record grammar's ``:g`` spelling
+    # (composition_record_text); _append_record_fields keeps a key already present
+    assert zeff["n_c_over_n_o"] == "1.0" and zeff["resistive_target"] == (
+        f"{result.stage('romero_zeff').fields['z_eff_resistive']:g}")
     assert ti_record_fields(result.product[f"{base}.ion.0.density_fit.parameters"])["pressure_closure"] == "infer_kinetic_closure"
 
 
@@ -381,7 +383,7 @@ def test_the_product_states_its_romero_closure_t_i_record_and_species_pressures(
     zeff = ti_record_fields(product[f"{base}.zeff_fit.parameters"])
     romero = result.stage("romero_zeff").fields
     assert zeff["resistive_method"] == "romero"
-    assert float(zeff["resistive_target"]) == pytest.approx(romero["z_eff_resistive"])
+    assert zeff["resistive_target"] == f"{romero['z_eff_resistive']:g}", "the record grammar's spelling"
     assert zeff["resistive_status"] == "ok" and int(zeff["resistive_n_states"]) == romero["n_states"]
     assert ":" in zeff["resistive_window"]
     for k in range(len(product[f"{base}.ion"])):
