@@ -945,6 +945,7 @@ def fit_profile(
     n_restarts_optimizer=5,
     *,
     random_state=0,
+    extrapolate=False,
 ):
     r"""Fit a 1-D profile with a selectable model and evaluate it on a grid.
 
@@ -988,13 +989,20 @@ def fit_profile(
         Without it the ``'gp_sklearn'`` backend would draw its restarts from
         numpy's global ``RandomState`` and the fit would depend on what ran
         before it in the process [-].
+    extrapolate : bool, optional
+        ``'linear'`` mode only: ``False`` (default) returns ``nan`` (value and
+        uncertainty) outside ``[min(x), max(x)]``; ``True`` holds the end values
+        constant there, the ``numpy.interp`` clamp.  The parametric and GP
+        modes evaluate their model anywhere and do not read it [-].
 
     Returns
     -------
     y_eval : np.ndarray
-        Fitted values on ``x_eval`` [any].
+        Fitted values on ``x_eval``; ``nan`` outside the data range in the
+        ``'linear'`` mode unless ``extrapolate=True`` [any].
     y_std_eval : np.ndarray
-        Fitted uncertainty; non-zero for the GP mode only [any].
+        Fitted uncertainty; non-zero for the GP mode only, and in the
+        ``'linear'`` mode ``nan`` wherever ``y_eval`` is [any].
     fit_function : callable
         ``f(x)`` evaluating the fit at arbitrary ``x`` [n/a].
     coeffs : np.ndarray or None
@@ -1015,10 +1023,12 @@ def fit_profile(
     Limitations
     -----------
     Non-finite points and non-positive ``y_std`` are dropped with a warning.
-    The ``'linear'`` mode uses ``numpy.interp``, which holds the end values
-    constant outside the data range (silent constant extrapolation; tracked in
-    #359).  The square-root modes clip negative data to zero before squaring,
-    biasing the fit where the data cross zero, and report zero uncertainty.
+    The ``'linear'`` mode does not extrapolate unless asked: outside the data
+    range it returns ``nan`` by default, and with ``extrapolate=True`` the
+    constant end value, reported with zero uncertainty (#359).  The square-root
+    modes clip negative data to zero before squaring, biasing the fit where the
+    data cross zero; they warn with the number of clipped points, and report
+    zero uncertainty.
     A fit that returns its initial guess unchanged is reported by a warning,
     not an exception.
 
@@ -1144,14 +1154,26 @@ def fit_profile(
     if fitting_function.lower() == 'linear':
         sort_idx = np.argsort(x)
         x_sorted, y_sorted = x[sort_idx], y[sort_idx]
+        x_lo, x_hi = x_sorted[0], x_sorted[-1]
 
         def fit_function(x_input):
             x_arr = np.asarray(x_input, float)
-            return np.interp(x_arr, x_sorted, y_sorted)
+            if extrapolate:
+                return np.interp(x_arr, x_sorted, y_sorted)
+            # numpy.interp holds the end values outside the data; a profile
+            # past the last channel is missing, not flat (#359).
+            return np.interp(x_arr, x_sorted, y_sorted, left=np.nan, right=np.nan)
 
         y_eval = fit_function(x_eval)
-        y_std_eval = np.zeros_like(y_eval)
+        y_std_eval = np.where(np.isnan(y_eval), np.nan, 0.0)
         coeffs = None
+        if not extrapolate and np.any((x_eval < x_lo) | (x_eval > x_hi)):
+            warnings.warn(
+                f"fit_profile: linear mode returns nan at "
+                f"{int(np.sum((x_eval < x_lo) | (x_eval > x_hi)))} evaluation point(s) outside "
+                f"the data range [{x_lo:g}, {x_hi:g}]; pass extrapolate=True to hold the end values",
+                stacklevel=2,
+            )
         return y_eval, y_std_eval, fit_function, coeffs
     
 
@@ -1170,6 +1192,13 @@ def fit_profile(
             base_function = 'polynomial'  # fallback
 
         # positivity handling: fit y^2
+        n_clipped = int(np.sum(y < 0.0))
+        if n_clipped:
+            warnings.warn(
+                f"fit_profile: clipped {n_clipped} negative data point(s) to zero "
+                f"before squaring ({fitting_function!r} mode)",
+                stacklevel=2,
+            )
         y_pos = np.maximum(y, 0.0)
         y2 = y_pos**2
 
