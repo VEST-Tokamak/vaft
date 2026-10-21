@@ -50,6 +50,12 @@ Contract details specific to Slurm:
   exists on the submitting host but not on the compute node shows up as exit
   status 127.
 * ``KeyboardInterrupt`` while waiting cancels the job and re-raises.
+* ``submit`` (#1018) in batch mode runs ``sbatch`` at once and returns a
+  handle carrying the job id; ``result()`` then polls and collects it as
+  ``run`` would, in the calling thread, and ``cancel()`` is ``scancel``. Many
+  jobs can be queued before any is waited for, without a thread each. In step
+  mode ``submit`` is eager: ``srun`` runs the step to completion first, so a
+  scan inside an allocation runs its steps one after another.
 * The working directory, and the executables, must be on a filesystem the
   compute nodes share. This is not checked.
 * Only the part of ``ExecutionRequest.env`` that differs from the submitting
@@ -70,7 +76,8 @@ import signal
 import subprocess
 import time
 import uuid
-from dataclasses import replace
+from concurrent.futures import CancelledError
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import IO, Any, Mapping, Optional, Sequence
@@ -81,8 +88,10 @@ from .execution import (
     THREAD_ENV_VARIABLES,
     ExecutionRequest,
     ExecutionResult,
+    JobHandle,
     _text,
     execution_environment,
+    finished_handle,
 )
 
 #: Slurm states a job ends in because of a time limit.
@@ -628,7 +637,26 @@ class SlurmBackend:
 
     # -- batch mode -------------------------------------------------------
 
+    def submit(self, request: ExecutionRequest) -> JobHandle:
+        """Submit ``request`` and return its handle (see the module notes)."""
+        if not Path(request.workdir).is_dir():
+            raise FileNotFoundError(f"working directory does not exist: {request.workdir}")
+        if self.resolved_mode() == "step":
+            return finished_handle(request, lambda: self._run_step(request))
+        return _BatchHandle(self, self._start_batch(request))
+
+    def wait(self, handle: JobHandle) -> ExecutionResult:
+        """``handle.result()``: what ``run`` would have returned."""
+        return handle.result()
+
+    def cancel(self, handle: JobHandle) -> bool:
+        """``handle.cancel()``: ``scancel`` a batch job that has not finished."""
+        return handle.cancel()
+
     def _run_batch(self, request: ExecutionRequest) -> ExecutionResult:
+        return self._finish_batch(self._start_batch(request))
+
+    def _start_batch(self, request: ExecutionRequest) -> "_BatchJob":
         sbatch = self._tool("sbatch")
         workdir = Path(request.workdir).resolve()
         scratch = workdir / SCRATCH_DIRECTORY / _scratch_name(request.label)
@@ -659,7 +687,11 @@ class SlurmBackend:
         started = time.monotonic()
         job_id, cluster = self._submit(argv)
         clusters = ["-M", cluster] if cluster else []
+        return _BatchJob(request, tuple(argv), job_id, clusters, scratch, log_path, started)
 
+    def _finish_batch(self, job: "_BatchJob") -> ExecutionResult:
+        request, argv, job_id, clusters = job.request, job.argv, job.job_id, job.clusters
+        scratch, log_path, started = job.scratch, job.log_path, job.started
         try:
             # A SIGTERM or SIGHUP while the job is queued or running has to
             # cancel it, like a KeyboardInterrupt; without the guard the
@@ -866,6 +898,59 @@ class SlurmBackend:
                 return None, None
             time.sleep(min(1.0, self.accounting_grace))
 
+
+
+@dataclass(frozen=True)
+class _BatchJob:
+    """A batch job sbatch accepted: everything collecting it needs."""
+
+    request: ExecutionRequest
+    argv: tuple[str, ...]
+    job_id: str
+    clusters: list[str]
+    scratch: Path
+    log_path: Optional[Path]
+    started: float
+
+
+class _BatchHandle(JobHandle):
+    """A submitted batch job; collected in the thread that asks for its result."""
+
+    def __init__(self, backend: SlurmBackend, job: _BatchJob) -> None:
+        super().__init__(job.request, None, job_id=job.job_id)  # type: ignore[arg-type]
+        self._backend = backend
+        self._job = job
+        self._outcome: Optional[tuple[Optional[ExecutionResult], Optional[BaseException]]] = None
+
+    def done(self) -> bool:
+        if self._cancelled or self._outcome is not None:
+            return True
+        # One squeue query; only a job squeue no longer lists as live is done.
+        return self._backend._live(self._job.job_id, self._job.clusters) is False
+
+    def result(self) -> ExecutionResult:
+        if self._cancelled:
+            raise CancelledError(f"slurm job {self._job.job_id} was cancelled")
+        if self._outcome is None:
+            try:
+                self._outcome = (self._backend._finish_batch(self._job), None)
+            except Exception as error:  # noqa: BLE001 - kept, so a second call raises it again
+                self._outcome = (None, error)
+        result, error = self._outcome
+        if error is not None:
+            raise error
+        assert result is not None
+        return result
+
+    def cancel(self) -> bool:
+        if self._cancelled or self._outcome is not None:
+            return False
+        self._cancelled = True
+        self._backend._cancel(self._job.job_id, self._job.clusters)
+        return True
+
+    def settle(self, timeout: Optional[float] = None) -> None:
+        """``scancel`` is asynchronous on the cluster; nothing local to wait for."""
 
 
 __all__ = [

@@ -30,7 +30,16 @@ import numpy as np
 
 from vaft.data.equilibrium import Contour
 
-from .chease import CHEASEConfig, CHEASEResult, _copy_geqdsk, refine_equilibrium
+from . import _process_tree
+from .chease import (
+    CHEASEConfig,
+    CHEASEResult,
+    CHEASESubmission,
+    _copy_geqdsk,
+    prepare_chease_inputs,
+    submit_chease,
+)
+from .execution import cancel_handles
 
 
 __all__ = [
@@ -304,6 +313,29 @@ def _case_error(result: CHEASEResult, case_dir: Path) -> str:
     return f"CHEASE exited {result.returncode}; see {log}"
 
 
+def _submit_case(geqdsk: Any, config: CHEASEConfig) -> CHEASESubmission:
+    """Write one case's inputs and hand its solve to the backend (the scan's seam)."""
+    return submit_chease(prepare_chease_inputs(geqdsk, config), config)
+
+
+@dataclass
+class _Pending:
+    """A case between submission and collection."""
+
+    variation: EquilibriumVariation
+    workdir: Path
+    target_psin: float
+    shape: Optional[tuple[float, float, float, float]] = None
+    boundary: Optional[Contour] = None
+    shape_parameters: Mapping[str, float] = field(default_factory=dict)
+    submission: Optional[CHEASESubmission] = None
+    #: A case that failed before submission, already final.
+    case: Optional[CHEASEScanCase] = None
+
+    def done(self) -> bool:
+        return self.case is not None or self.submission is None or self.submission.done()
+
+
 def scan_chease(
     source: Any,
     variations: Sequence[EquilibriumVariation],
@@ -339,6 +371,29 @@ def scan_chease(
     With ``keep_going`` a case that raises is recorded with its message and the
     scan continues, because a variation CHEASE cannot solve is usually the
     interesting part of a scan rather than a reason to abandon it.
+
+    **Concurrency (#1018).** Every case is submitted through the backend
+    before any is collected, so a backend that runs in the background --
+    ``LocalBackend(max_concurrent=N)``, a ``SlurmBackend`` batch job -- solves
+    the cases in parallel; the default eager ``LocalBackend`` solves each one
+    as it is submitted, exactly as before. Then:
+
+    * Cases are collected, and ``on_case`` fires, in the order of
+      ``variations``. A case is collected as soon as it and every case before
+      it have finished, so with an eager backend ``on_case`` still reports
+      each case while the scan runs.
+    * A **submit-time error** -- building the variation, writing the inputs,
+      a missing executable, a backend refusing the submission -- and a
+      **collect-time error** -- the backend raising from its wait, or reading
+      the outputs failing -- are treated alike: with ``keep_going`` the case
+      is recorded with ``"<Type>: <message>"`` and the scan continues; without
+      it the error is raised. A timeout or non-zero exit is a result, not an
+      error, either way.
+    * On any exception leaving the scan -- an error with ``keep_going=False``,
+      an exception from ``on_case``, ``KeyboardInterrupt``, ``SIGTERM`` --
+      every outstanding solve is cancelled (its process tree or scheduler job
+      stopped) before the exception propagates. Cases already collected have
+      had their ``on_case``; no other case gets one.
     """
     from .chease import _coerce_geqdsk
 
@@ -373,7 +428,46 @@ def scan_chease(
     solve_config = replace(base_config, target_psin=1.0) if reshaped else base_config
 
     cases: list[CHEASEScanCase] = []
-    for variation in variations:
+    pending: list[_Pending] = []
+
+    def record(entry: _Pending, error: Exception) -> CHEASEScanCase:
+        return CHEASEScanCase(
+            entry.variation, entry.workdir, error=f"{type(error).__name__}: {error}",
+            target_psin=entry.target_psin,
+        )
+
+    def collect(entry: _Pending) -> None:
+        case = entry.case
+        if case is None:
+            assert entry.submission is not None
+            try:
+                result = entry.submission.collect()
+                case = CHEASEScanCase(
+                    entry.variation,
+                    entry.workdir,
+                    result=result,
+                    shape=entry.shape,
+                    target_psin=entry.target_psin,
+                    boundary=entry.boundary,
+                    shape_parameters=entry.shape_parameters,
+                    error=None if result.ok else _case_error(result, entry.workdir),
+                )
+            except Exception as error:  # noqa: BLE001 - recorded, not swallowed
+                if not keep_going:
+                    raise
+                case = record(entry, error)
+        cases.append(case)
+        if on_case is not None:
+            on_case(case)
+
+    def drain(*, block: bool) -> None:
+        while pending and (block or pending[0].done()):
+            # Popped only once collected: an interrupt while waiting on it
+            # leaves it in ``pending`` for the cancel below.
+            collect(pending[0])
+            pending.pop(0)
+
+    def _submit(variation: EquilibriumVariation) -> _Pending:
         case_dir = root / variation.label
         case_dir.mkdir(parents=True, exist_ok=True)
         # The override is invisible in the namelist, so a workdir read later
@@ -403,35 +497,31 @@ def scan_chease(
             ),
             encoding="utf-8",
         )
+        entry = _Pending(variation, case_dir, float(solve_config.target_psin))
         try:
-            modified, shape = apply_equilibrium_variation(
+            modified, entry.shape = apply_equilibrium_variation(
                 geqdsk, variation, refit_boundary=refit
             )
-            applied = None
-            geometry: dict[str, float] = {}
             if reshaped:
                 r_open, z_open = _open_outline(modified["RBBBS"], modified["ZBBBS"])
-                applied = Contour(r_open, z_open)
-                geometry = contour_shape_parameters(r_open, z_open)
-            result = refine_equilibrium(modified, replace(solve_config, workdir=case_dir))
-            case = CHEASEScanCase(
-                variation,
-                case_dir,
-                result=result,
-                shape=shape,
-                target_psin=float(solve_config.target_psin),
-                boundary=applied,
-                shape_parameters=geometry,
-                error=None if result.ok else _case_error(result, case_dir),
-            )
+                entry.boundary = Contour(r_open, z_open)
+                entry.shape_parameters = contour_shape_parameters(r_open, z_open)
+            entry.submission = _submit_case(modified, replace(solve_config, workdir=case_dir))
         except Exception as error:  # noqa: BLE001 - recorded, not swallowed
             if not keep_going:
                 raise
-            case = CHEASEScanCase(
-                variation, case_dir, error=f"{type(error).__name__}: {error}",
-                target_psin=float(solve_config.target_psin),
-            )
-        cases.append(case)
-        if on_case is not None:
-            on_case(case)
+            entry.case = record(entry, error)
+        return entry
+
+    try:
+        with _process_tree.forward_termination():
+            for variation in variations:
+                pending.append(_submit(variation))
+                drain(block=False)
+            drain(block=True)
+    except BaseException as stop:
+        cancel_handles([entry.submission for entry in pending if entry.submission is not None])
+        if isinstance(stop, _process_tree.Terminated):
+            stop.redeliver()
+        raise
     return cases

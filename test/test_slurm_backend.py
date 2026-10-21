@@ -683,6 +683,46 @@ def test_environment_selects_the_default_backend(monkeypatch):
         default_backend()
 
 
+def test_batch_submit_queues_every_job_before_any_wait(tmp_path, slurm):
+    """#1018: submit is sbatch alone; result() polls and collects."""
+    work = _workdir(tmp_path)
+    backend = _batch()
+    handles = [
+        backend.submit(_python(work, f"import time; time.sleep(0.3); print({index})", label=f"case{index}"))
+        for index in range(3)
+    ]
+    assert [handle.job_id for handle in handles] == ["1000", "1001", "1002"]
+    assert len(slurm("sbatch")) == 3 and not slurm("squeue")  # nothing waited for yet
+    results = [backend.wait(handle) for handle in handles]
+    assert [(r.returncode, r.stdout.strip(), r.job_id) for r in results] == [
+        (0, "0", "1000"), (0, "1", "1001"), (0, "2", "1002"),
+    ]
+    assert all(handle.done() for handle in handles)
+
+
+def test_cancelling_a_submitted_batch_job_scancels_it(tmp_path, slurm, monkeypatch):
+    from concurrent.futures import CancelledError
+
+    monkeypatch.setenv("FAKE_SLURM_OUTCOME", "PENDING")
+    work = _workdir(tmp_path)
+    backend = _batch()
+    handle = backend.submit(_python(work, "print('never')"))
+    assert not handle.done()
+    assert backend.cancel(handle)
+    assert slurm("scancel")[-1][-1] == handle.job_id
+    with pytest.raises(CancelledError):
+        handle.result()
+    assert not handle.cancel()
+
+
+def test_step_mode_submit_is_eager(tmp_path, slurm, monkeypatch):
+    monkeypatch.setenv("SLURM_JOB_ID", "77")
+    work = _workdir(tmp_path)
+    handle = SlurmBackend().submit(_python(work, "print('step')"))
+    assert handle.done() and handle.result().stdout.strip() == "step"
+    assert slurm("srun") and not slurm("sbatch")
+
+
 def test_an_adapter_runs_unchanged_through_slurm(tmp_path, slurm):
     """End to end: TES, with only `backend=` changed, as a batch job."""
     from vaft.code.tes.config import TESConfig, TESInputs
