@@ -18,6 +18,8 @@ NEO native                  IMAS destination                              units 
 ``transport.particle_flux`` ``core_transport.../particles.flux``          m^-2.s^-1           derived
 ``transport.energy_flux``   ``core_transport.../energy.flux``             W.m^-2              derived
 ``coordinates.rho_tor_norm````.../grid_flux.rho_tor_norm``, ``grid.``     -                   exact
+``species.z``               ``core_transport.../ion.z_ion``               e                   exact
+``species.z`` (matched)     ``core_transport.../ion.element.z_n``         e                   from core_profiles
 ``theory.*``                --                                            normalised          unmapped
 ``transport.*_velocity``    --                                            normalised          unmapped
 ``equilibrium``, ``grid``   --                                            normalised          unmapped
@@ -640,11 +642,16 @@ def core_transport_from_neo(
         ods[f"{ion}.particles.flux"] = particle[species] * scales.particle_flux
         ods[f"{ion}.energy.flux"] = energy[species] * scales.energy_flux
         ods[f"{ion}.z_ion"] = float(charge[species])
-        if mass is not None:
-            # NEO carries mass relative to deuterium; input.gacode's own unit is
-            # amu, which is what IMAS wants.
-            ods[f"{ion}.element.0.a"] = float(np.atleast_1d(mass)[species]) * 2.0
-            ods[f"{ion}.element.0.z_n"] = float(charge[species])
+        # NEO carries mass relative to deuterium; input.gacode's own unit is
+        # amu, which is what IMAS wants.
+        amu = None if mass is None else float(np.atleast_1d(mass)[species]) * 2.0
+        if amu is not None:
+            ods[f"{ion}.element.0.a"] = amu
+        nuclear, reason = _nuclear_charge(ods, float(time), float(charge[species]), amu)
+        if nuclear is None:
+            skipped.append(f"ion.{position}.element.0.z_n ({reason})")
+        else:
+            ods[f"{ion}.element.0.z_n"] = nuclear
         written.extend([f"ion.{position}.particles.flux", f"ion.{position}.energy.flux"])
 
     skipped.append(
@@ -668,8 +675,61 @@ def core_transport_from_neo(
             np.ravel(np.asarray(ods["equilibrium.vacuum_toroidal_field.r0"], dtype=float))[0]
         )
 
-    _write_provenance(ods, native, "core_transport")
+    _write_provenance(ods, native, "core_transport", model=model)
     return {"model": model, "written": written, "skipped": skipped}
+
+
+#: Two slice times closer than this are the same slice (the summary's tolerance).
+_TIME_TOLERANCE_S = 1.0e-6
+
+
+def _nuclear_charge(
+    ods: ODS, time: float, charge: float, amu: Optional[float]
+) -> tuple[Optional[float], str]:
+    """``element.0.z_n`` for a NEO ion, from the ``core_profiles`` ion it came from.
+
+    NEO's species list carries the *ion* charge only. The nuclear charge equals it
+    only for a fully stripped ion, which a non-coronal VEST impurity is not, so it
+    is read from the ``core_profiles`` slice at this time -- the ion with this
+    charge and, when both carry one, this mass -- rather than assumed. The
+    NCLASS IMAS interface copies ``z_n`` from ``core_profiles`` for the same
+    reason. Returns ``(None, reason)`` when no single ion answers.
+    """
+    shared = None
+    if "core_profiles.time" in ods:
+        shared = np.atleast_1d(np.asarray(ods["core_profiles.time"], dtype=float))
+    slices = []
+    for index in range(path_count(ods, "core_profiles.profiles_1d")):
+        own = ods.get(f"core_profiles.profiles_1d.{index}.time", None)
+        if own is None and shared is not None and index < shared.size:
+            own = shared[index]
+        if own is not None and abs(float(own) - time) <= _TIME_TOLERANCE_S:
+            slices.append(index)
+    if len(slices) != 1:
+        return None, (
+            f"{len(slices)} core_profiles slices at t = {time:g} s; NEO carries the ion "
+            "charge only, which equals the nuclear charge only for a fully stripped ion"
+        )
+    base = f"core_profiles.profiles_1d.{slices[0]}"
+    matches = []
+    for index in range(path_count(ods, f"{base}.ion")):
+        z_ion = ods.get(f"{base}.ion.{index}.z_ion", None)
+        if z_ion is None or abs(float(z_ion) - charge) > 1.0e-6:
+            continue
+        a = ods.get(f"{base}.ion.{index}.element.0.a", None)
+        if a is not None and amu is not None and abs(float(a) - amu) > 0.5:
+            continue
+        matches.append(index)
+    if len(matches) != 1:
+        return None, (
+            f"{len(matches)} ions of {base} carry charge {charge:g}"
+            + ("" if amu is None else f" and mass {amu:.3g} amu")
+            + "; the nuclear charge is not assumed from the ion charge"
+        )
+    nuclear = ods.get(f"{base}.ion.{matches[0]}.element.0.z_n", None)
+    if nuclear is None or not np.isfinite(float(nuclear)):
+        return None, f"{base}.ion.{matches[0]} carries no element.0.z_n"
+    return float(nuclear), ""
 
 
 def _model_position(ods: ODS) -> int:
@@ -684,22 +744,29 @@ def _model_position(ods: ODS) -> int:
     return count
 
 
-def _write_provenance(ods: ODS, native: Any, ids: str, *, conductivity: Any = None) -> None:
+def _write_provenance(
+    ods: ODS, native: Any, ids: str, *, conductivity: Any = None, model: Optional[int] = None
+) -> None:
     """Record the solver identity and every correspondence that is not exact.
 
     The caveats are attributes rather than prose so that a consumer can test
     them, following ``mhd_linear``'s convention. Angle brackets are escaped:
     a literal ``</parameters>`` in a fragment closes the envelope early, and
     the splice does not check (issue #642).
+
+    In ``core_transport`` the record goes on the neoclassical *model* entry, as
+    the classical, TGLF and gyrokinetic mappers do: the IDS-level ``code`` would
+    name NEO as the producer of every model sharing the IDS.
     """
     version = getattr(native, "version", None) or {}
     revision = str(version.get("revision", "")).replace("<", "").replace(">", "")
     if ids != "core_transport" or ods.get(f"{ids}.ids_properties.homogeneous_time", None) != 0:
         ods[f"{ids}.ids_properties.homogeneous_time"] = 1
-    ods[f"{ids}.code.name"] = "NEO"
-    ods[f"{ids}.code.repository"] = "https://github.com/gafusion/gacode"
+    owner = ids if model is None else f"{ids}.model.{model}"
+    ods[f"{owner}.code.name"] = "NEO"
+    ods[f"{owner}.code.repository"] = "https://github.com/gafusion/gacode"
     if revision:
-        ods[f"{ids}.code.version"] = revision
+        ods[f"{owner}.code.version"] = revision
 
     fragment = (
         "<neo>"
@@ -725,7 +792,7 @@ def _write_provenance(ods: ODS, native: Any, ids: str, *, conductivity: Any = No
         + _conductivity_fragment(conductivity)
         + "</neo>"
     )
-    path = f"{ids}.code.parameters"
+    path = f"{owner}.code.parameters"
     existing = ods.get(path, None)
     if not existing:
         ods[path] = f"<parameters>{fragment}</parameters>"
