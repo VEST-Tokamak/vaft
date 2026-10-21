@@ -686,7 +686,12 @@ def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
     eq = as_equilibrium(equilibrium)
     if eq.psi_1d is None or eq.psi_axis is None or eq.psi_boundary is None or eq.psi_axis == eq.psi_boundary:
         reason = "psi_1d and distinct axis/boundary flux values are required"
-        return {name: _unavailable(eq, "1", name, reason) for name in ("psi_n", "rho_pol_n", "rho_tor_n")}
+        definitions = {
+            "psi_n": "(psi-psi_axis)/(psi_boundary-psi_axis)",
+            "rho_pol_n": "sqrt(psi_n)",
+            "rho_tor_n": _RHO_TOR_N_DEFINITION,
+        }
+        return {name: _unavailable(eq, "1", definition, reason) for name, definition in definitions.items()}
     psi_n = (eq.psi_1d - eq.psi_axis) / (eq.psi_boundary - eq.psi_axis)
     result = {
         "psi_n": _derived(eq, psi_n, "1", "(psi-psi_axis)/(psi_boundary-psi_axis)", "direct normalization", ("psi_1d", "psi_axis", "psi_boundary")),
