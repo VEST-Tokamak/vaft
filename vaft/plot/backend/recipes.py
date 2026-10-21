@@ -33,6 +33,7 @@ import re
 from types import MappingProxyType
 import warnings
 from typing import Any, Iterable, Mapping, Sequence
+from xml.sax.saxutils import unescape
 
 import dataclasses
 
@@ -14304,6 +14305,48 @@ def _gpec_rational_surfaces(
     return float("nan"), []
 
 
+def _no_rational_geometry_message(ods: Any, n_tor: int, time_slice: int | None) -> str:
+    """Why the rational-surface geometry is absent, as the mapper recorded it (#1243).
+
+    A mapping that had no geometry to write records which GPEC output was
+    missing in its place (``<resonant_geometry_unavailable>``); that is quoted.
+    Otherwise -- a DCON-only product, or one mapped before the record existed --
+    the message names everything the block needs rather than one guess.
+    """
+    head = f"mhd_linear ODS carries no rational-surface geometry for n={n_tor}"
+    parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
+    recorded: list[dict[str, str]] = []
+    if isinstance(parameters, str):
+        for attributes, body in re.findall(r"<solver\b([^>]*)>(.*?)</solver>", parameters, re.S):
+            named = dict(re.findall(r'(\w+)="([^"]*)"', attributes))
+            if named.get("n_tor") != str(int(n_tor)):
+                continue
+            if time_slice is not None and "time_slice" in named and named["time_slice"] != str(int(time_slice)):
+                continue
+            for marker in re.findall(r"<resonant_geometry_unavailable\b([^>]*)/>", body):
+                recorded.append({k: unescape(v, {"&quot;": '"'}) for k, v in re.findall(r'(\w+)="([^"]*)"', marker)})
+    elif isinstance(parameters, Mapping):
+        solvers = parameters.get("solver", [])
+        for solver in solvers if isinstance(solvers, (list, tuple)) else [solvers]:
+            if not isinstance(solver, Mapping) or int(_scalar(solver.get("@n_tor", -1))) != int(n_tor):
+                continue
+            if time_slice is not None and "@time_slice" in solver:
+                if int(_scalar(solver["@time_slice"])) != int(time_slice):
+                    continue
+            marker = solver.get("resonant_geometry_unavailable")
+            if isinstance(marker, Mapping):
+                # Prose attributes: `_scalar` would turn them into NaN.
+                recorded.append({k[1:]: str(v) for k, v in marker.items() if str(k).startswith("@")})
+    if recorded:
+        last = recorded[-1]
+        return f"{head}: the ideal-GPEC mapping wrote none because {last.get('reason', 'of a missing input')}"
+    return (
+        f"{head}. Only an ideal-GPEC mapping writes it, from the profile output's "
+        "per-surface geometry and Phi_res/Delta and the control output's chi1; "
+        "a DCON-only product has none"
+    )
+
+
 def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
     """Derive one GPEC mode's resonant table from the mapped spectral field.
 
@@ -14328,11 +14371,7 @@ def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
     n_tor = int(cell["n_tor"])
     chi1, surfaces = _gpec_rational_surfaces(ods, n_tor, int(cell["time_slice"]))
     if not surfaces:
-        raise ValueError(
-            f"mhd_linear ODS carries no rational-surface geometry for n={n_tor}. "
-            "Only an ideal-GPEC mapping writes it, and only when the run's chi1 "
-            "was available; a DCON-only product has none"
-        )
+        raise ValueError(_no_rational_geometry_message(ods, n_tor, int(cell["time_slice"])))
     if not np.isfinite(chi1) or chi1 == 0.0:
         raise ValueError(
             f"the recorded chi1 for n={n_tor} is {chi1!r}; the jump is scaled by "
@@ -14437,11 +14476,7 @@ def _gpec_vacuum_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
     n_tor = int(cell["n_tor"])
     _, surfaces = _gpec_rational_surfaces(ods, n_tor, int(cell["time_slice"]))
     if not surfaces:
-        raise ValueError(
-            f"mhd_linear ODS carries no rational-surface geometry for n={n_tor}. "
-            "Only an ideal-GPEC mapping writes it, and only when the run's chi1 "
-            "was available; a DCON-only product has none"
-        )
+        raise ValueError(_no_rational_geometry_message(ods, n_tor, int(cell["time_slice"])))
     rows: list[dict[str, Any]] = []
     missing: list[str] = []
     for surface in surfaces:

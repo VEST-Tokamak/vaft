@@ -239,3 +239,54 @@ def test_a_run_whose_surfaces_are_all_outside_the_band_is_an_error(tmp_path):
     gpec_ideal(ods, str(tmp_path), {"modes": [1]})
     with pytest.raises(ValueError, match="resonates at a harmonic the mapped band covers"):
         RECIPES[NAMES[0]].builder(ods)
+
+
+def test_a_run_without_the_resonant_pair_names_it_not_chi1(tmp_path):
+    """#1243: con_flag=t turns GPEC's singfld_flag off, so the profile output has
+    no Phi_res/Delta. The figure used to blame chi1, which was there."""
+    import xarray as xr
+
+    write_control_nc(tmp_path, n=1)
+    write_cylindrical_nc(tmp_path, n=1)
+    write_profile_nc(tmp_path, n=1)
+    profile = tmp_path / "gpec_profile_output_n1.nc"
+    with xr.open_dataset(profile) as dataset:
+        stripped = dataset.drop_vars(["Phi_res", "Delta"]).load()
+    stripped.to_netcdf(profile)
+    ods = ODS(consistency_check=False)
+    gpec_ideal(ods, str(tmp_path), {"modes": [1]})
+
+    assert "<resonant_geometry_unavailable" in ods["mhd_linear.code.parameters"]
+    with pytest.raises(ValueError) as raised:
+        RECIPES[NAMES[0]].builder(ods)
+    message = str(raised.value)
+    assert "Phi_res (profile)" in message and "Delta (profile)" in message
+    assert "chi1" not in message.split("because", 1)[1]
+
+    # The same record read from the tree OMAS decodes a one-mode document into.
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        try:
+            ods.codeparams2dict()
+        except Exception:  # pragma: no cover - OMAS declines some documents
+            pytest.skip("OMAS did not decode this document")
+    assert not isinstance(ods["mhd_linear.code.parameters"], str)
+    with pytest.raises(ValueError) as decoded:
+        RECIPES[NAMES[0]].builder(ods)
+    assert str(decoded.value) == message
+
+
+def test_a_run_without_chi1_names_chi1(tmp_path):
+    from vaft.machine_mapping.gpec_ideal import _rational_surface_gap
+
+    from vaft.code.gpec import read_gpec_netcdf
+
+    write_control_nc(tmp_path, n=1)
+    write_cylindrical_nc(tmp_path, n=1)
+    write_profile_nc(tmp_path, n=1)
+    profile = read_gpec_netcdf(tmp_path, 1).profile
+    assert profile.Phi_res is not None
+    marker = _rational_surface_gap(profile, None)
+    assert 'missing="chi1 (control, got None)"' in marker
