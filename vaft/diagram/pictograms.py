@@ -378,10 +378,13 @@ def _normalise(strokes: List[Tuple[List[Point], bool]]) -> Tuple[Tuple[Tuple[Poi
 #: VAFT scientific symbols, in the same 24-unit grid as Lucide. Symbolic shapes only: the
 #: contours of ``reconstruction`` or the D of ``tokamak`` are not any machine's geometry.
 _VAFT = {
-    # a poloidal half-section: the central column, the D-shaped vacuum vessel and the closed plasma inside it
-    "tokamak": '<rect x="2" y="3" width="3.5" height="18" rx="1"/>'
-               '<path d="M8.5 3C17 3 22 7 22 12S17 21 8.5 21Z"/>'
-               '<path d="M11 7C16.5 7 19 9.5 19 12S16.5 17 11 17C10.4 14 10.4 10 11 7Z"/>',
+    # a full poloidal cut, symmetric about the machine axis: the central column, and on each side
+    # the D-shaped vacuum vessel with the closed plasma inside it
+    "tokamak": '<rect x="10.25" y="3" width="3.5" height="18" rx="1"/>'
+               '<path d="M15.5 3C20 3 22.5 7 22.5 12S20 21 15.5 21Z"/>'
+               '<path d="M17 7C20 7 21 9.5 21 12S20 17 17 17C16.6 14 16.6 10 17 7Z"/>'
+               '<path d="M8.5 3C4 3 1.5 7 1.5 12S4 21 8.5 21Z"/>'
+               '<path d="M7 7C4 7 3 9.5 3 12S4 17 7 17C7.4 14 7.4 10 7 7Z"/>',
     # a raw time trace: an irregular sampled waveform on its baseline
     "signal": '<path d="M2 12h2.5l2-8 3 16 3-12 2 8 1.5-4H22"/>',
     # nested, outward-shifted D-shaped flux surfaces recovered from the measurements (crosses) outside them
