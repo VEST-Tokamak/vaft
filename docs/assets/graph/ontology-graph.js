@@ -126,8 +126,10 @@
         },
         levelWidth: function () { return 1; }
       } : { name: 'cose', animate: false, randomize: false, nodeRepulsion: 12000, idealEdgeLength: 80 };
+      // the viewer draws the whole view when the focus is not one of these nodes
+      var focused = !!state.focus && nodes.some(function (n) { return n.data.id === state.focus; });
       var message = '';
-      if (large && !state.focus) {
+      if (large && !focused) {
         nodes.forEach(function (n) { n.classes += ' on-dense'; });
         message = nodes.length + ' nodes, arranged in rings by kind (concepts at the centre). ' +
           'Zoom in to read labels, or select a node to see its neighbourhood.';
