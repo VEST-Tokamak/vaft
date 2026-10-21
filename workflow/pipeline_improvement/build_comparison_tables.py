@@ -45,6 +45,7 @@ import csv
 import importlib.util
 import json
 import math
+import os
 import re
 import shutil
 import subprocess
@@ -113,26 +114,31 @@ def efit_slices(efit_dir: Path) -> list[dict[str, Any]]:
     return out
 
 
-def main_equilibrium_times(shot: int) -> np.ndarray | None:
-    """The equilibrium times HSDS ``main`` publishes for ``shot``, or ``None`` when it has none."""
+def main_equilibrium_times(shot: int) -> np.ndarray:
+    """The equilibrium times HSDS ``main`` publishes for ``shot``.
+
+    Any failure propagates. The shot list holds only shots whose ``main``
+    equilibrium exists, so a failure here is a read error, and treating it as
+    "no current slices" would score the shot legacy-only and mark it done.
+    The driver records the error and leaves the shot for a resume.
+    """
     import vaft
 
-    try:
-        ods = vaft.database.open(shot, source="main", paths=["equilibrium"])
-        return np.asarray(ods["equilibrium.time"], dtype=float).reshape(-1)
-    except Exception:  # no equilibrium in main for this shot
-        return None
+    ods = vaft.database.open(shot, source="main", paths=["equilibrium"])
+    return np.asarray(ods["equilibrium.time"], dtype=float).reshape(-1)
 
 
 def side_slices(shot: int, *, legacy_root: Path, current_filedb: Path,
-                main_times: np.ndarray | None) -> dict[str, list[dict[str, Any]]]:
+                main_times: np.ndarray) -> dict[str, list[dict[str, Any]]]:
+    """Legacy and current EFIT slices of one shot; current only at times ``main`` publishes.
+
+    The membership test is by time: a FileDB g-file at a ``main`` time is taken
+    to be the product ``main`` replicated. A stale generation left at the same
+    time would pass; the FileDB stale-g-file scan of 2026-10-12 found none.
+    """
     legacy = efit_slices(legacy_root / str(shot) / "efit")
     current = efit_slices(current_filedb / "efit" / "magnetic" / str(shot))
-    if main_times is None:
-        current = []
-    else:
-        current = [s for s in current
-                   if np.any(np.abs(main_times - s["time_s"]) <= MAIN_TIME_TOLERANCE)]
+    current = [s for s in current if np.any(np.abs(main_times - s["time_s"]) <= MAIN_TIME_TOLERANCE)]
     return {"legacy": legacy, "current": current}
 
 
@@ -145,7 +151,7 @@ def fit_row(entry: Mapping[str, Any]) -> tuple[dict[str, Any], list[dict[str, An
     from vaft.data import read_meqdsk
 
     if entry["mfile"] is None:
-        return {"status": "no_mfile"}, []
+        return {"status": "no_mfile"}, [], {}
     meq = read_meqdsk(entry["mfile"])
     variables = meq  # MEQDSK maps names to variables, which is what magnetic_fit reads
     fit = convergence_study().magnetic_fit(variables)
@@ -162,6 +168,7 @@ def fit_row(entry: Mapping[str, Any]) -> tuple[dict[str, Any], list[dict[str, An
         "loop_median_relative": fit.get("loop_median_relative"),
     }
     points = []
+    arrays: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
     for family, (measured, reconstructed, weight, _sigma) in convergence_study().MAGNETIC_FAMILIES.items():
         if family not in ("probe", "loop"):
             continue
@@ -172,11 +179,40 @@ def fit_row(entry: Mapping[str, Any]) -> tuple[dict[str, Any], list[dict[str, An
         except KeyError:
             continue
         n = min(m.size, r.size, w.size)
+        arrays[family] = (m[:n], r[:n], w[:n])
         for channel in range(n):
             if w[channel] > 0 and np.isfinite(m[channel]) and np.isfinite(r[channel]):
                 points.append({"family": family, "channel": channel,
                                "measured": float(m[channel]), "reconstructed": float(r[channel])})
-    return row, points
+    return row, points, arrays
+
+
+def common_channel_fit(legacy: Mapping[str, tuple], current: Mapping[str, tuple]) -> dict[str, dict[str, Any]]:
+    """Relative RMS of measured minus reconstructed over the channels *both* fits used.
+
+    Each fit's own relative RMS runs over its own fitted channels, so a
+    pipeline that leaves a broken probe out of the fit scores better without
+    fitting better. Here a channel counts only when both m-files give it a
+    positive weight. The m-file arrays are EFIT's own channel order, the same
+    VEST table on both sides (64 probes, 11 loops); unequal lengths are
+    refused rather than aligned by position.
+    """
+    out: dict[str, dict[str, Any]] = {"legacy": {}, "current": {}}
+    for family in ("probe", "loop"):
+        if family not in legacy or family not in current:
+            continue
+        (ml, rl, wl), (mc, rc, wc) = legacy[family], current[family]
+        if ml.size != mc.size:
+            for side in out:
+                out[side][f"{family}_common_status"] = f"layout {ml.size} vs {mc.size}"
+            continue
+        keep = (wl > 0) & (wc > 0) & np.isfinite(ml) & np.isfinite(rl) & np.isfinite(mc) & np.isfinite(rc)
+        for side, (m, r) in (("legacy", (ml, rl)), ("current", (mc, rc))):
+            scale = float(np.sqrt(np.mean(m[keep] ** 2))) if keep.any() else 0.0
+            value = float(np.sqrt(np.mean((m[keep] - r[keep]) ** 2)) / scale) if scale else float("nan")
+            out[side][f"{family}_relative_rms_common"] = value
+            out[side][f"{family}_common_n"] = int(keep.sum())
+    return out
 
 
 def _equilibrium_ods(gfile: Path):
@@ -265,7 +301,10 @@ def common_wall_ods(measured: Any, wall: Any) -> Any:
 
     out = copy.deepcopy(wall)
     out["magnetics"] = copy.deepcopy(measured["magnetics"])
-    names = {str(measured[f"pf_active.coil.{i}.name"]): i for i in range(len(measured["pf_active.coil"]))}
+    labels = [str(measured[f"pf_active.coil.{i}.name"]) for i in range(len(measured["pf_active.coil"]))]
+    if len(set(labels)) != len(labels):
+        raise ValueError(f"duplicate PF coil names in the legacy product: {labels}")
+    names = {name: i for i, name in enumerate(labels)}
     time_base = None
     for j in range(len(out["pf_active.coil"])):
         name = str(out[f"pf_active.coil.{j}.name"])
@@ -353,8 +392,8 @@ def legacy_stability(shot_dir: Path) -> tuple[list[dict[str, Any]], list[dict[st
                             "classical_tearing_drive": any(v > 0 for v in values) if values else None})
                 for d in diagonal:
                     surfaces.append({"time_ms": time_ms, "solver": "rdcon", **d})
-            except FileNotFoundError:
-                row["status"] = "no_delta_gw"
+            except FileNotFoundError as error:
+                row["status"] = "no_delta_gw" if "delta_gw" in str(error) else "no_dcon_out"
             except Exception as error:
                 row.update({"status": "read_error", "error": repr(error)[:300]})
             rows.append(row)
@@ -388,14 +427,20 @@ class Table:
                 with self.path.open(newline="", encoding="utf-8") as handle:
                     old_rows = list(csv.DictReader(handle))
             self.columns += new
-            with self.path.open("w", newline="", encoding="utf-8") as handle:
+            # Rewritten through a temporary file and a rename, so an interrupted
+            # rewrite cannot truncate rows whose shots are already marked done.
+            scratch = self.path.with_suffix(".csv.tmp")
+            with scratch.open("w", newline="", encoding="utf-8") as handle:
                 writer = csv.DictWriter(handle, fieldnames=self.columns)
                 writer.writeheader()
                 writer.writerows(old_rows)
+            os.replace(scratch, self.path)
         with self.path.open("a", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=self.columns)
             for row in rows:
                 writer.writerow({k: _cell(v) for k, v in row.items()})
+
+    append_rows = extend
 
 
 def _cell(value: Any) -> Any:
@@ -463,22 +508,22 @@ def process_shot(shot: int, args, tables: Mapping[str, Table], points_budget: li
             _mark(args.output, "slices", shot)
 
         diagnostics = None
-        if "thomson" in checks and shot not in _done(args.output, "thomson"):
-            try:
-                diagnostics = vaft.database.load(shot, source="public", paths=["thomson_scattering"], cache="off")
-                if not len(diagnostics.get("thomson_scattering.channel", [])):
-                    diagnostics = None
-            except Exception:
-                diagnostics = None
+        if "thomson" in checks and shot not in _done(args.output, "thomson") and shot in args.thomson_shots:
+            # Only shots whose HSDS public product holds Thomson are tried, so a
+            # failed read here is an error that propagates and is retried.
+            diagnostics = vaft.database.load(shot, source="public", paths=["thomson_scattering"], cache="off")
             time.sleep(args.hsds_sleep)
+            if not len(diagnostics.get("thomson_scattering.channel", [])):
+                raise RuntimeError("HSDS public lists thomson_scattering but it has no channels")
 
         for check in ("fit", "virial", "thomson"):
             if check not in checks or shot in _done(args.output, check):
                 continue
             if check == "thomson" and diagnostics is None:
+                tables[check].append_rows([{"side": None, "shot": shot, "status": "no_thomson"}])
                 _mark(args.output, check, shot)
                 continue
-            rows, points = [], []
+            rows, points, arrays = [], [], {}
             for side, entries in sides.items():
                 for i, entry in enumerate(entries):
                     pair_id = partner.get((side, i), (None, None))[0]
@@ -486,9 +531,11 @@ def process_shot(shot: int, args, tables: Mapping[str, Table], points_budget: li
                             "pair_id": None if pair_id is None else f"{shot}:{pair_id}"}
                     try:
                         if check == "fit":
-                            row, slice_points = fit_row(entry)
-                            if pair_id is not None and points_budget[0] > 0:
-                                points += [{**base, **p} for p in slice_points]
+                            row, slice_points, slice_arrays = fit_row(entry)
+                            if pair_id is not None:
+                                arrays[(side, pair_id)] = slice_arrays
+                                if points_budget[0] > 0:
+                                    points += [{**base, **p} for p in slice_points]
                         elif check == "virial":
                             row = virial_row(entry)
                         else:
@@ -498,8 +545,17 @@ def process_shot(shot: int, args, tables: Mapping[str, Table], points_budget: li
                         if args.verbose:
                             traceback.print_exc()
                     rows.append({**base, **row})
+            if check == "fit":
+                for row in rows:
+                    if row["pair_id"] is None:
+                        continue
+                    k = int(row["pair_id"].split(":")[1])
+                    if ("legacy", k) in arrays and ("current", k) in arrays:
+                        row.update(common_channel_fit(arrays[("legacy", k)], arrays[("current", k)])[row["side"]])
             if points:
-                points_budget[0] -= len({p["pair_id"] for p in points})
+                pairs = sorted({p["pair_id"] for p in points})[: max(points_budget[0], 0)]
+                points = [p for p in points if p["pair_id"] in pairs]
+                points_budget[0] -= len(pairs)
                 tables["constraint_points"].extend(points)
             tables[check].extend(rows)
             _mark(args.output, check, shot)
@@ -551,7 +607,8 @@ def read_shots(args) -> list[int]:
 
 
 def write_manifest(args, shots: Sequence[int]) -> None:
-    manifest_path = args.output / "manifest.json"
+    suffix = "" if not args.shard else "_" + args.shard.replace("/", "of")
+    manifest_path = args.output / f"manifest{suffix}.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {"runs": []}
     manifest.update({
         "schema": 1,
@@ -588,6 +645,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--shots-file")
     parser.add_argument("--shard", help="i/n: process every n-th shot starting at i")
     parser.add_argument("--hsds-sleep", type=float, default=1.0)
+    parser.add_argument("--thomson-shots", help="file of shots whose HSDS public product holds thomson_scattering")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args(argv)
     args.legacy_root = args.legacy_root.expanduser()
@@ -595,6 +653,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args.output = args.output.expanduser()
     args.output.mkdir(parents=True, exist_ok=True)
 
+    args.thomson_shots = (set() if not args.thomson_shots else
+                          {int(x) for x in Path(args.thomson_shots).read_text().split() if x.strip().isdigit()})
     shots = read_shots(args)
     write_manifest(args, shots)
     copy_atlas(args)
@@ -602,13 +662,23 @@ def main(argv: Sequence[str] | None = None) -> int:
              "stability_legacy", "stability_legacy_surfaces")
     suffix = "" if not args.shard else "_" + args.shard.replace("/", "of")
     tables = {name: Table(args.output / f"{name}{suffix}.csv") for name in names}
-    budget = [CONSTRAINT_POINT_SLICES]
+    # The point budget is shared by all shards and survives a resume: each shard
+    # takes its share and subtracts the pairs its table already holds.
+    shards = int(args.shard.split("/")[1]) if args.shard else 1
+    held = 0
+    points_path = args.output / f"constraint_points{suffix}.csv"
+    if points_path.exists():
+        with points_path.open(newline="", encoding="utf-8") as handle:
+            held = len({row.get("pair_id") for row in csv.DictReader(handle)})
+    budget = [CONSTRAINT_POINT_SLICES // shards - held]
     for k, shot in enumerate(shots):
         start = time.time()
         try:
             process_shot(shot, args, tables, budget)
-        except Exception as error:  # one shot never stops the run
+        except Exception as error:  # one shot never stops the run; it stays undone for a resume
             print(f"{shot}: {error!r}", file=sys.stderr, flush=True)
+            with (args.output / f"errors{suffix}.txt").open("a", encoding="utf-8") as handle:
+                handle.write(f"{shot}\t{error!r}\n")
             if args.verbose:
                 traceback.print_exc()
         print(f"[{k + 1}/{len(shots)}] {shot} {time.time() - start:.1f}s", flush=True)

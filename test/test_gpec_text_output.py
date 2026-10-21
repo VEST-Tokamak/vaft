@@ -96,3 +96,18 @@ def test_surface_count_mismatch_is_refused(tmp_path):
     (tmp_path / "dcon.out").write_text("\n".join(text) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="singular surfaces"):
         read_pest3_matching_text(tmp_path, mode=1)
+
+
+def test_requested_mode_must_match_the_run():
+    with pytest.raises(ValueError, match="n = 1 run"):
+        read_pest3_matching_text(RUN, mode=2)
+
+
+def test_off_diagonal_orientation_matches_the_netcdf():
+    """The coupling terms are asymmetric, so a transposition error would swap them."""
+    result = read_pest3_matching_text(RUN, mode=1)
+    # These two entries sum small delta terms; their text rounding is ~0.01.
+    scale = 0.05
+    assert result.Delta_prime[0, 1].real == pytest.approx(REFERENCE["delta_prime_01"][0], abs=scale)
+    assert result.Delta_prime[1, 0].real == pytest.approx(REFERENCE["delta_prime_10"][0], abs=scale)
+    assert abs(REFERENCE["delta_prime_01"][0] - REFERENCE["delta_prime_10"][0]) > 2 * scale

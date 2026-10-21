@@ -230,7 +230,7 @@ def pipeline_comparison_measured_vs_reconstructed(
 ):
     """Measured (x) against reconstructed (y) for one constraint family, one colour per side.
 
-    Each side is labelled with its channel count and the RMS of
+    Each side is labelled with its point count (channels times slices) and the RMS of
     ``reconstructed - measured`` over its points, in the family's unit times
     ``scale``. Only the channels the fit used are in ``points``.
     """
@@ -251,7 +251,7 @@ def pipeline_comparison_measured_vs_reconstructed(
                    edgecolors="white", linewidths=0.4, zorder=3 if side == "current" else 2)
         extent += [x.min(), x.max(), y.min(), y.max()]
         rms = float(np.sqrt(np.mean((y - x) ** 2)))
-        lines.append(f"{style['label']}: {x.size} channels, RMS(r - m) {rms:.3g} {unit}".rstrip())
+        lines.append(f"{style['label']}: {x.size} points, RMS(r - m) {rms:.3g} {unit}".rstrip())
     if extent:
         low, high = min(extent), max(extent)
         pad = 0.05 * (high - low or 1.0)

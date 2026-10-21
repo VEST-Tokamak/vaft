@@ -16,7 +16,7 @@ legacy runs and the current ones go through one container:
   surface. The netCDF stores the same matrix transposed, because a Fortran
   column-major array read back by xarray swaps its indices. The PEST3
   matrices then follow from the left/right sums of ``rdcon_netcdf.f``
-  lines 488-506, so ``Delta_prime`` here means what it means in the netCDF.
+  (the ``construct PEST3 matching data`` loop; lines 488-506 at GPEC e68d7ac2), so ``Delta_prime`` here means what it means in the netCDF.
 
 The text prints four significant figures. ``Delta_prime`` is a difference of
 four such entries, so it carries an absolute error of a few units in the
@@ -214,6 +214,8 @@ def read_pest3_matching_text(run_dir: str | Path, *, solver: str = "rdcon", mode
         )
     truncation = text["truncation"]
     n_tor = int(truncation.get("nn", mode))
+    if n_tor != int(mode):
+        raise ValueError(f"{run_dir}: dcon.out is an n = {n_tor} run, not the requested n = {mode}")
     q = np.array([s["q"] for s in surfaces], dtype=float)
     energies = text["energies"]
     total = energies[0] if energies else None

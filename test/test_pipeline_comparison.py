@@ -186,6 +186,6 @@ def test_measured_vs_reconstructed_reports_each_side():
                            "measured": [1.0, 2.0, 1.0], "reconstructed": [1.5, 2.5, 1.0]})
     fig, ax = pipeline_comparison_measured_vs_reconstructed(points, "probe", scale=1.0, unit="T")
     texts = [t.get_text() for t in ax.texts]
-    assert any("legacy archive: 2 channels, RMS(r - m) 0.5 T" in t for t in texts)
-    assert any("current pipeline: 1 channels, RMS(r - m) 0 T" in t for t in texts)
+    assert any("legacy archive: 2 points, RMS(r - m) 0.5 T" in t for t in texts)
+    assert any("current pipeline: 1 points, RMS(r - m) 0 T" in t for t in texts)
     plt.close(fig)

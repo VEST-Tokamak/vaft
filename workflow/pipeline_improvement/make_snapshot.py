@@ -117,9 +117,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 written[target.name] = {"rows": None, "sha256": sha256(target)}
     manifests = {}
     for root in tables:
-        manifest = root / "manifest.json"
-        if manifest.exists():
-            manifests[str(root)] = json.loads(manifest.read_text())
+        for manifest in sorted(root.glob("manifest*.json")):
+            manifests[f"{root}/{manifest.name}"] = json.loads(manifest.read_text())
     (args.output / "snapshot_manifest.json").write_text(json.dumps({
         "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "producer": "workflow/pipeline_improvement/make_snapshot.py",
