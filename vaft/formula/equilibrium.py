@@ -2818,9 +2818,11 @@ def beta_p_diamagnetic_from_flux_circular(Phi_dia: float,
     so the product $B_{\varphi 0}\Phi_{dia}$ is positive for a paramagnetic
     and negative for a diamagnetic plasma ($\beta_p > 1$) whichever way the
     field points.  VAFT's ``magnetics.diamagnetic_flux`` follows EFIT's
-    ``cdflux``, signed with $B_t$ (#1196); pass it with the signed
-    ``vacuum_toroidal_field.b0`` of the same record, not $|B_{\varphi 0}|$,
-    which is right only in a positive field.  No ``abs()`` is applied: a flux
+    ``cdflux``, signed with $B_t$ (#1196); pass it with the signed vacuum
+    field of the same record, not $|B_{\varphi 0}|$, which is right only in a
+    positive field.  ``vacuum_toroidal_field.b0`` is the field at ``r0``;
+    rescale it to the plasma centre $R_0$ as $b_0\,r_0/R_0$ where the two
+    radii differ, or the result is off by $r_0/R_0$ in the diamagnetic term.  No ``abs()`` is applied: a flux
     whose sign disagrees with the field's turns a paramagnetic $\beta_p < 1$
     into a diamagnetic $\beta_p > 1$ rather than failing.
 
@@ -2889,9 +2891,11 @@ def beta_p_diamagnetic_from_flux_elliptic(Phi_dia: float,
     so the product $B_{\varphi 0}\Phi_{dia}$ is positive for a paramagnetic
     and negative for a diamagnetic plasma ($\beta_p > 1$) whichever way the
     field points.  VAFT's ``magnetics.diamagnetic_flux`` follows EFIT's
-    ``cdflux``, signed with $B_t$ (#1196); pass it with the signed
-    ``vacuum_toroidal_field.b0`` of the same record, not $|B_{\varphi 0}|$,
-    which is right only in a positive field.  No ``abs()`` is applied: a flux
+    ``cdflux``, signed with $B_t$ (#1196); pass it with the signed vacuum
+    field of the same record, not $|B_{\varphi 0}|$, which is right only in a
+    positive field.  ``vacuum_toroidal_field.b0`` is the field at ``r0``;
+    rescale it to the plasma centre $R_0$ as $b_0\,r_0/R_0$ where the two
+    radii differ, or the result is off by $r_0/R_0$ in the diamagnetic term.  No ``abs()`` is applied: a flux
     whose sign disagrees with the field's turns a paramagnetic $\beta_p < 1$
     into a diamagnetic $\beta_p > 1$ rather than failing.
 
@@ -2936,8 +2940,9 @@ def stored_energy_diamagnetic_from_beta_p_circular(beta_p: float,
     Parameters
     ----------
     beta_p : float
-        Diamagnetic poloidal beta, e.g. from
-        :func:`beta_p_diamagnetic_from_flux_circular` [-].
+        Diamagnetic poloidal beta in the DD $R_0$ normalisation; for a
+        circular cross-section, $V = 2\pi^2 R_0 a^2$, this is what
+        :func:`beta_p_diamagnetic_from_flux_circular` returns [-].
     R0 : float
         Major radius of the plasma centre [m].
     Ip : float
@@ -2959,7 +2964,12 @@ def stored_energy_diamagnetic_from_beta_p_circular(beta_p: float,
     $\int p\,dV$ that :func:`stored_energy_from_beta_V` returns: with the DD
     $\beta_p = 4\int p\,dV/(\mu_0 R_0 I_p^2)$
     (:func:`beta_poloidal_from_pressure_integral`) this is $\tfrac32$ of that
-    integral.  ``R0`` must be the radius ``beta_p`` was normalised by.
+    integral.  ``R0`` must be the radius ``beta_p`` was normalised by.  A
+    flux-derived $\beta_p$ is normalised by the boundary field
+    $\mu_0 I_p/L_C$ instead; the two agree only for the circle
+    ($R_0 L_C^2 = 2V$), so for a shaped plasma use
+    :func:`stored_energy_diamagnetic_from_beta_p_geometry`, which takes that
+    normalisation directly.
 
     Limitations
     -----------
