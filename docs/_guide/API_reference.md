@@ -678,6 +678,37 @@ names no backend onto Slurm. Placement comes from `VAFT_SLURM_PARTITION`, `VAFT_
 `VAFT_SLURM_QOS`, `VAFT_SLURM_MODE` and `VAFT_SLURM_MAX_WAIT`. This setting also queues short runs
 such as EFUND or a single EFIT slice, so prefer an explicit `backend=` for those.
 
+### Submitting without waiting
+
+`run` blocks. For a scan or campaign that should keep many cases in flight, every backend also
+accepts `submit` (#1018), through `submit_request(backend, request)`, which falls back to running
+eagerly for a backend that only has `run`:
+
+| Call | What it does |
+| --- | --- |
+| `submit_request(backend, request)` | returns a `JobHandle` (`job_id` for a scheduler) |
+| `handle.result()` / `backend.wait(handle)` | blocks; what `run` would have returned or raised; `CancelledError` once cancelled |
+| `handle.cancel()` / `backend.cancel(handle)` | stops an unfinished request: not started yet, its process tree, or `scancel` |
+| `wait_handles(handles, return_when=FIRST_COMPLETED)` | `(done, pending)`, as `concurrent.futures.wait` |
+| `cancel_handles(handles)` | cancels every unfinished handle and waits for local trees to stop |
+
+`LocalBackend(max_concurrent=N)` runs submitted requests in the background, never more than `N` at a
+time; without `max_concurrent` it runs each one inside `submit`, as before. `SlurmBackend` submits a
+batch job at once and collects it in `result()`; its step mode (inside an allocation) and
+`RemoteSlurmBackend` are eager. `scan_chease` submits every case, then collects them in order: see
+its docstring for how errors map onto `keep_going` and how outstanding cases are cancelled.
+
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
+```python
+from vaft.code import CHEASEConfig, EquilibriumVariation, LocalBackend, scan_chease
+
+cases = scan_chease(
+    "g048224.00300",
+    [EquilibriumVariation("control"), EquilibriumVariation("beta_up", pressure_scale=1.5)],
+    config=CHEASEConfig(backend=LocalBackend(max_concurrent=4)),
+)
+```
+
 ### Running on a cluster over ssh
 
 `SlurmBackend` submits from a host that can run `sbatch` itself. When the machine that prepares a

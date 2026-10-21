@@ -23,7 +23,9 @@ from .execution import (
     ExecutionBackend,
     ExecutionRequest,
     ExecutionResult,
+    JobHandle,
     resolve_backend,
+    submit_request,
     timeout_reason,
 )
 from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner, RunOutcome
@@ -1521,8 +1523,69 @@ def _find_manifests(workdir: Path) -> tuple[Path, ...]:
     return tuple(sorted(path for path in workdir.glob("*.json") if path.is_file()))
 
 
-def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEASEResult:
-    """Run CHEASE with prepared inputs and collect the refined equilibrium."""
+@dataclass
+class CHEASESubmission:
+    """A CHEASE solve handed to its backend (#1018); :meth:`collect` finishes it.
+
+    ``handle`` is ``None`` when the backend refused the launch at submission;
+    :meth:`collect` then reports that the way a refused local launch is
+    reported, as a failed result.
+    """
+
+    inputs: CHEASEInputs
+    config: CHEASEConfig
+    executable: Path
+    command: tuple[str, ...]
+    handle: Optional[JobHandle] = None
+    refused: Optional[BaseException] = None
+
+    def done(self) -> bool:
+        """Whether :meth:`collect` would not block on the solver."""
+        return self.handle is None or self.handle.done()
+
+    def cancel(self) -> bool:
+        """Stop the solve if it has not finished."""
+        return self.handle is not None and self.handle.cancel()
+
+    @property
+    def cancelled(self) -> bool:
+        return self.handle is not None and self.handle.cancelled
+
+    def settle(self, timeout: Optional[float] = None) -> None:
+        if self.handle is not None:
+            self.handle.settle(timeout)
+
+    def collect(self) -> CHEASEResult:
+        """Wait for the solve and collect the refined equilibrium, as :func:`run_chease` does."""
+        error = self.refused
+        completed: Optional[ExecutionResult] = None
+        if error is None:
+            assert self.handle is not None
+            try:
+                completed = self.handle.result()
+            except ExecutableNotLaunchable as refused:
+                error = refused
+        if completed is None:
+            # The file resolved and passed the executability probe and the operating
+            # system still refused to start it. A configuration problem raises above;
+            # this is a runtime one, so it is reported the way a non-zero exit is,
+            # rather than as a traceback out of a notebook cell.
+            completed = ExecutionResult(
+                returncode=1,
+                stdout="",
+                stderr=f"CHEASE could not be launched ({self.executable}): {error.__cause__ or error}",
+                launcher=self.command,
+            )
+        return _finish_chease(self.inputs, self.config, completed)
+
+
+def submit_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEASESubmission:
+    """Hand CHEASE with prepared inputs to the backend without waiting (#1018).
+
+    Configuration errors (no executable, missing inputs, a missing working
+    directory) raise here. With a backend that runs eagerly -- the default
+    ``LocalBackend`` -- the solve has already finished on return.
+    """
     config = config or CHEASEConfig(workdir=inputs.workdir)
     executable = _resolve_executable(config)
     if executable is None:
@@ -1540,6 +1603,7 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
         raise FileNotFoundError(f"Missing chease_namelist file in {inputs.workdir}")
 
     command = (str(executable), *config.args)
+    submission = CHEASESubmission(inputs, config, Path(executable), command)
     try:
         # CHEASE writes its own diagnostics, so the bytes on its pipes are a
         # foreign program's, not this repository's. The backend decodes them as
@@ -1547,26 +1611,28 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
         # *completed* solve into a UnicodeDecodeError on any non-UTF-8 console
         # -- cp949, for one -- after the refined equilibrium is already on disk,
         # and chease.log below is written as UTF-8 for the same round trip.
-        completed = resolve_backend(config).run(
+        submission.handle = submit_request(
+            resolve_backend(config),
             ExecutionRequest(
                 command=command,
                 workdir=Path(inputs.workdir),
                 env=dict(config.env),
                 timeout=config.timeout,
                 label="chease",
-            )
+            ),
         )
     except ExecutableNotLaunchable as error:
-        # The file resolved and passed the executability probe and the operating
-        # system still refused to start it. A configuration problem raises above;
-        # this is a runtime one, so it is reported the way a non-zero exit is,
-        # rather than as a traceback out of a notebook cell.
-        completed = ExecutionResult(
-            returncode=1,
-            stdout="",
-            stderr=f"CHEASE could not be launched ({executable}): {error.__cause__ or error}",
-            launcher=command,
-        )
+        submission.refused = error
+    return submission
+
+
+def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEASEResult:
+    """Run CHEASE with prepared inputs and collect the refined equilibrium."""
+    return submit_chease(inputs, config).collect()
+
+
+def _finish_chease(inputs: CHEASEInputs, config: CHEASEConfig, completed: ExecutionResult) -> CHEASEResult:
+    """Turn one finished CHEASE launch into its result: log, refined g-file, outputs."""
     log_path = inputs.workdir / "chease.log"
     if completed.timed_out:
         # A result, not an exception (#1016): one stopped case must not end a
@@ -1747,6 +1813,7 @@ __all__ = [
     "CHEASEInputs",
     "CHEASEMaterializedInput",
     "CHEASEResult",
+    "CHEASESubmission",
     "CodeConfig",
     "CodeInputs",
     "CodeResult",
@@ -1758,4 +1825,5 @@ __all__ = [
     "prepare_chease_inputs",
     "refine_equilibrium",
     "run_chease",
+    "submit_chease",
 ]

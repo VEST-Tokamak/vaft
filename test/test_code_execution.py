@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -260,3 +261,128 @@ def test_runtime_status_is_derived_from_timed_out_and_kept_consistent():
 def test_a_local_timeout_reports_runtime_status(tmp_path):
     result = _python(tmp_path, "import time; time.sleep(30)", timeout=1.0)
     assert (result.timed_out, result.runtime_status) == (True, "timeout")
+
+
+# -- submit / wait / cancel (#1018) ----------------------------------------------
+
+
+def _request(tmp_path: Path, code: str, **request) -> ExecutionRequest:
+    return ExecutionRequest(command=(sys.executable, "-c", code), workdir=tmp_path, **request)
+
+
+def test_submit_without_max_concurrent_is_eager(tmp_path):
+    handle = LocalBackend().submit(_request(tmp_path, "print('done')"))
+    assert handle.done()
+    assert handle.result().stdout.strip() == "done"
+    assert not handle.cancel()  # finished: nothing to stop
+
+
+def test_max_concurrent_bounds_the_live_programs(tmp_path):
+    import json
+
+    from vaft.code import wait_handles
+
+    code = (
+        "import json, os, sys, time; start = time.time(); time.sleep(0.6);"
+        "print(json.dumps([start, time.time()]))"
+    )
+    backend = LocalBackend(max_concurrent=2)
+    handles = [backend.submit(_request(tmp_path, code)) for _ in range(5)]
+    assert not all(handle.done() for handle in handles)  # submit did not wait
+    done, pending = wait_handles(handles)
+    assert (len(done), pending) == (5, [])
+    spans = [json.loads(handle.result().stdout) for handle in handles]
+    for start, _ in spans:
+        live = sum(1 for other_start, other_end in spans if other_start <= start < other_end)
+        assert live <= 2
+    # Started in submission order: the first two did not wait for a slot.
+    assert sorted(spans)[:2] == sorted(spans[:2])
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="probes the grandchild with os.kill(pid, 0)")
+def test_cancel_stops_a_running_tree_and_a_queued_request(tmp_path):
+    import os
+    from concurrent.futures import CancelledError
+
+    from vaft.code import cancel_handles
+
+    pid_file = tmp_path / "grandchild.pid"
+    code = (
+        "import subprocess, sys, time;"
+        "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)']);"
+        f"open({str(pid_file)!r}, 'w').write(str(child.pid)); time.sleep(60)"
+    )
+    marker = tmp_path / "queued-ran"
+    backend = LocalBackend(max_concurrent=1)
+    running = backend.submit(_request(tmp_path, code))
+    queued = backend.submit(_request(tmp_path, f"open({str(marker)!r}, 'w')"))
+    deadline = time.monotonic() + 20
+    while not pid_file.exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    grandchild = int(pid_file.read_text())
+    started = time.monotonic()
+    cancel_handles([running, queued])
+    assert time.monotonic() - started < 15
+    for handle in (running, queued):
+        assert handle.cancelled and handle.done()
+        with pytest.raises(CancelledError):
+            handle.result()
+    assert not marker.exists()
+    with pytest.raises(ProcessLookupError):
+        os.kill(grandchild, 0)
+
+
+def test_a_launch_error_comes_out_of_result_and_a_missing_workdir_out_of_submit(tmp_path):
+    backend = LocalBackend(max_concurrent=1)
+    with pytest.raises(FileNotFoundError):
+        backend.submit(_request(tmp_path / "missing", "pass"))
+    program = write_unlaunchable_file(tmp_path / "not-a-program")
+    handle = backend.submit(ExecutionRequest(command=(str(program),), workdir=tmp_path))
+    with pytest.raises(ExecutableNotLaunchable):
+        handle.result()
+
+
+def test_submit_request_runs_a_run_only_backend_eagerly(tmp_path):
+    from vaft.code import submit_request
+
+    backend = RecordingBackend()
+    handle = submit_request(backend, _request(tmp_path, "pass"))
+    assert handle.done() and handle.result().returncode == 0
+    assert len(backend.requests) == 1
+
+    class Failing:
+        def run(self, request):
+            raise RuntimeError("refused")
+
+    handle = submit_request(Failing(), _request(tmp_path, "pass"))
+    with pytest.raises(RuntimeError, match="refused"):
+        handle.result()
+
+
+def test_wait_handles_first_completed(tmp_path):
+    from vaft.code import cancel_handles, wait_handles
+    from vaft.code.execution import FIRST_COMPLETED
+
+    backend = LocalBackend(max_concurrent=2)
+    slow = backend.submit(_request(tmp_path, "import time; time.sleep(30)"))
+    fast = backend.submit(_request(tmp_path, "pass"))
+    done, pending = wait_handles([slow, fast], return_when=FIRST_COMPLETED, timeout=20)
+    assert (done, pending) == ([fast], [slow])
+    cancel_handles([slow])
+    with pytest.raises(ValueError):
+        wait_handles([fast], return_when="ANY")
+    with pytest.raises(ValueError):
+        LocalBackend(max_concurrent=0)
+
+
+def test_memory_admission_stops_waiting_once_cancelled(tmp_path, monkeypatch):
+    """Cold review #1018: a cancelled request does not wait out admission_wait_s."""
+    from vaft.code._memory_gate import MemoryLedger
+
+    ledger = MemoryLedger(tmp_path, floor_mb=0.0)
+    monkeypatch.setattr(MemoryLedger, "fits", lambda self, reserve_mb: True)
+    monkeypatch.setattr(MemoryLedger, "try_admit", lambda self, reserve_mb: None)
+    flag = []
+    started = time.monotonic()
+    assert ledger.admit(10.0, wait_s=3600, poll_s=0.01, cancelled=lambda: bool(flag.append(1)) or len(flag) > 3) is None
+    assert time.monotonic() - started < 5
