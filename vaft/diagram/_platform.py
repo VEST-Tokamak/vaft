@@ -24,6 +24,7 @@ from __future__ import annotations
 from typing import Dict, List, Sequence, Tuple
 
 from ._concept import Box, band, box as _concept_box, database as _concept_database, escape_latex
+from .pictograms import badge, corner
 from ._render import Diagram
 from ._scene import Arrow, Image, Label, Polyline, Scene
 
@@ -84,6 +85,9 @@ _DRUM_RIM = 0.55
 #: the companion figure's five stages
 OVERVIEW_STAGES: Tuple[str, ...] = ("Experiment", "Experimental Data Processing", "Database",
                                     "Reconstruction & Simulation", "Access & Analysis")
+#: the pictogram of each overview stage (#2101): the work done there, or who uses it
+OVERVIEW_SYMBOLS = {"processing": "processing", "reconstruction": "reconstruction", "simulation": "computation",
+                    "access": "researcher"}
 
 #: the VEST machine: a CAD render packaged under ``vaft/diagram/images``, and its pixel aspect (height / width)
 MACHINE_IMAGE = "vest_machine.jpg"
@@ -325,6 +329,9 @@ def vest_data_platform_overview(*, labels: bool = True) -> Diagram:
                 style="concept actor")
     for b in (proc, db, reco, sim, acc):
         items += list(b.items)
+    # semantic pictograms (#2101), a badge clipped on each stage's top-left corner; the drum is its own storage glyph
+    for key, b in (("processing", proc), ("reconstruction", reco), ("simulation", sim), ("access", acc)):
+        items += badge(OVERVIEW_SYMBOLS[key], corner(b, 0.74), 0.74, role=f"symbol:stage:{key}").items
     items += [Arrow((machine[1] + 0.1, 0.0), (proc.x - 0.5 * proc.width - 0.1, 0.0), "connector strong",
                     role="edge:machine->processing"),
               Arrow((proc.x + 0.5 * proc.width + 0.1, 0.0), (db.x - 0.5 * db.width - 0.1, 0.0), "connector strong",

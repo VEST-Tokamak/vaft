@@ -23,6 +23,8 @@ from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 
+from .pictograms import BADGE, PICTOGRAM, PICTOGRAM_MUTED
+
 __all__ = ["animate_states", "draw_scene"]
 
 #: The template's colours (templates/standalone.tex ``\definecolor``), as RGB in [0, 1].
@@ -65,10 +67,14 @@ _LINE = {
     "axis": {"color": "black", "lw": 0.65},
     "leader": {"color": "black", "lw": 0.55},
     "width arrow": {"color": "black", "lw": 0.65},
+    PICTOGRAM: {"color": _COLOURS["islanddark"], "lw": 0.7, "zorder": 3},
+    PICTOGRAM_MUTED: {"color": _mix("black", 45), "lw": 0.7, "ls": "--", "zorder": 3},
 }
 _FILL = {
     "machine fill": {"facecolor": _mix("gray", 6), "edgecolor": "none"},
     "hole": {"facecolor": "white", "edgecolor": "none"},
+    # above the box outlines it straddles, below its icon
+    BADGE: {"facecolor": "white", "edgecolor": _COLOURS["islanddark"], "lw": 0.6, "zorder": 2.5},
 }
 _ARROW_BOTH = {"width arrow"}
 #: Template styles that carry an arrow tip (``->`` / ``<->``): a polyline in
@@ -155,7 +161,7 @@ def draw_scene(scene: Any, *, ax: Any = None, figsize: tuple[float, float] = (9.
         if isinstance(item, Polyline):
             xy = np.asarray(item.points, dtype=float)
             if item.style in _FILL:
-                ax.add_patch(Polygon(xy, closed=True, **_FILL[item.style], zorder=0))
+                ax.add_patch(Polygon(xy, closed=True, **{"zorder": 0, **_FILL[item.style]}))
                 continue
             if item.closed:
                 xy = np.vstack([xy, xy[:1]])
