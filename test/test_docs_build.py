@@ -230,7 +230,8 @@ def test_publishing_only_ever_forces_with_a_pinned_lease():
     unconditional forced push: a bare ``--force``/``-f``, ``+refspec``, or a
     lease with no expected value, which only protects against a stale fetch.
     """
-    source = re.sub(r"(?m)#.*$", "", BUILD.read_text(encoding="utf-8"))
+    # Whole-line comments only: a trailing "#" strip would also cut string literals.
+    source = re.sub(r"(?m)^\s*#.*$", "", BUILD.read_text(encoding="utf-8"))
     assert not re.search(r"""["']\+[^"']*:refs/""", source), "forced refspec"
     leases = re.findall(r"--force-with-lease[^\s\"']*", source)
     assert leases, "no leased push found in docs/build.py"
@@ -239,7 +240,7 @@ def test_publishing_only_ever_forces_with_a_pinned_lease():
     pushes = [line for line in source.splitlines() if '"push"' in line]
     assert pushes, "no push found in docs/build.py"
     for line in pushes:
-        assert "lease" in line, f"push without a lease: {line.strip()}"
+        assert re.search(r"\[\"git\", \"push\", lease,", line), f"push without the pinned lease: {line.strip()}"
         assert not re.search(r"""["'](--force|-f)["']""", line), f"unconditional forced push: {line.strip()}"
 
 
@@ -319,6 +320,20 @@ def test_a_concurrent_publish_is_reported_and_nothing_is_overwritten(build, sand
     assert "moved while this build was running" in message
     assert stale in message and theirs in message
     assert build.remote_tip(work, "origin", "gh-pages") == theirs, "their publish survived"
+
+
+@pytest_git
+def test_a_server_refusal_is_not_reported_as_a_race(build, sandbox, composed, tmp_path):
+    work, origin, git = sandbox
+    hook = origin / "hooks" / "pre-receive"
+    hook.write_text("#!/bin/sh\necho protected >&2\nexit 1\n", encoding="utf-8")
+    hook.chmod(0o755)
+    tip = build.remote_tip(work, "origin", "gh-pages")
+
+    with pytest.raises(build.BuildError) as refused:
+        build.publish(composed, work, tip, "docs: publish\n", scratch=tmp_path / "scratch-refused")
+    assert not isinstance(refused.value, build.PublishRace)
+    assert build.remote_tip(work, "origin", "gh-pages") == tip
 
 
 @pytest_git

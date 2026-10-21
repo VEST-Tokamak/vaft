@@ -598,7 +598,9 @@ def publish(
                 "add a write-enabled deploy key as a secret and point the remote at SSH before "
                 "running with --publish."
             )
-        if re.search(r"stale info|non-fast-forward|fetch first|rejected", stderr, re.I):
+        # "[remote rejected]" is the server refusing the ref (branch protection,
+        # a hook), not a race: it falls through to the plain failure below.
+        if re.search(r"stale info|non-fast-forward|fetch first|(?<!remote )rejected", stderr, re.I):
             raise PublishRace(
                 f"{branch} moved while this build was running.\n"
                 f"  expected tip: {expected_tip}\n"

@@ -225,6 +225,10 @@ rebuilding from those commits republishes that site:
 python build.py --stable-ref <main-commit> --develop-ref <develop-commit> --publish
 ```
 
+This uses today's `build.py` and validation on the old sources, so the result can
+differ slightly from what was served then, and the next push to `main` or
+`develop` replaces it again.
+
 The docs workflow's build job also keeps the tree it validated as the
 `composed-site` artifact for seven days. The push that replaces `gh-pages` is the only forced
 push here, and it is leased on the tip read before the build, so a concurrent
