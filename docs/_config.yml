@@ -40,6 +40,12 @@ syntax_highlighter_style: monokai
 
 markdown_ext:             markdown,mkdown,mkdn,mkd,md
 
+# Front-matter dates are authored in Korea time and are metadata, not a
+# publication schedule: without these, a page dated later today (read as UTC)
+# was silently skipped and validate_docs failed on its missing route.
+timezone:                 Asia/Seoul
+future:                   true
+
 # Permalinks
 permalink:                /:categories/:title
 
