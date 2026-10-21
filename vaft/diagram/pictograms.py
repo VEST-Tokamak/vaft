@@ -488,13 +488,14 @@ def badge(name: str, at: Point, size: float = 0.6, *, role: str, style: str = PI
     return Scene((disc,)) + pictogram(name, at, 0.62 * size, role=role, style=style)
 
 
-def corner(box, size: float = 0.62) -> Point:
+def corner(box, size: float = 0.62, *, dip: float = 0.15) -> Point:
     """Where a :func:`badge` of ``size`` cm clips onto ``box``'s top-left corner (``box`` has ``x, y, width, height``).
 
-    The disc dips 0.15 cm into the box -- enough to read as the box's, little enough to clear a first
-    text line that spans the box -- and sits 0.19 cm in from the left edge, clear of the rounded corner.
+    The disc dips ``dip`` cm into the box -- 0.15 cm reads as the box's while clearing a first text
+    line that spans the box; ``dip=0`` rests it on the edge for a box its text fills -- and sits
+    0.19 cm in from the left edge, clear of the rounded corner.
     """
-    return (box.x - 0.5 * box.width + 0.5 * size + 0.19, box.y + 0.5 * box.height + 0.5 * size - 0.15)
+    return (box.x - 0.5 * box.width + 0.5 * size + 0.19, box.y + 0.5 * box.height + 0.5 * size - dip)
 
 
 def pictogram_catalog(*, labels: bool = True):

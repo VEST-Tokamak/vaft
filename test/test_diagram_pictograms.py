@@ -193,6 +193,7 @@ def test_badge_is_a_disc_under_the_icon_and_corner_clips_it_on():
     at = P.corner(b)
     assert at == pytest.approx((-1.5, 0.66))
     assert P.corner(b, 1.0)[1] - 0.5 == pytest.approx(0.5 - 0.15)  # the disc dips 0.15 cm into the box
+    assert P.corner(b, 1.0, dip=0.0)[1] - 0.5 == pytest.approx(0.5)  # or rests on the edge
     disc, *icon = P.badge("signal", at, 0.62, role="symbol:node:x").items
     assert disc.style == P.BADGE and disc.closed
     assert icon and all(i.style == P.PICTOGRAM for i in icon)
