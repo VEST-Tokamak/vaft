@@ -496,6 +496,54 @@ def test_nuclear_charge_ignores_another_time_and_another_mass(ods, native):
     assert "core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n" not in other
 
 
+def test_a_nan_charge_is_no_match_and_two_matches_are_ambiguous(ods, native):
+    amu = float(native.species_mass[0]) * 2.0
+    _core_profiles_ion(ods, z_ion=float("nan"), a=amu, z_n=6.0)
+    core_transport_from_neo(ods, native, time=0.3, time_index=0)
+    assert "core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n" not in ods
+
+    twice = type(ods)(consistency_check=False)
+    twice["equilibrium.vacuum_toroidal_field.b0"] = np.array([0.15])
+    _core_profiles_ion(twice, z_ion=1.0, a=amu, z_n=1.0)
+    twice["core_profiles.profiles_1d.0.ion.1.z_ion"] = 1.0
+    twice["core_profiles.profiles_1d.0.ion.1.element.0.a"] = amu
+    twice["core_profiles.profiles_1d.0.ion.1.element.0.z_n"] = 1.0
+    report = core_transport_from_neo(twice, native, time=0.3, time_index=0)
+    assert "core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n" not in twice
+    assert any("2 ions" in reason for reason in report["skipped"])
+
+
+def test_a_species_source_slice_is_named_by_index_not_time(ods, native):
+    """Promotion maps at the equilibrium time; the profile slice may sit off it."""
+    from omas import ODS
+
+    amu = float(native.species_mass[0]) * 2.0
+    source = ODS(consistency_check=False)
+    _core_profiles_ion(source, z_ion=1.0, a=amu, z_n=1.0, time=0.2995)
+    core_transport_from_neo(
+        ods, native, time=0.3, time_index=0, species_source=source, species_index=0
+    )
+    assert float(ods["core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n"]) == 1.0
+    assert "core_profiles.profiles_1d.0.ion" not in ods
+
+
+def test_a_one_element_slice_time_and_a_shared_time_base_are_read(ods, native):
+    amu = float(native.species_mass[0]) * 2.0
+    _core_profiles_ion(ods, z_ion=1.0, a=amu, z_n=1.0)
+    ods["core_profiles.profiles_1d.0.time"] = np.array([0.3])
+    core_transport_from_neo(ods, native, time=0.3, time_index=0)
+    assert float(ods["core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n"]) == 1.0
+
+    shared = type(ods)(consistency_check=False)
+    shared["equilibrium.vacuum_toroidal_field.b0"] = np.array([0.15])
+    shared["core_profiles.time"] = np.array([0.3])
+    shared["core_profiles.profiles_1d.0.ion.0.z_ion"] = 1.0
+    shared["core_profiles.profiles_1d.0.ion.0.element.0.a"] = amu
+    shared["core_profiles.profiles_1d.0.ion.0.element.0.z_n"] = 1.0
+    core_transport_from_neo(shared, native, time=0.3, time_index=0)
+    assert float(shared["core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n"]) == 1.0
+
+
 # --------------------------------------------------------------------------
 # Physics sanity, against an independent path
 # --------------------------------------------------------------------------

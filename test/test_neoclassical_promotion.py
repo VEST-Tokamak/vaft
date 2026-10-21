@@ -146,6 +146,23 @@ def test_the_product_carries_what_neo_produced_and_the_identity_of_its_input(tmp
 
 
 @requires_sample
+def test_the_product_reads_ion_nuclear_charge_from_the_source_state(state):
+    """The product ODS has no core_profiles ions; z_n must come from the state NEO ran on."""
+    from vaft.omas.vest_upstream import build_neoclassical_ods
+
+    ods, _ = build_neoclassical_ods(
+        shot=48224, state=SAMPLE, run_directory=PROFILE_RUN, z_eff=2.0
+    )
+    ion = "core_transport.model.0.profiles_1d.0.ion.0"
+    assert float(ods[f"{ion}.element.0.z_n"]) == float(
+        state["core_profiles.profiles_1d.0.ion.0.element.0.z_n"]
+    )
+    assert "core_profiles.profiles_1d.0.ion" not in ods
+    assert str(ods["core_transport.model.0.code.name"]) == "NEO"
+    assert "core_transport.code.name" not in ods
+
+
+@requires_sample
 def test_an_unqualified_state_is_refused_rather_than_promoted_with_a_caveat(tmp_path):
     """The rule gates the write. A product built from a rejected input is the thing
     #550 defers, and a manifest field saying so would not stop anyone querying it."""

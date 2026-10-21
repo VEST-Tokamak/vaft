@@ -577,11 +577,22 @@ def core_transport_from_neo(
     *,
     time: float = 0.0,
     time_index: int = 0,
+    species_source: Optional[ODS] = None,
+    species_index: Optional[int] = None,
 ) -> dict[str, Any]:
     """Write NEO's particle and energy fluxes into ``core_transport``.
 
     The model entry is identified as neoclassical (index 5) and is reused on a
     second call rather than duplicated.
+
+    Parameters
+    ----------
+    species_source, species_index
+        The ODS, and its ``core_profiles`` slice, that NEO's input was built from.
+        NEO carries ion charges only, so an ion's nuclear charge is read from the
+        matching ion there. Default: *ods* itself, the slice found at *time*. A
+        product written into a fresh ODS must pass its source state, or ``z_n`` is
+        left unset and reported as skipped.
 
     Returns
     -------
@@ -647,7 +658,10 @@ def core_transport_from_neo(
         amu = None if mass is None else float(np.atleast_1d(mass)[species]) * 2.0
         if amu is not None:
             ods[f"{ion}.element.0.a"] = amu
-        nuclear, reason = _nuclear_charge(ods, float(time), float(charge[species]), amu)
+        nuclear, reason = _nuclear_charge(
+            ods if species_source is None else species_source,
+            float(time), float(charge[species]), amu, index=species_index,
+        )
         if nuclear is None:
             skipped.append(f"ion.{position}.element.0.z_n ({reason})")
         else:
@@ -683,8 +697,16 @@ def core_transport_from_neo(
 _TIME_TOLERANCE_S = 1.0e-6
 
 
+def _scalar(value: Any) -> float:
+    """One finite-or-NaN float from a scalar or a one-element array; NaN otherwise."""
+    if value is None:
+        return float("nan")
+    flat = np.ravel(np.asarray(value, dtype=float))
+    return float(flat[0]) if flat.size == 1 else float("nan")
+
+
 def _nuclear_charge(
-    ods: ODS, time: float, charge: float, amu: Optional[float]
+    ods: ODS, time: float, charge: float, amu: Optional[float], *, index: Optional[int] = None
 ) -> tuple[Optional[float], str]:
     """``element.0.z_n`` for a NEO ion, from the ``core_profiles`` ion it came from.
 
@@ -693,43 +715,52 @@ def _nuclear_charge(
     is read from the ``core_profiles`` slice at this time -- the ion with this
     charge and, when both carry one, this mass -- rather than assumed. The
     NCLASS IMAS interface copies ``z_n`` from ``core_profiles`` for the same
-    reason. Returns ``(None, reason)`` when no single ion answers.
+    reason. *index* names the slice outright -- the one NEO's input was paired
+    from -- and skips the time match. Returns ``(None, reason)`` when no single
+    ion answers.
     """
-    shared = None
-    if "core_profiles.time" in ods:
-        shared = np.atleast_1d(np.asarray(ods["core_profiles.time"], dtype=float))
-    slices = []
-    for index in range(path_count(ods, "core_profiles.profiles_1d")):
-        own = ods.get(f"core_profiles.profiles_1d.{index}.time", None)
-        if own is None and shared is not None and index < shared.size:
-            own = shared[index]
-        if own is not None and abs(float(own) - time) <= _TIME_TOLERANCE_S:
-            slices.append(index)
-    if len(slices) != 1:
-        return None, (
-            f"{len(slices)} core_profiles slices at t = {time:g} s; NEO carries the ion "
-            "charge only, which equals the nuclear charge only for a fully stripped ion"
-        )
+    if index is not None:
+        if index >= path_count(ods, "core_profiles.profiles_1d"):
+            return None, f"the species source has no core_profiles slice {index}"
+        slices = [int(index)]
+    else:
+        shared = None
+        if "core_profiles.time" in ods:
+            shared = np.atleast_1d(np.asarray(ods["core_profiles.time"], dtype=float))
+        slices = []
+        for position in range(path_count(ods, "core_profiles.profiles_1d")):
+            own = _scalar(ods.get(f"core_profiles.profiles_1d.{position}.time", None))
+            if not np.isfinite(own) and shared is not None and position < shared.size:
+                own = float(shared[position])
+            if abs(own - time) <= _TIME_TOLERANCE_S:
+                slices.append(position)
+        if len(slices) != 1:
+            return None, (
+                f"{len(slices)} core_profiles slices at t = {time:g} s in the species "
+                "source; NEO carries the ion charge only, which equals the nuclear charge "
+                "only for a fully stripped ion"
+            )
     base = f"core_profiles.profiles_1d.{slices[0]}"
     matches = []
-    for index in range(path_count(ods, f"{base}.ion")):
-        z_ion = ods.get(f"{base}.ion.{index}.z_ion", None)
-        if z_ion is None or abs(float(z_ion) - charge) > 1.0e-6:
+    for position in range(path_count(ods, f"{base}.ion")):
+        # `<=` rather than `>`: a NaN charge or mass is no match, not a wildcard.
+        z_ion = _scalar(ods.get(f"{base}.ion.{position}.z_ion", None))
+        if not abs(z_ion - charge) <= 1.0e-6:
             continue
-        a = ods.get(f"{base}.ion.{index}.element.0.a", None)
-        if a is not None and amu is not None and abs(float(a) - amu) > 0.5:
+        a = _scalar(ods.get(f"{base}.ion.{position}.element.0.a", None))
+        if amu is not None and not abs(a - amu) <= 0.5:
             continue
-        matches.append(index)
+        matches.append(position)
     if len(matches) != 1:
         return None, (
             f"{len(matches)} ions of {base} carry charge {charge:g}"
             + ("" if amu is None else f" and mass {amu:.3g} amu")
             + "; the nuclear charge is not assumed from the ion charge"
         )
-    nuclear = ods.get(f"{base}.ion.{matches[0]}.element.0.z_n", None)
-    if nuclear is None or not np.isfinite(float(nuclear)):
+    nuclear = _scalar(ods.get(f"{base}.ion.{matches[0]}.element.0.z_n", None))
+    if not np.isfinite(nuclear):
         return None, f"{base}.ion.{matches[0]} carries no element.0.z_n"
-    return float(nuclear), ""
+    return nuclear, ""
 
 
 def _model_position(ods: ODS) -> int:
