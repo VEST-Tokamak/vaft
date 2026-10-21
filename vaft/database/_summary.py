@@ -414,9 +414,7 @@ def _extract_time(eq_slice, eq_times, index: int) -> float:
 
 
 def _extract_q_min(eq_slice) -> float:
-    value = _as_float(_safe_get(eq_slice, "global_quantities.q_min", np.nan))
-    if np.isfinite(value):
-        return value
+    # q_min is a structure in the DD; its signed min-|q| is q_min.value (#277).
     return _as_float(_safe_get(eq_slice, "global_quantities.q_min.value", np.nan))
 
 
