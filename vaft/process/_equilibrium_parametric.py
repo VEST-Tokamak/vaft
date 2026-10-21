@@ -655,10 +655,11 @@ def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
     All three are dimensionless and run 0 on axis to 1 at the boundary.
     ``rho_tor_n`` is COCOS-independent: it is a ratio of two integrals of the same
     ``q`` over the same variable.  Integrating over ``psi_n`` rather than
-    ``psi`` changes each integral by the constant ``psi_boundary - psi_axis``,
-    which cancels in the ratio together with the factor of ``2*pi`` and the sign
-    of psi; the published ``definition`` says so.  ``psi_n`` is likewise
-    invariant under the storage choice, being normalized by its own span.  This function therefore needs no COCOS and
+    ``psi`` scales each integral by the constant factor
+    ``psi_boundary - psi_axis``, which cancels in the ratio together with the
+    factor of ``2*pi`` and the sign of psi; the published ``definition`` says
+    so.  ``psi_n`` is likewise invariant under the storage choice, being
+    normalized by its own span.  This function therefore needs no COCOS and
     imposes none.
 
     Applicability

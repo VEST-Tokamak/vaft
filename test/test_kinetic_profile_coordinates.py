@@ -496,10 +496,33 @@ def test_rho_tor_n_definition_names_the_normalized_flux_it_integrates(shot_ods):
     record = derive_radial_coordinates(geq)["rho_tor_n"]
     assert "dpsi_n'" in record.definition and "q dpsi /" not in record.definition
     assert "convention-independent" in record.definition
-    psi_n = np.asarray(derive_radial_coordinates(geq)["psi_n"].value)
-    q = np.asarray(geq["QPSI"], dtype=float)
-    order = np.argsort(psi_n)
-    cumulative = np.r_[0.0, np.cumsum(0.5 * (q[order][1:] + q[order][:-1]) * np.diff(psi_n[order]))]
-    expected = np.empty_like(cumulative)
-    expected[order] = np.sqrt(cumulative / cumulative[-1])
-    np.testing.assert_allclose(np.asarray(record.value), expected, atol=1e-12)
+    # Independent reference: scipy's cumulative trapezoid over the *raw* psi
+    # grid of the g-file.  The ratio must match the psi_n integral, which is
+    # the convention independence the definition states.
+    from scipy.integrate import cumulative_trapezoid
+
+    psi = np.linspace(geq["SIMAG"], geq["SIBRY"], len(geq["QPSI"]))
+    phi = cumulative_trapezoid(np.asarray(geq["QPSI"], dtype=float), psi, initial=0.0)
+    np.testing.assert_allclose(np.asarray(record.value), np.sqrt(phi / phi[-1]), atol=1e-10)
+    # ... and under a 2*pi rescaling and a sign flip of psi.
+    phi_wb = cumulative_trapezoid(np.asarray(geq["QPSI"], dtype=float), -2 * np.pi * psi, initial=0.0)
+    np.testing.assert_allclose(np.asarray(record.value), np.sqrt(phi_wb / phi_wb[-1]), atol=1e-10)
+
+
+def test_unavailable_rho_tor_n_records_publish_the_same_definition(shot_ods):
+    # The three refusal branches share the derived record's definition (#602).
+    import dataclasses
+
+    from vaft.process._equilibrium_parametric import as_equilibrium
+
+    _, geq = shot_ods
+    eq = as_equilibrium(geq)
+    derived = derive_radial_coordinates(eq)["rho_tor_n"]
+    no_q = derive_radial_coordinates(dataclasses.replace(eq, q=None))["rho_tor_n"]
+    bad_q = derive_radial_coordinates(dataclasses.replace(eq, q=np.full_like(eq.q, np.nan)))["rho_tor_n"]
+    flat_psi = derive_radial_coordinates(
+        dataclasses.replace(eq, psi_1d=np.r_[eq.psi_1d[:1], eq.psi_1d[:-1]])
+    )["rho_tor_n"]
+    for record in (no_q, bad_q, flat_psi):
+        assert record.value is None and record.reason
+        assert record.definition == derived.definition
