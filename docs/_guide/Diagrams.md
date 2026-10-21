@@ -1834,20 +1834,29 @@ implementation: where VAFT does not yet implement the physically complete step, 
 node carries a red *IMAS mapping TODO* and the workflow lists its follow-up TODOs instead of drawing an
 unsupported capability. Node style says how a quantity was obtained:
 
-| Kind | Meaning |
-| --- | --- |
-| measured | experimentally observed |
-| reconstructed | the solution of an inverse problem |
-| derived | computed deterministically from existing state |
-| inferred | estimated with a model, prior or closure |
-| synthetic (assumption-completed) | completed from an equilibrium and explicit assumptions with no kinetic data; never a measurement |
-| model assumption / prior | an assumed value or prior the result depends on; drawn entering from the side |
-| model choice / convention | a model choice or convention (basis, sign, conductivity model, mode numbers); drawn from the side |
-| machine geometry / static data | static machine data: geometry, Green tables, circuits; drawn from the side |
-| code input | a code-specific projection of the canonical state |
-| solver / model | an external or internal physical model |
-| native result | the solver's own output, before any mapping |
-| standardized IMAS | the IMAS / OMAS representation VAFT stores |
+| Kind | Legend symbol | Meaning |
+| --- | --- | --- |
+| measured | `signal` | experimentally observed |
+| reconstructed | `reconstruction` | the solution of an inverse problem |
+| derived | `calculation` | computed deterministically from existing state |
+| inferred | `inference` | estimated with a model, prior or closure |
+| synthetic (assumption-completed) | `synthetic` | completed from an equilibrium and explicit assumptions with no kinetic data; never a measurement |
+| model assumption / prior | `parameters` | an assumed value or prior the result depends on; drawn entering from the side |
+| model choice / convention | `coordinates` | a model choice or convention (basis, sign, conductivity model, mode numbers); drawn from the side |
+| machine geometry / static data | `tokamak` | static machine data: geometry, Green tables, circuits; drawn from the side |
+| code input | `input_file` | a code-specific projection of the canonical state |
+| solver / model | `computation` | an external or internal physical model |
+| native result | `output_file` | the solver's own output, before any mapping |
+| standardized IMAS | `standardized` | the IMAS / OMAS representation VAFT stores |
+
+Each legend entry pairs the kind's swatch with its [semantic pictogram](#semantic-pictograms) (#2114)
+and its label. The swatch and label stay authoritative, and the symbol never encodes implementation
+status: a `computation` symbol on *solver / model* does not mean the solver runs, and `standardized`
+does not mean a product passed validation. The symbols appear only in the legend, not inside the nodes.
+Node-level icons were compared on `magnetic_efit`, `kinetic_efit`, `plasma_parameter_inference`,
+`tokamaker_coupling` and `tglf_cgyro_local_transport`: they crowded the bold titles and equations
+(*Measurement constraints*, the side inputs) and repeated what the node's style already says, so they
+were not adopted.
 
 Inputs and outputs carry their representative variables under the label, and standardized nodes their
 IMAS path. A step's equation is drawn inside it: the `vaft.formula` catalog definition (`formula_equation`)

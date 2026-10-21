@@ -346,3 +346,66 @@ def test_every_platform_science_box_has_a_diagram_or_a_tracked_gap():
         for key in row.diagrams:
             assert key in vaft.diagram.__all__, key
     assert C.coverage_markdown() in DIAGRAMS_MD.read_text(encoding="utf-8")
+
+
+# --------------------------------------------------------------------------
+# kind pictograms in the shared legend (#2114)
+# --------------------------------------------------------------------------
+
+
+def test_every_kind_has_one_distinct_registered_symbol():
+    from vaft.diagram import pictograms
+
+    assert list(W.KIND_SYMBOL) == list(W.KINDS)
+    assert len(set(W.KIND_SYMBOL.values())) == len(W.KINDS)  # no two kinds merged under one metaphor
+    for symbol in W.KIND_SYMBOL.values():
+        pictograms.symbol(symbol)
+
+
+@pytest.mark.parametrize("spec", SPECS, ids=[s.key for s in SPECS])
+def test_the_legend_pairs_each_used_kind_with_its_symbol(spec):
+    from vaft.diagram import pictograms
+    from vaft.diagram._scene import Polyline
+
+    scene = getattr(vaft.diagram, spec.key)().scene
+    used = [k for k in W.KINDS if any(n.kind == k for n in spec.nodes)]
+    legend_kinds = list(dict.fromkeys(i.role[len("legend:"):] for i in scene.items if i.role.startswith("legend:")))
+    assert legend_kinds == used  # the kinds drawn, in KINDS order
+    for kind in used:
+        swatch, label = scene.role(f"legend:{kind}")  # the existing swatch and label, unchanged in role and order
+        assert isinstance(swatch, Polyline) and swatch.style.startswith(W.kind_style(kind))
+        assert label.text == W.escape_latex(W.KIND_LABEL[kind])
+        icon = scene.role(f"symbol:legend:{kind}")
+        assert len(icon) == len(pictograms.symbol(W.KIND_SYMBOL[kind]).strokes)
+        # swatch, then pictogram, then label, on one line
+        right = max(p[0] for p in swatch.points)
+        xs = [p[0] for i in icon for p in i.points]
+        assert right < min(xs) and max(xs) < label.at[0]
+        assert all(abs(p[1] - label.at[1]) < 0.2 for i in icon for p in i.points)
+    assert {i.role for i in scene.items if i.role.startswith("symbol:")} == {f"symbol:legend:{k}" for k in used}
+
+
+@pytest.mark.parametrize("spec", SPECS, ids=[s.key for s in SPECS])
+def test_legend_pictograms_go_with_the_legend(spec, monkeypatch):
+    bare = getattr(vaft.diagram, spec.key)(labels=False)
+    assert not [i for i in bare.scene.items if i.role.startswith(("symbol:", "legend:"))]
+    # with the pictograms stubbed out the figure is what it was: nodes, edges, text, model
+    full = getattr(vaft.diagram, spec.key)()
+    monkeypatch.setattr(W, "pictogram", lambda *a, **k: vaft.diagram._scene.Scene(()))
+    plain = getattr(vaft.diagram, spec.key)()
+    assert [i for i in full.scene.items if not i.role.startswith("symbol:")] == [
+        i for i in plain.scene.items]  # (legend widths include the icon slot either way)
+    assert full.model == plain.model
+
+
+@pytest.mark.parametrize("spec", SPECS, ids=[s.key for s in SPECS])
+def test_the_legend_never_widens_the_figure(spec):
+    from vaft.diagram._scene import Polyline
+
+    scene = getattr(vaft.diagram, spec.key)().scene
+    boxes = [p[0] for i in scene.items if isinstance(i, Polyline) and i.role.startswith("node:") for p in i.points]
+    left, right = min(boxes), max(boxes)
+    legend = [i for i in scene.items if i.role.startswith(("legend:", "symbol:legend:"))]
+    xs = [p[0] for i in legend if isinstance(i, Polyline) for p in i.points]
+    half = 0.5 * max(right - left, 12.0)
+    assert 0.5 * (left + right) - half - 1e-9 <= min(xs) and max(xs) <= 0.5 * (left + right) + half + 1e-9
