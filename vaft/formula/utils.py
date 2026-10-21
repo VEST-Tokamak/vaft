@@ -559,14 +559,6 @@ def _rectilinear_axis(coord: np.ndarray, axis: int, name: str, shape: tuple) -> 
         if coord.shape != shape:
             raise ValueError(f"{name} mesh has shape {coord.shape}, B_phi has {shape}")
         line = coord[:, 0] if axis == 0 else coord[0, :]
-        expected = line[:, None] if axis == 0 else line[None, :]
-        # Tolerance relative to the spacing, so a mesh rounded through float32
-        # still counts as rectilinear.
-        spacing = np.min(np.abs(np.diff(line))) if line.size > 1 else 1.0
-        if not np.allclose(coord, np.broadcast_to(expected, shape), rtol=0.0, atol=1e-6 * spacing):
-            raise ValueError(
-                f"{name} is not a rectilinear 'ij' mesh (it varies along the other axis)"
-            )
     else:
         raise ValueError(f"{name} must be a 1-D axis or a 2-D mesh, got ndim={coord.ndim}")
     if line.size < 2 or not np.all(np.isfinite(line)):
@@ -574,6 +566,15 @@ def _rectilinear_axis(coord: np.ndarray, axis: int, name: str, shape: tuple) -> 
     step = np.diff(line)
     if not (np.all(step > 0) or np.all(step < 0)):
         raise ValueError(f"{name} must be strictly monotonic")
+    if coord.ndim == 2:
+        expected = line[:, None] if axis == 0 else line[None, :]
+        # A mesh read through float32 differs from its first row/column by a
+        # few float32 ulps; allow that, and never more than a sliver of a cell.
+        atol = max(1e-6 * np.min(np.abs(step)), 4 * np.finfo(np.float32).eps * np.max(np.abs(line)))
+        if not np.allclose(coord, np.broadcast_to(expected, shape), rtol=0.0, atol=atol):
+            raise ValueError(
+                f"{name} is not a rectilinear 'ij' mesh (it varies along the other axis)"
+            )
     return line
 
 

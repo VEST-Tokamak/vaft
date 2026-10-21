@@ -96,10 +96,18 @@ def test_toroidal_flux_accepts_ij_meshes_and_either_axis_direction():
     B_phi = 0.06 / RR
     reference = calculate_toroidal_flux(B_phi, R, Z)
     assert calculate_toroidal_flux(B_phi, RR, ZZ) == pytest.approx(reference, rel=1e-14)
-    # A mesh rounded through float32 is still rectilinear.
-    assert calculate_toroidal_flux(B_phi, RR.astype(np.float32), ZZ.astype(np.float32)) == pytest.approx(
-        reference, rel=1e-6
-    )
+    # A mesh whose rows differ by a float32 ulp (as after a float32 round trip
+    # of independently computed rows) is still rectilinear ...
+    jitter = np.where(np.arange(Z.size) % 2, 1.0, -1.0)[None, :] * np.finfo(np.float32).eps * RR
+    assert calculate_toroidal_flux(B_phi, RR + jitter, ZZ) == pytest.approx(reference, rel=1e-6)
+    # ... but one that varies by a visible fraction of a cell is not.
+    with pytest.raises(ValueError, match="rectilinear"):
+        calculate_toroidal_flux(B_phi, RR + 1e-3 * jitter / np.finfo(np.float32).eps, ZZ)
+    # A non-finite or repeated mesh line is reported as what it is.
+    bad = RR.copy()
+    bad[3, :] = np.nan
+    with pytest.raises(ValueError, match="finite"):
+        calculate_toroidal_flux(B_phi, bad, ZZ)
     # Storing an axis backwards does not flip the area.
     assert calculate_toroidal_flux(B_phi[::-1], R[::-1], Z) == pytest.approx(reference, rel=1e-14)
     assert calculate_toroidal_flux(B_phi[:, ::-1], R, Z[::-1]) == pytest.approx(reference, rel=1e-14)
