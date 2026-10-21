@@ -99,7 +99,7 @@ CONVENTION_SENSITIVE = frozenset({
     "beta_normal_from_beta_tor",
     "beta_toroidal_from_p_B0",
     "li_3_from_Bp2_volume_integral",
-# positive-when-holds criteria vs GGJ's negative-when-stable indices; toroidal-flux well (#1635)
+    # positive-when-holds criteria vs GGJ's negative-when-stable indices; toroidal-flux well (#1635)
     "suydam_criterion",
     "mercier_criterion_circular",
     "ggj_ideal_interchange_index",
