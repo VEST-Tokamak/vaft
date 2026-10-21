@@ -253,6 +253,7 @@ maintain a second YAML registry. Generate explicitly after changing the source:
 ```bash
 python -m vaft.diagram._replay
 python -m vaft.diagram._replay --check
+python -m workflow.particle_motion.run --check   # particle-motion references: digests + re-traced rows
 python docs/scripts/animation_preview.py --output /tmp/vaft-animation-preview
 python docs/scripts/serve_animation_preview.py --directory /tmp/vaft-animation-preview
 ```
