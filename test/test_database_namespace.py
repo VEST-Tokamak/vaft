@@ -25,7 +25,8 @@ def test_database_load_defaults_to_the_main_source():
         paths=None,
         imas_version="3.41.0",
         cache="auto",
-        transport="auto",        cache_max=None,
+        transport="auto",
+        cache_max=None,
     )
 
 
@@ -123,7 +124,8 @@ def test_database_load_uses_native_ids_for_imas_representation():
         occurrence={},
         dd_version="3.41.0",
         cache="auto",
-        transport="auto",        cache_max=None,
+        transport="auto",
+        cache_max=None,
     )
 
 

@@ -16,6 +16,7 @@ import argparse
 from collections.abc import Iterable
 import datetime as _dt
 import json
+import os
 import sys
 
 from vaft.database import hsds_cache
@@ -130,9 +131,9 @@ def _set_limit(arguments, out) -> int:
     path = hsds_cache.set_cache_max(arguments.size)
     size = hsds_cache.parse_size(arguments.size)
     print(f"HSDS cache cap set to {hsds_cache.format_size(size)} in {path}.", file=out)
-    winner = hsds_cache.resolve_cache_max()
-    if winner.source != f"{path} [{hsds_cache.CONFIG_SECTION}] {hsds_cache.CONFIG_KEY}":
-        print(f"note: {winner.source} overrides it in this shell.", file=out)
+    override = os.environ.get(hsds_cache.CACHE_MAX_ENV, "").strip()
+    if override:
+        print(f"note: ${hsds_cache.CACHE_MAX_ENV}={override} overrides it in this shell.", file=out)
     return 0
 
 

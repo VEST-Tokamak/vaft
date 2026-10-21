@@ -12,7 +12,9 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import logging
 import shutil
+import threading
 import time
 from typing import Any, Iterable, Literal
 
@@ -27,6 +29,8 @@ from . import hsds_cache
 from .transport import run_hsget
 from .h5image import H5ImageUnavailableError, materialize_image
 from .utils import _require_h5pyd, ensure_imas_hdf5_userblock
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "HSDSDomainCache",
@@ -173,13 +177,33 @@ class HSDSDomainCache:
         self.max_bytes: int | None = None
         self._manifest: dict[str, Any] = {"schema_version": 1, "domains": {}}
         if self.enabled:
-            self.max_bytes = hsds_cache.resolve_cache_max(cache_max).bytes
+            self.max_bytes = self._resolve_cap(cache_max)
             self.enabled = self.max_bytes != 0
         if self.enabled:
             self.base = hsds_cache.cache_base(cache)
             self.root = self._cache_root(cache)
             self.root.mkdir(parents=True, exist_ok=True)
+            hsds_cache.mark_owned(self.base)
             self._load_manifest()
+
+    @staticmethod
+    def _resolve_cap(cache_max: int | str | None) -> int | None:
+        """The cap; a bad *argument* raises, a bad environment or config file warns.
+
+        An unreadable ``$VAFT_HSDS_CACHE_MAX`` or config file is not the
+        caller's mistake and must not fail every load: the default applies.
+        """
+        if cache_max is not None:
+            return hsds_cache.resolve_cache_max(cache_max).bytes
+        try:
+            return hsds_cache.resolve_cache_max().bytes
+        except ValueError as error:
+            hsds_cache.report_once(
+                f"config:{error}",
+                "HSDS cache cap setting ignored (%s); using the %s default",
+                error, hsds_cache.format_size(hsds_cache.DEFAULT_CACHE_MAX),
+            )
+            return hsds_cache.DEFAULT_CACHE_MAX
 
     @staticmethod
     def _endpoint() -> str:
@@ -207,6 +231,9 @@ class HSDSDomainCache:
             payload = json.loads(self.manifest_path.read_text(encoding="utf-8"))
             if isinstance(payload, dict) and isinstance(payload.get("domains"), dict):
                 self._manifest = payload
+        except FileNotFoundError:
+            # Gone (eviction removed the shot's last domain): so are its records.
+            self._manifest = {"schema_version": 1, "domains": {}}
         except (OSError, ValueError):
             pass
 
@@ -214,8 +241,10 @@ class HSDSDomainCache:
         if not self.enabled:
             return
         self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        # Per process: two loaders of one shot must not share a temporary.
-        temporary = self.manifest_path.with_name(f"manifest.json.{os.getpid()}.tmp")
+        # Per process and thread: two loaders of one shot must not share a temporary.
+        temporary = self.manifest_path.with_name(
+            f"manifest.json.{os.getpid()}.{threading.get_ident()}.tmp"
+        )
         temporary.write_text(
             json.dumps(self._manifest, indent=2, sort_keys=True) + "\n"
         , encoding="utf-8")
@@ -350,16 +379,24 @@ class HSDSDomainCache:
                     "backend_version": None,
                 }
         cached = self.root / filename
-        with hsds_cache.cache_lock(self.base, exclusive=False):
-            hsds_cache.copy_in(target, cached)
-            hsds_cache.touch(cached)  # a just-written domain is the most recent
-            self._manifest["domains"][filename] = {
-                **remote,
-                "local_size": cached.stat().st_size,
-                "transport": used_transport,
-            }
-            self._write_manifest()
-        hsds_cache.enforce(self.base, self.max_bytes)
+        # The cache is best-effort: the domain is already in ``target``, so a
+        # failed copy-in or eviction is logged and never fails the load.
+        try:
+            with hsds_cache.cache_lock(self.base, exclusive=False):
+                hsds_cache.copy_in(target, cached)
+                hsds_cache.touch(cached)  # a just-written domain is the most recent
+                # Re-read first: another loader of this shot may have recorded
+                # domains since this one started, and must not lose them.
+                self._load_manifest()
+                self._manifest["domains"][filename] = {
+                    **remote,
+                    "local_size": cached.stat().st_size,
+                    "transport": used_transport,
+                }
+                self._write_manifest()
+            hsds_cache.enforce(self.base, self.max_bytes)
+        except OSError as error:
+            logger.warning("could not cache %s: %s", remote_uri, error)
 
 
 def stage_imas_shot(

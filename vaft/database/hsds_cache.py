@@ -9,8 +9,10 @@ Layout, under the cache base::
 
     <base>/<endpoint hash>/<source>/<shot>/{master.h5, <ids>.h5, manifest.json}
 
-The base is ``cache=<path>`` when given, otherwise ``$VAFT_CACHE_DIR/hsds``,
-``$XDG_CACHE_HOME/vaft/hsds`` or ``~/.cache/vaft/hsds``, in that order.
+The base is ``cache=<path>`` when given, otherwise ``$VAFT_CACHE_DIR/hsds`` or
+``~/.cache/vaft/hsds``. ``XDG_CACHE_HOME`` is deliberately not followed: the
+default never moved before the cap existed, and following it now would
+orphan an existing cache where no cap or ``vaft cache`` command could see it.
 
 **Cap.** Least-recently-used domains are evicted once the cache exceeds its
 cap, after every write. The cap is resolved, highest first, from
@@ -35,22 +37,31 @@ size.
 
 **Concurrency.** Readers and writers of cache files hold a shared lock on
 ``<base>/.lock``; eviction, pruning and clearing hold it exclusively, so a
-domain is never removed while another process is copying it in or out. The
-lock is ``fcntl.flock`` and therefore POSIX-only; on Windows it is a no-op.
+domain is never removed while another process is copying it in or out. Each
+writer copies through its own temporary file, so two writers of one domain
+never see each other's half-written copy. The lock is ``fcntl.flock`` and
+therefore POSIX-only; on Windows it is a no-op. The cache is best-effort: a
+failed cache write or eviction is logged and never fails the load.
 
-Only VAFT-owned files are touched: domain files (``*.h5``), their
-``manifest.json`` and the directories that held them, inside the cache base.
+**Ownership.** Only files VAFT wrote are ever removed: a domain counts when
+it sits in ``<endpoint hash>/<source>/<shot>/`` (a 16-hex-digit endpoint
+directory and a numeric shot directory) *and* is listed in that directory's
+``manifest.json``. A base other than the default one must also carry the
+``.vaft-hsds-cache`` marker that :class:`~vaft.database.staging.HSDSDomainCache`
+writes when it first uses the base; without it nothing is removed there.
 """
 
 from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
+import json
 import logging
 import os
 from pathlib import Path
 import re
 import shutil
+import tempfile
 import time
 from typing import Iterator
 
@@ -82,10 +93,14 @@ CACHE_DIR_ENV = "VAFT_CACHE_DIR"
 CONFIG_SECTION = "hsds"
 CONFIG_KEY = "cache_max"
 LOCK_NAME = ".lock"
+MARKER_NAME = ".vaft-hsds-cache"
+#: An interrupted write's temporary older than this is debris.
+STALE_PART_SECONDS = 3600.0
 MANIFEST_NAME = "manifest.json"
 
 _UNITS = {"": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}
-_SIZE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*([KMGT]?)(?:I?B)?\s*$", re.IGNORECASE)
+_SIZE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*(?:([KMGT])(?:I?B)?|B)?\s*$", re.IGNORECASE)
+_ENDPOINT_DIR = re.compile(r"^[0-9a-f]{16}$")
 _AGE_UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 7 * 86400}
 _AGE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*([smhdw])\s*$", re.IGNORECASE)
 _UNLIMITED = {"none", "unlimited", "inf", "infinity"}
@@ -117,7 +132,7 @@ def parse_size(value: int | str | None) -> int | None:
             "0 disables the cache, 'none' removes the cap)"
         )
     number, unit = match.groups()
-    return int(float(number) * _UNITS[unit.upper()])
+    return int(float(number) * _UNITS[(unit or "").upper()])
 
 
 def format_size(size: int | None) -> str:
@@ -150,9 +165,23 @@ def cache_base(cache: str | os.PathLike = "auto") -> Path:
         return Path(cache).expanduser()
     if os.environ.get(CACHE_DIR_ENV):
         return Path(os.environ[CACHE_DIR_ENV]).expanduser() / "hsds"
-    if os.environ.get("XDG_CACHE_HOME"):
-        return Path(os.environ["XDG_CACHE_HOME"]).expanduser() / "vaft" / "hsds"
     return Path.home() / ".cache" / "vaft" / "hsds"
+
+
+def mark_owned(base: Path) -> None:
+    """Record that ``base`` is a VAFT HSDS cache (see the module docstring)."""
+    marker = base / MARKER_NAME
+    if not marker.exists():
+        base.mkdir(parents=True, exist_ok=True)
+        marker.write_text(
+            "This directory is a disposable VAFT HSDS domain cache; "
+            "`vaft cache` may remove the domains listed in its manifests.\n",
+            encoding="utf-8",
+        )
+
+
+def _owned(base: Path) -> bool:
+    return (base / MARKER_NAME).is_file() or base == cache_base("auto")
 
 
 def config_path() -> Path:
@@ -167,13 +196,24 @@ def _read_config_value(path: Path) -> str | int | None:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return None
+    except OSError as error:
+        raise ValueError(f"cannot read {path}: {error.strerror or error}") from error
+    return _config_value(text, path)
+
+
+def _toml():
     try:
         import tomllib
     except ImportError:  # Python 3.10
         try:
             import tomli as tomllib  # type: ignore[no-redef]
         except ImportError:
-            tomllib = None
+            return None
+    return tomllib
+
+
+def _config_value(text: str, path: Path) -> str | int | None:
+    tomllib = _toml()
     if tomllib is not None:
         try:
             data = tomllib.loads(text)
@@ -238,10 +278,12 @@ def set_cache_max(value: int | str, path: Path | None = None) -> Path:
     """Persist ``hsds.cache_max`` in the user config file; returns the file.
 
     Other sections, keys and comments are kept: only the ``cache_max`` line of
-    the ``[hsds]`` table is replaced or added.
+    the ``[hsds]`` table is replaced or added. The result is parsed back before
+    it replaces the file; a layout this line editor cannot handle (an inline
+    or dotted ``hsds`` table, a quoted key) is refused, never written.
     """
-    parse_size(value)  # refuse a bad value before writing anything
-    path = config_path() if path is None else Path(path)
+    expected = parse_size(value)  # refuse a bad value before writing anything
+    path = (config_path() if path is None else Path(path)).resolve()  # keep a symlink
     text = str(value).strip() if not isinstance(value, int) else str(value)
     line = f"{CONFIG_KEY} = {text}" if text.isdigit() else f'{CONFIG_KEY} = "{text}"'
     try:
@@ -271,9 +313,24 @@ def set_cache_max(value: int | str, path: Path | None = None) -> Path:
             lines += [f"[{CONFIG_SECTION}]", line]
         else:
             lines.insert(start + 1, line)
+    text = "\n".join(lines) + "\n"
+    try:
+        written = _config_value(text, path)
+        problem = None if parse_size(written) == expected else f"it would read {written!r}"
+    except ValueError as error:
+        problem = str(error)
+    if problem is not None:
+        raise ValueError(
+            f"cannot set [{CONFIG_SECTION}] {CONFIG_KEY} in {path} automatically ({problem}); "
+            "edit the file by hand"
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(text, encoding="utf-8")
+    try:
+        shutil.copymode(path, temporary)
+    except OSError:
+        pass  # a new file keeps the default mode
     temporary.replace(path)
     return path
 
@@ -310,16 +367,35 @@ class CacheEntry:
     last_used: float
 
 
-def _shot_dirs(base: Path) -> Iterator[tuple[Path, str, str, int]]:
-    """Yield ``(shot_dir, endpoint, source, shot)`` for every cached shot."""
+def _listed_domains(manifest: Path) -> set[str]:
+    """Domain filenames a VAFT manifest records; empty for anything else."""
+    try:
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    if not isinstance(payload, dict) or "schema_version" not in payload:
+        return set()
+    domains = payload.get("domains")
+    if not isinstance(domains, dict):
+        return set()
+    return {name for name in domains if isinstance(name, str) and name.endswith(".h5") and Path(name).name == name}
+
+
+def _shot_dirs(base: Path) -> Iterator[tuple[Path, str, str, int, set[str]]]:
+    """Yield ``(shot_dir, endpoint, source, shot, listed domains)`` per cached shot."""
     if not base.is_dir():
         return
-    for manifest in base.rglob(MANIFEST_NAME):
-        shot_dir = manifest.parent
-        parts = shot_dir.relative_to(base).parts
-        if len(parts) < 3 or not parts[-1].isdigit():
-            continue  # not a VAFT cache shot directory; never touched
-        yield shot_dir, parts[0], "/".join(parts[1:-1]), int(parts[-1])
+    for endpoint_dir in base.iterdir():
+        if not endpoint_dir.is_dir() or not _ENDPOINT_DIR.match(endpoint_dir.name):
+            continue  # not an endpoint directory VAFT made; never touched
+        for manifest in endpoint_dir.rglob(MANIFEST_NAME):
+            shot_dir = manifest.parent
+            parts = shot_dir.relative_to(base).parts
+            if len(parts) < 3 or not parts[-1].isdigit():
+                continue
+            listed = _listed_domains(manifest)
+            if listed:
+                yield shot_dir, parts[0], "/".join(parts[1:-1]), int(parts[-1]), listed
 
 
 def entries(
@@ -331,12 +407,13 @@ def entries(
     """Every cached domain, oldest use first, optionally for one shot/source."""
     base = cache_base(cache)
     found: list[CacheEntry] = []
-    for shot_dir, endpoint, name, number in _shot_dirs(base):
+    for shot_dir, endpoint, name, number, listed in _shot_dirs(base):
         if shot is not None and number != int(shot):
             continue
         if source is not None and name != source.strip("/"):
             continue
-        for path in shot_dir.glob("*.h5"):
+        for filename in sorted(listed):
+            path = shot_dir / filename
             try:
                 stat = path.stat()
             except FileNotFoundError:
@@ -370,26 +447,54 @@ def _remove(entry: CacheEntry) -> bool:
         entry.path.unlink()
     except FileNotFoundError:
         return False
+    except OSError as error:  # open elsewhere (Windows), read-only volume, ...
+        logger.warning("could not remove cached domain %s: %s", entry.path, error)
+        return False
     _tidy(entry.path.parent)
     return True
 
 
+#: An interrupted write's debris in a shot directory (see ``copy_in`` and
+#: ``HSDSDomainCache._write_manifest``).
+_DEBRIS = ("manifest.tmp", "manifest.json.*.tmp", ".*.h5.*.part")
+
+
 def _tidy(shot_dir: Path) -> None:
-    """Drop a shot directory once its last domain is gone (manifest included)."""
-    if any(shot_dir.glob("*.h5")):
+    """Drop a shot directory once its last listed domain is gone."""
+    listed = _listed_domains(shot_dir / MANIFEST_NAME)
+    if any((shot_dir / name).exists() for name in listed):
         return
-    manifest = shot_dir / MANIFEST_NAME
+    for pattern in _DEBRIS:
+        for leftover in shot_dir.glob(pattern):
+            if time.time() - _mtime(leftover) > STALE_PART_SECONDS:
+                leftover.unlink(missing_ok=True)
     try:
-        manifest.unlink()
-    except FileNotFoundError:
+        (shot_dir / MANIFEST_NAME).unlink()
+    except OSError:
         pass
-    for pattern in ("manifest.tmp", "manifest.json.*.tmp", "*.h5.part"):
-        for leftover in shot_dir.glob(pattern):  # an interrupted write's debris
-            leftover.unlink(missing_ok=True)
     try:
         shot_dir.rmdir()
     except OSError:
-        pass  # something else lives here; leave it
+        pass  # something else lives here (or a write is in flight); leave it
+
+
+def _mtime(path: Path) -> float:
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return time.time()
+
+
+def _sweep_debris(base: Path) -> None:
+    """Remove stale temporaries an interrupted write left in owned shot dirs."""
+    for shot_dir, *_ in _shot_dirs(base):
+        for pattern in _DEBRIS:
+            for leftover in shot_dir.glob(pattern):
+                if time.time() - _mtime(leftover) > STALE_PART_SECONDS:
+                    try:
+                        leftover.unlink()
+                    except OSError:
+                        pass
 
 
 @dataclass(frozen=True)
@@ -441,8 +546,18 @@ def prune(
     base = cache_base(cache)
     if not base.is_dir():
         return PruneResult((), 0, 0)
+    _require_owned(base)
     with cache_lock(base, exclusive=True):
+        _sweep_debris(base)
         return _prune_locked(base, limit, age, time.time())
+
+
+def _require_owned(base: Path) -> None:
+    if not _owned(base):
+        raise ValueError(
+            f"{base} is not marked as a VAFT HSDS cache ({MARKER_NAME} is missing); "
+            "refusing to remove anything there"
+        )
 
 
 def clear(
@@ -455,6 +570,7 @@ def clear(
     base = cache_base(cache)
     if not base.is_dir():
         return PruneResult((), 0, 0)
+    _require_owned(base)
     with cache_lock(base, exclusive=True):
         removed = tuple(e for e in entries(base, shot=shot, source=source) if _remove(e))
         remaining = sum(e.size for e in entries(base))
@@ -462,12 +578,20 @@ def clear(
 
 
 # -- used by HSDSDomainCache -----------------------------------------------
-_too_large_reported: set[str] = set()
+_reported: set[str] = set()
+
+
+def report_once(key: str, message: str, *args) -> None:
+    """Log a warning once per process for ``key``."""
+    if key in _reported:
+        return
+    _reported.add(key)
+    logger.warning(message, *args)
 
 
 def enforce(base: Path, max_bytes: int | None) -> PruneResult | None:
     """Evict down to ``max_bytes`` after a write (no-op when unlimited)."""
-    if max_bytes is None or not base.is_dir():
+    if max_bytes is None or not base.is_dir() or not _owned(base):
         return None
     with cache_lock(base, exclusive=True):
         result = _prune_locked(base, max_bytes, None, time.time())
@@ -481,10 +605,8 @@ def enforce(base: Path, max_bytes: int | None) -> PruneResult | None:
 
 def report_too_large(uri: str, size: int, max_bytes: int) -> None:
     """Log once per domain that it is read without being cached."""
-    if uri in _too_large_reported:
-        return
-    _too_large_reported.add(uri)
-    logger.warning(
+    report_once(
+        f"too-large:{uri}",
         "%s (%s) is larger than the HSDS cache cap (%s); read without caching",
         uri, format_size(size), format_size(max_bytes),
     )
@@ -499,8 +621,20 @@ def touch(path: Path) -> None:
 
 
 def copy_in(source: Path, destination: Path) -> None:
-    """Write a domain into the cache atomically (never a half-written file)."""
+    """Write a domain into the cache atomically (never a half-written file).
+
+    Each writer copies through its own temporary, so two processes or threads
+    caching the same domain at once each replace a complete file.
+    """
     destination.parent.mkdir(parents=True, exist_ok=True)
-    partial = destination.with_name(destination.name + ".part")
-    shutil.copyfile(source, partial)
-    partial.replace(destination)
+    handle, name = tempfile.mkstemp(
+        dir=destination.parent, prefix=f".{destination.name}.", suffix=".part"
+    )
+    os.close(handle)
+    partial = Path(name)
+    try:
+        shutil.copyfile(source, partial)
+        partial.replace(destination)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise

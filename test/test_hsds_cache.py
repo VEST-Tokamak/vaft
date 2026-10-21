@@ -7,6 +7,7 @@ cache lives under ``tmp_path``.
 from __future__ import annotations
 
 import io
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -29,9 +30,10 @@ def isolated(monkeypatch, tmp_path):
     """No real cache, config file or environment setting leaks into a test."""
     monkeypatch.delenv(hsds_cache.CACHE_MAX_ENV, raising=False)
     monkeypatch.delenv(hsds_cache.CACHE_DIR_ENV, raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))  # never the real cache
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg-cache"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg-config"))
-    hsds_cache._too_large_reported.clear()
+    hsds_cache._reported.clear()
 
 
 # -- sizes and precedence ----------------------------------------------------
@@ -54,7 +56,7 @@ def test_sizes_parse(text, expected):
     assert hsds_cache.parse_size(text) == expected
 
 
-@pytest.mark.parametrize("text", ["", "lots", "-5", "5X", True])
+@pytest.mark.parametrize("text", ["", "lots", "-5", "5X", "5iB", True])
 def test_bad_sizes_are_refused(text):
     with pytest.raises(ValueError):
         hsds_cache.parse_size(text)
@@ -112,6 +114,48 @@ def test_set_limit_adds_the_table_when_missing():
     assert hsds_cache.resolve_cache_max().bytes == 0
 
 
+@pytest.mark.parametrize(
+    "layout",
+    [
+        'hsds.endpoint = "x"\n',
+        'hsds = { endpoint = "x" }\n',
+        '[hsds]\n"cache_max" = 5\n',
+        '[hsds]\nnote = """\ncache_max = 1\n"""\n',
+    ],
+)
+def test_set_limit_refuses_a_layout_it_cannot_edit(layout):
+    pytest.importorskip("tomllib")
+    path = hsds_cache.config_path()
+    path.parent.mkdir(parents=True)
+    path.write_text(layout, encoding="utf-8")
+    with pytest.raises(ValueError, match="edit the file by hand"):
+        hsds_cache.set_cache_max("2G")
+    assert path.read_text(encoding="utf-8") == layout
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="symlinks and modes")
+def test_set_limit_writes_through_a_symlink_and_keeps_the_mode(tmp_path):
+    real = tmp_path / "dotfiles" / "vaft.toml"
+    real.parent.mkdir()
+    real.write_text("[plot]\n", encoding="utf-8")
+    real.chmod(0o600)
+    link = hsds_cache.config_path()
+    link.parent.mkdir(parents=True)
+    link.symlink_to(real)
+    hsds_cache.set_cache_max("2G")
+    assert link.is_symlink() and "cache_max" in real.read_text(encoding="utf-8")
+    assert real.stat().st_mode & 0o777 == 0o600
+
+
+def test_a_broken_setting_warns_and_loads_with_the_default(monkeypatch, caplog):
+    monkeypatch.setenv(hsds_cache.CACHE_MAX_ENV, "plenty")
+    with caplog.at_level("WARNING", logger="vaft.database.hsds_cache"):
+        assert staging.HSDSDomainCache._resolve_cap(None) == hsds_cache.DEFAULT_CACHE_MAX
+    assert "VAFT_HSDS_CACHE_MAX" in caplog.text
+    with pytest.raises(ValueError):  # the caller's own argument is still checked
+        staging.HSDSDomainCache._resolve_cap("plenty")
+
+
 def test_set_limit_refuses_a_bad_value_without_writing():
     with pytest.raises(ValueError):
         hsds_cache.set_cache_max("big")
@@ -119,17 +163,31 @@ def test_set_limit_refuses_a_bad_value_without_writing():
 
 
 def test_the_cache_location_is_relocatable(monkeypatch, tmp_path):
-    assert hsds_cache.cache_base() == tmp_path / "xdg-cache" / "vaft" / "hsds"
+    # XDG_CACHE_HOME is set by the fixture and deliberately not followed: the
+    # default never moved before the cap, and an existing cache must stay seen.
+    assert hsds_cache.cache_base() == tmp_path / "home" / ".cache" / "vaft" / "hsds"
     monkeypatch.setenv(hsds_cache.CACHE_DIR_ENV, str(tmp_path / "big-volume"))
     assert hsds_cache.cache_base() == tmp_path / "big-volume" / "hsds"
     assert hsds_cache.cache_base(tmp_path / "mine") == tmp_path / "mine"
 
 
 # -- a fake cache on disk ----------------------------------------------------
+ENDPOINT = "0123456789abcdef"
+
+
 def _domain(base: Path, source: str, shot: int, name: str, size: int, age: float) -> Path:
-    shot_dir = base / "endpointhash" / source / str(shot)
+    """Lay out one domain exactly as HSDSDomainCache does (marker, manifest record)."""
+    hsds_cache.mark_owned(base)
+    shot_dir = base / ENDPOINT / source / str(shot)
     shot_dir.mkdir(parents=True, exist_ok=True)
-    (shot_dir / "manifest.json").write_text('{"domains": {}}', encoding="utf-8")
+    manifest = shot_dir / "manifest.json"
+    payload = (
+        json.loads(manifest.read_text(encoding="utf-8"))
+        if manifest.exists()
+        else {"schema_version": 1, "domains": {}}
+    )
+    payload["domains"][f"{name}.h5"] = {"local_size": size}
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
     path = shot_dir / f"{name}.h5"
     path.write_bytes(b"x" * size)
     stamp = time.time() - age
@@ -182,15 +240,74 @@ def test_clear_narrows_by_shot_and_source(tmp_path):
 def test_cleanup_never_touches_files_it_does_not_own(tmp_path):
     base = tmp_path / "cache"
     _domain(base, "main", 1, "master", KiB, age=10)
-    stray = base / "notes" / "data.h5"  # no manifest: not a VAFT cache shot
-    stray.parent.mkdir(parents=True)
-    stray.write_bytes(b"keep")
-    (base / "endpointhash" / "main" / "1" / "README").write_text("keep", encoding="utf-8")
+    keep = []
+    # no manifest; a foreign manifest in a non-endpoint directory; an unlisted
+    # .h5 beside a VAFT manifest; a non-.h5 file in a VAFT shot directory
+    for relative in ("notes/data.h5", "runs/a/12345/data.h5", f"{ENDPOINT}/main/1/mine.h5",
+                     f"{ENDPOINT}/main/1/README"):
+        path = base / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"keep")
+        keep.append(path)
+    (base / "runs/a/12345/manifest.json").write_text(
+        '{"schema_version": 1, "domains": {"data.h5": {}}}', encoding="utf-8"
+    )
 
     hsds_cache.clear(base)
+    hsds_cache.prune(0, cache=base)
 
-    assert stray.exists()
-    assert (base / "endpointhash" / "main" / "1" / "README").exists()
+    assert all(path.exists() for path in keep)
+    assert hsds_cache.entries(base) == []
+
+
+def test_an_unmarked_custom_base_is_never_cleaned(tmp_path):
+    base = tmp_path / "my-runs"
+    _domain(base, "main", 1, "master", KiB, age=10)
+    (base / hsds_cache.MARKER_NAME).unlink()
+    with pytest.raises(ValueError, match="not marked"):
+        hsds_cache.clear(base)
+    with pytest.raises(ValueError, match="not marked"):
+        hsds_cache.prune(0, cache=base)
+    assert hsds_cache.enforce(base, 0) is None
+    assert len(hsds_cache.entries(base)) == 1
+
+
+def test_the_default_base_needs_no_marker(tmp_path):
+    base = hsds_cache.cache_base()
+    _domain(base, "main", 1, "master", KiB, age=10)
+    (base / hsds_cache.MARKER_NAME).unlink()
+    assert len(hsds_cache.clear().removed) == 1
+
+
+def test_a_domain_that_cannot_be_removed_is_skipped(tmp_path, monkeypatch, caplog):
+    base = tmp_path / "cache"
+    stuck = _domain(base, "main", 1, "master", 40 * KiB, age=300)
+    other = _domain(base, "main", 2, "master", 40 * KiB, age=200)
+    real_unlink = Path.unlink
+
+    def unlink(self, *args, **kwargs):
+        if self == stuck:
+            raise PermissionError(13, "in use")
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+    with caplog.at_level("WARNING", logger="vaft.database.hsds_cache"):
+        result = hsds_cache.prune(0, cache=base)
+    assert [entry.path for entry in result.removed] == [other]
+    assert stuck.exists() and "could not remove" in caplog.text
+
+
+def test_stale_write_debris_is_swept(tmp_path):
+    base = tmp_path / "cache"
+    domain = _domain(base, "main", 1, "master", KiB, age=10)
+    stale = domain.parent / ".master.h5.abc.part"
+    fresh = domain.parent / ".master.h5.def.part"
+    for path in (stale, fresh):
+        path.write_bytes(b"half")
+    old = time.time() - 2 * hsds_cache.STALE_PART_SECONDS
+    os.utime(stale, (old, old))
+    hsds_cache.prune("none", cache=base)
+    assert not stale.exists() and fresh.exists()
 
 
 def test_info_reports_size_cap_and_its_source(tmp_path, monkeypatch):
@@ -316,9 +433,10 @@ def test_concurrent_writers_keep_the_cache_consistent(tmp_path):
             staging.run_hsget = hsget
             staging.ensure_imas_hdf5_userblock = lambda *a, **k: None
             for shot in range(12):
-                store = staging.HSDSDomainCache("main", shot, base, "100K")
-                store.materialize(f"w{worker}.h5", base.parent / f"stage{worker}" / str(shot),
-                                  transport="canonical")
+                for name in ("shared", f"w{worker}"):  # one domain both write
+                    store = staging.HSDSDomainCache("main", shot % 4, base, "100K")
+                    store.materialize(f"{name}.h5", base.parent / f"stage{worker}" / str(shot),
+                                      transport="canonical")
             """
         ),
         encoding="utf-8",
@@ -335,7 +453,29 @@ def test_concurrent_writers_keep_the_cache_consistent(tmp_path):
     for entry in items:
         with h5py.File(entry.path, "r"):  # never a half-written domain
             pass
+        record = json.loads((entry.path.parent / "manifest.json").read_text(encoding="utf-8"))
+        assert record["domains"][entry.filename]["local_size"] == entry.size
     assert not list(base.rglob("*.part"))
+
+
+def test_a_failed_cache_write_does_not_fail_the_load(fake_hsds, tmp_path, monkeypatch, caplog):
+    def broken(source, destination):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(hsds_cache, "copy_in", broken)
+    with caplog.at_level("WARNING", logger="vaft.database.staging"):
+        assert _fetch(tmp_path / "cache", 1, "a", tmp_path, "none") is False
+    assert (tmp_path / "stage" / "1" / "a.h5").is_file()
+    assert "could not cache" in caplog.text
+
+
+def test_two_loaders_of_one_shot_keep_each_others_records(fake_hsds, tmp_path):
+    base = tmp_path / "cache"
+    first = staging.HSDSDomainCache("main", 1, base, "none")
+    second = staging.HSDSDomainCache("main", 1, base, "none")
+    first.materialize("a.h5", tmp_path / "s1", transport="canonical")
+    second.materialize("b.h5", tmp_path / "s2", transport="canonical")
+    assert sorted(entry.filename for entry in hsds_cache.entries(base)) == ["a.h5", "b.h5"]
 
 
 # -- the CLI ----------------------------------------------------------------------

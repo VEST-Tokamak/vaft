@@ -315,8 +315,7 @@ selected leaves from the canonical IDS domain and currently supports occurrence
 ### The local HSDS cache
 
 `cache="auto"` (the default) keeps every validated domain it downloads in a persistent local cache,
-`~/.cache/vaft/hsds` (or `$VAFT_CACHE_DIR/hsds`, then `$XDG_CACHE_HOME/vaft/hsds`, when set). The
-cache is disposable: every entry is checked against the server's revision before use and is
+`~/.cache/vaft/hsds`, or `$VAFT_CACHE_DIR/hsds` when that is set. The cache is disposable: every entry is checked against the server's revision before use and is
 fetched again when missing, so it is never the source of truth. `cache="off"` always downloads;
 `cache=<path>` uses another base directory.
 
@@ -343,12 +342,20 @@ vaft cache set-limit 5G         # persist the cap in the user config file
 ```
 
 The same operations are available from Python in `vaft.database.hsds_cache` (`info`, `entries`,
-`prune`, `clear`, `set_cache_max`). They touch only cached domain files, their `manifest.json` and
-the directories that held them, never other files under the cache directory or user data given by
-`path=`/`local_dir=`. Recency is the file modification time, which VAFT sets on every hit and
-write, so `noatime` mounts do not matter. Copies into and out of the cache and every eviction are
-serialized by a lock file in the cache directory. That lock is POSIX-only: on Windows two
-processes sharing a capped cache are not serialized.
+`prune`, `clear`, `set_cache_max`).
+
+- **What can be removed.** Only domains VAFT wrote: a file in an `<endpoint hash>/<source>/<shot>/`
+  directory that the directory's `manifest.json` lists. A `cache=<path>` base other than the default
+  must also carry the `.vaft-hsds-cache` marker, which the first `load()` using it writes. Other
+  files under the cache directory, and data given by `path=`/`local_dir=`, are never touched.
+- **Recency.** It is the file modification time, which VAFT sets on every hit and write, so
+  `noatime` mounts do not matter.
+- **Concurrency.** Copies into and out of the cache, and every eviction, are serialized by a lock
+  file in the cache directory. That lock is POSIX-only: on Windows two processes sharing a capped
+  cache are not serialized.
+- **Failures.** The cache is best-effort. A failed cache write or eviction is logged and the load
+  still returns its data. An unreadable `VAFT_HSDS_CACHE_MAX` or config file is logged and the
+  default cap applies.
 
 Canonical IMAS images remain authoritative after a save. The default
 `derived_cache="auto"` also creates per-IDS images; the historical full-ODS
