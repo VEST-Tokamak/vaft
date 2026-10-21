@@ -1047,3 +1047,9 @@ def test_diamagnetic_helpers_reject_degenerate_inputs():
         beta_p_diamagnetic_from_flux_elliptic(1e-4, 0.15, 1e5, 0.0)
     with pytest.raises(ValueError, match="perimeter"):
         stored_energy_diamagnetic_from_beta_p_geometry(1.0, 1.0, 1e5, 0.0)
+    with pytest.raises(ValueError, match="volume"):
+        stored_energy_diamagnetic_from_beta_p_geometry(1.0, 0.0, 1e5, 2.0)
+    with pytest.raises(ValueError, match="R0"):
+        stored_energy_diamagnetic_from_beta_p_circular(1.0, -0.4, 1e5)
+    with pytest.raises(ValueError, match="finite"):
+        beta_p_diamagnetic_from_flux_circular(np.nan, 0.15, 1e5)
