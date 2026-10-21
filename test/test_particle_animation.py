@@ -12,6 +12,13 @@ from PIL import Image
 import pytest
 
 import vaft.diagram as diagram
+from vaft.data.particle import (
+    TIMEBASE_SCHEMA,
+    decode_timebase,
+    encode_timebase,
+    particle_provenance_record,
+    native_timebases,
+)
 from vaft.plot import ParticleOrbitView, particle_overview
 from vaft.process.particle import particle_motion_case
 
@@ -82,7 +89,11 @@ def test_gif_and_provenance_are_deterministic(experiment, tmp_path):
         assert image.n_frames == 3
     metadata = json.loads((tmp_path / "first.gif.json").read_text())
     assert metadata["driver"]["values"] == [0.0, 1.0, 3.0]
-    assert metadata["options"]["native_full_time_s"] == experiment.full.time.tolist()
+    full_time, gc_time = native_timebases(metadata["options"])
+    assert np.array_equal(full_time, experiment.full.time)
+    assert np.array_equal(gc_time, experiment.guiding_center.time)
+    assert "native_full_time_s" not in metadata["options"]  # one copy, under experiment
+    assert metadata["options"]["experiment"]["timebase_schema"] == TIMEBASE_SCHEMA
     assert metadata["options"]["field"]["units"] == "SI"
     assert metadata["options"]["full_orbit"]["charge_C"] == experiment.full.charge
     assert metadata["options"]["guiding_center"]["solver"]["method"] == "DOP853"
@@ -231,3 +242,50 @@ def test_guiding_center_trail_does_not_follow_adaptive_nodes(case):
     shifted = replace(gc, time=time, position=sampled["position"], p_parallel=sampled["p_parallel"])
     end = float(gc.time[-1])
     np.testing.assert_allclose(_trail(gc, end), _trail(shifted, end), rtol=0, atol=5e-6)
+
+
+def test_equation_rows_stay_single_height():
+    """The rows sit 0.45 units apart; a stacked \\frac in either collides with
+    its neighbour (cold review of #2045). Fails if a catalog edit defeats the
+    inline rewrite."""
+    from vaft.diagram._particle_states import _equation_labels
+
+    assert all(r"\frac" not in row for row in _equation_labels())
+
+
+@pytest.mark.parametrize(
+    "case", ["gyration", "grad_b_drift", "magnetic_mirror", "tokamak_trapped", "symmetry_breaking"]
+)
+def test_fixed_step_timebase_is_stored_as_its_exact_recurrence(case):
+    """Lossless only: the compact form is accepted when it replays the Boris
+    timestamps bit for bit (t0 + i*dt does not; the integrator accumulates)."""
+    experiment = particle_motion_case(case)
+    record = json.loads(json.dumps(particle_provenance_record(experiment)))
+    stored = record["native_full_time_s"]
+    assert isinstance(stored, dict) and stored["rule"] == "accumulate"
+    assert np.array_equal(decode_timebase(stored), experiment.full.time)
+    assert record["native_gc_time_s"] == experiment.guiding_center.time.tolist()
+
+
+def test_a_timebase_the_recurrence_cannot_reproduce_is_kept_in_full():
+    time = 0.05 * np.arange(10)  # affine, not the accumulated sums
+    accumulated = decode_timebase({"rule": "accumulate", "t0": 0.0, "dt": 0.05, "end": 0.45, "count": 10})
+    assert not np.array_equal(time, accumulated)
+    assert encode_timebase(time, dt=0.05, end=0.45) == time.tolist()
+    assert encode_timebase(time) == time.tolist()
+
+
+@pytest.mark.parametrize("layout", ["both", "top_level", "experiment", "schema_2"])
+def test_old_and_new_sidecar_layouts_give_the_same_timebases(layout):
+    experiment = particle_motion_case("gyration")
+    full, gc = experiment.full.time.tolist(), experiment.guiding_center.time.tolist()
+    legacy = {"native_full_time_s": full, "native_gc_time_s": gc}
+    options = {
+        "both": {**legacy, "experiment": dict(legacy)},
+        "top_level": {**legacy, "experiment": {}},
+        "experiment": {"experiment": dict(legacy)},
+        "schema_2": {"experiment": particle_provenance_record(experiment)},
+    }[layout]
+    full_time, gc_time = native_timebases(json.loads(json.dumps(options)))
+    assert np.array_equal(full_time, experiment.full.time)
+    assert np.array_equal(gc_time, experiment.guiding_center.time)
