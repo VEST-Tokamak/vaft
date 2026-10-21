@@ -25,7 +25,8 @@ import fnmatch
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import re
 import shutil
 import subprocess
 import sys
@@ -74,11 +75,45 @@ def load_lock(docs: Path) -> dict | None:
     for key in ("repository", "release", "include", "files"):
         if key not in data:
             raise MediaError(f"{lock}: missing {key!r}")
+    for path, entry in data["files"].items():
+        problem = _invalid_entry(path, entry, data["include"])
+        if problem:
+            raise MediaError(f"{lock}: {path!r}: {problem}")
     return data
 
 
 def _matches(path: str, include: list[str]) -> bool:
-    return any(fnmatch.fnmatchcase(path, pattern) for pattern in include)
+    """Gitignore-style: ``*`` never crosses ``/``, so the lock and .gitignore agree."""
+    parts = PurePosixPath(path).parts
+    for pattern in include:
+        pieces = PurePosixPath(pattern).parts
+        if len(pieces) == len(parts) and all(
+            fnmatch.fnmatchcase(part, piece) for part, piece in zip(parts, pieces)
+        ):
+            return True
+    return False
+
+
+def _invalid_entry(path: str, entry: dict, include: list[str]) -> str | None:
+    """Why a lock entry is unsafe or malformed, or None.
+
+    The lock decides where bytes are written, so a path must stay inside docs/
+    and inside the declared ``include`` (a lock entry must never be able to
+    replace a committed page such as _config.yml).
+    """
+    pure = PurePosixPath(path)
+    if pure.is_absolute() or ".." in pure.parts or "\\" in path:
+        return "path must be relative and stay inside docs/"
+    if not _matches(path, include):
+        return "path is not covered by the lock's include patterns"
+    sha256 = entry.get("sha256", "")
+    if not re.fullmatch(r"[0-9a-f]{64}", sha256):
+        return "sha256 must be 64 lowercase hex digits"
+    if not isinstance(entry.get("bytes"), int) or entry["bytes"] < 0:
+        return "bytes must be a non-negative integer"
+    if entry.get("asset") != asset_name(sha256, path):
+        return "asset must be <sha256[:16]>-<file name>"
+    return None
 
 
 def _verified(path: Path, entry: dict) -> bool:
@@ -129,11 +164,15 @@ def ensure_cached(lock: dict, path: str, cache: Path, *, offline: bool = False) 
     return cached
 
 
-def materialize(docs: Path, cache: Path | None = None, *, offline: bool = False) -> list[str]:
+def materialize(
+    docs: Path, cache: Path | None = None, *, offline: bool = False, force: bool = False
+) -> list[str]:
     """Place every locked file under ``docs``; return the paths that were placed.
 
-    A file already present with the locked digest is left alone.  Every failure
-    is collected first, so one run names everything that is missing.
+    A file already present with the locked digest is left alone.  One present
+    with *other* bytes is most likely a fresh regeneration that has not been
+    re-locked yet, so it is reported, not overwritten, unless ``force``.  Every
+    failure is collected first, so one run names everything that is wrong.
     """
     lock = load_lock(docs)
     if lock is None:
@@ -143,6 +182,12 @@ def materialize(docs: Path, cache: Path | None = None, *, offline: bool = False)
     for path, entry in sorted(lock["files"].items()):
         target = docs / path
         if _verified(target, entry):
+            continue
+        if target.exists() and not force:
+            failures.append(
+                f"{path}: present but differs from the lock (regenerated? run "
+                "`media.py lock`; or `media.py fetch --force` to restore the locked copy)"
+            )
             continue
         try:
             source = ensure_cached(lock, path, cache, offline=offline)
@@ -156,8 +201,8 @@ def materialize(docs: Path, cache: Path | None = None, *, offline: bool = False)
         raise MediaError(
             "documentation media could not be materialized:\n  "
             + "\n  ".join(failures)
-            + "\nThese files live outside git (docs/media.lock.json). Fetch them once with "
-            "network access:\n    python docs/scripts/media.py fetch\n"
+            + "\nThese files live outside git (docs/media.lock.json). Fetch missing ones "
+            "once with network access:\n    python docs/scripts/media.py fetch\n"
             f"(cache: {cache}; set VAFT_DOCS_MEDIA_CACHE to share one)"
         )
     return placed
@@ -233,11 +278,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=("fetch", "verify", "lock", "upload"))
     parser.add_argument("--docs", type=Path, default=DOCS, help="docs directory (default: this one)")
-    parser.add_argument("--cache", type=Path, default=None, help="media cache (default: %(default)s)")
+    parser.add_argument("--cache", type=Path, default=None,
+                        help="media cache (default: $VAFT_DOCS_MEDIA_CACHE or ~/.cache/vaft-docs-media)")
+    parser.add_argument("--force", action="store_true",
+                        help="fetch: replace local files that differ from the lock")
     arguments = parser.parse_args(argv)
     try:
         if arguments.command == "fetch":
-            placed = materialize(arguments.docs, arguments.cache)
+            placed = materialize(arguments.docs, arguments.cache, force=arguments.force)
             print(f"{len(placed)} file(s) placed; all locked media present")
         elif arguments.command == "verify":
             problems = verify(arguments.docs)

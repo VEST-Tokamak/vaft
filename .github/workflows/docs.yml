@@ -93,8 +93,10 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/vaft-docs-media
-          # Content-addressed by SHA-256, so one growing cache serves every lock.
-          key: docs-media-${{ hashFiles('docs/media.lock.json') }}
+          # Content-addressed by SHA-256, so one growing cache serves both
+          # tracks' locks. A per-run key always saves what this run fetched
+          # (hashFiles would only see the checked-out ref's lock).
+          key: docs-media-${{ github.run_id }}
           restore-keys: docs-media-
 
       - name: Build and validate both documentation tracks
@@ -189,8 +191,10 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/vaft-docs-media
-          # Content-addressed by SHA-256, so one growing cache serves every lock.
-          key: docs-media-${{ hashFiles('docs/media.lock.json') }}
+          # Content-addressed by SHA-256, so one growing cache serves both
+          # tracks' locks. A per-run key always saves what this run fetched
+          # (hashFiles would only see the checked-out ref's lock).
+          key: docs-media-${{ github.run_id }}
           restore-keys: docs-media-
 
       - name: Build, compose and publish the whole site

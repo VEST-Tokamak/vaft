@@ -66,7 +66,7 @@ def test_the_committed_lock_is_well_formed(media):
     lock = media.load_lock(ROOT / "docs")
     assert lock is not None and lock["release"] == "docs-media" and "base_url" not in lock
     for path, entry in lock["files"].items():
-        assert any(Path(path).match(p) for p in lock["include"]), path
+        assert media._matches(path, lock["include"]), path
         assert entry["asset"] == media.asset_name(entry["sha256"], path)
         assert len(entry["sha256"]) == 64 and entry["bytes"] > 0
 
@@ -158,3 +158,70 @@ def test_composed_validation_checks_locked_media(build, release, tmp_path):
         build.validate_composed(tmp_path / "composed", [track])
     assert "locked media assets/demo/a.gif does not match its sha256" in str(failure.value)
     assert "locked media assets/demo/a.gif.json is not in the composed tree" in str(failure.value)
+
+
+def test_the_gitignore_mirrors_the_include_patterns(media):
+    """The lock's include and docs/.gitignore must name the same files, or a
+    locked file could also be committed (or an ignored one never be locked)."""
+    lock = media.load_lock(ROOT / "docs")
+    ignored = {
+        line.strip().lstrip("/")
+        for line in (ROOT / "docs" / ".gitignore").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    }
+    assert set(lock["include"]) <= ignored
+
+
+def test_star_does_not_cross_directories(media):
+    assert media._matches("assets/demo/a.gif", ["assets/demo/*.gif"])
+    assert not media._matches("assets/demo/sub/a.gif", ["assets/demo/*.gif"])
+
+
+@pytest.mark.parametrize("path, problem", [
+    ("../outside.gif", "stay inside docs"),
+    ("/abs/a.gif", "stay inside docs"),
+    ("_config.yml", "include patterns"),
+])
+def test_an_unsafe_lock_path_is_refused(media, release, path, problem):
+    docs, _, lock = release
+    entry = dict(next(iter(lock["files"].values())))
+    entry["asset"] = media.asset_name(entry["sha256"], path)
+    lock["files"][path] = entry
+    (docs / "media.lock.json").write_text(json.dumps(lock), encoding="utf-8")
+    with pytest.raises(media.MediaError, match=problem):
+        media.load_lock(docs)
+
+
+@pytest.mark.parametrize("field, value, problem", [
+    ("sha256", "../../etc", "64 lowercase hex"),
+    ("asset", "../evil.gif", "asset must be"),
+    ("bytes", -1, "non-negative"),
+])
+def test_a_malformed_lock_entry_is_refused(media, release, field, value, problem):
+    docs, _, lock = release
+    lock["files"]["assets/demo/a.gif"][field] = value
+    (docs / "media.lock.json").write_text(json.dumps(lock), encoding="utf-8")
+    with pytest.raises(media.MediaError, match=problem):
+        media.load_lock(docs)
+
+
+def test_a_regenerated_local_file_is_not_overwritten(media, release, tmp_path):
+    """A fresh regeneration that is not re-locked yet must survive a preview."""
+    docs, _, lock = release
+    media.materialize(docs, tmp_path / "cache")
+    fresh = docs / "assets/demo/a.gif"
+    fresh.write_bytes(b"GIF89a-regenerated")
+    with pytest.raises(media.MediaError, match="present but differs from the lock"):
+        media.materialize(docs, tmp_path / "cache")
+    assert fresh.read_bytes() == b"GIF89a-regenerated"
+    assert media.materialize(docs, tmp_path / "cache", force=True) == ["assets/demo/a.gif"]
+    assert media.verify(docs) == []
+
+
+def test_an_unreadable_lock_fails_composed_validation_cleanly(build, release, tmp_path):
+    docs, _, _ = release
+    (docs / "media.lock.json").write_text('{"schema_version": 99}', encoding="utf-8")
+    track = build.Track(spec=build.TRACKS["development"], ref="x", commit="b" * 40,
+                        commit_date="2026-01-01", root=docs.parent)
+    with pytest.raises(build.BuildError, match="unreadable media lock"):
+        build.validate_composed(tmp_path / "composed", [track])

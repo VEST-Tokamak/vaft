@@ -183,7 +183,7 @@ npm run test:docs:develop
 ```
 
 `npm run data` (and so `npm run docs:serve`) also places the media kept outside
-git; see below.
+git; see "Media kept outside git" above.
 
 `_data/vest_diagnostics.yml`, `_data/formula_catalog.yml`,
 `_data/process_catalog.yml`, `_data/plot_catalog.yml`,

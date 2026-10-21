@@ -549,7 +549,11 @@ def validate_composed(tree: Path, tracks: list[Track]) -> float:
 
     media = _media()
     for track in tracks:
-        lock = media.load_lock(track.docs) if track.root is not None else None
+        try:
+            lock = media.load_lock(track.docs) if track.root is not None else None
+        except (media.MediaError, ValueError) as error:
+            problems.append(f"{track.name}: unreadable media lock: {error}")
+            continue
         for path, entry in sorted((lock or {}).get("files", {}).items()):
             published = tree / track.spec.prefix / path if track.spec.prefix else tree / path
             if not published.is_file():
