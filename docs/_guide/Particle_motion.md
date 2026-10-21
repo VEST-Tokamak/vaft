@@ -81,6 +81,11 @@ labels stochasticity as unestablished.
 
 The [artifact manifest]({{ site.baseurl }}/assets/particle-motion/manifest.json)
 links all six families to static SVGs, animations and quantitative panels.
+The mirror and invariants families share one experiment and so one panel image.
+Some manifest diagnostics are not meaningful for every family. `orbit_class` is
+`no_resolved_turn` for the cartesian and full-gc runs, which have no turning
+point to classify. `gc_P_phi_residual_max` is large for symmetry-breaking,
+because a 3-D field does not conserve `P_phi`; it is not a numerical error.
 
 ## Physics and numerical contracts
 

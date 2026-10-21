@@ -6,6 +6,7 @@ module only selects, projects and annotates the resulting scientific states.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -47,6 +48,9 @@ def _equation_labels():
     star = star.replace(r"\mathbf B", r"\mathbf{B}").replace(
         r"\mathbf b", r"\mathbf{b}"
     )
+    # The rows sit 0.45 units apart: stacked \frac collide, so show them inline.
+    lorentz = lorentz.replace(r"\frac{\mathrm{d}\mathbf{v}}{\mathrm{d}t}", r"\dot{\mathbf{v}}")
+    star = re.sub(r"\\frac\{([^{}]*)\}\{([^{}]*)\}", r"(\1/\2)", star)
     return lorentz, star
 
 

@@ -45,6 +45,7 @@ EXAMPLES = (
 def generate(output, frames=12, dpi=55):
     output.mkdir(parents=True, exist_ok=True)
     experiments = {}
+    panels = {}
     rows = []
     for slug, kind, builder in EXAMPLES:
         print(f"Computing {slug}: {kind}", flush=True)
@@ -60,16 +61,12 @@ def generate(output, frames=12, dpi=55):
             if kind == "magnetic_mirror"
             else ("poloidal" if kind.startswith("tokamak") else "3d")
         )
-        function(trajectory=experiment, time=end, projection=projection).save(
-            output / f"{slug}.svg"
-        ) if builder in ("gyration", "magnetic_mirror", "grad_b_drift") else function(
-            trajectory=experiment, time=end
-        ).save(output / f"{slug}.svg")
         options = (
             {"projection": projection}
             if builder in ("gyration", "magnetic_mirror", "grad_b_drift")
             else {}
         )
+        function(trajectory=experiment, time=end, **options).save(output / f"{slug}.svg")
         movie = function(
             trajectory=experiment, time=times, animation=True, fps=8, dpi=dpi, **options
         )
@@ -85,9 +82,12 @@ def generate(output, frames=12, dpi=55):
         view = ParticleOrbitView.from_comparison(
             experiment, title=kind.replace("_", " "), **well
         )
-        fig, _ = particle_overview(view, time=end)
-        fig.savefig(output / f"{slug}-diagnostics.png", dpi=100)
-        plt.close(fig)
+        # Panels depend only on the experiment, so examples sharing a case share one file.
+        if kind not in panels:
+            panels[kind] = f"{slug}-diagnostics.png"
+            fig, _ = particle_overview(view, time=end)
+            fig.savefig(output / panels[kind], dpi=100)
+            plt.close(fig)
         if slug == "mirror":
             particle_overview(
                 view, time=times[::2], animation=True, dpi=50, fps=4
@@ -100,7 +100,7 @@ def generate(output, frames=12, dpi=55):
                 "case": kind,
                 "static": f"{slug}.svg",
                 "animation": f"{slug}.gif",
-                "quantitative_panels": f"{slug}-diagnostics.png",
+                "quantitative_panels": panels[kind],
                 "driver": {"name": "time", "unit": "s", "values": times.tolist()},
                 "field": full.field.metadata(),
                 "full_termination": full.termination,
