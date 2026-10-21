@@ -89,6 +89,14 @@ jobs:
           echo "STABLE_REF=$stable"   >> "$GITHUB_ENV"
           echo "DEVELOP_REF=$develop" >> "$GITHUB_ENV"
 
+      - name: Cache documentation media kept outside git
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/vaft-docs-media
+          # Content-addressed by SHA-256, so one growing cache serves every lock.
+          key: docs-media-${{ hashFiles('docs/media.lock.json') }}
+          restore-keys: docs-media-
+
       - name: Build and validate both documentation tracks
         run: |
           python docs/build.py \
@@ -176,6 +184,14 @@ jobs:
           esac
           echo "STABLE_REF=$stable"   >> "$GITHUB_ENV"
           echo "DEVELOP_REF=$develop" >> "$GITHUB_ENV"
+
+      - name: Cache documentation media kept outside git
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/vaft-docs-media
+          # Content-addressed by SHA-256, so one growing cache serves every lock.
+          key: docs-media-${{ hashFiles('docs/media.lock.json') }}
+          restore-keys: docs-media-
 
       - name: Build, compose and publish the whole site
         run: |
