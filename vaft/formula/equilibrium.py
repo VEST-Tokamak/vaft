@@ -3034,7 +3034,13 @@ def stored_energy_diamagnetic_from_beta_p_geometry(beta_p: float,
     $\beta_p = 2\mu_0\langle p\rangle_V L_C^2/(\mu_0 I_p)^2$, the circumference
     normalisation of :func:`beta_poloidal_from_circumference`, not the DD
     $R_0$ form; the two agree only for a circular cross-section.  The result
-    is the thermal energy $\tfrac32\int p\,dV$.
+    is the thermal energy $\tfrac32\int p\,dV$, the same expression as
+    :func:`kinetic_energy_from_beta_p_B_pa_V_p` with
+    $B_{pa} = \mu_0 I_p/L_C$.  ``perimeter`` must be the $L_C$ that ``beta_p``
+    was normalised with: :func:`beta_p_diamagnetic_from_flux_elliptic` uses
+    the approximation $2\pi a\sqrt{(1+\kappa^2)/2}$, so pair its result with
+    that value, not the exact ellipse perimeter (about 2.5 % shorter at
+    $\kappa = 2$, which would make the energy about 5 % high).
 
     Limitations
     -----------
