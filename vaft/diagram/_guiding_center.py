@@ -159,7 +159,7 @@ def _surfaces(items: List, radii=(0.35, 0.55, 0.75, 1.0)) -> None:
 # ---------------------------------------------------------------------------
 
 
-def guiding_center_invariants(*, labels: bool = True) -> Diagram:
+def guiding_center_invariants(*, labels: bool = True, trajectory=None, time=None, animation=False, fps=None, duration=None, dpi=None, frame_label=True) -> Diagram:
     r"""Gyration, bounce and toroidal drift, and the invariant each carries.
 
     Left, a trapped guiding centre (the banana of ``banana_orbit``) and, along
@@ -170,6 +170,11 @@ def guiding_center_invariants(*, labels: bool = True) -> Diagram:
     while its motion is fast against changes of the field it sees
     ($\Omega_c \gg \omega_b \gg \omega_d$); $P_\phi$ needs axisymmetry.
     """
+    if trajectory is not None or time is not None or animation or fps is not None or duration is not None or dpi is not None or not frame_label:
+        from ._particle_states import particle_states
+        return particle_states('guiding_center_invariants', case='magnetic_mirror', trajectory=trajectory, time=time,
+                               projection='3d', labels=labels, animation=animation,
+                               fps=fps, duration=duration, dpi=dpi, frame_label=frame_label)
     labels = _check_labels(labels)
     orbit = banana_orbit()
     items: List = []
@@ -216,7 +221,7 @@ def guiding_center_invariants(*, labels: bool = True) -> Diagram:
 # ---------------------------------------------------------------------------
 
 
-def canonical_toroidal_momentum(phase: float = 0.45, *, labels: bool = True) -> Diagram:
+def canonical_toroidal_momentum(phase: float = 0.45, *, labels: bool = True, trajectory=None, time=None, animation=False, fps=None, duration=None, dpi=None, frame_label=True) -> Diagram:
     r"""$P_\phi = q\psi + mv_\parallel Rb_\phi$ along one banana: the parts trade, the sum stays.
 
     Three points of the orbit of ``banana_orbit`` -- the outboard start, the
@@ -226,6 +231,13 @@ def canonical_toroidal_momentum(phase: float = 0.45, *, labels: bool = True) -> 
     part rises: the guiding centre crosses surfaces, which is the orbit width.
     ``phase`` is the state coordinate a later animation would step.
     """
+    if trajectory is not None or time is not None or animation or fps is not None or duration is not None or dpi is not None or not frame_label:
+        if phase != 0.45:
+            raise ValueError("phase belongs to the invariant-derived static schematic; use physical time with a computed trajectory")
+        from ._particle_states import particle_states
+        return particle_states('canonical_toroidal_momentum', case='tokamak_trapped', trajectory=trajectory, time=time,
+                               projection='poloidal', labels=labels, animation=animation,
+                               fps=fps, duration=duration, dpi=dpi, frame_label=frame_label)
     try:
         phase = float(phase)
     except (TypeError, ValueError):
@@ -294,7 +306,7 @@ def _note_label(text: str, x: float, y: float) -> Label:
 # ---------------------------------------------------------------------------
 
 
-def toroidal_symmetry_breaking(*, labels: bool = True) -> Diagram:
+def toroidal_symmetry_breaking(*, labels: bool = True, trajectory=None, time=None, animation=False, fps=None, duration=None, dpi=None, frame_label=True) -> Diagram:
     r"""Axisymmetry keeps $P_\phi$; a 3-D field changes it, secularly only at resonance.
 
     With a toroidal-$n$ perturbation, $dP_\phi/dt \propto \cos(\Delta\omega_\mathrm{BH}t)$
@@ -304,6 +316,11 @@ def toroidal_symmetry_breaking(*, labels: bool = True) -> Diagram:
     is not NTV; torque and transport need the kinetic response of the whole
     distribution (#1111).
     """
+    if trajectory is not None or time is not None or animation or fps is not None or duration is not None or dpi is not None or not frame_label:
+        from ._particle_states import particle_states
+        return particle_states('toroidal_symmetry_breaking', case='symmetry_breaking', trajectory=trajectory, time=time,
+                               projection='3d', labels=labels, animation=animation,
+                               fps=fps, duration=duration, dpi=dpi, frame_label=frame_label)
     labels = _check_labels(labels)
     t = np.linspace(0.0, 60.0, 1201)
     kick = 0.02
