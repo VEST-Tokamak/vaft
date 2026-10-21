@@ -1,6 +1,53 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "generator": "workflow/particle_motion/run.py",
+  "generated_commit": "8e9d0308862efde590bf6dfaaa8f76f0898e612a",
+  "sources": [
+    {
+      "path": "vaft/data/particle.py",
+      "sha256": "d6204b4802bc05d1ff7b8a69530efd850232cd395692cd05b67bf1aca3c02595"
+    },
+    {
+      "path": "vaft/diagram/_guiding_center.py",
+      "sha256": "e6b2e6d6c37ec715940c5d95a10d2f1588c7b07094812bcff8822e7a90681a92"
+    },
+    {
+      "path": "vaft/diagram/_particle_references.py",
+      "sha256": "e32353ea4c56ac992dd651490bce720c993372860d01951946c92ea6f70e74b8"
+    },
+    {
+      "path": "vaft/diagram/_particle_states.py",
+      "sha256": "40ef132f30ecf3996db868c8d172d3d5414c064e600a44daded6315d6a1f3afe"
+    },
+    {
+      "path": "vaft/diagram/_ripple.py",
+      "sha256": "2c48afd61f807305aff13349a0b38ba70a217396ce25b3f7d3bf9511ddda1406"
+    },
+    {
+      "path": "vaft/formula/equilibrium.py",
+      "sha256": "6bd41422cbcb6d36cb86d12fced78adabd9675ecb44279cb5f5232120226e041"
+    },
+    {
+      "path": "vaft/formula/particle.py",
+      "sha256": "ef8884c7a3287b1d9c634bfa36b18e611eee53176eed95ea335b013fd04bb1c7"
+    },
+    {
+      "path": "vaft/plot/particle.py",
+      "sha256": "65ea7f4ba203a343dbf1a96768130d0cd2761c4e6017b42f5bb38875f2af6808"
+    },
+    {
+      "path": "vaft/process/particle.py",
+      "sha256": "fe5d3893701d3d24188600998f6568eb6230e50e3d57bb46337d50403cfe62ef"
+    },
+    {
+      "path": "vaft/process/particle_fields.py",
+      "sha256": "e6b11b80a023b51fd684e770f826ababedb31773cbbea7befda93d36901a2164"
+    },
+    {
+      "path": "workflow/particle_motion/run.py",
+      "sha256": "65bad0a8bea3758e85bbdb3ebaa10c369dc179a60e16d908d23fd0328667ac8e"
+    }
+  ],
   "units": "SI",
   "presentation": {
     "frames": 12,
@@ -17,7 +64,6 @@
     {
       "id": "cartesian",
       "builder": "gyration",
-      "case": "gyration",
       "static": "cartesian.svg",
       "animation": "cartesian.gif",
       "quantitative_panels": "cartesian-diagnostics.png",
@@ -40,6 +86,7 @@
           24.0
         ]
       },
+      "case": "gyration",
       "field": {
         "name": "uniform Cartesian field",
         "coordinates": "right-handed Cartesian x,y,z",
@@ -77,7 +124,6 @@
     {
       "id": "mirror",
       "builder": "magnetic_mirror",
-      "case": "magnetic_mirror",
       "static": "mirror.svg",
       "animation": "mirror.gif",
       "quantitative_panels": "mirror-diagnostics.png",
@@ -100,6 +146,7 @@
           160.0
         ]
       },
+      "case": "magnetic_mirror",
       "field": {
         "name": "solenoidal parabolic magnetic mirror",
         "coordinates": "right-handed Cartesian x,y,z",
@@ -140,7 +187,6 @@
     {
       "id": "full-gc",
       "builder": "grad_b_drift",
-      "case": "grad_b_drift",
       "static": "full-gc.svg",
       "animation": "full-gc.gif",
       "quantitative_panels": "full-gc-diagnostics.png",
@@ -163,6 +209,7 @@
           100.0
         ]
       },
+      "case": "grad_b_drift",
       "field": {
         "name": "divergence-free slab gradient",
         "coordinates": "right-handed Cartesian x,y,z",
@@ -191,7 +238,6 @@
     {
       "id": "invariants",
       "builder": "guiding_center_invariants",
-      "case": "magnetic_mirror",
       "static": "invariants.svg",
       "animation": "invariants.gif",
       "quantitative_panels": "mirror-diagnostics.png",
@@ -214,6 +260,7 @@
           160.0
         ]
       },
+      "case": "magnetic_mirror",
       "field": {
         "name": "solenoidal parabolic magnetic mirror",
         "coordinates": "right-handed Cartesian x,y,z",
@@ -254,7 +301,6 @@
     {
       "id": "tokamak",
       "builder": "trapped_and_passing_orbits",
-      "case": "tokamak_trapped",
       "static": null,
       "animation": "tokamak.gif",
       "quantitative_panels": "tokamak-diagnostics.png",
@@ -277,6 +323,7 @@
           1000.0
         ]
       },
+      "case": "tokamak_trapped",
       "field": {
         "name": "analytic toroidal orbit benchmark",
         "coordinates": "right-handed Cartesian x,y,z",
@@ -312,7 +359,6 @@
     {
       "id": "symmetry-breaking",
       "builder": "toroidal_symmetry_breaking",
-      "case": "symmetry_breaking",
       "static": null,
       "animation": "symmetry-breaking.gif",
       "quantitative_panels": "symmetry-breaking-diagnostics.png",
@@ -335,6 +381,7 @@
           1000.0
         ]
       },
+      "case": "symmetry_breaking",
       "field": {
         "name": "analytic toroidal orbit benchmark",
         "coordinates": "right-handed Cartesian x,y,z",
