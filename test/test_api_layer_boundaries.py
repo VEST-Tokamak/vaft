@@ -90,6 +90,26 @@ def test_the_renamed_impa_grading_keeps_its_old_name_working():
     assert callable(grade_impa_quality)
 
 
+def test_the_moved_cocos_check_keeps_its_old_name_working():
+    """`validate_cocos` is a verdict, so it lives in `vaft.validation.cocos` (#337)."""
+    from vaft.data.equilibrium import EquilibriumData
+    from vaft.process import cocos as process_cocos
+    from vaft.validation.cocos import validate_cocos
+
+    equilibrium = EquilibriumData(ip=1.0e5, bt0=0.1, f=[0.04, 0.04], q=[1.0, 2.0],
+                                  psi_axis=0.0, psi_boundary=0.1, pprime=[-1.0, -1.0])
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        legacy = process_cocos.validate_cocos(equilibrium, 3, sigma_ip=1)
+
+    deprecations = [item for item in caught if item.category is DeprecationWarning]
+    assert deprecations
+    assert "vaft.validation.cocos.validate_cocos" in str(deprecations[0].message)
+    assert legacy == validate_cocos(equilibrium, 3, sigma_ip=1)
+    assert legacy.issues  # COCOS 3 is the wrong index here, so there is something to compare
+    assert process_cocos.validate_cocos.__doc__.startswith("Deprecated")
+
+
 def test_the_validation_layer_has_one_status_vocabulary():
     """#253 §4: findings and verdicts are different shapes, not rival vocabularies.
 

@@ -274,8 +274,8 @@ def coil_filaments_from_coil_in(
         The ``coil.in`` of the run.
     coil_data_dir : str or Path, optional
         Where the ``<machine>_<set>.dat`` files live.  Defaults to the
-        ``data_dir`` the file itself names, then to the directory holding
-        ``coil.in``.
+        ``data_dir`` the file itself names (a relative one taken from the
+        directory holding ``coil.in``, as GPEC does), then to that directory.
 
     Raises
     ------
@@ -299,6 +299,10 @@ def coil_filaments_from_coil_in(
         data_dir = Path(coil_data_dir).expanduser()
     elif control.get("data_dir"):
         data_dir = Path(control["data_dir"]).expanduser()
+        if not data_dir.is_absolute():
+            # GPEC resolves it against its working directory, the run cell
+            # that holds coil.in -- not against wherever this is read from.
+            data_dir = path.parent / data_dir
     else:
         data_dir = path.parent
 

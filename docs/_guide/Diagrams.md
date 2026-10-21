@@ -2667,7 +2667,6 @@ Follow-up TODOs (implementation or IMAS mapping):
 - The ODS writer of the 2-D flux-surface grid uses a geometric approximation (the boundary scaled by sqrt(psi_N) about the axis, the geometric angle) for every requested convention, yet labels it grid_type 11; the true PEST angle exists only in memory (vaft.process.equilibrium.straight_field_line_map).
 - equilibrium_psi_to_weber leaves equilibrium.time_slice[:].constraints untouched: VAFT copies them from the DD-conformant magnetics and pf_active IDSs.
 - rho_tor integrates q from the axis, so EFIT's often outlying q[0] moves rho_tor_norm by up to about 0.04 on the innermost surfaces; packaged samples older than #192 still hold the sqrt(psi_N) proxy.
-- convert_cocos shifts the identified-candidate list on the assumption that every candidate shares the source's storage family, which can produce an out-of-range index (#601).
 
 ### Power balance and confinement: experimental and modelled
 

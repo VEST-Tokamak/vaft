@@ -165,7 +165,7 @@ def _resolve_convention(
     CASE header, say -- is recorded rather than trusted in silence.  The
     declaration still wins: a caller asserting a convention is taken at their
     word, and the disagreement surfaces through
-    :func:`~vaft.process.cocos.validate_cocos` and ``convention.contradicted``.
+    :func:`~vaft.validation.cocos.validate_cocos` and ``convention.contradicted``.
     """
     from vaft.process.cocos import identify_convention
 
@@ -445,11 +445,15 @@ def check_equilibrium_requirements(
     if equilibrium.convention.contradicted:
         # A declaration the data does not support: a stale GEQDSK CASE token, a
         # mislabelled ODS, or an explicit argument that does not match the file.
+        supported = (
+            str(equilibrium.convention.identified) if equilibrium.convention.identified
+            else f"no index in this family (before conversion: {equilibrium.convention.uncarried})"
+        )
         issues.append(ValidationIssue(
             "warning", "cocos_declared_conflicts_with_signs", "convention",
             f"COCOS {equilibrium.convention.cocos} is declared ({equilibrium.convention.source}) "
-            f"but the observable signs and flux scale support "
-            f"{equilibrium.convention.identified}; the declaration is being used as given",
+            f"but the observable signs and flux scale support {supported}; "
+            "the declaration is being used as given",
         ))
     return ValidationReport(tuple(issues))
 
@@ -522,10 +526,13 @@ def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> Equilibriu
     -----------
     Refuses rather than guesses when the source convention is ambiguous, which is
     the common case for a file that declares nothing and whose flux exponent could
-    not be identified.  The identified-candidate list carried on the result is
-    shifted on the assumption that every candidate shares the source's storage
-    family, which is not guaranteed and can produce an out-of-range index; tracked
-    in #601.
+    not be identified.  The identified-candidate list is carried to the result by
+    applying the same transform to each candidate (:func:`_carry_identified`).  When
+    the conversion crosses storage families, a candidate in the other family has
+    no image -- the ``2*pi`` lands on the wrong side -- so it is dropped and named
+    in the result's ``source`` rather than shifted to an index that does not
+    exist (#601).  If that leaves no candidate at all, the dropped ones are kept
+    on ``convention.uncarried`` so the result stays ``contradicted``.
 
     Provenance
     ----------
@@ -546,19 +553,23 @@ def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> Equilibriu
     factors = cocos_transform(source_cocos, target_cocos)
     scale = lambda value, key: None if value is None else np.asarray(value) * factors[key]
     axis = equilibrium.magnetic_axis
+    identified, dropped = _carry_identified(equilibrium.convention.identified, source_cocos, target_cocos)
+    source = f"converted from COCOS {source_cocos}"
+    if dropped:
+        source += f"; identified {dropped} have no image in COCOS {target_cocos} and were dropped"
     convention = EquilibriumConvention(
         cocos=target_cocos, candidates=(target_cocos,), psi_per_radian=target_cocos < 10,
         clockwise_phi=equilibrium.convention.clockwise_phi,
         ip_sign=_sign(None if equilibrium.ip is None else equilibrium.ip * factors["IP"]),
         bt_sign=_sign(None if equilibrium.bt0 is None else equilibrium.bt0 * factors["BT"]),
         q_sign=_sign(None if equilibrium.q is None else float(np.nanmedian(equilibrium.q * factors["Q"]))),
-        source=f"converted from COCOS {source_cocos}",
+        source=source,
         # Carried so a declaration the data contradicts stays visible after a
         # conversion instead of being laundered into a clean-looking record.
-        identified=tuple(
-            value + 10 * (target_cocos >= 11) - 10 * (source_cocos >= 11)
-            for value in equilibrium.convention.identified
-        ) if equilibrium.convention.identified else (),
+        identified=identified,
+        # Nothing carried means every candidate was in the other family: the
+        # contradiction has to survive without an index to name it.
+        uncarried=dropped if equilibrium.convention.identified and not identified else (),
     )
     return replace(
         equilibrium, psi=scale(equilibrium.psi, "PSI"),
@@ -573,6 +584,45 @@ def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> Equilibriu
         bt0=None if equilibrium.bt0 is None else float(equilibrium.bt0 * factors["BT"]),
         magnetic_axis=axis, convention=convention,
     )
+
+
+def _carry_identified(
+    identified: Sequence[int], source_cocos: int, target_cocos: int,
+) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """Map identified candidates through the ``source -> target`` transform.
+
+    Data that really is in candidate ``c`` and receives the transform for
+    ``source -> target`` ends up in the convention ``c'`` with
+    ``T(c -> c') == T(source -> target)``.  Every factor in
+    ``omas.cocos_transform`` is a product of the per-convention signs and a power
+    of ``2*pi``, so ``c'`` takes each sign as ``sigma(c) sigma(source)
+    sigma(target)`` and ``e_Bp(c') = e_Bp(c) + e_Bp(target) - e_Bp(source)``.
+    ``c == source`` maps to ``target``.  A candidate whose exponent leaves 0..1
+    -- one in the other storage family, when the conversion crosses families --
+    describes no COCOS after the conversion and is returned in the second tuple
+    instead.  Simply adding ten
+    across families is not this map: it ignores the sign changes and turns a
+    cross-family candidate into an index that does not exist.
+    """
+    from vaft.data.cocos import COCOS_INDICES, cocos_spec
+
+    def key(spec) -> tuple[int, int, int, int]:
+        return spec.sigma_bp, spec.sigma_rpz, spec.sigma_rhotp, spec.exp_bp
+
+    by_key = {key(cocos_spec(index)): index for index in COCOS_INDICES}
+    src, tgt = cocos_spec(source_cocos), cocos_spec(target_cocos)
+    carried: list[int] = []
+    dropped: list[int] = []
+    for value in identified:
+        cand = cocos_spec(int(value))
+        image = by_key.get((
+            cand.sigma_bp * src.sigma_bp * tgt.sigma_bp,
+            cand.sigma_rpz * src.sigma_rpz * tgt.sigma_rpz,
+            cand.sigma_rhotp * src.sigma_rhotp * tgt.sigma_rhotp,
+            cand.exp_bp + tgt.exp_bp - src.exp_bp,
+        ))
+        (carried if image is not None else dropped).append(image if image is not None else int(value))
+    return tuple(carried), tuple(dropped)
 
 
 def _provenance(eq: EquilibriumData, method: str, fields: Sequence[str] = (), **kwargs: Any) -> DerivationProvenance:
@@ -611,6 +661,14 @@ def _polygon_geometry(contour: Contour) -> dict[str, float]:
     return {"area": abs(signed_area), "r": float(cr), "z": float(cz), "surface": float(surface), "volume": float(volume)}
 
 
+#: Published definition of ``rho_tor_n``: names the variable actually integrated
+#: (normalized flux, not psi) and why the result needs no COCOS (#602).
+_RHO_TOR_N_DEFINITION = (
+    "sqrt(int_0^psi_n q dpsi_n' / int_0^1 q dpsi_n'), psi_n the normalized poloidal flux; "
+    "convention-independent: the flux span and the COCOS 2*pi factor cancel"
+)
+
+
 def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
     """The three normalized radial coordinates, each with its derivation record.
 
@@ -637,16 +695,20 @@ def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
     ----------------
     1. ``psi_n = (psi_1d - psi_axis)/(psi_boundary - psi_axis)``.
     2. ``rho_pol_n = sqrt(psi_n)``, by definition of that coordinate.
-    3. ``rho_tor_n = sqrt(Phi/Phi_boundary)`` with ``Phi`` the cumulative
-       trapezoidal integral of ``q`` over the normalized flux, returned only if
-       ``q`` is finite, of matching length, and produces a monotonic result.
+    3. ``rho_tor_n = sqrt(int_0^psi_n q dpsi_n' / int_0^1 q dpsi_n')``: the
+       cumulative trapezoidal integral of ``q`` over the normalized flux
+       ``psi_n``, not over ``psi``, returned only if ``q`` is finite, of
+       matching length, and produces a monotonic result.
 
     Convention
     ----------
     All three are dimensionless and run 0 on axis to 1 at the boundary.
     ``rho_tor_n`` is COCOS-independent: it is a ratio of two integrals of the same
-    ``q`` over the same variable, so the factor of ``2*pi`` and the sign of psi
-    both cancel.  ``psi_n`` is likewise invariant under the storage choice, being
+    ``q`` over the same variable.  Integrating over ``psi_n`` rather than
+    ``psi`` scales each integral by the constant factor
+    ``psi_boundary - psi_axis``, which cancels in the ratio together with the
+    factor of ``2*pi`` and the sign of psi; the published ``definition`` says
+    so.  ``psi_n`` is likewise invariant under the storage choice, being
     normalized by its own span.  This function therefore needs no COCOS and
     imposes none.
 
@@ -659,14 +721,13 @@ def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
     ``rho_tor_n`` is unavailable when ``q`` is missing, non-finite, of the wrong
     length, or gives a non-monotonic toroidal flux, and when ``psi_n`` is not
     strictly monotonic.  The integral is trapezoidal on the stored grid, so a
-    coarse or axis-clustered ``q`` limits its accuracy near the axis.  The
-    published ``definition`` string names ``dpsi`` where the integration variable
-    is ``psi_n``; the value is unaffected and the wording is tracked in #602.
+    coarse or axis-clustered ``q`` limits its accuracy near the axis.
 
     Provenance
     ----------
     .. [1] The toroidal flux definition ``Phi = int q dpsi`` and its normalized
-       radius, as used by the IMAS data dictionary for ``rho_tor_norm``.
+       radius, as used by the IMAS data dictionary for ``rho_tor_norm``; the
+       record integrates over ``psi_n`` instead, which gives the same ratio.
     .. [2] :func:`vaft.process.profile.core_profiles` consumes this to evaluate
        kinetic fits on the equilibrium grid, and refuses by name when the record
        here is unavailable (issue #420).
@@ -675,27 +736,32 @@ def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
     eq = as_equilibrium(equilibrium)
     if eq.psi_1d is None or eq.psi_axis is None or eq.psi_boundary is None or eq.psi_axis == eq.psi_boundary:
         reason = "psi_1d and distinct axis/boundary flux values are required"
-        return {name: _unavailable(eq, "1", name, reason) for name in ("psi_n", "rho_pol_n", "rho_tor_n")}
+        definitions = {
+            "psi_n": "(psi-psi_axis)/(psi_boundary-psi_axis)",
+            "rho_pol_n": "sqrt(psi_n)",
+            "rho_tor_n": _RHO_TOR_N_DEFINITION,
+        }
+        return {name: _unavailable(eq, "1", definition, reason) for name, definition in definitions.items()}
     psi_n = (eq.psi_1d - eq.psi_axis) / (eq.psi_boundary - eq.psi_axis)
     result = {
         "psi_n": _derived(eq, psi_n, "1", "(psi-psi_axis)/(psi_boundary-psi_axis)", "direct normalization", ("psi_1d", "psi_axis", "psi_boundary")),
         "rho_pol_n": _derived(eq, np.sqrt(np.clip(psi_n, 0, None)), "1", "sqrt(psi_n)", "direct normalization", ("psi_1d",)),
     }
     if eq.q is None or eq.q.size != psi_n.size or not np.all(np.isfinite(eq.q)):
-        result["rho_tor_n"] = _unavailable(eq, "1", "sqrt(Phi/Phi_boundary), Phi=int(q dpsi)", "finite q on the psi_1d grid is required", ("q", "psi_1d"))
+        result["rho_tor_n"] = _unavailable(eq, "1", _RHO_TOR_N_DEFINITION, "finite q on the psi_1d grid is required", ("q", "psi_1d"))
         return result
     order = np.argsort(psi_n)
     x, q = psi_n[order], eq.q[order]
     if np.any(np.diff(x) <= 0):
-        result["rho_tor_n"] = _unavailable(eq, "1", "sqrt(Phi/Phi_boundary), Phi=int(q dpsi)", "psi_n must be strictly monotonic", ("q", "psi_1d"))
+        result["rho_tor_n"] = _unavailable(eq, "1", _RHO_TOR_N_DEFINITION, "psi_n must be strictly monotonic", ("q", "psi_1d"))
         return result
     cumulative = np.r_[0.0, np.cumsum(0.5 * (q[1:] + q[:-1]) * np.diff(x))]
     if cumulative[-1] == 0 or np.any(cumulative / cumulative[-1] < -1e-12) or np.any(np.diff(cumulative / cumulative[-1]) < -1e-10):
-        result["rho_tor_n"] = _unavailable(eq, "1", "sqrt(Phi/Phi_boundary), Phi=int(q dpsi)", "q dpsi does not produce a monotonic toroidal-flux coordinate", ("q", "psi_1d"))
+        result["rho_tor_n"] = _unavailable(eq, "1", _RHO_TOR_N_DEFINITION, "q dpsi_n does not produce a monotonic toroidal-flux coordinate", ("q", "psi_1d"))
         return result
     rho_sorted = np.sqrt(np.clip(cumulative / cumulative[-1], 0, 1))
     rho = np.empty_like(rho_sorted); rho[order] = rho_sorted
-    result["rho_tor_n"] = _derived(eq, rho, "1", "sqrt(int_axis^psi q dpsi / int_axis^boundary q dpsi)", "trapezoidal integration", ("q", "psi_1d"))
+    result["rho_tor_n"] = _derived(eq, rho, "1", _RHO_TOR_N_DEFINITION, "trapezoidal integration", ("q", "psi_1d"))
     return result
 
 
@@ -1135,6 +1201,11 @@ def fit_miller_surface(
     ----------
     Purely geometric: it reads a contour and returns shape parameters, touching no
     flux, no field and no COCOS.  *radial_value* is carried, never interpreted.
+    The provenance therefore records no convention (``convention=None``) by
+    design, not by omission: a bare contour has none to report.  When the fit is
+    made from an equilibrium, :func:`fit_miller_sequence` attaches that
+    equilibrium's convention to every nested fit, because the surfaces it returns
+    also carry ``q``, whose sign is convention-dependent (#604).
     The residual is a symmetric point-set distance in metres, and the normalized
     form divides it by the fitted minor radius so the threshold means the same
     thing on every surface.
@@ -1283,6 +1354,8 @@ def fit_miller_surface(
         reason = f"normalized RMS {nrms:.4g} exceeds {max_normalized_rms:.4g}"
     elif not result.success:
         reason = result.message
+    # Built directly rather than through `_provenance`: there is no equilibrium
+    # here, so no convention to record.  See the Convention section.
     provenance = DerivationProvenance(
         "bounded symmetric-contour least squares", radial_coordinate=radial_coordinate,
         fit_range=(radial_value, radial_value) if radial_value is not None else None,
@@ -1414,7 +1487,13 @@ def fit_miller_sequence(
             np.min(np.hypot(contour.r-x.r, contour.z-x.z)) <= 0.05 * (np.ptp(contour.r)/2)
             for x in boundary.x_points if x.active
         )
-        fits.append(fit_miller_surface(contour, radial_value=float(requested), radial_coordinate=radial_coordinate, max_normalized_rms=max_normalized_rms, near_xpoint=near))
+        fit = fit_miller_surface(contour, radial_value=float(requested), radial_coordinate=radial_coordinate, max_normalized_rms=max_normalized_rms, near_xpoint=near)
+        # The contour came from this equilibrium's psi, so the nested record names
+        # its convention like every other derived value does (#604).
+        fits.append(replace(fit, provenance=_provenance(
+            eq, fit.provenance.method, ("psi",), radial_coordinate=radial_coordinate,
+            fit_range=fit.provenance.fit_range, tolerances=fit.provenance.tolerances,
+        )))
     valid = [item for item in fits if item.accepted]
     reason = None
     if len(valid) < 4:

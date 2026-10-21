@@ -177,6 +177,34 @@ def test_miller_sequence_recovers_radial_derivatives():
     assert all(item.surface.magnetic_shear is not None for item in accepted)
 
 
+def test_miller_fits_nested_in_a_sequence_carry_the_equilibrium_convention():
+    # #604: the per-surface fits used to bypass `_provenance`, so they recorded no
+    # convention while the sequence did, though their q and shear depend on it.
+    from dataclasses import replace
+
+    from vaft.data.equilibrium import EquilibriumConvention
+
+    convention = EquilibriumConvention(cocos=11, candidates=(11,), psi_per_radian=False, source="test")
+    eq = replace(_analytic_equilibrium(), convention=convention, metadata={"source_type": "analytic"})
+    sequence = fit_miller_sequence(eq, [0.16, 0.25, 0.36, 0.49, 0.64])
+    assert sequence.provenance.convention == convention
+    assert sequence.fits
+    for item in sequence.fits:
+        assert item.provenance.convention == sequence.provenance.convention
+        assert item.provenance.source_type == "analytic"
+        assert item.provenance.source_time == eq.time
+        # The per-fit record keeps what was specific to that fit.
+        assert item.provenance.method == "bounded symmetric-contour least squares"
+        assert item.provenance.fit_range == (item.surface.radial_value, item.surface.radial_value)
+        assert item.provenance.tolerances == {"max_normalized_rms": 0.02}
+
+
+def test_a_bare_contour_miller_fit_is_deliberately_convention_free():
+    theta = np.linspace(0.0, 2 * np.pi, 181, endpoint=False)
+    fit = fit_miller_surface(Contour(0.4 + 0.2 * np.cos(theta), 0.3 * np.sin(theta)))
+    assert fit.provenance.convention is None
+
+
 def test_solovev_fields_satisfy_grad_shafranov_and_constraints_recover_coefficients():
     model = SolovevEquilibrium(np.array([0.03, -0.02, 0.015, 0.004, -0.001]), -1200.0, 0.08, 1.0)
     r = np.linspace(0.7, 1.3, 101); z = np.linspace(-0.4, 0.4, 91)

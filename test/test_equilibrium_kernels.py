@@ -451,12 +451,20 @@ def test_psi_from_RBtheta_adds_the_axis_offset():
     )
 
 
-def test_phi_from_Bphi_is_the_area_weighted_sum():
+def test_phi_from_Bphi_integrates_over_the_grid():
+    R = np.linspace(0.1, 0.8, 8)
+    Z = np.linspace(-0.5, 0.5, 11)
+    B_phi = np.full((R.size, Z.size), 0.2)
+    assert phi_from_Bphi(B_phi, R, Z) == pytest.approx(0.2 * 0.7, rel=1e-13, abs=0.0)
+
+
+def test_phi_from_Bphi_legacy_area_sum_is_deprecated():
     B_phi = np.array([0.18, 0.20, 0.22])
     dA = np.array([0.01, 0.02, 0.03])
-    assert phi_from_Bphi(B_phi, dA) == pytest.approx(
-        float(np.sum(B_phi * dA)), rel=1e-13, abs=0.0
-    )
+    with pytest.warns(DeprecationWarning, match="#358"):
+        assert phi_from_Bphi(B_phi, dA) == pytest.approx(
+            float(np.sum(B_phi * dA)), rel=1e-13, abs=0.0
+        )
 
 
 # --------------------------------------------------------------------------
@@ -647,14 +655,25 @@ def test_kink_safety_factor_rejects_an_unknown_shape():
         kink_safety_factor(1.8, 0.4, 1.6, 1.0e5, 0.2, "spheromak")
 
 
-def test_current_limits_from_q_and_from_beta_share_one_closed_form():
-    # The beta form is the q form with beta_N substituted for q_95, which is
-    # exactly what its docstring says; equal arguments must give equal results.
+def test_current_limit_from_q_inverts_the_cylindrical_safety_factor():
+    # q_cyl = 2 pi a^2 B0 / (mu0 R0 I_p): the current must come back in amperes
+    # and reproduce q_95 when put back in (#362 added the missing 1/R0).
+    a, B0, R0, q_95 = 0.4, 0.2, 0.45, 3.0
+    I_p = current_limit_from_q(q_95, a, B0, R0)
+    assert I_p == pytest.approx(2 * np.pi * a**2 * B0 / (MU0 * R0 * q_95), rel=1e-12, abs=0.0)
+    assert 2 * np.pi * a**2 * B0 / (MU0 * R0 * I_p) == pytest.approx(q_95, rel=1e-12)
+    # VEST-like numbers land at a ~100 kA current, not ~45 kA m.
+    assert 1e4 < I_p < 1e6
+    # The old three-argument call returned I_p R0 [A m]; it now fails loudly.
+    with pytest.raises(TypeError):
+        current_limit_from_q(q_95, a, B0)
+
+
+def test_current_limit_from_beta_is_deprecated_but_unchanged():
     a, B0 = 0.4, 0.2
-    assert current_limit_from_q(3.0, a, B0) == pytest.approx(
-        2 * np.pi * a**2 * B0 / (MU0 * 3.0), rel=1e-12, abs=0.0
-    )
-    assert current_limit_from_beta(3.0, a, B0) == current_limit_from_q(3.0, a, B0)
+    with pytest.warns(DeprecationWarning, match="#362"):
+        value = current_limit_from_beta(3.0, a, B0)
+    assert value == pytest.approx(2 * np.pi * a**2 * B0 / (MU0 * 3.0), rel=1e-12, abs=0.0)
 
 
 def test_normalized_plasma_current_converts_amps_to_megaamps():
@@ -861,6 +880,12 @@ def test_alpha_heating_power_is_the_same_object_as_its_long_name():
     assert alpha_heating_power is alpha_heating_power_from_n_D_n_T_T_keV_V
 
 
+def test_alpha_heating_power_is_deprecated_and_cites_the_bosch_hale_erratum():
+    with pytest.warns(DeprecationWarning, match=r"#360.*Nucl\. Fusion 33 \(1993\) 1919"):
+        alpha_heating_power(0.5, 0.5, 10.0, 2.5)
+
+
+@pytest.mark.filterwarnings("ignore:.*alpha_heating_power.*:DeprecationWarning")
 def test_alpha_heating_power_matches_its_closed_form():
     n_D, n_T, T, V = 0.5, 0.5, 10.0, 2.5
     assert alpha_heating_power(n_D, n_T, T, V) == pytest.approx(
@@ -870,6 +895,7 @@ def test_alpha_heating_power_matches_its_closed_form():
     )
 
 
+@pytest.mark.filterwarnings("ignore:.*alpha_heating_power.*:DeprecationWarning")
 def test_alpha_heating_power_is_quadratic_in_the_temperature_fit():
     base = alpha_heating_power(0.5, 0.5, 10.0, 2.5)
     assert alpha_heating_power(0.5, 0.5, 20.0, 2.5) == pytest.approx(

@@ -88,7 +88,7 @@ from vaft.formula.constants import MU0, EPS0, QE, ME, MI_P, E_ALPHA
 | `ME` | $9.10938356 \times 10^{-31}$ | Electron mass [kg] |
 | `MI_P` | $1.67262192 \times 10^{-27}$ | Proton mass [kg] |
 | `E_ALPHA` | $3.5\,\mathrm{MeV} \times$ `QE` | Alpha particle energy [J] |
-| `SIGMA_V_COEF` | $1.1 \times 10^{-24}$ | Fusion cross-section coefficient [m³/s] |
+| `SIGMA_V_COEF` | $1.1 \times 10^{-24}$ | D-T reactivity fit prefactor, $\langle\sigma v\rangle = $ `SIGMA_V_COEF` $T_{keV}^2$ [m³ s⁻¹ keV⁻²]; deprecated with `alpha_heating_power` (#360) |
 | `SPITZER_RESISTIVITY_COEF` | $5.2 \times 10^{-5}$ | Spitzer resistivity prefactor [Ω·m] |
 | `COLLISIONALITY_COEF` | $6.921 \times 10^{-18}$ | Collisionality coefficient, declared dimensionless [-] in the source; its only consumer is `collisionality_from_n_T_B_R` |
 
@@ -108,7 +108,7 @@ import vaft
 psi  = vaft.formula.psi_from_RBtheta(R, B_theta, l, psi_axis=0.0)   # psi = int R B_theta dl + psi_a
 psiN = vaft.formula.psi_normalised(psi, psi_axis, psi_boundary)     # psi_N = (psi-psi_a)/(psi_b-psi_a)
 
-phi  = vaft.formula.phi_from_Bphi(B_phi, dA)                        # Phi = int B_phi dA
+phi  = vaft.formula.phi_from_Bphi(B_phi, R, Z, mask=inside_lcfs)    # Phi = int B_phi dR dZ
 rhoN = vaft.formula.rhoN_from_phi(phi, phi_boundary)                # rho_N = sqrt(Phi/Phi_b)
 
 q    = vaft.formula.q_from_phi(psi, phi)                            # q = dPhi/dpsi
@@ -199,7 +199,7 @@ ln_lambda = vaft.formula.coulomb_logarithm_from_n_T(n_m3=4e19, T_eV=200.0)   # 3
 
 ---
 
-# Beta, current and power limits
+# Beta and current limits
 
 <!-- docs-snippet: skip fragment (placeholder name beta_percent is never defined on the page) -->
 ```python
@@ -207,9 +207,8 @@ beta_N = vaft.formula.beta_N_from_beta_a_B0_Ip(beta_percent, a, B0, I_p_MA)   # 
 beta_p = vaft.formula.beta_pol_from_beta_tor(beta_tor, q_95, epsilon)   # beta_p = beta_t (q95/eps)^2
 beta_t = vaft.formula.beta_tor_from_beta_pol(beta_pol, q_95, epsilon)   # beta_t = beta_p (eps/q95)^2
 
-I_max  = vaft.formula.current_limit_from_q(q_95, a, B0)           # I_p = 2 pi a^2 B0 / (mu0 q95)
-P_max  = vaft.formula.power_limit_from_beta(beta_N, B0, V)
-P_max  = vaft.formula.power_limit_from_q(q_95, I_p, R0)
+I_max  = vaft.formula.current_limit_from_q(q_95, a, B0, R0)       # I_p = 2 pi a^2 B0 / (mu0 R0 q95)
+pV     = vaft.formula.stored_energy_from_beta_V(beta, B0, V)       # <p> V = beta B0^2 V / (2 mu0)
 ```
 
 `beta_N_from_beta_a_B0_Ip` works in the Troyon convention, **%·m·T/MA**: pass $\beta$ **in percent**
