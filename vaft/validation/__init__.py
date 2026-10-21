@@ -29,6 +29,7 @@ Layout::
     applicability.py  ordering assumptions: continuous margins and contract status (#1639, #1628)
     orderings.py      the ordering contracts of the reduced models and their quantities (#1627)
     sensitivity.py    Jacobian provenance, derivative and linear-vs-sampled UQ comparisons (#1642)
+    pipeline_comparison.py  archived legacy vs current pipeline: time pairing and paired statistics
 
 The dependency direction runs one way: :mod:`vaft.database.production_qa`
 consumes ``stage_evidence`` to decide which figures a stage owes and how to

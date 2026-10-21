@@ -72,6 +72,12 @@ from ._gpec_output import (
 )
 from ._matching_output import Pest3MatchingOutput, read_pest3_matching_output
 from ._ordering import ordering_state_for_case
+from ._text_output import (
+    pest3_matrices_from_delta,
+    read_dcon_text,
+    read_delta_gw,
+    read_pest3_matching_text,
+)
 from ._pentrc_output import (
     PROFILE_VARIABLES,
     TORQUE_GRIDS,
@@ -988,4 +994,8 @@ __all__ = [
     "read_solutions_bin",
     "Pest3MatchingOutput",
     "read_pest3_matching_output",
+    "read_pest3_matching_text",
+    "read_dcon_text",
+    "read_delta_gw",
+    "pest3_matrices_from_delta",
 ]

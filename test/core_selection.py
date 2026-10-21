@@ -310,6 +310,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
     "test_stability_atlas_population.py",
+    # Legacy archive vs current pipeline: the DCON/RDCON text readers against one
+    # real run's netCDF, slice pairing by time, paired statistics, renderers.
+    "test_gpec_text_output.py",
+    "test_pipeline_comparison.py",
     "test_stability_rdcon_stride_benchmark.py",
     "test_stability_validation.py",
     # GPEC adapter records (#1460): how a solver stop is worded and recorded --
