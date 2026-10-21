@@ -257,9 +257,22 @@ def _job_script(
         f"cd {quote(str(workdir))} || exit 1",
         f"rm -f {quote(status)}",
     ]
-    for key, value in sorted(exported_environment(request.env).items()):
-        lines.append(f"export {key}={quote(value)}")
+    exported = exported_environment(request.env)
     threads = request.resources.threads_per_task
+    if threads is not None:
+        # A thread count the request pins in its overlay (config.resources,
+        # #1016) is exported even when it equals the submitting environment's:
+        # under RemoteSlurmBackend ``--export=ALL`` carries the *remote*
+        # login environment, which must not win over it.
+        exported.update(
+            {
+                variable: str(request.env[variable])
+                for variable in THREAD_ENV_VARIABLES
+                if str(request.env.get(variable)) == str(threads)
+            }
+        )
+    for key, value in sorted(exported.items()):
+        lines.append(f"export {key}={quote(value)}")
     if threads is not None:
         # setdefault semantics, as for a local launch.
         for variable in THREAD_ENV_VARIABLES:

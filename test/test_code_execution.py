@@ -485,7 +485,16 @@ def test_self_launching_codes_refuse_a_disagreeing_task_count():
         GACODEConfig(n_mpi=4, resources=ResourceRequest(ntasks=2))
     with pytest.raises(ValueError, match="memory_mb"):
         GACODEConfig(n_mpi=2, memory_mb=100, resources=ResourceRequest(ntasks=2, memory_mb=200))
-    GACODEConfig(n_mpi=2, resources=ResourceRequest(ntasks=2, threads_per_task=2))
+    with pytest.raises(ValueError, match="n_omp"):
+        GACODEConfig(n_mpi=2, n_omp=1, resources=ResourceRequest(ntasks=2, threads_per_task=4))
+    GACODEConfig(n_mpi=2, n_omp=2, resources=ResourceRequest(ntasks=2, threads_per_task=2))
+    from vaft.code.gacode.tglf._types import TGLFConfig
+
+    with pytest.raises(ValueError, match="thread"):
+        TGLFConfig(n_omp=4, resources=ResourceRequest(threads_per_task=4))
+    TGLFConfig(resources=ResourceRequest(threads_per_task=1))
+    with pytest.raises(TypeError):
+        FlareConfig(resources={"ntasks": 1})
     with pytest.raises(ValueError, match="processes"):
         FlareConfig(processes=8, resources=ResourceRequest(ntasks=4))
     with pytest.raises(ValueError, match="processes"):

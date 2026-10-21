@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from ..base import CodeConfig
+from ..execution import ResourceRequest
 
 #: The VAFT-side installation root, matching $GPECHOME, $CHEASEHOME and friends.
 GACODE_HOME_ENV = "GACODEHOME"
@@ -82,6 +83,8 @@ class GACODEConfig(CodeConfig):
         if self.memory_mb is not None and int(self.memory_mb) < 1:
             raise ValueError(f"memory_mb must be at least 1 or None; got {self.memory_mb!r}")
         resources = self.resources
+        if resources is not None and not isinstance(resources, ResourceRequest):
+            raise TypeError(f"resources must be a ResourceRequest or None, got {type(resources).__name__}")
         if resources is not None:
             # Two knobs for one quantity: refuse a disagreement rather than
             # pick one silently (#1016).
@@ -98,3 +101,16 @@ class GACODEConfig(CodeConfig):
                 raise ValueError(
                     f"resources.memory_mb={resources.memory_mb} disagrees with memory_mb={self.memory_mb}"
                 )
+            # The launcher exports OMP_NUM_THREADS itself, so a different
+            # thread count here would size a scheduler job for threads the
+            # solver never runs.
+            launched = self._launcher_threads()
+            if resources.threads_per_task is not None and int(resources.threads_per_task) != launched:
+                raise ValueError(
+                    f"resources.threads_per_task={resources.threads_per_task} disagrees with the "
+                    f"{launched} thread(s) the launcher runs (n_omp); set them equal or leave it None"
+                )
+
+    def _launcher_threads(self) -> int:
+        """OpenMP threads per rank the GACODE launcher actually runs."""
+        return int(self.n_omp)

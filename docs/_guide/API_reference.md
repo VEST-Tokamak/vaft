@@ -623,9 +623,15 @@ count follows one precedence:
 | 3 | the inherited environment | Snakemake's `shell()` and heavy-run export `OMP_NUM_THREADS` (1 for a rule without `threads:`) |
 | 4 | the adapter's declaration | EFIT/EFUND `threads_per_task=1` fills only what 2 and 3 leave unset |
 
-GACODE and FLARE start their own ranks, so `resources.ntasks` must equal `n_mpi` (and
-`resources.memory_mb` must equal `memory_mb` when both are set) or `processes` (1 when unset); a
-disagreement is refused when the configuration is built.
+GACODE and FLARE start their own ranks and threads, so their two knobs for one quantity must agree,
+or the configuration is refused when it is built: `resources.ntasks` must equal GACODE `n_mpi` or
+FLARE `processes` (1 when unset), and GACODE's `resources.threads_per_task`, when set, must equal
+`n_omp` (1 for TGLF, whose launcher always runs one thread) because the launcher exports
+`OMP_NUM_THREADS` itself. GACODE is also the one exception to "replaces it whole": a
+`resources.memory_mb` left `None` takes `memory_mb`, and the two must agree when both are set.
+MITIM's `resources` sizes only its Python driver; the GACODE runs it starts take their own
+`gacode` configuration. Under a Slurm job script a thread count from `resources` is exported
+explicitly, so a remote cluster's login environment cannot override it either.
 
 <!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
 ```python

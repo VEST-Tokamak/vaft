@@ -259,6 +259,8 @@ class FlareConfig:
     def __post_init__(self) -> None:
         # The driver starts ``processes`` ranks itself; a scheduler told a
         # different count would size the job wrong (#1016). Refuse, not pick.
+        if self.resources is not None and not isinstance(self.resources, ResourceRequest):
+            raise TypeError(f"resources must be a ResourceRequest or None, got {type(self.resources).__name__}")
         if self.resources is not None and int(self.resources.ntasks) != int(self.processes or 1):
             raise ValueError(
                 f"resources.ntasks={self.resources.ntasks} disagrees with processes={self.processes}; "
