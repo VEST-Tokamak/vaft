@@ -222,18 +222,27 @@ def test_the_script_never_runs_a_destructive_git_command():
         assert not re.search(pattern, source), f"docs/build.py contains `{pattern}`"
 
 
-def test_publishing_never_forces():
-    """The push is a plain fast-forward, which is what makes a race detectable.
+def test_publishing_only_ever_forces_with_a_pinned_lease():
+    """Replacing gh-pages is forced, but always leased on the tip read before the build.
 
-    ``git add --force`` is used and is fine: it stages the composed tree past
-    docs/.gitignore. What must never appear is a forced *push*.
+    A lease with an explicit expected value is what keeps a concurrent publish
+    detectable (#2117). ``git add --force`` is used and is fine: it stages the
+    composed tree past docs/.gitignore. What must never appear is an
+    unconditional forced push: a bare ``--force``/``-f``, ``+refspec``, or a
+    lease with no expected value, which only protects against a stale fetch.
     """
-    source = BUILD.read_text(encoding="utf-8")
-    assert "--force-with-lease" not in source
+    # Whole-line comments only: a trailing "#" strip would also cut string literals.
+    source = re.sub(r"(?m)^\s*#.*$", "", BUILD.read_text(encoding="utf-8"))
+    assert not re.search(r"""["']\+[^"']*:refs/""", source), "forced refspec"
+    leases = re.findall(r"--force-with-lease[^\s\"']*", source)
+    assert leases, "no leased push found in docs/build.py"
+    for lease in leases:
+        assert re.fullmatch(r"--force-with-lease=refs/heads/\{branch\}:\{expected_tip\}", lease), lease
     pushes = [line for line in source.splitlines() if '"push"' in line]
     assert pushes, "no push found in docs/build.py"
     for line in pushes:
-        assert "--force" not in line, f"forced push: {line.strip()}"
+        assert re.search(r"\[\"git\", \"push\", lease,", line), f"push without the pinned lease: {line.strip()}"
+        assert not re.search(r"""["'](--force|-f)["']""", line), f"unconditional forced push: {line.strip()}"
 
 
 # --------------------------------------------------------------------------
@@ -274,19 +283,18 @@ def sandbox(tmp_path, monkeypatch):
 
 
 @pytest_git
-def test_publish_creates_exactly_one_commit_on_the_previous_tip(build, sandbox, composed, tmp_path):
+def test_publish_leaves_exactly_one_parentless_commit(build, sandbox, composed, tmp_path):
     work, origin, git = sandbox
-    before = build.remote_tip(work, "origin", "gh-pages")
 
-    commit = build.publish(
-        composed, work, before, "docs: publish site (main aaaaaaa, develop bbbbbbb)\n",
-        scratch=tmp_path / "scratch-publish",
-    )
-
-    log = git("log", "--format=%H %P", "gh-pages", cwd=origin).stdout.split("\n")
-    assert log[0].split()[0] == commit
-    assert log[0].split()[1] == before, "the publish is a plain child of the tip it read"
-    assert len(git("log", "--oneline", "gh-pages", cwd=origin).stdout.strip().splitlines()) == 2
+    for attempt in range(2):
+        before = build.remote_tip(work, "origin", "gh-pages")
+        commit = build.publish(
+            composed, work, before, "docs: publish site (main aaaaaaa, develop bbbbbbb)\n",
+            scratch=tmp_path / f"scratch-publish-{attempt}",
+        )
+        log = git("log", "--format=%H %P", "gh-pages", cwd=origin).stdout.strip().splitlines()
+        assert log == [commit], "gh-pages holds one commit, with no parent"
+    assert git("rev-parse", "main", cwd=origin).stdout.strip(), "other branches are untouched"
 
     listing = git("ls-tree", "-r", "--name-only", "gh-pages", cwd=origin).stdout.split()
     assert "index.html" in listing and "develop/index.html" in listing
@@ -316,6 +324,20 @@ def test_a_concurrent_publish_is_reported_and_nothing_is_overwritten(build, sand
 
 
 @pytest_git
+def test_a_server_refusal_is_not_reported_as_a_race(build, sandbox, composed, tmp_path):
+    work, origin, git = sandbox
+    hook = origin / "hooks" / "pre-receive"
+    hook.write_text("#!/bin/sh\necho protected >&2\nexit 1\n", encoding="utf-8")
+    hook.chmod(0o755)
+    tip = build.remote_tip(work, "origin", "gh-pages")
+
+    with pytest.raises(build.BuildError) as refused:
+        build.publish(composed, work, tip, "docs: publish\n", scratch=tmp_path / "scratch-refused")
+    assert not isinstance(refused.value, build.PublishRace)
+    assert build.remote_tip(work, "origin", "gh-pages") == tip
+
+
+@pytest_git
 def test_publishing_leaves_the_checkout_and_its_index_alone(build, sandbox, composed, tmp_path):
     work, origin, git = sandbox
     before_status = git("status", "--porcelain", "--untracked-files=all").stdout
@@ -338,7 +360,8 @@ def test_publishing_leaves_the_checkout_and_its_index_alone(build, sandbox, comp
 
 @pytest_git
 def test_the_commit_message_names_both_source_commits(build, tracks):
-    message = build._commit_message(tracks)
+    message = build._commit_message(tracks, "c" * 40)
     assert message.startswith("docs: publish site (main aaaaaaa, develop bbbbbbb)")
     assert "a" * 40 in message and "b" * 40 in message
+    assert f"replaces    {'c' * 40}" in message, "the replaced tip stays traceable"
     assert "output only" in message
