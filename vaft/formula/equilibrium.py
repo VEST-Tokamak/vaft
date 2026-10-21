@@ -6512,9 +6512,10 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     -----------
     Until #351 this returned
     $5 + \mu_\rho(1+\alpha_P) - \tfrac32(\mu_\rho + 2\mu_\beta - 4\mu_\nu - 2)$,
-    "5 for a consistent mapping", which no published scaling reached.  It now
-    returns the residual and emits a ``FutureWarning`` saying so, until
-    0.9.0; prefer :func:`check_kadomtsev_constraint` on engineering exponents.
+    "5 for a consistent mapping", which no published scaling reached.  It has
+    returned the residual since; the ``FutureWarning`` that announced the
+    change was dropped in 0.9.0.  Prefer :func:`check_kadomtsev_constraint`
+    on engineering exponents.
 
     References
     ----------
@@ -6522,14 +6523,6 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     .. [2] T. C. Luce, C. C. Petty and J. G. Cordey, Plasma Phys. Control.
            Fusion 50 (2008) 043001.
     """
-    warnings.warn(
-        "verify_kadomtsev_constraint now returns the Kadomtsev residual "
-        "alpha_K (0 when consistent), the quantity check_kadomtsev_constraint "
-        "tests, instead of the old value that 'should be 5' (#351). This "
-        "warning is removed in 0.9.0.",
-        FutureWarning,
-        stacklevel=2,
-    )
     alpha_i, alpha_b, alpha_p, alpha_n, alpha_r = (
         engineering_exponents_from_dimensionless_coeffs(mu_rho, mu_beta, mu_nu, a_P)
     )
