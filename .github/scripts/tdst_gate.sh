@@ -1,5 +1,5 @@
 #!/bin/bash
-# Usage: .github/scripts/tdst_gate.sh <PR number> [--comment]
+# Usage: .github/scripts/tdst_gate.sh <PR number> [--comment] [--allow-fork]
 #
 # The develop gate, run on the lab's Slurm cluster instead of GitHub Actions.
 # It repeats what Package CI's `core-test` and `package` jobs do, on GitHub's
@@ -13,55 +13,80 @@
 # PR stays blocked until a run passes. The informational `tdst-ci` status
 # carries the verdict either way.
 #
+# The job executes the PR's code (build backend, conftest, tests) as the
+# operator's cluster account, so PRs from forks are refused unless
+# --allow-fork is given after reading the diff.
+#
 # Runs on a workstation with `gh` authenticated for VEST-Tokamak/vaft and ssh
 # key access to the cluster. Every step (install, tests, build) runs inside the
 # Slurm allocation; the login node only fetches and submits.
 #
 # Configuration (host and account stay out of the repository). Read from the
 # environment, after sourcing ${VAFT_TDST_ENV:-~/.config/vaft/tdst-gate.env}:
-#   VAFT_TDST_SSH      ssh destination and options, e.g. "-p <port> <user>@<head>"  (required)
-#   VAFT_TDST_SBATCH   sbatch options, e.g. "-A <account> -p g1"                     (required)
-#   VAFT_TDST_ROOT     remote work root                     (default ~/work/vaft-ci)
-#   VAFT_TDST_PYTHON   remote Python 3.14 with `uv`         (default $ROOT/py314/bin/python)
+#   VAFT_TDST_SSH       ssh destination and options, e.g. "-p <port> <user>@<head>"  (required)
+#   VAFT_TDST_SBATCH    sbatch options, e.g. "-A <account> -p g1"                     (required)
+#   VAFT_TDST_ROOT      remote work root                     (default ~/work/vaft-ci)
+#   VAFT_TDST_PYTHON    remote Python 3.14 with `uv` beside it (default $ROOT/py314/bin/python)
+#   VAFT_TDST_NO_STATUS 1 = dry run: print the verdict, post no status
 #
-# Exit: 0 passed, 1 failed, 2 not mergeable / not a develop PR, 3 infrastructure.
+# Exit: 0 passed, 1 failed, 2 not gateable (closed, not develop, conflict,
+# fork), 3 infrastructure (including a status that could not be posted).
 set -uo pipefail
 
-N=${1:?usage: .github/scripts/tdst_gate.sh <PR number> [--comment]}
-COMMENT=${2:-}
+N=${1:?usage: .github/scripts/tdst_gate.sh <PR number> [--comment] [--allow-fork]}
+shift
+COMMENT= ALLOW_FORK=
+for arg in "$@"; do
+  case "$arg" in
+    --comment) COMMENT=1 ;;
+    --allow-fork) ALLOW_FORK=1 ;;
+    *) echo "unknown option $arg" >&2; exit 2 ;;
+  esac
+done
 ENV_FILE=${VAFT_TDST_ENV:-$HOME/.config/vaft/tdst-gate.env}
 # shellcheck disable=SC1090
 [ -f "$ENV_FILE" ] && . "$ENV_FILE"
 SSH_DEST=${VAFT_TDST_SSH:?set VAFT_TDST_SSH (or write it to $ENV_FILE)}
 SBATCH_ARGS=${VAFT_TDST_SBATCH:?set VAFT_TDST_SBATCH (or write it to $ENV_FILE)}
+# Empty means "the remote default"; resolved on the cluster, where $HOME is.
+REMOTE_ROOT=${VAFT_TDST_ROOT:-}
+REMOTE_PYTHON=${VAFT_TDST_PYTHON:-}
 REPO=VEST-Tokamak/vaft
 
 # -o LogLevel=ERROR: the cluster's post-quantum key-exchange warning would
 # otherwise land in every captured stderr.
 ssh_() { ssh -o BatchMode=yes -o LogLevel=ERROR -o ServerAliveInterval=60 $SSH_DEST "$@"; }
 die() { echo "PR #$N: CI infrastructure error: $*" >&2; exit 3; }
-status() {  # status <context> <state> <description>
-  # VAFT_TDST_NO_STATUS=1: report on stdout only (a dry run of the gate).
+status() {  # status <context> <state> <description>; non-zero if not posted
   [ "${VAFT_TDST_NO_STATUS:-0}" = 1 ] && return 0
   gh api -X POST "repos/$REPO/statuses/$HEAD" -f context="$1" -f state="$2" \
-    -f description="${3:0:139}" >/dev/null || echo "could not post status $1=$2" >&2
+    -f description="${3:0:139}" >/dev/null && return 0
+  echo "could not post status $1=$2" >&2
+  return 1
 }
 
-read -r STATE BASE HEAD MERGEABLE <<< "$(gh pr view "$N" --repo "$REPO" \
-  --json state,baseRefName,headRefOid,mergeable \
-  --jq '"\(.state) \(.baseRefName) \(.headRefOid) \(.mergeable)"')" || die "cannot read PR #$N"
+PR_INFO=$(gh pr view "$N" --repo "$REPO" \
+  --json state,baseRefName,headRefOid,mergeable,isCrossRepository \
+  --jq '"\(.state) \(.baseRefName) \(.headRefOid) \(.mergeable) \(.isCrossRepository)"') \
+  || die "cannot read PR #$N"
+read -r STATE BASE HEAD MERGEABLE CROSS <<< "$PR_INFO"
 [ "$STATE" = OPEN ] || { echo "PR #$N is $STATE"; exit 2; }
 # main keeps its own gate (test, package, tutorial on Actions); this one is develop's.
 [ "$BASE" = develop ] || { echo "PR #$N targets $BASE, not develop"; exit 2; }
 [ "$MERGEABLE" != CONFLICTING ] || { echo "PR #$N (${HEAD:0:9}): MERGE CONFLICT with develop"; exit 2; }
+if [ "$CROSS" = true ] && [ -z "$ALLOW_FORK" ]; then
+  echo "PR #$N comes from a fork: its code would run as the cluster account." \
+       "Read the diff, then re-run with --allow-fork."
+  exit 2
+fi
 
 # Fetch the merge ref and submit. Prints "<job id> <base sha> <run dir>".
 # (A function, not a heredoc inside $(...): macOS's bash 3.2 cannot parse that.)
 remote_submit() { cat <<'REMOTE'
 set -euo pipefail
 N=$1 HEAD=$2 SBATCH_ARGS=$3
-ROOT=${VAFT_TDST_ROOT:-$HOME/work/vaft-ci}
-PY=${VAFT_TDST_PYTHON:-$ROOT/py314/bin/python}
+ROOT=${4:-$HOME/work/vaft-ci}
+PY=${5:-$ROOT/py314/bin/python}
 UV=$(dirname "$PY")/uv
 CLONE=$ROOT/repo
 mkdir -p "$ROOT/runs"
@@ -71,30 +96,44 @@ mkdir -p "$ROOT/runs"
 # core-test and package. flock: several sessions may gate PRs at once.
 exec 9>"$ROOT/repo.lock"
 flock 9
-[ -d "$CLONE/.git" ] || git clone -q --no-checkout https://github.com/VEST-Tokamak/vaft.git "$CLONE" >&2
+if ! git -C "$CLONE" rev-parse --git-dir >/dev/null 2>&1; then
+  rm -rf "$CLONE"   # a clone interrupted under the lock leaves a partial tree
+  git clone -q --no-checkout https://github.com/VEST-Tokamak/vaft.git "$CLONE" >&2
+fi
 # GitHub recomputes refs/pull/N/merge asynchronously after a push; wait until
-# its second parent is the head we were asked to gate.
+# its second parent is the head we were asked to gate. A failed fetch (network,
+# or no merge ref yet while mergeability is computing) is retried too.
 for _ in 1 2 3 4 5 6; do
-  git -C "$CLONE" fetch -q origin "+refs/pull/$N/merge:refs/remotes/pr/$N/merge" >&2
-  [ "$(git -C "$CLONE" rev-parse "pr/$N/merge^2")" = "$HEAD" ] && break
+  if git -C "$CLONE" fetch -q origin "+refs/pull/$N/merge:refs/remotes/pr/$N/merge" >&2 \
+     && [ "$(git -C "$CLONE" rev-parse "pr/$N/merge^2")" = "$HEAD" ]; then
+    break
+  fi
   sleep 20
 done
-[ "$(git -C "$CLONE" rev-parse "pr/$N/merge^2")" = "$HEAD" ] \
+[ "$(git -C "$CLONE" rev-parse "pr/$N/merge^2" 2>/dev/null)" = "$HEAD" ] \
   || { echo "refs/pull/$N/merge does not contain head $HEAD" >&2; exit 1; }
 MERGE=$(git -C "$CLONE" rev-parse "pr/$N/merge")
 BASE_SHA=$(git -C "$CLONE" rev-parse "pr/$N/merge^1")
 RUN=$ROOT/runs/pr$N-${HEAD:0:9}-$(date +%Y%m%d%H%M%S)
 mkdir -p "$RUN"
 git -C "$CLONE" worktree add -q --detach "$RUN/src" "$MERGE" >&2
-# Keep the logs of the 30 newest runs; drop older ones entirely (their src
-# worktree is removed at job end, `worktree prune` forgets any leftover).
-ls -1dt "$ROOT"/runs/*/ 2>/dev/null | tail -n +31 | xargs -r rm -rf
+# Keep the logs of the 30 newest finished runs. A run without an `exit` file
+# younger than the job time limit may still be running: leave it alone.
+ls -1dt "$ROOT"/runs/*/ 2>/dev/null | tail -n +31 | while read -r old; do
+  if [ -f "$old/exit" ] || [ -n "$(find "$old" -maxdepth 0 -mmin +120)" ]; then
+    rm -rf "$old"
+  fi
+done
 git -C "$CLONE" worktree prune
 flock -u 9
 
 cat > "$RUN/job.sh" <<JOB
 #!/bin/bash
 set -o pipefail
+# sbatch exports the submitting shell's environment, which ~/.bashrc shaped.
+# Start from what Actions has: none of these set.
+unset PYTHONPATH PYTHONHOME PYTHONSTARTUP MPLBACKEND MPLCONFIGDIR VIRTUAL_ENV \
+      CONDA_PREFIX CONDA_DEFAULT_ENV OMAS_DEBUG_TOPIC
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 # No MPLBACKEND: core-test runs without one, and test_help asserts the
 # backend is still unresolved after import.
@@ -141,15 +180,29 @@ echo "${JOB%%;*} ${BASE_SHA:0:9} $RUN"
 REMOTE
 }
 
-OUT=$(remote_submit | ssh_ bash -s -- "$N" "$HEAD" "\"$SBATCH_ARGS\"") \
+OUT=$(remote_submit | ssh_ bash -s -- "$N" "$HEAD" "\"$SBATCH_ARGS\"" "\"$REMOTE_ROOT\"" "\"$REMOTE_PYTHON\"") \
   || die "cannot fetch the merge ref or submit the job"
 read -r JOB BASE_SHA RUN <<< "$(printf '%s\n' "$OUT" | tail -1)"
 [ -n "${JOB:-}" ] || die "sbatch returned no job id"
 echo "PR #$N (${HEAD:0:9}) on develop $BASE_SHA: Slurm job $JOB, run $RUN" >&2
 status tdst-ci pending "Slurm job $JOB: core-test + package on develop $BASE_SHA"
 
-# squeue drops a finished job within seconds and returns empty with rc 0.
-while ssh_ "squeue -h -j $JOB 2>/dev/null" | grep -q .; do sleep 60; done
+# squeue drops a finished job within seconds and returns empty with rc 0. An
+# ssh failure (rc 255: network drop, a sleeping laptop) is not "finished":
+# retry it for up to an hour before giving up.
+SSH_FAILS=0
+while :; do
+  QUEUE=$(ssh_ "squeue -h -j $JOB 2>/dev/null"); RC=$?
+  if [ "$RC" = 255 ]; then
+    SSH_FAILS=$((SSH_FAILS + 1))
+    [ "$SSH_FAILS" -lt 60 ] || die "lost the cluster while job $JOB was running"
+  elif [ -z "$QUEUE" ]; then
+    break
+  else
+    SSH_FAILS=0
+  fi
+  sleep 60
+done
 
 CODE=$(ssh_ "cat $RUN/exit 2>/dev/null")
 CORE=$(ssh_ "tail -1 $RUN/core.log 2>/dev/null" | sed 's/^=* *//; s/ *=*$//')
@@ -165,11 +218,14 @@ LINE="PR #$N (${HEAD:0:9}) merged onto develop $BASE_SHA: $VERDICT | core: ${COR
 echo "$LINE"
 if [ "$CODE" = 0 ]; then
   status tdst-ci success "core-test + package passed (Slurm job $JOB)"
-  status merge-gate success "develop gate passed on tdst (Slurm job $JOB)"
+  # The verdict is only useful if it reached the PR: an unposted merge-gate
+  # leaves the PR blocked, so say so in the exit code.
+  status merge-gate success "develop gate passed on tdst (Slurm job $JOB)" \
+    || die "the run passed but merge-gate could not be posted"
 else
   status tdst-ci failure "$VERDICT (Slurm job $JOB)"
 fi
-if [ "$COMMENT" = "--comment" ]; then
+if [ -n "$COMMENT" ]; then
   gh pr comment "$N" --repo "$REPO" --body "**develop gate (tdst cluster):** $LINE" >/dev/null \
     || echo "could not post the PR comment" >&2
 fi

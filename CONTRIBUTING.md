@@ -59,7 +59,9 @@ head. Two routes post it, and whichever passes first unblocks the merge:
    from a workstation with `gh` authenticated and ssh access to the cluster;
    the host and Slurm account come from `~/.config/vaft/tdst-gate.env`
    (`VAFT_TDST_SSH`, `VAFT_TDST_SBATCH`), never from the repository.
-   `VAFT_TDST_NO_STATUS=1` makes it a dry run that only prints the verdict.
+   `VAFT_TDST_NO_STATUS=1` makes it a dry run that only prints the verdict;
+   `VAFT_TDST_ROOT` and `VAFT_TDST_PYTHON` override the remote work root and
+   interpreter.
 
 Neither route ever posts a failure to `merge-gate`, so a red run on one route
 cannot overwrite a green verdict from the other; a PR with no green route stays
@@ -67,7 +69,15 @@ blocked with the status "expected". The status is accepted from any source
 (no `integration_id`), which is what lets the cluster post it — so it is a
 convention among people with write access, like the admin bypass below, and
 it is auditable in each commit's status history. A new push changes the head
-SHA and therefore needs a new verdict.
+SHA and therefore needs a new verdict. A status sticks to its SHA: a later red
+re-run does not withdraw a green `merge-gate`, so to revoke one, post
+`merge-gate: failure` on that SHA by hand.
+
+The cluster route runs the PR's code as the operator's cluster account, so the
+script refuses PRs from forks unless `--allow-fork` is given after reading the
+diff. The Actions route skips fork PRs too (their token cannot post statuses);
+a fork PR therefore merges only through a deliberate cluster run or the admin
+bypass.
 
 The cluster route is the same *selection* on the same *tree*, not an identical
 environment: Python 3.14 from conda-forge and `uv pip install --no-sources`
