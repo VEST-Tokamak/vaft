@@ -70,6 +70,15 @@ def _kind(name):
     return "data" if name.endswith(DATA_SUFFIXES) else "render"
 
 
+def _files(directory):
+    """Names of the generated files in ``directory`` (dotfiles such as .DS_Store are not)."""
+    return {
+        path.name
+        for path in directory.iterdir()
+        if path.is_file() and not path.name.startswith(".")
+    }
+
+
 def _render(output, frames, dpi):
     experiments = {}
     panels = {}
@@ -161,17 +170,16 @@ def _render(output, frames, dpi):
             json.dumps(json.loads(sidecar.read_text()), separators=(",", ":")) + "\n"
         )
     artifacts = {
-        path.name: {
-            "sha256": _sha256(path.read_bytes()),
-            "bytes": path.stat().st_size,
-            "kind": _kind(path.name),
+        name: {
+            "sha256": _sha256((output / name).read_bytes()),
+            "bytes": (output / name).stat().st_size,
+            "kind": _kind(name),
         }
-        for path in sorted(output.iterdir())
-        if path.is_file() and path.name != "manifest.json"
+        for name in sorted(_files(output) - {"manifest.json"})
     }
     document = {
         "schema_version": 1,
-        "generator": "workflow/particle_motion/run.py",
+        "generator": GENERATOR,
         "units": "SI",
         "presentation": {"frames": frames, "dpi": dpi},
         "scope": "nonrelativistic collisionless static fields; weak-flow Hamiltonian GC",
@@ -183,32 +191,60 @@ def _render(output, frames, dpi):
         ],
         "examples": rows,
         # Every other file in this directory, with its digest: the integrity
-        # record --check (and the docs build) verify against.
+        # record that --check and test_particle_motion_assets verify against.
         "artifacts": artifacts,
+        # What rendered the SVG/PNG/GIF bytes above; --check compares renders
+        # strictly only when it runs with the same toolchain.
+        "toolchain": _toolchain(),
     }
     (output / "manifest.json").write_text(json.dumps(document, indent=2) + "\n")
     return document
+
+
+GENERATOR = "workflow/particle_motion/run.py"
+
+
+def _owned(output):
+    """True if ``output`` is empty or already this generator's directory.
+
+    Orphan removal deletes every file it did not produce, so a mistyped
+    ``--output`` (say docs/assets/diagrams) must be refused, not emptied.
+    """
+    if not _files(output):
+        return True
+    try:
+        manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return manifest.get("generator") == GENERATOR
 
 
 def generate(output, frames=12, dpi=55):
     """Render into scratch, then write only changed files and drop orphans."""
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
+    if not _owned(output):
+        raise SystemExit(
+            f"{output} holds files but no {GENERATOR} manifest; refusing to write "
+            "into (and prune) a directory this generator does not own"
+        )
     with tempfile.TemporaryDirectory(prefix="particle-motion-") as scratch:
         stage = Path(scratch)
         document = _render(stage, frames, dpi)
-        produced = {path.name for path in stage.iterdir() if path.is_file()}
+        produced = _files(stage)
+        # The manifest goes last: an interrupted run then leaves old digests
+        # beside new files, which --check reports, never the reverse.
+        order = sorted(produced - {"manifest.json"}) + ["manifest.json"]
         written = [
             name
-            for name in sorted(produced)
+            for name in order
             if write_if_changed(output / name, (stage / name).read_bytes())
         ]
     # The directory is generated output only: anything not produced is stale.
     removed = []
-    for path in sorted(output.iterdir()):
-        if path.is_file() and path.name not in produced:
-            path.unlink()
-            removed.append(path.name)
+    for name in sorted(_files(output) - produced):
+        (output / name).unlink()
+        removed.append(name)
     print(
         f"{len(document['examples'])} examples: {len(written)} file(s) written, "
         f"{len(produced) - len(written)} unchanged, {len(removed)} removed",
@@ -244,29 +280,36 @@ def check(output, frames=12, dpi=55, *, strict=False):
       manifest records (edited by hand, or regenerated without the manifest);
     - stale: a data file (sidecar or manifest) the current source would
       generate differently;
-    - render drift: an SVG/PNG/GIF that differs only after rendering.  This
-      depends on the TeX/Matplotlib/Pillow versions, so it is a warning unless
-      ``strict``.
+    - renders: an SVG/PNG/GIF that differs after rendering.  With the toolchain
+      the manifest records, that is stale output (a plotting change) and an
+      error.  With a different TeX/Matplotlib/Pillow it may be the toolchain
+      alone, so it is reported as render drift: a warning unless ``strict``.
     """
     output = Path(output)
     problems, warnings = [], []
     committed_manifest = output / "manifest.json"
     if not committed_manifest.is_file():
         return [f"{output}/manifest.json: missing; run the generator"], warnings
-    record = json.loads(committed_manifest.read_text(encoding="utf-8")).get("artifacts")
+    committed = json.loads(committed_manifest.read_text(encoding="utf-8"))
+    record = committed.get("artifacts")
     if not record:
         problems.append("manifest.json: no artifacts table; regenerate")
         record = {}
+    present = _files(output)
+    for name in sorted(set(record) - present):
+        problems.append(f"{name}: recorded in the manifest but not present")
+    for name in sorted(present - set(record) - {"manifest.json"}):
+        problems.append(f"{name}: present but not recorded in the manifest")
     for name, entry in sorted(record.items()):
         path = output / name
         if path.is_file() and _sha256(path.read_bytes()) != entry.get("sha256"):
             problems.append(f"{name}: does not match its manifest digest (integrity)")
+    same_toolchain = committed.get("toolchain") == _toolchain()
 
     with tempfile.TemporaryDirectory(prefix="particle-motion-check-") as scratch:
         stage = Path(scratch)
         _render(stage, frames, dpi)
-        produced = {path.name for path in stage.iterdir() if path.is_file()}
-        present = {path.name for path in output.iterdir() if path.is_file()}
+        produced = _files(stage)
         for name in sorted(produced - present):
             problems.append(
                 f"{name}: missing (the generator produces it; media kept outside git "
@@ -277,22 +320,32 @@ def check(output, frames=12, dpi=55, *, strict=False):
         for name in sorted(produced & present):
             new, old = (stage / name).read_bytes(), (output / name).read_bytes()
             if name == "manifest.json":
-                # The artifacts table carries render digests; compare the science.
+                # The artifacts table and toolchain describe the renders; compare the science.
                 new_doc, old_doc = json.loads(new), json.loads(old)
-                new_doc.pop("artifacts", None)
-                old_doc.pop("artifacts", None)
+                for key in ("artifacts", "toolchain"):
+                    new_doc.pop(key, None)
+                    old_doc.pop(key, None)
                 if new_doc != old_doc:
                     problems.append("manifest.json: stale (examples or provenance differ)")
             elif new != old:
                 if _kind(name) == "data":
                     problems.append(f"{name}: stale (regenerated data differs)")
+                elif same_toolchain:
+                    problems.append(
+                        f"{name}: stale (re-rendered with the recorded toolchain, bytes differ)"
+                    )
                 else:
                     (problems if strict else warnings).append(
                         f"{name}: render drift (bytes differ after rendering)"
                     )
     if any("render drift" in line for line in problems + warnings):
-        toolchain = ", ".join(f"{k} {v}" for k, v in _toolchain().items())
-        (problems if strict else warnings).append(f"toolchain here: {toolchain}")
+        here = ", ".join(f"{k} {v}" for k, v in _toolchain().items())
+        recorded = ", ".join(
+            f"{k} {v}" for k, v in (committed.get("toolchain") or {}).items()
+        ) or "not recorded"
+        (problems if strict else warnings).append(
+            f"toolchain here: {here}; recorded: {recorded}"
+        )
     return problems, warnings
 
 

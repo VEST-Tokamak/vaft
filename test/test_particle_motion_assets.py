@@ -53,7 +53,8 @@ def test_committed_files_match_their_manifest_digests():
 @pytest.fixture
 def renderer(monkeypatch):
     """Replace the expensive physics + TeX render with a controllable stub."""
-    files = {"a.gif": b"GIF89a-1", "a.gif.json": b'{"x":1}\n', "a.svg": b"<svg/>"}
+    files = _Files({"a.gif": b"GIF89a-1", "a.gif.json": b'{"x":1}\n', "a.svg": b"<svg/>"})
+    toolchain = {"value": {"stub": "renderer"}}  # differs from this machine's
 
     def render(output, frames, dpi):
         for name, data in files.items():
@@ -63,12 +64,18 @@ def renderer(monkeypatch):
                      "kind": run._kind(p.name)}
             for p in sorted(output.iterdir())
         }
-        document = {"examples": [{"id": "a"}], "artifacts": artifacts}
+        document = {"generator": run.GENERATOR, "examples": [{"id": "a"}],
+                    "artifacts": artifacts, "toolchain": toolchain["value"]}
         (output / "manifest.json").write_text(json.dumps(document, indent=2) + "\n")
         return document
 
     monkeypatch.setattr(run, "_render", render)
+    files.toolchain = toolchain
     return files
+
+
+class _Files(dict):
+    pass
 
 
 def test_an_unchanged_regeneration_writes_nothing(tmp_path, renderer):
@@ -85,6 +92,7 @@ def test_an_unchanged_regeneration_writes_nothing(tmp_path, renderer):
 
 
 def test_files_the_generator_no_longer_produces_are_removed(tmp_path, renderer):
+    run.generate(tmp_path)
     (tmp_path / "old.svg").write_bytes(b"<svg/>")
     run.generate(tmp_path)
     assert not (tmp_path / "old.svg").exists()
@@ -127,3 +135,39 @@ def test_missing_and_orphaned_files_are_named(tmp_path, renderer):
     problems, _ = run.check(tmp_path)
     assert any("a.gif: missing" in line for line in problems)
     assert any("stray.png: orphaned" in line for line in problems)
+
+
+def test_with_the_recorded_toolchain_a_render_difference_is_stale(tmp_path, renderer):
+    """A plotting change must not hide as toolchain drift on the machine that rendered."""
+    renderer.toolchain["value"] = run._toolchain()
+    run.generate(tmp_path)
+    renderer["a.svg"] = b"<svg>replotted</svg>"
+    problems, warnings = run.check(tmp_path)
+    assert any("a.svg: stale" in line for line in problems)
+    assert not any("render drift" in line for line in warnings)
+
+
+def test_a_directory_the_generator_does_not_own_is_refused(tmp_path, renderer):
+    (tmp_path / "committed.svg").write_bytes(b"<svg/>")
+    with pytest.raises(SystemExit, match="refusing"):
+        run.generate(tmp_path)
+    assert (tmp_path / "committed.svg").exists(), "nothing was pruned"
+
+
+def test_check_names_files_outside_the_artifacts_table(tmp_path, renderer):
+    run.generate(tmp_path)
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    del manifest["artifacts"]["a.svg"]
+    manifest["artifacts"]["gone.png"] = {"sha256": "0" * 64, "bytes": 1, "kind": "render"}
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    problems, _ = run.check(tmp_path)
+    assert any("a.svg: present but not recorded" in line for line in problems)
+    assert any("gone.png: recorded in the manifest but not present" in line for line in problems)
+
+
+def test_dotfiles_are_neither_orphans_nor_artifacts(tmp_path, renderer):
+    run.generate(tmp_path)
+    (tmp_path / ".DS_Store").write_bytes(b"finder")
+    run.generate(tmp_path)
+    assert (tmp_path / ".DS_Store").exists()
+    assert run.check(tmp_path)[0] == []
