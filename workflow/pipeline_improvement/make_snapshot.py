@@ -100,6 +100,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         if frame is None:
             continue
         if name == "vacuum":
+            # A load error superseded by a rerun of the same source and shot is
+            # not a result; only load errors no rerun replaced stay counted.
+            rerun = frame[frame["status"] != "load_error"][["source", "shot"]].drop_duplicates()
+            stale = frame["status"].eq("load_error") & frame.set_index(["source", "shot"]).index.isin(
+                rerun.set_index(["source", "shot"]).index)
+            frame = frame[~stale]
             write(vacuum_by_family(frame), "vacuum_by_family")
             status = frame.groupby(["source", "wall_model", "status"], dropna=False).size()
             written["vacuum_status"] = {"counts": {" / ".join(map(str, k)): int(v) for k, v in status.items()}}

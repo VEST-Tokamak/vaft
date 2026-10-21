@@ -38,6 +38,8 @@ OFFLINE_NOTEBOOKS: dict[str, dict[str, str]] = {
     "confinement_time_scaling.ipynb": {},
     "magnetic_diagnostics_processing.ipynb": {},
     "verification_and_validation.ipynb": {},
+    # Reads the checked-in legacy-vs-current snapshot; no database access.
+    "pipeline_improvement_public_vs_main.ipynb": {},
     "database_initialization_and_load.ipynb": {"VAFT_DOCS_READ_ONLY": "1"},
     # The one issue-65 example that draws: this tool's verdict is "did a figure
     # reach a frontend", so a text-only notebook listed here would be reported
