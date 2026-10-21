@@ -1,4 +1,10 @@
-"""The pre-redesign ``vaft.plot`` surface must stay accounted for and warn."""
+"""The pre-redesign ``vaft.plot`` surface must stay accounted for and stay gone.
+
+The legacy (0.5.0) and renamed (0.6.0) names resolved with a
+``DeprecationWarning`` until 0.9.0 deleted them; every one must now raise an
+``AttributeError`` that names its replacement, from ``vaft.plot`` and, for the
+renamed stems, from ``vaft.omas.plot_<old>`` too.
+"""
 
 import warnings
 
@@ -224,30 +230,31 @@ def test_the_table_does_not_claim_names_that_never_existed():
     assert invented == ["confinement_time_histogram"]
 
 
-@pytest.mark.parametrize("name", sorted(DEPRECATED))
-def test_deprecated_names_resolve_and_name_their_replacement(name):
-    vaft.plot.__dict__.pop(name, None)
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        value = getattr(vaft.plot, name)
+def _removed(name):
+    """The AttributeError ``vaft.plot.<name>`` raises, with no warning first."""
+    assert name not in vaft.plot.__dict__, f"{name} is bound on the package"
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with pytest.raises(AttributeError) as excinfo:
+            getattr(vaft.plot, name)
+    assert name not in vaft.plot.__dict__, f"the failed lookup cached {name}"
+    return str(excinfo.value)
 
-    assert callable(value)
-    assert any(item.category is DeprecationWarning for item in caught)
-    message = str(caught[0].message)
-    assert DEPRECATED[name] in message
+
+@pytest.mark.parametrize("name", sorted(DEPRECATED))
+def test_deprecated_names_are_gone_and_name_their_replacement(name):
+    message = _removed(name)
+    assert f"vaft.plot.{DEPRECATED[name]}" in message
+    assert f"vaft.omas.plot_{DEPRECATED[name]}" in message
     assert REMOVAL_RELEASE in message
+    assert "migration_table" in message
 
 
 @pytest.mark.parametrize("name", sorted(RELOCATED))
-def test_relocated_names_resolve_and_point_at_their_home(name):
-    vaft.plot.__dict__.pop(name, None)
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        value = getattr(vaft.plot, name)
-
-    assert callable(value)
-    assert any(item.category is DeprecationWarning for item in caught)
-    assert RELOCATED[name] in str(caught[0].message)
+def test_relocated_aliases_are_gone_and_point_at_their_home(name):
+    message = _removed(name)
+    assert RELOCATED[name] in message
+    assert REMOVAL_RELEASE in message
 
 
 @pytest.mark.parametrize("name", sorted(LEGACY))
@@ -278,7 +285,7 @@ def test_rendered_table_covers_the_whole_surface():
         assert f"`{name}`" in text, name
     assert REMOVAL_RELEASE in text
     assert RENAMED_REMOVAL_RELEASE in text
-    for heading in ("Deprecated renderers", "Renamed canonical stems", "Relocated",
+    for heading in ("Legacy renderers", "Renamed canonical stems", "Relocated",
                     "Removed internal helpers", "Already canonical"):
         assert heading in text, heading
 
@@ -292,17 +299,12 @@ def test_preserved_names_are_canonical_and_carry_no_deprecation():
 
 
 @pytest.mark.parametrize("name", sorted(RENAMED))
-def test_renamed_stems_warn_and_delegate_from_vaft_plot(name):
-    vaft.plot.__dict__.pop(name, None)
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        value = getattr(vaft.plot, name)
-
-    assert value is getattr(vaft.plot, RENAMED[name]), name
-    assert any(item.category is DeprecationWarning for item in caught)
-    message = str(caught[0].message)
-    assert RENAMED[name] in message
+def test_renamed_stems_are_gone_from_vaft_plot_and_name_the_new_stem(name):
+    message = _removed(name)
+    assert f"vaft.plot.{RENAMED[name]}" in message
+    assert f"vaft.omas.plot_{RENAMED[name]}" in message
     assert RENAMED_REMOVAL_RELEASE in message
+    assert callable(getattr(vaft.plot, RENAMED[name]))
 
 
 def test_every_renamed_stem_points_at_a_registered_plot():
@@ -313,37 +315,55 @@ def test_every_renamed_stem_points_at_a_registered_plot():
 
 
 @pytest.mark.parametrize("name", sorted(RENAMED))
-def test_renamed_omas_adapters_warn_and_delegate(name):
+def test_renamed_omas_adapters_are_gone_and_name_the_new_adapter(name):
+    import vaft.omas
     import vaft.omas.plotting as omas_plotting
 
-    adapter = getattr(omas_plotting, f"plot_{name}")
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        with pytest.raises(TypeError):
-            adapter(object())
-    assert any(item.category is DeprecationWarning for item in caught)
-    assert f"plot_{RENAMED[name]}" in str(caught[0].message)
+    assert not hasattr(omas_plotting, f"plot_{name}")
+    assert f"plot_{name}" not in omas_plotting.__all__
+    assert f"plot_{name}" not in dir(vaft.omas)
+    with pytest.raises(AttributeError) as excinfo:
+        getattr(vaft.omas, f"plot_{name}")
+    message = str(excinfo.value)
+    assert f"vaft.omas.plot_{RENAMED[name]}" in message
+    assert RENAMED_REMOVAL_RELEASE in message
+    assert callable(getattr(vaft.omas, f"plot_{RENAMED[name]}"))
+
+
+def test_the_removal_releases_have_shipped():
+    """The constants now record history: both lie at or before this version."""
+    import vaft
+
+    current = _release_tuple(vaft.__version__.split("+")[0].split("rc")[0].split(".dev")[0])
+    assert _release_tuple(REMOVAL_RELEASE) <= current
+    assert _release_tuple(RENAMED_REMOVAL_RELEASE) <= current
 
 
 def _release_tuple(text):
     return tuple(int(part) for part in text.split("."))
 
 
-def _documented_removal_releases():
-    """Every release a removal is promised for, from the constants and from
-    literal ``removed in X.Y.Z`` sentences anywhere in the package source."""
-    import pathlib
-    import re
+_PROMISE = __import__("re").compile(r"[Rr]emoved in (\d+\.\d+\.\d+)")
 
-    found = {
-        "vaft.plot._migration.REMOVAL_RELEASE": REMOVAL_RELEASE,
-        "vaft.plot._migration.RENAMED_REMOVAL_RELEASE": RENAMED_REMOVAL_RELEASE,
-    }
+
+def _documented_removal_releases():
+    """Every release a removal is promised for: literal ``removed in X.Y.Z``
+    sentences anywhere in the package source.
+
+    The ``_migration`` constants are not promises any more -- 0.9.0 deleted
+    the names they dated (``test_the_removal_releases_have_shipped``) -- and a
+    record of that removal is written "was removed in" / "gone since" so that
+    this scan, which cannot tell tense, does not read history as a promise.
+    """
+    import pathlib
+
+    found = {}
     package = pathlib.Path(vaft.plot.__file__).resolve().parents[1]
-    pattern = re.compile(r"[Rr]emoved in (\d+\.\d+\.\d+)")
     for path in sorted(package.rglob("*.py")):
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            for match in pattern.finditer(line):
+            for match in _PROMISE.finditer(line):
+                if "was removed in" in line or "were removed in" in line:
+                    continue
                 found[f"{path.relative_to(package.parent)}:{number}"] = match.group(1)
     return found
 
@@ -352,16 +372,16 @@ def test_no_removal_promise_has_reached_the_current_version():
     """A name that says "removed in X" must be gone by the time X ships.
 
     0.7.0 and 0.7.1 both shipped the legacy plot names past their promised
-    removal, and 0.8.0 nearly shipped the renamed ones.  Any documented removal
-    release still in the tree has to lie strictly beyond ``vaft.__version__``;
-    the release that reaches it either deletes the names or re-dates them.
+    removal, and 0.8.0 nearly shipped the renamed ones; 0.9.0 deleted them.
+    Any documented removal release still in the tree has to lie strictly
+    beyond ``vaft.__version__``; the release that reaches it either deletes
+    the names or re-dates them.
     """
     import vaft
 
+    assert _PROMISE.search("x is removed in 1.2.3"), "the promise pattern is broken"
     current = _release_tuple(vaft.__version__.split("+")[0].split("rc")[0].split(".dev")[0])
-    promises = _documented_removal_releases()
-    assert promises, "the scan found no removal promise at all; the pattern is broken"
-    overdue = {where: release for where, release in promises.items()
+    overdue = {where: release for where, release in _documented_removal_releases().items()
                if _release_tuple(release) <= current}
     assert not overdue, f"removal promised for a release already reached ({vaft.__version__}): {overdue}"
 

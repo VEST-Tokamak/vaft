@@ -185,6 +185,19 @@ def __getattr__(name):
         value = getattr(comparison, name)
         globals()[name] = value
         return value
+    if name.startswith("plot_"):
+        # ``plot_<old stem>`` of the issue #251 renames warned from 0.6.0 and
+        # was deleted in 0.9.0; answer with the spelling that replaced it.
+        from vaft.plot._migration import RENAMED, RENAMED_IN, RENAMED_REMOVAL_RELEASE
+
+        stem = name[len("plot_"):]
+        if stem in RENAMED:
+            raise AttributeError(
+                f"vaft.omas.{name} was renamed to vaft.omas.plot_{RENAMED[stem]} "
+                f"in the subject-taxonomy redesign (issue #251, {RENAMED_IN}) and "
+                f"the old name was removed in {RENAMED_REMOVAL_RELEASE}. "
+                f"See vaft.plot.migration_table()."
+            )
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

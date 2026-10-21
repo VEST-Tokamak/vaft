@@ -25,13 +25,9 @@ def test_pf_coil_time_current_renders_from_an_ods(sample_ods):
     plt.close(figure)
 
 
-def test_legacy_entry_point_still_works_and_warns(sample_ods):
-    vaft.plot.__dict__.pop("time_pf_active_current", None)
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        legacy = vaft.plot.time_pf_active_current
-
-    assert any(item.category is DeprecationWarning for item in caught)
-    assert "pf_coil_time_current" in str(caught[0].message)
-    legacy(sample_ods)
-    plt.close("all")
+def test_legacy_entry_point_is_gone_and_names_its_replacement():
+    # The 0.5.0 legacy names warned until 0.9.0 deleted them.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with pytest.raises(AttributeError, match="vaft.omas.plot_pf_coil_time_current"):
+            vaft.plot.time_pf_active_current
