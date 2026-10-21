@@ -3,8 +3,9 @@
 ``vaft.database.summary(odss=...)`` / ``summary_from_ods`` run the preset's
 extractor on in-memory ODS. The database path is exercised with ``open``
 replaced by a function that serves what the lazy database view serves: only
-the root IDS named in ``paths`` (``FileNotFoundError`` for one the shot does
-not store), copied from the same packaged sample. The two tables must be
+the root IDS named in ``paths``, copied from the same packaged sample, with a
+requested IDS the shot does not store failing on first access the way the
+lazy store's ``h5pyd.File`` does (``OSError(404)``), not at open. The two tables must be
 identical, including where an IDS outside the preset would change the result.
 """
 
@@ -27,9 +28,31 @@ def sample():
     return vaft.omas.sample_ods(SHOT)
 
 
+def _head(location) -> str:
+    first = location[0] if isinstance(location, (list, tuple)) and location else location
+    return str(first).split(".", 1)[0].split("[", 1)[0]
+
+
+def _lazy_view_class(missing: tuple[str, ...]):
+    """An ODS whose top level answers a missing requested IDS with a 404."""
+    from omas import ODS
+
+    class LazyView(ODS):
+        def __contains__(self, location):
+            if not self.location and _head(location) in missing:
+                raise OSError(404, "Not Found")
+            return super().__contains__(location)
+
+        def __getitem__(self, location, *args, **kwargs):
+            if not self.location and _head(location) in missing:
+                raise OSError(404, "Not Found")
+            return super().__getitem__(location, *args, **kwargs)
+
+    return LazyView
+
+
 def _serve(stored, opened):
     """``open`` as the lazy database view behaves: only the requested root IDS."""
-    from omas import ODS
 
     @contextmanager
     def fake_open(shot, *, source=None, paths=None, **kwargs):
@@ -37,11 +60,13 @@ def _serve(stored, opened):
         if shot not in stored:
             raise FileNotFoundError(f"shot {shot} not stored")
         ods = stored[shot]
-        view = ODS(imas_version=ods.imas_version, consistency_check=False)
-        for name in dict.fromkeys(path.split(".", 1)[0] for path in paths):
-            if name not in ods:
-                raise FileNotFoundError(f"IDS not stored for shot {shot}: {name}")
-            view[name] = copy.deepcopy(ods[name])
+        roots = tuple(dict.fromkeys(path.split(".", 1)[0] for path in paths))
+        view = _lazy_view_class(tuple(name for name in roots if name not in ods))(
+            imas_version=ods.imas_version, consistency_check=False
+        )
+        for name in roots:
+            if name in ods:
+                view[name] = copy.deepcopy(ods[name])
         yield view
 
     return fake_open
@@ -50,7 +75,7 @@ def _serve(stored, opened):
 @pytest.mark.parametrize(
     ("preset", "shot"),
     [("equilibrium_global", 39915), ("equilibrium_global", 41672),
-     ("shot_overview", 39915), ("volume_averaged", 48224)],
+     ("shot_overview", 39915), ("core_profiles", 48224), ("volume_averaged", 48224)],
 )
 def test_the_offline_table_equals_the_database_table(monkeypatch, preset, shot):
     stored = {shot: vaft.omas.sample_ods(shot)}
@@ -80,20 +105,20 @@ def test_an_ids_outside_the_preset_does_not_change_the_table(sample):
     )
 
 
-def test_a_missing_preset_ids_is_skipped_by_the_database_but_not_offline(monkeypatch):
-    """The documented divergence: open() refuses a requested IDS the shot lacks.
+def test_a_missing_requested_ids_reads_the_same_on_both_paths(monkeypatch):
+    """The packaged 48224 stores core_profiles but no magnetics or tf.
 
-    The packaged 48224 sample stores core_profiles but no magnetics, which the
-    core_profiles preset also requests. Offline, the extractor runs on what is
-    there; the database path skips the shot.
+    The core_profiles preset requests both; the lazy view fails only when one
+    is read, and the extractor tolerates that, so both paths give the row.
     """
     stored = {48224: vaft.omas.sample_ods(48224)}
-    assert "magnetics" not in stored[48224]
+    assert "magnetics" not in stored[48224] and "tf" not in stored[48224]
     monkeypatch.setattr(database, "open", _serve(stored, []))
     from_database = database.summary((48224, 48224), preset="core_profiles", source="public")
-    offline = database.summary(odss=stored, preset="core_profiles", source="public")
-    assert from_database.empty and "magnetics" in from_database.attrs["skipped"][0]["reason"]
-    assert offline["shot"].tolist() == [48224] and offline.attrs["skipped"] == []
+    assert from_database["shot"].tolist() == [48224]
+    pd.testing.assert_frame_equal(
+        database.summary(odss=stored, preset="core_profiles", source="public"), from_database
+    )
 
 
 def _snapshot(ods) -> dict:

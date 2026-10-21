@@ -2273,9 +2273,7 @@ def summary_from_ods(
     extractor on the preset's IDS only (see :func:`_preset_view`),
     ``pulse_time_begin``, the source columns,
     then the preset's column order and sort -- so the two paths give the same
-    table for the same data. (One exception: the database path skips a shot
-    that lacks one of the preset's IDS, because ``open`` refuses it; here the
-    extractor runs on whatever the ODS holds.) ``source`` fills the ``source`` and
+    table for the same data. ``source`` fills the ``source`` and
     ``equilibrium_source`` columns where the preset has them.
 
     A shot whose extractor fails is skipped with a warning, as on the database
