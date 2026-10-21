@@ -8,7 +8,13 @@ from typing import Any
 
 from ...compat import is_executable, resolve_executable
 from .._executables import executable_from_home, missing_home_message
-from ..execution import ExecutionRequest, resolve_backend, timeout_reason
+from ..execution import (
+    ExecutionRequest,
+    ResourceRequest,
+    configured_resources,
+    resolve_backend,
+    timeout_reason,
+)
 from .config import GENRAY_HOME_ENV, GENRAY_HOME_EXECUTABLE, GENRAYConfig, GENRAYInputs, GENRAYResult
 from .inputs import prepare_genray_inputs
 from .outputs import collect_genray_outputs, genray_to_waves, read_genray_netcdf
@@ -52,12 +58,14 @@ def run_genray(inputs: GENRAYInputs, config: GENRAYConfig) -> GENRAYResult:
     stale = collect_genray_outputs(inputs.workdir)
     if stale is not None:
         stale.unlink()  # never report a previous run's rays as this run's
+    resources, env = configured_resources(config, ResourceRequest(), config.env)
     execution = resolve_backend(config).run(
         ExecutionRequest(
             command=(str(executable),),
             workdir=Path(inputs.workdir),
-            env=dict(config.env),
+            env=env,
             timeout=config.timeout,
+            resources=resources,
             label="genray",
         )
     )

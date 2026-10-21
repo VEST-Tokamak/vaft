@@ -51,7 +51,8 @@ coordinate.
 
 * `vaft.process.derive_radial_coordinates(eq)` returns `psi_n`, `rho_pol_n` and `rho_tor_n` as
   `DerivedValue` records. Each record gives its definition, for example
-  `sqrt(int_axis^psi q dpsi / int_axis^boundary q dpsi)` for $\rho_{tor,N}$. When the record cannot
+  `sqrt(int_0^psi_n q dpsi_n' / int_0^1 q dpsi_n')` for $\rho_{tor,N}$, an integral over the
+  normalized flux whose ratio needs no COCOS. When the record cannot
   form $\rho_{tor,N}$, it gives a reason and does not substitute $\sqrt{\psi_N}$.
 * `vaft.process.MappedPositions` from `equilibrium_mapping_thomson_scattering` and
   `equilibrium_mapping_charge_exchange` gives each kinetic channel in every radial coordinate the

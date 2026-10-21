@@ -1036,6 +1036,9 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
     rho_eval = np.linspace(0, 1, rho_points)
 
     # --- Te / Ne FITS ---
+    # extrapolate=True is read by the 'linear' mode only: these fits are sampled
+    # on the whole [0, 1] grid and guarded below, so they keep the constant
+    # end-value hold rather than the formula's nan default (#359).
     te_anchor_strength = None
     te_anchor = None
     if te_anchor_strength is not None:
@@ -1064,6 +1067,7 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
                 uncertainty_option=uncertainty_option,
                 fitting_function=fitting_function_te,
                 gp_anchor=te_anchor,
+                extrapolate=True,
             ),
             Te_order, _te_unphysical, "Te", time_ms, notes=te_notes,
         )
@@ -1072,6 +1076,7 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
             rho, t_e, t_e_std, rho_eval,
             order=Te_order, uncertainty_option=uncertainty_option,
             fitting_function=fitting_function_te, gp_anchor=te_anchor,
+            extrapolate=True,
         ), Te_order)
     )
 
@@ -1107,6 +1112,7 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
                 uncertainty_option=uncertainty_option,
                 fitting_function=fitting_function_ne,
                 gp_anchor=ne_anchor,
+                extrapolate=True,
             ),
             Ne_order, _ne_unphysical, "ne", time_ms, notes=ne_notes,
         )
@@ -1115,8 +1121,20 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
             rho, n_e_norm, n_e_std_norm, rho_eval,
             order=Ne_order, uncertainty_option=uncertainty_option,
             fitting_function=fitting_function_ne, gp_anchor=ne_anchor,
+            extrapolate=True,
         ), Ne_order)
     )
+
+    # The linear mode's end-value hold is opted into above; record it so a
+    # report reader sees which part of the grid is not data (#359).
+    span_lo, span_hi = float(np.min(rho)), float(np.max(rho))
+    if span_lo > 0.0 or span_hi < 1.0:
+        held = (f"linear: values outside the channels' span [{span_lo:.3g}, {span_hi:.3g}] "
+                "hold the end channel (extrapolate=True)")
+        if fitting_function_te.lower() == "linear":
+            te_notes.append(held)
+        if fitting_function_ne.lower() == "linear":
+            ne_notes.append(held)
 
     n_e_rho = np.maximum(n_e_rho_norm, 0.0) * n_e_scale
     n_e_std = n_e_std_norm_fit * n_e_scale
@@ -1657,6 +1675,7 @@ def _fit_charge_exchange(ods, time_ms, mapped_positions, Ti_order, Vtor_order,
     rho_eval = np.linspace(0.0, 1.0, rho_points)
 
     # --- Fit T_i(ρ) ---
+    # extrapolate=True: 'linear' holds the end values, as for Thomson (#359).
     Ti_rho, Ti_std_fit, Ti_function_raw, coeffs_ti = fit_profile(
         rho,
         Ti,
@@ -1666,6 +1685,7 @@ def _fit_charge_exchange(ods, time_ms, mapped_positions, Ti_order, Vtor_order,
         uncertainty_option=uncertainty_option,
         fitting_function=fitting_function_ti,
         gp_anchor=None,
+        extrapolate=True,
     )
 
     Ti_rho = np.maximum(np.asarray(Ti_rho, dtype=float), 0.0)
@@ -1695,6 +1715,7 @@ def _fit_charge_exchange(ods, time_ms, mapped_positions, Ti_order, Vtor_order,
         uncertainty_option=uncertainty_option,
         fitting_function=fitting_function_vtor,
         gp_anchor=None,
+        extrapolate=True,
     )
 
     def Vtor_function(rho_input):

@@ -573,3 +573,132 @@ def test_the_diamagnetic_beta_p_negation_is_constrained():
     # A physical floor only: an ohmic, paramagnetic measurement still gives a
     # positive beta_p through this closure.
     assert entry["beta_p_diamagnetic"] > 0
+
+
+def _without_profiles(ods):
+    """The sample as a profile-free reconstruction stage would hand it over."""
+    stripped = copy.deepcopy(ods)
+    for eq in stripped["equilibrium.time_slice"].values():
+        for key in ("f", "pressure", "dpressure_dpsi", "f_df_dpsi"):
+            if f"profiles_1d.{key}" in eq:
+                del eq["profiles_1d"][key]
+    return stripped
+
+
+def test_a_slice_without_profiles_still_converts_the_measured_flux_from_tf():
+    """The measured route exists for callers with a boundary and a flux loop but
+    no p(psi)/F(psi). Requiring F_boundary made it unreachable for them unless
+    the slice carried an axis toroidal field, and then it converted with the
+    axis field rather than the vacuum one (#862). The tf IDS measures the same vacuum R*B_phi from the coil current,
+    so the answer must match the one F gave, not merely be finite."""
+    ods = sample_ods()
+    with_f = vaft.omas.compute_virial_equilibrium_quantities_ods(copy.deepcopy(ods))
+    without_f = vaft.omas.compute_virial_equilibrium_quantities_ods(_without_profiles(ods))
+
+    checked = 0
+    for index, row in without_f.items():
+        reference = with_f[index]["mu_i_sources"]
+        if not np.isfinite(reference["measured"]):
+            continue
+        assert reference["measured_b_t_source"] == "f_boundary"
+        sources = row["mu_i_sources"]
+        assert sources["measured_b_t_source"] == "tf"
+        assert sources["measured"] == pytest.approx(reference["measured"], rel=5e-3)
+        assert np.isfinite(row["measured_mu_i_closures"]["pair_13"]["li"])
+        checked += 1
+    assert checked >= 8
+
+
+def test_a_slice_without_profiles_does_not_report_a_zero_volume_mu_i():
+    """With no profiles_1d.f the wrapper keeps a constant F from the magnetic
+    axis so the field grids stay usable, and every mu_i built from that F is
+    zero by construction. A finite zero would pass for an answer (#36 finding
+    2), so it must be NaN."""
+    rows = vaft.omas.compute_virial_equilibrium_quantities_ods(
+        _without_profiles(sample_ods())
+    )
+    finite_alpha = [row for row in rows.values() if np.isfinite(row["alpha"])]
+    assert len(finite_alpha) >= 8
+    for row in finite_alpha:
+        assert np.isnan(row["mui"])
+        assert np.isnan(row["mui_from_flux"])
+        assert np.isnan(row["mu_i_sources"]["volume"])
+
+
+def test_without_profiles_or_tf_the_measured_conversion_falls_back_to_the_axis_field():
+    """The last resort is labelled, so a caller can tell it from a vacuum field."""
+    ods = _without_profiles(sample_ods())
+    del ods["tf"]
+    row = vaft.omas.compute_virial_equilibrium_quantities_ods(ods, time_slice=0)[0]
+    assert row["mu_i_sources"]["measured_b_t_source"] == "magnetic_axis"
+    assert np.isfinite(row["mu_i_sources"]["measured"])
+
+
+def _lazy_view_without(ods, missing: str):
+    """The lazy database view: a requested IDS the shot does not store fails
+    on first access with ``OSError(404)``, as ``h5pyd.File`` raises."""
+    from omas import ODS
+
+    def _head(location) -> str:
+        first = location[0] if isinstance(location, (list, tuple)) and location else location
+        return str(first).split(".", 1)[0].split("[", 1)[0]
+
+    class LazyView(ODS):
+        def __contains__(self, location):
+            if not self.location and _head(location) == missing:
+                raise OSError(404, "Not Found")
+            return super().__contains__(location)
+
+        def __getitem__(self, location, *args, **kwargs):
+            if not self.location and _head(location) == missing:
+                raise OSError(404, "Not Found")
+            return super().__getitem__(location, *args, **kwargs)
+
+    view = LazyView(imas_version=ods.imas_version, consistency_check=False)
+    for name in ods.keys():
+        if name != missing:
+            view[name] = copy.deepcopy(ods[name])
+    return view
+
+
+def test_a_lazy_view_without_tf_keeps_every_other_virial_column():
+    """On the lazy database view ``tf`` is requested for every shot and a shot
+    that stores none answers with a 404 on first access. That is a missing
+    IDS, not an error: the measured conversion must fall back to the axis
+    field exactly as when ``tf`` is absent offline, and the closures that do
+    not need ``tf`` must survive. Letting the 404 escape blanked every virial
+    column of the shot in the database summary (cold review 0.9.0 codes F1)."""
+    offline = _without_profiles(sample_ods())
+    del offline["tf"]
+    expected = vaft.omas.compute_virial_equilibrium_quantities_ods(
+        copy.deepcopy(offline), time_slice=0
+    )[0]
+
+    view = _lazy_view_without(offline, "tf")
+    row = vaft.omas.compute_virial_equilibrium_quantities_ods(view, time_slice=0)[0]
+    assert row["mu_i_sources"]["measured_b_t_source"] == "magnetic_axis"
+    assert row["mu_i_sources"]["measured"] == pytest.approx(
+        expected["mu_i_sources"]["measured"]
+    )
+    assert row["alpha"] == pytest.approx(expected["alpha"], nan_ok=True)
+
+
+def test_a_lazy_view_that_refuses_tf_is_not_mistaken_for_a_missing_tf():
+    """Only 404 means "not stored"; a 403 is an access problem and propagates."""
+    from omas import ODS
+
+    offline = _without_profiles(sample_ods())
+
+    class Forbidden(ODS):
+        def __contains__(self, location):
+            first = location[0] if isinstance(location, (list, tuple)) and location else location
+            if not self.location and str(first).split(".", 1)[0] == "tf":
+                raise OSError(403, "Forbidden")
+            return super().__contains__(location)
+
+    view = Forbidden(imas_version=offline.imas_version, consistency_check=False)
+    for name in offline.keys():
+        if name != "tf":
+            view[name] = copy.deepcopy(offline[name])
+    with pytest.raises(OSError, match="Forbidden"):
+        vaft.omas.compute_virial_equilibrium_quantities_ods(view, time_slice=0)

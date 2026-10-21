@@ -49,6 +49,7 @@ from .execution import (
     ExecutionBackend,
     ExecutionRequest,
     ResourceRequest,
+    configured_resources,
     resolve_backend,
     timeout_reason,
 )
@@ -250,6 +251,21 @@ class FlareConfig:
     #: How the driver is launched; ``None`` runs it locally
     #: (:mod:`vaft.code.execution`).
     backend: Optional["ExecutionBackend"] = None
+    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: own declaration; a value replaces it, and its ``threads_per_task`` is
+    #: set in the launch environment over ``env`` and the inherited one.
+    resources: Optional["ResourceRequest"] = None
+
+    def __post_init__(self) -> None:
+        # The driver starts ``processes`` ranks itself; a scheduler told a
+        # different count would size the job wrong (#1016). Refuse, not pick.
+        if self.resources is not None and not isinstance(self.resources, ResourceRequest):
+            raise TypeError(f"resources must be a ResourceRequest or None, got {type(self.resources).__name__}")
+        if self.resources is not None and int(self.resources.ntasks) != int(self.processes or 1):
+            raise ValueError(
+                f"resources.ntasks={self.resources.ntasks} disagrees with processes={self.processes}; "
+                "FLARE starts that many ranks itself, so set them equal"
+            )
 
 
 @dataclass
@@ -404,6 +420,10 @@ def run_flare(
     command += [str(argument) for argument in (*config.args, *extra_args)]
 
     workdir = Path(config.workdir)
+    # The driver starts its own ranks from -n; declared for a scheduler.
+    resources, env = configured_resources(
+        config, ResourceRequest(ntasks=int(config.processes or 1)), config.env
+    )
     # FLARE's and MPI's bytes are a foreign program's; the backend decodes them
     # as UTF-8 with replacement so one byte outside the host locale cannot lose
     # a finished run to a UnicodeDecodeError.
@@ -412,10 +432,9 @@ def run_flare(
             ExecutionRequest(
                 command=tuple(command),
                 workdir=workdir,
-                env={k: str(v) for k, v in config.env.items()},
+                env=env,
                 timeout=config.timeout,
-                # The driver starts its own ranks from -n; declared for a scheduler.
-                resources=ResourceRequest(ntasks=int(config.processes or 1)),
+                resources=resources,
                 label=f"flare-{task}",
             )
         )

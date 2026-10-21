@@ -42,6 +42,7 @@ __all__ = [
     "open",
     "save",
     "summary",
+    "summary_from_ods",
     "equilibrium_summary",
     "export_summary",
     "get_summary_preset",
@@ -346,18 +347,41 @@ def _is_imas_ids(obj) -> bool:
     return isinstance(obj, IDSToplevel)
 
 
-def summary(shot_range=None, *, preset="equilibrium_global", source=None, directory=None):
+def summary(shot_range=None, *, preset="equilibrium_global", source=None, directory=None,
+            odss=None):
     """Return a canonical preset summary for a range or all available shots.
 
     ``source`` names the HSDS namespace and defaults to ``main``; ``directory``
     is a deprecated alias for it.
+
+    With ``odss`` (a ``{shot: ods}`` mapping or ODS objects carrying
+    ``dataset_description.data_entry.pulse``) the table is built offline from
+    those in-memory ODS instead, through the same extractor and column rules;
+    see :func:`summary_from_ods`. ``shot_range`` must then be omitted, and
+    ``source`` (default ``"local"``) only labels the source columns.
+    ``result.attrs["skipped"]`` lists the shots that failed, on either path.
     """
+    if odss is not None:
+        if shot_range is not None or directory is not None:
+            raise TypeError("odss= builds the table offline; omit shot_range and directory")
+        return summary_from_ods(odss, preset=preset, source="local" if source is None else source)
     from ._summary import summary as _summary
     from .sources import resolve
 
     # Resolve here so a deprecated alias is reported against the caller's frame
     # rather than this wrapper.
     return _summary(shot_range, preset=preset, source=resolve(source, directory=directory))
+
+
+def summary_from_ods(odss, *, preset="equilibrium_global", source="local"):
+    """Return the canonical preset summary of in-memory ODS (no database).
+
+    The same table :func:`summary` returns for database shots holding the same
+    data; see :func:`vaft.database._summary.summary_from_ods`.
+    """
+    from ._summary import summary_from_ods as _summary_from_ods
+
+    return _summary_from_ods(odss, preset=preset, source=source)
 
 
 def equilibrium_summary(shots, **kwargs):

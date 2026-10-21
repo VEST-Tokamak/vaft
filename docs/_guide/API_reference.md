@@ -611,6 +611,35 @@ carries the field too. EFIT and EFUND declare one thread per task (`threads_per_
 declares `n_mpi` and FLARE declares `processes` as `ntasks` for scheduler backends, while their
 launchers still start the ranks themselves. TokaMaker runs in-process and has no backend.
 
+**Overriding resources (#1016).** Every configuration with a `backend` also takes
+`resources: ResourceRequest | None`. `None` keeps the adapter's own declaration above; a value
+replaces it whole (threads, tasks and memory, so a scheduler sizes the job from it). The thread
+count follows one precedence:
+
+| Rank | Source | Example |
+| --- | --- | --- |
+| 1 | `config.resources.threads_per_task` | written into the launch environment for every thread variable |
+| 2 | `config.env` | `env={"OMP_NUM_THREADS": "2"}` |
+| 3 | the inherited environment | Snakemake's `shell()` and heavy-run export `OMP_NUM_THREADS` (1 for a rule without `threads:`) |
+| 4 | the adapter's declaration | EFIT/EFUND `threads_per_task=1` fills only what 2 and 3 leave unset |
+
+GACODE and FLARE start their own ranks and threads, so their two knobs for one quantity must agree,
+or the configuration is refused when it is built: `resources.ntasks` must equal GACODE `n_mpi` or
+FLARE `processes` (1 when unset), and GACODE's `resources.threads_per_task`, when set, must equal
+`n_omp` (1 for TGLF, whose launcher always runs one thread) because the launcher exports
+`OMP_NUM_THREADS` itself. GACODE is also the one exception to "replaces it whole": a
+`resources.memory_mb` left `None` takes `memory_mb`, and the two must agree when both are set.
+MITIM's `resources` sizes only its Python driver; the GACODE runs it starts take their own
+`gacode` configuration. Under a Slurm job script a thread count from `resources` is exported
+explicitly, so a remote cluster's login environment cannot override it either.
+
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
+```python
+from vaft.code import EFITConfig, ResourceRequest, run_efit
+
+result = run_efit(inputs, EFITConfig(resources=ResourceRequest(threads_per_task=4, memory_mb=8000)))
+```
+
 ### Running under Slurm
 
 `SlurmBackend` (#1017) runs the same adapter call as a cluster job. Only the `backend=` argument
@@ -677,6 +706,37 @@ compute nodes share. The backend does not check this.
 names no backend onto Slurm. Placement comes from `VAFT_SLURM_PARTITION`, `VAFT_SLURM_ACCOUNT`,
 `VAFT_SLURM_QOS`, `VAFT_SLURM_MODE` and `VAFT_SLURM_MAX_WAIT`. This setting also queues short runs
 such as EFUND or a single EFIT slice, so prefer an explicit `backend=` for those.
+
+### Submitting without waiting
+
+`run` blocks. For a scan or campaign that should keep many cases in flight, every backend also
+accepts `submit` (#1018), through `submit_request(backend, request)`, which falls back to running
+eagerly for a backend that only has `run`:
+
+| Call | What it does |
+| --- | --- |
+| `submit_request(backend, request)` | returns a `JobHandle` (`job_id` for a scheduler) |
+| `handle.result()` / `backend.wait(handle)` | blocks; what `run` would have returned or raised; `CancelledError` once cancelled |
+| `handle.cancel()` / `backend.cancel(handle)` | stops an unfinished request: not started yet, its process tree, or `scancel` |
+| `wait_handles(handles, return_when=FIRST_COMPLETED)` | `(done, pending)`, as `concurrent.futures.wait` |
+| `cancel_handles(handles)` | cancels every unfinished handle and waits for local trees to stop |
+
+`LocalBackend(max_concurrent=N)` runs submitted requests in the background, never more than `N` at a
+time; without `max_concurrent` it runs each one inside `submit`, as before. `SlurmBackend` submits a
+batch job at once and collects it in `result()`; its step mode (inside an allocation) and
+`RemoteSlurmBackend` are eager. `scan_chease` submits every case, then collects them in order: see
+its docstring for how errors map onto `keep_going` and how outstanding cases are cancelled.
+
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
+```python
+from vaft.code import CHEASEConfig, EquilibriumVariation, LocalBackend, scan_chease
+
+cases = scan_chease(
+    "g048224.00300",
+    [EquilibriumVariation("control"), EquilibriumVariation("beta_up", pressure_scale=1.5)],
+    config=CHEASEConfig(backend=LocalBackend(max_concurrent=4)),
+)
+```
 
 ### Running on a cluster over ssh
 
