@@ -786,7 +786,10 @@ def _nuclear_charge(
     # Each test is written `not (... <= ...)` so that a NaN fails it rather than
     # passing as a wildcard.
     if not np.isfinite(nuclear):
-        return None, f"{ion} carries no element.0.z_n"
+        # A trailing entry without a charge is one input.gacode never read (the
+        # adapter stops at the first such entry), so an appended impurity= species
+        # can still sit at this position.
+        return synthesized(), f"{ion} carries no element.0.z_n"
     a = _scalar(ods.get(f"{ion}.element.0.a", None))
     if amu is not None and np.isfinite(a) and not abs(a - amu) <= 0.5:
         return None, (

@@ -146,17 +146,28 @@ def test_the_product_carries_what_neo_produced_and_the_identity_of_its_input(tmp
 
 
 @requires_sample
-def test_the_product_reads_ion_nuclear_charge_from_the_source_state(state):
-    """The product ODS has no core_profiles ions; z_n must come from the state NEO ran on."""
+def test_the_product_reads_ion_nuclear_charge_from_the_source_state(state, tmp_path):
+    """The product ODS has no core_profiles ions; z_n must come from the state NEO ran on.
+
+    The source z_n is set apart from the ion charge so that the old ``z_n = charge``
+    cannot pass for a value read from the source.
+    """
+    import copy
+
+    from omas import save_omas_json
+
     from vaft.omas.vest_upstream import build_neoclassical_ods
 
+    marked = copy.deepcopy(state)
+    marked["core_profiles.profiles_1d.0.ion.0.element.0.z_n"] = 2.0
+    path = tmp_path / "state.json"
+    save_omas_json(marked, str(path))
     ods, _ = build_neoclassical_ods(
-        shot=48224, state=SAMPLE, run_directory=PROFILE_RUN, z_eff=2.0
+        shot=48224, state=path, run_directory=PROFILE_RUN, z_eff=2.0
     )
     ion = "core_transport.model.0.profiles_1d.0.ion.0"
-    assert float(ods[f"{ion}.element.0.z_n"]) == float(
-        state["core_profiles.profiles_1d.0.ion.0.element.0.z_n"]
-    )
+    assert float(ods[f"{ion}.z_ion"]) == 1.0
+    assert float(ods[f"{ion}.element.0.z_n"]) == 2.0
     assert "core_profiles.profiles_1d.0.ion" not in ods
     assert str(ods["core_transport.model.0.code.name"]) == "NEO"
     assert "core_transport.code.name" not in ods
