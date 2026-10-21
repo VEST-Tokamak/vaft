@@ -79,3 +79,31 @@ def test_a_contradicted_declaration_stays_contradicted(sample):
     converted = convert_cocos(stale, 13)
     assert converted.convention.contradicted
     assert 13 not in converted.convention.identified
+
+
+def test_a_contradiction_survives_when_no_candidate_can_be_carried(sample):
+    # Declared 1 but the flux is 2*pi-scaled: the data identifies (11, 12). A
+    # conversion to 11 drops both, and must not leave a clean-looking record.
+    from vaft.process.equilibrium import check_equilibrium_requirements, convert_cocos
+
+    mislabelled = replace(sample, convention=replace(sample.convention, identified=(11, 12)))
+    assert mislabelled.convention.contradicted
+    converted = convert_cocos(mislabelled, 11)
+
+    assert converted.convention.identified == ()
+    assert converted.convention.uncarried == (11, 12)
+    assert converted.convention.contradicted
+    codes = {issue.code for issue in check_equilibrium_requirements(converted).issues}
+    assert "cocos_declared_conflicts_with_signs" in codes
+
+
+def test_a_partial_drop_does_not_mark_a_supported_declaration_contradicted(sample):
+    # Flux exponent abstained: both families survive identification. Declared 1
+    # is supported, and the conversion to 11 keeps that.
+    from vaft.process.equilibrium import convert_cocos
+
+    open_ended = replace(sample, convention=replace(sample.convention, identified=(1, 2, 11, 12)))
+    converted = convert_cocos(open_ended, 11)
+    assert converted.convention.identified == (11, 12)
+    assert converted.convention.uncarried == ()
+    assert not converted.convention.contradicted

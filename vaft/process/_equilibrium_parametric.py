@@ -445,11 +445,15 @@ def check_equilibrium_requirements(
     if equilibrium.convention.contradicted:
         # A declaration the data does not support: a stale GEQDSK CASE token, a
         # mislabelled ODS, or an explicit argument that does not match the file.
+        supported = (
+            str(equilibrium.convention.identified) if equilibrium.convention.identified
+            else f"no index in this family (before conversion: {equilibrium.convention.uncarried})"
+        )
         issues.append(ValidationIssue(
             "warning", "cocos_declared_conflicts_with_signs", "convention",
             f"COCOS {equilibrium.convention.cocos} is declared ({equilibrium.convention.source}) "
-            f"but the observable signs and flux scale support "
-            f"{equilibrium.convention.identified}; the declaration is being used as given",
+            f"but the observable signs and flux scale support {supported}; "
+            "the declaration is being used as given",
         ))
     return ValidationReport(tuple(issues))
 
@@ -527,7 +531,8 @@ def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> Equilibriu
     the conversion crosses storage families, a candidate in the other family has
     no image -- the ``2*pi`` lands on the wrong side -- so it is dropped and named
     in the result's ``source`` rather than shifted to an index that does not
-    exist (#601).
+    exist (#601).  If that leaves no candidate at all, the dropped ones are kept
+    on ``convention.uncarried`` so the result stays ``contradicted``.
 
     Provenance
     ----------
@@ -562,6 +567,9 @@ def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> Equilibriu
         # Carried so a declaration the data contradicts stays visible after a
         # conversion instead of being laundered into a clean-looking record.
         identified=identified,
+        # Nothing carried means every candidate was in the other family: the
+        # contradiction has to survive without an index to name it.
+        uncarried=dropped if equilibrium.convention.identified and not identified else (),
     )
     return replace(
         equilibrium, psi=scale(equilibrium.psi, "PSI"),
