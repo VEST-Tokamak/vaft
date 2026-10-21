@@ -633,16 +633,20 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
     # the two is physical is not decided here -- the disagreement is logged and
     # the stored sign kept (#692).
     sign = 1.0
+    stored_has_sign = False
     try:
         first = np.asarray(stored, float).reshape(-1)
         finite = first[np.isfinite(first)]
+        stored_has_sign = bool(finite.size) and finite[0] != 0.0
         if finite.size and finite[0] < 0:
             sign = -1.0
     except Exception:
         pass
 
-    if edge_signs and edge_signs != {sign}:
-        logger.info(
+    # DEBUG, not INFO: a summary run covers thousands of shots, and a legacy
+    # database with one systematic sign split would otherwise log every one.
+    if stored_has_sign and edge_signs and edge_signs != {sign}:
+        logger.debug(
             "Shot %s: stored vacuum_toroidal_field.b0 has sign %+d but profiles_1d.f "
             "at the boundary has sign(s) %s; f and b0 share a COCOS transformation, "
             "so the pair is inconsistent. Keeping the stored b0 sign (#692).",

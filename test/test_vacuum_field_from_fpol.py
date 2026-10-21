@@ -370,7 +370,7 @@ def test_an_f_and_b0_sign_disagreement_is_logged_not_reconciled(caplog):
     from vaft.database._summary import _normalize_vacuum_field
 
     ods = _legacy_ods([0.15, 0.20], r0=0.4, f_edge=-0.06, tf_field=0.06)
-    with caplog.at_level(logging.INFO, logger="vaft.database._summary"):
+    with caplog.at_level(logging.DEBUG, logger="vaft.database._summary"):
         _normalize_vacuum_field(ods, 12345)
 
     b0 = np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], float).reshape(-1)
@@ -384,6 +384,17 @@ def test_agreeing_signs_log_no_inconsistency(caplog):
     from vaft.database._summary import _normalize_vacuum_field
 
     ods = _legacy_ods([-0.15, -0.20], r0=0.4, f_edge=-0.06, tf_field=0.06)
-    with caplog.at_level(logging.INFO, logger="vaft.database._summary"):
+    with caplog.at_level(logging.DEBUG, logger="vaft.database._summary"):
+        _normalize_vacuum_field(ods, 12345)
+    assert not any(_names_the_sign_disagreement(record) for record in caplog.records)
+
+
+def test_a_missing_stored_b0_is_not_reported_as_a_sign(caplog):
+    import logging
+
+    from vaft.database._summary import _normalize_vacuum_field
+
+    ods = _legacy_ods([np.nan, np.nan], r0=0.4, f_edge=-0.06, tf_field=0.06)
+    with caplog.at_level(logging.DEBUG, logger="vaft.database._summary"):
         _normalize_vacuum_field(ods, 12345)
     assert not any(_names_the_sign_disagreement(record) for record in caplog.records)
