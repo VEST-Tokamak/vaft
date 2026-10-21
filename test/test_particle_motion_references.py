@@ -111,6 +111,25 @@ def test_a_published_number_the_code_no_longer_produces_is_reported(tmp_path):
         check_references(tmp_path, recompute=("mirror",))
 
 
+def test_platform_roundoff_in_a_cancellation_residual_is_not_staleness(tmp_path):
+    # closure_relative is a cancellation residual of an adaptive trace: another
+    # platform's last-ulp mass or charge moves it by ~1e-10 while the physics
+    # is unchanged, so it is compared to an absolute noise floor (cold review
+    # of the provenance fix, F1). A real change in the published period still
+    # fails (the test above).
+    target, manifest = _copy_tree(tmp_path)
+    row = next(r for r in manifest["examples"] if r["id"] == "mirror")
+    cycle = row["bounce_cycles"][0]
+    cycle["closure_relative"] += 5e-10
+    cycle["arc_velocity_relative_error"] -= 5e-10
+    _write(target, manifest)
+    assert len(check_references(tmp_path, recompute=("mirror",))) == 6
+    cycle["closure_relative"] += 1e-8
+    _write(target, manifest)
+    with pytest.raises(ValueError, match=r"Stale particle-motion reference: mirror bounce_cycles"):
+        check_references(tmp_path, recompute=("mirror",))
+
+
 def test_the_manifest_directory_can_be_checked_on_its_own(tmp_path):
     target, manifest = _copy_tree(tmp_path)
     elsewhere = tmp_path / "elsewhere"

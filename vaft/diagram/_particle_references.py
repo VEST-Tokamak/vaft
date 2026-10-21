@@ -51,6 +51,12 @@ SCIENTIFIC_SOURCES = (
 #: Roundoff-level maxima: their exact value is platform noise, their order is not.
 _RESIDUAL_KEYS = frozenset({"gc_energy_residual_max", "gc_P_phi_residual_max"})
 
+#: Cancellation residuals of an adaptive trace (a bounce closing on itself,
+#: an arc-velocity mismatch): of order 1e-6 .. 1e-4, and a one-ulp change of
+#: mass or charge on another platform already moves them by ~1e-10, so they
+#: are compared to the absolute noise floor, not to one part in 1e9.
+_CANCELLATION_KEYS = frozenset({"closure_relative", "arc_velocity_relative_error"})
+
 
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -131,7 +137,7 @@ def _same(recorded, fresh, key):
         return (
             isinstance(recorded, dict)
             and recorded.keys() == fresh.keys()
-            and all(_same(recorded[k], fresh[k], key) for k in fresh)
+            and all(_same(recorded[k], fresh[k], k) for k in fresh)
         )
     if isinstance(fresh, (list, tuple)):
         return (
@@ -143,7 +149,12 @@ def _same(recorded, fresh, key):
         return recorded == fresh
     if isinstance(recorded, bool) or not isinstance(recorded, (int, float)):
         return False
-    abs_tol = 1e-12 if key in _RESIDUAL_KEYS else 0.0
+    if key in _RESIDUAL_KEYS:
+        abs_tol = 1e-12
+    elif key in _CANCELLATION_KEYS:
+        abs_tol = 1e-9
+    else:
+        abs_tol = 0.0
     return math.isclose(recorded, fresh, rel_tol=1e-9, abs_tol=abs_tol)
 
 
