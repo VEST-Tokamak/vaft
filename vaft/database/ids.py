@@ -18,6 +18,7 @@ import imas
 
 from ..compat import temporary_directory
 from .utils import (
+    _quiet_http_loggers,
     _require_h5pyd,
     ensure_imas_hdf5_userblock,
     ensure_shot_folder,
@@ -90,7 +91,7 @@ def save(
     Returns:
         HSDS URI string for the IDS file when uploaded, otherwise local path.
     """
-    logging.getLogger().setLevel(logging.WARNING)
+    _quiet_http_loggers()
 
     source = resolve_source(source, directory=directory, writable=True)
     ids_name = _ids_top_level_name(ids)
@@ -182,6 +183,7 @@ def load(
     transport: Literal["auto", "canonical", "h5image"] = "auto",
     *,
     directory: Optional[str] = None,
+    cache_max: int | str | None = None,
 ) -> Union[object, dict[str, object]]:
     """
     Load IDS object(s) from HSDS as native IMAS objects.
@@ -202,10 +204,13 @@ def load(
         cache: ``"auto"`` (default) stores validated domains locally, ``"off"``
             always downloads, or a path selects a cache base directory.
         directory: Deprecated alias for ``source``.
+        cache_max: Size cap of the domain cache; ``None`` falls back to
+            ``$VAFT_HSDS_CACHE_MAX``, the user config file, then 1 GiB (see
+            :mod:`vaft.database.hsds_cache`).
     Returns:
         Native IMAS IDS object, or dict of IDS objects for list input.
     """
-    logging.getLogger().setLevel(logging.WARNING)
+    _quiet_http_loggers()
 
     source = resolve_source(source, directory=directory)
 
@@ -242,6 +247,7 @@ def load(
             requested_ids=ids_list,
             cache=cache,
             transport=transport,
+            cache_max=cache_max,
         )
         print(
             "[INFO] Materialized IMAS files: "

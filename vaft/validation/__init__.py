@@ -21,6 +21,7 @@ Layout::
     equilibrium.py    the unified equilibrium report (#72), the reference implementation
     cocos.py          COCOS sign-relation consistency, Sauter Eq. 23 (moved from vaft.process, #337)
     magnetics.py      magnetics signal quality (#189)
+    impa.py           IMPA shot grading as source validity (#339)
     vacuum_benchmark.py  vacuum-model benchmark against measured magnetics (#190)
     wall_reduction.py the reduced-wall order study: full vs reduced, both vs data (#494)
     stage_evidence.py per-stage preconditions and metrics, composed from domain providers

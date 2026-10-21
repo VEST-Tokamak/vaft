@@ -97,6 +97,10 @@ ALLOWED: dict[str, tuple[tuple[str, str, str], ...]] = {
     "test/test_efit_config.py": (
         ("equilibrium.code.parameters.time_slice.", "write", "k-file namelist fixture"),
     ),
+    "test/test_efit_constraints_missing_channels.py": (
+        ("code.parameters.time_slice.", "read",
+         "asserts the constraints product records no profile model (#869)"),
+    ),
     "test/test_efit_fit_quality.py": (
         ("equilibrium.code.parameters.time_slice.", "write", "a/m-file cache fixture"),
     ),

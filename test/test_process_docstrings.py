@@ -232,7 +232,6 @@ PIPELINE = frozenset({
     # impa (#421)
     "find_tf_calibration_window",
     "fit_impa_geometry",
-    "grade_impa_quality",
     "impa_calibrate_signals",
     "legacy_impa_compensation",
     "legacy_impa_position",
@@ -564,7 +563,6 @@ CONVENTION_SENSITIVE = frozenset({
     "fit_impa_crosstalk",
     "fit_impa_geometry",
     "fit_impa_tf_coupling",
-    "grade_impa_quality",
     "impa_calibrate_signals",
     "impa_lowpass",
     "legacy_impa_compensation",

@@ -466,11 +466,12 @@ _SPECS = (
             N("ct_tglf", "Turbulent transport (TGLF)", "standardized",
               api="vaft.machine_mapping.turbulence.core_transport_from_tglf", ids="core_transport.model[:]",
               symbols=r"Q_s,\ \Gamma_s\ \mathrm{(quasilinear)}",
-              mapping_todo="no TGLF to gyrokinetics_local writer"),
+              mapping_todo="gyrokinetics_local (via gyrokinetics_local_from_tglf) not stored by any stage (#1128/#1129)"),
             N("gk_local", "Gyrokinetic run (CGYRO)", "standardized",
               api="vaft.machine_mapping.gyrokinetics.gyrokinetics_local_from_cgyro",
               ids="gyrokinetics_local.{linear.wavevector[:].eigenmode[:], non_linear.fluxes_1d}",
-              symbols=r"\gamma,\ \omega;\ \langle Q_s\rangle_t,\ \langle\Gamma_s\rangle_t"),
+              symbols=r"\gamma,\ \omega;\ \langle Q_s\rangle_t,\ \langle\Gamma_s\rangle_t",
+              mapping_todo="gyrokinetics_local not stored by any stage (#1128/#1129)"),
         ),
         rows=(("eq", "cp"), ("state",), ("tglf_in", "cgyro_in"), ("tglf", "cgyro"),
               ("tglf_out", "cgyro_lin", "cgyro_nl"), ("ct_tglf", "gk_local")),
@@ -485,7 +486,9 @@ _SPECS = (
                "input.cgyro by design: CGYRO recomputes it from the species list (Z_EFF_METHOD=2).",
                "No implemented local-gyrokinetic validity criterion (rho*): compare_with_oracle checks only the "
                "input translation against CGYRO's own projection.",
-               "No TGLF to gyrokinetics_local mapping."),
+               "gyrokinetics_local_from_tglf and gyrokinetics_local_from_cgyro write gyrokinetics_local, but no "
+               "pipeline stage stores that IDS: turbulent_transport owns core_transport only, and one occurrence "
+               "per flux surface awaits the #1128/#1129 occurrence model (#2020)."),
     ),
     # ------------------------------------------------------------------ plasma parameter inference (#1601)
     WorkflowSpec(

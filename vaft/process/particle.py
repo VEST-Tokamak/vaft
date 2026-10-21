@@ -15,6 +15,7 @@ from vaft.data.particle import (
     ParticleComparison,
     ParticleField,
     ParticleTrajectory,
+    next_fixed_step_time,
 )
 from vaft.formula.particle import (
     _boris_step,
@@ -135,7 +136,7 @@ def trace_particle_orbit(q, m, x0, v0, field, *, duration, dt, t0=0.0):
     end = t0 + duration
     termination = "completed"
     while times[-1] < end:
-        next_time = min(end, times[-1] + dt)
+        next_time = next_fixed_step_time(times[-1], dt, end)
         # Advance by the interval actually represented in the stored timestamps.
         h = next_time - times[-1]
         try:
