@@ -68,3 +68,20 @@ def test_an_all_nan_profile_writes_nothing():
     ods = _ods(np.full(4, np.nan), rho=False)
     update_equilibrium_global_quantities_q_min(ods)
     assert "q_min" not in ods["equilibrium.time_slice.0.global_quantities"]
+
+
+def test_a_stale_location_is_cleared_when_no_rho_is_available():
+    ods = _ods(-Q_POSITIVE, rho=False)
+    ods["equilibrium.time_slice.0.global_quantities.q_min.rho_tor_norm"] = 0.9
+    update_equilibrium_global_quantities_q_min(ods)
+    gq = ods["equilibrium.time_slice.0.global_quantities"]
+    assert gq["q_min.value"] == pytest.approx(-1.1)
+    assert "q_min.rho_tor_norm" not in gq
+
+
+def test_the_summary_reads_the_signed_value():
+    from vaft.database._summary import _extract_q_min
+
+    ods = _ods(-Q_POSITIVE)
+    update_equilibrium_global_quantities_q_min(ods)
+    assert _extract_q_min(ods["equilibrium.time_slice.0"]) == pytest.approx(-1.1)

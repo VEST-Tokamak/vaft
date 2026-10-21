@@ -341,10 +341,14 @@ def update_equilibrium_global_quantities_q_min(ods, time_slice=None):
             continue
         qmin_idx = int(np.nanargmin(magnitude))
         ts['global_quantities.q_min.value'] = float(q[qmin_idx])
+        rho = None
         if 'profiles_1d.rho_tor_norm' in ts:
             rho = np.asarray(ts['profiles_1d.rho_tor_norm'], dtype=float).reshape(-1)
-            if rho.size == q.size:
-                ts['global_quantities.q_min.rho_tor_norm'] = float(rho[qmin_idx])
+        if rho is not None and rho.size == q.size:
+            ts['global_quantities.q_min.rho_tor_norm'] = float(rho[qmin_idx])
+        elif 'global_quantities.q_min.rho_tor_norm' in ts:
+            # An earlier writer's location would describe a different point.
+            del ts['global_quantities.q_min.rho_tor_norm']
 
 def update_equilibrium_global_quantities_volume(ods, time_slice=None):
     """
