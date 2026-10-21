@@ -276,6 +276,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_ordering_contracts.py",
     "test_diagram_orderings.py",
     "test_diagram_particle_motion.py",
+    "test_diagram_pictograms.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
     "test_diagram_reduced_representations.py",

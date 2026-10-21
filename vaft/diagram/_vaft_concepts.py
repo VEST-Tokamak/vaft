@@ -51,6 +51,7 @@ from ._concept import Box, band, escape_latex
 from ._concept import box as _concept_box
 from ._concept import connector
 from ._concept import database as _concept_database
+from .pictograms import badge, corner, pictogram
 from ._render import Diagram
 from ._scene import Arrow, Label, Polyline, Scene
 
@@ -242,6 +243,9 @@ MANAGEMENT: Tuple[Tuple[str, str, str], ...] = (
     ("vv", "Verification, Validation & Quality Assessment", "quality metrics"),
 )
 
+#: the pictogram of each workflow phase that names a kind of work (#2101)
+WORKFLOW_SYMBOLS: Dict[str, str] = {"diagnostic": "processing", "reconstruction": "reconstruction",
+                                    "simulation": "computation", "vv": "validation"}
 
 def scientific_workflow(*, labels: bool = True) -> Diagram:
     r"""A managed scientific processing pipeline: heterogeneous sources to qualified, analysis-ready data.
@@ -308,6 +312,10 @@ def scientific_workflow(*, labels: bool = True) -> Diagram:
     for key, b in nodes.items():
         if not key.startswith("source:"):  # the sources were drawn inside their group
             items += list(b.items)
+    # semantic pictograms (#2101): the machine sources, and a badge clipped on each phase's top-left corner
+    items += pictogram("tokamak", (-0.5 * main_w + 0.6, 12.4), 0.8, role="symbol:group:sources").items
+    for key, name in WORKFLOW_SYMBOLS.items():
+        items += badge(name, corner(nodes[key], 0.78), 0.78, role=f"symbol:node:{key}").items
     first = nodes["diagnostic"]
     _down_or_up(items, edges, nodes["ingestion"], first, "ingestion", "diagnostic", at_x=first.x)
     for (k0, _, _), (k1, _, _) in zip(PHASES, PHASES[1:]):

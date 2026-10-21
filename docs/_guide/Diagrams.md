@@ -2795,6 +2795,115 @@ Follow-up TODOs (implementation or IMAS mapping):
 - The experimental chain pairs the measured current with EFIT's l_i3 (a hybrid), and its flux loop is not on the plasma boundary; both are recorded assumptions.
 - The stored energy is reconstruction-derived (efit_pressure) or assumes T_i = T_e (core_profiles_thermal); neither is a global energy (#1713).
 
+## Semantic pictograms
+
+Concept diagrams can carry small stroke **pictograms** that name a kind of thing -- a database, a
+solver, a researcher -- so a figure reads at a glance (#2101). They come from one registry,
+`vaft.diagram.pictograms`, so the same concept is drawn the same way in every figure.
+
+A pictogram is a **presentation component, not a model output**. Its geometry carries no physical
+dimension, position or relationship. It never replaces model-derived geometry -- flux surfaces,
+islands, coordinates, field lines, diagnostic sight lines -- which stays with the builders and
+`vaft.formula`. It supplements a label and never replaces one, and it says nothing about
+implementation maturity, validation or provenance: a `computation` icon does not mean a solver
+runs, a `standardized` icon does not mean a product passed validation.
+
+```python
+from vaft.diagram.pictograms import badge, corner, pictogram
+
+items += pictogram("database", (2.0, 3.0), 0.8, role="symbol:stage:database").items
+items += badge("validation", corner(vv_box), 0.62, role="symbol:node:vv").items
+```
+
+- `pictogram(name, at, size=0.6, *, role, style=PICTOGRAM)` returns scene polylines centred on `at`,
+  `size` cm across. `badge` puts the icon on a white disc; `corner(box)` is where a badge clips onto a
+  box's top-left corner without taking the space of a first text line that spans the box.
+- **Roles** start with `symbol:` and name the item they annotate (`symbol:node:vv`), so pictograms
+  never collide with the `node:`/`edge:` roles the topology tests read, and adding one never changes
+  the order of a builder's existing items.
+- **Style**: one stroke weight at every size (`PICTOGRAM`, dark blue, 0.7 pt); `PICTOGRAM_MUTED`
+  (grey, dashed) marks something planned. The styles are inline TikZ options, not template styles,
+  so adding a pictogram re-renders only the diagrams that draw it.
+- **Optical size**: every symbol is scaled so the larger side of its drawing fills the same 20/24 of
+  its box, so a narrow icon (a terminal prompt, a flat trace) does not read smaller than a full-frame one.
+- **Dashes** are reserved for state, never part of a symbol's shape: only `PICTOGRAM_MUTED` (planned)
+  is dashed. Generated or assumed data is drawn as what produces it (`synthetic`: a model box emitting
+  a signal), not with dotted strokes.
+- **Distinct metaphors for neighbouring concepts**: `repository` (version-controlled source),
+  `library` (reusable knowledge), `archive` (long-term preservation), `database` (structured storage);
+  `processing` (transformation), `workflow` (execution order), `integration` (combining systems),
+  `adapter` (compatibility), `interface` (two-way exchange); `model` (a function), `reconstruction`
+  (flux surfaces recovered from measurements), `inference` (an estimate with its uncertainty),
+  `synthetic` (model-generated data), `validation` (computed against independent measurements),
+  `analysis` (results plotted), `comparison` (results side by side).
+- **Names**: figures and the gallery show the display name (`display_name("input_file")` is
+  "Input file"); the identifier is what code passes to `pictogram()`.
+- **When not to use one**: on every box for symmetry, on a box whose label already is the picture
+  (the database drum), inside physics schematics, or where it would crowd an equation. A figure
+  without icons is often the clearer one.
+
+![Every registered pictogram]({{ '/assets/diagrams/pictogram_catalog.svg' | relative_url }})
+
+`vaft.diagram.pictogram_catalog()` draws the gallery above.
+
+| Identifier | Display name | Meaning | Source |
+| --- | --- | --- | --- |
+| `experiment` | Experiment | an experiment or laboratory activity | Lucide `flask-conical` |
+| `tokamak` | Tokamak | a tokamak device or its machine description | VAFT |
+| `signal` | Signal | a raw measured signal | VAFT |
+| `database` | Database | structured data storage | Lucide `database` |
+| `archive` | Archive | a long-term archive | Lucide `archive` |
+| `file` | File | a data file or document | Lucide `file-text` |
+| `input_file` | Input file | an input file for a solver | Lucide `file-input` |
+| `output_file` | Output file | a solver's native output file | Lucide `file-output` |
+| `standardized` | Standardized | a standardized, structured scientific representation (an IMAS-like tree) | Lucide `list-tree` |
+| `history` | History | a dated record or history | Lucide `history` |
+| `library` | Library | a body of reusable knowledge | Lucide `library` |
+| `processing` | Processing | data processing: transforming raw data into qualified data | VAFT |
+| `computation` | Computation | a numerical computation, solver or simulation | Lucide `cpu` |
+| `cluster` | Cluster | a compute server or HPC cluster | Lucide `server` |
+| `laptop` | Laptop | a local workstation | Lucide `laptop` |
+| `calculation` | Calculation | a deterministic calculation of derived quantities | Lucide `calculator` |
+| `model` | Model | a mathematical or theoretical model (a function, not a summation) | Lucide `square-function` |
+| `reconstruction` | Reconstruction | a state (flux surfaces) reconstructed from measurements | VAFT |
+| `inference` | Inference | an estimate of an unknown quantity, with its uncertainty | VAFT |
+| `synthetic` | Synthetic | data generated by a model or completed by assumptions, never measured | VAFT |
+| `parameters` | Parameters | chosen parameters, settings or prior assumptions | Lucide `sliders-horizontal` |
+| `coordinates` | Coordinates | a coordinate, sign or model convention | Lucide `move-3d` |
+| `code` | Code | a programming interface | Lucide `code` |
+| `source_code` | Source code | an externally maintained source code | Lucide `file-code` |
+| `terminal` | Terminal | a command-line interface | Lucide `terminal` |
+| `monitor` | Monitor | a graphical interface | Lucide `monitor` |
+| `repository` | Repository | a version-controlled code repository and its documentation | Lucide `folder-git-2` |
+| `integration` | Integration | the combination of different systems or data structures | Lucide `puzzle` |
+| `adapter` | Adapter | an adapter mediating compatibility between two systems | Lucide `cable` |
+| `interface` | Interface | a two-way data exchange between two systems | VAFT |
+| `package` | Package | an installable package or environment | Lucide `package` |
+| `researcher` | Researcher | a human researcher | Lucide `user` |
+| `collaboration` | Collaboration | a group of researchers | Lucide `users` |
+| `ai_agent` | AI agent | an AI agent | Lucide `bot` |
+| `workflow` | Workflow | a traceable workflow or pipeline | Lucide `workflow` |
+| `validation` | Validation | agreement of computed values with independent measurements | VAFT |
+| `comparison` | Comparison | results compared side by side | VAFT |
+| `analysis` | Analysis | analysis and visualization of results | Lucide `chart-line` |
+| `discovery` | Discovery | a discovery or new question | Lucide `lightbulb` |
+
+**Geometry and provenance.** General-purpose icons are vendored verbatim from a pinned
+[Lucide](https://lucide.dev) release (`lucide-static` 1.52.0, ISC; the Feather-derived icons
+MIT) in `vaft/diagram/_lucide.py`, each with its sha256; the licence is reproduced in
+[THIRD_PARTY_NOTICES.md](https://github.com/VEST-Tokamak/vaft/blob/develop/THIRD_PARTY_NOTICES.md).
+Where a generic icon would mislead, VAFT draws its own scientific symbol in the same 24-unit grid
+(`tokamak`, `signal`, `processing`, `reconstruction`, `inference`, `synthetic`, `interface`, `validation`, `comparison`). Only a restricted SVG subset is
+converted (`path` with `M L H V C S Q A Z`, `line`, `polyline`, `circle`, `ellipse`, `rect`); curves are
+flattened within a fixed tolerance, so a symbol always yields the same points and the output stays
+vector-native and offline in TikZ, SVG, PDF and the Matplotlib animation path.
+
+**Adding a symbol.** Pick a semantic name for the concept, not for the picture. Prefer an icon from
+the pinned Lucide release (re-extract it with its hash into `_lucide.py`); draw a VAFT symbol only
+when a generic icon would misstate the science. Register it in `pictograms._REGISTRY` with its
+meaning, add it to the table above, and run `python -m vaft.diagram.build` -- the gallery and every
+diagram that uses it re-render, nothing else does.
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:

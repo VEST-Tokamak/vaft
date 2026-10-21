@@ -263,6 +263,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
     "software_dependency_ecosystem.svg": ("software_dependency_ecosystem", {}),
     "external_code_integration.svg": ("external_code_integration", {}),
+    "pictogram_catalog.svg": ("pictogram_catalog", {}),
     # the physics-workflow spine, level 2 below the platform overview (#1585)
     **{f"{name}.svg": (name, {}) for name in (
         "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",
