@@ -403,7 +403,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>d766f71</code>. What is described
+  <code>c4cc766</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -434,11 +434,22 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.formula.turbulence</code>:
-<strong>5</strong> public functions. Each entry is what
+<strong>16</strong> public functions. Each entry is what
 <code>vaft.formula.describe("turbulence.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
 <h2 id="overview">Overview</h2>
+
+<p>Two groups (issues #1112 and #1820). The first are definitions and reduced
+estimates of fluctuation-driven transport – the diamagnetic velocity and
+frequency, the E-cross-B velocity of a potential fluctuation, turbulent
+particle and heat fluxes as correlations, the cross-phase flux of one mode,
+the mixing-length diffusivity, the E-cross-B shearing rate, the Reynolds
+stress and the zonal-flow drive. None is a turbulence closure, a stability
+classifier or a transport prediction; geometry is slab unless stated.</p>
+
+<p>The second is the two-variable turbulence–zonal-flow predator–prey model
+(Lotka–Volterra form).</p>
 
 <p>The transparent reduced description of turbulence self-regulation by zonal
 flows (issue #1820): fluctuation intensity $N$ (the prey) grows at an
@@ -479,9 +490,21 @@ intensities it was fitted to.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 5 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 16 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
+  <tr data-ref-row="coherent_particle_flux_from_amplitudes_phase"><td><a href="#coherent_particle_flux_from_amplitudes_phase"><code>coherent_particle_flux_from_amplitudes_phase</code></a></td><td>E-cross-B particle flux of one Fourier mode from its amplitudes and cross-phase.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="diamagnetic_frequency_from_k_v_star"><td><a href="#diamagnetic_frequency_from_k_v_star"><code>diamagnetic_frequency_from_k_v_star</code></a></td><td>Diamagnetic frequency of one Fourier mode: the Doppler shift of the diamagnetic flow.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="diamagnetic_velocity_from_grad_p_q_n_B"><td><a href="#diamagnetic_velocity_from_grad_p_q_n_B"><code>diamagnetic_velocity_from_grad_p_q_n_B</code></a></td><td>Diamagnetic drift velocity of a species, from its pressure gradient.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="exb_shearing_rate_from_velocity_gradient"><td><a href="#exb_shearing_rate_from_velocity_gradient"><code>exb_shearing_rate_from_velocity_gradient</code></a></td><td>Local E-cross-B shearing rate: the magnitude of the radial derivative of the flow.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="exb_velocity_from_potential_gradient"><td><a href="#exb_velocity_from_potential_gradient"><code>exb_velocity_from_potential_gradient</code></a></td><td>Electrostatic E-cross-B velocity from a potential gradient.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="mixing_length_diffusivity_from_gamma_k_perp"><td><a href="#mixing_length_diffusivity_from_gamma_k_perp"><code>mixing_length_diffusivity_from_gamma_k_perp</code></a></td><td>Mixing-length diffusivity estimate: growth rate over the squared perpendicular wavenumber.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="predator_prey_fixed_point"><td><a href="#predator_prey_fixed_point"><code>predator_prey_fixed_point</code></a></td><td>Positive (coexistence) fixed point of the predator–prey model.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="predator_prey_invariant"><td><a href="#predator_prey_invariant"><code>predator_prey_invariant</code></a></td><td>Conserved quantity of the classical predator–prey model.
@@ -492,6 +515,16 @@ intensities it was fitted to.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="predator_prey_rhs"><td><a href="#predator_prey_rhs"><code>predator_prey_rhs</code></a></td><td>Time derivatives of the turbulence–zonal-flow predator–prey model.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="reynolds_stress_from_velocity_fluctuations"><td><a href="#reynolds_stress_from_velocity_fluctuations"><code>reynolds_stress_from_velocity_fluctuations</code></a></td><td>Turbulent Reynolds stress: the correlation of radial and poloidal velocity fluctuations.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="shear_to_growth_rate_ratio"><td><a href="#shear_to_growth_rate_ratio"><code>shear_to_growth_rate_ratio</code></a></td><td>Ratio of the E-cross-B shearing rate to a linear growth rate.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="turbulent_heat_flux_from_fluctuations"><td><a href="#turbulent_heat_flux_from_fluctuations"><code>turbulent_heat_flux_from_fluctuations</code></a></td><td>Turbulent radial heat flux carried by pressure fluctuations: $\tfrac32\langle\tilde p\,\tilde v_r\rangle$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="turbulent_particle_flux_from_fluctuations"><td><a href="#turbulent_particle_flux_from_fluctuations"><code>turbulent_particle_flux_from_fluctuations</code></a></td><td>Turbulent radial particle flux: the correlation of density and radial-velocity fluctuations.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="zonal_flow_drive_from_reynolds_stress_gradient"><td><a href="#zonal_flow_drive_from_reynolds_stress_gradient"><code>zonal_flow_drive_from_reynolds_stress_gradient</code></a></td><td>Rate of change of a zonal flow driven by the Reynolds-stress divergence.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
 </table></div>
 <p class="ref-filter-empty" hidden="">No function matches.</p>
@@ -499,15 +532,765 @@ intensities it was fitted to.</p>
 
 <div class="ref-entries">
 
+  <section class="ref-entry" id="coherent_particle_flux_from_amplitudes_phase" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#coherent_particle_flux_from_amplitudes_phase"><code>coherent_particle_flux_from_amplitudes_phase</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="coherent_particle_flux_from_amplitudes_phase" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L701-L760" title="vaft/formula/turbulence.py, lines 701–760 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>coherent_particle_flux_from_amplitudes_phase(n_amplitude, phi_amplitude, k_y, B, phase)</code></pre>
+
+    <details class="ref-code" data-source-code="coherent_particle_flux_from_amplitudes_phase"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 701–760</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">coherent_particle_flux_from_amplitudes_phase</span><span class="p">(</span><span class="n">n_amplitude</span><span class="p">,</span> <span class="n">phi_amplitude</span><span class="p">,</span> <span class="n">k_y</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">phase</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">E-cross-B particle flux of one Fourier mode from its amplitudes and cross-phase.
+
+    $$\Gamma_k = \frac{k_y\,|\tilde n_k|\,|\tilde\phi_k|}{2B}\,\sin\theta_{n\phi}$$
+
+    Parameters
+    ----------
+    n_amplitude : float or array-like
+        Peak density amplitude $|\tilde n_k|$, non-negative [m^-3].
+    phi_amplitude : float or array-like
+        Peak potential amplitude $|\tilde\phi_k|$, non-negative [V].
+    k_y : float or array-like
+        Wavenumber along the binormal direction $\hat y$ [1/m].
+    B : float or array-like
+        Field strength, positive [T].
+    phase : float or array-like
+        Cross-phase $\theta_{n\phi} = \alpha_\phi - \alpha_n$: the phase by which
+        the potential leads the density [rad].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Gamma_k$ along $+\hat x$ (outward), averaged over a period [m^-2 s^-1].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, a negative amplitude, or a non-positive field.
+
+    Convention
+    ----------
+    Slab geometry: $\hat x$ radial (outward), $\hat y$ binormal and
+    $\mathbf B = B\hat z$, right-handed. Real fields
+    $\tilde n = |\tilde n_k|\cos(k_yy - \omega t + \alpha_n)$ and
+    $\tilde\phi = |\tilde\phi_k|\cos(k_yy - \omega t + \alpha_\phi)$, so
+    $\tilde v_x = -\partial_y\tilde\phi/B$ from
+    :func:`exb_velocity_from_potential_gradient`; the factor $1/2$ is the
+    period average of $\cos\cdot\sin$. Another Fourier sign convention
+    ($e^{-i\omega t}$ against $e^{i\omega t}$), a left-handed frame or a
+    reversed field flips the sign.
+
+    Physical interpretation
+    -----------------------
+    In phase ($\theta_{n\phi} = 0$, the adiabatic electron response) a drift
+    wave carries no flux; the flux grows with the phase shift that a
+    non-adiabatic response opens and reverses with its sign.
+
+    References
+    ----------
+    .. [1] W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+    .. [2] E. J. Powers, Nucl. Fusion 14 (1974) 749.
+    </span><span class="sh">"""</span>
+    <span class="n">na</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">n_amplitude</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_amplitude</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">pa</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">phi_amplitude</span><span class="p">,</span> <span class="sh">"</span><span class="s">phi_amplitude</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">na</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">pa</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">amplitudes must be non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">ky</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">k_y</span><span class="p">,</span> <span class="sh">"</span><span class="s">k_y</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="sh">"</span><span class="s">B</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="sh">"</span><span class="s">phase</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">ky</span> <span class="o">*</span> <span class="n">na</span> <span class="o">*</span> <span class="n">pa</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">b</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>E-cross-B particle flux of one Fourier mode from its amplitudes and cross-phase.</p>
+
+\[\Gamma_k = \frac{k_y\,|\tilde n_k|\,|\tilde\phi_k|}{2B}\,\sin\theta_{n\phi}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_amplitude</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><table>
+  <tbody>
+    <tr>
+      <td>Peak density amplitude $</td>
+      <td>\tilde n_k</td>
+      <td>$, non-negative.</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr>
+  <tr><td><code>phi_amplitude</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">V</td><td><table>
+  <tbody>
+    <tr>
+      <td>Peak potential amplitude $</td>
+      <td>\tilde\phi_k</td>
+      <td>$, non-negative.</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr>
+  <tr><td><code>k_y</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">1/m</td><td><p>Wavenumber along the binormal direction $\hat y$.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">T</td><td><p>Field strength, positive.</p>
+</td></tr>
+  <tr><td><code>phase</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">rad</td><td><p>Cross-phase $\theta_{n\phi} = \alpha_\phi - \alpha_n$: the phase by which the potential leads the density.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-2 s^-1</td><td><p>$\Gamma_k$ along $+\hat x$ (outward), averaged over a period.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Slab geometry: $\hat x$ radial (outward), $\hat y$ binormal and
+$\mathbf B = B\hat z$, right-handed. Real fields
+$\tilde n = |\tilde n_k|\cos(k_yy - \omega t + \alpha_n)$ and
+$\tilde\phi = |\tilde\phi_k|\cos(k_yy - \omega t + \alpha_\phi)$, so
+$\tilde v_x = -\partial_y\tilde\phi/B$ from
+<code class="language-plaintext highlighter-rouge">exb_velocity_from_potential_gradient</code>; the factor $1/2$ is the
+period average of $\cos\cdot\sin$. Another Fourier sign convention
+($e^{-i\omega t}$ against $e^{i\omega t}$), a left-handed frame or a
+reversed field flips the sign.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, a negative amplitude, or a non-positive field.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>In phase ($\theta_{n\phi} = 0$, the adiabatic electron response) a drift
+wave carries no flux; the flux grows with the phase shift that a
+non-adiabatic response opens and reverses with its sign.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+</li>
+  <li>E. J. Powers, Nucl. Fusion 14 (1974) 749.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="diamagnetic_frequency_from_k_v_star" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#diamagnetic_frequency_from_k_v_star"><code>diamagnetic_frequency_from_k_v_star</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="diamagnetic_frequency_from_k_v_star" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L529-L566" title="vaft/formula/turbulence.py, lines 529–566 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>diamagnetic_frequency_from_k_v_star(k, v_star)</code></pre>
+
+    <details class="ref-code" data-source-code="diamagnetic_frequency_from_k_v_star"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 529–566</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">diamagnetic_frequency_from_k_v_star</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v_star</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Diamagnetic frequency of one Fourier mode: the Doppler shift of the diamagnetic flow.
+
+    $$\omega_{*s} = \mathbf k\cdot\mathbf v_{*s}$$
+
+    Parameters
+    ----------
+    k : array-like
+        Wave vector, last axis the three Cartesian components [1/m].
+    v_star : array-like
+        Diamagnetic velocity of the species, last axis the three Cartesian
+        components, as from :func:`diamagnetic_velocity_from_grad_p_q_n_B` [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\omega_{*s}$ [rad/s].
+
+    Raises
+    ------
+    ValueError
+        A vector without three components, or non-finite input.
+
+    Convention
+    ----------
+    The sign follows the species charge through $\mathbf v_{*s}$ and the
+    direction of $\mathbf k$; only the perpendicular part of $\mathbf k$
+    contributes, since $\mathbf v_{*s}\perp\mathbf B$. A reduced form in
+    $k_y\rho_s$ is not given here: it needs the binormal direction and the
+    reference gyroradius stated, which belong to the code normalisation.
+
+    References
+    ----------
+    .. [1] W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+    </span><span class="sh">"""</span>
+    <span class="n">kk</span> <span class="o">=</span> <span class="nf">_vector3</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="sh">"</span><span class="s">k</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="nf">_vector3</span><span class="p">(</span><span class="n">v_star</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_star</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">kk</span> <span class="o">*</span> <span class="n">v</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Diamagnetic frequency of one Fourier mode: the Doppler shift of the diamagnetic flow.</p>
+
+\[\omega_{*s} = \mathbf k\cdot\mathbf v_{*s}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>k</code></td><td class="ref-type">array-like</td><td class="ref-unit">1/m</td><td><p>Wave vector, last axis the three Cartesian components.</p>
+</td></tr>
+  <tr><td><code>v_star</code></td><td class="ref-type">array-like</td><td class="ref-unit">m/s</td><td><p>Diamagnetic velocity of the species, last axis the three Cartesian components, as from <code class="language-plaintext highlighter-rouge">diamagnetic_velocity_from_grad_p_q_n_B</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>$\omega_{*s}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The sign follows the species charge through $\mathbf v_{<em>s}$ and the
+direction of $\mathbf k$; only the perpendicular part of $\mathbf k$
+contributes, since $\mathbf v_{</em>s}\perp\mathbf B$. A reduced form in
+$k_y\rho_s$ is not given here: it needs the binormal direction and the
+reference gyroradius stated, which belong to the code normalisation.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A vector without three components, or non-finite input.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="diamagnetic_velocity_from_grad_p_q_n_B" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#diamagnetic_velocity_from_grad_p_q_n_B"><code>diamagnetic_velocity_from_grad_p_q_n_B</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="diamagnetic_velocity_from_grad_p_q_n_B" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L466-L526" title="vaft/formula/turbulence.py, lines 466–526 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>diamagnetic_velocity_from_grad_p_q_n_B(grad_p, q, n, B)</code></pre>
+
+    <details class="ref-code" data-source-code="diamagnetic_velocity_from_grad_p_q_n_B"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 466–526</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">diamagnetic_velocity_from_grad_p_q_n_B</span><span class="p">(</span><span class="n">grad_p</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Diamagnetic drift velocity of a species, from its pressure gradient.
+
+    $$\mathbf v_{*s} = \frac{\mathbf B\times\nabla p_s}{q_s n_s B^2}$$
+
+    Parameters
+    ----------
+    grad_p : array-like
+        Pressure gradient of the species, last axis the three Cartesian
+        components [Pa/m].
+    q : float or array-like
+        Species charge, signed (negative for electrons), non-zero [C].
+    n : float or array-like
+        Species density, positive [m^-3].
+    B : array-like
+        Magnetic field, last axis the three Cartesian components, non-zero [T].
+
+    Returns
+    -------
+    np.ndarray
+        $\mathbf v_{*s}$, last axis the three Cartesian components [m/s].
+
+    Raises
+    ------
+    ValueError
+        A vector without three components, non-finite input, a zero charge or
+        field, or a non-positive density.
+
+    Convention
+    ----------
+    Right-handed Cartesian components. Ions and electrons drift in opposite
+    directions through the sign of $q_s$; $\mathbf v_{*s}$ is a fluid
+    velocity, not a guiding-centre drift.
+
+    Physical interpretation
+    -----------------------
+    More gyrating particles on the high-pressure side than on the low one
+    leave a net fluid flow perpendicular to $\mathbf B$ and $\nabla p$, with no
+    guiding centre moving.
+
+    References
+    ----------
+    .. [1] F. F. Chen, *Introduction to Plasma Physics and Controlled
+           Fusion*, 3rd ed., Springer (2016), Sec. 3.5.
+    .. [2] W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+    </span><span class="sh">"""</span>
+    <span class="n">gp</span> <span class="o">=</span> <span class="nf">_vector3</span><span class="p">(</span><span class="n">grad_p</span><span class="p">,</span> <span class="sh">"</span><span class="s">grad_p</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="nf">_vector3</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="sh">"</span><span class="s">B</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">b2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">b</span> <span class="o">*</span> <span class="n">b</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">b2</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">B must be non-zero</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">charge</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="sh">"</span><span class="s">q</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">charge</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">q must be non-zero</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">density</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="sh">"</span><span class="s">n</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">lead</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_shapes</span><span class="p">(</span><span class="n">gp</span><span class="p">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">b</span><span class="p">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_to</span><span class="p">(</span><span class="n">charge</span> <span class="o">*</span> <span class="n">density</span><span class="p">,</span> <span class="n">lead</span><span class="p">)</span>
+    <span class="k">except</span> <span class="nb">ValueError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">q and n must broadcast to the vectors</span><span class="sh">'</span><span class="s"> leading shape </span><span class="si">{</span><span class="n">lead</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span> <span class="k">from</span> <span class="n">error</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">cross</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">gp</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">scale</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_to</span><span class="p">(</span><span class="n">b2</span><span class="p">,</span> <span class="n">lead</span><span class="p">))[...,</span> <span class="bp">None</span><span class="p">]</span></code></pre></figure>
+
+</details>
+
+    <p>Diamagnetic drift velocity of a species, from its pressure gradient.</p>
+
+\[\mathbf v_{*s} = \frac{\mathbf B\times\nabla p_s}{q_s n_s B^2}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>grad_p</code></td><td class="ref-type">array-like</td><td class="ref-unit">Pa/m</td><td><p>Pressure gradient of the species, last axis the three Cartesian components.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">C</td><td><p>Species charge, signed (negative for electrons), non-zero.</p>
+</td></tr>
+  <tr><td><code>n</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><p>Species density, positive.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td class="ref-type">array-like</td><td class="ref-unit">T</td><td><p>Magnetic field, last axis the three Cartesian components, non-zero.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">m/s</td><td><p>$\mathbf v_{*s}$, last axis the three Cartesian components.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Right-handed Cartesian components. Ions and electrons drift in opposite
+directions through the sign of $q_s$; $\mathbf v_{*s}$ is a fluid
+velocity, not a guiding-centre drift.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A vector without three components, non-finite input, a zero charge or field, or a non-positive density.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>More gyrating particles on the high-pressure side than on the low one
+leave a net fluid flow perpendicular to $\mathbf B$ and $\nabla p$, with no
+guiding centre moving.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Sec. 3.5.
+</li>
+  <li>W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="exb_shearing_rate_from_velocity_gradient" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#exb_shearing_rate_from_velocity_gradient"><code>exb_shearing_rate_from_velocity_gradient</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="exb_shearing_rate_from_velocity_gradient" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L817-L857" title="vaft/formula/turbulence.py, lines 817–857 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>exb_shearing_rate_from_velocity_gradient(dv_E_dr)</code></pre>
+
+    <details class="ref-code" data-source-code="exb_shearing_rate_from_velocity_gradient"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 817–857</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">exb_shearing_rate_from_velocity_gradient</span><span class="p">(</span><span class="n">dv_E_dr</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Local E-cross-B shearing rate: the magnitude of the radial derivative of the flow.
+
+    $$\gamma_E = \left|\frac{\partial v_E}{\partial r}\right|$$
+
+    Parameters
+    ----------
+    dv_E_dr : float or array-like
+        Radial derivative of the perpendicular (binormal) $E\times B$ velocity,
+        taken along the radial coordinate $r$ in metres [1/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\gamma_E$ [1/s].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input.
+
+    Convention
+    ----------
+    The simplest slab definition. The derivative is with respect to the
+    coordinate the caller states, in metres; differentiating a profile and
+    converting from a flux label ($\rho$, $\psi$) is a procedure. The
+    Hahm--Burrell rate $(RB_\theta)^2/B\,\partial_\psi(E_r/RB_\theta)$ and
+    code-specific normalised rates are different quantities and need their
+    own identities.
+
+    Limitations
+    -----------
+    No geometry factor and no sign; it does not decide whether turbulence is
+    suppressed (see :func:`shear_to_growth_rate_ratio`).
+
+    References
+    ----------
+    .. [1] H. Biglari, P. H. Diamond and P. W. Terry, Phys. Fluids B 2 (1990) 1.
+    .. [2] T. S. Hahm and K. H. Burrell, Phys. Plasmas 2 (1995) 1648.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="nf">_finite</span><span class="p">(</span><span class="n">dv_E_dr</span><span class="p">,</span> <span class="sh">"</span><span class="s">dv_E_dr</span><span class="sh">"</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Local E-cross-B shearing rate: the magnitude of the radial derivative of the flow.</p>
+
+\[\gamma_E = \left|\frac{\partial v_E}{\partial r}\right|\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>dv_E_dr</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">1/s</td><td><p>Radial derivative of the perpendicular (binormal) $E\times B$ velocity, taken along the radial coordinate $r$ in metres.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/s</td><td><p>$\gamma_E$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The simplest slab definition. The derivative is with respect to the
+coordinate the caller states, in metres; differentiating a profile and
+converting from a flux label ($\rho$, $\psi$) is a procedure. The
+Hahm–Burrell rate $(RB_\theta)^2/B\,\partial_\psi(E_r/RB_\theta)$ and
+code-specific normalised rates are different quantities and need their
+own identities.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Limitations · References</summary>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>No geometry factor and no sign; it does not decide whether turbulence is
+suppressed (see <code class="language-plaintext highlighter-rouge">shear_to_growth_rate_ratio</code>).</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>H. Biglari, P. H. Diamond and P. W. Terry, Phys. Fluids B 2 (1990) 1.
+</li>
+  <li>T. S. Hahm and K. H. Burrell, Phys. Plasmas 2 (1995) 1648.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="exb_velocity_from_potential_gradient" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#exb_velocity_from_potential_gradient"><code>exb_velocity_from_potential_gradient</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="exb_velocity_from_potential_gradient" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L569-L610" title="vaft/formula/turbulence.py, lines 569–610 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>exb_velocity_from_potential_gradient(grad_phi, B)</code></pre>
+
+    <details class="ref-code" data-source-code="exb_velocity_from_potential_gradient"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 569–610</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">exb_velocity_from_potential_gradient</span><span class="p">(</span><span class="n">grad_phi</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Electrostatic E-cross-B velocity from a potential gradient.
+
+    $$\mathbf v_E = \frac{\mathbf B\times\nabla\phi}{B^2}$$
+
+    Parameters
+    ----------
+    grad_phi : array-like
+        Gradient of the electrostatic potential (mean or fluctuating), last
+        axis the three Cartesian components [V/m].
+    B : array-like
+        Magnetic field, last axis the three Cartesian components [T].
+
+    Returns
+    -------
+    np.ndarray
+        $\mathbf v_E$, last axis the three Cartesian components [m/s].
+
+    Raises
+    ------
+    ValueError
+        A vector without three components, or ``B`` vanishes.
+
+    Convention
+    ----------
+    $\mathbf E = -\nabla\phi$, so this is
+    :func:`vaft.formula.particle.exb_drift_velocity` evaluated at
+    $-\nabla\phi$; that function remains the owner of
+    $\mathbf E\times\mathbf B/B^2$ and is called here.
+
+    Physical interpretation
+    -----------------------
+    The fluid velocity of a potential fluctuation: equipotentials are
+    streamlines, so a potential eddy is a convective cell.
+
+    References
+    ----------
+    .. [1] W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">.particle</span> <span class="kn">import</span> <span class="n">exb_drift_velocity</span>
+
+    <span class="k">return</span> <span class="nf">exb_drift_velocity</span><span class="p">(</span><span class="o">-</span><span class="nf">_vector3</span><span class="p">(</span><span class="n">grad_phi</span><span class="p">,</span> <span class="sh">"</span><span class="s">grad_phi</span><span class="sh">"</span><span class="p">),</span> <span class="nf">_vector3</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="sh">"</span><span class="s">B</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Electrostatic E-cross-B velocity from a potential gradient.</p>
+
+\[\mathbf v_E = \frac{\mathbf B\times\nabla\phi}{B^2}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>grad_phi</code></td><td class="ref-type">array-like</td><td class="ref-unit">V/m</td><td><p>Gradient of the electrostatic potential (mean or fluctuating), last axis the three Cartesian components.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td class="ref-type">array-like</td><td class="ref-unit">T</td><td><p>Magnetic field, last axis the three Cartesian components.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">m/s</td><td><p>$\mathbf v_E$, last axis the three Cartesian components.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$\mathbf E = -\nabla\phi$, so this is
+<code class="language-plaintext highlighter-rouge">vaft.formula.particle.exb_drift_velocity</code> evaluated at
+$-\nabla\phi$; that function remains the owner of
+$\mathbf E\times\mathbf B/B^2$ and is called here.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A vector without three components, or <code class="language-plaintext highlighter-rouge">B</code> vanishes.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The fluid velocity of a potential fluctuation: equipotentials are
+streamlines, so a potential eddy is a convective cell.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="mixing_length_diffusivity_from_gamma_k_perp" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mixing_length_diffusivity_from_gamma_k_perp"><code>mixing_length_diffusivity_from_gamma_k_perp</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="mixing_length_diffusivity_from_gamma_k_perp" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L763-L814" title="vaft/formula/turbulence.py, lines 763–814 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>mixing_length_diffusivity_from_gamma_k_perp(gamma, k_perp)</code></pre>
+
+    <details class="ref-code" data-source-code="mixing_length_diffusivity_from_gamma_k_perp"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 763–814</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">mixing_length_diffusivity_from_gamma_k_perp</span><span class="p">(</span><span class="n">gamma</span><span class="p">,</span> <span class="n">k_perp</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Mixing-length diffusivity estimate: growth rate over the squared perpendicular wavenumber.
+
+    $$D_\mathrm{ML} \sim \frac{\gamma}{k_\perp^2}$$
+
+    Parameters
+    ----------
+    gamma : float or array-like
+        Linear growth rate of the mode, non-negative [1/s].
+    k_perp : float or array-like
+        Perpendicular wavenumber of the mode, non-zero [1/m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\gamma/k_\perp^2$ [m^2/s].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, a negative growth rate or a zero wavenumber.
+
+    Convention
+    ----------
+    No order-unity prefactor. In gyro-Bohm units the same expression is
+    $(\gamma\,a/c_s)/(k_\perp\rho_s)^2$ and returns $D/\chi_\mathrm{gB}$; which
+    $k_\perp$ (often $k_y$ alone, at $k_x = 0$) is the caller</span><span class="sh">'</span><span class="s">s statement.
+
+    Physical interpretation
+    -----------------------
+    Saturation when the eddy grows to the size of its own wavelength:
+    $\tilde n/n \sim 1/(k_\perp L_n)$ and a step $1/k_\perp$ per growth time
+    $1/\gamma$ give the random-walk diffusivity $\gamma/k_\perp^2$.
+
+    Limitations
+    -----------
+    A reduced saturation estimate, not a transport closure: it ignores
+    zonal flows, nonlinear spectral transfer and the mode spectrum, and is no
+    prediction of ITG, TEM or ETG transport.
+
+    References
+    ----------
+    .. [1] B. B. Kadomtsev, *Plasma Turbulence*, Academic Press (1965).
+    .. [2] W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+    </span><span class="sh">"""</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">gamma</span><span class="p">,</span> <span class="sh">"</span><span class="s">gamma</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">g</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">gamma must be non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">k_perp</span><span class="p">,</span> <span class="sh">"</span><span class="s">k_perp</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">k</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">k_perp must be non-zero</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">g</span> <span class="o">/</span> <span class="n">k</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Mixing-length diffusivity estimate: growth rate over the squared perpendicular wavenumber.</p>
+
+\[D_\mathrm{ML} \sim \frac{\gamma}{k_\perp^2}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>gamma</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">1/s</td><td><p>Linear growth rate of the mode, non-negative.</p>
+</td></tr>
+  <tr><td><code>k_perp</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">1/m</td><td><p>Perpendicular wavenumber of the mode, non-zero.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^2/s</td><td><p>$\gamma/k_\perp^2$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>No order-unity prefactor. In gyro-Bohm units the same expression is
+$(\gamma\,a/c_s)/(k_\perp\rho_s)^2$ and returns $D/\chi_\mathrm{gB}$; which
+$k_\perp$ (often $k_y$ alone, at $k_x = 0$) is the caller’s statement.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, a negative growth rate or a zero wavenumber.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Limitations · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Saturation when the eddy grows to the size of its own wavelength:
+$\tilde n/n \sim 1/(k_\perp L_n)$ and a step $1/k_\perp$ per growth time
+$1/\gamma$ give the random-walk diffusivity $\gamma/k_\perp^2$.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A reduced saturation estimate, not a transport closure: it ignores
+zonal flows, nonlinear spectral transfer and the mode spectrum, and is no
+prediction of ITG, TEM or ETG transport.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>B. B. Kadomtsev, <em>Plasma Turbulence</em>, Academic Press (1965).
+</li>
+  <li>W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="predator_prey_fixed_point" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#predator_prey_fixed_point"><code>predator_prey_fixed_point</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="predator_prey_fixed_point" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/turbulence.py#L166-L227" title="vaft/formula/turbulence.py, lines 166–227 at d766f71">source</a>
+<a class="ref-source" data-source="predator_prey_fixed_point" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L188-L249" title="vaft/formula/turbulence.py, lines 188–249 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>predator_prey_fixed_point(gamma_eff, coupling_suppression, coupling_drive, gamma_zonal)</code></pre>
 
-    <details class="ref-code" data-source-code="predator_prey_fixed_point"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 166–227</span></summary>
+    <details class="ref-code" data-source-code="predator_prey_fixed_point"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 188–249</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">predator_prey_fixed_point</span><span class="p">(</span><span class="n">gamma_eff</span><span class="p">,</span> <span class="n">coupling_suppression</span><span class="p">,</span> <span class="n">coupling_drive</span><span class="p">,</span> <span class="n">gamma_zonal</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Positive (coexistence) fixed point of the predator--prey model.
@@ -650,11 +1433,11 @@ model) are needed for that.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#predator_prey_invariant"><code>predator_prey_invariant</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="predator_prey_invariant" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/turbulence.py#L230-L294" title="vaft/formula/turbulence.py, lines 230–294 at d766f71">source</a>
+<a class="ref-source" data-source="predator_prey_invariant" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L252-L316" title="vaft/formula/turbulence.py, lines 252–316 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>predator_prey_invariant(turbulence, zonal, gamma_eff, coupling_suppression, coupling_drive, gamma_zonal)</code></pre>
 
-    <details class="ref-code" data-source-code="predator_prey_invariant"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 230–294</span></summary>
+    <details class="ref-code" data-source-code="predator_prey_invariant"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 252–316</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">predator_prey_invariant</span><span class="p">(</span><span class="n">turbulence</span><span class="p">,</span> <span class="n">zonal</span><span class="p">,</span> <span class="n">gamma_eff</span><span class="p">,</span> <span class="n">coupling_suppression</span><span class="p">,</span> <span class="n">coupling_drive</span><span class="p">,</span> <span class="n">gamma_zonal</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Conserved quantity of the classical predator--prey model.
@@ -803,11 +1586,11 @@ noise or third variable makes $H$ drift.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#predator_prey_period"><code>predator_prey_period</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="predator_prey_period" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/turbulence.py#L297-L350" title="vaft/formula/turbulence.py, lines 297–350 at d766f71">source</a>
+<a class="ref-source" data-source="predator_prey_period" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L319-L372" title="vaft/formula/turbulence.py, lines 319–372 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>predator_prey_period(gamma_eff, gamma_zonal, *, approximation=&#39;linearized&#39;)</code></pre>
 
-    <details class="ref-code" data-source-code="predator_prey_period"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 297–350</span></summary>
+    <details class="ref-code" data-source-code="predator_prey_period"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 319–372</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">predator_prey_period</span><span class="p">(</span><span class="n">gamma_eff</span><span class="p">,</span> <span class="n">gamma_zonal</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">approximation</span><span class="o">=</span><span class="sh">"</span><span class="s">linearized</span><span class="sh">"</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Small-amplitude oscillation period about the positive fixed point.
@@ -938,11 +1721,11 @@ the orbit size; this is not the period of a general orbit.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#predator_prey_response_lag"><code>predator_prey_response_lag</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="predator_prey_response_lag" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/turbulence.py#L353-L405" title="vaft/formula/turbulence.py, lines 353–405 at d766f71">source</a>
+<a class="ref-source" data-source="predator_prey_response_lag" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L375-L427" title="vaft/formula/turbulence.py, lines 375–427 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>predator_prey_response_lag(gamma_eff, gamma_zonal, *, approximation=&#39;linearized&#39;)</code></pre>
 
-    <details class="ref-code" data-source-code="predator_prey_response_lag"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 353–405</span></summary>
+    <details class="ref-code" data-source-code="predator_prey_response_lag"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 375–427</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">predator_prey_response_lag</span><span class="p">(</span><span class="n">gamma_eff</span><span class="p">,</span> <span class="n">gamma_zonal</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">approximation</span><span class="o">=</span><span class="sh">"</span><span class="s">linearized</span><span class="sh">"</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Small-amplitude delay of the zonal-flow peak after the turbulence peak.
@@ -1073,11 +1856,11 @@ belongs in <code class="language-plaintext highlighter-rouge">vaft.process</code
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#predator_prey_rhs"><code>predator_prey_rhs</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="predator_prey_rhs" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/turbulence.py#L94-L163" title="vaft/formula/turbulence.py, lines 94–163 at d766f71">source</a>
+<a class="ref-source" data-source="predator_prey_rhs" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L116-L185" title="vaft/formula/turbulence.py, lines 116–185 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>predator_prey_rhs(turbulence, zonal, gamma_eff, coupling_suppression, coupling_drive, gamma_zonal)</code></pre>
 
-    <details class="ref-code" data-source-code="predator_prey_rhs"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 94–163</span></summary>
+    <details class="ref-code" data-source-code="predator_prey_rhs"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 116–185</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">predator_prey_rhs</span><span class="p">(</span><span class="n">turbulence</span><span class="p">,</span> <span class="n">zonal</span><span class="p">,</span> <span class="n">gamma_eff</span><span class="p">,</span> <span class="n">coupling_suppression</span><span class="p">,</span> <span class="n">coupling_drive</span><span class="p">,</span> <span class="n">gamma_zonal</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Time derivatives of the turbulence--zonal-flow predator--prey model.
@@ -1225,6 +2008,573 @@ reference, not a prediction.</p>
   <li>P. H. Diamond, Y.-M. Liang, B. A. Carreras and P. W. Terry, Phys. Rev. Lett. 72 (1994) 2565.
 </li>
   <li>S. Kobayashi, O. D. Gurcan and P. H. Diamond, Phys. Plasmas 22 (2015) 090702.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="reynolds_stress_from_velocity_fluctuations" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#reynolds_stress_from_velocity_fluctuations"><code>reynolds_stress_from_velocity_fluctuations</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="reynolds_stress_from_velocity_fluctuations" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L904-L947" title="vaft/formula/turbulence.py, lines 904–947 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>reynolds_stress_from_velocity_fluctuations(v_r_fluct, v_theta_fluct, axis=-1)</code></pre>
+
+    <details class="ref-code" data-source-code="reynolds_stress_from_velocity_fluctuations"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 904–947</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">reynolds_stress_from_velocity_fluctuations</span><span class="p">(</span><span class="n">v_r_fluct</span><span class="p">,</span> <span class="n">v_theta_fluct</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Turbulent Reynolds stress: the correlation of radial and poloidal velocity fluctuations.
+
+    $$R_{r\theta} = \langle\tilde v_r\,\tilde v_\theta\rangle$$
+
+    Parameters
+    ----------
+    v_r_fluct : array-like
+        Radial velocity fluctuation, positive outward [m/s].
+    v_theta_fluct : array-like
+        Poloidal (binormal) velocity fluctuation at the same samples [m/s].
+    axis : int
+        Axis that ``&lt;.&gt;`` averages over [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $R_{r\theta}$, the radial flux of poloidal momentum per unit mass density [m^2/s^2].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, inputs of different shapes, or a missing or empty averaging axis.
+
+    Convention
+    ----------
+    Kinematic stress (per unit mass density). Positive $R_{r\theta}$ carries
+    positive $\theta$-momentum outward; the direction of $\hat\theta$ is the
+    caller</span><span class="sh">'</span><span class="s">s, and reversing it reverses the sign. As for the particle flux,
+    the inputs are fluctuating parts.
+
+    Physical interpretation
+    -----------------------
+    Tilted eddies have correlated $\tilde v_r$ and $\tilde v_\theta$; their
+    stress, and its radial gradient, is how turbulence drives a sheared
+    zonal flow.
+
+    References
+    ----------
+    .. [1] P. H. Diamond and Y.-B. Kim, Phys. Fluids B 3 (1991) 1626.
+    .. [2] P. H. Diamond, S.-I. Itoh, K. Itoh and T. S. Hahm,
+           Plasma Phys. Control. Fusion 47 (2005) R35.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_ensemble_mean</span><span class="p">(</span><span class="n">v_r_fluct</span><span class="p">,</span> <span class="n">v_theta_fluct</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="p">(</span><span class="sh">"</span><span class="s">v_r_fluct</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_theta_fluct</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Turbulent Reynolds stress: the correlation of radial and poloidal velocity fluctuations.</p>
+
+\[R_{r\theta} = \langle\tilde v_r\,\tilde v_\theta\rangle\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>v_r_fluct</code></td><td class="ref-type">array-like</td><td class="ref-unit">m/s</td><td><p>Radial velocity fluctuation, positive outward.</p>
+</td></tr>
+  <tr><td><code>v_theta_fluct</code></td><td class="ref-type">array-like</td><td class="ref-unit">m/s</td><td><p>Poloidal (binormal) velocity fluctuation at the same samples.</p>
+</td></tr>
+  <tr><td><code>axis</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Axis that <code class="language-plaintext highlighter-rouge">&lt;.&gt;</code> averages over.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^2/s^2</td><td><p>$R_{r\theta}$, the radial flux of poloidal momentum per unit mass density.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Kinematic stress (per unit mass density). Positive $R_{r\theta}$ carries
+positive $\theta$-momentum outward; the direction of $\hat\theta$ is the
+caller’s, and reversing it reverses the sign. As for the particle flux,
+the inputs are fluctuating parts.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, inputs of different shapes, or a missing or empty averaging axis.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Tilted eddies have correlated $\tilde v_r$ and $\tilde v_\theta$; their
+stress, and its radial gradient, is how turbulence drives a sheared
+zonal flow.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>P. H. Diamond and Y.-B. Kim, Phys. Fluids B 3 (1991) 1626.
+</li>
+  <li>P. H. Diamond, S.-I. Itoh, K. Itoh and T. S. Hahm, Plasma Phys. Control. Fusion 47 (2005) R35.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="shear_to_growth_rate_ratio" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#shear_to_growth_rate_ratio"><code>shear_to_growth_rate_ratio</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="shear_to_growth_rate_ratio" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L860-L901" title="vaft/formula/turbulence.py, lines 860–901 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>shear_to_growth_rate_ratio(gamma_E, gamma_lin)</code></pre>
+
+    <details class="ref-code" data-source-code="shear_to_growth_rate_ratio"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 860–901</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">shear_to_growth_rate_ratio</span><span class="p">(</span><span class="n">gamma_E</span><span class="p">,</span> <span class="n">gamma_lin</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Ratio of the E-cross-B shearing rate to a linear growth rate.
+
+    $$\frac{\gamma_E}{\gamma_\mathrm{lin}}$$
+
+    Parameters
+    ----------
+    gamma_E : float or array-like
+        Shearing rate, non-negative [1/s].
+    gamma_lin : float or array-like
+        Linear growth rate, positive [1/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\gamma_E/\gamma_\mathrm{lin}$ [-].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, a negative shearing rate or a non-positive growth rate.
+
+    Convention
+    ----------
+    Both rates in the same unit and taken at the same location; the rate
+    definitions (which $\gamma_E$, the maximum or a mode</span><span class="sh">'</span><span class="s">s $\gamma$) are the
+    caller</span><span class="sh">'</span><span class="s">s.
+
+    Limitations
+    -----------
+    A ratio, not a classifier. The rule of thumb that turbulence is suppressed
+    near $\gamma_E/\gamma_\mathrm{lin} \gtrsim 1$ depends on the definitions
+    and the geometry, and is not encoded here.
+
+    References
+    ----------
+    .. [1] R. E. Waltz, G. D. Kerbel and J. Milovich, Phys. Plasmas 1 (1994) 2229.
+    </span><span class="sh">"""</span>
+    <span class="n">ge</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">gamma_E</span><span class="p">,</span> <span class="sh">"</span><span class="s">gamma_E</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">ge</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">gamma_E must be non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">ge</span> <span class="o">/</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">gamma_lin</span><span class="p">,</span> <span class="sh">"</span><span class="s">gamma_lin</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Ratio of the E-cross-B shearing rate to a linear growth rate.</p>
+
+\[\frac{\gamma_E}{\gamma_\mathrm{lin}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>gamma_E</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">1/s</td><td><p>Shearing rate, non-negative.</p>
+</td></tr>
+  <tr><td><code>gamma_lin</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">1/s</td><td><p>Linear growth rate, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\gamma_E/\gamma_\mathrm{lin}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Both rates in the same unit and taken at the same location; the rate
+definitions (which $\gamma_E$, the maximum or a mode’s $\gamma$) are the
+caller’s.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, a negative shearing rate or a non-positive growth rate.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Limitations · References</summary>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A ratio, not a classifier. The rule of thumb that turbulence is suppressed
+near $\gamma_E/\gamma_\mathrm{lin} \gtrsim 1$ depends on the definitions
+and the geometry, and is not encoded here.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>R. E. Waltz, G. D. Kerbel and J. Milovich, Phys. Plasmas 1 (1994) 2229.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="turbulent_heat_flux_from_fluctuations" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#turbulent_heat_flux_from_fluctuations"><code>turbulent_heat_flux_from_fluctuations</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="turbulent_heat_flux_from_fluctuations" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L659-L698" title="vaft/formula/turbulence.py, lines 659–698 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>turbulent_heat_flux_from_fluctuations(p_fluct, v_r_fluct, axis=-1)</code></pre>
+
+    <details class="ref-code" data-source-code="turbulent_heat_flux_from_fluctuations"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 659–698</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">turbulent_heat_flux_from_fluctuations</span><span class="p">(</span><span class="n">p_fluct</span><span class="p">,</span> <span class="n">v_r_fluct</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Turbulent radial heat flux carried by pressure fluctuations: $\tfrac32\langle\tilde p\,\tilde v_r\rangle$.
+
+    $$Q_s = \frac{3}{2}\langle\tilde p_s\,\tilde v_r\rangle$$
+
+    Parameters
+    ----------
+    p_fluct : array-like
+        Pressure fluctuation $\tilde p_s = \widetilde{n_sT_s}$ samples [Pa].
+    v_r_fluct : array-like
+        Radial velocity fluctuation $\tilde v_r$ at the same samples, positive
+        outward [m/s].
+    axis : int
+        Axis that ``&lt;.&gt;`` averages over [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $Q_s$, positive outward [W/m^2].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, inputs of different shapes, or a missing or empty averaging axis.
+
+    Convention
+    ----------
+    The flux of the fluctuating thermal energy $\tfrac32\tilde p_s$ by the
+    radial velocity -- the energy-flux definition of the electrostatic
+    gyrokinetic codes. It is the total (convective plus conductive) energy
+    flux; the conductive part alone is
+    $Q_s - \tfrac32T_s\Gamma_s$, and some texts use $\tfrac52$ in the
+    convective term. ``p_fluct`` must be the fluctuation of $n_sT_s$, not
+    $T_s\tilde n_s$ or $n_s\tilde T_s$ alone.
+
+    References
+    ----------
+    .. [1] W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">1.5</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">_ensemble_mean</span><span class="p">(</span><span class="n">p_fluct</span><span class="p">,</span> <span class="n">v_r_fluct</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="p">(</span><span class="sh">"</span><span class="s">p_fluct</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_r_fluct</span><span class="sh">"</span><span class="p">))))</span></code></pre></figure>
+
+</details>
+
+    <p>Turbulent radial heat flux carried by pressure fluctuations: $\tfrac32\langle\tilde p\,\tilde v_r\rangle$.</p>
+
+\[Q_s = \frac{3}{2}\langle\tilde p_s\,\tilde v_r\rangle\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>p_fluct</code></td><td class="ref-type">array-like</td><td class="ref-unit">Pa</td><td><p>Pressure fluctuation $\tilde p_s = \widetilde{n_sT_s}$ samples.</p>
+</td></tr>
+  <tr><td><code>v_r_fluct</code></td><td class="ref-type">array-like</td><td class="ref-unit">m/s</td><td><p>Radial velocity fluctuation $\tilde v_r$ at the same samples, positive outward.</p>
+</td></tr>
+  <tr><td><code>axis</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Axis that <code class="language-plaintext highlighter-rouge">&lt;.&gt;</code> averages over.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>$Q_s$, positive outward.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The flux of the fluctuating thermal energy $\tfrac32\tilde p_s$ by the
+radial velocity – the energy-flux definition of the electrostatic
+gyrokinetic codes. It is the total (convective plus conductive) energy
+flux; the conductive part alone is
+$Q_s - \tfrac32T_s\Gamma_s$, and some texts use $\tfrac52$ in the
+convective term. <code class="language-plaintext highlighter-rouge">p_fluct</code> must be the fluctuation of $n_sT_s$, not
+$T_s\tilde n_s$ or $n_s\tilde T_s$ alone.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, inputs of different shapes, or a missing or empty averaging axis.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="turbulent_particle_flux_from_fluctuations" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#turbulent_particle_flux_from_fluctuations"><code>turbulent_particle_flux_from_fluctuations</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="turbulent_particle_flux_from_fluctuations" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L613-L656" title="vaft/formula/turbulence.py, lines 613–656 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>turbulent_particle_flux_from_fluctuations(n_fluct, v_r_fluct, axis=-1)</code></pre>
+
+    <details class="ref-code" data-source-code="turbulent_particle_flux_from_fluctuations"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 613–656</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">turbulent_particle_flux_from_fluctuations</span><span class="p">(</span><span class="n">n_fluct</span><span class="p">,</span> <span class="n">v_r_fluct</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Turbulent radial particle flux: the correlation of density and radial-velocity fluctuations.
+
+    $$\Gamma_s = \langle\tilde n_s\,\tilde v_r\rangle$$
+
+    Parameters
+    ----------
+    n_fluct : array-like
+        Density fluctuation $\tilde n_s$ samples [m^-3].
+    v_r_fluct : array-like
+        Radial velocity fluctuation $\tilde v_r$ at the same samples, positive
+        outward [m/s].
+    axis : int
+        Axis that ``&lt;.&gt;`` averages over (time, ensemble or flux surface) [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Gamma_s$, positive outward [m^-2 s^-1].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, inputs of different shapes, or a missing or empty averaging axis.
+
+    Convention
+    ----------
+    The inputs are the fluctuating parts: removing the mean (or the
+    equilibrium) is a procedure the caller does before this, and a
+    non-zero mean in both inputs adds $\bar n\bar v_r$ to the result. The
+    average is the arithmetic mean along ``axis``.
+
+    Physical interpretation
+    -----------------------
+    A flux needs density and radial velocity to be correlated: two fluctuations
+    of any amplitude carry nothing if they are out of phase by $\pi/2$
+    (see :func:`coherent_particle_flux_from_amplitudes_phase`).
+
+    References
+    ----------
+    .. [1] W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+    .. [2] A. J. Wootton et al., Phys. Fluids B 2 (1990) 2879.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_ensemble_mean</span><span class="p">(</span><span class="n">n_fluct</span><span class="p">,</span> <span class="n">v_r_fluct</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="p">(</span><span class="sh">"</span><span class="s">n_fluct</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_r_fluct</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Turbulent radial particle flux: the correlation of density and radial-velocity fluctuations.</p>
+
+\[\Gamma_s = \langle\tilde n_s\,\tilde v_r\rangle\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_fluct</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Density fluctuation $\tilde n_s$ samples.</p>
+</td></tr>
+  <tr><td><code>v_r_fluct</code></td><td class="ref-type">array-like</td><td class="ref-unit">m/s</td><td><p>Radial velocity fluctuation $\tilde v_r$ at the same samples, positive outward.</p>
+</td></tr>
+  <tr><td><code>axis</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Axis that <code class="language-plaintext highlighter-rouge">&lt;.&gt;</code> averages over (time, ensemble or flux surface).</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-2 s^-1</td><td><p>$\Gamma_s$, positive outward.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The inputs are the fluctuating parts: removing the mean (or the
+equilibrium) is a procedure the caller does before this, and a
+non-zero mean in both inputs adds $\bar n\bar v_r$ to the result. The
+average is the arithmetic mean along <code class="language-plaintext highlighter-rouge">axis</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, inputs of different shapes, or a missing or empty averaging axis.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A flux needs density and radial velocity to be correlated: two fluctuations
+of any amplitude carry nothing if they are out of phase by $\pi/2$
+(see <code class="language-plaintext highlighter-rouge">coherent_particle_flux_from_amplitudes_phase</code>).</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+</li>
+  <li>A. J. Wootton et al., Phys. Fluids B 2 (1990) 2879.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="zonal_flow_drive_from_reynolds_stress_gradient" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#zonal_flow_drive_from_reynolds_stress_gradient"><code>zonal_flow_drive_from_reynolds_stress_gradient</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="zonal_flow_drive_from_reynolds_stress_gradient" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/turbulence.py#L950-L992" title="vaft/formula/turbulence.py, lines 950–992 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>zonal_flow_drive_from_reynolds_stress_gradient(dR_dr, zonal_velocity=0.0, damping_rate=0.0)</code></pre>
+
+    <details class="ref-code" data-source-code="zonal_flow_drive_from_reynolds_stress_gradient"><summary>Show source <span class="ref-note">vaft/formula/turbulence.py, lines 950–992</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">zonal_flow_drive_from_reynolds_stress_gradient</span><span class="p">(</span><span class="n">dR_dr</span><span class="p">,</span> <span class="n">zonal_velocity</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">damping_rate</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Rate of change of a zonal flow driven by the Reynolds-stress divergence.
+
+    $$\frac{\partial V_\mathrm{ZF}}{\partial t} = -\frac{\partial R_{r\theta}}{\partial r} - \mu\,V_\mathrm{ZF}$$
+
+    Parameters
+    ----------
+    dR_dr : float or array-like
+        Radial derivative of the Reynolds stress $R_{r\theta}$, along $r$ in
+        metres [m/s^2].
+    zonal_velocity : float or array-like
+        Zonal-flow velocity $V_\mathrm{ZF}$; enters only through the damping [m/s].
+    damping_rate : float or array-like
+        Damping rate $\mu$, non-negative; 0 (the default) leaves the drive
+        undamped [1/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\partial V_\mathrm{ZF}/\partial t$ [m/s^2].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input or a negative damping rate.
+
+    Convention
+    ----------
+    Slab form of the flux-surface-averaged poloidal momentum balance; the
+    damping is a model choice the caller makes explicit (collisional or
+    neoclassical damping, or none). This is not the predator--prey model
+    above, which describes intensities, not the flow itself.
+
+    References
+    ----------
+    .. [1] P. H. Diamond and Y.-B. Kim, Phys. Fluids B 3 (1991) 1626.
+    .. [2] P. H. Diamond, S.-I. Itoh, K. Itoh and T. S. Hahm,
+           Plasma Phys. Control. Fusion 47 (2005) R35.
+    </span><span class="sh">"""</span>
+    <span class="n">mu</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">damping_rate</span><span class="p">,</span> <span class="sh">"</span><span class="s">damping_rate</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">mu</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">damping_rate must be non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="o">-</span><span class="nf">_finite</span><span class="p">(</span><span class="n">dR_dr</span><span class="p">,</span> <span class="sh">"</span><span class="s">dR_dr</span><span class="sh">"</span><span class="p">)</span> <span class="o">-</span> <span class="n">mu</span> <span class="o">*</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">zonal_velocity</span><span class="p">,</span> <span class="sh">"</span><span class="s">zonal_velocity</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Rate of change of a zonal flow driven by the Reynolds-stress divergence.</p>
+
+\[\frac{\partial V_\mathrm{ZF}}{\partial t} = -\frac{\partial R_{r\theta}}{\partial r} - \mu\,V_\mathrm{ZF}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>dR_dr</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s^2</td><td><p>Radial derivative of the Reynolds stress $R_{r\theta}$, along $r$ in metres.</p>
+</td></tr>
+  <tr><td><code>zonal_velocity</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Zonal-flow velocity $V_\mathrm{ZF}$; enters only through the damping.</p>
+</td></tr>
+  <tr><td><code>damping_rate</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">1/s</td><td><p>Damping rate $\mu$, non-negative; 0 (the default) leaves the drive undamped.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s^2</td><td><p>$\partial V_\mathrm{ZF}/\partial t$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Slab form of the flux-surface-averaged poloidal momentum balance; the
+damping is a model choice the caller makes explicit (collisional or
+neoclassical damping, or none). This is not the predator–prey model
+above, which describes intensities, not the flow itself.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input or a negative damping rate.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>P. H. Diamond and Y.-B. Kim, Phys. Fluids B 3 (1991) 1626.
+</li>
+  <li>P. H. Diamond, S.-I. Itoh, K. Itoh and T. S. Hahm, Plasma Phys. Control. Fusion 47 (2005) R35.
 </li>
 </ol>
 
@@ -1447,12 +2797,12 @@ window.MathJax = {
     },
     "file": {
         "path": "_guide/Formula_reference_turbulence.md",
-        "mtime": "2026-10-07 12:00:00 +0000",
+        "mtime": "2026-10-07 12:00:00 +0900",
         "type": "markdown"
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-20 22:48:21 +0000"
+        "time": "2026-10-21 11:38:36 +0900"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -403,7 +403,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>d766f71</code>. What is described
+  <code>c4cc766</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -2994,6 +2994,97 @@ implemented, so the NTV regime diagram shows slopes only.</p>
   </tbody>
 </table>
 
+<h2 id="canonical-transport-concepts">Canonical transport concepts</h2>
+
+<p>Three concept figures for the transport reference relations in <code class="language-plaintext highlighter-rouge">vaft.formula.transport</code>:</p>
+<ul>
+  <li>how a diffusivity is defined;</li>
+  <li>how gradients drive fluxes;</li>
+  <li>how the classical, Bohm and gyro-Bohm reference scales relate.</li>
+</ul>
+
+<p>They explain definitions. None predicts the transport of a plasma.</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>radial motion -&gt; mean-square displacement (late slope)  -&gt; D
+              -&gt; velocity autocorrelation (area)         -&gt; D
+gradient -&gt; diffusive term + convective term -&gt; flux   (one flux does not fix D and V)
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">random_walk_diffusion</code> draws one exponentially correlated velocity three ways, with a fixed seed:</p>
+<ul>
+  <li>sample trajectories;</li>
+  <li>the mean-square displacement, which is ballistic at first and diffusive later;</li>
+  <li>the autocorrelation.</li>
+</ul>
+
+<p>Both definitions, <code class="language-plaintext highlighter-rouge">diffusivity_from_mean_square_displacement</code> on the late slope and
+<code class="language-plaintext highlighter-rouge">diffusivity_from_velocity_autocorrelation</code> on the area, give $D = \langle v_r^2\rangle\tau_c$.</p>
+
+<p><code class="language-plaintext highlighter-rouge">transport_flux_gradient</code> keeps the diffusive and convective terms apart for particles, heat and toroidal
+momentum (per unit volume in $v_\phi$). The momentum flux’s residual stress is a third term, neither diffusive nor
+convective. Its inset shows the inverse problem: one
+$\Gamma$ at one $\partial_r n$ is the line $V = (\Gamma + D\,\partial_r n)/n$, checked against
+<code class="language-plaintext highlighter-rouge">particle_flux_from_D_grad_n_V_n</code>.</p>
+
+<p><code class="language-plaintext highlighter-rouge">transport_reference_scales</code> sorts the scales by role:</p>
+<ul>
+  <li>collisional: classical and neoclassical;</li>
+  <li>empirical reference: Bohm;</li>
+  <li>turbulence normalisation: gyro-Bohm.</li>
+</ul>
+
+<p>It draws no magnitude axis, because their sizes are not universally ordered. The banana, plateau and
+Pfirsch–Schlüter regimes are <code class="language-plaintext highlighter-rouge">neoclassical_collisionality</code> above. It states its $\hat\nu$ convention, and
+since #1112 it shades a transition range, a factor of 3 either side of each boundary, rather than
+drawing exact lines.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">random_walk_diffusion</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">transport_flux_gradient</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">transport_reference_scales</span><span class="p">()</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/random_walk_diffusion.svg" alt="random walk" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/transport_flux_gradient.svg" alt="flux and gradient" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/transport_reference_scales.svg" alt="reference scales" /></td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">random_walk_diffusion</code></td>
+      <td>Trajectories, mean-square displacement ($\propto t^2$, then $\propto 2Dt$) and velocity autocorrelation of one Ornstein–Uhlenbeck velocity. The Einstein slope and the Taylor–Green–Kubo area give the same $D$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">transport_flux_gradient</code></td>
+      <td>Gradient, then diffusive and convective terms, then flux, for particles, heat and momentum. One measured flux is a line of $(D, V)$, not a point</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">transport_reference_scales</code></td>
+      <td>Classical and neoclassical (collisional), Bohm (empirical) and gyro-Bohm (turbulence normalisation) with their <code class="language-plaintext highlighter-rouge">vaft.formula.transport</code> definitions. A taxonomy, not a ranking</td>
+    </tr>
+  </tbody>
+</table>
+
 <h2 id="wall-conditioning">Wall conditioning</h2>
 
 <p>Baking, glow-discharge cleaning and boronization, each drawn as a transition of the wall state
@@ -3750,7 +3841,188 @@ where one exists, otherwise a relation restating the expression the named API im
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">fault_anomaly_detection</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">shot_classification</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">event_detection</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">vacuum_field_proxies</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">derived_mhd_parameters</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">synthetic_diagnostics</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">coordinate_cocos_conversions</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">power_balance_confinement</span><span class="p">()</span>
 </code></pre></div></div>
+
+<h3 id="architecture-coverage-every-science-box-of-the-platform-figure">Architecture coverage: every science box of the platform figure</h3>
+
+<p>Each science box of the platform figure (<code class="language-plaintext highlighter-rouge">vest_data_platform</code>, #1550) maps to the workflow diagrams that
+draw it, or to a tracked gap. The table is generated from <code class="language-plaintext highlighter-rouge">vaft.diagram._architecture_coverage</code>, which reads
+the boxes from <code class="language-plaintext highlighter-rouge">vaft.diagram._platform</code>; a test keeps it equal to the figure and requires every named diagram
+to exist.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>Box</th>
+      <th>Detailed diagram</th>
+      <th>Tracked gaps</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Experimental data processing</td>
+      <td>Machine Model &amp; History</td>
+      <td><code class="language-plaintext highlighter-rouge">machine_model_history</code></td>
+      <td>no single shot-to-machine object; VEST COCOS index unresolved</td>
+    </tr>
+    <tr>
+      <td>Experimental data processing</td>
+      <td>Signal Processing</td>
+      <td><code class="language-plaintext highlighter-rouge">signal_processing</code></td>
+      <td>no shared drift-correction, synchronization or integration stage</td>
+    </tr>
+    <tr>
+      <td>Experimental data processing</td>
+      <td>Quality &amp; Validation</td>
+      <td><code class="language-plaintext highlighter-rouge">quality_validation</code></td>
+      <td>only source validity reaches IMAS</td>
+    </tr>
+    <tr>
+      <td>Experimental data processing</td>
+      <td>Fault &amp; Anomaly Detection</td>
+      <td><code class="language-plaintext highlighter-rouge">fault_anomaly_detection</code></td>
+      <td>no general anomaly model runs in the pipeline</td>
+    </tr>
+    <tr>
+      <td>Experimental data processing</td>
+      <td>Shot Classification</td>
+      <td><code class="language-plaintext highlighter-rouge">shot_classification</code></td>
+      <td>the four-way physics class is not implemented (#57); no disruption labels</td>
+    </tr>
+    <tr>
+      <td>Experimental data processing</td>
+      <td>Event Detection</td>
+      <td><code class="language-plaintext highlighter-rouge">event_detection</code></td>
+      <td>no breakdown, flat-top, IRE, sawtooth or disruption detector</td>
+    </tr>
+    <tr>
+      <td>Reconstruction</td>
+      <td>Eddy Current Model</td>
+      <td><code class="language-plaintext highlighter-rouge">eddy_current_model</code></td>
+      <td>–</td>
+    </tr>
+    <tr>
+      <td>Reconstruction</td>
+      <td>Magnetic EFIT</td>
+      <td><code class="language-plaintext highlighter-rouge">magnetic_efit</code></td>
+      <td>–</td>
+    </tr>
+    <tr>
+      <td>Reconstruction</td>
+      <td>Profile Fitting</td>
+      <td><code class="language-plaintext highlighter-rouge">kinetic_profile_fitting</code></td>
+      <td>no joint multi-diagnostic fit (#1096)</td>
+    </tr>
+    <tr>
+      <td>Reconstruction</td>
+      <td>Plasma Parameter Inference</td>
+      <td><code class="language-plaintext highlighter-rouge">plasma_parameter_inference</code>, <code class="language-plaintext highlighter-rouge">parameter_inference_overview</code>, <code class="language-plaintext highlighter-rouge">parameter_inference_dependency_graph</code>, <code class="language-plaintext highlighter-rouge">romero_transformer_balance</code>, <code class="language-plaintext highlighter-rouge">resistive_zeff_inference</code></td>
+      <td>E_r and gamma_E not inferred: gamma_E = 0 is an assumption</td>
+    </tr>
+    <tr>
+      <td>Reconstruction</td>
+      <td>Kinetic EFIT</td>
+      <td><code class="language-plaintext highlighter-rouge">kinetic_efit</code></td>
+      <td>–</td>
+    </tr>
+    <tr>
+      <td>Derived physics</td>
+      <td>Vacuum Field Proxies</td>
+      <td><code class="language-plaintext highlighter-rouge">vacuum_field_proxies</code></td>
+      <td>vacuum products are returned, not written to IMAS (no issue yet)</td>
+    </tr>
+    <tr>
+      <td>Derived physics</td>
+      <td>MHD Parameters</td>
+      <td><code class="language-plaintext highlighter-rouge">derived_mhd_parameters</code></td>
+      <td>two poloidal-beta definitions (#318); corrupt vacuum_toroidal_field.r0 (#325)</td>
+    </tr>
+    <tr>
+      <td>Derived physics</td>
+      <td>Synthetic Diagnostics</td>
+      <td><code class="language-plaintext highlighter-rouge">synthetic_diagnostics</code></td>
+      <td>no synthetic Thomson, interferometer or camera (#2046); no IMAS storage of synthetic signals (#2053)</td>
+    </tr>
+    <tr>
+      <td>Derived physics</td>
+      <td>Coordinate Conversion</td>
+      <td><code class="language-plaintext highlighter-rouge">coordinate_cocos_conversions</code></td>
+      <td>the stored flux-surface grid is geometric, not straight-field-line (#472)</td>
+    </tr>
+    <tr>
+      <td>Derived physics</td>
+      <td>Power Balance</td>
+      <td><code class="language-plaintext highlighter-rouge">power_balance_confinement</code></td>
+      <td>no measured P_rad (no bolometer); nothing written to the summary IDS (#1060, #1905)</td>
+    </tr>
+    <tr>
+      <td>Simulation</td>
+      <td>Equilibrium: Fixed Boundary (CHEASE)</td>
+      <td><code class="language-plaintext highlighter-rouge">chease_coupling</code></td>
+      <td>–</td>
+    </tr>
+    <tr>
+      <td>Simulation</td>
+      <td>Equilibrium: Free Boundary (TokaMaker)</td>
+      <td><code class="language-plaintext highlighter-rouge">tokamaker_coupling</code></td>
+      <td>–</td>
+    </tr>
+    <tr>
+      <td>Simulation</td>
+      <td>Equilibrium: Analytic GS (Solov’ev · Guazzotto &amp; Freidberg)</td>
+      <td><code class="language-plaintext highlighter-rouge">analytic_mhd_equilibrium</code></td>
+      <td>–</td>
+    </tr>
+    <tr>
+      <td>Simulation</td>
+      <td>Stability: Ideal (DCON)</td>
+      <td><code class="language-plaintext highlighter-rouge">dcon_rdcon_stability</code></td>
+      <td>–</td>
+    </tr>
+    <tr>
+      <td>Simulation</td>
+      <td>Stability: Resistive (RDCON)</td>
+      <td><code class="language-plaintext highlighter-rouge">dcon_rdcon_stability</code></td>
+      <td>–</td>
+    </tr>
+    <tr>
+      <td>Simulation</td>
+      <td>3D Response &amp; Topology: Plasma Response (GPEC)</td>
+      <td><code class="language-plaintext highlighter-rouge">gpec_plasma_response</code></td>
+      <td>–</td>
+    </tr>
+    <tr>
+      <td>Simulation</td>
+      <td>3D Response &amp; Topology: Field-Line Following (FLARE)</td>
+      <td><code class="language-plaintext highlighter-rouge">flare_field_line_topology</code></td>
+      <td>–</td>
+    </tr>
+    <tr>
+      <td>Simulation</td>
+      <td>Transport: Classical (Braginskii)</td>
+      <td><code class="language-plaintext highlighter-rouge">transport_hierarchy</code></td>
+      <td>classical transport has a private identifier.index</td>
+    </tr>
+    <tr>
+      <td>Simulation</td>
+      <td>Transport: Neoclassical (NEO / Sauter &amp; Redl)</td>
+      <td><code class="language-plaintext highlighter-rouge">transport_hierarchy</code>, <code class="language-plaintext highlighter-rouge">neo_neoclassical</code>, <code class="language-plaintext highlighter-rouge">neoclassical_model_comparison</code></td>
+      <td>Sauter / Redl results have no core_transport writer</td>
+    </tr>
+    <tr>
+      <td>Simulation</td>
+      <td>Transport: Turbulent (TGLF / CGYRO)</td>
+      <td><code class="language-plaintext highlighter-rouge">transport_hierarchy</code>, <code class="language-plaintext highlighter-rouge">tglf_cgyro_local_transport</code></td>
+      <td>the TGLF-NN surrogate has no IMAS writer</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="plasma-parameter-inference-ion-temperature-and-species">Plasma parameter inference: ion temperature and species</h3>
 
@@ -6152,6 +6424,611 @@ where one exists, otherwise a relation restating the expression the named API im
   <li>current_quench and current_spike (vaft.process.transients) measure a quench or spike in a given window; nothing in the pipeline calls them, and they do not label it an IRE or a disruption.</li>
 </ul>
 
+<h3 id="vacuum-fields-and-startup-proxies-coils-and-vessel-no-plasma">Vacuum fields and startup proxies: coils and vessel, no plasma</h3>
+
+<p>The field of the PF coils and the vessel currents alone, evaluated from geometric Green’s functions on a grid or at a point, and the breakdown proxies read from it. Everything is returned to the caller; nothing is written to an IDS except the vessel currents the evaluators solve when the ODS has none.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/vacuum_field_proxies.svg" alt="Vacuum fields and startup proxies: coils and vessel, no plasma" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Node</th>
+      <th>Kind</th>
+      <th>Variables</th>
+      <th>API</th>
+      <th>IDS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>PF coil currents</td>
+      <td>measured</td>
+      <td>$I_{\mathrm{PF},j}(t)$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">pf_active.coil[:].current.data</code></td>
+    </tr>
+    <tr>
+      <td>Toroidal field</td>
+      <td>measured</td>
+      <td>$R_0 B_0\ [\mathrm{T\,m}]$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">tf.b_field_tor_vacuum_r.data</code></td>
+    </tr>
+    <tr>
+      <td>Prefill pressure</td>
+      <td>measured</td>
+      <td>$p\ [\mathrm{Pa}],\ \mathrm{median\ over\ 20\ ms\ before\ the\ onset}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper.compute_prefill_pressure_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">barometry.gauge[:].pressure.data</code></td>
+    </tr>
+    <tr>
+      <td>Launched EC power</td>
+      <td>measured</td>
+      <td>$P_{\mathrm{EC}}\ \mathrm{at\ the\ onset} \pm 1\ \mathrm{ms}$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">ec_launchers.beam[0].power_launched.data</code></td>
+    </tr>
+    <tr>
+      <td>Vessel loop currents</td>
+      <td>standardized IMAS</td>
+      <td>$I_{\mathrm{loop},k}(t), \mathrm{solved\ and\ written\ when}\ \mathtt{pf_passive}\ \mathrm{has\ no\ time}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper.compute_eddy_currents</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pf_passive.{time, loop[:].current}</code></td>
+    </tr>
+    <tr>
+      <td>Conductor and limiter geometry</td>
+      <td>machine geometry / static data (enters Vacuum field)</td>
+      <td>$(R, Z)\ \mathrm{of\ every\ filament},\ \mathrm{limiter\ unit\ 0}$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">{pf_active.coil[:].element, pf_passive.loop[:].element, wall.description_2d[0].limiter}</code></td>
+    </tr>
+    <tr>
+      <td>Vacuum field</td>
+      <td>derived</td>
+      <td>$\psi\ [\mathrm{Wb,\ not\ Wb/rad}],\ B_R,\ B_Z,\ \partial\psi/\partial t\ \mathrm{on}\ (R, Z), \mathrm{time\ snapped\ to\ a\ PF\ sample}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper.compute_vacuum_field_map</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Point proxies</td>
+      <td>derived</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper.compute_startup_proxies_ods</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Connection length</td>
+      <td>derived</td>
+      <td>$L\ \mathrm{to\ the\ limiter,\ both\ directions},\ \le 150\ \mathrm{m\ each}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper.compute_connection_length_map_ods</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Lloyd figure of merit</td>
+      <td>derived</td>
+      <td>$|E_\phi| = |\partial\psi/\partial t|/(2\pi R),\ B_\phi = R_0 B_0/R$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper.compute_vacuum_midplane_profiles_ods</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Lloyd breakdown margin</td>
+      <td>derived</td>
+      <td>$E_{BD}(p, L)\ \mathrm{(Lloyd)};\ \mathrm{NaN\ where}\ A p L \le 1$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper.compute_vacuum_midplane_profiles_ods</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Startup summary</td>
+      <td>derived</td>
+      <td>$\mathrm{point\ proxies;\ null\ area\ and\ Lloyd\ margin\ fraction\ of\ the\ map}, R_{\mathrm{ECR}}\ \mathrm{from\ the\ toroidal\ field},\ P_{\mathrm{EC}}, \mathrm{one\ flat\ dict;\ evaluated\ on\ a\ private\ copy}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.startup_summary.startup_summary</code></td>
+      <td><strong>IMAS mapping TODO:</strong> maps, profiles and proxies are returned, never written to an IDS</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Follow-up TODOs (implementation or IMAS mapping):</p>
+
+<ul>
+  <li>No vacuum field, map, proxy or breakdown margin is written to an IDS: every evaluator returns a dict, and the startup summary is a dict too.</li>
+  <li>compute_vacuum_field_map and compute_startup_proxies_ods solve the vessel currents and store them in the caller’s pf_passive when it has no time base; startup_summary avoids that by evaluating on a private copy.</li>
+  <li>Only vacuum sources contribute (coils and vessel, no plasma); above roughly 10 kA of plasma current the map no longer describes the machine.</li>
+  <li>The loop voltage is a model quantity from the coil and vessel flux; it is to be compared with the measured flux-loop voltage, not substituted for it.</li>
+  <li>No empirical threshold is applied to the Lloyd figure of merit, and the startup summary does not report it: the summary counts the null area and the Lloyd margin on the 2-D map itself.</li>
+  <li>The point proxies come from their own point response (compute_point_response_matrices_ods), not from the grid map; the two agree to about 1e-7 relative.</li>
+</ul>
+
+<h3 id="derived-mhd-parameters-global-quantities-of-an-equilibrium">Derived MHD parameters: global quantities of an equilibrium</h3>
+
+<p>Global quantities computed from a reconstructed equilibrium. The DD-defined betas, l_i3 and W_MHD are written to equilibrium.global_quantities; the descriptor set and the edge-q proxies are returned with their derivation records. Two poloidal betas exist on purpose: the DD leaf and the circumference form EFIT reports.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/derived_mhd_parameters.svg" alt="Derived MHD parameters: global quantities of an equilibrium" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Node</th>
+      <th>Kind</th>
+      <th>Variables</th>
+      <th>API</th>
+      <th>IDS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Magnetic equilibrium</td>
+      <td>reconstructed</td>
+      <td>$p(\psi),\ V(\psi),\ \psi(R, Z),\ I_p$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].{profiles_1d.{pressure, volume}, profiles_2d, boundary}</code></td>
+    </tr>
+    <tr>
+      <td>Plasma current</td>
+      <td>measured</td>
+      <td>$I_p(t)$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">magnetics.ip[0].data</code></td>
+    </tr>
+    <tr>
+      <td>Toroidal field</td>
+      <td>measured</td>
+      <td>$R_0 B_0\ [\mathrm{T\,m}]$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">tf.b_field_tor_vacuum_r.data</code></td>
+    </tr>
+    <tr>
+      <td>Reference radius and field</td>
+      <td>model choice / convention (enters Volume and surface integrals)</td>
+      <td>$R_0:\ \mathtt{tf.r0}\ \mathrm{when\ the\ stored}\ r_0\ \mathrm{is\ corrupt},\ B_0 = \mathtt{b0}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.update.resolve_reference_major_radius</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{equilibrium.vacuum_toroidal_field.r0, equilibrium.vacuum_toroidal_field.b0, tf.r0}</code></td>
+    </tr>
+    <tr>
+      <td>Volume and surface integrals</td>
+      <td>derived</td>
+      <td>$\int p\,dV\ \mathrm{(trapezoid\ over}\ V(\psi)), \int B_p^2\,dV,\ L_{\mathrm{pol}}\ \mathrm{from\ the\ surface\ traces}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.flux_surface_quantities</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Global descriptors</td>
+      <td>derived</td>
+      <td>$\kappa,\ \delta,\ V,\ \beta_t,\ \beta_N,\ q_{95},\ \mathrm{virial}\ l_i, \mathrm{each\ a\ DerivedValue\ with\ its\ record}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.derive_global_descriptors</code></td>
+      <td><strong>IMAS mapping TODO:</strong> returned, not written</td>
+    </tr>
+    <tr>
+      <td>Edge safety-factor proxies</td>
+      <td>derived</td>
+      <td>$q_{95}^{\mathrm{est}},\ q^<em>_{\mathrm{Menard}},\ q^</em>_{\mathrm{Freidberg}},\ I_N, \mathrm{source:\ equilibrium\ |\ magnetics}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.edge_q.edge_q_estimate</code></td>
+      <td><strong>IMAS mapping TODO:</strong> returned (EdgeQEstimate), not written</td>
+    </tr>
+    <tr>
+      <td>Machine default shape</td>
+      <td>model assumption / prior (enters Edge safety-factor proxies)</td>
+      <td>$a,\ R_0,\ \kappa,\ \delta\ \mathrm{from\ vest.yaml\ without\ an\ equilibrium}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.edge_q_estimate.vest_edge_q_estimate_policy</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Poloidal beta (DD)</td>
+      <td>standardized IMAS</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.update.update_equilibrium_global_quantities_beta_li</code></td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].global_quantities.beta_pol</code></td>
+    </tr>
+    <tr>
+      <td>Toroidal beta</td>
+      <td>standardized IMAS</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.update.update_equilibrium_global_quantities_beta_li</code></td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].global_quantities.beta_tor</code></td>
+    </tr>
+    <tr>
+      <td>Internal inductance</td>
+      <td>standardized IMAS</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.update.update_equilibrium_global_quantities_beta_li</code></td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].global_quantities.li_3</code></td>
+    </tr>
+    <tr>
+      <td>Normalized beta</td>
+      <td>standardized IMAS</td>
+      <td>$\beta_N\ [-]$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.update.update_equilibrium_global_quantities_beta_li</code></td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].global_quantities.beta_normal</code></td>
+    </tr>
+    <tr>
+      <td>Stored energy</td>
+      <td>standardized IMAS</td>
+      <td>$W_{\mathrm{MHD}}\ [\mathrm{J}]\ \mathrm{from\ the\ reconstructed}\ p$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.update.update_equilibrium_stored_energy</code></td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].global_quantities.energy_mhd</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Follow-up TODOs (implementation or IMAS mapping):</p>
+
+<ul>
+  <li>beta_pol holds the DD definition; EFIT normalizes by the LCFS-circumference field instead and differs by 26% on the packaged reference (#318). derive_global_descriptors reports the boundary-average form as beta_p_boundary_average; the DD leaf is not matched to OMFIT.</li>
+  <li>equilibrium.vacuum_toroidal_field.r0 is corrupt on the VEST database and b0 drifts within a shot (#325); R_0 is replaced by tf.r0, loudly, and b0 is used as stored.</li>
+  <li>beta_tor with the stored b0 does not reproduce the OMFIT reference (ratio 1.041); the reference field is unidentified (#238).</li>
+  <li>li_3 is the ITER/Jackson third definition: the DD documents no formula for it.</li>
+  <li>energy_mhd is (3/2) int p dV of the reconstructed pressure: a reconstruction-derived energy, not a kinetic measurement.</li>
+  <li>The global descriptors and the edge-q proxies are returned, not written to equilibrium or summary.</li>
+  <li>edge_q_estimate’s equilibrium source takes R_0 B_0 from the stored vacuum_toroidal_field.r0 * b0, not from resolve_reference_major_radius; the magnetics source takes it from tf.</li>
+</ul>
+
+<h3 id="synthetic-diagnostics-predicted-signals-from-a-modelled-state">Synthetic diagnostics: predicted signals from a modelled state</h3>
+
+<p>A synthetic diagnostic predicts what an instrument would record from a modelled or reconstructed state. VAFT has three: vacuum magnetics from the coil and vessel currents, the equilibrium’s diamagnetic flux, and soft-X-ray chords through a prescribed island. Assumption-completed kinetic profiles (generate_synthetic_kinetic_profiles) are a synthetic state, not a diagnostic, and are not drawn here.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/synthetic_diagnostics.svg" alt="Synthetic diagnostics: predicted signals from a modelled state" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Node</th>
+      <th>Kind</th>
+      <th>Variables</th>
+      <th>API</th>
+      <th>IDS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>PF coil currents</td>
+      <td>measured</td>
+      <td>$I_{\mathrm{PF},j}(t)$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">pf_active.coil[:].current.data</code></td>
+    </tr>
+    <tr>
+      <td>Vessel loop currents</td>
+      <td>standardized IMAS</td>
+      <td>$I_{\mathrm{loop},k}(t)\ \mathrm{(forward\ circuit\ model)}$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">pf_passive.loop[:].current</code></td>
+    </tr>
+    <tr>
+      <td>Magnetic equilibrium</td>
+      <td>reconstructed</td>
+      <td>$\psi(R, Z),\ F(\psi),\ \psi_{\mathrm{axis}},\ \psi_{\mathrm{b}}$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].{profiles_2d[0].psi, profiles_1d.f, global_quantities}</code></td>
+    </tr>
+    <tr>
+      <td>Diamagnetic flux</td>
+      <td>measured</td>
+      <td>$\Phi_{\mathrm{dia}}^{\mathrm{meas}}(t)$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">magnetics.diamagnetic_flux[0].data</code></td>
+    </tr>
+    <tr>
+      <td>Magnetic sensor positions</td>
+      <td>machine geometry / static data (enters Measured magnetics)</td>
+      <td>$(R, Z)\ \mathrm{of\ each\ selected\ channel}$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">magnetics.{flux_loop[:].position, b_field_pol_probe[:].position}</code></td>
+    </tr>
+    <tr>
+      <td>Measured magnetics</td>
+      <td>measured</td>
+      <td>$\psi_{\mathrm{FL}},\ B_p\ \mathrm{with\ validity}$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">magnetics.{flux_loop, b_field_pol_probe}</code></td>
+    </tr>
+    <tr>
+      <td>Vacuum magnetics forward model</td>
+      <td>derived</td>
+      <td>$m_{\mathrm{coil}},\ m_{\mathrm{coil+eddy}}\ \mathrm{on\ the\ PF\ time\ grid}, \mathrm{measured\ interpolated\ onto\ it,\ no\ extrapolation}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Diamagnetic flux of the equilibrium</td>
+      <td>derived</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper.compute_reconstructed_diamagnetic_flux</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Prescribed island</td>
+      <td>model assumption / prior (enters Island soft-X-ray forward model)</td>
+      <td>$(m, n),\ W\ \mathrm{at\ the\ outboard\ midplane},\ \mathrm{phase},\ \omega, \epsilon_0(\psi_N)\ \mathrm{background}$</td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Island soft-X-ray forward model</td>
+      <td>derived</td>
+      <td>$\epsilon\ \mathrm{flattened\ in\ the\ island},\ \mathrm{integrated\ along\ each\ chord}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.soft_x_rays.synthetic_island_soft_x_rays</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>SXR chord geometry</td>
+      <td>machine geometry / static data (enters Island soft-X-ray forward model)</td>
+      <td>$\mathrm{pencil\ chords,\ one\ poloidal\ plane\ each;\ optional\ clipping\ domain}$</td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Synthetic vacuum magnetics</td>
+      <td>derived</td>
+      <td>$\mathrm{measured},\ m_{\mathrm{coil}},\ m_{\mathrm{coil+eddy}}\ \mathrm{per\ channel}$</td>
+      <td> </td>
+      <td><strong>IMAS mapping TODO:</strong> returned as VacuumChannel records, not written</td>
+    </tr>
+    <tr>
+      <td>Diamagnetic constraint</td>
+      <td>standardized IMAS</td>
+      <td>$\Phi_{\mathrm{dia}}^{\mathrm{meas}}\ \mathrm{vs}\ \Phi_{\mathrm{dia}}^{\mathrm{rec}}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.update.update_equilibrium_constraints_diamagnetic_flux</code></td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].constraints.diamagnetic_flux.{measured, reconstructed}</code></td>
+    </tr>
+    <tr>
+      <td>Synthetic SXR brightness</td>
+      <td>derived</td>
+      <td>$b(t, \mathrm{chord})\ [\epsilon\cdot\mathrm{m}],\ \mathrm{before\ any\ detector\ response}$</td>
+      <td> </td>
+      <td><strong>IMAS mapping TODO:</strong> returned (SyntheticSXRResult), not written to soft_x_rays</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Follow-up TODOs (implementation or IMAS mapping):</p>
+
+<ul>
+  <li>There is no synthetic Thomson, interferometer, visible-camera or bolometer model: those measurements cannot be compared with a prediction of the reconstructed state.</li>
+  <li>The vacuum magnetics are returned with their measured counterparts and written nowhere; EFIT’s own fitted magnetics (equilibrium constraints.*.reconstructed) are the solver’s native output, not a VAFT forward model.</li>
+  <li>The vacuum forward model has no plasma current: it predicts the magnetics only before breakdown or in plasma-free windows.</li>
+  <li>The SXR model is forward only: a rigidly rotating island of fixed width, pencil-beam chords, no filter, etendue or noise; it is comparable with a measurement only up to a per-channel calibration, and is not written to soft_x_rays.</li>
+</ul>
+
+<h3 id="coordinates-and-cocos-one-transform-per-layer">Coordinates and COCOS: one transform per layer</h3>
+
+<p>Two COCOS transforms, at two layers: the ODS is normalized in place to weber (COCOS 1-8 and per-radian files become 11; a declared 11-18 is left as it is), and an in-memory equilibrium record is converted to any target COCOS. The ODS coordinate writers resolve the flux storage of each slice themselves (as_equilibrium), so they also run on an unnormalized ODS; the record-level radii and angle are COCOS-independent and returned.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/coordinate_cocos_conversions.svg" alt="Coordinates and COCOS: one transform per layer" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Node</th>
+      <th>Kind</th>
+      <th>Variables</th>
+      <th>API</th>
+      <th>IDS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Equilibrium as stored</td>
+      <td>reconstructed</td>
+      <td>$\psi\ [\mathrm{Wb\ or\ Wb/rad}],\ I_p,\ B_0,\ q,\ F$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].{profiles_1d.psi, profiles_2d[0].psi, global_quantities}</code></td>
+    </tr>
+    <tr>
+      <td>Declared COCOS</td>
+      <td>model choice / convention (enters ODS normalization to weber)</td>
+      <td>$\mathrm{trusted\ as\ provenance;\ absent\ before}\ #236$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">{equilibrium.ids_properties.cocos, equilibrium.code.parameters.cocos}</code></td>
+    </tr>
+    <tr>
+      <td>ODS normalization to weber</td>
+      <td>derived</td>
+      <td>$\mathrm{declared\ 1\text{-}8}:\ \mathrm{OMAS\ cocos_transform\ to\ 11}, \mathrm{declared\ 11\text{-}18:\ unchanged}, \mathrm{undeclared:\ storage\ probed,\ Wb/rad\ taken\ as\ COCOS\ 1}, \mathrm{equilibrium\ and\ core_profiles\ leaves}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.general.equilibrium_psi_to_weber</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Equilibrium in weber (COCOS 11-18)</td>
+      <td>standardized IMAS</td>
+      <td>$\psi\ [\mathrm{Wb}];\ \mathrm{declared}\ 11\ \mathrm{only\ after\ a\ transform}, \mathrm{constraints\ untouched}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.general.set_ods_cocos</code></td>
+      <td><code class="language-plaintext highlighter-rouge">{equilibrium.time_slice[:], core_profiles.profiles_1d[:], equilibrium.code.parameters.cocos}</code></td>
+    </tr>
+    <tr>
+      <td>Normalized poloidal flux</td>
+      <td>standardized IMAS</td>
+      <td>$\psi_N\ [-]$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.update.update_equilibrium_profiles_1d_normalized_psi</code></td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].profiles_1d.psi_norm</code></td>
+    </tr>
+    <tr>
+      <td>Toroidal flux coordinate</td>
+      <td>standardized IMAS</td>
+      <td>$\rho_{\mathrm{tor}} = \sqrt{|\Phi|/(\pi |B_0|)}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.update.update_equilibrium_profiles_1d_toroidal_flux</code></td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].profiles_1d.{phi, rho_tor, rho_tor_norm}</code></td>
+    </tr>
+    <tr>
+      <td>Flux-surface grid</td>
+      <td>standardized IMAS</td>
+      <td>$(\psi_N, \theta)\ \mathrm{grid},\ \mathrm{surfaces\ =\ scaled\ LCFS}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.update.update_equilibrium_profiles_2d_sfl_coordinates</code></td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].profiles_2d[1].{grid.dim1, grid.dim2, grid_type, r, z, psi, theta}</code>; <strong>IMAS mapping TODO:</strong> stored as grid_type 11 (straight field line), though theta is geometric</td>
+    </tr>
+    <tr>
+      <td>Equilibrium record</td>
+      <td>derived</td>
+      <td>$\mathrm{Wb\ vs\ Wb/rad\ from\ Amp\grave{e}re’s\ law\ round\ the\ LCFS}, \mathrm{COCOS\ declared,\ or\ candidates\ from\ the\ signs\ of}\ B_0, I_p, q$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.as_equilibrium</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Target COCOS</td>
+      <td>model choice / convention (enters Record conversion)</td>
+      <td>$1\text{-}18\ (\mathrm{no}\ 9, 10),\ \mathrm{chosen\ by\ the\ caller}$</td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Record conversion</td>
+      <td>derived</td>
+      <td>$\psi,\ F,\ q,\ p’,\ FF’,\ I_p,\ B_0\ \times\ \mathrm{their\ cocos_transform\ factors}, p\ \mathrm{and\ the\ axis\ untouched;\ ambiguous\ source\ refused}, \mathrm{returns\ a\ copy\ in\ the\ target\ COCOS,\ in\ memory}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.convert_cocos</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Normalized radii</td>
+      <td>derived</td>
+      <td>$\psi_N,\ \rho_{\mathrm{pol},N} = \sqrt{\psi_N},\ \rho_{\mathrm{tor},N}, \mathrm{COCOS\text{-}independent;\ unavailable\ with\ a\ reason}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.derive_radial_coordinates</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Straight-field-line angle</td>
+      <td>derived</td>
+      <td>$\theta^*\ (\mathrm{PEST})\ \mathrm{at\ any}\ (R, Z)$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.straight_field_line_map</code></td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Follow-up TODOs (implementation or IMAS mapping):</p>
+
+<ul>
+  <li>The ODS writer of the 2-D flux-surface grid uses a geometric approximation (the boundary scaled by sqrt(psi_N) about the axis, the geometric angle) for every requested convention, yet labels it grid_type 11; the true PEST angle exists only in memory (vaft.process.equilibrium.straight_field_line_map).</li>
+  <li>equilibrium_psi_to_weber leaves equilibrium.time_slice[:].constraints untouched: VAFT copies them from the DD-conformant magnetics and pf_active IDSs.</li>
+  <li>rho_tor integrates q from the axis, so EFIT’s often outlying q[0] moves rho_tor_norm by up to about 0.04 on the innermost surfaces; packaged samples older than #192 still hold the sqrt(psi_N) proxy.</li>
+  <li>convert_cocos shifts the identified-candidate list on the assumption that every candidate shares the source’s storage family, which can produce an out-of-range index (#601).</li>
+</ul>
+
+<h3 id="power-balance-and-confinement-experimental-and-modelled">Power balance and confinement: experimental and modelled</h3>
+
+<p>Two power balances answer different questions. The experimental Ohmic chain splits the measured loop voltage with l_i3 and takes the stored energy of the equilibrium; the modelled budget uses Spitzer heating and modelled radiation. Neither writes to the summary IDS; the experimental chain is tabulated in the database summary sheet.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/power_balance_confinement.svg" alt="Power balance and confinement: experimental and modelled" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Node</th>
+      <th>Kind</th>
+      <th>Variables</th>
+      <th>API</th>
+      <th>IDS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Plasma current</td>
+      <td>measured</td>
+      <td>$I_p(t),\ dI_p/dt$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">magnetics.ip[0].{data, time}</code></td>
+    </tr>
+    <tr>
+      <td>Loop voltage</td>
+      <td>measured</td>
+      <td>$V_{\mathrm{loop}}\ \mathrm{(inboard\ midplane\ loop,\ off\ the\ boundary)}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.discharge_timing.inboard_midplane_loop</code></td>
+      <td><code class="language-plaintext highlighter-rouge">magnetics.flux_loop[:].{voltage, flux}</code></td>
+    </tr>
+    <tr>
+      <td>Magnetic equilibrium</td>
+      <td>reconstructed</td>
+      <td>$l_{i,3},\ W = \tfrac32\int p_{\mathrm{EFIT}}\,dV\ \mathrm{(grid\ quadrature)}$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].{global_quantities.li_3, profiles_1d.pressure, profiles_2d[0].psi}</code></td>
+    </tr>
+    <tr>
+      <td>Kinetic profiles</td>
+      <td>standardized IMAS</td>
+      <td>$n_e(\rho),\ T_e(\rho)$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">core_profiles.profiles_1d[:].electrons</code></td>
+    </tr>
+    <tr>
+      <td>Stored-energy source</td>
+      <td>model choice / convention (enters Ohmic power balance)</td>
+      <td>$\mathrm{efit_pressure\ (default)\ |\ core_profiles_thermal}$</td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Resistive loop voltage</td>
+      <td>derived</td>
+      <td>$V_{\mathrm{res}} = V_{\mathrm{loop}} - V_{\mathrm{ind}},\ L_i = \mu_0 R_0 l_{i,3}/2$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.confinement.resistive_loop_voltage</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Ohmic power balance</td>
+      <td>derived</td>
+      <td>$P_{\mathrm{net}} = P_{\mathrm{OH}} - dW/dt\ (\mathrm{DB5\ PLTH}), P_{\mathrm{transport}}\ \mathrm{needs\ a\ measured}\ P_{\mathrm{rad}}:\ \mathrm{NaN}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.confinement.confinement_power_balance</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Confinement time</td>
+      <td>derived</td>
+      <td>$\tau_E\ \mathrm{per\ slice\ the\ caller\ passes\ (default\ every\ slice)}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.confinement.ohmic_confinement_ods</code></td>
+      <td><strong>IMAS mapping TODO:</strong> not written to the summary IDS; tabulated in the database summary sheet</td>
+    </tr>
+    <tr>
+      <td>Slice evidence</td>
+      <td>derived</td>
+      <td>$\mathrm{rates\ and\ ratios\ per\ slice;\ thresholds\ are\ the\ caller’s}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.confinement.confinement_slice_evidence</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Confinement scaling fit</td>
+      <td>inferred</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.confinement.fit_confinement_scaling</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Impurity policy</td>
+      <td>model assumption / prior (enters Modelled radiation)</td>
+      <td>$\mathrm{C,\ O\ at}\ n_I/n_e = 1/86,\ Z_{\mathrm{eff}} = 2\ (\mathrm{assumed})$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.core_profiles.vest_core_profiles_policy</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Spitzer Ohmic dissipation</td>
+      <td>derived</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper.compute_ohmic_heating_power_from_core_profiles</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Modelled radiation</td>
+      <td>derived</td>
+      <td>$P_{\mathrm{line}} = \int n_e n_I L_Z\,dV\ \mathrm{(ADF11)}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.atomic.compute_line_radiation_power_series</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Modelled power budget</td>
+      <td>derived</td>
+      <td>$P_{\mathrm{rad}} = P_{\mathrm{line}} + P_{\mathrm{sync}} + P_{\mathrm{Br}},\ P_{\mathrm{heat}} = P_{\mathrm{ohm,diss}}, W\ \mathrm{from\ core_profiles}\ (T_i = T_e),\ V\ \mathrm{and}\ I_p\ \mathrm{from\ the\ equilibrium}, dW/dt = 0\ \mathrm{for\ one\ slice}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.formula_wrapper.compute_power_balance</code></td>
+      <td><strong>IMAS mapping TODO:</strong> returned as a dict (plots only), not written to the summary IDS</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Follow-up TODOs (implementation or IMAS mapping):</p>
+
+<ul>
+  <li>Neither power balance nor the confinement time is written to the summary IDS. The experimental chain’s v_res, P_OH, P_net, W and tau_E,net are tabulated in the database summary sheet (vaft.database); the modelled budget feeds plots only.</li>
+  <li>VEST has no bolometer, so no measured P_rad enters: the experimental chain’s transport loss power is NaN and its default is p_net (DB5 PLTH); the modelled budget always subtracts a modelled P_rad, which is a sensitivity study, not a measurement.</li>
+  <li>The experimental chain pairs the measured current with EFIT’s l_i3 (a hybrid), and its flux loop is not on the plasma boundary; both are recorded assumptions.</li>
+  <li>The stored energy is reconstruction-derived (efit_pressure) or assumes T_i = T_e (core_profiles_thermal); neither is a global energy (#1713).</li>
+</ul>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -6286,7 +7163,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#animating-the-island-a-phase-scan-or-a-rigid-rotation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Animating the island: a phase scan or a rigid rotation</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#dimensionless-similarity-spaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Dimensionless similarity spaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduced-stability-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reduced stability diagnostics</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#asymptotic-orderings" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Asymptotic orderings</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-model-guide" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-model guide</a></li><li class="page-toc-item page-toc-level-2"><a href="#reduced-representations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reduced representations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#toroidal-shift-action-angles-validity-and-cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidal shift, action angles, validity, and COCOS</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#field-aligned-basis-flux-tube-shear-and-the-ballooning-eigenfunction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field-aligned basis, flux tube, shear, and the ballooning eigenfunction</a></li><li class="page-toc-item page-toc-level-3"><a href="#ballooning-formulations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ballooning formulations</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#current-profile-and-q-topology" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Current-profile and q topology</a></li><li class="page-toc-item page-toc-level-2"><a href="#current-diffusion-and-current-drive" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Current diffusion and current drive</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#marfe" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARFE</a></li><li class="page-toc-item page-toc-level-3"><a href="#divertor-heat-flux-footprint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Divertor heat-flux footprint</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#vertical-displacement-events-hot-and-cold-vde-halo-currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vertical displacement events: hot and cold VDE, halo currents</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-wall-interaction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-wall interaction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spectroscopy-and-ionization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy and ionization</a></li><li class="page-toc-item page-toc-level-2"><a href="#neutral-beam-injection-lifecycle-and-reduced-attenuation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neutral beam injection: lifecycle and reduced attenuation</a></li><li class="page-toc-item page-toc-level-2"><a href="#iteration-behaviour-branch-bifurcation-and-branch-selection" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Iteration behaviour, branch bifurcation and branch selection</a></li><li class="page-toc-item page-toc-level-2"><a href="#cold-plasma-waves-dispersion-cutoffs-resonances-and-the-cma-diagram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical-and-ntv-collisionality-regimes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical and NTV collisionality regimes</a></li><li class="page-toc-item page-toc-level-2"><a href="#wall-conditioning" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Wall conditioning</a></li><li class="page-toc-item page-toc-level-2"><a href="#sol-blobs-and-filaments" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">SOL blobs and filaments</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-vaft-framework-pillars-research-cycle-managed-pipeline-provenance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The VAFT framework: pillars, research cycle, managed pipeline, provenance</a></li><li class="page-toc-item page-toc-level-2"><a href="#research-infrastructure-four-levels-of-integration-the-community-and-ownership" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Research infrastructure: four levels of integration, the community and ownership</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-vest-data-platform" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The VEST data platform</a></li><li class="page-toc-item page-toc-level-2"><a href="#integrated-modeling-knowledge-basis-realization-abstraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Integrated modeling: knowledge basis, realization, abstraction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spatial-vocabulary-coordinates-geometry-meshes-mappings-and-topology" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spatial vocabulary: coordinates, geometry, meshes, mappings and topology</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-workflows-derivation-inference-and-solver-coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics workflows: derivation, inference and solver coupling</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#plasma-parameter-inference-ion-temperature-and-species" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma parameter inference: ion temperature and species</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma-resistance-from-romeros-transformer-balance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma resistance from Romero’s transformer balance</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistively-equivalent-effective-charge" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Resistively equivalent effective charge</a></li><li class="page-toc-item page-toc-level-3"><a href="#magnetic-equilibrium-reconstruction-efit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic equilibrium reconstruction (EFIT)</a></li><li class="page-toc-item page-toc-level-3"><a href="#kinetically-constrained-equilibrium-reconstruction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetically constrained equilibrium reconstruction</a></li><li class="page-toc-item page-toc-level-3"><a href="#analytic-mhd-equilibrium-models" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Analytic MHD equilibrium models</a></li><li class="page-toc-item page-toc-level-3"><a href="#fixed-boundary-equilibrium-refinement-chease" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fixed-boundary equilibrium refinement (CHEASE)</a></li><li class="page-toc-item page-toc-level-3"><a href="#free-boundary-equilibrium-tokamaker" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Free-boundary equilibrium (TokaMaker)</a></li><li class="page-toc-item page-toc-level-3"><a href="#ideal-and-resistive-mhd-stability-dcon--rdcon" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ideal and resistive MHD stability (DCON / RDCON)</a></li><li class="page-toc-item page-toc-level-3"><a href="#ideal-plasma-response-to-3-d-fields-gpec" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ideal plasma response to 3-D fields (GPEC)</a></li><li class="page-toc-item page-toc-level-3"><a href="#magnetic-field-line-topology-flare" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic field-line topology (FLARE)</a></li><li class="page-toc-item page-toc-level-3"><a href="#neoclassical-transport-closed-form-fits-and-drift-kinetic-solution" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical transport: closed-form fits and drift-kinetic solution</a></li><li class="page-toc-item page-toc-level-3"><a href="#local-turbulent-transport-quasilinear-and-gyrokinetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local turbulent transport: quasilinear and gyrokinetic</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma-parameter-inference-completing-the-kinetic-profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma parameter inference: completing the kinetic profiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#inferred-quantities-depend-on-inferred-quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Inferred quantities depend on inferred quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#vessel-eddy-currents-a-circuit-driven-by-the-coils-and-the-plasma" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vessel eddy currents: a circuit driven by the coils and the plasma</a></li><li class="page-toc-item page-toc-level-3"><a href="#kinetic-profile-fitting-point-measurements-to-profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic profile fitting: point measurements to profiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#transport-hierarchy-classical-neoclassical-turbulent" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Transport hierarchy: classical, neoclassical, turbulent</a></li><li class="page-toc-item page-toc-level-3"><a href="#sauter--redl-against-neo-at-one-state" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sauter / Redl against NEO at one state</a></li><li class="page-toc-item page-toc-level-3"><a href="#machine-model-and-shot-history-one-shot-number-selects-the-machine" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Machine model and shot history: one shot number selects the machine</a></li><li class="page-toc-item page-toc-level-3"><a href="#signal-processing-raw-digitizer-records-to-a-diagnostic-ids" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Signal processing: raw digitizer records to a diagnostic IDS</a></li><li class="page-toc-item page-toc-level-3"><a href="#quality-and-validation-measurements-against-references-to-evidence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Quality and validation: measurements against references to evidence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fault-and-anomaly-evidence-diagnostic-specific-checks" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fault and anomaly evidence: diagnostic-specific checks</a></li><li class="page-toc-item page-toc-level-3"><a href="#shot-classification-rules-over-derived-features" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot classification: rules over derived features</a></li><li class="page-toc-item page-toc-level-3"><a href="#event-detection-onsets-and-windows-from-a-robust-baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Event detection: onsets and windows from a robust baseline</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#animating-the-island-a-phase-scan-or-a-rigid-rotation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Animating the island: a phase scan or a rigid rotation</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#dimensionless-similarity-spaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Dimensionless similarity spaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduced-stability-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reduced stability diagnostics</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#asymptotic-orderings" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Asymptotic orderings</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-model-guide" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-model guide</a></li><li class="page-toc-item page-toc-level-2"><a href="#reduced-representations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reduced representations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#toroidal-shift-action-angles-validity-and-cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidal shift, action angles, validity, and COCOS</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#field-aligned-basis-flux-tube-shear-and-the-ballooning-eigenfunction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field-aligned basis, flux tube, shear, and the ballooning eigenfunction</a></li><li class="page-toc-item page-toc-level-3"><a href="#ballooning-formulations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ballooning formulations</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#current-profile-and-q-topology" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Current-profile and q topology</a></li><li class="page-toc-item page-toc-level-2"><a href="#current-diffusion-and-current-drive" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Current diffusion and current drive</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#marfe" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARFE</a></li><li class="page-toc-item page-toc-level-3"><a href="#divertor-heat-flux-footprint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Divertor heat-flux footprint</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#vertical-displacement-events-hot-and-cold-vde-halo-currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vertical displacement events: hot and cold VDE, halo currents</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-wall-interaction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-wall interaction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spectroscopy-and-ionization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy and ionization</a></li><li class="page-toc-item page-toc-level-2"><a href="#neutral-beam-injection-lifecycle-and-reduced-attenuation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neutral beam injection: lifecycle and reduced attenuation</a></li><li class="page-toc-item page-toc-level-2"><a href="#iteration-behaviour-branch-bifurcation-and-branch-selection" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Iteration behaviour, branch bifurcation and branch selection</a></li><li class="page-toc-item page-toc-level-2"><a href="#cold-plasma-waves-dispersion-cutoffs-resonances-and-the-cma-diagram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical-and-ntv-collisionality-regimes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical and NTV collisionality regimes</a></li><li class="page-toc-item page-toc-level-2"><a href="#canonical-transport-concepts" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Canonical transport concepts</a></li><li class="page-toc-item page-toc-level-2"><a href="#wall-conditioning" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Wall conditioning</a></li><li class="page-toc-item page-toc-level-2"><a href="#sol-blobs-and-filaments" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">SOL blobs and filaments</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-vaft-framework-pillars-research-cycle-managed-pipeline-provenance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The VAFT framework: pillars, research cycle, managed pipeline, provenance</a></li><li class="page-toc-item page-toc-level-2"><a href="#research-infrastructure-four-levels-of-integration-the-community-and-ownership" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Research infrastructure: four levels of integration, the community and ownership</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-vest-data-platform" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The VEST data platform</a></li><li class="page-toc-item page-toc-level-2"><a href="#integrated-modeling-knowledge-basis-realization-abstraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Integrated modeling: knowledge basis, realization, abstraction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spatial-vocabulary-coordinates-geometry-meshes-mappings-and-topology" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spatial vocabulary: coordinates, geometry, meshes, mappings and topology</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-workflows-derivation-inference-and-solver-coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics workflows: derivation, inference and solver coupling</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#architecture-coverage-every-science-box-of-the-platform-figure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Architecture coverage: every science box of the platform figure</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma-parameter-inference-ion-temperature-and-species" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma parameter inference: ion temperature and species</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma-resistance-from-romeros-transformer-balance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma resistance from Romero’s transformer balance</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistively-equivalent-effective-charge" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Resistively equivalent effective charge</a></li><li class="page-toc-item page-toc-level-3"><a href="#magnetic-equilibrium-reconstruction-efit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic equilibrium reconstruction (EFIT)</a></li><li class="page-toc-item page-toc-level-3"><a href="#kinetically-constrained-equilibrium-reconstruction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetically constrained equilibrium reconstruction</a></li><li class="page-toc-item page-toc-level-3"><a href="#analytic-mhd-equilibrium-models" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Analytic MHD equilibrium models</a></li><li class="page-toc-item page-toc-level-3"><a href="#fixed-boundary-equilibrium-refinement-chease" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fixed-boundary equilibrium refinement (CHEASE)</a></li><li class="page-toc-item page-toc-level-3"><a href="#free-boundary-equilibrium-tokamaker" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Free-boundary equilibrium (TokaMaker)</a></li><li class="page-toc-item page-toc-level-3"><a href="#ideal-and-resistive-mhd-stability-dcon--rdcon" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ideal and resistive MHD stability (DCON / RDCON)</a></li><li class="page-toc-item page-toc-level-3"><a href="#ideal-plasma-response-to-3-d-fields-gpec" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ideal plasma response to 3-D fields (GPEC)</a></li><li class="page-toc-item page-toc-level-3"><a href="#magnetic-field-line-topology-flare" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic field-line topology (FLARE)</a></li><li class="page-toc-item page-toc-level-3"><a href="#neoclassical-transport-closed-form-fits-and-drift-kinetic-solution" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical transport: closed-form fits and drift-kinetic solution</a></li><li class="page-toc-item page-toc-level-3"><a href="#local-turbulent-transport-quasilinear-and-gyrokinetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local turbulent transport: quasilinear and gyrokinetic</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma-parameter-inference-completing-the-kinetic-profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma parameter inference: completing the kinetic profiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#inferred-quantities-depend-on-inferred-quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Inferred quantities depend on inferred quantities</a></li><li class="page-toc-item page-toc-level-3"><a href="#vessel-eddy-currents-a-circuit-driven-by-the-coils-and-the-plasma" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vessel eddy currents: a circuit driven by the coils and the plasma</a></li><li class="page-toc-item page-toc-level-3"><a href="#kinetic-profile-fitting-point-measurements-to-profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic profile fitting: point measurements to profiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#transport-hierarchy-classical-neoclassical-turbulent" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Transport hierarchy: classical, neoclassical, turbulent</a></li><li class="page-toc-item page-toc-level-3"><a href="#sauter--redl-against-neo-at-one-state" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sauter / Redl against NEO at one state</a></li><li class="page-toc-item page-toc-level-3"><a href="#machine-model-and-shot-history-one-shot-number-selects-the-machine" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Machine model and shot history: one shot number selects the machine</a></li><li class="page-toc-item page-toc-level-3"><a href="#signal-processing-raw-digitizer-records-to-a-diagnostic-ids" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Signal processing: raw digitizer records to a diagnostic IDS</a></li><li class="page-toc-item page-toc-level-3"><a href="#quality-and-validation-measurements-against-references-to-evidence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Quality and validation: measurements against references to evidence</a></li><li class="page-toc-item page-toc-level-3"><a href="#fault-and-anomaly-evidence-diagnostic-specific-checks" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fault and anomaly evidence: diagnostic-specific checks</a></li><li class="page-toc-item page-toc-level-3"><a href="#shot-classification-rules-over-derived-features" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot classification: rules over derived features</a></li><li class="page-toc-item page-toc-level-3"><a href="#event-detection-onsets-and-windows-from-a-robust-baseline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Event detection: onsets and windows from a robust baseline</a></li><li class="page-toc-item page-toc-level-3"><a href="#vacuum-fields-and-startup-proxies-coils-and-vessel-no-plasma" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vacuum fields and startup proxies: coils and vessel, no plasma</a></li><li class="page-toc-item page-toc-level-3"><a href="#derived-mhd-parameters-global-quantities-of-an-equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Derived MHD parameters: global quantities of an equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#synthetic-diagnostics-predicted-signals-from-a-modelled-state" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic diagnostics: predicted signals from a modelled state</a></li><li class="page-toc-item page-toc-level-3"><a href="#coordinates-and-cocos-one-transform-per-layer" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coordinates and COCOS: one transform per layer</a></li><li class="page-toc-item page-toc-level-3"><a href="#power-balance-and-confinement-experimental-and-modelled" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Power balance and confinement: experimental and modelled</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -6399,12 +7276,12 @@ window.MathJax = {
     },
     "file": {
         "path": "_guide/Diagrams.md",
-        "mtime": "2026-09-17 09:00:00 +0000",
+        "mtime": "2026-09-17 09:00:00 +0900",
         "type": "markdown"
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-20 22:48:21 +0000"
+        "time": "2026-10-21 11:38:36 +0900"
     },
     "basePath": "/vaft/develop",
     "book": {

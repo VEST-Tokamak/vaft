@@ -403,7 +403,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>d766f71</code>. What is described
+  <code>c4cc766</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -434,7 +434,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.formula.particle</code>:
-<strong>13</strong> public functions. Each entry is what
+<strong>18</strong> public functions. Each entry is what
 <code>vaft.formula.describe("particle.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
@@ -462,10 +462,12 @@ against which the drift relations can be checked.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 13 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 18 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="boris_orbit"><td><a href="#boris_orbit"><code>boris_orbit</code></a></td><td>Charged-particle orbit from the Lorentz force, by the Boris scheme.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="bounce_action"><td><a href="#bounce_action"><code>bounce_action</code></a></td><td>Unnormalized parallel action on one explicitly closed bounce cycle.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="bounce_harmonic_detuning"><td><a href="#bounce_harmonic_detuning"><code>bounce_harmonic_detuning</code></a></td><td>Frequency mismatch of a trapped orbit with a toroidal-$n$ perturbation at bounce harmonic $\ell$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -473,9 +475,13 @@ against which the drift relations can be checked.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="curvature_drift_velocity"><td><a href="#curvature_drift_velocity"><code>curvature_drift_velocity</code></a></td><td>Curvature drift velocity of the guiding centre.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="effective_parallel_potential"><td><a href="#effective_parallel_potential"><code>effective_parallel_potential</code></a></td><td>Effective parallel potential of a magnetized particle in static fields.
+</td></tr>
   <tr data-ref-row="exb_drift_velocity"><td><a href="#exb_drift_velocity"><code>exb_drift_velocity</code></a></td><td>E-cross-B drift velocity of the guiding centre.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="grad_b_drift_velocity"><td><a href="#grad_b_drift_velocity"><code>grad_b_drift_velocity</code></a></td><td>Grad-B drift velocity of the guiding centre.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="guiding_center_rhs"><td><a href="#guiding_center_rhs"><code>guiding_center_rhs</code></a></td><td>Hamiltonian guiding-center velocity and parallel force in static fields.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="guiding_center_toroidal_momentum"><td><a href="#guiding_center_toroidal_momentum"><code>guiding_center_toroidal_momentum</code></a></td><td>Canonical toroidal momentum of a guiding centre, flux plus mechanical parts.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -486,6 +492,10 @@ against which the drift relations can be checked.</p>
   <tr data-ref-row="larmor_radius"><td><a href="#larmor_radius"><code>larmor_radius</code></a></td><td>Larmor (gyro) radius of a charged particle.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="magnetic_moment"><td><a href="#magnetic_moment"><code>magnetic_moment</code></a></td><td>Magnetic moment of a gyrating particle, the first adiabatic invariant.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="mirror_force"><td><a href="#mirror_force"><code>mirror_force</code></a></td><td>Parallel magnetic mirror force along field-line arc length.
+</td></tr>
+  <tr data-ref-row="mirror_loss_cone"><td><a href="#mirror_loss_cone"><code>mirror_loss_cone</code></a></td><td>Loss-cone pitch angle at the minimum of a magnetic mirror.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="parallel_speed_from_mu"><td><a href="#parallel_speed_from_mu"><code>parallel_speed_from_mu</code></a></td><td>Parallel speed where the field is $B$, from energy and magnetic-moment conservation.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -502,9 +512,9 @@ against which the drift relations can be checked.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#boris_orbit"><code>boris_orbit</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="boris_orbit" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/particle.py#L746-L835" title="vaft/formula/particle.py, lines 746–835 at d766f71">source</a>
+<a class="ref-source" data-source="boris_orbit" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L751-L838" title="vaft/formula/particle.py, lines 751–838 at c4cc766">source</a>
 </header>
-    <pre class="ref-signature"><code>boris_orbit(q, m, x0, v0, E_field, B_field, dt, n_steps)</code></pre>
+    <pre class="ref-signature"><code>boris_orbit(q, m, x0, v0, E_field, B_field, dt, n_steps, *, scheme=&#39;legacy&#39;)</code></pre>
 
     <p>Charged-particle orbit from the Lorentz force, by the Boris scheme.</p>
 
@@ -530,12 +540,14 @@ against which the drift relations can be checked.</p>
 </td></tr>
   <tr><td><code>n_steps</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Number of steps.</p>
 </td></tr>
+  <tr><td><code>scheme</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"legacy"</code> preserves historical kick-then-drift output; <code class="language-plaintext highlighter-rouge">"centered"</code> uses a symmetric drift-kick-drift update.</p>
+</td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
   <tr><td><code>positions</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Positions, shape <code class="language-plaintext highlighter-rouge">(n_steps + 1, 3)</code>, the first being <code class="language-plaintext highlighter-rouge">x0</code>.</p>
 </td></tr>
-  <tr><td><code>velocities</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m/s</td><td><p><code class="language-plaintext highlighter-rouge">velocities[i + 1]</code> is the velocity over the step from <code class="language-plaintext highlighter-rouge">positions[i]</code> to <code class="language-plaintext highlighter-rouge">positions[i + 1]</code>; <code class="language-plaintext highlighter-rouge">velocities[0]</code> is <code class="language-plaintext highlighter-rouge">v0</code>. Shape <code class="language-plaintext highlighter-rouge">(n_steps + 1, 3)</code>.</p>
+  <tr><td><code>velocities</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m/s</td><td><p><code class="language-plaintext highlighter-rouge">velocities[i + 1]</code> is the velocity over the step from <code class="language-plaintext highlighter-rouge">positions[i]</code> to <code class="language-plaintext highlighter-rouge">positions[i + 1]</code>; <code class="language-plaintext highlighter-rouge">velocities[0]</code> is <code class="language-plaintext highlighter-rouge">v0</code>. With scheme=”centered”, velocities are simultaneous with positions. Shape <code class="language-plaintext highlighter-rouge">(n_steps + 1, 3)</code>.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -590,15 +602,129 @@ accurate gyrophase. Fixed step, so the output is deterministic.</p>
 
   </section>
 
+  <section class="ref-entry" id="bounce_action" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#bounce_action"><code>bounce_action</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="bounce_action" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L1038-L1089" title="vaft/formula/particle.py, lines 1038–1089 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>bounce_action(s, p_parallel, *, closure_tolerance=1e-06)</code></pre>
+
+    <details class="ref-code" data-source-code="bounce_action"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 1038–1089</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">bounce_action</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">p_parallel</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">closure_tolerance</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Unnormalized parallel action on one explicitly closed bounce cycle.
+
+    $$J_\parallel=\oint p_\parallel\,\mathrm ds$$
+
+    Parameters
+    ----------
+    s : array_like
+        Signed field-line arc coordinate in time order, returning to its
+        initial value after exactly one full bounce [m].
+    p_parallel : array_like
+        Parallel momentum at the same samples, returning to its initial value
+        and changing sign on both legs [kg m/s].
+    closure_tolerance : float, optional
+        Allowed endpoint mismatch relative to the sampled excursion,
+        a numerical closure tolerance in [0, 0.01] [-].
+
+    Returns
+    -------
+    float
+        Parallel action without a factor of 1/(2 pi) [J s].
+
+    Convention
+    ----------
+    s increases along B, not accumulated unsigned distance. Endpoint closure,
+    both momentum signs and positive oriented action are required. The caller
+    must identify one physical cycle; these checks cannot establish periodicity.
+
+    Limitations
+    -----------
+    Trapezoidal quadrature needs a resolved complete periodic bounce. Partial
+    histories, passing transits and separatrix orbits have no action here.
+
+    References
+    ----------
+    .. [1] J. R. Cary and A. J. Brizard, Rev. Mod. Phys. 81 (2009) 693.
+    </span><span class="sh">"""</span>
+    <span class="n">s</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="nb">float</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">p_parallel</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">s</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">p</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">s</span><span class="p">.</span><span class="n">shape</span> <span class="ow">or</span> <span class="nf">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">5</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">s</span> <span class="o">+</span> <span class="n">p</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">a finite resolved one-dimensional bounce cycle is required</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ptp</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">ptp</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">degenerate bounce cycle</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">closure_tolerance</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">closure_tolerance</span> <span class="o">&lt;=</span> <span class="p">.</span><span class="mi">01</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">closure_tolerance must be finite and in [0,0.01]</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nf">abs</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">closure_tolerance</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">ptp</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="ow">or</span> <span class="nf">abs</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">closure_tolerance</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">ptp</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">bounce cycle is not closed</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">min</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">p</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">bounce cycle must contain both parallel directions</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="n">p</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">s</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="n">result</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">s must be oriented along the signed parallel momentum</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span></code></pre></figure>
+
+</details>
+
+    <p>Unnormalized parallel action on one explicitly closed bounce cycle.</p>
+
+\[J_\parallel=\oint p_\parallel\,\mathrm ds\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>s</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Signed field-line arc coordinate in time order, returning to its initial value after exactly one full bounce.</p>
+</td></tr>
+  <tr><td><code>p_parallel</code></td><td class="ref-type">array_like</td><td class="ref-unit">kg m/s</td><td><p>Parallel momentum at the same samples, returning to its initial value and changing sign on both legs.</p>
+</td></tr>
+  <tr><td><code>closure_tolerance</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Allowed endpoint mismatch relative to the sampled excursion, a numerical closure tolerance in [0, 0.01].</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">J s</td><td><p>Parallel action without a factor of 1/(2 pi).</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>s increases along B, not accumulated unsigned distance. Endpoint closure,
+both momentum signs and positive oriented action are required. The caller
+must identify one physical cycle; these checks cannot establish periodicity.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Limitations · References</summary>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Trapezoidal quadrature needs a resolved complete periodic bounce. Partial
+histories, passing transits and separatrix orbits have no action here.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. R. Cary and A. J. Brizard, Rev. Mod. Phys. 81 (2009) 693.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="bounce_harmonic_detuning" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#bounce_harmonic_detuning"><code>bounce_harmonic_detuning</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="bounce_harmonic_detuning" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/particle.py#L690-L743" title="vaft/formula/particle.py, lines 690–743 at d766f71">source</a>
+<a class="ref-source" data-source="bounce_harmonic_detuning" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L695-L748" title="vaft/formula/particle.py, lines 695–748 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>bounce_harmonic_detuning(omega_b, omega_exb, omega_magnetic=0.0, *, l=1, n=1)</code></pre>
 
-    <details class="ref-code" data-source-code="bounce_harmonic_detuning"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 690–743</span></summary>
+    <details class="ref-code" data-source-code="bounce_harmonic_detuning"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 695–748</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">bounce_harmonic_detuning</span><span class="p">(</span><span class="n">omega_b</span><span class="p">,</span> <span class="n">omega_exb</span><span class="p">,</span> <span class="n">omega_magnetic</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">l</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Frequency mismatch of a trapped orbit with a toroidal-$n$ perturbation at bounce harmonic $\ell$.
@@ -726,11 +852,11 @@ which themselves need the kinetic response of the whole distribution.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#canonical_toroidal_momentum"><code>canonical_toroidal_momentum</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="canonical_toroidal_momentum" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/particle.py#L507-L564" title="vaft/formula/particle.py, lines 507–564 at d766f71">source</a>
+<a class="ref-source" data-source="canonical_toroidal_momentum" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L512-L569" title="vaft/formula/particle.py, lines 512–569 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>canonical_toroidal_momentum(q, m, R, v_phi, A_phi)</code></pre>
 
-    <details class="ref-code" data-source-code="canonical_toroidal_momentum"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 507–564</span></summary>
+    <details class="ref-code" data-source-code="canonical_toroidal_momentum"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 512–569</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">canonical_toroidal_momentum</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">v_phi</span><span class="p">,</span> <span class="n">A_phi</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Canonical toroidal angular momentum of a particle in an axisymmetric field.
@@ -866,11 +992,11 @@ conservation needs axisymmetry, $\partial\mathcal L/\partial\phi = 0$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#curvature_drift_velocity"><code>curvature_drift_velocity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="curvature_drift_velocity" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/particle.py#L321-L383" title="vaft/formula/particle.py, lines 321–383 at d766f71">source</a>
+<a class="ref-source" data-source="curvature_drift_velocity" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L326-L388" title="vaft/formula/particle.py, lines 326–388 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>curvature_drift_velocity(q, m, v_par, B, R_c)</code></pre>
 
-    <details class="ref-code" data-source-code="curvature_drift_velocity"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 321–383</span></summary>
+    <details class="ref-code" data-source-code="curvature_drift_velocity"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 326–388</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">curvature_drift_velocity</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">v_par</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">R_c</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Curvature drift velocity of the guiding centre.
@@ -1005,15 +1131,103 @@ $\mathbf{F}\times\mathbf{B}/(qB^2)$.</p>
 
   </section>
 
+  <section class="ref-entry" id="effective_parallel_potential" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#effective_parallel_potential"><code>effective_parallel_potential</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="effective_parallel_potential" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L965-L998" title="vaft/formula/particle.py, lines 965–998 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>effective_parallel_potential(mu, B, q=0.0, potential=0.0)</code></pre>
+
+    <details class="ref-code" data-source-code="effective_parallel_potential"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 965–998</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">effective_parallel_potential</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">potential</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Effective parallel potential of a magnetized particle in static fields.
+
+    $$U_\mathrm{eff}=\mu B+q\Phi$$
+
+    Parameters
+    ----------
+    mu : float or np.ndarray
+        Nonnegative magnetic moment [J/T].
+    B : float or np.ndarray
+        Positive magnetic field magnitude [T].
+    q : float, optional
+        Signed particle charge; zero omits the electrostatic term [C].
+    potential : float or np.ndarray, optional
+        Electrostatic potential in a stated gauge [V].
+
+    Returns
+    -------
+    float or np.ndarray
+        Effective potential energy [J].
+
+    Assumptions
+    -----------
+    Static electrostatic field and adiabatic magnetic moment.
+
+    References
+    ----------
+    .. [1] F. F. Chen, Introduction to Plasma Physics and Controlled Fusion,
+       3rd ed. (2016), Sec. 2.3.
+    </span><span class="sh">"""</span>
+    <span class="n">mu</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">potential</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_arrays</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">potential</span><span class="p">)])</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">mu</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">B</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">mu</span> <span class="o">+</span> <span class="n">B</span> <span class="o">+</span> <span class="n">q</span> <span class="o">+</span> <span class="n">potential</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">finite inputs, mu &gt;= 0 and B &gt; 0 required</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mu</span> <span class="o">*</span> <span class="n">B</span> <span class="o">+</span> <span class="n">q</span> <span class="o">*</span> <span class="n">potential</span></code></pre></figure>
+
+</details>
+
+    <p>Effective parallel potential of a magnetized particle in static fields.</p>
+
+\[U_\mathrm{eff}=\mu B+q\Phi\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>mu</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">J/T</td><td><p>Nonnegative magnetic moment.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Positive magnetic field magnitude.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td class="ref-type">float, optional</td><td class="ref-unit">C</td><td><p>Signed particle charge; zero omits the electrostatic term.</p>
+</td></tr>
+  <tr><td><code>potential</code></td><td class="ref-type">float or np.ndarray, optional</td><td class="ref-unit">V</td><td><p>Electrostatic potential in a stated gauge.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">J</td><td><p>Effective potential energy.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Static electrostatic field and adiabatic magnetic moment.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>F. F. Chen, Introduction to Plasma Physics and Controlled Fusion, 3rd ed. (2016), Sec. 2.3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="exb_drift_velocity" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#exb_drift_velocity"><code>exb_drift_velocity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="exb_drift_velocity" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/particle.py#L209-L257" title="vaft/formula/particle.py, lines 209–257 at d766f71">source</a>
+<a class="ref-source" data-source="exb_drift_velocity" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L214-L262" title="vaft/formula/particle.py, lines 214–262 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>exb_drift_velocity(E, B)</code></pre>
 
-    <details class="ref-code" data-source-code="exb_drift_velocity"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 209–257</span></summary>
+    <details class="ref-code" data-source-code="exb_drift_velocity"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 214–262</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">exb_drift_velocity</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">E-cross-B drift velocity of the guiding centre.
@@ -1131,11 +1345,11 @@ radius and slow in time compared with the gyroperiod.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#grad_b_drift_velocity"><code>grad_b_drift_velocity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="grad_b_drift_velocity" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/particle.py#L260-L318" title="vaft/formula/particle.py, lines 260–318 at d766f71">source</a>
+<a class="ref-source" data-source="grad_b_drift_velocity" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L265-L323" title="vaft/formula/particle.py, lines 265–323 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>grad_b_drift_velocity(q, m, v_perp, B, grad_B)</code></pre>
 
-    <details class="ref-code" data-source-code="grad_b_drift_velocity"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 260–318</span></summary>
+    <details class="ref-code" data-source-code="grad_b_drift_velocity"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 265–323</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">grad_b_drift_velocity</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">v_perp</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">grad_B</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Grad-B drift velocity of the guiding centre.
@@ -1273,15 +1487,175 @@ gyration.</p>
 
   </section>
 
+  <section class="ref-entry" id="guiding_center_rhs" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#guiding_center_rhs"><code>guiding_center_rhs</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="guiding_center_rhs" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L856-L930" title="vaft/formula/particle.py, lines 856–930 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>guiding_center_rhs(q, m, p_parallel, mu, B, grad_B, curl_b, E)</code></pre>
+
+    <details class="ref-code" data-source-code="guiding_center_rhs"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 856–930</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">guiding_center_rhs</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">p_parallel</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">grad_B</span><span class="p">,</span> <span class="n">curl_b</span><span class="p">,</span> <span class="n">E</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Hamiltonian guiding-center velocity and parallel force in static fields.
+
+    $$\mathbf B^*=\mathbf B+\frac{p_\parallel}{q}\nabla\times\mathbf b,\quad
+    \dot{\mathbf X}=\frac{(p_\parallel/m)\mathbf B^*
+    +\mathbf b\times(\mu\nabla B-q\mathbf E)/q}{\mathbf b\cdot\mathbf B^*},\quad
+    \dot p_\parallel=\frac{\mathbf B^*\cdot(q\mathbf E-\mu\nabla B)}
+    {\mathbf b\cdot\mathbf B^*}$$
+
+    Parameters
+    ----------
+    q : float
+        Signed nonzero charge [C].
+    m : float
+        Positive particle mass [kg].
+    p_parallel : float
+        Signed parallel kinetic momentum [kg m/s].
+    mu : float
+        Nonnegative magnetic moment, held fixed by the reduced model [J/T].
+    B : array_like
+        Cartesian magnetic field, shape (3,) [T].
+    grad_B : array_like
+        Gradient of field magnitude, shape (3,) [T/m].
+    curl_b : array_like
+        Curl of unit field direction, shape (3,) [1/m].
+    E : array_like
+        Static electric field, shape (3,) [V/m].
+
+    Returns
+    -------
+    velocity : np.ndarray
+        Guiding-center Cartesian velocity [m/s].
+    force : float
+        Parallel kinetic momentum derivative [N].
+
+    Convention
+    ----------
+    SI units, right-handed Cartesian axes; b = B/abs(B). The low-frequency,
+    weak-electric-drift Hamiltonian is p_parallel^2/(2m) + mu B + q Phi.
+    No separate drift velocities are added to this expression.
+
+    Validity
+    --------
+    Nonrelativistic magnetized particles in smooth static fields with small
+    gyroradius compared with field scales, and weak E-cross-B flow compared
+    with characteristic particle speed. This is the lowest-order Hamiltonian
+    GC model, not a high-flow or higher-order finite-Larmor-radius theory.
+
+    Limitations
+    -----------
+    The B-star parallel singularity must terminate integration. Holding mu
+    fixed is a model assumption, not a numerical proof of adiabaticity.
+
+    References
+    ----------
+    .. [1] J. R. Cary and A. J. Brizard, Rev. Mod. Phys. 81 (2009) 693,
+       doi:10.1103/RevModPhys.81.693.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">([</span><span class="n">q</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">p_parallel</span><span class="p">,</span> <span class="n">mu</span><span class="p">]))</span> <span class="ow">or</span> <span class="n">q</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">m</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">mu</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">finite q != 0, m &gt; 0 and mu &gt;= 0 required</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">vectors</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">grad_B</span><span class="p">,</span> <span class="n">curl_b</span><span class="p">,</span> <span class="n">E</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="nf">any</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">a</span><span class="p">))</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">vectors</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">B, grad_B, curl_b and E must be finite 3-vectors</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">B</span><span class="p">,</span> <span class="n">grad_B</span><span class="p">,</span> <span class="n">curl_b</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="n">vectors</span>
+    <span class="n">strength</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">strength</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">magnetic field must be nonzero</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">B</span> <span class="o">/</span> <span class="n">strength</span>
+    <span class="n">star</span> <span class="o">=</span> <span class="n">B</span> <span class="o">+</span> <span class="n">p_parallel</span> <span class="o">/</span> <span class="n">q</span> <span class="o">*</span> <span class="n">curl_b</span>
+    <span class="n">denominator</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">b</span> <span class="o">@</span> <span class="n">star</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nf">abs</span><span class="p">(</span><span class="n">denominator</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">1e-10</span> <span class="o">*</span> <span class="n">strength</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">guiding-center B-star parallel singularity</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">force</span> <span class="o">=</span> <span class="n">q</span> <span class="o">*</span> <span class="n">E</span> <span class="o">-</span> <span class="n">mu</span> <span class="o">*</span> <span class="n">grad_B</span>
+    <span class="nf">return </span><span class="p">((</span><span class="n">p_parallel</span> <span class="o">/</span> <span class="n">m</span> <span class="o">*</span> <span class="n">star</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">cross</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">force</span><span class="p">)</span> <span class="o">/</span> <span class="n">q</span><span class="p">)</span> <span class="o">/</span> <span class="n">denominator</span><span class="p">,</span>
+            <span class="nf">float</span><span class="p">(</span><span class="n">star</span> <span class="o">@</span> <span class="n">force</span> <span class="o">/</span> <span class="n">denominator</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Hamiltonian guiding-center velocity and parallel force in static fields.</p>
+
+\[\mathbf B^*=\mathbf B+\frac{p_\parallel}{q}\nabla\times\mathbf b,\quad
+\dot{\mathbf X}=\frac{(p_\parallel/m)\mathbf B^*
++\mathbf b\times(\mu\nabla B-q\mathbf E)/q}{\mathbf b\cdot\mathbf B^*},\quad
+\dot p_\parallel=\frac{\mathbf B^*\cdot(q\mathbf E-\mu\nabla B)}
+{\mathbf b\cdot\mathbf B^*}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>q</code></td><td class="ref-type">float</td><td class="ref-unit">C</td><td><p>Signed nonzero charge.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td class="ref-type">float</td><td class="ref-unit">kg</td><td><p>Positive particle mass.</p>
+</td></tr>
+  <tr><td><code>p_parallel</code></td><td class="ref-type">float</td><td class="ref-unit">kg m/s</td><td><p>Signed parallel kinetic momentum.</p>
+</td></tr>
+  <tr><td><code>mu</code></td><td class="ref-type">float</td><td class="ref-unit">J/T</td><td><p>Nonnegative magnetic moment, held fixed by the reduced model.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td class="ref-type">array_like</td><td class="ref-unit">T</td><td><p>Cartesian magnetic field, shape (3,).</p>
+</td></tr>
+  <tr><td><code>grad_B</code></td><td class="ref-type">array_like</td><td class="ref-unit">T/m</td><td><p>Gradient of field magnitude, shape (3,).</p>
+</td></tr>
+  <tr><td><code>curl_b</code></td><td class="ref-type">array_like</td><td class="ref-unit">1/m</td><td><p>Curl of unit field direction, shape (3,).</p>
+</td></tr>
+  <tr><td><code>E</code></td><td class="ref-type">array_like</td><td class="ref-unit">V/m</td><td><p>Static electric field, shape (3,).</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>velocity</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m/s</td><td><p>Guiding-center Cartesian velocity.</p>
+</td></tr>
+  <tr><td><code>force</code></td><td class="ref-type">float</td><td class="ref-unit">N</td><td><p>Parallel kinetic momentum derivative.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>SI units, right-handed Cartesian axes; b = B/abs(B). The low-frequency,
+weak-electric-drift Hamiltonian is p_parallel^2/(2m) + mu B + q Phi.
+No separate drift velocities are added to this expression.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Validity · Limitations · References</summary>
+
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>Nonrelativistic magnetized particles in smooth static fields with small
+gyroradius compared with field scales, and weak E-cross-B flow compared
+with characteristic particle speed. This is the lowest-order Hamiltonian
+GC model, not a high-flow or higher-order finite-Larmor-radius theory.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The B-star parallel singularity must terminate integration. Holding mu
+fixed is a model assumption, not a numerical proof of adiabaticity.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. R. Cary and A. J. Brizard, Rev. Mod. Phys. 81 (2009) 693, doi:10.1103/RevModPhys.81.693.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="guiding_center_toroidal_momentum" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#guiding_center_toroidal_momentum"><code>guiding_center_toroidal_momentum</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="guiding_center_toroidal_momentum" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/particle.py#L567-L633" title="vaft/formula/particle.py, lines 567–633 at d766f71">source</a>
+<a class="ref-source" data-source="guiding_center_toroidal_momentum" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L572-L638" title="vaft/formula/particle.py, lines 572–638 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>guiding_center_toroidal_momentum(q, m, v_par, R, b_phi, psi_per_radian)</code></pre>
 
-    <details class="ref-code" data-source-code="guiding_center_toroidal_momentum"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 567–633</span></summary>
+    <details class="ref-code" data-source-code="guiding_center_toroidal_momentum"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 572–638</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">guiding_center_toroidal_momentum</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">v_par</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">b_phi</span><span class="p">,</span> <span class="n">psi_per_radian</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Canonical toroidal momentum of a guiding centre, flux plus mechanical parts.
@@ -1434,11 +1808,11 @@ velocity small against $v_\parallel$ in the mechanical term.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gyration_offset"><code>gyration_offset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="gyration_offset" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/particle.py#L147-L206" title="vaft/formula/particle.py, lines 147–206 at d766f71">source</a>
+<a class="ref-source" data-source="gyration_offset" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L152-L211" title="vaft/formula/particle.py, lines 152–211 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>gyration_offset(q, m, B, v)</code></pre>
 
-    <details class="ref-code" data-source-code="gyration_offset"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 147–206</span></summary>
+    <details class="ref-code" data-source-code="gyration_offset"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 152–211</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">gyration_offset</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Position of a gyrating particle relative to its guiding centre.
@@ -1573,11 +1947,11 @@ drift.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gyrofrequency"><code>gyrofrequency</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="gyrofrequency" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/particle.py#L49-L96" title="vaft/formula/particle.py, lines 49–96 at d766f71">source</a>
+<a class="ref-source" data-source="gyrofrequency" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L54-L101" title="vaft/formula/particle.py, lines 54–101 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>gyrofrequency(q, m, B)</code></pre>
 
-    <details class="ref-code" data-source-code="gyrofrequency"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 49–96</span></summary>
+    <details class="ref-code" data-source-code="gyrofrequency"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 54–101</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">gyrofrequency</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Signed gyrofrequency of a charged particle.
@@ -1695,11 +2069,11 @@ slow by comparison.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#larmor_radius"><code>larmor_radius</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="larmor_radius" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/particle.py#L99-L144" title="vaft/formula/particle.py, lines 99–144 at d766f71">source</a>
+<a class="ref-source" data-source="larmor_radius" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L104-L149" title="vaft/formula/particle.py, lines 104–149 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>larmor_radius(q, m, v_perp, B)</code></pre>
 
-    <details class="ref-code" data-source-code="larmor_radius"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 99–144</span></summary>
+    <details class="ref-code" data-source-code="larmor_radius"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 104–149</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">larmor_radius</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">v_perp</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Larmor (gyro) radius of a charged particle.
@@ -1812,11 +2186,11 @@ approximations need it small against the field’s gradient length.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#magnetic_moment"><code>magnetic_moment</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="magnetic_moment" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/particle.py#L452-L504" title="vaft/formula/particle.py, lines 452–504 at d766f71">source</a>
+<a class="ref-source" data-source="magnetic_moment" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L457-L509" title="vaft/formula/particle.py, lines 457–509 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>magnetic_moment(m, v_perp, B)</code></pre>
 
-    <details class="ref-code" data-source-code="magnetic_moment"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 452–504</span></summary>
+    <details class="ref-code" data-source-code="magnetic_moment"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 457–509</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">magnetic_moment</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">v_perp</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Magnetic moment of a gyrating particle, the first adiabatic invariant.
@@ -1938,15 +2312,188 @@ conservation is not implied.</p>
 
   </section>
 
+  <section class="ref-entry" id="mirror_force" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mirror_force"><code>mirror_force</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="mirror_force" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L933-L962" title="vaft/formula/particle.py, lines 933–962 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>mirror_force(mu, dB_ds)</code></pre>
+
+    <details class="ref-code" data-source-code="mirror_force"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 933–962</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">mirror_force</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">dB_ds</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Parallel magnetic mirror force along field-line arc length.
+
+    $$F_\parallel=-\mu\,\frac{\mathrm dB}{\mathrm ds}$$
+
+    Parameters
+    ----------
+    mu : float or np.ndarray
+        Nonnegative magnetic moment [J/T].
+    dB_ds : float or np.ndarray
+        Signed derivative along the magnetic field [T/m].
+
+    Returns
+    -------
+    float or np.ndarray
+        Parallel force [N].
+
+    Assumptions
+    -----------
+    Adiabatic magnetized motion, with s increasing along B.
+
+    References
+    ----------
+    .. [1] F. F. Chen, Introduction to Plasma Physics and Controlled Fusion,
+       3rd ed. (2016), Sec. 2.3.
+    </span><span class="sh">"""</span>
+    <span class="n">mu</span><span class="p">,</span> <span class="n">gradient</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_arrays</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="nb">float</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">dB_ds</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">mu</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">mu</span> <span class="o">+</span> <span class="n">gradient</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">finite gradient and nonnegative finite mu required</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">mu</span> <span class="o">*</span> <span class="n">gradient</span></code></pre></figure>
+
+</details>
+
+    <p>Parallel magnetic mirror force along field-line arc length.</p>
+
+\[F_\parallel=-\mu\,\frac{\mathrm dB}{\mathrm ds}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>mu</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">J/T</td><td><p>Nonnegative magnetic moment.</p>
+</td></tr>
+  <tr><td><code>dB_ds</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T/m</td><td><p>Signed derivative along the magnetic field.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">N</td><td><p>Parallel force.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Adiabatic magnetized motion, with s increasing along B.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>F. F. Chen, Introduction to Plasma Physics and Controlled Fusion, 3rd ed. (2016), Sec. 2.3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="mirror_loss_cone" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mirror_loss_cone"><code>mirror_loss_cone</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="mirror_loss_cone" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L1001-L1035" title="vaft/formula/particle.py, lines 1001–1035 at c4cc766">source</a>
+</header>
+    <pre class="ref-signature"><code>mirror_loss_cone(B_min, B_max)</code></pre>
+
+    <details class="ref-code" data-source-code="mirror_loss_cone"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 1001–1035</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">mirror_loss_cone</span><span class="p">(</span><span class="n">B_min</span><span class="p">,</span> <span class="n">B_max</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Loss-cone pitch angle at the minimum of a magnetic mirror.
+
+    $$\alpha_\mathrm{lc}=\arcsin\sqrt{B_\min/B_\max}$$
+
+    Parameters
+    ----------
+    B_min : float or np.ndarray
+        Positive minimum field [T].
+    B_max : float or np.ndarray
+        Maximum field, at least the minimum [T].
+
+    Returns
+    -------
+    float or np.ndarray
+        Loss-cone half angle; equality is the marginal separatrix [rad].
+
+    Convention
+    ----------
+    Pitch is measured from either parallel direction at B_min. Particles
+    inside either cone pass; outside they reflect in the adiabatic model.
+
+    Assumptions
+    -----------
+    Static mirror without electric potential and conserved magnetic moment.
+
+    References
+    ----------
+    .. [1] F. F. Chen, Introduction to Plasma Physics and Controlled Fusion,
+       3rd ed. (2016), Sec. 2.3.
+    </span><span class="sh">"""</span>
+    <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_arrays</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B_min</span><span class="p">,</span> <span class="nb">float</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B_max</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">lo</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">hi</span> <span class="o">&lt;</span> <span class="n">lo</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">hi</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">finite 0 &lt; B_min &lt;= B_max required</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">arcsin</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">lo</span> <span class="o">/</span> <span class="n">hi</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Loss-cone pitch angle at the minimum of a magnetic mirror.</p>
+
+\[\alpha_\mathrm{lc}=\arcsin\sqrt{B_\min/B_\max}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>B_min</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Positive minimum field.</p>
+</td></tr>
+  <tr><td><code>B_max</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Maximum field, at least the minimum.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad</td><td><p>Loss-cone half angle; equality is the marginal separatrix.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Pitch is measured from either parallel direction at B_min. Particles
+inside either cone pass; outside they reflect in the adiabatic model.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Static mirror without electric potential and conserved magnetic moment.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>F. F. Chen, Introduction to Plasma Physics and Controlled Fusion, 3rd ed. (2016), Sec. 2.3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="parallel_speed_from_mu" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#parallel_speed_from_mu"><code>parallel_speed_from_mu</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="parallel_speed_from_mu" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/particle.py#L386-L449" title="vaft/formula/particle.py, lines 386–449 at d766f71">source</a>
+<a class="ref-source" data-source="parallel_speed_from_mu" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L391-L454" title="vaft/formula/particle.py, lines 391–454 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>parallel_speed_from_mu(v, pitch_ref, B_ref, B)</code></pre>
 
-    <details class="ref-code" data-source-code="parallel_speed_from_mu"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 386–449</span></summary>
+    <details class="ref-code" data-source-code="parallel_speed_from_mu"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 391–454</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">parallel_speed_from_mu</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">pitch_ref</span><span class="p">,</span> <span class="n">B_ref</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Parallel speed where the field is $B$, from energy and magnetic-moment conservation.
@@ -2095,11 +2642,11 @@ the bounce point of a trapped particle.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#psi_per_radian_from_cocos"><code>psi_per_radian_from_cocos</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="psi_per_radian_from_cocos" href="https://github.com/VEST-Tokamak/vaft/blob/d766f71b1d12e28f9d20242f59c60fd3978a2ef3/vaft/formula/particle.py#L636-L687" title="vaft/formula/particle.py, lines 636–687 at d766f71">source</a>
+<a class="ref-source" data-source="psi_per_radian_from_cocos" href="https://github.com/VEST-Tokamak/vaft/blob/c4cc7668bc869eed3125d3fdfc2cd0fbc2c9bdd0/vaft/formula/particle.py#L641-L692" title="vaft/formula/particle.py, lines 641–692 at c4cc766">source</a>
 </header>
     <pre class="ref-signature"><code>psi_per_radian_from_cocos(psi, cocos)</code></pre>
 
-    <details class="ref-code" data-source-code="psi_per_radian_from_cocos"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 636–687</span></summary>
+    <details class="ref-code" data-source-code="psi_per_radian_from_cocos"><summary>Show source <span class="ref-note">vaft/formula/particle.py, lines 641–692</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">psi_per_radian_from_cocos</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">cocos</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">The guiding-centre $\psi = RA_\phi$ from a flux stored in a COCOS convention.
@@ -2430,12 +2977,12 @@ window.MathJax = {
     },
     "file": {
         "path": "_guide/Formula_reference_particle.md",
-        "mtime": "2026-09-17 10:00:00 +0000",
+        "mtime": "2026-09-17 10:00:00 +0900",
         "type": "markdown"
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-20 22:48:21 +0000"
+        "time": "2026-10-21 11:38:36 +0900"
     },
     "basePath": "/vaft/develop",
     "book": {
