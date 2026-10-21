@@ -350,3 +350,10 @@ def test_neighbouring_concepts_keep_their_own_sources():
     # a summation sign for a model, a plug for integration, a shield for validation, scales for comparison
     rejected = {"book-open", "funnel", "sigma", "plug", "network", "shield-check", "scale"}
     assert not rejected & set(_lucide.ICONS)
+
+
+def test_the_tokamak_is_left_right_symmetric():
+    """A full poloidal cut: every stroke has its mirror image about the machine axis."""
+    shapes = {tuple(sorted((round(x, 4), round(y, 4)) for x, y in points)) for points, _ in P.symbol("tokamak").strokes}
+    mirrored = {tuple(sorted((round(-x, 4) + 0.0, round(y, 4)) for x, y in shape)) for shape in shapes}
+    assert mirrored == shapes

@@ -378,10 +378,13 @@ def _normalise(strokes: List[Tuple[List[Point], bool]]) -> Tuple[Tuple[Tuple[Poi
 #: VAFT scientific symbols, in the same 24-unit grid as Lucide. Symbolic shapes only: the
 #: contours of ``reconstruction`` or the D of ``tokamak`` are not any machine's geometry.
 _VAFT = {
-    # a poloidal half-section: the central column, the D-shaped vacuum vessel and the closed plasma inside it
-    "tokamak": '<rect x="2" y="3" width="3.5" height="18" rx="1"/>'
-               '<path d="M8.5 3C17 3 22 7 22 12S17 21 8.5 21Z"/>'
-               '<path d="M11 7C16.5 7 19 9.5 19 12S16.5 17 11 17C10.4 14 10.4 10 11 7Z"/>',
+    # a full poloidal cut, symmetric about the machine axis: the central column, and on each side
+    # the D-shaped vacuum vessel with the closed plasma inside it
+    "tokamak": '<rect x="10.25" y="3" width="3.5" height="18" rx="1"/>'
+               '<path d="M15.5 3C20 3 22.5 7 22.5 12S20 21 15.5 21Z"/>'
+               '<path d="M17 7C20 7 21 9.5 21 12S20 17 17 17C16.6 14 16.6 10 17 7Z"/>'
+               '<path d="M8.5 3C4 3 1.5 7 1.5 12S4 21 8.5 21Z"/>'
+               '<path d="M7 7C4 7 3 9.5 3 12S4 17 7 17C7.4 14 7.4 10 7 7Z"/>',
     # a raw time trace: an irregular sampled waveform on its baseline
     "signal": '<path d="M2 12h2.5l2-8 3 16 3-12 2 8 1.5-4H22"/>',
     # nested, outward-shifted D-shaped flux surfaces recovered from the measurements (crosses) outside them
@@ -396,9 +399,9 @@ _VAFT = {
     "synthetic": '<rect x="2" y="2" width="10" height="10" rx="1.5"/><path d="M5.5 10c1.2 0 1.6-.6 1.6-1.6V6.6c0-1.1.6-1.8 1.8-1.7"/>'
                  '<path d="M5.5 7.3h3.2"/><path d="M12 12l3 3M15 12.5V15h-2.5"/>'
                  '<path d="M10 19.5h2l1.5-4 2 7 2-6 1.5 3H22"/>',
-    # a transformation stage: a noisy input, the processing step, a clean output
-    "processing": '<path d="M3 5h3l1.5-3 2 6 2-5 1.5 3 1.5-1H21"/><rect x="6" y="9.5" width="12" height="5" rx="1.5"/>'
-                  '<path d="M3 20c3-3.5 6-3.5 9 0s6 3.5 9 0"/>',
+    # a transformation, read left to right: a noisy signal enters the processing step and leaves clean
+    "processing": '<path d="M1 12h1.2l1.2-4.5 1.4 9 1.2-6.5 1 2H8"/><rect x="8" y="4" width="8" height="16" rx="2"/>'
+                  '<path d="M10 8l4 4-4 4"/><path d="M16 12c1.2-5 2.6-5 3.6 0s2.4 5 3.4 0"/>',
     # two systems exchanging data both ways
     "interface": '<rect x="2" y="5" width="6" height="14" rx="1.5"/><rect x="16" y="5" width="6" height="14" rx="1.5"/>'
                  '<path d="M9.5 9.5h5M12.5 7.5l2 2-2 2"/><path d="M14.5 14.5h-5M11.5 12.5l-2 2 2 2"/>',
