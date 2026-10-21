@@ -1,0 +1,215 @@
+schema_version: 1
+reference_id: vest-42962-pipeline-full-imas-v1
+shot: 42962
+machine: VEST
+imas_dd_version: 3.41.0
+source:
+  kind: pipeline-until-efit
+  git_commit: f6e685ca852bc856b4d10a554e2b70a3e70d44e1
+  filedb_root: vestserver:~/runs/vfit119-42962/filedb
+  raw_source: source/vest_42962_daq_raw.json.gz
+  raw_sha256: ea83d2b7c891f9a8a4145f28770f7a745e18265ac72ae64c7ee4f444340a2776
+representations:
+  omas:
+    path: omas.json.gz
+    media_type: application/gzip
+    package: repository-only
+    compatible_adapters:
+    - omas
+    - imas
+    size: 45042906
+    sha256: 533de4695403c73952e4fc41c58860aaf0485e96fc6414adc975cc3de15450f9
+  imas:
+    path: imas.nc
+    media_type: application/x-netcdf
+    package: repository-only
+    compatible_adapters:
+    - imas
+    - omas
+    size: 29354877
+    sha256: 8965b80024a5847765bebc83eef17b572777ba87ca32887477dd9ac99983c077
+generation:
+  command: python workflow/reference_validation/generate_pipeline_imas_sample.py --manifest
+    vaft/data/samples/42962/manifest.yaml --canonical-source vaft/data/samples/42962/source/pipeline-until-efit.json.gz
+  canonical_source: source/pipeline-until-efit.json.gz
+  canonical_sha256: 083f70a90ceacbd0be6cb46187280f40a2a4d1c9ed057762b25f31b8b8b31a70
+  materialized_leaves: 20604
+  normalizations:
+  - remove non-DD equilibrium.code.parameters parser cache
+  - remove only scalar-default placeholders for unavailable heterogeneous Mirnov signals
+  - materialize homogeneous barometry and equilibrium time coordinates
+  - materialize the homogeneous langmuir_probes time coordinate (both probes share
+    one time base, which the IMAS writer would otherwise homogenize on its own)
+  - retain native-rate voltage and derived magnetic-field waveforms
+  - use +Bz poloidal probe metadata (poloidal_angle = 3*pi/2, DD-clockwise; see corrections
+    of the 41524/41672 manifests, issue 288)
+  - re-map em_coupling through vaft.machine_mapping.em_coupling (exactly reciprocal
+    asset, issue 373)
+  related_issue: https://github.com/VEST-Tokamak/vaft/issues/1712
+  composition:
+    command: python workflow/reference_validation/compose_until_efit_sample.py --static-stage
+      omas/static/vest-pre-43017-pf1906/output/static.json.gz --diagnostics-stage
+      omas/diagnostics/42962/output/diagnostics.json.gz --eddy-stage omas/eddy/42962/output/eddy.json.gz
+      --eddy-manifest omas/eddy/42962/metadata/manifest.json --efit-stage omas/efit/magnetic/42962/output/efit.json.gz
+      --shot 42962 --output source/pipeline-until-efit.json.gz
+    static_ids:
+    - wall
+    - em_coupling
+    note: Each stage now publishes only the IDSs it owns (the eddy product is pf_passive
+      alone), so the canonical source is diagnostics + eddy through vaft.database.composition.compose_stage_products,
+      wall and em_coupling from the static product of machine version vest-pre-43017-pf1906,
+      and equilibrium from the EFIT product.
+  canonical_equilibrium_cocos:
+    index: 11
+    established: '2026-10-21'
+    evidence: 'The EFIT stage at this commit writes psi in Wb (DD convention), not
+      the g-file''s Wb/rad that the 41524/41672 canonical sources hold, and declares
+      no COCOS. Read off the stored psi map at the 64 b_field_pol_probe positions,
+      B_Z = -(k/(2*pi*R)) dpsi/dR with k = +1 agrees in sign with EFIT''s reconstructed
+      probe field (constraints.bpol_probe.reconstructed) on 510/512 probe-slices,
+      with median |difference| 0.46 mT and median ratio 1.003, and with the measured
+      +Bz probe field (issue 288) on 500/512; k = -1 agrees on 2/512 and 12/512. Without
+      the 2*pi the ratio is 6.30, which rules out the per-radian family; flux_exponent_tier
+      decides weber on all 8 slices by the slope probe. Ip is positive on every slice.
+      Scope as for 41524/41672: this fixes the stored psi in EFIT''s own frame; the
+      lab-frame current direction stays open under issues 275/288 (equilibrium_orientation_is_resolved()
+      is False).'
+  equilibrium_cocos: 11
+  signal_quality:
+    projected: true
+    issue: https://github.com/VEST-Tokamak/vaft/issues/189
+    configuration:
+      baseline_fraction: 0.2
+      min_constant_run: 16
+      significance_floor: 0.01
+      spike_sigma: 8.0
+      max_spike_samples: 3
+      offset_jump_sigma: 10.0
+      coherence_window: 0.0005
+      coherent_jump_fraction: 0.3
+      max_plausible_amplitude:
+        b_field_pol_probe: 1.0
+      population_peak_factor: 4.0
+      array_departure_factor: 1.0
+      array_contradiction_fraction: 0.3
+      min_array_members: 7
+      array_min_scored: 0.5
+      array_amplitude_floor: 0.01
+    condemned:
+    - b_field_pol_probe[25] MagneticFieldProbe_H3-08_Bz
+    - b_field_pol_probe[32] MagneticFieldProbe_C1-01_Bz
+    - b_field_pol_probe[45] MagneticFieldProbe_C4-04
+  em_coupling:
+    remapped: true
+    issue: https://github.com/VEST-Tokamak/vaft/issues/373
+    asset: VEST_em_coupling_pf_versions.npz
+    asset_sha256: 1c391442762fb1c9563eb5fc62fef35ee4e002c7cda8afc06968539a5e2a6f05
+    asset_provenance:
+      generated: '2026-09-06T01:18:59+00:00'
+      git_commit: b618ab9cfc449cbe2d8faa8bde55310d35decbbc
+      passive_material_factor: 1.04
+      source_sha256: 2d645cffaa6350955fb131779c6f5129c6c478ff0b480136d7686fef717fe819
+    replaced_input_asymmetry: 0.0
+    pf_passive_currents: solved by the eddy stage against this asset
+pipeline:
+  scope:
+  - raw
+  - static
+  - diagnostics
+  - eddy
+  - constraints
+  - efit
+  excluded_stages:
+  - impa
+  - chease
+  - dcon
+  - rdcon
+  - stride
+  - gpec
+  vaft_commit: f6e685ca852bc856b4d10a554e2b70a3e70d44e1
+  host: VEST server, isolated clone of vaft develop at vaft_commit (vaft.__file__
+    asserted), 4 cores, no HSDS replication
+  run_date: '2026-10-21'
+  machine_version: vest-pre-43017-pf1906
+  configuration: source/pipeline-config.yaml
+  configuration_sha256: 3983699599e7a13eb8d5e8cd89e4316b41d606e61ea30bf5527ecead25a38b27
+  diagnostics_manifest: source/diagnostics-manifest.json
+  diagnostics_manifest_sha256: 9c7861c5ef395ccfdf1b6aec1ba4e420a65e872999fad73f65c05458f4bcfd02
+  efit_artifact_manifest: source/efit-artifact-manifest.json
+  efit_artifact_manifest_sha256: 42485476a2cdd6b4170bf6e17c9b6daf7ed0d8dff48f682876eaba3e9f1874f4
+  stages:
+    raw: success
+    static: success
+    diagnostics: success
+    eddy: success
+    constraints: success
+    efit: success
+  efit:
+    preset: statistical_891
+    preset_record: The full preset (profile basis, sigma scales and floors, numerics)
+      is equilibrium.code.parameters.efit_collection of the canonical source; the
+      packaged representations drop that parser cache, so this key is the record of
+      the setting for readers of omas.json.gz / imas.nc.
+    executable_sha256: bbab2829f53f56aaa3ab41c67f4b7a3587bfa266dc487e1498f96aadefd6bb38
+    table: '129'
+    status: 'completed: returncode=0; gfiles=8'
+    requested_time_slices: 20
+    successful_time_slices: 8
+  production_parity:
+    compared_with: /srv/vest.filedb (production FileDB), diagnostics and eddy 2026-10-03,
+      EFIT 2026-10-12 (statistical_891, replicated to HSDS main and round-trip validated)
+    reason: The production products record no VAFT commit (the provenance gap of the
+      issue 1712 audit), so the chain was rerun at a known commit rather than fetched.
+    equilibrium: identical -- the same 8 slices, no leaf added or removed, and no
+      floating-point leaf of equilibrium.time_slice differs (rtol 1e-9)
+    diagnostics: one leaf differs of 4983, barometry.gauge.0.type.description (text)
+    eddy: one leaf differs of 9517, pf_passive.code.parameters (run record)
+  cohort_1644:
+    issue: https://github.com/VEST-Tokamak/vaft/issues/1644
+    criteria_version: 2
+    vaft_commit: 2d7d1bdb1d447e6a625511eceefdbb74a1369235
+    cohort_table: notebooks/data/verification_and_validation/equilibrium_quality/cohort_table.csv
+    cohort_table_sha256: 88aafa2ccd9a7cfc2269f17294ec49ab1173332fde6c61f4a2cf7eaf95452d17
+    use: Labels stratify, they never filter (VEST-Tokamak/vfit#119); every stored
+      slice is kept.
+    labels:
+      '0.327': unreconstructible
+      '0.330': unreconstructible
+      '0.331': unreconstructible
+      '0.332': good
+      '0.333': good
+      '0.334': admissible
+      '0.335': admissible
+      '0.336': admissible
+semantic_comparison:
+  paths:
+  - barometry.*
+  - tf.*
+  - pf_active.*
+  - magnetics.*
+  - spectrometer_uv.*
+  - langmuir_probes.*
+  - pf_passive.*
+  - em_coupling.*
+  - equilibrium.*
+  - wall.*
+  - ec_launchers.*
+  exclude_paths:
+  - '*.ids_properties.*'
+  - dataset_description.imas_version
+  - equilibrium.code.parameters*
+  - ec_launchers.time
+acceptance:
+  equilibrium_times:
+  - 0.327
+  - 0.33
+  - 0.331
+  - 0.332
+  - 0.333
+  - 0.334
+  - 0.335
+  - 0.336
+  equilibrium_ip_required: true
+packaging_policy:
+  manifest: wheel-and-sdist
+  artifact: repository-only
