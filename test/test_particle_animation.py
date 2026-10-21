@@ -231,3 +231,12 @@ def test_guiding_center_trail_does_not_follow_adaptive_nodes(case):
     shifted = replace(gc, time=time, position=sampled["position"], p_parallel=sampled["p_parallel"])
     end = float(gc.time[-1])
     np.testing.assert_allclose(_trail(gc, end), _trail(shifted, end), rtol=0, atol=5e-6)
+
+
+def test_equation_rows_stay_single_height():
+    """The rows sit 0.45 units apart; a stacked \\frac in either collides with
+    its neighbour (cold review of #2045). Fails if a catalog edit defeats the
+    inline rewrite."""
+    from vaft.diagram._particle_states import _equation_labels
+
+    assert all(r"\frac" not in row for row in _equation_labels())
