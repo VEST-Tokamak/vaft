@@ -759,6 +759,30 @@ def test_environment_selects_the_default_backend(monkeypatch):
         default_backend()
 
 
+def test_a_python_task_runs_as_a_batch_job(tmp_path, slurm, monkeypatch):
+    """The request ``python_task_request`` builds runs unchanged as a batch job (#1147)."""
+    from vaft.code import python_task_request
+
+    monkeypatch.delenv("VAFT_PYTHON", raising=False)
+    monkeypatch.setenv("OMP_NUM_THREADS", "16")
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "vaft_task_probe.py").write_text(
+        "import json, os, sys\n"
+        "spec = json.load(open(sys.argv[-1]))\n"
+        "print(spec['shot'], os.environ['OMP_NUM_THREADS'], os.environ['VAFT_TASK_FLAG'])\n",
+        encoding="utf-8",
+    )
+    work = _workdir(tmp_path)
+    request = python_task_request(
+        "vaft_task_probe", workdir=work, spec={"shot": 39915}, pythonpath=[source],
+        resources=ResourceRequest(threads_per_task=2, memory_mb=1000), timeout=60,
+        env={"VAFT_TASK_FLAG": "set"}, label="unit-39915",
+    )
+    result = _batch().run(request)
+    assert (result.returncode, result.stdout.split()) == (0, ["39915", "2", "set"])
+    (sbatch,) = slurm("sbatch")
+    assert {"--cpus-per-task=2", "--mem=1000M", "--job-name=vaft-unit-39915"} <= set(sbatch)
 def test_batch_submit_queues_every_job_before_any_wait(tmp_path, slurm):
     """#1018: submit is sbatch alone; result() polls and collects."""
     work = _workdir(tmp_path)

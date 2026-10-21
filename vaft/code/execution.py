@@ -44,15 +44,18 @@ The contract every backend keeps:
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import subprocess
+import sys
 import threading
 import time
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Mapping, Optional, Protocol, Sequence, runtime_checkable
+from typing import Any, Callable, Iterable, Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
 
 from . import _process_tree
 from ._executables import ExecutableNotLaunchable
@@ -752,6 +755,109 @@ class LocalBackend:
                 return stdout, stderr, not over_memory, over_memory, peak
 
 
+#: Interpreter for :func:`python_task_request` when it names none, for a batch
+#: node that sees the environment at a different path than the submitting host.
+PYTHON_ENV = "VAFT_PYTHON"
+
+_MODULE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
+
+
+def python_interpreter(environ: Optional[Mapping[str, str]] = None) -> str:
+    """The interpreter a Python task runs under: ``$VAFT_PYTHON``, else ``sys.executable``."""
+    environ = os.environ if environ is None else environ
+    return (environ.get(PYTHON_ENV) or "").strip() or sys.executable
+
+
+def python_task_request(
+    module: str,
+    args: Sequence[Union[str, os.PathLike]] = (),
+    *,
+    workdir: Union[str, os.PathLike],
+    spec: Optional[Mapping[str, Any]] = None,
+    spec_name: str = "spec.json",
+    resources: Optional[ResourceRequest] = None,
+    timeout: Optional[float] = None,
+    label: str = "",
+    propagate: Iterable[str] = (),
+    pythonpath: Sequence[Union[str, os.PathLike]] = (),
+    env: Optional[Mapping[str, str]] = None,
+    interpreter: Optional[str] = None,
+    log_path: Optional[Union[str, os.PathLike]] = None,
+) -> ExecutionRequest:
+    """An :class:`ExecutionRequest` for ``<python> -m <module> <args...>`` (#1147).
+
+    The same request runs as a local child and as a Slurm step or batch job on
+    a filesystem the nodes share. :class:`~vaft.code.remote.RemoteSlurmBackend`
+    is different: the interpreter path must exist on the remote host (pass
+    ``interpreter=`` or map its prefix with ``path_maps``) and ``PYTHONPATH``
+    is never forwarded there, so ``pythonpath`` has no effect; remote imports
+    come from the host's environment or ``setup_lines``. What it resolves:
+
+    ``interpreter``
+        ``interpreter`` if given, else ``$VAFT_PYTHON``, else
+        ``sys.executable``. Resolved here, on the submitting host; a batch
+        node must see the interpreter at that path.
+    environment
+        Each name in ``propagate`` that is set in this process is copied into
+        the overlay as it is now, then ``env`` is applied on top. The overlay
+        is laid over the launching environment, so ``propagate`` does not
+        hide anything locally; it pins the listed values into the request,
+        which is what a job script receives explicitly.
+    ``pythonpath``
+        Entries made absolute and put in front of ``PYTHONPATH`` (the
+        propagated or ``env`` one if any, else this process's), so a paired
+        or editable worktree is importable in the task. They are added after
+        ``env``, so they stay in front of an ``env`` ``PYTHONPATH``.
+    thread variables
+        With ``resources.threads_per_task`` set, every variable in
+        :data:`THREAD_ENV_VARIABLES` is set to it in the overlay, so N
+        concurrent tasks x BLAS threads do not oversubscribe a node however
+        the launching environment (or ``propagate``) sets them. This is
+        stronger than a plain request, where ``threads_per_task`` only fills
+        variables the environment leaves unset. ``env`` may still override one.
+    ``spec``
+        Written as JSON to ``workdir / spec_name`` now, and ``spec_name``
+        appended to ``args``: every backend starts the task in its working
+        directory (a remote one in the staged copy), so the relative name
+        resolves wherever it runs. One spec per ``workdir`` and name: a second
+        request built for the same pair overwrites the first one's spec.
+
+    ``workdir`` must exist; it is made absolute. The request has no stdin.
+    """
+    module = str(module)
+    if isinstance(propagate, str):
+        raise TypeError("propagate must be a collection of variable names, not one string")
+    if not _MODULE.match(module):
+        raise ValueError(f"module must be a dotted Python module name, got {module!r}")
+    workdir = Path(workdir).absolute()
+    if not workdir.is_dir():
+        raise FileNotFoundError(f"working directory does not exist: {workdir}")
+    resources = ResourceRequest() if resources is None else resources
+    command = [str(interpreter or python_interpreter()), "-m", module, *(str(arg) for arg in args)]
+    if spec is not None:
+        if Path(spec_name).name != spec_name:
+            raise ValueError(f"spec_name must be a file name, got {spec_name!r}")
+        spec_path = workdir / spec_name
+        spec_path.write_text(json.dumps(spec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        command.append(spec_name)
+    overlay: dict[str, str] = {}
+    overlay.update({name: os.environ[name] for name in propagate if name in os.environ})
+    if resources.threads_per_task is not None:
+        overlay.update({variable: str(resources.threads_per_task) for variable in THREAD_ENV_VARIABLES})
+    overlay.update({str(key): str(value) for key, value in (env or {}).items()})
+    if pythonpath:
+        entries = [str(Path(entry).absolute()) for entry in pythonpath]
+        inherited = overlay.get("PYTHONPATH", os.environ.get("PYTHONPATH", ""))
+        overlay["PYTHONPATH"] = os.pathsep.join(entries + ([inherited] if inherited else []))
+    return ExecutionRequest(
+        command=tuple(command),
+        workdir=workdir,
+        env=overlay,
+        timeout=timeout,
+        log_path=None if log_path is None else Path(log_path),
+        resources=resources,
+        label=label,
+    )
 #: How often a background local run checks whether it was cancelled [s].
 _CANCEL_POLL_S = 0.2
 
@@ -818,10 +924,13 @@ __all__ = [
     "ExecutionResult",
     "JobHandle",
     "LocalBackend",
+    "PYTHON_ENV",
     "ResourceRequest",
     "default_backend",
     "cancel_handles",
     "execution_environment",
+    "python_interpreter",
+    "python_task_request",
     "finished_handle",
     "resolve_backend",
     "submit_request",
