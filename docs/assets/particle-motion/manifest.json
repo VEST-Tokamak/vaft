@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "generator": "workflow/particle_motion/run.py",
-  "generated_commit": "8e9d0308862efde590bf6dfaaa8f76f0898e612a",
+  "generated_commit": "c0fc53284b481f2ff079a3d1c5340a5a95658f34",
   "sources": [
     {
       "path": "vaft/data/particle.py",
@@ -13,7 +13,7 @@
     },
     {
       "path": "vaft/diagram/_particle_references.py",
-      "sha256": "e32353ea4c56ac992dd651490bce720c993372860d01951946c92ea6f70e74b8"
+      "sha256": "d12439035ba05a74a6326e3cf8e40cab7c20f053227a518f9ec4e1c8ff77de77"
     },
     {
       "path": "vaft/diagram/_particle_states.py",
