@@ -26,7 +26,13 @@ from ... import compat
 from ...compat import is_executable
 from .._executables import ExecutableNotLaunchable, missing_home_message
 from .._launch import with_stack_limit
-from ..execution import ExecutionRequest, ResourceRequest, resolve_backend, timeout_reason
+from ..execution import (
+    ExecutionRequest,
+    ResourceRequest,
+    configured_resources,
+    resolve_backend,
+    timeout_reason,
+)
 from .slice_name import (
     decode_time_suffix,
     split_slice_file_name,
@@ -54,7 +60,7 @@ from .config import (
 )
 
 if TYPE_CHECKING:
-    from ..execution import ExecutionBackend
+    from ..execution import ExecutionBackend, ResourceRequest
     from .linearization import EFITLinearization
 
 
@@ -110,6 +116,10 @@ class EFITConfig:
     iteration_history: str = "none"
     # How the run is launched; None -> LocalBackend (vaft.code.execution).
     backend: Optional["ExecutionBackend"] = None
+    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: own declaration; a value replaces it, and its ``threads_per_task`` is
+    #: set in the launch environment over ``env`` and the inherited one.
+    resources: Optional["ResourceRequest"] = None
 
     def __post_init__(self) -> None:
         for name in ("npprime", "nffprime"):
@@ -851,6 +861,7 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
         if (fingerprint := _file_stat_fingerprint(path)) is not None
     }
     _add_shim_directory(env, executable)
+    resources, env = configured_resources(config, ResourceRequest(threads_per_task=1), env)
     try:
         completed = resolve_backend(config).run(
             ExecutionRequest(
@@ -860,7 +871,7 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
                 env=env,
                 stdin=stdin_text,
                 timeout=config.timeout,
-                resources=ResourceRequest(threads_per_task=1),
+                resources=resources,
                 label="efit",
             )
         )

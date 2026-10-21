@@ -25,6 +25,8 @@ from ..execution import (
     RUNTIME_QUEUE_TIMEOUT,
     ExecutionRequest,
     ExecutionResult,
+    ResourceRequest,
+    configured_resources,
     resolve_backend,
     timeout_reason,
 )
@@ -409,12 +411,14 @@ def run_subprocess(
     config: "GPECSuiteConfig",
 ) -> tuple[int, Path]:
     command = (str(executable_path),)
+    resources, env = configured_resources(config, ResourceRequest(), gpec_env(config))
     execution = resolve_backend(config).run(
         ExecutionRequest(
             command=command,
             workdir=Path(cwd),
-            env=gpec_env(config),
+            env=env,
             timeout=config.timeout,
+            resources=resources,
             log_path=Path(log_path),
             label=Path(executable_path).name,
         )

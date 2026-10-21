@@ -322,6 +322,24 @@ def test_batch_job_gets_stdin_env_delta_and_thread_defaults(tmp_path, slurm, mon
     assert "SLURM_MEM_PER_CPU" not in submitted
 
 
+def test_a_pinned_thread_count_is_exported_even_when_the_parent_matches():
+    """#1016 review: under a remote cluster --export=ALL carries *its* environment."""
+    from vaft.code.slurm import _job_script
+
+    request = ExecutionRequest(
+        command=("solver",), workdir=Path("/w"),
+        env={"OMP_NUM_THREADS": "4", "MKL_NUM_THREADS": "4", "HOME": os.environ.get("HOME", "")},
+        resources=ResourceRequest(threads_per_task=4),
+    )
+    os.environ["OMP_NUM_THREADS"] = "4"
+    try:
+        script = _job_script(request, "/w", None, "/w/.s")
+    finally:
+        del os.environ["OMP_NUM_THREADS"]
+    assert "export OMP_NUM_THREADS=4" in script and "export MKL_NUM_THREADS=4" in script
+    assert "export HOME=" not in script  # unrelated values equal to the parent still travel by --export
+
+
 def test_log_mode_merges_streams_into_the_log(tmp_path, slurm):
     work = _workdir(tmp_path)
     log = work / "logs" / "neo.log"
