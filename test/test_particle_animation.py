@@ -1,6 +1,7 @@
 """One physical coordinate across static scenes, lazy frames and quantitative views."""
 
 import json
+from dataclasses import replace
 
 import matplotlib
 
@@ -198,3 +199,33 @@ def test_tilted_uniform_field_lines_follow_the_integrated_field():
     for line in lines:
         delta = np.asarray(line.points[-1]) - line.points[0]
         np.testing.assert_allclose(delta / np.linalg.norm(delta), expected, atol=1e-12)
+
+
+def _gyrations(velocity):
+    cross = np.linalg.norm(np.cross(velocity[:-1], velocity[1:]), axis=1)
+    return np.arctan2(cross, np.sum(velocity[:-1] * velocity[1:], axis=1)).sum() / (2 * np.pi)
+
+
+@pytest.mark.parametrize("case", ["tokamak_trapped", "symmetry_breaking"])
+def test_long_full_orbit_trails_resolve_the_gyration(case):
+    """A fixed 1200-point grid drew ~3 points per turn on these ~400-gyration
+    orbits, so the trail zigzagged by ~0.5 rho (cold review of #2044)."""
+    from vaft.diagram._particle_states import _trail
+
+    full = particle_motion_case(case).full
+    trail = _trail(full, full.time[-1])
+    assert len(trail) / _gyrations(full.velocity) >= 20
+
+
+def test_guiding_center_trail_does_not_follow_adaptive_nodes():
+    """DOP853 node placement differs between platforms; the GC trail must not,
+    or committed reference SVGs hash differently on Linux CI."""
+    from vaft.diagram._particle_states import _trail
+
+    gc = particle_motion_case("gyration").guiding_center
+    # Move one node along the same path, as a different step-size ramp would.
+    time = np.r_[gc.time[0], gc.time[0] + 1.01 * (gc.time[1] - gc.time[0]), gc.time[2:]]
+    sampled = gc.sample(time)
+    shifted = replace(gc, time=time, position=sampled["position"], p_parallel=sampled["p_parallel"])
+    end = float(gc.time[-1])
+    np.testing.assert_allclose(_trail(gc, end), _trail(shifted, end), atol=1e-6)
