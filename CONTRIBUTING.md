@@ -19,7 +19,7 @@ The two branches answer different questions, and they are gated accordingly.
 
 | | `develop` | `main` |
 | --- | --- | --- |
-| Required checks | `package`, `core-test` | `package`, `test`, `tutorial` |
+| Required checks | `merge-gate` (= `package` + `core-test`, on Actions or on the lab cluster) | `package`, `test`, `tutorial` |
 | Test selection | `pytest -m "core and not perf"` on Linux | the whole suite on Linux **and** Windows, `slow` tests included |
 | Answers | development confidence | release confidence and supported-platform qualification |
 | Measured wall clock | ~4 min | ~35 min |
@@ -42,6 +42,38 @@ surfaces within one merge, on the branch that caused it, rather than waiting for
 `main` gate. Nothing is skipped anywhere; those tests move gates, they do not
 stop running.
 
+### Two ways to satisfy the develop gate
+
+The develop ruleset requires a single commit status, `merge-gate`, on the PR
+head. Two routes post it, and whichever passes first unblocks the merge:
+
+1. **GitHub Actions.** The `post merge-gate` job in `Package CI` runs after
+   `package` and `core-test` and posts `merge-gate: success` only when both
+   passed.
+2. **The lab Slurm cluster (tdst).** When the Actions queue is backed up,
+   `.github/scripts/tdst_gate.sh <PR>` runs the same steps — ruff F821,
+   `pytest -m "core and not perf"`, build + `twine check` + `verify_dist.py` +
+   wheel smoke — on GitHub's own merge ref `refs/pull/<PR>/merge`, inside one
+   Slurm allocation, and on a pass posts `merge-gate: success`. Its verdict
+   (pass or fail) is also posted as the informational `tdst-ci` status. Run it
+   from a workstation with `gh` authenticated and ssh access to the cluster;
+   the host and Slurm account come from `~/.config/vaft/tdst-gate.env`
+   (`VAFT_TDST_SSH`, `VAFT_TDST_SBATCH`), never from the repository.
+   `VAFT_TDST_NO_STATUS=1` makes it a dry run that only prints the verdict.
+
+Neither route ever posts a failure to `merge-gate`, so a red run on one route
+cannot overwrite a green verdict from the other; a PR with no green route stays
+blocked with the status "expected". The status is accepted from any source
+(no `integration_id`), which is what lets the cluster post it — so it is a
+convention among people with write access, like the admin bypass below, and
+it is auditable in each commit's status history. A new push changes the head
+SHA and therefore needs a new verdict.
+
+The cluster route is the same *selection* on the same *tree*, not an identical
+environment: Python 3.14 from conda-forge and `uv pip install --no-sources`
+instead of `actions/setup-python` and pip. A failure that appears on only one
+route is worth reporting.
+
 ## Branch protection is configured as code
 
 Both branches' protection lives in
@@ -55,7 +87,7 @@ What `develop.json` enforces:
 
 | Rule | Effect |
 | --- | --- |
-| `required_status_checks` | The `Package CI` workflow's `core-test` and `package` jobs must both pass before anything merges into `develop`. |
+| `required_status_checks` | The `merge-gate` commit status must be `success` before anything merges into `develop`; it means `core-test` and `package` passed, on Actions or on the lab cluster (see "Two ways to satisfy the develop gate"). |
 | `deletion` | `develop` cannot be deleted. |
 | `non_fast_forward` | `develop` cannot be force-pushed. |
 | `bypass_actors` | The Admin repository role may bypass the above, for repository recovery only — see below. |

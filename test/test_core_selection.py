@@ -148,6 +148,42 @@ def test_the_develop_gate_runs_the_declared_expression():
     )
 
 
+TDST_GATE = REPO_ROOT / ".github" / "scripts" / "tdst_gate.sh"
+DEVELOP_RULESET = REPO_ROOT / ".github" / "rulesets" / "develop.json"
+
+
+@pytest.mark.skipif(not TDST_GATE.is_file(), reason="this branch has no cluster gate")
+def test_the_cluster_gate_runs_the_same_expression():
+    """Both routes to `merge-gate` must run the same selection, or one is a lie."""
+    script = TDST_GATE.read_text(encoding="utf-8")
+    assert f'-m "{GATE_EXPRESSION}"' in script, (
+        ".github/scripts/tdst_gate.sh no longer runs the develop gate's "
+        f'-m "{GATE_EXPRESSION}"; it posts the same merge-gate status as Actions.'
+    )
+
+
+@pytest.mark.skipif(
+    not (WORKFLOW.is_file() and DEVELOP_RULESET.is_file()),
+    reason="this branch has no Package CI workflow or develop ruleset",
+)
+def test_merge_gate_is_required_and_posted_only_after_both_jobs():
+    """The ruleset requires `merge-gate`; Actions posts it only after package + core-test."""
+    import json
+
+    rules = json.loads(DEVELOP_RULESET.read_text(encoding="utf-8"))["rules"]
+    required = [
+        check["context"]
+        for rule in rules
+        if rule["type"] == "required_status_checks"
+        for check in rule["parameters"]["required_status_checks"]
+    ]
+    assert required == ["merge-gate"], required
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    job = workflow.split("\n  merge-gate:\n", 1)[1].split("\n  test-matrix:", 1)[0]
+    assert "needs: [package, core-test]" in job
+    assert "context=merge-gate -f state=success" in job
+
+
 def test_core_marker_is_registered():
     """`pytest -m core` must be a documented selector, not an unknown mark."""
     pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
