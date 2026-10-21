@@ -179,6 +179,11 @@ def test_size_must_be_positive():
 def test_generation_is_deterministic():
     assert P.pictogram("history", (1, 2), role="symbol:x") == P.pictogram("history", (1, 2), role="symbol:x")
     assert P._build() == P.SYMBOLS
+    # and the same across processes (no hash-seed or ordering dependence)
+    code = "import vaft.diagram.pictograms as p, hashlib; print(hashlib.sha256(repr(p.SYMBOLS).encode()).hexdigest())"
+    digests = {subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True,
+                              env={**__import__("os").environ, "PYTHONHASHSEED": seed}).stdout for seed in ("1", "2")}
+    assert len(digests) == 1
 
 
 def test_badge_is_a_disc_under_the_icon_and_corner_clips_it_on():
@@ -255,14 +260,6 @@ def test_gallery_draws_every_symbol_and_is_canonical():
     assert vaft.diagram.pictogram_catalog is P.pictogram_catalog
 
 
-def _without_symbols(monkeypatch, builder, *modules):
-    for module in modules:
-        for helper in ("badge", "pictogram"):
-            if hasattr(module, helper):
-                monkeypatch.setattr(module, helper, lambda *a, **k: Scene(()))
-    return builder().scene.items
-
-
 @pytest.mark.parametrize("name, modules, symbols", [
     ("scientific_workflow", (_vaft_concepts,), {"group:sources": "tokamak", **{
         f"node:{k}": v for k, v in _vaft_concepts.WORKFLOW_SYMBOLS.items()}}),
@@ -279,8 +276,13 @@ def test_demonstrations_only_add_symbols(monkeypatch, name, modules, symbols, la
         assert len(icon) == len(P.symbol(sym).strokes)
         assert any(i.role == role for i in items if not i.role.startswith("symbol:"))  # beside an existing item
     plain = [i for i in items if not i.role.startswith("symbol:")]
-    assert plain == list(_without_symbols(monkeypatch, lambda: getattr(vaft.diagram, name)(labels=labels), *modules))
-    assert full.model == getattr(vaft.diagram, name)(labels=labels).model
+    for module in modules:
+        for helper in ("badge", "pictogram"):
+            if hasattr(module, helper):
+                monkeypatch.setattr(module, helper, lambda *a, **k: Scene(()))
+    bare = getattr(vaft.diagram, name)(labels=labels)
+    assert plain == list(bare.scene.items)
+    assert full.model == bare.model
 
 
 def test_the_overview_still_draws_only_the_machine_picture():
@@ -291,9 +293,11 @@ def test_the_overview_still_draws_only_the_machine_picture():
 def test_pictogram_roles_never_shadow_topology_roles():
     for name in ("scientific_workflow", "vest_data_platform_overview"):
         diagram = getattr(vaft.diagram, name)()
+        symbols = [i for i in diagram.scene.items if i.role.startswith("symbol:")]
+        assert symbols and all(isinstance(i, Polyline) for i in symbols)  # never a Label, a node or an edge
         roles = {i.role for i in diagram.scene.items if not i.role.startswith("symbol:")}
-        assert not any(r.startswith("symbol:") for r in roles)
-        assert {i.role[len("symbol:"):] for i in diagram.scene.items if i.role.startswith("symbol:")} <= roles
+        # each pictogram annotates an item that exists, under its own namespace
+        assert {i.role[len("symbol:"):] for i in symbols} <= roles
 
 
 def test_the_symbol_helpers_are_not_gallery_builders():
