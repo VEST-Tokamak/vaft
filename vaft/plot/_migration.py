@@ -67,7 +67,7 @@ __all__ = [
 #: ``test_plot_migration.py`` now refuses a release whose version has reached
 #: either removal release while the names still resolve.
 INTRODUCED_IN = "0.5.0"
-REMOVAL_RELEASE = "0.9.0"
+REMOVAL_RELEASE = "0.10.0"
 
 #: Legacy renderer name -> canonical ``vaft.plot`` stem.
 DEPRECATED: dict[str, str] = {
@@ -206,7 +206,7 @@ del _name, _coordinate, _canonical
 #: ``vaft.plot.<old>`` and ``vaft.omas.plot_<old>`` keep working with a
 #: ``DeprecationWarning`` until ``RENAMED_REMOVAL_RELEASE``.
 RENAMED_IN = "0.6.0"
-RENAMED_REMOVAL_RELEASE = "0.9.0"
+RENAMED_REMOVAL_RELEASE = "0.10.0"
 
 RENAMED: dict[str, str] = {
     "magnetics_time_ip": "plasma_current_time",
