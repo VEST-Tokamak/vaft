@@ -403,7 +403,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f6e685c</code>. What is described
+  <code>c372ffc</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -611,7 +611,7 @@ authors used. Every unit trap on this page is collected again in
 <span class="n">psi</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">psi_from_RBtheta</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">B_theta</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="n">psi_axis</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>   <span class="c1"># psi = int R B_theta dl + psi_a
 </span><span class="n">psiN</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">psi_normalised</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">psi_axis</span><span class="p">,</span> <span class="n">psi_boundary</span><span class="p">)</span>     <span class="c1"># psi_N = (psi-psi_a)/(psi_b-psi_a)
 </span>
-<span class="n">phi</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">phi_from_Bphi</span><span class="p">(</span><span class="n">B_phi</span><span class="p">,</span> <span class="n">dA</span><span class="p">)</span>                        <span class="c1"># Phi = int B_phi dA
+<span class="n">phi</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">phi_from_Bphi</span><span class="p">(</span><span class="n">B_phi</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">inside_lcfs</span><span class="p">)</span>    <span class="c1"># Phi = int B_phi dR dZ
 </span><span class="n">rhoN</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">rhoN_from_phi</span><span class="p">(</span><span class="n">phi</span><span class="p">,</span> <span class="n">phi_boundary</span><span class="p">)</span>                <span class="c1"># rho_N = sqrt(Phi/Phi_b)
 </span>
 <span class="n">q</span>    <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">q_from_phi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">phi</span><span class="p">)</span>                            <span class="c1"># q = dPhi/dpsi
@@ -1382,7 +1382,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-21 13:14:55 +0900"
+        "time": "2026-10-21 17:45:57 +0900"
     },
     "basePath": "/vaft/develop",
     "book": {

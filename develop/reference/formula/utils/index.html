@@ -403,7 +403,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f6e685c</code>. What is described
+  <code>c372ffc</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -453,7 +453,7 @@ the formula module.</p>
 </td></tr>
   <tr data-ref-row="calculate_poloidal_flux"><td><a href="#calculate_poloidal_flux"><code>calculate_poloidal_flux</code></a></td><td>Poloidal flux per radian from a line integral of $RB_\theta$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="calculate_toroidal_flux"><td><a href="#calculate_toroidal_flux"><code>calculate_toroidal_flux</code></a></td><td>Toroidal flux as a sum of $B_\varphi$ over area elements.
+  <tr data-ref-row="calculate_toroidal_flux"><td><a href="#calculate_toroidal_flux"><code>calculate_toroidal_flux</code></a></td><td>Toroidal flux $\Phi = \int B_\varphi\,dR\,dZ$ over a rectilinear $(R, Z)$ grid.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="calculate_volume_weighted_average"><td><a href="#calculate_volume_weighted_average"><code>calculate_volume_weighted_average</code></a></td><td>Volume-weighted average of a sampled profile.
 </td></tr>
@@ -484,7 +484,7 @@ the formula module.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calculate_peaking_factor"><code>calculate_peaking_factor</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="calculate_peaking_factor" href="https://github.com/VEST-Tokamak/vaft/blob/f6e685ca852bc856b4d10a554e2b70a3e70d44e1/vaft/formula/utils.py#L447-L479" title="vaft/formula/utils.py, lines 447–479 at f6e685c">source</a>
+<a class="ref-source" data-source="calculate_peaking_factor" href="https://github.com/VEST-Tokamak/vaft/blob/c372ffc30139f80f4a8115bf2fe05cbe362e8a62/vaft/formula/utils.py#L447-L479" title="vaft/formula/utils.py, lines 447–479 at c372ffc">source</a>
 </header>
     <pre class="ref-signature"><code>calculate_peaking_factor(central, volume_avg)</code></pre>
     <p class="ref-note">Reduction: scalar 0d &rarr; scalar 0d &middot; dimensionless normalization &middot; global &middot; profile descriptor (<a href="/vaft/develop/reference/reduced-representations/">taxonomy</a>)</p>
@@ -561,7 +561,7 @@ the formula module.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calculate_poloidal_flux"><code>calculate_poloidal_flux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="calculate_poloidal_flux" href="https://github.com/VEST-Tokamak/vaft/blob/f6e685ca852bc856b4d10a554e2b70a3e70d44e1/vaft/formula/utils.py#L512-L546" title="vaft/formula/utils.py, lines 512–546 at f6e685c">source</a>
+<a class="ref-source" data-source="calculate_poloidal_flux" href="https://github.com/VEST-Tokamak/vaft/blob/c372ffc30139f80f4a8115bf2fe05cbe362e8a62/vaft/formula/utils.py#L512-L546" title="vaft/formula/utils.py, lines 512–546 at c372ffc">source</a>
 </header>
     <pre class="ref-signature"><code>calculate_poloidal_flux(R, B_theta, l, psi_axis=0.0)</code></pre>
 
@@ -652,59 +652,113 @@ The physics wrapper is <code class="language-plaintext highlighter-rouge">vaft.f
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calculate_toroidal_flux"><code>calculate_toroidal_flux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="calculate_toroidal_flux" href="https://github.com/VEST-Tokamak/vaft/blob/f6e685ca852bc856b4d10a554e2b70a3e70d44e1/vaft/formula/utils.py#L549-L577" title="vaft/formula/utils.py, lines 549–577 at f6e685c">source</a>
+<a class="ref-source" data-source="calculate_toroidal_flux" href="https://github.com/VEST-Tokamak/vaft/blob/c372ffc30139f80f4a8115bf2fe05cbe362e8a62/vaft/formula/utils.py#L627-L700" title="vaft/formula/utils.py, lines 627–700 at c372ffc">source</a>
 </header>
-    <pre class="ref-signature"><code>calculate_toroidal_flux(B_phi, dA)</code></pre>
+    <pre class="ref-signature"><code>calculate_toroidal_flux(B_phi, R=None, Z=None, mask=None, *, dA=None)</code></pre>
 
-    <details class="ref-code" data-source-code="calculate_toroidal_flux"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 549–577</span></summary>
+    <details class="ref-code" data-source-code="calculate_toroidal_flux"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 627–700</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">calculate_toroidal_flux</span><span class="p">(</span><span class="n">B_phi</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
-                          <span class="n">dA</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-    <span class="sa">r</span><span class="sh">"""</span><span class="s">Toroidal flux as a sum of $B_\varphi$ over area elements.
+                            <span class="n">R</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+                            <span class="n">Z</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+                            <span class="n">mask</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+                            <span class="o">*</span><span class="p">,</span>
+                            <span class="n">dA</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Toroidal flux $\Phi = \int B_\varphi\,dR\,dZ$ over a rectilinear $(R, Z)$ grid.
 
-    $$\Phi = \sum_i B_{\varphi,i}\,\Delta A_i$$
+    $$\Phi = \iint_{S} B_\varphi(R, Z)\,dR\,dZ$$
+
+    by the 2-D trapezoidal rule, over the whole grid or over the cells a
+    ``mask`` selects.
 
     Parameters
     ----------
     B_phi : np.ndarray
-        Toroidal field on the area elements [T].
-    dA : np.ndarray
-        Area of each element, same shape [m^2].
+        Toroidal field on the grid, indexed ``[R, Z]`` (IMAS ``profiles_2d``
+        order) [T].
+    R : np.ndarray, optional
+        Major radius: a 1-D strictly monotonic axis of length ``B_phi.shape[0]``,
+        or an ``ij``-indexed 2-D mesh of the shape of ``B_phi`` [m].
+    Z : np.ndarray, optional
+        Height: a 1-D strictly monotonic axis of length ``B_phi.shape[1]``, or an
+        ``ij``-indexed 2-D mesh of the shape of ``B_phi`` [m].
+    mask : np.ndarray, optional
+        Boolean map of the shape of ``B_phi``; ``True`` marks the samples inside
+        the cross-section.  ``psi_N &lt;= 1`` alone also selects the private-flux
+        region below a diverted X-point; combine it with an inside-the-LCFS
+        test there.  Default: the whole grid [-].
+    dA : np.ndarray, optional
+        Deprecated (#358).  Caller-supplied area elements of the old bare sum
+        $\sum_i B_{\varphi,i}\,\Delta A_i$; also taken from a two-argument call
+        ``calculate_toroidal_flux(B_phi, dA)`` when ``B_phi`` is not 2-D or ``dA``
+        is a scalar cell area (a 2-D area map must pass ``dA=`` by keyword).  Emits a ``DeprecationWarning`` [m^2].
 
     Returns
     -------
     float
-        Toroidal flux [Wb].
+        Toroidal flux through the selected area [Wb].
+
+    Raises
+    ------
+    ValueError
+        If the grid is not rectilinear, an axis is not strictly monotonic, a
+        shape does not match ``B_phi``, or ``mask`` is not boolean.
+    TypeError
+        If neither the grid nor ``dA`` is given, both are, or a 2-D map is
+        given a second argument without ``Z``.
 
     Convention
     ----------
-    Full weber (toroidal flux has no per-radian form); sign of $B_\varphi$.
-    The physics wrapper is :func:`vaft.formula.equilibrium.phi_from_Bphi`.
+    Full weber (toroidal flux has no per-radian form); sign of $B_\varphi$
+    along the COCOS $\varphi$ direction, so a reversed-field discharge flips it
+    as surely as a COCOS conversion does.  The area is counted positive
+    whichever direction the axes are stored in, so reversing ``R`` or ``Z``
+    does not flip the sign.  The physics wrapper is
+    :func:`vaft.formula.equilibrium.phi_from_Bphi`.
 
     Numerical notes
     ---------------
-    A Riemann sum with caller-supplied areas, not a quadrature rule; first
-    order in the cell size.  Tracked in #358.
+    Trapezoidal rule along ``Z`` then ``R`` through
+    :func:`vaft.compat.trapz_compat`: second order in the spacing over the full
+    grid, exact for a field bilinear in $(R, Z)$.  With a ``mask`` the integrand
+    is set to zero outside it, so the staircase boundary makes the error first
+    order in the cell size; refine the grid, not the mask, to converge.  The
+    deprecated ``dA`` path is the old Riemann sum, first order and only as good
+    as the caller</span><span class="sh">'</span><span class="s">s areas.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.4 (toroidal flux and the safety factor).
     </span><span class="sh">"""</span>
-    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">B_phi</span> <span class="o">*</span> <span class="n">dA</span><span class="p">)</span></code></pre></figure>
+    <span class="k">return</span> <span class="nf">_toroidal_flux</span><span class="p">(</span><span class="n">B_phi</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">dA</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span></code></pre></figure>
 
 </details>
 
-    <p>Toroidal flux as a sum of $B_\varphi$ over area elements.</p>
+    <p>Toroidal flux $\Phi = \int B_\varphi\,dR\,dZ$ over a rectilinear $(R, Z)$ grid.</p>
 
-\[\Phi = \sum_i B_{\varphi,i}\,\Delta A_i\]
+\[\Phi = \iint_{S} B_\varphi(R, Z)\,dR\,dZ\]
+
+    <p>by the 2-D trapezoidal rule, over the whole grid or over the cells a
+<code class="language-plaintext highlighter-rouge">mask</code> selects.</p>
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>B_phi</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">T</td><td><p>Toroidal field on the area elements.</p>
+  <tr><td><code>B_phi</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">T</td><td><p>Toroidal field on the grid, indexed <code class="language-plaintext highlighter-rouge">[R, Z]</code> (IMAS <code class="language-plaintext highlighter-rouge">profiles_2d</code> order).</p>
 </td></tr>
-  <tr><td><code>dA</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m^2</td><td><p>Area of each element, same shape.</p>
+  <tr><td><code>R</code></td><td class="ref-type">np.ndarray, optional</td><td class="ref-unit">m</td><td><p>Major radius: a 1-D strictly monotonic axis of length <code class="language-plaintext highlighter-rouge">B_phi.shape[0]</code>, or an <code class="language-plaintext highlighter-rouge">ij</code>-indexed 2-D mesh of the shape of <code class="language-plaintext highlighter-rouge">B_phi</code>.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">np.ndarray, optional</td><td class="ref-unit">m</td><td><p>Height: a 1-D strictly monotonic axis of length <code class="language-plaintext highlighter-rouge">B_phi.shape[1]</code>, or an <code class="language-plaintext highlighter-rouge">ij</code>-indexed 2-D mesh of the shape of <code class="language-plaintext highlighter-rouge">B_phi</code>.</p>
+</td></tr>
+  <tr><td><code>mask</code></td><td class="ref-type">np.ndarray, optional</td><td class="ref-unit">-</td><td><p>Boolean map of the shape of <code class="language-plaintext highlighter-rouge">B_phi</code>; <code class="language-plaintext highlighter-rouge">True</code> marks the samples inside the cross-section.  <code class="language-plaintext highlighter-rouge">psi_N &lt;= 1</code> alone also selects the private-flux region below a diverted X-point; combine it with an inside-the-LCFS test there.  Default: the whole grid.</p>
+</td></tr>
+  <tr><td><code>dA</code></td><td class="ref-type">np.ndarray, optional</td><td class="ref-unit">m^2</td><td><p>Deprecated (#358).  Caller-supplied area elements of the old bare sum $\sum_i B_{\varphi,i}\,\Delta A_i$; also taken from a two-argument call <code class="language-plaintext highlighter-rouge">calculate_toroidal_flux(B_phi, dA)</code> when <code class="language-plaintext highlighter-rouge">B_phi</code> is not 2-D or <code class="language-plaintext highlighter-rouge">dA</code> is a scalar cell area (a 2-D area map must pass <code class="language-plaintext highlighter-rouge">dA=</code> by keyword).  Emits a <code class="language-plaintext highlighter-rouge">DeprecationWarning</code>.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">Wb</td><td><p>Toroidal flux.</p>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">Wb</td><td><p>Toroidal flux through the selected area.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -712,18 +766,44 @@ The physics wrapper is <code class="language-plaintext highlighter-rouge">vaft.f
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>Full weber (toroidal flux has no per-radian form); sign of $B_\varphi$.
-The physics wrapper is <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.phi_from_Bphi</code>.</p>
+      <p>Full weber (toroidal flux has no per-radian form); sign of $B_\varphi$
+along the COCOS $\varphi$ direction, so a reversed-field discharge flips it
+as surely as a COCOS conversion does.  The area is counted positive
+whichever direction the axes are stored in, so reversing <code class="language-plaintext highlighter-rouge">R</code> or <code class="language-plaintext highlighter-rouge">Z</code>
+does not flip the sign.  The physics wrapper is
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.phi_from_Bphi</code>.</p>
 
     </div>
 
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> If the grid is not rectilinear, an axis is not strictly monotonic, a shape does not match <code class="language-plaintext highlighter-rouge">B_phi</code>, or <code class="language-plaintext highlighter-rouge">mask</code> is not boolean.
+</li>
+  <li><code>TypeError</code> If neither the grid nor <code class="language-plaintext highlighter-rouge">dA</code> is given, both are, or a 2-D map is given a second argument without <code class="language-plaintext highlighter-rouge">Z</code>.
+</li>
+</ul>
+</div>
+
     <details class="ref-more">
-      <summary>Numerical notes</summary>
+      <summary>Numerical notes · References</summary>
 
       <h4 class="ref-label no_toc">Numerical notes</h4>
 
-      <p>A Riemann sum with caller-supplied areas, not a quadrature rule; first
-order in the cell size.  Tracked in #358.</p>
+      <p>Trapezoidal rule along <code class="language-plaintext highlighter-rouge">Z</code> then <code class="language-plaintext highlighter-rouge">R</code> through
+<code class="language-plaintext highlighter-rouge">vaft.compat.trapz_compat</code>: second order in the spacing over the full
+grid, exact for a field bilinear in $(R, Z)$.  With a <code class="language-plaintext highlighter-rouge">mask</code> the integrand
+is set to zero outside it, so the staircase boundary makes the error first
+order in the cell size; refine the grid, not the mask, to converge.  The
+deprecated <code class="language-plaintext highlighter-rouge">dA</code> path is the old Riemann sum, first order and only as good
+as the caller’s areas.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.4 (toroidal flux and the safety factor).
+</li>
+</ol>
 
     </details>
 
@@ -733,7 +813,7 @@ order in the cell size.  Tracked in #358.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calculate_volume_weighted_average"><code>calculate_volume_weighted_average</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="calculate_volume_weighted_average" href="https://github.com/VEST-Tokamak/vaft/blob/f6e685ca852bc856b4d10a554e2b70a3e70d44e1/vaft/formula/utils.py#L482-L509" title="vaft/formula/utils.py, lines 482–509 at f6e685c">source</a>
+<a class="ref-source" data-source="calculate_volume_weighted_average" href="https://github.com/VEST-Tokamak/vaft/blob/c372ffc30139f80f4a8115bf2fe05cbe362e8a62/vaft/formula/utils.py#L482-L509" title="vaft/formula/utils.py, lines 482–509 at c372ffc">source</a>
 </header>
     <pre class="ref-signature"><code>calculate_volume_weighted_average(x, V)</code></pre>
 
@@ -804,11 +884,11 @@ order in the cell size.  Tracked in #358.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#eped_tanh_bounds"><code>eped_tanh_bounds</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="eped_tanh_bounds" href="https://github.com/VEST-Tokamak/vaft/blob/f6e685ca852bc856b4d10a554e2b70a3e70d44e1/vaft/formula/utils.py#L746-L785" title="vaft/formula/utils.py, lines 746–785 at f6e685c">source</a>
+<a class="ref-source" data-source="eped_tanh_bounds" href="https://github.com/VEST-Tokamak/vaft/blob/c372ffc30139f80f4a8115bf2fe05cbe362e8a62/vaft/formula/utils.py#L869-L908" title="vaft/formula/utils.py, lines 869–908 at c372ffc">source</a>
 </header>
     <pre class="ref-signature"><code>eped_tanh_bounds(x, y)</code></pre>
 
-    <details class="ref-code" data-source-code="eped_tanh_bounds"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 746–785</span></summary>
+    <details class="ref-code" data-source-code="eped_tanh_bounds"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 869–908</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">eped_tanh_bounds</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
     <span class="sh">"""</span><span class="s">Parameter box the ``eped_tanh`` fit uses for this data.
@@ -901,7 +981,7 @@ grid spacing.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_profile"><code>fit_profile</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="fit_profile" href="https://github.com/VEST-Tokamak/vaft/blob/f6e685ca852bc856b4d10a554e2b70a3e70d44e1/vaft/formula/utils.py#L812-L1167" title="vaft/formula/utils.py, lines 812–1167 at f6e685c">source</a>
+<a class="ref-source" data-source="fit_profile" href="https://github.com/VEST-Tokamak/vaft/blob/c372ffc30139f80f4a8115bf2fe05cbe362e8a62/vaft/formula/utils.py#L935-L1290" title="vaft/formula/utils.py, lines 935–1290 at c372ffc">source</a>
 </header>
     <pre class="ref-signature"><code>fit_profile(x, y, y_std, x_eval, order=3, uncertainty_option=1, fitting_function=&#39;polynomial&#39;, gp_kernel=None, gp_anchor=None, n_restarts_optimizer=5, *, random_state=0)</code></pre>
 
@@ -1006,7 +1086,7 @@ fit_profile(x, y, y_std, x_eval, order=3, fitting_function=’core_poly_edge_exp
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gp_fit"><code>gp_fit</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="gp_fit" href="https://github.com/VEST-Tokamak/vaft/blob/f6e685ca852bc856b4d10a554e2b70a3e70d44e1/vaft/formula/utils.py#L337-L381" title="vaft/formula/utils.py, lines 337–381 at f6e685c">source</a>
+<a class="ref-source" data-source="gp_fit" href="https://github.com/VEST-Tokamak/vaft/blob/c372ffc30139f80f4a8115bf2fe05cbe362e8a62/vaft/formula/utils.py#L337-L381" title="vaft/formula/utils.py, lines 337–381 at c372ffc">source</a>
 </header>
     <pre class="ref-signature"><code>gp_fit(x, y, y_std, x_eval, *, n_restarts_optimizer=5, random_state=0)</code></pre>
 
@@ -1112,7 +1192,7 @@ m^-3 and in keV alike.  The marginal likelihood is optimised with
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gradient"><code>gradient</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="gradient" href="https://github.com/VEST-Tokamak/vaft/blob/f6e685ca852bc856b4d10a554e2b70a3e70d44e1/vaft/formula/utils.py#L42-L72" title="vaft/formula/utils.py, lines 42–72 at f6e685c">source</a>
+<a class="ref-source" data-source="gradient" href="https://github.com/VEST-Tokamak/vaft/blob/c372ffc30139f80f4a8115bf2fe05cbe362e8a62/vaft/formula/utils.py#L42-L72" title="vaft/formula/utils.py, lines 42–72 at c372ffc">source</a>
 </header>
     <pre class="ref-signature"><code>gradient(x, y)</code></pre>
 
@@ -1193,11 +1273,11 @@ independently, so the result equals stacking the 1-D derivatives.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#make_fit_function"><code>make_fit_function</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="make_fit_function" href="https://github.com/VEST-Tokamak/vaft/blob/f6e685ca852bc856b4d10a554e2b70a3e70d44e1/vaft/formula/utils.py#L584-L653" title="vaft/formula/utils.py, lines 584–653 at f6e685c">source</a>
+<a class="ref-source" data-source="make_fit_function" href="https://github.com/VEST-Tokamak/vaft/blob/c372ffc30139f80f4a8115bf2fe05cbe362e8a62/vaft/formula/utils.py#L707-L776" title="vaft/formula/utils.py, lines 707–776 at c372ffc">source</a>
 </header>
     <pre class="ref-signature"><code>make_fit_function(mode)</code></pre>
 
-    <details class="ref-code" data-source-code="make_fit_function"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 584–653</span></summary>
+    <details class="ref-code" data-source-code="make_fit_function"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 707–776</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">make_fit_function</span><span class="p">(</span><span class="n">mode</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Build a 1-D parametric model $f(x; c_0, c_1, \dots)$ for profile fitting.
@@ -1319,7 +1399,7 @@ positive and decay monotonically when the polynomial is decreasing.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#normalize_profile"><code>normalize_profile</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="normalize_profile" href="https://github.com/VEST-Tokamak/vaft/blob/f6e685ca852bc856b4d10a554e2b70a3e70d44e1/vaft/formula/utils.py#L412-L444" title="vaft/formula/utils.py, lines 412–444 at f6e685c">source</a>
+<a class="ref-source" data-source="normalize_profile" href="https://github.com/VEST-Tokamak/vaft/blob/c372ffc30139f80f4a8115bf2fe05cbe362e8a62/vaft/formula/utils.py#L412-L444" title="vaft/formula/utils.py, lines 412–444 at c372ffc">source</a>
 </header>
     <pre class="ref-signature"><code>normalize_profile(x, x_axis, x_boundary)</code></pre>
 
@@ -1399,7 +1479,7 @@ propagating <code class="language-plaintext highlighter-rouge">inf</code>.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#normalized_gradient_scale_length"><code>normalized_gradient_scale_length</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="normalized_gradient_scale_length" href="https://github.com/VEST-Tokamak/vaft/blob/f6e685ca852bc856b4d10a554e2b70a3e70d44e1/vaft/formula/utils.py#L75-L139" title="vaft/formula/utils.py, lines 75–139 at f6e685c">source</a>
+<a class="ref-source" data-source="normalized_gradient_scale_length" href="https://github.com/VEST-Tokamak/vaft/blob/c372ffc30139f80f4a8115bf2fe05cbe362e8a62/vaft/formula/utils.py#L75-L139" title="vaft/formula/utils.py, lines 75–139 at c372ffc">source</a>
 </header>
     <pre class="ref-signature"><code>normalized_gradient_scale_length(x, y, a)</code></pre>
     <p class="ref-note">Reduction: profile 1d &rarr; profile 1d &middot; differential &middot; flux surface local &middot; closure input (<a href="/vaft/develop/reference/reduced-representations/">taxonomy</a>)</p>
@@ -1537,7 +1617,7 @@ profile is small – the edge – so smooth or fit the profile first.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#trapz_integral"><code>trapz_integral</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="trapz_integral" href="https://github.com/VEST-Tokamak/vaft/blob/f6e685ca852bc856b4d10a554e2b70a3e70d44e1/vaft/formula/utils.py#L142-L167" title="vaft/formula/utils.py, lines 142–167 at f6e685c">source</a>
+<a class="ref-source" data-source="trapz_integral" href="https://github.com/VEST-Tokamak/vaft/blob/c372ffc30139f80f4a8115bf2fe05cbe362e8a62/vaft/formula/utils.py#L142-L167" title="vaft/formula/utils.py, lines 142–167 at c372ffc">source</a>
 </header>
     <pre class="ref-signature"><code>trapz_integral(x, y)</code></pre>
 
@@ -1827,7 +1907,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-21 13:14:55 +0900"
+        "time": "2026-10-21 17:45:57 +0900"
     },
     "basePath": "/vaft/develop",
     "book": {
