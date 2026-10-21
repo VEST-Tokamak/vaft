@@ -9,8 +9,9 @@ Clockwise from ``+R`` turns toward ``-Z``, so the axis is
 ``(cos(angle), -sin(angle))`` in ``(R, Z)`` and a probe measuring ``+Bz``
 is stored as ``3*pi/2``.  Projecting with ``(cos, +sin)`` -- the
 counter-clockwise reading -- flips the vertical-field part of every probe
-(a purely vertical one reads inverted) while leaving flux loops untouched, which is exactly how the mistake hides: VAFT carried it until
-#288, and a downstream solver carried it after #293 moved the angle.
+(a purely vertical one reads inverted) while leaving flux loops untouched,
+which is exactly how the mistake hides: VAFT carried it until #288, and a
+downstream solver carried it after #293 moved the angle.
 """
 
 from __future__ import annotations
@@ -46,9 +47,9 @@ def probe_axis(poloidal_angle):
     $-B_Z$ probe.  The $B_Z$ contribution of every probe with a vertical
     component then enters with the wrong sign -- a purely vertical probe reads
     exactly inverted, an oblique one simply wrong -- while purely radial
-    probes and all flux loops, which carry no angle, are unaffected.  That asymmetry is how the error hides in a
-    reconstruction: VAFT carried it until #288, and a downstream solver after
-    #293.
+    probes and all flux loops, which carry no angle, are unaffected.  That
+    asymmetry is how the error hides in a reconstruction: VAFT carried it
+    until #288, and a downstream solver after #293.
 
     References
     ----------

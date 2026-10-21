@@ -2115,7 +2115,8 @@ def beta_normal_from_beta_tor(beta_tor: float,
     **amperes**, and the factor 100 and the conversion to MA are applied here,
     so the result is directly comparable with a Troyon coefficient of about
     2.8.  :func:`vaft.formula.stability.beta_N_from_beta_a_B0_Ip` evaluates the
-    same ratio but takes $\beta$ in percent and $I_p$ in MA and does not
+    same ratio with its own ``B0`` (documented as the field on axis) but
+    takes $\beta$ in percent and $I_p$ in MA and does not
     rescale: fed this function's fraction and amperes it returns $10^{-8}$ of
     this value (#349), and this function fed percent returns 100 times too
     much; its sign also follows $B_0 I_p$, so under a COCOS with a negative
@@ -2266,8 +2267,9 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
     $l_{i1} = l_{i3}\,(R_0/R_c)\,\Gamma^2/(4\pi A)$ with $A$ the cross-section
     area and $R_c = V/(2\pi A)$ its centroid radius: a shape part that grows
     with elongation (about 8.5 % for an ellipse at $\kappa = 1.6$) times a
-    radius part, so an EFIT ``li`` read as ``li_3`` is wrong by their product.  Within ``li_3`` the result is also inversely
-    proportional to the ``R0`` passed: the magnetic-axis radius, the
+    radius part, so an EFIT ``li`` read as ``li_3`` is wrong by their
+    product.  Within ``li_3`` the result is also inversely proportional to
+    the ``R0`` passed: the magnetic-axis radius, the
     geometric centre and ``vacuum_toroidal_field.r0`` give different numbers,
     and :func:`internal_inductance_from_li_3_R0` must be given the same one.
 
