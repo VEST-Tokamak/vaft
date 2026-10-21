@@ -399,9 +399,9 @@ _VAFT = {
     "synthetic": '<rect x="2" y="2" width="10" height="10" rx="1.5"/><path d="M5.5 10c1.2 0 1.6-.6 1.6-1.6V6.6c0-1.1.6-1.8 1.8-1.7"/>'
                  '<path d="M5.5 7.3h3.2"/><path d="M12 12l3 3M15 12.5V15h-2.5"/>'
                  '<path d="M10 19.5h2l1.5-4 2 7 2-6 1.5 3H22"/>',
-    # a transformation stage: a noisy input, the processing step, a clean output
-    "processing": '<path d="M3 5h3l1.5-3 2 6 2-5 1.5 3 1.5-1H21"/><rect x="6" y="9.5" width="12" height="5" rx="1.5"/>'
-                  '<path d="M3 20c3-3.5 6-3.5 9 0s6 3.5 9 0"/>',
+    # a transformation, read left to right: a noisy signal enters the processing step and leaves clean
+    "processing": '<path d="M1 12h1.2l1.2-4.5 1.4 9 1.2-6.5 1 2H8"/><rect x="8" y="4" width="8" height="16" rx="2"/>'
+                  '<path d="M10 8l4 4-4 4"/><path d="M16 12c1.2-5 2.6-5 3.6 0s2.4 5 3.4 0"/>',
     # two systems exchanging data both ways
     "interface": '<rect x="2" y="5" width="6" height="14" rx="1.5"/><rect x="16" y="5" width="6" height="14" rx="1.5"/>'
                  '<path d="M9.5 9.5h5M12.5 7.5l2 2-2 2"/><path d="M14.5 14.5h-5M11.5 12.5l-2 2 2 2"/>',
