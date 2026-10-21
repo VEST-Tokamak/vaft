@@ -87,7 +87,7 @@ _SPECS = (
           "fail unless equilibrium.time is finite and strictly increasing; warn when Ip changes sign "
           "or steps by more than half its median between consecutive slices; not_available below two slices"),
     _spec("verification.convention", "",
-          "vaft.process.cocos.validate_cocos",
+          "vaft.validation.cocos.validate_cocos",
           "fail on a violated COCOS sign relation; warn on a q-sign violation only; "
           "indeterminate when no index is declared or its inputs are unavailable"),
     _spec("verification.convergence", "1",
