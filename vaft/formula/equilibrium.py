@@ -40,12 +40,13 @@ from scipy.integrate import cumulative_trapezoid
 
 from .utils import (
     _guarded_ratio,
+    _toroidal_flux,
     calculate_peaking_factor,
     gradient,
     trapz_integral,
     normalize_profile,
     calculate_poloidal_flux,
-    calculate_toroidal_flux,
+    calculate_toroidal_flux,  # noqa: F401 -- kept importable from here for existing callers
     calculate_volume_weighted_average
 )
 
@@ -230,17 +231,31 @@ def normalize_psi(*args, **kw):  # noqa: N802
 # ------------------------------------------------------------------
 
 def phi_from_Bphi(B_phi: np.ndarray,
-                  dA: np.ndarray) -> float:
+                  R: np.ndarray = None,
+                  Z: np.ndarray = None,
+                  mask: np.ndarray = None,
+                  *,
+                  dA: np.ndarray = None) -> float:
     r"""Toroidal flux $\Phi$ through a poloidal cross-section.
 
-    $$\Phi = \int_{S} B_\varphi\,dA \approx \sum_i B_{\varphi,i}\,\Delta A_i$$
+    $$\Phi = \int_{S} B_\varphi\,dA = \iint_{S} B_\varphi\,dR\,dZ$$
 
     Parameters
     ----------
     B_phi : np.ndarray
-        Toroidal magnetic field on the area elements [T].
-    dA : np.ndarray
-        Poloidal-plane area element of each sample, same shape as ``B_phi`` [m^2].
+        Toroidal magnetic field on a rectilinear grid, indexed ``[R, Z]`` [T].
+    R : np.ndarray, optional
+        Major-radius axis (1-D) or ``ij`` mesh (2-D) of the grid [m].
+    Z : np.ndarray, optional
+        Height axis (1-D) or ``ij`` mesh (2-D) of the grid [m].
+    mask : np.ndarray, optional
+        Boolean map, ``True`` inside the cross-section bounded by the flux
+        surface of interest (for the LCFS of a diverted plasma, ``psi_N <= 1``
+        *and* inside the LCFS, excluding the private-flux region); default the
+        whole grid [-].
+    dA : np.ndarray, optional
+        Deprecated (#358): caller-supplied area elements of the old bare sum,
+        also accepted as the second positional argument for a 1-D ``B_phi`` [m^2].
 
     Returns
     -------
@@ -250,25 +265,27 @@ def phi_from_Bphi(B_phi: np.ndarray,
     Convention
     ----------
     Full weber, never per radian: toroidal flux carries no $2\pi$ ambiguity.  The
-    sign is that of $B_\varphi$, i.e. $\sigma_{B_\varphi}$ of the COCOS in use
-    (COCOS 1-8 and 11-18 differ only in the poloidal flux).
+    sign is that of $B_\varphi$ along the COCOS $\varphi$ direction: the
+    machine's field orientation, not a COCOS index (COCOS 1-8 and 11-18 differ
+    only in the poloidal flux).
 
     Assumptions
     -----------
-    ``dA`` are true area elements of the cross-section bounded by the flux surface
-    of interest; the routine does not construct them.
+    ``mask`` selects the cross-section bounded by the flux surface of interest;
+    the routine integrates what it is given and does not trace the surface.
 
     Numerical notes
     ---------------
-    A Riemann sum, not a quadrature rule: accuracy is first order in the cell size
-    of the caller's grid.
+    :func:`vaft.formula.utils.calculate_toroidal_flux`: 2-D trapezoidal rule,
+    second order on the full grid, first order in the cell size at a masked
+    (staircase) boundary.
 
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 3.4 (toroidal flux and the safety factor).
     """
-    return calculate_toroidal_flux(B_phi, dA)
+    return _toroidal_flux(B_phi, R, Z, mask, dA, stacklevel=3)
 
 
 def rhoN_from_phi(phi: Union[np.ndarray, float],
@@ -2012,7 +2029,18 @@ def beta_toroidal_from_p_B0(p_average: float,
     -------
     float
         Toroidal beta [-].
-    
+
+    Convention
+    ----------
+    ``B0`` is the **vacuum** toroidal field at the reference radius
+    ``vacuum_toroidal_field.r0``, as the DD defines ``beta_tor``.  It is not
+    the total field on the magnetic axis, which includes the plasma's own
+    diamagnetic or paramagnetic contribution and so moves with the very
+    pressure being measured, and it is not the vacuum field at another
+    radius: since $B_\varphi \propto 1/R$, a vacuum field taken at $R$ instead
+    of $r_0$ scales $\beta_t$ by $(R/r_0)^2$, about 27 % for $R = 0.45$ m
+    against $r_0 = 0.40$ m.  The sign of ``B0`` does not enter.
+
     Reduction
     ---------
     input: scalar_0d
@@ -2097,7 +2125,22 @@ def beta_normal_from_beta_tor(beta_tor: float,
     -------
     float
         Normalized beta [% m T/MA].
-    
+
+    Convention
+    ----------
+    SI in, Troyon units out: ``beta_tor`` is a **fraction** and ``Ip`` is in
+    **amperes**, and the factor 100 and the conversion to MA are applied here,
+    so the result is directly comparable with a Troyon coefficient of about
+    2.8.  :func:`vaft.formula.stability.beta_N_from_beta_a_B0_Ip` evaluates the
+    same ratio with its own ``B0`` (documented as the field on axis) but
+    takes $\beta$ in percent and $I_p$ in MA and does not
+    rescale: fed this function's fraction and amperes it returns $10^{-8}$ of
+    this value (#349), and this function fed percent returns 100 times too
+    much; its sign also follows $B_0 I_p$, so under a COCOS with a negative
+    field or current it comes back negative.  Here ``B0`` is the vacuum field
+    at ``r0`` (the DD ``beta_normal``), and $|B_0|$ and $|I_p|$ are used, so the
+    result is positive under every COCOS sign convention.
+
     Reduction
     ---------
     input: scalar_0d
@@ -2228,7 +2271,25 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
     -------
     float
         Internal inductance, ``li_3`` definition [-].
-    
+
+    Convention
+    ----------
+    ``li_3`` is one of several internal-inductance definitions in circulation
+    (EFIT also reports an $l_i(2)$), and they are not comparable.  The Lao/EFIT $l_i(1)$
+    (:func:`li_1_from_Bp2_volume_integral`) normalises
+    $\langle B_p^2\rangle_V$ by the edge poloidal field
+    $(\mu_0 I_p/\Gamma)^2$, and the cylindrical form by
+    $(\mu_0 I_p/2\pi a)^2$; ``li_3`` normalises the volume integral by
+    $\mu_0^2 I_p^2 R_0/2$.  They are related by
+    $l_{i1} = l_{i3}\,(R_0/R_c)\,\Gamma^2/(4\pi A)$ with $A$ the cross-section
+    area and $R_c = V/(2\pi A)$ its centroid radius: a shape part that grows
+    with elongation (about 8.5 % for an ellipse at $\kappa = 1.6$) times a
+    radius part, so an EFIT ``li`` read as ``li_3`` is wrong by their
+    product.  Within ``li_3`` the result is also inversely proportional to
+    the ``R0`` passed: the magnetic-axis radius, the
+    geometric centre and ``vacuum_toroidal_field.r0`` give different numbers,
+    and :func:`internal_inductance_from_li_3_R0` must be given the same one.
+
     Reduction
     ---------
     input: scalar_0d
@@ -4175,10 +4236,17 @@ def ohmic_heating_power_from_I_p_V_res(I_p: float,
 def alpha_heating_power_from_n_D_n_T_T_keV_V(
     n_D_1e19: float, n_T_1e19: float, T_keV: float, V_m3: float
 ) -> float:
-    r"""D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit.
+    r"""Deprecated: D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit; no replacement.
+
+    VEST runs hydrogen (and occasionally helium), so a D-T reactivity is
+    physics nothing in VAFT calls, and the quadratic fit is not worth
+    reimplementing as Bosch-Hale [2]_ (with its erratum [3]_) for it (#360).
+    A caller who needs D-T power should evaluate the Bosch-Hale
+    parametrisation with the erratum coefficients.  Results are unchanged; a
+    ``DeprecationWarning`` is emitted.
 
     $$P_\alpha = n_D\,n_T\,\langle\sigma v\rangle\,E_\alpha\,V, \qquad
-      \langle\sigma v\rangle \approx 1.1\times10^{-24}\,T_{\mathrm{keV}}^2\ \mathrm{m^3/s}$$
+      \langle\sigma v\rangle \approx 1.1\times10^{-24}\,T_{\mathrm{keV}}^2\ \mathrm{m^3\,s^{-1}}\quad(T\ \mathrm{in\ keV})$$
 
     Parameters
     ----------
@@ -4203,22 +4271,33 @@ def alpha_heating_power_from_n_D_n_T_T_keV_V(
 
     Validity
     --------
-    Empirical fit.  The quadratic $\langle\sigma v\rangle$ is Wesson's
-    interpolation of the D-T reactivity, accurate to ~10 % for $10 < T <
-    20$ keV [1]_; outside that window use the Bosch-Hale parametrisation [2]_.
+    The quadratic $\langle\sigma v\rangle$ is Wesson's interpolation of the D-T
+    reactivity, accurate to ~10 % for $10 < T < 20$ keV [1]_; ``T_keV`` is not
+    checked against that window, and at the sub-keV temperatures of a
+    spherical tokamak the number is meaningless.
 
     Limitations
     -----------
-    Irrelevant for a hydrogen device such as VEST, which runs hydrogen and
-    occasionally helium and so sustains no D-T reaction; kept for power-balance
-    completeness.  Tracked in #360 (Bosch-Hale replacement).
+    Irrelevant for a hydrogen device such as VEST, which sustains no D-T
+    reaction; deprecated rather than replaced (#360).
 
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 1.3.
     .. [2] H.-S. Bosch and G. M. Hale, Nucl. Fusion 32 (1992) 611, Table VII.
+    .. [3] H.-S. Bosch and G. M. Hale, erratum, Nucl. Fusion 33 (1993) 1919;
+           corrects coefficients of the 1992 parametrisation, so an
+           implementation from the original paper alone is wrong.
     """
+    warnings.warn(
+        "`alpha_heating_power_from_n_D_n_T_T_keV_V` (alias `alpha_heating_power`) is deprecated (#360): "
+        "the <sigma v> = 1.1e-24 T_keV^2 fit holds only for 10-20 keV and VEST runs no D-T. "
+        "For D-T power use the Bosch-Hale reactivity, Nucl. Fusion 32 (1992) 611 with the "
+        "erratum Nucl. Fusion 33 (1993) 1919.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     n_D = n_D_1e19 * 1e19  # m^-3
     n_T = n_T_1e19 * 1e19  # m^-3
     sigma_v = SIGMA_V_COEF * T_keV**2  # m^3/s (rough fit)

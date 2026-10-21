@@ -19,6 +19,7 @@ Layout::
     registry.py       stable per-check metadata: category, unit, provider, tolerance
     imas.py           native IMAS/OMAS validity and status fields
     equilibrium.py    the unified equilibrium report (#72), the reference implementation
+    cocos.py          COCOS sign-relation consistency, Sauter Eq. 23 (moved from vaft.process, #337)
     magnetics.py      magnetics signal quality (#189)
     vacuum_benchmark.py  vacuum-model benchmark against measured magnetics (#190)
     wall_reduction.py the reduced-wall order study: full vs reduced, both vs data (#494)
