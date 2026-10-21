@@ -534,8 +534,12 @@ def python_task_request(
 ) -> ExecutionRequest:
     """An :class:`ExecutionRequest` for ``<python> -m <module> <args...>`` (#1147).
 
-    The same request runs under any backend: a local child, a Slurm step or
-    batch job, or a remote cluster. What it resolves:
+    The same request runs as a local child and as a Slurm step or batch job on
+    a filesystem the nodes share. :class:`~vaft.code.remote.RemoteSlurmBackend`
+    is different: the interpreter path must exist on the remote host (pass
+    ``interpreter=`` or map its prefix with ``path_maps``) and ``PYTHONPATH``
+    is never forwarded there, so ``pythonpath`` has no effect; remote imports
+    come from the host's environment or ``setup_lines``. What it resolves:
 
     ``interpreter``
         ``interpreter`` if given, else ``$VAFT_PYTHON``, else
@@ -546,24 +550,31 @@ def python_task_request(
         the overlay as it is now, then ``env`` is applied on top. The overlay
         is laid over the launching environment, so ``propagate`` does not
         hide anything locally; it pins the listed values into the request,
-        which is what a job script or a remote host receives explicitly.
+        which is what a job script receives explicitly.
     ``pythonpath``
         Entries made absolute and put in front of ``PYTHONPATH`` (the
         propagated or ``env`` one if any, else this process's), so a paired
-        or editable worktree is importable wherever the task runs.
+        or editable worktree is importable in the task. They are added after
+        ``env``, so they stay in front of an ``env`` ``PYTHONPATH``.
     thread variables
         With ``resources.threads_per_task`` set, every variable in
         :data:`THREAD_ENV_VARIABLES` is set to it in the overlay, so N
         concurrent tasks x BLAS threads do not oversubscribe a node however
-        the launching environment (or ``propagate``) sets them. ``env`` may still
-        override one.
+        the launching environment (or ``propagate``) sets them. This is
+        stronger than a plain request, where ``threads_per_task`` only fills
+        variables the environment leaves unset. ``env`` may still override one.
     ``spec``
-        Written as JSON to ``workdir / spec_name`` now, and its absolute path
-        appended to ``args``; the task reads it back from there.
+        Written as JSON to ``workdir / spec_name`` now, and ``spec_name``
+        appended to ``args``: every backend starts the task in its working
+        directory (a remote one in the staged copy), so the relative name
+        resolves wherever it runs. One spec per ``workdir`` and name: a second
+        request built for the same pair overwrites the first one's spec.
 
     ``workdir`` must exist; it is made absolute. The request has no stdin.
     """
     module = str(module)
+    if isinstance(propagate, str):
+        raise TypeError("propagate must be a collection of variable names, not one string")
     if not _MODULE.match(module):
         raise ValueError(f"module must be a dotted Python module name, got {module!r}")
     workdir = Path(workdir).absolute()
@@ -576,7 +587,7 @@ def python_task_request(
             raise ValueError(f"spec_name must be a file name, got {spec_name!r}")
         spec_path = workdir / spec_name
         spec_path.write_text(json.dumps(spec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        command.append(str(spec_path))
+        command.append(spec_name)
     overlay: dict[str, str] = {}
     overlay.update({name: os.environ[name] for name in propagate if name in os.environ})
     if resources.threads_per_task is not None:

@@ -614,14 +614,16 @@ launchers still start the ranks themselves. TokaMaker runs in-process and has no
 ### Python tasks
 
 `python_task_request(module, args, workdir=..., ...)` (#1147) builds the request for an in-repo Python
-task, `<python> -m <module> <args...>`, that runs the same way under `LocalBackend`, `SlurmBackend`
-or `RemoteSlurmBackend`. The interpreter is `interpreter=`, else `$VAFT_PYTHON` (for a batch node that
-sees the environment at another path), else `sys.executable`. `spec=` is written as JSON to
-`workdir/spec.json` and its path appended to the arguments. `propagate=` copies the named variables
-of this process into the request as they are now, `pythonpath=` puts absolute entries in front of
-`PYTHONPATH`, and `resources.threads_per_task` sets every thread variable outright, so concurrent
-tasks do not oversubscribe a node whatever the launching environment says. `env=` overrides any of
-these.
+task, `<python> -m <module> <args...>`, that runs the same way under `LocalBackend` and under
+`SlurmBackend` on a shared filesystem. The interpreter is `interpreter=`, else `$VAFT_PYTHON` (for a
+batch node that sees the environment at another path), else `sys.executable`. `spec=` is written as
+JSON to `workdir/spec.json` and the relative name `spec.json` appended to the arguments.
+`propagate=` copies the named variables of this process into the request as they are now, and
+`resources.threads_per_task` sets every thread variable outright, so concurrent tasks do not
+oversubscribe a node whatever the launching environment says; `env=` overrides either.
+`pythonpath=` puts absolute entries in front of `PYTHONPATH`, including one given in `env=`. Under
+`RemoteSlurmBackend` the interpreter path must exist on the host (`interpreter=` or a `path_maps`
+pair) and `PYTHONPATH` is not forwarded, so `pythonpath=` has no effect there.
 
 ```python
 import tempfile

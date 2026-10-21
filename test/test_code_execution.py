@@ -304,7 +304,7 @@ def test_python_task_request_runs_a_module_with_its_spec(tmp_path, monkeypatch):
     result = LocalBackend().run(request)
     assert result.returncode == 0, result.stderr
     seen = json.loads(result.stdout)
-    assert seen["argv"] == ["run-unit", str(work / "spec.json")]
+    assert seen["argv"] == ["run-unit", "spec.json"]
     assert seen["spec"] == {"shot": 39915}
     assert Path(seen["cwd"]).resolve() == work.resolve()
     assert seen["threads"] == ["2"] * len(THREAD_ENV_VARIABLES)
@@ -354,3 +354,5 @@ def test_python_task_request_refuses_bad_input(tmp_path):
         python_task_request("m", workdir=tmp_path, spec={}, spec_name="../x.json")
     with pytest.raises(FileNotFoundError):
         python_task_request("m", workdir=tmp_path / "missing")
+    with pytest.raises(TypeError, match="propagate"):
+        python_task_request("m", workdir=tmp_path, propagate="PYTHONPATH")
