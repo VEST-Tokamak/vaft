@@ -322,14 +322,33 @@ def update_equilibrium_coordinates(ods, time_slice=None, plot_opt=0):
 
 def update_equilibrium_global_quantities_q_min(ods, time_slice=None):
     """
-    Update q_min for all time slices using min() of profiles_1d.q
+    Update q_min for all time slices from profiles_1d.q.
+
+    q_min is the q of smallest magnitude, stored with its sign: under COCOS 3-6
+    and 13-16 q is negative (Sauter Table I, sign(q) = sigma_Ip sigma_B0
+    sigma_rhothetaphi), where a plain ``q.min()`` would return the *largest*
+    |q|. This is the same definition the EQDSK and VFIT readers use (#277).
+    ``q_min.rho_tor_norm`` is written alongside when the profile has one.
     """
     # Process all time slices if not specified
     time_slices = range(len(ods['equilibrium.time_slice'])) if time_slice is None else (
         [time_slice] if isinstance(time_slice, (int, np.integer)) else time_slice)
     for idx in time_slices:
         ts = ods['equilibrium.time_slice'][idx]
-        ts['global_quantities.q_min'] = ts['profiles_1d.q'].min()
+        q = np.asarray(ts['profiles_1d.q'], dtype=float).reshape(-1)
+        magnitude = np.abs(q)
+        if not np.isfinite(magnitude).any():
+            continue
+        qmin_idx = int(np.nanargmin(magnitude))
+        ts['global_quantities.q_min.value'] = float(q[qmin_idx])
+        rho = None
+        if 'profiles_1d.rho_tor_norm' in ts:
+            rho = np.asarray(ts['profiles_1d.rho_tor_norm'], dtype=float).reshape(-1)
+        if rho is not None and rho.size == q.size:
+            ts['global_quantities.q_min.rho_tor_norm'] = float(rho[qmin_idx])
+        elif 'global_quantities.q_min.rho_tor_norm' in ts:
+            # An earlier writer's location would describe a different point.
+            del ts['global_quantities.q_min.rho_tor_norm']
 
 def update_equilibrium_global_quantities_volume(ods, time_slice=None):
     """
@@ -1718,11 +1737,23 @@ def update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None):
 
     # Build interpolator for measured diamagnetic flux (magnetics -> equilibrium time)
     interp_measured = None
-    if (
-        "magnetics.diamagnetic_flux.0.data" in ods
-        and "magnetics.time" in ods
-        and len(ods.get("magnetics.diamagnetic_flux", [])) > 0
-    ):
+    try:
+        has_measured = (
+            "magnetics.diamagnetic_flux.0.data" in ods
+            and "magnetics.time" in ods
+            and len(ods.get("magnetics.diamagnetic_flux", [])) > 0
+        )
+    except KeyError:
+        has_measured = False
+    except OSError as exc:
+        # A lazy database view asked for magnetics that the shot does not store
+        # answers with a 404 on first access; the reconstructed flux below
+        # needs only the equilibrium and must not be lost with it. Any other
+        # status (403, a dropped connection) is not "no measurement".
+        if exc.errno != 404:
+            raise
+        has_measured = False
+    if has_measured:
         t_mag = np.asarray(ods["magnetics.time"], float)
         flux_mag = np.asarray(ods["magnetics.diamagnetic_flux.0.data"], float)
         if t_mag.size >= 1 and flux_mag.size == t_mag.size:

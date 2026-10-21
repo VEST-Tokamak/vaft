@@ -22,6 +22,7 @@ from .h5image import is_derived_filename, publish_image
 from .sources import resolve as resolve_source
 from .staging import external_h5_links, requested_ids_from_paths, stage_imas_shot
 from .utils import (
+    _quiet_http_loggers,
     _require_h5pyd,
     ensure_imas_hdf5_userblock,
     exist_shot,
@@ -360,6 +361,7 @@ def load_ods(
     local_dir: Optional[Union[str, Path]] = None,
     cache: Literal["auto", "off"] | str | Path = "auto",
     transport: Literal["auto", "canonical", "h5image"] = "auto",
+    cache_max: int | str | None = None,
 ) -> Union[omas.ODS, list[omas.ODS]]:
     """
     Load ODS data by reading IMAS images from ``{source}/{shot}`` and converting via OMAS.
@@ -382,11 +384,15 @@ def load_ods(
             is used and cleaned up automatically.
         cache: ``"auto"`` (default) stores validated HSDS domains under the user cache,
             ``"off"`` always downloads, or a path selects a cache base directory.
+        cache_max: Size cap of the domain cache (bytes or e.g. ``"500M"``;
+            ``0`` disables it, ``"none"`` removes the cap). ``None`` falls back
+            to ``$VAFT_HSDS_CACHE_MAX``, the user config file, then 1 GiB; see
+            :mod:`vaft.database.hsds_cache`.
 
     Returns:
         One ``omas.ODS`` or a list of ``omas.ODS`` objects.
     """
-    logging.getLogger().setLevel(logging.WARNING)
+    _quiet_http_loggers()
 
     source = resolve_source(source, directory=directory)
     occurrence = occurrence or {}
@@ -411,6 +417,7 @@ def load_ods(
                 local_dir=local_dir,
                 cache=cache,
                 transport=transport,
+                cache_max=cache_max,
             )
             print("Successfully loaded ODS data for shot:", s)
             ods_list.append(ods)
@@ -432,6 +439,7 @@ def load_ods(
         local_dir=local_dir,
         cache=cache,
         transport=transport,
+        cache_max=cache_max,
     )
     print("Successfully loaded ODS data for shot:", s)
     return ods
@@ -452,9 +460,10 @@ def _load_one_shot(
     local_dir: Optional[Union[str, Path]],
     cache: Literal["auto", "off"] | str | Path,
     transport: Literal["auto", "canonical", "h5image"],
+    cache_max: int | str | None = None,
 ) -> omas.ODS:
     """Load one shot from HSDS IMAS images and convert it to ODS."""
-    logging.getLogger().setLevel(logging.WARNING)
+    _quiet_http_loggers()
 
     if path is not None:
         shot_dir = Path(path).expanduser()
@@ -504,6 +513,7 @@ def _load_one_shot(
             requested_ids=requested_ids,
             cache=cache,
             transport=transport,
+            cache_max=cache_max,
         )
 
         ods = load_omas_imas(
@@ -596,7 +606,7 @@ def save_ods(
             f"finalize_master applies to env='server' only; got env={env!r}. "
             "A local write uploads nothing, so the hook would never run."
         )
-    logging.getLogger().setLevel(logging.WARNING)
+    _quiet_http_loggers()
 
     source = resolve_source(source, directory=directory, writable=env == "server")
     occurrence = occurrence or {}

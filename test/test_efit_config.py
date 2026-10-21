@@ -1241,6 +1241,43 @@ def test_the_code_parameters_state_the_serror_the_kfile_carries(tmp_path):
             assert "VBIT" not in parameters and "ERRSIL" not in parameters
 
 
+@pytest.mark.parametrize(
+    "scientific",
+    [
+        pytest.param(routine_scientific_config(), id="routine"),
+        # A free-edge (3,3) model with the proportionality row on and fitted
+        # passive currents: every recorded key differs from the old constants.
+        pytest.param(
+            routine_scientific_config(
+                profile=routine_profile_config(
+                    kppcur=3, kffcur=3, kppfnc=1, kfffnc=1, pcurbd=0, fcurbd=0, fwtbp=1
+                ),
+                constraints=routine_constraint_config(passive_structure_mode="fit_currents"),
+            ),
+            id="free-edge-3-3",
+        ),
+        # The default carries a sigma floor, which the writer applies on a
+        # copy: the record must still land on the caller's ODS.
+        pytest.param(EFITScientificConfig(), id="default-with-sigma-floor"),
+    ],
+)
+def test_the_recorded_profile_parameters_round_trip_the_written_kfile(tmp_path, scientific):
+    """The stored IN1 profile keys are the k-file's, read back from it (#869)."""
+    from vaft.data.keqdsk import read_keqdsk
+
+    ods = _constraints_ods(tmp_path)
+    generate_kfile(ods, 39915, save_dir=str(tmp_path), config=scientific)
+    (kfile,) = (tmp_path / "kfile").glob("k0*")
+    submitted = read_keqdsk(kfile)["in1"]
+    recorded = ods["equilibrium.code.parameters.time_slice.0.IN1"]
+    profile = scientific.profile
+    for key in ("KFFCUR", "KPPCUR", "KFFFNC", "KPPFNC", "FCURBD", "PCURBD", "FWTBP", "IVESEL", "IFITVS"):
+        assert int(recorded[key]) == int(submitted[key.lower()]), key
+    assert (int(recorded["KPPCUR"]), int(recorded["KFFCUR"])) == (profile.kppcur, profile.kffcur)
+    assert (int(recorded["PCURBD"]), int(recorded["FCURBD"])) == (profile.pcurbd, profile.fcurbd)
+    assert float(recorded["SERROR"]) == float(submitted["serror"])
+
+
 def test_resolved_configuration_is_stable_and_manifest_checksums_kfiles(tmp_path):
     ods = _constraints_ods(tmp_path)
     config = EFITConfig(
@@ -1371,3 +1408,82 @@ def test_custom_coil_matrix_is_validated_against_selected_machine_coils(tmp_path
             tmp_path,
             routine_scientific_config(constraints=constraints),
         )
+
+
+# --- GA-EFIT attached (SOL) current model, ICUTFP (#672) -----------------------
+
+
+def test_the_attached_current_model_is_off_and_unwritten_by_default(tmp_path):
+    text = _kfile_text(tmp_path)
+    assert "ICUTFP" not in text and "ALPHAFP" not in text
+    for scientific in (EFITScientificConfig(), routine_scientific_config()):
+        assert scientific.profile.icutfp == 0 and scientific.profile.alphafp is None
+        # Off, it is absent from the record, so no configuration hash recorded
+        # before the field existed moves.
+        assert "icutfp" not in scientific.to_dict()["profile"]
+        assert "alphafp" not in scientific.to_dict()["profile"]
+
+
+def test_the_attached_current_model_reaches_the_kfile(tmp_path):
+    from vaft.data.keqdsk import read_keqdsk
+
+    scientific = routine_scientific_config(
+        profile=routine_profile_config(icutfp=2, alphafp=0.25)
+    )
+    _kfile_text(tmp_path, scientific)
+    (kfile,) = (tmp_path / "kfile").glob("k0*")
+    in1 = read_keqdsk(kfile)["in1"]
+    assert int(in1["icutfp"]) == 2
+    assert float(in1["alphafp"]) == 0.25
+
+    # Without ALPHAFP, EFIT keeps its own default (0) and nothing is written.
+    bare = tmp_path / "bare"
+    _kfile_text(bare, routine_scientific_config(profile=routine_profile_config(icutfp=2)))
+    (kfile,) = (bare / "kfile").glob("k0*")
+    in1 = read_keqdsk(kfile)["in1"]
+    assert int(in1["icutfp"]) == 2 and "alphafp" not in in1
+
+
+def test_the_attached_current_model_is_recorded_and_round_trips():
+    on = routine_scientific_config(profile=routine_profile_config(icutfp=2, alphafp=-0.5))
+    payload = on.to_dict()
+    assert payload["profile"]["icutfp"] == 2 and payload["profile"]["alphafp"] == -0.5
+    assert EFITScientificConfig.from_dict(payload) == on
+    assert on.sha256 != routine_scientific_config().sha256
+    # A payload recorded before the field existed reads back with it off.
+    assert EFITScientificConfig.from_dict(routine_scientific_config().to_dict()).profile.icutfp == 0
+
+
+@pytest.mark.parametrize(
+    "overrides, message",
+    [
+        ({"icutfp": 1}, "icutfp must be 0"),
+        ({"icutfp": 3}, "icutfp must be 0"),
+        ({"icutfp": True}, "icutfp must be 0"),
+        ({"alphafp": 0.5}, "only with icutfp = 2"),
+        ({"icutfp": 2, "alphafp": float("nan")}, "alphafp must be a finite"),
+        ({"icutfp": 2, "alphafp": True}, "alphafp must be a finite"),
+    ],
+)
+def test_unsupported_attached_current_settings_are_refused(overrides, message):
+    with pytest.raises(ValueError, match=message):
+        routine_profile_config(**overrides)
+
+
+def test_the_attached_current_model_is_a_scan_axis():
+    grid = efit_parameter_grid(routine_scientific_config(), {"profile.icutfp": [0, 2]})
+    assert [config.profile.icutfp for config in grid] == [0, 2]
+
+
+def test_the_attached_current_model_refuses_the_seeds_efit_cannot_build():
+    """set_init.f90 stops on ICUTFP != 0 with ICINIT -3/-4 (#672 cold review)."""
+    for icinit in (-3, -4):
+        with pytest.raises(ValueError, match="icinit -3/-4"):
+            routine_scientific_config(
+                profile=routine_profile_config(icutfp=2),
+                initialization=EFITInitializationConfig(icinit=icinit),
+            )
+    routine_scientific_config(
+        profile=routine_profile_config(icutfp=2),
+        initialization=EFITInitializationConfig(icinit=-2),
+    )

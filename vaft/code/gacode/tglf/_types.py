@@ -186,6 +186,10 @@ class TGLFConfig(GACODEConfig):
     n_species: Optional[int] = None
     extra_parameters: Mapping[str, Any] = field(default_factory=dict)
 
+    def _launcher_threads(self) -> int:
+        # The tglf script hardwires NOMP=1, whatever n_omp says.
+        return 1
+
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.n_species is not None:
