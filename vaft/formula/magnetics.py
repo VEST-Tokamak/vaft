@@ -8,9 +8,10 @@ plane, zero when the sensor normal points toward increasing major radius.
 Clockwise from ``+R`` turns toward ``-Z``, so the axis is
 ``(cos(angle), -sin(angle))`` in ``(R, Z)`` and a probe measuring ``+Bz``
 is stored as ``3*pi/2``.  Projecting with ``(cos, +sin)`` -- the
-counter-clockwise reading -- inverts every probe while leaving flux loops
-untouched, which is exactly how the mistake hides: VAFT carried it until
-#288, and a downstream solver carried it after #293 moved the angle.
+counter-clockwise reading -- flips the vertical-field part of every probe
+(a purely vertical one reads inverted) while leaving flux loops untouched,
+which is exactly how the mistake hides: VAFT carried it until #288, and a
+downstream solver carried it after #293 moved the angle.
 """
 
 from __future__ import annotations
@@ -36,7 +37,20 @@ def probe_axis(poloidal_angle):
     -------
     tuple of ndarray
         ``(c_R, c_Z)`` direction cosines, each the shape of the input [-].
-    
+
+    Convention
+    ----------
+    The Data Dictionary measures ``poloidal_angle`` **clockwise** from $+R$,
+    i.e. turning toward $-Z$, so the axis is $(\cos\theta, -\sin\theta)$.
+    Reading the angle counter-clockwise, $(\cos\theta, +\sin\theta)$, mirrors
+    every axis about the midplane: a $+B_Z$ probe stored at $3\pi/2$ becomes a
+    $-B_Z$ probe.  The $B_Z$ contribution of every probe with a vertical
+    component then enters with the wrong sign -- a purely vertical probe reads
+    exactly inverted, an oblique one simply wrong -- while purely radial
+    probes and all flux loops, which carry no angle, are unaffected.  That
+    asymmetry is how the error hides in a reconstruction: VAFT carried it
+    until #288, and a downstream solver after #293.
+
     References
     ----------
     .. [1] IMAS Data Dictionary, ``magnetics.b_field_pol_probe[:].poloidal_angle``.
@@ -67,7 +81,17 @@ def project_poloidal_field(b_r, b_z, poloidal_angle):
     -------
     ndarray
         Projected field along the probe axis [T].
-    
+
+    Convention
+    ----------
+    :func:`probe_axis`'s DD rule applied: ``poloidal_angle`` is clockwise from
+    $+R$, so the reading is $B_R\cos\theta - B_Z\sin\theta$.  The
+    counter-clockwise reading, $B_R\cos\theta + B_Z\sin\theta$, returns the
+    opposite of the measured signal for a vertical probe ($\theta = \pi/2$ or
+    $3\pi/2$), a wrong value for an oblique one and the right one for a radial
+    probe, so a synthetic diagnostic built on it disagrees with the
+    measurement on every probe with a vertical component (#288, #293).
+
     References
     ----------
     .. [1] IMAS Data Dictionary, ``magnetics.b_field_pol_probe[:].poloidal_angle``.

@@ -92,6 +92,16 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # diamagnetic-flux sign: B_phi0 * Phi_dia > 0 is paramagnetic, one signed frame, no abs() (#684)
+    "beta_p_diamagnetic_from_flux_circular",
+    "beta_p_diamagnetic_from_flux_elliptic",
+    # DD clockwise poloidal_angle (#288, #293); beta_N units (#349); vacuum B0 at r0;
+    # li_3 vs li_1 and its R0 (#403)
+    "probe_axis",
+    "project_poloidal_field",
+    "beta_normal_from_beta_tor",
+    "beta_toroidal_from_p_B0",
+    "li_3_from_Bp2_volume_integral",
     # positive-when-holds criteria vs GGJ's negative-when-stable indices; toroidal-flux well (#1635)
     "suydam_criterion",
     "mercier_criterion_circular",
@@ -354,7 +364,6 @@ EMPIRICAL = frozenset({
     "sawtooth_stability_criterion",
     "current_drive_efficiency",
     "bootstrap_current_fraction",
-    "alpha_heating_power_from_n_D_n_T_T_keV_V",
     # Neoclassical: every one of these is a rational fit to numerical
     # drift-kinetic solutions (Sauter 1999/2002, Redl 2021), and the
     # trapped fraction and Spitzer charge factor are fits too.

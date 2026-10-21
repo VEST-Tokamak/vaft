@@ -302,9 +302,10 @@ def _write_mode_entry(
             jacobian = control.jacobian or "unrecorded"
             if include_spectral:
                 spectral = _write_spectral_field(entry, profile, jacobian)
-                geometry = _rational_surface_geometry(
-                    profile, control.n_tor, (control.attrs or {}).get("chi1")
-                )
+                chi1 = (control.attrs or {}).get("chi1")
+                geometry = _rational_surface_geometry(profile, control.n_tor, chi1)
+                if geometry is None:
+                    geometry = _rational_surface_gap(profile, chi1)
             if include_geometry:
                 mesh = _write_flux_surface_geometry(entry, profile, jacobian)
 
@@ -361,6 +362,54 @@ def _write_mode_entry(
     if control.version:
         ods["mhd_linear.code.version"] = control.version
     _set_output_flag(ods, "mhd_linear", time_slice, 0)
+
+
+#: The GPEC outputs the rational-surface block is built from, by netCDF name:
+#: the profile file's per-surface geometry and resonant pair, and the control
+#: file's flux normalisation.
+_RATIONAL_SURFACE_INPUTS = (
+    ("psi_n_rational", "profile"),
+    ("q_rational", "profile"),
+    ("dqdpsi_n_rational", "profile"),
+    ("area_rational", "profile"),
+    ("Delta", "profile"),
+    ("Phi_res", "profile"),
+)
+
+
+_QUOTE = {'"': "&quot;"}
+
+
+def _rational_surface_gap(profile, chi1: Optional[float]) -> str:
+    """Why no rational-surface block was written, naming what was missing (#1243).
+
+    Recorded in the block's place so a reader that needs the geometry can say
+    which GPEC output to look at rather than guess.  The usual cause on VEST is
+    ``Phi_res``/``Delta``: GPEC writes them only with ``singfld_flag``, and it
+    switches that off under DCON's ``con_flag = t`` (its log says
+    ``singfld_flag not supported with con_flag``).
+    """
+    missing = [
+        f"{name} ({source})"
+        for name, source in _RATIONAL_SURFACE_INPUTS
+        if getattr(profile, name, None) is None
+    ]
+    if chi1 is None or not np.isfinite(chi1) or float(chi1) == 0.0:
+        missing.append(f"chi1 (control, got {chi1!r})")
+    if missing:
+        reason = "the GPEC output carries no " + ", ".join(missing)
+        if any(item.startswith(("Phi_res ", "Delta ")) for item in missing):
+            reason += (
+                "; GPEC writes Phi_res and Delta only with singfld_flag, which it "
+                "turns off under DCON con_flag=t"
+            )
+    else:
+        missing = ["matching per-surface arrays"]
+        reason = "the per-surface rational arrays are empty or differ in length"
+    return (
+        f'<resonant_geometry_unavailable missing="{escape(", ".join(missing), _QUOTE)}"'
+        f' reason="{escape(reason, _QUOTE)}"/>'
+    )
 
 
 def _rational_surface_geometry(profile, n_tor: int, chi1: Optional[float]) -> Optional[str]:

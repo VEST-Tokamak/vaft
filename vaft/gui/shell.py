@@ -234,15 +234,12 @@ class Shell:
         ``timeout`` seconds (:data:`CONNECT_TIMEOUT`): one session waiting on
         an unreachable server must not hold every other session's page.
         """
-        import logging
         from concurrent.futures import ThreadPoolExecutor
         from concurrent.futures import TimeoutError as Timeout
 
         from vaft.database import utils
 
         timeout = CONNECT_TIMEOUT if timeout is None else timeout
-        root = logging.getLogger()
-        level = root.level  # is_connect lowers the root logger; the server's is kept
         pool = ThreadPoolExecutor(max_workers=1)
         try:
             ready = pool.submit(utils.is_connect).result(timeout=timeout)
@@ -253,7 +250,6 @@ class Shell:
             self.connection = f"unreachable ({_first_line(error)})"
         finally:
             pool.shutdown(wait=False)
-            root.setLevel(level)
         self._update_status()
         return self.connection
 

@@ -148,6 +148,70 @@ def test_the_develop_gate_runs_the_declared_expression():
     )
 
 
+TDST_GATE = REPO_ROOT / ".github" / "scripts" / "tdst_gate.sh"
+DEVELOP_RULESET = REPO_ROOT / ".github" / "rulesets" / "develop.json"
+
+
+@pytest.mark.skipif(not TDST_GATE.is_file(), reason="this branch has no cluster gate")
+def test_the_cluster_gate_runs_the_same_steps():
+    """Both routes to `merge-gate` must run the same gate, or one is a lie."""
+    commands = [
+        line.strip()
+        for line in TDST_GATE.read_text(encoding="utf-8").splitlines()
+        if line.strip().startswith("step ")
+    ]
+    expected = {
+        "ruff": "ruff check --select F821",
+        "core": f'-m "{GATE_EXPRESSION}"',
+        "build": "python -m build",
+        "twine": "twine check",
+        "verify_dist": "test/verify_dist.py",
+        "smoke": "smoke",
+    }
+    for name, fragment in expected.items():
+        assert any(c.startswith(f"step {name} ") and fragment in c for c in commands), (
+            f".github/scripts/tdst_gate.sh has no `{name}` step running {fragment!r}; "
+            "it posts the same merge-gate status as the Actions core-test + package jobs."
+        )
+
+
+@pytest.mark.skipif(
+    not (WORKFLOW.is_file() and DEVELOP_RULESET.is_file()),
+    reason="this branch has no Package CI workflow or develop ruleset",
+)
+def test_merge_gate_is_required_and_posted_only_after_both_jobs():
+    """The ruleset requires `merge-gate`; Actions posts it only after package + core-test."""
+    import json
+
+    import yaml
+
+    rules = json.loads(DEVELOP_RULESET.read_text(encoding="utf-8"))["rules"]
+    required = [
+        check["context"]
+        for rule in rules
+        if rule["type"] == "required_status_checks"
+        for check in rule["parameters"]["required_status_checks"]
+    ]
+    assert required == ["merge-gate"], required
+
+    jobs = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]
+    posting = [
+        name for name, job in jobs.items()
+        if any("context=merge-gate" in str(step.get("run", "")) for step in job.get("steps", []))
+    ]
+    assert posting == ["merge-gate"], posting
+    job = jobs["merge-gate"]
+    needs = job["needs"] if isinstance(job["needs"], list) else [job["needs"]]
+    assert set(needs) == {"package", "core-test"}, needs
+    # Without a status function, `if:` is ANDed with success(): a failed,
+    # cancelled or skipped need skips the job. Any of these would post anyway.
+    condition = str(job.get("if", ""))
+    for function in ("always()", "failure()", "cancelled()"):
+        assert function not in condition, f"merge-gate job `if:` contains {function}"
+    run = " ".join(str(step.get("run", "")) for step in job["steps"])
+    assert "state=success" in run and "state=failure" not in run
+
+
 def test_core_marker_is_registered():
     """`pytest -m core` must be a documented selector, not an unknown mark."""
     pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
