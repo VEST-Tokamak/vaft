@@ -1036,6 +1036,358 @@ _SPECS = (
                "current_quench and current_spike (vaft.process.transients) measure a quench or spike in a given "
                "window; nothing in the pipeline calls them, and they do not label it an IRE or a disruption."),
     ),
+    # ------------------------------------------------------------------ derived physics (#1901)
+    WorkflowSpec(
+        key="vacuum_field_proxies", title="Vacuum fields and startup proxies: coils and vessel, no plasma",
+        family="derived", status="implemented",
+        summary="The field of the PF coils and the vessel currents alone, evaluated from geometric Green's "
+                "functions on a grid or at a point, and the breakdown proxies read from it. Everything is "
+                "returned to the caller; nothing is written to an IDS except the vessel currents the evaluators "
+                "solve when the ODS has none.",
+        nodes=(
+            N("pf", "PF coil currents", "measured", ids="pf_active.coil[:].current.data", symbols=r"I_{\mathrm{PF},j}(t)"),
+            N("tf", "Toroidal field", "measured", ids="tf.b_field_tor_vacuum_r.data", symbols=r"R_0 B_0\ [\mathrm{T\,m}]"),
+            N("gauge", "Prefill pressure", "measured", api="vaft.omas.process_wrapper.compute_prefill_pressure_ods",
+              ids="barometry.gauge[:].pressure.data", symbols=r"p\ [\mathrm{Pa}],\ \mathrm{median\ over\ 20\ ms\ before\ the\ onset}"),
+            N("ec", "Launched EC power", "measured", ids="ec_launchers.beam[0].power_launched.data",
+              symbols=r"P_{\mathrm{EC}}\ \mathrm{at\ the\ onset} \pm 1\ \mathrm{ms}"),
+            N("vessel", "Vessel loop currents", "standardized", api="vaft.omas.process_wrapper.compute_eddy_currents",
+              ids="pf_passive.{time, loop[:].current}",
+              symbols=r"I_{\mathrm{loop},k}(t)\qquad \mathrm{solved\ and\ written\ when}\ \mathtt{pf\_passive}\ "
+                      r"\mathrm{has\ no\ time}"),
+            N("geometry", "Conductor and limiter geometry", "machine",
+              ids="{pf_active.coil[:].element, pf_passive.loop[:].element, wall.description_2d[0].limiter}",
+              symbols=r"(R, Z)\ \mathrm{of\ every\ filament},\ \mathrm{limiter\ unit\ 0}"),
+            N("field", "Vacuum field", "derived", api="vaft.omas.process_wrapper.compute_vacuum_field_map",
+              equation="vaft.formula.green.green_psi_exact",
+              symbols=r"\psi\ [\mathrm{Wb,\ not\ Wb/rad}],\ B_R,\ B_Z,\ \partial\psi/\partial t\ \mathrm{on}\ (R, Z)"
+                      r"\qquad \mathrm{time\ snapped\ to\ a\ PF\ sample}"),
+            N("proxies", "Point proxies", "derived", api="vaft.omas.process_wrapper.compute_startup_proxies_ods",
+              relation=r"V_{\mathrm{loop}} = -\frac{d\psi}{dt},\quad n = -\frac{R}{B_Z}\frac{dB_Z}{dR}"
+                       r"\qquad \mathrm{at}\ (0.4, 0)\ \mathrm{m,\ every\ PF\ sample}"),
+            N("length", "Connection length", "derived",
+              api="vaft.omas.process_wrapper.compute_connection_length_map_ods",
+              symbols=r"L\ \mathrm{to\ the\ limiter,\ both\ directions},\ \le 150\ \mathrm{m\ each}"),
+            N("merit", "Lloyd figure of merit", "derived",
+              api="vaft.omas.process_wrapper.compute_vacuum_midplane_profiles_ods",
+              equation="vaft.formula.startup.lloyd_figure_of_merit",
+              symbols=r"|E_\phi| = |\partial\psi/\partial t|/(2\pi R),\ B_\phi = R_0 B_0/R"),
+            N("margin", "Lloyd breakdown margin", "derived",
+              api="vaft.omas.process_wrapper.compute_vacuum_midplane_profiles_ods",
+              equation="vaft.formula.startup.breakdown_margin",
+              symbols=r"E_{BD}(p, L)\ \mathrm{(Lloyd)};\ \mathrm{NaN\ where}\ A p L \le 1"),
+            N("summary", "Startup summary", "derived", api="vaft.omas.startup_summary.startup_summary",
+              symbols=r"\mathrm{point\ proxies;\ null\ area\ and\ Lloyd\ margin\ fraction\ of\ the\ map}\qquad "
+                      r"R_{\mathrm{ECR}}\ \mathrm{from\ the\ toroidal\ field},\ P_{\mathrm{EC}}\qquad "
+                      r"\mathrm{one\ flat\ dict;\ evaluated\ on\ a\ private\ copy}",
+              mapping_todo="maps, profiles and proxies are returned, never written to an IDS"),
+        ),
+        rows=(("pf", "vessel"), ("field", "tf"), ("proxies", "length", "merit"), ("margin", "gauge"), ("summary", "ec")),
+        edges=(("pf", "vessel", "if absent"), ("pf", "field", ""), ("vessel", "field", ""),
+               ("field", "proxies", ""), ("field", "length", ""), ("tf", "length", ""), ("field", "merit", ""),
+               ("tf", "merit", ""), ("field", "margin", ""), ("length", "margin", ""), ("gauge", "margin", ""),
+               ("margin", "summary", ""), ("proxies", "summary", ""),
+               ("ec", "summary", "")),
+        side=(("geometry", "field"),),
+        todos=("No vacuum field, map, proxy or breakdown margin is written to an IDS: every evaluator returns a "
+               "dict, and the startup summary is a dict too.",
+               "compute_vacuum_field_map and compute_startup_proxies_ods solve the vessel currents and store them "
+               "in the caller's pf_passive when it has no time base; startup_summary avoids that by evaluating "
+               "on a private copy.",
+               "Only vacuum sources contribute (coils and vessel, no plasma); above roughly 10 kA of plasma "
+               "current the map no longer describes the machine.",
+               "The loop voltage is a model quantity from the coil and vessel flux; it is to be compared with the "
+               "measured flux-loop voltage, not substituted for it.",
+               "No empirical threshold is applied to the Lloyd figure of merit, and the startup summary does not "
+               "report it: the summary counts the null area and the Lloyd margin on the 2-D map itself.",
+               "The point proxies come from their own point response (compute_point_response_matrices_ods), not "
+               "from the grid map; the two agree to about 1e-7 relative."),
+    ),
+    WorkflowSpec(
+        key="derived_mhd_parameters", title="Derived MHD parameters: global quantities of an equilibrium",
+        family="derived", status="implemented",
+        summary="Global quantities computed from a reconstructed equilibrium. The DD-defined betas, l_i3 and "
+                "W_MHD are written to equilibrium.global_quantities; the descriptor set and the edge-q proxies "
+                "are returned with their derivation records. Two poloidal betas exist on purpose: the DD leaf "
+                "and the circumference form EFIT reports.",
+        nodes=(
+            N("eq", "Magnetic equilibrium", "reconstructed",
+              ids="equilibrium.time_slice[:].{profiles_1d.{pressure, volume}, profiles_2d, boundary}",
+              symbols=r"p(\psi),\ V(\psi),\ \psi(R, Z),\ I_p"),
+            N("ip", "Plasma current", "measured", ids="magnetics.ip[0].data", symbols=r"I_p(t)"),
+            N("tf", "Toroidal field", "measured", ids="tf.b_field_tor_vacuum_r.data", symbols=r"R_0 B_0\ [\mathrm{T\,m}]"),
+            N("reference", "Reference radius and field", "convention",
+              api="vaft.omas.update.resolve_reference_major_radius",
+              ids="{equilibrium.vacuum_toroidal_field.r0, equilibrium.vacuum_toroidal_field.b0, tf.r0}",
+              symbols=r"R_0:\ \mathtt{tf.r0}\ \mathrm{when\ the\ stored}\ r_0\ \mathrm{is\ corrupt},\ "
+                      r"B_0 = \mathtt{b0}"),
+            N("surfaces", "Volume and surface integrals", "derived",
+              api="vaft.process.equilibrium.flux_surface_quantities",
+              symbols=r"\int p\,dV\ \mathrm{(trapezoid\ over}\ V(\psi))\qquad "
+                      r"\int B_p^2\,dV,\ L_{\mathrm{pol}}\ \mathrm{from\ the\ surface\ traces}"),
+            N("descriptors", "Global descriptors", "derived", api="vaft.process.equilibrium.derive_global_descriptors",
+              relation=r"\beta_p = 2\mu_0\langle p\rangle_V / \langle B_p\rangle_{\mathrm{LCFS}}^2",
+              symbols=r"\kappa,\ \delta,\ V,\ \beta_t,\ \beta_N,\ q_{95},\ \mathrm{virial}\ l_i"
+                      r"\qquad \mathrm{each\ a\ DerivedValue\ with\ its\ record}",
+              mapping_todo="returned, not written"),
+            N("edge_q", "Edge safety-factor proxies", "derived", api="vaft.omas.edge_q.edge_q_estimate",
+              equation="vaft.formula.equilibrium.estimated_q95",
+              symbols=r"q_{95}^{\mathrm{est}},\ q^*_{\mathrm{Menard}},\ q^*_{\mathrm{Freidberg}},\ I_N"
+                      r"\qquad \mathrm{source:\ equilibrium\ |\ magnetics}",
+              mapping_todo="returned (EdgeQEstimate), not written"),
+            N("shape", "Machine default shape", "prior", api="vaft.machine_mapping.edge_q_estimate.vest_edge_q_estimate_policy",
+              symbols=r"a,\ R_0,\ \kappa,\ \delta\ \mathrm{from\ vest.yaml\ without\ an\ equilibrium}"),
+            N("beta_pol", "Poloidal beta (DD)", "standardized",
+              api="vaft.omas.update.update_equilibrium_global_quantities_beta_li",
+              equation="vaft.formula.equilibrium.beta_poloidal_from_pressure_integral",
+              ids="equilibrium.time_slice[:].global_quantities.beta_pol"),
+            N("beta_tor", "Toroidal beta", "standardized",
+              api="vaft.omas.update.update_equilibrium_global_quantities_beta_li",
+              equation="vaft.formula.equilibrium.beta_toroidal_from_p_B0",
+              ids="equilibrium.time_slice[:].global_quantities.beta_tor"),
+            N("li", "Internal inductance", "standardized",
+              api="vaft.omas.update.update_equilibrium_global_quantities_beta_li",
+              equation="vaft.formula.equilibrium.li_3_from_Bp2_volume_integral",
+              ids="equilibrium.time_slice[:].global_quantities.li_3"),
+            N("beta_n", "Normalized beta", "standardized",
+              api="vaft.omas.update.update_equilibrium_global_quantities_beta_li",
+              equation="vaft.formula.equilibrium.beta_normal_from_beta_tor",
+              ids="equilibrium.time_slice[:].global_quantities.beta_normal", symbols=r"\beta_N\ [-]"),
+            N("energy", "Stored energy", "standardized", api="vaft.omas.update.update_equilibrium_stored_energy",
+              equation="vaft.formula.equilibrium.thermal_energy_from_p_V",
+              ids="equilibrium.time_slice[:].global_quantities.energy_mhd",
+              symbols=r"W_{\mathrm{MHD}}\ [\mathrm{J}]\ \mathrm{from\ the\ reconstructed}\ p"),
+        ),
+        rows=(("eq", "ip", "tf"), ("surfaces", "energy", "descriptors", "edge_q"), ("beta_pol", "beta_tor", "li", None),
+              (None, "beta_n", None, None)),
+        edges=(("eq", "surfaces", ""), ("eq", "descriptors", ""), ("eq", "edge_q", ""),
+               ("ip", "edge_q", ""), ("tf", "edge_q", ""), ("surfaces", "beta_pol", ""), ("surfaces", "beta_tor", ""),
+               ("surfaces", "li", ""), ("beta_tor", "beta_n", ""), ("eq", "energy", "")),
+        side=(("reference", "surfaces"), ("shape", "edge_q")),
+        todos=("beta_pol holds the DD definition; EFIT normalizes by the LCFS-circumference field instead and "
+               "differs by 26% on the packaged reference (#318). derive_global_descriptors reports the "
+               "boundary-average form as beta_p_boundary_average; the DD leaf is not matched to OMFIT.",
+               "equilibrium.vacuum_toroidal_field.r0 is corrupt on the VEST database and b0 drifts within a shot "
+               "(#325); R_0 is replaced by tf.r0, loudly, and b0 is used as stored.",
+               "beta_tor with the stored b0 does not reproduce the OMFIT reference (ratio 1.041); the reference "
+               "field is unidentified (#238).",
+               "li_3 is the ITER/Jackson third definition: the DD documents no formula for it.",
+               "energy_mhd is (3/2) int p dV of the reconstructed pressure: a reconstruction-derived energy, not a "
+               "kinetic measurement.",
+               "The global descriptors and the edge-q proxies are returned, not written to equilibrium or summary.",
+               "edge_q_estimate's equilibrium source takes R_0 B_0 from the stored vacuum_toroidal_field.r0 * b0, "
+               "not from resolve_reference_major_radius; the magnetics source takes it from tf."),
+    ),
+    WorkflowSpec(
+        key="synthetic_diagnostics", title="Synthetic diagnostics: predicted signals from a modelled state",
+        family="derived", status="implemented",
+        summary="A synthetic diagnostic predicts what an instrument would record from a modelled or "
+                "reconstructed state. VAFT has three: vacuum magnetics from the coil and vessel currents, the "
+                "equilibrium's diamagnetic flux, and soft-X-ray chords through a prescribed island. "
+                "Assumption-completed kinetic profiles (generate_synthetic_kinetic_profiles) are a synthetic "
+                "state, not a diagnostic, and are not drawn here.",
+        nodes=(
+            N("pf", "PF coil currents", "measured", ids="pf_active.coil[:].current.data", symbols=r"I_{\mathrm{PF},j}(t)"),
+            N("vessel", "Vessel loop currents", "standardized", ids="pf_passive.loop[:].current",
+              symbols=r"I_{\mathrm{loop},k}(t)\ \mathrm{(forward\ circuit\ model)}"),
+            N("eq", "Magnetic equilibrium", "reconstructed",
+              ids="equilibrium.time_slice[:].{profiles_2d[0].psi, profiles_1d.f, global_quantities}",
+              symbols=r"\psi(R, Z),\ F(\psi),\ \psi_{\mathrm{axis}},\ \psi_{\mathrm{b}}"),
+            N("dia_meas", "Diamagnetic flux", "measured", ids="magnetics.diamagnetic_flux[0].data",
+              symbols=r"\Phi_{\mathrm{dia}}^{\mathrm{meas}}(t)"),
+            N("sensors", "Magnetic sensor positions", "machine",
+              ids="magnetics.{flux_loop[:].position, b_field_pol_probe[:].position}",
+              symbols=r"(R, Z)\ \mathrm{of\ each\ selected\ channel}"),
+            N("mag_meas", "Measured magnetics", "measured", ids="magnetics.{flux_loop, b_field_pol_probe}",
+              symbols=r"\psi_{\mathrm{FL}},\ B_p\ \mathrm{with\ validity}"),
+            N("vacuum", "Vacuum magnetics forward model", "derived",
+              api="vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics",
+              symbols=r"m_{\mathrm{coil}},\ m_{\mathrm{coil+eddy}}\ \mathrm{on\ the\ PF\ time\ grid}"
+                      r"\qquad \mathrm{measured\ interpolated\ onto\ it,\ no\ extrapolation}"),
+            N("diamagnetic", "Diamagnetic flux of the equilibrium", "derived",
+              api="vaft.omas.process_wrapper.compute_reconstructed_diamagnetic_flux",
+              relation=r"\Phi_{\mathrm{dia}} = \int_S (B_\phi - B_{\phi,\mathrm{vac}})\,dA"
+                       r"\qquad \mathrm{negative\ for\ a\ diamagnetic\ plasma}"),
+            N("island", "Prescribed island", "prior",
+              symbols=r"(m, n),\ W\ \mathrm{at\ the\ outboard\ midplane},\ \mathrm{phase},\ \omega"
+                      r"\qquad \epsilon_0(\psi_N)\ \mathrm{background}"),
+            N("sxr", "Island soft-X-ray forward model", "derived",
+              api="vaft.process.soft_x_rays.synthetic_island_soft_x_rays",
+              symbols=r"\epsilon\ \mathrm{flattened\ in\ the\ island},\ \mathrm{integrated\ along\ each\ chord}"),
+            N("chords", "SXR chord geometry", "machine",
+              symbols=r"\mathrm{pencil\ chords,\ one\ poloidal\ plane\ each;\ optional\ clipping\ domain}"),
+            N("vac_out", "Synthetic vacuum magnetics", "derived",
+              symbols=r"\mathrm{measured},\ m_{\mathrm{coil}},\ m_{\mathrm{coil+eddy}}\ \mathrm{per\ channel}",
+              mapping_todo="returned as VacuumChannel records, not written"),
+            N("dia_out", "Diamagnetic constraint", "standardized",
+              api="vaft.omas.update.update_equilibrium_constraints_diamagnetic_flux",
+              ids="equilibrium.time_slice[:].constraints.diamagnetic_flux.{measured, reconstructed}",
+              symbols=r"\Phi_{\mathrm{dia}}^{\mathrm{meas}}\ \mathrm{vs}\ \Phi_{\mathrm{dia}}^{\mathrm{rec}}"),
+            N("sxr_out", "Synthetic SXR brightness", "derived",
+              symbols=r"b(t, \mathrm{chord})\ [\epsilon\cdot\mathrm{m}],\ \mathrm{before\ any\ detector\ response}",
+              mapping_todo="returned (SyntheticSXRResult), not written to soft_x_rays"),
+        ),
+        rows=(("pf", "vessel", "eq"), ("mag_meas", "vacuum", "diamagnetic", "sxr"),
+              ("vac_out", "dia_meas", "dia_out", "sxr_out")),
+        edges=(("pf", "vacuum", ""), ("vessel", "vacuum", ""), ("mag_meas", "vacuum", ""), ("eq", "diamagnetic", ""),
+               ("eq", "sxr", ""), ("vacuum", "vac_out", ""), ("diamagnetic", "dia_out", ""),
+               ("dia_meas", "dia_out", ""), ("sxr", "sxr_out", "")),
+        side=(("sensors", "mag_meas"), ("island", "sxr"), ("chords", "sxr")),
+        todos=("There is no synthetic Thomson, interferometer, visible-camera or bolometer model: those "
+               "measurements cannot be compared with a prediction of the reconstructed state.",
+               "The vacuum magnetics are returned with their measured counterparts and written nowhere; EFIT's "
+               "own fitted magnetics (equilibrium constraints.*.reconstructed) are the solver's native output, "
+               "not a VAFT forward model.",
+               "The vacuum forward model has no plasma current: it predicts the magnetics only before breakdown "
+               "or in plasma-free windows.",
+               "The SXR model is forward only: a rigidly rotating island of fixed width, pencil-beam chords, no "
+               "filter, etendue or noise; it is comparable with a measurement only up to a per-channel "
+               "calibration, and is not written to soft_x_rays."),
+    ),
+    WorkflowSpec(
+        key="coordinate_cocos_conversions", title="Coordinates and COCOS: one transform per layer",
+        family="derived", status="implemented",
+        summary="Two COCOS transforms, at two layers: the ODS is normalized in place to weber (COCOS 1-8 and "
+                "per-radian files become 11; a declared 11-18 is left as it is), and an "
+                "in-memory equilibrium record is converted to any target COCOS. The ODS coordinate writers "
+                "resolve the flux storage of each slice themselves (as_equilibrium), so they also run on an "
+                "unnormalized ODS; the record-level radii and angle are COCOS-independent and returned.",
+        nodes=(
+            N("src", "Equilibrium as stored", "reconstructed",
+              ids="equilibrium.time_slice[:].{profiles_1d.psi, profiles_2d[0].psi, global_quantities}",
+              symbols=r"\psi\ [\mathrm{Wb\ or\ Wb/rad}],\ I_p,\ B_0,\ q,\ F"),
+            N("declared", "Declared COCOS", "convention",
+              ids="{equilibrium.ids_properties.cocos, equilibrium.code.parameters.cocos}",
+              symbols=r"\mathrm{trusted\ as\ provenance;\ absent\ before}\ \#236"),
+            N("normalize", "ODS normalization to weber", "derived",
+              api="vaft.omas.general.equilibrium_psi_to_weber",
+              symbols=r"\mathrm{declared\ 1\text{-}8}:\ \mathrm{OMAS\ cocos\_transform\ to\ 11}\qquad "
+                      r"\mathrm{declared\ 11\text{-}18:\ unchanged}\qquad "
+                      r"\mathrm{undeclared:\ storage\ probed,\ Wb/rad\ taken\ as\ COCOS\ 1}\qquad "
+                      r"\mathrm{equilibrium\ and\ core\_profiles\ leaves}"),
+            N("ods11", "Equilibrium in weber (COCOS 11-18)", "standardized", api="vaft.omas.general.set_ods_cocos",
+              ids="{equilibrium.time_slice[:], core_profiles.profiles_1d[:], equilibrium.code.parameters.cocos}",
+              symbols=r"\psi\ [\mathrm{Wb}];\ \mathrm{declared}\ 11\ \mathrm{only\ after\ a\ transform}\qquad "
+                      r"\mathrm{constraints\ untouched}"),
+            N("psi_norm", "Normalized poloidal flux", "standardized",
+              api="vaft.omas.update.update_equilibrium_profiles_1d_normalized_psi",
+              equation="vaft.formula.equilibrium.psi_normalised",
+              ids="equilibrium.time_slice[:].profiles_1d.psi_norm", symbols=r"\psi_N\ [-]"),
+            N("rho_tor", "Toroidal flux coordinate", "standardized",
+              api="vaft.omas.update.update_equilibrium_profiles_1d_toroidal_flux",
+              equation="vaft.formula.equilibrium.toroidal_flux_from_q_psi",
+              ids="equilibrium.time_slice[:].profiles_1d.{phi, rho_tor, rho_tor_norm}",
+              symbols=r"\rho_{\mathrm{tor}} = \sqrt{|\Phi|/(\pi |B_0|)}"),
+            N("grid", "Flux-surface grid", "standardized",
+              api="vaft.omas.update.update_equilibrium_profiles_2d_sfl_coordinates",
+              relation=r"R = R_{\mathrm{ax}} + \sqrt{\psi_N}\,r_{\mathrm{LCFS}}(\theta)\cos\theta,\ "
+                       r"\theta\ \mathrm{geometric}",
+              ids="equilibrium.time_slice[:].profiles_2d[1].{grid.dim1, grid.dim2, grid_type, r, z, psi, theta}",
+              symbols=r"(\psi_N, \theta)\ \mathrm{grid},\ \mathrm{surfaces\ =\ scaled\ LCFS}",
+              mapping_todo="stored as grid_type 11 (straight field line), though theta is geometric"),
+            N("record", "Equilibrium record", "derived", api="vaft.process.equilibrium.as_equilibrium",
+              symbols=r"\mathrm{Wb\ vs\ Wb/rad\ from\ Amp\grave{e}re's\ law\ round\ the\ LCFS}\qquad "
+                      r"\mathrm{COCOS\ declared,\ or\ candidates\ from\ the\ signs\ of}\ B_0, I_p, q"),
+            N("target", "Target COCOS", "convention", symbols=r"1\text{-}18\ (\mathrm{no}\ 9, 10),\ \mathrm{chosen\ by\ the\ caller}"),
+            N("convert", "Record conversion", "derived", api="vaft.process.equilibrium.convert_cocos",
+              symbols=r"\psi,\ F,\ q,\ p',\ FF',\ I_p,\ B_0\ \times\ \mathrm{their\ cocos\_transform\ factors}"
+                      r"\qquad p\ \mathrm{and\ the\ axis\ untouched;\ ambiguous\ source\ refused}"
+                      r"\qquad \mathrm{returns\ a\ copy\ in\ the\ target\ COCOS,\ in\ memory}"),
+            N("radial", "Normalized radii", "derived", api="vaft.process.equilibrium.derive_radial_coordinates",
+              symbols=r"\psi_N,\ \rho_{\mathrm{pol},N} = \sqrt{\psi_N},\ \rho_{\mathrm{tor},N}\qquad "
+                      r"\mathrm{COCOS\text{-}independent;\ unavailable\ with\ a\ reason}"),
+            N("sfl", "Straight-field-line angle", "derived", api="vaft.process.equilibrium.straight_field_line_map",
+              equation="vaft.formula.equilibrium.straight_field_line_angle",
+              symbols=r"\theta^*\ (\mathrm{PEST})\ \mathrm{at\ any}\ (R, Z)"),
+        ),
+        rows=(("src",), ("normalize", "record"), ("ods11", "convert"),
+              ("psi_norm", "grid", "rho_tor", "radial", "sfl")),
+        edges=(("src", "normalize", ""), ("src", "record", ""), ("normalize", "ods11", ""),
+               ("ods11", "psi_norm", ""), ("ods11", "rho_tor", ""), ("ods11", "grid", ""),
+               ("record", "radial", ""), ("record", "sfl", ""), ("record", "convert", "")),
+        side=(("declared", "normalize"), ("target", "convert")),
+        todos=("The ODS writer of the 2-D flux-surface grid uses a geometric approximation (the boundary scaled "
+               "by sqrt(psi_N) about the axis, the geometric angle) for every requested convention, yet labels "
+               "it grid_type 11; the true PEST angle exists only in memory "
+               "(vaft.process.equilibrium.straight_field_line_map).",
+               "equilibrium_psi_to_weber leaves equilibrium.time_slice[:].constraints untouched: VAFT copies "
+               "them from the DD-conformant magnetics and pf_active IDSs.",
+               "rho_tor integrates q from the axis, so EFIT's often outlying q[0] moves rho_tor_norm by up to "
+               "about 0.04 on the innermost surfaces; packaged samples older than #192 still hold the "
+               "sqrt(psi_N) proxy.",
+               "convert_cocos shifts the identified-candidate list on the assumption that every candidate "
+               "shares the source's storage family, which can produce an out-of-range index (#601)."),
+    ),
+    WorkflowSpec(
+        key="power_balance_confinement", title="Power balance and confinement: experimental and modelled",
+        family="derived", status="implemented",
+        summary="Two power balances answer different questions. The experimental Ohmic chain splits the measured "
+                "loop voltage with l_i3 and takes the stored energy of the equilibrium; the modelled budget uses "
+                "Spitzer heating and modelled radiation. Neither writes to the summary IDS; the experimental chain "
+                "is tabulated in the database summary sheet.",
+        nodes=(
+            N("ip", "Plasma current", "measured", ids="magnetics.ip[0].{data, time}", symbols=r"I_p(t),\ dI_p/dt"),
+            N("vloop", "Loop voltage", "measured", api="vaft.omas.discharge_timing.inboard_midplane_loop",
+              ids="magnetics.flux_loop[:].{voltage, flux}",
+              symbols=r"V_{\mathrm{loop}}\ \mathrm{(inboard\ midplane\ loop,\ off\ the\ boundary)}"),
+            N("eq", "Magnetic equilibrium", "reconstructed",
+              ids="equilibrium.time_slice[:].{global_quantities.li_3, profiles_1d.pressure, profiles_2d[0].psi}",
+              symbols=r"l_{i,3},\ W = \tfrac32\int p_{\mathrm{EFIT}}\,dV\ \mathrm{(grid\ quadrature)}"),
+            N("cp", "Kinetic profiles", "standardized", ids="core_profiles.profiles_1d[:].electrons",
+              symbols=r"n_e(\rho),\ T_e(\rho)"),
+            N("w_source", "Stored-energy source", "convention",
+              symbols=r"\mathrm{efit\_pressure\ (default)\ |\ core\_profiles\_thermal}"),
+            N("split", "Resistive loop voltage", "derived", api="vaft.process.confinement.resistive_loop_voltage",
+              equation="vaft.formula.equilibrium.inductive_voltage_from_dW_magdt_I_p",
+              symbols=r"V_{\mathrm{res}} = V_{\mathrm{loop}} - V_{\mathrm{ind}},\ L_i = \mu_0 R_0 l_{i,3}/2"),
+            N("balance", "Ohmic power balance", "derived", api="vaft.process.confinement.confinement_power_balance",
+              equation="vaft.formula.equilibrium.ohmic_heating_power_from_I_p_V_res",
+              symbols=r"P_{\mathrm{net}} = P_{\mathrm{OH}} - dW/dt\ (\mathrm{DB5\ PLTH})\qquad "
+                      r"P_{\mathrm{transport}}\ \mathrm{needs\ a\ measured}\ P_{\mathrm{rad}}:\ \mathrm{NaN}"),
+            N("tau", "Confinement time", "derived", api="vaft.omas.confinement.ohmic_confinement_ods",
+              equation="vaft.formula.equilibrium.confinement_time_from_P_loss_W_th",
+              symbols=r"\tau_E\ \mathrm{per\ slice\ the\ caller\ passes\ (default\ every\ slice)}",
+              mapping_todo="not written to the summary IDS; tabulated in the database summary sheet"),
+            N("evidence", "Slice evidence", "derived", api="vaft.process.confinement.confinement_slice_evidence",
+              symbols=r"\mathrm{rates\ and\ ratios\ per\ slice;\ thresholds\ are\ the\ caller's}"),
+            N("scaling", "Confinement scaling fit", "inferred", api="vaft.process.confinement.fit_confinement_scaling",
+              relation=r"y = C\prod_j x_j^{\alpha_j},\ \mathrm{log\text{-}linear,\ errors\ clustered\ by\ shot}"),
+            N("impurity", "Impurity policy", "prior", api="vaft.machine_mapping.core_profiles.vest_core_profiles_policy",
+              symbols=r"\mathrm{C,\ O\ at}\ n_I/n_e = 1/86,\ Z_{\mathrm{eff}} = 2\ (\mathrm{assumed})"),
+            N("spitzer", "Spitzer Ohmic dissipation", "derived",
+              api="vaft.omas.process_wrapper.compute_ohmic_heating_power_from_core_profiles",
+              relation=r"P_{\mathrm{ohm,diss}} = \int_V \eta\,J_\phi^2\,dV\qquad "
+                       r"\eta_{\mathrm{Spitzer}}(T_e;\ Z_{\mathrm{eff}} = 2,\ \ln\Lambda = 17)"),
+            N("radiation", "Modelled radiation", "derived",
+              api="vaft.process.atomic.compute_line_radiation_power_series",
+              equation="vaft.formula.atomic.line_cooling_coefficient",
+              symbols=r"P_{\mathrm{line}} = \int n_e n_I L_Z\,dV\ \mathrm{(ADF11)}"),
+            N("budget", "Modelled power budget", "derived", api="vaft.omas.formula_wrapper.compute_power_balance",
+              equation="vaft.formula.equilibrium.loss_power_from_p_heat_dWdt_p_rad",
+              symbols=r"P_{\mathrm{rad}} = P_{\mathrm{line}} + P_{\mathrm{sync}} + P_{\mathrm{Br}},\ "
+                      r"P_{\mathrm{heat}} = P_{\mathrm{ohm,diss}}\qquad "
+                      r"W\ \mathrm{from\ core\_profiles}\ (T_i = T_e),\ V\ \mathrm{and}\ I_p\ \mathrm{from\ the\ equilibrium}"
+                      r"\qquad dW/dt = 0\ \mathrm{for\ one\ slice}",
+              mapping_todo="returned as a dict (plots only), not written to the summary IDS"),
+        ),
+        rows=(("ip", "vloop", "eq", "cp"), ("split", None, "spitzer", "radiation"), ("balance", None, "budget", None),
+              ("tau",), ("evidence",), ("scaling",)),
+        edges=(("ip", "split", ""), ("vloop", "split", ""), ("eq", "split", ""), ("split", "balance", ""),
+               ("eq", "balance", ""), ("cp", "spitzer", ""), ("cp", "radiation", ""), ("spitzer", "budget", ""),
+               ("radiation", "budget", ""), ("eq", "spitzer", ""),
+               ("balance", "tau", ""), ("tau", "evidence", ""), ("evidence", "scaling", "")),
+        side=(("w_source", "balance"), ("impurity", "radiation")),
+        todos=("Neither power balance nor the confinement time is written to the summary IDS. The experimental "
+               "chain's v_res, P_OH, P_net, W and tau_E,net are tabulated in the database summary sheet "
+               "(vaft.database); the modelled budget feeds plots only.",
+               "VEST has no bolometer, so no measured P_rad enters: the experimental chain's transport loss power "
+               "is NaN and its default is p_net (DB5 PLTH); the modelled budget always subtracts a modelled "
+               "P_rad, which is a sensitivity study, not a measurement.",
+               "The experimental chain pairs the measured current with EFIT's l_i3 (a hybrid), and its flux loop "
+               "is not on the plasma boundary; both are recorded assumptions.",
+               "The stored energy is reconstruction-derived (efit_pressure) or assumes T_i = T_e "
+               "(core_profiles_thermal); neither is a global energy (#1713)."),
+    ),
 )
 
 #: every spine workflow, by key, in reading order
@@ -1171,3 +1523,28 @@ def shot_classification(*, labels: bool = True, references: bool = False) -> Dia
 def event_detection(*, labels: bool = True, references: bool = False) -> Diagram:
     """Plasma window and coil onsets from robust-baseline thresholds (#1901)."""
     return _render_workflow(WORKFLOWS["event_detection"], labels=labels, references=references)
+
+
+def vacuum_field_proxies(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Vacuum fields and the startup proxies read from them (#1901)."""
+    return _render_workflow(WORKFLOWS["vacuum_field_proxies"], labels=labels, references=references)
+
+
+def derived_mhd_parameters(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Global MHD quantities derived from a reconstructed equilibrium (#1901)."""
+    return _render_workflow(WORKFLOWS["derived_mhd_parameters"], labels=labels, references=references)
+
+
+def synthetic_diagnostics(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Predicted diagnostic signals from a modelled or reconstructed state (#1901)."""
+    return _render_workflow(WORKFLOWS["synthetic_diagnostics"], labels=labels, references=references)
+
+
+def coordinate_cocos_conversions(*, labels: bool = True, references: bool = False) -> Diagram:
+    """COCOS transforms at the ODS and record layers, and the coordinates (#1901)."""
+    return _render_workflow(WORKFLOWS["coordinate_cocos_conversions"], labels=labels, references=references)
+
+
+def power_balance_confinement(*, labels: bool = True, references: bool = False) -> Diagram:
+    """The experimental Ohmic chain and the modelled power budget (#1901)."""
+    return _render_workflow(WORKFLOWS["power_balance_confinement"], labels=labels, references=references)

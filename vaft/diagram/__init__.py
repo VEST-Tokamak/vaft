@@ -63,7 +63,9 @@ inference (#1601): ``parameter_inference_overview`` and
 ``eddy_current_model``, ``kinetic_profile_fitting``, ``transport_hierarchy`` and
 ``neoclassical_model_comparison``; experimental processing (#1901):
 ``machine_model_history``, ``signal_processing``, ``quality_validation``,
-``fault_anomaly_detection``, ``shot_classification`` and ``event_detection``; the spatial
+``fault_anomaly_detection``, ``shot_classification`` and ``event_detection``; derived physics (#1901):
+``vacuum_field_proxies``, ``derived_mhd_parameters``, ``synthetic_diagnostics``,
+``coordinate_cocos_conversions`` and ``power_balance_confinement``; the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
 ``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
@@ -95,6 +97,9 @@ __all__ = [
     "hugill_st",
     "troyon",
     "li_qa",
+    "gyration",
+    "grad_b_drift",
+    "magnetic_mirror",
     "exb_drift",
     "curvature_drift",
     "magnetization_current",
@@ -297,6 +302,11 @@ __all__ = [
     "fault_anomaly_detection",
     "shot_classification",
     "event_detection",
+    "vacuum_field_proxies",
+    "derived_mhd_parameters",
+    "synthetic_diagnostics",
+    "coordinate_cocos_conversions",
+    "power_balance_confinement",
     "tokamak_top_view",
     "cocos_orientation",
     "machine_and_equilibrium_geometry",
@@ -319,6 +329,9 @@ _LOCATIONS = {
     "hugill_st": "._stability_space",
     "troyon": "._stability_space",
     "li_qa": "._li_qa",
+    "gyration": "._particle_states",
+    "grad_b_drift": "._particle_states",
+    "magnetic_mirror": "._particle_states",
     "exb_drift": "._particle_motion",
     "curvature_drift": "._particle_motion",
     "magnetization_current": "._particle_motion",
@@ -521,6 +534,11 @@ _LOCATIONS = {
     "fault_anomaly_detection": "._workflow_specs",
     "shot_classification": "._workflow_specs",
     "event_detection": "._workflow_specs",
+    "vacuum_field_proxies": "._workflow_specs",
+    "derived_mhd_parameters": "._workflow_specs",
+    "synthetic_diagnostics": "._workflow_specs",
+    "coordinate_cocos_conversions": "._workflow_specs",
+    "power_balance_confinement": "._workflow_specs",
     "tokamak_top_view": "._spatial",
     "cocos_orientation": "._spatial",
     "machine_and_equilibrium_geometry": "._spatial",
