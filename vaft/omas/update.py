@@ -1718,11 +1718,18 @@ def update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None):
 
     # Build interpolator for measured diamagnetic flux (magnetics -> equilibrium time)
     interp_measured = None
-    if (
-        "magnetics.diamagnetic_flux.0.data" in ods
-        and "magnetics.time" in ods
-        and len(ods.get("magnetics.diamagnetic_flux", [])) > 0
-    ):
+    try:
+        has_measured = (
+            "magnetics.diamagnetic_flux.0.data" in ods
+            and "magnetics.time" in ods
+            and len(ods.get("magnetics.diamagnetic_flux", [])) > 0
+        )
+    except (KeyError, OSError):
+        # A lazy database view asked for magnetics that the shot does not store
+        # answers with a 404 on first access; the reconstructed flux below
+        # needs only the equilibrium and must not be lost with it.
+        has_measured = False
+    if has_measured:
         t_mag = np.asarray(ods["magnetics.time"], float)
         flux_mag = np.asarray(ods["magnetics.diamagnetic_flux.0.data"], float)
         if t_mag.size >= 1 and flux_mag.size == t_mag.size:

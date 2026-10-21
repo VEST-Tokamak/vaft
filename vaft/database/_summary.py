@@ -114,6 +114,9 @@ EQUILIBRIUM_GLOBAL_PATHS = (
     "equilibrium.time",
     "equilibrium.time_slice",
     "equilibrium.vacuum_toroidal_field",
+    # The diamagnetic update interpolates the measured flux from magnetics, and
+    # the virial mu_i columns are built on it; without it they are NaN.
+    "magnetics",
     # beta_pol and li_3 divide by R_0, and the VEST database's
     # equilibrium.vacuum_toroidal_field.r0 is not trustworthy (#325). The
     # resolver cross-checks it against tf, so tf has to be loaded or the check
