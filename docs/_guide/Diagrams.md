@@ -1361,6 +1361,62 @@ vaft.diagram.ntv_precession_regimes(omega_magnetic=1.0)
 | `ntv_collisionality` | Non-resonant ($1/\nu$, then $\nu$--$\sqrt\nu$) and resonant ($1/\nu$, superbanana plateau, superbanana $\nu$) branches, with Shaing's exponents. Schematic breakpoints |
 | `ntv_precession_regimes` | $\nu_\mathrm{eff}$ against $\omega_E/\omega_B$: the resonance $\omega_d = 0$ and the ordering $\nu_\mathrm{eff} = |\omega_d|$ from `ntv_precession_frequency`. A schematic resonant band holds the superbanana plateau and $\nu$ regimes |
 
+## Canonical transport concepts
+
+Three concept figures for the transport reference relations in `vaft.formula.transport`:
+- how a diffusivity is defined;
+- how gradients drive fluxes;
+- how the classical, Bohm and gyro-Bohm reference scales relate.
+
+They explain definitions. None predicts the transport of a plasma.
+
+```text
+radial motion -> mean-square displacement (late slope)  -> D
+              -> velocity autocorrelation (area)         -> D
+gradient -> diffusive term + convective term -> flux   (one flux does not fix D and V)
+```
+
+`random_walk_diffusion` draws one exponentially correlated velocity three ways, with a fixed seed:
+- sample trajectories;
+- the mean-square displacement, which is ballistic at first and diffusive later;
+- the autocorrelation.
+
+Both definitions, `diffusivity_from_mean_square_displacement` on the late slope and
+`diffusivity_from_velocity_autocorrelation` on the area, give $D = \langle v_r^2\rangle\tau_c$.
+
+`transport_flux_gradient` keeps the diffusive and convective terms apart for particles, heat and toroidal
+momentum (per unit volume in $v_\phi$). The momentum flux's residual stress is a third term, neither diffusive nor
+convective. Its inset shows the inverse problem: one
+$\Gamma$ at one $\partial_r n$ is the line $V = (\Gamma + D\,\partial_r n)/n$, checked against
+`particle_flux_from_D_grad_n_V_n`.
+
+`transport_reference_scales` sorts the scales by role:
+- collisional: classical and neoclassical;
+- empirical reference: Bohm;
+- turbulence normalisation: gyro-Bohm.
+
+It draws no magnitude axis, because their sizes are not universally ordered. The banana, plateau and
+Pfirsch–Schlüter regimes are `neoclassical_collisionality` above. It states its $\hat\nu$ convention, and
+since #1112 it shades a transition range, a factor of 3 either side of each boundary, rather than
+drawing exact lines.
+
+```python
+vaft.diagram.random_walk_diffusion()
+vaft.diagram.transport_flux_gradient()
+vaft.diagram.transport_reference_scales()
+```
+
+| | |
+| --- | --- |
+| ![random walk]({{ '/assets/diagrams/random_walk_diffusion.svg' | relative_url }}) | ![flux and gradient]({{ '/assets/diagrams/transport_flux_gradient.svg' | relative_url }}) |
+| ![reference scales]({{ '/assets/diagrams/transport_reference_scales.svg' | relative_url }}) | |
+
+| Diagram | Concept |
+| --- | --- |
+| `random_walk_diffusion` | Trajectories, mean-square displacement ($\propto t^2$, then $\propto 2Dt$) and velocity autocorrelation of one Ornstein–Uhlenbeck velocity. The Einstein slope and the Taylor–Green–Kubo area give the same $D$ |
+| `transport_flux_gradient` | Gradient, then diffusive and convective terms, then flux, for particles, heat and momentum. One measured flux is a line of $(D, V)$, not a point |
+| `transport_reference_scales` | Classical and neoclassical (collisional), Bohm (empirical) and gyro-Bohm (turbulence normalisation) with their `vaft.formula.transport` definitions. A taxonomy, not a ranking |
+
 ## Wall conditioning
 
 Baking, glow-discharge cleaning and boronization, each drawn as a transition of the wall state
