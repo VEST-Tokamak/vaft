@@ -486,3 +486,20 @@ def test_an_existing_producer_name_is_not_overwritten(shot_ods):
     work["core_profiles.code.name"] = "vaft.code.efit.kinetic"
     P.core_profiles(work, TIME_MS, mapped, ne_fit, te_fit, geq=geq, time_tolerance_ms=3.0)
     assert work["core_profiles.code.name"] == "vaft.code.efit.kinetic"
+
+
+def test_rho_tor_n_definition_names_the_normalized_flux_it_integrates(shot_ods):
+    # #602: the published definition is what the catalog, the reference page and
+    # every provenance record show; it must name psi_n, the variable actually
+    # integrated, and say why no COCOS is needed.
+    _, geq = shot_ods
+    record = derive_radial_coordinates(geq)["rho_tor_n"]
+    assert "dpsi_n'" in record.definition and "q dpsi /" not in record.definition
+    assert "convention-independent" in record.definition
+    psi_n = np.asarray(derive_radial_coordinates(geq)["psi_n"].value)
+    q = np.asarray(geq["QPSI"], dtype=float)
+    order = np.argsort(psi_n)
+    cumulative = np.r_[0.0, np.cumsum(0.5 * (q[order][1:] + q[order][:-1]) * np.diff(psi_n[order]))]
+    expected = np.empty_like(cumulative)
+    expected[order] = np.sqrt(cumulative / cumulative[-1])
+    np.testing.assert_allclose(np.asarray(record.value), expected, atol=1e-12)

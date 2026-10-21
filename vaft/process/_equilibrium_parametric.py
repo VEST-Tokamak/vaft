@@ -611,6 +611,14 @@ def _polygon_geometry(contour: Contour) -> dict[str, float]:
     return {"area": abs(signed_area), "r": float(cr), "z": float(cz), "surface": float(surface), "volume": float(volume)}
 
 
+#: Published definition of ``rho_tor_n``: names the variable actually integrated
+#: (normalized flux, not psi) and why the result needs no COCOS (#602).
+_RHO_TOR_N_DEFINITION = (
+    "sqrt(int_0^psi_n q dpsi_n' / int_0^1 q dpsi_n'), psi_n the normalized poloidal flux; "
+    "convention-independent: the flux span and the COCOS 2*pi factor cancel"
+)
+
+
 def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
     """The three normalized radial coordinates, each with its derivation record.
 
@@ -637,17 +645,20 @@ def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
     ----------------
     1. ``psi_n = (psi_1d - psi_axis)/(psi_boundary - psi_axis)``.
     2. ``rho_pol_n = sqrt(psi_n)``, by definition of that coordinate.
-    3. ``rho_tor_n = sqrt(Phi/Phi_boundary)`` with ``Phi`` the cumulative
-       trapezoidal integral of ``q`` over the normalized flux, returned only if
-       ``q`` is finite, of matching length, and produces a monotonic result.
+    3. ``rho_tor_n = sqrt(int_0^psi_n q dpsi_n' / int_0^1 q dpsi_n')``: the
+       cumulative trapezoidal integral of ``q`` over the normalized flux
+       ``psi_n``, not over ``psi``, returned only if ``q`` is finite, of
+       matching length, and produces a monotonic result.
 
     Convention
     ----------
     All three are dimensionless and run 0 on axis to 1 at the boundary.
     ``rho_tor_n`` is COCOS-independent: it is a ratio of two integrals of the same
-    ``q`` over the same variable, so the factor of ``2*pi`` and the sign of psi
-    both cancel.  ``psi_n`` is likewise invariant under the storage choice, being
-    normalized by its own span.  This function therefore needs no COCOS and
+    ``q`` over the same variable.  Integrating over ``psi_n`` rather than
+    ``psi`` changes each integral by the constant ``psi_boundary - psi_axis``,
+    which cancels in the ratio together with the factor of ``2*pi`` and the sign
+    of psi; the published ``definition`` says so.  ``psi_n`` is likewise
+    invariant under the storage choice, being normalized by its own span.  This function therefore needs no COCOS and
     imposes none.
 
     Applicability
@@ -659,9 +670,7 @@ def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
     ``rho_tor_n`` is unavailable when ``q`` is missing, non-finite, of the wrong
     length, or gives a non-monotonic toroidal flux, and when ``psi_n`` is not
     strictly monotonic.  The integral is trapezoidal on the stored grid, so a
-    coarse or axis-clustered ``q`` limits its accuracy near the axis.  The
-    published ``definition`` string names ``dpsi`` where the integration variable
-    is ``psi_n``; the value is unaffected and the wording is tracked in #602.
+    coarse or axis-clustered ``q`` limits its accuracy near the axis.
 
     Provenance
     ----------
@@ -682,20 +691,20 @@ def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
         "rho_pol_n": _derived(eq, np.sqrt(np.clip(psi_n, 0, None)), "1", "sqrt(psi_n)", "direct normalization", ("psi_1d",)),
     }
     if eq.q is None or eq.q.size != psi_n.size or not np.all(np.isfinite(eq.q)):
-        result["rho_tor_n"] = _unavailable(eq, "1", "sqrt(Phi/Phi_boundary), Phi=int(q dpsi)", "finite q on the psi_1d grid is required", ("q", "psi_1d"))
+        result["rho_tor_n"] = _unavailable(eq, "1", _RHO_TOR_N_DEFINITION, "finite q on the psi_1d grid is required", ("q", "psi_1d"))
         return result
     order = np.argsort(psi_n)
     x, q = psi_n[order], eq.q[order]
     if np.any(np.diff(x) <= 0):
-        result["rho_tor_n"] = _unavailable(eq, "1", "sqrt(Phi/Phi_boundary), Phi=int(q dpsi)", "psi_n must be strictly monotonic", ("q", "psi_1d"))
+        result["rho_tor_n"] = _unavailable(eq, "1", _RHO_TOR_N_DEFINITION, "psi_n must be strictly monotonic", ("q", "psi_1d"))
         return result
     cumulative = np.r_[0.0, np.cumsum(0.5 * (q[1:] + q[:-1]) * np.diff(x))]
     if cumulative[-1] == 0 or np.any(cumulative / cumulative[-1] < -1e-12) or np.any(np.diff(cumulative / cumulative[-1]) < -1e-10):
-        result["rho_tor_n"] = _unavailable(eq, "1", "sqrt(Phi/Phi_boundary), Phi=int(q dpsi)", "q dpsi does not produce a monotonic toroidal-flux coordinate", ("q", "psi_1d"))
+        result["rho_tor_n"] = _unavailable(eq, "1", _RHO_TOR_N_DEFINITION, "q dpsi does not produce a monotonic toroidal-flux coordinate", ("q", "psi_1d"))
         return result
     rho_sorted = np.sqrt(np.clip(cumulative / cumulative[-1], 0, 1))
     rho = np.empty_like(rho_sorted); rho[order] = rho_sorted
-    result["rho_tor_n"] = _derived(eq, rho, "1", "sqrt(int_axis^psi q dpsi / int_axis^boundary q dpsi)", "trapezoidal integration", ("q", "psi_1d"))
+    result["rho_tor_n"] = _derived(eq, rho, "1", _RHO_TOR_N_DEFINITION, "trapezoidal integration", ("q", "psi_1d"))
     return result
 
 
