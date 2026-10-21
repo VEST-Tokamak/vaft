@@ -1056,6 +1056,8 @@ PRESENTATION_ROLES: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
     ("experiment", "Experiment & Engineering", ("experiment",)), ("theory", "Theory & Modelling", ("theory",)),
     ("data_software", "Data, AI & Software", ("data_ai", "software")),
 )
+#: each role group's pictogram in the presentation rendering only (#2113)
+PRESENTATION_ROLE_SYMBOLS: Dict[str, str] = {"experiment": "tokamak", "theory": "model", "data_software": "computation"}
 PRESENTATION_VERBS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
     ("Plan", ("ask",)), ("Observe", ("produce",)), ("Infer", ("infer",)), ("Model", ("model",)), ("Test", ("test",)),
     ("Compare", ("test",)), ("Learn", ("preserve",)),
@@ -1126,6 +1128,9 @@ def fusion_research_ecosystem(detail: str = "full", *, labels: bool = True) -> D
                     role=f"role:{key}", latex=True)
             role_boxes.append(b)
             items += list(b.items)
+            # on the top-right corner: the band's label holds the top-left
+            cx, cy = corner(b, 0.72)
+            items += badge(PRESENTATION_ROLE_SYMBOLS[key], (2 * b.x - cx, cy), 0.72, role=f"symbol:role:{key}").items
         activities = box(0.0, 4.6, 13.0, 1.25, "\\textbf{Research activities}\\\\" + " $\\cdot$ ".join(
             v for v, _ in PRESENTATION_VERBS), role="node:activities", latex=True)
         items += list(activities.items)
