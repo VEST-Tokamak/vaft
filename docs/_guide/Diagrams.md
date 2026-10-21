@@ -2854,10 +2854,15 @@ implementation maturity, validation or provenance: a `computation` icon does not
 runs, a `standardized` icon does not mean a product passed validation.
 
 ```python
+from types import SimpleNamespace
+
 from vaft.diagram.pictograms import badge, corner, pictogram
 
+items = []  # a builder's scene items; the box is any object with x, y, width, height (cm)
+vv_box = SimpleNamespace(x=6.0, y=3.0, width=3.2, height=1.2)
 items += pictogram("database", (2.0, 3.0), 0.8, role="symbol:stage:database").items
 items += badge("validation", corner(vv_box), 0.62, role="symbol:node:vv").items
+print(len(items), items[0].role)
 ```
 
 - `pictogram(name, at, size=0.6, *, role, style=PICTOGRAM)` returns scene polylines centred on `at`,
