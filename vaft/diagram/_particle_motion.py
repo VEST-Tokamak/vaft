@@ -146,7 +146,7 @@ def _guiding_centre(q, m, x, v, B):
     return np.asarray(x, dtype=float) - gyration_offset(q, m, B, v)
 
 
-def exb_drift(*, mass_ratio: float = 4.0, projection: str = "perpendicular", labels: bool = True) -> Diagram:
+def exb_drift(*, mass_ratio: float = 4.0, projection: str = "perpendicular", labels: bool = True, trajectory=None, time=None, animation=False, fps=None, duration=None, dpi=None, frame_label=True) -> Diagram:
     r"""E-cross-B drift of an ion and an electron in uniform crossed fields.
 
     $\mathbf{B} = B\hat z$ (out of the page) and $\mathbf{E} = E\hat x$. Both
@@ -159,6 +159,13 @@ def exb_drift(*, mass_ratio: float = 4.0, projection: str = "perpendicular", lab
     ``"3d"`` shows the same orbits with a small parallel velocity, as helices
     along $\mathbf{B}$ drifting sideways.
     """
+    if trajectory is not None or time is not None or animation or fps is not None or duration is not None or dpi is not None or not frame_label:
+        if mass_ratio != 4.0:
+            raise ValueError("mass_ratio belongs to the static two-species reference; supply a computed trajectory for particle/GC animation")
+        from ._particle_states import particle_states
+        return particle_states('exb_drift', case='exb_drift', trajectory=trajectory, time=time,
+                               projection=projection, labels=labels, animation=animation,
+                               fps=fps, duration=duration, dpi=dpi, frame_label=frame_label)
     _check_projection(projection, ("perpendicular", "3d"))
     labels = _check_labels(labels)
     mass_ratio = _validate_mass_ratio(mass_ratio)
@@ -242,7 +249,7 @@ def _toroidal_field_gradient(R0: float, B0: float, R: float) -> float:
     return float(vacuum_toroidal_field(B0, R0, R + h) - vacuum_toroidal_field(B0, R0, R - h)) / (2 * h)
 
 
-def curvature_drift(*, projection: str = "3d", labels: bool = True) -> Diagram:
+def curvature_drift(*, projection: str = "3d", labels: bool = True, trajectory=None, time=None, animation=False, fps=None, duration=None, dpi=None, frame_label=True) -> Diagram:
     r"""An ion spiralling along a curved field line and drifting off it.
 
     The field is the vacuum toroidal field $\mathbf{B} = B_0 R_0/R\,\hat\phi$,
@@ -260,6 +267,11 @@ def curvature_drift(*, projection: str = "3d", labels: bool = True) -> Diagram:
     The global, invariant view of the same orbit physics is
     ``vaft.diagram.canonical_toroidal_momentum``.
 """
+    if trajectory is not None or time is not None or animation or fps is not None or duration is not None or dpi is not None or not frame_label:
+        from ._particle_states import particle_states
+        return particle_states('curvature_drift', case='toroidal_drift', trajectory=trajectory, time=time,
+                               projection=projection, labels=labels, animation=animation,
+                               fps=fps, duration=duration, dpi=dpi, frame_label=frame_label)
     _check_projection(projection, ("3d", "poloidal", "top"))
     labels = _check_labels(labels)
     R0, B0, q, m = 6.0, 4.0, 1.0, 1.0
@@ -440,7 +452,7 @@ def magnetization_current(*, projection: str = "perpendicular", labels: bool = T
 # ---------------------------------------------------------------------------
 
 
-def toroidal_drift(*, aspect_ratio: float = 2.2, projection: str = "3d", labels: bool = True) -> Diagram:
+def toroidal_drift(*, aspect_ratio: float = 2.2, projection: str = "3d", labels: bool = True, trajectory=None, time=None, animation=False, fps=None, duration=None, dpi=None, frame_label=True) -> Diagram:
     r"""Why a purely toroidal field cannot confine a plasma.
 
     In $\mathbf{B} = B_0R_0/R\,\hat\phi$ the grad-B and curvature drifts
@@ -457,6 +469,13 @@ def toroidal_drift(*, aspect_ratio: float = 2.2, projection: str = "3d", labels:
     The global, invariant view of the same orbit physics is
     ``vaft.diagram.canonical_toroidal_momentum``.
 """
+    if trajectory is not None or time is not None or animation or fps is not None or duration is not None or dpi is not None or not frame_label:
+        if aspect_ratio != 2.2:
+            raise ValueError("aspect_ratio belongs to the static reference; supply a computed trajectory with the desired geometry")
+        from ._particle_states import particle_states
+        return particle_states('toroidal_drift', case='toroidal_drift', trajectory=trajectory, time=time,
+                               projection=projection, labels=labels, animation=animation,
+                               fps=fps, duration=duration, dpi=dpi, frame_label=frame_label)
     from ._magnetic_island import _validate as _island_model
 
     _check_projection(projection, ("3d", "poloidal", "top"))

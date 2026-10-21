@@ -31,12 +31,7 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "core-test",
-            "integration_id": 15368
-          },
-          {
-            "context": "package",
-            "integration_id": 15368
+            "context": "merge-gate"
           }
         ]
       }

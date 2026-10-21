@@ -48,9 +48,18 @@ def _xy(point) -> str:
     return f"({_num(point[0])},{_num(point[1])})"
 
 
+#: TeX reads each source line into a 200000-byte buffer. Paths longer than this
+#: are split across lines (TeX joins them); shorter ones keep their exact text,
+#: so existing build records stay valid.
+_TEX_LINE_LIMIT = 180_000
+
+
 def _tikz_item(item) -> str:
     if isinstance(item, Polyline):
-        path = " -- ".join(_xy(p) for p in item.points)
+        points = [_xy(p) for p in item.points]
+        path = " -- ".join(points)
+        if len(path) > _TEX_LINE_LIMIT:
+            path = " --\n".join(" -- ".join(points[i:i + 1000]) for i in range(0, len(points), 1000))
         if item.closed:
             path += " -- cycle"
         return f"\\draw[{item.style}] {path};"
