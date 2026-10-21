@@ -217,15 +217,17 @@ def test_long_full_orbit_trails_resolve_the_gyration(case):
     assert len(trail) / _gyrations(full.velocity) >= 20
 
 
-def test_guiding_center_trail_does_not_follow_adaptive_nodes():
+@pytest.mark.parametrize("case", ["gyration", "grad_b_drift", "magnetic_mirror"])
+def test_guiding_center_trail_does_not_follow_adaptive_nodes(case):
     """DOP853 node placement differs between platforms; the GC trail must not,
-    or committed reference SVGs hash differently on Linux CI."""
+    or committed reference SVGs hash differently on Linux CI. Curved GC paths
+    agree to well below the 5e-5 rounding of the TikZ coordinates."""
     from vaft.diagram._particle_states import _trail
 
-    gc = particle_motion_case("gyration").guiding_center
+    gc = particle_motion_case(case).guiding_center
     # Move one node along the same path, as a different step-size ramp would.
     time = np.r_[gc.time[0], gc.time[0] + 1.01 * (gc.time[1] - gc.time[0]), gc.time[2:]]
     sampled = gc.sample(time)
     shifted = replace(gc, time=time, position=sampled["position"], p_parallel=sampled["p_parallel"])
     end = float(gc.time[-1])
-    np.testing.assert_allclose(_trail(gc, end), _trail(shifted, end), atol=1e-6)
+    np.testing.assert_allclose(_trail(gc, end), _trail(shifted, end), rtol=0, atol=5e-6)

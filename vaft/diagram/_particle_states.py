@@ -64,7 +64,7 @@ def _trail(trajectory, time):
         inside = trajectory.time < time
         before = trajectory.position[inside]
         stride = max(1, int(np.ceil(len(before) / 1200)))
-        if trajectory.velocity is not None and np.count_nonzero(inside) > 1:
+        if np.count_nonzero(inside) > 1:  # full orbits always carry velocity
             v = trajectory.velocity[inside]
             cross = np.linalg.norm(np.cross(v[:-1], v[1:]), axis=1)
             turn = float(np.max(np.arctan2(cross, np.sum(v[:-1] * v[1:], axis=1))))
