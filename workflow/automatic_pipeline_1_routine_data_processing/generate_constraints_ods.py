@@ -483,6 +483,11 @@ def main() -> int:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
     )
+    if args.npprime is not None or args.nffprime is not None:
+        LOGGER.warning(
+            "--npprime/--nffprime are ignored: the constraints product no longer records "
+            "a profile basis; the k-file stage's EFIT configuration chooses it (#869)"
+        )
     try:
         ods, composition = compose_stage_products(
             diagnostics=args.diagnostics_ods,
