@@ -208,7 +208,7 @@ beta_p = vaft.formula.beta_pol_from_beta_tor(beta_tor, q_95, epsilon)   # beta_p
 beta_t = vaft.formula.beta_tor_from_beta_pol(beta_pol, q_95, epsilon)   # beta_t = beta_p (eps/q95)^2
 
 I_max  = vaft.formula.current_limit_from_q(q_95, a, B0, R0)       # I_p = 2 pi a^2 B0 / (mu0 R0 q95)
-W      = vaft.formula.stored_energy_from_beta_V(beta, B0, V)       # <p> V = beta B0^2 V / (2 mu0)
+pV     = vaft.formula.stored_energy_from_beta_V(beta, B0, V)       # <p> V = beta B0^2 V / (2 mu0)
 ```
 
 `beta_N_from_beta_a_B0_Ip` works in the Troyon convention, **%·m·T/MA**: pass $\beta$ **in percent**
