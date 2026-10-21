@@ -24,6 +24,12 @@ from vaft.process.impa import (
     TfWindowCriteria,
     process_impa,
 )
+from vaft.validation.impa import (
+    bz_channel_validity,
+    channel_validity,
+    manifest_checks,
+    manifest_label,
+)
 
 from .magnetics import PROBE_LENGTH, vfit_plasma_current
 from .registry import port_phi
@@ -440,7 +446,7 @@ def process_impa_shot(
         if not reference.quality.is_usable:
             raise ValueError(
                 f"IMPA reference shot {reference_shot} is not usable as a calibration "
-                f"({reference.quality.status}): {'; '.join(reference.quality.reasons)}"
+                f"({manifest_label(reference.quality.status)}): {'; '.join(reference.quality.reasons)}"
             )
         reference_specs = reference_inputs["specs"]
     inputs = load_impa_inputs(shot, config, raw_source=raw_source)
@@ -547,30 +553,18 @@ def _target_time(source_time: np.ndarray, tstart: float, tend: float, dt: float)
 
 def _bz_channel_status(result: ImpaResult, index: int, wired: bool) -> tuple[int, str]:
     """Return the IDS validity flag and a reason for one vertical-field sensor."""
-    if not wired:
-        return -2, "raw signal unavailable"
-    if result.crosstalk is None or not np.isfinite(result.crosstalk.sin_angle[index]):
-        return -1, "crosstalk calibration could not be fitted"
-    if result.quality.checks.get("bz_sensors") == "invalid":
-        return -1, "vertical-field sensor calibration was rejected"
-    if result.quality.checks.get("bz_sensors") == "warning":
-        return 1, "calibration accepted with warnings; sensor may be inactive"
-    return 0, "valid"
+    calibrated = result.crosstalk is not None and bool(np.isfinite(result.crosstalk.sin_angle[index]))
+    return bz_channel_validity(result.quality, wired=wired, calibrated=calibrated)
 
 
 def _channel_status(result: ImpaResult, index: int) -> tuple[int, str]:
     """Return the IDS validity flag and a short reason for one channel."""
-    if not bool(result.channel_valid[index]):
-        return -2, "raw signal unavailable"
-    if result.coupling is None or not np.isfinite(result.coupling.alpha[index]):
-        return -1, "TF coupling could not be fitted"
-    if not np.any(np.isfinite(result.b_z[index])):
-        return -1, "compensated Bz is not finite"
-    if result.quality.status == "invalid":
-        return -1, "shot-level IMPA calibration was rejected"
-    if result.quality.status == "warning":
-        return 1, "calibration accepted with warnings"
-    return 0, "valid"
+    return channel_validity(
+        result.quality,
+        wired=bool(result.channel_valid[index]),
+        coupled=result.coupling is not None and bool(np.isfinite(result.coupling.alpha[index])),
+        finite=bool(np.any(np.isfinite(result.b_z[index]))),
+    )
 
 
 def impa(
@@ -760,10 +754,11 @@ def impa(
 
     status: dict[str, Any] = {
         "shot": int(shot),
-        "status": result.quality.status,
+        # The manifest's spelling of the verdict (#305 reads "invalid").
+        "status": manifest_label(result.quality.status),
         "orientation": orientation,
         "ids_node": node,
-        "checks": dict(result.quality.checks),
+        "checks": manifest_checks(result.quality),
         "reasons": list(result.quality.reasons) + list(inputs["notes"]),
         "provenance": dict(result.provenance),
         "geometry_method": result.geometry.method,

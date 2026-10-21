@@ -29,6 +29,7 @@ from vaft.process.impa import (
     legacy_impa_compensation,
     legacy_impa_position,
 )
+from vaft.validation.model import ValidationStatus
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 IMPA_SAMPLE = str(REPOSITORY_ROOT / "vaft" / "data" / "sample" / "legacy" / "shot_{shot}_impa.json.gz")
@@ -120,8 +121,8 @@ def test_39204_does_not_meet_the_reference_conditions(result_39204):
     5 cm fit leaves a ~34% residual, against 9-12% on the 2022-04-23 alignment
     shots.  The shot is reported invalid rather than silently accepted.
     """
-    assert result_39204.quality.status == "invalid"
-    assert result_39204.quality.checks["tf_coupling"] == "invalid"
+    assert result_39204.quality.status == ValidationStatus.FAIL
+    assert result_39204.quality.checks["tf_coupling"] == ValidationStatus.FAIL
     assert any("toroidally aligned" in reason for reason in result_39204.quality.reasons)
     assert result_39204.geometry.nrmse > 0.2
 
@@ -159,7 +160,7 @@ def test_uniform_pitch_geometry_does_not_describe_39204(result_39204):
     assert result_39204.geometry.method == "tf_profile_fit"
     assert result_39204.geometry.r0 == pytest.approx(0.341, abs=0.02)
     assert result_39204.geometry.nrmse > 0.2
-    assert result_39204.quality.checks["geometry"] == "warning"
+    assert result_39204.quality.checks["geometry"] == ValidationStatus.WARN
 
 
 # ---------------------------------------------------------------------------
@@ -297,7 +298,7 @@ def test_a_shot_without_a_real_impa_signal_is_reported_invalid():
     """Shot 44740 has fields 114-121 wired but no IMPA installed."""
     result, _ = process_impa_shot(44740, raw_source=NO_SIGNAL_SAMPLE)
 
-    assert result.quality.status == "invalid"
+    assert result.quality.status == ValidationStatus.FAIL
     assert result.quality.reasons
 
 
@@ -392,7 +393,7 @@ def test_no_static_model_certifies_a_single_shot_yet():
     for shot in (39204, SECOND_REFERENCE):
         result, _ = process_impa_shot(shot, raw_source=IMPA_SAMPLE)
 
-        assert result.quality.status == "invalid", shot
+        assert result.quality.status == ValidationStatus.FAIL, shot
         assert result.quality.reasons, shot
         assert result.window is not None, shot
 
@@ -419,8 +420,8 @@ def test_alignment_shots_classify_as_valid(shot):
 
     # The Hall-side calibration -- position and alignment -- is what these
     # shots certify.  The vertical-field sensors are judged separately.
-    assert result.quality.checks["geometry"] == "valid", result.quality.reasons
-    assert result.quality.checks["tf_coupling"] == "valid", result.quality.reasons
+    assert result.quality.checks["geometry"] == ValidationStatus.PASS, result.quality.reasons
+    assert result.quality.checks["tf_coupling"] == ValidationStatus.PASS, result.quality.reasons
     assert result.quality.is_usable
     assert result.geometry.n_channels_fitted == REFERENCE_CHANNELS
     assert 0.45 <= result.geometry.r0 <= 0.52
@@ -450,7 +451,7 @@ def test_a_shot_with_the_probe_withdrawn_is_rejected():
     """35325 is a TF reference taken without the array inserted."""
     result, _ = process_impa_shot(PROBE_OUT_SHOT, raw_source=IMPA_SAMPLE)
 
-    assert result.quality.status == "invalid"
+    assert result.quality.status == ValidationStatus.FAIL
     assert np.nanmedian(np.abs(result.coupling.alpha)) < 0.1
     assert any("toroidally aligned" in reason for reason in result.quality.reasons)
 
@@ -471,7 +472,7 @@ def test_a_reference_shot_calibration_transfers_to_another_shot():
     assert borrowed.provenance["reference_shot_used"] is True
     assert borrowed.geometry.method == "reference_shot:35376"
     assert borrowed.quality.is_usable
-    assert borrowed.quality.checks["tf_coupling"] == "valid"
+    assert borrowed.quality.checks["tf_coupling"] == ValidationStatus.PASS
     assert abs(borrowed.geometry.r0 - own.geometry.r0) < 0.02
 
 
@@ -540,7 +541,7 @@ def test_inactive_bz_sensors_are_flagged_on_the_reference_shots():
     assert result.crosstalk is not None
     finite = np.isfinite(result.crosstalk.r_squared)
     assert np.nanmax(result.crosstalk.r_squared[finite]) < 0.5
-    assert result.quality.checks["bz_sensors"] == "warning"
+    assert result.quality.checks["bz_sensors"] == ValidationStatus.WARN
     assert any("may be inactive" in reason for reason in result.quality.reasons)
 
 
@@ -586,7 +587,8 @@ def test_a_reference_from_a_different_era_channel_count_does_not_crash():
 
 def test_a_reference_with_no_shared_field_code_is_rejected_clearly():
     """A reference sharing no channel at all with the target must not crash."""
-    from vaft.process.impa import ImpaGeometryFit, ImpaQuality, ImpaResult
+    from vaft.process.impa import ImpaGeometryFit, ImpaResult
+    from vaft.validation.impa import ImpaAssessment
 
     fake_time = np.zeros(4)
     fake_reference = ImpaResult(
@@ -598,7 +600,7 @@ def test_a_reference_with_no_shared_field_code_is_rejected_clearly():
         geometry=ImpaGeometryFit(r=np.array([0.5, 0.55]), z=np.zeros(2), method="configured"),
         coupling=None,
         window=None,
-        quality=ImpaQuality(status="valid", checks={}),
+        quality=ImpaAssessment(status=ValidationStatus.PASS, checks={}),
         provenance={"shot": 99999},
     )
     from vaft.machine_mapping.impa import _align_reference_to_target
