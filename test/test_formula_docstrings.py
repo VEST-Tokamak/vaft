@@ -92,6 +92,9 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # diamagnetic-flux sign: B_phi0 * Phi_dia > 0 is paramagnetic, one signed frame, no abs() (#684)
+    "beta_p_diamagnetic_from_flux_circular",
+    "beta_p_diamagnetic_from_flux_elliptic",
     # DD clockwise poloidal_angle (#288, #293); beta_N units (#349); vacuum B0 at r0;
     # li_3 vs li_1 and its R0 (#403)
     "probe_axis",

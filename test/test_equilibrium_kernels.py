@@ -16,6 +16,11 @@ import numpy as np
 import pytest
 
 from vaft.formula import (
+    beta_p_diamagnetic_from_flux_circular,
+    beta_poloidal_from_pressure_integral,
+    beta_p_diamagnetic_from_flux_elliptic,
+    stored_energy_diamagnetic_from_beta_p_circular,
+    stored_energy_diamagnetic_from_beta_p_geometry,
     alpha_heating_power,
     alpha_heating_power_from_n_D_n_T_T_keV_V,
     aspect_ratio_from_a_R,
@@ -1004,3 +1009,73 @@ def test_kadomtsev_constraint_vanishes_for_a_pure_dimensionless_scaling():
         assert verify_kadomtsev_constraint(-2.0, 0.0, 0.0, 0.0) != pytest.approx(
             0.0, abs=1e-6
         )
+
+
+# --------------------------------------------------------------------------
+# Closed-form diamagnetic estimates (#684)
+# --------------------------------------------------------------------------
+
+def test_diamagnetic_beta_p_is_one_without_diamagnetic_flux():
+    assert beta_p_diamagnetic_from_flux_circular(0.0, 0.15, 1.0e5) == 1.0
+    assert beta_p_diamagnetic_from_flux_elliptic(0.0, 0.15, 1.0e5, 1.8) == 1.0
+
+
+def test_diamagnetic_beta_p_matches_its_closed_form():
+    Phi, B, Ip = -2.0e-4, 0.15, 1.0e5
+    term = 8 * np.pi * B * Phi / (MU0**2 * Ip**2)
+    assert beta_p_diamagnetic_from_flux_circular(Phi, B, Ip) == pytest.approx(1 - term, rel=1e-13)
+    assert beta_p_diamagnetic_from_flux_elliptic(Phi, B, Ip, 2.0) == pytest.approx(
+        1 - (1 + 4.0) / 4.0 * term, rel=1e-13
+    )
+
+
+def test_diamagnetic_beta_p_sign_follows_the_flux_and_is_not_abs():
+    # Positive (paramagnetic, along B) flux lowers beta_p below one, a
+    # diamagnetic one raises it; flipping field and flux together is invariant.
+    B, Ip = 0.15, 1.0e5
+    para = beta_p_diamagnetic_from_flux_circular(+1.0e-4, B, Ip)
+    dia = beta_p_diamagnetic_from_flux_circular(-1.0e-4, B, Ip)
+    assert para < 1.0 < dia
+    assert para + dia == pytest.approx(2.0, rel=1e-13)
+    assert beta_p_diamagnetic_from_flux_circular(-1.0e-4, -B, Ip) == pytest.approx(para, rel=1e-13)
+    assert beta_p_diamagnetic_from_flux_circular(+1.0e-4, B, -Ip) == pytest.approx(para, rel=1e-13)
+
+
+def test_elliptic_diamagnetic_formulas_reduce_to_the_circular_ones():
+    Phi, B, Ip, R0, a = -1.5e-4, 0.15, 1.0e5, 0.45, 0.3
+    beta_c = beta_p_diamagnetic_from_flux_circular(Phi, B, Ip)
+    assert beta_p_diamagnetic_from_flux_elliptic(Phi, B, Ip, 1.0) == pytest.approx(beta_c, rel=1e-14)
+    volume, perimeter = 2 * np.pi**2 * R0 * a**2, 2 * np.pi * a
+    assert stored_energy_diamagnetic_from_beta_p_geometry(beta_c, volume, Ip, perimeter) == pytest.approx(
+        stored_energy_diamagnetic_from_beta_p_circular(beta_c, R0, Ip), rel=1e-13
+    )
+
+
+def test_diamagnetic_stored_energy_is_three_halves_of_the_pressure_integral():
+    # beta_p = 4 int p dV / (mu0 R0 Ip^2) (DD) and W = 3/2 int p dV.
+    pressure_integral, R0, Ip = 120.0, 0.45, 1.0e5
+    beta_p = beta_poloidal_from_pressure_integral(pressure_integral, R0, Ip)
+    assert stored_energy_diamagnetic_from_beta_p_circular(beta_p, R0, Ip) == pytest.approx(
+        1.5 * pressure_integral, rel=1e-13
+    )
+    # And through the circumference normalisation for the geometric form.
+    volume, perimeter, p_avg = 0.9, 2.4, 133.0
+    beta_p_c = 2 * MU0 * p_avg * perimeter**2 / (MU0 * Ip) ** 2
+    assert stored_energy_diamagnetic_from_beta_p_geometry(beta_p_c, volume, Ip, perimeter) == pytest.approx(
+        1.5 * p_avg * volume, rel=1e-13
+    )
+
+
+def test_diamagnetic_helpers_reject_degenerate_inputs():
+    with pytest.raises(ValueError, match="Ip"):
+        beta_p_diamagnetic_from_flux_circular(1e-4, 0.15, 0.0)
+    with pytest.raises(ValueError, match="kappa"):
+        beta_p_diamagnetic_from_flux_elliptic(1e-4, 0.15, 1e5, 0.0)
+    with pytest.raises(ValueError, match="perimeter"):
+        stored_energy_diamagnetic_from_beta_p_geometry(1.0, 1.0, 1e5, 0.0)
+    with pytest.raises(ValueError, match="volume"):
+        stored_energy_diamagnetic_from_beta_p_geometry(1.0, 0.0, 1e5, 2.0)
+    with pytest.raises(ValueError, match="R0"):
+        stored_energy_diamagnetic_from_beta_p_circular(1.0, -0.4, 1e5)
+    with pytest.raises(ValueError, match="finite"):
+        beta_p_diamagnetic_from_flux_circular(np.nan, 0.15, 1e5)
