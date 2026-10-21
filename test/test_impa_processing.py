@@ -21,8 +21,9 @@ from vaft.process.impa import (
     process_impa,
     remove_tf_pickup,
     toroidal_field,
-    grade_impa_quality,
 )
+from vaft.validation.impa import validate_impa
+from vaft.validation.model import ValidationStatus
 
 MU0 = 4.0e-7 * np.pi
 SAMPLE_RATE = 25_000.0
@@ -263,7 +264,7 @@ def test_process_impa_reports_valid_for_a_well_behaved_synthetic_array():
         config=ImpaProcessingConfig(orientation="poloidal"),
     )
 
-    assert result.quality.status == "valid"
+    assert result.quality.status == ValidationStatus.PASS
     assert result.window is not None
     assert result.geometry.method == "configured"
     np.testing.assert_allclose(result.coupling.alpha, alpha, atol=1e-3)
@@ -277,8 +278,8 @@ def test_process_impa_reports_invalid_without_a_calibration_window():
 
     result = process_impa(time, raw, np.zeros_like(time))
 
-    assert result.quality.status == "invalid"
-    assert result.quality.checks["calibration_window"] == "invalid"
+    assert result.quality.status == ValidationStatus.FAIL
+    assert result.quality.checks["calibration_window"] == ValidationStatus.FAIL
     assert result.coupling is None
     assert result.geometry.method == "nominal_uncalibrated"
 
@@ -294,8 +295,8 @@ def test_a_toroidal_array_is_rejected_by_the_poloidal_model():
         time, raw, i_tf, r=radii, config=ImpaProcessingConfig(orientation="poloidal")
     )
 
-    assert result.quality.status == "invalid"
-    assert result.quality.checks["tf_coupling"] == "invalid"
+    assert result.quality.status == ValidationStatus.FAIL
+    assert result.quality.checks["tf_coupling"] == ValidationStatus.FAIL
     assert any("tilt bounds" in reason for reason in result.quality.reasons)
 
 
@@ -308,8 +309,8 @@ def test_a_toroidal_array_is_accepted_by_the_toroidal_model():
 
     result = process_impa(time, raw, i_tf, r=radii)  # toroidal is the default
 
-    assert result.quality.status == "valid"
-    assert result.quality.checks["tf_coupling"] == "valid"
+    assert result.quality.status == ValidationStatus.PASS
+    assert result.quality.checks["tf_coupling"] == ValidationStatus.PASS
     np.testing.assert_allclose(result.coupling.alpha, 1.0, atol=1e-3)
 
 
@@ -321,7 +322,7 @@ def test_a_poloidal_array_is_rejected_by_the_toroidal_model():
 
     result = process_impa(time, raw, i_tf, r=radii)
 
-    assert result.quality.checks["tf_coupling"] == "invalid"
+    assert result.quality.checks["tf_coupling"] == ValidationStatus.FAIL
     assert any("toroidally aligned" in reason for reason in result.quality.reasons)
 
 
@@ -340,8 +341,8 @@ def test_a_reference_shot_calibration_can_be_reused():
     assert quiet.provenance["reference_shot_used"] is True
     assert quiet.geometry.method.startswith("reference_shot")
     np.testing.assert_allclose(quiet.geometry.r, reference.geometry.r)
-    assert quiet.quality.checks["calibration_window"] == "warning"
-    assert quiet.quality.status in ("valid", "warning")
+    assert quiet.quality.checks["calibration_window"] == ValidationStatus.WARN
+    assert quiet.quality.is_usable
 
 
 def test_missing_channels_are_reported_and_never_silently_zero_filled():
@@ -354,15 +355,15 @@ def test_missing_channels_are_reported_and_never_silently_zero_filled():
 
     result = process_impa(time, raw, i_tf, r=radii, channel_valid=valid)
 
-    assert result.quality.checks["channels_present"] == "warning"
+    assert result.quality.checks["channels_present"] == ValidationStatus.WARN
     assert np.all(np.isnan(result.b_measured[3]))
     assert any("unavailable" in reason for reason in result.quality.reasons)
 
 
-def test_grade_impa_quality_escalates_a_dead_channel_to_invalid():
+def test_validate_impa_escalates_a_dead_channel_to_invalid():
     time = _time(1_000)
     raw = np.ones((2, time.size))
-    quality = grade_impa_quality(
+    quality = validate_impa(
         time,
         raw,
         raw,
@@ -374,8 +375,8 @@ def test_grade_impa_quality_escalates_a_dead_channel_to_invalid():
         expected_channels=2,
     )
 
-    assert quality.status == "invalid"
-    assert quality.checks["channel_signals"] == "invalid"
+    assert quality.status == ValidationStatus.FAIL
+    assert quality.checks["channel_signals"] == ValidationStatus.FAIL
 
 
 def _nominal_geometry():
@@ -490,7 +491,7 @@ def test_an_inactive_bz_sensor_is_flagged_rather_than_trusted():
 
     result = process_impa(time, raw, i_tf, r=radii, b_z_raw=dead)
 
-    assert result.quality.checks["bz_sensors"] == "warning"
+    assert result.quality.checks["bz_sensors"] == ValidationStatus.WARN
     assert any("may be inactive" in reason for reason in result.quality.reasons)
     # No angle is reported without a configured Bz gain; the sensor's own
     # calibration is not established.

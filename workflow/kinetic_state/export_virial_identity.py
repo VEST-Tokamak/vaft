@@ -26,12 +26,14 @@ from omas import load_omas_json
 
 from vaft.omas.process_wrapper import compute_virial_equilibrium_quantities_ods
 from vaft.validation.kinetic_state import slice_at_time
+from vaft.validation.kinetic_population import CONDITIONING_QUANTITIES
 
 
 KEY = ("shot", "time_efit_s", "efit_lineage")
 COLUMNS = (*KEY, "efit_product", "efit_product_sha256", "e1_normalized",
            "e2_normalized", "e3_normalized", "rms", "identities_available",
-           "beta_p_volume", "beta_p_pair_13", "li_volume", "li_pair_13")
+           "beta_p_volume", "beta_p_pair_13", "li_volume", "li_pair_13",
+           *CONDITIONING_QUANTITIES)
 
 
 def _sha256(path: Path) -> str:
@@ -73,14 +75,18 @@ def export(state: Path, filedb: Path) -> list[dict[str, object]]:
         product_path = filedb / relative
         if relative not in products:
             actual_hash = _sha256(product_path)
+            if actual_hash != row["efit_product_sha256"]:
+                raise ValueError(f"product SHA-256 mismatch for {relative}")
             products[relative] = (actual_hash, _load_product(product_path))
         actual_hash, ods = products[relative]
         expected_hash = row["efit_product_sha256"]
         if actual_hash != expected_hash:
             raise ValueError(f"product SHA-256 mismatch for {relative}")
         index, _ = slice_at_time(ods, key[1], tolerance_s=0.6e-3)
-        virial = compute_virial_equilibrium_quantities_ods(ods, time_slice=index)[index]
+        virial = compute_virial_equilibrium_quantities_ods(
+            ods, time_slice=index, alpha_method="volume")[index]
         identity = virial["identity"]
+        conditioning = virial["conditioning"]
         output.append({
             "shot": key[0], "time_efit_s": row["time_efit_s"],
             "efit_lineage": key[2], "efit_product": str(relative),
@@ -91,9 +97,16 @@ def export(state: Path, filedb: Path) -> list[dict[str, object]]:
             "beta_p_pair_13": virial["pair_13"]["beta_p"],
             "li_volume": virial["volume"]["li"],
             "li_pair_13": virial["pair_13"]["li"],
+            "alpha": virial["alpha"],
+            **{f"{closure}_denominator": value
+               for closure, value in conditioning["denominators"].items()},
+            **{f"{closure}_distance_to_singularity": value
+               for closure, value in conditioning["distance_to_singularity"].items()},
+            "rt_denominator_ratio": conditioning["rt_denominator_ratio"],
+            "rt_over_r0_available": conditioning["rt_over_r0_available"],
         })
     if len(output) != len(states):
-        raise AssertionError("virial export lost an Atlas state")
+        raise ValueError("virial export lost an Atlas state")
     return output
 
 

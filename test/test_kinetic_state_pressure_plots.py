@@ -83,3 +83,53 @@ def test_virial_li_comparison_uses_internal_inductance_pairs():
     assert offsets == [(0.6, 0.602), (0.7, 0.704)]
     assert "internal inductance" in ax.get_title().lower()
     plt.close(fig)
+
+
+def _evidence(quantities):
+    return pd.DataFrame([
+        {"efit_lineage": "magnetics", "quantity": quantity, "status": status, "value": value}
+        for quantity in quantities
+        for status, value in (("available", 1.5), ("unavailable", float("nan")), ("failed", 99.0))])
+
+
+def test_distributions_plot_available_values_and_count_every_observation():
+    evidence = _evidence(("r_sum", "r_w", "r_w_full"))
+    before = plt.rcParams.copy()
+    fig, axes = plots.kinetic_state_pressure_ratio_distribution(
+        evidence, format="slide", limits={"r_sum": (1, 2)})
+    assert fig.get_size_inches()[0] == plots.FORMATS["slide"].width_in
+    assert axes[0].get_xlim() == (1, 2)
+    assert "n=1/3" in axes[0].get_legend().get_texts()[0].get_text()
+    # The axvspan reference is not one of the histogram bins.
+    assert sum(container.datavalues.sum() for container in axes[0].containers) == 1
+    assert plt.rcParams == before
+    plt.close(fig)
+    evidence = _evidence(("e1_normalized", "e2_normalized", "e3_normalized", "rms"))
+    fig, axes = plots.kinetic_state_virial_identity_distribution(evidence, limits={"identity": (-2, 2)})
+    assert "n=3/9" in axes[0].get_legend().get_texts()[0].get_text()
+    assert "n=1/3" in axes[1].get_legend().get_texts()[0].get_text()
+    assert axes[0].get_xlim() == (-2, 2)
+    assert sum(p.get_height() for p in axes[0].patches) == 3
+    plt.close(fig)
+
+
+@pytest.mark.parametrize("renderer", [plots.kinetic_state_pressure_ratio_distribution,
+                                    plots.kinetic_state_virial_identity_distribution])
+def test_empty_distributions_are_explanatory_and_missing_columns_raise(renderer):
+    empty = pd.DataFrame(columns=["efit_lineage", "quantity", "status", "value"])
+    fig, axes = renderer(empty)
+    assert all(any(t.get_text() == "No available evidence" for t in axis.texts) for axis in axes)
+    plt.close(fig)
+    with pytest.raises(ValueError, match="missing columns"):
+        renderer(empty.drop(columns="status"))
+
+
+def test_distribution_view_limits_and_caller_axes_contract():
+    evidence = _evidence(("r_sum", "r_w", "r_w_full"))
+    with pytest.raises(ValueError, match="positive"):
+        plots.kinetic_state_pressure_ratio_distribution(evidence, limits={"r_sum": (0, 2)})
+    fig, axes = plt.subplots(1, 3, figsize=(8, 3))
+    result, returned = plots.kinetic_state_pressure_ratio_distribution(evidence, ax=axes)
+    assert result is fig and list(returned) == list(axes)
+    assert tuple(fig.get_size_inches()) == (8, 3)
+    plt.close(fig)

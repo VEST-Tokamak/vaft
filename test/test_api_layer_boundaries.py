@@ -74,20 +74,42 @@ def test_the_renamed_equilibrium_precondition_keeps_its_old_name_working():
     )
 
 
-def test_the_renamed_impa_grading_keeps_its_old_name_working():
-    """Its arguments are a whole processed shot, so the delegation is what is
-    asserted here; `test_impa_processing.py` covers the grading itself.
+def test_the_moved_impa_grading_keeps_its_old_names_working():
+    """Both process-side names delegate to `vaft.validation.impa` and warn (#339).
+
+    Their arguments are a whole processed shot, so the delegation is what is
+    asserted here; `test_validation_impa.py` covers the answers.
     """
     from vaft.process import grade_impa_quality, validate_impa
 
+    for legacy in (validate_impa, grade_impa_quality):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with pytest.raises(TypeError):
+                legacy()
+
+        assert any(item.category is DeprecationWarning for item in caught)
+        assert "vaft.validation.impa.validate_impa" in str(caught[0].message)
+
+
+def test_the_moved_cocos_check_keeps_its_old_name_working():
+    """`validate_cocos` is a verdict, so it lives in `vaft.validation.cocos` (#337)."""
+    from vaft.data.equilibrium import EquilibriumData
+    from vaft.process import cocos as process_cocos
+    from vaft.validation.cocos import validate_cocos
+
+    equilibrium = EquilibriumData(ip=1.0e5, bt0=0.1, f=[0.04, 0.04], q=[1.0, 2.0],
+                                  psi_axis=0.0, psi_boundary=0.1, pprime=[-1.0, -1.0])
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        with pytest.raises(TypeError):
-            validate_impa()
+        legacy = process_cocos.validate_cocos(equilibrium, 3, sigma_ip=1)
 
-    assert any(item.category is DeprecationWarning for item in caught)
-    assert "grade_impa_quality" in str(caught[0].message)
-    assert callable(grade_impa_quality)
+    deprecations = [item for item in caught if item.category is DeprecationWarning]
+    assert deprecations
+    assert "vaft.validation.cocos.validate_cocos" in str(deprecations[0].message)
+    assert legacy == validate_cocos(equilibrium, 3, sigma_ip=1)
+    assert legacy.issues  # COCOS 3 is the wrong index here, so there is something to compare
+    assert process_cocos.validate_cocos.__doc__.startswith("Deprecated")
 
 
 def test_the_validation_layer_has_one_status_vocabulary():

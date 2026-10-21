@@ -11,6 +11,8 @@ from vaft.code._executables import executable_from_home, missing_home_message
 from vaft.code.execution import (
     ExecutionRequest,
     ExecutionResult,
+    ResourceRequest,
+    configured_resources,
     resolve_backend,
     timeout_reason,
 )
@@ -178,12 +180,14 @@ def _run(
     # minutes of Monte Carlo -- with a UnicodeDecodeError before the logs below
     # are written; the backend decodes UTF-8 with replacement.
     command = (str(executable), *config.args)
+    resources, overlay = configured_resources(config, ResourceRequest(), {**env, **dict(config.env)})
     completed = resolve_backend(config).run(
         ExecutionRequest(
             command=command,
             workdir=Path(workdir),
-            env={**env, **dict(config.env)},
+            env=overlay,
             timeout=config.timeout,
+            resources=resources,
             label=log_stem,
         )
     )

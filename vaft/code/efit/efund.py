@@ -43,11 +43,11 @@ from vaft.compat import is_executable
 from vaft.machine_mapping.efund_geometry import EFUNDGeometry, efund_geometry_from_static
 
 from .._launch import with_stack_limit
-from ..execution import ExecutionRequest, ResourceRequest, resolve_backend
+from ..execution import ExecutionRequest, ResourceRequest, configured_resources, resolve_backend
 from .toolchain import executable_identity, resolve_role, unconfigured_reason
 
 if TYPE_CHECKING:
-    from ..execution import ExecutionBackend
+    from ..execution import ExecutionBackend, ResourceRequest
 
 __all__ = [
     "EFUNDConfig",
@@ -124,6 +124,10 @@ class EFUNDConfig:
     timeout: Optional[float] = None
     stack_size_kb: int | str | None = "hard"
     backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
+    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: own declaration; a value replaces it, and its ``threads_per_task`` is
+    #: set in the launch environment over ``env`` and the inherited one.
+    resources: Optional["ResourceRequest"] = None
 
     def __post_init__(self) -> None:
         for name in ("nw", "nh", "nsmp2", "mgaus1", "mgaus2"):
@@ -632,13 +636,14 @@ def run_efund(inputs: EFUNDInputs, config: EFUNDConfig) -> EFUNDResult:
     if not (workdir / MHDIN_NAME).is_file():
         raise FileNotFoundError(f"{workdir / MHDIN_NAME} does not exist; call prepare_efund_inputs first")
     command = _efund_command(config, executable)
+    resources, env = configured_resources(config, ResourceRequest(threads_per_task=1), config.env)
     execution = resolve_backend(config).run(
         ExecutionRequest(
             command=tuple(command),
             workdir=workdir,
-            env=dict(config.env),
+            env=env,
             timeout=config.timeout,
-            resources=ResourceRequest(threads_per_task=1),
+            resources=resources,
             label="efund",
         )
     )
