@@ -16,17 +16,22 @@ bytes changed are copied into the output. An unchanged regeneration touches
 nothing, and files the generator no longer produces are removed. `manifest.json`
 records the SHA-256 and size of every other file under `artifacts`.
 
-`--check` (#2117) reports four kinds of problem:
-- missing or orphaned files;
+`--check` (#2117) reports these problems:
+- missing or orphaned files, or files the manifest does not record;
 - integrity: a file that no longer matches its manifest digest;
 - stale data: a sidecar or the manifest's science differs from what the current
   source generates;
-- render drift: an SVG, PNG or GIF that differs only after rendering.
+- renders: an SVG, PNG or GIF whose bytes differ after re-rendering.
 
-Render drift depends on the TeX, Matplotlib and Pillow versions, so it is a
-warning that names this machine's toolchain. `--strict` makes it an error. The
-first three fail the check. On the reference machine, a regeneration is
-byte-identical for all files and takes about 40 s.
+The manifest records the toolchain (Matplotlib, Pillow, dvisvgm) that rendered
+the files. With that same toolchain, a render difference is stale output (for
+example, a plotting change) and fails the check. With a different toolchain it
+may come from the versions alone, so it is reported as render drift: a warning
+that names both toolchains, or an error with `--strict`.
+
+On the reference machine, a regeneration is byte-identical for all files and
+takes about 40 s. The generator refuses to write into a non-empty directory
+that has no manifest of its own, because it prunes files it does not produce.
 
 The generator writes a deterministic physical-time GIF, quantitative panel image
 and provenance sidecar per example, and a static SVG for all but the tokamak

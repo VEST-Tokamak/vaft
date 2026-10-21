@@ -487,5 +487,10 @@
       "bytes": 121066,
       "kind": "data"
     }
+  },
+  "toolchain": {
+    "matplotlib": "3.10.8",
+    "Pillow": "12.1.1",
+    "dvisvgm": "dvisvgm 3.2.2"
   }
 }
