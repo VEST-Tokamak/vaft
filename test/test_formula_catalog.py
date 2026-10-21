@@ -99,7 +99,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # the gas-keyed threshold: 28 + 2 = 30.  #782's boundary-voltage and
         # internal inductive-voltage splits: 30 + 2 = 32.
         "startup": 32,
-        "particle": 13,  # +gyration_offset (#1145), +mirror (#1070), +invariants and P_phi (#1092)
+        "particle": 18,  # +gyration_offset (#1145), +mirror (#1070), +invariants and P_phi (#1092)
         "geometry": 16,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063), +enclosed current, flux, l_i (#1604), +current diffusion (#1605)
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
         "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
@@ -119,7 +119,8 @@ def test_the_catalog_counts_the_known_public_surface():
         # +5 for the classical baseline moved out of the process layer (#1899): the ion
         # collision time, ion-ion lnLambda, gamma_1'(Z), chi_perp,e and chi_perp,i.
         "kinetic": 7,
-        "turbulence": 5,  # turbulence-zonal-flow predator-prey rhs, fixed point, invariant, period, lag (#1820)
+        "turbulence": 16,  # predator-prey (5, #1820) + fluctuation fluxes, drift, shear, Reynolds stress (11, #1112)
+        "transport": 9,  # random-walk/TGK diffusivity, constitutive fluxes, classical/Bohm/gyro-Bohm scales (#1112)
         "regularized_profiles": 3,  # explicit opt-in module, outside the star namespace
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
