@@ -715,6 +715,45 @@ def test_cancelling_a_submitted_batch_job_scancels_it(tmp_path, slurm, monkeypat
     assert not handle.cancel()
 
 
+def test_a_polled_handle_applies_max_wait_to_a_queued_job(tmp_path, slurm, monkeypatch):
+    """Cold review #1018: max_wait is not deferred until the job's turn to be collected."""
+    import time
+
+    monkeypatch.setenv("FAKE_SLURM_OUTCOME", "PENDING")
+    work = _workdir(tmp_path)
+    backend = _batch(max_wait=0.3)
+    handle = backend.submit(_python(work, "print('never')"))
+    time.sleep(0.4)
+    assert not handle.done()  # still listed; but now cancelled for max_wait
+    assert slurm("scancel")
+    result = handle.result()
+    assert (result.timed_out, result.runtime_status) == (True, "queue_timeout")
+
+
+def test_a_batch_handle_polls_squeue_at_most_once_per_interval(tmp_path, slurm, monkeypatch):
+    monkeypatch.setenv("FAKE_SLURM_OUTCOME", "PENDING")
+    work = _workdir(tmp_path)
+    backend = SlurmBackend(mode="batch", poll_interval=60)
+    handle = backend.submit(_python(work, "pass"))
+    assert not any(handle.done() for _ in range(20))
+    assert len(slurm("squeue")) == 1
+    assert backend.cancel(handle)
+
+
+def test_cancelling_a_finished_uncollected_job_does_not_scancel(tmp_path, slurm):
+    import time
+
+    work = _workdir(tmp_path)
+    backend = _batch()
+    handle = backend.submit(_python(work, "print('ok')"))
+    deadline = time.monotonic() + 30
+    while not handle.done() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not backend.cancel(handle)
+    assert not slurm("scancel")
+    assert handle.result().stdout.strip() == "ok"
+
+
 def test_step_mode_submit_is_eager(tmp_path, slurm, monkeypatch):
     monkeypatch.setenv("SLURM_JOB_ID", "77")
     work = _workdir(tmp_path)

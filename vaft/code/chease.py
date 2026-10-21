@@ -1547,6 +1547,10 @@ class CHEASESubmission:
         """Stop the solve if it has not finished."""
         return self.handle is not None and self.handle.cancel()
 
+    @property
+    def cancelled(self) -> bool:
+        return self.handle is not None and self.handle.cancelled
+
     def settle(self, timeout: Optional[float] = None) -> None:
         if self.handle is not None:
             self.handle.settle(timeout)

@@ -47,6 +47,7 @@ import subprocess
 import threading
 import time
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Protocol, Sequence, runtime_checkable
@@ -258,7 +259,8 @@ class JobHandle:
         """Block until the work behind a cancelled handle has stopped (its tree is gone)."""
         try:
             self._future.exception(timeout=timeout)
-        except (CancelledError, TimeoutError):
+        except (CancelledError, FuturesTimeoutError, TimeoutError):
+            # concurrent.futures.TimeoutError is the builtin only from 3.11.
             pass
 
 
@@ -300,8 +302,9 @@ def wait_handles(
 ) -> tuple[list[JobHandle], list[JobHandle]]:
     """Wait until ``return_when`` holds; return ``(done, pending)`` in input order.
 
-    ``done()`` is polled every ``poll_s`` seconds, so a scheduler handle costs
-    one status query per poll at most.
+    ``done()`` is polled every ``poll_s`` seconds. A Slurm batch handle
+    answers from a cached state between its backend's ``poll_interval``
+    queries, so many handles do not multiply the load on the controller.
     """
     if return_when not in (FIRST_COMPLETED, ALL_COMPLETED):
         raise ValueError(f"return_when must be {FIRST_COMPLETED!r} or {ALL_COMPLETED!r}, got {return_when!r}")
@@ -321,11 +324,14 @@ def cancel_handles(handles: Sequence[JobHandle], *, settle_s: Optional[float] = 
 
     Waiting matters before re-raising an interrupt or re-delivering a signal:
     a background tree is stopped by its own thread, which would otherwise be
-    cut off mid-stop when the process ends.
+    cut off mid-stop when the process ends. Calling it again (after a second
+    signal cut the first call short) settles every cancelled handle again.
     """
-    cancelled = [handle for handle in handles if handle.cancel()]
-    for handle in cancelled:
-        handle.settle(settle_s)
+    for handle in handles:
+        handle.cancel()
+    for handle in handles:
+        if handle.cancelled:
+            handle.settle(settle_s)
 
 
 class _LocalJob:
@@ -487,8 +493,11 @@ class LocalBackend:
 
                 waited = time.monotonic()
                 reservation = MemoryLedger(self.ledger_dir, floor_mb=self.floor_mb).admit(
-                    float(reserve), wait_s=self.admission_wait_s, poll_s=max(self.poll_interval_s, 1.0)
+                    float(reserve), wait_s=self.admission_wait_s, poll_s=max(self.poll_interval_s, 1.0),
+                    cancelled=None if job is None else job.cancelled.is_set,
                 )
+                if reservation is None and job is not None and job.cancelled.is_set():
+                    raise CancelledError(f"{command[0]} was cancelled before it started")
                 if reservation is None:
                     return self._not_admitted(command, request, float(reserve), time.monotonic() - waited)
             if job is not None and job.cancelled.is_set():

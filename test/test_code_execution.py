@@ -373,3 +373,16 @@ def test_wait_handles_first_completed(tmp_path):
         wait_handles([fast], return_when="ANY")
     with pytest.raises(ValueError):
         LocalBackend(max_concurrent=0)
+
+
+def test_memory_admission_stops_waiting_once_cancelled(tmp_path, monkeypatch):
+    """Cold review #1018: a cancelled request does not wait out admission_wait_s."""
+    from vaft.code._memory_gate import MemoryLedger
+
+    ledger = MemoryLedger(tmp_path, floor_mb=0.0)
+    monkeypatch.setattr(MemoryLedger, "fits", lambda self, reserve_mb: True)
+    monkeypatch.setattr(MemoryLedger, "try_admit", lambda self, reserve_mb: None)
+    flag = []
+    started = time.monotonic()
+    assert ledger.admit(10.0, wait_s=3600, poll_s=0.01, cancelled=lambda: bool(flag.append(1)) or len(flag) > 3) is None
+    assert time.monotonic() - started < 5

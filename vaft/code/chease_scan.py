@@ -24,6 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 import json
 from pathlib import Path
+import time
 from typing import Any, Callable, Mapping, Optional, Sequence
 
 import numpy as np
@@ -313,6 +314,10 @@ def _case_error(result: CHEASEResult, case_dir: Path) -> str:
     return f"CHEASE exited {result.returncode}; see {log}"
 
 
+#: How often a scan waiting for its next case polls the outstanding ones [s].
+_COLLECT_POLL_S = 0.2
+
+
 def _submit_case(geqdsk: Any, config: CHEASEConfig) -> CHEASESubmission:
     """Write one case's inputs and hand its solve to the backend (the scan's seam)."""
     return submit_chease(prepare_chease_inputs(geqdsk, config), config)
@@ -461,11 +466,31 @@ def scan_chease(
             on_case(case)
 
     def drain(*, block: bool) -> None:
-        while pending and (block or pending[0].done()):
-            # Popped only once collected: an interrupt while waiting on it
+        while pending:
+            if not pending[0].done():
+                if not block:
+                    return
+                # Poll the later cases too: a Slurm batch handle applies
+                # max_wait to a job still queued only when it is polled.
+                for entry in pending[1:]:
+                    entry.done()
+                time.sleep(_COLLECT_POLL_S)
+                continue
+            # Popped only once collected: an interrupt while collecting it
             # leaves it in ``pending`` for the cancel below.
             collect(pending[0])
             pending.pop(0)
+
+    def stop_outstanding() -> None:
+        outstanding = [entry.submission for entry in pending if entry.submission is not None]
+        while True:
+            try:
+                cancel_handles(outstanding)
+                return
+            except _process_tree.Terminated:
+                # A second signal while the trees are being stopped: finish
+                # stopping them; the first one is re-delivered afterwards.
+                continue
 
     def _submit(variation: EquilibriumVariation) -> _Pending:
         case_dir = root / variation.label
@@ -514,14 +539,18 @@ def scan_chease(
         return entry
 
     try:
+        # The guard spans the cleanup too, so a second SIGTERM during it is
+        # absorbed instead of ending Python with half-stopped trees.
         with _process_tree.forward_termination():
-            for variation in variations:
-                pending.append(_submit(variation))
-                drain(block=False)
-            drain(block=True)
-    except BaseException as stop:
-        cancel_handles([entry.submission for entry in pending if entry.submission is not None])
-        if isinstance(stop, _process_tree.Terminated):
-            stop.redeliver()
+            try:
+                for variation in variations:
+                    pending.append(_submit(variation))
+                    drain(block=False)
+                drain(block=True)
+            except BaseException:
+                stop_outstanding()
+                raise
+    except _process_tree.Terminated as stop:
+        stop.redeliver()
         raise
     return cases

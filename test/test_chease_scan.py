@@ -34,6 +34,8 @@ class _Solved:
     def done(self):
         return True
 
+    cancelled = False
+
     def cancel(self):
         return False
 
@@ -592,8 +594,11 @@ def test_a_scan_without_shape_variation_records_no_boundary(monkeypatch, tmp_pat
 class _QueueBackend:
     """Accepts submissions and finishes nothing until a case is waited for."""
 
-    def __init__(self, *, refuse=None, fail=None, interrupt=None):
+    def __init__(self, *, submits=3, refuse=None, fail=None, interrupt=None):
+        # A case finishes once all ``submits`` expected submissions are in,
+        # so a scan that waited before submitting everything would hang here.
         self.events = []
+        self.submits = submits
         self.refuse, self.fail, self.interrupt = refuse, fail, interrupt
 
     def run(self, request):  # pragma: no cover - the scan must submit
@@ -610,10 +615,10 @@ class _QueueBackend:
 class _QueuedHandle:
     def __init__(self, backend, label):
         self.backend, self.label, self.job_id = backend, label, None
-        self.waited = False
+        self.waited = self.cancelled = False
 
     def done(self):
-        return self.waited
+        return self.waited or sum(kind == "submit" for kind, _ in self.backend.events) >= self.backend.submits
 
     def result(self):
         from vaft.code import ExecutionResult
@@ -632,6 +637,7 @@ class _QueuedHandle:
         if self.waited and self.label != self.backend.interrupt:
             return False
         self.backend.events.append(("cancel", self.label))
+        self.cancelled = True
         return True
 
     def settle(self, timeout=None):
@@ -686,7 +692,7 @@ def test_a_collect_time_error_without_keep_going_cancels_the_rest(tmp_path):
 
 
 def test_a_submit_time_error_maps_onto_keep_going(tmp_path):
-    backend = _QueueBackend(refuse="b")
+    backend = _QueueBackend(refuse="b", submits=2)
     cases, seen, error = _scan(tmp_path, backend)
     assert error is None and seen == ["a", "b", "c"]
     assert cases[1].error == "RuntimeError: queue refused b"
@@ -708,7 +714,7 @@ def test_an_on_case_exception_cancels_the_rest(tmp_path):
     from external_code_stubs import write_launchable_stub
     from vaft.code import CHEASEConfig
 
-    backend = _QueueBackend()
+    backend = _QueueBackend(submits=2)
     stub = write_launchable_stub(tmp_path / "bin" / "chease")
 
     def stop(case):
