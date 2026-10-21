@@ -587,8 +587,9 @@ def _without_profiles(ods):
 
 def test_a_slice_without_profiles_still_converts_the_measured_flux_from_tf():
     """The measured route exists for callers with a boundary and a flux loop but
-    no p(psi)/F(psi), and requiring F_boundary made it unreachable for them
-    (#862). The tf IDS measures the same vacuum R*B_phi from the coil current,
+    no p(psi)/F(psi). Requiring F_boundary made it unreachable for them unless
+    the slice carried an axis toroidal field, and then it converted with the
+    axis field rather than the vacuum one (#862). The tf IDS measures the same vacuum R*B_phi from the coil current,
     so the answer must match the one F gave, not merely be finite."""
     ods = sample_ods()
     with_f = vaft.omas.compute_virial_equilibrium_quantities_ods(copy.deepcopy(ods))

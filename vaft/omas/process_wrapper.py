@@ -2655,6 +2655,11 @@ def _virial_tf_field_radius(ods, eq_idx: int) -> float:
     ``profiles_1d.f`` (#862). On the packaged sample it agrees with
     ``|F_boundary|`` to under 0.3 % on every slice. Never raises, for the same
     reason as :func:`_virial_measured_diamagnetic_flux`.
+
+    Unlike that function it does not clamp to the edge of the tf time base:
+    outside it the coil current is not known, and a stale field would be
+    wrong rather than approximate, so the caller falls through to the
+    labelled axis field instead.
     """
     try:
         if "tf.b_field_tor_vacuum_r.data" not in ods or "tf.time" not in ods:
@@ -3504,8 +3509,8 @@ def compute_virial_equilibrium_quantities_ods(
                 "measured": mui_measured,
                 "measured_diamagnetic_flux": delta_phi_measured,
                 # Where the measured conversion's |B_t*R_0| came from:
-                # "f_boundary", "tf" (a slice without profiles),
-                # "magnetic_axis" (no profiles and no tf), or None.
+                # "f_boundary", "tf" (no profile F, or a mapped F of exactly
+                # zero), "magnetic_axis" (neither of those and no tf), or None.
                 "measured_b_t_source": (
                     measured_b_t_source if np.isfinite(mui_measured) else None
                 ),
