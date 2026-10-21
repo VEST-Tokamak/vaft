@@ -2742,6 +2742,20 @@ items += badge("validation", corner(vv_box), 0.62, role="symbol:node:vv").items
 - **Style**: one stroke weight at every size (`PICTOGRAM`, dark blue, 0.7 pt); `PICTOGRAM_MUTED`
   (grey, dashed) marks something planned. The styles are inline TikZ options, not template styles,
   so adding a pictogram re-renders only the diagrams that draw it.
+- **Optical size**: every symbol is scaled so the larger side of its drawing fills the same 20/24 of
+  its box, so a narrow icon (a terminal prompt, a flat trace) does not read smaller than a full-frame one.
+- **Dashes** are reserved for state, never part of a symbol's shape: only `PICTOGRAM_MUTED` (planned)
+  is dashed. Generated or assumed data is drawn as what produces it (`synthetic`: a model box emitting
+  a signal), not with dotted strokes.
+- **Distinct metaphors for neighbouring concepts**: `repository` (version-controlled source),
+  `library` (reusable knowledge), `archive` (long-term preservation), `database` (structured storage);
+  `processing` (transformation), `workflow` (execution order), `integration` (combining systems),
+  `adapter` (compatibility), `interface` (two-way exchange); `model` (a function), `reconstruction`
+  (flux surfaces recovered from measurements), `inference` (an estimate with its uncertainty),
+  `synthetic` (model-generated data), `validation` (computed against independent measurements),
+  `analysis` (results plotted), `comparison` (results side by side).
+- **Names**: figures and the gallery show the display name (`display_name("input_file")` is
+  "Input file"); the identifier is what code passes to `pictogram()`.
 - **When not to use one**: on every box for symmetry, on a box whose label already is the picture
   (the database drum), inside physics schematics, or where it would crowd an equation. A figure
   without icons is often the clearer one.
@@ -2750,54 +2764,54 @@ items += badge("validation", corner(vv_box), 0.62, role="symbol:node:vv").items
 
 `vaft.diagram.pictogram_catalog()` draws the gallery above.
 
-| Name | Meaning | Source |
-| --- | --- | --- |
-| `experiment` | an experiment or laboratory activity | Lucide `flask-conical` |
-| `tokamak` | a tokamak device or its machine description | VAFT |
-| `signal` | a raw measured signal | VAFT |
-| `database` | a database or data repository | Lucide `database` |
-| `archive` | a long-term archive | Lucide `archive` |
-| `file` | a data file or document | Lucide `file-text` |
-| `input_file` | an input file for a solver | Lucide `file-input` |
-| `output_file` | a solver's native output file | Lucide `file-output` |
-| `standardized` | a standardized, structured scientific representation (an IMAS-like tree) | Lucide `list-tree` |
-| `history` | a dated record or history | Lucide `history` |
-| `library` | a body of collected knowledge | Lucide `library` |
-| `processing` | data processing and qualification | Lucide `funnel` |
-| `computation` | a numerical computation, solver or simulation | Lucide `cpu` |
-| `cluster` | a compute server or HPC cluster | Lucide `server` |
-| `laptop` | a local workstation | Lucide `laptop` |
-| `calculation` | a deterministic calculation of derived quantities | Lucide `calculator` |
-| `model` | a mathematical or theoretical model | Lucide `sigma` |
-| `reconstruction` | a model-based reconstruction | VAFT |
-| `inference` | an estimate inferred from data through a model | VAFT |
-| `synthetic` | a quantity completed by assumptions | VAFT |
-| `parameters` | chosen parameters, settings or prior assumptions | Lucide `sliders-horizontal` |
-| `coordinates` | a coordinate, sign or model convention | Lucide `axis-3d` |
-| `code` | a programming interface | Lucide `code` |
-| `source_code` | an externally maintained source code | Lucide `file-code` |
-| `terminal` | a command-line interface | Lucide `terminal` |
-| `monitor` | a graphical interface | Lucide `monitor` |
-| `repository` | a code repository and its documentation | Lucide `book-open` |
-| `integration` | a protocol integration point | Lucide `plug` |
-| `adapter` | an adapter between two systems | Lucide `cable` |
-| `interface` | a standardized data interface | Lucide `network` |
-| `package` | an installable package or environment | Lucide `package` |
-| `researcher` | a human researcher | Lucide `user` |
-| `collaboration` | a group of researchers | Lucide `users` |
-| `ai_agent` | an AI agent | Lucide `bot` |
-| `workflow` | a traceable workflow or pipeline | Lucide `workflow` |
-| `validation` | verification and validation | Lucide `shield-check` |
-| `comparison` | comparison and synthesis | Lucide `scale` |
-| `analysis` | analysis and visualization of results | Lucide `chart-line` |
-| `discovery` | a discovery or new question | Lucide `lightbulb` |
+| Identifier | Display name | Meaning | Source |
+| --- | --- | --- | --- |
+| `experiment` | Experiment | an experiment or laboratory activity | Lucide `flask-conical` |
+| `tokamak` | Tokamak | a tokamak device or its machine description | VAFT |
+| `signal` | Signal | a raw measured signal | VAFT |
+| `database` | Database | structured data storage | Lucide `database` |
+| `archive` | Archive | a long-term archive | Lucide `archive` |
+| `file` | File | a data file or document | Lucide `file-text` |
+| `input_file` | Input file | an input file for a solver | Lucide `file-input` |
+| `output_file` | Output file | a solver's native output file | Lucide `file-output` |
+| `standardized` | Standardized | a standardized, structured scientific representation (an IMAS-like tree) | Lucide `list-tree` |
+| `history` | History | a dated record or history | Lucide `history` |
+| `library` | Library | a body of reusable knowledge | Lucide `library` |
+| `processing` | Processing | data processing: transforming raw data into qualified data | VAFT |
+| `computation` | Computation | a numerical computation, solver or simulation | Lucide `cpu` |
+| `cluster` | Cluster | a compute server or HPC cluster | Lucide `server` |
+| `laptop` | Laptop | a local workstation | Lucide `laptop` |
+| `calculation` | Calculation | a deterministic calculation of derived quantities | Lucide `calculator` |
+| `model` | Model | a mathematical or theoretical model (a function, not a summation) | Lucide `square-function` |
+| `reconstruction` | Reconstruction | a state (flux surfaces) reconstructed from measurements | VAFT |
+| `inference` | Inference | an estimate of an unknown quantity, with its uncertainty | VAFT |
+| `synthetic` | Synthetic | data generated by a model or completed by assumptions, never measured | VAFT |
+| `parameters` | Parameters | chosen parameters, settings or prior assumptions | Lucide `sliders-horizontal` |
+| `coordinates` | Coordinates | a coordinate, sign or model convention | Lucide `move-3d` |
+| `code` | Code | a programming interface | Lucide `code` |
+| `source_code` | Source code | an externally maintained source code | Lucide `file-code` |
+| `terminal` | Terminal | a command-line interface | Lucide `terminal` |
+| `monitor` | Monitor | a graphical interface | Lucide `monitor` |
+| `repository` | Repository | a version-controlled code repository and its documentation | Lucide `folder-git-2` |
+| `integration` | Integration | the combination of different systems or data structures | Lucide `puzzle` |
+| `adapter` | Adapter | an adapter mediating compatibility between two systems | Lucide `cable` |
+| `interface` | Interface | a two-way data exchange between two systems | VAFT |
+| `package` | Package | an installable package or environment | Lucide `package` |
+| `researcher` | Researcher | a human researcher | Lucide `user` |
+| `collaboration` | Collaboration | a group of researchers | Lucide `users` |
+| `ai_agent` | AI agent | an AI agent | Lucide `bot` |
+| `workflow` | Workflow | a traceable workflow or pipeline | Lucide `workflow` |
+| `validation` | Validation | agreement of computed values with independent measurements | VAFT |
+| `comparison` | Comparison | results compared side by side | VAFT |
+| `analysis` | Analysis | analysis and visualization of results | Lucide `chart-line` |
+| `discovery` | Discovery | a discovery or new question | Lucide `lightbulb` |
 
 **Geometry and provenance.** General-purpose icons are vendored verbatim from a pinned
 [Lucide](https://lucide.dev) release (`lucide-static` 1.52.0, ISC; the Feather-derived icons
 MIT) in `vaft/diagram/_lucide.py`, each with its sha256; the licence is reproduced in
 [THIRD_PARTY_NOTICES.md](https://github.com/VEST-Tokamak/vaft/blob/develop/THIRD_PARTY_NOTICES.md).
 Where a generic icon would mislead, VAFT draws its own scientific symbol in the same 24-unit grid
-(`tokamak`, `signal`, `reconstruction`, `inference`, `synthetic`). Only a restricted SVG subset is
+(`tokamak`, `signal`, `processing`, `reconstruction`, `inference`, `synthetic`, `interface`, `validation`, `comparison`). Only a restricted SVG subset is
 converted (`path` with `M L H V C S Q A Z`, `line`, `polyline`, `circle`, `ellipse`, `rect`); curves are
 flattened within a fixed tolerance, so a symbol always yields the same points and the output stays
 vector-native and offline in TikZ, SVG, PDF and the Matplotlib animation path.

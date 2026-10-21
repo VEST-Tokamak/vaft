@@ -50,6 +50,7 @@ __all__ = [
     "Symbol",
     "badge",
     "corner",
+    "display_name",
     "names",
     "pictogram",
     "pictogram_catalog",
@@ -71,6 +72,7 @@ TOLERANCE = 0.01
 
 _GRID = 24.0
 _DOT_RADIUS = 0.5  # grid units: a zero-length stroke drawn as a ring this size
+_EXTENT = 20.0  # grid units: every symbol's larger side after optical normalisation (Lucide's live area)
 
 
 @dataclass(frozen=True)
@@ -342,6 +344,21 @@ def _strokes(markup: str) -> List[Tuple[List[Point], bool]]:
     return strokes
 
 
+def _optical(strokes: List[Tuple[List[Point], bool]]) -> List[Tuple[List[Point], bool]]:
+    """Strokes scaled about their centre so the larger side of their extent is :data:`_EXTENT` grid units.
+
+    Equal optical size: a narrow source icon (a terminal prompt, a flat trace) no longer reads
+    smaller than a full-frame one beside it. Zero-length dot strokes do not count toward the extent.
+    """
+    drawn = [pt for points, _ in strokes if sum(math.dist(a, b) for a, b in zip(points, points[1:])) >= 0.1
+             for pt in points]
+    xs, ys = [x for x, _ in drawn], [y for _, y in drawn]
+    cx, cy = 0.5 * (min(xs) + max(xs)), 0.5 * (min(ys) + max(ys))
+    k = _EXTENT / max(max(xs) - min(xs), max(ys) - min(ys))
+    return [([(0.5 * _GRID + k * (x - cx), 0.5 * _GRID + k * (y - cy)) for x, y in points], closed)
+            for points, closed in strokes]
+
+
 def _normalise(strokes: List[Tuple[List[Point], bool]]) -> Tuple[Tuple[Tuple[Point, ...], bool], ...]:
     """Grid strokes into the unit box (y up); zero-length strokes become small rings."""
     out = []
@@ -361,22 +378,37 @@ def _normalise(strokes: List[Tuple[List[Point], bool]]) -> Tuple[Tuple[Tuple[Poi
 #: VAFT scientific symbols, in the same 24-unit grid as Lucide. Symbolic shapes only: the
 #: contours of ``reconstruction`` or the D of ``tokamak`` are not any machine's geometry.
 _VAFT = {
-    # a poloidal cut of a torus: two D-shaped cross-sections about the symmetry axis
-    "tokamak": '<path d="M12 2v20"/>'
-               '<path d="M15 5C20.5 5 22 9 22 12S20.5 19 15 19C16.4 15 16.4 9 15 5Z"/>'
-               '<path d="M9 5C3.5 5 2 9 2 12S3.5 19 9 19C7.6 15 7.6 9 9 5Z"/>',
+    # a poloidal half-section: the central column, the D-shaped vacuum vessel and the closed plasma inside it
+    "tokamak": '<rect x="2" y="3" width="3.5" height="18" rx="1"/>'
+               '<path d="M8.5 3C17 3 22 7 22 12S17 21 8.5 21Z"/>'
+               '<path d="M11 7C16.5 7 19 9.5 19 12S16.5 17 11 17C10.4 14 10.4 10 11 7Z"/>',
     # a raw time trace: an irregular sampled waveform on its baseline
-    "signal": '<path d="M2 13h3l2.5-8 3 14 3-11 2 7 1.5-2H22"/>',
-    # nested, outward-shifted closed contours around an axis: a model-based reconstruction
-    "reconstruction": '<ellipse cx="12" cy="12" rx="9" ry="10"/><ellipse cx="13" cy="12" rx="5.6" ry="6.6"/>'
-                      '<ellipse cx="13.8" cy="12" rx="2.4" ry="3"/><path d="M14.2 12h.01"/>',
-    # scattered data with a fitted curve through it: estimation from data via a model
-    "inference": '<path d="M2 20C8 17 13 12 22 4"/><circle cx="4" cy="16" r="1.4"/><circle cx="8.5" cy="17.5" r="1.4"/>'
-                 '<circle cx="11" cy="11.5" r="1.4"/><circle cx="15.5" cy="12" r="1.4"/>'
-                 '<circle cx="18" cy="5.5" r="1.4"/>',
-    # a trace whose second half is completed by assumption (dashes drawn as separate strokes)
-    "synthetic": '<path d="M2 15l3-6 3 9 3-7"/><path d="M12.6 10.6l1.4-1.6"/><path d="M15.6 8.6l1.8.5"/>'
-                 '<path d="M19 9.8l2.2 1"/>',
+    "signal": '<path d="M2 12h2.5l2-8 3 16 3-12 2 8 1.5-4H22"/>',
+    # nested, outward-shifted D-shaped flux surfaces recovered from the measurements (crosses) outside them
+    "reconstruction": '<path d="M7 3.5C14 3.5 17.5 7.5 17.5 12S14 20.5 7 20.5C5.8 16 5.8 8 7 3.5Z"/>'
+                      '<path d="M9.5 8C13 8 14.8 10 14.8 12S13 16 9.5 16C9 14 9 10 9.5 8Z"/><path d="M11.8 12h.01"/>'
+                      '<path d="M19.8 4.8l2.4 2.4M22.2 4.8l-2.4 2.4"/><path d="M19.8 10.8l2.4 2.4M22.2 10.8l-2.4 2.4"/>'
+                      '<path d="M19.8 16.8l2.4 2.4M22.2 16.8l-2.4 2.4"/>',
+    # an estimate of an unknown: a distribution with its central value and uncertainty interval
+    "inference": '<path d="M2 20C6.5 20 8 5 12 5S17.5 20 22 20"/><path d="M12 5v15"/>'
+                 '<path d="M8.6 13h6.8M8.6 11.5v3M15.4 11.5v3"/>',
+    # a model (the function box) generating a signal: synthetic data, not a measurement
+    "synthetic": '<rect x="2" y="2" width="10" height="10" rx="1.5"/><path d="M5.5 10c1.2 0 1.6-.6 1.6-1.6V6.6c0-1.1.6-1.8 1.8-1.7"/>'
+                 '<path d="M5.5 7.3h3.2"/><path d="M12 12l3 3M15 12.5V15h-2.5"/>'
+                 '<path d="M10 19.5h2l1.5-4 2 7 2-6 1.5 3H22"/>',
+    # a transformation stage: a noisy input, the processing step, a clean output
+    "processing": '<path d="M3 5h3l1.5-3 2 6 2-5 1.5 3 1.5-1H21"/><rect x="6" y="9.5" width="12" height="5" rx="1.5"/>'
+                  '<path d="M3 20c3-3.5 6-3.5 9 0s6 3.5 9 0"/>',
+    # two systems exchanging data both ways
+    "interface": '<rect x="2" y="5" width="6" height="14" rx="1.5"/><rect x="16" y="5" width="6" height="14" rx="1.5"/>'
+                 '<path d="M9.5 9.5h5M12.5 7.5l2 2-2 2"/><path d="M14.5 14.5h-5M11.5 12.5l-2 2 2 2"/>',
+    # measured points with error bars on the computed curve, and the agreement check
+    "validation": '<path d="M2 21C8 20 14 14 21 3"/><circle cx="7" cy="19.3" r="1"/><circle cx="12" cy="16.2" r="1"/>'
+                  '<circle cx="16.5" cy="10.4" r="1"/><path d="M7 16.5v5.6M12 13.4v5.6M16.5 7.6v5.6"/>'
+                  '<path d="M3 7l2.5 2.5L10 5"/>',
+    # two results set side by side on their own axes
+    "comparison": '<path d="M2 5v14h9"/><path d="M13 5v14h9"/><path d="M4 16c1.5-6 3-7 5-3"/>'
+                  '<path d="M15 16c1.5-6 3.5-7 5-2"/>',
 }
 
 #: semantic name -> (meaning, ``"lucide:<icon>"`` or ``"vaft"``)
@@ -386,43 +418,43 @@ _REGISTRY = {
     "tokamak": ("a tokamak device or its machine description", "vaft"),
     "signal": ("a raw measured signal", "vaft"),
     # data
-    "database": ("a database or data repository", "lucide:database"),
+    "database": ("structured data storage", "lucide:database"),
     "archive": ("a long-term archive", "lucide:archive"),
     "file": ("a data file or document", "lucide:file-text"),
     "input_file": ("an input file for a solver", "lucide:file-input"),
     "output_file": ("a solver's native output file", "lucide:file-output"),
     "standardized": ("a standardized, structured scientific representation (an IMAS-like tree)", "lucide:list-tree"),
     "history": ("a dated record or history", "lucide:history"),
-    "library": ("a body of collected knowledge", "lucide:library"),
+    "library": ("a body of reusable knowledge", "lucide:library"),
     # computation and processing
-    "processing": ("data processing and qualification", "lucide:funnel"),
+    "processing": ("data processing: transforming raw data into qualified data", "vaft"),
     "computation": ("a numerical computation, solver or simulation", "lucide:cpu"),
     "cluster": ("a compute server or HPC cluster", "lucide:server"),
     "laptop": ("a local workstation", "lucide:laptop"),
     "calculation": ("a deterministic calculation of derived quantities", "lucide:calculator"),
-    "model": ("a mathematical or theoretical model", "lucide:sigma"),
-    "reconstruction": ("a model-based reconstruction", "vaft"),
-    "inference": ("an estimate inferred from data through a model", "vaft"),
-    "synthetic": ("a quantity completed by assumptions", "vaft"),
+    "model": ("a mathematical or theoretical model (a function, not a summation)", "lucide:square-function"),
+    "reconstruction": ("a state (flux surfaces) reconstructed from measurements", "vaft"),
+    "inference": ("an estimate of an unknown quantity, with its uncertainty", "vaft"),
+    "synthetic": ("data generated by a model or completed by assumptions, never measured", "vaft"),
     "parameters": ("chosen parameters, settings or prior assumptions", "lucide:sliders-horizontal"),
-    "coordinates": ("a coordinate, sign or model convention", "lucide:axis-3d"),
+    "coordinates": ("a coordinate, sign or model convention", "lucide:move-3d"),
     # software and interfaces
     "code": ("a programming interface", "lucide:code"),
     "source_code": ("an externally maintained source code", "lucide:file-code"),
     "terminal": ("a command-line interface", "lucide:terminal"),
     "monitor": ("a graphical interface", "lucide:monitor"),
-    "repository": ("a code repository and its documentation", "lucide:book-open"),
-    "integration": ("a protocol integration point", "lucide:plug"),
-    "adapter": ("an adapter between two systems", "lucide:cable"),
-    "interface": ("a standardized data interface", "lucide:network"),
+    "repository": ("a version-controlled code repository and its documentation", "lucide:folder-git-2"),
+    "integration": ("the combination of different systems or data structures", "lucide:puzzle"),
+    "adapter": ("an adapter mediating compatibility between two systems", "lucide:cable"),
+    "interface": ("a two-way data exchange between two systems", "vaft"),
     "package": ("an installable package or environment", "lucide:package"),
     # research and scientific process
     "researcher": ("a human researcher", "lucide:user"),
     "collaboration": ("a group of researchers", "lucide:users"),
     "ai_agent": ("an AI agent", "lucide:bot"),
     "workflow": ("a traceable workflow or pipeline", "lucide:workflow"),
-    "validation": ("verification and validation", "lucide:shield-check"),
-    "comparison": ("comparison and synthesis", "lucide:scale"),
+    "validation": ("agreement of computed values with independent measurements", "vaft"),
+    "comparison": ("results compared side by side", "vaft"),
     "analysis": ("analysis and visualization of results", "lucide:chart-line"),
     "discovery": ("a discovery or new question", "lucide:lightbulb"),
 }
@@ -436,12 +468,22 @@ def _build() -> Dict[str, Symbol]:
         else:
             icon = origin.split(":", 1)[1]
             markup, source = ICONS[icon][0], f"lucide:{icon}@{LUCIDE_VERSION}"
-        symbols[name] = Symbol(name, meaning, source, _normalise(_strokes(markup)))
+        symbols[name] = Symbol(name, meaning, source, _normalise(_optical(_strokes(markup))))
     return symbols
 
 
 #: Every registered pictogram, by semantic name.
 SYMBOLS: Dict[str, Symbol] = _build()
+
+
+#: display names that capitalisation alone would get wrong
+_DISPLAY = {"ai_agent": "AI agent"}
+
+
+def display_name(name: str) -> str:
+    """The reader-facing name of semantic ``name``: ``"input_file"`` -> ``"Input file"``."""
+    symbol(name)
+    return _DISPLAY.get(name, name.replace("_", " ").capitalize())
 
 
 def names() -> Tuple[str, ...]:
@@ -499,10 +541,11 @@ def corner(box, size: float = 0.62, *, dip: float = 0.15) -> Point:
 
 
 def pictogram_catalog(*, labels: bool = True):
-    """Every registered pictogram with its semantic name: the symbol gallery (#2101).
+    """Every registered pictogram with its display name and identifier: the symbol gallery (#2101).
 
     ``labels=False`` draws the symbols alone.
     """
+    from ._concept import escape_latex
     from ._render import Diagram
 
     if not isinstance(labels, bool):
@@ -510,10 +553,12 @@ def pictogram_catalog(*, labels: bool = True):
     columns, cell, size = 8, 2.4, 0.9
     items: list = []
     for i, name in enumerate(SYMBOLS):
-        x, y = (i % columns) * cell, -(i // columns) * 1.9
+        x, y = (i % columns) * cell, -(i // columns) * 2.3
         items += pictogram(name, (x, y), size, role=f"symbol:catalog:{name}").items
         if labels:
-            items.append(Label((x, y - 0.75), r"\texttt{" + name.replace("_", r"\_") + "}", "concept annotation",
+            # the reader-facing name, upright, and the identifier to pass to pictogram() beneath it
+            items.append(Label((x, y - 0.7), escape_latex(display_name(name)), "concept plain", role=f"catalog:{name}"))
+            items.append(Label((x, y - 1.12), r"\texttt{" + name.replace("_", r"\_") + "}", "concept reference",
                                role=f"catalog:{name}"))
     if labels:
         items.append(Label((0.5 * (columns - 1) * cell, 1.0), r"\textbf{Semantic pictograms}", "concept group title",

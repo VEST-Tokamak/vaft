@@ -315,3 +315,38 @@ def test_documentation_lists_every_symbol():
     for name in P.names():
         assert f"`{name}`" in section, name
     assert "pictogram_catalog.svg" in section
+
+
+# --------------------------------------------------------------------------
+# design rules from the first review round: optical size, names, neighbouring concepts
+# --------------------------------------------------------------------------
+
+
+def test_every_symbol_has_the_same_optical_size():
+    for sym in P.SYMBOLS.values():
+        drawn = [p for points, closed in sym.strokes for p in points]
+        x0, x1, y0, y1 = _bounds(drawn)
+        assert max(x1 - x0, y1 - y0) == pytest.approx(P._EXTENT / P._GRID, abs=0.03), sym.name
+
+
+def test_display_names_are_reader_facing():
+    assert P.display_name("input_file") == "Input file"
+    assert P.display_name("ai_agent") == "AI agent"
+    assert all("_" not in P.display_name(n) for n in P.names())
+    with pytest.raises(KeyError):
+        P.display_name("tokamac")
+
+
+def test_neighbouring_concepts_keep_their_own_sources():
+    """The storage, connection and model families each draw from a different icon, never a shared one."""
+    families = (("repository", "library", "archive", "database"),
+                ("processing", "workflow", "integration", "adapter", "interface"),
+                ("model", "reconstruction", "inference", "synthetic", "validation", "analysis", "comparison"))
+    for family in families:
+        sources = [P.symbol(n).source for n in family if P.symbol(n).source != "vaft"]
+        assert len(set(sources)) == len(sources), family  # no two share a vendored icon
+        assert len({P.symbol(n).strokes for n in family}) == len(family), family
+    # the metaphors the review rejected stay out: a book for a repository, a funnel for processing,
+    # a summation sign for a model, a plug for integration, a shield for validation, scales for comparison
+    rejected = {"book-open", "funnel", "sigma", "plug", "network", "shield-check", "scale"}
+    assert not rejected & set(_lucide.ICONS)
