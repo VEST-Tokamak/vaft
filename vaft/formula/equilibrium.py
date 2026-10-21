@@ -2502,8 +2502,10 @@ def current_limit_from_q(q_95: float,
     more current at the same edge $q$.  At low aspect ratio the cylindrical
     $q$ is well below $q_{95}$, so reaching a given $q_{95}$ takes more current
     than this returns: the result is an underestimate there (conservative as a
-    limit), by a factor of about 2.4 at $A \approx 1.3$ with the START factor of
-    :func:`estimated_q95`, which covers both shape and aspect ratio.  Before #362 the
+    limit), by a factor of about 2.4 at $A \approx 1.3$ for a circular
+    cross-section with the START factor of :func:`estimated_q95` (about
+    $2.4\,(1+\kappa^2)/2$ with elongation), which covers both shape and aspect
+    ratio.  Before #362 the
     expression lacked the $1/R_0$ and returned $I_p R_0$ [A m]; ``R0`` is now a
     required argument, so an old three-argument call fails rather than
     returning that.

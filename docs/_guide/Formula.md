@@ -199,7 +199,7 @@ ln_lambda = vaft.formula.coulomb_logarithm_from_n_T(n_m3=4e19, T_eV=200.0)   # 3
 
 ---
 
-# Beta, current and power limits
+# Beta and current limits
 
 <!-- docs-snippet: skip fragment (placeholder name beta_percent is never defined on the page) -->
 ```python
