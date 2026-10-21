@@ -2648,6 +2648,48 @@ def _virial_measured_diamagnetic_flux(ods, eq_idx: int) -> float:
         return np.nan
 
 
+def _virial_tf_field_radius(ods, eq_idx: int) -> float:
+    """``|R*B_phi|`` of the vacuum field from the tf IDS at one slice time, or NaN.
+
+    The fallback for the measured diamagnetic conversion on a slice without
+    ``profiles_1d.f`` (#862). On the packaged sample it agrees with
+    ``|F_boundary|`` to under 0.3 % on every slice. Never raises, for the same
+    reason as :func:`_virial_measured_diamagnetic_flux`.
+
+    Unlike that function it does not clamp to the edge of the tf time base:
+    outside it the coil current is not known, and a stale field would be
+    wrong rather than approximate, so the caller falls through to the
+    labelled axis field instead.
+    """
+    try:
+        if "tf.b_field_tor_vacuum_r.data" not in ods or "tf.time" not in ods:
+            return np.nan
+        t_tf = np.asarray(ods["tf.time"], float)
+        field_radius = np.asarray(ods["tf.b_field_tor_vacuum_r.data"], float)
+        if t_tf.size < 2 or field_radius.size != t_tf.size:
+            return np.nan
+        eq_ts = ods["equilibrium.time_slice"][eq_idx]
+        t_eq = float(eq_ts["time"]) if "time" in eq_ts else np.nan
+        if not np.isfinite(t_eq) and "equilibrium.time" in ods:
+            times = np.asarray(ods["equilibrium.time"], float)
+            if eq_idx < times.size:
+                t_eq = float(times[eq_idx])
+        if not np.isfinite(t_eq) or not t_tf[0] <= t_eq <= t_tf[-1]:
+            return np.nan
+        return abs(float(np.interp(t_eq, t_tf, field_radius)))
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        logger.debug("Time slice %s: tf vacuum field unavailable: %s", eq_idx, exc)
+        return np.nan
+    except OSError as exc:
+        # A lazy database view answers a requested tf IDS the shot does not
+        # store with a 404 on first access: that is a missing IDS too, and the
+        # caller falls through to the labelled axis field.
+        if exc.errno != 404:
+            raise
+        logger.debug("Time slice %s: tf not stored: %s", eq_idx, exc)
+        return np.nan
+
+
 def _virial_disagreement_block(pairs):
     """Pairwise differences between the three closures, report-only.
 
@@ -2820,7 +2862,7 @@ def _virial_empty_row(alpha_method: str = "volume"):
         "conditioning": _virial_conditioning_block(nan, nan, nan),
         "mu_i_sources": {
             "volume": nan, "full_123": nan, "measured": nan,
-            "measured_diamagnetic_flux": nan,
+            "measured_diamagnetic_flux": nan, "measured_b_t_source": None,
         },
         "measured_mu_i_closures": {
             name: {"beta_p": nan, "li": nan}
@@ -3059,6 +3101,10 @@ def compute_virial_equilibrium_quantities_ods(
         R_safe = np.where(R_mesh == 0.0, np.nan, R_mesh)
         F_2d = np.full_like(psi_RZ, np.nan, dtype=float)
         F_boundary = np.nan
+        # Only an F mapped from profiles_1d.f carries the plasma's diamagnetism.
+        # The constant-F fallback below keeps the field grids usable, but every
+        # mu_i computed from it is zero by construction, not by physics.
+        f_is_profile = psiN_1d is not None
         if psiN_1d is not None:
             order_f = np.argsort(psiN_1d)
             psiN_sorted = psiN_1d[order_f]
@@ -3201,7 +3247,8 @@ def compute_virial_equilibrium_quantities_ods(
         # No fallback to b0: a slice without F at the boundary cannot have this
         # converted correctly, and the old pairing is what it would fall back to.
         if (
-            np.isfinite(phi_dia_comp)
+            f_is_profile
+            and np.isfinite(phi_dia_comp)
             and np.isfinite(F_boundary)
             and np.isfinite(R_0) and R_0
             and np.isfinite(V_p) and V_p > 0.0
@@ -3211,7 +3258,8 @@ def compute_virial_equilibrium_quantities_ods(
                 phi_dia_comp, F_boundary / R_0, R_0, V_p, B_pa
             )
         if (
-            np.isfinite(B_pa) and B_pa > 0.0
+            f_is_profile
+            and np.isfinite(B_pa) and B_pa > 0.0
             and np.isfinite(V_p) and V_p > 0.0
             and np.isfinite(F_boundary)
         ):
@@ -3324,9 +3372,25 @@ def compute_virial_equilibrium_quantities_ods(
         # |F_boundary|, not b0*R_0: b0's magnitude drifts within a shot (#325)
         # and F's sign is not trustworthy across sources, so each contributes
         # only what it is good for. See _vest_toroidal_field_sign.
+        #
+        # A slice without profiles has no F_boundary, and that is exactly the
+        # caller the measured route exists for (#862). F at the boundary is the
+        # vacuum R*B_phi, which the tf IDS measures from the coil current at the
+        # slice time -- the same invariant, not b0 at a radius it was not
+        # defined at. A zero F_boundary is a missing one, not a field.
+        # The axis field times the axis radius is the last resort: it is not
+        # the vacuum field, but it is what this slice used before #862.
+        _field_radius, measured_b_t_source = np.nan, None
+        _tf_field_radius = _virial_tf_field_radius(ods, eq_idx)
+        if f_is_profile and np.isfinite(F_boundary) and F_boundary != 0.0:
+            _field_radius, measured_b_t_source = abs(F_boundary), "f_boundary"
+        elif np.isfinite(_tf_field_radius) and _tf_field_radius > 0.0:
+            _field_radius, measured_b_t_source = _tf_field_radius, "tf"
+        elif np.isfinite(F_boundary) and F_boundary != 0.0:
+            _field_radius, measured_b_t_source = abs(F_boundary), "magnetic_axis"
         _b_t_for_flux = (
-            _vest_toroidal_field_sign() * abs(F_boundary) / R_0
-            if np.isfinite(F_boundary) and R_0
+            _vest_toroidal_field_sign() * _field_radius / R_0
+            if np.isfinite(_field_radius) and R_0
             else np.nan
         )
         if (
@@ -3452,6 +3516,12 @@ def compute_virial_equilibrium_quantities_ods(
                 "full_123": float(mui_full) if np.isfinite(mui_full) else np.nan,
                 "measured": mui_measured,
                 "measured_diamagnetic_flux": delta_phi_measured,
+                # Where the measured conversion's |B_t*R_0| came from:
+                # "f_boundary", "tf" (no profile F, or a mapped F of exactly
+                # zero), "magnetic_axis" (neither of those and no tf), or None.
+                "measured_b_t_source": (
+                    measured_b_t_source if np.isfinite(mui_measured) else None
+                ),
             },
             "measured_mu_i_closures": {
                 "pair_12": {"beta_p": beta_p_12_m, "li": li_12_m},
