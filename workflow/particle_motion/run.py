@@ -268,7 +268,10 @@ def check(output, frames=12, dpi=55, *, strict=False):
         produced = {path.name for path in stage.iterdir() if path.is_file()}
         present = {path.name for path in output.iterdir() if path.is_file()}
         for name in sorted(produced - present):
-            problems.append(f"{name}: missing (the generator produces it)")
+            problems.append(
+                f"{name}: missing (the generator produces it; media kept outside git "
+                "are fetched with `python docs/scripts/media.py fetch`)"
+            )
         for name in sorted(present - produced):
             problems.append(f"{name}: orphaned (the generator does not produce it)")
         for name in sorted(produced & present):

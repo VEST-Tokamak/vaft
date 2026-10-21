@@ -20,3 +20,7 @@ _data/dependency_graph.yml
 _data/pipeline_graph.yml
 _data/ecosystem.yml
 _data/ontology_graph.yml
+# Large generated media live outside git: pinned in media.lock.json, fetched by
+# build.py or `python scripts/media.py fetch` (#2117). Keep in sync with "include".
+/assets/particle-motion/*.gif
+/assets/particle-motion/*.gif.json

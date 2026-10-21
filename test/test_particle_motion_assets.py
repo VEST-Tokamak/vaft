@@ -3,6 +3,7 @@
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -12,17 +13,41 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "docs/assets/particle-motion"
 
 
+LOCK = ROOT / "docs/media.lock.json"
+
+
+def _tracked():
+    listed = subprocess.run(
+        ["git", "ls-files", "docs/assets/particle-motion"],
+        cwd=ROOT, capture_output=True, text=True, check=True,
+    ).stdout.split()
+    return {Path(path).name for path in listed}
+
+
 def test_committed_files_match_their_manifest_digests():
-    """Fast integrity check, no regeneration: what is committed is what was generated."""
+    """Fast integrity check, no regeneration or network.
+
+    Every artifact is either committed with the recorded digest, or kept outside
+    git and pinned in docs/media.lock.json with that same digest (#2117), so the
+    lock cannot silently fall behind a regeneration.
+    """
     manifest = json.loads((ASSETS / "manifest.json").read_text(encoding="utf-8"))
     artifacts = manifest["artifacts"]
-    present = {p.name for p in ASSETS.iterdir() if p.is_file()} - {"manifest.json"}
-    assert set(artifacts) == present
+    locked = json.loads(LOCK.read_text(encoding="utf-8"))["files"]
+    tracked = _tracked() - {"manifest.json"}
     for name, entry in artifacts.items():
-        data = (ASSETS / name).read_bytes()
-        assert hashlib.sha256(data).hexdigest() == entry["sha256"], name
-        assert len(data) == entry["bytes"], name
         assert entry["kind"] == ("data" if name.endswith(".json") else "render")
+        key = f"assets/particle-motion/{name}"
+        if key in locked:
+            assert name not in tracked, f"{name} is locked outside git but also committed"
+            assert locked[key]["sha256"] == entry["sha256"], f"{name}: lock is stale; run media.py lock"
+            assert locked[key]["bytes"] == entry["bytes"], name
+        else:
+            assert name in tracked, f"{name} is neither committed nor locked"
+            data = (ASSETS / name).read_bytes()
+            assert hashlib.sha256(data).hexdigest() == entry["sha256"], name
+            assert len(data) == entry["bytes"], name
+    assert tracked <= set(artifacts), "a committed file the manifest does not record"
 
 
 @pytest.fixture

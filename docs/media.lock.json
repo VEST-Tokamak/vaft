@@ -1,0 +1,81 @@
+{
+  "files": {
+    "assets/particle-motion/cartesian.gif": {
+      "asset": "be27b9fdc8bda1cc-cartesian.gif",
+      "bytes": 30529,
+      "sha256": "be27b9fdc8bda1ccc5f25c21c63bb28abb7fddb40a444174dd2f93413381e376"
+    },
+    "assets/particle-motion/cartesian.gif.json": {
+      "asset": "26da6a38cb86e18c-cartesian.gif.json",
+      "bytes": 27228,
+      "sha256": "26da6a38cb86e18c6f9ec1e363f086b3fc965501fbf13e1a97eaa75deaec69c9"
+    },
+    "assets/particle-motion/full-gc.gif": {
+      "asset": "fa6d9cd6c96a76db-full-gc.gif",
+      "bytes": 30660,
+      "sha256": "fa6d9cd6c96a76db8ca8e73b9e30722e1d41ad74474bf330c4ff348bedbf81ee"
+    },
+    "assets/particle-motion/full-gc.gif.json": {
+      "asset": "e1ac5cc88d80c364-full-gc.gif.json",
+      "bytes": 37548,
+      "sha256": "e1ac5cc88d80c364fb5a9ce0e52997e0e3b6ed6d42ff874fb0e8c08aa42af1db"
+    },
+    "assets/particle-motion/invariants.gif": {
+      "asset": "f1f14a6d55565f71-invariants.gif",
+      "bytes": 33774,
+      "sha256": "f1f14a6d55565f71441ded6f31abd4c1ef6c5c11c853e605097e793c37475494"
+    },
+    "assets/particle-motion/invariants.gif.json": {
+      "asset": "d46e11a42433f198-invariants.gif.json",
+      "bytes": 45287,
+      "sha256": "d46e11a42433f198c3157427d48936ba7a73b1eba2c5c09c41645e45c4b8e6ba"
+    },
+    "assets/particle-motion/mirror-diagnostics.gif": {
+      "asset": "986bc81dad1cfe08-mirror-diagnostics.gif",
+      "bytes": 139134,
+      "sha256": "986bc81dad1cfe0866d5f4e6dd2d4fa69884bf87564afe9ad3e88a91618e6eab"
+    },
+    "assets/particle-motion/mirror-diagnostics.gif.json": {
+      "asset": "c6ba1827dbde326d-mirror-diagnostics.gif.json",
+      "bytes": 44945,
+      "sha256": "c6ba1827dbde326d4808de460d9b664843fc226dc4bef487ee713b8aa0f4e6f3"
+    },
+    "assets/particle-motion/mirror.gif": {
+      "asset": "0b9aa254c9b6c818-mirror.gif",
+      "bytes": 39597,
+      "sha256": "0b9aa254c9b6c81839e2d48d6e2f80c61a2c54577116a38c8a1f0b642bb2f2fa"
+    },
+    "assets/particle-motion/mirror.gif.json": {
+      "asset": "da29ed2891e33436-mirror.gif.json",
+      "bytes": 45283,
+      "sha256": "da29ed2891e33436aecd81d4a07ad6ab6c95e509f50495e477c99e45e2e65c75"
+    },
+    "assets/particle-motion/symmetry-breaking.gif": {
+      "asset": "484757450d2ba1e2-symmetry-breaking.gif",
+      "bytes": 95973,
+      "sha256": "484757450d2ba1e25a79c41958cef183628431968db0d0b71d00d99bcb898e7c"
+    },
+    "assets/particle-motion/symmetry-breaking.gif.json": {
+      "asset": "8b40017bad5e91cc-symmetry-breaking.gif.json",
+      "bytes": 121006,
+      "sha256": "8b40017bad5e91cc7359a76fa9a0e11e696605cf32b12207b4cd7ac4e5bfea32"
+    },
+    "assets/particle-motion/tokamak.gif": {
+      "asset": "0a6f12c8e6f24af3-tokamak.gif",
+      "bytes": 52688,
+      "sha256": "0a6f12c8e6f24af3b173db84188420e9ff0a65a8df19c3a0a54bed16f2d52fde"
+    },
+    "assets/particle-motion/tokamak.gif.json": {
+      "asset": "a2bd6bf1604a1219-tokamak.gif.json",
+      "bytes": 121066,
+      "sha256": "a2bd6bf1604a12193fea6b916d5435ee6d1e7f438983e87b29c23ce9b3bd3b87"
+    }
+  },
+  "include": [
+    "assets/particle-motion/*.gif",
+    "assets/particle-motion/*.gif.json"
+  ],
+  "release": "docs-media",
+  "repository": "VEST-Tokamak/vaft",
+  "schema_version": 1
+}
