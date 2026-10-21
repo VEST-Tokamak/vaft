@@ -28,7 +28,12 @@ __all__ = ["__version__"]
 #   (vaft.plot.<old>, vaft.omas.plot_<old>) are deleted after their
 #   deprecation window -- the old spelling raises AttributeError naming the
 #   new one, migration_table() keeps the history -- and
-#   verify_kadomtsev_constraint no longer emits its FutureWarning (#2142)
+#   verify_kadomtsev_constraint no longer emits its FutureWarning (#2142);
+#   spitzer_resistivity_from_T_e_Z_eff_ln_Lambda, resistive_layer_at,
+#   resistive_layer_parameters and
+#   compute_ohmic_heating_power_from_core_profiles raise TypeError without
+#   Z_eff and ln_Lambda, the hidden 2 / 17 fallbacks promised to go in 0.9
+#   (#1188, #2142)
 # - pipeline 2 and kinetic state: composition with <Z_eff> = 2 and T_i = T_e
 #   by default, opt-in inferred T_i and resistive Z_eff, staged inference
 #   with its provenance (#1966, #1970); the Ohmic confinement chain as one

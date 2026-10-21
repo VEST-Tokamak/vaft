@@ -3643,11 +3643,12 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
     T_e : float
         Electron temperature [eV].
     Z_eff : float
-        Effective ion charge. Omitting it is deprecated (#1188): it still
-        falls back to 2 with a ``FutureWarning`` and will raise in 0.9 [-].
+        Effective ion charge. Required: omitting it raises ``TypeError``
+        since 0.9.0 (#1188); the hidden fallback of 2 was deprecated in
+        0.7.0 [-].
     ln_Lambda : float
-        Coulomb logarithm. Omitting it is deprecated (#1188): it still falls
-        back to 17 with a ``FutureWarning`` and will raise in 0.9 [-].
+        Coulomb logarithm. Required: omitting it raises ``TypeError`` since
+        0.9.0 (#1188); the hidden fallback of 17 was deprecated in 0.7.0 [-].
 
     Returns
     -------
@@ -3672,8 +3673,8 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
     Core tokamak plasmas well above the ionisation stage.  $Z_{\mathrm{eff}}$
     and $\ln\Lambda$ are physics inputs, not defaults: the former fallbacks
     $Z_{\mathrm{eff}}=2$, $\ln\Lambda=17$ were typical rather than derived and
-    are deprecated (#1188); use :func:`coulomb_logarithm_from_n_T` for a
-    self-consistent $\ln\Lambda$.
+    were removed in 0.9.0 (#1188); use :func:`coulomb_logarithm_from_n_T`
+    for a self-consistent $\ln\Lambda$.
 
     Limitations
     -----------
@@ -3688,19 +3689,13 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
            Sec. 2.16 (resistivity).
     """
     if Z_eff is None or ln_Lambda is None:
-        import warnings
-
         missing = [name for name, value in (("Z_eff", Z_eff), ("ln_Lambda", ln_Lambda))
                    if value is None]
-        warnings.warn(
+        raise TypeError(
             f"spitzer_resistivity_from_T_e_Z_eff_ln_Lambda called without {', '.join(missing)}; "
-            "the hidden fallbacks Z_eff=2, ln_Lambda=17 are deprecated and will raise in 0.9 "
-            "(#1188). Pass them explicitly.",
-            FutureWarning,
-            stacklevel=2,
+            "Z_eff and ln_Lambda are physics inputs, not defaults -- the hidden fallbacks "
+            "Z_eff=2, ln_Lambda=17 were removed in 0.9.0 (#1188). Pass them explicitly."
         )
-        Z_eff = 2.0 if Z_eff is None else Z_eff
-        ln_Lambda = 17.0 if ln_Lambda is None else ln_Lambda
     return SPITZER_RESISTIVITY_COEF * Z_eff * ln_Lambda / T_e**1.5
 
 

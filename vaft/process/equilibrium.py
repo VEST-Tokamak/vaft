@@ -5066,13 +5066,13 @@ def resistive_layer_parameters(
         Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default,
         which is what VEST runs [-].
     z_eff : float
-        Effective ion charge, passed to the Spitzer resistivity. Omitting it
-        is deprecated (#1188): it falls back to 2 with a ``FutureWarning``
-        and will raise in 0.9 [-].
+        Effective ion charge, passed to the Spitzer resistivity. Required:
+        omitting it raises ``TypeError`` since 0.9.0 (#1188); the hidden
+        fallback of 2 was deprecated in 0.7.0 [-].
     ln_lambda : float
-        Coulomb logarithm, passed to the Spitzer resistivity. Omitting it is
-        deprecated (#1188): it falls back to 17 with a ``FutureWarning`` and
-        will raise in 0.9 [-].
+        Coulomb logarithm, passed to the Spitzer resistivity. Required:
+        omitting it raises ``TypeError`` since 0.9.0 (#1188); the hidden
+        fallback of 17 was deprecated in 0.7.0 [-].
     m_range : tuple of int, optional
         Forwarded to :func:`find_rational_surfaces` [-].
 
@@ -5140,21 +5140,15 @@ def resistive_layer_parameters(
     if float(ion_mass_amu) <= 0.0:
         raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
     if z_eff is None or ln_lambda is None:
-        # Warned here, not in resistive_layer_at, so the warning names the
-        # caller's line rather than this module.
-        import warnings
-
+        # Raised here, not in resistive_layer_at, so the error names this
+        # function rather than the one it delegates to.
         missing = [name for name, value in (("z_eff", z_eff), ("ln_lambda", ln_lambda))
                    if value is None]
-        warnings.warn(
-            f"resistive_layer_parameters called without {', '.join(missing)}; the hidden "
-            "fallbacks z_eff=2, ln_lambda=17 are deprecated and will raise in 0.9 "
-            "(#1188). Pass them explicitly.",
-            FutureWarning,
-            stacklevel=2,
+        raise TypeError(
+            f"resistive_layer_parameters called without {', '.join(missing)}; z_eff and "
+            "ln_lambda are physics inputs, not defaults -- the hidden fallbacks z_eff=2, "
+            "ln_lambda=17 were removed in 0.9.0 (#1188). Pass them explicitly."
         )
-        z_eff = 2.0 if z_eff is None else z_eff
-        ln_lambda = 17.0 if ln_lambda is None else ln_lambda
 
     surfaces = find_rational_surfaces(psi_norm, q, n, m_range=m_range)
     return {
@@ -5202,10 +5196,10 @@ def resistive_layer_at(
     ion_mass_amu : float, optional
         Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default [-].
     z_eff : float
-        Effective ion charge; omitting it is deprecated as in
-        :func:`resistive_layer_parameters` (#1188) [-].
+        Effective ion charge; required, omitting it raises ``TypeError`` as
+        in :func:`resistive_layer_parameters` (#1188) [-].
     ln_lambda : float
-        Coulomb logarithm; omitting it is deprecated as in
+        Coulomb logarithm; required, omitting it raises ``TypeError`` as in
         :func:`resistive_layer_parameters` (#1188) [-].
 
     Returns
@@ -5251,19 +5245,13 @@ def resistive_layer_at(
     if float(ion_mass_amu) <= 0.0:
         raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
     if z_eff is None or ln_lambda is None:
-        import warnings
-
         missing = [name for name, value in (("z_eff", z_eff), ("ln_lambda", ln_lambda))
                    if value is None]
-        warnings.warn(
-            f"resistive_layer_at called without {', '.join(missing)}; the hidden "
-            "fallbacks z_eff=2, ln_lambda=17 are deprecated and will raise in 0.9 "
-            "(#1188). Pass them explicitly.",
-            FutureWarning,
-            stacklevel=2,
+        raise TypeError(
+            f"resistive_layer_at called without {', '.join(missing)}; z_eff and ln_lambda "
+            "are physics inputs, not defaults -- the hidden fallbacks z_eff=2, "
+            "ln_lambda=17 were removed in 0.9.0 (#1188). Pass them explicitly."
         )
-        z_eff = 2.0 if z_eff is None else z_eff
-        ln_lambda = 17.0 if ln_lambda is None else ln_lambda
 
     coordinate = _np.asarray(psi_norm, dtype=float)
     t_e = _np.asarray(t_e, dtype=float)
