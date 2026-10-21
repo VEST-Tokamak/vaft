@@ -11,8 +11,8 @@ python -m pytest -q test/test_process_particle.py test/test_particle_animation.p
 ```
 
 The generator writes a deterministic physical-time GIF, quantitative panel image
-and provenance sidecar per example, and a static SVG for all but the two
-tokamak examples (their gyro-resolved SVGs are ~440 KB and no page embeds them;
+and provenance sidecar per example, and a static SVG for all but the tokamak
+and symmetry-breaking examples (their gyro-resolved SVGs are ~440 KB and no page embeds them;
 `static` is null in the manifest). `manifest.json` associates these
 artifacts for future gallery ingestion. It also writes synchronized mirror
 panels as `mirror-diagnostics.gif`. GIF timing is playback timing; physical

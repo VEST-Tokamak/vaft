@@ -22,7 +22,7 @@ __all__ = [
     "next_fixed_step_time",
     "encode_timebase",
     "decode_timebase",
-    "experiment_record",
+    "particle_provenance_record",
     "native_timebases",
 ]
 
@@ -370,6 +370,8 @@ def decode_timebase(value):
         if value.get("rule") != "accumulate":
             raise ValueError(f"unknown timebase rule {value.get('rule')!r}")
         t, dt, end = float(value["t0"]), float(value["dt"]), float(value["end"])
+        if int(value["count"]) < 1:
+            raise ValueError("an accumulate timebase needs count >= 1")
         times = [t]
         # Sequential scalar additions, never cumsum: that rounds differently.
         for _ in range(int(value["count"]) - 1):
@@ -400,7 +402,7 @@ def encode_timebase(time, *, dt=None, end=None):
     return encoded if np.array_equal(decode_timebase(encoded), time) else time.tolist()
 
 
-def experiment_record(comparison):
+def particle_provenance_record(comparison):
     """JSON provenance of ``comparison.metadata`` with exact compact timebases."""
     record = dict(comparison.metadata)
     full = comparison.full
@@ -421,7 +423,9 @@ def native_timebases(options):
     experiment = options.get("experiment") or {}
     result = []
     for key in ("native_full_time_s", "native_gc_time_s"):
-        value = experiment.get(key, options.get(key))
+        value = experiment.get(key)
+        if value is None:
+            value = options.get(key)
         if value is None:
             raise KeyError(f"particle provenance has no {key}")
         result.append(decode_timebase(value))

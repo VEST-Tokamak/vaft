@@ -16,7 +16,7 @@ from vaft.data.particle import (
     TIMEBASE_SCHEMA,
     decode_timebase,
     encode_timebase,
-    experiment_record,
+    particle_provenance_record,
     native_timebases,
 )
 from vaft.plot import ParticleOrbitView, particle_overview
@@ -260,7 +260,7 @@ def test_fixed_step_timebase_is_stored_as_its_exact_recurrence(case):
     """Lossless only: the compact form is accepted when it replays the Boris
     timestamps bit for bit (t0 + i*dt does not; the integrator accumulates)."""
     experiment = particle_motion_case(case)
-    record = json.loads(json.dumps(experiment_record(experiment)))
+    record = json.loads(json.dumps(particle_provenance_record(experiment)))
     stored = record["native_full_time_s"]
     assert isinstance(stored, dict) and stored["rule"] == "accumulate"
     assert np.array_equal(decode_timebase(stored), experiment.full.time)
@@ -284,7 +284,7 @@ def test_old_and_new_sidecar_layouts_give_the_same_timebases(layout):
         "both": {**legacy, "experiment": dict(legacy)},
         "top_level": {**legacy, "experiment": {}},
         "experiment": {"experiment": dict(legacy)},
-        "schema_2": {"experiment": experiment_record(experiment)},
+        "schema_2": {"experiment": particle_provenance_record(experiment)},
     }[layout]
     full_time, gc_time = native_timebases(json.loads(json.dumps(options)))
     assert np.array_equal(full_time, experiment.full.time)

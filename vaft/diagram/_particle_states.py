@@ -12,7 +12,7 @@ from functools import lru_cache
 
 import numpy as np
 
-from vaft.data.particle import ParticleComparison, experiment_record
+from vaft.data.particle import ParticleComparison, particle_provenance_record
 from vaft.formula.particle import boris_orbit, guiding_center_rhs
 
 from ._equations import formula_equation
@@ -331,7 +331,7 @@ def particle_states(
             "full_orbit": comparison.full.provenance_record(),
             "guiding_center": comparison.guiding_center.provenance_record(),
             # Native timebases live here once (schema 2); read with native_timebases().
-            "experiment": experiment_record(comparison),
+            "experiment": particle_provenance_record(comparison),
         },
     )
 

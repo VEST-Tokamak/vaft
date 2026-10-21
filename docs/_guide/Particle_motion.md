@@ -81,7 +81,7 @@ labels stochasticity as unestablished.
 
 The [artifact manifest]({{ site.baseurl }}/assets/particle-motion/manifest.json)
 links all six families to animations and quantitative panels, and all but the
-two tokamak families to static SVGs.
+tokamak and symmetry-breaking families to static SVGs.
 The mirror and invariants families share one experiment and so one panel image.
 Some manifest diagnostics are not meaningful for every family. `orbit_class` is
 `no_resolved_turn` for the cartesian and full-gc runs, which have no turning
@@ -158,7 +158,7 @@ geometries retain the sampled field arrow without invented straight lines.
 
 Run `python -m workflow.particle_motion.run` from the source root to generate
 six reference families, their GIFs, diagnostic panels, static SVGs (all but
-the two tokamak families) and artifact manifest under
+the tokamak and symmetry-breaking families) and artifact manifest under
 `docs/assets/particle-motion/`. Physical tests are in
 `test/test_process_particle.py`; replay tests are in
 `test/test_particle_animation.py`.
