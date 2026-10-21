@@ -17,7 +17,13 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from ... import compat
-from ..execution import ExecutionRequest, resolve_backend, timeout_reason
+from ..execution import (
+    ExecutionRequest,
+    ResourceRequest,
+    configured_resources,
+    resolve_backend,
+    timeout_reason,
+)
 from .availability import MITIMAvailability, mitim_availability
 from .config import MITIMConfig, MITIMResult, mitim_user_config
 
@@ -183,12 +189,14 @@ def run_mitim_driver(
                            encoding="utf-8")
     (workdir / "mitim_scratch").mkdir(exist_ok=True)
 
+    launch_resources, env = configured_resources(config, ResourceRequest(), _environment(config, config_path))
     execution = resolve_backend(config).run(
         ExecutionRequest(
             command=_command(config, availability.python, script.name, argument_path.name),
             workdir=workdir,
-            env=_environment(config, config_path),
+            env=env,
             timeout=config.timeout,
+            resources=launch_resources,
             label=f"mitim-{driver}",
         )
     )

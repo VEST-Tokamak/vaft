@@ -412,8 +412,8 @@ def test_the_written_ods_survives_a_save_load_round_trip(mapped, tmp_path):
 
 def test_provenance_records_the_solver_and_the_derivation(mapped, native):
     assert str(mapped["core_profiles.code.name"]) == "NEO"
-    assert str(mapped["core_transport.code.name"]) == "NEO"
-    parameters = str(mapped["core_transport.code.parameters"])
+    assert str(mapped["core_transport.model.0.code.name"]) == "NEO"
+    parameters = str(mapped["core_transport.model.0.code.parameters"])
     assert "derived_by" in parameters
     assert "B_unit" in parameters
     assert native.version["revision"].split()[0] in parameters
@@ -427,8 +427,8 @@ def test_provenance_says_which_bootstrap_current_was_written(mapped):
 
 def test_the_provenance_fragment_cannot_close_the_envelope_early(mapped):
     """A literal </parameters> inside a fragment truncates the document (#642)."""
-    for ids in ("core_profiles", "core_transport"):
-        parameters = str(mapped[f"{ids}.code.parameters"])
+    for owner in ("core_profiles", "core_transport.model.0"):
+        parameters = str(mapped[f"{owner}.code.parameters"])
         assert parameters.endswith("</parameters>")
         assert "</parameters>" not in parameters[: -len("</parameters>")]
 
@@ -436,7 +436,158 @@ def test_the_provenance_fragment_cannot_close_the_envelope_early(mapped):
 def test_mapping_a_second_slice_does_not_repeat_the_provenance(ods, native):
     for index in (0, 1):
         core_transport_from_neo(ods, native, time=0.3 + 0.1 * index, time_index=index)
-    assert str(ods["core_transport.code.parameters"]).count("<neo>") == 1
+    assert str(ods["core_transport.model.0.code.parameters"]).count("<neo>") == 1
+
+
+def test_core_transport_provenance_is_on_the_model_not_the_ids(ods, native):
+    """Another model sharing core_transport must not be attributed to NEO."""
+    ods["core_transport.model.0.identifier.index"] = -1
+    ods["core_transport.model.0.identifier.name"] = "classical"
+    ods["core_transport.model.0.code.name"] = "classical producer"
+    report = core_transport_from_neo(ods, native, time=0.3, time_index=0)
+    assert report["model"] == 1
+    assert "core_transport.code.name" not in ods
+    assert "core_transport.code.parameters" not in ods
+    assert str(ods["core_transport.model.0.code.name"]) == "classical producer"
+    assert str(ods["core_transport.model.1.code.name"]) == "NEO"
+
+
+# --------------------------------------------------------------------------
+# Ion identity
+# --------------------------------------------------------------------------
+
+
+def _core_profiles_ion(ods, *, z_ion, a, z_n, time=0.3):
+    ods["core_profiles.profiles_1d.0.time"] = time
+    ods["core_profiles.profiles_1d.0.ion.0.z_ion"] = z_ion
+    ods["core_profiles.profiles_1d.0.ion.0.element.0.a"] = a
+    ods["core_profiles.profiles_1d.0.ion.0.element.0.z_n"] = z_n
+
+
+def test_nuclear_charge_comes_from_core_profiles(ods, native):
+    """NEO knows the ion charge only; z_n is read from the ion it came from."""
+    amu = float(native.species_mass[0]) * 2.0
+    # A deliberately different z_n proves the value is read, not assumed.
+    _core_profiles_ion(ods, z_ion=1.0, a=amu, z_n=2.0)
+    report = core_transport_from_neo(ods, native, time=0.3, time_index=0)
+    base = "core_transport.model.0.profiles_1d.0.ion.0"
+    assert float(ods[f"{base}.element.0.z_n"]) == 2.0
+    assert float(ods[f"{base}.z_ion"]) == 1.0
+    assert not any("z_n" in reason for reason in report["skipped"])
+
+
+def test_nuclear_charge_is_not_assumed_without_a_source(ods, native):
+    report = core_transport_from_neo(ods, native, time=0.3, time_index=0)
+    base = "core_transport.model.0.profiles_1d.0.ion.0"
+    assert f"{base}.element.0.z_n" not in ods
+    assert float(ods[f"{base}.z_ion"]) == 1.0
+    assert any("ion.0.element.0.z_n" in reason for reason in report["skipped"])
+
+
+def test_nuclear_charge_ignores_another_time_and_another_mass(ods, native):
+    amu = float(native.species_mass[0]) * 2.0
+    _core_profiles_ion(ods, z_ion=1.0, a=amu, z_n=1.0, time=0.4)
+    core_transport_from_neo(ods, native, time=0.3, time_index=0)
+    assert "core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n" not in ods
+    other = type(ods)(consistency_check=False)
+    other["equilibrium.vacuum_toroidal_field.b0"] = np.array([0.15])
+    _core_profiles_ion(other, z_ion=1.0, a=amu + 2.0, z_n=1.0)
+    core_transport_from_neo(other, native, time=0.3, time_index=0)
+    assert "core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n" not in other
+
+
+def test_an_ion_that_cannot_be_the_one_neo_ran_is_not_used(ods, native):
+    """The link is positional, so the ion found there must be consistent with NEO's."""
+    amu = float(native.species_mass[0]) * 2.0
+    _core_profiles_ion(ods, z_ion=2.0, a=amu, z_n=2.0)   # a fixed charge NEO did not run
+    report = core_transport_from_neo(ods, native, time=0.3, time_index=0)
+    assert "core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n" not in ods
+    assert any("do not correspond" in reason for reason in report["skipped"])
+
+    nan = type(ods)(consistency_check=False)
+    nan["equilibrium.vacuum_toroidal_field.b0"] = np.array([0.15])
+    _core_profiles_ion(nan, z_ion=1.0, a=amu, z_n=float("nan"))
+    core_transport_from_neo(nan, native, time=0.3, time_index=0)
+    assert "core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n" not in nan
+
+
+@pytest.fixture(scope="module")
+def carbon():
+    """H and C with kinetic electrons: NEO species charges [1, 6, -1]."""
+    return collect_neo_outputs(FIXTURES / "neo_vest_48224_carbon")
+
+
+def test_a_bundled_impurity_gets_its_nuclear_charge_through_the_lumped_one(ods, carbon):
+    """A bundled ion reaches NEO as Z_lump, which matches neither its z_ion nor a surface."""
+    base = "core_profiles.profiles_1d.0"
+    ods[f"{base}.time"] = 0.3
+    ods[f"{base}.ion.0.z_ion"] = 1.0
+    ods[f"{base}.ion.0.element.0.a"] = float(carbon.species_mass[0]) * 2.0
+    ods[f"{base}.ion.0.element.0.z_n"] = 1.0
+    ods[f"{base}.ion.1.z_ion"] = 4.91147          # density-weighted <Z>, not Z_lump
+    ods[f"{base}.ion.1.z_ion_1d"] = np.linspace(6.0, 3.0, 5)
+    ods[f"{base}.ion.1.element.0.a"] = 12.011
+    ods[f"{base}.ion.1.element.0.z_n"] = 6.0
+    # NEO's carbon charge stands in for the lumped one: it differs from z_ion.
+    assert float(carbon.species_charge[1]) != 4.91147
+    report = core_transport_from_neo(ods, carbon, time=0.3, time_index=0)
+    ions = "core_transport.model.0.profiles_1d.0.ion"
+    assert float(ods[f"{ions}.0.element.0.z_n"]) == 1.0
+    assert float(ods[f"{ions}.1.element.0.z_n"]) == 6.0
+    assert not any("z_n" in reason for reason in report["skipped"])
+
+
+def test_a_synthesized_impurity_is_fully_stripped_by_construction(ods, carbon):
+    """impurity="C" appends C6+ from IMPURITIES; with no source only it is known."""
+    report = core_transport_from_neo(ods, carbon, time=0.3, time_index=0)
+    ions = "core_transport.model.0.profiles_1d.0.ion"
+    assert float(ods[f"{ions}.1.element.0.z_n"]) == 6.0
+    assert f"{ions}.0.element.0.z_n" not in ods
+    (reason,) = [r for r in report["skipped"] if "z_n" in r]
+    assert reason.startswith("ion.0.element.0.z_n") and "species_source" in reason
+
+
+def test_a_remap_clears_what_the_previous_mapper_wrote(ods, native):
+    """An older mapper wrote IDS-level code and z_n = charge; neither may survive."""
+    ods["core_transport.code.name"] = "NEO"
+    ods["core_transport.code.version"] = "old"
+    ods["core_transport.model.0.identifier.index"] = NEOCLASSICAL_MODEL_INDEX
+    ods["core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n"] = 1.0
+    core_transport_from_neo(ods, native, time=0.3, time_index=0)
+    assert "core_transport.code" not in ods
+    assert "core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n" not in ods
+    assert str(ods["core_transport.model.0.code.name"]) == "NEO"
+
+
+def test_a_species_source_slice_is_named_by_index_not_time(ods, native):
+    """Promotion maps at the equilibrium time; the profile slice may sit off it."""
+    from omas import ODS
+
+    amu = float(native.species_mass[0]) * 2.0
+    source = ODS(consistency_check=False)
+    _core_profiles_ion(source, z_ion=1.0, a=amu, z_n=1.0, time=0.2995)
+    core_transport_from_neo(
+        ods, native, time=0.3, time_index=0, species_source=source, species_index=0
+    )
+    assert float(ods["core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n"]) == 1.0
+    assert "core_profiles.profiles_1d.0.ion" not in ods
+
+
+def test_a_one_element_slice_time_and_a_shared_time_base_are_read(ods, native):
+    amu = float(native.species_mass[0]) * 2.0
+    _core_profiles_ion(ods, z_ion=1.0, a=amu, z_n=1.0)
+    ods["core_profiles.profiles_1d.0.time"] = np.array([0.3])
+    core_transport_from_neo(ods, native, time=0.3, time_index=0)
+    assert float(ods["core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n"]) == 1.0
+
+    shared = type(ods)(consistency_check=False)
+    shared["equilibrium.vacuum_toroidal_field.b0"] = np.array([0.15])
+    shared["core_profiles.time"] = np.array([0.3])
+    shared["core_profiles.profiles_1d.0.ion.0.z_ion"] = 1.0
+    shared["core_profiles.profiles_1d.0.ion.0.element.0.a"] = amu
+    shared["core_profiles.profiles_1d.0.ion.0.element.0.z_n"] = 1.0
+    core_transport_from_neo(shared, native, time=0.3, time_index=0)
+    assert float(shared["core_transport.model.0.profiles_1d.0.ion.0.element.0.z_n"]) == 1.0
 
 
 # --------------------------------------------------------------------------

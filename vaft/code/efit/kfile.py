@@ -431,8 +431,8 @@ def generate_constraints_ods(
     broken=None,
     fit=0,
     fl_correct_coeff=None,
-    FFCUR=2,
-    PPCUR=2,
+    FFCUR=None,
+    PPCUR=None,
     *,
     decisions: ChannelDecisions | None = None,
     recovery=None,
@@ -462,7 +462,20 @@ def generate_constraints_ods(
     are deprecated: when ``decisions`` is not given they are turned into the
     equivalent policy and backend, with a warning.  Returns the decisions the
     product was built from.
+
+    ``FFCUR``/``PPCUR`` are deprecated and ignored.  The profile basis is
+    the k-file configuration's (:class:`EFITScientificConfig`), and the
+    constraints product no longer records one it does not choose (#869).
     """
+
+    if FFCUR is not None or PPCUR is not None:
+        warnings.warn(
+            "generate_constraints_ods(FFCUR=..., PPCUR=...) is deprecated and ignored: "
+            "the profile basis is chosen by the k-file configuration "
+            "(EFITScientificConfig.profile), which generate_kfile records (#869)",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     # A Green table is a projection of one machine's conductors and is only
     # valid for the era it was built from. The caller resolves which era this
@@ -754,16 +767,15 @@ def generate_constraints_ods(
         PM[f"time_slice.{i}.IN1.TABLE_DIR"] = efit_table_dir
 
         PM[f"time_slice.{i}.IN1.IECURR"] = 0
-        PM[f"time_slice.{i}.IN1.KFFCUR"] = FFCUR
-        PM[f"time_slice.{i}.IN1.KPPCUR"] = PPCUR
-        PM[f"time_slice.{i}.IN1.KFFFNC"] = 0
-        PM[f"time_slice.{i}.IN1.KPPFNC"] = 0
-        PM[f"time_slice.{i}.IN1.IVESEL"] = 1
-        PM[f"time_slice.{i}.IN1.IFITVS"] = 0
-        PM[f"time_slice.{i}.IN1.FCURBD"] = 1
-        PM[f"time_slice.{i}.IN1.PCURBD"] = 1
         PM[f"time_slice.{i}.IN1.KCALPA"] = 0
         PM[f"time_slice.{i}.IN1.KCGAMA"] = 0
+        # The profile model (KPPCUR, KFFCUR, KPPFNC, KFFFNC, PCURBD, FCURBD,
+        # FWTBP) and the passive-structure flags (IVESEL, IFITVS) are NOT
+        # written here either: they are the k-file configuration's choice,
+        # made later and possibly differently, and this tree recorded a fixed
+        # (2,2) hard-edge model whatever was written (#869). The k-file
+        # writer records the values it writes, and the EFIT product carries
+        # the submitted namelist itself (`time_slice.*.in1`).
         # The seed ellipse, the reference radius and the plasma-current floor
         # are NOT written here. They were, as five VEST numbers, and the writer
         # took them from `EFITScientificConfig` regardless -- so they never
@@ -889,6 +901,10 @@ def generate_kfile(
     initialization = scientific.initialization
     numerics = scientific.numerics
     constraint_config = scientific.constraints
+
+    # What the k-file states is recorded on the caller's ODS, not on the copy
+    # the sigma floor works on, so the record survives the floor (#869).
+    recorded_parameters = ods["equilibrium.code.parameters"]
 
     # The sigma floor is part of the configuration, so it is applied here, on a
     # copy, for every caller -- the routine configuration's is 0 (#891).
@@ -1355,12 +1371,24 @@ def generate_kfile(
         f.write(f" RELIP = {initialization.seed_rzero}\n")
         f.write(f" RZERO = {initialization.rzero}\n")
         f.write(f" SERROR = {serror_written}\n")
-        PM[f"time_slice.{time_idx}.IN1.SERROR"] = serror_written
+        written = {
+            "KFFCUR": profile.kffcur,
+            "KPPCUR": profile.kppcur,
+            "KFFFNC": profile.kfffnc,
+            "KPPFNC": profile.kppfnc,
+            "FCURBD": profile.fcurbd,
+            "PCURBD": profile.pcurbd,
+            "FWTBP": profile.fwtbp,
+            "IVESEL": ivesel,
+            "IFITVS": ifitvs,
+            "SERROR": serror_written,
+        }
         if statistical:
             f.write(" VBIT = 1.0\n")
             f.write(" ERRSIL = 0.0\n")
-            PM[f"time_slice.{time_idx}.IN1.VBIT"] = 1.0
-            PM[f"time_slice.{time_idx}.IN1.ERRSIL"] = 0.0
+            written.update(VBIT=1.0, ERRSIL=0.0)
+        for key, value in written.items():
+            recorded_parameters[f"time_slice.{time_idx}.IN1.{key}"] = value
         f.write(TABLE_DIR)
         f.write(VCURRT)
         f.write("\n")

@@ -18,7 +18,19 @@ __all__ = [
     "ParticleTrajectory",
     "ParticleComparison",
     "FieldEvaluationError",
+    "TIMEBASE_SCHEMA",
+    "next_fixed_step_time",
+    "encode_timebase",
+    "decode_timebase",
+    "particle_provenance_record",
+    "native_timebases",
 ]
+
+#: Version of the native-timebase layout in particle provenance records.
+#: 1: plain lists, also duplicated at the top level of animation options.
+#: 2: one copy under ``experiment``; a fixed-step timebase may be stored as
+#:    its exact recurrence (see :func:`encode_timebase`).
+TIMEBASE_SCHEMA = 2
 
 
 class FieldEvaluationError(ValueError):
@@ -341,3 +353,80 @@ class ParticleComparison:
         if np.any(self.separation < 0):
             raise ValueError("separation must be nonnegative")
         object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+
+
+def next_fixed_step_time(t, dt, end):
+    """The fixed-step integrators' timestamp recurrence, ``min(end, t + dt)``.
+
+    Shared by the Boris integrator and :func:`decode_timebase`, so a stored
+    recurrence replays the integrator's sequential IEEE additions exactly.
+    """
+    return min(end, t + dt)
+
+
+def decode_timebase(value):
+    """Native timestamps from a stored timebase: a list, or an exact recurrence."""
+    if isinstance(value, Mapping):
+        if value.get("rule") != "accumulate":
+            raise ValueError(f"unknown timebase rule {value.get('rule')!r}")
+        t, dt, end = float(value["t0"]), float(value["dt"]), float(value["end"])
+        if int(value["count"]) < 1:
+            raise ValueError("an accumulate timebase needs count >= 1")
+        times = [t]
+        # Sequential scalar additions, never cumsum: that rounds differently.
+        for _ in range(int(value["count"]) - 1):
+            t = next_fixed_step_time(t, dt, end)
+            times.append(t)
+        return np.array(times)
+    return np.asarray(value, dtype=float)
+
+
+def encode_timebase(time, *, dt=None, end=None):
+    """Store ``time`` compactly only where that is lossless.
+
+    With ``dt`` and ``end`` of a fixed-step run, the recurrence
+    ``{"rule": "accumulate", "t0", "dt", "end", "count"}`` is returned only if
+    decoding it reproduces ``time`` bit for bit; otherwise, and for adaptive
+    timebases, the full list.
+    """
+    time = np.asarray(time, dtype=float)
+    if dt is None or end is None or time.size == 0:
+        return time.tolist()
+    encoded = {
+        "rule": "accumulate",
+        "t0": float(time[0]),
+        "dt": float(dt),
+        "end": float(end),
+        "count": int(time.size),
+    }
+    return encoded if np.array_equal(decode_timebase(encoded), time) else time.tolist()
+
+
+def particle_provenance_record(comparison):
+    """JSON provenance of ``comparison.metadata`` with exact compact timebases."""
+    record = dict(comparison.metadata)
+    full = comparison.full
+    fixed_step = full.metadata.get("method") == "centered_boris"
+    record["native_full_time_s"] = encode_timebase(
+        full.time,
+        dt=full.metadata.get("dt_s") if fixed_step else None,
+        end=full.metadata.get("requested_end_s") if fixed_step else None,
+    )
+    # Adaptive GC nodes have no recurrence: always the full list.
+    record["native_gc_time_s"] = encode_timebase(comparison.guiding_center.time)
+    record["timebase_schema"] = TIMEBASE_SCHEMA
+    return record
+
+
+def native_timebases(options):
+    """``(full, gc)`` native timestamps from particle animation options, any schema."""
+    experiment = options.get("experiment") or {}
+    result = []
+    for key in ("native_full_time_s", "native_gc_time_s"):
+        value = experiment.get(key)
+        if value is None:
+            value = options.get(key)
+        if value is None:
+            raise KeyError(f"particle provenance has no {key}")
+        result.append(decode_timebase(value))
+    return tuple(result)

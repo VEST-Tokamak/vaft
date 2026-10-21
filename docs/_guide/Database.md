@@ -47,6 +47,25 @@ linear transformation between shot and date. Date-primary plots omit rows
 without acquisition timestamps. Summaries with several rows per shot retain
 every row; select the desired time slices in the DataFrame before plotting.
 
+The same tables can be built offline from in-memory ODS, for example the packaged samples:
+
+```python
+samples = {shot: vaft.omas.sample_ods(shot) for shot in (39915, 41672)}
+slices = vaft.database.summary(odss=samples, preset="equilibrium_global")
+slices.attrs["skipped"]        # [{"shot": ..., "reason": ...}] for shots the preset could not run on
+```
+
+`summary(odss=...)` (also `vaft.database.summary_from_ods`) runs the same extractor, shot-level
+columns, column order and sort as the database path, so a shot gives the same table either way. It
+takes a `{shot: ods}` mapping or ODS objects that record `dataset_description.data_entry.pulse`.
+Each extractor sees a private copy of only the IDS the preset reads, exactly as the database path's
+`open(..., paths=...)` view does, so the caller's ODS is not modified and an IDS outside the preset
+does not change the result. A preset IDS the ODS lacks is absent offline; on the database path it
+fails only when first read, so an extractor that tolerates the missing IDS gives the same row either
+way. `source` (default
+`"local"`) only labels the `source`/`equilibrium_source` columns. Both paths list the shots they
+skipped, with the reason, in `attrs["skipped"]`.
+
 ## Transport summary hierarchy
 
 `equilibrium_global` and `core_profiles` describe their respective time
@@ -312,6 +331,53 @@ them and `transport="h5image"` requires them. Direct lazy `open()` reads
 selected leaves from the canonical IDS domain and currently supports occurrence
 0. Native lazy IMAS also requires the exact stored Data Dictionary version.
 
+### The local HSDS cache
+
+`cache="auto"` (the default) keeps every validated domain it downloads in a persistent local cache,
+`~/.cache/vaft/hsds`, or `$VAFT_CACHE_DIR/hsds` when that is set. The cache is disposable: every entry is checked against the server's revision before use and is
+fetched again when missing, so it is never the source of truth. `cache="off"` always downloads;
+`cache=<path>` uses another base directory.
+
+The cache is capped at **1 GiB** by default. After every write the least-recently-used domains
+are evicted until it fits, and a single domain larger than the cap is read without being cached.
+The cap is taken from the first of:
+
+1. the `cache_max` argument of `load()` or `export()`;
+2. the `VAFT_HSDS_CACHE_MAX` environment variable;
+3. `cache_max` in the `[hsds]` table of `~/.config/vaft/config.toml` (or under
+   `$XDG_CONFIG_HOME`), which `vaft cache set-limit` writes (it refuses a file layout it cannot
+   edit safely; on Python 3.10 without `tomli` that is anything beyond plain tables and
+   `key = value` lines);
+4. the 1 GiB default.
+
+Sizes are bytes or binary multiples (`500M`, `20G`; `1G` is 1024³ bytes). `0` disables caching,
+and `none` or `unlimited` removes the cap. A server or pipeline can keep a large cache on its own
+volume (`VAFT_CACHE_DIR`), and one-shot reads can pass `cache_max=0`.
+
+```bash
+vaft cache info                 # location, used size, cap and which setting it came from
+vaft cache list --shot 39915    # cached domains, least recently used first
+vaft cache prune                # evict down to the cap now (or --max 500M, --older-than 30d)
+vaft cache clear --shot 39915   # remove one shot's domains; the whole cache needs --yes
+vaft cache set-limit 5G         # persist the cap in the user config file
+```
+
+The same operations are available from Python in `vaft.database.hsds_cache` (`info`, `entries`,
+`prune`, `clear`, `set_cache_max`).
+
+- **What can be removed.** Only domains VAFT wrote: a file in an `<endpoint hash>/<source>/<shot>/`
+  directory that the directory's `manifest.json` lists. A `cache=<path>` base other than the default
+  must also carry the `.vaft-hsds-cache` marker, which the first `load()` using it writes. Other
+  files under the cache directory, and data given by `path=`/`local_dir=`, are never touched.
+- **Recency.** It is the file modification time, which VAFT sets on every hit and write, so
+  `noatime` mounts do not matter.
+- **Concurrency.** Copies into and out of the cache, manifest updates and every eviction are
+  serialized by a lock file in the cache directory. That lock is POSIX-only: on Windows two processes sharing a capped
+  cache are not serialized.
+- **Failures.** The cache is best-effort. A failed cache write or eviction is logged and the load
+  still returns its data. An unreadable `VAFT_HSDS_CACHE_MAX` or config file is logged and the
+  default cap applies.
+
 Canonical IMAS images remain authoritative after a save. The default
 `derived_cache="auto"` also creates per-IDS images; the historical full-ODS
 cache is readable but is published only on explicit request. The explicit
@@ -335,7 +401,8 @@ The current high-level signature is:
 <!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
 ```python
 load(shot, source=None, *, representation="omas", paths=None,
-     occurrence=None, imas_version=None, cache="auto", transport="auto")
+     occurrence=None, imas_version=None, cache="auto", transport="auto",
+     cache_max=None)
 ```
 
 `source=None` resolves to the default source, `main`; pass `source="public"` for the legacy public
