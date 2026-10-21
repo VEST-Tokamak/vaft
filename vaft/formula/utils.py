@@ -560,7 +560,10 @@ def _rectilinear_axis(coord: np.ndarray, axis: int, name: str, shape: tuple) -> 
             raise ValueError(f"{name} mesh has shape {coord.shape}, B_phi has {shape}")
         line = coord[:, 0] if axis == 0 else coord[0, :]
         expected = line[:, None] if axis == 0 else line[None, :]
-        if not np.allclose(coord, np.broadcast_to(expected, shape), rtol=0.0, atol=1e-12 * max(1.0, np.max(np.abs(line)))):
+        # Tolerance relative to the spacing, so a mesh rounded through float32
+        # still counts as rectilinear.
+        spacing = np.min(np.abs(np.diff(line))) if line.size > 1 else 1.0
+        if not np.allclose(coord, np.broadcast_to(expected, shape), rtol=0.0, atol=1e-6 * spacing):
             raise ValueError(
                 f"{name} is not a rectilinear 'ij' mesh (it varies along the other axis)"
             )
@@ -577,7 +580,7 @@ def _rectilinear_axis(coord: np.ndarray, axis: int, name: str, shape: tuple) -> 
 def _toroidal_flux(B_phi, R, Z, mask, dA, stacklevel: int) -> float:
     """Shared body of :func:`calculate_toroidal_flux` and ``phi_from_Bphi``."""
     if dA is None and Z is None and R is not None:
-        if np.ndim(B_phi) == 2:
+        if np.ndim(B_phi) == 2 and np.ndim(R) != 0:
             # A 2-D map with a second argument and no Z is ambiguous: a grid
             # call that forgot Z, or the old area map.  Summing B_phi * R would
             # be silently wrong, so refuse rather than guess.
@@ -585,8 +588,8 @@ def _toroidal_flux(B_phi, R, Z, mask, dA, stacklevel: int) -> float:
                 "toroidal flux over a 2-D map needs both R and Z; for the deprecated "
                 "area-element sum pass dA= by keyword"
             )
-        # Legacy positional call ``f(B_phi, dA)`` on samples: the second
-        # argument is the area-element array of the bare sum.
+        # Legacy positional call ``f(B_phi, dA)`` on samples, or with a scalar
+        # cell area (which can never be an R axis): the bare sum.
         dA, R = R, None
     if dA is not None:
         if R is not None or Z is not None or mask is not None:
@@ -652,8 +655,8 @@ def calculate_toroidal_flux(B_phi: np.ndarray,
     dA : np.ndarray, optional
         Deprecated (#358).  Caller-supplied area elements of the old bare sum
         $\sum_i B_{\varphi,i}\,\Delta A_i$; also taken from a two-argument call
-        ``calculate_toroidal_flux(B_phi, dA)`` when ``B_phi`` is not 2-D (a 2-D
-        map must pass ``dA=`` by keyword).  Emits a ``DeprecationWarning`` [m^2].
+        ``calculate_toroidal_flux(B_phi, dA)`` when ``B_phi`` is not 2-D or ``dA``
+        is a scalar cell area (a 2-D area map must pass ``dA=`` by keyword).  Emits a ``DeprecationWarning`` [m^2].
 
     Returns
     -------

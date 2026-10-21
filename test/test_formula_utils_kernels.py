@@ -96,6 +96,10 @@ def test_toroidal_flux_accepts_ij_meshes_and_either_axis_direction():
     B_phi = 0.06 / RR
     reference = calculate_toroidal_flux(B_phi, R, Z)
     assert calculate_toroidal_flux(B_phi, RR, ZZ) == pytest.approx(reference, rel=1e-14)
+    # A mesh rounded through float32 is still rectilinear.
+    assert calculate_toroidal_flux(B_phi, RR.astype(np.float32), ZZ.astype(np.float32)) == pytest.approx(
+        reference, rel=1e-6
+    )
     # Storing an axis backwards does not flip the area.
     assert calculate_toroidal_flux(B_phi[::-1], R[::-1], Z) == pytest.approx(reference, rel=1e-14)
     assert calculate_toroidal_flux(B_phi[:, ::-1], R, Z[::-1]) == pytest.approx(reference, rel=1e-14)
@@ -158,6 +162,9 @@ def test_toroidal_flux_legacy_area_sum_is_deprecated_but_unchanged():
         assert calculate_toroidal_flux(B_phi, dA) == pytest.approx(expected, rel=1e-13, abs=0.0)
     with pytest.warns(DeprecationWarning, match="#358"):
         assert calculate_toroidal_flux(B_phi, dA=dA) == pytest.approx(expected, rel=1e-13, abs=0.0)
+    # A scalar cell area on a 2-D map is unambiguous: still the deprecated sum.
+    with pytest.warns(DeprecationWarning, match="#358"):
+        assert calculate_toroidal_flux(np.full((3, 4), 0.2), 0.01) == pytest.approx(0.2 * 0.01 * 12)
     # A 2-D area map still works, by keyword.
     with pytest.warns(DeprecationWarning, match="#358"):
         assert calculate_toroidal_flux(np.tile(B_phi, (2, 1)), dA=np.tile(dA, (2, 1))) == (

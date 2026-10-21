@@ -46,6 +46,7 @@ from .utils import (
     trapz_integral,
     normalize_profile,
     calculate_poloidal_flux,
+    calculate_toroidal_flux,  # noqa: F401 -- kept importable from here for existing callers
     calculate_volume_weighted_average
 )
 
