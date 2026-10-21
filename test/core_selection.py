@@ -99,6 +99,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagnostics_interactive.py",
     "test_display_policy.py",
     "test_equilibrium_field_2d.py",
+    # Read-only monitoring tables (#2067): stub backends and tmp FileDB, ~5 s.
+    "test_equilibrium_monitoring.py",
     # Regime bins, export and cohort cases (#1891): hand-built ODS, no solver.
     "test_equilibrium_regime_descriptors.py",
     "test_layout_contract.py",
@@ -195,6 +197,7 @@ CORE_MODULES: tuple[str, ...] = (
     # and the checker of the vaft-nn registry they resolve published models from.
     "test_check_vaft_nn.py",
     "test_ml_data_usage.py",
+    "test_ml_experiment_store.py",
     "test_ml_graph_experiments.py",
     "test_ml_validation_evidence.py",
     "test_process_ml_contract.py",
@@ -284,6 +287,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_spectroscopy.py",
     "test_diagram_tearing.py",
     "test_diagram_tokamak_geometry.py",
+    "test_diagram_transport.py",
     "test_diagram_transport_regimes.py",
     "test_diagram_vaft_concepts.py",
     "test_diagram_vde.py",
@@ -366,6 +370,9 @@ CORE_MODULES: tuple[str, ...] = (
     # checked against a numerical orbit, and the process layer (intensity split,
     # cycle metrics, trajectory fit) on synthetic orbits. Under 30 s.
     "test_formula_turbulence.py",
+    # Transport and turbulence reference relations (#1112): analytic limits, sign
+    # conventions and the TGLF gyro-Bohm units. Pure NumPy, under 5 s.
+    "test_formula_transport.py",
     "test_process_gyrokinetics.py",
     # Retained native fields, scientific identity, statistics, comparisons and IMAS round trips.
     "test_cgyro_time.py",

@@ -191,7 +191,7 @@
       "case": "magnetic_mirror",
       "static": "invariants.svg",
       "animation": "invariants.gif",
-      "quantitative_panels": "invariants-diagnostics.png",
+      "quantitative_panels": "mirror-diagnostics.png",
       "driver": {
         "name": "time",
         "unit": "s",

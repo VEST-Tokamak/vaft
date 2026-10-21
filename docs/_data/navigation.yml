@@ -122,6 +122,9 @@ sections:
       - id: diagram-reference
         title: Diagram gallery
         url: /reference/diagram/
+      - id: animation-reference
+        title: Animation gallery
+        url: /reference/animation/
       - id: kinetic-profile-files
         title: Kinetic profile file formats
         url: /reference/kinetic-profile-files/

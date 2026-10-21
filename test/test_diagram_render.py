@@ -236,3 +236,20 @@ def test_build_migrates_a_legacy_manifest_without_re_rendering(tmp_path, monkeyp
     assert build.build(tmp_path) == []
     assert not (tmp_path / build.LEGACY_MANIFEST).exists()
     assert build.check(tmp_path) == []
+
+
+def test_a_path_longer_than_the_tex_line_buffer_is_split_and_a_short_one_is_not():
+    """A resolved tokamak trail is ~20000 points, one \\draw line past TeX's
+    200000-byte buffer ("Unable to read an entire line"). Short paths must keep
+    their exact text, or every committed build record would go stale."""
+    from vaft.diagram._render import _TEX_LINE_LIMIT, _tikz_item
+    from vaft.diagram._scene import Polyline
+
+    points = [(i / 19999, 0.5) for i in range(20000)]
+    long = _tikz_item(Polyline.of(points, "orbit ion"))
+    assert len(long) > _TEX_LINE_LIMIT and max(len(line) for line in long.splitlines()) < 200_000
+    # Only line breaks are inserted: the path is the same TikZ path.
+    one_line = r"\draw[orbit ion] " + " -- ".join(_render._xy(p) for p in points) + ";"
+    assert long.replace(" --\n", " -- ") == one_line
+    short = _tikz_item(Polyline.of([(0, 0), (1, 1)], "orbit ion"))
+    assert short == r"\draw[orbit ion] (0,0) -- (1,1);"

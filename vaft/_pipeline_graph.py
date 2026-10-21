@@ -47,6 +47,7 @@ import inspect
 import json
 import os
 import re
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -54,6 +55,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePath
 from typing import Any
+from types import SimpleNamespace
 
 SCHEMA_VERSION = 1
 _GENERATOR = "python -m vaft._pipeline_graph --output docs/_data/pipeline_graph.yml"
@@ -149,14 +151,16 @@ def _environment(workspace: Path) -> dict[str, str]:
     environment = {key: os.environ[key] for key in _FORWARDED_ENVIRONMENT if key in os.environ}
     (workspace / "home").mkdir(parents=True, exist_ok=True)
     environment["HOME"] = environment["USERPROFILE"] = str(workspace / "home")
-    # Windows resolves its shell folders (snakemake's appdirs asks for the common and
-    # per-user application-data directories while building its CLI) by expanding these
-    # variables; without them the lookup raises.  They point into the workspace, like
-    # HOME, so no user or machine Snakemake profile reaches the dry run.
-    for name, folder in (("APPDATA", "home/AppData/Roaming"), ("LOCALAPPDATA", "home/AppData/Local"),
-                         ("PROGRAMDATA", "programdata"), ("ALLUSERSPROFILE", "programdata")):
-        (workspace / folder).mkdir(parents=True, exist_ok=True)
-        environment[name] = str(workspace / folder)
+    # Libraries consulting environment-based Windows paths also stay isolated.
+    for names, relative in (
+        (("APPDATA",), "home/AppData/Roaming"),
+        (("LOCALAPPDATA",), "home/AppData/Local"),
+        (("PROGRAMDATA", "ALLUSERSPROFILE"), "ProgramData"),
+    ):
+        directory = workspace / relative
+        directory.mkdir(parents=True, exist_ok=True)
+        for name in names:
+            environment[name] = str(directory)
     for name in _DUMMY_ENVIRONMENT:
         environment[name] = str(workspace / "unused" / name.lower())
     # Snakemake keeps a source cache under the user cache directory; keep it here.
@@ -165,8 +169,33 @@ def _environment(workspace: Path) -> dict[str, str]:
         [str(_ROOT), *filter(None, [os.environ.get("PYTHONPATH")])]
     )
     environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    environment["PYTHONIOENCODING"] = "utf-8"
     return environment
 
+
+
+def _configure_snakemake_appdirs() -> None:
+    """Override Snakemake's directory provider only inside its dry-run child.
+
+    Windows Shell folder lookup reads the registry rather than reliably using
+    redirected AppData variables. Supplying the provider before CLI parsing
+    keeps profiles and source caches in HOME without touching host settings.
+    """
+    import snakemake.common
+
+    home = Path(os.environ["HOME"])
+    directories = {}
+    for scope in ("user", "site"):
+        for kind in ("config", "cache", "data", "state", "log", "runtime"):
+            directory = home / "snakemake" / scope / kind
+            directory.mkdir(parents=True, exist_ok=True)
+            directories[f"{scope}_{kind}_dir"] = str(directory)
+    snakemake.common.APPDIRS = SimpleNamespace(**directories)
+
+
+def _run_isolated_snakemake() -> None:
+    _configure_snakemake_appdirs()
+    runpy.run_module("snakemake", run_name="__main__")
 
 def _dry_run(pipeline: DocumentationPipeline, workspace: Path, flag: str) -> str:
     """Snakemake's ``--<flag>`` output for the documentation configuration."""
@@ -176,7 +205,8 @@ def _dry_run(pipeline: DocumentationPipeline, workspace: Path, flag: str) -> str
     directory = WORKFLOW / pipeline.directory
     result = subprocess.run(
         [
-            sys.executable, "-m", "snakemake",
+            sys.executable, "-c",
+            "from vaft._pipeline_graph import _run_isolated_snakemake; _run_isolated_snakemake()",
             "--snakefile", str(directory / "Snakefile"),
             "--configfile", str(config_path),
             "--directory", str(workspace / "run"),
@@ -187,6 +217,7 @@ def _dry_run(pipeline: DocumentationPipeline, workspace: Path, flag: str) -> str
         env=_environment(workspace),
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=False,
     )
     if result.returncode != 0 or "digraph" not in result.stdout:

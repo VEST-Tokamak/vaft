@@ -207,6 +207,11 @@ jobs:
       - name: Install vaft with dev dependencies
         run: python -m pip install -e ".[dev]"
 
+      - name: Check documentation assets and isolated pipeline generation
+        # Surface compressor / Windows profile failures before the long suite.
+        # The complete platform suite below still runs with its usual selection.
+        run: python -m pytest -q test/test_diagram_replay.py test/test_pipeline_graph.py test/test_docs_catalogs.py test/test_docs_sources.py
+
       - name: Run test suite
         # Deliberately serial. VAFT is a scientific validation suite, so the
         # required check runs in one process with one deterministic execution

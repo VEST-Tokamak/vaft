@@ -119,7 +119,8 @@ def test_the_catalog_counts_the_known_public_surface():
         # +5 for the classical baseline moved out of the process layer (#1899): the ion
         # collision time, ion-ion lnLambda, gamma_1'(Z), chi_perp,e and chi_perp,i.
         "kinetic": 7,
-        "turbulence": 5,  # turbulence-zonal-flow predator-prey rhs, fixed point, invariant, period, lag (#1820)
+        "turbulence": 16,  # predator-prey (5, #1820) + fluctuation fluxes, drift, shear, Reynolds stress (11, #1112)
+        "transport": 9,  # random-walk/TGK diffusivity, constitutive fluxes, classical/Bohm/gyro-Bohm scales (#1112)
         "regularized_profiles": 3,  # explicit opt-in module, outside the star namespace
     }
     assert len(catalog.list_formulas()) == sum(counts.values())

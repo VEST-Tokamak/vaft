@@ -67,14 +67,33 @@ def _project(points, projection):
     return points[..., :2]
 
 
+#: Minimum drawn points per gyration of a full-orbit trail.
+_GYRO_POINTS = 24
+
+
 def _trail(trajectory, time):
     start = float(trajectory.time[0])
     if time <= start:
         return trajectory.sample(time)["position"]
-    # Draw on a fixed physical-time grid, not the solver's adaptive nodes: their
-    # placement follows platform-dependent step-size control, and a committed
-    # reference SVG must hash the same on every platform. Rendering density
-    # does not change scientific samples or marker position.
+    last = trajectory.sample(time)["position"]
+    if trajectory.kind == "full_orbit":
+        # Fixed-step Boris nodes are the same on every platform. Thin long
+        # trails towards ~1200 points, but never below _GYRO_POINTS per turn:
+        # a few points per gyration would draw a zigzag on long orbits.
+        inside = trajectory.time < time
+        before = trajectory.position[inside]
+        stride = max(1, int(np.ceil(len(before) / 1200)))
+        if trajectory.velocity is not None and np.count_nonzero(inside) > 1:
+            v = trajectory.velocity[inside]
+            cross = np.linalg.norm(np.cross(v[:-1], v[1:]), axis=1)
+            turn = float(np.max(np.arctan2(cross, np.sum(v[:-1] * v[1:], axis=1))))
+            if turn > 0:
+                stride = min(stride, max(1, int(2 * np.pi / (_GYRO_POINTS * turn))))
+        return np.vstack([before[::stride], last])
+    # GC nodes come from adaptive DOP853 step control, whose placement differs
+    # between platforms; a committed reference SVG must hash the same
+    # everywhere, so draw the smooth GC path on a fixed physical-time grid.
+    # Rendering density does not change scientific samples or marker position.
     return trajectory.sample(np.linspace(start, time, 1200))["position"]
 
 

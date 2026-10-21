@@ -39,6 +39,17 @@ def _parser() -> argparse.ArgumentParser:
     )
     export.add_argument("--upsert", action="store_true")
     subparsers.add_parser("sources", help="list the named HSDS sources")
+    monitor = subparsers.add_parser("monitor", help="collect equilibrium attempts, validation and input evidence")
+    monitor.add_argument("--shot-range", required=True, type=_shot_range)
+    monitor.add_argument("--mode", choices=("hsds", "server"), default="hsds")
+    monitor.add_argument("--source", default=None)
+    monitor.add_argument("--family", choices=("magnetic", "electron", "kinetic"), default="magnetic")
+    monitor.add_argument("--filedb", help="local or mounted server FileDB root (required in server mode)")
+    monitor.add_argument("--output", required=True)
+    monitor.add_argument("--no-magnetics", action="store_true")
+    monitor.add_argument("--vacuum", action="store_true", help="also run the PF-only vacuum benchmark; can be expensive")
+    monitor.add_argument("--figures", action="store_true")
+    monitor.add_argument("--batch-size", type=int, help="write bounded shot batches into separate subdirectories")
     return parser
 
 
@@ -51,6 +62,24 @@ def main(argv: Iterable[str] | None = None) -> int:
             # for, so a missing shot there means nothing more than that.
             coverage = "sparse" if entry.sparse else "complete"
             print(f"{entry.name:<22} {access:<10} {coverage:<9} {entry.purpose}")
+        return 0
+    if args.action == "monitor":
+        from vaft.database._equilibrium_monitoring import equilibrium_summary
+        from pathlib import Path
+        start, end = args.shot_range
+        if args.batch_size is not None and args.batch_size <= 0:
+            raise ValueError("batch-size must be positive")
+        size = args.batch_size or (end - start + 1)
+        for begin in range(start, end + 1, size):
+            stop = min(end, begin + size - 1)
+            output = Path(args.output) / f"shots_{begin}_{stop}" if args.batch_size else Path(args.output)
+            result = equilibrium_summary(range(begin, stop + 1),
+                mode=args.mode, source=args.source, family=args.family, filedb=args.filedb,
+                magnetics=not args.no_magnetics, vacuum=args.vacuum)
+            result.export(output)
+            if args.figures:
+                from vaft.plot.equilibrium_monitoring import write_monitoring_figures
+                write_monitoring_figures(result, output)
         return 0
     definition = get_summary_preset(args.preset)
     frame = database.summary(args.shot_range, preset=args.preset, source=args.source)

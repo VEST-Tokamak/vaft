@@ -45,6 +45,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     },
     # Computed static references share the time-selected particle animation model (#2003).
     **{f"{name}.svg": (name, {}) for name in ("gyration", "grad_b_drift", "magnetic_mirror")},
+    "magnetic_island_phase_scan.svg": ("magnetic_island", {"m": 2, "n": 1, "width": 0.24, "phase": 0.0, "projection": "poloidal", "labels": False}),
     # stability and operational-space charts, at their documented defaults
     **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "hugill_st", "troyon")},
     # reduced stability diagnostics (#1635)
@@ -209,6 +210,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("blob_polarization", "blob_velocity_scaling", "blob_regimes")},
     "blob_polarization_hole.svg": ("blob_polarization", {"perturbation": "hole"}),
     **{f"blob_current_closure_{r}.svg": ("blob_current_closure", {"regime": r}) for r in ("sheath", "inertial")},
+    # canonical transport concepts: random walk, flux and gradient, reference scales (#1112)
+    **{f"{name}.svg": (name, {}) for name in ("random_walk_diffusion", "transport_flux_gradient",
+                                              "transport_reference_scales")},
     # MARFE on the high-field side and next to the X-point, with Drake's condition (#1209)
     "marfe.svg": ("marfe", {}),
     "marfe_xpoint.svg": ("marfe", {"localization": "xpoint"}),
@@ -263,6 +267,18 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # plasma parameter inference: architecture and provenance (#1601)
     "parameter_inference_overview.svg": ("parameter_inference_overview", {"references": True}),
     "parameter_inference_dependency_graph.svg": ("parameter_inference_dependency_graph", {"references": True}),
+    # reconstruction inputs and the transport hierarchy (#1901)
+    "eddy_current_model.svg": ("eddy_current_model", {}),
+    "kinetic_profile_fitting.svg": ("kinetic_profile_fitting", {}),
+    "transport_hierarchy.svg": ("transport_hierarchy", {"references": True}),
+    "neoclassical_model_comparison.svg": ("neoclassical_model_comparison", {"references": True}),
+    # experimental processing: raw records to qualified state (#1901)
+    "machine_model_history.svg": ("machine_model_history", {}),
+    "signal_processing.svg": ("signal_processing", {}),
+    "quality_validation.svg": ("quality_validation", {}),
+    "fault_anomaly_detection.svg": ("fault_anomaly_detection", {}),
+    "shot_classification.svg": ("shot_classification", {}),
+    "event_detection.svg": ("event_detection", {}),
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),
     "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),
