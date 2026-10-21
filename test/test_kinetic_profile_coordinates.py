@@ -486,3 +486,61 @@ def test_an_existing_producer_name_is_not_overwritten(shot_ods):
     work["core_profiles.code.name"] = "vaft.code.efit.kinetic"
     P.core_profiles(work, TIME_MS, mapped, ne_fit, te_fit, geq=geq, time_tolerance_ms=3.0)
     assert work["core_profiles.code.name"] == "vaft.code.efit.kinetic"
+
+
+def test_rho_tor_n_definition_names_the_normalized_flux_it_integrates(shot_ods):
+    # #602: the published definition is what the catalog, the reference page and
+    # every provenance record show; it must name psi_n, the variable actually
+    # integrated, and say why no COCOS is needed.
+    _, geq = shot_ods
+    record = derive_radial_coordinates(geq)["rho_tor_n"]
+    assert "dpsi_n'" in record.definition and "q dpsi /" not in record.definition
+    assert "convention-independent" in record.definition
+    # Independent reference: scipy's cumulative trapezoid over the *raw* psi
+    # grid of the g-file.  The ratio must match the psi_n integral, which is
+    # the convention independence the definition states.
+    from scipy.integrate import cumulative_trapezoid
+
+    psi = np.linspace(geq["SIMAG"], geq["SIBRY"], len(geq["QPSI"]))
+    phi = cumulative_trapezoid(np.asarray(geq["QPSI"], dtype=float), psi, initial=0.0)
+    np.testing.assert_allclose(np.asarray(record.value), np.sqrt(phi / phi[-1]), atol=1e-10)
+    # ... and the record itself does not move when the equilibrium stores psi
+    # in weber with the opposite sign (a 2*pi rescaling and a sign flip).
+    import dataclasses
+
+    from vaft.process._equilibrium_parametric import as_equilibrium
+
+    eq = as_equilibrium(geq)
+    flipped = dataclasses.replace(
+        eq, psi_1d=-2 * np.pi * eq.psi_1d, psi_axis=-2 * np.pi * eq.psi_axis,
+        psi_boundary=-2 * np.pi * eq.psi_boundary,
+    )
+    np.testing.assert_allclose(
+        np.asarray(derive_radial_coordinates(flipped)["rho_tor_n"].value), np.asarray(record.value), atol=1e-12
+    )
+
+
+def test_unavailable_rho_tor_n_records_publish_the_same_definition(shot_ods):
+    # Every refusal branch shares the derived record's definition (#602).
+    import dataclasses
+
+    from vaft.process._equilibrium_parametric import as_equilibrium
+
+    _, geq = shot_ods
+    eq = as_equilibrium(geq)
+    derived = derive_radial_coordinates(eq)["rho_tor_n"]
+    no_q = derive_radial_coordinates(dataclasses.replace(eq, q=None))["rho_tor_n"]
+    bad_q = derive_radial_coordinates(dataclasses.replace(eq, q=np.full_like(eq.q, np.nan)))["rho_tor_n"]
+    flat_psi = derive_radial_coordinates(
+        dataclasses.replace(eq, psi_1d=np.r_[eq.psi_1d[:1], eq.psi_1d[:-1]])
+    )["rho_tor_n"]
+    # q changing sign mid-profile gives a non-monotonic toroidal flux.
+    psi_n = (eq.psi_1d - eq.psi_axis) / (eq.psi_boundary - eq.psi_axis)
+    sign_q = derive_radial_coordinates(
+        dataclasses.replace(eq, q=eq.q * np.where(psi_n < 0.5, 1.0, -1.0))
+    )["rho_tor_n"]
+    # No usable flux at all: the early refusal of all three coordinates.
+    no_psi = derive_radial_coordinates(dataclasses.replace(eq, psi_1d=None))["rho_tor_n"]
+    for record in (no_q, bad_q, flat_psi, sign_q, no_psi):
+        assert record.value is None and record.reason
+        assert record.definition == derived.definition
