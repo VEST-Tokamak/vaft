@@ -675,7 +675,8 @@ def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
     Provenance
     ----------
     .. [1] The toroidal flux definition ``Phi = int q dpsi`` and its normalized
-       radius, as used by the IMAS data dictionary for ``rho_tor_norm``.
+       radius, as used by the IMAS data dictionary for ``rho_tor_norm``; the
+       record integrates over ``psi_n`` instead, which gives the same ratio.
     .. [2] :func:`vaft.process.profile.core_profiles` consumes this to evaluate
        kinetic fits on the equilibrium grid, and refuses by name when the record
        here is unavailable (issue #420).
@@ -700,7 +701,7 @@ def derive_radial_coordinates(equilibrium: Any) -> Mapping[str, DerivedValue]:
         return result
     cumulative = np.r_[0.0, np.cumsum(0.5 * (q[1:] + q[:-1]) * np.diff(x))]
     if cumulative[-1] == 0 or np.any(cumulative / cumulative[-1] < -1e-12) or np.any(np.diff(cumulative / cumulative[-1]) < -1e-10):
-        result["rho_tor_n"] = _unavailable(eq, "1", _RHO_TOR_N_DEFINITION, "q dpsi does not produce a monotonic toroidal-flux coordinate", ("q", "psi_1d"))
+        result["rho_tor_n"] = _unavailable(eq, "1", _RHO_TOR_N_DEFINITION, "q dpsi_n does not produce a monotonic toroidal-flux coordinate", ("q", "psi_1d"))
         return result
     rho_sorted = np.sqrt(np.clip(cumulative / cumulative[-1], 0, 1))
     rho = np.empty_like(rho_sorted); rho[order] = rho_sorted
