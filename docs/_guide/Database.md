@@ -58,7 +58,11 @@ slices.attrs["skipped"]        # [{"shot": ..., "reason": ...}] for shots the pr
 `summary(odss=...)` (also `vaft.database.summary_from_ods`) runs the same extractor, shot-level
 columns, column order and sort as the database path, so a shot gives the same table either way. It
 takes a `{shot: ods}` mapping or ODS objects that record `dataset_description.data_entry.pulse`.
-Each extractor works on a private copy, so the caller's ODS is not modified. `source` (default
+Each extractor sees a private copy of only the IDS the preset reads, exactly as the database path's
+`open(..., paths=...)` view does, so the caller's ODS is not modified and an IDS outside the preset
+does not change the result. One difference remains: the database path skips a shot that lacks one
+of the preset's IDS (`open` refuses it), while the offline path runs the extractor on what the ODS
+has. The packaged 48224 sample, for instance, has `core_profiles` but no `magnetics`. `source` (default
 `"local"`) only labels the `source`/`equilibrium_source` columns. Both paths list the shots they
 skipped, with the reason, in `attrs["skipped"]`.
 

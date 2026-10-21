@@ -2219,32 +2219,44 @@ def _assemble(
     return result
 
 
-def _private_copy(ods):
-    """A copy of ``ods`` for one extractor run.
+def _preset_view(ods, definition: SummaryPreset):
+    """A private copy of the IDS one preset may read, and nothing else.
 
-    The extractors write derived quantities into the ODS they are given (the
-    boundary, beta and diamagnetic-flux updaters), and OMAS item access creates
-    a missing path instead of failing. On the database path that happens to a
-    throw-away lazy view; here it must not happen to the caller's ODS. The copy
-    is whole because the extractors read beyond the preset's ``paths`` (the
-    lazy view fetches any leaf they touch), so a narrower copy would not give
-    the same table.
+    The database path opens a shot with ``paths=`` and its lazy view exposes
+    only those root IDS (``"magnetics" in view`` is false for a preset that did
+    not ask for it), so an extractor that would use another IDS when present
+    -- the diamagnetic-flux update reads ``magnetics`` -- must not see it here
+    either, or the two paths would give different tables. The copy also keeps
+    the caller's ODS unchanged: the extractors write derived quantities into
+    the ODS they are given, and OMAS item access creates a missing path.
     """
     import copy
 
-    return copy.deepcopy(ods)
+    from omas import ODS
+
+    view = ODS(imas_version=getattr(ods, "imas_version", None), consistency_check=False)
+    for name in dict.fromkeys(
+        path.split(".", 1)[0].split("[", 1)[0] for path in _preset_paths(definition)
+    ):
+        if name in ods:
+            view[name] = copy.deepcopy(ods[name])
+    return view
 
 
 def _ods_shot(ods, key) -> int:
     if key is not None:
         return int(key)
-    try:
-        return int(ods["dataset_description.data_entry.pulse"])
-    except Exception as exc:
-        raise ValueError(
-            "an ODS without dataset_description.data_entry.pulse needs its shot: "
-            "pass a {shot: ods} mapping"
-        ) from exc
+    # Test before reading: item access on a missing path would create it in
+    # the caller's ODS.
+    if "dataset_description.data_entry.pulse" in ods:
+        try:
+            return int(ods["dataset_description.data_entry.pulse"])
+        except (TypeError, ValueError):
+            pass
+    raise ValueError(
+        "an ODS without dataset_description.data_entry.pulse needs its shot: "
+        "pass a {shot: ods} mapping"
+    )
 
 
 def summary_from_ods(
@@ -2258,26 +2270,35 @@ def summary_from_ods(
     ``odss`` is a ``{shot: ods}`` mapping, or ODS objects that record their
     shot in ``dataset_description.data_entry.pulse``. Each shot goes through
     exactly what :func:`summary` does with a database shot -- the preset's
-    extractor (on a private copy, see :func:`_private_copy`),
+    extractor on the preset's IDS only (see :func:`_preset_view`),
     ``pulse_time_begin``, the source columns,
     then the preset's column order and sort -- so the two paths give the same
-    table for the same data. ``source`` fills the ``source`` and
+    table for the same data. (One exception: the database path skips a shot
+    that lacks one of the preset's IDS, because ``open`` refuses it; here the
+    extractor runs on whatever the ODS holds.) ``source`` fills the ``source`` and
     ``equilibrium_source`` columns where the preset has them.
 
     A shot whose extractor fails is skipped with a warning, as on the database
     path; ``result.attrs["skipped"]`` lists ``{"shot", "reason"}`` for each.
-    The caller's ODS objects are not modified.
+    The caller's ODS objects are not modified. A shot that cannot be
+    determined, or appears twice, raises ``ValueError`` before any extractor
+    runs; ``source=None`` means ``"local"``.
     """
     definition = get_summary_preset(preset)
+    source = "local" if source is None else source
     if isinstance(odss, Mapping):
         items = [(_ods_shot(ods, shot), ods) for shot, ods in odss.items()]
     else:
         items = [(_ods_shot(ods, None), ods) for ods in odss]
+    shots = [shot for shot, _ in items]
+    repeated = sorted({shot for shot in shots if shots.count(shot) > 1})
+    if repeated:
+        raise ValueError(f"shot(s) given more than once: {repeated}")
     frames: list[pd.DataFrame] = []
     skipped: list[dict] = []
     for shot, ods in items:
         try:
-            view = _private_copy(ods)
+            view = _preset_view(ods, definition)
             rows = definition.extractor(view, shot)
             pulse_time_begin = _pulse_time_begin(view)
             frame = _shot_frame(rows, definition, preset, shot, source, pulse_time_begin)
