@@ -135,7 +135,8 @@ def test_compose_is_repeatable(build, tracks, tmp_path):
 
 
 def test_a_good_tree_validates(build, composed, tracks):
-    build.validate_composed(composed, tracks)
+    size_mib = build.validate_composed(composed, tracks)
+    assert 0 < size_mib < build.MAX_SITE_MIB
 
 
 def _expect_failure(build, composed, tracks, fragment):
