@@ -81,3 +81,20 @@ class GACODEConfig(CodeConfig):
             raise ValueError(f"n_omp must be at least 1; got {self.n_omp!r}")
         if self.memory_mb is not None and int(self.memory_mb) < 1:
             raise ValueError(f"memory_mb must be at least 1 or None; got {self.memory_mb!r}")
+        resources = self.resources
+        if resources is not None:
+            # Two knobs for one quantity: refuse a disagreement rather than
+            # pick one silently (#1016).
+            if int(resources.ntasks) != int(self.n_mpi):
+                raise ValueError(
+                    f"resources.ntasks={resources.ntasks} disagrees with n_mpi={self.n_mpi}; "
+                    "the launcher starts n_mpi ranks, so set them equal"
+                )
+            if (
+                resources.memory_mb is not None
+                and self.memory_mb is not None
+                and int(resources.memory_mb) != int(self.memory_mb)
+            ):
+                raise ValueError(
+                    f"resources.memory_mb={resources.memory_mb} disagrees with memory_mb={self.memory_mb}"
+                )

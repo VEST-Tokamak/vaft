@@ -28,7 +28,9 @@ The contract every backend keeps:
 * A program the operating system will not start raises
   :class:`~vaft.code._executables.ExecutableNotLaunchable`, chained to the
   ``OSError``.
-* ``ResourceRequest`` is a declaration. A default :class:`LocalBackend` honours
+* ``ResourceRequest`` is a declaration. Every adapter config takes
+  ``resources`` (#1016), which :func:`configured_resources` applies over the
+  adapter's own declaration. A default :class:`LocalBackend` honours
   only ``threads_per_task``; ``ntasks`` and ``memory_mb`` are for scheduler
   backends. Codes that start their own MPI ranks (GACODE, FLARE) keep passing
   ``-n`` on their command line.
@@ -347,6 +349,36 @@ def _text(stream: Any) -> str:
     if isinstance(stream, bytes):
         return stream.decode("utf-8", "replace")
     return stream or ""
+
+
+def configured_resources(
+    config: Any, default: ResourceRequest, env: Mapping[str, str]
+) -> tuple[ResourceRequest, dict[str, str]]:
+    """The resources and environment overlay one launch for ``config`` uses (#1016).
+
+    ``default`` is the adapter's own declaration and ``env`` the overlay it
+    built (``config.env`` included). The thread count follows one precedence:
+    ``config.resources`` > ``config.env`` > the inherited environment >
+    ``default``.
+
+    * ``config.resources`` (``None`` keeps ``default``) replaces ``default``
+      whole. Its ``threads_per_task``, when set, is written into the overlay
+      for every :data:`THREAD_ENV_VARIABLES` entry, so neither ``config.env``
+      nor an inherited value -- Snakemake's ``shell()`` and heavy-run both
+      export ``OMP_NUM_THREADS`` -- can override it.
+    * Otherwise the overlay wins over the inherited environment, and
+      ``default.threads_per_task`` only fills what both leave unset (see
+      :func:`execution_environment`).
+    """
+    overlay = {str(key): str(value) for key, value in env.items()}
+    explicit = getattr(config, "resources", None)
+    if explicit is None:
+        return default, overlay
+    if not isinstance(explicit, ResourceRequest):
+        raise TypeError(f"resources must be a ResourceRequest or None, got {type(explicit).__name__}")
+    if explicit.threads_per_task is not None:
+        overlay.update({variable: str(explicit.threads_per_task) for variable in THREAD_ENV_VARIABLES})
+    return explicit, overlay
 
 
 def execution_environment(
@@ -780,6 +812,7 @@ __all__ = [
     "RUNTIME_STATUSES",
     "RUNTIME_TIMEOUT",
     "THREAD_ENV_VARIABLES",
+    "configured_resources",
     "ExecutionBackend",
     "ExecutionRequest",
     "ExecutionResult",

@@ -24,6 +24,8 @@ from .execution import (
     ExecutionRequest,
     ExecutionResult,
     JobHandle,
+    ResourceRequest,
+    configured_resources,
     resolve_backend,
     submit_request,
     timeout_reason,
@@ -213,6 +215,10 @@ class CHEASEConfig:
     args: Sequence[str] = ()
     timeout: Optional[float] = None
     backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
+    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: own declaration; a value replaces it, and its ``threads_per_task`` is
+    #: set in the launch environment over ``env`` and the inherited one.
+    resources: Optional["ResourceRequest"] = None
 
     def __post_init__(self) -> None:
         if self.output not in CHEASE_OUTPUT_NIDEAL:
@@ -1604,6 +1610,7 @@ def submit_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> C
 
     command = (str(executable), *config.args)
     submission = CHEASESubmission(inputs, config, Path(executable), command)
+    resources, env = configured_resources(config, ResourceRequest(), config.env)
     try:
         # CHEASE writes its own diagnostics, so the bytes on its pipes are a
         # foreign program's, not this repository's. The backend decodes them as
@@ -1616,8 +1623,9 @@ def submit_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> C
             ExecutionRequest(
                 command=command,
                 workdir=Path(inputs.workdir),
-                env=dict(config.env),
+                env=env,
                 timeout=config.timeout,
+                resources=resources,
                 label="chease",
             ),
         )

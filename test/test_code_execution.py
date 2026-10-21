@@ -386,3 +386,108 @@ def test_memory_admission_stops_waiting_once_cancelled(tmp_path, monkeypatch):
     started = time.monotonic()
     assert ledger.admit(10.0, wait_s=3600, poll_s=0.01, cancelled=lambda: bool(flag.append(1)) or len(flag) > 3) is None
     assert time.monotonic() - started < 5
+
+
+# -- config-level resources and thread precedence (#1016) ----------------------
+
+_CONFIGS_WITH_BACKEND = (
+    ("vaft.code.base", "CodeConfig"),
+    ("vaft.code.chease", "CHEASEConfig"),
+    ("vaft.code.efit.efund", "EFUNDConfig"),
+    ("vaft.code.efit.magnetic", "EFITConfig"),
+    ("vaft.code.flare", "FlareConfig"),
+    ("vaft.code.gacode._types", "GACODEConfig"),
+    ("vaft.code.genray.config", "GENRAYConfig"),
+    ("vaft.code.gpec._types", "GPECSuiteConfig"),
+    ("vaft.code.mitim.config", "MITIMConfig"),
+    ("vaft.code.nice.config", "NiceConfig"),
+    ("vaft.code.nubeam.config", "NUBEAMConfig"),
+    ("vaft.code.tes.config", "TESConfig"),
+)
+
+
+@pytest.mark.parametrize("module, name", _CONFIGS_WITH_BACKEND)
+def test_every_config_with_a_backend_takes_resources(module, name):
+    import dataclasses
+    import importlib
+
+    fields = {item.name: item for item in dataclasses.fields(getattr(importlib.import_module(module), name))}
+    assert "backend" in fields
+    assert fields["resources"].default is None
+
+
+def test_configured_resources_precedence():
+    from types import SimpleNamespace
+
+    from vaft.code.execution import configured_resources
+
+    default = ResourceRequest(threads_per_task=1)
+    # No config.resources: the adapter's declaration and overlay are untouched.
+    resources, env = configured_resources(SimpleNamespace(resources=None), default, {"OMP_NUM_THREADS": "2"})
+    assert resources is default and env == {"OMP_NUM_THREADS": "2"}
+    # config.resources replaces the declaration and beats config.env.
+    explicit = ResourceRequest(threads_per_task=4, memory_mb=1000)
+    resources, env = configured_resources(SimpleNamespace(resources=explicit), default, {"OMP_NUM_THREADS": "2"})
+    assert resources is explicit
+    assert {env[name] for name in THREAD_ENV_VARIABLES} == {"4"}
+    # Without a thread count it leaves the environment alone.
+    resources, env = configured_resources(SimpleNamespace(resources=ResourceRequest(memory_mb=10)), default, {})
+    assert resources.threads_per_task is None and env == {}
+    with pytest.raises(TypeError):
+        configured_resources(SimpleNamespace(resources={"threads_per_task": 2}), default, {})
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the rtes stand-in is a /bin/sh script")
+@pytest.mark.parametrize(
+    "resources, env, expected",
+    [
+        (None, {}, "8"),  # inherited beats nothing else declared
+        (None, {"OMP_NUM_THREADS": "2"}, "2"),  # config.env beats inherited
+        (ResourceRequest(threads_per_task=3), {"OMP_NUM_THREADS": "2"}, "3"),  # resources beat both
+    ],
+)
+def test_thread_precedence_reaches_the_program(tmp_path, monkeypatch, resources, env, expected):
+    """Explicit resources > config.env > inherited > adapter default, end to end (TES)."""
+    from vaft.code.tes.config import TESConfig, TESInputs
+    from vaft.code.tes.runner import run_tes
+
+    monkeypatch.setenv("OMP_NUM_THREADS", "8")  # as Snakemake's shell() or heavy-run exports
+    cinput = tmp_path / "rtes.in"
+    cinput.write_text("DUMMY")
+    program = tmp_path / "rtes"
+    program.write_text("#!/bin/sh\necho $OMP_NUM_THREADS\necho stub > g039915.00325\n", encoding="utf-8")
+    program.chmod(0o755)
+    result = run_tes(
+        TESInputs(workdir=tmp_path, cinput=cinput),
+        TESConfig(executable=str(program), timeout=60, env=env, resources=resources),
+    )
+    assert result.stdout.strip() == expected
+
+
+def test_efit_declaration_fills_only_unset_threads(tmp_path, monkeypatch):
+    """The adapter default (EFIT/EFUND: one thread) is the lowest precedence."""
+    from vaft.code.execution import configured_resources, execution_environment
+
+    monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
+    monkeypatch.setenv("MKL_NUM_THREADS", "6")
+    resources, env = configured_resources(None, ResourceRequest(threads_per_task=1), {})
+    launched = execution_environment(
+        ExecutionRequest(command=("x",), workdir=tmp_path, env=env, resources=resources)
+    )
+    assert (launched["OMP_NUM_THREADS"], launched["MKL_NUM_THREADS"]) == ("1", "6")
+
+
+def test_self_launching_codes_refuse_a_disagreeing_task_count():
+    from vaft.code.flare import FlareConfig
+    from vaft.code.gacode._types import GACODEConfig
+
+    with pytest.raises(ValueError, match="n_mpi"):
+        GACODEConfig(n_mpi=4, resources=ResourceRequest(ntasks=2))
+    with pytest.raises(ValueError, match="memory_mb"):
+        GACODEConfig(n_mpi=2, memory_mb=100, resources=ResourceRequest(ntasks=2, memory_mb=200))
+    GACODEConfig(n_mpi=2, resources=ResourceRequest(ntasks=2, threads_per_task=2))
+    with pytest.raises(ValueError, match="processes"):
+        FlareConfig(processes=8, resources=ResourceRequest(ntasks=4))
+    with pytest.raises(ValueError, match="processes"):
+        FlareConfig(resources=ResourceRequest(ntasks=2))
+    FlareConfig(processes=4, resources=ResourceRequest(ntasks=4, memory_mb=2000))
