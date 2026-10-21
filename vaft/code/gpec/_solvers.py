@@ -698,6 +698,29 @@ def stage_dcon_products(dcon_dir: Path, run_dir: Path) -> tuple[Path, ...]:
     return tuple(staged)
 
 
+#: What ideal GPEC's ``gpec.in`` names as ``dcon_dir``: its own working
+#: directory, relative, so no path length can reach GPEC's 128-character
+#: fixed-length strings (#1239).  See :meth:`IdealGPECSolver.prepare`.
+GPEC_DCON_DIR = "."
+
+#: ``CHARACTER(256) :: data_dir`` in GPEC's ``coil/coil.F``.  A longer value is
+#: truncated by the namelist read and the coil files are not found.
+GPEC_COIL_DATA_DIR_MAX = 256
+
+
+def _coil_data_dir(directory: Path) -> Path:
+    """The absolute coil directory for ``coil.in``, refused past GPEC's limit."""
+    resolved = Path(directory).resolve()
+    if len(str(resolved)) > GPEC_COIL_DATA_DIR_MAX:
+        raise ValueError(
+            f"the GPEC coil data directory is {len(str(resolved))} characters long, "
+            f"over the {GPEC_COIL_DATA_DIR_MAX} GPEC reads into coil.in's data_dir "
+            f"(coil/coil.F); it would be truncated and the coil files not found: "
+            f"{resolved}. Use a shorter work directory or install path."
+        )
+    return resolved
+
+
 class IdealGPECSolver:
     name = "gpec"
 
@@ -708,9 +731,16 @@ class IdealGPECSolver:
         # are brought here by `stage_dcon_products` once DCON has produced
         # them, which is after this runs. See that function for the failure
         # this avoids.
+        #
+        # Written as ".", not as the cell's absolute path: GPEC runs with this
+        # cell as its working directory, and it reads `dcon_dir` into a
+        # CHARACTER(128) and then joins `euler.bin` etc. onto it in variables
+        # of the same length, so an absolute path past ~118 characters (a deep
+        # worktree, a scratch or Slurm directory) was silently truncated and
+        # GPEC failed to open its input (#1239).
         options = ctx.config.gpec
         replacements: dict[str, object] = {
-            "dcon_dir": str(ctx.run_dir.resolve()),
+            "dcon_dir": GPEC_DCON_DIR,
             "coil_flag": options.coil_flag,
         }
         # PENTRC reads the ASCII displacement and GPEC writes it only with both of
@@ -805,7 +835,7 @@ class IdealGPECSolver:
             write_coil_in(
                 ctx.template_dir / "coil.in",
                 ctx.run_dir / "coil.in",
-                data_dir=coil_dir.resolve(),
+                data_dir=_coil_data_dir(coil_dir),
                 specs=specs,
                 machine=options.machine,
                 coil_config=coil_config,
@@ -827,7 +857,7 @@ class IdealGPECSolver:
                 ctx.template_dir / "coil.in",
                 ctx.run_dir / "coil.in",
                 {
-                    "data_dir": str(ctx.coil_data_dir.resolve()),
+                    "data_dir": str(_coil_data_dir(ctx.coil_data_dir)),
                     "machine": DEFAULT_MACHINE,
                     "coil_num": 3,
                     **VEST_GPEC_COIL_DIRECTIONS,
