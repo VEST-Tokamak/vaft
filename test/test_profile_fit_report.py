@@ -326,3 +326,16 @@ def test_thomson_and_the_comparison_take_the_same_time():
     assert not np.allclose(
         compare_flux_mapping(ods, {"eq": eq})["eq"].psi_norm, mapped.psi_norm, equal_nan=True
     )
+
+
+def test_linear_thomson_fit_keeps_holding_the_end_values():
+    # fit_profile's linear mode is nan outside the data by default (#359); the
+    # process fitter opts back into the hold, so the profile on [0, 1] -- past
+    # the outermost channel at both ends here -- stays finite.
+    ne_fit, te_fit, _, _, ne_rho, te_rho = profile_fitting_thomson_scattering(
+        _thomson(), 300.0, _positions(X), fitting_function_te="linear",
+        fitting_function_ne="linear", coordinate="psi_norm",
+    )
+    assert np.all(np.isfinite(te_rho)) and np.all(np.isfinite(ne_rho))
+    assert np.all(np.isfinite(te_fit(np.array([0.0, 1.0]))))
+    assert np.all(np.isfinite(ne_fit(np.array([0.0, 1.0]))))

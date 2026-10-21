@@ -170,7 +170,7 @@ Here too the velocity function comes back before the temperature function.
 | `core_poly_edge_exp` | core polynomial blended into an edge exponential via a $\tanh$ transition |
 | `eped_tanh` | EPED-style pedestal: a $\tanh$ pedestal plus a gated core shape — see [Pedestal top](#pedestal-top) |
 | `gp` | Gaussian process regression (scikit-learn), with optional anchor points |
-| `linear` | 1D interpolation through the data — no smoothing |
+| `linear` | 1D interpolation through the data — no smoothing; `nan` outside the data range unless `extrapolate=True` holds the end values |
 
 The `(1-\rho)` factor in the polynomial and exponential bases drives the fitted profile toward zero at
 the boundary, which is usually what you want for $T_e$ and $n_e$ but is a real assumption — `gp`,
@@ -712,7 +712,9 @@ more than it would on a large device:
 - Use `core_poly_edge_exp` when the edge gradient is the quantity of interest, since the polynomial
   bases force the profile to zero at $\rho = 1$ regardless of the data.
 - `linear` is a diagnostic aid, not a physics result: it interpolates the channels exactly and will
-  happily reproduce measurement noise.
+  happily reproduce measurement noise. Called directly, `vaft.formula.fit_profile` returns `nan`
+  beyond the outermost channel rather than a flat copy of the edge value; pass `extrapolate=True`
+  for the old hold (the Thomson and charge-exchange fitters in `vaft.process` do, #359).
 
 Always keep `uncertainty_option=1` if error bars exist. With it disabled every channel is weighted
 equally, including ones the diagnostic itself flagged as unreliable.

@@ -878,8 +878,8 @@ def fit_profile(
         Fitted values on ``x_eval``; ``nan`` outside the data range in the
         ``'linear'`` mode unless ``extrapolate=True`` [any].
     y_std_eval : np.ndarray
-        Fitted uncertainty; non-zero for the GP mode only, ``nan`` wherever
-        ``y_eval`` is [any].
+        Fitted uncertainty; non-zero for the GP mode only, and in the
+        ``'linear'`` mode ``nan`` wherever ``y_eval`` is [any].
     fit_function : callable
         ``f(x)`` evaluating the fit at arbitrary ``x`` [n/a].
     coeffs : np.ndarray or None

@@ -86,7 +86,7 @@ def test_linear_mode_is_nan_outside_the_data_by_default():
     x = np.array([0.2, 0.4, 0.6])
     y = np.array([2.0, 4.0, 6.0])
     x_eval = np.array([0.0, 0.3, 0.6, 0.9])
-    with pytest.warns(UserWarning, match="outside the data range"):
+    with pytest.warns(UserWarning, match=r"nan at 2 evaluation point\(s\) outside the data range"):
         y_eval, y_std, fit, coeffs = fit_profile(x, y, None, x_eval, fitting_function='linear')
     np.testing.assert_allclose(y_eval[1:3], [3.0, 6.0], rtol=1e-12)
     assert np.isnan(y_eval[[0, 3]]).all()
