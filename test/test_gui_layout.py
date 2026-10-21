@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -74,6 +75,23 @@ def _chrome() -> str | None:
     return None
 
 
+def _dump_dom(path: Path, size: str, budget_ms: int) -> str:
+    """The DOM headless Chromium settles ``path`` into; its stderr when it rendered nothing.
+
+    ``--no-sandbox`` on Linux: Ubuntu 24.04 restricts the unprivileged user
+    namespaces Chromium's sandbox needs, so ``google-chrome`` on a CI runner
+    exits with no DOM at all. The page is a local file this test wrote.
+    """
+    command = [_chrome(), "--headless", "--disable-gpu", f"--window-size={size}",
+               f"--virtual-time-budget={budget_ms}", f"--user-data-dir={path.parent / 'chrome-profile'}"]
+    if sys.platform.startswith("linux"):
+        command.append("--no-sandbox")
+    run = subprocess.run([*command, "--dump-dom", path.as_uri()], capture_output=True, text=True, timeout=180)
+    assert 'data-probe="' in run.stdout, (
+        f"the page did not finish loading (exit {run.returncode}):\n{run.stderr[-2000:]}")
+    return run.stdout
+
+
 _PROBE = (
     '<script>setTimeout(function(){document.body.setAttribute("data-probe",'
     'document.getElementById("sidebar").className)},5000)</script>'
@@ -92,12 +110,7 @@ def test_a_phone_opens_on_the_figure_and_a_desktop_on_the_controls(ods, monkeypa
     finally:
         shell.close()
     path.write_text(path.read_text().replace("</body>", _PROBE + "</body>"))
-    dom = subprocess.run(
-        [_chrome(), "--headless", "--disable-gpu", f"--window-size={size}", "--virtual-time-budget=8000",
-         "--dump-dom", path.as_uri()],
-        capture_output=True, text=True, timeout=180,
-    ).stdout
-    assert 'data-probe="' in dom, "the page did not finish loading"
+    dom = _dump_dom(path, size, 8000)
     state = dom.split('data-probe="', 1)[1].split('"', 1)[0]
     assert ("hidden" in state) is closed, f"{size}: sidebar class {state!r}"
 
@@ -120,10 +133,6 @@ def test_the_open_drawer_fits_the_phone(ods, monkeypatch, tmp_path):
     finally:
         shell.close()
     path.write_text(path.read_text().replace("</body>", _DRAWER + "</body>"))
-    dom = subprocess.run(
-        [_chrome(), "--headless", "--disable-gpu", "--window-size=375,812", "--virtual-time-budget=9000",
-         "--dump-dom", path.as_uri()],
-        capture_output=True, text=True, timeout=180,
-    ).stdout
+    dom = _dump_dom(path, "375,812", 9000)
     right, width = (int(v) for v in dom.split('data-probe="', 1)[1].split('"', 1)[0].split("/"))
     assert right <= width, f"the drawer reaches {right} px on a {width} px screen"
