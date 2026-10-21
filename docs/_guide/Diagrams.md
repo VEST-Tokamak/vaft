@@ -1643,6 +1643,7 @@ The four pillars, the research cycle, the managed pipeline and the human-AI inte
 
 The symbols name a kind of activity or component only. They do not mark anything as implemented or
 validated, and the labels stay authoritative.
+
 ![Research-learning cycle]({{ '/assets/diagrams/fusion_science_knowledge_lifecycle.svg' | relative_url }})
 ![Managed scientific processing pipeline]({{ '/assets/diagrams/scientific_workflow.svg' | relative_url }})
 ![Interoperability layers]({{ '/assets/diagrams/interoperability_layers.svg' | relative_url }})
@@ -1779,6 +1780,7 @@ Both infrastructure figures mark each source with the same [semantic pictogram](
 machine geometry → `tokamak`, operation & maintenance records → `history`, calibration &
 configuration → `parameters`. Only the integrated figure has the last one as a source, because the
 fragmented figure keeps calibration as private copies.
+
 ![Unqualified scientific inference]({{ '/assets/diagrams/scientific_credibility_fragmented.svg' | relative_url }})
 ![Qualified scientific state]({{ '/assets/diagrams/scientific_credibility.svg' | relative_url }})
 ![Locked-in research software]({{ '/assets/diagrams/research_modality_architecture_fragmented.svg' | relative_url }})
@@ -1799,6 +1801,7 @@ things apart and left out elsewhere:
 
 A symbol never claims that a capability is implemented or a product is validated. The upstream
 versus VAFT ownership brackets, the execution routes and the mapping step keep their labels.
+
 ![Scientific ownership and maturation]({{ '/assets/diagrams/scientific_ownership_architecture.svg' | relative_url }})
 
 The content is the data at the top of each section of `vaft.diagram._research_concepts` (`INFRA_*`,
