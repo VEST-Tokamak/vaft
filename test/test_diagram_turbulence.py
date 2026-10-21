@@ -37,6 +37,11 @@ def test_the_drift_wave_cycle_closes_through_profile_relaxation():
         assert scene.role(role), role
     assert diagram.model["equations"]["radial_flux"] == formula_equation(
         turbulence.turbulent_particle_flux_from_fluctuations)
+    # owner review: growth is conditional on the drive and kinetic response, not implied by omega_*
+    assert cycle.index("drift") < cycle.index("drive") < cycle.index("growth")
+    # fast saturation (at fixed gradients) and slow relaxation are both drawn, and kept apart
+    assert diagram.model["feedback_time_scale"].startswith("transport")
+    assert scene.role("saturation") and scene.role("relaxation")
 
 
 def test_cross_phase_flux_is_zero_positive_and_negative():
@@ -45,6 +50,9 @@ def test_cross_phase_flux_is_zero_positive_and_negative():
     assert fluxes["zero"] == pytest.approx(0.0, abs=1e-12)
     assert fluxes["plus"] > 0 and fluxes["minus"] == pytest.approx(-fluxes["plus"])
     assert "theta = alpha_phi - alpha_n" in diagram.model["convention"]
+    # x up, y right, B = B z: z = x cross y points into the page
+    assert "into the page" in diagram.model["convention"]
+    assert np.allclose(np.cross([0.0, 1.0, 0.0], [1.0, 0.0, 0.0]), [0.0, 0.0, -1.0])  # page frame: up x right = in
     scene = diagram.scene
     assert len(scene.role("fluctuation_density")) >= 3 and len(scene.role("fluctuation_potential")) >= 3
     marks = sorted((it for it in scene.role("radial_flux") if not isinstance(it, Label)),
@@ -56,12 +64,15 @@ def test_cross_phase_flux_is_zero_positive_and_negative():
     assert inward.start[0] == inward.end[0] and inward.end[1] < inward.start[1]
 
 
-def test_mixing_length_saturates_where_decorrelation_reaches_growth():
+def test_mixing_length_is_a_phenomenological_scaling_with_its_caveats():
     model = vaft.diagram.mixing_length_saturation().model
     assert model["saturated_amplitude"] == pytest.approx(model["gamma"] / model["k_perp"])
     assert model["diffusivity"] == pytest.approx(
         turbulence.mixing_length_diffusivity_from_gamma_k_perp(model["gamma"], model["k_perp"]))
     assert model["steps"][-1] == "diffusivity"
+    scene = vaft.diagram.mixing_length_saturation().scene
+    texts = " ".join(it.text for it in scene.items if isinstance(it, Label))
+    assert "phenomenological" in texts and "Staebler" in texts and "not a predictive" in texts.lower()
 
 
 def test_shear_tilts_the_eddy_and_shortens_its_radial_cut():
@@ -79,7 +90,12 @@ def test_shear_tilts_the_eddy_and_shortens_its_radial_cut():
     # the flow is uniform on the left and changes sign across the sheared eddy
     shear_arrows = [it for it in scene.role("shear") if isinstance(it, Arrow)]
     assert {np.sign(a.end[1] - a.start[1]) for a in shear_arrows} == {-1.0, 1.0}
-    assert diagram.model["shearing_rate"] == pytest.approx(1.6)
+    assert diagram.model["strain"] == pytest.approx(1.6)
+    # the fixed-y cut is geometry, kept apart from the statistical decorrelation step
+    assert scene.role("radial_cut") and not scene.role("correlation_length")
+    assert scene.role("decorrelation_step")
+    step_text = " ".join(it.text for it in scene.role("decorrelation_step") if isinstance(it, Label))
+    assert "k_x(t) = k_x(0) - Sk_yt" in step_text
     with pytest.raises(ValueError):
         vaft.diagram.exb_shear_decorrelation(shear=0.0)
 
@@ -107,6 +123,10 @@ def test_scale_hierarchy_keeps_electron_below_ion_scales_and_tem_open():
     model = vaft.diagram.turbulence_scale_hierarchy().model
     lengths, bands = model["lengths"], model["bands"]
     assert lengths["rho_e"] < lengths["rho_i"] < lengths["minor"]
+    # hydrogen, v_t = sqrt(T/m): the owner's check values at B = 0.1 T, T_e = 50 eV, T_i = 30 eV
+    assert lengths["rho_i"] == pytest.approx(5.60e-3, rel=5e-3)
+    assert lengths["rho_s"] == pytest.approx(7.22e-3, rel=5e-3)
+    assert lengths["rho_e"] == pytest.approx(0.169e-3, rel=1e-2)
     # every band is a perpendicular scale below the machine: none reaches the minor radius
     assert all(hi < lengths["minor"] for lo, hi in bands.values())
     assert bands["electron_scale"][1] < bands["ion_scale"][0]

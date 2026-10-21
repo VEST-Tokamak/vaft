@@ -1483,18 +1483,25 @@ fixed gradients, as in a flux-tube simulation.
   The convention ($\theta_{n\phi} = \alpha_\phi - \alpha_n$, real cosine fields, $x$ up, $y$ right, $\mathbf B$ into the
   page) is in the model and on the figure. It covers one Fourier component, and a zero particle flux does not imply a
   zero heat flux. Changing every convention consistently changes the intermediate signs, not the physical flux.
-- `mixing_length_saturation`: growth $\gamma$ against decorrelation $k_\perp\tilde v$. They cross at
-  $\tilde v = \gamma/k_\perp$, which gives the phenomenological scaling `mixing_length_diffusivity_from_gamma_k_perp`.
-  It is not a predictive saturation rule: real saturation needs coupling between modes (zonal flows, stable modes,
-  spectral transfer), quasilinear models need a separate saturation rule (Staebler et al., Nucl. Fusion 64 (2024)
-  103001), and $D_\mathrm{ML}$ is not $D_n$ or $\chi$ of any channel.
-- `exb_shear_decorrelation`: a round eddy, and the same eddy after the shear map $y \to y + St\,x$. A radial cut through
-  its centre (at fixed $y$) shrinks by $\sqrt{1 + (St)^2}$, while its total radial extent is unchanged. This is geometry,
-  not the statistical correlation length. The decorrelation is a separate, following step: $k_x(t) = k_x(0) - Sk_yt$
-  (Biglari, Diamond and Terry 1990). $\gamma_E$ above $\gamma_\mathrm{lin}$ is a rule of thumb, not a threshold. This is geometry only: measured $E_r$ and shearing-rate profiles are plots.
+- `mixing_length_saturation`: growth $\gamma$ against an estimated decorrelation rate $k_\perp\tilde v$. Balancing
+  them at $\tilde v = \gamma/k_\perp$ gives the phenomenological scaling `mixing_length_diffusivity_from_gamma_k_perp`.
+  It is not a predictive saturation rule:
+  - one mode's $E\times B$ velocity does not advect its own potential ($\tilde{\mathbf v}_E\cdot\nabla\tilde\phi = 0$);
+  - saturation therefore needs coupling between modes (zonal flows, stable modes, spectral transfer);
+  - quasilinear models need a separate saturation rule (Staebler, Bourdelle, Citrin and Waltz, Nucl. Fusion 64
+    (2024) 103001);
+  - $D_\mathrm{ML}$ is not $D_n$ or $\chi$ of any channel.
+- `exb_shear_decorrelation`: a round eddy, and the same eddy after the shear map $y \to y + St\,x$.
+  - The cut through its centre at fixed $y$ shrinks by $\sqrt{1 + (St)^2}$, while its total radial extent is
+    unchanged. This is geometry, not the statistical correlation length; measured $E_r$ and shearing-rate profiles
+    are plots.
+  - The decorrelation is a separate, following step: $k_x(t) = k_x(0) - Sk_yt$ (Biglari, Diamond and Terry,
+    Phys. Fluids B 2 (1990) 1).
+  - $\gamma_E$ above $\gamma_\mathrm{lin}$ is a rule of thumb, not a universal threshold.
 - `zonal_flow_feedback`: the self-regulation loop with the Reynolds-stress and zonal-flow-drive definitions:
   - only the stress divergence $\partial_rR_{r\theta} \neq 0$ drives the flow;
-  - the shear changes the turbulence through mode coupling, which often but not always suppresses it;
+  - the shear changes the turbulence through mode coupling and decorrelation, which often but not always
+    suppresses it;
   - the damping $\mu$ is a stated choice, and no coefficient model is assumed;
   - the slab has constant density, and a tokamak adds curvature, GAMs, collisional damping and Maxwell stress.
 
@@ -1505,10 +1512,14 @@ fixed gradients, as in a flux-tube simulation.
   - ETG at $k_\perp\rho_e \sim 0.1$–$1$;
   - a dashed TEM extension to $k_\perp\rho_s \sim 5$.
 
-  The bands are conventions, not thresholds. The state is illustrative hydrogen, not a VEST measurement; it uses
-  $v_t = \sqrt{T/m}$, and deuterium makes $\rho_i$ and $\rho_s$ larger by $\sqrt2$. The axis length is $1/k_\perp$,
-  not the wavelength. Literature $k_y\rho_s$ ranges are taken with $k_x = 0$, and the TEM extension is one regime's
-  example, not a bound.
+  The conventions:
+  - the bands are conventions, not thresholds;
+  - the state is illustrative hydrogen, not a VEST measurement;
+  - it uses $v_t = \sqrt{T/m}$, and deuterium makes $\rho_i$ and $\rho_s$ larger by $\sqrt2$;
+  - the axis length is $1/k_\perp$, not the wavelength;
+  - the ITG/TEM and ETG bands are in $k_\perp\rho_i$ and $k_\perp\rho_e$;
+  - only the TEM extension uses the literature's $k_y\rho_s$, taken as $k_\perp$ with $k_x = 0$, and it is one
+    regime's example, not a bound.
 
 ```python
 vaft.diagram.drift_wave_transport_cycle()
@@ -1527,10 +1538,10 @@ vaft.diagram.turbulence_scale_hierarchy()
 
 | Diagram | Concept |
 | --- | --- |
-| `drift_wave_transport_cycle` | Gradient, drift frequency, growth, fluctuations, $E\times B$ velocity, radial flux, and the relaxation that reduces the drive |
+| `drift_wave_transport_cycle` | Gradient, drift frequency, instability drive and kinetic response, growth (if $\gamma > 0$), fluctuations, $E\times B$ velocity and radial flux. Fast saturation at fixed gradients is kept apart from slow profile relaxation |
 | `cross_phase_transport` | Zero flux in phase, outward at $+\pi/2$, inward at $-\pi/2$, with the sign convention stated |
-| `mixing_length_saturation` | $\gamma$ against $k_\perp\tilde v$: saturation at $\tilde v = \gamma/k_\perp$ gives $D \sim \gamma/k_\perp^2$ |
-| `exb_shear_decorrelation` | An unsheared and a sheared eddy: tilted, stretched, with a shorter radial cut |
+| `mixing_length_saturation` | $\gamma$ against an estimated $k_\perp\tilde v$: the phenomenological scaling $D \sim \gamma/k_\perp^2$, not a predictive saturation rule |
+| `exb_shear_decorrelation` | An unsheared and a sheared eddy: tilted, stretched, with a shorter fixed-$y$ cut (geometry), then the separate statistical decorrelation $k_x(t) = k_x(0) - Sk_yt$ |
 | `zonal_flow_feedback` | Turbulence, Reynolds stress, zonal flow, shear, with the inhibition of the turbulence drawn without an arrowhead |
 | `turbulence_scale_hierarchy` | Electron- and ion-scale bands and an open TEM range against the equilibrium lengths |
 

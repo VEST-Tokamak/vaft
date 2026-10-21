@@ -1,19 +1,23 @@
 """Canonical turbulence concepts: drift waves, cross-phase, saturation, shear, zonal flows, scales (#1112).
 
 ``drift_wave_transport_cycle``
-    the loop from a gradient's free energy through linear growth, density
-    and potential fluctuations and their $E\\times B$ velocity to a radial
-    flux that relaxes the gradient that drove it;
+    a gradient's free energy, the drift frequency, the instability drive and
+    kinetic response, growth (if $\\gamma > 0$), density and potential
+    fluctuations, their $E\\times B$ velocity and the radial flux; fast
+    nonlinear saturation at fixed gradients kept apart from the slow profile
+    relaxation;
 ``cross_phase_transport``
     a density and a potential fluctuation at three cross-phases, with the
     signed flux of ``coherent_particle_flux_from_amplitudes_phase``: none in
     phase, outward at $+\\pi/2$, inward at $-\\pi/2$;
 ``mixing_length_saturation``
-    growth against decorrelation: the eddy saturates where the nonlinear
-    rate $k_\\perp\\tilde v$ reaches $\\gamma$, which gives $D \\sim \\gamma/k_\\perp^2$;
+    the phenomenological mixing-length scaling $D \\sim \\gamma/k_\\perp^2$ from
+    balancing $\\gamma$ against an estimated rate $k_\\perp\\tilde v$ -- not a
+    predictive saturation rule;
 ``exb_shear_decorrelation``
     one eddy without and with a sheared $E\\times B$ flow: tilted, stretched,
-    and shorter along a radial cut;
+    shorter along a fixed-$y$ cut (geometry), followed by the separate
+    statistical decorrelation $k_x(t) = k_x(0) - Sk_yt$;
 ``zonal_flow_feedback``
     turbulence, Reynolds stress, zonal flow, shear, and the shear acting back
     on the turbulence -- self-regulation without a coefficient model;
@@ -21,8 +25,9 @@
     ion- and electron-scale turbulence bands against the equilibrium lengths
     of one illustrative state.
 
-Every relation drawn is a ``vaft.formula.turbulence`` (or ``transport``)
-definition; none of these figures is a turbulence model or a prediction.
+The flux, velocity, rate and stress relations drawn are ``vaft.formula.turbulence``
+definitions; the wavenumber advection $k_x(t)$ and the scale bands are stated
+conventions. None of these figures is a turbulence model or a prediction.
 Geometry is slab: $x$ radial (outward), $y$ binormal, $\\mathbf B = B\\hat z$.
 """
 
@@ -97,6 +102,8 @@ def drift_wave_transport_cycle(*, labels: bool = True) -> Diagram:
     items: List = [it for b in boxes.values() for it in b.items]
     chain = ("gradient", "drift", "drive", "growth", "fluctuations", "exb_velocity", "radial_flux")
     items += [connector(boxes[a], boxes[b], role="cycle") for a, b in zip(chain, chain[1:])]
+    # fast saturation acts on the fluctuations at fixed gradients: a leader to that step
+    items.append(Polyline.of([(15.55, 1.6), (13.6, 1.6)], "leader line", role="saturation"))
     # the slow feedback: the flux relaxes the profile that drives it
     items.append(connector(boxes["radial_flux"], boxes["gradient"], style="connector feedback", role="relaxation"))
     if labels:
@@ -180,6 +187,8 @@ def cross_phase_transport(*, labels: bool = True) -> Diagram:
     if labels:
         items += [Label((-0.55, -2.1), "$y$", "small label", anchor="west", role="axes"),
                   Label((-1.4, -1.25), "$x$ (outward)", "small label", anchor="south", role="axes"),
+                  Label((-0.3, 0.0), "amplitude\\\\against $y$", "small label,align=right", anchor="east",
+                        role="axes"),
                   Label((total + 0.2, 0.3), "$\\tilde n$", "small label", anchor="west", role="fluctuation_density"),
                   Label((total + 0.2, -0.3), "$\\tilde\\phi$ (dashed)", "small label", anchor="west",
                         role="fluctuation_potential"),
@@ -227,7 +236,7 @@ def mixing_length_saturation(*, labels: bool = True) -> Diagram:
     chart.curves.update({"growth": np.stack([v, np.full_like(v, gamma)], -1),
                          "decorrelation": np.stack([v, k_perp * v], -1)})
     chart.points["saturation"] = (v_sat, gamma)
-    chart.labels.update({"growth": (0.45, 1.2), "decorrelation": (1.45, 1.75), "grows": (0.45, 0.35),
+    chart.labels.update({"growth": (0.45, 1.2), "decorrelation": (1.45, 1.75), "grows": (0.35, 0.72),
                          "decays": (1.55, 0.35)})
     scene = render_chart(chart, x_label="eddy amplitude $\\tilde v$", y_label="rate",
                          curve_styles={"growth": "boundary", "decorrelation": "approx"},
@@ -236,17 +245,17 @@ def mixing_length_saturation(*, labels: bool = True) -> Diagram:
                          if labels else {},
                          x_ticks=[v_sat], x_tick_text=["$\\gamma/k_\\perp$"], y_ticks=[gamma],
                          y_tick_text=["$\\gamma$"])
-    scale = 0.7
+    scale = 0.85
     items: List = list(scene.transformed(scale=scale).items)
     items.append(Marker(tuple(float(c) for c in chart.to_cm(np.array(chart.points["saturation"])) * scale), "o",
                         "opoint", role="saturation"))
-    x = CHART_WIDTH * scale + 3.4
+    x = CHART_WIDTH * scale + 4.4
     steps = (("growth", "linear growth $\\gamma$"),
              ("amplitude", "eddy amplitude grows"),
              ("decorrelation", "decorrelation $\\tau_\\mathrm{nl}^{-1} \\sim k_\\perp\\tilde v$"),
              ("balance", "saturation $\\gamma \\sim \\tau_\\mathrm{nl}^{-1}$"),
              ("diffusivity", "phenomenological scaling " + _eq(mixing_length_diffusivity_from_gamma_k_perp)))
-    chain = [box(x, CHART_HEIGHT * scale + 0.6 - 1.45 * i, 6.0, 1.2 if k == "diffusivity" else 0.8,
+    chain = [box(x, CHART_HEIGHT * scale + 0.6 - 1.45 * i, 6.8, 1.2 if k == "diffusivity" else 0.8,
                  t if labels else "", latex=True, role=k)
              for i, (k, t) in enumerate(steps)]
     for b_ in chain:
@@ -254,10 +263,12 @@ def mixing_length_saturation(*, labels: bool = True) -> Diagram:
     items += [connector(a, b_, role="saturation_chain") for a, b_ in zip(chain, chain[1:])]
     if labels:
         items.append(Label((0.5 * (CHART_WIDTH * scale + x + 2.6), -1.55),
-                           "Not a predictive saturation rule: real saturation needs mode coupling "
-                           "(zonal flows, stable modes, "
-                           "spectral transfer); $D_\\mathrm{ML}$ is not $D_n$ or $\\chi$ of any channel",
-                           "note", anchor="north", role="note"))
+                           "Not a predictive saturation rule: one mode's "
+                           "$\\tilde{\\mathbf v}_E\\cdot\\nabla\\tilde\\phi = 0$, "
+                           "so saturation needs coupling between modes (zonal flows, stable modes, spectral "
+                           "transfer).\\\\Quasilinear models need a separate saturation rule (Staebler, Bourdelle, "
+                           "Citrin and Waltz, Nucl. Fusion 64 (2024) 103001); $D_\\mathrm{ML}$ is not $D_n$ or "
+                           "$\\chi$ of any channel", "note,align=center", anchor="north", role="note"))
     return Diagram("mixing_length_saturation", Scene(tuple(items)),
                    model={"gamma": gamma, "k_perp": k_perp, "saturated_amplitude": v_sat, "diffusivity": d_ml,
                           "steps": [k for k, _ in steps]})
@@ -282,20 +293,21 @@ def exb_shear_decorrelation(*, shear: float = 1.6, labels: bool = True) -> Diagr
     (``shear`` $= St$), the map $y \to y + St\,x$: it is tilted and stretched,
     and along a radial cut through its centre (at fixed $y$) it spans
     $2a/\sqrt{1 + (St)^2}$ instead of $2a$, although its total radial extent is
-    unchanged -- the reduced radial correlation of
-    ``exb_shearing_rate_from_velocity_gradient`` ($\gamma_E = |S|$). Geometry
+    unchanged. $\gamma_E = |S|$ is ``exb_shearing_rate_from_velocity_gradient``;
+    the figure's ``shear`` is the dimensionless strain $St$. Geometry
     only: real $E_r$ and shearing-rate profiles are plots. The fixed-$y$ cut
     is not the statistical radial correlation length; the decorrelation is a
     separate, following step, drawn as such: the shear advects the
     wavenumber, $k_x(t) = k_x(0) - Sk_yt$, changing $k_\perp$ and the mode
-    coupling (Biglari, Diamond and Terry 1990). $\gamma_E \gtrsim
-    \gamma_\mathrm{lin}$ is a rule of thumb, not a universal threshold.
+    coupling (Biglari, Diamond and Terry, Phys. Fluids B 2 (1990) 1).
+    $\gamma_E$ above $\gamma_\mathrm{lin}$ is a rule of thumb, not a universal
+    threshold.
     """
     labels = _check_labels(labels)
     if not shear > 0.0:
         raise ValueError(f"shear must be positive, not {shear!r}")
     a = 1.0
-    gamma_e = exb_shearing_rate_from_velocity_gradient(shear)
+    strain = exb_shearing_rate_from_velocity_gradient(shear)  # |S| t for the drawn strain S t
     items: List = []
     cut = {}
     for i, (key, s) in enumerate((("unsheared", 0.0), ("sheared", shear))):
@@ -304,7 +316,7 @@ def exb_shear_decorrelation(*, shear: float = 1.6, labels: bool = True) -> Diagr
             items.append(Polyline.of(contour, "surface", role="eddy" if s == 0 else "sheared_eddy", closed=True))
         half = a / math.sqrt(1.0 + s * s)
         cut[key] = 2.0 * half
-        items.append(Arrow((cx - half, 0.0), (cx + half, 0.0), "width arrow", role="correlation_length",
+        items.append(Arrow((cx - half, 0.0), (cx + half, 0.0), "width arrow", role="radial_cut",
                            both=True))
         # the flow profile: arrows along y whose length grows with x (sheared) or not
         for xx in np.linspace(-1.2, 1.2, 5):
@@ -315,18 +327,19 @@ def exb_shear_decorrelation(*, shear: float = 1.6, labels: bool = True) -> Diagr
         if labels:
             title = "uniform flow" if s == 0 else f"sheared flow, $St = {s:g}$ (eddy frame)"
             items += [Label((cx, 1.9), title, "small label", anchor="south", role="title"),
-                      Label((cx + 1.05, -0.95), f"$\\ell_x = {cut[key]:.2g}\\,a$ at fixed $y$", "small label",
+                      Label((cx + (1.05 if s else 0.0), -0.95 if s else -1.15),
+                            f"$L_\\mathrm{{cut}} = {cut[key]:.2g}\\,a$ at fixed $y$", "small label",
                             anchor="west",
-                            role="correlation_length")]
-    items.append(Arrow((4.2, 0.0), (5.2, 0.0), "connector", role="decorrelation"))
+                            role="radial_cut")]
+    items.append(Arrow((4.2, 0.0), (5.2, 0.0), "connector", role="shear_map"))
     items.append(Arrow((-0.2, -3.0), (0.6, -3.0), "chart axis", role="axes"))
     # the statistical step is separate from the geometry: the shear advects the wavenumber
     step_text = ("decorrelation (statistical):\\\\$k_x(t) = k_x(0) - Sk_yt$\\\\"
                  "changes $k_\\perp$ and mode coupling")
-    step = box(15.4, 0.0, 3.6, 2.0, step_text if labels else "", latex=True, role="decorrelation_step")
-    items += [*step.items, Arrow((10.3, 0.0), (13.45, 0.0), "connector feedback", role="decorrelation_step")]
+    step = box(15.8, 0.0, 4.4, 2.4, step_text if labels else "", latex=True, role="decorrelation_step")
+    items += [*step.items, Arrow((10.3, 0.0), (13.45, 0.0), "connector", role="decorrelation_step")]
     if labels:
-        items += [Label((4.7, 0.2), "\\small $v_y = Sx$", "small label", anchor="south", role="decorrelation"),
+        items += [Label((4.7, 0.2), "\\small $v_y = Sx$", "small label", anchor="south", role="shear_map"),
                   Label((-0.4, -2.2), "$v_y(x)$", "small label", anchor="east", role="flow_profile"),
                   Label((0.65, -3.0), "$x$ (radial)", "small label", anchor="west", role="axes"),
                   Label((6.8, -3.3), f"{_eq(exb_shearing_rate_from_velocity_gradient)} $= |S|$. The fixed-$y$ cut "
@@ -335,7 +348,7 @@ def exb_shear_decorrelation(*, shear: float = 1.6, labels: bool = True) -> Diagr
                         "(Biglari, Diamond and Terry, Phys. Fluids B 2 (1990) 1)", "note,align=center", anchor="north",
                         role="note")]
     return Diagram("exb_shear_decorrelation", Scene(tuple(items)),
-                   model={"shear": shear, "shearing_rate": gamma_e, "radial_cut": cut, "eddy_radius": a})
+                   model={"shear": shear, "strain": strain, "radial_cut": cut, "eddy_radius": a})
 
 
 def zonal_flow_feedback(*, labels: bool = True) -> Diagram:
@@ -448,7 +461,7 @@ def turbulence_scale_hierarchy(*, labels: bool = True) -> Diagram:
         items.append(Marker((x, 0.0), "o" if key.startswith("rho") else "x",
                             "opoint" if key.startswith("rho") else "xpoint", role=f"length:{key}"))
         if labels:
-            items.append(Label((x, -0.75 - 0.45 * (i % 3)), symbol, "small label", anchor="north",
+            items.append(Label((x, -0.95 - 0.45 * (i % 3)), symbol, "small label", anchor="north",
                                role=f"length:{key}"))
     bands = {}
     rows = {"ion_scale": 0.7, "tem_extent": 2.6, "electron_scale": 0.7}
@@ -475,8 +488,10 @@ def turbulence_scale_hierarchy(*, labels: bool = True) -> Diagram:
                         f"Lengths $1/k_\\perp$ (not the wavelength $2\\pi/k_\\perp$) of an illustrative hydrogen state "
                         f"($B = {s['B']:g}$ T, $T_e = {s['T_e']:g}$ eV, $T_i = {s['T_i']:g}$ eV; "
                         "$v_t = \\sqrt{T/m}$, deuterium gives $\\sqrt2$ larger $\\rho_i$, $\\rho_s$).\\\\"
-                        "Bands are conventions, not thresholds; literature quotes $k_y\\rho_s$, taken here as "
-                        "$k_\\perp$ with $k_x = 0$. The TEM extension is one regime's example, not a bound.",
+                        "Bands are conventions, not thresholds, in $k_\\perp\\rho_i$ (ITG/TEM), "
+                        "$k_\\perp\\rho_e$ (ETG) "
+                        "and $k_\\perp\\rho_s$ (TEM extension, the literature's $k_y\\rho_s$ with $k_x = 0$); "
+                        "that extension is one regime's example, not a bound.",
                         "note,align=center", anchor="north", role="note")]
     return Diagram("turbulence_scale_hierarchy", Scene(tuple(items)),
                    model={"lengths": values, "bands": bands,
