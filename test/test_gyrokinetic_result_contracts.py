@@ -55,8 +55,9 @@ def test_real_native_reader_and_upstream_evidence():
 def test_precision_restart_partial_tail_and_selection(tmp_path, high):
     shutil.copytree(NATIVE, tmp_path / "run")
     p = tmp_path / "run"
-    h = read_field_history(p)
-    cube = np.asarray(h.raw).copy()
+    # read_field_history maps the binary (np.memmap); the history is dropped before the
+    # file is rewritten, since Windows refuses to truncate a mapped file (EINVAL)
+    cube = np.asarray(read_field_history(p).raw).copy()
     eq = (p / "out.cgyro.equilibrium").read_text().split()
     eq[-1] = "1" if high else "0"
     (p / "out.cgyro.equilibrium").write_text("\n".join(eq))
