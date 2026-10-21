@@ -89,6 +89,11 @@ class EFITProfileConfig:
     #: (``update_parameters.F90`` ``SOL_curr``, ``current.f90``).  ``1`` is
     #: refused: EFIT scales psi by ``XPSIMIN`` for any non-zero value but
     #: computes ``XPSIMIN`` only for ``2``, so ``1`` runs on an unset bound.
+    #: ``2`` is refused with ``ICINIT`` -3/-4 (``set_init.f90`` stops).  A
+    #: restart (``EFITConfig.restart_from``, which writes ``ICINIT = -2``)
+    #: builds its first current distribution before EFIT has set ``XPSIMIN``
+    #: (``current.f90``), so a restarted SOL-current run starts from an
+    #: uninitialised bound; compare it with a cold start before trusting it.
     icutfp: int = 0
     #: ``ALPHAFP`` in ``&IN1``: where between the closed-flux boundary and
     #: the limiter/vessel flux the SOL-current bound sits (``>= 0``:
@@ -616,6 +621,15 @@ class EFITScientificConfig:
     )
     numerics: EFITNumericsConfig = field(default_factory=EFITNumericsConfig)
     constraints: EFITConstraintConfig = field(default_factory=EFITConstraintConfig)
+
+    def __post_init__(self) -> None:
+        # set_init.f90 builds the -3/-4 seed only for the closed-flux model and
+        # stops EFIT otherwise ("icutfp/=0 not set up"), on every slice (#672).
+        if self.profile.icutfp and self.initialization.icinit in (-3, -4):
+            raise ValueError(
+                "icutfp = 2 cannot be combined with icinit -3/-4: EFIT's set_init "
+                "stops with 'icutfp/=0 not set up'"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         """Return a sorted, JSON-compatible resolved representation.

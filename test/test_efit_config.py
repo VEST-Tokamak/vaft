@@ -1436,3 +1436,17 @@ def test_unsupported_attached_current_settings_are_refused(overrides, message):
 def test_the_attached_current_model_is_a_scan_axis():
     grid = efit_parameter_grid(routine_scientific_config(), {"profile.icutfp": [0, 2]})
     assert [config.profile.icutfp for config in grid] == [0, 2]
+
+
+def test_the_attached_current_model_refuses_the_seeds_efit_cannot_build():
+    """set_init.f90 stops on ICUTFP != 0 with ICINIT -3/-4 (#672 cold review)."""
+    for icinit in (-3, -4):
+        with pytest.raises(ValueError, match="icinit -3/-4"):
+            routine_scientific_config(
+                profile=routine_profile_config(icutfp=2),
+                initialization=EFITInitializationConfig(icinit=icinit),
+            )
+    routine_scientific_config(
+        profile=routine_profile_config(icutfp=2),
+        initialization=EFITInitializationConfig(icinit=-2),
+    )
