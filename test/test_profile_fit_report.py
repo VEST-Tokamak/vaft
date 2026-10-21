@@ -339,6 +339,8 @@ def test_linear_thomson_fit_keeps_holding_the_end_values():
     assert np.all(np.isfinite(te_rho)) and np.all(np.isfinite(ne_rho))
     assert np.all(np.isfinite(te_fit(np.array([0.0, 1.0]))))
     assert np.all(np.isfinite(ne_fit(np.array([0.0, 1.0]))))
+    te = _report(_thomson(), _positions(X), fitting_function_te="linear")["t_e"]
+    assert any("hold the end channel" in note for note in te.notes)
 
 
 def test_linear_charge_exchange_fit_keeps_holding_the_end_values():

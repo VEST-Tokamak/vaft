@@ -713,8 +713,9 @@ more than it would on a large device:
   bases force the profile to zero at $\rho = 1$ regardless of the data.
 - `linear` is a diagnostic aid, not a physics result: it interpolates the channels exactly and will
   happily reproduce measurement noise. Called directly, `vaft.formula.fit_profile` returns `nan`
-  beyond the outermost channel rather than a flat copy of the edge value; pass `extrapolate=True`
-  for the old hold (the Thomson and charge-exchange fitters in `vaft.process` do, #359).
+  outside the span of the channels (inside the innermost or beyond the outermost) rather than a flat
+  copy of the end value; pass `extrapolate=True` for the old hold. The Thomson and charge-exchange
+  fitters in `vaft.process` do, and the Thomson fit report notes it (#359).
 
 Always keep `uncertainty_option=1` if error bars exist. With it disabled every channel is weighted
 equally, including ones the diagnostic itself flagged as unreliable.

@@ -1125,6 +1125,17 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
         ), Ne_order)
     )
 
+    # The linear mode's end-value hold is opted into above; record it so a
+    # report reader sees which part of the grid is not data (#359).
+    span_lo, span_hi = float(np.min(rho)), float(np.max(rho))
+    if span_lo > 0.0 or span_hi < 1.0:
+        held = (f"linear: values outside the channels' span [{span_lo:.3g}, {span_hi:.3g}] "
+                "hold the end channel (extrapolate=True)")
+        if fitting_function_te.lower() == "linear":
+            te_notes.append(held)
+        if fitting_function_ne.lower() == "linear":
+            ne_notes.append(held)
+
     n_e_rho = np.maximum(n_e_rho_norm, 0.0) * n_e_scale
     n_e_std = n_e_std_norm_fit * n_e_scale
 
