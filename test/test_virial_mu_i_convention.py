@@ -632,3 +632,73 @@ def test_without_profiles_or_tf_the_measured_conversion_falls_back_to_the_axis_f
     row = vaft.omas.compute_virial_equilibrium_quantities_ods(ods, time_slice=0)[0]
     assert row["mu_i_sources"]["measured_b_t_source"] == "magnetic_axis"
     assert np.isfinite(row["mu_i_sources"]["measured"])
+
+
+def _lazy_view_without(ods, missing: str):
+    """The lazy database view: a requested IDS the shot does not store fails
+    on first access with ``OSError(404)``, as ``h5pyd.File`` raises."""
+    from omas import ODS
+
+    def _head(location) -> str:
+        first = location[0] if isinstance(location, (list, tuple)) and location else location
+        return str(first).split(".", 1)[0].split("[", 1)[0]
+
+    class LazyView(ODS):
+        def __contains__(self, location):
+            if not self.location and _head(location) == missing:
+                raise OSError(404, "Not Found")
+            return super().__contains__(location)
+
+        def __getitem__(self, location, *args, **kwargs):
+            if not self.location and _head(location) == missing:
+                raise OSError(404, "Not Found")
+            return super().__getitem__(location, *args, **kwargs)
+
+    view = LazyView(imas_version=ods.imas_version, consistency_check=False)
+    for name in ods.keys():
+        if name != missing:
+            view[name] = copy.deepcopy(ods[name])
+    return view
+
+
+def test_a_lazy_view_without_tf_keeps_every_other_virial_column():
+    """On the lazy database view ``tf`` is requested for every shot and a shot
+    that stores none answers with a 404 on first access. That is a missing
+    IDS, not an error: the measured conversion must fall back to the axis
+    field exactly as when ``tf`` is absent offline, and the closures that do
+    not need ``tf`` must survive. Letting the 404 escape blanked every virial
+    column of the shot in the database summary (cold review 0.9.0 codes F1)."""
+    offline = _without_profiles(sample_ods())
+    del offline["tf"]
+    expected = vaft.omas.compute_virial_equilibrium_quantities_ods(
+        copy.deepcopy(offline), time_slice=0
+    )[0]
+
+    view = _lazy_view_without(offline, "tf")
+    row = vaft.omas.compute_virial_equilibrium_quantities_ods(view, time_slice=0)[0]
+    assert row["mu_i_sources"]["measured_b_t_source"] == "magnetic_axis"
+    assert row["mu_i_sources"]["measured"] == pytest.approx(
+        expected["mu_i_sources"]["measured"]
+    )
+    assert row["alpha"] == pytest.approx(expected["alpha"], nan_ok=True)
+
+
+def test_a_lazy_view_that_refuses_tf_is_not_mistaken_for_a_missing_tf():
+    """Only 404 means "not stored"; a 403 is an access problem and propagates."""
+    from omas import ODS
+
+    offline = _without_profiles(sample_ods())
+
+    class Forbidden(ODS):
+        def __contains__(self, location):
+            first = location[0] if isinstance(location, (list, tuple)) and location else location
+            if not self.location and str(first).split(".", 1)[0] == "tf":
+                raise OSError(403, "Forbidden")
+            return super().__contains__(location)
+
+    view = Forbidden(imas_version=offline.imas_version, consistency_check=False)
+    for name in offline.keys():
+        if name != "tf":
+            view[name] = copy.deepcopy(offline[name])
+    with pytest.raises(OSError, match="Forbidden"):
+        vaft.omas.compute_virial_equilibrium_quantities_ods(view, time_slice=0)

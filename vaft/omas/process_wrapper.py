@@ -2680,6 +2680,14 @@ def _virial_tf_field_radius(ods, eq_idx: int) -> float:
     except (KeyError, IndexError, TypeError, ValueError) as exc:
         logger.debug("Time slice %s: tf vacuum field unavailable: %s", eq_idx, exc)
         return np.nan
+    except OSError as exc:
+        # A lazy database view answers a requested tf IDS the shot does not
+        # store with a 404 on first access: that is a missing IDS too, and the
+        # caller falls through to the labelled axis field.
+        if exc.errno != 404:
+            raise
+        logger.debug("Time slice %s: tf not stored: %s", eq_idx, exc)
+        return np.nan
 
 
 def _virial_disagreement_block(pairs):
