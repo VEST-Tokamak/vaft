@@ -48,6 +48,7 @@ from functools import partial
 from typing import Dict, List, Sequence, Tuple
 
 from ._concept import Box, band, escape_latex
+from .pictograms import badge, corner, pictogram
 from ._render import Diagram
 from ._scene import Arrow, Label, Polyline, Scene
 from ._vaft_concepts import _check_labels, _down_or_up, _edge, _record, _titled, box, database
@@ -203,6 +204,9 @@ INFRA_SOURCES: Tuple[Tuple[str, str], ...] = (
     ("geometry", "Machine geometry"), ("records", "Operation & maintenance records"),
     ("calibration", "Calibration & configuration"),
 )
+#: one pictogram per source, shared by both variants (#2109): the same concept draws the same way
+INFRA_SOURCE_SYMBOLS: Dict[str, str] = {"daq": "signal", "machine_db": "database", "diagnostic_files": "file",
+                                        "geometry": "tokamak", "records": "history", "calibration": "parameters"}
 #: scientific activities, as both variants name them
 INFRA_ACTIVITIES: Tuple[Tuple[str, str], ...] = (
     ("diagnostic", "Diagnostic Processing"), ("reconstruction", "Reconstruction"), ("profile", "Profile Analysis"),
@@ -302,6 +306,9 @@ def experimental_research_infrastructure(organization: str = "integrated", *, la
             a = box(xa, y + 0.1, 4.3, 0.95, activities[activity], role=f"activity:{activity}")
             boxes[source], boxes[f"step:{lane}"], boxes[activity] = s, c, a
             items += list(s.items) + list(c.items) + list(a.items)
+            # the source's pictogram (#2109) in the silo's left gutter
+            items += pictogram(INFRA_SOURCE_SYMBOLS[source], (0.5 * (x0 + xs - 2.15), y + 0.1), 0.7,
+                               role=f"symbol:source:{source}").items
             _horizontal(items, edges, s, c, f"source:{source}", f"step:{lane}", style=ADHOC_STYLE)
             _horizontal(items, edges, c, a, f"step:{lane}", f"activity:{activity}", style=ADHOC_STYLE)
             items.append(Label((xc, y - 0.42), _tex(copy) + _cite(cited(INFRA_SYMPTOM_TAGS["copy"])),
@@ -339,7 +346,7 @@ def experimental_research_infrastructure(organization: str = "integrated", *, la
         model = {"lanes": tuple(k for k, *_ in INFRA_LANES), "sources": tuple(s for _, s, *_ in INFRA_LANES),
                  "activities": tuple(a for _, _, _, a, _ in INFRA_LANES), "hub": None}
     else:
-        _heading(items, x0, top, "infrastructure", "Integrated research infrastructure")
+        _heading(items, x0, top + 0.5, "infrastructure", "Integrated research infrastructure")
         n = len(INFRA_SOURCES)
         sw = (2 * _INFRA_HALF_WIDTH - (n - 1) * 0.25) / n
         sources_y, collector = 9.45, 8.55
@@ -347,6 +354,9 @@ def experimental_research_infrastructure(organization: str = "integrated", *, la
         for (key, text), x in zip(INFRA_SOURCES, xs):
             b = box(x, sources_y, sw, 1.35, text, style="concept source", role=f"source:{key}")
             items += list(b.items)
+            # the text fills these boxes: the badge rests on the edge (the heading sits higher to make room)
+            items += badge(INFRA_SOURCE_SYMBOLS[key], corner(b, 0.72, dip=0.0), 0.72,
+                           role=f"symbol:source:{key}").items
             items.append(Polyline.of([(x, sources_y - 0.675), (x, collector)], "connector line",
                                      role=f"edge:source:{key}->sources"))
             _record(edges, f"source:{key}", "sources", "forward")
