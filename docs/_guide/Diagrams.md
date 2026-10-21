@@ -1879,7 +1879,48 @@ vaft.diagram.quality_validation()
 vaft.diagram.fault_anomaly_detection()
 vaft.diagram.shot_classification()
 vaft.diagram.event_detection()
+vaft.diagram.vacuum_field_proxies()
+vaft.diagram.derived_mhd_parameters()
+vaft.diagram.synthetic_diagnostics()
+vaft.diagram.coordinate_cocos_conversions()
+vaft.diagram.power_balance_confinement()
 ```
+
+### Architecture coverage: every science box of the platform figure
+
+Each science box of the platform figure (`vest_data_platform`, #1550) maps to the workflow diagrams that
+draw it, or to a tracked gap. The table is generated from `vaft.diagram._architecture_coverage`, which reads
+the boxes from `vaft.diagram._platform`; a test keeps it equal to the figure and requires every named diagram
+to exist.
+
+| Area | Box | Detailed diagram | Tracked gaps |
+| --- | --- | --- | --- |
+| Experimental data processing | Machine Model & History | `machine_model_history` | no single shot-to-machine object; VEST COCOS index unresolved |
+| Experimental data processing | Signal Processing | `signal_processing` | no shared drift-correction, synchronization or integration stage |
+| Experimental data processing | Quality & Validation | `quality_validation` | only source validity reaches IMAS |
+| Experimental data processing | Fault & Anomaly Detection | `fault_anomaly_detection` | no general anomaly model runs in the pipeline |
+| Experimental data processing | Shot Classification | `shot_classification` | the four-way physics class is not implemented (#57); no disruption labels |
+| Experimental data processing | Event Detection | `event_detection` | no breakdown, flat-top, IRE, sawtooth or disruption detector |
+| Reconstruction | Eddy Current Model | `eddy_current_model` | -- |
+| Reconstruction | Magnetic EFIT | `magnetic_efit` | -- |
+| Reconstruction | Profile Fitting | `kinetic_profile_fitting` | no joint multi-diagnostic fit (#1096) |
+| Reconstruction | Plasma Parameter Inference | `plasma_parameter_inference`, `parameter_inference_overview`, `parameter_inference_dependency_graph`, `romero_transformer_balance`, `resistive_zeff_inference` | E_r and gamma_E not inferred: gamma_E = 0 is an assumption |
+| Reconstruction | Kinetic EFIT | `kinetic_efit` | -- |
+| Derived physics | Vacuum Field Proxies | `vacuum_field_proxies` | vacuum products are returned, not written to IMAS (no issue yet) |
+| Derived physics | MHD Parameters | `derived_mhd_parameters` | two poloidal-beta definitions (#318); corrupt vacuum_toroidal_field.r0 (#325) |
+| Derived physics | Synthetic Diagnostics | `synthetic_diagnostics` | no synthetic Thomson, interferometer or camera (#2046); no IMAS storage of synthetic signals (#2053) |
+| Derived physics | Coordinate Conversion | `coordinate_cocos_conversions` | the stored flux-surface grid is geometric, not straight-field-line (#472) |
+| Derived physics | Power Balance | `power_balance_confinement` | no measured P_rad (no bolometer); nothing written to the summary IDS (#1060, #1905) |
+| Simulation | Equilibrium: Fixed Boundary (CHEASE) | `chease_coupling` | -- |
+| Simulation | Equilibrium: Free Boundary (TokaMaker) | `tokamaker_coupling` | -- |
+| Simulation | Equilibrium: Analytic GS (Solov'ev · Guazzotto & Freidberg) | `analytic_mhd_equilibrium` | -- |
+| Simulation | Stability: Ideal (DCON) | `dcon_rdcon_stability` | -- |
+| Simulation | Stability: Resistive (RDCON) | `dcon_rdcon_stability` | -- |
+| Simulation | 3D Response & Topology: Plasma Response (GPEC) | `gpec_plasma_response` | -- |
+| Simulation | 3D Response & Topology: Field-Line Following (FLARE) | `flare_field_line_topology` | -- |
+| Simulation | Transport: Classical (Braginskii) | `transport_hierarchy` | classical transport has a private identifier.index |
+| Simulation | Transport: Neoclassical (NEO / Sauter & Redl) | `transport_hierarchy`, `neo_neoclassical`, `neoclassical_model_comparison` | Sauter / Redl results have no core_transport writer |
+| Simulation | Transport: Turbulent (TGLF / CGYRO) | `transport_hierarchy`, `tglf_cgyro_local_transport` | the TGLF-NN surrogate has no IMAS writer |
 
 ### Plasma parameter inference: ion temperature and species
 
@@ -2507,6 +2548,156 @@ Follow-up TODOs (implementation or IMAS mapping):
 - Breakdown time is the plasma-window start; there is no separate breakdown detector.
 - There is no flat-top detector (only the post-hoc slice phase) and no IRE, sawtooth or disruption detector.
 - current_quench and current_spike (vaft.process.transients) measure a quench or spike in a given window; nothing in the pipeline calls them, and they do not label it an IRE or a disruption.
+
+### Vacuum fields and startup proxies: coils and vessel, no plasma
+
+The field of the PF coils and the vessel currents alone, evaluated from geometric Green's functions on a grid or at a point, and the breakdown proxies read from it. Everything is returned to the caller; nothing is written to an IDS except the vessel currents the evaluators solve when the ODS has none.
+
+![Vacuum fields and startup proxies: coils and vessel, no plasma]({{ '/assets/diagrams/vacuum_field_proxies.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| PF coil currents | measured | $I_{\mathrm{PF},j}(t)$ |  | `pf_active.coil[:].current.data` |
+| Toroidal field | measured | $R_0 B_0\ [\mathrm{T\,m}]$ |  | `tf.b_field_tor_vacuum_r.data` |
+| Prefill pressure | measured | $p\ [\mathrm{Pa}],\ \mathrm{median\ over\ 20\ ms\ before\ the\ onset}$ | `vaft.omas.process_wrapper.compute_prefill_pressure_ods` | `barometry.gauge[:].pressure.data` |
+| Launched EC power | measured | $P_{\mathrm{EC}}\ \mathrm{at\ the\ onset} \pm 1\ \mathrm{ms}$ |  | `ec_launchers.beam[0].power_launched.data` |
+| Vessel loop currents | standardized IMAS | $I_{\mathrm{loop},k}(t), \mathrm{solved\ and\ written\ when}\ \mathtt{pf\_passive}\ \mathrm{has\ no\ time}$ | `vaft.omas.process_wrapper.compute_eddy_currents` | `pf_passive.{time, loop[:].current}` |
+| Conductor and limiter geometry | machine geometry / static data (enters Vacuum field) | $(R, Z)\ \mathrm{of\ every\ filament},\ \mathrm{limiter\ unit\ 0}$ |  | `{pf_active.coil[:].element, pf_passive.loop[:].element, wall.description_2d[0].limiter}` |
+| Vacuum field | derived | $\psi\ [\mathrm{Wb,\ not\ Wb/rad}],\ B_R,\ B_Z,\ \partial\psi/\partial t\ \mathrm{on}\ (R, Z), \mathrm{time\ snapped\ to\ a\ PF\ sample}$ | `vaft.omas.process_wrapper.compute_vacuum_field_map` |  |
+| Point proxies | derived |  | `vaft.omas.process_wrapper.compute_startup_proxies_ods` |  |
+| Connection length | derived | $L\ \mathrm{to\ the\ limiter,\ both\ directions},\ \le 150\ \mathrm{m\ each}$ | `vaft.omas.process_wrapper.compute_connection_length_map_ods` |  |
+| Lloyd figure of merit | derived | $\|E_\phi\| = \|\partial\psi/\partial t\|/(2\pi R),\ B_\phi = R_0 B_0/R$ | `vaft.omas.process_wrapper.compute_vacuum_midplane_profiles_ods` |  |
+| Lloyd breakdown margin | derived | $E_{BD}(p, L)\ \mathrm{(Lloyd)};\ \mathrm{NaN\ where}\ A p L \le 1$ | `vaft.omas.process_wrapper.compute_vacuum_midplane_profiles_ods` |  |
+| Startup summary | derived | $\mathrm{point\ proxies;\ null\ area\ and\ Lloyd\ margin\ fraction\ of\ the\ map}, R_{\mathrm{ECR}}\ \mathrm{from\ the\ toroidal\ field},\ P_{\mathrm{EC}}, \mathrm{one\ flat\ dict;\ evaluated\ on\ a\ private\ copy}$ | `vaft.omas.startup_summary.startup_summary` | **IMAS mapping TODO:** maps, profiles and proxies are returned, never written to an IDS |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- No vacuum field, map, proxy or breakdown margin is written to an IDS: every evaluator returns a dict, and the startup summary is a dict too.
+- compute_vacuum_field_map and compute_startup_proxies_ods solve the vessel currents and store them in the caller's pf_passive when it has no time base; startup_summary avoids that by evaluating on a private copy.
+- Only vacuum sources contribute (coils and vessel, no plasma); above roughly 10 kA of plasma current the map no longer describes the machine.
+- The loop voltage is a model quantity from the coil and vessel flux; it is to be compared with the measured flux-loop voltage, not substituted for it.
+- No empirical threshold is applied to the Lloyd figure of merit, and the startup summary does not report it: the summary counts the null area and the Lloyd margin on the 2-D map itself.
+- The point proxies come from their own point response (compute_point_response_matrices_ods), not from the grid map; the two agree to about 1e-7 relative.
+
+### Derived MHD parameters: global quantities of an equilibrium
+
+Global quantities computed from a reconstructed equilibrium. The DD-defined betas, l_i3 and W_MHD are written to equilibrium.global_quantities; the descriptor set and the edge-q proxies are returned with their derivation records. Two poloidal betas exist on purpose: the DD leaf and the circumference form EFIT reports.
+
+![Derived MHD parameters: global quantities of an equilibrium]({{ '/assets/diagrams/derived_mhd_parameters.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Magnetic equilibrium | reconstructed | $p(\psi),\ V(\psi),\ \psi(R, Z),\ I_p$ |  | `equilibrium.time_slice[:].{profiles_1d.{pressure, volume}, profiles_2d, boundary}` |
+| Plasma current | measured | $I_p(t)$ |  | `magnetics.ip[0].data` |
+| Toroidal field | measured | $R_0 B_0\ [\mathrm{T\,m}]$ |  | `tf.b_field_tor_vacuum_r.data` |
+| Reference radius and field | model choice / convention (enters Volume and surface integrals) | $R_0:\ \mathtt{tf.r0}\ \mathrm{when\ the\ stored}\ r_0\ \mathrm{is\ corrupt},\ B_0 = \mathtt{b0}$ | `vaft.omas.update.resolve_reference_major_radius` | `{equilibrium.vacuum_toroidal_field.r0, equilibrium.vacuum_toroidal_field.b0, tf.r0}` |
+| Volume and surface integrals | derived | $\int p\,dV\ \mathrm{(trapezoid\ over}\ V(\psi)), \int B_p^2\,dV,\ L_{\mathrm{pol}}\ \mathrm{from\ the\ surface\ traces}$ | `vaft.process.equilibrium.flux_surface_quantities` |  |
+| Global descriptors | derived | $\kappa,\ \delta,\ V,\ \beta_t,\ \beta_N,\ q_{95},\ \mathrm{virial}\ l_i, \mathrm{each\ a\ DerivedValue\ with\ its\ record}$ | `vaft.process.equilibrium.derive_global_descriptors` | **IMAS mapping TODO:** returned, not written |
+| Edge safety-factor proxies | derived | $q_{95}^{\mathrm{est}},\ q^*_{\mathrm{Menard}},\ q^*_{\mathrm{Freidberg}},\ I_N, \mathrm{source:\ equilibrium\ \|\ magnetics}$ | `vaft.omas.edge_q.edge_q_estimate` | **IMAS mapping TODO:** returned (EdgeQEstimate), not written |
+| Machine default shape | model assumption / prior (enters Edge safety-factor proxies) | $a,\ R_0,\ \kappa,\ \delta\ \mathrm{from\ vest.yaml\ without\ an\ equilibrium}$ | `vaft.machine_mapping.edge_q_estimate.vest_edge_q_estimate_policy` |  |
+| Poloidal beta (DD) | standardized IMAS |  | `vaft.omas.update.update_equilibrium_global_quantities_beta_li` | `equilibrium.time_slice[:].global_quantities.beta_pol` |
+| Toroidal beta | standardized IMAS |  | `vaft.omas.update.update_equilibrium_global_quantities_beta_li` | `equilibrium.time_slice[:].global_quantities.beta_tor` |
+| Internal inductance | standardized IMAS |  | `vaft.omas.update.update_equilibrium_global_quantities_beta_li` | `equilibrium.time_slice[:].global_quantities.li_3` |
+| Normalized beta | standardized IMAS | $\beta_N\ [-]$ | `vaft.omas.update.update_equilibrium_global_quantities_beta_li` | `equilibrium.time_slice[:].global_quantities.beta_normal` |
+| Stored energy | standardized IMAS | $W_{\mathrm{MHD}}\ [\mathrm{J}]\ \mathrm{from\ the\ reconstructed}\ p$ | `vaft.omas.update.update_equilibrium_stored_energy` | `equilibrium.time_slice[:].global_quantities.energy_mhd` |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- beta_pol holds the DD definition; EFIT normalizes by the LCFS-circumference field instead and differs by 26% on the packaged reference (#318). derive_global_descriptors reports the boundary-average form as beta_p_boundary_average; the DD leaf is not matched to OMFIT.
+- equilibrium.vacuum_toroidal_field.r0 is corrupt on the VEST database and b0 drifts within a shot (#325); R_0 is replaced by tf.r0, loudly, and b0 is used as stored.
+- beta_tor with the stored b0 does not reproduce the OMFIT reference (ratio 1.041); the reference field is unidentified (#238).
+- li_3 is the ITER/Jackson third definition: the DD documents no formula for it.
+- energy_mhd is (3/2) int p dV of the reconstructed pressure: a reconstruction-derived energy, not a kinetic measurement.
+- The global descriptors and the edge-q proxies are returned, not written to equilibrium or summary.
+- edge_q_estimate's equilibrium source takes R_0 B_0 from the stored vacuum_toroidal_field.r0 * b0, not from resolve_reference_major_radius; the magnetics source takes it from tf.
+
+### Synthetic diagnostics: predicted signals from a modelled state
+
+A synthetic diagnostic predicts what an instrument would record from a modelled or reconstructed state. VAFT has three: vacuum magnetics from the coil and vessel currents, the equilibrium's diamagnetic flux, and soft-X-ray chords through a prescribed island. Assumption-completed kinetic profiles (generate_synthetic_kinetic_profiles) are a synthetic state, not a diagnostic, and are not drawn here.
+
+![Synthetic diagnostics: predicted signals from a modelled state]({{ '/assets/diagrams/synthetic_diagnostics.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| PF coil currents | measured | $I_{\mathrm{PF},j}(t)$ |  | `pf_active.coil[:].current.data` |
+| Vessel loop currents | standardized IMAS | $I_{\mathrm{loop},k}(t)\ \mathrm{(forward\ circuit\ model)}$ |  | `pf_passive.loop[:].current` |
+| Magnetic equilibrium | reconstructed | $\psi(R, Z),\ F(\psi),\ \psi_{\mathrm{axis}},\ \psi_{\mathrm{b}}$ |  | `equilibrium.time_slice[:].{profiles_2d[0].psi, profiles_1d.f, global_quantities}` |
+| Diamagnetic flux | measured | $\Phi_{\mathrm{dia}}^{\mathrm{meas}}(t)$ |  | `magnetics.diamagnetic_flux[0].data` |
+| Magnetic sensor positions | machine geometry / static data (enters Measured magnetics) | $(R, Z)\ \mathrm{of\ each\ selected\ channel}$ |  | `magnetics.{flux_loop[:].position, b_field_pol_probe[:].position}` |
+| Measured magnetics | measured | $\psi_{\mathrm{FL}},\ B_p\ \mathrm{with\ validity}$ |  | `magnetics.{flux_loop, b_field_pol_probe}` |
+| Vacuum magnetics forward model | derived | $m_{\mathrm{coil}},\ m_{\mathrm{coil+eddy}}\ \mathrm{on\ the\ PF\ time\ grid}, \mathrm{measured\ interpolated\ onto\ it,\ no\ extrapolation}$ | `vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics` |  |
+| Diamagnetic flux of the equilibrium | derived |  | `vaft.omas.process_wrapper.compute_reconstructed_diamagnetic_flux` |  |
+| Prescribed island | model assumption / prior (enters Island soft-X-ray forward model) | $(m, n),\ W\ \mathrm{at\ the\ outboard\ midplane},\ \mathrm{phase},\ \omega, \epsilon_0(\psi_N)\ \mathrm{background}$ |  |  |
+| Island soft-X-ray forward model | derived | $\epsilon\ \mathrm{flattened\ in\ the\ island},\ \mathrm{integrated\ along\ each\ chord}$ | `vaft.process.soft_x_rays.synthetic_island_soft_x_rays` |  |
+| SXR chord geometry | machine geometry / static data (enters Island soft-X-ray forward model) | $\mathrm{pencil\ chords,\ one\ poloidal\ plane\ each;\ optional\ clipping\ domain}$ |  |  |
+| Synthetic vacuum magnetics | derived | $\mathrm{measured},\ m_{\mathrm{coil}},\ m_{\mathrm{coil+eddy}}\ \mathrm{per\ channel}$ |  | **IMAS mapping TODO:** returned as VacuumChannel records, not written |
+| Diamagnetic constraint | standardized IMAS | $\Phi_{\mathrm{dia}}^{\mathrm{meas}}\ \mathrm{vs}\ \Phi_{\mathrm{dia}}^{\mathrm{rec}}$ | `vaft.omas.update.update_equilibrium_constraints_diamagnetic_flux` | `equilibrium.time_slice[:].constraints.diamagnetic_flux.{measured, reconstructed}` |
+| Synthetic SXR brightness | derived | $b(t, \mathrm{chord})\ [\epsilon\cdot\mathrm{m}],\ \mathrm{before\ any\ detector\ response}$ |  | **IMAS mapping TODO:** returned (SyntheticSXRResult), not written to soft_x_rays |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- There is no synthetic Thomson, interferometer, visible-camera or bolometer model: those measurements cannot be compared with a prediction of the reconstructed state.
+- The vacuum magnetics are returned with their measured counterparts and written nowhere; EFIT's own fitted magnetics (equilibrium constraints.*.reconstructed) are the solver's native output, not a VAFT forward model.
+- The vacuum forward model has no plasma current: it predicts the magnetics only before breakdown or in plasma-free windows.
+- The SXR model is forward only: a rigidly rotating island of fixed width, pencil-beam chords, no filter, etendue or noise; it is comparable with a measurement only up to a per-channel calibration, and is not written to soft_x_rays.
+
+### Coordinates and COCOS: one transform per layer
+
+Two COCOS transforms, at two layers: the ODS is normalized in place to weber (COCOS 1-8 and per-radian files become 11; a declared 11-18 is left as it is), and an in-memory equilibrium record is converted to any target COCOS. The ODS coordinate writers resolve the flux storage of each slice themselves (as_equilibrium), so they also run on an unnormalized ODS; the record-level radii and angle are COCOS-independent and returned.
+
+![Coordinates and COCOS: one transform per layer]({{ '/assets/diagrams/coordinate_cocos_conversions.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Equilibrium as stored | reconstructed | $\psi\ [\mathrm{Wb\ or\ Wb/rad}],\ I_p,\ B_0,\ q,\ F$ |  | `equilibrium.time_slice[:].{profiles_1d.psi, profiles_2d[0].psi, global_quantities}` |
+| Declared COCOS | model choice / convention (enters ODS normalization to weber) | $\mathrm{trusted\ as\ provenance;\ absent\ before}\ \#236$ |  | `{equilibrium.ids_properties.cocos, equilibrium.code.parameters.cocos}` |
+| ODS normalization to weber | derived | $\mathrm{declared\ 1\text{-}8}:\ \mathrm{OMAS\ cocos\_transform\ to\ 11}, \mathrm{declared\ 11\text{-}18:\ unchanged}, \mathrm{undeclared:\ storage\ probed,\ Wb/rad\ taken\ as\ COCOS\ 1}, \mathrm{equilibrium\ and\ core\_profiles\ leaves}$ | `vaft.omas.general.equilibrium_psi_to_weber` |  |
+| Equilibrium in weber (COCOS 11-18) | standardized IMAS | $\psi\ [\mathrm{Wb}];\ \mathrm{declared}\ 11\ \mathrm{only\ after\ a\ transform}, \mathrm{constraints\ untouched}$ | `vaft.omas.general.set_ods_cocos` | `{equilibrium.time_slice[:], core_profiles.profiles_1d[:], equilibrium.code.parameters.cocos}` |
+| Normalized poloidal flux | standardized IMAS | $\psi_N\ [-]$ | `vaft.omas.update.update_equilibrium_profiles_1d_normalized_psi` | `equilibrium.time_slice[:].profiles_1d.psi_norm` |
+| Toroidal flux coordinate | standardized IMAS | $\rho_{\mathrm{tor}} = \sqrt{\|\Phi\|/(\pi \|B_0\|)}$ | `vaft.omas.update.update_equilibrium_profiles_1d_toroidal_flux` | `equilibrium.time_slice[:].profiles_1d.{phi, rho_tor, rho_tor_norm}` |
+| Flux-surface grid | standardized IMAS | $(\psi_N, \theta)\ \mathrm{grid},\ \mathrm{surfaces\ =\ scaled\ LCFS}$ | `vaft.omas.update.update_equilibrium_profiles_2d_sfl_coordinates` | `equilibrium.time_slice[:].profiles_2d[1].{grid.dim1, grid.dim2, grid_type, r, z, psi, theta}`; **IMAS mapping TODO:** stored as grid_type 11 (straight field line), though theta is geometric |
+| Equilibrium record | derived | $\mathrm{Wb\ vs\ Wb/rad\ from\ Amp\grave{e}re's\ law\ round\ the\ LCFS}, \mathrm{COCOS\ declared,\ or\ candidates\ from\ the\ signs\ of}\ B_0, I_p, q$ | `vaft.process.equilibrium.as_equilibrium` |  |
+| Target COCOS | model choice / convention (enters Record conversion) | $1\text{-}18\ (\mathrm{no}\ 9, 10),\ \mathrm{chosen\ by\ the\ caller}$ |  |  |
+| Record conversion | derived | $\psi,\ F,\ q,\ p',\ FF',\ I_p,\ B_0\ \times\ \mathrm{their\ cocos\_transform\ factors}, p\ \mathrm{and\ the\ axis\ untouched;\ ambiguous\ source\ refused}, \mathrm{returns\ a\ copy\ in\ the\ target\ COCOS,\ in\ memory}$ | `vaft.process.equilibrium.convert_cocos` |  |
+| Normalized radii | derived | $\psi_N,\ \rho_{\mathrm{pol},N} = \sqrt{\psi_N},\ \rho_{\mathrm{tor},N}, \mathrm{COCOS\text{-}independent;\ unavailable\ with\ a\ reason}$ | `vaft.process.equilibrium.derive_radial_coordinates` |  |
+| Straight-field-line angle | derived | $\theta^*\ (\mathrm{PEST})\ \mathrm{at\ any}\ (R, Z)$ | `vaft.process.equilibrium.straight_field_line_map` |  |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- The ODS writer of the 2-D flux-surface grid uses a geometric approximation (the boundary scaled by sqrt(psi_N) about the axis, the geometric angle) for every requested convention, yet labels it grid_type 11; the true PEST angle exists only in memory (vaft.process.equilibrium.straight_field_line_map).
+- equilibrium_psi_to_weber leaves equilibrium.time_slice[:].constraints untouched: VAFT copies them from the DD-conformant magnetics and pf_active IDSs.
+- rho_tor integrates q from the axis, so EFIT's often outlying q[0] moves rho_tor_norm by up to about 0.04 on the innermost surfaces; packaged samples older than #192 still hold the sqrt(psi_N) proxy.
+- convert_cocos shifts the identified-candidate list on the assumption that every candidate shares the source's storage family, which can produce an out-of-range index (#601).
+
+### Power balance and confinement: experimental and modelled
+
+Two power balances answer different questions. The experimental Ohmic chain splits the measured loop voltage with l_i3 and takes the stored energy of the equilibrium; the modelled budget uses Spitzer heating and modelled radiation. Neither writes to the summary IDS; the experimental chain is tabulated in the database summary sheet.
+
+![Power balance and confinement: experimental and modelled]({{ '/assets/diagrams/power_balance_confinement.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Plasma current | measured | $I_p(t),\ dI_p/dt$ |  | `magnetics.ip[0].{data, time}` |
+| Loop voltage | measured | $V_{\mathrm{loop}}\ \mathrm{(inboard\ midplane\ loop,\ off\ the\ boundary)}$ | `vaft.omas.discharge_timing.inboard_midplane_loop` | `magnetics.flux_loop[:].{voltage, flux}` |
+| Magnetic equilibrium | reconstructed | $l_{i,3},\ W = \tfrac32\int p_{\mathrm{EFIT}}\,dV\ \mathrm{(grid\ quadrature)}$ |  | `equilibrium.time_slice[:].{global_quantities.li_3, profiles_1d.pressure, profiles_2d[0].psi}` |
+| Kinetic profiles | standardized IMAS | $n_e(\rho),\ T_e(\rho)$ |  | `core_profiles.profiles_1d[:].electrons` |
+| Stored-energy source | model choice / convention (enters Ohmic power balance) | $\mathrm{efit\_pressure\ (default)\ \|\ core\_profiles\_thermal}$ |  |  |
+| Resistive loop voltage | derived | $V_{\mathrm{res}} = V_{\mathrm{loop}} - V_{\mathrm{ind}},\ L_i = \mu_0 R_0 l_{i,3}/2$ | `vaft.process.confinement.resistive_loop_voltage` |  |
+| Ohmic power balance | derived | $P_{\mathrm{net}} = P_{\mathrm{OH}} - dW/dt\ (\mathrm{DB5\ PLTH}), P_{\mathrm{transport}}\ \mathrm{needs\ a\ measured}\ P_{\mathrm{rad}}:\ \mathrm{NaN}$ | `vaft.process.confinement.confinement_power_balance` |  |
+| Confinement time | derived | $\tau_E\ \mathrm{per\ slice\ the\ caller\ passes\ (default\ every\ slice)}$ | `vaft.omas.confinement.ohmic_confinement_ods` | **IMAS mapping TODO:** not written to the summary IDS; tabulated in the database summary sheet |
+| Slice evidence | derived | $\mathrm{rates\ and\ ratios\ per\ slice;\ thresholds\ are\ the\ caller's}$ | `vaft.process.confinement.confinement_slice_evidence` |  |
+| Confinement scaling fit | inferred |  | `vaft.process.confinement.fit_confinement_scaling` |  |
+| Impurity policy | model assumption / prior (enters Modelled radiation) | $\mathrm{C,\ O\ at}\ n_I/n_e = 1/86,\ Z_{\mathrm{eff}} = 2\ (\mathrm{assumed})$ | `vaft.machine_mapping.core_profiles.vest_core_profiles_policy` |  |
+| Spitzer Ohmic dissipation | derived |  | `vaft.omas.process_wrapper.compute_ohmic_heating_power_from_core_profiles` |  |
+| Modelled radiation | derived | $P_{\mathrm{line}} = \int n_e n_I L_Z\,dV\ \mathrm{(ADF11)}$ | `vaft.process.atomic.compute_line_radiation_power_series` |  |
+| Modelled power budget | derived | $P_{\mathrm{rad}} = P_{\mathrm{line}} + P_{\mathrm{sync}} + P_{\mathrm{Br}},\ P_{\mathrm{heat}} = P_{\mathrm{ohm,diss}}, W\ \mathrm{from\ core\_profiles}\ (T_i = T_e),\ V\ \mathrm{and}\ I_p\ \mathrm{from\ the\ equilibrium}, dW/dt = 0\ \mathrm{for\ one\ slice}$ | `vaft.omas.formula_wrapper.compute_power_balance` | **IMAS mapping TODO:** returned as a dict (plots only), not written to the summary IDS |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- Neither power balance nor the confinement time is written to the summary IDS. The experimental chain's v_res, P_OH, P_net, W and tau_E,net are tabulated in the database summary sheet (vaft.database); the modelled budget feeds plots only.
+- VEST has no bolometer, so no measured P_rad enters: the experimental chain's transport loss power is NaN and its default is p_net (DB5 PLTH); the modelled budget always subtracts a modelled P_rad, which is a sensitivity study, not a measurement.
+- The experimental chain pairs the measured current with EFIT's l_i3 (a hybrid), and its flux loop is not on the plasma boundary; both are recorded assumptions.
+- The stored energy is reconstruction-derived (efit_pressure) or assumes T_i = T_e (core_profiles_thermal); neither is a global energy (#1713).
 
 ## Using the committed assets
 
