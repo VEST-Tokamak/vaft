@@ -21,6 +21,7 @@
       "static": "cartesian.svg",
       "animation": "cartesian.gif",
       "quantitative_panels": "cartesian-diagnostics.png",
+      "animated_panels": null,
       "driver": {
         "name": "time",
         "unit": "s",
@@ -80,6 +81,7 @@
       "static": "mirror.svg",
       "animation": "mirror.gif",
       "quantitative_panels": "mirror-diagnostics.png",
+      "animated_panels": "mirror-diagnostics.gif",
       "driver": {
         "name": "time",
         "unit": "s",
@@ -142,6 +144,7 @@
       "static": "full-gc.svg",
       "animation": "full-gc.gif",
       "quantitative_panels": "full-gc-diagnostics.png",
+      "animated_panels": null,
       "driver": {
         "name": "time",
         "unit": "s",
@@ -192,6 +195,7 @@
       "static": "invariants.svg",
       "animation": "invariants.gif",
       "quantitative_panels": "mirror-diagnostics.png",
+      "animated_panels": "mirror-diagnostics.gif",
       "driver": {
         "name": "time",
         "unit": "s",
@@ -254,6 +258,7 @@
       "static": null,
       "animation": "tokamak.gif",
       "quantitative_panels": "tokamak-diagnostics.png",
+      "animated_panels": null,
       "driver": {
         "name": "time",
         "unit": "s",
@@ -311,6 +316,7 @@
       "static": null,
       "animation": "symmetry-breaking.gif",
       "quantitative_panels": "symmetry-breaking-diagnostics.png",
+      "animated_panels": null,
       "driver": {
         "name": "time",
         "unit": "s",

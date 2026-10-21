@@ -51,7 +51,11 @@ def generate(output, frames=12, dpi=55):
     output.mkdir(parents=True, exist_ok=True)
     experiments = {}
     panels = {}
+    animated_panels = {}
     rows = []
+    # A family without a static SVG must not keep one from an earlier run.
+    for slug in NO_STATIC:
+        (output / f"{slug}.svg").unlink(missing_ok=True)
     for slug, kind, builder in EXAMPLES:
         print(f"Computing {slug}: {kind}", flush=True)
         if kind not in experiments:
@@ -99,6 +103,7 @@ def generate(output, frames=12, dpi=55):
             particle_overview(
                 view, time=times[::2], animation=True, dpi=50, fps=4
             ).save(output / "mirror-diagnostics.gif")
+            animated_panels[kind] = "mirror-diagnostics.gif"
         d = view.gc_diagnostics
         rows.append(
             {
@@ -108,6 +113,7 @@ def generate(output, frames=12, dpi=55):
                 "static": static,
                 "animation": f"{slug}.gif",
                 "quantitative_panels": panels[kind],
+                "animated_panels": animated_panels.get(kind),
                 "driver": {"name": "time", "unit": "s", "values": times.tolist()},
                 "field": full.field.metadata(),
                 "full_termination": full.termination,
