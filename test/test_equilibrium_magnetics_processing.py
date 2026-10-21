@@ -461,9 +461,10 @@ def test_flux_loop_two_segment_out_of_bounds_raises_and_fallback():
 
 def test_vest_equilibrium_magnetics_detailed_channel_raises_and_fallback():
     shot = 41445
-    # Signal too short for default probe baseline (8500 samples)
-    time = np.linspace(0.0, 0.01, 500)
-    data = np.ones(500)
+    # Signal too short for default probe baseline (8500 samples), but long
+    # enough for the zero-phase low pass (3 * 251 + 1 samples)
+    time = np.linspace(0.0, 0.01, 1000)
+    data = np.ones(1000)
     channels = [
         {"field_code": 1, "calibration": 1.0, "kind": "b_field_pol_probe", "name": "Bpol_1"},
     ]
@@ -484,6 +485,33 @@ def test_vest_equilibrium_magnetics_detailed_channel_raises_and_fallback():
         )
     assert len(res.probes) == 1
     assert res.probes[0].size > 0
+
+
+def test_b_field_pol_probe_is_not_delayed_by_its_low_pass():
+    """The probe low pass is zero-phase, as in the donor's ``filtfilt``.
+
+    A causal 251-tap FIR delays the field by 0.5 ms against the undelayed PF
+    coil currents, which doubled the vacuum-model residual of every stored
+    probe. A 2 ms Gaussian bump is well inside the 2.5 kHz pass band, so the
+    processed field must reproduce it in place.
+    """
+    cfg = VestMagneticsProcessingConfig(window_override=(0, 0, 1750))
+    time = np.arange(25_000) / cfg.fast_sample_rate
+    center, width = 0.05, 2e-3
+    field = 0.01 * np.exp(-0.5 * ((time - center) / width) ** 2)
+    raw = -np.gradient(field, time)  # calibration 1, "divide": B = -integral(raw)
+
+    result = vest_b_field_pol_probe_legacy(time, raw, 1.0, shot=41445, config=cfg)
+
+    assert np.max(np.abs(result - field)) < 1e-3 * field.max()
+    assert time[np.argmax(result)] == pytest.approx(center, abs=1 / cfg.fast_sample_rate)
+
+
+def test_b_field_pol_probe_refuses_a_record_too_short_for_zero_phase():
+    cfg = VestMagneticsProcessingConfig(window_override=(0, 0, 10))
+    time = np.linspace(0.0, 0.002, 500)
+    with pytest.raises(ValueError, match="zero-phase"):
+        vest_b_field_pol_probe_legacy(time, np.zeros(500), 1.0, shot=41445, config=cfg)
 
 
 def test_b_field_pol_probe_integer_channel_zero():

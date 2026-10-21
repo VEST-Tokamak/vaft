@@ -80,7 +80,7 @@ from scipy.signal import coherence, csd, find_peaks, savgol_filter
 
 from vaft.compat import cumtrapz_compat
 from vaft.formula.statistics import rms
-from .signal_processing import define_baseline, subtract_baseline
+from .signal_processing import _filtfilt_min_length, define_baseline, subtract_baseline
 
 # ``vaft.database`` is imported inside the one function that needs it, not
 # here: vaft.database.raw imports Matplotlib at module scope as an
@@ -542,7 +542,7 @@ def vest_b_field_pol_probe_legacy(
 
     Processing steps
     ----------------
-    1. Low-pass the raw record on its native fast grid.
+    1. Low-pass the raw record on its native fast grid, zero-phase.
     2. Calibrate it.
     3. Integrate in time, carrying Faraday's minus sign.
     4. Fit a linear baseline over the era's leading samples and subtract it.
@@ -553,6 +553,14 @@ def vest_b_field_pol_probe_legacy(
     record is conditioned on the fast acquisition grid below the output window's
     Nyquist frequency, so resampling onto that window afterwards does not fold
     high-frequency content into the result.
+
+    The low pass is **zero-phase** (forward-backward ``filtfilt``), as in the
+    donor. A causal ``lfilter`` delays the field by the FIR's group delay,
+    ``(lowpass_taps - 1) / 2 / fast_sample_rate`` = 0.5 ms with the defaults,
+    against PF coil currents and flux loops that are not delayed; its start-up
+    transient also falls inside the leading baseline samples. Both made the
+    stored probes disagree with the vacuum (coil + wall) model about twice as
+    much as the donor's, on every era.
 
     The baseline is the era's **leading** samples, a count rather than a physical
     window, so it means a different interval at a different rate.
@@ -576,12 +584,16 @@ def vest_b_field_pol_probe_legacy(
     -----------
     Assumes the leading samples precede the discharge. Raises `DegenerateBaselineWindowError`
     if fewer than two valid baseline samples are available (issue #639), unless
-    `allow_zero_fallback=True` is opted into.
+    `allow_zero_fallback=True` is opted into. Raises `ValueError` for a record
+    too short for the zero-phase filter (``3 * lowpass_taps + 1`` samples);
+    there is no causal fallback, since that would reintroduce the delay.
 
     Provenance
     ----------
     .. [1] The legacy VEST magnetics workflow, whose stage order and baseline
        indices are preserved; ``vest.yaml`` ``magnetics`` for the era table.
+       VFIT ``Function/VEST_MagneticSignalProcessing.m`` low-passes with
+       ``filtfilt(dLowFast, ...)``.
     """
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
     fallback = cfg.allow_zero_fallback if allow_zero_fallback is None else bool(allow_zero_fallback)
@@ -590,6 +602,12 @@ def vest_b_field_pol_probe_legacy(
     raw = np.asarray(raw, dtype=float)
     if time.size <= 1 or raw.size <= 1:
         raise ValueError("VEST poloidal-field processing requires at least two samples")
+    min_length = _filtfilt_min_length(cfg.lowpass_taps)
+    if raw.size < min_length:
+        raise ValueError(
+            f"VEST poloidal-field processing needs at least {min_length} samples for the "
+            f"zero-phase {cfg.lowpass_taps}-tap low pass, got {raw.size}"
+        )
 
     lowpass = signal.firwin(
         cfg.lowpass_taps,
@@ -597,7 +615,7 @@ def vest_b_field_pol_probe_legacy(
         pass_zero="lowpass",
         fs=cfg.fast_sample_rate,
     )
-    filtered = signal.lfilter(lowpass, 1, raw)
+    filtered = signal.filtfilt(lowpass, 1, raw)
     calibrated = _calibrated_signal(filtered, float(calibration), cfg.calibration_mode)
     integrated = -cumtrapz_compat(calibrated, x=time, initial=0)
     baseline_indices = np.arange(min(baseline_end, integrated.size))
