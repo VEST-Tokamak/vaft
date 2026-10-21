@@ -1849,8 +1849,8 @@ unsupported capability. Node style says how a quantity was obtained:
 | native result | `output_file` | the solver's own output, before any mapping |
 | standardized IMAS | `standardized` | the IMAS / OMAS representation VAFT stores |
 
-Each legend entry pairs the kind's swatch with its [semantic pictogram](#semantic-pictograms) (#2114)
-and its label. The swatch and label stay authoritative, and the symbol never encodes implementation
+Each legend entry draws the kind's [semantic pictogram](#semantic-pictograms) inside its colour swatch (#2114),
+followed by its label. The swatch and label stay authoritative, and the symbol never encodes implementation
 status: a `computation` symbol on *solver / model* does not mean the solver runs, and `standardized`
 does not mean a product passed validation. The symbols appear only in the legend, not inside the nodes.
 Node-level icons were compared on `magnetic_efit`, `kinetic_efit`, `plasma_parameter_inference`,

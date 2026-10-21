@@ -377,11 +377,12 @@ def test_the_legend_pairs_each_used_kind_with_its_symbol(spec):
         assert label.text == W.escape_latex(W.KIND_LABEL[kind])
         icon = scene.role(f"symbol:legend:{kind}")
         assert len(icon) == len(pictograms.symbol(W.KIND_SYMBOL[kind]).strokes)
-        # swatch, then pictogram, then label, on one line
-        right = max(p[0] for p in swatch.points)
-        xs = [p[0] for i in icon for p in i.points]
-        assert right < min(xs) and max(xs) < label.at[0]
-        assert all(abs(p[1] - label.at[1]) < 0.2 for i in icon for p in i.points)
+        # the pictogram sits inside its swatch, and the label follows on the same line
+        sx = [p[0] for p in swatch.points]
+        sy = [p[1] for p in swatch.points]
+        pts = [p for i in icon for p in i.points]
+        assert all(min(sx) < x < max(sx) and min(sy) < y < max(sy) for x, y in pts)
+        assert max(sx) < label.at[0] and min(sy) < label.at[1] < max(sy)
     assert {i.role for i in scene.items if i.role.startswith("symbol:")} == {f"symbol:legend:{k}" for k in used}
 
 
