@@ -401,13 +401,15 @@ class _HeldClock:
     2026-10-12: the cancel landed while the job was starting and the run read
     "completed"). ``monotonic`` follows real time but stays just short of
     ``hold_at`` until ``ready()`` holds; the backend then reaches its deadline
-    with the job where the test needs it, however slow the machine is.
+    with the job where the test needs it, however slow the machine is. If
+    ``ended()`` reports the job finished first, that is raised at once rather
+    than after the timeout.
     """
 
-    def __init__(self, ready, hold_at, timeout=60.0):
+    def __init__(self, ready, hold_at, *, ended=lambda: None, timeout=60.0):
         import time as real
 
-        self._real, self._ready, self._hold_at = real, ready, hold_at
+        self._real, self._ready, self._ended, self._hold_at = real, ready, ended, hold_at
         self._origin = real.monotonic()
         self._deadline = self._origin + timeout
         self._released = False
@@ -416,6 +418,9 @@ class _HeldClock:
         elapsed = self._real.monotonic() - self._origin
         if not self._released and elapsed >= self._hold_at:
             if not self._ready():
+                gone = self._ended()
+                if gone is not None:
+                    raise AssertionError(f"the fake job ended before it was ready: {gone}")
                 if self._real.monotonic() > self._deadline:
                     raise AssertionError("the fake job never reached the state the test waits for")
                 return self._origin + self._hold_at - 1e-3
@@ -426,46 +431,89 @@ class _HeldClock:
         return getattr(self._real, name)
 
 
+class _VirtualClock:
+    """``time`` for ``vaft.code.slurm`` that counts the time the backend asks to wait.
+
+    ``sleep`` advances a virtual clock instead of sleeping, so ``now`` is the
+    total the backend chose to wait, independent of how slow its subprocess
+    polls are on a loaded machine.
+    """
+
+    def __init__(self):
+        import time as real
+
+        self._real, self.now = real, 0.0
+
+    def monotonic(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+
 def test_a_queued_jobs_running_time_leaves_out_the_queue_wait(tmp_path, slurm, monkeypatch):
     """cold review 0.8.0 execution-backend F2: elapsed_s counts from submission;
     the reason line reports the program's own run time from the job's stamps.
 
-    max_wait is held until the job has left the queue and is killable (its
-    ``started`` stamp and the controller's pid file exist): on a loaded runner
-    the wall-clock cancel landed in between and the run read "completed"."""
+    max_wait is held until the program itself has written ``ready`` -- it runs
+    only after the job script installed its TERM trap -- and the controller's
+    pid file exists, so scancel can reach it: on a loaded runner a wall-clock
+    cancel landed before the trap and the run read "completed" (PR #2065
+    review)."""
     import vaft.code.slurm as slurm_module
     from vaft.code.execution import timeout_reason
 
     work = _workdir(tmp_path)
 
-    def running():
-        return any(slurm.directory.glob("*.pid")) and any(work.rglob("started"))
+    def ready():
+        return any(slurm.directory.glob("*.pid")) and (work / "ready").exists()
 
-    monkeypatch.setattr(slurm_module, "time", _HeldClock(running, hold_at=3.0))
+    def ended():
+        for path in slurm.directory.glob("*.state"):
+            state = path.read_text().split("|")[0]
+            if state not in ("PENDING", "RUNNING"):
+                return f"job {path.stem} is {state}"
+        return None
+
+    monkeypatch.setattr(slurm_module, "time", _HeldClock(ready, hold_at=3.0, ended=ended))
     monkeypatch.setenv("FAKE_SLURM_OUTCOME", "QUEUE_FOR=2.0")
     backend = _batch(max_wait=3.0)
     # Upper bounds, not sleeps: each loop ends as soon as its record appears.
     backend.status_grace = backend.accounting_grace = backend.cancel_grace = 30.0
-    result = backend.run(_python(work, "import time; time.sleep(30)", timeout=600))
+    program = "import time; open('ready', 'w').close(); time.sleep(30)"
+    result = backend.run(_python(work, program, timeout=600))
     assert result.runtime_status == "timeout"
     assert result.elapsed_s >= 3.0
-    assert result.run_s is not None and 0.0 <= result.run_s <= 2.0
+    # The 2 s queue wait is in elapsed_s and not in run_s; the margin covers the
+    # whole-second stamps run_s is computed from.
+    assert result.run_s is not None and 0.0 <= result.run_s < result.elapsed_s - 1.0
     reason = timeout_reason("X", result, 600.0)
     assert reason == f"X timed out after {result.run_s:.3g} s of running"
 
 
 def test_a_queue_cancel_does_not_wait_the_status_grace(tmp_path, slurm, monkeypatch):
     """cold review 0.8.0 execution-backend F5: a job that never started has no
-    exit record to wait for. Asserted on the wait itself rather than on wall
-    time, which slow subprocess polls on a loaded machine inflate."""
+    exit record to wait for -- nor any other grace. Measured as the time the
+    backend chose to wait (a virtual clock), not wall time, which slow
+    subprocess polls on a loaded machine inflate."""
+    import vaft.code.slurm as slurm_module
+
+    clock = _VirtualClock()
+    monkeypatch.setattr(slurm_module, "time", clock)
     monkeypatch.setenv("FAKE_SLURM_OUTCOME", "PENDING")
     backend = _batch(max_wait=0.05)
-    backend.status_grace = 5.0
+    # Long enough that entering any of them would dominate the waited time.
+    backend.status_grace, backend.accounting_grace, backend.cancel_grace = 5.0, 30.0, 60.0
     waited = []
     monkeypatch.setattr(backend, "_recorded", lambda status: waited.append(status))
     result = backend.run(_python(_workdir(tmp_path), "pass"))
     assert result.runtime_status == "queue_timeout"
     assert waited == []
+    # max_wait plus a few poll intervals; any grace would add seconds.
+    assert clock.now <= backend.max_wait + 10 * backend.poll_interval
 
 
 def test_an_interrupt_while_waiting_cancels_the_job(tmp_path, slurm, monkeypatch):
