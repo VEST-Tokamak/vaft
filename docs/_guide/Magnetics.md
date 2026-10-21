@@ -178,7 +178,7 @@ The two per-channel kernels are deliberately **not** symmetric:
 
 | Function | Chain |
 |---|---|
-| `vaft.process.vest_b_field_pol_probe_legacy(time, raw, calibration, *, shot, config=None)` | FIR low-pass (251 taps @ 2.5 kHz) → calibrate → **negated** cumulative-trapezoid integration → linear baseline subtraction |
+| `vaft.process.b_field_pol_probe_field(time, raw, gain, lowpass_param, *, baseline_indices=...)` | gain → **zero-phase** FIR low-pass (VEST: `vest_probe_lowpass_taps`, 251 taps @ 2.5 kHz) → **negated** cumulative-trapezoid integration → linear baseline subtraction. The VEST chain passes the era's leading samples as `baseline_indices`. |
 | `vaft.process.vest_flux_loop_legacy(time, raw, calibration, *, flux_loop_number, config=None)` | calibrate → **negated** integration → divide by $2\pi$ → linear baseline subtraction. **No low-pass.** |
 
 `shot` and `flux_loop_number` are keyword-only, and `flux_loop_number` is **1-based** — the first flux

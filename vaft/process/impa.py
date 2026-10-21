@@ -125,7 +125,7 @@ import numpy as np
 from scipy import ndimage, optimize, signal
 
 from vaft.formula.statistics import rms
-from vaft.process.signal_processing import _filtfilt_min_length
+from vaft.process.signal_processing import apply_fir_filter
 # The shot verdict lives in the validation layer (#339); it imports no kernel
 # back at run time, so this cannot cycle.
 from vaft.validation.impa import ImpaAssessment
@@ -378,10 +378,7 @@ def impa_lowpass(values: np.ndarray, cutoff_hz: float, sample_rate: float) -> np
     """
     values = np.asarray(values, dtype=float)
     taps = signal.firwin(_FIR_TAPS, cutoff_hz, pass_zero="lowpass", fs=sample_rate)
-    # The shared length rule; this check used to stop three samples short (#893).
-    if values.shape[-1] >= _filtfilt_min_length(taps.size):
-        return signal.filtfilt(taps, 1, values, axis=-1)
-    return signal.lfilter(taps, 1, values, axis=-1)
+    return apply_fir_filter(taps, values, axis=-1, short_record="causal")
 
 
 def _apply_baseline(values: np.ndarray, baseline: str, baseline_samples: int) -> np.ndarray:

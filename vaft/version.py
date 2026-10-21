@@ -8,6 +8,16 @@ __all__ = ["__version__"]
 # patch notes
 # ────────────────────────────────────────────────────────
 # unreleased
+# - Every measured-waveform FIR low pass is zero-phase through the new
+#   vaft.process.signal_processing.apply_fir_filter, as the legacy VEST
+#   workflow's filtfilt: B-pol probes, TF current and the plasma-current
+#   reference comparison were causal and lagged the PF coil currents by
+#   0.5 ms, doubling the vacuum-model residual of every stored probe.
+#   BREAKING: vaft.process.magnetics.vest_b_field_pol_probe_legacy is
+#   removed; b_field_pol_probe_field (now zero-phase, with baseline_indices,
+#   allow_zero_fallback, shot and channel) is the one probe chain, with
+#   vest_probe_lowpass_taps for the VEST design. Stored magnetics, TF and
+#   derived products need regeneration (#2135)
 # - GPEC-suite drivers pass the advisory ordering state: pipeline 1's
 #   run_gpec_suite (optional --z-eff, per-case provenance under "ordering"
 #   in the run manifest) and the stability-atlas run_job, through the new

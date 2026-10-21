@@ -114,3 +114,47 @@ def test_a_stack_of_waveforms_filters_along_the_last_axis(two_tone):
     filtered = fir_filter(stack, 2.0e4, FS)
     assert filtered.shape == stack.shape
     assert np.allclose(filtered[1], 2.0 * filtered[0], atol=1.0e-9)
+
+
+# --------------------------------------------------------------------------- #
+# apply_fir_filter: the one zero-phase application (#2135)
+# --------------------------------------------------------------------------- #
+
+def test_apply_fir_filter_moves_nothing_in_time():
+    """A causal 26-tap filter at 25 kHz delays by 12.5 samples = 0.5 ms."""
+    from scipy import signal as scipy_signal
+
+    from vaft.process.signal_processing import apply_fir_filter
+
+    fs = 25_000.0
+    time = np.arange(5000) / fs
+    bump = np.exp(-0.5 * ((time - 0.1) / 2e-3) ** 2)
+    taps = scipy_signal.firwin(26, 2500.0, pass_zero="lowpass", fs=fs)
+
+    assert time[np.argmax(apply_fir_filter(taps, bump))] == pytest.approx(0.1, abs=0.5 / fs)
+    causal = scipy_signal.lfilter(taps, 1.0, bump)
+    assert time[np.argmax(causal)] - 0.1 == pytest.approx(12.5 / fs, abs=1 / fs)
+
+
+def test_apply_fir_filter_refuses_a_short_record_unless_told_to_go_causal():
+    from vaft.process.signal_processing import apply_fir_filter
+
+    taps = np.ones(5) / 5
+    short = np.arange(15.0)  # filtfilt needs 3 * 5 + 1 = 16
+    with pytest.raises(ValueError, match="at least 16 samples"):
+        apply_fir_filter(taps, short)
+    np.testing.assert_allclose(
+        apply_fir_filter(taps, short, short_record="causal"), np.convolve(short, taps)[:15]
+    )
+    with pytest.raises(ValueError, match="short_record"):
+        apply_fir_filter(taps, short, short_record="pad")
+
+
+def test_apply_fir_filter_works_along_the_requested_axis():
+    from vaft.process.signal_processing import apply_fir_filter
+
+    taps = np.ones(3) / 3
+    stack = np.random.default_rng(0).standard_normal((40, 2))
+    np.testing.assert_allclose(
+        apply_fir_filter(taps, stack, axis=0)[:, 1], apply_fir_filter(taps, stack[:, 1])
+    )

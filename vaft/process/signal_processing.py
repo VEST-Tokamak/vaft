@@ -74,6 +74,7 @@ __all__ = [
     "SignalRepairError",
     "TimeGrid",
     "anti_alias_filter",
+    "apply_fir_filter",
     "butterworth_bandpass",
     "butterworth_lowpass",
     "describe_time_grid",
@@ -737,8 +738,74 @@ def fir_filter(
         cutoff, fs, kind=kind, numtaps=numtaps, window=window
     )
     if zero_phase:
-        return scipy_signal.filtfilt(taps, 1.0, values, axis=-1)
+        return apply_fir_filter(taps, values)
     return scipy_signal.lfilter(taps, 1.0, values, axis=-1)
+
+
+def apply_fir_filter(taps, data, *, axis: int = -1, short_record: str = "raise") -> np.ndarray:
+    """Apply FIR coefficients zero-phase (forward-backward) along one axis.
+
+    Parameters
+    ----------
+    taps : array_like
+        FIR coefficients, for example from :func:`fir_filter_coefficients` or a
+        diagnostic's own ``scipy.signal.firwin`` design [-].
+    data : array_like
+        The waveform or a stack of them [any].
+    axis : int, optional
+        The time axis [-].
+    short_record : str, optional
+        What a record too short for ``filtfilt`` gets: ``"raise"`` refuses it,
+        ``"causal"`` applies the filter forward only [-].
+
+    Returns
+    -------
+    np.ndarray
+        The filtered waveform, same shape as ``data`` [any].
+
+    Raises
+    ------
+    ValueError
+        The record along ``axis`` is shorter than ``3 * len(taps) + 1`` samples
+        and ``short_record`` is ``"raise"``, or ``short_record`` is unknown.
+
+    Convention
+    ----------
+    The one place VAFT applies an FIR filter to a measured waveform.  It is
+    zero-phase: a causal ``lfilter`` delays every feature by the filter's group
+    delay, ``(len(taps) - 1) / 2`` samples, which is 0.5 ms for both VEST
+    designs (251 taps at 250 kHz, 26 taps at 25 kHz).  Signals are compared and
+    fitted against each other -- probes against PF coil currents in the vacuum
+    benchmark and in EFIT -- so a delay in one of them is a systematic error, not
+    a cosmetic one.  The legacy VEST workflow applies its ``vest_filter``
+    designs with ``filtfilt`` throughout.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    ``short_record="causal"`` exists for tiny synthetic records that a test
+    fixture builds; the result is then delayed, which is why it is never the
+    default.  A real acquisition is far longer than the padding.
+    """
+    if short_record not in ("raise", "causal"):
+        raise ValueError(f"short_record must be 'raise' or 'causal'; got {short_record!r}")
+    taps = np.atleast_1d(np.asarray(taps, dtype=float))
+    values = np.asarray(data, dtype=float)
+    if taps.size == 1:
+        # A single tap is a gain with no phase; filtfilt cannot build its state.
+        return values * taps[0]
+    minimum = _filtfilt_min_length(taps.size)
+    if values.shape[axis] >= minimum:
+        return scipy_signal.filtfilt(taps, 1.0, values, axis=axis)
+    if short_record == "causal":
+        return scipy_signal.lfilter(taps, 1.0, values, axis=axis)
+    raise ValueError(
+        f"zero-phase FIR filtering needs at least {minimum} samples for "
+        f"{taps.size} taps; got {values.shape[axis]}"
+    )
 
 
 def detrend_moving_average(data, window_samples: int) -> np.ndarray:
