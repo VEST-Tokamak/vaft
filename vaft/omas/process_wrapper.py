@@ -2646,6 +2646,13 @@ def _virial_measured_diamagnetic_flux(ods, eq_idx: int) -> float:
         # like an ODS with no diamagnetic loop, on every slice of every shot.
         logger.debug("Time slice %s: measured diamagnetic flux unavailable: %s", eq_idx, exc)
         return np.nan
+    except OSError as exc:
+        # A lazy database view answers a requested magnetics IDS the shot does
+        # not store with a 404 on first access: that is a missing IDS too.
+        if exc.errno != 404:
+            raise
+        logger.debug("Time slice %s: magnetics not stored: %s", eq_idx, exc)
+        return np.nan
 
 
 def _virial_tf_field_radius(ods, eq_idx: int) -> float:
