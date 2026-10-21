@@ -23,7 +23,12 @@ __all__ = ["__version__"]
 #   sign (#2095); validate_cocos lives in vaft.validation.cocos and IMPA shot
 #   grading in vaft.validation.impa, the old paths warn (#2099, #2094);
 #   alpha_heating_power is deprecated and SIGMA_V_COEF carries its unit
-#   (#2078); the `optimize` extra installs Optuna >= 5, < 6 (#1912)
+#   (#2078); the `optimize` extra installs Optuna >= 5, < 6 (#1912); the
+#   legacy vaft.plot renderer names of 0.5.0 and the renamed stems of 0.6.0
+#   (vaft.plot.<old>, vaft.omas.plot_<old>) are deleted after their
+#   deprecation window -- the old spelling raises AttributeError naming the
+#   new one, migration_table() keeps the history -- and
+#   verify_kadomtsev_constraint no longer emits its FutureWarning (#2142)
 # - pipeline 2 and kinetic state: composition with <Z_eff> = 2 and T_i = T_e
 #   by default, opt-in inferred T_i and resistive Z_eff, staged inference
 #   with its provenance (#1966, #1970); the Ohmic confinement chain as one
