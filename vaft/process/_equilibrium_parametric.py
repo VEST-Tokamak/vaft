@@ -1139,7 +1139,7 @@ def fit_miller_surface(
     design, not by omission: a bare contour has none to report.  When the fit is
     made from an equilibrium, :func:`fit_miller_sequence` attaches that
     equilibrium's convention to every nested fit, because the surfaces it returns
-    also carry ``q`` and the magnetic shear, which are convention-dependent (#604).
+    also carry ``q``, whose sign is convention-dependent (#604).
     The residual is a symmetric point-set distance in metres, and the normalized
     form divides it by the fitted minor radius so the threshold means the same
     thing on every surface.
