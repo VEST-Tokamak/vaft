@@ -611,7 +611,7 @@ def _toroidal_flux(B_phi, R, Z, mask, dA, stacklevel: int) -> float:
         mask = np.asarray(mask)
         if mask.shape != B_phi.shape:
             raise ValueError(f"mask has shape {mask.shape}, B_phi has {B_phi.shape}")
-        if mask.dtype.kind not in "bi":
+        if mask.dtype.kind not in "biu":
             # A float mask turns nan into True; insist on the boolean it means.
             raise ValueError(f"mask must be boolean, got dtype {mask.dtype}")
         integrand = np.where(mask.astype(bool), B_phi, 0.0)
@@ -671,8 +671,9 @@ def calculate_toroidal_flux(B_phi: np.ndarray,
 
     Convention
     ----------
-    Full weber (toroidal flux has no per-radian form); sign of $B_\varphi$, i.e.
-    $\sigma_{B_\varphi}$ of the COCOS in use.  The area is counted positive
+    Full weber (toroidal flux has no per-radian form); sign of $B_\varphi$
+    along the COCOS $\varphi$ direction, so a reversed-field discharge flips it
+    as surely as a COCOS conversion does.  The area is counted positive
     whichever direction the axes are stored in, so reversing ``R`` or ``Z``
     does not flip the sign.  The physics wrapper is
     :func:`vaft.formula.equilibrium.phi_from_Bphi`.

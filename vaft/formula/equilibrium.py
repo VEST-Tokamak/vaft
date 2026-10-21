@@ -264,8 +264,9 @@ def phi_from_Bphi(B_phi: np.ndarray,
     Convention
     ----------
     Full weber, never per radian: toroidal flux carries no $2\pi$ ambiguity.  The
-    sign is that of $B_\varphi$, i.e. $\sigma_{B_\varphi}$ of the COCOS in use
-    (COCOS 1-8 and 11-18 differ only in the poloidal flux).
+    sign is that of $B_\varphi$ along the COCOS $\varphi$ direction: the
+    machine's field orientation, not a COCOS index (COCOS 1-8 and 11-18 differ
+    only in the poloidal flux).
 
     Assumptions
     -----------

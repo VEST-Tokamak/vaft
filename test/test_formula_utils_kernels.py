@@ -134,6 +134,10 @@ def test_toroidal_flux_rejects_a_grid_that_does_not_match():
         calculate_toroidal_flux(B_phi, R, Z, mask=np.ones((2, 2), bool))
     with pytest.raises(ValueError, match="boolean"):
         calculate_toroidal_flux(B_phi, R, Z, mask=np.full(B_phi.shape, np.nan))
+    # A 0/1 raster mask in uint8 is a boolean mask.
+    assert calculate_toroidal_flux(B_phi, R, Z, mask=np.ones(B_phi.shape, np.uint8)) == (
+        pytest.approx(calculate_toroidal_flux(B_phi, R, Z))
+    )
     with pytest.raises(TypeError):
         calculate_toroidal_flux(B_phi)
     # A 2-D map with R but no Z is a forgotten argument, not the old area sum.
