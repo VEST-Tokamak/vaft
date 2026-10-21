@@ -25,7 +25,12 @@
     implementations: 'Implementations (plots, adapters)',
     assessment: 'Assessment (validation, conventions, model validity)'
   };
-  var LIMIT = 220;
+  // cose compares every node pair on each iteration and runs on the main thread, so a view
+  // larger than COSE_LIMIT is laid out in rings by kind instead; LIMIT is only a safety net
+  var COSE_LIMIT = 220;
+  var LIMIT = 2000;
+  // ring of each kind in the large layout, innermost highest; unlisted kinds sit in ring 2
+  var KIND_RING = { concept: 4, concept_family: 3, diagnostic: 3, machine: 3, plot: 1, dd_path: 0 };
   // how a relation reads from its target's side
   var INVERSE = {
     member_of: 'members', measures: 'measured by', derives: 'derived by', represented_by: 'represents',
@@ -75,6 +80,8 @@
       return [
         { selector: 'node', style: { 'font-size': 10 } },
         { selector: 'node.on-concept', style: { 'font-size': 12, 'font-weight': 'bold' } },
+        // hundreds of labels are unreadable when zoomed out and slow every frame
+        { selector: 'node.on-dense', style: { 'min-zoomed-font-size': 9 } },
         { selector: 'node.on-concept_family', style: { 'shape': 'round-hexagon' } },
         { selector: 'node.on-diagnostic, node.on-machine', style: { 'shape': 'round-rectangle' } },
         { selector: 'node.on-code, node.on-data_format', style: { 'shape': 'round-diamond' } },
@@ -110,9 +117,23 @@
       var touched = {};
       edges.forEach(function (e) { touched[e.data.source] = touched[e.data.target] = true; });
       nodes = nodes.filter(function (n) { return touched[n.data.id] || n.data.kind === 'concept'; });
+      var large = nodes.length > COSE_LIMIT;
+      var layout = large ? {
+        name: 'concentric', animate: false, avoidOverlap: true, minNodeSpacing: 12,
+        concentric: function (node) {
+          var ring = KIND_RING[node.data('kind')];
+          return ring === undefined ? 2 : ring;
+        },
+        levelWidth: function () { return 1; }
+      } : { name: 'cose', animate: false, randomize: false, nodeRepulsion: 12000, idealEdgeLength: 80 };
+      var message = '';
+      if (large && !state.focus) {
+        nodes.forEach(function (n) { n.classes += ' on-dense'; });
+        message = nodes.length + ' nodes, arranged in rings by kind (concepts at the centre). ' +
+          'Zoom in to read labels, or select a node to see its neighbourhood.';
+      }
       return {
-        nodes: nodes, edges: edges, limit: LIMIT,
-        layout: { name: 'cose', animate: false, randomize: false, nodeRepulsion: 12000, idealEdgeLength: 80 },
+        nodes: nodes, edges: edges, limit: LIMIT, message: message, layout: layout,
         focusLayout: function (id) {
           return { name: 'concentric', animate: false, minNodeSpacing: 40,
             concentric: function (node) { return node.id() === id ? 2 : 1; }, levelWidth: function () { return 1; } };
