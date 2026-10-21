@@ -48,7 +48,11 @@ _COMMON = textwrap.dedent(
     with (state / "calls.jsonl").open("a") as log:
         log.write(json.dumps([Path(sys.argv[0]).name, *sys.argv[1:]]) + "\\n")
     def record(job, text):
-        (state / f"{job}.state").write_text(text)
+        # Atomic: write_text truncates first, and a reader landing in between
+        # would see an empty state (PR #2065 follow-up review).
+        partial = state / f".{job}.state.{os.getpid()}"
+        partial.write_text(text)
+        os.replace(partial, state / f"{job}.state")
     """
 )
 
@@ -137,6 +141,10 @@ import json, os, signal, subprocess, sys, time
 from pathlib import Path
 state = Path(os.environ["FAKE_SLURM_DIR"])
 job, options, script, outcome = sys.argv[1], json.loads(sys.argv[2]), sys.argv[3], sys.argv[4]
+def record(job, text):  # atomic, as the fake tools' record()
+    partial = state / f".{job}.state.{os.getpid()}"
+    partial.write_text(text)
+    os.replace(partial, state / f"{job}.state")
 chdir = Path(options.get("--chdir", "."))
 def where(key):
     return chdir / options[key].replace("%%", "%")
@@ -145,11 +153,13 @@ if os.environ.get("FAKE_JOB_END_NOW"):
     env["SLURM_JOB_END_TIME"] = str(int(time.time()))
 if outcome.startswith("QUEUE_FOR="):
     time.sleep(float(outcome.split("=")[1]))
-    (state / f"{job}.state").write_text("RUNNING|0:0")
+    record(job, "RUNNING|0:0")
 out = open(where("--output"), "w")
 err = open(where("--error"), "w") if "--error" in options else subprocess.STDOUT
 child = subprocess.Popen(["bash", script], cwd=chdir, stdout=out, stderr=err, env=env, start_new_session=True)
-(state / f"{job}.pid").write_text(str(child.pid))
+pid_partial = state / f".{job}.pid.{os.getpid()}"
+pid_partial.write_text(str(child.pid))
+os.replace(pid_partial, state / f"{job}.pid")  # never seen empty by scancel or a test gate
 if outcome.startswith("TERM_AFTER="):
     time.sleep(float(outcome.split("=")[1]))
     os.killpg(child.pid, signal.SIGTERM)
@@ -159,7 +169,7 @@ else:
     rc = child.wait()
     final = ("COMPLETED" if rc == 0 else "FAILED") + f"|{rc}:0"
 if not (state / f"{job}.state").read_text().startswith("CANCELLED"):
-    (state / f"{job}.state").write_text(final)
+    record(job, final)
 """
 
 
@@ -474,7 +484,7 @@ def test_a_queued_jobs_running_time_leaves_out_the_queue_wait(tmp_path, slurm, m
     def ended():
         for path in slurm.directory.glob("*.state"):
             state = path.read_text().split("|")[0]
-            if state not in ("PENDING", "RUNNING"):
+            if state and state not in ("PENDING", "RUNNING"):
                 return f"job {path.stem} is {state}"
         return None
 
