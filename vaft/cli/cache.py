@@ -154,6 +154,9 @@ def main(argv: Iterable[str] | None = None, *, out=None) -> int:
     except ValueError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
+    except OSError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
 
 
 __all__ = ["main"]

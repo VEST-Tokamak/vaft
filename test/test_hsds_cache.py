@@ -531,3 +531,96 @@ def test_vaft_cache_is_a_registered_command():
     from vaft.cli import _main
 
     assert _main._COMMANDS["cache"][0] == ".cache"
+
+
+def test_concurrent_loaders_of_one_shot_both_keep_their_records(fake_hsds, tmp_path, monkeypatch):
+    """The manifest read-modify-write is exclusive: neither record is lost.
+
+    Each loader pauses after re-reading the manifest until the other has also
+    re-read it. Under an exclusive lock the second cannot get there, so the
+    pause times out and the writes are serialized; without one, both would
+    write from the same stale copy and one record would vanish.
+    """
+    import threading
+
+    base = tmp_path / "cache"
+    loaders = [staging.HSDSDomainCache("main", 1, base, "none") for _ in range(2)]
+    barrier = threading.Barrier(2, timeout=1.0)
+    real = staging.HSDSDomainCache._load_manifest
+
+    def paused(self):
+        real(self)
+        try:
+            barrier.wait()
+        except threading.BrokenBarrierError:
+            pass
+
+    monkeypatch.setattr(staging.HSDSDomainCache, "_load_manifest", paused)
+    threads = [
+        threading.Thread(target=loader.materialize, args=(f"{name}.h5", tmp_path / name),
+                         kwargs={"transport": "canonical"})
+        for loader, name in zip(loaders, ("a", "b"))
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+    assert sorted(entry.filename for entry in hsds_cache.entries(base)) == ["a.h5", "b.h5"]
+
+
+def test_an_unlisted_domain_keeps_its_shot_directory_described(tmp_path):
+    base = tmp_path / "cache"
+    listed = _domain(base, "main", 1, "master", KiB, age=10)
+    orphan = listed.parent / "orphan.h5"
+    orphan.write_bytes(b"x")
+    hsds_cache.clear(base)
+    assert orphan.exists() and (listed.parent / "manifest.json").exists()
+
+
+@pytest.mark.parametrize(
+    "layout",
+    [
+        'hsds.endpoint = "x"\n',
+        'hsds = { endpoint = "x" }\n',
+        '[hsds]\n"cache_max" = 5\n',
+        '[hsds]\nnote = """\ncache_max = 1\n"""\n',
+        'paths = ["a", "b"]\n',
+    ],
+)
+def test_without_a_toml_parser_only_simple_files_are_edited(layout, monkeypatch):
+    monkeypatch.setattr(hsds_cache, "_toml", lambda: None)  # Python 3.10, no tomli
+    path = hsds_cache.config_path()
+    path.parent.mkdir(parents=True)
+    path.write_text(layout, encoding="utf-8")
+    with pytest.raises(ValueError, match="edit the file by hand"):
+        hsds_cache.set_cache_max("2G")
+    assert path.read_text(encoding="utf-8") == layout
+
+
+def test_without_a_toml_parser_a_simple_file_is_edited(monkeypatch):
+    monkeypatch.setattr(hsds_cache, "_toml", lambda: None)
+    path = hsds_cache.config_path()
+    path.parent.mkdir(parents=True)
+    path.write_text('# mine\n[plot]\nstyle = "paper"\n', encoding="utf-8")
+    hsds_cache.set_cache_max("2G")
+    assert hsds_cache.resolve_cache_max().bytes == 2 * 1024**3
+    assert 'style = "paper"' in path.read_text(encoding="utf-8")
+
+
+def test_set_limit_none_must_really_be_written():
+    pytest.importorskip("tomllib")
+    path = hsds_cache.config_path()
+    path.parent.mkdir(parents=True)
+    layout = '[hsds]\nnote = """\ncache_max = 1\n"""\n'
+    path.write_text(layout, encoding="utf-8")
+    with pytest.raises(ValueError, match="edit the file by hand"):
+        hsds_cache.set_cache_max("none")
+
+
+def test_a_base_that_cannot_be_marked_still_loads(fake_hsds, tmp_path, monkeypatch):
+    def read_only(base):
+        raise PermissionError(13, "read-only")
+
+    monkeypatch.setattr(hsds_cache, "mark_owned", read_only)
+    assert _fetch(tmp_path / "cache", 1, "a", tmp_path, "none") is False
+    assert _fetch(tmp_path / "cache", 1, "a", tmp_path, "none") is True

@@ -225,6 +225,23 @@ def _config_value(text: str, path: Path) -> str | int | None:
     return _scan_config(text)
 
 
+_SIMPLE_HEADER = re.compile(r"^\[[A-Za-z0-9_.-]+\]$")
+_SIMPLE_PAIR = re.compile(r"^[A-Za-z0-9_-]+\s*=\s*(?![\[{])(?!\"\"\")(?!\'\'\')\S")
+
+
+def _unsupported_layout(text: str) -> str | None:
+    """Without a TOML parser, accept only what the line editor fully understands.
+
+    Plain ``[table]`` headers and single-line ``bare_key = scalar`` pairs; an
+    inline table, array, dotted or quoted key or multi-line string is refused.
+    """
+    for number, raw in enumerate(text.splitlines(), 1):
+        line = raw.split("#", 1)[0].strip()
+        if line and not (_SIMPLE_HEADER.match(line) or _SIMPLE_PAIR.match(line)):
+            return f"line {number} needs a TOML parser (install tomli on Python 3.10)"
+    return None
+
+
 def _scan_config(text: str) -> str | int | None:
     section = None
     for raw in text.splitlines():
@@ -314,11 +331,14 @@ def set_cache_max(value: int | str, path: Path | None = None) -> Path:
         else:
             lines.insert(start + 1, line)
     text = "\n".join(lines) + "\n"
-    try:
-        written = _config_value(text, path)
-        problem = None if parse_size(written) == expected else f"it would read {written!r}"
-    except ValueError as error:
-        problem = str(error)
+    problem = None if _toml() is not None else _unsupported_layout(text)
+    if problem is None:
+        try:
+            written = _config_value(text, path)
+            if written is None or parse_size(written) != expected:
+                problem = f"it would read {written!r}"
+        except ValueError as error:
+            problem = str(error)
     if problem is not None:
         raise ValueError(
             f"cannot set [{CONFIG_SECTION}] {CONFIG_KEY} in {path} automatically ({problem}); "
@@ -460,14 +480,14 @@ _DEBRIS = ("manifest.tmp", "manifest.json.*.tmp", ".*.h5.*.part")
 
 
 def _tidy(shot_dir: Path) -> None:
-    """Drop a shot directory once its last listed domain is gone."""
-    listed = _listed_domains(shot_dir / MANIFEST_NAME)
-    if any((shot_dir / name).exists() for name in listed):
+    """Drop a shot directory once no domain file is left in it.
+
+    The manifest stays while any ``*.h5`` remains, listed or not, so the
+    directory is never left holding files no manifest describes.
+    """
+    if any(shot_dir.glob("*.h5")):
         return
-    for pattern in _DEBRIS:
-        for leftover in shot_dir.glob(pattern):
-            if time.time() - _mtime(leftover) > STALE_PART_SECONDS:
-                leftover.unlink(missing_ok=True)
+    _remove_stale_debris(shot_dir)
     try:
         (shot_dir / MANIFEST_NAME).unlink()
     except OSError:
@@ -485,16 +505,39 @@ def _mtime(path: Path) -> float:
         return time.time()
 
 
+def _remove_stale_debris(shot_dir: Path) -> None:
+    for pattern in _DEBRIS:
+        for leftover in shot_dir.glob(pattern):
+            if time.time() - _mtime(leftover) > STALE_PART_SECONDS:
+                try:
+                    leftover.unlink()
+                except OSError:
+                    pass
+
+
 def _sweep_debris(base: Path) -> None:
-    """Remove stale temporaries an interrupted write left in owned shot dirs."""
-    for shot_dir, *_ in _shot_dirs(base):
-        for pattern in _DEBRIS:
-            for leftover in shot_dir.glob(pattern):
-                if time.time() - _mtime(leftover) > STALE_PART_SECONDS:
-                    try:
-                        leftover.unlink()
-                    except OSError:
-                        pass
+    """Remove stale temporaries an interrupted write left in owned shot dirs.
+
+    Every numeric directory under an endpoint directory is visited, with or
+    without a manifest, and only the temporaries VAFT names are removed.
+    """
+    if not base.is_dir():
+        return
+    for endpoint_dir in base.iterdir():
+        if not endpoint_dir.is_dir() or not _ENDPOINT_DIR.match(endpoint_dir.name):
+            continue
+        for shot_dir in {p.parent for pattern in _DEBRIS for p in endpoint_dir.rglob(pattern)}:
+            if shot_dir.name.isdigit():
+                _remove_stale_debris(shot_dir)
+                _tidy_if_empty(shot_dir)
+
+
+def _tidy_if_empty(shot_dir: Path) -> None:
+    if not any(shot_dir.iterdir()):
+        try:
+            shot_dir.rmdir()
+        except OSError:
+            pass
 
 
 @dataclass(frozen=True)

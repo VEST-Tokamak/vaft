@@ -326,7 +326,9 @@ The cap is taken from the first of:
 1. the `cache_max` argument of `load()` or `export()`;
 2. the `VAFT_HSDS_CACHE_MAX` environment variable;
 3. `cache_max` in the `[hsds]` table of `~/.config/vaft/config.toml` (or under
-   `$XDG_CONFIG_HOME`), which `vaft cache set-limit` writes;
+   `$XDG_CONFIG_HOME`), which `vaft cache set-limit` writes (it refuses a file layout it cannot
+   edit safely; on Python 3.10 without `tomli` that is anything beyond plain tables and
+   `key = value` lines);
 4. the 1 GiB default.
 
 Sizes are bytes or binary multiples (`500M`, `20G`; `1G` is 1024³ bytes). `0` disables caching,
@@ -350,8 +352,8 @@ The same operations are available from Python in `vaft.database.hsds_cache` (`in
   files under the cache directory, and data given by `path=`/`local_dir=`, are never touched.
 - **Recency.** It is the file modification time, which VAFT sets on every hit and write, so
   `noatime` mounts do not matter.
-- **Concurrency.** Copies into and out of the cache, and every eviction, are serialized by a lock
-  file in the cache directory. That lock is POSIX-only: on Windows two processes sharing a capped
+- **Concurrency.** Copies into and out of the cache, manifest updates and every eviction are
+  serialized by a lock file in the cache directory. That lock is POSIX-only: on Windows two processes sharing a capped
   cache are not serialized.
 - **Failures.** The cache is best-effort. A failed cache write or eviction is logged and the load
   still returns its data. An unreadable `VAFT_HSDS_CACHE_MAX` or config file is logged and the

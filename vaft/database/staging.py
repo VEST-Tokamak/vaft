@@ -183,7 +183,14 @@ class HSDSDomainCache:
             self.base = hsds_cache.cache_base(cache)
             self.root = self._cache_root(cache)
             self.root.mkdir(parents=True, exist_ok=True)
-            hsds_cache.mark_owned(self.base)
+            try:
+                hsds_cache.mark_owned(self.base)
+            except OSError as error:  # a read-only or foreign base still caches
+                hsds_cache.report_once(
+                    f"marker:{self.base}",
+                    "cannot mark %s as a VAFT cache (%s); nothing is evicted there",
+                    self.base, error,
+                )
             self._load_manifest()
 
     @staticmethod
@@ -385,8 +392,11 @@ class HSDSDomainCache:
             with hsds_cache.cache_lock(self.base, exclusive=False):
                 hsds_cache.copy_in(target, cached)
                 hsds_cache.touch(cached)  # a just-written domain is the most recent
-                # Re-read first: another loader of this shot may have recorded
-                # domains since this one started, and must not lose them.
+            # The manifest is read-modify-written exclusively: another loader of
+            # this shot may have recorded domains since this one started, and
+            # two shared holders would each drop the other's record. Until the
+            # record lands the domain is unlisted, so eviction cannot see it.
+            with hsds_cache.cache_lock(self.base, exclusive=True):
                 self._load_manifest()
                 self._manifest["domains"][filename] = {
                     **remote,
