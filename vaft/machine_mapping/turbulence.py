@@ -221,8 +221,8 @@ def _core_transport_from_tglf(
     ods[f"core_transport.model.{model}.identifier.name"] = ANOMALOUS_MODEL_NAME
     ods[f"core_transport.model.{model}.identifier.description"] = ANOMALOUS_MODEL_DESCRIPTION
     ods[f"core_transport.model.{model}.flux_multiplier"] = FLUX_MULTIPLIER
-    # Per model, not on the IDS: NEO's mapper owns `core_transport.code`, and a
-    # turbulent and a neoclassical model written into one ODS must keep apart.
+    # Per model, not on the IDS: a turbulent and a neoclassical model written
+    # into one ODS must keep apart, and every core_transport mapper records here.
     ods[f"core_transport.model.{model}.code.name"] = "TGLF"
     ods[f"core_transport.model.{model}.code.repository"] = "https://github.com/gafusion/gacode"
     revisions = {
