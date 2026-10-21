@@ -263,6 +263,20 @@ def test_a_run_without_the_resonant_pair_names_it_not_chi1(tmp_path):
     assert "Phi_res (profile)" in message and "Delta (profile)" in message
     assert "chi1" not in message.split("because", 1)[1]
 
+    # The same record read from the tree OMAS decodes a one-mode document into.
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        try:
+            ods.codeparams2dict()
+        except Exception:  # pragma: no cover - OMAS declines some documents
+            pytest.skip("OMAS did not decode this document")
+    assert not isinstance(ods["mhd_linear.code.parameters"], str)
+    with pytest.raises(ValueError) as decoded:
+        RECIPES[NAMES[0]].builder(ods)
+    assert str(decoded.value) == message
+
 
 def test_a_run_without_chi1_names_chi1(tmp_path):
     from vaft.machine_mapping.gpec_ideal import _rational_surface_gap

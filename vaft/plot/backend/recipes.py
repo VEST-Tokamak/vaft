@@ -14335,7 +14335,8 @@ def _no_rational_geometry_message(ods: Any, n_tor: int, time_slice: int | None) 
                     continue
             marker = solver.get("resonant_geometry_unavailable")
             if isinstance(marker, Mapping):
-                recorded.append({k[1:]: str(_scalar(v)) for k, v in marker.items() if str(k).startswith("@")})
+                # Prose attributes: `_scalar` would turn them into NaN.
+                recorded.append({k[1:]: str(v) for k, v in marker.items() if str(k).startswith("@")})
     if recorded:
         last = recorded[-1]
         return f"{head}: the ideal-GPEC mapping wrote none because {last.get('reason', 'of a missing input')}"
