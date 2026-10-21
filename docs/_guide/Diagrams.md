@@ -1533,6 +1533,19 @@ vaft.diagram.machine_research_archive()
 | `machine_research_archive` | VEST's institutional and scientific memory since 2012: machine history, research on VEST and research knowledge feed one living archive, which new analyses and research build on. No dates are drawn beyond the start of operation |
 
 ![The four pillars of VAFT]({{ '/assets/diagrams/vaft_four_pillars.svg' | relative_url }})
+
+The four pillars, the research cycle, the managed pipeline and the human-AI interface carry
+[semantic pictograms](#semantic-pictograms) (#2101, #2109), one symbol per concept:
+
+| Figure | Concept → symbol |
+| --- | --- |
+| `vaft_four_pillars` | interface → `interface`, pipeline → `workflow`, repository → `database`, archive → `archive` (a common row above each title) |
+| `human_ai_interface` | human researchers → `researcher`, AI agents → `ai_agent`, Python API → `code`, CLI → `terminal`, GUI → `monitor`, repository & docs → `repository`, MCP → `integration`, muted and dashed because it is planned |
+| `fusion_science_knowledge_lifecycle` | seven distinct symbols: `experiment`, `signal`, `processing`, `computation`, `analysis`, `comparison`, `discovery` |
+| `scientific_workflow` | machine sources → `tokamak`; diagnostic processing → `processing`, reconstruction → `reconstruction`, interpretive simulation → `computation`, V&V → `validation` |
+
+The symbols name a kind of activity or component only. They do not mark anything as implemented or
+validated, and the labels stay authoritative.
 ![Research-learning cycle]({{ '/assets/diagrams/fusion_science_knowledge_lifecycle.svg' | relative_url }})
 ![Managed scientific processing pipeline]({{ '/assets/diagrams/scientific_workflow.svg' | relative_url }})
 ![Interoperability layers]({{ '/assets/diagrams/interoperability_layers.svg' | relative_url }})
@@ -1663,6 +1676,12 @@ References for the terminology in the level-3 and community figures:
 ![One scientific meaning, many representations and names]({{ '/assets/diagrams/scientific_representation.svg' | relative_url }})
 ![Fragmented experimental research]({{ '/assets/diagrams/experimental_research_infrastructure_fragmented.svg' | relative_url }})
 ![Integrated research infrastructure]({{ '/assets/diagrams/experimental_research_infrastructure.svg' | relative_url }})
+
+Both infrastructure figures mark each source with the same [semantic pictogram](#semantic-pictograms)
+(#2109): DAQ signals → `signal`, machine database → `database`, diagnostic files → `file`,
+machine geometry → `tokamak`, operation & maintenance records → `history`, calibration &
+configuration → `parameters`. Only the integrated figure has the last one as a source, because the
+fragmented figure keeps calibration as private copies.
 ![Unqualified scientific inference]({{ '/assets/diagrams/scientific_credibility_fragmented.svg' | relative_url }})
 ![Qualified scientific state]({{ '/assets/diagrams/scientific_credibility.svg' | relative_url }})
 ![Locked-in research software]({{ '/assets/diagrams/research_modality_architecture_fragmented.svg' | relative_url }})
