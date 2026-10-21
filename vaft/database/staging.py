@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import time
@@ -22,6 +23,7 @@ try:
 except ImportError:  # pragma: no cover - public guard covers this path
     h5pyd = None
 
+from . import hsds_cache
 from .transport import run_hsget
 from .h5image import H5ImageUnavailableError, materialize_image
 from .utils import _require_h5pyd, ensure_imas_hdf5_userblock
@@ -148,15 +150,33 @@ def _stringify(value: Any) -> str | None:
 
 
 class HSDSDomainCache:
-    """Persistent validated cache for HSDS HDF5 images of one shot."""
+    """Persistent validated cache for HSDS HDF5 images of one shot.
 
-    def __init__(self, directory: str, shot: int, cache: str | Path = "auto") -> None:
+    The cache is bounded: after every write, least-recently-used domains are
+    evicted down to the cap ``cache_max`` resolves to (see
+    :mod:`vaft.database.hsds_cache`; default 1 GiB). A cap of ``0`` disables
+    the cache like ``cache="off"``.
+    """
+
+    def __init__(
+        self,
+        directory: str,
+        shot: int,
+        cache: str | Path = "auto",
+        cache_max: int | str | None = None,
+    ) -> None:
         self.directory = directory.strip("/")
         self.shot = int(shot)
         self.enabled = cache != "off"
         self.root: Path | None = None
+        self.base: Path | None = None
+        self.max_bytes: int | None = None
         self._manifest: dict[str, Any] = {"schema_version": 1, "domains": {}}
         if self.enabled:
+            self.max_bytes = hsds_cache.resolve_cache_max(cache_max).bytes
+            self.enabled = self.max_bytes != 0
+        if self.enabled:
+            self.base = hsds_cache.cache_base(cache)
             self.root = self._cache_root(cache)
             self.root.mkdir(parents=True, exist_ok=True)
             self._load_manifest()
@@ -174,11 +194,7 @@ class HSDSDomainCache:
 
     def _cache_root(self, cache: str | Path) -> Path:
         endpoint_hash = hashlib.sha256(self._endpoint().encode()).hexdigest()[:16]
-        base = (
-            Path.home() / ".cache" / "vaft" / "hsds"
-            if cache == "auto"
-            else Path(cache).expanduser()
-        )
+        base = hsds_cache.cache_base(cache)
         return base / endpoint_hash / self.directory / str(self.shot)
 
     @property
@@ -197,7 +213,9 @@ class HSDSDomainCache:
     def _write_manifest(self) -> None:
         if not self.enabled:
             return
-        temporary = self.manifest_path.with_suffix(".tmp")
+        self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        # Per process: two loaders of one shot must not share a temporary.
+        temporary = self.manifest_path.with_name(f"manifest.json.{os.getpid()}.tmp")
         temporary.write_text(
             json.dumps(self._manifest, indent=2, sort_keys=True) + "\n"
         , encoding="utf-8")
@@ -259,11 +277,15 @@ class HSDSDomainCache:
             pass
 
         if self.enabled and remote is not None:
-            assert self.root is not None
+            assert self.root is not None and self.base is not None
             cached = self.root / filename
             record = self._manifest["domains"].get(filename, {})
-            if self._valid_local(cached, record, remote):
-                shutil.copy2(cached, target)
+            with hsds_cache.cache_lock(self.base, exclusive=False):
+                hit = self._valid_local(cached, record, remote)
+                if hit:
+                    shutil.copy2(cached, target)
+                    hsds_cache.touch(cached)  # the LRU stamp
+            if hit:
                 return (
                     target,
                     True,
@@ -301,25 +323,43 @@ class HSDSDomainCache:
                 "logical_bytes": target.stat().st_size,
             }
         if self.enabled:
-            assert self.root is not None
-            cached = self.root / filename
-            shutil.copy2(target, cached)
-            if remote is None:
-                try:
-                    remote = self._remote_info(remote_uri)
-                except Exception:
-                    remote = {
-                        "remote_uri": remote_uri,
-                        "last_modified": None,
-                        "backend_version": None,
-                    }
+            self._store(filename, target, remote_uri, remote, used_transport)
+        return target, False, used_transport, transfer
+
+    def _store(
+        self,
+        filename: str,
+        target: Path,
+        remote_uri: str,
+        remote: dict[str, str | None] | None,
+        used_transport: str,
+    ) -> None:
+        """Copy a fresh domain into the cache, then evict down to the cap."""
+        assert self.root is not None and self.base is not None
+        size = target.stat().st_size
+        if self.max_bytes is not None and size > self.max_bytes:
+            hsds_cache.report_too_large(remote_uri, size, self.max_bytes)
+            return
+        if remote is None:
+            try:
+                remote = self._remote_info(remote_uri)
+            except Exception:
+                remote = {
+                    "remote_uri": remote_uri,
+                    "last_modified": None,
+                    "backend_version": None,
+                }
+        cached = self.root / filename
+        with hsds_cache.cache_lock(self.base, exclusive=False):
+            hsds_cache.copy_in(target, cached)
+            hsds_cache.touch(cached)  # a just-written domain is the most recent
             self._manifest["domains"][filename] = {
                 **remote,
                 "local_size": cached.stat().st_size,
                 "transport": used_transport,
             }
             self._write_manifest()
-        return target, False, used_transport, transfer
+        hsds_cache.enforce(self.base, self.max_bytes)
 
 
 def stage_imas_shot(
@@ -330,6 +370,7 @@ def stage_imas_shot(
     requested_ids: Iterable[str] | None,
     cache: str | Path = "auto",
     transport: Literal["auto", "canonical", "h5image"] = "auto",
+    cache_max: int | str | None = None,
 ) -> dict[str, Any]:
     """Materialize a complete or IDS-selective local IMAS HDF5 shot.
 
@@ -341,7 +382,7 @@ def stage_imas_shot(
     selected_ids = (
         None if requested_ids is None else tuple(dict.fromkeys(requested_ids))
     )
-    cache_store = HSDSDomainCache(directory, shot, cache)
+    cache_store = HSDSDomainCache(directory, shot, cache, cache_max)
     started = time.perf_counter()
     master, master_hit, master_transport, master_transfer = cache_store.materialize(
         "master.h5", staging_dir, transport=transport

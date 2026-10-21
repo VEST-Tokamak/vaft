@@ -312,6 +312,44 @@ them and `transport="h5image"` requires them. Direct lazy `open()` reads
 selected leaves from the canonical IDS domain and currently supports occurrence
 0. Native lazy IMAS also requires the exact stored Data Dictionary version.
 
+### The local HSDS cache
+
+`cache="auto"` (the default) keeps every validated domain it downloads in a persistent local cache,
+`~/.cache/vaft/hsds` (or `$VAFT_CACHE_DIR/hsds`, then `$XDG_CACHE_HOME/vaft/hsds`, when set). The
+cache is disposable: every entry is checked against the server's revision before use and is
+fetched again when missing, so it is never the source of truth. `cache="off"` always downloads;
+`cache=<path>` uses another base directory.
+
+The cache is capped at **1 GiB** by default. After every write the least-recently-used domains
+are evicted until it fits, and a single domain larger than the cap is read without being cached.
+The cap is taken from the first of:
+
+1. the `cache_max` argument of `load()` or `export()`;
+2. the `VAFT_HSDS_CACHE_MAX` environment variable;
+3. `cache_max` in the `[hsds]` table of `~/.config/vaft/config.toml` (or under
+   `$XDG_CONFIG_HOME`), which `vaft cache set-limit` writes;
+4. the 1 GiB default.
+
+Sizes are bytes or binary multiples (`500M`, `20G`; `1G` is 1024³ bytes). `0` disables caching,
+and `none` or `unlimited` removes the cap. A server or pipeline can keep a large cache on its own
+volume (`VAFT_CACHE_DIR`), and one-shot reads can pass `cache_max=0`.
+
+```bash
+vaft cache info                 # location, used size, cap and which setting it came from
+vaft cache list --shot 39915    # cached domains, least recently used first
+vaft cache prune                # evict down to the cap now (or --max 500M, --older-than 30d)
+vaft cache clear --shot 39915   # remove one shot's domains; the whole cache needs --yes
+vaft cache set-limit 5G         # persist the cap in the user config file
+```
+
+The same operations are available from Python in `vaft.database.hsds_cache` (`info`, `entries`,
+`prune`, `clear`, `set_cache_max`). They touch only cached domain files, their `manifest.json` and
+the directories that held them, never other files under the cache directory or user data given by
+`path=`/`local_dir=`. Recency is the file modification time, which VAFT sets on every hit and
+write, so `noatime` mounts do not matter. Copies into and out of the cache and every eviction are
+serialized by a lock file in the cache directory. That lock is POSIX-only: on Windows two
+processes sharing a capped cache are not serialized.
+
 Canonical IMAS images remain authoritative after a save. The default
 `derived_cache="auto"` also creates per-IDS images; the historical full-ODS
 cache is readable but is published only on explicit request. The explicit
@@ -335,7 +373,8 @@ The current high-level signature is:
 <!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
 ```python
 load(shot, source=None, *, representation="omas", paths=None,
-     occurrence=None, imas_version=None, cache="auto", transport="auto")
+     occurrence=None, imas_version=None, cache="auto", transport="auto",
+     cache_max=None)
 ```
 
 `source=None` resolves to the default source, `main`; pass `source="public"` for the legacy public

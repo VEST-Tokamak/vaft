@@ -182,6 +182,7 @@ def load(
     transport: Literal["auto", "canonical", "h5image"] = "auto",
     *,
     directory: Optional[str] = None,
+    cache_max: int | str | None = None,
 ) -> Union[object, dict[str, object]]:
     """
     Load IDS object(s) from HSDS as native IMAS objects.
@@ -202,6 +203,9 @@ def load(
         cache: ``"auto"`` (default) stores validated domains locally, ``"off"``
             always downloads, or a path selects a cache base directory.
         directory: Deprecated alias for ``source``.
+        cache_max: Size cap of the domain cache; ``None`` falls back to
+            ``$VAFT_HSDS_CACHE_MAX``, the user config file, then 1 GiB (see
+            :mod:`vaft.database.hsds_cache`).
     Returns:
         Native IMAS IDS object, or dict of IDS objects for list input.
     """
@@ -242,6 +246,7 @@ def load(
             requested_ids=ids_list,
             cache=cache,
             transport=transport,
+            cache_max=cache_max,
         )
         print(
             "[INFO] Materialized IMAS files: "

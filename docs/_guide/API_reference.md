@@ -117,13 +117,14 @@ Full signatures:
 <!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
 ```python
 vaft.database.load(shot, source=None, *, representation="omas", paths=None,
-                   occurrence=None, imas_version=None, cache="auto", transport="auto")
+                   occurrence=None, imas_version=None, cache="auto", transport="auto",
+                   cache_max=None)
 vaft.database.open(shot, *, source=None, representation="omas", paths=None,
                    occurrence=None, imas_version=None)
 vaft.database.save(data, shot, *, source=None, representation=None,
                    occurrence=None, imas_version=None, derived_cache="auto")
 vaft.database.export(shot, source=None, *, backend, output=None, overwrite=False,
-                     occurrence=0, cache="auto", transport="auto")
+                     occurrence=0, cache="auto", transport="auto", cache_max=None)
 ```
 
 `export()` stages a shot once and writes any of `imas-hdf5`, `imas-nc`, `omas-json`, `omas-hdf5`,
