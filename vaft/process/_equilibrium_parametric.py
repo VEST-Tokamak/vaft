@@ -1201,6 +1201,11 @@ def fit_miller_surface(
     ----------
     Purely geometric: it reads a contour and returns shape parameters, touching no
     flux, no field and no COCOS.  *radial_value* is carried, never interpreted.
+    The provenance therefore records no convention (``convention=None``) by
+    design, not by omission: a bare contour has none to report.  When the fit is
+    made from an equilibrium, :func:`fit_miller_sequence` attaches that
+    equilibrium's convention to every nested fit, because the surfaces it returns
+    also carry ``q``, whose sign is convention-dependent (#604).
     The residual is a symmetric point-set distance in metres, and the normalized
     form divides it by the fitted minor radius so the threshold means the same
     thing on every surface.
@@ -1349,6 +1354,8 @@ def fit_miller_surface(
         reason = f"normalized RMS {nrms:.4g} exceeds {max_normalized_rms:.4g}"
     elif not result.success:
         reason = result.message
+    # Built directly rather than through `_provenance`: there is no equilibrium
+    # here, so no convention to record.  See the Convention section.
     provenance = DerivationProvenance(
         "bounded symmetric-contour least squares", radial_coordinate=radial_coordinate,
         fit_range=(radial_value, radial_value) if radial_value is not None else None,
@@ -1480,7 +1487,13 @@ def fit_miller_sequence(
             np.min(np.hypot(contour.r-x.r, contour.z-x.z)) <= 0.05 * (np.ptp(contour.r)/2)
             for x in boundary.x_points if x.active
         )
-        fits.append(fit_miller_surface(contour, radial_value=float(requested), radial_coordinate=radial_coordinate, max_normalized_rms=max_normalized_rms, near_xpoint=near))
+        fit = fit_miller_surface(contour, radial_value=float(requested), radial_coordinate=radial_coordinate, max_normalized_rms=max_normalized_rms, near_xpoint=near)
+        # The contour came from this equilibrium's psi, so the nested record names
+        # its convention like every other derived value does (#604).
+        fits.append(replace(fit, provenance=_provenance(
+            eq, fit.provenance.method, ("psi",), radial_coordinate=radial_coordinate,
+            fit_range=fit.provenance.fit_range, tolerances=fit.provenance.tolerances,
+        )))
     valid = [item for item in fits if item.accepted]
     reason = None
     if len(valid) < 4:
