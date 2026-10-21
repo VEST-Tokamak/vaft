@@ -590,6 +590,44 @@ class PENTRCOptions:
 
 
 @dataclass(frozen=True)
+class PENTRCLogLimits:
+    """How much a PENTRC run may write to its log, and when it has stalled (#1929).
+
+    PENTRC does not stop when an energy integration will not converge: LSODE
+    repeats the same complaint and PENTRC carries on, so a stalled run writes
+    gigabytes (1.8 GB before a one-hour timeout in the #1887 scan) and is then
+    reported as a timeout.  Applied by streaming PENTRC's output through
+    :mod:`vaft.code.gpec._log_cap` on the local backend.
+
+    ``max_bytes``
+        Log size kept: the first half as written and the last half when the
+        run ends, with one line saying what was left out between.  ``None``
+        keeps everything.  The held half is memory the filter process uses
+        (somewhat more than ``max_bytes / 2``), counted by a memory limit.
+    ``stall_lines``
+        After this many LSODE non-convergence lines the run is stopped and
+        recorded as *stalled* rather than left to the timeout.  ``None``
+        never stops it.  A run that recovers prints a handful; a stalled one
+        prints millions.
+    """
+
+    max_bytes: Optional[int] = 64 * 1024 * 1024
+    stall_lines: Optional[int] = 100_000
+
+    def __post_init__(self) -> None:
+        for name in ("max_bytes", "stall_lines"):
+            value = getattr(self, name)
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"PENTRCLogLimits.{name} must be a positive integer or None, got {value!r}")
+
+    @property
+    def active(self) -> bool:
+        return self.max_bytes is not None or self.stall_lines is not None
+
+
+@dataclass(frozen=True)
 class GPECSuiteConfig:
     """Runtime and VEST-default configuration for the GPEC suite.
 
@@ -629,6 +667,8 @@ class GPECSuiteConfig:
     rdcon: RDCONOptions = field(default_factory=RDCONOptions)
     stride: STRIDEOptions = field(default_factory=STRIDEOptions)
     gpec: IdealGPECOptions = field(default_factory=IdealGPECOptions)
+    #: Log size and stall limits of a PENTRC run; see :class:`PENTRCLogLimits`.
+    pentrc_log: PENTRCLogLimits = field(default_factory=PENTRCLogLimits)
     backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
     #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
     #: own declaration; a value replaces it, and its ``threads_per_task`` is

@@ -320,6 +320,9 @@ CORE_MODULES: tuple[str, ...] = (
     # a recording backend. No solver runs; about 20 s.
     "test_gpec_adapter.py",
     "test_gpec_pentrc_runner.py",
+    # PENTRC log cap (#1929): head/tail kept, a stalled run stopped. Python
+    # child processes only; about 3 s.
+    "test_gpec_log_cap.py",
     # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",
