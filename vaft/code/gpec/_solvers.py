@@ -711,9 +711,11 @@ GPEC_COIL_DATA_DIR_MAX = 256
 def _coil_data_dir(directory: Path) -> Path:
     """The absolute coil directory for ``coil.in``, refused past GPEC's limit."""
     resolved = Path(directory).resolve()
-    if len(str(resolved)) > GPEC_COIL_DATA_DIR_MAX:
+    # Fortran counts bytes, not characters: a non-ASCII directory name is longer.
+    length = len(os.fsencode(resolved))
+    if length > GPEC_COIL_DATA_DIR_MAX:
         raise ValueError(
-            f"the GPEC coil data directory is {len(str(resolved))} characters long, "
+            f"the GPEC coil data directory is {length} bytes long, "
             f"over the {GPEC_COIL_DATA_DIR_MAX} GPEC reads into coil.in's data_dir "
             f"(coil/coil.F); it would be truncated and the coil files not found: "
             f"{resolved}. Use a shorter work directory or install path."
@@ -832,10 +834,12 @@ class IdealGPECSolver:
             coil_dir = ctx.run_dir / "coil"
             # coil.in first: it carries the current-count validation, so a
             # rejected request leaves no half-staged coil/ tree behind.
+            # Named relative, like dcon_dir: the staged sets sit in the cell
+            # GPEC runs in, so no workdir path can reach coil.F's limit (#1239).
             write_coil_in(
                 ctx.template_dir / "coil.in",
                 ctx.run_dir / "coil.in",
-                data_dir=_coil_data_dir(coil_dir),
+                data_dir=Path(coil_dir.name),
                 specs=specs,
                 machine=options.machine,
                 coil_config=coil_config,
