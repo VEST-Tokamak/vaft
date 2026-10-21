@@ -36,7 +36,19 @@ def probe_axis(poloidal_angle):
     -------
     tuple of ndarray
         ``(c_R, c_Z)`` direction cosines, each the shape of the input [-].
-    
+
+    Convention
+    ----------
+    The Data Dictionary measures ``poloidal_angle`` **clockwise** from $+R$,
+    i.e. turning toward $-Z$, so the axis is $(\cos\theta, -\sin\theta)$.
+    Reading the angle counter-clockwise, $(\cos\theta, +\sin\theta)$, mirrors
+    every axis about the midplane: a $+B_Z$ probe stored at $3\pi/2$ becomes a
+    $-B_Z$ probe, so every probe with a vertical component reads with the
+    wrong sign while purely radial probes and all flux loops, which carry no
+    angle, are unaffected.  That asymmetry is how the error hides in a
+    reconstruction: VAFT carried it until #288, and a downstream solver after
+    #293.
+
     References
     ----------
     .. [1] IMAS Data Dictionary, ``magnetics.b_field_pol_probe[:].poloidal_angle``.
@@ -67,7 +79,17 @@ def project_poloidal_field(b_r, b_z, poloidal_angle):
     -------
     ndarray
         Projected field along the probe axis [T].
-    
+
+    Convention
+    ----------
+    :func:`probe_axis`'s DD rule applied: ``poloidal_angle`` is clockwise from
+    $+R$, so the reading is $B_R\cos\theta - B_Z\sin\theta$.  The
+    counter-clockwise reading, $B_R\cos\theta + B_Z\sin\theta$, returns the
+    opposite of the measured signal for a vertical probe ($\theta = \pi/2$ or
+    $3\pi/2$) and the right one for a radial probe, so a synthetic diagnostic
+    built on it disagrees with the measurement on exactly the vertical-field
+    probes (#288, #293).
+
     References
     ----------
     .. [1] IMAS Data Dictionary, ``magnetics.b_field_pol_probe[:].poloidal_angle``.

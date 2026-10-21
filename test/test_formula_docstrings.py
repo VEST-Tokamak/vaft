@@ -92,7 +92,14 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
-    # positive-when-holds criteria vs GGJ's negative-when-stable indices; toroidal-flux well (#1635)
+    # DD clockwise poloidal_angle (#288, #293); beta_N units (#349); vacuum B0 at r0;
+    # li_3 vs li_1 and its R0 (#403)
+    "probe_axis",
+    "project_poloidal_field",
+    "beta_normal_from_beta_tor",
+    "beta_toroidal_from_p_B0",
+    "li_3_from_Bp2_volume_integral",
+# positive-when-holds criteria vs GGJ's negative-when-stable indices; toroidal-flux well (#1635)
     "suydam_criterion",
     "mercier_criterion_circular",
     "ggj_ideal_interchange_index",

@@ -2012,7 +2012,18 @@ def beta_toroidal_from_p_B0(p_average: float,
     -------
     float
         Toroidal beta [-].
-    
+
+    Convention
+    ----------
+    ``B0`` is the **vacuum** toroidal field at the reference radius
+    ``vacuum_toroidal_field.r0``, as the DD defines ``beta_tor``.  It is not
+    the total field on the magnetic axis, which includes the plasma's own
+    diamagnetic or paramagnetic contribution and so moves with the very
+    pressure being measured, and it is not the vacuum field at another
+    radius: since $B_\varphi \propto 1/R$, a vacuum field taken at $R$ instead
+    of $r_0$ scales $\beta_t$ by $(R/r_0)^2$, about 27 % for $R = 0.45$ m
+    against $r_0 = 0.40$ m.  The sign of ``B0`` does not enter.
+
     Reduction
     ---------
     input: scalar_0d
@@ -2097,7 +2108,20 @@ def beta_normal_from_beta_tor(beta_tor: float,
     -------
     float
         Normalized beta [% m T/MA].
-    
+
+    Convention
+    ----------
+    SI in, Troyon units out: ``beta_tor`` is a **fraction** and ``Ip`` is in
+    **amperes**, and the factor 100 and the conversion to MA are applied here,
+    so the result is directly comparable with a Troyon coefficient of about
+    2.8.  :func:`vaft.formula.stability.beta_N_from_beta_a_B0_Ip` evaluates the
+    same ratio but takes $\beta$ in percent and $I_p$ in MA and does not
+    rescale: fed this function's fraction and amperes it returns $10^{-8}$ of
+    this value (#349), and this function fed percent returns 100 times too
+    much.  ``B0`` is the vacuum field at ``r0`` (the DD ``beta_normal``), and
+    $|B_0|$ and $|I_p|$ are used, so the result is positive under every COCOS
+    sign convention.
+
     Reduction
     ---------
     input: scalar_0d
@@ -2228,7 +2252,23 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
     -------
     float
         Internal inductance, ``li_3`` definition [-].
-    
+
+    Convention
+    ----------
+    ``li_3`` is one of three internal-inductance definitions in circulation,
+    and they are not comparable.  The Lao/EFIT $l_i(1)$
+    (:func:`li_1_from_Bp2_volume_integral`) normalises
+    $\langle B_p^2\rangle_V$ by the edge poloidal field
+    $(\mu_0 I_p/\Gamma)^2$, and the cylindrical form by
+    $(\mu_0 I_p/2\pi a)^2$; ``li_3`` normalises the volume integral by
+    $\mu_0^2 I_p^2 R_0/2$.  They are related by
+    $l_{i1} = l_{i3}\,R_0\Gamma^2/(2V)$, a factor that grows with elongation
+    (about 8.5 % at $\kappa = 1.6$), so an EFIT ``li`` read as ``li_3`` is
+    wrong by that factor.  Within ``li_3`` the result is also inversely
+    proportional to the ``R0`` passed: the magnetic-axis radius, the
+    geometric centre and ``vacuum_toroidal_field.r0`` give different numbers,
+    and :func:`internal_inductance_from_li_3_R0` must be given the same one.
+
     Reduction
     ---------
     input: scalar_0d
