@@ -22,7 +22,7 @@ from vaft.omas import compare_ods
 
 
 def test_sample_registry_returns_both_packaged_artifacts():
-    assert vaft.data.available_samples() == (39915, 40600, 41524, 41672, 45531, 48224)
+    assert vaft.data.available_samples() == (39915, 40600, 41524, 41672, 42962, 45531, 48224)
     omas_path = vaft.data.sample(39915, representation="omas")
     imas_path = vaft.data.sample(39915, representation="imas")
 
@@ -42,13 +42,13 @@ def test_sample_registry_returns_both_packaged_artifacts():
 
 
 def test_sample_registry_errors_are_actionable():
-    with pytest.raises(ValueError, match="available shots: 39915, 40600, 41524, 41672, 45531, 48224"):
+    with pytest.raises(ValueError, match="available shots: 39915, 40600, 41524, 41672, 42962, 45531, 48224"):
         vaft.data.sample(1)
     with pytest.raises(ValueError, match="expected one of: imas, omas"):
         vaft.data.sample(39915, representation="pickle")
 
 
-@pytest.mark.parametrize("shot", [41524, 41672])
+@pytest.mark.parametrize("shot", [41524, 41672, 42962])
 def test_pipeline_samples_carry_repository_only_omas_and_imas(shot):
     omas_path = vaft.data.sample(shot, representation="omas")
     imas_path = vaft.data.sample(shot, representation="imas")
@@ -64,7 +64,7 @@ def test_pipeline_samples_carry_repository_only_omas_and_imas(shot):
     }
 
 
-@pytest.mark.parametrize("shot", [41524, 41672])
+@pytest.mark.parametrize("shot", [41524, 41672, 42962])
 def test_full_imas_samples_round_trip_through_both_adapters(shot):
     manifest = vaft.data.sample_manifest(shot)
     path = vaft.data.sample(shot, representation="imas")
@@ -93,7 +93,7 @@ def test_full_imas_samples_round_trip_through_both_adapters(shot):
         if "poloidal_angle" in probe:
             # DD: clockwise from +R, so +Bz is 3*pi/2. See issue #288.
             np.testing.assert_allclose(probe["poloidal_angle"], 3 * np.pi / 2)
-    if shot in (41524, 41672):
+    if shot in (41524, 41672, 42962):
         assert manifest["source"]["kind"] == "pipeline-until-efit"
         assert (
             manifest["pipeline"]["efit"]["successful_time_slices"]
@@ -172,7 +172,7 @@ def test_legacy_sample_ods_wrapper_uses_registry_and_sample_odc_is_removed():
     assert not hasattr(vaft.omas, "sample_odc")
 
 
-@pytest.mark.parametrize("shot", [41524, 41672])
+@pytest.mark.parametrize("shot", [41524, 41672, 42962])
 def test_sample_ods_loads_every_registered_shot_as_omas(shot):
     ods = vaft.omas.sample_ods(shot)
     assert ods["dataset_description.data_entry.pulse"] == shot
@@ -194,7 +194,7 @@ def test_reference_probe_metadata_describes_positive_bz():
         )
 
 
-@pytest.mark.parametrize("shot", [39915, 41524, 41672])
+@pytest.mark.parametrize("shot", [39915, 41524, 41672, 42962])
 def test_native_imas_sample_records_explicit_dd_version(shot):
     with h5py.File(vaft.data.sample(shot, "imas"), "r") as handle:
         version = handle.attrs["data_dictionary_version"]
@@ -324,7 +324,7 @@ def test_wheel_build_uses_the_three_slice_39915_variant(tmp_path):
     )
     sample_root = build_lib / "vaft" / "data" / "samples" / "39915"
     # Only 39915 ships: the other samples' manifests do, their artifacts do not.
-    for shot in (40600, 41524, 41672, 45531, 48224):
+    for shot in (40600, 41524, 41672, 42962, 45531, 48224):
         shot_root = build_lib / "vaft" / "data" / "samples" / str(shot)
         assert (shot_root / "manifest.yaml").is_file()
         assert not (shot_root / "omas.json.gz").exists()
@@ -647,8 +647,9 @@ def test_camera_sample_40600_carries_the_frames_and_the_lfs_probe():
 
 # The index each equilibrium sample declares, and the manifest key that says why.
 # 41524/41672 keep the g-file's Wb/rad, so they are COCOS 1, the per-radian
-# sibling of 11; the evidence is recorded in each manifest.
-_DECLARED_COCOS = {39915: 11, 41524: 1, 41672: 1, 48224: 11}
+# sibling of 11; 42962's EFIT stage already wrote Wb, so it is 11. The evidence
+# is recorded in each manifest.
+_DECLARED_COCOS = {39915: 11, 41524: 1, 41672: 1, 42962: 11, 48224: 11}
 
 
 def _first_plasma_slice(ods):
@@ -702,7 +703,7 @@ def _poloidal_field_z(eq, r, z):
     return np.asarray([np.asarray(field(ri, zi)).reshape(-1)[1] for ri, zi in zip(r, z)])
 
 
-@pytest.mark.parametrize("shot", [39915, 41524, 41672])
+@pytest.mark.parametrize("shot", [39915, 41524, 41672, 42962])
 def test_declared_cocos_reproduces_efit_probe_field_on_pipeline_samples(shot):
     """The index is physical: B_Z from psi has EFIT's sign at every probe."""
     from vaft.process.equilibrium import as_equilibrium
@@ -746,3 +747,50 @@ def test_declared_cocos_reproduces_efit_probe_field_on_sample_48224():
     assert strong.sum() > 40
     assert np.all(np.sign(b_z[strong]) == np.sign(reconstructed[strong]))
     assert np.median(np.abs(b_z - reconstructed)) < 3e-3
+
+
+def test_42962_is_the_statistical_891_r1_sample():
+    """42962 is packaged for VEST-Tokamak/vfit#119 (R1) with the statistical_891 EFIT.
+
+    The packaged representations drop ``equilibrium.code.parameters``, so the
+    manifest is the record of the setting; the canonical source keeps the full
+    preset. Every stored slice carries its #1644 label, and none is filtered
+    out by it.
+    """
+    import json
+
+    manifest = vaft.data.sample_manifest(42962)
+    efit = manifest["pipeline"]["efit"]
+    assert efit["preset"] == "statistical_891"
+    assert manifest["pipeline"]["vaft_commit"] == manifest["source"]["git_commit"]
+
+    source = vaft.omas.load(
+        vaft.data.data_path("samples/42962") / manifest["generation"]["canonical_source"]
+    )
+    parameters = source["equilibrium.code.parameters"]
+    if isinstance(parameters, str):
+        parameters = json.loads(parameters)
+    assert '"name": "statistical_891"' in json.dumps(parameters["efit_collection"])
+
+    ods = vaft.omas.load(vaft.data.sample(42962))
+    times = np.asarray(ods["equilibrium.time"], dtype=float)
+    np.testing.assert_allclose(times, manifest["acceptance"]["equilibrium_times"])
+    assert len(times) == efit["successful_time_slices"] == 8
+
+    labels = manifest["pipeline"]["cohort_1644"]["labels"]
+    assert sorted(float(t) for t in labels) == pytest.approx(times.tolist())
+    assert [labels[f"{t:.3f}"] for t in times] == [
+        "unreconstructible", "unreconstructible", "unreconstructible",
+        "good", "good", "admissible", "admissible", "admissible",
+    ]
+    assert manifest["pipeline"]["cohort_1644"]["cohort_table_sha256"].startswith("88aafa2c")
+
+    # Pre-43017: the 950-loop wall, and pf_passive currents on pf_active's grid.
+    assert manifest["pipeline"]["machine_version"] == "vest-pre-43017-pf1906"
+    assert len(ods["pf_passive.loop"]) == 950
+    assert ods["em_coupling.mutual_passive_passive"].shape == (950, 950)
+    np.testing.assert_array_equal(ods["pf_passive.time"], ods["pf_active.time"])
+    assert len(ods["magnetics.b_field_pol_probe"]) == 64
+    assert len(ods["magnetics.flux_loop"]) == 11
+    assert "langmuir_probes" in ods
+

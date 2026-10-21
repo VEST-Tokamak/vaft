@@ -1,0 +1,114 @@
+# Effective configuration of the 42962 sample run (vaft f6e685ca8): the workflow config.yaml
+# deep-merged with the run config, exactly as Snakemake merges --configfile.
+# Host paths are replaced by the environment variables they came from.
+base_dir: ${VAFT_FILEDB_DIR}
+layout: filedb
+equilibrium_family: magnetic
+refinement: chease
+conda: null
+shots:
+- 42962
+cores: 4
+raw:
+  mode: archive
+  archive_template: ${VAFT_RAW_ARCHIVE_DIR}/vest_{shot}_daq_raw.json.gz
+  offline_only: true
+  preflight:
+    required_fields:
+    - 1
+    - 12
+    - 25
+    - 59
+    - 109
+    min_samples: 2
+diagnostics:
+  tstart: 0.26
+  tend: 0.36
+  dt: 4.0e-05
+  run: 1
+impa:
+  enable: false
+  run: 1
+vest: {}
+eddy:
+  filament:
+    r:
+    - 0.35
+    - 0.35
+    - 0.35
+    z:
+    - 0.25
+    - 0.0
+    - -0.25
+    fraction:
+    - 0.3333333
+    - 0.3333333
+    - 0.3333333
+  dt_sub: 5.0e-05
+constraints:
+  timeset: auto
+  tstep: 0.001
+  average_window: 0.0005
+  detect_broken: true
+  fl_correct_option: 0
+  gaussian_fit_option: 1
+  uncertainty:
+  - 0.0001
+  - 0.0001
+  - 0.05
+  - 0.03
+  - 0.01
+  - 0.1
+  - 0.01
+  - 0.1
+  - 0.01
+  weighting:
+  - 1
+  - 1
+  - 1
+  - 0.1
+  - 0.1
+  - 0.1
+  - 0.01
+  - 0.01
+efit:
+  run: true
+  preset: statistical_891
+  executable: ${EFIT}
+  table_dir: ${VAFT_DATA_DIR}/efit/
+  era_tables: true
+  efund: ''
+  efund_timeout: 1800
+  args: '129'
+  timeout: 3600
+chease:
+  run: false
+  executable: ${CHEASE}
+  timeout: 600
+  target_psin: 0.993
+  relax: 0.5
+  nw: 513
+  auto_cocos: true
+  output_cocos: input
+  preserve_boundary_limiter: true
+  create_plot: true
+gpec:
+  home: ${GPECHOME}
+  run: false
+  modules:
+  - dcon
+  - rdcon
+  - stride
+  - gpec
+  modes:
+  - 1
+  - 2
+  psilow: 0.01
+  psihigh: 0.994
+  timeout: 1200
+  coil:
+    source: vest_reference
+hsds:
+  replicate: false
+  attempts: 3
+  retry_delay: 5.0
