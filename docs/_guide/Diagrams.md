@@ -2278,8 +2278,8 @@ Thomson and charge-exchange points are placed on flux surfaces by the equilibriu
 | Magnetic equilibrium | reconstructed | $\psi(R, Z),\ q(\psi)$ |  | `equilibrium.time_slice[:].{profiles_2d, profiles_1d.q}` |
 | Charge exchange (optional) | measured | $T_i,\ v_\phi\ \mathrm{at}\ (R, Z)$ |  | `charge_exchange.channel[:].ion[:].{t_i, velocity_tor}` |
 | Flux-surface mapping (Thomson) | derived | $(R,Z) \to \psi_N \to \rho_{\mathrm{pol}} = \sqrt{\psi_N}, \rho_{\mathrm{tor},N}\ \mathrm{from}\ \Phi = \int q\,d\psi;\ \mathrm{outside\ the\ LCFS:\ NaN}$ | `vaft.process.profile.equilibrium_mapping_thomson_scattering` |  |
-| Flux-surface mapping (CX) | derived | $\mathrm{same\ mapping};\ \mathrm{outside\ the\ LCFS:\ NaN}$ | `vaft.process.profile.equilibrium_mapping_charge_exchange` |  |
-| Fitting coordinate | model choice / convention (enters Flux-surface mapping (Thomson)) | $x = \rho_{\mathrm{tor},N}\ (\mathrm{default})\ \|\ \psi_N\ \|\ \rho_{\mathrm{pol},N}$ |  |  |
+| Flux-surface mapping (CX) | derived | $\mathrm{same\ coordinates};\ \mathrm{outside\ the\ LCFS:\ NaN}$ | `vaft.process.profile.equilibrium_mapping_charge_exchange` |  |
+| Fitting coordinate (both fits) | model choice / convention (enters Flux-surface mapping (Thomson)) | $x = \rho_{\mathrm{tor},N}\ (\mathrm{default})\ \|\ \psi_N\ \|\ \rho_{\mathrm{pol},N}$ |  |  |
 | Electron profile fit | derived | $T_e(x),\ n_e(x)$ | `vaft.process.profile.profile_fitting_thomson_scattering` |  |
 | Ion profile fit | derived | $T_i(x),\ v_\phi(x)$ | `vaft.process.profile.profile_fitting_charge_exchange` |  |
 | Fit model and order | model choice / convention (enters Electron profile fit) | $\mathrm{polynomial\ \|\ core\text{-}poly/edge\text{-}exp\ \|\ tanh\ \|\ GP},\ N = 3, \sigma\text{-}\mathrm{weighted};\ T > 0:\ \mathrm{order\ stepped\ down}$ | `vaft.formula.utils.fit_profile` |  |
@@ -2451,7 +2451,7 @@ There is no single anomaly model: each diagnostic has its own checks. Magnetics 
 | Clipping detection | derived | $\mathrm{PF,\ diamagnetic,\ TF}$ | `vaft.process.signal_processing.detect_clipped_samples` |  |
 | H-alpha usability | derived | $\mathrm{finite,\ not\ railed,\ live\ baseline}$ | `vaft.omas.plasma_timing.halpha_usability` |  |
 | Channel validity | standardized IMAS | $0,\ 1,\ -2$ | `vaft.validation.magnetics.project_validity` | `magnetics.{flux_loop[:].flux | b_field_pol_probe[:].field | ip[:]}.validity_timed` |
-| Rogowski validity | standardized IMAS | $\mathrm{one\ value\ per\ record}$ |  | `magnetics.rogowski_coil[:].current.validity` |
+| Plasma-current Rogowski validity | standardized IMAS | $\mathrm{one\ value\ per\ record}$ |  | `magnetics.rogowski_coil[0].current.validity` |
 | Repaired interval | derived | $x_i(t)\ \mathrm{across\ the\ clipped\ samples}$ | `vaft.process.signal_processing.repair_clipped_interval` |  |
 | Light sources for timing | derived | $\mathrm{usable}\ H_\alpha\ \mathrm{channels}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
 
