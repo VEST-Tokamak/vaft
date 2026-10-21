@@ -403,14 +403,14 @@ def verify_continuity(equilibrium: Any, *, time_slice: int | Sequence[int] | Non
 
 
 def verify_convention(equilibrium: Any, *, time_slice: int) -> dict[str, Any]:
-    """COCOS sign relations for one slice, via :func:`vaft.process.cocos.validate_cocos`.
+    """COCOS sign relations for one slice, via :func:`vaft.validation.cocos.validate_cocos`.
 
     A violated relation is a ``fail``; a violated q sign only is a ``warn``
     (codes commonly emit ``|q|``); an undeclared index, or one whose inputs are
     unavailable, is ``indeterminate`` -- the relations were not checked, which
     is not the same as their holding.
     """
-    from vaft.process.cocos import validate_cocos
+    from vaft.validation.cocos import validate_cocos
 
     index = int(time_slice)
     try:

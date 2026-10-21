@@ -1,0 +1,49 @@
+{
+  "contract_version": 1,
+  "generated_at": "2026-10-02T14:14:05.517015+00:00",
+  "command": "build_table.py --state /home/user1/runs/campaign/atlas/v1/state.csv --filedb /home/user1/runs/campaign/filedb --out /home/user1/runs/campaign/atlas/confinement --spitzer",
+  "vaft_git": "bd7cc70735bc8dbccbb5934891a272ec0a55197a",
+  "vaft_dirty": false,
+  "inputs": {
+    "state": {
+      "path": "/home/user1/runs/campaign/atlas/v1/state.csv",
+      "sha256": "d023ee87da53b7cf09a48a79663d2987f423bafe696099781a1b4100f202480a"
+    },
+    "filedb": "/home/user1/runs/campaign/filedb"
+  },
+  "parameters": {
+    "dwdt_window_s": 0.003,
+    "rate_polyorder": 1,
+    "dip_window_s": 0.001,
+    "vloop_window_s": 0.0005,
+    "effective_mass_amu": 1.0,
+    "spitzer": true,
+    "z_eff": 2.0,
+    "ln_lambda": 17.0
+  },
+  "selection_thresholds": {
+    "ip_min": 30000.0,
+    "max_dwdt_fraction": 1.0,
+    "max_ip_change_per_tau": 0.2
+  },
+  "selection_thresholds_status": "primary selection decided 2026-10-02 on #1490; accepted/selected apply it; the sensitivity set is fit.py SELECTIONS['sensitivity']; threshold_sweep.csv gives the count on a grid",
+  "assumptions": {
+    "p_ohm": "I_p,meas * (V_loop,meas - (1/I_p) dW_int/dt), W_int = mu0 R0 li_3 I_p^2/4 (Romero 2010 eq. 24)",
+    "v_loop": "inboard-midplane flux loop, mean over 0.0005 s",
+    "dip_dt": "local quadratic fit over 0.001 s of the measured Ip",
+    "dwdt": "local degree-1 fit over 0.003 s of W_mhd on the shot's labelled (good/admissible) EFIT slices only; NaN with one labelled slice, where dli_3/dt is unavailable too (likewise at labelled slices further apart than the window) and l_i is held fixed in V_ind there, so P_OH and R_p are still computed",
+    "li_3": "vaft.omas.update.update_equilibrium_global_quantities_beta_li after #1477",
+    "p_rad": "not measured (no bolometer mapping): NaN; P_transport undefined",
+    "m_eff_amu": "1.0 (H+ per state key contract v1; not measured)",
+    "external_inductance": "flux between the inboard loop and the LCFS is not removed",
+    "tau_e_kin": "W_kin of the paired electron_kinetic state over the magnetics P_net: its dW/dt is dW_mhd/dt, since a single kinetic slice per shot has no rate of its own",
+    "spitzer": "Z_eff=2.0, ln_Lambda=17.0 stated explicitly (#1188)"
+  },
+  "rows": 133,
+  "quality_status": {
+    "evaluated": 133
+  },
+  "accepted": 59,
+  "shots": 32,
+  "shot_failures": 0
+}

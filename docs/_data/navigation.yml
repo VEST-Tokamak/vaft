@@ -83,6 +83,9 @@ sections:
       - id: reduced-representations
         title: Reduced representations
         url: /reference/reduced-representations/
+      - id: particle-motion
+        title: Particle motion and invariants
+        url: /guide/particle-motion/
       - id: diagrams
         title: Scientific diagrams
         url: /reference/diagrams/

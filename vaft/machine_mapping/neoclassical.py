@@ -18,6 +18,8 @@ NEO native                  IMAS destination                              units 
 ``transport.particle_flux`` ``core_transport.../particles.flux``          m^-2.s^-1           derived
 ``transport.energy_flux``   ``core_transport.../energy.flux``             W.m^-2              derived
 ``coordinates.rho_tor_norm````.../grid_flux.rho_tor_norm``, ``grid.``     -                   exact
+``species.z``               ``core_transport.../ion.z_ion``               e                   exact
+``species.z`` (matched)     ``core_transport.../ion.element.z_n``         e                   from core_profiles
 ``theory.*``                --                                            normalised          unmapped
 ``transport.*_velocity``    --                                            normalised          unmapped
 ``equilibrium``, ``grid``   --                                            normalised          unmapped
@@ -575,11 +577,23 @@ def core_transport_from_neo(
     *,
     time: float = 0.0,
     time_index: int = 0,
+    species_source: Optional[ODS] = None,
+    species_index: Optional[int] = None,
 ) -> dict[str, Any]:
     """Write NEO's particle and energy fluxes into ``core_transport``.
 
     The model entry is identified as neoclassical (index 5) and is reused on a
     second call rather than duplicated.
+
+    Parameters
+    ----------
+    species_source, species_index
+        The ODS, and its ``core_profiles`` slice, that NEO's input was built from.
+        NEO carries ion charges only, so an ion's nuclear charge is read from the
+        ion at the same position there (see :func:`_nuclear_charge`). Default:
+        *ods* itself, the slice found at *time*. A product written into a fresh ODS
+        must pass its source state, or ``z_n`` is left unset and reported as
+        skipped -- except for a fully stripped ``impurity=`` species.
 
     Returns
     -------
@@ -640,11 +654,23 @@ def core_transport_from_neo(
         ods[f"{ion}.particles.flux"] = particle[species] * scales.particle_flux
         ods[f"{ion}.energy.flux"] = energy[species] * scales.energy_flux
         ods[f"{ion}.z_ion"] = float(charge[species])
-        if mass is not None:
-            # NEO carries mass relative to deuterium; input.gacode's own unit is
-            # amu, which is what IMAS wants.
-            ods[f"{ion}.element.0.a"] = float(np.atleast_1d(mass)[species]) * 2.0
-            ods[f"{ion}.element.0.z_n"] = float(charge[species])
+        # NEO carries mass relative to deuterium; input.gacode's own unit is
+        # amu, which is what IMAS wants.
+        amu = None if mass is None else float(np.atleast_1d(mass)[species]) * 2.0
+        if amu is not None:
+            ods[f"{ion}.element.0.a"] = amu
+        nuclear, reason = _nuclear_charge(
+            ods if species_source is None else species_source,
+            float(time), position, float(charge[species]), amu, index=species_index,
+        )
+        if nuclear is None:
+            skipped.append(f"ion.{position}.element.0.z_n ({reason})")
+            # A re-map into an entry an older mapper wrote must not leave its
+            # z_n = charge behind as if this run had confirmed it.
+            if f"{ion}.element.0.z_n" in ods:
+                del ods[f"{ion}.element.0.z_n"]
+        else:
+            ods[f"{ion}.element.0.z_n"] = nuclear
         written.extend([f"ion.{position}.particles.flux", f"ion.{position}.energy.flux"])
 
     skipped.append(
@@ -668,8 +694,121 @@ def core_transport_from_neo(
             np.ravel(np.asarray(ods["equilibrium.vacuum_toroidal_field.r0"], dtype=float))[0]
         )
 
-    _write_provenance(ods, native, "core_transport")
+    _write_provenance(ods, native, "core_transport", model=model)
     return {"model": model, "written": written, "skipped": skipped}
+
+
+#: Two slice times closer than this are the same slice (the summary's tolerance).
+_TIME_TOLERANCE_S = 1.0e-6
+
+
+def _scalar(value: Any) -> float:
+    """One finite-or-NaN float from a scalar or a one-element array; NaN otherwise."""
+    if value is None:
+        return float("nan")
+    flat = np.ravel(np.asarray(value, dtype=float))
+    return float(flat[0]) if flat.size == 1 else float("nan")
+
+
+def _nuclear_charge(
+    ods: ODS,
+    time: float,
+    position: int,
+    charge: float,
+    amu: Optional[float],
+    *,
+    index: Optional[int] = None,
+) -> tuple[Optional[float], str]:
+    """``element.0.z_n`` for NEO's ion number *position*, from where that ion came from.
+
+    NEO's species list carries the *ion* charge only. The nuclear charge equals it
+    only for a fully stripped ion, which a non-coronal VEST impurity is not, so it
+    is read rather than assumed (the NCLASS IMAS interface copies ``z_n`` from
+    ``core_profiles`` for the same reason):
+
+    1. **The core_profiles ion at the same position.** ``input.gacode`` lists the
+       ions in ``core_profiles`` order and NEO keeps that order, so the link is
+       positional -- *not* by charge, because a bundled ion (``z_ion_1d``) reaches
+       NEO as a lumped charge that matches neither its stored ``z_ion`` nor any
+       surface. The ion is accepted only if it is consistent with what NEO ran:
+       mass within 0.5 amu when both carry one, a fixed ``z_ion`` equal to NEO's
+       charge, and that charge no larger than the ion's ``z_n``. *index* names the
+       ``core_profiles`` slice outright (the one NEO's input was paired from);
+       otherwise the slice at *time* is used.
+    2. **A species ``impurity=`` synthesized**, appended after the ``core_profiles``
+       ions: :data:`vaft.code.gacode.inputs.IMPURITIES` writes those fully
+       stripped, so a charge and mass equal to an entry there have ``z_n = Z``.
+
+    Returns ``(None, reason)`` when neither answers.
+    """
+    from vaft.code.gacode.inputs import IMPURITIES
+
+    def synthesized() -> Optional[float]:
+        for z, mass, _ in IMPURITIES.values():
+            if abs(charge - z) <= 1.0e-6 and amu is not None and abs(amu - mass) <= 0.5:
+                return float(z)
+        return None
+
+    if index is not None:
+        if index >= path_count(ods, "core_profiles.profiles_1d"):
+            return synthesized(), f"the species source has no core_profiles slice {index}"
+        slices = [int(index)]
+    else:
+        shared = None
+        if "core_profiles.time" in ods:
+            shared = np.atleast_1d(np.asarray(ods["core_profiles.time"], dtype=float))
+        slices = []
+        for candidate in range(path_count(ods, "core_profiles.profiles_1d")):
+            own = _scalar(ods.get(f"core_profiles.profiles_1d.{candidate}.time", None))
+            if not np.isfinite(own) and shared is not None and candidate < shared.size:
+                own = float(shared[candidate])
+            if abs(own - time) <= _TIME_TOLERANCE_S:
+                slices.append(candidate)
+        if len(slices) != 1:
+            found = synthesized()
+            return found, (
+                "no species source was given and the mapped ODS has no core_profiles "
+                f"slice at t = {time:g} s (pass species_source=); NEO carries the ion "
+                "charge only, which equals the nuclear charge only for a fully stripped ion"
+                if not slices else
+                f"{len(slices)} core_profiles slices at t = {time:g} s in the species source"
+            )
+    base = f"core_profiles.profiles_1d.{slices[0]}"
+    count = path_count(ods, f"{base}.ion")
+    if position >= count:
+        found = synthesized()
+        return found, (
+            f"NEO ion {position} lies beyond the {count} ions of {base} and is not a "
+            "fully stripped species from vaft.code.gacode.inputs.IMPURITIES"
+        )
+    ion = f"{base}.ion.{position}"
+    nuclear = _scalar(ods.get(f"{ion}.element.0.z_n", None))
+    # Each test is written `not (... <= ...)` so that a NaN fails it rather than
+    # passing as a wildcard.
+    if not np.isfinite(nuclear):
+        # A trailing entry without a charge is one input.gacode never read (the
+        # adapter stops at the first such entry), so an appended impurity= species
+        # can still sit at this position.
+        return synthesized(), f"{ion} carries no element.0.z_n"
+    a = _scalar(ods.get(f"{ion}.element.0.a", None))
+    if amu is not None and np.isfinite(a) and not abs(a - amu) <= 0.5:
+        return None, (
+            f"{ion} has mass {a:.3g} amu but NEO ion {position} has {amu:.3g}; the "
+            "species lists do not correspond"
+        )
+    if not (0.0 < charge <= nuclear + 1.0e-6):
+        return None, (
+            f"NEO ion {position} has charge {charge:g}, which {ion} (z_n = {nuclear:g}) "
+            "cannot carry; the species lists do not correspond"
+        )
+    z_ion = _scalar(ods.get(f"{ion}.z_ion", None))
+    bundled = ods.get(f"{ion}.z_ion_1d", None) is not None
+    if np.isfinite(z_ion) and not bundled and not abs(z_ion - charge) <= 1.0e-6:
+        return None, (
+            f"{ion} has fixed charge {z_ion:g} but NEO ion {position} has {charge:g}; "
+            "the species lists do not correspond"
+        )
+    return nuclear, ""
 
 
 def _model_position(ods: ODS) -> int:
@@ -684,22 +823,33 @@ def _model_position(ods: ODS) -> int:
     return count
 
 
-def _write_provenance(ods: ODS, native: Any, ids: str, *, conductivity: Any = None) -> None:
+def _write_provenance(
+    ods: ODS, native: Any, ids: str, *, conductivity: Any = None, model: Optional[int] = None
+) -> None:
     """Record the solver identity and every correspondence that is not exact.
 
     The caveats are attributes rather than prose so that a consumer can test
     them, following ``mhd_linear``'s convention. Angle brackets are escaped:
     a literal ``</parameters>`` in a fragment closes the envelope early, and
     the splice does not check (issue #642).
+
+    In ``core_transport`` the record goes on the neoclassical *model* entry, as
+    the classical, TGLF and gyrokinetic mappers do: the IDS-level ``code`` would
+    name NEO as the producer of every model sharing the IDS.
     """
     version = getattr(native, "version", None) or {}
     revision = str(version.get("revision", "")).replace("<", "").replace(">", "")
     if ids != "core_transport" or ods.get(f"{ids}.ids_properties.homogeneous_time", None) != 0:
         ods[f"{ids}.ids_properties.homogeneous_time"] = 1
-    ods[f"{ids}.code.name"] = "NEO"
-    ods[f"{ids}.code.repository"] = "https://github.com/gafusion/gacode"
+    owner = ids if model is None else f"{ids}.model.{model}"
+    if model is not None and str(ods.get(f"{ids}.code.name", "")).strip() == "NEO":
+        # Written by this mapper before provenance moved onto the model; left in
+        # place it would keep naming NEO as the producer of every model here.
+        del ods[f"{ids}.code"]
+    ods[f"{owner}.code.name"] = "NEO"
+    ods[f"{owner}.code.repository"] = "https://github.com/gafusion/gacode"
     if revision:
-        ods[f"{ids}.code.version"] = revision
+        ods[f"{owner}.code.version"] = revision
 
     fragment = (
         "<neo>"
@@ -725,7 +875,7 @@ def _write_provenance(ods: ODS, native: Any, ids: str, *, conductivity: Any = No
         + _conductivity_fragment(conductivity)
         + "</neo>"
     )
-    path = f"{ids}.code.parameters"
+    path = f"{owner}.code.parameters"
     existing = ods.get(path, None)
     if not existing:
         ods[path] = f"<parameters>{fragment}</parameters>"

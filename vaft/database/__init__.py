@@ -42,6 +42,7 @@ __all__ = [
     "open",
     "save",
     "summary",
+    "summary_from_ods",
     "equilibrium_summary",
     "export_summary",
     "get_summary_preset",
@@ -159,12 +160,20 @@ def load(
     imas_version: str | None = None,
     cache: str = "auto",
     transport: Literal["auto", "canonical", "h5image"] = "auto",
+    cache_max: int | str | None = None,
 ):
     """Materialize an OMAS ODS or native IMAS IDS from remote HSDS storage.
 
     ``source`` names the HSDS namespace and defaults to ``main``; pass
     ``"public"`` to read the legacy reference. ``directory`` is a deprecated
     alias for ``source``.
+
+    ``cache="auto"`` keeps validated HSDS domains in a local cache bounded by
+    ``cache_max`` (bytes or e.g. ``"500M"``; ``0`` disables caching, ``"none"``
+    removes the cap). When ``cache_max`` is not given the cap comes from
+    ``$VAFT_HSDS_CACHE_MAX``, then ``hsds.cache_max`` in the user config file,
+    then 1 GiB; least-recently-used domains are evicted first. ``vaft cache``
+    inspects and prunes it (:mod:`vaft.database.hsds_cache`).
     """
     from .sources import resolve
 
@@ -196,6 +205,7 @@ def load(
             imas_version=version,
             cache=cache,
             transport=transport,
+            cache_max=cache_max,
         )
     if representation != "imas":
         raise ValueError("representation must be 'omas' or 'imas'")
@@ -219,6 +229,7 @@ def load(
         dd_version=version,
         cache=cache,
         transport=transport,
+        cache_max=cache_max,
     )
 
 
@@ -346,18 +357,41 @@ def _is_imas_ids(obj) -> bool:
     return isinstance(obj, IDSToplevel)
 
 
-def summary(shot_range=None, *, preset="equilibrium_global", source=None, directory=None):
+def summary(shot_range=None, *, preset="equilibrium_global", source=None, directory=None,
+            odss=None):
     """Return a canonical preset summary for a range or all available shots.
 
     ``source`` names the HSDS namespace and defaults to ``main``; ``directory``
     is a deprecated alias for it.
+
+    With ``odss`` (a ``{shot: ods}`` mapping or ODS objects carrying
+    ``dataset_description.data_entry.pulse``) the table is built offline from
+    those in-memory ODS instead, through the same extractor and column rules;
+    see :func:`summary_from_ods`. ``shot_range`` must then be omitted, and
+    ``source`` (default ``"local"``) only labels the source columns.
+    ``result.attrs["skipped"]`` lists the shots that failed, on either path.
     """
+    if odss is not None:
+        if shot_range is not None or directory is not None:
+            raise TypeError("odss= builds the table offline; omit shot_range and directory")
+        return summary_from_ods(odss, preset=preset, source="local" if source is None else source)
     from ._summary import summary as _summary
     from .sources import resolve
 
     # Resolve here so a deprecated alias is reported against the caller's frame
     # rather than this wrapper.
     return _summary(shot_range, preset=preset, source=resolve(source, directory=directory))
+
+
+def summary_from_ods(odss, *, preset="equilibrium_global", source="local"):
+    """Return the canonical preset summary of in-memory ODS (no database).
+
+    The same table :func:`summary` returns for database shots holding the same
+    data; see :func:`vaft.database._summary.summary_from_ods`.
+    """
+    from ._summary import summary_from_ods as _summary_from_ods
+
+    return _summary_from_ods(odss, preset=preset, source=source)
 
 
 def equilibrium_summary(shots, **kwargs):
@@ -384,7 +418,7 @@ def get_summary_preset(name):
 
 
 def export(shot, source=None, *, backend, output=None, overwrite=False, occurrence=0,
-           cache="auto", transport="auto"):
+           cache="auto", transport="auto", cache_max=None):
     """Export one shot from an HSDS source as portable local files.
 
     ``backend`` is one name or several of ``imas-hdf5``, ``imas-nc``,
@@ -401,6 +435,8 @@ def export(shot, source=None, *, backend, output=None, overwrite=False, occurren
     stages wrote different minor versions); a mix of major versions is refused,
     and ``geqdsk`` requires DD 3 (DD 4 is COCOS 17).
 
+    ``cache`` and ``cache_max`` are those of :func:`load`.
+
     Returns ``{backend: path}`` in the order requested.
     """
     from ._export import export as _export
@@ -414,6 +450,7 @@ def export(shot, source=None, *, backend, output=None, overwrite=False, occurren
         occurrence=occurrence,
         cache=cache,
         transport=transport,
+        cache_max=cache_max,
     )
 
 

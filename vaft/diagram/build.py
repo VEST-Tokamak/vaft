@@ -43,6 +43,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
         f"magnetic_island_{projection}.svg": ("magnetic_island", {**REFERENCE_ISLAND, "projection": projection})
         for projection in ("poloidal", "top", "3d")
     },
+    # Computed static references share the time-selected particle animation model (#2003).
+    **{f"{name}.svg": (name, {}) for name in ("gyration", "grad_b_drift", "magnetic_mirror")},
     "magnetic_island_phase_scan.svg": ("magnetic_island", {"m": 2, "n": 1, "width": 0.24, "phase": 0.0, "projection": "poloidal", "labels": False}),
     # stability and operational-space charts, at their documented defaults
     **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "hugill_st", "troyon")},
@@ -187,6 +189,10 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "neoclassical_collisionality.svg": ("neoclassical_collisionality", {}),
     "ntv_collisionality.svg": ("ntv_collisionality", {}),
     "ntv_precession_regimes.svg": ("ntv_precession_regimes", {}),
+    # canonical turbulence concepts: drift waves, cross-phase, saturation, shear, zonal flows, scales (#1112)
+    **{f"{name}.svg": (name, {}) for name in (
+        "drift_wave_transport_cycle", "cross_phase_transport", "mixing_length_saturation", "exb_shear_decorrelation",
+        "zonal_flow_feedback", "turbulence_scale_hierarchy")},
     # wall conditioning as wall-state transitions (#1051)
     "wall_conditioning_baking.svg": ("wall_conditioning_baking", {}),
     "wall_conditioning_gdc_deuterium.svg": ("wall_conditioning_gdc", {"gas": "D2"}),
@@ -257,6 +263,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
     "software_dependency_ecosystem.svg": ("software_dependency_ecosystem", {}),
     "external_code_integration.svg": ("external_code_integration", {}),
+    "pictogram_catalog.svg": ("pictogram_catalog", {}),
     # the physics-workflow spine, level 2 below the platform overview (#1585)
     **{f"{name}.svg": (name, {}) for name in (
         "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",

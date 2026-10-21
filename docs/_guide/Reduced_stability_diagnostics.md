@@ -77,9 +77,9 @@ unstable only within its model.
 
 Deprecated heuristics stay for backward compatibility and warn when called: `kink_stability_criterion`
 ($\beta_{N,crit} = 2.8\,q_{95}$, unsourced), `sawtooth_stability_criterion`, `beta_stability_boundary` and
-`plasma_stability_margins`. `power_limit_from_beta` and `power_limit_from_q` are misnamed: they are
-rearranged $\beta$ and $q$ relations, not power limits. They are listed as heuristics and are not yet
-deprecated.
+`plasma_stability_margins`. The misnamed `power_limit_from_beta` ($\beta_N B_0^2 V/2\mu_0$, an energy:
+`stored_energy_from_beta_V` gives $\langle p\rangle V$ from the fractional $\beta_t$, not $\beta_N$) and
+`power_limit_from_q` (A²) were removed in #362; `current_limit_from_beta` is deprecated.
 
 ## Suydam and Mercier
 

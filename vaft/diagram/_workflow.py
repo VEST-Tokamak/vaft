@@ -32,6 +32,7 @@ from ._concept import Box, box as _concept_box, connector, escape_latex
 from ._equations import formula_equation
 from ._render import Diagram
 from ._scene import Label, Polyline, Scene
+from .pictograms import pictogram
 
 #: how a quantity was obtained, in reading order; each has one style
 KINDS: Tuple[str, ...] = ("measured", "reconstructed", "derived", "inferred", "synthetic", "prior", "convention",
@@ -42,6 +43,14 @@ KIND_LABEL: Dict[str, str] = {
     "convention": "model choice / convention",
     "machine": "machine geometry / static data", "code_input": "code input", "solver": "solver / model",
     "native_result": "native result", "standardized": "standardized IMAS",
+}
+#: each kind's pictogram in the legend (#2114), one distinct symbol per kind: supplementary to the
+#: swatch and ``KIND_LABEL``, which stay authoritative; it says nothing about implementation status
+KIND_SYMBOL: Dict[str, str] = {
+    "measured": "signal", "reconstructed": "reconstruction", "derived": "calculation", "inferred": "inference",
+    "synthetic": "synthetic", "prior": "parameters", "convention": "coordinates", "machine": "tokamak",
+    "code_input": "input_file", "solver": "computation", "native_result": "output_file",
+    "standardized": "standardized",
 }
 #: kinds that enter a step from the side: configuration of the step, not its physical input chain
 SIDE_KINDS = ("prior", "convention", "machine")
@@ -398,7 +407,7 @@ def _render_workflow(spec: WorkflowSpec, *, labels: bool = True, references: boo
         # wrapped to the figure's width so a many-kind legend never widens the figure
         left = min(b.x - 0.5 * b.width for b in boxes.values())
         right = max(b.x + 0.5 * b.width for b in boxes.values())
-        widths = {k: 0.9 + 0.2 * len(KIND_LABEL[k]) for k in used}  # swatch + label, by label length
+        widths = {k: 1.1 + 0.2 * len(KIND_LABEL[k]) for k in used}  # swatch (holding its pictogram) + label
         lines: List[List[str]] = [[]]
         for kind in used:
             if lines[-1] and sum(widths[k] for k in lines[-1]) + widths[kind] > max(right - left, 12.0):
@@ -408,13 +417,15 @@ def _render_workflow(spec: WorkflowSpec, *, labels: bool = True, references: boo
         for line in lines:
             x = 0.5 * (left + right) - 0.5 * sum(widths[k] for k in line)
             for kind in line:
-                items += [Polyline.of([(x, ly - 0.17), (x + 0.45, ly - 0.17), (x + 0.45, ly + 0.17),
-                                       (x, ly + 0.17)],
+                # the kind's swatch, wide enough to carry its pictogram inside (#2114)
+                items += [Polyline.of([(x, ly - 0.24), (x + 0.62, ly - 0.24), (x + 0.62, ly + 0.24),
+                                       (x, ly + 0.24)],
                                       f"{kind_style(kind)},rounded corners=1pt", role=f"legend:{kind}", closed=True),
-                          Label((x + 0.55, ly), escape_latex(KIND_LABEL[kind]), "concept annotation", anchor="west",
+                          Label((x + 0.74, ly), escape_latex(KIND_LABEL[kind]), "concept annotation", anchor="west",
                                 role=f"legend:{kind}")]
+                items += pictogram(KIND_SYMBOL[kind], (x + 0.31, ly), 0.36, role=f"symbol:legend:{kind}").items
                 x += widths[kind]
-            ly -= 0.55
+            ly -= 0.62  # the swatches are 0.48 cm tall
         # the cited works, numbered as the nodes tag them
         for ref, n in numbers.items():
             items.append(Label((left, ly - 0.1), escape_latex(f"[{n}] {ref.replace('*', '')}"), "concept annotation",

@@ -85,12 +85,21 @@ class Terminated(BaseException):
         """Deliver the signal again, now that the default disposition is back.
 
         The process then ends by the signal, as it would have without VAFT in
-        the way.
+        the way. Inside an enclosing :func:`forward_termination` block (a scan
+        waiting on one of several jobs, #1018) this returns instead, so the
+        caller's ``raise`` hands the signal to that block, which stops its
+        other jobs before redelivering it itself.
         """
+        if _ACTIVE[0] > 0:
+            return
         # Terminated only exists where the default disposition was taken over;
         # put it back even if the handler swap was cut short.
         signal.signal(self.signum, signal.SIG_DFL)
         signal.raise_signal(self.signum)
+
+
+#: How many :func:`forward_termination` blocks the main thread is inside.
+_ACTIVE = [0]
 
 
 def _forwarded() -> list[int]:
@@ -113,6 +122,7 @@ def forward_termination() -> Iterator[None]:
         return
     signums = _forwarded()
     replaced: list[int] = []
+    _ACTIVE[0] += 1
 
     def _stop(signum: int, frame: Any) -> None:
         raise Terminated(signum)
@@ -129,6 +139,7 @@ def forward_termination() -> Iterator[None]:
                 replaced.append(signum)
         yield
     finally:
+        _ACTIVE[0] -= 1
         with _blocked(signums):
             for signum in replaced:
                 signal.signal(signum, signal.SIG_DFL)

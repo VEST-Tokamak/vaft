@@ -81,6 +81,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_no_pyplot_outside_plot.py",
     "test_plot_backend_boundaries.py",
     "test_validation_architecture.py",
+    # IMPA grading moved into vaft.validation (#339): vocabulary, DD codes, old names; 3 s.
+    "test_validation_impa.py",
     # Flux-coordinate conventions, and where a renderer puts a feature because
     # of them. Cheap: a Solov'ev equilibrium and a synthetic GPEC run, no
     # solver. Added after V5P found an island figure drawing its O-points a
@@ -251,10 +253,12 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_blob.py",
     "test_diagram_cold_plasma_waves.py",
     "test_diagram_collision.py",
+    "test_diagram_concept_pictograms.py",
     "test_diagram_current_diffusion.py",
     "test_diagram_cylindrical_modes.py",
     "test_diagram_disruption.py",
     "test_diagram_divertor_footprint.py",
+    "test_diagram_docs_pictograms.py",
     "test_diagram_equilibrium_phenomena.py",
     "test_diagram_equilibrium_profiles.py",
     "test_diagram_field_aligned.py",
@@ -274,6 +278,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_ordering_contracts.py",
     "test_diagram_orderings.py",
     "test_diagram_particle_motion.py",
+    "test_diagram_pictograms.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
     "test_diagram_reduced_representations.py",
@@ -289,6 +294,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_tokamak_geometry.py",
     "test_diagram_transport.py",
     "test_diagram_transport_regimes.py",
+    "test_diagram_turbulence.py",
     "test_diagram_vaft_concepts.py",
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
@@ -321,9 +327,18 @@ CORE_MODULES: tuple[str, ...] = (
     # a recording backend. No solver runs; about 20 s.
     "test_gpec_adapter.py",
     "test_gpec_pentrc_runner.py",
+    # PENTRC log cap (#1929): head/tail kept, a stalled run stopped. Python
+    # child processes only; about 3 s.
+    "test_gpec_log_cap.py",
     # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",
+    # Atlas V&V population and snapshot contracts (#1835): synthetic tables,
+    # mocked product evaluation and offline plot fixtures; no server or solver.
+    "test_equilibrium_quality_plots.py",
+    "test_kinetic_state_pressure_plots.py",
+    "test_validation_kinetic_population.py",
+    "test_verification_snapshot_capture.py",
     # Transport atlas (lane T): the shared transport-state resolver on the packaged
     # 48224 ODS made multi-slice with offset times, the TGLF spectrum parser on the
     # reg05 fixture, and the routine driver with a fake runner. No solver runs.

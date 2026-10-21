@@ -799,10 +799,13 @@ def test_verification_notebook_snapshot_contract():
 
     snapshot = NOTEBOOKS / "data" / "verification_and_validation"
     manifest = json.loads((snapshot / "snapshot_manifest.json").read_text())
+    assert manifest["snapshot_version"] == 2 and not manifest["virial_compute_dirty"]
     for relative, expected in manifest["sha256"].items():
         assert hashlib.sha256((snapshot / relative).read_bytes()).hexdigest() == expected
     export_script = NOTEBOOKS.parent / manifest["virial_export_script"]
     assert hashlib.sha256(export_script.read_bytes()).hexdigest() == manifest["virial_export_script_sha256"]
+    capture_script = NOTEBOOKS.parent / manifest["snapshot_capture_script"]
+    assert hashlib.sha256(capture_script.read_bytes()).hexdigest() == manifest["snapshot_capture_script_sha256"]
 
     state = pd.read_csv(snapshot / "v1/state.csv")
     profiles = pd.read_csv(snapshot / "v1/profiles.csv")
@@ -818,6 +821,11 @@ def test_verification_notebook_snapshot_contract():
     assert (virial.identities_available == 3).all()
     virial_pairs = virial[["beta_p_volume", "beta_p_pair_13", "li_volume", "li_pair_13"]].to_numpy(dtype=float)
     assert np.isfinite(virial_pairs).all() and (virial_pairs > 0).all()
+    from vaft.validation.kinetic_population import CONDITIONING_QUANTITIES
+    assert np.isfinite(virial[list(CONDITIONING_QUANTITIES)].to_numpy(dtype=float)).all()
+    assert len(manifest["products_sha256"]) == 49
+    assert all(manifest["products_sha256"][r.efit_product] == r.efit_product_sha256
+               for r in virial.itertuples())
     assert set(map(tuple, profiles[key].to_numpy())) <= set(map(tuple, state[key].to_numpy()))
 
 

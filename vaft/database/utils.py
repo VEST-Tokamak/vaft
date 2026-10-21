@@ -189,6 +189,25 @@ def ensure_imas_hdf5_userblock(path: Union[str, Path], entry_dir: Union[str, Pat
     tmp_path.replace(file_path)
 
 
+# The HTTP stack logs every request at INFO/DEBUG. These helpers used to lower
+# the *root* logger to WARNING, which silenced INFO logging for the whole
+# process -- for the hosted GUI, for every session at once (#1936). Only the
+# two noisy libraries are quietened now, and only when nobody configured them.
+_NOISY_HTTP_LOGGERS = ("h5pyd", "urllib3")
+
+
+def _quiet_http_loggers() -> None:
+    """Raise the h5pyd and urllib3 loggers to WARNING unless already configured.
+
+    A logger whose level was set explicitly (e.g. ``urllib3`` at DEBUG while
+    debugging a connection) is left alone; the root logger is never touched.
+    """
+    for name in _NOISY_HTTP_LOGGERS:
+        logger = logging.getLogger(name)
+        if logger.level == logging.NOTSET:
+            logger.setLevel(logging.WARNING)
+
+
 def is_connect() -> bool:
     """
     Check if the user is connected to the HSDS server.
@@ -196,7 +215,7 @@ def is_connect() -> bool:
     Returns:
         bool: True if connected and server is READY, False otherwise.
     """
-    logging.getLogger().setLevel(logging.WARNING)
+    _quiet_http_loggers()
     try:
         return h5pyd.getServerInfo().get("state") == "READY"
     except requests.exceptions.ConnectTimeout:
@@ -324,7 +343,7 @@ def exist_shot(
               - pd.DataFrame with columns: Index, Shot Number, Last Processed, Status
               - None on error or no matching data
     """
-    logging.getLogger().setLevel(logging.WARNING)
+    _quiet_http_loggers()
 
     _filter = data_filter.lower().strip() if isinstance(data_filter, str) else data_filter
     source = resolve_source(source, directory=username)
@@ -478,7 +497,7 @@ def _read_processed_registry(
         DataFrame with columns Index, Shot Number, Last Processed, Status, or
         None on error / when the group is missing or empty.
     """
-    logging.getLogger().setLevel(logging.WARNING)
+    _quiet_http_loggers()
 
     try:
         uri = processed_registry_uri(source)

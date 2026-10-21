@@ -466,11 +466,12 @@ _SPECS = (
             N("ct_tglf", "Turbulent transport (TGLF)", "standardized",
               api="vaft.machine_mapping.turbulence.core_transport_from_tglf", ids="core_transport.model[:]",
               symbols=r"Q_s,\ \Gamma_s\ \mathrm{(quasilinear)}",
-              mapping_todo="no TGLF to gyrokinetics_local writer"),
+              mapping_todo="gyrokinetics_local (via gyrokinetics_local_from_tglf) not stored by any stage (#1128/#1129)"),
             N("gk_local", "Gyrokinetic run (CGYRO)", "standardized",
               api="vaft.machine_mapping.gyrokinetics.gyrokinetics_local_from_cgyro",
               ids="gyrokinetics_local.{linear.wavevector[:].eigenmode[:], non_linear.fluxes_1d}",
-              symbols=r"\gamma,\ \omega;\ \langle Q_s\rangle_t,\ \langle\Gamma_s\rangle_t"),
+              symbols=r"\gamma,\ \omega;\ \langle Q_s\rangle_t,\ \langle\Gamma_s\rangle_t",
+              mapping_todo="gyrokinetics_local not stored by any stage (#1128/#1129)"),
         ),
         rows=(("eq", "cp"), ("state",), ("tglf_in", "cgyro_in"), ("tglf", "cgyro"),
               ("tglf_out", "cgyro_lin", "cgyro_nl"), ("ct_tglf", "gk_local")),
@@ -485,7 +486,9 @@ _SPECS = (
                "input.cgyro by design: CGYRO recomputes it from the species list (Z_EFF_METHOD=2).",
                "No implemented local-gyrokinetic validity criterion (rho*): compare_with_oracle checks only the "
                "input translation against CGYRO's own projection.",
-               "No TGLF to gyrokinetics_local mapping."),
+               "gyrokinetics_local_from_tglf and gyrokinetics_local_from_cgyro write gyrokinetics_local, but no "
+               "pipeline stage stores that IDS: turbulent_transport owns core_transport only, and one occurrence "
+               "per flux surface awaits the #1128/#1129 occurrence model (#2020)."),
     ),
     # ------------------------------------------------------------------ plasma parameter inference (#1601)
     WorkflowSpec(
@@ -637,11 +640,14 @@ _SPECS = (
             N("cx", "Charge exchange (optional)", "measured",
               ids="charge_exchange.channel[:].ion[:].{t_i, velocity_tor}",
               symbols=r"T_i,\ v_\phi\ \mathrm{at}\ (R, Z)"),
-            N("mapping", "Flux-surface mapping", "derived",
+            N("mapping", "Flux-surface mapping (Thomson)", "derived",
               api="vaft.process.profile.equilibrium_mapping_thomson_scattering",
               symbols=r"(R,Z) \to \psi_N \to \rho_{\mathrm{pol}} = \sqrt{\psi_N}\qquad \rho_{\mathrm{tor},N}\ "
-                      r"\mathrm{from}\ \Phi = \int q\,d\psi;\ \mathrm{outside\ the\ LCFS:\ dropped}"),
-            N("coordinate", "Fitting coordinate", "convention",
+                      r"\mathrm{from}\ \Phi = \int q\,d\psi;\ \mathrm{outside\ the\ LCFS:\ NaN}"),
+            N("mapping_cx", "Flux-surface mapping (CX)", "derived",
+              api="vaft.process.profile.equilibrium_mapping_charge_exchange",
+              symbols=r"\mathrm{same\ coordinates};\ \mathrm{outside\ the\ LCFS:\ NaN}"),
+            N("coordinate", "Fitting coordinate (both fits)", "convention",
               symbols=r"x = \rho_{\mathrm{tor},N}\ (\mathrm{default})\ |\ \psi_N\ |\ \rho_{\mathrm{pol},N}"),
             N("fit_e", "Electron profile fit", "derived",
               api="vaft.process.profile.profile_fitting_thomson_scattering",
@@ -657,9 +663,10 @@ _SPECS = (
               ids="core_profiles.profiles_1d[:].{electrons, ion[0], *_fit}",
               symbols=r"T_e, n_e, T_i, v_\phi\qquad \mathrm{each\ with\ origin=\ldots;\ method=\ldots}"),
         ),
-        rows=(("ts", "eq", "cx"), ("mapping",), ("fit_e", "fit_i"), ("profiles",)),
-        edges=(("ts", "mapping", ""), ("eq", "mapping", ""), ("cx", "mapping", ""), ("mapping", "fit_e", ""),
-               ("mapping", "fit_i", ""), ("fit_e", "profiles", ""), ("fit_i", "profiles", "")),
+        rows=(("ts", "eq", "cx"), ("mapping", None, "mapping_cx"), ("fit_e", None, "fit_i"), ("profiles",)),
+        edges=(("ts", "mapping", ""), ("eq", "mapping", ""), ("eq", "mapping_cx", ""), ("cx", "mapping_cx", ""),
+               ("mapping", "fit_e", ""), ("mapping_cx", "fit_i", ""), ("fit_e", "profiles", ""),
+               ("fit_i", "profiles", "")),
         side=(("coordinate", "mapping"), ("model", "fit_e"), ("ratio", "fit_i")),
         todos=("Thomson and charge exchange are fitted separately and combined only in core_profiles; there is "
                "no joint multi-diagnostic fit.",
@@ -683,7 +690,8 @@ _SPECS = (
                       r"\mathrm{software:\ always\ available}"),
             N("neo_fit", "Neoclassical closures: Sauter / Redl", "derived",
               api="vaft.omas.neoclassical.compute_bootstrap_current", references=(_SAUTER, _REDL),
-              symbols=r"j_{\mathrm{bs}},\ \sigma_\parallel\ \mathrm{only:\ no}\ \Gamma_s,\ Q_s\qquad "
+              symbols=r"j_{\mathrm{bs}};\ \sigma_\parallel\ \mathrm{from\ a\ separate\ conductivity\ call};"
+                      r"\ \mathrm{no}\ \Gamma_s,\ Q_s\qquad "
                       r"\mathrm{software:\ always\ available}"),
             N("neo_code", "Neoclassical: NEO", "solver", api="vaft.code.gacode.neo.runner.run_neo_pair",
               references=(_BELLI_2008, _BELLI_2012),
@@ -812,14 +820,17 @@ _SPECS = (
         ),
         rows=(("shot",), ("era", "revisions", "schedule"), ("static", "provenance")),
         edges=(("shot", "era", ""), ("shot", "revisions", ""), ("shot", "schedule", ""), ("era", "static", ""),
-               ("revisions", "static", "wiring"), ("revisions", "provenance", "")),
+               ("revisions", "provenance", "")),
         side=(("conventions", "static"),),
         todos=("The VEST COCOS index is not resolved yet (vaft.machine_mapping.conventions."
                "equilibrium_orientation_is_resolved); the discharge sign contract stands in for it.",
                "The shot-log mapper writes pulse_schedule when called (vaft shotlog CLI) but "
                "build_diagnostics_ods does not call it.",
                "Wall and limiter history is the era table only; there is no per-component calibration lineage.",
-               "There is no single shot-to-machine object: era, revisions and provenance are separate lookups."),
+               "There is no single shot-to-machine object: era, revisions and provenance are separate lookups.",
+               "The static description is built per era, not per shot: PF, passive structure and coupling at the "
+               "era's reference shot, magnetics and TF as the un-gated inventory. Per-shot wiring and revisions "
+               "apply when the diagnostics IDS is built."),
     ),
     WorkflowSpec(
         key="signal_processing", title="Signal processing: raw digitizer records to a diagnostic IDS",
@@ -932,14 +943,16 @@ _SPECS = (
             N("validity", "Channel validity", "standardized", api="vaft.validation.magnetics.project_validity",
               ids="magnetics.{flux_loop[:].flux | b_field_pol_probe[:].field | ip[:]}.validity_timed",
               symbols=r"0,\ 1,\ -2"),
+            N("rog_validity", "Plasma-current Rogowski validity", "standardized",
+              ids="magnetics.rogowski_coil[0].current.validity", symbols=r"\mathrm{one\ value\ per\ record}"),
             N("repair", "Repaired interval", "derived", api="vaft.process.signal_processing.repair_clipped_interval",
               symbols=r"x_i(t)\ \mathrm{across\ the\ clipped\ samples}"),
             N("usable", "Light sources for timing", "derived", api="vaft.omas.plasma_timing.plasma_timing",
               symbols=r"\mathrm{usable}\ H_\alpha\ \mathrm{channels}"),
         ),
-        rows=(("signals",), ("mag", "rog", "clip", "halpha"), ("validity", None, "repair", "usable")),
+        rows=(("signals",), ("mag", "rog", "clip", "halpha"), ("validity", "rog_validity", "repair", "usable")),
         edges=(("signals", "mag", ""), ("signals", "rog", ""), ("signals", "clip", ""), ("signals", "halpha", ""),
-               ("mag", "validity", ""), ("rog", "validity", ""), ("clip", "repair", ""), ("halpha", "usable", "")),
+               ("mag", "validity", ""), ("rog", "rog_validity", ""), ("clip", "repair", ""), ("halpha", "usable", "")),
         side=(("known", "mag"),),
         todos=("No general anomaly model runs in the pipeline: vaft.process.ml provides the framework "
                "(PCA autoencoder, k-NN, one-class SVM) but no trained model ships with the package.",
@@ -970,7 +983,7 @@ _SPECS = (
               symbols=r"\mathrm{ramp\text{-}up\ /\ flat\ /\ ramp\text{-}down}:\ \mathrm{level}\ 0.9\,|I_p|_{\max}"),
             N("rule", "Shot class", "derived", api="vaft.omas.shot_class.shot_class",
               symbols=r"\mathrm{Plasma\ /\ BD\ failure\ /\ Vacuum},\ \mathrm{decided\ by}",
-              mapping_todo="kept in the database worker record, not in an IDS"),
+              mapping_todo="optionally kept in the database worker record (record_shot_class), not in an IDS"),
             N("thresholds", "Default thresholds", "convention",
               symbols=r"p_{\mathrm{th}} = 10^{-2},\ I_{p,\min} = 2\ \mathrm{kA}"),
         ),
@@ -1304,9 +1317,7 @@ _SPECS = (
                "them from the DD-conformant magnetics and pf_active IDSs.",
                "rho_tor integrates q from the axis, so EFIT's often outlying q[0] moves rho_tor_norm by up to "
                "about 0.04 on the innermost surfaces; packaged samples older than #192 still hold the "
-               "sqrt(psi_N) proxy.",
-               "convert_cocos shifts the identified-candidate list on the assumption that every candidate "
-               "shares the source's storage family, which can produce an out-of-range index (#601)."),
+               "sqrt(psi_N) proxy."),
     ),
     WorkflowSpec(
         key="power_balance_confinement", title="Power balance and confinement: experimental and modelled",

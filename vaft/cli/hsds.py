@@ -168,6 +168,7 @@ def configure(
             f"note: h5pyd run from this directory reads {active} instead of {path}.",
             file=out,
         )
+    _report_cache(out)
     overriding = sorted(name for name in ("HS_ENDPOINT", "HS_USERNAME", "HS_PASSWORD", "HS_API_KEY")
                         if name in os.environ)
     if overriding:
@@ -176,6 +177,22 @@ def configure(
             file=out,
         )
     return 0
+
+
+def _report_cache(out) -> None:
+    """Say where downloaded domains are kept and how large they may grow (#1759)."""
+    from vaft.database import hsds_cache
+
+    try:
+        limit = hsds_cache.resolve_cache_max()
+    except ValueError as error:  # a bad $VAFT_HSDS_CACHE_MAX or config value
+        print(f"warning: HSDS cache cap: {error}", file=sys.stderr)
+        return
+    print(
+        f"Downloaded domains are cached in {hsds_cache.cache_base()} "
+        f"(cap {limit}); see `vaft cache info`, `vaft cache set-limit`.",
+        file=out,
+    )
 
 
 def main(argv: Iterable[str] | None = None) -> int:

@@ -830,9 +830,14 @@ def test_no_heavy_adapter_starts_its_own_process(module):
     root = Path(__file__).resolve().parent.parent / module
     sources = sorted(root.rglob("*.py")) if root.is_dir() else [root]
     assert sources, f"{module} has no Python sources to check"
+    # Exempt by name, with the reason: this file IS the program the backend
+    # launches (PENTRC's log cap, #1929); the solver it starts is its child,
+    # inside the backend's process tree, and it is used on the local backend only.
+    exempt = {"_log_cap.py"}
     offenders = [
         f"{source.name}:{number}: {line.strip()}"
         for source in sources
+        if source.name not in exempt
         for number, line in enumerate(source.read_text(encoding="utf-8").splitlines(), 1)
         if any(
             call in line

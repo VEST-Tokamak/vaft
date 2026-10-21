@@ -29,6 +29,14 @@ This page explains the diagrams family by family. The complete list -- every bui
 SVG and the exact call that draws it -- is the generated
 [diagram gallery]({{ site.baseurl }}/reference/diagram/).
 
+## Particle motion and computed animation
+
+The [particle-motion guide]({{ site.baseurl }}/guide/particle-motion/) describes
+VAFT's native Lorentz and guiding-center experiments, physical-time animation,
+stationary mirror wells and synchronized invariant diagnostics. Existing static
+references retain their default behavior; computed replay accepts an explicit
+trajectory and time coordinate.
+
 ## Magnetic island
 
 ```python
@@ -1456,6 +1464,95 @@ vaft.diagram.wall_conditioning_sequence(("baking", "D2_gdc", "He_gdc", "boroniza
 | `wall_conditioning_boronization` | A B-containing precursor in a deposition plasma leaves a B-rich surface layer, a change of surface state rather than cleaning |
 | `wall_conditioning_sequence` | The single stages in the caller's order, each arrow a wall-state transition, ending in plasma operation. The order is not a recommended procedure |
 
+## Canonical turbulence concepts
+
+Six concept figures built on the fluctuation-driven transport definitions in `vaft.formula.turbulence`. Geometry
+is slab: $x$ radial (outward), $y$ binormal, $\mathbf B = B\hat z$. They explain mechanisms; none is a turbulence
+model, a stability classifier or a transport prediction.
+
+```text
+gradient -> omega_* -> drive and kinetic response -> gamma (if > 0) -> n~, phi~ -> v_E -> flux <n~ v_r>
+  flux -> profile relaxation (slow, transport time scale)
+turbulence -> Reynolds stress -> d_r R != 0 -> zonal flow -> E x B shear --| turbulence (fast, at fixed gradients)
+```
+
+Two feedbacks are kept apart. Profile feedback is slow: the flux changes the gradients on the transport time
+scale, which is set by the particle and energy balance. Flow feedback is fast: zonal flows saturate the turbulence at
+fixed gradients, as in a flux-tube simulation.
+
+- `drift_wave_transport_cycle` draws that loop. A gradient is a possible free-energy source; whether a mode grows is
+  decided by the instability drive and kinetic response, and $\omega_*$ is a frequency scale, not $\gamma$. Each
+  step names its definition:
+  - $\omega_* = \mathbf k\cdot\mathbf v_*$;
+  - $\mathbf v_E = \mathbf B\times\nabla\phi/B^2$ (it calls `particle.exb_drift_velocity`);
+  - $\Gamma = \langle\tilde n\tilde v_r\rangle$.
+- `cross_phase_transport` shows one mode at $\theta_{n\phi} = 0, \pm\pi/2$. Each flux comes from
+  `coherent_particle_flux_from_amplitudes_phase` and is checked against a direct average of $\tilde n\,\tilde v_x$.
+  The convention ($\theta_{n\phi} = \alpha_\phi - \alpha_n$, real cosine fields, $x$ up, $y$ right, $\mathbf B$ into the
+  page) is in the model and on the figure. It covers one Fourier component, and a zero particle flux does not imply a
+  zero heat flux. Changing every convention consistently changes the intermediate signs, not the physical flux.
+- `mixing_length_saturation`: growth $\gamma$ against an estimated decorrelation rate $k_\perp\tilde v$. Balancing
+  them at $\tilde v = \gamma/k_\perp$ gives the phenomenological scaling `mixing_length_diffusivity_from_gamma_k_perp`.
+  It is not a predictive saturation rule:
+  - one mode's $E\times B$ velocity does not advect its own potential ($\tilde{\mathbf v}_E\cdot\nabla\tilde\phi = 0$);
+  - saturation therefore needs coupling between modes (zonal flows, stable modes, spectral transfer);
+  - quasilinear models need a separate saturation rule (Staebler, Bourdelle, Citrin and Waltz, Nucl. Fusion 64
+    (2024) 103001);
+  - $D_\mathrm{ML}$ is not $D_n$ or $\chi$ of any channel.
+- `exb_shear_decorrelation`: a round eddy, and the same eddy after the shear map $y \to y + St\,x$.
+  - The cut through its centre at fixed $y$ shrinks by $\sqrt{1 + (St)^2}$, while its total radial extent is
+    unchanged. This is geometry, not the statistical correlation length; measured $E_r$ and shearing-rate profiles
+    are plots.
+  - The decorrelation is a separate, following step: $k_x(t) = k_x(0) - Sk_yt$ (Biglari, Diamond and Terry,
+    Phys. Fluids B 2 (1990) 1).
+  - $\gamma_E$ above $\gamma_\mathrm{lin}$ is a rule of thumb, not a universal threshold.
+- `zonal_flow_feedback`: the self-regulation loop with the Reynolds-stress and zonal-flow-drive definitions:
+  - only the stress divergence $\partial_rR_{r\theta} \neq 0$ drives the flow;
+  - the shear changes the turbulence through mode coupling and decorrelation, which often but not always
+    suppresses it;
+  - the damping $\mu$ is a stated choice, and no coefficient model is assumed;
+  - the slab has constant density, and a tokamak adds curvature, GAMs, collisional damping and Maxwell stress.
+
+  The loop follows Diamond et al., Plasma Phys. Control. Fusion 47 (2005) R35.
+- `turbulence_scale_hierarchy`: representative perpendicular scales $1/k_\perp$ against the lengths of the
+  `spatial_scale_orderings` state:
+  - ITG/TEM at $k_\perp\rho_i \sim 0.1$–$1$;
+  - ETG at $k_\perp\rho_e \sim 0.1$–$1$;
+  - a dashed TEM extension to $k_\perp\rho_s \sim 5$.
+
+  The conventions:
+  - the bands are conventions, not thresholds;
+  - the state is illustrative hydrogen, not a VEST measurement;
+  - it uses $v_t = \sqrt{T/m}$, and deuterium makes $\rho_i$ and $\rho_s$ larger by $\sqrt2$;
+  - the axis length is $1/k_\perp$, not the wavelength;
+  - the ITG/TEM and ETG bands are in $k_\perp\rho_i$ and $k_\perp\rho_e$;
+  - only the TEM extension uses the literature's $k_y\rho_s$, taken as $k_\perp$ with $k_x = 0$, and it is one
+    regime's example, not a bound.
+
+```python
+vaft.diagram.drift_wave_transport_cycle()
+vaft.diagram.cross_phase_transport()
+vaft.diagram.mixing_length_saturation()
+vaft.diagram.exb_shear_decorrelation(shear=1.6)
+vaft.diagram.zonal_flow_feedback()
+vaft.diagram.turbulence_scale_hierarchy()
+```
+
+| | |
+| --- | --- |
+| ![drift-wave cycle]({{ '/assets/diagrams/drift_wave_transport_cycle.svg' | relative_url }}) | ![zonal-flow feedback]({{ '/assets/diagrams/zonal_flow_feedback.svg' | relative_url }}) |
+| ![cross-phase]({{ '/assets/diagrams/cross_phase_transport.svg' | relative_url }}) | ![mixing length]({{ '/assets/diagrams/mixing_length_saturation.svg' | relative_url }}) |
+| ![shear decorrelation]({{ '/assets/diagrams/exb_shear_decorrelation.svg' | relative_url }}) | ![scales]({{ '/assets/diagrams/turbulence_scale_hierarchy.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `drift_wave_transport_cycle` | Gradient, drift frequency, instability drive and kinetic response, growth (if $\gamma > 0$), fluctuations, $E\times B$ velocity and radial flux. Fast saturation at fixed gradients is kept apart from slow profile relaxation |
+| `cross_phase_transport` | Zero flux in phase, outward at $+\pi/2$, inward at $-\pi/2$, with the sign convention stated |
+| `mixing_length_saturation` | $\gamma$ against an estimated $k_\perp\tilde v$: the phenomenological scaling $D \sim \gamma/k_\perp^2$, not a predictive saturation rule |
+| `exb_shear_decorrelation` | An unsheared and a sheared eddy: tilted, stretched, with a shorter fixed-$y$ cut (geometry), then the separate statistical decorrelation $k_x(t) = k_x(0) - Sk_yt$ |
+| `zonal_flow_feedback` | Turbulence, Reynolds stress, zonal flow, shear, with the inhibition of the turbulence drawn without an arrowhead |
+| `turbulence_scale_hierarchy` | Electron- and ion-scale bands and an open TEM range against the equilibrium lengths |
+
 ## SOL blobs and filaments
 
 A blob is a localized positive density (pressure) perturbation in the scrape-off layer, and a hole is a
@@ -1533,6 +1630,20 @@ vaft.diagram.machine_research_archive()
 | `machine_research_archive` | VEST's institutional and scientific memory since 2012: machine history, research on VEST and research knowledge feed one living archive, which new analyses and research build on. No dates are drawn beyond the start of operation |
 
 ![The four pillars of VAFT]({{ '/assets/diagrams/vaft_four_pillars.svg' | relative_url }})
+
+The four pillars, the research cycle, the managed pipeline and the human-AI interface carry
+[semantic pictograms](#semantic-pictograms) (#2101, #2109), one symbol per concept:
+
+| Figure | Concept → symbol |
+| --- | --- |
+| `vaft_four_pillars` | interface → `interface`, pipeline → `workflow`, repository → `database`, archive → `archive` (a common row above each title) |
+| `human_ai_interface` | human researchers → `researcher`, AI agents → `ai_agent`, Python API → `code`, CLI → `terminal`, GUI → `monitor`, repository & docs → `repository`, MCP → `integration`, muted and dashed because it is planned |
+| `fusion_science_knowledge_lifecycle` | seven distinct symbols: `experiment`, `signal`, `processing`, `computation`, `analysis`, `comparison`, `discovery` |
+| `scientific_workflow` | machine sources → `tokamak`; diagnostic processing → `processing`, reconstruction → `reconstruction`, interpretive simulation → `computation`, V&V → `validation` |
+
+The symbols name a kind of activity or component only. They do not mark anything as implemented or
+validated, and the labels stay authoritative.
+
 ![Research-learning cycle]({{ '/assets/diagrams/fusion_science_knowledge_lifecycle.svg' | relative_url }})
 ![Managed scientific processing pipeline]({{ '/assets/diagrams/scientific_workflow.svg' | relative_url }})
 ![Interoperability layers]({{ '/assets/diagrams/interoperability_layers.svg' | relative_url }})
@@ -1663,12 +1774,34 @@ References for the terminology in the level-3 and community figures:
 ![One scientific meaning, many representations and names]({{ '/assets/diagrams/scientific_representation.svg' | relative_url }})
 ![Fragmented experimental research]({{ '/assets/diagrams/experimental_research_infrastructure_fragmented.svg' | relative_url }})
 ![Integrated research infrastructure]({{ '/assets/diagrams/experimental_research_infrastructure.svg' | relative_url }})
+
+Both infrastructure figures mark each source with the same [semantic pictogram](#semantic-pictograms)
+(#2109): DAQ signals → `signal`, machine database → `database`, diagnostic files → `file`,
+machine geometry → `tokamak`, operation & maintenance records → `history`, calibration &
+configuration → `parameters`. Only the integrated figure has the last one as a source, because the
+fragmented figure keeps calibration as private copies.
+
 ![Unqualified scientific inference]({{ '/assets/diagrams/scientific_credibility_fragmented.svg' | relative_url }})
 ![Qualified scientific state]({{ '/assets/diagrams/scientific_credibility.svg' | relative_url }})
 ![Locked-in research software]({{ '/assets/diagrams/research_modality_architecture_fragmented.svg' | relative_url }})
 ![One modular scientific core, many ways to research]({{ '/assets/diagrams/research_modality_architecture.svg' | relative_url }})
 ![The fusion-research ecosystem]({{ '/assets/diagrams/fusion_research_ecosystem.svg' | relative_url }})
 ![Connecting the activities of fusion research]({{ '/assets/diagrams/fusion_research_ecosystem_presentation.svg' | relative_url }})
+
+The four concept figures embedded in the README and guides carry a few
+[semantic pictograms](#semantic-pictograms) (#2113), placed where they help a reader tell kinds of
+things apart and left out elsewhere:
+
+| Figure | Concept → symbol | Deliberately without |
+| --- | --- | --- |
+| `fusion_research_ecosystem(detail="presentation")` | experiment & engineering → `tokamak`, theory & modelling → `model`, data, AI & software → `computation` | the `full` rendering, the activities, states and uses |
+| `scientific_provenance_chain` | raw signal → `signal`, processed data → `processing`, reconstruction & profile fitting → `reconstruction`, derived quantities → `calculation`, analysis → `analysis` | quality and versioned metadata: provenance is not validation |
+| `external_code_integration` | upstream project → `source_code`, installation → `package`, adapter → `adapter`, local → `laptop`, Slurm → `cluster`, native result → `output_file`, standardized state → `standardized` | obtain, provenance, environment resolution, mapping |
+| `machine_research_archive` | machine history → `tokamak`, research on VEST → `experiment`, research knowledge → `library` | individual entries |
+
+A symbol never claims that a capability is implemented or a product is validated. The upstream
+versus VAFT ownership brackets, the execution routes and the mapping step keep their labels.
+
 ![Scientific ownership and maturation]({{ '/assets/diagrams/scientific_ownership_architecture.svg' | relative_url }})
 
 The content is the data at the top of each section of `vaft.diagram._research_concepts` (`INFRA_*`,
@@ -1834,20 +1967,29 @@ implementation: where VAFT does not yet implement the physically complete step, 
 node carries a red *IMAS mapping TODO* and the workflow lists its follow-up TODOs instead of drawing an
 unsupported capability. Node style says how a quantity was obtained:
 
-| Kind | Meaning |
-| --- | --- |
-| measured | experimentally observed |
-| reconstructed | the solution of an inverse problem |
-| derived | computed deterministically from existing state |
-| inferred | estimated with a model, prior or closure |
-| synthetic (assumption-completed) | completed from an equilibrium and explicit assumptions with no kinetic data; never a measurement |
-| model assumption / prior | an assumed value or prior the result depends on; drawn entering from the side |
-| model choice / convention | a model choice or convention (basis, sign, conductivity model, mode numbers); drawn from the side |
-| machine geometry / static data | static machine data: geometry, Green tables, circuits; drawn from the side |
-| code input | a code-specific projection of the canonical state |
-| solver / model | an external or internal physical model |
-| native result | the solver's own output, before any mapping |
-| standardized IMAS | the IMAS / OMAS representation VAFT stores |
+| Kind | Legend symbol | Meaning |
+| --- | --- | --- |
+| measured | `signal` | experimentally observed |
+| reconstructed | `reconstruction` | the solution of an inverse problem |
+| derived | `calculation` | computed deterministically from existing state |
+| inferred | `inference` | estimated with a model, prior or closure |
+| synthetic (assumption-completed) | `synthetic` | completed from an equilibrium and explicit assumptions with no kinetic data; never a measurement |
+| model assumption / prior | `parameters` | an assumed value or prior the result depends on; drawn entering from the side |
+| model choice / convention | `coordinates` | a model choice or convention (basis, sign, conductivity model, mode numbers); drawn from the side |
+| machine geometry / static data | `tokamak` | static machine data: geometry, Green tables, circuits; drawn from the side |
+| code input | `input_file` | a code-specific projection of the canonical state |
+| solver / model | `computation` | an external or internal physical model |
+| native result | `output_file` | the solver's own output, before any mapping |
+| standardized IMAS | `standardized` | the IMAS / OMAS representation VAFT stores |
+
+Each legend entry draws the kind's [semantic pictogram](#semantic-pictograms) inside its colour swatch (#2114),
+followed by its label. The swatch and label stay authoritative, and the symbol never encodes implementation
+status: a `computation` symbol on *solver / model* does not mean the solver runs, and `standardized`
+does not mean a product passed validation. The symbols appear only in the legend, not inside the nodes.
+Node-level icons were compared on `magnetic_efit`, `kinetic_efit`, `plasma_parameter_inference`,
+`tokamaker_coupling` and `tglf_cgyro_local_transport`: they crowded the bold titles and equations
+(*Measurement constraints*, the side inputs) and repeated what the node's style already says, so they
+were not adopted.
 
 Inputs and outputs carry their representative variables under the label, and standardized nodes their
 IMAS path. A step's equation is drawn inside it: the `vaft.formula` catalog definition (`formula_equation`)
@@ -2210,15 +2352,15 @@ One local gyrokinetic state projected into TGLF (quasilinear) and CGYRO (local d
 | Quasilinear fluxes and spectrum | native result | $Q_s,\ \Gamma_s;\ \gamma(k_y),\ \omega(k_y)$ | `vaft.code.gacode.tglf.collect_tglf_outputs` |  |
 | Linear eigenmodes | native result | $\gamma,\ \omega,\ \phi(\theta)$ | `vaft.code.gacode.cgyro.collect_cgyro_outputs` |  |
 | Saturated fluxes (nonlinear) | native result | $\langle Q_s\rangle_t,\ \langle\Gamma_s\rangle_t$ | `vaft.code.gacode.cgyro.collect_cgyro_outputs` |  |
-| Turbulent transport (TGLF) | standardized IMAS | $Q_s,\ \Gamma_s\ \mathrm{(quasilinear)}$ | `vaft.machine_mapping.turbulence.core_transport_from_tglf` | `core_transport.model[:]`; **IMAS mapping TODO:** no TGLF to gyrokinetics_local writer |
-| Gyrokinetic run (CGYRO) | standardized IMAS | $\gamma,\ \omega;\ \langle Q_s\rangle_t,\ \langle\Gamma_s\rangle_t$ | `vaft.machine_mapping.gyrokinetics.gyrokinetics_local_from_cgyro` | `gyrokinetics_local.{linear.wavevector[:].eigenmode[:], non_linear.fluxes_1d}` |
+| Turbulent transport (TGLF) | standardized IMAS | $Q_s,\ \Gamma_s\ \mathrm{(quasilinear)}$ | `vaft.machine_mapping.turbulence.core_transport_from_tglf` | `core_transport.model[:]`; **IMAS mapping TODO:** gyrokinetics_local (via gyrokinetics_local_from_tglf) not stored by any stage (#1128/#1129) |
+| Gyrokinetic run (CGYRO) | standardized IMAS | $\gamma,\ \omega;\ \langle Q_s\rangle_t,\ \langle\Gamma_s\rangle_t$ | `vaft.machine_mapping.gyrokinetics.gyrokinetics_local_from_cgyro` | `gyrokinetics_local.{linear.wavevector[:].eigenmode[:], non_linear.fluxes_1d}`; **IMAS mapping TODO:** gyrokinetics_local not stored by any stage (#1128/#1129) |
 
 Follow-up TODOs (implementation or IMAS mapping):
 
 - Rotation and ExB shear are zero in both projections (TGLF VEXB_SHEAR, CGYRO GAMMA_E, MACH): their derivation from data is not implemented (#553).
 - Squareness zeta enters as 0 (VEST equilibria carry no squareness); Z_EFF is not written to input.cgyro by design: CGYRO recomputes it from the species list (Z_EFF_METHOD=2).
 - No implemented local-gyrokinetic validity criterion (rho*): compare_with_oracle checks only the input translation against CGYRO's own projection.
-- No TGLF to gyrokinetics_local mapping.
+- gyrokinetics_local_from_tglf and gyrokinetics_local_from_cgyro write gyrokinetics_local, but no pipeline stage stores that IDS: turbulent_transport owns core_transport only, and one occurrence per flux surface awaits the #1128/#1129 occurrence model (#2020).
 
 ### Plasma parameter inference: completing the kinetic profiles
 
@@ -2318,8 +2460,9 @@ Thomson and charge-exchange points are placed on flux surfaces by the equilibriu
 | Thomson scattering | measured | $T_e,\ n_e \pm \sigma\ \mathrm{at}\ (R, Z)$ |  | `thomson_scattering.channel[:].{t_e, n_e, position}` |
 | Magnetic equilibrium | reconstructed | $\psi(R, Z),\ q(\psi)$ |  | `equilibrium.time_slice[:].{profiles_2d, profiles_1d.q}` |
 | Charge exchange (optional) | measured | $T_i,\ v_\phi\ \mathrm{at}\ (R, Z)$ |  | `charge_exchange.channel[:].ion[:].{t_i, velocity_tor}` |
-| Flux-surface mapping | derived | $(R,Z) \to \psi_N \to \rho_{\mathrm{pol}} = \sqrt{\psi_N}, \rho_{\mathrm{tor},N}\ \mathrm{from}\ \Phi = \int q\,d\psi;\ \mathrm{outside\ the\ LCFS:\ dropped}$ | `vaft.process.profile.equilibrium_mapping_thomson_scattering` |  |
-| Fitting coordinate | model choice / convention (enters Flux-surface mapping) | $x = \rho_{\mathrm{tor},N}\ (\mathrm{default})\ \|\ \psi_N\ \|\ \rho_{\mathrm{pol},N}$ |  |  |
+| Flux-surface mapping (Thomson) | derived | $(R,Z) \to \psi_N \to \rho_{\mathrm{pol}} = \sqrt{\psi_N}, \rho_{\mathrm{tor},N}\ \mathrm{from}\ \Phi = \int q\,d\psi;\ \mathrm{outside\ the\ LCFS:\ NaN}$ | `vaft.process.profile.equilibrium_mapping_thomson_scattering` |  |
+| Flux-surface mapping (CX) | derived | $\mathrm{same\ coordinates};\ \mathrm{outside\ the\ LCFS:\ NaN}$ | `vaft.process.profile.equilibrium_mapping_charge_exchange` |  |
+| Fitting coordinate (both fits) | model choice / convention (enters Flux-surface mapping (Thomson)) | $x = \rho_{\mathrm{tor},N}\ (\mathrm{default})\ \|\ \psi_N\ \|\ \rho_{\mathrm{pol},N}$ |  |  |
 | Electron profile fit | derived | $T_e(x),\ n_e(x)$ | `vaft.process.profile.profile_fitting_thomson_scattering` |  |
 | Ion profile fit | derived | $T_i(x),\ v_\phi(x)$ | `vaft.process.profile.profile_fitting_charge_exchange` |  |
 | Fit model and order | model choice / convention (enters Electron profile fit) | $\mathrm{polynomial\ \|\ core\text{-}poly/edge\text{-}exp\ \|\ tanh\ \|\ GP},\ N = 3, \sigma\text{-}\mathrm{weighted};\ T > 0:\ \mathrm{order\ stepped\ down}$ | `vaft.formula.utils.fit_profile` |  |
@@ -2341,7 +2484,7 @@ One resolved local state and five independently computed routes; none feeds anot
 | --- | --- | --- | --- | --- |
 | Resolved local state | derived | $T_s,\ n_s,\ a/L_{T,n},\ q,\ \hat s,\ \hat\nu$ | `vaft.process.transport_state.resolve_transport_state` |  |
 | Classical: Braginskii | derived | $\mathrm{perpendicular\ conductive}\ q_{\perp,e},\ q_{\perp,i}, \mathrm{strongly\ magnetized}:\ \kappa_\perp \propto nT/(m\Omega^2\tau), \mathrm{software:\ always\ available}$ | `vaft.process.transport_state.classical_heat_fluxes` |  |
-| Neoclassical closures: Sauter / Redl | derived | $j_{\mathrm{bs}},\ \sigma_\parallel\ \mathrm{only:\ no}\ \Gamma_s,\ Q_s, \mathrm{software:\ always\ available}$ | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
+| Neoclassical closures: Sauter / Redl | derived | $j_{\mathrm{bs}};\ \sigma_\parallel\ \mathrm{from\ a\ separate\ conductivity\ call};\ \mathrm{no}\ \Gamma_s,\ Q_s, \mathrm{software:\ always\ available}$ | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
 | Neoclassical: NEO | solver / model | $\Gamma_s,\ Q_s,\ j_{\mathrm{bs}}\ (\mathrm{transport\ run}), \sigma_\parallel\ (\mathrm{separate}\ E_\parallel\ \mathrm{run}), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.neo.runner.run_neo_pair` |  |
 | Turbulent: TGLF | solver / model | $Q_s,\ \Gamma_s\ (\mathrm{quasilinear}), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.tglf.run_tglf` |  |
 | Turbulent: CGYRO | solver / model | $\mathrm{nonlinear}\ Q_s(t),\ \Gamma_s(t), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.cgyro.run_cgyro` |  |
@@ -2423,6 +2566,7 @@ Follow-up TODOs (implementation or IMAS mapping):
 - The shot-log mapper writes pulse_schedule when called (vaft shotlog CLI) but build_diagnostics_ods does not call it.
 - Wall and limiter history is the era table only; there is no per-component calibration lineage.
 - There is no single shot-to-machine object: era, revisions and provenance are separate lookups.
+- The static description is built per era, not per shot: PF, passive structure and coupling at the era's reference shot, magnetics and TF as the un-gated inventory. Per-shot wiring and revisions apply when the diagnostics IDS is built.
 
 ### Signal processing: raw digitizer records to a diagnostic IDS
 
@@ -2490,6 +2634,7 @@ There is no single anomaly model: each diagnostic has its own checks. Magnetics 
 | Clipping detection | derived | $\mathrm{PF,\ diamagnetic,\ TF}$ | `vaft.process.signal_processing.detect_clipped_samples` |  |
 | H-alpha usability | derived | $\mathrm{finite,\ not\ railed,\ live\ baseline}$ | `vaft.omas.plasma_timing.halpha_usability` |  |
 | Channel validity | standardized IMAS | $0,\ 1,\ -2$ | `vaft.validation.magnetics.project_validity` | `magnetics.{flux_loop[:].flux | b_field_pol_probe[:].field | ip[:]}.validity_timed` |
+| Plasma-current Rogowski validity | standardized IMAS | $\mathrm{one\ value\ per\ record}$ |  | `magnetics.rogowski_coil[0].current.validity` |
 | Repaired interval | derived | $x_i(t)\ \mathrm{across\ the\ clipped\ samples}$ | `vaft.process.signal_processing.repair_clipped_interval` |  |
 | Light sources for timing | derived | $\mathrm{usable}\ H_\alpha\ \mathrm{channels}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
 
@@ -2515,7 +2660,7 @@ A shot class is a rule applied to derived features -- the plasma window, the gau
 | Pressure response | derived | $\Delta p\ \mathrm{during\ the\ shot}$ | `vaft.omas.shot_class.pressure_response` |  |
 | Plasma window | derived | $t_{\mathrm{start}},\ t_{\mathrm{end}}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
 | Slice phase | derived | $\mathrm{ramp\text{-}up\ /\ flat\ /\ ramp\text{-}down}:\ \mathrm{level}\ 0.9\,\|I_p\|_{\max}$ | `vaft.validation.equilibrium_regime.classify_equilibrium_regimes` |  |
-| Shot class | derived | $\mathrm{Plasma\ /\ BD\ failure\ /\ Vacuum},\ \mathrm{decided\ by}$ | `vaft.omas.shot_class.shot_class` | **IMAS mapping TODO:** kept in the database worker record, not in an IDS |
+| Shot class | derived | $\mathrm{Plasma\ /\ BD\ failure\ /\ Vacuum},\ \mathrm{decided\ by}$ | `vaft.omas.shot_class.shot_class` | **IMAS mapping TODO:** optionally kept in the database worker record (record_shot_class), not in an IDS |
 | Default thresholds | model choice / convention (enters Shot class) | $p_{\mathrm{th}} = 10^{-2},\ I_{p,\min} = 2\ \mathrm{kA}$ |  |  |
 
 Follow-up TODOs (implementation or IMAS mapping):
@@ -2667,7 +2812,6 @@ Follow-up TODOs (implementation or IMAS mapping):
 - The ODS writer of the 2-D flux-surface grid uses a geometric approximation (the boundary scaled by sqrt(psi_N) about the axis, the geometric angle) for every requested convention, yet labels it grid_type 11; the true PEST angle exists only in memory (vaft.process.equilibrium.straight_field_line_map).
 - equilibrium_psi_to_weber leaves equilibrium.time_slice[:].constraints untouched: VAFT copies them from the DD-conformant magnetics and pf_active IDSs.
 - rho_tor integrates q from the axis, so EFIT's often outlying q[0] moves rho_tor_norm by up to about 0.04 on the innermost surfaces; packaged samples older than #192 still hold the sqrt(psi_N) proxy.
-- convert_cocos shifts the identified-candidate list on the assumption that every candidate shares the source's storage family, which can produce an out-of-range index (#601).
 
 ### Power balance and confinement: experimental and modelled
 
@@ -2698,6 +2842,115 @@ Follow-up TODOs (implementation or IMAS mapping):
 - VEST has no bolometer, so no measured P_rad enters: the experimental chain's transport loss power is NaN and its default is p_net (DB5 PLTH); the modelled budget always subtracts a modelled P_rad, which is a sensitivity study, not a measurement.
 - The experimental chain pairs the measured current with EFIT's l_i3 (a hybrid), and its flux loop is not on the plasma boundary; both are recorded assumptions.
 - The stored energy is reconstruction-derived (efit_pressure) or assumes T_i = T_e (core_profiles_thermal); neither is a global energy (#1713).
+
+## Semantic pictograms
+
+Concept diagrams can carry small stroke **pictograms** that name a kind of thing -- a database, a
+solver, a researcher -- so a figure reads at a glance (#2101). They come from one registry,
+`vaft.diagram.pictograms`, so the same concept is drawn the same way in every figure.
+
+A pictogram is a **presentation component, not a model output**. Its geometry carries no physical
+dimension, position or relationship. It never replaces model-derived geometry -- flux surfaces,
+islands, coordinates, field lines, diagnostic sight lines -- which stays with the builders and
+`vaft.formula`. It supplements a label and never replaces one, and it says nothing about
+implementation maturity, validation or provenance: a `computation` icon does not mean a solver
+runs, a `standardized` icon does not mean a product passed validation.
+
+```python
+from vaft.diagram.pictograms import badge, corner, pictogram
+
+items += pictogram("database", (2.0, 3.0), 0.8, role="symbol:stage:database").items
+items += badge("validation", corner(vv_box), 0.62, role="symbol:node:vv").items
+```
+
+- `pictogram(name, at, size=0.6, *, role, style=PICTOGRAM)` returns scene polylines centred on `at`,
+  `size` cm across. `badge` puts the icon on a white disc; `corner(box)` is where a badge clips onto a
+  box's top-left corner without taking the space of a first text line that spans the box.
+- **Roles** start with `symbol:` and name the item they annotate (`symbol:node:vv`), so pictograms
+  never collide with the `node:`/`edge:` roles the topology tests read, and adding one never changes
+  the order of a builder's existing items.
+- **Style**: one stroke weight at every size (`PICTOGRAM`, dark blue, 0.7 pt); `PICTOGRAM_MUTED`
+  (grey, dashed) marks something planned. The styles are inline TikZ options, not template styles,
+  so adding a pictogram re-renders only the diagrams that draw it.
+- **Optical size**: every symbol is scaled so the larger side of its drawing fills the same 20/24 of
+  its box, so a narrow icon (a terminal prompt, a flat trace) does not read smaller than a full-frame one.
+- **Dashes** are reserved for state, never part of a symbol's shape: only `PICTOGRAM_MUTED` (planned)
+  is dashed. Generated or assumed data is drawn as what produces it (`synthetic`: a model box emitting
+  a signal), not with dotted strokes.
+- **Distinct metaphors for neighbouring concepts**: `repository` (version-controlled source),
+  `library` (reusable knowledge), `archive` (long-term preservation), `database` (structured storage);
+  `processing` (transformation), `workflow` (execution order), `integration` (combining systems),
+  `adapter` (compatibility), `interface` (two-way exchange); `model` (a function), `reconstruction`
+  (flux surfaces recovered from measurements), `inference` (an estimate with its uncertainty),
+  `synthetic` (model-generated data), `validation` (computed against independent measurements),
+  `analysis` (results plotted), `comparison` (results side by side).
+- **Names**: figures and the gallery show the display name (`display_name("input_file")` is
+  "Input file"); the identifier is what code passes to `pictogram()`.
+- **When not to use one**: on every box for symmetry, on a box whose label already is the picture
+  (the database drum), inside physics schematics, or where it would crowd an equation. A figure
+  without icons is often the clearer one.
+
+![Every registered pictogram]({{ '/assets/diagrams/pictogram_catalog.svg' | relative_url }})
+
+`vaft.diagram.pictogram_catalog()` draws the gallery above.
+
+| Identifier | Display name | Meaning | Source |
+| --- | --- | --- | --- |
+| `experiment` | Experiment | an experiment or laboratory activity | Lucide `flask-conical` |
+| `tokamak` | Tokamak | a tokamak device or its machine description | VAFT |
+| `signal` | Signal | a raw measured signal | VAFT |
+| `database` | Database | structured data storage | Lucide `database` |
+| `archive` | Archive | a long-term archive | Lucide `archive` |
+| `file` | File | a data file or document | Lucide `file-text` |
+| `input_file` | Input file | an input file for a solver | Lucide `file-input` |
+| `output_file` | Output file | a solver's native output file | Lucide `file-output` |
+| `standardized` | Standardized | a standardized, structured scientific representation (an IMAS-like tree) | Lucide `list-tree` |
+| `history` | History | a dated record or history | Lucide `history` |
+| `library` | Library | a body of reusable knowledge | Lucide `library` |
+| `processing` | Processing | data processing: transforming raw data into qualified data | VAFT |
+| `computation` | Computation | a numerical computation, solver or simulation | Lucide `cpu` |
+| `cluster` | Cluster | a compute server or HPC cluster | Lucide `server` |
+| `laptop` | Laptop | a local workstation | Lucide `laptop` |
+| `calculation` | Calculation | a deterministic calculation of derived quantities | Lucide `calculator` |
+| `model` | Model | a mathematical or theoretical model (a function, not a summation) | Lucide `square-function` |
+| `reconstruction` | Reconstruction | a state (flux surfaces) reconstructed from measurements | VAFT |
+| `inference` | Inference | an estimate of an unknown quantity, with its uncertainty | VAFT |
+| `synthetic` | Synthetic | data generated by a model or completed by assumptions, never measured | VAFT |
+| `parameters` | Parameters | chosen parameters, settings or prior assumptions | Lucide `sliders-horizontal` |
+| `coordinates` | Coordinates | a coordinate, sign or model convention | Lucide `move-3d` |
+| `code` | Code | a programming interface | Lucide `code` |
+| `source_code` | Source code | an externally maintained source code | Lucide `file-code` |
+| `terminal` | Terminal | a command-line interface | Lucide `terminal` |
+| `monitor` | Monitor | a graphical interface | Lucide `monitor` |
+| `repository` | Repository | a version-controlled code repository and its documentation | Lucide `folder-git-2` |
+| `integration` | Integration | the combination of different systems or data structures | Lucide `puzzle` |
+| `adapter` | Adapter | an adapter mediating compatibility between two systems | Lucide `cable` |
+| `interface` | Interface | a two-way data exchange between two systems | VAFT |
+| `package` | Package | an installable package or environment | Lucide `package` |
+| `researcher` | Researcher | a human researcher | Lucide `user` |
+| `collaboration` | Collaboration | a group of researchers | Lucide `users` |
+| `ai_agent` | AI agent | an AI agent | Lucide `bot` |
+| `workflow` | Workflow | a traceable workflow or pipeline | Lucide `workflow` |
+| `validation` | Validation | agreement of computed values with independent measurements | VAFT |
+| `comparison` | Comparison | results compared side by side | VAFT |
+| `analysis` | Analysis | analysis and visualization of results | Lucide `chart-line` |
+| `discovery` | Discovery | a discovery or new question | Lucide `lightbulb` |
+
+**Geometry and provenance.** General-purpose icons are vendored verbatim from a pinned
+[Lucide](https://lucide.dev) release (`lucide-static` 1.52.0, ISC; the Feather-derived icons
+MIT) in `vaft/diagram/_lucide.py`, each with its sha256; the licence is reproduced in
+[THIRD_PARTY_NOTICES.md](https://github.com/VEST-Tokamak/vaft/blob/develop/THIRD_PARTY_NOTICES.md).
+Where a generic icon would mislead, VAFT draws its own scientific symbol in the same 24-unit grid
+(`tokamak`, `signal`, `processing`, `reconstruction`, `inference`, `synthetic`, `interface`, `validation`, `comparison`). Only a restricted SVG subset is
+converted (`path` with `M L H V C S Q A Z`, `line`, `polyline`, `circle`, `ellipse`, `rect`); curves are
+flattened within a fixed tolerance, so a symbol always yields the same points and the output stays
+vector-native and offline in TikZ, SVG, PDF and the Matplotlib animation path.
+
+**Adding a symbol.** Pick a semantic name for the concept, not for the picture. Prefer an icon from
+the pinned Lucide release (re-extract it with its hash into `_lucide.py`); draw a VAFT symbol only
+when a generic icon would misstate the science. Register it in `pictograms._REGISTRY` with its
+meaning, add it to the table above, and run `python -m vaft.diagram.build` -- the gallery and every
+diagram that uses it re-render, nothing else does.
 
 ## Using the committed assets
 

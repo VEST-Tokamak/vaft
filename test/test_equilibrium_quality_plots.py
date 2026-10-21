@@ -8,6 +8,7 @@ matplotlib.use("Agg")
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+import pytest  # noqa: E402
 
 from vaft.plot import equilibrium_quality as plots  # noqa: E402
 
@@ -55,7 +56,7 @@ def test_diagnostic_slides_use_one_large_figure_per_present_family():
 def test_diagnostic_grid_has_four_panels_and_one_shared_legend():
     families = ("bpol_probe", "flux_loop", "ip", "diamagnetic_flux")
     points = pd.concat([_points().assign(family=family) for family in families], ignore_index=True)
-    fig, axes = plots.equilibrium_quality_diagnostic_grid(points)
+    fig, axes = plots.equilibrium_quality_diagnostic_grid(points, limits_by_family={"diamagnetic_flux": (0, 8)})
     assert axes.shape == (2, 2)
     assert fig.get_size_inches()[0] == 9.8
     assert axes[0, 1].get_position().x0 - axes[0, 0].get_position().x1 < 0.15
@@ -81,7 +82,7 @@ def test_diamagnetic_flux_view_focuses_both_axes_without_dropping_outliers():
         "quality_label": ["good", "good"],
     })
     fig, ax = plots.equilibrium_quality_measured_vs_reconstructed(
-        points, family="diamagnetic_flux", format="slide",
+        points, family="diamagnetic_flux", format="slide", limits=(0, 8),
     )
     assert ax.get_xlim() == (0.0, 8.0)
     assert ax.get_ylim() == (0.0, 8.0)
@@ -90,6 +91,19 @@ def test_diamagnetic_flux_view_focuses_both_axes_without_dropping_outliers():
     assert "n=2" in ax.get_legend().get_texts()[0].get_text()
     assert "MAE 84.50 mWb" in ax.get_legend().get_texts()[0].get_text()
     matplotlib.pyplot.close(fig)
+
+
+def test_diamagnetic_default_uses_data_and_slides_forward_explicit_limits():
+    points = _points().assign(family="diamagnetic_flux")
+    fig, ax = plots.equilibrium_quality_measured_vs_reconstructed(points, family="diamagnetic_flux")
+    assert ax.get_xlim() == ax.get_ylim() and ax.get_xlim()[0] < 0
+    matplotlib.pyplot.close(fig)
+    slides = plots.equilibrium_quality_diagnostic_slides(points, limits_by_family={"diamagnetic_flux": (0, 8)})
+    fig, ax = slides["diamagnetic_flux"]
+    assert ax.get_xlim() == ax.get_ylim() == (0, 8)
+    matplotlib.pyplot.close(fig)
+    with pytest.raises(ValueError, match="increasing"):
+        plots.equilibrium_quality_measured_vs_reconstructed(points, family="diamagnetic_flux", limits=(8, 0))
 
 
 def test_residual_ecdf_draws_one_step_per_cohort():

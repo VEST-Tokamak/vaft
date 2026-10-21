@@ -23,6 +23,8 @@ from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 
+from .pictograms import BADGE, BADGE_MUTED, PICTOGRAM, PICTOGRAM_MUTED
+
 __all__ = ["animate_states", "draw_scene"]
 
 #: The template's colours (templates/standalone.tex ``\definecolor``), as RGB in [0, 1].
@@ -48,6 +50,9 @@ def _mix(name: str, percent: float, other: str = "white") -> tuple[float, float,
 #: Matplotlib equivalents of the template's styles (``\tikzset``).  TikZ widths
 #: are points, as Matplotlib's are.  A style not listed draws as a thin black line.
 _LINE = {
+    "orbit ion": {"color": _COLOURS["islandblue"], "lw": 0.9},
+    "orbit electron": {"color": _COLOURS["driftred"], "lw": 0.9},
+    "guiding centre": {"color": _COLOURS["driftred"], "lw": 1.0, "ls": "--"},
     "lcfs": {"color": "black", "lw": 0.95},
     "surface": {"color": _mix("gray", 55), "lw": 0.42},
     "rational": {"color": _mix("islandblue", 80, "black"), "lw": 0.65, "ls": "--"},
@@ -65,10 +70,15 @@ _LINE = {
     "axis": {"color": "black", "lw": 0.65},
     "leader": {"color": "black", "lw": 0.55},
     "width arrow": {"color": "black", "lw": 0.65},
+    PICTOGRAM: {"color": _COLOURS["islanddark"], "lw": 0.7, "zorder": 3},
+    PICTOGRAM_MUTED: {"color": _mix("black", 45), "lw": 0.7, "ls": "--", "zorder": 3},
 }
 _FILL = {
     "machine fill": {"facecolor": _mix("gray", 6), "edgecolor": "none"},
     "hole": {"facecolor": "white", "edgecolor": "none"},
+    # above the box outlines it straddles, below its icon
+    BADGE: {"facecolor": "white", "edgecolor": _COLOURS["islanddark"], "lw": 0.6, "zorder": 2.5},
+    BADGE_MUTED: {"facecolor": "white", "edgecolor": _mix("black", 45), "lw": 0.6, "ls": "--", "zorder": 2.5},
 }
 _ARROW_BOTH = {"width arrow"}
 #: Template styles that carry an arrow tip (``->`` / ``<->``): a polyline in
@@ -155,7 +165,7 @@ def draw_scene(scene: Any, *, ax: Any = None, figsize: tuple[float, float] = (9.
         if isinstance(item, Polyline):
             xy = np.asarray(item.points, dtype=float)
             if item.style in _FILL:
-                ax.add_patch(Polygon(xy, closed=True, **_FILL[item.style], zorder=0))
+                ax.add_patch(Polygon(xy, closed=True, **{"zorder": 0, **_FILL[item.style]}))
                 continue
             if item.closed:
                 xy = np.vstack([xy, xy[:1]])
@@ -217,6 +227,7 @@ def animate_states(
     dpi: int | None = None,
     frame_label: bool = True,
     options: Mapping[str, Any] | None = None,
+    bounds: tuple[tuple[float, float], tuple[float, float]] | None = None,
 ) -> Any:
     """The animation result of a diagram over ``values`` of its ``driver`` coordinate.
 
@@ -248,7 +259,11 @@ def animate_states(
         return scene_at(values[int(chosen[driver])])
 
     def draw(scene: Any, *, ax: Any = None, show: bool = False) -> tuple[Any, Any]:
-        return draw_scene(scene, ax=ax)
+        figure, axes = draw_scene(scene, ax=ax)
+        if bounds is not None:
+            axes.set_xlim(bounds[0])
+            axes.set_ylim(bounds[1])
+        return figure, axes
 
     return Animation(
         plot=name, label="", driver=record, selection={"kind": driver, "value": list(values)},

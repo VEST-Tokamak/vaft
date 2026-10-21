@@ -25,6 +25,34 @@ needs_chease = pytest.mark.skipif(
 )
 
 
+class _Solved:
+    """What the scan gets from a patched solve: finished, collected on demand."""
+
+    def __init__(self, solve, geqdsk, config):
+        self._solve, self._geqdsk, self._config = solve, geqdsk, config
+
+    def done(self):
+        return True
+
+    cancelled = False
+
+    def cancel(self):
+        return False
+
+    def settle(self, timeout=None):
+        pass
+
+    def collect(self):
+        return self._solve(self._geqdsk, self._config)
+
+
+def _patch_solve(monkeypatch, solve):
+    """Replace one case's solve, solve(geqdsk, config) -> CHEASEResult, called at collection."""
+    import vaft.code.chease_scan as module
+
+    monkeypatch.setattr(module, "_submit_case", lambda geqdsk, config: _Solved(solve, geqdsk, config))
+
+
 @pytest.fixture(scope="module")
 def geqdsk():
     return read_geqdsk(str(vaft.data.data_path(SOURCE)))
@@ -247,7 +275,7 @@ def test_a_raising_case_is_recorded_and_the_scan_continues(monkeypatch, tmp_path
             raise RuntimeError("mesh did not converge")
         return module.CHEASEResult(returncode=0, workdir=config.workdir)
 
-    monkeypatch.setattr(module, "refine_equilibrium", fake)
+    _patch_solve(monkeypatch, fake)
     cases = scan_chease(
         str(vaft.data.data_path(SOURCE)),
         [EquilibriumVariation(name) for name in ("a", "b", "c")],
@@ -266,7 +294,7 @@ def test_keep_going_false_lets_the_failure_out(monkeypatch, tmp_path):
     def fake(geqdsk, config):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(module, "refine_equilibrium", fake)
+    _patch_solve(monkeypatch, fake)
     with pytest.raises(RuntimeError, match="boom"):
         scan_chease(
             str(vaft.data.data_path(SOURCE)),
@@ -284,8 +312,7 @@ def test_a_nonzero_exit_is_not_convergence(monkeypatch, tmp_path):
     """
     import vaft.code.chease_scan as module
 
-    monkeypatch.setattr(
-        module, "refine_equilibrium",
+    _patch_solve(monkeypatch,
         lambda geqdsk, config: module.CHEASEResult(
             returncode=1, workdir=config.workdir, refined_geqdsk=None
         ),
@@ -303,8 +330,7 @@ def test_a_timed_out_case_is_recorded_with_its_result_and_named_limit(tmp_path, 
     """#1016: a timeout is a result, so the scan keeps it and names the limit."""
     import vaft.code.chease_scan as module
 
-    monkeypatch.setattr(
-        module, "refine_equilibrium",
+    _patch_solve(monkeypatch,
         lambda geqdsk, config: module.CHEASEResult(
             returncode=None, workdir=config.workdir, runtime_status="timeout",
             stderr="partial\nCHEASE timed out after 60 s of running",
@@ -364,7 +390,7 @@ def test_a_shape_variation_reaches_the_expeq_boundary(monkeypatch, tmp_path):
         prepare_chease_inputs(geqdsk, config)
         return module.CHEASEResult(returncode=1, workdir=config.workdir)
 
-    monkeypatch.setattr(module, "refine_equilibrium", materialize_only)
+    _patch_solve(monkeypatch, materialize_only)
     cases = scan_chease(
         str(vaft.data.data_path(SOURCE)),
         [
@@ -394,8 +420,7 @@ def test_a_scan_without_shape_variation_keeps_the_configured_contour(monkeypatch
     from vaft.code import CHEASEConfig
 
     seen = []
-    monkeypatch.setattr(
-        module, "refine_equilibrium",
+    _patch_solve(monkeypatch,
         lambda geqdsk, config: seen.append(config.target_psin)
         or module.CHEASEResult(returncode=1, workdir=config.workdir),
     )
@@ -489,7 +514,7 @@ def test_a_scan_records_the_boundary_it_solved_on(monkeypatch, tmp_path, geqdsk)
         prepare_chease_inputs(geqdsk, config)
         return module.CHEASEResult(returncode=1, workdir=config.workdir)
 
-    monkeypatch.setattr(module, "refine_equilibrium", materialize_only)
+    _patch_solve(monkeypatch, materialize_only)
     tall = _fourier_boundary_of_source(geqdsk, 1.1)
     cases = scan_chease(
         str(vaft.data.data_path(SOURCE)),
@@ -525,8 +550,7 @@ def test_explicit_boundaries_alone_need_no_miller_fit_of_the_source(monkeypatch,
     import vaft.process.equilibrium as equilibrium
     from vaft.code import CHEASEConfig
 
-    monkeypatch.setattr(
-        module, "refine_equilibrium",
+    _patch_solve(monkeypatch,
         lambda geqdsk, config: module.CHEASEResult(returncode=1, workdir=config.workdir),
     )
 
@@ -550,8 +574,7 @@ def test_a_scan_without_shape_variation_records_no_boundary(monkeypatch, tmp_pat
     import vaft.code.chease_scan as module
     from vaft.code import CHEASEConfig
 
-    monkeypatch.setattr(
-        module, "refine_equilibrium",
+    _patch_solve(monkeypatch,
         lambda geqdsk, config: module.CHEASEResult(returncode=1, workdir=config.workdir),
     )
     cases = scan_chease(
@@ -562,3 +585,176 @@ def test_a_scan_without_shape_variation_records_no_boundary(monkeypatch, tmp_pat
     )
     # The adapter traces the EXPEQ boundary itself; claiming one here would be wrong.
     assert all(case.boundary is None and not case.shape_parameters for case in cases)
+
+
+# ---------------------------------------------------------------------------
+# Submit every case, then collect in order (#1018)
+# ---------------------------------------------------------------------------
+
+class _QueueBackend:
+    """Accepts submissions and finishes nothing until a case is waited for."""
+
+    def __init__(self, *, submits=3, refuse=None, fail=None, interrupt=None):
+        # A case finishes once all ``submits`` expected submissions are in,
+        # so a scan that waited before submitting everything would hang here.
+        self.events = []
+        self.submits = submits
+        self.refuse, self.fail, self.interrupt = refuse, fail, interrupt
+
+    def run(self, request):  # pragma: no cover - the scan must submit
+        raise AssertionError("scan_chease called run")
+
+    def submit(self, request):
+        label = request.workdir.name
+        if label == self.refuse:
+            raise RuntimeError(f"queue refused {label}")
+        self.events.append(("submit", label))
+        return _QueuedHandle(self, label)
+
+
+class _QueuedHandle:
+    def __init__(self, backend, label):
+        self.backend, self.label, self.job_id = backend, label, None
+        self.waited = self.cancelled = False
+
+    def done(self):
+        return self.waited or sum(kind == "submit" for kind, _ in self.backend.events) >= self.backend.submits
+
+    def result(self):
+        from vaft.code import ExecutionResult
+
+        self.backend.events.append(("wait", self.label))
+        self.waited = True
+        if self.label == self.backend.fail:
+            raise RuntimeError(f"lost {self.label}")
+        if self.label == self.backend.interrupt:
+            raise KeyboardInterrupt
+        return ExecutionResult(returncode=1)
+
+    def cancel(self):
+        # Like a real handle: a finished one has nothing to stop. An
+        # interrupt lands before the wait finishes, so that case still counts.
+        if self.waited and self.label != self.backend.interrupt:
+            return False
+        self.backend.events.append(("cancel", self.label))
+        self.cancelled = True
+        return True
+
+    def settle(self, timeout=None):
+        pass
+
+
+def _scan(tmp_path, backend, labels=("a", "b", "c"), **kwargs):
+    from external_code_stubs import write_launchable_stub
+    from vaft.code import CHEASEConfig
+
+    stub = write_launchable_stub(tmp_path / "bin" / "chease")
+    seen = []
+    config = CHEASEConfig(executable=str(stub), backend=backend, create_plot=False)
+    try:
+        cases = scan_chease(
+            str(vaft.data.data_path(SOURCE)),
+            [EquilibriumVariation(label) for label in labels],
+            config=config, workdir=tmp_path / "scan",
+            on_case=lambda case: seen.append(case.variation.label), **kwargs,
+        )
+    except BaseException as error:
+        return None, seen, error
+    return cases, seen, None
+
+
+def test_a_scan_submits_every_case_before_waiting_and_reports_in_order(tmp_path):
+    backend = _QueueBackend()
+    cases, seen, error = _scan(tmp_path, backend)
+    assert error is None
+    assert backend.events == [
+        ("submit", "a"), ("submit", "b"), ("submit", "c"),
+        ("wait", "a"), ("wait", "b"), ("wait", "c"),
+    ]
+    assert seen == ["a", "b", "c"] == [case.variation.label for case in cases]
+    assert all(case.result is not None and not case.converged for case in cases)
+
+
+def test_a_collect_time_error_is_recorded_with_keep_going(tmp_path):
+    backend = _QueueBackend(fail="b")
+    cases, seen, error = _scan(tmp_path, backend)
+    assert error is None and seen == ["a", "b", "c"]
+    assert cases[1].result is None and cases[1].error == "RuntimeError: lost b"
+    assert ("cancel", "c") not in backend.events
+
+
+def test_a_collect_time_error_without_keep_going_cancels_the_rest(tmp_path):
+    backend = _QueueBackend(fail="b")
+    cases, seen, error = _scan(tmp_path, backend, keep_going=False)
+    assert isinstance(error, RuntimeError) and "lost b" in str(error)
+    assert seen == ["a"]  # collected before the failure; nothing after it
+    assert backend.events[-2:] == [("wait", "b"), ("cancel", "c")]
+
+
+def test_a_submit_time_error_maps_onto_keep_going(tmp_path):
+    backend = _QueueBackend(refuse="b", submits=2)
+    cases, seen, error = _scan(tmp_path, backend)
+    assert error is None and seen == ["a", "b", "c"]
+    assert cases[1].error == "RuntimeError: queue refused b"
+    backend = _QueueBackend(refuse="b")
+    cases, seen, error = _scan(tmp_path / "strict", backend, keep_going=False)
+    assert isinstance(error, RuntimeError) and seen == []
+    assert backend.events == [("submit", "a"), ("cancel", "a")]
+
+
+def test_an_interrupt_cancels_every_outstanding_case(tmp_path):
+    backend = _QueueBackend(interrupt="a")
+    cases, seen, error = _scan(tmp_path, backend)
+    assert isinstance(error, KeyboardInterrupt) and seen == []
+    # The case being waited for is cancelled too: it may still be running.
+    assert {("cancel", "a"), ("cancel", "b"), ("cancel", "c")} <= set(backend.events)
+
+
+def test_an_on_case_exception_cancels_the_rest(tmp_path):
+    from external_code_stubs import write_launchable_stub
+    from vaft.code import CHEASEConfig
+
+    backend = _QueueBackend(submits=2)
+    stub = write_launchable_stub(tmp_path / "bin" / "chease")
+
+    def stop(case):
+        raise ValueError(f"stop at {case.variation.label}")
+
+    with pytest.raises(ValueError, match="stop at a"):
+        scan_chease(
+            str(vaft.data.data_path(SOURCE)),
+            [EquilibriumVariation(label) for label in ("a", "b")],
+            config=CHEASEConfig(executable=str(stub), backend=backend, create_plot=False),
+            workdir=tmp_path / "scan", on_case=stop,
+        )
+    assert backend.events[-1] == ("cancel", "b")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the CHEASE stand-in is a /bin/sh script")
+def test_a_bounded_local_backend_runs_scan_cases_concurrently(tmp_path):
+    """End to end with real processes: two cases overlap under max_concurrent=2."""
+    import json
+    import sys
+
+    from vaft.code import CHEASEConfig, LocalBackend
+
+    program = tmp_path / "bin" / "chease.py"
+    program.parent.mkdir()
+    program.write_text(
+        "import json, time; start = time.time(); time.sleep(1.0)\n"
+        "open('span.json', 'w').write(json.dumps([start, time.time()]))\n",
+        encoding="utf-8",
+    )
+    stub = tmp_path / "bin" / "chease"
+    stub.write_text(f"#!/bin/sh\nexec {sys.executable} {program}\n", encoding="utf-8")
+    stub.chmod(0o755)
+    cases = scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [EquilibriumVariation("a"), EquilibriumVariation("b", pressure_scale=1.1)],
+        config=CHEASEConfig(executable=str(stub), backend=LocalBackend(max_concurrent=2), create_plot=False),
+        workdir=tmp_path / "scan",
+    )
+    (a_start, a_end), (b_start, b_end) = (
+        json.loads((case.workdir / "span.json").read_text()) for case in cases
+    )
+    assert b_start < a_end and a_start < b_end

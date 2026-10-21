@@ -1,0 +1,315 @@
+{
+  "cases": {
+    "042962.00319": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00319",
+        "sha256": "5b85c390df28be36e4b6f59f329c16767408035da102ff7785a97ca6963b3eec",
+        "size": 26561
+      }
+    },
+    "042962.00320": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00320",
+        "sha256": "1693536600a89b8609e742df5b71486491d120ae022a684a428e884d4325dc09",
+        "size": 26475
+      }
+    },
+    "042962.00321": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00321",
+        "sha256": "ec4d97a6cbf933e71cd49376ff83d54d25f6af3137a6bc5bfeeaff718ab31c60",
+        "size": 26536
+      }
+    },
+    "042962.00322": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00322",
+        "sha256": "dd754cd7adbe625f9a63b7b6ab43a5151e88438cab384a6b759ac0c51e436eaa",
+        "size": 26535
+      }
+    },
+    "042962.00323": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00323",
+        "sha256": "adc73f9eea7442f42b926de11c8f5e74364f8d29e43da1ea7cff341aab5b0899",
+        "size": 26563
+      }
+    },
+    "042962.00324": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00324",
+        "sha256": "2b84f183a3ce7dda48b90080bf54944e9e1c77b23ef39fd2281f6bd15c32e8ac",
+        "size": 26579
+      }
+    },
+    "042962.00325": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00325",
+        "sha256": "a944f5017a200c4c610f8cc1437bcaf6969dd1f5eec5bf53eca5bd61e8cdebd8",
+        "size": 26615
+      }
+    },
+    "042962.00326": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00326",
+        "sha256": "92612bba41b7eee59a5ddc529c2e6e2c62cdb50db175f3e60ab300d061eeb04b",
+        "size": 26535
+      }
+    },
+    "042962.00327": {
+      "afile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/afile/a042962.00327",
+        "sha256": "1297fc7b00a83f140f00884bdbdb251df02389ec3ae29f3eeaa1c8953ebdb9d4",
+        "size": 4149
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/gfile/g042962.00327",
+        "sha256": "fd17c433d5fbdbdb1633787d0d5d672cc07fd21ab737ff5423ef754442e7b788",
+        "size": 309130
+      },
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00327",
+        "sha256": "fc0250a5e42883a3b7211a5fd5b4eec5828a5d4557e329883d1dd801abd558d0",
+        "size": 26478
+      },
+      "mfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/mfile/m042962.00327",
+        "sha256": "42ddafff830c0dcfb2b3513277f33e677082abeac6bd3504d914ea24c85e49ba",
+        "size": 13596
+      }
+    },
+    "042962.00328": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00328",
+        "sha256": "5bc694eaf20a785dd98249f8a9775f4a4cc685af16728349fbfaf118b71ae707",
+        "size": 26515
+      }
+    },
+    "042962.00329": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00329",
+        "sha256": "dc86f2e833605a379fc8d21db95aae9bd07d9d1d7cdeee2aebcb913e2ee5545b",
+        "size": 26469
+      }
+    },
+    "042962.00330": {
+      "afile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/afile/a042962.00330",
+        "sha256": "918c85f748fd0ed64874d37bd20ac1785950540f61bb3706b55db4f7c01e5208",
+        "size": 4149
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/gfile/g042962.00330",
+        "sha256": "1f7462b7c85b6a6c66c94bc1307a4cbcf10c92d14cddbe635d684871f876dbd2",
+        "size": 307257
+      },
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00330",
+        "sha256": "a2804dd5e01be0faa197b5a6e48e4f472ab55602cf6835063765d1ca40521233",
+        "size": 26447
+      },
+      "mfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/mfile/m042962.00330",
+        "sha256": "c7f1c6d80948a96738935f3a87901ad6634a8f459ba8a24edd1f8448f781ef00",
+        "size": 13596
+      }
+    },
+    "042962.00331": {
+      "afile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/afile/a042962.00331",
+        "sha256": "5d08dad9856b45a62157f3a72bafca1d9c3761b053a3035fb0c2028ed83b2e95",
+        "size": 4149
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/gfile/g042962.00331",
+        "sha256": "bef8366cac1da47ab1e2e1e50ac4130d7bfaa15b4016f755039f061a54eb8762",
+        "size": 307343
+      },
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00331",
+        "sha256": "2d012d188d01878ac60bd56a8ff4d8e6dbb1c741cbd88bceb1b650c90ff54495",
+        "size": 26511
+      },
+      "mfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/mfile/m042962.00331",
+        "sha256": "b908678dc4a9906d0b8c385592c1047434e2dfccc952f4f4dde3da9af3063125",
+        "size": 13596
+      }
+    },
+    "042962.00332": {
+      "afile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/afile/a042962.00332",
+        "sha256": "4db8a14a8275ad465578723c3baca3ea934635484e401e89bc255653d212ed22",
+        "size": 4149
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/gfile/g042962.00332",
+        "sha256": "a2b815a0952c610bc646554980fea48db93ef1a365cca4a8c87218220baf86e0",
+        "size": 309556
+      },
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00332",
+        "sha256": "8e6c82f9801e3992aa0add16168adb4fc2f223bd6f6e5702fa9237b880e80724",
+        "size": 26557
+      },
+      "mfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/mfile/m042962.00332",
+        "sha256": "960499484c2bf73f5a275ed0b68017b2c761912204945ec18379b4dd7c2a32ae",
+        "size": 8484
+      }
+    },
+    "042962.00333": {
+      "afile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/afile/a042962.00333",
+        "sha256": "d34a70a8ac777782e6550b5232b832c450411d7ec816df816df59edf9fb5efcc",
+        "size": 4149
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/gfile/g042962.00333",
+        "sha256": "1c7ee887f16ac0549a1e088aab8b7dc7fbcda0d8102e003619dda2cb74196f51",
+        "size": 308619
+      },
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00333",
+        "sha256": "9a924e24259c32fe95164fe17201162e3b7f61950905fca7fe3613f571f5438d",
+        "size": 26398
+      },
+      "mfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/mfile/m042962.00333",
+        "sha256": "e7b04d3b8db1b61deca5c956e661488cde9499b118e28f353e1734530e5a7059",
+        "size": 8364
+      }
+    },
+    "042962.00334": {
+      "afile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/afile/a042962.00334",
+        "sha256": "9ae90e5846f359056b9075cac4d3831f26fbba8d8f64f007b50f5047147c351b",
+        "size": 4149
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/gfile/g042962.00334",
+        "sha256": "96eb7a696d4e56fb8e79abee3dab5f83d9b59f0feacd9d3262ce43b142c2b98e",
+        "size": 308364
+      },
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00334",
+        "sha256": "db91909994d1c02126680c7e098372f3343eafb9ca299a51d4e729dfff270440",
+        "size": 26605
+      },
+      "mfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/mfile/m042962.00334",
+        "sha256": "2f26e132077bb453fc98f8f2c76216dceebecae5e00b8fd54a6e27c1e38e2185",
+        "size": 8376
+      }
+    },
+    "042962.00335": {
+      "afile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/afile/a042962.00335",
+        "sha256": "00836aa925c7bb17c394a55a68848ce503f1b77e4633f41f4e60b37f3f7439dc",
+        "size": 4149
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/gfile/g042962.00335",
+        "sha256": "076c30a4a2a7b06b63671dd8f2f599b79a87b4f9e944e32229829225fec40592",
+        "size": 307854
+      },
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00335",
+        "sha256": "da1942c1a804160abe864896b3dc9a27062c6f1e350aba80f1ae45a65c77bc98",
+        "size": 26683
+      },
+      "mfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/mfile/m042962.00335",
+        "sha256": "10572eb2afae28688538acbb5fc67fe627442852c5f204a0f47b6bf3ab3283e7",
+        "size": 9288
+      }
+    },
+    "042962.00336": {
+      "afile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/afile/a042962.00336",
+        "sha256": "f37ccbf5fda6a686670564f31276195ea92703b5920c887e48a72062f248d863",
+        "size": 4149
+      },
+      "disposition": "collected",
+      "gfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/gfile/g042962.00336",
+        "sha256": "d5cf432a6acb726092ff4b034d601160f0031997d60922d434acf89e70d05066",
+        "size": 307088
+      },
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00336",
+        "sha256": "4177afaf1a599ee65904958249a7449abc6aae1dd1f5e0ed3d0d7dacf5af9229",
+        "size": 26705
+      },
+      "mfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/mfile/m042962.00336",
+        "sha256": "1d2e0189c54ea2895e35aaa3e3c4225d27e02376d08326ae7e8df8f75b894476",
+        "size": 8736
+      }
+    },
+    "042962.00337": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00337",
+        "sha256": "59cf973886aa0de6eeb3bc27c79ae0ea0589b1bb2a3756cc2b8565140bc7b765",
+        "size": 26853
+      }
+    },
+    "042962.00338": {
+      "disposition": "missing_gfile",
+      "kfile": {
+        "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/kfile/k042962.00338",
+        "sha256": "3567c222c8ed8741c8c65ed13ed48298bb4e8d4344b35b5e4e6c71aeb9c5ab86",
+        "size": 27204
+      }
+    }
+  },
+  "logs": [
+    {
+      "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/log/generate_kfile.log",
+      "sha256": "23d46daa41e5891efd9e349b6748690f4fc86b52a9841463b8582c6991bc1028",
+      "size": 878
+    },
+    {
+      "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/log/run_efit.log",
+      "sha256": "3a38bb8aa701e360b964c0b78097ab86b45412303b3c6d5956e4c894327f87f4",
+      "size": 523
+    },
+    {
+      "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/run_efit.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "/home/user1/runs/vfit119-42962/filedb/efit/magnetic/42962/run_efit.out",
+      "sha256": "0986b9361e78449cbf5b94ba00afc53718a3899d6cd90c6610974b4df03e5c7c",
+      "size": 383079
+    }
+  ],
+  "parse_errors": [],
+  "runtime": {
+    "cases": 20,
+    "seconds": 173.875,
+    "seconds_per_case": 8.694
+  },
+  "schema_version": 1,
+  "shot": 42962,
+  "status": "completed: returncode=0; gfiles=8"
+}

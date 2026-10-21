@@ -1,0 +1,5436 @@
+{
+  "channel_status": {
+    "barometry": {
+      "status": "success"
+    },
+    "ec_launchers": {
+      "status": "success"
+    },
+    "langmuir_probes": {
+      "anti_alias": {
+        "policy": "finite runs of the triple-probe solve shorter than filtfilt accepts are decimated unfiltered; every target sample they contribute to has validity_timed = -1 (#915)",
+        "unfiltered": {
+          "mid": {
+            "n_e": {
+              "runs_unfiltered": 0,
+              "samples_unfiltered": 0,
+              "target_samples_invalidated": 0
+            },
+            "t_e": {
+              "runs_unfiltered": 0,
+              "samples_unfiltered": 0,
+              "target_samples_invalidated": 0
+            }
+          },
+          "upper": {
+            "n_e": {
+              "runs_unfiltered": 0,
+              "samples_unfiltered": 0,
+              "target_samples_invalidated": 0
+            },
+            "t_e": {
+              "runs_unfiltered": 0,
+              "samples_unfiltered": 0,
+              "target_samples_invalidated": 0
+            }
+          }
+        }
+      },
+      "status": "success"
+    },
+    "magnetics": {
+      "missing_channels": [],
+      "processing": "VestMagneticsProcessingConfig",
+      "status": "success"
+    },
+    "pf_active": {
+      "disabled_channels": [
+        "PF3",
+        "PF4",
+        "PF7",
+        "PF8"
+      ],
+      "status": "success"
+    },
+    "spectrometer_uv": {
+      "status": "success"
+    },
+    "tf": {
+      "repaired": [],
+      "status": "success"
+    }
+  },
+  "configuration": {
+    "dt": 4e-05,
+    "run": 1,
+    "tend": 0.36,
+    "time_policies": {},
+    "tstart": 0.26,
+    "vest_magnetics_processing": {},
+    "vest_magnetics_processing_effective": null
+  },
+  "input": {
+    "raw_sha256": "a580eb1bacaaccdf8854d220e5f02c1cdb4c29809457305db64443ac7f1cc9a4",
+    "static_sha256": "bc9146e47087a71b1e5f0790bc432a6d8563b5bf1b49e4eec8dcf95cafb560d5"
+  },
+  "machine_version": "vest-pre-43017-pf1906",
+  "magnetics_quality": {
+    "channels": [
+      {
+        "events": [
+          {
+            "end": 0.3307599999999726,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3306799999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.3315199999999723,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3314799999999723,
+            "validity": 1
+          },
+          {
+            "end": 0.3317599999999722,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3317199999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 953,
+            "start": 0.321879999999976,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 801,
+            "start": 0.32795999999997366,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 743,
+            "start": 0.33027999999997276,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 0,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.1320711204712827,
+          "amplitude_over_family_median": 0.8472775829865073,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 9.042423859124756e-07,
+          "dynamic_range": 0.20250315533884078,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -4.530272474513157e-05,
+          "leading_rms": 1.6295586683668188e-05,
+          "offset_jump_count": 3,
+          "peak_abs": 0.13833678678898748,
+          "sample_noise": 6.222181040051622e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 4,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H1-01_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3317599999999722,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3317199999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.3371199999999701,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33703999999997014,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 860,
+            "start": 0.3255999999999746,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 1,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.1413811935615748,
+          "amplitude_over_family_median": 0.907004616400187,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 6.578405538514655e-07,
+          "dynamic_range": 0.21123270778741532,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -3.295794357974552e-05,
+          "leading_rms": 1.1915949732265481e-05,
+          "offset_jump_count": 1,
+          "peak_abs": 0.14831443035344,
+          "sample_noise": 6.189354532038409e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 3,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H1-02_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3307599999999726,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3307199999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.33155999999997227,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3315199999999723,
+            "validity": 1
+          },
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33703999999997014,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 783,
+            "start": 0.3286799999999734,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 757,
+            "start": 0.329719999999973,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 750,
+            "start": 0.32999999999997287,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 707,
+            "start": 0.3317199999999722,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 2,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.1420951576186578,
+          "amplitude_over_family_median": 0.9115849193344386,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.3828111829103094e-07,
+          "dynamic_range": 0.2098597948669923,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 6.9279117380302876e-06,
+          "leading_rms": 3.9893252851730905e-06,
+          "offset_jump_count": 4,
+          "peak_abs": 0.14802383697399416,
+          "sample_noise": 6.078337869494459e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 4,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H1-03_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33703999999997014,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 3,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.16444523347265055,
+          "amplitude_over_family_median": 1.0549676526796414,
+          "array_contradiction_fraction": 0.01,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 3.108872742313e-07,
+          "dynamic_range": 0.2398515425051202,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 1.5575514741053132e-05,
+          "leading_rms": 9.952885958606915e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.16952772466945365,
+          "sample_noise": 7.546407109591936e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 1,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H1-04_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3307599999999726,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3307199999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.33679999999997023,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.33679999999997023,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33699999999997016,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 743,
+            "start": 0.33027999999997276,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 4,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.15723903755738544,
+          "amplitude_over_family_median": 1.008737649967272,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 9.272967083123375e-08,
+          "dynamic_range": 0.22355790911687656,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -4.645775091746979e-06,
+          "leading_rms": 4.087068534990152e-06,
+          "offset_jump_count": 1,
+          "peak_abs": 0.16167501569353862,
+          "sample_noise": 6.424265765299871e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 3,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H1-05_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3317599999999722,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3317199999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.33679999999997023,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33675999999997025,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33699999999997016,
+            "validity": 1
+          },
+          {
+            "end": 0.33747999999996997,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.33747999999996997,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 5,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.1537243047022417,
+          "amplitude_over_family_median": 0.9861895384064484,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 2.416811888193968e-07,
+          "dynamic_range": 0.21163722991424022,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 1.2108275992960446e-05,
+          "leading_rms": 7.784587473909844e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.15527223222470252,
+          "sample_noise": 5.292034127230687e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 4,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H1-06_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3307199999999726,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3306799999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.3358799999999706,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3358799999999706,
+            "validity": 1
+          },
+          {
+            "end": 0.33679999999997023,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33675999999997025,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33699999999997016,
+            "validity": 1
+          },
+          {
+            "end": 0.33747999999996997,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.33747999999996997,
+            "validity": 1
+          },
+          {
+            "end": 0.3376399999999699,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3376399999999699,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 6,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.14375464576704886,
+          "amplitude_over_family_median": 0.9222310553128887,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 4.8269616430985006e-08,
+          "dynamic_range": 0.19294282107869948,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -2.4183174564631123e-06,
+          "leading_rms": 1.3705551135087741e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.14454992297874647,
+          "sample_noise": 3.984179507998395e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 6,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H1-07_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3306799999999726,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3306799999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.33571999999997065,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.33571999999997065,
+            "validity": 1
+          },
+          {
+            "end": 0.3358799999999706,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3358799999999706,
+            "validity": 1
+          },
+          {
+            "end": 0.33679999999997023,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33675999999997025,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33699999999997016,
+            "validity": 1
+          },
+          {
+            "end": 0.33747999999996997,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33743999999997,
+            "validity": 1
+          },
+          {
+            "end": 0.3376799999999699,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3375999999999699,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 7,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.1558770385565434,
+          "amplitude_over_family_median": 1.0,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 8.214977064322793e-07,
+          "dynamic_range": 0.20888811784558237,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 4.115719972107203e-05,
+          "leading_rms": 1.4139346271294183e-05,
+          "offset_jump_count": 0,
+          "peak_abs": 0.15816766265855411,
+          "sample_noise": 3.942153715365664e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 7,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H1-08_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.33679999999997023,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33675999999997025,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33699999999997016,
+            "validity": 1
+          },
+          {
+            "end": 0.33747999999996997,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33743999999997,
+            "validity": 1
+          },
+          {
+            "end": 0.3376799999999699,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3375999999999699,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 8,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.16144891467642566,
+          "amplitude_over_family_median": 1.035745329597477,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 3.1261419586672605e-07,
+          "dynamic_range": 0.21349407535232146,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 1.5662033861064492e-05,
+          "leading_rms": 6.001300708883717e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.1639293350313378,
+          "sample_noise": 3.641052697537918e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 4,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H1-09_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3368399999999702,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33675999999997025,
+            "validity": 1
+          },
+          {
+            "end": 0.33747999999996997,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.33747999999996997,
+            "validity": 1
+          },
+          {
+            "end": 0.3376399999999699,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3376399999999699,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 560,
+            "start": 0.3375999999999699,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 539,
+            "start": 0.3384399999999696,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 9,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.16680286419596396,
+          "amplitude_over_family_median": 1.0700925918313318,
+          "array_contradiction_fraction": 0.0064,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 2.808394943229573e-07,
+          "dynamic_range": 0.2125416764105377,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 1.40701149460454e-05,
+          "leading_rms": 6.068583754360945e-06,
+          "offset_jump_count": 2,
+          "peak_abs": 0.16837994677053914,
+          "sample_noise": 3.290984358682683e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 3,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H2-01_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.33679999999997023,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.33679999999997023,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 10,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.16160192766551182,
+          "amplitude_over_family_median": 1.0367269558235273,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 2.2339995139520316e-07,
+          "dynamic_range": 0.20118378254877986,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -1.1192382334433355e-05,
+          "leading_rms": 5.2091607358063385e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.16274842465448347,
+          "sample_noise": 3.100466733198028e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 1,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H2-02_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33703999999997014,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 11,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.17095400541521352,
+          "amplitude_over_family_median": 1.0967234622769733,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 3.625841314697298e-07,
+          "dynamic_range": 0.2071698890201043,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -1.8165537648791102e-05,
+          "leading_rms": 7.12543418412042e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.17205973703105137,
+          "sample_noise": 3.273166761873751e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 2,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H2-03_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 12,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.17831339896627155,
+          "amplitude_over_family_median": 1.1439362757818208,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 2.50043415687521e-07,
+          "dynamic_range": 0.20579201837728414,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 1.2527225234850597e-05,
+          "leading_rms": 6.1138336905777e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.17930923185410286,
+          "sample_noise": 3.407092084764714e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 1,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H2-04_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3370799999999701,
+            "validity": 1
+          },
+          {
+            "end": 0.3383999999999696,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33835999999996963,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 13,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.17401731699855255,
+          "amplitude_over_family_median": 1.1163755650607186,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.0041658010995967e-06,
+          "dynamic_range": 0.18946287630476474,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -5.030890787074078e-05,
+          "leading_rms": 1.7470606312621624e-05,
+          "offset_jump_count": 0,
+          "peak_abs": 0.17507120751350447,
+          "sample_noise": 3.1488765950862585e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 3,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H2-05_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3353999999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3370799999999701,
+            "validity": 1
+          },
+          {
+            "end": 0.33835999999996963,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33831999999996965,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 538,
+            "start": 0.3384799999999696,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 14,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.1707446786058388,
+          "amplitude_over_family_median": 1.095380565264603,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 3.124804881979264e-07,
+          "dynamic_range": 0.20094230409999708,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 1.56553350800625e-05,
+          "leading_rms": 5.4522279081212766e-06,
+          "offset_jump_count": 1,
+          "peak_abs": 0.17251175648732728,
+          "sample_noise": 3.360317076827031e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 3,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H2-06_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3353999999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.3371199999999701,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33703999999997014,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 15,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.1628846493855903,
+          "amplitude_over_family_median": 1.044956017216769,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 3.565523704057525e-07,
+          "dynamic_range": 0.20585400428530118,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 1.7863345210715968e-05,
+          "leading_rms": 7.66387878440573e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.16460672694921138,
+          "sample_noise": 3.355963289254149e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 2,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H2-07_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.33679999999997023,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.33679999999997023,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 16,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.15099550093084607,
+          "amplitude_over_family_median": 0.9686834079547478,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 6.310596326667143e-07,
+          "dynamic_range": 0.1944587454163742,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -3.161621406147089e-05,
+          "leading_rms": 1.0876108177372698e-05,
+          "offset_jump_count": 0,
+          "peak_abs": 0.15276982442402154,
+          "sample_noise": 3.050424017091427e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 1,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H2-08_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3350399999999709,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3350399999999709,
+            "validity": 1
+          },
+          {
+            "end": 0.3368399999999702,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33675999999997025,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 17,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.15880434020805442,
+          "amplitude_over_family_median": 1.0187795564928517,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 4.419897539930219e-08,
+          "dynamic_range": 0.21068387722811144,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 2.2143775250159984e-06,
+          "leading_rms": 1.831159022721824e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.1617410385969155,
+          "sample_noise": 3.6597058828627213e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 2,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H2-09_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3368399999999702,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33675999999997025,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33699999999997016,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 18,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.15970186950342893,
+          "amplitude_over_family_median": 1.0245374878962568,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 4.1782744050570536e-07,
+          "dynamic_range": 0.2175884429844104,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -2.0933238502297963e-05,
+          "leading_rms": 1.0080033124248524e-05,
+          "offset_jump_count": 0,
+          "peak_abs": 0.1621570728673708,
+          "sample_noise": 4.06921079211661e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 2,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H3-01_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3307199999999726,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3306799999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.3358799999999706,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3358799999999706,
+            "validity": 1
+          },
+          {
+            "end": 0.33679999999997023,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33675999999997025,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33699999999997016,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 624,
+            "start": 0.3350399999999709,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 19,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.13755141019559022,
+          "amplitude_over_family_median": 0.8824353571850438,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 3.475967842621339e-08,
+          "dynamic_range": 0.19190785890149345,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 1.7414668550213862e-06,
+          "leading_rms": 5.1559922760838205e-06,
+          "offset_jump_count": 1,
+          "peak_abs": 0.1393427374341295,
+          "sample_noise": 3.934436579241665e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 4,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H3-02_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3307199999999726,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3306799999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.33575999999997064,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33571999999997065,
+            "validity": 1
+          },
+          {
+            "end": 0.3358799999999706,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3358799999999706,
+            "validity": 1
+          },
+          {
+            "end": 0.33679999999997023,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33675999999997025,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33699999999997016,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 624,
+            "start": 0.3350399999999709,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 604,
+            "start": 0.3358399999999706,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 20,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.13627980497132194,
+          "amplitude_over_family_median": 0.874277611592469,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 6.639708161769211e-07,
+          "dynamic_range": 0.1922467189918804,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -3.3265070950760445e-05,
+          "leading_rms": 1.2269505764276024e-05,
+          "offset_jump_count": 2,
+          "peak_abs": 0.13742514298129593,
+          "sample_noise": 4.126639376084311e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 6,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H3-03_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3307599999999726,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3306799999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.3358799999999706,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3358799999999706,
+            "validity": 1
+          },
+          {
+            "end": 0.33679999999997023,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.33679999999997023,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33699999999997016,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 1028,
+            "start": 0.3188799999999772,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 21,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.12958089152337451,
+          "amplitude_over_family_median": 0.8313019847138672,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 5.752440075487339e-07,
+          "dynamic_range": 0.19300686731014588,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -2.881984005756297e-05,
+          "leading_rms": 1.0741132264825202e-05,
+          "offset_jump_count": 1,
+          "peak_abs": 0.1356843196442014,
+          "sample_noise": 4.2383502447376454e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 5,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H3-04_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3307599999999726,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3306799999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 1028,
+            "start": 0.3188799999999772,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 22,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.1258088859559943,
+          "amplitude_over_family_median": 0.8071033881642415,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 2.1676263343050694e-07,
+          "dynamic_range": 0.19286472472698724,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -1.0859851374278105e-05,
+          "leading_rms": 3.7551206954792047e-06,
+          "offset_jump_count": 1,
+          "peak_abs": 0.13182488839247583,
+          "sample_noise": 4.5270265581166195e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 2,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H3-05_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3307599999999726,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3306799999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.3317999999999722,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3317599999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 742,
+            "start": 0.33031999999997275,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 23,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.12279858715575527,
+          "amplitude_over_family_median": 0.7877913789798545,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.8878420293219692e-07,
+          "dynamic_range": 0.18901415037637928,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -9.45812639941233e-06,
+          "leading_rms": 5.386291683816002e-06,
+          "offset_jump_count": 1,
+          "peak_abs": 0.128289966509362,
+          "sample_noise": 5.226962524735265e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 2,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H3-06_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.33079999999997256,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3307199999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.3317999999999722,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3317999999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 707,
+            "start": 0.3317199999999722,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 24,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.11762581811321718,
+          "amplitude_over_family_median": 0.7546064462249145,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.5760086092454054e-07,
+          "dynamic_range": 0.18868858805217603,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 7.895834715661405e-06,
+          "leading_rms": 4.084856071258845e-06,
+          "offset_jump_count": 1,
+          "peak_abs": 0.12309593544487041,
+          "sample_noise": 5.923692509659101e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 2,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H3-07_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.35995999999996126,
+            "reason": "array_contradiction",
+            "samples": 2500,
+            "start": 0.26,
+            "validity": -2
+          },
+          {
+            "end": 0.26063999999999976,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.26063999999999976,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 2481,
+            "start": 0.2607599999999997,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 25,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.2490595588710458,
+          "amplitude_over_family_median": 1.597795038816452,
+          "array_contradiction_fraction": 0.8628,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 0.0016191292545512765,
+          "dynamic_range": 0.30376873779628066,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": NaN,
+          "flatlined": false,
+          "last_valid_time": NaN,
+          "leading_drift_per_second": -0.08111870012785091,
+          "leading_rms": 0.02807592200892975,
+          "offset_jump_count": 1,
+          "peak_abs": 0.28718327975416924,
+          "sample_noise": 4.407521771673207e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 1,
+          "valid_fraction": 0.0
+        },
+        "name": "MagneticFieldProbe_H3-08_Bz",
+        "quantity": "field",
+        "reason": "departs from its array neighbours by more than the array's amplitude for 86% of its assessable record",
+        "status": "fail",
+        "unit": "T",
+        "valid_fraction": 0.0,
+        "validity": -2
+      },
+      {
+        "events": [
+          {
+            "end": 0.33035999999997273,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.33035999999997273,
+            "validity": 1
+          },
+          {
+            "end": 0.3307599999999726,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3306799999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.3317599999999722,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3317599999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 707,
+            "start": 0.3317199999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 575,
+            "start": 0.33699999999997016,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 552,
+            "start": 0.3379199999999698,
+            "validity": 1
+          }
+        ],
+        "family": "inboard",
+        "index": 26,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.09097297078523942,
+          "amplitude_over_family_median": 0.5836200868817478,
+          "array_contradiction_fraction": 0.0536,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 5.178875912417222e-07,
+          "dynamic_range": 0.15997410313646548,
+          "family": "inboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 2.5946272106308767e-05,
+          "leading_rms": 1.1603655250879374e-05,
+          "offset_jump_count": 3,
+          "peak_abs": 0.09726619150235082,
+          "sample_noise": 5.6313822743849274e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 4,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_H3-09_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 785,
+            "start": 0.3285999999999734,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 27,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.09515837816094079,
+          "amplitude_over_family_median": 1.8209103285601038,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 4.8570607110407126e-09,
+          "dynamic_range": 0.09575976090386351,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 2.4333971498209397e-07,
+          "leading_rms": 1.7656949785604204e-06,
+          "offset_jump_count": 1,
+          "peak_abs": 0.09575442631170358,
+          "sample_noise": 1.8188621030480936e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C1-06_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "outboard",
+        "index": 28,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.08520317167043394,
+          "amplitude_over_family_median": 1.6304117232680557,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.7224449964802968e-07,
+          "dynamic_range": 0.08594698271302502,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 8.629483950305433e-06,
+          "leading_rms": 3.2222980445417357e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.0859260718411748,
+          "sample_noise": 1.393405546487266e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C1-05_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "pass",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 861,
+            "start": 0.3255599999999746,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 29,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.07334566566605845,
+          "amplitude_over_family_median": 1.4035115220286727,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 6.476482965553888e-07,
+          "dynamic_range": 0.07434479469120323,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -3.2447309446675345e-05,
+          "leading_rms": 1.1201889685169696e-05,
+          "offset_jump_count": 1,
+          "peak_abs": 0.07423414016156883,
+          "sample_noise": 1.3939344696525961e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C1-04_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 792,
+            "start": 0.3283199999999735,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 30,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.06338836461463628,
+          "amplitude_over_family_median": 1.2129728361081165,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 9.857394029648907e-07,
+          "dynamic_range": 0.06458565707949822,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -4.93857416315267e-05,
+          "leading_rms": 1.7453045990048145e-05,
+          "offset_jump_count": 1,
+          "peak_abs": 0.06440779878934268,
+          "sample_noise": 1.5195249276946383e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C1-03_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "outboard",
+        "index": 31,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.05712916795024503,
+          "amplitude_over_family_median": 1.093199505845987,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.863666731437733e-07,
+          "dynamic_range": 0.05843753941994265,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -9.337007672537353e-06,
+          "leading_rms": 3.6394275557085722e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.05840151677757824,
+          "sample_noise": 1.62323574364987e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C1-02_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "pass",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.35995999999996126,
+            "reason": "array_contradiction",
+            "samples": 2500,
+            "start": 0.26,
+            "validity": -2
+          },
+          {
+            "end": 0.26063999999999976,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.26063999999999976,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 32,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.05068069524842557,
+          "amplitude_over_family_median": 0.9698042696816882,
+          "array_contradiction_fraction": 0.5876,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 0.0008499100572804333,
+          "dynamic_range": 0.1609169036844568,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": NaN,
+          "flatlined": false,
+          "last_valid_time": NaN,
+          "leading_drift_per_second": 0.042580664192422985,
+          "leading_rms": 0.01477558147929711,
+          "offset_jump_count": 0,
+          "peak_abs": 0.1514939915145384,
+          "sample_noise": 5.068060945627441e-07,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 1,
+          "valid_fraction": 0.0
+        },
+        "name": "MagneticFieldProbe_C1-01_Bz",
+        "quantity": "field",
+        "reason": "departs from its array neighbours by more than the array's amplitude for 59% of its assessable record",
+        "status": "fail",
+        "unit": "T",
+        "valid_fraction": 0.0,
+        "validity": -2
+      },
+      {
+        "events": [
+          {
+            "end": 0.32407999999997517,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3240399999999752,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 950,
+            "start": 0.32199999999997597,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 911,
+            "start": 0.32355999999997537,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 861,
+            "start": 0.3255599999999746,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 847,
+            "start": 0.3261199999999744,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 806,
+            "start": 0.32775999999997374,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 33,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.04799209454634644,
+          "amplitude_over_family_median": 0.9183563479914955,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 5.866051278530799e-07,
+          "dynamic_range": 0.05029018988730193,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -2.9389034461588544e-05,
+          "leading_rms": 1.0170095744490758e-05,
+          "offset_jump_count": 5,
+          "peak_abs": 0.05018565979202136,
+          "sample_noise": 1.8945060910065446e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 1,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C2-01_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.32387999999997524,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.32387999999997524,
+            "validity": 1
+          },
+          {
+            "end": 0.32407999999997517,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.32407999999997517,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 949,
+            "start": 0.32203999999997596,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 911,
+            "start": 0.32355999999997537,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 824,
+            "start": 0.327039999999974,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 805,
+            "start": 0.3277999999999737,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 787,
+            "start": 0.32851999999997344,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 779,
+            "start": 0.3288399999999733,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 752,
+            "start": 0.3299199999999729,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 34,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.04742906403686385,
+          "amplitude_over_family_median": 0.9075824351755651,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.0270318472326085e-07,
+          "dynamic_range": 0.04948088681808493,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 5.145450136437909e-06,
+          "leading_rms": 2.193547323714127e-06,
+          "offset_jump_count": 7,
+          "peak_abs": 0.04947512008328353,
+          "sample_noise": 1.918943236404762e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 2,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C2-03_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3239599999999752,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3239599999999752,
+            "validity": 1
+          },
+          {
+            "end": 0.3241999999999751,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.32415999999997513,
+            "validity": 1
+          },
+          {
+            "end": 0.3286799999999734,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3285999999999734,
+            "validity": 1
+          },
+          {
+            "end": 0.3304799999999727,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3303999999999727,
+            "validity": 1
+          },
+          {
+            "end": 0.33159999999997225,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33155999999997227,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 967,
+            "start": 0.32131999999997624,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 947,
+            "start": 0.3221199999999759,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 897,
+            "start": 0.32411999999997515,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 881,
+            "start": 0.3247599999999749,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 712,
+            "start": 0.3315199999999723,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 35,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.051034257562188434,
+          "amplitude_over_family_median": 0.9765698880262079,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 2.1716240532588815e-07,
+          "dynamic_range": 0.05554777632571391,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 1.087988002635132e-05,
+          "leading_rms": 3.795995007136357e-06,
+          "offset_jump_count": 5,
+          "peak_abs": 0.05554040565702182,
+          "sample_noise": 1.9478800085440075e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 5,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C4-05",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3239199999999752,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3239199999999752,
+            "validity": 1
+          },
+          {
+            "end": 0.32411999999997515,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.32407999999997517,
+            "validity": 1
+          },
+          {
+            "end": 0.3303999999999727,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33035999999997273,
+            "validity": 1
+          },
+          {
+            "end": 0.33155999999997227,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.33155999999997227,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 938,
+            "start": 0.3224799999999758,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 911,
+            "start": 0.32355999999997537,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 882,
+            "start": 0.3247199999999749,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 741,
+            "start": 0.33035999999997273,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 36,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.04783820173117539,
+          "amplitude_over_family_median": 0.9154115204098167,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 4.407183882940916e-07,
+          "dynamic_range": 0.05065111431612565,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 2.2080079573860846e-05,
+          "leading_rms": 8.055132988766148e-06,
+          "offset_jump_count": 4,
+          "peak_abs": 0.05064687709811554,
+          "sample_noise": 1.837463204860592e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 4,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C2-05_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3239599999999752,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3239199999999752,
+            "validity": 1
+          },
+          {
+            "end": 0.32415999999997513,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.32411999999997515,
+            "validity": 1
+          },
+          {
+            "end": 0.3286799999999734,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3286399999999734,
+            "validity": 1
+          },
+          {
+            "end": 0.3303999999999727,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33035999999997273,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 911,
+            "start": 0.32355999999997537,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 882,
+            "start": 0.3247199999999749,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 712,
+            "start": 0.3315199999999723,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 37,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.04937240057929,
+          "amplitude_over_family_median": 0.9447692982806422,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 4.1950804722548333e-07,
+          "dynamic_range": 0.05301379422769974,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -2.1017437235753807e-05,
+          "leading_rms": 7.4196568742546125e-06,
+          "offset_jump_count": 3,
+          "peak_abs": 0.052937369540436256,
+          "sample_noise": 1.8651705336748584e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 4,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C3-01_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3239599999999752,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3239199999999752,
+            "validity": 1
+          },
+          {
+            "end": 0.3241999999999751,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.32411999999997515,
+            "validity": 1
+          },
+          {
+            "end": 0.3286799999999734,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3285999999999734,
+            "validity": 1
+          },
+          {
+            "end": 0.3304399999999727,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33035999999997273,
+            "validity": 1
+          },
+          {
+            "end": 0.33159999999997225,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33155999999997227,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 955,
+            "start": 0.32179999999997605,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 881,
+            "start": 0.3247599999999749,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 712,
+            "start": 0.3315199999999723,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 38,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.05026938966480862,
+          "amplitude_over_family_median": 0.9619337006379847,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.3346854492632484e-07,
+          "dynamic_range": 0.05441123353769081,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -6.686800848014858e-06,
+          "leading_rms": 2.5239237917755905e-06,
+          "offset_jump_count": 3,
+          "peak_abs": 0.054387078844651555,
+          "sample_noise": 1.9200562985302548e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 5,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C3-02_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3239199999999752,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.32387999999997524,
+            "validity": 1
+          },
+          {
+            "end": 0.32411999999997515,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.32407999999997517,
+            "validity": 1
+          },
+          {
+            "end": 0.3286399999999734,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3285999999999734,
+            "validity": 1
+          },
+          {
+            "end": 0.3303999999999727,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3303999999999727,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 939,
+            "start": 0.3224399999999758,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 911,
+            "start": 0.32355999999997537,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 882,
+            "start": 0.3247199999999749,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 39,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.04639003042608075,
+          "amplitude_over_family_median": 0.8876999290824481,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.4439195268260178e-06,
+          "dynamic_range": 0.0482568373589223,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 7.234065765664216e-05,
+          "leading_rms": 2.5722254857774487e-05,
+          "offset_jump_count": 3,
+          "peak_abs": 0.04823888781428693,
+          "sample_noise": 1.875771635365889e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 4,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C3-03_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3239999999999752,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3239599999999752,
+            "validity": 1
+          },
+          {
+            "end": 0.3241999999999751,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.32415999999997513,
+            "validity": 1
+          },
+          {
+            "end": 0.33159999999997225,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33155999999997227,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 870,
+            "start": 0.32519999999997473,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 712,
+            "start": 0.3315199999999723,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 40,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.05115323548141485,
+          "amplitude_over_family_median": 0.9788465989809024,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 9.068963922293974e-07,
+          "dynamic_range": 0.055492056961406425,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 4.5435690993474395e-05,
+          "leading_rms": 1.5802633745841106e-05,
+          "offset_jump_count": 2,
+          "peak_abs": 0.055480462232139,
+          "sample_noise": 1.9046135692096157e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 3,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C3-04_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3239999999999752,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3239599999999752,
+            "validity": 1
+          },
+          {
+            "end": 0.3241999999999751,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.32415999999997513,
+            "validity": 1
+          },
+          {
+            "end": 0.3286399999999734,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.32855999999997343,
+            "validity": 1
+          },
+          {
+            "end": 0.3304399999999727,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3303999999999727,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 870,
+            "start": 0.32519999999997473,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 712,
+            "start": 0.3315199999999723,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 41,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.050962124898355596,
+          "amplitude_over_family_median": 0.9751895879923252,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 8.83237259747609e-07,
+          "dynamic_range": 0.05481724072881908,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -4.425036371482722e-05,
+          "leading_rms": 1.5255941627987059e-05,
+          "offset_jump_count": 2,
+          "peak_abs": 0.054663739199229865,
+          "sample_noise": 1.8003508070822918e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 4,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C3-05_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3239999999999752,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3239999999999752,
+            "validity": 1
+          },
+          {
+            "end": 0.3285999999999734,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.32855999999997343,
+            "validity": 1
+          },
+          {
+            "end": 0.3304399999999727,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33035999999997273,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 953,
+            "start": 0.321879999999976,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 917,
+            "start": 0.32331999999997546,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 741,
+            "start": 0.33035999999997273,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 42,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.05336413329663792,
+          "amplitude_over_family_median": 1.0211534010190977,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.1419987657513456e-06,
+          "dynamic_range": 0.05653328158735234,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 5.721436702163269e-05,
+          "leading_rms": 1.9831790180790663e-05,
+          "offset_jump_count": 3,
+          "peak_abs": 0.05652114909730776,
+          "sample_noise": 1.8240930591873944e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 3,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C4-01_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3285999999999734,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.32855999999997343,
+            "validity": 1
+          },
+          {
+            "end": 0.3303999999999727,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33035999999997273,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 801,
+            "start": 0.32795999999997366,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 741,
+            "start": 0.33035999999997273,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 43,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.05716762856563308,
+          "amplitude_over_family_median": 1.093935471855038,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 2.365167749705346e-07,
+          "dynamic_range": 0.06014889409875763,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 1.1849537824179675e-05,
+          "leading_rms": 4.5157411880350305e-06,
+          "offset_jump_count": 2,
+          "peak_abs": 0.06014450732890529,
+          "sample_noise": 1.7617708448885762e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 2,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C4-02_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 802,
+            "start": 0.3279199999999737,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 44,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.06178343365217377,
+          "amplitude_over_family_median": 1.1822615585238012,
+          "array_contradiction_fraction": 0.0096,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 8.323791256117157e-07,
+          "dynamic_range": 0.06424940768909228,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -4.1702361002607136e-05,
+          "leading_rms": 1.4968533301909845e-05,
+          "offset_jump_count": 1,
+          "peak_abs": 0.06409707143086149,
+          "sample_noise": 1.7165779874734005e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C4-03",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.35995999999996126,
+            "reason": "known_fault",
+            "samples": 2500,
+            "start": 0.26,
+            "validity": -2
+          },
+          {
+            "end": 0.26063999999999976,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.26063999999999976,
+            "validity": 1
+          }
+        ],
+        "family": "outboard",
+        "index": 45,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.16413919191145393,
+          "amplitude_over_family_median": 3.140897897267405,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 0.002758049408189514,
+          "dynamic_range": 0.5221944887000887,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": NaN,
+          "flatlined": false,
+          "known_fault": "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)",
+          "last_valid_time": NaN,
+          "leading_drift_per_second": -0.13817882806566048,
+          "leading_rms": 0.04794763145108353,
+          "offset_jump_count": 0,
+          "peak_abs": 0.4916095824467555,
+          "sample_noise": 4.364660773583559e-17,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 1,
+          "valid_fraction": 0.0
+        },
+        "name": "MagneticFieldProbe_C4-04",
+        "quantity": "field",
+        "reason": "recorded as broken for this shot: C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)",
+        "status": "fail",
+        "unit": "T",
+        "valid_fraction": 0.0,
+        "validity": -2
+      },
+      {
+        "events": [],
+        "family": "outboard",
+        "index": 46,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.0893383937010397,
+          "amplitude_over_family_median": 1.7095415765919963,
+          "array_contradiction_fraction": 0.0028,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 5.6732411132515905e-06,
+          "dynamic_range": 0.09125697833771669,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 0.00028423051669608165,
+          "leading_rms": 9.908359614569833e-05,
+          "offset_jump_count": 0,
+          "peak_abs": 0.09119778516498107,
+          "sample_noise": 1.3618319701876715e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C4-06",
+        "quantity": "field",
+        "reason": "",
+        "status": "pass",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "outboard",
+        "index": 47,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.10304528207694139,
+          "amplitude_over_family_median": 1.9718307738068412,
+          "array_contradiction_fraction": 0.008,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 3.7201281928088684e-09,
+          "dynamic_range": 0.10463532183586824,
+          "family": "outboard",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -1.8637916797646848e-07,
+          "leading_rms": 8.636258880630154e-07,
+          "offset_jump_count": 0,
+          "peak_abs": 0.10463326847691014,
+          "sample_noise": 2.014729204286917e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_C2-04_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "pass",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.32331999999997546,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3232399999999755,
+            "validity": 1
+          },
+          {
+            "end": 0.32355999999997537,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3235199999999754,
+            "validity": 1
+          },
+          {
+            "end": 0.32415999999997513,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.32407999999997517,
+            "validity": 1
+          },
+          {
+            "end": 0.32543999999997464,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.32535999999997467,
+            "validity": 1
+          },
+          {
+            "end": 0.33031999999997275,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.33031999999997275,
+            "validity": 1
+          },
+          {
+            "end": 0.33183999999997216,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3317599999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.33571999999997065,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3356399999999707,
+            "validity": 1
+          },
+          {
+            "end": 0.3359199999999706,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3359199999999706,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 984,
+            "start": 0.3206399999999765,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 603,
+            "start": 0.3358799999999706,
+            "validity": 1
+          }
+        ],
+        "family": "side",
+        "index": 48,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.05195854738399052,
+          "amplitude_over_family_median": 0.8780581625576639,
+          "array_contradiction_fraction": 0.0048,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 4.681805793140596e-07,
+          "dynamic_range": 0.09148042135751516,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 2.3455940847406868e-05,
+          "leading_rms": 1.8434617075144824e-05,
+          "offset_jump_count": 2,
+          "peak_abs": 0.05232141717965833,
+          "sample_noise": 5.1971734661652565e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 9,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_U-08_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.32331999999997546,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3232399999999755,
+            "validity": 1
+          },
+          {
+            "end": 0.32355999999997537,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3235199999999754,
+            "validity": 1
+          },
+          {
+            "end": 0.32543999999997464,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.32535999999997467,
+            "validity": 1
+          },
+          {
+            "end": 0.32879999999997334,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.32871999999997337,
+            "validity": 1
+          },
+          {
+            "end": 0.33031999999997275,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.33031999999997275,
+            "validity": 1
+          },
+          {
+            "end": 0.3307599999999726,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3306799999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.3317999999999722,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3317599999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.33571999999997065,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33567999999997067,
+            "validity": 1
+          },
+          {
+            "end": 0.3359199999999706,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3359199999999706,
+            "validity": 1
+          },
+          {
+            "end": 0.3371199999999701,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.33703999999997014,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 707,
+            "start": 0.3317199999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 610,
+            "start": 0.3355999999999707,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 597,
+            "start": 0.3361199999999705,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 575,
+            "start": 0.33699999999997016,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 569,
+            "start": 0.33723999999997006,
+            "validity": 1
+          }
+        ],
+        "family": "side",
+        "index": 49,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.056829897641038137,
+          "amplitude_over_family_median": 0.9603801109421556,
+          "array_contradiction_fraction": 0.0064,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.041796885497776e-07,
+          "dynamic_range": 0.09418530243346086,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 5.219423274038978e-06,
+          "leading_rms": 7.730430997793673e-06,
+          "offset_jump_count": 5,
+          "peak_abs": 0.05726128371008745,
+          "sample_noise": 6.758578385420761e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 11,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_U-07_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.32355999999997537,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3234799999999754,
+            "validity": 1
+          },
+          {
+            "end": 0.32879999999997334,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.32871999999997337,
+            "validity": 1
+          },
+          {
+            "end": 0.3307599999999726,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3306799999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.3317999999999722,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3317999999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.33571999999997065,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33567999999997067,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33703999999997014,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 914,
+            "start": 0.3234399999999754,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 834,
+            "start": 0.3266399999999742,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 617,
+            "start": 0.3353199999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 611,
+            "start": 0.3355599999999707,
+            "validity": 1
+          }
+        ],
+        "family": "side",
+        "index": 50,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.05044177619856832,
+          "amplitude_over_family_median": 0.8524259348079215,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.154888949717296e-07,
+          "dynamic_range": 0.07500472876056438,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -5.786016782153024e-06,
+          "leading_rms": 8.029596208818137e-06,
+          "offset_jump_count": 4,
+          "peak_abs": 0.05092037697539989,
+          "sample_noise": 6.785817543428327e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 6,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_U-06_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3232799999999755,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3232399999999755,
+            "validity": 1
+          },
+          {
+            "end": 0.32415999999997513,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.32411999999997515,
+            "validity": 1
+          },
+          {
+            "end": 0.3254799999999746,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.32539999999997465,
+            "validity": 1
+          },
+          {
+            "end": 0.32879999999997334,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.32871999999997337,
+            "validity": 1
+          },
+          {
+            "end": 0.3307599999999726,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3306799999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.3317999999999722,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3317999999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3353999999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 921,
+            "start": 0.3231599999999755,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 900,
+            "start": 0.3239999999999752,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 777,
+            "start": 0.3289199999999733,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 727,
+            "start": 0.3309199999999725,
+            "validity": 1
+          }
+        ],
+        "family": "side",
+        "index": 51,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.05355292347443928,
+          "amplitude_over_family_median": 0.9050018515345551,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 3.3843905395416203e-07,
+          "dynamic_range": 0.07205094019859185,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 1.6955864426567798e-05,
+          "leading_rms": 8.753115848216168e-06,
+          "offset_jump_count": 4,
+          "peak_abs": 0.05391114891160387,
+          "sample_noise": 7.052453673988674e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 7,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_U-05_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.32543999999997464,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.32543999999997464,
+            "validity": 1
+          },
+          {
+            "end": 0.32875999999997335,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.32875999999997335,
+            "validity": 1
+          },
+          {
+            "end": 0.3307599999999726,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3306799999999726,
+            "validity": 1
+          }
+        ],
+        "family": "side",
+        "index": 52,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.06151886238333735,
+          "amplitude_over_family_median": 1.0396198890578445,
+          "array_contradiction_fraction": 0.0052,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 2.6702929489367968e-06,
+          "dynamic_range": 0.07698943778939438,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 0.00013378221187063287,
+          "leading_rms": 4.723795731603347e-05,
+          "offset_jump_count": 0,
+          "peak_abs": 0.061888185932139544,
+          "sample_noise": 7.758772087582887e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 3,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_U-04_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 735,
+            "start": 0.33059999999997264,
+            "validity": 1
+          }
+        ],
+        "family": "side",
+        "index": 53,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.07592836299884316,
+          "amplitude_over_family_median": 1.2831289991243628,
+          "array_contradiction_fraction": 0.0012,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 4.042185176954998e-07,
+          "dynamic_range": 0.10852363971517494,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 2.025142874226736e-05,
+          "leading_rms": 1.1670385653274176e-05,
+          "offset_jump_count": 1,
+          "peak_abs": 0.07618971497438005,
+          "sample_noise": 8.244369306870934e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_U-03_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "side",
+        "index": 54,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.09201232195786208,
+          "amplitude_over_family_median": 1.5549351246081653,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 7.889862743393903e-07,
+          "dynamic_range": 0.12687448953309693,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -3.952837045790061e-05,
+          "leading_rms": 1.6125017499920237e-05,
+          "offset_jump_count": 0,
+          "peak_abs": 0.09238255592493821,
+          "sample_noise": 9.49845138560136e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_U-02_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "pass",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "side",
+        "index": 55,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.09965625293209855,
+          "amplitude_over_family_median": 1.6841114839153877,
+          "array_contradiction_fraction": 0.004,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 2.8524379584841994e-06,
+          "dynamic_range": 0.1362450284940267,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 0.0001429077133509672,
+          "leading_rms": 5.221922179132279e-05,
+          "offset_jump_count": 0,
+          "peak_abs": 0.1000693050581018,
+          "sample_noise": 0.00010482940720438326,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_U-01_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "pass",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3263199999999743,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3262799999999743,
+            "validity": 1
+          },
+          {
+            "end": 0.32871999999997337,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3286799999999734,
+            "validity": 1
+          },
+          {
+            "end": 0.33031999999997275,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.33031999999997275,
+            "validity": 1
+          },
+          {
+            "end": 0.3315199999999723,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3314399999999723,
+            "validity": 1
+          },
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.33571999999997065,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3356399999999707,
+            "validity": 1
+          },
+          {
+            "end": 0.3359199999999706,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3358799999999706,
+            "validity": 1
+          },
+          {
+            "end": 0.3370799999999701,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3370799999999701,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 617,
+            "start": 0.3353199999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 610,
+            "start": 0.3355999999999707,
+            "validity": 1
+          }
+        ],
+        "family": "side",
+        "index": 56,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.03839620782149329,
+          "amplitude_over_family_median": 0.6488654011006975,
+          "array_contradiction_fraction": 0.0024,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 9.442066578558765e-07,
+          "dynamic_range": 0.041560264305951916,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 4.730494277836887e-05,
+          "leading_rms": 1.6760999218838533e-05,
+          "offset_jump_count": 2,
+          "peak_abs": 0.0387792993711351,
+          "sample_noise": 5.2595885026674255e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 8,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_L-01_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.32539999999997465,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.32535999999997467,
+            "validity": 1
+          },
+          {
+            "end": 0.32871999999997337,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.32871999999997337,
+            "validity": 1
+          },
+          {
+            "end": 0.3314799999999723,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3314399999999723,
+            "validity": 1
+          },
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 3,
+            "start": 0.3353599999999708,
+            "validity": 1
+          },
+          {
+            "end": 0.33571999999997065,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.33567999999997067,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 860,
+            "start": 0.3255999999999746,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 708,
+            "start": 0.3316799999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 701,
+            "start": 0.3319599999999721,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 617,
+            "start": 0.3353199999999708,
+            "validity": 1
+          }
+        ],
+        "family": "side",
+        "index": 57,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.03858333323795873,
+          "amplitude_over_family_median": 0.6520276719420124,
+          "array_contradiction_fraction": 0.0136,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 5.229533230042232e-06,
+          "dynamic_range": 0.047473223832446884,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -0.00026200066282786873,
+          "leading_rms": 8.980303187201113e-05,
+          "offset_jump_count": 4,
+          "peak_abs": 0.038868859225686905,
+          "sample_noise": 5.5424171260934155e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 5,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_L-02_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3307199999999726,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3306799999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.3314799999999723,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3314799999999723,
+            "validity": 1
+          },
+          {
+            "end": 0.33543999999997076,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3353999999999708,
+            "validity": 1
+          }
+        ],
+        "family": "side",
+        "index": 58,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.048443478418793616,
+          "amplitude_over_family_median": 0.8186562902529109,
+          "array_contradiction_fraction": 0.0204,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 9.580931959541415e-07,
+          "dynamic_range": 0.048939665684749785,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 4.800066111996558e-05,
+          "leading_rms": 1.6970626284956602e-05,
+          "offset_jump_count": 0,
+          "peak_abs": 0.04892756888145165,
+          "sample_noise": 6.0514246720168245e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 3,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_L-03_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [
+          {
+            "end": 0.3307199999999726,
+            "reason": "spike",
+            "samples": 1,
+            "start": 0.3307199999999726,
+            "validity": 1
+          },
+          {
+            "end": 0.3317999999999722,
+            "reason": "spike",
+            "samples": 2,
+            "start": 0.3317599999999722,
+            "validity": 1
+          },
+          {
+            "end": 0.35995999999996126,
+            "reason": "offset_jump",
+            "samples": 735,
+            "start": 0.33059999999997264,
+            "validity": 1
+          }
+        ],
+        "family": "side",
+        "index": 59,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.05381804006537604,
+          "amplitude_over_family_median": 0.9094821112496914,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 4.5723629256525143e-07,
+          "dynamic_range": 0.0631681350105523,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -2.290762988804753e-05,
+          "leading_rms": 9.120212431191628e-06,
+          "offset_jump_count": 1,
+          "peak_abs": 0.054171358262653575,
+          "sample_noise": 6.652906833317073e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 2,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_L-04_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "warn",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "side",
+        "index": 60,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.06358832646733908,
+          "amplitude_over_family_median": 1.0745921876028484,
+          "array_contradiction_fraction": 0.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 5.278705628813538e-07,
+          "dynamic_range": 0.07902044968860578,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 2.6446420986050024e-05,
+          "leading_rms": 8.94019275862363e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.0639376703068057,
+          "sample_noise": 7.966744004233743e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_L-05_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "pass",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "side",
+        "index": 61,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.08131462968669426,
+          "amplitude_over_family_median": 1.3741526260173142,
+          "array_contradiction_fraction": 0.0016,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 4.918307709075623e-07,
+          "dynamic_range": 0.10818072795341013,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 2.4640820185759165e-05,
+          "leading_rms": 8.778470885674582e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.08162524515191028,
+          "sample_noise": 9.62968765968439e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_L-07_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "pass",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "side",
+        "index": 62,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.09818073345580576,
+          "amplitude_over_family_median": 1.65917637726976,
+          "array_contradiction_fraction": 0.0036,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 2.660065148257358e-07,
+          "dynamic_range": 0.1352179063227198,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 1.3326979700693332e-05,
+          "leading_rms": 2.6439977545199392e-05,
+          "offset_jump_count": 0,
+          "peak_abs": 0.09854341225491803,
+          "sample_noise": 0.0001054728033108899,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_L-06_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "pass",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "side",
+        "index": 63,
+        "kind": "b_field_pol_probe",
+        "metrics": {
+          "amplitude": 0.1134958251591148,
+          "amplitude_over_family_median": 1.917989257103139,
+          "array_contradiction_fraction": 0.0292,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 9.751331236819964e-07,
+          "dynamic_range": 0.16586109817781303,
+          "family": "side",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 4.885436491394661e-05,
+          "leading_rms": 1.714855997553254e-05,
+          "offset_jump_count": 0,
+          "peak_abs": 0.11394567860714469,
+          "sample_noise": 0.000122530439711114,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "MagneticFieldProbe_L-08_Bz",
+        "quantity": "field",
+        "reason": "",
+        "status": "pass",
+        "unit": "T",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "outboard_flux_loop",
+        "index": 0,
+        "kind": "flux_loop",
+        "metrics": {
+          "amplitude": 0.07946234535484856,
+          "amplitude_over_family_median": 0.7424457072849289,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 4.849318578350285e-05,
+          "dynamic_range": 0.13645304357295818,
+          "family": "outboard_flux_loop",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 0.002429518325827738,
+          "leading_rms": 0.0004906753998724353,
+          "offset_jump_count": 0,
+          "peak_abs": 0.07956034886731903,
+          "sample_noise": 7.105792869316716e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "Flux Loop - #3",
+        "quantity": "flux",
+        "reason": "",
+        "status": "pass",
+        "unit": "Wb",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "outboard_flux_loop",
+        "index": 1,
+        "kind": "flux_loop",
+        "metrics": {
+          "amplitude": 0.13463454445290285,
+          "amplitude_over_family_median": 1.2579397088638846,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 9.402065728794405e-05,
+          "dynamic_range": 0.18904199952212697,
+          "family": "outboard_flux_loop",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 0.004710453771942911,
+          "leading_rms": 0.001139286477265612,
+          "offset_jump_count": 0,
+          "peak_abs": 0.13476016434803087,
+          "sample_noise": 8.326454048724676e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "Flux Loop - #4",
+        "quantity": "flux",
+        "reason": "",
+        "status": "pass",
+        "unit": "Wb",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "outboard_flux_loop",
+        "index": 2,
+        "kind": "flux_loop",
+        "metrics": {
+          "amplitude": 0.13304809224793465,
+          "amplitude_over_family_median": 1.243116906640624,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 0.00011701946977651763,
+          "dynamic_range": 0.18714944289318905,
+          "family": "outboard_flux_loop",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 0.005862698886601353,
+          "leading_rms": 0.001140120415014537,
+          "offset_jump_count": 0,
+          "peak_abs": 0.133151597743165,
+          "sample_noise": 8.438201033654632e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "Flux Loop - #5",
+        "quantity": "flux",
+        "reason": "",
+        "status": "pass",
+        "unit": "Wb",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "outboard_flux_loop",
+        "index": 3,
+        "kind": "flux_loop",
+        "metrics": {
+          "amplitude": 0.08100754730970171,
+          "amplitude_over_family_median": 0.756883093359376,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 4.4309081840283674e-05,
+          "dynamic_range": 0.13865032132210492,
+          "family": "outboard_flux_loop",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 0.002219893879774592,
+          "leading_rms": 0.0005539723899709153,
+          "offset_jump_count": 0,
+          "peak_abs": 0.08110616018178482,
+          "sample_noise": 7.088010205473642e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "Flux Loop - #6",
+        "quantity": "flux",
+        "reason": "",
+        "status": "pass",
+        "unit": "Wb",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "inboard_flux_loop",
+        "index": 4,
+        "kind": "flux_loop",
+        "metrics": {
+          "amplitude": 0.061251595751657915,
+          "amplitude_over_family_median": 0.9586526414355309,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 4.2598288543814445e-06,
+          "dynamic_range": 0.095317532788084,
+          "family": "inboard_flux_loop",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -0.00021341827927771022,
+          "leading_rms": 1.1421124913726926e-05,
+          "offset_jump_count": 0,
+          "peak_abs": 0.06139019004010336,
+          "sample_noise": 4.295799278172701e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "Flux Loop - #9",
+        "quantity": "flux",
+        "reason": "",
+        "status": "pass",
+        "unit": "Wb",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "inboard_flux_loop",
+        "index": 5,
+        "kind": "flux_loop",
+        "metrics": {
+          "amplitude": 0.06311248067934383,
+          "amplitude_over_family_median": 0.9877774704206661,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 2.0802307356588265e-05,
+          "dynamic_range": 0.09566448462582962,
+          "family": "inboard_flux_loop",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 0.0010421997673645456,
+          "leading_rms": 0.00010214946808357276,
+          "offset_jump_count": 0,
+          "peak_abs": 0.06326329021200329,
+          "sample_noise": 4.1126101114568465e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "Flux Loop - #10",
+        "quantity": "flux",
+        "reason": "",
+        "status": "pass",
+        "unit": "Wb",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "inboard_flux_loop",
+        "index": 6,
+        "kind": "flux_loop",
+        "metrics": {
+          "amplitude": 0.06141098210914625,
+          "amplitude_over_family_median": 0.9611472075074825,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 6.528892412250564e-06,
+          "dynamic_range": 0.09541088089127434,
+          "family": "inboard_flux_loop",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -0.00032709881824915306,
+          "leading_rms": 5.2520417733590176e-05,
+          "offset_jump_count": 0,
+          "peak_abs": 0.06155834665390741,
+          "sample_noise": 4.411800734839286e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "Flux Loop - #11",
+        "quantity": "flux",
+        "reason": "",
+        "status": "pass",
+        "unit": "Wb",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "inboard_flux_loop",
+        "index": 7,
+        "kind": "flux_loop",
+        "metrics": {
+          "amplitude": 0.06470542671010518,
+          "amplitude_over_family_median": 1.0127087705984623,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.6363959956186887e-05,
+          "dynamic_range": 0.1001621157835211,
+          "family": "inboard_flux_loop",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": -0.0008198376731559736,
+          "leading_rms": 0.00010505552163190266,
+          "offset_jump_count": 0,
+          "peak_abs": 0.0648559084501458,
+          "sample_noise": 4.6500092462798315e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "Flux Loop - #12",
+        "quantity": "flux",
+        "reason": "",
+        "status": "pass",
+        "unit": "Wb",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "inboard_flux_loop",
+        "index": 8,
+        "kind": "flux_loop",
+        "metrics": {
+          "amplitude": 0.0638934198939221,
+          "amplitude_over_family_median": 1.0,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 2.1817274645519532e-08,
+          "dynamic_range": 0.09811934160612555,
+          "family": "inboard_flux_loop",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 1.09304983194028e-06,
+          "leading_rms": 4.4908385036754627e-07,
+          "offset_jump_count": 0,
+          "peak_abs": 0.06403918662285095,
+          "sample_noise": 4.341654531284942e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "Flux Loop - #13",
+        "quantity": "flux",
+        "reason": "",
+        "status": "pass",
+        "unit": "Wb",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "inboard_flux_loop",
+        "index": 9,
+        "kind": "flux_loop",
+        "metrics": {
+          "amplitude": 0.06402942744951202,
+          "amplitude_over_family_median": 1.0021286629486374,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 1.388557464884496e-07,
+          "dynamic_range": 0.10157006332829172,
+          "family": "inboard_flux_loop",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 6.956700725876926e-06,
+          "leading_rms": 5.568183578581117e-07,
+          "offset_jump_count": 0,
+          "peak_abs": 0.06417943873306525,
+          "sample_noise": 4.4465660328678085e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "Flux Loop - #14",
+        "quantity": "flux",
+        "reason": "",
+        "status": "pass",
+        "unit": "Wb",
+        "valid_fraction": 1.0,
+        "validity": 0
+      },
+      {
+        "events": [],
+        "family": "inboard_flux_loop",
+        "index": 10,
+        "kind": "flux_loop",
+        "metrics": {
+          "amplitude": 0.06534026949730981,
+          "amplitude_over_family_median": 1.022644735651806,
+          "coherent_jump_count": 0,
+          "constant_fraction": 0.0,
+          "drift_over_leading_window": 8.1558661450011e-06,
+          "dynamic_range": 0.10057140109514151,
+          "family": "inboard_flux_loop",
+          "finite_fraction": 1.0,
+          "first_valid_time": 0.26,
+          "flatlined": false,
+          "last_valid_time": 0.35995999999996126,
+          "leading_drift_per_second": 0.00040861052830682673,
+          "leading_rms": 4.470674036485871e-06,
+          "offset_jump_count": 0,
+          "peak_abs": 0.06548653694958435,
+          "sample_noise": 4.326309640789693e-05,
+          "samples": 2500,
+          "saturated_fraction": 0.0,
+          "spike_count": 0,
+          "valid_fraction": 1.0
+        },
+        "name": "Flux Loop - #15",
+        "quantity": "flux",
+        "reason": "",
+        "status": "pass",
+        "unit": "Wb",
+        "valid_fraction": 1.0,
+        "validity": 0
+      }
+    ],
+    "configuration": {
+      "array_amplitude_floor": 0.01,
+      "array_contradiction_fraction": 0.3,
+      "array_departure_factor": 1.0,
+      "array_min_scored": 0.5,
+      "baseline_fraction": 0.2,
+      "coherence_window": 0.0005,
+      "coherent_jump_fraction": 0.3,
+      "max_plausible_amplitude": {
+        "b_field_pol_probe": 1.0
+      },
+      "max_spike_samples": 3,
+      "min_array_members": 7,
+      "min_constant_run": 16,
+      "offset_jump_sigma": 10.0,
+      "population_peak_factor": 4.0,
+      "significance_floor": 0.01,
+      "spike_sigma": 8.0
+    },
+    "efit_probe_count": 64,
+    "families": {
+      "inboard": {
+        "expected": 27,
+        "fully_usable": 26,
+        "present": 27,
+        "usable": 26
+      },
+      "inboard_flux_loop": {
+        "expected": 7,
+        "fully_usable": 7,
+        "present": 7,
+        "usable": 7
+      },
+      "outboard": {
+        "expected": 21,
+        "fully_usable": 19,
+        "present": 21,
+        "usable": 19
+      },
+      "outboard_flux_loop": {
+        "expected": 4,
+        "fully_usable": 4,
+        "present": 4,
+        "usable": 4
+      },
+      "side": {
+        "expected": 16,
+        "fully_usable": 16,
+        "present": 16,
+        "usable": 16
+      }
+    },
+    "schema_version": 1,
+    "summary": {
+      "events": {
+        "array_contradiction": 2,
+        "known_fault": 1,
+        "offset_jump": 89,
+        "spike": 175
+      },
+      "expected": 75,
+      "flagged_channels": 54,
+      "fully_usable": 72,
+      "present": 75,
+      "usable": 72
+    }
+  },
+  "output": {
+    "name": "diagnostics.json.gz",
+    "sha256": "bb95463ba052b86b174d0758583554c8e842276651cbc080222c300ecbbeb76e"
+  },
+  "quality_summary": {
+    "disabled": [
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+    ],
+    "missing": [],
+    "rejected": [],
+    "repaired": [],
+    "unavailable": []
+  },
+  "schema_version": 1,
+  "shot": 42962,
+  "stage": "diagnostics",
+  "status": "success",
+  "time_grid": {
+    "components": {
+      "barometry": {
+        "missing_samples": 0,
+        "policy": "full_discharge",
+        "realized_dt": 3.999999999999837e-05,
+        "realized_end_exclusive": 0.9999999999999593,
+        "realized_start": 0.0,
+        "requested_dt": 4e-05,
+        "requested_end": 1.0,
+        "requested_sample_count": 25000,
+        "requested_start": 0.0,
+        "sample_count": 25000,
+        "source_clipping": false
+      },
+      "ec_power": {
+        "missing_samples": 0,
+        "policy": "full_discharge",
+        "realized_dt": 3.999999999999837e-05,
+        "realized_end_exclusive": 0.9999999999999593,
+        "realized_start": 0.0,
+        "requested_dt": 4e-05,
+        "requested_end": 1.0,
+        "requested_sample_count": 25000,
+        "requested_start": 0.0,
+        "sample_count": 25000,
+        "source_clipping": false
+      },
+      "langmuir_probes": {
+        "missing_samples": 0,
+        "policy": "analysis",
+        "realized_dt": 3.999999999998449e-05,
+        "realized_end_exclusive": 0.35999999999996124,
+        "realized_start": 0.26,
+        "requested_dt": 4e-05,
+        "requested_end": 0.36,
+        "requested_sample_count": 2500,
+        "requested_start": 0.26,
+        "sample_count": 2500,
+        "source_clipping": false
+      },
+      "magnetics": {
+        "missing_samples": 0,
+        "policy": "analysis",
+        "realized_dt": 3.999999999998449e-05,
+        "realized_end_exclusive": 0.35999999999996124,
+        "realized_start": 0.26,
+        "requested_dt": 4e-05,
+        "requested_end": 0.36,
+        "requested_sample_count": 2500,
+        "requested_start": 0.26,
+        "sample_count": 2500,
+        "source_clipping": false
+      },
+      "pf_active": {
+        "missing_samples": 0,
+        "policy": "analysis",
+        "realized_dt": 3.999999999998449e-05,
+        "realized_end_exclusive": 0.35999999999996124,
+        "realized_start": 0.26,
+        "requested_dt": 4e-05,
+        "requested_end": 0.36,
+        "requested_sample_count": 2500,
+        "requested_start": 0.26,
+        "sample_count": 2500,
+        "source_clipping": false
+      },
+      "spectrometer_uv": {
+        "missing_samples": 0,
+        "policy": "analysis",
+        "realized_dt": 3.999999999998449e-05,
+        "realized_end_exclusive": 0.35999999999996124,
+        "realized_start": 0.26,
+        "requested_dt": 4e-05,
+        "requested_end": 0.36,
+        "requested_sample_count": 2500,
+        "requested_start": 0.26,
+        "sample_count": 2500,
+        "source_clipping": false
+      },
+      "tf": {
+        "missing_samples": 0,
+        "policy": "full_discharge",
+        "realized_dt": 3.999999999999837e-05,
+        "realized_end_exclusive": 0.9999999999999593,
+        "realized_start": 0.0,
+        "requested_dt": 4e-05,
+        "requested_end": 1.0,
+        "requested_sample_count": 25000,
+        "requested_start": 0.0,
+        "sample_count": 25000,
+        "source_clipping": false
+      }
+    },
+    "default_policy": "analysis",
+    "magnetics_homogeneous_time": 0,
+    "native_flux_loop_voltage": [
+      {
+        "dt": 4.000160006401021e-05,
+        "path": "magnetics.flux_loop.0.voltage.time",
+        "sample_count": 2500,
+        "sampling_rate": 24998.99999999522
+      },
+      {
+        "dt": 4.000160006401021e-05,
+        "path": "magnetics.flux_loop.1.voltage.time",
+        "sample_count": 2500,
+        "sampling_rate": 24998.99999999522
+      },
+      {
+        "dt": 4.000160006401021e-05,
+        "path": "magnetics.flux_loop.2.voltage.time",
+        "sample_count": 2500,
+        "sampling_rate": 24998.99999999522
+      },
+      {
+        "dt": 4.000160006401021e-05,
+        "path": "magnetics.flux_loop.3.voltage.time",
+        "sample_count": 2500,
+        "sampling_rate": 24998.99999999522
+      },
+      {
+        "dt": 4.000160006401021e-05,
+        "path": "magnetics.flux_loop.4.voltage.time",
+        "sample_count": 2500,
+        "sampling_rate": 24998.99999999522
+      },
+      {
+        "dt": 4.000160006401021e-05,
+        "path": "magnetics.flux_loop.5.voltage.time",
+        "sample_count": 2500,
+        "sampling_rate": 24998.99999999522
+      },
+      {
+        "dt": 4.000160006401021e-05,
+        "path": "magnetics.flux_loop.6.voltage.time",
+        "sample_count": 2500,
+        "sampling_rate": 24998.99999999522
+      },
+      {
+        "dt": 4.000160006401021e-05,
+        "path": "magnetics.flux_loop.7.voltage.time",
+        "sample_count": 2500,
+        "sampling_rate": 24998.99999999522
+      },
+      {
+        "dt": 4.000160006401021e-05,
+        "path": "magnetics.flux_loop.8.voltage.time",
+        "sample_count": 2500,
+        "sampling_rate": 24998.99999999522
+      },
+      {
+        "dt": 4.000160006401021e-05,
+        "path": "magnetics.flux_loop.9.voltage.time",
+        "sample_count": 2500,
+        "sampling_rate": 24998.99999999522
+      },
+      {
+        "dt": 4.000160006401021e-05,
+        "path": "magnetics.flux_loop.10.voltage.time",
+        "sample_count": 2500,
+        "sampling_rate": 24998.99999999522
+      }
+    ],
+    "native_mirnov": [
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.0.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.1.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.2.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.3.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.4.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.5.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.6.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.7.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.8.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.9.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.10.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.11.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.12.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.13.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.14.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.15.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.16.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.17.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.18.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.19.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.20.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.21.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.22.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.23.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.24.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.25.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.26.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.27.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.28.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.29.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.30.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.31.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.32.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.33.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.34.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.35.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.36.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.37.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.38.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.39.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.40.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.41.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.42.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.43.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.44.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.45.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.46.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.47.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.48.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.49.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.50.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.51.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.52.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.53.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.54.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.55.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.56.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.57.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.58.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.59.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.60.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.61.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.62.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      },
+      {
+        "dt": 4.000160006401021e-06,
+        "path": "magnetics.b_field_pol_probe.63.voltage.time",
+        "sample_count": 24999,
+        "sampling_rate": 249989.99999995218
+      }
+    ],
+    "native_time_paths": [
+      "magnetics.b_field_pol_probe.0.voltage.time",
+      "magnetics.b_field_pol_probe.1.voltage.time",
+      "magnetics.b_field_pol_probe.2.voltage.time",
+      "magnetics.b_field_pol_probe.3.voltage.time",
+      "magnetics.b_field_pol_probe.4.voltage.time",
+      "magnetics.b_field_pol_probe.5.voltage.time",
+      "magnetics.b_field_pol_probe.6.voltage.time",
+      "magnetics.b_field_pol_probe.7.voltage.time",
+      "magnetics.b_field_pol_probe.8.voltage.time",
+      "magnetics.b_field_pol_probe.9.voltage.time",
+      "magnetics.b_field_pol_probe.10.voltage.time",
+      "magnetics.b_field_pol_probe.11.voltage.time",
+      "magnetics.b_field_pol_probe.12.voltage.time",
+      "magnetics.b_field_pol_probe.13.voltage.time",
+      "magnetics.b_field_pol_probe.14.voltage.time",
+      "magnetics.b_field_pol_probe.15.voltage.time",
+      "magnetics.b_field_pol_probe.16.voltage.time",
+      "magnetics.b_field_pol_probe.17.voltage.time",
+      "magnetics.b_field_pol_probe.18.voltage.time",
+      "magnetics.b_field_pol_probe.19.voltage.time",
+      "magnetics.b_field_pol_probe.20.voltage.time",
+      "magnetics.b_field_pol_probe.21.voltage.time",
+      "magnetics.b_field_pol_probe.22.voltage.time",
+      "magnetics.b_field_pol_probe.23.voltage.time",
+      "magnetics.b_field_pol_probe.24.voltage.time",
+      "magnetics.b_field_pol_probe.25.voltage.time",
+      "magnetics.b_field_pol_probe.26.voltage.time",
+      "magnetics.b_field_pol_probe.27.voltage.time",
+      "magnetics.b_field_pol_probe.28.voltage.time",
+      "magnetics.b_field_pol_probe.29.voltage.time",
+      "magnetics.b_field_pol_probe.30.voltage.time",
+      "magnetics.b_field_pol_probe.31.voltage.time",
+      "magnetics.b_field_pol_probe.32.voltage.time",
+      "magnetics.b_field_pol_probe.33.voltage.time",
+      "magnetics.b_field_pol_probe.34.voltage.time",
+      "magnetics.b_field_pol_probe.35.voltage.time",
+      "magnetics.b_field_pol_probe.36.voltage.time",
+      "magnetics.b_field_pol_probe.37.voltage.time",
+      "magnetics.b_field_pol_probe.38.voltage.time",
+      "magnetics.b_field_pol_probe.39.voltage.time",
+      "magnetics.b_field_pol_probe.40.voltage.time",
+      "magnetics.b_field_pol_probe.41.voltage.time",
+      "magnetics.b_field_pol_probe.42.voltage.time",
+      "magnetics.b_field_pol_probe.43.voltage.time",
+      "magnetics.b_field_pol_probe.44.voltage.time",
+      "magnetics.b_field_pol_probe.45.voltage.time",
+      "magnetics.b_field_pol_probe.46.voltage.time",
+      "magnetics.b_field_pol_probe.47.voltage.time",
+      "magnetics.b_field_pol_probe.48.voltage.time",
+      "magnetics.b_field_pol_probe.49.voltage.time",
+      "magnetics.b_field_pol_probe.50.voltage.time",
+      "magnetics.b_field_pol_probe.51.voltage.time",
+      "magnetics.b_field_pol_probe.52.voltage.time",
+      "magnetics.b_field_pol_probe.53.voltage.time",
+      "magnetics.b_field_pol_probe.54.voltage.time",
+      "magnetics.b_field_pol_probe.55.voltage.time",
+      "magnetics.b_field_pol_probe.56.voltage.time",
+      "magnetics.b_field_pol_probe.57.voltage.time",
+      "magnetics.b_field_pol_probe.58.voltage.time",
+      "magnetics.b_field_pol_probe.59.voltage.time",
+      "magnetics.b_field_pol_probe.60.voltage.time",
+      "magnetics.b_field_pol_probe.61.voltage.time",
+      "magnetics.b_field_pol_probe.62.voltage.time",
+      "magnetics.b_field_pol_probe.63.voltage.time",
+      "magnetics.flux_loop.0.voltage.time",
+      "magnetics.flux_loop.1.voltage.time",
+      "magnetics.flux_loop.2.voltage.time",
+      "magnetics.flux_loop.3.voltage.time",
+      "magnetics.flux_loop.4.voltage.time",
+      "magnetics.flux_loop.5.voltage.time",
+      "magnetics.flux_loop.6.voltage.time",
+      "magnetics.flux_loop.7.voltage.time",
+      "magnetics.flux_loop.8.voltage.time",
+      "magnetics.flux_loop.9.voltage.time",
+      "magnetics.flux_loop.10.voltage.time",
+      "magnetics.shunt.0.voltage.time",
+      "magnetics.shunt.1.voltage.time",
+      "magnetics.shunt.2.voltage.time"
+    ],
+    "policies": {
+      "analysis": {
+        "dt": 4e-05,
+        "tend": 0.36,
+        "tstart": 0.26
+      },
+      "full_discharge": {
+        "dt": 4e-05,
+        "tend": 1.0,
+        "tstart": 0.0
+      },
+      "plasma_analysis": {
+        "dt": 4e-05,
+        "tend": 0.36,
+        "tstart": 0.28
+      }
+    },
+    "processed_end_exclusive": 0.35999999999996124,
+    "processed_sample_count": 2500,
+    "processed_start": 0.26,
+    "processed_time_clipped": false,
+    "realized_dt": 3.999999999998449e-05,
+    "requested_dt": 4e-05,
+    "requested_end": 0.36,
+    "requested_start": 0.26,
+    "source_clipping": false
+  }
+}
