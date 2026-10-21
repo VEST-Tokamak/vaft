@@ -43,6 +43,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
         f"magnetic_island_{projection}.svg": ("magnetic_island", {**REFERENCE_ISLAND, "projection": projection})
         for projection in ("poloidal", "top", "3d")
     },
+    # Computed static references share the time-selected particle animation model (#2003).
+    **{f"{name}.svg": (name, {}) for name in ("gyration", "grad_b_drift", "magnetic_mirror")},
     "magnetic_island_phase_scan.svg": ("magnetic_island", {"m": 2, "n": 1, "width": 0.24, "phase": 0.0, "projection": "poloidal", "labels": False}),
     # stability and operational-space charts, at their documented defaults
     **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "hugill_st", "troyon")},
@@ -208,6 +210,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("blob_polarization", "blob_velocity_scaling", "blob_regimes")},
     "blob_polarization_hole.svg": ("blob_polarization", {"perturbation": "hole"}),
     **{f"blob_current_closure_{r}.svg": ("blob_current_closure", {"regime": r}) for r in ("sheath", "inertial")},
+    # canonical transport concepts: random walk, flux and gradient, reference scales (#1112)
+    **{f"{name}.svg": (name, {}) for name in ("random_walk_diffusion", "transport_flux_gradient",
+                                              "transport_reference_scales")},
     # MARFE on the high-field side and next to the X-point, with Drake's condition (#1209)
     "marfe.svg": ("marfe", {}),
     "marfe_xpoint.svg": ("marfe", {"localization": "xpoint"}),
@@ -274,6 +279,12 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "fault_anomaly_detection.svg": ("fault_anomaly_detection", {}),
     "shot_classification.svg": ("shot_classification", {}),
     "event_detection.svg": ("event_detection", {}),
+    # derived physics: quantities computed from the state (#1901)
+    "vacuum_field_proxies.svg": ("vacuum_field_proxies", {}),
+    "derived_mhd_parameters.svg": ("derived_mhd_parameters", {}),
+    "synthetic_diagnostics.svg": ("synthetic_diagnostics", {}),
+    "coordinate_cocos_conversions.svg": ("coordinate_cocos_conversions", {}),
+    "power_balance_confinement.svg": ("power_balance_confinement", {}),
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),
     "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),

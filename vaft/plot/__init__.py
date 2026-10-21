@@ -236,6 +236,10 @@ from .renderers.profiles import render_profile_1d
 from .renderers.spectra import render_power_spectrum
 from .renderers.spectrograms import render_spectrogram
 from .renderers.tables import RenderedTable, RenderedTextSummary, render_table, render_text_summary
+from .particle import (
+    ParticleOrbitView,
+    particle_overview,
+)
 from .presentation import DEFAULT_FORMAT, FORMATS, THEMES, resolve_presentation
 from .kinetic_state import (kinetic_state_pressure_comparison,
                             kinetic_state_virial_pair13_comparison,
@@ -502,6 +506,8 @@ _SUPPORT_EXPORTS = (
     "PlotCatalog",
     "PlotDocumentation",
     "PlotSpec",
+    "ParticleOrbitView",
+    "particle_overview",
     "PowerSpectrum",
     "Profile1D",
     "ReferenceSlope",
