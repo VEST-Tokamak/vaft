@@ -102,8 +102,9 @@ def test_the_moved_cocos_check_keeps_its_old_name_working():
         warnings.simplefilter("always")
         legacy = process_cocos.validate_cocos(equilibrium, 3, sigma_ip=1)
 
-    assert any(item.category is DeprecationWarning for item in caught)
-    assert "vaft.validation.cocos.validate_cocos" in str(caught[0].message)
+    deprecations = [item for item in caught if item.category is DeprecationWarning]
+    assert deprecations
+    assert "vaft.validation.cocos.validate_cocos" in str(deprecations[0].message)
     assert legacy == validate_cocos(equilibrium, 3, sigma_ip=1)
     assert legacy.issues  # COCOS 3 is the wrong index here, so there is something to compare
     assert process_cocos.validate_cocos.__doc__.startswith("Deprecated")
