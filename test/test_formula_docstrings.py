@@ -361,7 +361,6 @@ EMPIRICAL = frozenset({
     "sawtooth_stability_criterion",
     "current_drive_efficiency",
     "bootstrap_current_fraction",
-    "alpha_heating_power_from_n_D_n_T_T_keV_V",
     # Neoclassical: every one of these is a rational fit to numerical
     # drift-kinetic solutions (Sauter 1999/2002, Redl 2021), and the
     # trapped fraction and Spitzer charge factor are fits too.
