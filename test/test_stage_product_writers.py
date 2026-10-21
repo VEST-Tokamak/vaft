@@ -51,6 +51,11 @@ ALLOWED = {
     "update_thomson_scattering_and_core_profile.py": (
         "same legacy shot-first `public/` writer."
     ),
+    "workflow/gyrokinetic/build_multimodel_reference.py": (
+        "a one-off script rebuilding the #39915 gyrokinetic reference ODSs "
+        "into a caller-given `--out` directory under fixed plain `.json` "
+        "names; it never resolves an `omas_product` path (#2040)."
+    ),
 }
 
 
