@@ -58,6 +58,7 @@ __all__ = [
     "VALIDATION_ROLES",
     "PRESSURE_RATIOS",
     "VIRIAL_QUANTITIES",
+    "CONDITIONING_QUANTITIES",
     "EVIDENCE_STATUSES",
     "ISSUE_COLUMNS",
     "PopulationContractError",
@@ -101,6 +102,15 @@ VIRIAL_QUANTITIES: Mapping[str, str] = {
     "li_volume": "volume_integral",
     "li_pair_13": "pair_13_closure",
 }
+
+# Optional in older Atlas exports. These are evidence of inversion geometry,
+# not acceptance criteria; the formula layer supplies every value.
+CONDITIONING_QUANTITIES = (
+    "alpha",
+    *(f"{closure}_denominator" for closure in ("pair_13", "pair_23", "lao_li", "full_123")),
+    *(f"{closure}_distance_to_singularity" for closure in ("pair_13", "pair_23", "lao_li", "full_123")),
+    "rt_denominator_ratio", "rt_over_r0_available",
+)
 
 EVIDENCE_STATUSES = ("available", "unavailable", "failed")
 #: ``scope`` is ``state`` (keyed) or ``population`` (empty key: a manifest, schema
@@ -334,17 +344,22 @@ def assemble_kinetic_population(
     joined = state_df.copy()
     for column in ("efit_product_virial", "efit_product_sha256_virial"):
         joined[column] = pd.Series([None] * len(joined), index=joined.index, dtype=object)
-    for column in ("identities_available", *VIRIAL_QUANTITIES):
+    for column in ("identities_available", *VIRIAL_QUANTITIES, *CONDITIONING_QUANTITIES):
         joined[column] = np.nan
     joined["virial_join"] = "not_supplied"
     if virial_df is None:
         issues.append(_issue(None, "virial_join", "not_available", "no virial table supplied"))
     else:
         _require(virial_df, VIRIAL_COLUMNS, "virial")
+        for column in CONDITIONING_QUANTITIES:
+            if column not in virial_df:
+                virial_df[column] = np.nan
+        virial_df["rt_over_r0_available"] = virial_df["rt_over_r0_available"].map(
+            lambda value: {"true": 1, "false": 0}.get(str(value).lower(), value))
         _normalise_key(virial_df, "virial")
         virial_df["identities_available"] = pd.to_numeric(virial_df["identities_available"], errors="coerce")
-        for column in VIRIAL_QUANTITIES:
-            virial_df[column] = pd.to_numeric(virial_df[column], errors="coerce")
+        for column in (*VIRIAL_QUANTITIES, *CONDITIONING_QUANTITIES):
+            virial_df[column] = pd.to_numeric(virial_df[column], errors="coerce").astype(float)
         _reject_duplicates(virial_df, "virial")
         by_key = {_key(row): row for _, row in virial_df.iterrows()}
         for key in sorted(set(by_key) - state_keys):
@@ -367,7 +382,7 @@ def assemble_kinetic_population(
                                      f"state from {row['efit_product']} ({str(row['efit_product_sha256'])[:12]})"))
                 continue
             joined.at[i, "virial_join"] = "joined"
-            for column in ("identities_available", *VIRIAL_QUANTITIES):
+            for column in ("identities_available", *VIRIAL_QUANTITIES, *CONDITIONING_QUANTITIES):
                 joined.at[i, column] = other[column]
             missing = [c for c in VIRIAL_QUANTITIES if not _finite(other[c])]
             if missing:
@@ -485,7 +500,8 @@ def virial_evidence(population: KineticPopulation):
     """One row per (state, virial quantity): value, family, the study verdict, validation role and status.
 
     ``family`` is ``identity`` (E1/E2/E3 and their RMS), ``volume_integral``
-    or ``pair_13_closure``; ``virial_status`` is the study's own verdict,
+    or ``pair_13_closure``, with optional ``conditioning`` evidence (RT
+    availability is 1/0, not a pass/fail verdict); ``virial_status`` is the study's own verdict,
     carried alongside and never recomputed. Status ``unavailable`` where no
     virial row was supplied or joined or the value is not finite, ``failed``
     where the virial row came from another EFIT product.
@@ -496,7 +512,8 @@ def virial_evidence(population: KineticPopulation):
     rows = []
     for _, row in pop.iterrows():
         join = row["virial_join"]
-        for quantity, family in VIRIAL_QUANTITIES.items():
+        quantities = {**VIRIAL_QUANTITIES, **dict.fromkeys(CONDITIONING_QUANTITIES, "conditioning")}
+        for quantity, family in quantities.items():
             value = row[quantity]
             if join == "product_mismatch":
                 status, reason = "failed", "virial row from another EFIT product"

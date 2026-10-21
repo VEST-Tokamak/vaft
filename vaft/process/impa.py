@@ -126,6 +126,10 @@ from scipy import ndimage, optimize, signal
 
 from vaft.formula.statistics import rms
 from vaft.process.signal_processing import _filtfilt_min_length
+# The shot verdict lives in the validation layer (#339); it imports no kernel
+# back at run time, so this cannot cycle.
+from vaft.validation.impa import ImpaAssessment
+from vaft.validation.impa import validate_impa as _validate_impa
 
 __all__ = [
     "IMPA_CHANNEL_COUNT",
@@ -294,19 +298,6 @@ class ImpaGeometryFit:
 
 
 @dataclass(frozen=True)
-class ImpaQuality:
-    """Structured verdict; ``status`` is ``valid``/``warning``/``invalid``."""
-
-    status: str
-    checks: Mapping[str, str]
-    reasons: tuple[str, ...] = ()
-
-    @property
-    def is_usable(self) -> bool:
-        return self.status in ("valid", "warning")
-
-
-@dataclass(frozen=True)
 class ImpaResult:
     """Everything one IMPA shot produces, including its provenance."""
 
@@ -321,7 +312,8 @@ class ImpaResult:
     geometry: ImpaGeometryFit
     coupling: ImpaCouplingFit | None
     window: TfCalibrationWindow | None
-    quality: ImpaQuality
+    #: Source-validity verdict from :func:`vaft.validation.impa.validate_impa`.
+    quality: ImpaAssessment
     #: Bz sensor positions: Hall geometry.r plus the fixed hardware offset --
     #: the Bz sensor in one probe housing is not co-located with its Hall
     #: neighbour.
@@ -1525,284 +1517,46 @@ def legacy_impa_compensation(
 
 
 # --------------------------------------------------------------------------
-# validation
+# validation (moved)
 # --------------------------------------------------------------------------
-def _worst(*states: str) -> str:
-    order = {"valid": 0, "warning": 1, "invalid": 2}
-    return max(states, key=lambda state: order[state])
+#: Deprecated alias: the shot verdict is :class:`vaft.validation.impa.ImpaAssessment`,
+#: whose ``status`` is a ``ValidationStatus`` (#339).  It still accepts the old
+#: ``valid`` / ``warning`` / ``invalid`` strings on construction.
+ImpaQuality = ImpaAssessment
 
 
-def grade_impa_quality(
-    time: np.ndarray,
-    raw: np.ndarray,
-    b_measured: np.ndarray,
-    b_z: np.ndarray,
-    channel_valid: np.ndarray,
-    window: TfCalibrationWindow | None,
-    geometry: ImpaGeometryFit,
-    coupling: ImpaCouplingFit | None,
-    *,
-    expected_channels: int = IMPA_CHANNEL_COUNT,
-    max_normalized_rmse: float = 0.15,
-    r_bounds: Sequence[float] = (0.1, 0.9),
-    pitch_tolerance: float = 0.01,
-    window_reasons: Sequence[str] = (),
-    orientation: str = "toroidal",
-    alpha_tolerance: float = 0.15,
-    crosstalk: ImpaCrosstalkFit | None = None,
-    min_crosstalk_r_squared: float = 0.8,
-) -> ImpaQuality:
-    """Grade whether an array's measurements can be trusted, and say why not.
+def grade_impa_quality(*args: Any, **kwargs: Any) -> ImpaAssessment:
+    """Deprecated: IMPA grading moved to :func:`vaft.validation.impa.validate_impa` (#339).
 
-    Parameters
-    ----------
-    time : array_like
-        Sample times [s].
-    raw : array_like
-        Raw probe records [V].
-    b_measured : array_like
-        Conditioned probe records [T].
-    b_z : array_like
-        Compensated vertical field [T].
-    channel_valid : array_like
-        Which channels to consider [-].
-    window : TfCalibrationWindow
-        The calibration interval that was used [-].
-    geometry : ImpaGeometryFit
-        The fitted geometry [-].
-    coupling : ImpaCouplingFit
-        The fitted coupling [-].
-    expected_channels : int, optional
-        How many channels the array should have [-].
-    max_normalized_rmse : float, optional
-        Largest geometry residual still acceptable [-].
-    r_bounds : tuple of float, optional
-        Radial bounds the fit should sit inside [m].
-    pitch_tolerance : float, optional
-        Largest departure of fitted from as-built spacing [m].
-    window_reasons : sequence of str, optional
-        Reasons carried from the window selection [-].
-    orientation : str, optional
-        Which field the array is taken to face [-].
-    alpha_tolerance : float, optional
-        Largest departure of the coupling from unity [-].
-    crosstalk : ImpaCrosstalkFit, optional
-        The crosstalk fit, when one was made [-].
-    min_crosstalk_r_squared : float, optional
-        Smallest acceptable crosstalk goodness of fit [-].
-
-    Returns
-    -------
-    ImpaQuality
-        A verdict of valid, warning or invalid, with the reasons behind it [-].
-
-    Processing steps
-    ----------------
-    1. Check the channels are present and the time axis usable.
-    2. Check each channel's own signal health, including railing.
-    3. Check the calibration window, then the geometry, then the coupling.
-    4. Check the compensated signal and the vertical sensors.
-    5. Combine by taking the worst verdict.
-
-    Convention
-    ----------
-    The verdict is the **worst** of the checks, not an average, so one invalid
-    check makes the result invalid however many pass. Reasons accumulate rather
-    than short-circuiting, so a caller sees everything wrong at once.
-
-    Renamed from ``validate_impa`` under issue #337: this layer transforms and
-    infers, and grading sits uneasily here even so. The grading itself moves to
-    the validation layer under issue #339.
-
-    Defaults
-    --------
-    The residual, spacing, coupling and goodness-of-fit thresholds are
-    hard-coded, and two of them disagree with the values ``vest.yaml`` carries,
-    which is tracked in #625. The channel count and the radial bounds are
-    machine-specific.
-
-    Applicability
-    -------------
-    Machine-independent.  Every threshold arrives as an argument.
-
-    Limitations
-    -----------
-    Grades the fits it is handed; it cannot tell a well-fitted wrong model from a
-    right one. A shot whose array faces the toroidal field can pass the geometry
-    checks and still have no usable vertical measurement.
-
-    Provenance
-    ----------
-    .. [1] Issues #337 and #339 for the naming and the eventual move; ``vest.yaml``
-       ``impa.quality`` for the configured thresholds.
+    The verdict is now an :class:`~vaft.validation.impa.ImpaAssessment` whose
+    status is a :class:`~vaft.validation.model.ValidationStatus`; the checks
+    and reasons are unchanged.
     """
-    checks: dict[str, str] = {}
-    reasons: list[str] = list(window_reasons)
-    time = np.asarray(time, dtype=float)
-    raw = np.atleast_2d(np.asarray(raw, dtype=float))
-    channel_valid = np.asarray(channel_valid, dtype=bool)
-
-    present = int(np.count_nonzero(channel_valid))
-    if present == expected_channels:
-        checks["channels_present"] = "valid"
-    elif present == 0:
-        checks["channels_present"] = "invalid"
-        reasons.append("no IMPA raw channel could be read")
-    else:
-        checks["channels_present"] = "warning"
-        reasons.append(f"{expected_channels - present} of {expected_channels} IMPA channels are unavailable")
-
-    if time.size >= 2 and np.all(np.isfinite(time)) and np.all(np.diff(time) > 0):
-        checks["time_axis"] = "valid"
-    else:
-        checks["time_axis"] = "invalid"
-        reasons.append("IMPA time axis is empty, non-finite or not monotonic")
-
-    channel_states: list[str] = []
-    for channel in range(raw.shape[0]):
-        if not channel_valid[channel]:
-            continue
-        values = raw[channel]
-        if values.size == 0 or not np.any(np.isfinite(values)):
-            channel_states.append("invalid")
-            reasons.append(f"channel {channel} carries no finite raw sample")
-        elif np.allclose(values, values.flat[0]):
-            channel_states.append("invalid")
-            reasons.append(f"channel {channel} is constant (dead or railed)")
-        else:
-            # A railed channel repeats one *exact* digitiser level; a genuine
-            # analogue plateau still carries noise, so near-equality would
-            # flag every flat TF top as clipping.
-            railed = np.count_nonzero(values == np.max(values)) + np.count_nonzero(
-                values == np.min(values)
-            )
-            if railed > 0.01 * values.size:
-                channel_states.append("warning")
-                reasons.append(f"channel {channel} holds one exact extreme level (probable clipping)")
-            else:
-                channel_states.append("valid")
-    checks["channel_signals"] = _worst("valid", *channel_states) if channel_states else "invalid"
-
-    if window is not None:
-        checks["calibration_window"] = "valid"
-    elif coupling is not None:
-        # A calibration carried in from a reference shot is a legitimate
-        # substitute for this shot's own clean interval.
-        checks["calibration_window"] = "warning"
-        reasons.append("no clean TF window in this shot; calibration taken from a reference shot")
-    else:
-        checks["calibration_window"] = "invalid"
-        reasons.append("no clean TF calibration window was found in this shot")
-
-    lower, upper = float(min(r_bounds)), float(max(r_bounds))
-    geometry_state = "valid"
-    if not geometry.monotonic:
-        geometry_state = "invalid"
-        reasons.append("fitted IMPA radii are not monotonically increasing")
-    # Only positions that carry a wired channel are measurements; a nominal
-    # radius for an unwired position says nothing about the hardware.
-    wired = geometry.r[channel_valid] if channel_valid.size == geometry.r.size else geometry.r
-    if not geometry.within_bounds or (wired.size and (np.any(wired < lower) or np.any(wired > upper))):
-        geometry_state = "invalid"
-        reasons.append(f"fitted IMPA radii fall outside the physical bounds [{lower}, {upper}] m")
-    if geometry.bound_hit:
-        geometry_state = _worst(geometry_state, "invalid")
-        reasons.append("the geometry fit saturated at a parameter bound")
-    if geometry.pitch is not None and wired.size > 1:
-        spacing = np.diff(wired)
-        if np.any(np.abs(spacing - geometry.pitch) > pitch_tolerance):
-            geometry_state = _worst(geometry_state, "warning")
-            reasons.append("channel spacing deviates from the configured radial pitch")
-    if geometry.nrmse is not None and np.isfinite(geometry.nrmse) and geometry.nrmse > max_normalized_rmse:
-        geometry_state = _worst(geometry_state, "warning")
-        reasons.append(
-            f"geometry fit residual is {geometry.nrmse * 100:.1f}% of the signal spread, above the "
-            f"{max_normalized_rmse * 100:.1f}% tolerance"
-        )
-    checks["geometry"] = geometry_state
-
-    if coupling is None:
-        checks["tf_coupling"] = "invalid"
-        reasons.append("TF coupling could not be fitted")
-    else:
-        coupling_state = "valid"
-        if not np.any(np.isfinite(coupling.alpha)):
-            coupling_state = "invalid"
-            reasons.append("no channel produced a finite TF coupling")
-        if orientation == "toroidal":
-            # A toroidally mounted probe should see essentially the whole
-            # toroidal field; departures mean the array is not where or how
-            # the configuration says it is.
-            finite_alpha = np.isfinite(coupling.alpha)
-            deviation = np.abs(np.abs(coupling.alpha[finite_alpha]) - 1.0)
-            if deviation.size and np.max(deviation) > alpha_tolerance:
-                coupling_state = _worst(coupling_state, "invalid")
-                stray = np.flatnonzero(
-                    finite_alpha & (np.abs(np.abs(coupling.alpha) - 1.0) > alpha_tolerance)
-                ).tolist()
-                reasons.append(
-                    f"TF coupling departs from a toroidally aligned probe (|alpha| - 1 > "
-                    f"{alpha_tolerance}) on channels {stray}"
-                )
-        elif np.any(coupling.bound_hit):
-            coupling_state = _worst(coupling_state, "invalid")
-            hits = np.flatnonzero(coupling.bound_hit).tolist()
-            reasons.append(f"TF coupling exceeds the configured tilt bounds on channels {hits}")
-        finite = np.isfinite(coupling.nrmse)
-        if finite.any() and np.nanmax(coupling.nrmse[finite]) > max_normalized_rmse:
-            coupling_state = _worst(coupling_state, "warning")
-            reasons.append("TF coupling residuals exceed the configured tolerance on at least one channel")
-        checks["tf_coupling"] = coupling_state
-
-    b_z = np.atleast_2d(np.asarray(b_z, dtype=float))
-    usable = b_z[channel_valid] if channel_valid.size == b_z.shape[0] else b_z
-    if usable.size and np.all(np.isfinite(usable)):
-        checks["compensated_signal"] = "valid"
-    elif usable.size and np.any(np.isfinite(usable)):
-        checks["compensated_signal"] = "warning"
-        reasons.append("some compensated Bz samples are not finite")
-    else:
-        checks["compensated_signal"] = "invalid"
-        reasons.append("compensated Bz is not finite on any usable channel")
-
-    if crosstalk is not None:
-        bz_state = "valid"
-        finite = np.isfinite(crosstalk.slope_v_per_t)
-        if not finite.any():
-            bz_state = "invalid"
-            reasons.append("no Bz sensor produced a finite crosstalk calibration")
-        else:
-            # A misalignment-angle bound can only be checked once the Bz
-            # sensor's own gain is known; bound_hit is all-False without one.
-            if np.any(crosstalk.bound_hit[finite]):
-                bz_state = _worst(bz_state, "invalid")
-                hits = np.flatnonzero(finite & crosstalk.bound_hit).tolist()
-                reasons.append(f"Bz sensor incident angle exceeds the configured limit on channels {hits}")
-            weak = finite & (crosstalk.r_squared < min_crosstalk_r_squared)
-            if np.any(weak):
-                bz_state = _worst(bz_state, "warning")
-                reasons.append(
-                    "the toroidal field does not explain the Bz sensor signal on channels "
-                    f"{np.flatnonzero(weak).tolist()}; those sensors may be inactive"
-                )
-        checks["bz_sensors"] = bz_state
-
-    return ImpaQuality(status=_worst(*checks.values()), checks=checks, reasons=tuple(reasons))
+    warnings.warn(
+        "vaft.process.grade_impa_quality() is deprecated; use "
+        "vaft.validation.impa.validate_impa(). Grading a shot is a source-validity "
+        "verdict and lives in vaft.validation (issues #253, #339). Its status is "
+        "now a ValidationStatus (PASS/WARN/FAIL), not a 'valid'/'warning'/'invalid' string.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _validate_impa(*args, **kwargs)
 
 
 # --------------------------------------------------------------------------
 # orchestration
 # --------------------------------------------------------------------------
-def validate_impa(*args: Any, **kwargs: Any) -> ImpaQuality:
-    """Deprecated compatibility wrapper for :func:`grade_impa_quality`."""
+def validate_impa(*args: Any, **kwargs: Any) -> ImpaAssessment:
+    """Deprecated compatibility wrapper for :func:`vaft.validation.impa.validate_impa`."""
     warnings.warn(
-        "vaft.process.validate_impa() is deprecated; use grade_impa_quality(). "
-        "vaft.process does not reach verdicts (issues #253, #337); the grading "
-        "itself moves to vaft.validation.impa under #339.",
+        "vaft.process.validate_impa() is deprecated; use "
+        "vaft.validation.impa.validate_impa(). vaft.process does not reach "
+        "verdicts (issues #253, #337, #339). Its status is now a ValidationStatus "
+        "(PASS/WARN/FAIL), not a 'valid'/'warning'/'invalid' string.",
         DeprecationWarning,
         stacklevel=2,
     )
-    return grade_impa_quality(*args, **kwargs)
+    return _validate_impa(*args, **kwargs)
 
 
 def process_impa(
@@ -2064,7 +1818,7 @@ def process_impa(
             )
             b_z_corrected = remove_bz_crosstalk(b_z_raw, b_measured, crosstalk)
 
-    quality = grade_impa_quality(
+    quality = _validate_impa(
         time,
         raw,
         b_measured,

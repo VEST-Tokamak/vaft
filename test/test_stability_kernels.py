@@ -27,8 +27,6 @@ from vaft.formula.stability import (
     greenwald_density,
     li_from_qa_empirical,
     plasma_stability_margins,
-    power_limit_from_beta,
-    power_limit_from_q,
     sawtooth_stability_criterion,
     v_alfven_from_B_n_mi,
 )
@@ -111,29 +109,6 @@ def test_the_sawtooth_threshold_goes_negative_above_unit_q0_where_sawteeth_do_no
     with pytest.warns(DeprecationWarning):
         _, crit_above = sawtooth_stability_criterion(1.4, 0.5)
     assert crit_above < 0.0
-
-
-# --- the two "limits" that are not powers ----------------------------------------
-
-
-def test_the_beta_power_limit_is_the_stored_energy_it_is_documented_to_be():
-    beta_N, B0, V = 0.03, 0.4, 1.5
-    assert power_limit_from_beta(beta_N, B0, V) == pytest.approx(
-        beta_N * B0**2 * V / (2.0 * MU0)
-    )
-    # Magnetic energy density times volume: an energy in joules, not a power.
-    assert power_limit_from_beta(0.0, B0, V) == 0.0
-
-
-def test_the_q_power_limit_is_the_ampere_squared_expression_it_is_documented_to_be():
-    q_95, I_p, R0 = 3.0, 1.0e5, 0.4
-    assert power_limit_from_q(q_95, I_p, R0) == pytest.approx(
-        2.0 * np.pi * R0 * I_p / (MU0 * q_95)
-    )
-    # Inverse in q_95, linear in the current: the scaling the rearrangement implies.
-    assert power_limit_from_q(6.0, I_p, R0) == pytest.approx(
-        power_limit_from_q(3.0, I_p, R0) / 2.0
-    )
 
 
 # --- the collisionality figure, which is deliberately not anyone's nu_star --------

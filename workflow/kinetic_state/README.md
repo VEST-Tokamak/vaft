@@ -1,5 +1,30 @@
 # Kinetic state (lane K)
 
+## Verification snapshot capture (#1835)
+
+On a host with the Atlas and its original FileDB, run:
+
+```bash
+PYTHONPATH=. python workflow/kinetic_state/capture_verification_snapshot.py \
+    --atlas ~/runs/campaign/atlas \
+    --filedb ~/runs/campaign/filedb \
+    --out /tmp/verification-snapshot
+```
+
+The destination must be new and outside both input directories. The script
+copies source tables and manifests byte for byte, verifies EFIT product
+hashes and time matches, recomputes virial with `alpha_method="volume"`, and
+publishes the directory only after validation. The v2 snapshot manifest
+records the code revision, dirty state, source/capture times, numerical
+settings, product hashes, file hashes and row counts. File transport is
+separate from capture; no campaign source is rewritten.
+
+The exporter adds optional conditioning evidence: alpha, closure denominators
+and distance to singularity for pair-13, pair-23, historical Lao li and full
+123, plus RT denominator ratio and availability. Older exports remain readable
+by `vaft.validation.kinetic_population`, with conditioning marked unavailable.
+These are descriptive quantities and introduce no acceptance threshold.
+
 These scripts build the conference atlas's kinetic-state tables from the #1331 Tier A EFIT campaign.
 
 The state key contract is defined in #1454: rows are keyed by `(shot, time_efit_s, efit_lineage)` and every row carries `efit_quality`. The slice-level calculations live in `vaft.validation.kinetic_state`. The Thomson comparison is the sampler that `criteria.py`'s Thomson verdict grades, `vaft.validation.equilibrium.thomson_pressure_samples`.

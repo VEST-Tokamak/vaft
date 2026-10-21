@@ -3770,7 +3770,15 @@ def build_neoclassical_ods(
     profiles = core_profiles_from_neo(
         ods, native, time=slice_time, time_index=0, b0=b0
     )
-    transport = core_transport_from_neo(ods, native, time=slice_time, time_index=0)
+    # The product is a fresh ODS without core_profiles ions, so each ion's nuclear
+    # charge is read from the slice NEO's input was paired from -- by index, since
+    # slice_time is the equilibrium's and the profile slice may sit off it.
+    cp_index = resolved.get("core_profiles_index")
+    transport = core_transport_from_neo(
+        ods, native, time=slice_time, time_index=0,
+        species_source=source_state,
+        species_index=None if cp_index is None else int(cp_index),
+    )
 
     written = tuple(profiles["written"]) + tuple(transport["written"])
     # The bootstrap current is what this product is for. A run that mapped only the

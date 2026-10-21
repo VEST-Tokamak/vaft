@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Protocol, Sequence
 
 if TYPE_CHECKING:
-    from .execution import ExecutionBackend
+    from .execution import ExecutionBackend, ResourceRequest
 
 
 @dataclass(frozen=True)
@@ -21,6 +21,10 @@ class CodeConfig:
     timeout: Optional[float] = None
     # None runs locally; see vaft.code.execution.
     backend: Optional["ExecutionBackend"] = None
+    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: own declaration; a value replaces it, and its ``threads_per_task`` is
+    #: set in the launch environment over ``env`` and the inherited one.
+    resources: Optional["ResourceRequest"] = None
 
 
 @dataclass

@@ -233,12 +233,17 @@ def test_constraints_and_kfile_survive_missing_channels(
     generate_constraints_ods(
         ods, SHOT, str(tmp_path), "", times,
         DEFAULT_UNCERTAINTY, DEFAULT_WEIGHTING,
-        broken=[], fit=0, FFCUR=2, PPCUR=2,
+        broken=[], fit=0,
     )
 
     EQ = ods["equilibrium"]
     assert len(EQ["time_slice.0.constraints.bpol_probe"]) == n_probes
     assert len(EQ["time_slice.0.constraints.flux_loop"]) == n_flux
+    # The profile model is the k-file configuration's choice, made later; the
+    # constraints product does not claim one (#869).
+    stored_in1 = EQ["code.parameters.time_slice.0.IN1"]
+    for key in ("KFFCUR", "KPPCUR", "KFFFNC", "KPPFNC", "FCURBD", "PCURBD", "FWTBP", "IVESEL", "IFITVS"):
+        assert key not in stored_in1, key
 
     for i in missing_probes:
         for t_idx in (0, 1):
@@ -360,7 +365,7 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraint
     generate_constraints_ods(
         ods, SHOT, str(tmp_path), efit_table_dir, times,
         DEFAULT_UNCERTAINTY, DEFAULT_WEIGHTING,
-        broken=[], fit=0, FFCUR=2, PPCUR=2,
+        broken=[], fit=0,
     )
 
     assert len(ods["equilibrium.time_slice.0.constraints.bpol_probe"]) == efit_probes
@@ -399,7 +404,7 @@ def test_constraints_and_kfile_without_a_diamagnetic_flux(full_constraints_input
     generate_constraints_ods(
         ods, SHOT, str(tmp_path), "", times,
         DEFAULT_UNCERTAINTY, DEFAULT_WEIGHTING,
-        broken=[], fit=0, FFCUR=2, PPCUR=2,
+        broken=[], fit=0,
     )
 
     EQ = ods["equilibrium"]
@@ -433,7 +438,7 @@ def test_constraints_without_a_tf_waveform_refuse_by_name(full_constraints_input
         generate_constraints_ods(
             ods, SHOT, str(tmp_path), "", times,
             DEFAULT_UNCERTAINTY, DEFAULT_WEIGHTING,
-            broken=[], fit=0, FFCUR=2, PPCUR=2,
+            broken=[], fit=0,
         )
     assert type(error.value).__name__ == "MissingConstraintInputError"
     assert list(error.value.missing) == ["tf.b_field_tor_vacuum_r.data"]
@@ -495,7 +500,7 @@ def test_a_slice_past_the_diamagnetic_anchor_is_fitted_without_the_row(full_cons
         generate_constraints_ods(
             ods, SHOT, str(tmp_path), "", times,
             DEFAULT_UNCERTAINTY, DEFAULT_WEIGHTING,
-            broken=[], fit=0, FFCUR=2, PPCUR=2,
+            broken=[], fit=0,
         )
     EQ = ods["equilibrium"]
     assert EQ["time_slice.0.constraints.diamagnetic_flux.weight"] > 0.0
@@ -509,3 +514,15 @@ def test_a_slice_past_the_diamagnetic_anchor_is_fitted_without_the_row(full_cons
     first, second = sorted((kfile_dir / "kfile").glob("*"))
     assert "FWTDLC= 0\n" not in first.read_text(encoding="utf-8")
     assert "FWTDLC= 0" in second.read_text(encoding="utf-8")
+
+
+def test_the_profile_basis_arguments_are_deprecated_and_ignored():
+    """FFCUR/PPCUR no longer reach any record; passing them says so (#869)."""
+    from omas import ODS
+
+    from vaft.code.efit.kfile import MissingConstraintInputError
+
+    with pytest.warns(DeprecationWarning, match="FFCUR"):
+        # Fails on the missing inputs right after the warning; the warning is the point.
+        with pytest.raises(MissingConstraintInputError):
+            generate_constraints_ods(ODS(), SHOT, ".", "", [0.3], DEFAULT_UNCERTAINTY, DEFAULT_WEIGHTING, FFCUR=3)

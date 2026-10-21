@@ -99,15 +99,18 @@ def _cohorts(table: pd.DataFrame, by: str):
 def equilibrium_quality_measured_vs_reconstructed(points: pd.DataFrame, *, family: str, by: str = "quality_label",
                                                   fitted_only: bool = True, ax=None, show: bool = False,
                                                   figsize=None, format: str | None = None,
-                                                  theme: str | None = None):
+                                                  theme: str | None = None, limits=None):
     """Measured (x) against reconstructed (y) for one constraint family, by cohort, with ``y = x``.
 
     ``points`` are :func:`~vaft.validation.equilibrium_quality.equilibrium_quality_constraint_points`
     rows joined with each slice's ``quality_label``.  The legend gives the
     number of channels and mean absolute error from ``y = x`` in the family's
-    native unit, not a regression R².  The diamagnetic-flux view fixes both
-    axes to 0–8 mWb; cohort statistics still use all fitted points.
+    native unit, not a regression R². ``limits=(min, max)`` sets both axes;
+    otherwise their common range is derived from the data. Cohort statistics
+    use all fitted points, including those outside the requested view.
     """
+    if limits is not None:
+        limits = _comparison_limits(limits)
     fig, ax = _axes(ax, figsize or (5.2, 5.0))
     data = points[points["family"] == family]
     if fitted_only and "fitted" in data:
@@ -137,18 +140,16 @@ def equilibrium_quality_measured_vs_reconstructed(points: pd.DataFrame, *, famil
         lo = float(np.nanmin(np.r_[x[finite], y[finite]]))
         hi = float(np.nanmax(np.r_[x[finite], y[finite]]))
         pad = 0.05 * (hi - lo or 1.0)
-        reference = (0.0, 8.0) if family == "diamagnetic_flux" else (lo - pad, hi + pad)
+        reference = limits if limits is not None else (lo - pad, hi + pad)
         ax.plot(reference, reference, color="#1a1a19", lw=1.0, ls="--", label="y = x")
-        ax.set_xlim(lo - pad, hi + pad)
-        ax.set_ylim(lo - pad, hi + pad)
+        ax.set_xlim(reference)
+        ax.set_ylim(reference)
     ax.set_xlabel(f"measured [{unit}]" if unit else "measured")
     ax.set_ylabel(f"reconstructed [{unit}]" if unit else "reconstructed")
-    if family == "diamagnetic_flux":
-        ax.set_xlim(0.0, 8.0)
-        ax.set_ylim(0.0, 8.0)
-        ax.set_title("Diamagnetic flux")
-    else:
-        ax.set_title(FAMILY_TITLES.get(family, family))
+    if limits is not None:
+        ax.set_xlim(limits)
+        ax.set_ylim(limits)
+    ax.set_title(FAMILY_TITLES.get(family, family))
     ax.set_aspect("equal", adjustable="box")
     if font_scale >= 1.5:
         ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), frameon=False)
@@ -158,17 +159,35 @@ def equilibrium_quality_measured_vs_reconstructed(points: pd.DataFrame, *, famil
     return fig, ax
 
 
+def _comparison_limits(limits):
+    values = np.asarray(limits, dtype=float)
+    if values.shape != (2,) or not np.isfinite(values).all() or values[0] >= values[1]:
+        raise ValueError("limits must be two finite increasing values")
+    return tuple(values)
+
+
+def _family_limits(limits_by_family):
+    limits = limits_by_family or {}
+    unknown = set(limits) - set(DIAGNOSTIC_FAMILIES)
+    if unknown:
+        raise ValueError(f"unknown diagnostic family in limits_by_family: {sorted(unknown)}")
+    return {family: _comparison_limits(value) for family, value in limits.items()}
+
+
 def equilibrium_quality_diagnostic_slides(points: pd.DataFrame, *, show: bool = False,
-                                          format: str = "slide", theme: str | None = None):
+                                          format: str = "slide", theme: str | None = None,
+                                          limits_by_family=None):
     """Render one measured-versus-reconstructed slide per diagnostic family.
 
     Keeping a single comparison on each slide leaves room for readable axes,
     cohort statistics and the identity reference.  Returns figures keyed by
     diagnostic family in presentation order.
     """
+    limits_by_family = _family_limits(limits_by_family)
     return {
         family: equilibrium_quality_measured_vs_reconstructed(
             points, family=family, show=show, format=format, theme=theme,
+            limits=limits_by_family.get(family),
         )
         for family in DIAGNOSTIC_FAMILIES
         if "family" in points and (points["family"] == family).any()
@@ -176,16 +195,18 @@ def equilibrium_quality_diagnostic_slides(points: pd.DataFrame, *, show: bool = 
 
 
 def equilibrium_quality_diagnostic_grid(points: pd.DataFrame, *, show: bool = False,
-                                        figsize: tuple[float, float] = (9.8, 10.0)):
+                                        figsize: tuple[float, float] = (9.8, 10.0),
+                                        limits_by_family=None):
     """A presentation-size 2×2 overview of the four diagnostic comparisons.
 
     The individual slides retain cohort counts and MAE.  This overview uses
     one shared cohort legend so four panels remain readable together.  It
-    keeps the diamagnetic-flux 0–8 mWb focus of the individual view.
+    accepts the same ``limits_by_family`` as the individual slides.
     """
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
 
+    limits_by_family = _family_limits(limits_by_family)
     presentation = resolve_presentation("slide", None)
     with presentation.context():
         fig, axes = plt.subplots(2, 2, figsize=figsize)
@@ -193,7 +214,8 @@ def equilibrium_quality_diagnostic_grid(points: pd.DataFrame, *, show: bool = Fa
             if "family" not in points or not (points["family"] == family).any():
                 ax.set_axis_off()
                 continue
-            equilibrium_quality_measured_vs_reconstructed(points, family=family, ax=ax)
+            equilibrium_quality_measured_vs_reconstructed(
+                points, family=family, ax=ax, limits=limits_by_family.get(family))
             legend = ax.get_legend()
             if legend is not None:
                 legend.remove()
