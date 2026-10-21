@@ -3,13 +3,21 @@
 Run from the repository root:
     python -m workflow.particle_motion.run --output docs/assets/particle-motion
 No external orbit solver, video encoder or display server is needed.
+
+Everything is rendered into a scratch directory first and only files whose
+bytes changed are copied over, so an unchanged regeneration touches nothing.
+``--check`` renders the same way and compares instead of writing (#2117).
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
+import subprocess
+import sys
+import tempfile
 
 import matplotlib
 
@@ -19,6 +27,7 @@ import numpy as np
 
 import vaft
 import vaft.diagram as diagram
+from vaft.diagram._replay import write_if_changed
 from vaft.plot import ParticleOrbitView, particle_overview
 from vaft.process.particle import particle_motion_case
 
@@ -43,19 +52,29 @@ EXAMPLES = (
 
 #: Examples without a committed static SVG. Their gyro-resolved orbits make a
 #: ~440 KB SVG that no page embeds; the GIF and panels carry the same scene,
-#: and the site has a 150 MiB budget (docs/build.py MAX_SITE_MIB).
+#: and the site has a size budget (docs/build.py MAX_SITE_MIB).
 NO_STATIC = {"tokamak", "symmetry-breaking"}
 
+#: Files whose bytes depend only on the numerics and this script.  Everything
+#: else (SVG via TeX/dvisvgm, PNG via Matplotlib, GIF via Pillow) also depends
+#: on the rendering toolchain, so a byte difference there is reported as render
+#: drift rather than as stale science.
+DATA_SUFFIXES = (".json",)
 
-def generate(output, frames=12, dpi=55):
-    output.mkdir(parents=True, exist_ok=True)
+
+def _sha256(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def _kind(name):
+    return "data" if name.endswith(DATA_SUFFIXES) else "render"
+
+
+def _render(output, frames, dpi):
     experiments = {}
     panels = {}
     animated_panels = {}
     rows = []
-    # A family without a static SVG must not keep one from an earlier run.
-    for slug in NO_STATIC:
-        (output / f"{slug}.svg").unlink(missing_ok=True)
     for slug, kind, builder in EXAMPLES:
         print(f"Computing {slug}: {kind}", flush=True)
         if kind not in experiments:
@@ -141,6 +160,15 @@ def generate(output, frames=12, dpi=55):
         sidecar.write_text(
             json.dumps(json.loads(sidecar.read_text()), separators=(",", ":")) + "\n"
         )
+    artifacts = {
+        path.name: {
+            "sha256": _sha256(path.read_bytes()),
+            "bytes": path.stat().st_size,
+            "kind": _kind(path.name),
+        }
+        for path in sorted(output.iterdir())
+        if path.is_file() and path.name != "manifest.json"
+    }
     document = {
         "schema_version": 1,
         "generator": "workflow/particle_motion/run.py",
@@ -154,10 +182,115 @@ def generate(output, frames=12, dpi=55):
             "external-solver cross-validation",
         ],
         "examples": rows,
+        # Every other file in this directory, with its digest: the integrity
+        # record --check (and the docs build) verify against.
+        "artifacts": artifacts,
     }
     (output / "manifest.json").write_text(json.dumps(document, indent=2) + "\n")
-    print(f"Wrote {len(rows)} reproducible examples to {output}", flush=True)
     return document
+
+
+def generate(output, frames=12, dpi=55):
+    """Render into scratch, then write only changed files and drop orphans."""
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="particle-motion-") as scratch:
+        stage = Path(scratch)
+        document = _render(stage, frames, dpi)
+        produced = {path.name for path in stage.iterdir() if path.is_file()}
+        written = [
+            name
+            for name in sorted(produced)
+            if write_if_changed(output / name, (stage / name).read_bytes())
+        ]
+    # The directory is generated output only: anything not produced is stale.
+    removed = []
+    for path in sorted(output.iterdir()):
+        if path.is_file() and path.name not in produced:
+            path.unlink()
+            removed.append(path.name)
+    print(
+        f"{len(document['examples'])} examples: {len(written)} file(s) written, "
+        f"{len(produced) - len(written)} unchanged, {len(removed)} removed",
+        flush=True,
+    )
+    return document
+
+
+def _toolchain():
+    versions = {"matplotlib": matplotlib.__version__}
+    try:
+        import PIL
+
+        versions["Pillow"] = PIL.__version__
+    except ImportError:
+        versions["Pillow"] = "missing"
+    try:
+        line = subprocess.run(
+            ["dvisvgm", "--version"], capture_output=True, text=True, check=False
+        ).stdout.strip()
+        versions["dvisvgm"] = line or "unknown"
+    except OSError:
+        versions["dvisvgm"] = "missing"
+    return versions
+
+
+def check(output, frames=12, dpi=55, *, strict=False):
+    """Regenerate into scratch and compare with ``output``; return problem lines.
+
+    Four kinds of problem, each named:
+    - missing or orphaned files;
+    - integrity: a committed file whose bytes differ from the digest its own
+      manifest records (edited by hand, or regenerated without the manifest);
+    - stale: a data file (sidecar or manifest) the current source would
+      generate differently;
+    - render drift: an SVG/PNG/GIF that differs only after rendering.  This
+      depends on the TeX/Matplotlib/Pillow versions, so it is a warning unless
+      ``strict``.
+    """
+    output = Path(output)
+    problems, warnings = [], []
+    committed_manifest = output / "manifest.json"
+    if not committed_manifest.is_file():
+        return [f"{output}/manifest.json: missing; run the generator"], warnings
+    record = json.loads(committed_manifest.read_text(encoding="utf-8")).get("artifacts")
+    if not record:
+        problems.append("manifest.json: no artifacts table; regenerate")
+        record = {}
+    for name, entry in sorted(record.items()):
+        path = output / name
+        if path.is_file() and _sha256(path.read_bytes()) != entry.get("sha256"):
+            problems.append(f"{name}: does not match its manifest digest (integrity)")
+
+    with tempfile.TemporaryDirectory(prefix="particle-motion-check-") as scratch:
+        stage = Path(scratch)
+        _render(stage, frames, dpi)
+        produced = {path.name for path in stage.iterdir() if path.is_file()}
+        present = {path.name for path in output.iterdir() if path.is_file()}
+        for name in sorted(produced - present):
+            problems.append(f"{name}: missing (the generator produces it)")
+        for name in sorted(present - produced):
+            problems.append(f"{name}: orphaned (the generator does not produce it)")
+        for name in sorted(produced & present):
+            new, old = (stage / name).read_bytes(), (output / name).read_bytes()
+            if name == "manifest.json":
+                # The artifacts table carries render digests; compare the science.
+                new_doc, old_doc = json.loads(new), json.loads(old)
+                new_doc.pop("artifacts", None)
+                old_doc.pop("artifacts", None)
+                if new_doc != old_doc:
+                    problems.append("manifest.json: stale (examples or provenance differ)")
+            elif new != old:
+                if _kind(name) == "data":
+                    problems.append(f"{name}: stale (regenerated data differs)")
+                else:
+                    (problems if strict else warnings).append(
+                        f"{name}: render drift (bytes differ after rendering)"
+                    )
+    if any("render drift" in line for line in problems + warnings):
+        toolchain = ", ".join(f"{k} {v}" for k, v in _toolchain().items())
+        (problems if strict else warnings).append(f"toolchain here: {toolchain}")
+    return problems, warnings
 
 
 if __name__ == "__main__":
@@ -167,7 +300,26 @@ if __name__ == "__main__":
     )
     parser.add_argument("--frames", type=int, default=12)
     parser.add_argument("--dpi", type=int, default=55)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="regenerate into scratch and compare; write nothing",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="with --check, treat render drift (SVG/PNG/GIF) as a failure",
+    )
     args = parser.parse_args()
     if args.frames < 2 or args.dpi < 20:
         parser.error("at least two frames and dpi >= 20 required")
+    if args.check:
+        problems, warnings = check(args.output, args.frames, args.dpi, strict=args.strict)
+        for line in warnings:
+            print(f"warning: {line}")
+        for line in problems:
+            print(f"error: {line}")
+        if not problems:
+            print(f"{args.output}: up to date")
+        sys.exit(1 if problems else 0)
     generate(args.output, args.frames, args.dpi)

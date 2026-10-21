@@ -7,8 +7,26 @@ They require no external orbit solver or video encoder.
 
 ```sh
 python -m workflow.particle_motion.run --output docs/assets/particle-motion
-python -m pytest -q test/test_process_particle.py test/test_particle_animation.py
+python -m workflow.particle_motion.run --check   # regenerate in scratch, compare, write nothing
+python -m pytest -q test/test_process_particle.py test/test_particle_animation.py test/test_particle_motion_assets.py
 ```
+
+Every file is rendered into a scratch directory first, and only files whose
+bytes changed are copied into the output. An unchanged regeneration touches
+nothing, and files the generator no longer produces are removed. `manifest.json`
+records the SHA-256 and size of every other file under `artifacts`.
+
+`--check` (#2117) reports four kinds of problem:
+- missing or orphaned files;
+- integrity: a file that no longer matches its manifest digest;
+- stale data: a sidecar or the manifest's science differs from what the current
+  source generates;
+- render drift: an SVG, PNG or GIF that differs only after rendering.
+
+Render drift depends on the TeX, Matplotlib and Pillow versions, so it is a
+warning that names this machine's toolchain. `--strict` makes it an error. The
+first three fail the check. On the reference machine, a regeneration is
+byte-identical for all files and takes about 40 s.
 
 The generator writes a deterministic physical-time GIF, quantitative panel image
 and provenance sidecar per example, and a static SVG for all but the tokamak
