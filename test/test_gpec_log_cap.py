@@ -96,3 +96,26 @@ def test_a_terminated_cap_still_writes_the_held_tail(tmp_path):
     assert text.startswith("line 0\n")
     assert ELISION_MARKER in text
     assert text.rstrip().splitlines()[-1].startswith("line ")
+
+
+def test_the_head_does_not_take_a_line_after_the_tail_started():
+    """Order is kept at the boundary: a short line after a long one stays behind it."""
+    sink = io.BytesIO()
+    run(
+        _python("print('A' * 39); print('B' * 19); print('C'); [print('D' * 30) for _ in range(5)]"),
+        max_bytes=100, stall_lines=None, stall_pattern=None, sink=sink,
+    )
+    lines = sink.getvalue().decode().splitlines()
+    assert lines[0] == "A" * 39
+    assert lines[1].startswith(ELISION_MARKER)
+    assert "C" not in lines[:1]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX signals")
+def test_a_program_killed_by_a_signal_reports_128_plus_the_signal():
+    sink = io.BytesIO()
+    code = run(
+        _python("import os, signal; os.kill(os.getpid(), signal.SIGSEGV)"),
+        max_bytes=1000, stall_lines=None, stall_pattern=None, sink=sink,
+    )
+    assert code == 128 + 11

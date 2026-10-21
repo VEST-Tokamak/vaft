@@ -602,7 +602,8 @@ class PENTRCLogLimits:
     ``max_bytes``
         Log size kept: the first half as written and the last half when the
         run ends, with one line saying what was left out between.  ``None``
-        keeps everything.
+        keeps everything.  The held half is memory the filter process uses
+        (somewhat more than ``max_bytes / 2``), counted by a memory limit.
     ``stall_lines``
         After this many LSODE non-convergence lines the run is stopped and
         recorded as *stalled* rather than left to the timeout.  ``None``

@@ -17,8 +17,10 @@ execution backend points at the run's log -- with two limits (#1929):
   *timed out* -- and say it within seconds of the stall rather than at the
   timeout.
 
-Killed itself (the caller's timeout or memory stop terminates the process
-tree), it still writes the held tail before it exits.
+Terminated itself (the caller's timeout or memory stop ends the process
+tree), it still writes the held tail before it exits -- on POSIX, where that
+is a signal it can catch.  The held tail is up to ``N/2`` bytes of memory,
+which a memory limit on the run counts with PENTRC's own.
 """
 
 from __future__ import annotations
@@ -50,6 +52,9 @@ class _CappedWriter:
         self.head_budget = None if max_bytes is None else max_bytes // 2
         self.tail_budget = None if max_bytes is None else max_bytes - max_bytes // 2
         self.head_written = 0
+        #: Once a line has gone to the tail, every later one does: a shorter
+        #: line that would still fit the head must not jump the queue.
+        self.head_full = False
         self.tail: deque[bytes] = deque()
         self.tail_bytes = 0
         self.elided_bytes = 0
@@ -57,11 +62,21 @@ class _CappedWriter:
         self.closed = False
 
     def write(self, line: bytes) -> None:
-        if self.head_budget is None or self.head_written + len(line) <= self.head_budget:
+        if self.head_budget is None:
+            self.sink.write(line)
+            self.sink.flush()
+            return
+        if not self.head_full and self.head_written + len(line) <= self.head_budget:
             self.sink.write(line)
             self.sink.flush()
             self.head_written += len(line)
             return
+        self.head_full = True
+        if len(line) > self.tail_budget:
+            # One line longer than the whole tail: keep its end, which is
+            # where a program says how it stopped.
+            self.elided_bytes += len(line) - self.tail_budget
+            line = line[-self.tail_budget:]
         self.tail.append(line)
         self.tail_bytes += len(line)
         while self.tail and self.tail_bytes > self.tail_budget:
@@ -71,19 +86,24 @@ class _CappedWriter:
             self.elided_lines += 1
 
     def close(self, trailer: str | None = None) -> None:
-        if self.closed:
-            return
-        self.closed = True
-        if self.elided_lines:
-            self.sink.write(
-                f"{ELISION_MARKER} {self.elided_bytes} bytes in {self.elided_lines} lines "
-                f"(head and tail of the log kept)\n".encode()
-            )
-        for line in self.tail:
-            self.sink.write(line)
+        """Write the held tail once, then *trailer*; idempotent."""
+        if not self.closed:
+            self.closed = True
+            if self.elided_bytes:
+                self.sink.write(
+                    f"{ELISION_MARKER} {self.elided_bytes} bytes in {self.elided_lines} lines "
+                    f"(head and tail of the log kept)\n".encode()
+                )
+            while self.tail:
+                self.sink.write(self.tail.popleft())
         if trailer:
             self.sink.write(trailer.encode())
         self.sink.flush()
+
+
+def _exit_status(returncode: int) -> int:
+    """A shell's status for a child that died of a signal: ``128 + N``, not ``256 - N``."""
+    return 128 - returncode if returncode < 0 else returncode
 
 
 def run(
@@ -109,8 +129,11 @@ def run(
         writer.close()
         sys.exit(128 + signum)
 
-    for signum in (signal.SIGTERM, signal.SIGINT):
-        signal.signal(signum, _stop)
+    # POSIX only in practice: on Windows the backend ends the process tree
+    # through a job object, which no handler sees, so only the head survives.
+    for name in ("SIGTERM", "SIGINT", "SIGHUP"):
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), _stop)
 
     matched = 0
     last_match = b""
@@ -134,7 +157,7 @@ def run(
         )
         return STALL_EXIT_CODE
     writer.close()
-    return returncode
+    return _exit_status(returncode)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
