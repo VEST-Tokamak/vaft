@@ -546,35 +546,158 @@ def calculate_poloidal_flux(R: np.ndarray,
     return trapz_integral(l, R * B_theta) + psi_axis
 
 
-def calculate_toroidal_flux(B_phi: np.ndarray,
-                          dA: np.ndarray) -> float:
-    r"""Toroidal flux as a sum of $B_\varphi$ over area elements.
+def _rectilinear_axis(coord: np.ndarray, axis: int, name: str, shape: tuple) -> np.ndarray:
+    """1-D axis of a grid given as a 1-D axis or an ``ij``-indexed 2-D mesh."""
+    coord = np.asarray(coord, dtype=float)
+    if coord.ndim == 1:
+        if coord.shape[0] != shape[axis]:
+            raise ValueError(
+                f"{name} has {coord.shape[0]} points but B_phi has {shape[axis]} along axis {axis}"
+            )
+        line = coord
+    elif coord.ndim == 2:
+        if coord.shape != shape:
+            raise ValueError(f"{name} mesh has shape {coord.shape}, B_phi has {shape}")
+        line = coord[:, 0] if axis == 0 else coord[0, :]
+    else:
+        raise ValueError(f"{name} must be a 1-D axis or a 2-D mesh, got ndim={coord.ndim}")
+    if line.size < 2 or not np.all(np.isfinite(line)):
+        raise ValueError(f"{name} needs at least two finite points")
+    step = np.diff(line)
+    if not (np.all(step > 0) or np.all(step < 0)):
+        raise ValueError(f"{name} must be strictly monotonic")
+    if coord.ndim == 2:
+        expected = line[:, None] if axis == 0 else line[None, :]
+        # A mesh read through float32 differs from its first row/column by a
+        # few float32 ulps; allow that, and never more than a sliver of a cell.
+        atol = max(1e-6 * np.min(np.abs(step)), 4 * np.finfo(np.float32).eps * np.max(np.abs(line)))
+        if not np.allclose(coord, np.broadcast_to(expected, shape), rtol=0.0, atol=atol):
+            raise ValueError(
+                f"{name} is not a rectilinear 'ij' mesh (it varies along the other axis)"
+            )
+    return line
 
-    $$\Phi = \sum_i B_{\varphi,i}\,\Delta A_i$$
+
+def _toroidal_flux(B_phi, R, Z, mask, dA, stacklevel: int) -> float:
+    """Shared body of :func:`calculate_toroidal_flux` and ``phi_from_Bphi``."""
+    if dA is None and Z is None and R is not None:
+        if np.ndim(B_phi) == 2 and np.ndim(R) != 0:
+            # A 2-D map with a second argument and no Z is ambiguous: a grid
+            # call that forgot Z, or the old area map.  Summing B_phi * R would
+            # be silently wrong, so refuse rather than guess.
+            raise TypeError(
+                "toroidal flux over a 2-D map needs both R and Z; for the deprecated "
+                "area-element sum pass dA= by keyword"
+            )
+        # Legacy positional call ``f(B_phi, dA)`` on samples, or with a scalar
+        # cell area (which can never be an R axis): the bare sum.
+        dA, R = R, None
+    if dA is not None:
+        if R is not None or Z is not None or mask is not None:
+            raise TypeError("pass either the grid (R, Z[, mask]) or the legacy dA, not both")
+        warnings.warn(
+            "toroidal flux from caller-supplied area elements dA is deprecated (#358): it is a bare "
+            "Riemann sum whose accuracy is the caller's grid. Pass the (R, Z) grid and an optional "
+            "mask instead; the function then integrates by the trapezoidal rule.",
+            DeprecationWarning,
+            stacklevel=stacklevel,
+        )
+        return float(np.sum(np.asarray(B_phi, dtype=float) * np.asarray(dA, dtype=float)))
+    if R is None or Z is None:
+        raise TypeError("toroidal flux needs the grid: pass both R and Z")
+    B_phi = np.asarray(B_phi, dtype=float)
+    if B_phi.ndim != 2:
+        raise ValueError(f"B_phi must be a 2-D map indexed [R, Z], got ndim={B_phi.ndim}")
+    r_line = _rectilinear_axis(R, 0, "R", B_phi.shape)
+    z_line = _rectilinear_axis(Z, 1, "Z", B_phi.shape)
+    integrand = B_phi
+    if mask is not None:
+        mask = np.asarray(mask)
+        if mask.shape != B_phi.shape:
+            raise ValueError(f"mask has shape {mask.shape}, B_phi has {B_phi.shape}")
+        if mask.dtype.kind not in "biu":
+            # A float mask turns nan into True; insist on the boolean it means.
+            raise ValueError(f"mask must be boolean, got dtype {mask.dtype}")
+        integrand = np.where(mask.astype(bool), B_phi, 0.0)
+    flux = trapz_compat(trapz_compat(integrand, x=z_line, axis=1), x=r_line)
+    # Integrate over the area, whichever way the axes are stored.
+    return float(flux * np.sign(r_line[-1] - r_line[0]) * np.sign(z_line[-1] - z_line[0]))
+
+
+def calculate_toroidal_flux(B_phi: np.ndarray,
+                            R: np.ndarray = None,
+                            Z: np.ndarray = None,
+                            mask: np.ndarray = None,
+                            *,
+                            dA: np.ndarray = None) -> float:
+    r"""Toroidal flux $\Phi = \int B_\varphi\,dR\,dZ$ over a rectilinear $(R, Z)$ grid.
+
+    $$\Phi = \iint_{S} B_\varphi(R, Z)\,dR\,dZ$$
+
+    by the 2-D trapezoidal rule, over the whole grid or over the cells a
+    ``mask`` selects.
 
     Parameters
     ----------
     B_phi : np.ndarray
-        Toroidal field on the area elements [T].
-    dA : np.ndarray
-        Area of each element, same shape [m^2].
+        Toroidal field on the grid, indexed ``[R, Z]`` (IMAS ``profiles_2d``
+        order) [T].
+    R : np.ndarray, optional
+        Major radius: a 1-D strictly monotonic axis of length ``B_phi.shape[0]``,
+        or an ``ij``-indexed 2-D mesh of the shape of ``B_phi`` [m].
+    Z : np.ndarray, optional
+        Height: a 1-D strictly monotonic axis of length ``B_phi.shape[1]``, or an
+        ``ij``-indexed 2-D mesh of the shape of ``B_phi`` [m].
+    mask : np.ndarray, optional
+        Boolean map of the shape of ``B_phi``; ``True`` marks the samples inside
+        the cross-section.  ``psi_N <= 1`` alone also selects the private-flux
+        region below a diverted X-point; combine it with an inside-the-LCFS
+        test there.  Default: the whole grid [-].
+    dA : np.ndarray, optional
+        Deprecated (#358).  Caller-supplied area elements of the old bare sum
+        $\sum_i B_{\varphi,i}\,\Delta A_i$; also taken from a two-argument call
+        ``calculate_toroidal_flux(B_phi, dA)`` when ``B_phi`` is not 2-D or ``dA``
+        is a scalar cell area (a 2-D area map must pass ``dA=`` by keyword).  Emits a ``DeprecationWarning`` [m^2].
 
     Returns
     -------
     float
-        Toroidal flux [Wb].
+        Toroidal flux through the selected area [Wb].
+
+    Raises
+    ------
+    ValueError
+        If the grid is not rectilinear, an axis is not strictly monotonic, a
+        shape does not match ``B_phi``, or ``mask`` is not boolean.
+    TypeError
+        If neither the grid nor ``dA`` is given, both are, or a 2-D map is
+        given a second argument without ``Z``.
 
     Convention
     ----------
-    Full weber (toroidal flux has no per-radian form); sign of $B_\varphi$.
-    The physics wrapper is :func:`vaft.formula.equilibrium.phi_from_Bphi`.
+    Full weber (toroidal flux has no per-radian form); sign of $B_\varphi$
+    along the COCOS $\varphi$ direction, so a reversed-field discharge flips it
+    as surely as a COCOS conversion does.  The area is counted positive
+    whichever direction the axes are stored in, so reversing ``R`` or ``Z``
+    does not flip the sign.  The physics wrapper is
+    :func:`vaft.formula.equilibrium.phi_from_Bphi`.
 
     Numerical notes
     ---------------
-    A Riemann sum with caller-supplied areas, not a quadrature rule; first
-    order in the cell size.  Tracked in #358.
+    Trapezoidal rule along ``Z`` then ``R`` through
+    :func:`vaft.compat.trapz_compat`: second order in the spacing over the full
+    grid, exact for a field bilinear in $(R, Z)$.  With a ``mask`` the integrand
+    is set to zero outside it, so the staircase boundary makes the error first
+    order in the cell size; refine the grid, not the mask, to converge.  The
+    deprecated ``dA`` path is the old Riemann sum, first order and only as good
+    as the caller's areas.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.4 (toroidal flux and the safety factor).
     """
-    return np.sum(B_phi * dA)
+    return _toroidal_flux(B_phi, R, Z, mask, dA, stacklevel=3)
 
 
 # ------------------------------------------------------------------

@@ -446,12 +446,20 @@ def test_psi_from_RBtheta_adds_the_axis_offset():
     )
 
 
-def test_phi_from_Bphi_is_the_area_weighted_sum():
+def test_phi_from_Bphi_integrates_over_the_grid():
+    R = np.linspace(0.1, 0.8, 8)
+    Z = np.linspace(-0.5, 0.5, 11)
+    B_phi = np.full((R.size, Z.size), 0.2)
+    assert phi_from_Bphi(B_phi, R, Z) == pytest.approx(0.2 * 0.7, rel=1e-13, abs=0.0)
+
+
+def test_phi_from_Bphi_legacy_area_sum_is_deprecated():
     B_phi = np.array([0.18, 0.20, 0.22])
     dA = np.array([0.01, 0.02, 0.03])
-    assert phi_from_Bphi(B_phi, dA) == pytest.approx(
-        float(np.sum(B_phi * dA)), rel=1e-13, abs=0.0
-    )
+    with pytest.warns(DeprecationWarning, match="#358"):
+        assert phi_from_Bphi(B_phi, dA) == pytest.approx(
+            float(np.sum(B_phi * dA)), rel=1e-13, abs=0.0
+        )
 
 
 # --------------------------------------------------------------------------
