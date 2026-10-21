@@ -62,43 +62,55 @@ def _eq(function) -> str:
 
 
 def drift_wave_transport_cycle(*, labels: bool = True) -> Diagram:
-    r"""The drift-wave transport loop: gradient, growth, fluctuations, $E\times B$, flux, relaxation.
+    r"""From an equilibrium gradient to a turbulent flux, and the slow profile feedback.
 
-    Clockwise from the top left: density and temperature gradients carry
-    the free energy; the diamagnetic frequency $\omega_* = \mathbf k\cdot\mathbf v_*$
-    (``diamagnetic_frequency_from_k_v_star``) sets the drift-wave
-    frequency; a non-adiabatic response makes the wave grow at $\gamma$;
-    the fluctuations $\tilde n$, $\tilde\phi$ drift at
-    $\tilde{\mathbf v}_E = \mathbf B\times\nabla\tilde\phi/B^2$
-    (``exb_velocity_from_potential_gradient``); their correlation is the radial flux
-    $\Gamma = \langle\tilde n\tilde v_r\rangle$
-    (``turbulent_particle_flux_from_fluctuations``), which flattens the
-    profile and so reduces the drive -- the dashed return arrow.
+    Top row: density and temperature gradients ($a/L_n$, $a/L_T$) are a
+    free-energy source; the diamagnetic frequency
+    $\omega_* = \mathbf k\cdot\mathbf v_*$ (``diamagnetic_frequency_from_k_v_star``)
+    sets the drift-wave frequency scale but is not the growth rate, and a
+    single $\omega_*$ does not carry the energy-dependent $\omega_*^T$ that
+    drives ITG and ETG; whether a mode grows at all is decided by the
+    instability drive and kinetic response (curvature, magnetic shear,
+    trapped particles, collisions, resonances), so $\gamma > 0$ is not
+    implied by the gradient. Bottom row: the fluctuations $\tilde n$,
+    $\tilde\phi$ drift at $\tilde{\mathbf v}_E = \mathbf B\times\nabla\tilde\phi/B^2$
+    (``exb_velocity_from_potential_gradient``) and their correlation, not
+    their mere presence, gives the flux $\Gamma = \langle\tilde n\tilde v_r\rangle$
+    (``turbulent_particle_flux_from_fluctuations``). Two feedbacks are kept
+    apart: nonlinear saturation (mode coupling, zonal flows,
+    ``zonal_flow_feedback``) at fixed gradients, as in a flux-tube
+    simulation, and the dashed profile relaxation on the slower transport
+    time scale, set by the particle and energy balance with the sources.
     """
     labels = _check_labels(labels)
-    w, h = 3.6, 1.35
+    w, h = 3.9, 1.35
     nodes = {
-        "gradient": (0.0, 3.2, "gradients $\\nabla n$, $\\nabla T$\\\\free energy"),
-        "drift": (4.6, 3.2, f"drift frequency\\\\{_eq(diamagnetic_frequency_from_k_v_star)}"),
-        "growth": (9.2, 3.2, "linear growth $\\gamma$\\\\non-adiabatic response"),
-        "fluctuations": (9.2, 0.0, "fluctuations\\\\$\\tilde n$, $\\tilde\\phi$"),
-        "exb_velocity": (4.6, 0.0, f"{_eq(exb_velocity_from_potential_gradient)}"),
-        "radial_flux": (0.0, 0.0, f"radial flux\\\\{_eq(turbulent_particle_flux_from_fluctuations)}"),
+        "gradient": (0.0, 3.2, "gradients $a/L_n$, $a/L_T$\\\\free energy"),
+        "drift": (4.5, 3.2, f"drift frequency\\\\{_eq(diamagnetic_frequency_from_k_v_star)}"),
+        "drive": (9.0, 3.2, "instability drive and kinetic response"),
+        "growth": (13.5, 3.2, "linear growth $\\gamma$\\\\(if $\\gamma > 0$)"),
+        "fluctuations": (13.5, 0.0, "fluctuations\\\\$\\tilde n$, $\\tilde\\phi$"),
+        "exb_velocity": (9.0, 0.0, f"{_eq(exb_velocity_from_potential_gradient)}"),
+        "radial_flux": (4.5, 0.0, f"radial flux\\\\{_eq(turbulent_particle_flux_from_fluctuations)}"),
     }
-    boxes = {k: box(x, y, w + (0.6 if k in ("drift", "exb_velocity") else 0.0), h, t if labels else "", latex=True,
-                    role=k) for k, (x, y, t) in nodes.items()}
+    boxes = {k: box(x, y, w, h, tx if labels else "", latex=True, role=k) for k, (x, y, tx) in nodes.items()}
     items: List = [it for b in boxes.values() for it in b.items]
-    chain = ("gradient", "drift", "growth", "fluctuations", "exb_velocity", "radial_flux")
+    chain = ("gradient", "drift", "drive", "growth", "fluctuations", "exb_velocity", "radial_flux")
     items += [connector(boxes[a], boxes[b], role="cycle") for a, b in zip(chain, chain[1:])]
-    # relaxation: the flux flattens the gradient, reducing the drive
+    # the slow feedback: the flux relaxes the profile that drives it
     items.append(connector(boxes["radial_flux"], boxes["gradient"], style="connector feedback", role="relaxation"))
     if labels:
-        items += [Label((-0.15, 1.6), "profile relaxation:\\\\reduced drive", "small label,align=right",
-                        anchor="east", role="relaxation"),
-                  Label((4.6, -1.3), "Slab, $\\mathbf B = B\\hat z$; definitions and one mechanism (growth), "
-                        "not a turbulence model", "note", anchor="north", role="note")]
+        items += [Label((4.9, 1.6), "profile relaxation\\\\(slow, transport time scale)", "small label,align=left",
+                        anchor="west", role="relaxation"),
+                  Label((15.6, 1.6), "nonlinear saturation\\\\at fixed gradients\\\\"
+                        "(fast; mode coupling,\\\\zonal flows)",
+                        "small label,align=left", anchor="west", role="saturation"),
+                  Label((6.75, -1.3), "Slab, $\\mathbf B = B\\hat z$. A gradient is a possible free-energy source, "
+                        "not a guarantee of growth; $\\omega_*$ is a frequency scale, not $\\gamma$", "note",
+                        anchor="north", role="note")]
     return Diagram("drift_wave_transport_cycle", Scene(tuple(items)),
                    model={"cycle": list(chain), "feedback": ("radial_flux", "gradient"),
+                          "feedback_time_scale": "transport (slow)", "saturation": "nonlinear, at fixed gradients",
                           "equations": {"drift": formula_equation(diamagnetic_frequency_from_k_v_star),
                                         "exb_velocity": formula_equation(exb_velocity_from_potential_gradient),
                                         "radial_flux": formula_equation(turbulent_particle_flux_from_fluctuations)}})
@@ -118,7 +130,9 @@ def cross_phase_transport(*, labels: bool = True) -> Diagram:
     $\Gamma_k = k_y|\tilde n||\tilde\phi|\sin\theta_{n\phi}/(2B)$: zero in
     phase, outward ($+x$) at $+\pi/2$, inward at $-\pi/2$. Convention:
     $x$ radial, $y$ binormal, $\mathbf B = B\hat z$, real cosine fields,
-    $\theta_{n\phi}$ the phase by which $\tilde\phi$ leads $\tilde n$; the
+    $\theta_{n\phi} = \alpha_\phi - \alpha_n$, and $\mathbf B$ into the page with
+    $x$ up and $y$ to the right. One Fourier component: the turbulent flux sums
+    many, and a zero particle flux does not imply a zero heat flux. The
     model checks each flux against a direct average of
     $\tilde n\,\tilde v_x$ with $\tilde v_x$ from
     ``exb_velocity_from_potential_gradient``.
@@ -171,18 +185,21 @@ def cross_phase_transport(*, labels: bool = True) -> Diagram:
                         role="fluctuation_potential"),
                   Label((0.5 * total, -2.55), _eq(coherent_particle_flux_from_amplitudes_phase), "small label",
                         anchor="north", role="equation"),
-                  Label((0.5 * total, -3.55), "Slab: $x$ radial (outward), $y$ binormal along the page, "
-                        "$\\mathbf B = B\\hat z$, real cosine fields; $\\theta_{n\\phi} = \\alpha_\\phi - \\alpha_n$. "
-                        "Another Fourier or field sign convention flips the sign.", "note", anchor="north",
+                  Label((0.5 * total, -3.55), "Slab: $x$ radial (outward, up), $y$ binormal (right), "
+                        "$\\mathbf B = B\\hat z$ into the page; real cosine fields, "
+                        "$\\theta_{n\\phi} = \\alpha_\\phi - \\alpha_n$, $k_y/B > 0$. One Fourier component; "
+                        "zero particle flux does not mean zero heat flux.\\\\Changing every convention consistently "
+                        "changes the intermediate signs, not the physical flux.", "note,align=center", anchor="north",
                         role="note")]
     return Diagram("cross_phase_transport", Scene(tuple(items)),
                    model={"cross_phases": dict(CROSS_PHASES), "fluxes": fluxes, "k_y": k_y, "B": b,
-                          "convention": "x radial outward, y binormal, B along +z, real cos fields, "
+                          "convention": "x radial outward (up), y binormal (right), B along +z into the page, "
+                                        "real cos fields, "
                                         "theta = alpha_phi - alpha_n"})
 
 
 def mixing_length_saturation(*, labels: bool = True) -> Diagram:
-    r"""Mixing-length saturation: the eddy stops growing when it decorrelates as fast as it grows.
+    r"""Phenomenological mixing-length scaling: growth balanced by an estimated decorrelation rate.
 
     Left: against the velocity amplitude $\tilde v$ of an eddy of wavenumber
     $k_\perp$, the linear growth rate $\gamma$ (flat) and the nonlinear
@@ -191,8 +208,15 @@ def mixing_length_saturation(*, labels: bool = True) -> Diagram:
     $1/k_\perp$ per $\tau_\mathrm{nl}$ gives
     ``mixing_length_diffusivity_from_gamma_k_perp``,
     $D_\mathrm{ML} \sim \gamma/k_\perp^2$. Right: the same argument as a
-    chain. An estimate of the saturated level, not a closure: zonal flows,
-    spectral transfer and the mode spectrum are left out.
+    chain. A dimensional scaling estimate, not a predictive saturation rule:
+    one mode's $E\times B$ velocity does not advect its own potential
+    ($\tilde{\mathbf v}_E\cdot\nabla\tilde\phi = 0$), so saturation needs
+    coupling between modes, and is set by zonal flows, stable-mode coupling,
+    spectral transfer and nonlinear phases. Quasilinear transport models
+    keep the linear phases but need a separate saturation rule (Staebler,
+    Bourdelle, Citrin and Waltz, Nucl. Fusion 64 (2024) 103001), and
+    $D_\mathrm{ML}$ is not the particle diffusivity or a heat diffusivity of
+    any one channel.
     """
     labels = _check_labels(labels)
     gamma, k_perp = 1.0, 1.0
@@ -221,15 +245,18 @@ def mixing_length_saturation(*, labels: bool = True) -> Diagram:
              ("amplitude", "eddy amplitude grows"),
              ("decorrelation", "decorrelation $\\tau_\\mathrm{nl}^{-1} \\sim k_\\perp\\tilde v$"),
              ("balance", "saturation $\\gamma \\sim \\tau_\\mathrm{nl}^{-1}$"),
-             ("diffusivity", _eq(mixing_length_diffusivity_from_gamma_k_perp)))
-    chain = [box(x, CHART_HEIGHT * scale + 0.6 - 1.35 * i, 5.4, 0.8, t if labels else "", latex=True, role=k)
+             ("diffusivity", "phenomenological scaling " + _eq(mixing_length_diffusivity_from_gamma_k_perp)))
+    chain = [box(x, CHART_HEIGHT * scale + 0.6 - 1.45 * i, 6.0, 1.2 if k == "diffusivity" else 0.8,
+                 t if labels else "", latex=True, role=k)
              for i, (k, t) in enumerate(steps)]
     for b_ in chain:
         items += list(b_.items)
     items += [connector(a, b_, role="saturation_chain") for a, b_ in zip(chain, chain[1:])]
     if labels:
         items.append(Label((0.5 * (CHART_WIDTH * scale + x + 2.6), -1.55),
-                           "A saturation estimate, not a closure: no zonal flows, spectral transfer or mode spectrum",
+                           "Not a predictive saturation rule: real saturation needs mode coupling "
+                           "(zonal flows, stable modes, "
+                           "spectral transfer); $D_\\mathrm{ML}$ is not $D_n$ or $\\chi$ of any channel",
                            "note", anchor="north", role="note"))
     return Diagram("mixing_length_saturation", Scene(tuple(items)),
                    model={"gamma": gamma, "k_perp": k_perp, "saturated_amplitude": v_sat, "diffusivity": d_ml,
@@ -257,8 +284,12 @@ def exb_shear_decorrelation(*, shear: float = 1.6, labels: bool = True) -> Diagr
     $2a/\sqrt{1 + (St)^2}$ instead of $2a$, although its total radial extent is
     unchanged -- the reduced radial correlation of
     ``exb_shearing_rate_from_velocity_gradient`` ($\gamma_E = |S|$). Geometry
-    only: real $E_r$ and shearing-rate profiles are plots, and whether the
-    shear suppresses turbulence depends on $\gamma_E$ against $\gamma$.
+    only: real $E_r$ and shearing-rate profiles are plots. The fixed-$y$ cut
+    is not the statistical radial correlation length; the decorrelation is a
+    separate, following step, drawn as such: the shear advects the
+    wavenumber, $k_x(t) = k_x(0) - Sk_yt$, changing $k_\perp$ and the mode
+    coupling (Biglari, Diamond and Terry 1990). $\gamma_E \gtrsim
+    \gamma_\mathrm{lin}$ is a rule of thumb, not a universal threshold.
     """
     labels = _check_labels(labels)
     if not shear > 0.0:
@@ -289,13 +320,20 @@ def exb_shear_decorrelation(*, shear: float = 1.6, labels: bool = True) -> Diagr
                             role="correlation_length")]
     items.append(Arrow((4.2, 0.0), (5.2, 0.0), "connector", role="decorrelation"))
     items.append(Arrow((-0.2, -3.0), (0.6, -3.0), "chart axis", role="axes"))
+    # the statistical step is separate from the geometry: the shear advects the wavenumber
+    step_text = ("decorrelation (statistical):\\\\$k_x(t) = k_x(0) - Sk_yt$\\\\"
+                 "changes $k_\\perp$ and mode coupling")
+    step = box(15.4, 0.0, 3.6, 2.0, step_text if labels else "", latex=True, role="decorrelation_step")
+    items += [*step.items, Arrow((10.3, 0.0), (13.45, 0.0), "connector feedback", role="decorrelation_step")]
     if labels:
         items += [Label((4.7, 0.2), "\\small $v_y = Sx$", "small label", anchor="south", role="decorrelation"),
                   Label((-0.4, -2.2), "$v_y(x)$", "small label", anchor="east", role="flow_profile"),
                   Label((0.65, -3.0), "$x$ (radial)", "small label", anchor="west", role="axes"),
-                  Label((4.7, -3.3), f"{_eq(exb_shearing_rate_from_velocity_gradient)} $= |S|$; "
-                        "radial cut through the centre: $2a/\\sqrt{1 + (St)^2}$. Geometry only.",
-                        "note", anchor="north", role="note")]
+                  Label((6.8, -3.3), f"{_eq(exb_shearing_rate_from_velocity_gradient)} $= |S|$. The fixed-$y$ cut "
+                        "$2a/\\sqrt{1 + (St)^2}$ is geometry, not the statistical correlation length;\\\\"
+                        "$\\gamma_E$ above $\\gamma_\\mathrm{lin}$ is a rule of thumb, not a universal threshold "
+                        "(Biglari, Diamond and Terry, Phys. Fluids B 2 (1990) 1)", "note,align=center", anchor="north",
+                        role="note")]
     return Diagram("exb_shear_decorrelation", Scene(tuple(items)),
                    model={"shear": shear, "shearing_rate": gamma_e, "radial_cut": cut, "eddy_radius": a})
 
@@ -309,10 +347,16 @@ def zonal_flow_feedback(*, labels: bool = True) -> Diagram:
     accelerates the zonal flow,
     $\partial_tV_\mathrm{ZF} = -\partial_rR_{r\theta} - \mu V_\mathrm{ZF}$
     (``zonal_flow_drive_from_reynolds_stress_gradient``, damping $\mu$ a
-    stated choice); the zonal flow's $E\times B$ shear decorrelates the
-    turbulence -- the inhibiting arrow. Self-regulation, with no
-    coefficients: the reduced two-variable model is
-    ``vaft.formula.turbulence.predator_prey_rhs``.
+    stated choice) -- a stress alone drives nothing, its divergence
+    $\partial_rR_{r\theta} \neq 0$ does; the zonal flow (the $n = 0$, $m = 0$,
+    radially varying potential) and its $E\times B$ shear then change the
+    turbulence through mode coupling and decorrelation -- the bar, which
+    often but not always suppresses it. Local, electrostatic, slab with
+    constant density: a tokamak adds curvature and metric factors, GAMs,
+    collisional damping and Maxwell stress. This is the fast flow feedback;
+    the slow profile feedback is ``drift_wave_transport_cycle``'s
+    relaxation. No coefficient model is assumed (Diamond, Itoh, Itoh and
+    Hahm, Plasma Phys. Control. Fusion 47 (2005) R35).
     """
     labels = _check_labels(labels)
     w, h = 4.4, 1.3
@@ -338,11 +382,15 @@ def zonal_flow_feedback(*, labels: bool = True) -> Diagram:
     items += [Polyline.of([s, e], "connector line", role="suppression"),
               Polyline.of([e - bar, e + bar], "connector line", role="suppression")]
     if labels:
-        items += [Label((5.6, 1.5), "decorrelates ($-$)", "small label", anchor="west", role="suppression"),
+        items += [Label((4.7, 1.5), "mode coupling, decorrelation\\\\(often suppresses; mode-dependent)",
+                        "small label,align=right", anchor="east", role="suppression"),
+                  Label((11.0, 1.4), "drives only if $\\partial_r R_{r\\theta} \\neq 0$", "small label", anchor="west",
+                        role="stress_divergence"),
                   Label((13.9, -0.3), "damping $\\mu$\\\\(model choice)", "small label,align=left", anchor="west",
                         role="damping"),
-                  Label((6.5, -1.9), "Self-regulation drawn without committing to a coefficient model",
-                        "note", anchor="north", role="note")]
+                  Label((6.5, -1.9), "Fast flow feedback, no coefficient model; slab, constant density. A tokamak adds "
+                        "curvature, GAMs, collisional damping and Maxwell stress", "note", anchor="north",
+                        role="note")]
     return Diagram("zonal_flow_feedback", Scene(tuple(items)),
                    model={"loop": list(chain), "suppression": ("shear", "turbulence"),
                           "equations": {"reynolds_stress": formula_equation(reynolds_stress_from_velocity_fluctuations),
@@ -353,7 +401,7 @@ def zonal_flow_feedback(*, labels: bool = True) -> Diagram:
 #: representative perpendicular-wavenumber bands, k_perp * rho for the stated rho (conventions, not thresholds)
 TURBULENCE_BANDS = {
     "ion_scale": ("rho_i", (0.1, 1.0), "ITG / TEM\\\\$k_\\perp\\rho_i \\sim 0.1$--$1$"),
-    "tem_extent": ("rho_s", (0.1, 5.0), "TEM may extend to $k_\\perp\\rho_s \\sim 5$ (regime-dependent)"),
+    "tem_extent": ("rho_s", (0.1, 5.0), "TEM can reach $k_\\perp\\rho_s \\sim 5$ in some regimes (example)"),
     "electron_scale": ("rho_e", (0.1, 1.0), "ETG\\\\$k_\\perp\\rho_e \\sim 0.1$--$1$"),
 }
 
@@ -371,7 +419,12 @@ def turbulence_scale_hierarchy(*, labels: bool = True) -> Diagram:
     $k_\perp\rho_s \sim 5$, because TEM is not confined to one scale. The
     bands are conventions of :data:`TURBULENCE_BANDS`, not stability
     thresholds; the separation $\rho_e \ll \rho_i \ll L$ is the state's, and
-    every band stays below the minor radius.
+    every band stays below the minor radius. The state is hydrogen with
+    $v_t = \sqrt{T/m}$ (deuterium makes $\rho_i$ and $\rho_s$ larger by
+    $\sqrt2$); the length is $1/k_\perp$, not the wavelength $2\pi/k_\perp$; and
+    the literature's $k_y\rho_s$ ranges are taken as $k_\perp$ with $k_x = 0$.
+    TEM can overlap the electron scale, so the extension is one regime's
+    example, not a bound.
     """
     from ._orderings import ILLUSTRATIVE_STATE, lengths
 
@@ -419,11 +472,12 @@ def turbulence_scale_hierarchy(*, labels: bool = True) -> Diagram:
                         anchor="south", role="equilibrium_scale"),
                   Label((span * decade + 0.5, -0.2), "length [m]", "xlabel", anchor="north west", role="axes"),
                   Label((0.5 * span * decade, -2.3),
-                        f"Perpendicular scales $1/k_\\perp$ of an illustrative state ($B = {s['B']:g}$ T, "
-                        f"$T_e = {s['T_e']:g}$ eV, $T_i = {s['T_i']:g}$ eV; $\\rho_i/a \\approx "
-                        f"{values['rho_i'] / values['minor']:.2g}$): conventions, not thresholds; "
-                        "ITG on $\\rho_i$, the TEM extension on $\\rho_s$.",
-                        "note", anchor="north", role="note")]
+                        f"Lengths $1/k_\\perp$ (not the wavelength $2\\pi/k_\\perp$) of an illustrative hydrogen state "
+                        f"($B = {s['B']:g}$ T, $T_e = {s['T_e']:g}$ eV, $T_i = {s['T_i']:g}$ eV; "
+                        "$v_t = \\sqrt{T/m}$, deuterium gives $\\sqrt2$ larger $\\rho_i$, $\\rho_s$).\\\\"
+                        "Bands are conventions, not thresholds; literature quotes $k_y\\rho_s$, taken here as "
+                        "$k_\\perp$ with $k_x = 0$. The TEM extension is one regime's example, not a bound.",
+                        "note,align=center", anchor="north", role="note")]
     return Diagram("turbulence_scale_hierarchy", Scene(tuple(items)),
                    model={"lengths": values, "bands": bands,
                           "band_conventions": {k: (v[0], v[1]) for k, v in TURBULENCE_BANDS.items()}})

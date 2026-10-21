@@ -1407,31 +1407,52 @@ is slab: $x$ radial (outward), $y$ binormal, $\mathbf B = B\hat z$. They explain
 model, a stability classifier or a transport prediction.
 
 ```text
-gradient -> omega_* -> growth gamma -> n~, phi~ -> v_E -> flux <n~ v_r> -> relaxation (reduced drive)
-turbulence -> Reynolds stress -> zonal flow -> E x B shear --| turbulence
+gradient -> omega_* -> drive and kinetic response -> gamma (if > 0) -> n~, phi~ -> v_E -> flux <n~ v_r>
+  flux -> profile relaxation (slow, transport time scale)
+turbulence -> Reynolds stress -> d_r R != 0 -> zonal flow -> E x B shear --| turbulence (fast, at fixed gradients)
 ```
 
-- `drift_wave_transport_cycle` draws that loop. Each step names its definition:
+Two feedbacks are kept apart. Profile feedback is slow: the flux changes the gradients on the transport time
+scale, which is set by the particle and energy balance. Flow feedback is fast: zonal flows saturate the turbulence at
+fixed gradients, as in a flux-tube simulation.
+
+- `drift_wave_transport_cycle` draws that loop. A gradient is a possible free-energy source; whether a mode grows is
+  decided by the instability drive and kinetic response, and $\omega_*$ is a frequency scale, not $\gamma$. Each
+  step names its definition:
   - $\omega_* = \mathbf k\cdot\mathbf v_*$;
   - $\mathbf v_E = \mathbf B\times\nabla\phi/B^2$ (it calls `particle.exb_drift_velocity`);
   - $\Gamma = \langle\tilde n\tilde v_r\rangle$.
 - `cross_phase_transport` shows one mode at $\theta_{n\phi} = 0, \pm\pi/2$. Each flux comes from
   `coherent_particle_flux_from_amplitudes_phase` and is checked against a direct average of $\tilde n\,\tilde v_x$.
-  The convention ($\theta_{n\phi} = \alpha_\phi - \alpha_n$, real cosine fields, flux along $x$ drawn up the page)
-  is in the model and on the figure.
+  The convention ($\theta_{n\phi} = \alpha_\phi - \alpha_n$, real cosine fields, $x$ up, $y$ right, $\mathbf B$ into the
+  page) is in the model and on the figure. It covers one Fourier component, and a zero particle flux does not imply a
+  zero heat flux. Changing every convention consistently changes the intermediate signs, not the physical flux.
 - `mixing_length_saturation`: growth $\gamma$ against decorrelation $k_\perp\tilde v$. They cross at
-  $\tilde v = \gamma/k_\perp$, which gives `mixing_length_diffusivity_from_gamma_k_perp`. It is an estimate, not a closure.
+  $\tilde v = \gamma/k_\perp$, which gives the phenomenological scaling `mixing_length_diffusivity_from_gamma_k_perp`.
+  It is not a predictive saturation rule: real saturation needs coupling between modes (zonal flows, stable modes,
+  spectral transfer), quasilinear models need a separate saturation rule (Staebler et al., Nucl. Fusion 64 (2024)
+  103001), and $D_\mathrm{ML}$ is not $D_n$ or $\chi$ of any channel.
 - `exb_shear_decorrelation`: a round eddy, and the same eddy after the shear map $y \to y + St\,x$. A radial cut through
-  its centre (at fixed $y$) shrinks by $\sqrt{1 + (St)^2}$, while its total radial extent is unchanged. This is geometry only: measured $E_r$ and shearing-rate profiles are plots.
-- `zonal_flow_feedback`: the self-regulation loop with the Reynolds-stress and zonal-flow-drive definitions. The
-  damping $\mu$ is a stated choice, and no coefficient model is assumed.
+  its centre (at fixed $y$) shrinks by $\sqrt{1 + (St)^2}$, while its total radial extent is unchanged. This is geometry,
+  not the statistical correlation length. The decorrelation is a separate, following step: $k_x(t) = k_x(0) - Sk_yt$
+  (Biglari, Diamond and Terry 1990). $\gamma_E$ above $\gamma_\mathrm{lin}$ is a rule of thumb, not a threshold. This is geometry only: measured $E_r$ and shearing-rate profiles are plots.
+- `zonal_flow_feedback`: the self-regulation loop with the Reynolds-stress and zonal-flow-drive definitions:
+  - only the stress divergence $\partial_rR_{r\theta} \neq 0$ drives the flow;
+  - the shear changes the turbulence through mode coupling, which often but not always suppresses it;
+  - the damping $\mu$ is a stated choice, and no coefficient model is assumed;
+  - the slab has constant density, and a tokamak adds curvature, GAMs, collisional damping and Maxwell stress.
+
+  The loop follows Diamond et al., Plasma Phys. Control. Fusion 47 (2005) R35.
 - `turbulence_scale_hierarchy`: representative perpendicular scales $1/k_\perp$ against the lengths of the
   `spatial_scale_orderings` state:
   - ITG/TEM at $k_\perp\rho_i \sim 0.1$–$1$;
   - ETG at $k_\perp\rho_e \sim 0.1$–$1$;
   - a dashed TEM extension to $k_\perp\rho_s \sim 5$.
 
-  The bands are conventions, not thresholds, and the state is illustrative, not a VEST measurement.
+  The bands are conventions, not thresholds. The state is illustrative hydrogen, not a VEST measurement; it uses
+  $v_t = \sqrt{T/m}$, and deuterium makes $\rho_i$ and $\rho_s$ larger by $\sqrt2$. The axis length is $1/k_\perp$,
+  not the wavelength. Literature $k_y\rho_s$ ranges are taken with $k_x = 0$, and the TEM extension is one regime's
+  example, not a bound.
 
 ```python
 vaft.diagram.drift_wave_transport_cycle()
