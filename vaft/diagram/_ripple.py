@@ -81,7 +81,7 @@ def _guiding_centre_orbit(pitch: float) -> dict:
     return {"trapped": trapped, "R": R, "Z": Z, "theta": theta_path, "v_par": v_path, "bounce_theta": bounce}
 
 
-def trapped_and_passing_orbits(*, labels: bool = True) -> Diagram:
+def trapped_and_passing_orbits(*, labels: bool = True, trajectory=None, time=None, animation=False, fps=None, duration=None, dpi=None, frame_label=True) -> Diagram:
     r"""The $1/R$ mirror: passing orbits go round, trapped ones bounce as bananas.
 
     With $\mu = mv_\perp^2/(2B)$ and $E = \tfrac12 mv_\parallel^2 + \mu B$ conserved
@@ -91,6 +91,11 @@ def trapped_and_passing_orbits(*, labels: bool = True) -> Diagram:
     proportional to $v_\parallel$, turns the trapped path into a banana; its
     width is drawn schematically.
     """
+    if trajectory is not None or time is not None or animation or fps is not None or duration is not None or dpi is not None or not frame_label:
+        from ._particle_states import particle_states
+        return particle_states('trapped_and_passing_orbits', case='tokamak_trapped', trajectory=trajectory, time=time,
+                               projection='poloidal', labels=labels, animation=animation,
+                               fps=fps, duration=duration, dpi=dpi, frame_label=frame_label)
     labels = _check_labels(labels)
     epsilon = _R_ORBIT / _R0
     boundary_pitch = math.sqrt(2 * epsilon / (1 + epsilon))  # B_max/B_min = (1 + eps)/(1 - eps)
@@ -194,7 +199,7 @@ def toroidal_field_ripple(n_tf: int = 16, *, labels: bool = True) -> Diagram:
 # ---------------------------------------------------------------------------
 
 
-def ripple_well_formation(*, labels: bool = True) -> Diagram:
+def ripple_well_formation(*, labels: bool = True, trajectory=None, time=None, animation=False, fps=None, duration=None, dpi=None, frame_label=True) -> Diagram:
     r"""Along a field line the ripple makes local wells where $\alpha^* < 1$.
 
     $B$ along $\phi = q\theta$ from ``toroidal_ripple_field`` rides on the
@@ -202,6 +207,11 @@ def ripple_well_formation(*, labels: bool = True) -> Diagram:
     near the midplanes, where that slope vanishes -- the corrugation has
     local minima that can trap particles.
     """
+    if trajectory is not None or time is not None or animation or fps is not None or duration is not None or dpi is not None or not frame_label:
+        from ._particle_states import particle_states
+        return particle_states('ripple_well_formation', case='symmetry_breaking', trajectory=trajectory, time=time,
+                               projection='3d', labels=labels, animation=animation,
+                               fps=fps, duration=duration, dpi=dpi, frame_label=frame_label)
     labels = _check_labels(labels)
     eps, q, n, delta = 0.25, 2.0, 16, 0.006
     theta = np.linspace(0.0, math.pi, 4001)
@@ -275,7 +285,7 @@ def _tip_map(K: float, steps: int, x0: float = 0.4, p0: float = 0.3) -> np.ndarr
     return np.array(out)
 
 
-def stochastic_ripple_orbit(*, labels: bool = True) -> Diagram:
+def stochastic_ripple_orbit(*, labels: bool = True, trajectory=None, time=None, animation=False, fps=None, duration=None, dpi=None, frame_label=True) -> Diagram:
     r"""Ripple kicks at successive banana tips decorrelate above the GWB threshold.
 
     Each bounce the ripple shifts the banana tip radially by a step $\propto \delta$
@@ -286,6 +296,11 @@ def stochastic_ripple_orbit(*, labels: bool = True) -> Diagram:
     the order-one factor is convention). Below $K \approx 1$ the tip oscillates
     about its start; above it random-walks out.
     """
+    if trajectory is not None or time is not None or animation or fps is not None or duration is not None or dpi is not None or not frame_label:
+        from ._particle_states import particle_states
+        return particle_states('stochastic_ripple_orbit', case='symmetry_breaking', trajectory=trajectory, time=time,
+                               projection='3d', labels=labels, animation=animation,
+                               fps=fps, duration=duration, dpi=dpi, frame_label=frame_label)
     labels = _check_labels(labels)
     steps = 300
     regular = _tip_map(0.3, steps)
