@@ -4,12 +4,19 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 SCRIPT = Path(__file__).resolve().parents[1] / "vaft" / "deploy" / "gui" / "test-instance.sh"
-pytestmark = pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+pytestmark = [
+    pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash"),
+    # The script installs a systemd unit and an nginx site on the Linux GUI host. On a
+    # Windows runner `bash` is WSL's launcher (no distribution, UTF-16 output), and the
+    # POSIX paths, os.geteuid and the fake systemctl/nginx sandbox have no meaning there.
+    pytest.mark.skipif(sys.platform == "win32", reason="deploys a Linux systemd/nginx host; no POSIX bash on Windows"),
+]
 SHA = "95c10bf6c4630560a2e0774624c40d10683664d2"
 
 
