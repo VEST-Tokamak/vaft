@@ -17,10 +17,12 @@ pages cannot disagree.  Neither shows a version: those belong to
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Dict, List, Sequence
 
 from .. import _ecosystem as ecosystem
 from ._concept import box, connector, escape_latex
+from .pictograms import pictogram
 from ._render import Diagram
 from ._scene import Arrow, Label, Polyline, Scene
 
@@ -105,6 +107,12 @@ def software_dependency_ecosystem(*, labels: bool = True) -> Diagram:
                            "note,text width=18cm", anchor="north", role="note"))
     return Diagram("software_dependency_ecosystem", Scene(tuple(items)), model=dict(model))
 
+#: the pictograms of the lifecycle steps that change who owns or runs what (#2113); keys follow
+#: ``vaft._ecosystem.INTEGRATION_LIFECYCLE`` and the two execution routes
+INTEGRATION_SYMBOLS: Dict[str, str] = {"upstream": "source_code", "install": "package", "adapter": "adapter",
+                                       "execute:local": "laptop", "execute:slurm": "cluster",
+                                       "native": "output_file", "standard": "standardized"}
+
 
 def external_code_integration(*, labels: bool = True) -> Diagram:
     r"""How an independently maintained scientific code becomes a reproducible VAFT capability.
@@ -118,22 +126,30 @@ def external_code_integration(*, labels: bool = True) -> Diagram:
     installation step, the current codes grouped by who installs them.
     """
     labels = _check_labels(labels)
-    w, h, step = 8.0, 0.85, 1.35
+    # each box keeps its text width and gains a left column for a pictogram (#2113): 0.8 cm a side
+    w, h, step, column = 9.6, 0.85, 1.35, 0.8
     boxes = {}
     items: List = []
     y = 0.0
+
+    def step_box(x, width, text, role, style="concept box", *, text_width=w - 0.3 - 2 * column, shift=0.0):
+        """A lifecycle box whose text keeps ``text_width``, ``shift`` right of centre, beside its pictogram."""
+        b = box(x, y, width, h, text, style=style, text_style="concept plain", role=role)
+        outline, label = b.items
+        items.extend([outline, replace(label, at=(x + shift, y), style=f"concept plain,text width={text_width:.2f}cm")])
+        name = INTEGRATION_SYMBOLS.get(role.split(":", 1)[1])
+        if name:
+            items.extend(pictogram(name, (x - 0.5 * width + 0.45, y), 0.55, role=f"symbol:{role}").items)
+        return b
+
     for key, text in ecosystem.INTEGRATION_LIFECYCLE:
         if key == "execute":
-            local = box(-2.1, y, 3.8, h, "local subprocess", text_style="concept plain", role="lifecycle:execute:local")
-            hpc = box(2.1, y, 3.8, h, "Slurm or remote Slurm", text_style="concept plain",
-                      role="lifecycle:execute:slurm")
-            items += list(local.items) + list(hpc.items)
+            local = step_box(-2.5, 4.6, "local subprocess", "lifecycle:execute:local", text_width=3.5, shift=0.4)
+            hpc = step_box(2.5, 4.6, "Slurm or remote Slurm", "lifecycle:execute:slurm", text_width=3.5, shift=0.4)
             boxes[key] = (local, hpc)
         else:
             style = "concept strong" if key in {"adapter", "standard"} else "concept box"
-            b = box(0.0, y, w, h, text, style=style, text_style="concept plain", role=f"lifecycle:{key}")
-            items += list(b.items)
-            boxes[key] = (b,)
+            boxes[key] = (step_box(0.0, w, text, f"lifecycle:{key}", style),)
         y -= step
     keys = [key for key, _ in ecosystem.INTEGRATION_LIFECYCLE]
     for upper, lower in zip(keys, keys[1:]):

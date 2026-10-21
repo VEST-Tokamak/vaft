@@ -1669,6 +1669,20 @@ References for the terminology in the level-3 and community figures:
 ![One modular scientific core, many ways to research]({{ '/assets/diagrams/research_modality_architecture.svg' | relative_url }})
 ![The fusion-research ecosystem]({{ '/assets/diagrams/fusion_research_ecosystem.svg' | relative_url }})
 ![Connecting the activities of fusion research]({{ '/assets/diagrams/fusion_research_ecosystem_presentation.svg' | relative_url }})
+
+The four concept figures embedded in the README and guides carry a few
+[semantic pictograms](#semantic-pictograms) (#2113), placed where they help a reader tell kinds of
+things apart and left out elsewhere:
+
+| Figure | Concept → symbol | Deliberately without |
+| --- | --- | --- |
+| `fusion_research_ecosystem(detail="presentation")` | experiment & engineering → `tokamak`, theory & modelling → `model`, data, AI & software → `computation` | the `full` rendering, the activities, states and uses |
+| `scientific_provenance_chain` | raw signal → `signal`, processed data → `processing`, reconstruction & profile fitting → `reconstruction`, derived quantities → `calculation`, analysis → `analysis` | quality and versioned metadata: provenance is not validation |
+| `external_code_integration` | upstream project → `source_code`, installation → `package`, adapter → `adapter`, local → `laptop`, Slurm → `cluster`, native result → `output_file`, standardized state → `standardized` | obtain, provenance, environment resolution, mapping |
+| `machine_research_archive` | machine history → `tokamak`, research on VEST → `experiment`, research knowledge → `library` | individual entries |
+
+A symbol never claims that a capability is implemented or a product is validated. The upstream
+versus VAFT ownership brackets, the execution routes and the mapping step keep their labels.
 ![Scientific ownership and maturation]({{ '/assets/diagrams/scientific_ownership_architecture.svg' | relative_url }})
 
 The content is the data at the top of each section of `vaft.diagram._research_concepts` (`INFRA_*`,

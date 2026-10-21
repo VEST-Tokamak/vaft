@@ -405,6 +405,9 @@ PROVENANCE: Tuple[Tuple[str, str, str], ...] = (
     ("derived", "Derived Physics Quantities", "definition, units, uncertainty"),
     ("analysis", "Analysis & Visualization", "analysis method, selection criteria, environment"),
 )
+#: each product stage's pictogram (#2113); the quality and versioned metadata get none: provenance is not validation
+PROVENANCE_SYMBOLS: Dict[str, str] = {"raw": "signal", "processed": "processing", "reconstruction": "reconstruction",
+                                      "derived": "calculation", "analysis": "analysis"}
 #: what is versioned, and what quality metadata travels with every product
 VERSIONED: Tuple[str, ...] = ("machine description", "geometry", "calibration", "mappings", "conventions",
                               "processing and model configuration", "schema")
@@ -439,6 +442,7 @@ def scientific_provenance_chain(*, labels: bool = True) -> Diagram:
         b = box(i * (w + gap), 0.0, w, h, text, role=f"step:{key}")
         boxes.append(b)
         items += list(b.items)
+        items += badge(PROVENANCE_SYMBOLS[key], corner(b, 0.72), 0.72, role=f"symbol:step:{key}").items
         items.append(Label((b.x, -0.5 * h - 0.15), _dotted(records.split(", ")),
                            "concept annotation,text width=3.2cm", anchor="north", role=f"record:{key}"))
     for (k0, _, _), (k1, _, _), a, b in zip(PROVENANCE, PROVENANCE[1:], boxes, boxes[1:]):
@@ -979,6 +983,9 @@ ARCHIVE_TRACKS: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
                                         "publications & reproducible analyses")),
 )
 
+#: each track's pictogram (#2113): the VEST machine, research carried out on it, research knowledge
+ARCHIVE_SYMBOLS: Dict[str, str] = {"machine": "tokamak", "studies": "experiment", "research": "library"}
+
 
 def machine_research_archive(*, labels: bool = True) -> Diagram:
     r"""The machine and research archive: VEST's institutional and scientific memory since 2012.
@@ -1006,7 +1013,9 @@ def machine_research_archive(*, labels: bool = True) -> Diagram:
     for key, title, entries in ARCHIVE_TRACKS:
         y = track_y[key]
         items += band(x0, x1, y - 1.3, y + 1.3, role=f"track:{key}")
-        items.append(Label((x0 + 0.2, y + 1.0), "\\textbf{" + escape_latex(title) + "}", "concept plain",
+        # one pictogram per track (#2113), none per entry; the title follows it
+        items += pictogram(ARCHIVE_SYMBOLS[key], (x0 + 0.5, y + 0.83), 0.5, role=f"symbol:track:{key}").items
+        items.append(Label((x0 + 0.85, y + 1.0), "\\textbf{" + escape_latex(title) + "}", "concept plain",
                            anchor="north west", role=f"track:{key}"))
         n = len(entries)
         w = (x1 - x0 - 0.6 - (n - 1) * 0.25) / n
