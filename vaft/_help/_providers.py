@@ -242,6 +242,19 @@ def _load_defaults() -> dict[str, object]:
     return {}
 
 
+def _cache_cap_default() -> Default:
+    """The HSDS cache cap and the setting it came from (#1759); reads no network."""
+    hsds_cache = importlib.import_module("vaft.database.hsds_cache")
+    try:
+        limit = hsds_cache.resolve_cache_max()
+    except ValueError as error:
+        return Default("cache cap", "invalid", "data-access", str(error))
+    return Default(
+        "cache cap", hsds_cache.format_size(limit.bytes), "data-access",
+        f"from {limit.source}; `vaft cache info`",
+    )
+
+
 def database(topic, *, probe: bool = False) -> dict:
     # Imported by full name, never ``from vaft.database import hscfg``: that
     # form first asks the package's ``__getattr__``, whose fallback imports the
@@ -255,6 +268,7 @@ def database(topic, *, probe: bool = False) -> dict:
         Default("loading", "load: eager, open: lazy", "data-access", "pick the function, not a flag"),
         Default("representation", str(load.get("representation", "see vaft.database.load")), "data-access"),
         Default("cache", str(load.get("cache", "see vaft.database.load")), "data-access"),
+        _cache_cap_default(),
         Default("transport", str(load.get("transport", "see vaft.database.load")), "data-access"),
     ) + _SCIENTIFIC[:2]
 

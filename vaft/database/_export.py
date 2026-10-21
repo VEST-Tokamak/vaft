@@ -237,6 +237,7 @@ def export(
     occurrence: int = 0,
     cache: str | Path = "auto",
     transport: Literal["auto", "canonical", "h5image"] = "auto",
+    cache_max: int | str | None = None,
 ) -> dict[str, Path]:
     """Implementation of :func:`vaft.database.export`."""
     from vaft.compat import temporary_directory
@@ -267,7 +268,8 @@ def export(
         entry = scratch / str(shot)
         entry.mkdir()
         staging.stage_imas_shot(
-            directory, shot, entry, requested_ids=None, cache=cache, transport=transport
+            directory, shot, entry, requested_ids=None, cache=cache, transport=transport,
+            cache_max=cache_max,
         )
         version = _stored_dd_version(entry) if semantic else None
         if "geqdsk" in names and version.split(".", 1)[0] != "3":
