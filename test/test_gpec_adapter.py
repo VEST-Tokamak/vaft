@@ -8,6 +8,8 @@ only exists on the author's laptop.
 
 from pathlib import Path
 
+import re
+
 import pytest
 
 from vaft.code import gpec
@@ -207,7 +209,8 @@ def test_prepare_ideal_gpec_uses_a_separate_dcon_work_tree(no_gpec_env, tmp_path
     assert result.ok
     run_dir = case.workdir / "00325" / "gpec" / "nn=1"
     text = (run_dir / "gpec.in").read_text(encoding="utf-8")
-    assert str(run_dir.resolve()) in text
+    # The cell, named relative to GPEC's working directory (#1239).
+    assert re.search(r"^\s*dcon_dir\s*=\s*['\"]\.['\"]", text, re.MULTILINE)
 
     # The separate tree is still where the suite looks for DCON, which is what
     # the layout claim is about.

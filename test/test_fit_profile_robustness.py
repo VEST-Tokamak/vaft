@@ -78,3 +78,60 @@ def test_too_few_valid_points_raises():
     with pytest.raises(ValueError):
         fit_profile([0.1, 0.5], [np.nan, 3.0], None, [0.2], order=2,
                     fitting_function='polynomial')
+
+
+def test_linear_mode_is_nan_outside_the_data_by_default():
+    # numpy.interp holds the end values; a profile past the last channel must
+    # come back missing, not as a flat artefact (#359).
+    x = np.array([0.2, 0.4, 0.6])
+    y = np.array([2.0, 4.0, 6.0])
+    x_eval = np.array([0.0, 0.3, 0.6, 0.9])
+    with pytest.warns(UserWarning, match=r"nan at 2 evaluation point\(s\) outside the data range"):
+        y_eval, y_std, fit, coeffs = fit_profile(x, y, None, x_eval, fitting_function='linear')
+    np.testing.assert_allclose(y_eval[1:3], [3.0, 6.0], rtol=1e-12)
+    assert np.isnan(y_eval[[0, 3]]).all()
+    assert np.isnan(y_std[[0, 3]]).all()
+    np.testing.assert_array_equal(y_std[1:3], 0.0)
+    assert np.isnan(fit(np.array([1.0]))).all()
+    assert coeffs is None
+
+
+def test_linear_mode_extrapolates_only_when_asked():
+    x = np.array([0.2, 0.4, 0.6])
+    y = np.array([2.0, 4.0, 6.0])
+    x_eval = np.array([0.0, 0.3, 0.9])
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        y_eval, y_std, fit, _ = fit_profile(x, y, None, x_eval, fitting_function='linear',
+                                            extrapolate=True)
+    np.testing.assert_allclose(y_eval, [2.0, 3.0, 6.0], rtol=1e-12)
+    np.testing.assert_array_equal(y_std, 0.0)
+    np.testing.assert_allclose(fit(np.array([1.0])), [6.0])
+
+
+def test_linear_mode_inside_the_data_does_not_warn():
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        y_eval, _, _, _ = fit_profile([0.0, 1.0], [1.0, 3.0], None, [0.0, 0.5, 1.0],
+                                      fitting_function='linear')
+    np.testing.assert_allclose(y_eval, [1.0, 2.0, 3.0])
+
+
+@pytest.mark.parametrize("mode", ["sqrt", "sqrt_exponential"])
+def test_sqrt_modes_warn_when_they_clip_negative_data(mode):
+    x = np.linspace(0.0, 0.9, 10)
+    y = 10.0 * (1.0 - x**2)
+    y[-2:] = [-0.5, -0.2]
+    with pytest.warns(UserWarning, match="clipped 2 negative data point"):
+        fit_profile(x, y, None, x, order=3, fitting_function=mode)
+
+
+def test_sqrt_modes_are_silent_on_non_negative_data():
+    import warnings
+    x = np.linspace(0.0, 0.9, 10)
+    y = 10.0 * np.sqrt(1.0 - x**2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        fit_profile(x, y, None, x, order=3, fitting_function='sqrt')

@@ -246,10 +246,37 @@ def test_gpec_in_points_at_its_own_cell(case, tmp_path):
     run_dir = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
     text = (run_dir / "gpec.in").read_text(encoding="utf-8")
     line = next(l for l in text.splitlines() if l.strip().startswith("dcon_dir"))
-    assert str(run_dir.resolve()) in line
+    # Its own cell, named relative to the working directory GPEC runs in (#1239).
+    assert line.split("!")[0].split("=", 1)[1].strip().strip("'\"") == "."
     # Not DCON's cell: that is the whole change.
     dcon_dir = gpec._module_dir(case.workdir, case.time_ms, "dcon", 1, geqdsk=case.geqdsk)
     assert str(dcon_dir.resolve()) not in line
+
+
+def test_gpec_in_does_not_depend_on_the_workdir_path_length(case, tmp_path):
+    """GPEC reads dcon_dir into CHARACTER(128); a deep workdir must not reach it (#1239)."""
+    deep = tmp_path.joinpath(*(["a_rather_long_directory_name"] * 6))
+    assert len(str(deep)) > 128
+    deep_case = gpec.GPECCaseInputs(
+        shot=case.shot, time_ms=case.time_ms, geqdsk=case.geqdsk, workdir=deep
+    )
+    config = gpec.GPECSuiteConfig(modules=("gpec",), modes=(1,), run_mode="prepare_only")
+    gpec.prepare_gpec_suite_case(deep_case, config)
+    run_dir = gpec._module_dir(deep, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
+    text = (run_dir / "gpec.in").read_text(encoding="utf-8")
+    line = next(l for l in text.splitlines() if l.strip().startswith("dcon_dir"))
+    assert str(deep) not in line and len(line.split("!")[0]) < 128
+
+
+def test_a_coil_directory_past_the_gpec_limit_is_refused_before_launch(tmp_path):
+    from vaft.code.gpec._solvers import GPEC_COIL_DATA_DIR_MAX, _coil_data_dir
+
+    short = tmp_path / "coil"
+    assert _coil_data_dir(short) == short.resolve()
+    deep = tmp_path.joinpath(*(["x" * 60] * 5), "coil")
+    assert len(str(deep.resolve())) > GPEC_COIL_DATA_DIR_MAX
+    with pytest.raises(ValueError, match="256"):
+        _coil_data_dir(deep)
 
 
 # --- the handshake, end to end with a stubbed solver -----------------------
