@@ -12,7 +12,7 @@ from functools import lru_cache
 
 import numpy as np
 
-from vaft.data.particle import ParticleComparison
+from vaft.data.particle import ParticleComparison, experiment_record
 from vaft.formula.particle import boris_orbit, guiding_center_rhs
 
 from ._equations import formula_equation
@@ -325,14 +325,13 @@ def particle_states(
             "projection": projection,
             "labels": labels,
             "interpolation": "linear; no extrapolation",
-            "native_full_time_s": comparison.full.time.tolist(),
-            "native_gc_time_s": comparison.guiding_center.time.tolist(),
             "full_termination": comparison.full.termination,
             "gc_termination": comparison.guiding_center.termination,
             "field": comparison.full.field.metadata(),
             "full_orbit": comparison.full.provenance_record(),
             "guiding_center": comparison.guiding_center.provenance_record(),
-            "experiment": dict(comparison.metadata),
+            # Native timebases live here once (schema 2); read with native_timebases().
+            "experiment": experiment_record(comparison),
         },
     )
 

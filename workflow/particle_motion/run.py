@@ -41,6 +41,11 @@ EXAMPLES = (
     ("symmetry-breaking", "symmetry_breaking", "toroidal_symmetry_breaking"),
 )
 
+#: Examples without a committed static SVG. Their gyro-resolved orbits make a
+#: ~440 KB SVG that no page embeds; the GIF and panels carry the same scene,
+#: and the site has a 150 MiB budget (docs/build.py MAX_SITE_MIB).
+NO_STATIC = {"tokamak", "symmetry-breaking"}
+
 
 def generate(output, frames=12, dpi=55):
     output.mkdir(parents=True, exist_ok=True)
@@ -66,7 +71,9 @@ def generate(output, frames=12, dpi=55):
             if builder in ("gyration", "magnetic_mirror", "grad_b_drift")
             else {}
         )
-        function(trajectory=experiment, time=end, **options).save(output / f"{slug}.svg")
+        static = None if slug in NO_STATIC else f"{slug}.svg"
+        if static:
+            function(trajectory=experiment, time=end, **options).save(output / static)
         movie = function(
             trajectory=experiment, time=times, animation=True, fps=8, dpi=dpi, **options
         )
@@ -98,7 +105,7 @@ def generate(output, frames=12, dpi=55):
                 "id": slug,
                 "builder": builder,
                 "case": kind,
-                "static": f"{slug}.svg",
+                "static": static,
                 "animation": f"{slug}.gif",
                 "quantitative_panels": panels[kind],
                 "driver": {"name": "time", "unit": "s", "values": times.tolist()},
@@ -118,7 +125,9 @@ def generate(output, frames=12, dpi=55):
                 "fidelity": experiment.metadata["fidelity"],
             }
         )
-    # Preserve every native timestamp while keeping generated review diffs small.
+    # Preserve every native timestamp while keeping generated review diffs small:
+    # fixed-step timebases are stored as their exact recurrence (decoded bit for
+    # bit by vaft.data.particle.native_timebases), and sidecars are compact JSON.
     for filename in [f"{slug}.gif.json" for slug, _, _ in EXAMPLES] + [
         "mirror-diagnostics.gif.json"
     ]:

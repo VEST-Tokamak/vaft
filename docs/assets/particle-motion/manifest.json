@@ -251,7 +251,7 @@
       "id": "tokamak",
       "builder": "trapped_and_passing_orbits",
       "case": "tokamak_trapped",
-      "static": "tokamak.svg",
+      "static": null,
       "animation": "tokamak.gif",
       "quantitative_panels": "tokamak-diagnostics.png",
       "driver": {
@@ -308,7 +308,7 @@
       "id": "symmetry-breaking",
       "builder": "toroidal_symmetry_breaking",
       "case": "symmetry_breaking",
-      "static": "symmetry-breaking.svg",
+      "static": null,
       "animation": "symmetry-breaking.gif",
       "quantitative_panels": "symmetry-breaking-diagnostics.png",
       "driver": {

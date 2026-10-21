@@ -80,7 +80,8 @@ labels stochasticity as unestablished.
 | ![Gyration]({{ '/assets/particle-motion/cartesian.gif' | relative_url }}) | ![Mirror bounce]({{ '/assets/particle-motion/mirror.gif' | relative_url }}) |
 
 The [artifact manifest]({{ site.baseurl }}/assets/particle-motion/manifest.json)
-links all six families to static SVGs, animations and quantitative panels.
+links all six families to animations and quantitative panels, and all but the
+two tokamak families to static SVGs.
 The mirror and invariants families share one experiment and so one panel image.
 Some manifest diagnostics are not meaningful for every family. `orbit_class` is
 `no_resolved_turn` for the cartesian and full-gc runs, which have no turning
@@ -156,8 +157,9 @@ geometries retain the sampled field arrow without invented straight lines.
 ## Reproduction and limits
 
 Run `python -m workflow.particle_motion.run` from the source root to generate
-six reference families, their static SVGs, GIFs, diagnostic panels and artifact
-manifest under `docs/assets/particle-motion/`. Physical tests are in
+six reference families, their GIFs, diagnostic panels, static SVGs (all but
+the two tokamak families) and artifact manifest under
+`docs/assets/particle-motion/`. Physical tests are in
 `test/test_process_particle.py`; replay tests are in
 `test/test_particle_animation.py`.
 

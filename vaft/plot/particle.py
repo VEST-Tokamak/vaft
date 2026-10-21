@@ -415,6 +415,8 @@ def particle_overview(
         )
     for value in values:
         _selected(model, value)
+    from vaft.data.particle import experiment_record
+
     from ._animation import Animation, Driver, _presentation
 
     presentation = {
@@ -443,7 +445,7 @@ def particle_overview(
             "field": c.full.field.metadata(),
             "full_orbit": c.full.provenance_record(),
             "guiding_center": c.guiding_center.provenance_record(),
-            "experiment": dict(c.metadata),
+            "experiment": experiment_record(c),
             "interpolation": "linear; no extrapolation",
         },
         style={},
