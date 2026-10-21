@@ -1314,6 +1314,12 @@ def generate_kfile(
         f.write(f" ZELIP = {initialization.zzero}\n")
         f.write(f" FCURBD = {profile.fcurbd}\n")
         f.write(f" FWTBP = {profile.fwtbp}\n")
+        # The attached-current model is written only when on: ICUTFP = 0 is
+        # EFIT's own default, so a k-file without it is the one it always was (#672).
+        if profile.icutfp:
+            f.write(f" ICUTFP = {profile.icutfp}\n")
+            if profile.alphafp is not None:
+                f.write(f" ALPHAFP = {profile.alphafp!r}\n")
         if initialization.icinit is not None:
             f.write(f" ICINIT = {initialization.icinit}\n")
         f.write(

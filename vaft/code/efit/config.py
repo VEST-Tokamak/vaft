@@ -12,7 +12,7 @@ import hashlib
 from itertools import product
 import json
 import math
-from numbers import Integral
+from numbers import Integral, Real
 from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
@@ -80,6 +80,27 @@ class EFITProfileConfig:
     #: non-zero input to one, so this is deliberately a binary switch rather
     #: than a continuous weight (issue #579).
     fwtbp: int = 0
+    #: GA-EFIT's attached (scrape-off-layer) current model, ``ICUTFP`` in
+    #: ``&IN1`` (#672).  ``0`` -- EFIT's own default and VAFT's -- confines
+    #: the reconstructed current to the closed-flux region.  ``2`` lets the
+    #: FF' (force-free) part extend outside the LCFS up to a flux bound EFIT
+    #: derives each iteration from the limiter (``LIMVS = 1``, its default)
+    #: or the vessel (``LIMVS = 0``); the p' part stays inside
+    #: (``update_parameters.F90`` ``SOL_curr``, ``current.f90``).  ``1`` is
+    #: refused: EFIT scales psi by ``XPSIMIN`` for any non-zero value but
+    #: computes ``XPSIMIN`` only for ``2``, so ``1`` runs on an unset bound.
+    #: ``2`` is refused with ``ICINIT`` -3/-4 (``set_init.f90`` stops).  A
+    #: restart (``EFITConfig.restart_from``, which writes ``ICINIT = -2``)
+    #: builds its first current distribution before EFIT has set ``XPSIMIN``
+    #: (``current.f90``), so a restarted SOL-current run starts from an
+    #: uninitialised bound; compare it with a cold start before trusting it.
+    icutfp: int = 0
+    #: ``ALPHAFP`` in ``&IN1``: where between the closed-flux boundary and
+    #: the limiter/vessel flux the SOL-current bound sits (``>= 0``:
+    #: ``xvsmin + ALPHAFP*(xvsmax - xvsmin)``; ``< 0``: ``|ALPHAFP|*xvsmax``).
+    #: ``None`` writes nothing and leaves EFIT's default, 0.  Only read
+    #: with ``icutfp = 2``; setting it otherwise is refused as a no-op.
+    alphafp: float | None = None
 
     def __post_init__(self) -> None:
         for name in ("kppcur", "kffcur"):
@@ -109,6 +130,24 @@ class EFITProfileConfig:
             raise ValueError("fwtbp requires kffcur >= 2")
         if self.fwtbp and self.kppcur < self.kffcur:
             raise ValueError("fwtbp requires kppcur >= kffcur")
+        if (
+            isinstance(self.icutfp, bool)
+            or not isinstance(self.icutfp, Integral)
+            or self.icutfp not in (0, 2)
+        ):
+            raise ValueError(
+                "icutfp must be 0 (closed-flux current) or 2 (attached SOL current); "
+                "EFIT derives the SOL flux bound XPSIMIN only for 2"
+            )
+        object.__setattr__(self, "icutfp", int(self.icutfp))
+        if self.alphafp is not None:
+            if isinstance(self.alphafp, bool) or not isinstance(self.alphafp, Real):
+                raise ValueError("alphafp must be a finite number or None")
+            if not math.isfinite(float(self.alphafp)):
+                raise ValueError("alphafp must be a finite number or None")
+            if self.icutfp != 2:
+                raise ValueError("alphafp is read by EFIT only with icutfp = 2")
+            object.__setattr__(self, "alphafp", float(self.alphafp))
 
 
 @dataclass(frozen=True)
@@ -583,6 +622,15 @@ class EFITScientificConfig:
     numerics: EFITNumericsConfig = field(default_factory=EFITNumericsConfig)
     constraints: EFITConstraintConfig = field(default_factory=EFITConstraintConfig)
 
+    def __post_init__(self) -> None:
+        # set_init.f90 builds the -3/-4 seed only for the closed-flux model and
+        # stops EFIT otherwise ("icutfp/=0 not set up"), on every slice (#672).
+        if self.profile.icutfp and self.initialization.icinit in (-3, -4):
+            raise ValueError(
+                "icutfp = 2 cannot be combined with icinit -3/-4: EFIT's set_init "
+                "stops with 'icutfp/=0 not set up'"
+            )
+
     def to_dict(self) -> dict[str, Any]:
         """Return a sorted, JSON-compatible resolved representation.
 
@@ -594,6 +642,12 @@ class EFITScientificConfig:
         if not self.constraints.sigma_floor:
             payload["constraints"].pop("sigma_floor", None)
             payload["constraints"].pop("sigma_floor_families", None)
+        # Likewise the attached-current model (#672): off, it is absent, so
+        # every configuration recorded before it existed keeps its hash.
+        if not self.profile.icutfp:
+            payload["profile"].pop("icutfp", None)
+        if self.profile.alphafp is None:
+            payload["profile"].pop("alphafp", None)
         return payload
 
     @classmethod
