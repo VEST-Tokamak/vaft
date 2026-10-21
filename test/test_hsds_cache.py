@@ -30,7 +30,14 @@ def isolated(monkeypatch, tmp_path):
     """No real cache, config file or environment setting leaks into a test."""
     monkeypatch.delenv(hsds_cache.CACHE_MAX_ENV, raising=False)
     monkeypatch.delenv(hsds_cache.CACHE_DIR_ENV, raising=False)
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))  # never the real cache
+    # Never the real cache: cache_base() resolves Path.home(), which reads
+    # HOME on POSIX but USERPROFILE on Windows, so redirect the resolver
+    # itself rather than one platform's variable.
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg-cache"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg-config"))
     hsds_cache._reported.clear()
@@ -274,6 +281,7 @@ def test_an_unmarked_custom_base_is_never_cleaned(tmp_path):
 
 def test_the_default_base_needs_no_marker(tmp_path):
     base = hsds_cache.cache_base()
+    assert tmp_path in base.parents  # the fixture redirected the home, on every OS
     _domain(base, "main", 1, "master", KiB, age=10)
     (base / hsds_cache.MARKER_NAME).unlink()
     assert len(hsds_cache.clear().removed) == 1
