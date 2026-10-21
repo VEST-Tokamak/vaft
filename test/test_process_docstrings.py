@@ -267,7 +267,6 @@ PIPELINE = frozenset({
     "integrate_romero_closure",
     "trace_field_line",
     # cocos (#419)
-    "validate_cocos",
     "identify_flux_exponent",
     "identify_convention",
     "cocos_consistency_signs",
@@ -667,7 +666,6 @@ CONVENTION_SENSITIVE = frozenset({
     "plasma_cell_weights",
     # cocos (#419): the module exists to reason about conventions
     "cocos_consistency_signs",
-    "validate_cocos",
     "identify_flux_exponent",
     "identify_convention",
     # onset / wall_modes (#571)
