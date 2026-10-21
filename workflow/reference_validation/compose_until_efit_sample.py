@@ -16,9 +16,11 @@ of the shot's machine version.  The canonical source is their union:
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import vaft
+from vaft.data.reference_samples import sha256_file
 from vaft.database.composition import compose_stage_products
 
 #: The IDSs the canonical source takes from the static product.
@@ -37,6 +39,15 @@ def compose(
     canonical, _ = compose_stage_products(
         diagnostics=diagnostics_stage, eddy=eddy_stage, eddy_manifest=eddy_manifest
     )
+    if eddy_manifest is not None:
+        # The eddy stage records the static product it solved against; the
+        # wall taken from here must be that one, not another machine era's.
+        recorded = json.loads(Path(eddy_manifest).read_text())["input"]["static_sha256"]
+        if sha256_file(static_stage) != recorded:
+            raise ValueError(
+                f"{static_stage} is not the static product the eddy stage read "
+                f"(eddy manifest records static_sha256 {recorded})"
+            )
     static = vaft.omas.load(static_stage)
     for ids_name in STATIC_IDS:
         if ids_name not in static:

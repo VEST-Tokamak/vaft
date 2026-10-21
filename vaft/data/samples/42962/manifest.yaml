@@ -6,7 +6,7 @@ imas_dd_version: 3.41.0
 source:
   kind: pipeline-until-efit
   git_commit: f6e685ca852bc856b4d10a554e2b70a3e70d44e1
-  filedb_root: vestserver:~/runs/vfit119-42962/filedb
+  filedb_root: VEST server, ~/runs/vfit119-42962/filedb (a scratch run root, not the production FileDB)
   raw_source: source/vest_42962_daq_raw.json.gz
   raw_sha256: ea83d2b7c891f9a8a4145f28770f7a745e18265ac72ae64c7ee4f444340a2776
 representations:

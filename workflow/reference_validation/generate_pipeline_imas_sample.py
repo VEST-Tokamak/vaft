@@ -189,9 +189,10 @@ def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
     if "equilibrium.time" in ods:
         set_path(ods, "equilibrium.ids_properties.homogeneous_time", 1)
     # The IMAS writer (omas's satisfy_imas_requirements) makes an IDS whose
-    # time vectors all coincide homogeneous and adds its root time, so the
-    # native artifact would carry a langmuir_probes.time the source lacks.
-    # Materialize it here when the probes share one time base.
+    # time vectors all coincide homogeneous and adds its root time in place,
+    # so a pipeline source's heterogeneous langmuir_probes would come back
+    # with a root time it does not declare. Materialize it here when the
+    # probes share one time base, so the parity check compares like with like.
     probe_times = [
         np.asarray(ods[f"langmuir_probes.embedded.{index}.time"])
         for index in range(len(ods.get("langmuir_probes.embedded", [])))
