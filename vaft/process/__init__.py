@@ -34,6 +34,8 @@ from importlib import import_module
 
 _SUBMODULES = {
     "atomic": ".atomic",
+    "particle": ".particle",
+    "particle_fields": ".particle_fields",
     "camera_fluctuation": ".camera_fluctuation",
     "camera_geometry": ".camera_geometry",
     "cocos": ".cocos",
@@ -89,6 +91,8 @@ _SUBMODULES = {
 #: :func:`_resolve` therefore asserts identity rather than picking a winner, so
 #: a future genuine collision fails loudly instead of resolving by luck.
 _IMPORT_ORDER = (
+    "particle",
+    "particle_fields",
     "profile",
     "equilibrium",
     "camera_geometry",
