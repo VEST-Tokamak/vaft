@@ -48,7 +48,7 @@ from functools import partial
 from typing import Dict, List, Sequence, Tuple
 
 from ._concept import Box, band, escape_latex
-from .pictograms import badge, corner
+from .pictograms import badge, corner, pictogram
 from ._render import Diagram
 from ._scene import Arrow, Label, Polyline, Scene
 from ._vaft_concepts import _check_labels, _down_or_up, _edge, _record, _titled, box, database
