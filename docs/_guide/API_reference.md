@@ -611,6 +611,32 @@ carries the field too. EFIT and EFUND declare one thread per task (`threads_per_
 declares `n_mpi` and FLARE declares `processes` as `ntasks` for scheduler backends, while their
 launchers still start the ranks themselves. TokaMaker runs in-process and has no backend.
 
+### Python tasks
+
+`python_task_request(module, args, workdir=..., ...)` (#1147) builds the request for an in-repo Python
+task, `<python> -m <module> <args...>`, that runs the same way under `LocalBackend`, `SlurmBackend`
+or `RemoteSlurmBackend`. The interpreter is `interpreter=`, else `$VAFT_PYTHON` (for a batch node that
+sees the environment at another path), else `sys.executable`. `spec=` is written as JSON to
+`workdir/spec.json` and its path appended to the arguments. `propagate=` copies the named variables
+of this process into the request as they are now, `pythonpath=` puts absolute entries in front of
+`PYTHONPATH`, and `resources.threads_per_task` sets every thread variable outright, so concurrent
+tasks do not oversubscribe a node whatever the launching environment says. `env=` overrides any of
+these.
+
+```python
+import tempfile
+
+from vaft.code import ResourceRequest, python_task_request, resolve_backend
+
+with tempfile.TemporaryDirectory() as unit_dir:
+    request = python_task_request(
+        "json.tool", ["--compact"], workdir=unit_dir, spec={"shot": 39915},
+        resources=ResourceRequest(threads_per_task=1), timeout=60, label="unit-39915",
+    )
+    result = resolve_backend(None).run(request)
+    print(result.returncode, result.stdout.strip())  # 0 {"shot":39915}
+```
+
 ### Running under Slurm
 
 `SlurmBackend` (#1017) runs the same adapter call as a cluster job. Only the `backend=` argument

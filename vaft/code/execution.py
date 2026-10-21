@@ -37,12 +37,15 @@ The contract every backend keeps:
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Optional, Protocol, Sequence, runtime_checkable
+from typing import Any, Iterable, Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
 
 from . import _process_tree
 from ._executables import ExecutableNotLaunchable
@@ -500,6 +503,100 @@ class LocalBackend:
                 return stdout, stderr, not over_memory, over_memory, peak
 
 
+#: Interpreter for :func:`python_task_request` when it names none, for a batch
+#: node that sees the environment at a different path than the submitting host.
+PYTHON_ENV = "VAFT_PYTHON"
+
+_MODULE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
+
+
+def python_interpreter(environ: Optional[Mapping[str, str]] = None) -> str:
+    """The interpreter a Python task runs under: ``$VAFT_PYTHON``, else ``sys.executable``."""
+    environ = os.environ if environ is None else environ
+    return (environ.get(PYTHON_ENV) or "").strip() or sys.executable
+
+
+def python_task_request(
+    module: str,
+    args: Sequence[Union[str, os.PathLike]] = (),
+    *,
+    workdir: Union[str, os.PathLike],
+    spec: Optional[Mapping[str, Any]] = None,
+    spec_name: str = "spec.json",
+    resources: Optional[ResourceRequest] = None,
+    timeout: Optional[float] = None,
+    label: str = "",
+    propagate: Iterable[str] = (),
+    pythonpath: Sequence[Union[str, os.PathLike]] = (),
+    env: Optional[Mapping[str, str]] = None,
+    interpreter: Optional[str] = None,
+    log_path: Optional[Union[str, os.PathLike]] = None,
+) -> ExecutionRequest:
+    """An :class:`ExecutionRequest` for ``<python> -m <module> <args...>`` (#1147).
+
+    The same request runs under any backend: a local child, a Slurm step or
+    batch job, or a remote cluster. What it resolves:
+
+    ``interpreter``
+        ``interpreter`` if given, else ``$VAFT_PYTHON``, else
+        ``sys.executable``. Resolved here, on the submitting host; a batch
+        node must see the interpreter at that path.
+    environment
+        Each name in ``propagate`` that is set in this process is copied into
+        the overlay as it is now, then ``env`` is applied on top. The overlay
+        is laid over the launching environment, so ``propagate`` does not
+        hide anything locally; it pins the listed values into the request,
+        which is what a job script or a remote host receives explicitly.
+    ``pythonpath``
+        Entries made absolute and put in front of ``PYTHONPATH`` (the
+        propagated or ``env`` one if any, else this process's), so a paired
+        or editable worktree is importable wherever the task runs.
+    thread variables
+        With ``resources.threads_per_task`` set, every variable in
+        :data:`THREAD_ENV_VARIABLES` is set to it in the overlay, so N
+        concurrent tasks x BLAS threads do not oversubscribe a node however
+        the launching environment (or ``propagate``) sets them. ``env`` may still
+        override one.
+    ``spec``
+        Written as JSON to ``workdir / spec_name`` now, and its absolute path
+        appended to ``args``; the task reads it back from there.
+
+    ``workdir`` must exist; it is made absolute. The request has no stdin.
+    """
+    module = str(module)
+    if not _MODULE.match(module):
+        raise ValueError(f"module must be a dotted Python module name, got {module!r}")
+    workdir = Path(workdir).absolute()
+    if not workdir.is_dir():
+        raise FileNotFoundError(f"working directory does not exist: {workdir}")
+    resources = ResourceRequest() if resources is None else resources
+    command = [str(interpreter or python_interpreter()), "-m", module, *(str(arg) for arg in args)]
+    if spec is not None:
+        if Path(spec_name).name != spec_name:
+            raise ValueError(f"spec_name must be a file name, got {spec_name!r}")
+        spec_path = workdir / spec_name
+        spec_path.write_text(json.dumps(spec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        command.append(str(spec_path))
+    overlay: dict[str, str] = {}
+    overlay.update({name: os.environ[name] for name in propagate if name in os.environ})
+    if resources.threads_per_task is not None:
+        overlay.update({variable: str(resources.threads_per_task) for variable in THREAD_ENV_VARIABLES})
+    overlay.update({str(key): str(value) for key, value in (env or {}).items()})
+    if pythonpath:
+        entries = [str(Path(entry).absolute()) for entry in pythonpath]
+        inherited = overlay.get("PYTHONPATH", os.environ.get("PYTHONPATH", ""))
+        overlay["PYTHONPATH"] = os.pathsep.join(entries + ([inherited] if inherited else []))
+    return ExecutionRequest(
+        command=tuple(command),
+        workdir=workdir,
+        env=overlay,
+        timeout=timeout,
+        log_path=None if log_path is None else Path(log_path),
+        resources=resources,
+        label=label,
+    )
+
+
 #: Environment variable that picks the backend for configs that name none.
 BACKEND_ENV = "VAFT_EXECUTION_BACKEND"
 
@@ -558,9 +655,12 @@ __all__ = [
     "ExecutionRequest",
     "ExecutionResult",
     "LocalBackend",
+    "PYTHON_ENV",
     "ResourceRequest",
     "default_backend",
     "execution_environment",
+    "python_interpreter",
+    "python_task_request",
     "resolve_backend",
     "timeout_reason",
 ]

@@ -260,3 +260,97 @@ def test_runtime_status_is_derived_from_timed_out_and_kept_consistent():
 def test_a_local_timeout_reports_runtime_status(tmp_path):
     result = _python(tmp_path, "import time; time.sleep(30)", timeout=1.0)
     assert (result.timed_out, result.runtime_status) == (True, "timeout")
+
+
+# -- python_task_request (#1147) ------------------------------------------------
+
+_TASK = """
+import json, os, sys
+spec = json.loads(open(sys.argv[-1], encoding="utf-8").read())
+print(json.dumps({
+    "argv": sys.argv[1:], "spec": spec, "cwd": os.getcwd(), "python": sys.executable,
+    "threads": [os.environ.get(name) for name in %r],
+    "flag": os.environ.get("VAFT_TASK_FLAG"),
+}))
+"""
+
+
+def _task_module(tmp_path: Path) -> Path:
+    """A module importable only through ``pythonpath``, as in a paired worktree."""
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "vaft_task_probe.py").write_text(_TASK % (THREAD_ENV_VARIABLES,), encoding="utf-8")
+    return source
+
+
+def test_python_task_request_runs_a_module_with_its_spec(tmp_path, monkeypatch):
+    import json
+
+    from vaft.code import python_task_request
+
+    monkeypatch.delenv("VAFT_PYTHON", raising=False)
+    monkeypatch.setenv("OMP_NUM_THREADS", "16")  # an inherited value must not win
+    monkeypatch.setenv("VAFT_TASK_FLAG", "pinned")
+    work = tmp_path / "unit"
+    work.mkdir()
+    request = python_task_request(
+        "vaft_task_probe", ["run-unit"], workdir=work, spec={"shot": 39915},
+        resources=ResourceRequest(threads_per_task=2), propagate=("VAFT_TASK_FLAG", "VAFT_UNSET_X"),
+        pythonpath=[_task_module(tmp_path)], timeout=60, label="unit-39915",
+    )
+    assert request.command[:3] == (sys.executable, "-m", "vaft_task_probe")
+    assert "VAFT_UNSET_X" not in request.env
+    monkeypatch.setenv("VAFT_TASK_FLAG", "changed later")  # the request keeps its value
+    result = LocalBackend().run(request)
+    assert result.returncode == 0, result.stderr
+    seen = json.loads(result.stdout)
+    assert seen["argv"] == ["run-unit", str(work / "spec.json")]
+    assert seen["spec"] == {"shot": 39915}
+    assert Path(seen["cwd"]).resolve() == work.resolve()
+    assert seen["threads"] == ["2"] * len(THREAD_ENV_VARIABLES)
+    assert seen["flag"] == "pinned"
+
+
+def test_python_task_request_resolves_the_interpreter(tmp_path, monkeypatch):
+    from vaft.code.execution import PYTHON_ENV, python_interpreter, python_task_request
+
+    monkeypatch.setenv(PYTHON_ENV, "/shared/env/bin/python")
+    assert python_interpreter() == "/shared/env/bin/python"
+    assert python_task_request("m", workdir=tmp_path).command[0] == "/shared/env/bin/python"
+    explicit = python_task_request("m", workdir=tmp_path, interpreter="/opt/py")
+    assert explicit.command[0] == "/opt/py"
+    monkeypatch.setenv(PYTHON_ENV, "  ")
+    assert python_interpreter() == sys.executable
+    assert python_interpreter({}) == sys.executable
+
+
+def test_python_task_request_environment_contract(tmp_path, monkeypatch):
+    import os
+
+    from vaft.code.execution import python_task_request
+
+    monkeypatch.setenv("PYTHONPATH", "/inherited")
+    monkeypatch.setenv("OMP_NUM_THREADS", "16")
+    request = python_task_request(
+        "m", workdir=tmp_path, pythonpath=["rel"], propagate=("OMP_NUM_THREADS",),
+        resources=ResourceRequest(threads_per_task=3), env={"MKL_NUM_THREADS": "1"},
+    )
+    # Resources beat a propagated thread value; an explicit env beats both.
+    assert request.env["OMP_NUM_THREADS"] == "3"
+    assert request.env["MKL_NUM_THREADS"] == "1"
+    assert request.env["PYTHONPATH"] == os.pathsep.join([str(Path("rel").absolute()), "/inherited"])
+    # No thread count, no pythonpath: nothing about them is pinned.
+    bare = python_task_request("m", workdir=tmp_path)
+    assert bare.env == {}
+    assert bare.stdin is None and bare.resources == ResourceRequest()
+
+
+def test_python_task_request_refuses_bad_input(tmp_path):
+    from vaft.code.execution import python_task_request
+
+    with pytest.raises(ValueError, match="module"):
+        python_task_request("-c", workdir=tmp_path)
+    with pytest.raises(ValueError, match="spec_name"):
+        python_task_request("m", workdir=tmp_path, spec={}, spec_name="../x.json")
+    with pytest.raises(FileNotFoundError):
+        python_task_request("m", workdir=tmp_path / "missing")
