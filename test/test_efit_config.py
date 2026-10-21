@@ -1241,6 +1241,43 @@ def test_the_code_parameters_state_the_serror_the_kfile_carries(tmp_path):
             assert "VBIT" not in parameters and "ERRSIL" not in parameters
 
 
+@pytest.mark.parametrize(
+    "scientific",
+    [
+        pytest.param(routine_scientific_config(), id="routine"),
+        # A free-edge (3,3) model with the proportionality row on and fitted
+        # passive currents: every recorded key differs from the old constants.
+        pytest.param(
+            routine_scientific_config(
+                profile=routine_profile_config(
+                    kppcur=3, kffcur=3, kppfnc=1, kfffnc=1, pcurbd=0, fcurbd=0, fwtbp=1
+                ),
+                constraints=routine_constraint_config(passive_structure_mode="fit_currents"),
+            ),
+            id="free-edge-3-3",
+        ),
+        # The default carries a sigma floor, which the writer applies on a
+        # copy: the record must still land on the caller's ODS.
+        pytest.param(EFITScientificConfig(), id="default-with-sigma-floor"),
+    ],
+)
+def test_the_recorded_profile_parameters_round_trip_the_written_kfile(tmp_path, scientific):
+    """The stored IN1 profile keys are the k-file's, read back from it (#869)."""
+    from vaft.data.keqdsk import read_keqdsk
+
+    ods = _constraints_ods(tmp_path)
+    generate_kfile(ods, 39915, save_dir=str(tmp_path), config=scientific)
+    (kfile,) = (tmp_path / "kfile").glob("k0*")
+    submitted = read_keqdsk(kfile)["in1"]
+    recorded = ods["equilibrium.code.parameters.time_slice.0.IN1"]
+    profile = scientific.profile
+    for key in ("KFFCUR", "KPPCUR", "KFFFNC", "KPPFNC", "FCURBD", "PCURBD", "FWTBP", "IVESEL", "IFITVS"):
+        assert int(recorded[key]) == int(submitted[key.lower()]), key
+    assert (int(recorded["KPPCUR"]), int(recorded["KFFCUR"])) == (profile.kppcur, profile.kffcur)
+    assert (int(recorded["PCURBD"]), int(recorded["FCURBD"])) == (profile.pcurbd, profile.fcurbd)
+    assert float(recorded["SERROR"]) == float(submitted["serror"])
+
+
 def test_resolved_configuration_is_stable_and_manifest_checksums_kfiles(tmp_path):
     ods = _constraints_ods(tmp_path)
     config = EFITConfig(
