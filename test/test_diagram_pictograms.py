@@ -192,6 +192,8 @@ def test_badge_is_a_disc_under_the_icon_and_corner_clips_it_on():
     assert disc.style == P.BADGE and disc.closed
     assert icon and all(i.style == P.PICTOGRAM for i in icon)
     assert max(math.dist(p, at) for i in icon for p in i.points) < 0.31  # the icon sits inside its disc
+    muted_disc, *muted = P.badge("integration", at, 0.62, role="symbol:x", style=P.PICTOGRAM_MUTED).items
+    assert muted_disc.style == P.BADGE_MUTED and {i.style for i in muted} == {P.PICTOGRAM_MUTED}
 
 
 # --------------------------------------------------------------------------
@@ -223,6 +225,7 @@ def test_the_animation_renderer_draws_the_pictogram_styles():
     assert _animation._LINE[P.PICTOGRAM]["color"] == _animation._COLOURS["islanddark"]
     assert _animation._LINE[P.PICTOGRAM_MUTED]["ls"] == "--"
     assert _animation._FILL[P.BADGE]["facecolor"] == "white"
+    assert _animation._FILL[P.BADGE_MUTED]["ls"] == "--"
     figure, ax = _animation.draw_scene(P.badge("database", (0, 0), 1.0, role="symbol:x"))
     lines = ax.get_lines()
     assert lines and all(line.get_color() == _animation._COLOURS["islanddark"] for line in lines)

@@ -23,7 +23,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 
-from .pictograms import BADGE, PICTOGRAM, PICTOGRAM_MUTED
+from .pictograms import BADGE, BADGE_MUTED, PICTOGRAM, PICTOGRAM_MUTED
 
 __all__ = ["animate_states", "draw_scene"]
 
@@ -75,6 +75,7 @@ _FILL = {
     "hole": {"facecolor": "white", "edgecolor": "none"},
     # above the box outlines it straddles, below its icon
     BADGE: {"facecolor": "white", "edgecolor": _COLOURS["islanddark"], "lw": 0.6, "zorder": 2.5},
+    BADGE_MUTED: {"facecolor": "white", "edgecolor": _mix("black", 45), "lw": 0.6, "ls": "--", "zorder": 2.5},
 }
 _ARROW_BOTH = {"width arrow"}
 #: Template styles that carry an arrow tip (``->`` / ``<->``): a polyline in

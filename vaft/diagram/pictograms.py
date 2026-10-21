@@ -42,6 +42,7 @@ from ._scene import Label, Point, Polyline, Scene
 
 __all__ = [
     "BADGE",
+    "BADGE_MUTED",
     "PICTOGRAM",
     "PICTOGRAM_MUTED",
     "SYMBOLS",
@@ -62,6 +63,8 @@ PICTOGRAM = "draw=islanddark,line width=0.7pt"
 PICTOGRAM_MUTED = "draw=black!45,line width=0.7pt,dashed"
 #: The disc behind a :func:`badge`: white, so the icon reads where it overlaps a box outline.
 BADGE = "draw=islanddark,line width=0.6pt,fill=white"
+#: The disc behind a muted (planned) badge.
+BADGE_MUTED = "draw=black!45,line width=0.6pt,dashed,fill=white"
 #: Maximum distance between a flattened curve and the true curve, in 24-unit grid units
 #: (0.01/24 of the icon size: 0.25 um on a 0.6 cm icon).
 TOLERANCE = 0.01
@@ -476,11 +479,12 @@ def badge(name: str, at: Point, size: float = 0.6, *, role: str, style: str = PI
     """Pictogram ``name`` on a white disc ``size`` cm across, centred on ``at``.
 
     For a tight box whose text fills its width: centre the badge on the box's top edge near a
-    corner, so the disc straddles the outline instead of taking text space.
+    corner, so the disc straddles the outline instead of taking text space. A
+    :data:`PICTOGRAM_MUTED` icon gets the grey dashed disc :data:`BADGE_MUTED`.
     """
     disc = Polyline(tuple((at[0] + 0.5 * size * math.cos(2 * math.pi * i / 48),
                            at[1] + 0.5 * size * math.sin(2 * math.pi * i / 48)) for i in range(48)),
-                    BADGE, role, True)
+                    BADGE_MUTED if style == PICTOGRAM_MUTED else BADGE, role, True)
     return Scene((disc,)) + pictogram(name, at, 0.62 * size, role=role, style=style)
 
 
