@@ -25,6 +25,7 @@ from vaft.formula.ntv import ntv_precession_frequency
 
 from ._chart import Chart, render_chart
 from ._render import Diagram
+from ._scene import Polyline, Scene
 
 
 def _decades(lo: int, hi: int):
@@ -38,6 +39,10 @@ def _check_labels(labels) -> bool:
     return labels
 
 
+#: half-width of the shaded transition range around each boundary, as a factor in nu_hat (a drawing choice)
+TRANSITION_FACTOR = 3.0
+
+
 def neoclassical_collisionality(*, epsilon: float = 0.1, labels: bool = True) -> Diagram:
     r"""Banana, plateau and Pfirsch--Schl\"uter: the axisymmetric neoclassical regimes.
 
@@ -47,7 +52,10 @@ def neoclassical_collisionality(*, epsilon: float = 0.1, labels: bool = True) ->
     axis is the diffusivity in units of the plateau value, with the three
     textbook asymptotes $\hat\nu/\epsilon^{3/2}$, $1$ and $\hat\nu$ (order-unity
     coefficients set to one), which meet exactly at those boundaries. Lower
-    $\epsilon$ widens the plateau.
+    $\epsilon$ widens the plateau. Each boundary sits in a shaded transition
+    range, a factor :data:`TRANSITION_FACTOR` either side: real coefficients
+    cross over smoothly, and where the crossover falls depends on the
+    collisionality convention and the coefficient fits (#1112).
     """
     labels = _check_labels(labels)
     if not 0.0 < epsilon < 1.0:
@@ -69,7 +77,7 @@ def neoclassical_collisionality(*, epsilon: float = 0.1, labels: bool = True) ->
     chart.labels.update({"banana": ((-4.0 + xb) / 2, 1.6), "plateau": ((xb + xp) / 2, 0.4),
                          "pfirsch_schlueter": ((xp + 2.0) / 2, -1.6)})
     chart.parameters.update({"epsilon": epsilon, "banana_plateau": banana_plateau,
-                             "plateau_pfirsch_schlueter": plateau_ps})
+                             "plateau_pfirsch_schlueter": plateau_ps, "transition_factor": TRANSITION_FACTOR})
     x_ticks, x_text = _decades(-4, 2)
     y_ticks, y_text = _decades(-2, 2)
     scene = render_chart(
@@ -83,9 +91,14 @@ def neoclassical_collisionality(*, epsilon: float = 0.1, labels: bool = True) ->
         if labels else {},
         x_ticks=x_ticks, x_tick_text=x_text, y_ticks=y_ticks, y_tick_text=y_text,
         note=(f"Asymptotic orderings at $\\epsilon = {epsilon:g}$: boundaries $\\hat\\nu = \\epsilon^{{3/2}}$ "
-              "and 1, coefficients set to one" if labels else ""),
+              f"and 1, coefficients set to one; shaded: transition ranges ($\\times{TRANSITION_FACTOR:g}^{{\\pm1}}$), "
+              "convention-dependent" if labels else ""),
     )
-    return Diagram("neoclassical_collisionality", scene, model=chart)
+    lf = float(np.log10(TRANSITION_FACTOR))
+    bands = tuple(Polyline.of(chart.to_cm(np.array([[xc - lf, -2.5], [xc + lf, -2.5], [xc + lf, 2.5],
+                                                     [xc - lf, 2.5]])), "concept band", role="transition_range",
+                              closed=True) for xc in (xb, xp))
+    return Diagram("neoclassical_collisionality", Scene(bands + scene.items), model=chart)
 
 
 #: Shaing's asymptotic flux exponents, $\Gamma \propto \nu^p$ in each NTV regime
