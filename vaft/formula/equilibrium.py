@@ -2782,6 +2782,266 @@ def stored_energy_from_beta_V(beta: float,
     """
     return beta * B0**2 * V / (2 * MU0)
 
+
+def beta_p_diamagnetic_from_flux_circular(Phi_dia: float,
+                                          B_phi0: float,
+                                          Ip: float) -> float:
+    r"""Diamagnetic poloidal beta of a circular high-aspect-ratio plasma from the diamagnetic flux.
+
+    $$\beta_{p,\mathrm{dia}} \simeq 1 - \frac{8\pi B_{\varphi 0}\,\Phi_{\mathrm{dia}}}{\mu_0^2 I_p^2}$$
+
+    Parameters
+    ----------
+    Phi_dia : float
+        Diamagnetic flux, the plasma's change of toroidal flux; positive when
+        paramagnetic along ``B_phi0`` (see Convention) [Wb].
+    B_phi0 : float
+        Vacuum toroidal field at the plasma centre [T].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+
+    Returns
+    -------
+    float
+        Poloidal beta of the perpendicular pressure, $\beta_{p\perp}$ [-].
+
+    Raises
+    ------
+    ValueError
+        If ``Ip`` is zero or non-finite.
+
+    Convention
+    ----------
+    ``Phi_dia`` is the plasma's change of the toroidal flux through the
+    cross-section, **positive when it adds to the vacuum flux in the direction
+    of** ``B_phi0`` (paramagnetic), so the product $B_{\varphi 0}\Phi_{dia}$ is
+    positive for a paramagnetic and negative for a diamagnetic plasma
+    ($\beta_p > 1$).  VAFT stores ``magnetics.diamagnetic_flux`` positive for a
+    paramagnetic plasma, EFIT's ``cdflux`` sign (#1196); pair it with
+    $|B_{\varphi 0}|$.  No ``abs()`` is applied: a flux of the other sign, or a
+    signed field opposite to it, turns a paramagnetic $\beta_p < 1$ into a
+    diamagnetic $\beta_p > 1$ rather than failing.
+
+    Assumptions
+    -----------
+    Circular cross-section, large aspect ratio, $\beta_p$ of the perpendicular
+    pressure (what a diamagnetic loop sees).
+
+    Limitations
+    -----------
+    A closed-form high-aspect-ratio approximation, not a spherical-tokamak
+    formula: at low aspect ratio the toroidal corrections it drops are of
+    order one and the error can be large [2]_; VEST's diamagnetic analysis
+    needs the low-aspect-ratio treatment of [3]_.  Use the virial/Shafranov
+    integrals of :mod:`vaft.formula.virial` for a quantitative value.
+
+    References
+    ----------
+    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh, A. G. Kellman and
+           W. Pfeiffer, Nucl. Fusion 25 (1985) 1421.
+    .. [2] M. W. Bongard et al., Phys. Plasmas 23 (2016) 072508 (limitations
+           at low aspect ratio).
+    .. [3] J. Yang et al., Rev. Sci. Instrum. 89 (2018) 103508 (VEST
+           diamagnetic-flux measurement, low-aspect-ratio treatment).
+    """
+    return 1.0 - _diamagnetic_flux_term(Phi_dia, B_phi0, Ip)
+
+
+def beta_p_diamagnetic_from_flux_elliptic(Phi_dia: float,
+                                          B_phi0: float,
+                                          Ip: float,
+                                          kappa: float) -> float:
+    r"""Diamagnetic poloidal beta of an elliptical high-aspect-ratio plasma from the diamagnetic flux.
+
+    $$\beta_{p\perp,\mathrm{dia}} \simeq 1 - \frac{1+\kappa^2}{2\kappa}\,
+      \frac{8\pi B_{\varphi 0}\,\Phi_{\mathrm{dia}}}{\mu_0^2 I_p^2}$$
+
+    Reduces to :func:`beta_p_diamagnetic_from_flux_circular` at $\kappa = 1$.
+
+    Parameters
+    ----------
+    Phi_dia : float
+        Diamagnetic flux; positive when paramagnetic along ``B_phi0`` [Wb].
+    B_phi0 : float
+        Vacuum toroidal field at the plasma centre [T].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+    kappa : float
+        Elongation of the elliptical cross-section, positive [-].
+
+    Returns
+    -------
+    float
+        Poloidal beta of the perpendicular pressure, $\beta_{p\perp}$ [-].
+
+    Raises
+    ------
+    ValueError
+        If ``Ip`` is zero or non-finite, or ``kappa`` is not positive.
+
+    Convention
+    ----------
+    ``Phi_dia`` is the plasma's change of the toroidal flux through the
+    cross-section, **positive when it adds to the vacuum flux in the direction
+    of** ``B_phi0`` (paramagnetic), so the product $B_{\varphi 0}\Phi_{dia}$ is
+    positive for a paramagnetic and negative for a diamagnetic plasma
+    ($\beta_p > 1$).  VAFT stores ``magnetics.diamagnetic_flux`` positive for a
+    paramagnetic plasma, EFIT's ``cdflux`` sign (#1196); pair it with
+    $|B_{\varphi 0}|$.  No ``abs()`` is applied: a flux of the other sign, or a
+    signed field opposite to it, turns a paramagnetic $\beta_p < 1$ into a
+    diamagnetic $\beta_p > 1$ rather than failing.
+
+    Assumptions
+    -----------
+    Elliptical cross-section of elongation $\kappa$ at large aspect ratio; the
+    poloidal field is normalised by its boundary average
+    $\mu_0 I_p / L_C$, which the factor $(1+\kappa^2)/2\kappa$ carries.
+
+    Limitations
+    -----------
+    A closed-form high-aspect-ratio approximation, not a spherical-tokamak
+    formula: at low aspect ratio the toroidal corrections it drops are of
+    order one and the error can be large [2]_; VEST's diamagnetic analysis
+    needs the low-aspect-ratio treatment of [3]_.  Use the virial/Shafranov
+    integrals of :mod:`vaft.formula.virial` for a quantitative value.
+
+    References
+    ----------
+    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh, A. G. Kellman and
+           W. Pfeiffer, Nucl. Fusion 25 (1985) 1421.
+    .. [2] M. W. Bongard et al., Phys. Plasmas 23 (2016) 072508 (limitations
+           at low aspect ratio).
+    .. [3] J. Yang et al., Rev. Sci. Instrum. 89 (2018) 103508 (VEST
+           diamagnetic-flux measurement, low-aspect-ratio treatment).
+    """
+    kappa = float(kappa)
+    if not np.isfinite(kappa) or kappa <= 0.0:
+        raise ValueError(f"kappa must be positive and finite, got {kappa!r}")
+    return 1.0 - (1.0 + kappa**2) / (2.0 * kappa) * _diamagnetic_flux_term(Phi_dia, B_phi0, Ip)
+
+
+def stored_energy_diamagnetic_from_beta_p_circular(beta_p: float,
+                                                   R0: float,
+                                                   Ip: float) -> float:
+    r"""Diamagnetic stored energy of a circular high-aspect-ratio plasma from its poloidal beta.
+
+    $$W_{\mathrm{dia}} \simeq \frac{3}{8}\,\mu_0 R_0 I_p^2\,\beta_{p,\mathrm{dia}}$$
+
+    Parameters
+    ----------
+    beta_p : float
+        Diamagnetic poloidal beta, e.g. from
+        :func:`beta_p_diamagnetic_from_flux_circular` [-].
+    R0 : float
+        Major radius of the plasma centre [m].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+
+    Returns
+    -------
+    float
+        Stored kinetic energy $\tfrac32\int p_\perp\,dV$ [J].
+
+    Convention
+    ----------
+    The thermal energy, $\tfrac32\int p\,dV$, not the pressure integral
+    $\int p\,dV$ that :func:`stored_energy_from_beta_V` returns: with the DD
+    $\beta_p = 4\int p\,dV/(\mu_0 R_0 I_p^2)$
+    (:func:`beta_poloidal_from_pressure_integral`) this is $\tfrac32$ of that
+    integral.  ``R0`` must be the radius ``beta_p`` was normalised by.
+
+    Limitations
+    -----------
+    A closed-form high-aspect-ratio approximation, not a spherical-tokamak
+    formula: at low aspect ratio the toroidal corrections it drops are of
+    order one and the error can be large [2]_; VEST's diamagnetic analysis
+    needs the low-aspect-ratio treatment of [3]_.  Use the virial/Shafranov
+    integrals of :mod:`vaft.formula.virial` for a quantitative value.
+
+    References
+    ----------
+    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh, A. G. Kellman and
+           W. Pfeiffer, Nucl. Fusion 25 (1985) 1421.
+    .. [2] M. W. Bongard et al., Phys. Plasmas 23 (2016) 072508 (limitations
+           at low aspect ratio).
+    .. [3] J. Yang et al., Rev. Sci. Instrum. 89 (2018) 103508 (VEST
+           diamagnetic-flux measurement, low-aspect-ratio treatment).
+    """
+    return 3.0 / 8.0 * MU0 * float(R0) * float(Ip) ** 2 * float(beta_p)
+
+
+def stored_energy_diamagnetic_from_beta_p_geometry(beta_p: float,
+                                                   volume: float,
+                                                   Ip: float,
+                                                   perimeter: float) -> float:
+    r"""Diamagnetic stored energy from poloidal beta, plasma volume and boundary circumference.
+
+    $$W_{\mathrm{dia}} \simeq \frac{3}{4}\,\mu_0 V \left(\frac{I_p}{L_C}\right)^2
+      \beta_{p\perp,\mathrm{dia}}$$
+
+    For a circle, $V = 2\pi^2 R_0 a^2$ and $L_C = 2\pi a$, this is
+    :func:`stored_energy_diamagnetic_from_beta_p_circular`.
+
+    Parameters
+    ----------
+    beta_p : float
+        Diamagnetic poloidal beta normalised by the boundary-average poloidal
+        field $\mu_0 I_p/L_C$, e.g. from
+        :func:`beta_p_diamagnetic_from_flux_elliptic` [-].
+    volume : float
+        Plasma volume [m^3].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+    perimeter : float
+        Poloidal circumference of the plasma boundary, $L_C$ [m].
+
+    Returns
+    -------
+    float
+        Stored kinetic energy $\tfrac32\int p_\perp\,dV$ [J].
+
+    Raises
+    ------
+    ValueError
+        If ``perimeter`` is not positive.
+
+    Convention
+    ----------
+    $\beta_p = 2\mu_0\langle p\rangle_V L_C^2/(\mu_0 I_p)^2$, the circumference
+    normalisation of :func:`beta_poloidal_from_circumference`, not the DD
+    $R_0$ form; the two agree only for a circular cross-section.  The result
+    is the thermal energy $\tfrac32\int p\,dV$.
+
+    Limitations
+    -----------
+    A closed-form high-aspect-ratio approximation, not a spherical-tokamak
+    formula: at low aspect ratio the toroidal corrections it drops are of
+    order one and the error can be large [2]_; VEST's diamagnetic analysis
+    needs the low-aspect-ratio treatment of [3]_.  Use the virial/Shafranov
+    integrals of :mod:`vaft.formula.virial` for a quantitative value.
+
+    References
+    ----------
+    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh, A. G. Kellman and
+           W. Pfeiffer, Nucl. Fusion 25 (1985) 1421.
+    .. [2] M. W. Bongard et al., Phys. Plasmas 23 (2016) 072508 (limitations
+           at low aspect ratio).
+    .. [3] J. Yang et al., Rev. Sci. Instrum. 89 (2018) 103508 (VEST
+           diamagnetic-flux measurement, low-aspect-ratio treatment).
+    """
+    perimeter = float(perimeter)
+    if not np.isfinite(perimeter) or perimeter <= 0.0:
+        raise ValueError(f"perimeter must be positive and finite, got {perimeter!r}")
+    return 0.75 * MU0 * float(volume) * (float(Ip) / perimeter) ** 2 * float(beta_p)
+
+
+def _diamagnetic_flux_term(Phi_dia, B_phi0, Ip) -> float:
+    """8 pi B_phi0 Phi_dia / (mu0 Ip)^2, the circular diamagnetic term (#684)."""
+    Ip = float(Ip)
+    if not np.isfinite(Ip) or Ip == 0.0:
+        raise ValueError(f"Ip must be finite and non-zero, got {Ip!r}")
+    return 8.0 * np.pi * float(B_phi0) * float(Phi_dia) / (MU0 * Ip) ** 2
+
 # ------------------------------------------------------------------
 # Geometry
 # ------------------------------------------------------------------
