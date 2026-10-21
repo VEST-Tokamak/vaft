@@ -18,6 +18,7 @@ import imas
 
 from ..compat import temporary_directory
 from .utils import (
+    _quiet_http_loggers,
     _require_h5pyd,
     ensure_imas_hdf5_userblock,
     ensure_shot_folder,
@@ -90,7 +91,7 @@ def save(
     Returns:
         HSDS URI string for the IDS file when uploaded, otherwise local path.
     """
-    logging.getLogger().setLevel(logging.WARNING)
+    _quiet_http_loggers()
 
     source = resolve_source(source, directory=directory, writable=True)
     ids_name = _ids_top_level_name(ids)
@@ -205,7 +206,7 @@ def load(
     Returns:
         Native IMAS IDS object, or dict of IDS objects for list input.
     """
-    logging.getLogger().setLevel(logging.WARNING)
+    _quiet_http_loggers()
 
     source = resolve_source(source, directory=directory)
 

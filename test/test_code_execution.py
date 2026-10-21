@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -260,3 +261,242 @@ def test_runtime_status_is_derived_from_timed_out_and_kept_consistent():
 def test_a_local_timeout_reports_runtime_status(tmp_path):
     result = _python(tmp_path, "import time; time.sleep(30)", timeout=1.0)
     assert (result.timed_out, result.runtime_status) == (True, "timeout")
+
+
+# -- submit / wait / cancel (#1018) ----------------------------------------------
+
+
+def _request(tmp_path: Path, code: str, **request) -> ExecutionRequest:
+    return ExecutionRequest(command=(sys.executable, "-c", code), workdir=tmp_path, **request)
+
+
+def test_submit_without_max_concurrent_is_eager(tmp_path):
+    handle = LocalBackend().submit(_request(tmp_path, "print('done')"))
+    assert handle.done()
+    assert handle.result().stdout.strip() == "done"
+    assert not handle.cancel()  # finished: nothing to stop
+
+
+def test_max_concurrent_bounds_the_live_programs(tmp_path):
+    import json
+
+    from vaft.code import wait_handles
+
+    code = (
+        "import json, os, sys, time; start = time.time(); time.sleep(0.6);"
+        "print(json.dumps([start, time.time()]))"
+    )
+    backend = LocalBackend(max_concurrent=2)
+    handles = [backend.submit(_request(tmp_path, code)) for _ in range(5)]
+    assert not all(handle.done() for handle in handles)  # submit did not wait
+    done, pending = wait_handles(handles)
+    assert (len(done), pending) == (5, [])
+    spans = [json.loads(handle.result().stdout) for handle in handles]
+    for start, _ in spans:
+        live = sum(1 for other_start, other_end in spans if other_start <= start < other_end)
+        assert live <= 2
+    # Started in submission order: the first two did not wait for a slot.
+    assert sorted(spans)[:2] == sorted(spans[:2])
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="probes the grandchild with os.kill(pid, 0)")
+def test_cancel_stops_a_running_tree_and_a_queued_request(tmp_path):
+    import os
+    from concurrent.futures import CancelledError
+
+    from vaft.code import cancel_handles
+
+    pid_file = tmp_path / "grandchild.pid"
+    code = (
+        "import subprocess, sys, time;"
+        "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)']);"
+        f"open({str(pid_file)!r}, 'w').write(str(child.pid)); time.sleep(60)"
+    )
+    marker = tmp_path / "queued-ran"
+    backend = LocalBackend(max_concurrent=1)
+    running = backend.submit(_request(tmp_path, code))
+    queued = backend.submit(_request(tmp_path, f"open({str(marker)!r}, 'w')"))
+    deadline = time.monotonic() + 20
+    while not pid_file.exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    grandchild = int(pid_file.read_text())
+    started = time.monotonic()
+    cancel_handles([running, queued])
+    assert time.monotonic() - started < 15
+    for handle in (running, queued):
+        assert handle.cancelled and handle.done()
+        with pytest.raises(CancelledError):
+            handle.result()
+    assert not marker.exists()
+    with pytest.raises(ProcessLookupError):
+        os.kill(grandchild, 0)
+
+
+def test_a_launch_error_comes_out_of_result_and_a_missing_workdir_out_of_submit(tmp_path):
+    backend = LocalBackend(max_concurrent=1)
+    with pytest.raises(FileNotFoundError):
+        backend.submit(_request(tmp_path / "missing", "pass"))
+    program = write_unlaunchable_file(tmp_path / "not-a-program")
+    handle = backend.submit(ExecutionRequest(command=(str(program),), workdir=tmp_path))
+    with pytest.raises(ExecutableNotLaunchable):
+        handle.result()
+
+
+def test_submit_request_runs_a_run_only_backend_eagerly(tmp_path):
+    from vaft.code import submit_request
+
+    backend = RecordingBackend()
+    handle = submit_request(backend, _request(tmp_path, "pass"))
+    assert handle.done() and handle.result().returncode == 0
+    assert len(backend.requests) == 1
+
+    class Failing:
+        def run(self, request):
+            raise RuntimeError("refused")
+
+    handle = submit_request(Failing(), _request(tmp_path, "pass"))
+    with pytest.raises(RuntimeError, match="refused"):
+        handle.result()
+
+
+def test_wait_handles_first_completed(tmp_path):
+    from vaft.code import cancel_handles, wait_handles
+    from vaft.code.execution import FIRST_COMPLETED
+
+    backend = LocalBackend(max_concurrent=2)
+    slow = backend.submit(_request(tmp_path, "import time; time.sleep(30)"))
+    fast = backend.submit(_request(tmp_path, "pass"))
+    done, pending = wait_handles([slow, fast], return_when=FIRST_COMPLETED, timeout=20)
+    assert (done, pending) == ([fast], [slow])
+    cancel_handles([slow])
+    with pytest.raises(ValueError):
+        wait_handles([fast], return_when="ANY")
+    with pytest.raises(ValueError):
+        LocalBackend(max_concurrent=0)
+
+
+def test_memory_admission_stops_waiting_once_cancelled(tmp_path, monkeypatch):
+    """Cold review #1018: a cancelled request does not wait out admission_wait_s."""
+    from vaft.code._memory_gate import MemoryLedger
+
+    ledger = MemoryLedger(tmp_path, floor_mb=0.0)
+    monkeypatch.setattr(MemoryLedger, "fits", lambda self, reserve_mb: True)
+    monkeypatch.setattr(MemoryLedger, "try_admit", lambda self, reserve_mb: None)
+    flag = []
+    started = time.monotonic()
+    assert ledger.admit(10.0, wait_s=3600, poll_s=0.01, cancelled=lambda: bool(flag.append(1)) or len(flag) > 3) is None
+    assert time.monotonic() - started < 5
+
+
+# -- config-level resources and thread precedence (#1016) ----------------------
+
+_CONFIGS_WITH_BACKEND = (
+    ("vaft.code.base", "CodeConfig"),
+    ("vaft.code.chease", "CHEASEConfig"),
+    ("vaft.code.efit.efund", "EFUNDConfig"),
+    ("vaft.code.efit.magnetic", "EFITConfig"),
+    ("vaft.code.flare", "FlareConfig"),
+    ("vaft.code.gacode._types", "GACODEConfig"),
+    ("vaft.code.genray.config", "GENRAYConfig"),
+    ("vaft.code.gpec._types", "GPECSuiteConfig"),
+    ("vaft.code.mitim.config", "MITIMConfig"),
+    ("vaft.code.nice.config", "NiceConfig"),
+    ("vaft.code.nubeam.config", "NUBEAMConfig"),
+    ("vaft.code.tes.config", "TESConfig"),
+)
+
+
+@pytest.mark.parametrize("module, name", _CONFIGS_WITH_BACKEND)
+def test_every_config_with_a_backend_takes_resources(module, name):
+    import dataclasses
+    import importlib
+
+    fields = {item.name: item for item in dataclasses.fields(getattr(importlib.import_module(module), name))}
+    assert "backend" in fields
+    assert fields["resources"].default is None
+
+
+def test_configured_resources_precedence():
+    from types import SimpleNamespace
+
+    from vaft.code.execution import configured_resources
+
+    default = ResourceRequest(threads_per_task=1)
+    # No config.resources: the adapter's declaration and overlay are untouched.
+    resources, env = configured_resources(SimpleNamespace(resources=None), default, {"OMP_NUM_THREADS": "2"})
+    assert resources is default and env == {"OMP_NUM_THREADS": "2"}
+    # config.resources replaces the declaration and beats config.env.
+    explicit = ResourceRequest(threads_per_task=4, memory_mb=1000)
+    resources, env = configured_resources(SimpleNamespace(resources=explicit), default, {"OMP_NUM_THREADS": "2"})
+    assert resources is explicit
+    assert {env[name] for name in THREAD_ENV_VARIABLES} == {"4"}
+    # Without a thread count it leaves the environment alone.
+    resources, env = configured_resources(SimpleNamespace(resources=ResourceRequest(memory_mb=10)), default, {})
+    assert resources.threads_per_task is None and env == {}
+    with pytest.raises(TypeError):
+        configured_resources(SimpleNamespace(resources={"threads_per_task": 2}), default, {})
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the rtes stand-in is a /bin/sh script")
+@pytest.mark.parametrize(
+    "resources, env, expected",
+    [
+        (None, {}, "8"),  # inherited beats nothing else declared
+        (None, {"OMP_NUM_THREADS": "2"}, "2"),  # config.env beats inherited
+        (ResourceRequest(threads_per_task=3), {"OMP_NUM_THREADS": "2"}, "3"),  # resources beat both
+    ],
+)
+def test_thread_precedence_reaches_the_program(tmp_path, monkeypatch, resources, env, expected):
+    """Explicit resources > config.env > inherited > adapter default, end to end (TES)."""
+    from vaft.code.tes.config import TESConfig, TESInputs
+    from vaft.code.tes.runner import run_tes
+
+    monkeypatch.setenv("OMP_NUM_THREADS", "8")  # as Snakemake's shell() or heavy-run exports
+    cinput = tmp_path / "rtes.in"
+    cinput.write_text("DUMMY")
+    program = tmp_path / "rtes"
+    program.write_text("#!/bin/sh\necho $OMP_NUM_THREADS\necho stub > g039915.00325\n", encoding="utf-8")
+    program.chmod(0o755)
+    result = run_tes(
+        TESInputs(workdir=tmp_path, cinput=cinput),
+        TESConfig(executable=str(program), timeout=60, env=env, resources=resources),
+    )
+    assert result.stdout.strip() == expected
+
+
+def test_efit_declaration_fills_only_unset_threads(tmp_path, monkeypatch):
+    """The adapter default (EFIT/EFUND: one thread) is the lowest precedence."""
+    from vaft.code.execution import configured_resources, execution_environment
+
+    monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
+    monkeypatch.setenv("MKL_NUM_THREADS", "6")
+    resources, env = configured_resources(None, ResourceRequest(threads_per_task=1), {})
+    launched = execution_environment(
+        ExecutionRequest(command=("x",), workdir=tmp_path, env=env, resources=resources)
+    )
+    assert (launched["OMP_NUM_THREADS"], launched["MKL_NUM_THREADS"]) == ("1", "6")
+
+
+def test_self_launching_codes_refuse_a_disagreeing_task_count():
+    from vaft.code.flare import FlareConfig
+    from vaft.code.gacode._types import GACODEConfig
+
+    with pytest.raises(ValueError, match="n_mpi"):
+        GACODEConfig(n_mpi=4, resources=ResourceRequest(ntasks=2))
+    with pytest.raises(ValueError, match="memory_mb"):
+        GACODEConfig(n_mpi=2, memory_mb=100, resources=ResourceRequest(ntasks=2, memory_mb=200))
+    with pytest.raises(ValueError, match="n_omp"):
+        GACODEConfig(n_mpi=2, n_omp=1, resources=ResourceRequest(ntasks=2, threads_per_task=4))
+    GACODEConfig(n_mpi=2, n_omp=2, resources=ResourceRequest(ntasks=2, threads_per_task=2))
+    from vaft.code.gacode.tglf._types import TGLFConfig
+
+    with pytest.raises(ValueError, match="thread"):
+        TGLFConfig(n_omp=4, resources=ResourceRequest(threads_per_task=4))
+    TGLFConfig(resources=ResourceRequest(threads_per_task=1))
+    with pytest.raises(TypeError):
+        FlareConfig(resources={"ntasks": 1})
+    with pytest.raises(ValueError, match="processes"):
+        FlareConfig(processes=8, resources=ResourceRequest(ntasks=4))
+    with pytest.raises(ValueError, match="processes"):
+        FlareConfig(resources=ResourceRequest(ntasks=2))
+    FlareConfig(processes=4, resources=ResourceRequest(ntasks=4, memory_mb=2000))

@@ -25,6 +25,8 @@ from ..execution import (
     RUNTIME_QUEUE_TIMEOUT,
     ExecutionRequest,
     ExecutionResult,
+    ResourceRequest,
+    configured_resources,
     resolve_backend,
     timeout_reason,
 )
@@ -412,12 +414,14 @@ def run_subprocess(
     # A prefix runs the program through a filter that owns its output, such as
     # PENTRC's log cap (#1929); the program itself is still the last word.
     command = (*command_prefix, str(executable_path))
+    resources, env = configured_resources(config, ResourceRequest(), gpec_env(config))
     execution = resolve_backend(config).run(
         ExecutionRequest(
             command=command,
             workdir=Path(cwd),
-            env=gpec_env(config),
+            env=env,
             timeout=config.timeout,
+            resources=resources,
             log_path=Path(log_path),
             label=Path(executable_path).name,
         )

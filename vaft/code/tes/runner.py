@@ -7,7 +7,13 @@ from pathlib import Path
 
 from ...compat import is_executable, resolve_executable
 from .._executables import executable_from_home, missing_home_message
-from ..execution import ExecutionRequest, resolve_backend, timeout_reason
+from ..execution import (
+    ExecutionRequest,
+    ResourceRequest,
+    configured_resources,
+    resolve_backend,
+    timeout_reason,
+)
 from .config import TESConfig, TESInputs, TESResult
 from .outputs import collect_tes_outputs, snapshot_outputs
 
@@ -89,12 +95,14 @@ def run_tes(inputs: TESInputs, config: TESConfig) -> TESResult:
     # rtes writes no g-file when it fails; in a reused directory an earlier
     # run's files must not be reported as this run's equilibrium
     before = snapshot_outputs(inputs.workdir)
+    resources, env = configured_resources(config, ResourceRequest(), config.env)
     execution = resolve_backend(config).run(
         ExecutionRequest(
             command=tuple(cmd),
             workdir=Path(inputs.workdir),
-            env=dict(config.env),
+            env=env,
             timeout=config.timeout,
+            resources=resources,
             label="rtes",
         )
     )

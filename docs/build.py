@@ -55,8 +55,13 @@ PROVENANCE_SCHEMA = 1
 #: had already taken the composed tree to 35 MiB, and from 80 before the develop
 #: pages reach main: each track then carries the API reference, the source views
 #: (#1069) and the assets, about 45 MiB apiece, so the composed tree is ~90 MiB.
-#: GitHub Pages' published-site limit is 1 GB.
-MAX_SITE_MIB = 150
+#: Raised from 150 to 200 (#2117) when the particle-motion references (#2045)
+#: took the composed tree to 152 MiB: every committed asset is published once per
+#: track, so it costs twice its size here.  The large generated media (GIFs and
+#: trajectory sidecars) are moving out of git under the same issue, which keeps
+#: the growth bounded; 200 leaves room for that work to land.  The size is
+#: printed on every two-track build.  GitHub Pages' published-site limit is 1 GB.
+MAX_SITE_MIB = 200
 
 
 class BuildError(RuntimeError):
@@ -462,8 +467,8 @@ def compose(tracks: list[Track], destination: Path) -> Path:
     return destination
 
 
-def validate_composed(tree: Path, tracks: list[Track]) -> None:
-    """Check the properties only the composed tree can have.
+def validate_composed(tree: Path, tracks: list[Track]) -> float:
+    """Check the properties only the composed tree can have; return its size in MiB.
 
     Deliberately in Python and not in ``validate_docs.rb``: that validator is
     per-track and reads ``_data``/``_guide``, none of which exist in output, and
@@ -527,6 +532,7 @@ def validate_composed(tree: Path, tracks: list[Track]) -> None:
     if problems:
         shown = "\n  ".join(sorted(set(problems))[:40])
         raise BuildError(f"composed site failed validation:\n  {shown}")
+    return size_mib
 
 
 # --------------------------------------------------------------------------
@@ -725,8 +731,9 @@ def main(argv: list[str] | None = None) -> int:
 
             if arguments.track == "both":
                 say("==> validating composed tree")
-                validate_composed(composed, tracks)
+                size_mib = validate_composed(composed, tracks)
                 say("    links, noindex, tooling and size checks passed")
+                say(f"    composed tree is {size_mib:.1f} MiB (ceiling {MAX_SITE_MIB} MiB)")
             else:
                 say("==> composed-tree validation skipped (single track)")
 

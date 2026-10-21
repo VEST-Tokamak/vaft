@@ -74,20 +74,22 @@ def test_the_renamed_equilibrium_precondition_keeps_its_old_name_working():
     )
 
 
-def test_the_renamed_impa_grading_keeps_its_old_name_working():
-    """Its arguments are a whole processed shot, so the delegation is what is
-    asserted here; `test_impa_processing.py` covers the grading itself.
+def test_the_moved_impa_grading_keeps_its_old_names_working():
+    """Both process-side names delegate to `vaft.validation.impa` and warn (#339).
+
+    Their arguments are a whole processed shot, so the delegation is what is
+    asserted here; `test_validation_impa.py` covers the answers.
     """
     from vaft.process import grade_impa_quality, validate_impa
 
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        with pytest.raises(TypeError):
-            validate_impa()
+    for legacy in (validate_impa, grade_impa_quality):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with pytest.raises(TypeError):
+                legacy()
 
-    assert any(item.category is DeprecationWarning for item in caught)
-    assert "grade_impa_quality" in str(caught[0].message)
-    assert callable(grade_impa_quality)
+        assert any(item.category is DeprecationWarning for item in caught)
+        assert "vaft.validation.impa.validate_impa" in str(caught[0].message)
 
 
 def test_the_moved_cocos_check_keeps_its_old_name_working():

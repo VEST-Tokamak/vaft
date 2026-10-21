@@ -81,6 +81,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_no_pyplot_outside_plot.py",
     "test_plot_backend_boundaries.py",
     "test_validation_architecture.py",
+    # IMPA grading moved into vaft.validation (#339): vocabulary, DD codes, old names; 3 s.
+    "test_validation_impa.py",
     # Flux-coordinate conventions, and where a renderer puts a feature because
     # of them. Cheap: a Solov'ev equilibrium and a synthetic GPEC run, no
     # solver. Added after V5P found an island figure drawing its O-points a
@@ -289,6 +291,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_tokamak_geometry.py",
     "test_diagram_transport.py",
     "test_diagram_transport_regimes.py",
+    "test_diagram_turbulence.py",
     "test_diagram_vaft_concepts.py",
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",

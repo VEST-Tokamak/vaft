@@ -21,10 +21,17 @@ something else:
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from pathlib import Path
 from typing import Optional, Sequence
 
-from ..execution import ExecutionRequest, ResourceRequest, resolve_backend, timeout_reason
+from ..execution import (
+    ExecutionRequest,
+    ResourceRequest,
+    configured_resources,
+    resolve_backend,
+    timeout_reason,
+)
 from .._executables import (
     executable_from_home,
     missing_home_message,
@@ -266,19 +273,24 @@ def run_gacode(
     """
     command = (str(executable), *[str(argument) for argument in arguments])
     timeout = None if config is None else config.timeout
+    # The launcher starts its own ranks from -n; this declares them for a
+    # scheduler. Threads stay with -nomp, which the launcher applies.
+    # GACODEConfig has already refused a ``resources`` that disagrees.
+    declared = ResourceRequest(
+        ntasks=1 if config is None else int(config.n_mpi),
+        memory_mb=None if config is None or config.memory_mb is None else int(config.memory_mb),
+    )
+    resources, env = configured_resources(config, declared, gacode_environment(config, code))
+    if resources.memory_mb is None and declared.memory_mb is not None:
+        resources = replace(resources, memory_mb=declared.memory_mb)
     execution = resolve_backend(config).run(
         ExecutionRequest(
             command=command,
             workdir=Path(cwd),
-            env=gacode_environment(config, code),
+            env=env,
             timeout=timeout,
             log_path=Path(log_path),
-            # The launcher starts its own ranks from -n; this declares them for
-            # a scheduler. Threads stay with -nomp, which the launcher applies.
-            resources=ResourceRequest(
-                ntasks=1 if config is None else int(config.n_mpi),
-                memory_mb=None if config is None or config.memory_mb is None else int(config.memory_mb),
-            ),
+            resources=resources,
             label=code,
         )
     )
