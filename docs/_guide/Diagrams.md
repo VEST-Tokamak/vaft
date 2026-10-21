@@ -2277,8 +2277,9 @@ Thomson and charge-exchange points are placed on flux surfaces by the equilibriu
 | Thomson scattering | measured | $T_e,\ n_e \pm \sigma\ \mathrm{at}\ (R, Z)$ |  | `thomson_scattering.channel[:].{t_e, n_e, position}` |
 | Magnetic equilibrium | reconstructed | $\psi(R, Z),\ q(\psi)$ |  | `equilibrium.time_slice[:].{profiles_2d, profiles_1d.q}` |
 | Charge exchange (optional) | measured | $T_i,\ v_\phi\ \mathrm{at}\ (R, Z)$ |  | `charge_exchange.channel[:].ion[:].{t_i, velocity_tor}` |
-| Flux-surface mapping | derived | $(R,Z) \to \psi_N \to \rho_{\mathrm{pol}} = \sqrt{\psi_N}, \rho_{\mathrm{tor},N}\ \mathrm{from}\ \Phi = \int q\,d\psi;\ \mathrm{outside\ the\ LCFS:\ dropped}$ | `vaft.process.profile.equilibrium_mapping_thomson_scattering` |  |
-| Fitting coordinate | model choice / convention (enters Flux-surface mapping) | $x = \rho_{\mathrm{tor},N}\ (\mathrm{default})\ \|\ \psi_N\ \|\ \rho_{\mathrm{pol},N}$ |  |  |
+| Flux-surface mapping (Thomson) | derived | $(R,Z) \to \psi_N \to \rho_{\mathrm{pol}} = \sqrt{\psi_N}, \rho_{\mathrm{tor},N}\ \mathrm{from}\ \Phi = \int q\,d\psi;\ \mathrm{outside\ the\ LCFS:\ NaN}$ | `vaft.process.profile.equilibrium_mapping_thomson_scattering` |  |
+| Flux-surface mapping (CX) | derived | $\mathrm{same\ mapping};\ \mathrm{outside\ the\ LCFS:\ NaN}$ | `vaft.process.profile.equilibrium_mapping_charge_exchange` |  |
+| Fitting coordinate | model choice / convention (enters Flux-surface mapping (Thomson)) | $x = \rho_{\mathrm{tor},N}\ (\mathrm{default})\ \|\ \psi_N\ \|\ \rho_{\mathrm{pol},N}$ |  |  |
 | Electron profile fit | derived | $T_e(x),\ n_e(x)$ | `vaft.process.profile.profile_fitting_thomson_scattering` |  |
 | Ion profile fit | derived | $T_i(x),\ v_\phi(x)$ | `vaft.process.profile.profile_fitting_charge_exchange` |  |
 | Fit model and order | model choice / convention (enters Electron profile fit) | $\mathrm{polynomial\ \|\ core\text{-}poly/edge\text{-}exp\ \|\ tanh\ \|\ GP},\ N = 3, \sigma\text{-}\mathrm{weighted};\ T > 0:\ \mathrm{order\ stepped\ down}$ | `vaft.formula.utils.fit_profile` |  |
@@ -2300,7 +2301,7 @@ One resolved local state and five independently computed routes; none feeds anot
 | --- | --- | --- | --- | --- |
 | Resolved local state | derived | $T_s,\ n_s,\ a/L_{T,n},\ q,\ \hat s,\ \hat\nu$ | `vaft.process.transport_state.resolve_transport_state` |  |
 | Classical: Braginskii | derived | $\mathrm{perpendicular\ conductive}\ q_{\perp,e},\ q_{\perp,i}, \mathrm{strongly\ magnetized}:\ \kappa_\perp \propto nT/(m\Omega^2\tau), \mathrm{software:\ always\ available}$ | `vaft.process.transport_state.classical_heat_fluxes` |  |
-| Neoclassical closures: Sauter / Redl | derived | $j_{\mathrm{bs}},\ \sigma_\parallel\ \mathrm{only:\ no}\ \Gamma_s,\ Q_s, \mathrm{software:\ always\ available}$ | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
+| Neoclassical closures: Sauter / Redl | derived | $j_{\mathrm{bs}};\ \sigma_\parallel\ \mathrm{from\ a\ separate\ conductivity\ call};\ \mathrm{no}\ \Gamma_s,\ Q_s, \mathrm{software:\ always\ available}$ | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
 | Neoclassical: NEO | solver / model | $\Gamma_s,\ Q_s,\ j_{\mathrm{bs}}\ (\mathrm{transport\ run}), \sigma_\parallel\ (\mathrm{separate}\ E_\parallel\ \mathrm{run}), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.neo.runner.run_neo_pair` |  |
 | Turbulent: TGLF | solver / model | $Q_s,\ \Gamma_s\ (\mathrm{quasilinear}), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.tglf.run_tglf` |  |
 | Turbulent: CGYRO | solver / model | $\mathrm{nonlinear}\ Q_s(t),\ \Gamma_s(t), \mathbf{optional}\ \mathrm{external\ code}$ | `vaft.code.gacode.cgyro.run_cgyro` |  |
@@ -2382,6 +2383,7 @@ Follow-up TODOs (implementation or IMAS mapping):
 - The shot-log mapper writes pulse_schedule when called (vaft shotlog CLI) but build_diagnostics_ods does not call it.
 - Wall and limiter history is the era table only; there is no per-component calibration lineage.
 - There is no single shot-to-machine object: era, revisions and provenance are separate lookups.
+- The static description is built per era, not per shot: PF, passive structure and coupling at the era's reference shot, magnetics and TF as the un-gated inventory. Per-shot wiring and revisions apply when the diagnostics IDS is built.
 
 ### Signal processing: raw digitizer records to a diagnostic IDS
 
@@ -2449,6 +2451,7 @@ There is no single anomaly model: each diagnostic has its own checks. Magnetics 
 | Clipping detection | derived | $\mathrm{PF,\ diamagnetic,\ TF}$ | `vaft.process.signal_processing.detect_clipped_samples` |  |
 | H-alpha usability | derived | $\mathrm{finite,\ not\ railed,\ live\ baseline}$ | `vaft.omas.plasma_timing.halpha_usability` |  |
 | Channel validity | standardized IMAS | $0,\ 1,\ -2$ | `vaft.validation.magnetics.project_validity` | `magnetics.{flux_loop[:].flux | b_field_pol_probe[:].field | ip[:]}.validity_timed` |
+| Rogowski validity | standardized IMAS | $\mathrm{one\ value\ per\ record}$ |  | `magnetics.rogowski_coil[:].current.validity` |
 | Repaired interval | derived | $x_i(t)\ \mathrm{across\ the\ clipped\ samples}$ | `vaft.process.signal_processing.repair_clipped_interval` |  |
 | Light sources for timing | derived | $\mathrm{usable}\ H_\alpha\ \mathrm{channels}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
 
@@ -2474,7 +2477,7 @@ A shot class is a rule applied to derived features -- the plasma window, the gau
 | Pressure response | derived | $\Delta p\ \mathrm{during\ the\ shot}$ | `vaft.omas.shot_class.pressure_response` |  |
 | Plasma window | derived | $t_{\mathrm{start}},\ t_{\mathrm{end}}$ | `vaft.omas.plasma_timing.plasma_timing` |  |
 | Slice phase | derived | $\mathrm{ramp\text{-}up\ /\ flat\ /\ ramp\text{-}down}:\ \mathrm{level}\ 0.9\,\|I_p\|_{\max}$ | `vaft.validation.equilibrium_regime.classify_equilibrium_regimes` |  |
-| Shot class | derived | $\mathrm{Plasma\ /\ BD\ failure\ /\ Vacuum},\ \mathrm{decided\ by}$ | `vaft.omas.shot_class.shot_class` | **IMAS mapping TODO:** kept in the database worker record, not in an IDS |
+| Shot class | derived | $\mathrm{Plasma\ /\ BD\ failure\ /\ Vacuum},\ \mathrm{decided\ by}$ | `vaft.omas.shot_class.shot_class` | **IMAS mapping TODO:** optionally kept in the database worker record (record_shot_class), not in an IDS |
 | Default thresholds | model choice / convention (enters Shot class) | $p_{\mathrm{th}} = 10^{-2},\ I_{p,\min} = 2\ \mathrm{kA}$ |  |  |
 
 Follow-up TODOs (implementation or IMAS mapping):
