@@ -11,7 +11,7 @@ import logging
 import os
 from pathlib import Path
 import tempfile
-from typing import Callable, Sequence
+from typing import Callable, Mapping, Sequence
 import warnings
 
 import numpy as np
@@ -2129,13 +2129,12 @@ def summary(
             raise ValueError("shot_range start must be less than or equal to end")
         shots = list(range(start, end + 1))
     frames: list[pd.DataFrame] = []
+    skipped: list[dict] = []
     from . import open as open_shot
 
     for shot in shots:
         try:
-            paths = list(definition.paths)
-            if "pulse_time_begin" in definition.columns and "dataset_description" not in paths:
-                paths.append("dataset_description")
+            paths = _preset_paths(definition)
             try:
                 with open_shot(shot, source=source, paths=paths) as ods:
                     rows = definition.extractor(ods, shot)
@@ -2149,40 +2148,144 @@ def summary(
                 with open_shot(shot, source=source, paths=remaining_paths) as ods:
                     rows = definition.extractor(ods, shot)
                 pulse_time_begin = None
-            if "pulse_time_begin" in definition.columns:
-                for row in rows:
-                    row["pulse_time_begin"] = pulse_time_begin
-            if not rows:
-                logger.warning(
-                    "Shot %s: preset %s produced no rows; skipping", shot, preset
-                )
-                continue
-            if "equilibrium_source" in definition.columns:
-                for row in rows:
-                    row["equilibrium_source"] = source
-            if "source" in definition.columns:
-                for row in rows:
-                    row["source"] = source
-            frames.append(pd.DataFrame(rows))
+            frame = _shot_frame(rows, definition, preset, shot, source, pulse_time_begin)
+            if frame is not None:
+                frames.append(frame)
         except Exception as exc:
             if _is_connection_error(exc):
                 raise ConnectionError(
                     f"Shot {shot}: source {source!r} is unreachable while summarising "
                     f"preset {preset}; stopped before trying the remaining shots"
                 ) from exc
-            logger.warning("Shot %s: preset %s failed; skipping: %s", shot, preset, exc)
+            _skip(skipped, shot, preset, exc)
 
+    return _assemble(frames, definition, skipped)
+
+
+def _preset_paths(definition: SummaryPreset) -> list[str]:
+    """The IDS paths one preset reads (``dataset_description`` for the pulse time)."""
+    paths = list(definition.paths)
+    if "pulse_time_begin" in definition.columns and "dataset_description" not in paths:
+        paths.append("dataset_description")
+    return paths
+
+
+def _shot_frame(
+    rows: list[dict],
+    definition: SummaryPreset,
+    preset: str,
+    shot: int,
+    source: str,
+    pulse_time_begin: str | None,
+) -> pd.DataFrame | None:
+    """One shot's rows with the shot-level columns every preset carries."""
+    if "pulse_time_begin" in definition.columns:
+        for row in rows:
+            row["pulse_time_begin"] = pulse_time_begin
+    if not rows:
+        logger.warning("Shot %s: preset %s produced no rows; skipping", shot, preset)
+        return None
+    if "equilibrium_source" in definition.columns:
+        for row in rows:
+            row["equilibrium_source"] = source
+    if "source" in definition.columns:
+        for row in rows:
+            row["source"] = source
+    return pd.DataFrame(rows)
+
+
+def _skip(skipped: list[dict], shot: int, preset: str, exc: BaseException) -> None:
+    logger.warning("Shot %s: preset %s failed; skipping: %s", shot, preset, exc)
+    skipped.append({"shot": int(shot), "reason": f"{type(exc).__name__}: {exc}"})
+
+
+def _assemble(
+    frames: list[pd.DataFrame], definition: SummaryPreset, skipped: list[dict]
+) -> pd.DataFrame:
+    """The canonical table: preset columns in order, sorted, skipped shots in ``attrs``."""
     if not frames:
-        return pd.DataFrame(columns=definition.columns)
-    result = pd.concat(frames, ignore_index=True)
-    for column in definition.columns:
-        if column not in result:
-            result[column] = np.nan
-    return (
-        result.loc[:, definition.columns]
-        .sort_values(list(definition.sort_columns), kind="stable")
-        .reset_index(drop=True)
-    )
+        result = pd.DataFrame(columns=definition.columns)
+    else:
+        result = pd.concat(frames, ignore_index=True)
+        for column in definition.columns:
+            if column not in result:
+                result[column] = np.nan
+        result = (
+            result.loc[:, definition.columns]
+            .sort_values(list(definition.sort_columns), kind="stable")
+            .reset_index(drop=True)
+        )
+    result.attrs["skipped"] = list(skipped)
+    return result
+
+
+def _private_copy(ods):
+    """A copy of ``ods`` for one extractor run.
+
+    The extractors write derived quantities into the ODS they are given (the
+    boundary, beta and diamagnetic-flux updaters), and OMAS item access creates
+    a missing path instead of failing. On the database path that happens to a
+    throw-away lazy view; here it must not happen to the caller's ODS. The copy
+    is whole because the extractors read beyond the preset's ``paths`` (the
+    lazy view fetches any leaf they touch), so a narrower copy would not give
+    the same table.
+    """
+    import copy
+
+    return copy.deepcopy(ods)
+
+
+def _ods_shot(ods, key) -> int:
+    if key is not None:
+        return int(key)
+    try:
+        return int(ods["dataset_description.data_entry.pulse"])
+    except Exception as exc:
+        raise ValueError(
+            "an ODS without dataset_description.data_entry.pulse needs its shot: "
+            "pass a {shot: ods} mapping"
+        ) from exc
+
+
+def summary_from_ods(
+    odss,
+    *,
+    preset: str = "equilibrium_global",
+    source: str = "local",
+) -> pd.DataFrame:
+    """The same canonical preset table as :func:`summary`, from in-memory ODS.
+
+    ``odss`` is a ``{shot: ods}`` mapping, or ODS objects that record their
+    shot in ``dataset_description.data_entry.pulse``. Each shot goes through
+    exactly what :func:`summary` does with a database shot -- the preset's
+    extractor (on a private copy, see :func:`_private_copy`),
+    ``pulse_time_begin``, the source columns,
+    then the preset's column order and sort -- so the two paths give the same
+    table for the same data. ``source`` fills the ``source`` and
+    ``equilibrium_source`` columns where the preset has them.
+
+    A shot whose extractor fails is skipped with a warning, as on the database
+    path; ``result.attrs["skipped"]`` lists ``{"shot", "reason"}`` for each.
+    The caller's ODS objects are not modified.
+    """
+    definition = get_summary_preset(preset)
+    if isinstance(odss, Mapping):
+        items = [(_ods_shot(ods, shot), ods) for shot, ods in odss.items()]
+    else:
+        items = [(_ods_shot(ods, None), ods) for ods in odss]
+    frames: list[pd.DataFrame] = []
+    skipped: list[dict] = []
+    for shot, ods in items:
+        try:
+            view = _private_copy(ods)
+            rows = definition.extractor(view, shot)
+            pulse_time_begin = _pulse_time_begin(view)
+            frame = _shot_frame(rows, definition, preset, shot, source, pulse_time_begin)
+            if frame is not None:
+                frames.append(frame)
+        except Exception as exc:
+            _skip(skipped, shot, preset, exc)
+    return _assemble(frames, definition, skipped)
 
 
 def _columns(values: Sequence[str] | None, label: str) -> tuple[str, ...]:

@@ -47,6 +47,21 @@ linear transformation between shot and date. Date-primary plots omit rows
 without acquisition timestamps. Summaries with several rows per shot retain
 every row; select the desired time slices in the DataFrame before plotting.
 
+The same tables can be built offline from in-memory ODS, for example the packaged samples:
+
+```python
+samples = {shot: vaft.omas.sample_ods(shot) for shot in (39915, 41672)}
+slices = vaft.database.summary(odss=samples, preset="equilibrium_global")
+slices.attrs["skipped"]        # [{"shot": ..., "reason": ...}] for shots the preset could not run on
+```
+
+`summary(odss=...)` (also `vaft.database.summary_from_ods`) runs the same extractor, shot-level
+columns, column order and sort as the database path, so a shot gives the same table either way. It
+takes a `{shot: ods}` mapping or ODS objects that record `dataset_description.data_entry.pulse`.
+Each extractor works on a private copy, so the caller's ODS is not modified. `source` (default
+`"local"`) only labels the `source`/`equilibrium_source` columns. Both paths list the shots they
+skipped, with the reason, in `attrs["skipped"]`.
+
 ## Transport summary hierarchy
 
 `equilibrium_global` and `core_profiles` describe their respective time
