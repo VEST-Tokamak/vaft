@@ -40,6 +40,7 @@ weights or a raw Torch module. Select related metrics with compatible units.
 
 ## Structured source and checkpoint example
 
+<!-- docs-snippet: skip fragment (placeholder names source, groups and registered_model_spec are the reader's own data and task factory) -->
 ```python
 from vaft.process import ml
 
