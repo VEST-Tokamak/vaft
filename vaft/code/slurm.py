@@ -54,8 +54,8 @@ Contract details specific to Slurm:
   handle carrying the job id; ``result()`` then polls and collects it as
   ``run`` would, in the calling thread, and ``cancel()`` is ``scancel``. Many
   jobs can be queued before any is waited for, without a thread each.
-  ``max_wait`` counts from submission; a job still queued past it is cancelled
-  when its handle is next polled (``done()``) or collected. In step
+  ``max_wait`` counts from submission; a job past it is cancelled when its
+  handle is next polled (``done()``) or collected. In step
   mode ``submit`` is eager: ``srun`` runs the step to completion first, so a
   scan inside an allocation runs its steps one after another.
 * The working directory, and the executables, must be on a filesystem the
@@ -691,7 +691,7 @@ class SlurmBackend:
         clusters = ["-M", cluster] if cluster else []
         return _BatchJob(request, tuple(argv), job_id, clusters, scratch, log_path, started)
 
-    def _finish_batch(self, job: "_BatchJob", *, queue_cancelled: bool = False) -> ExecutionResult:
+    def _finish_batch(self, job: "_BatchJob", *, max_wait_cancelled: bool = False) -> ExecutionResult:
         request, argv, job_id, clusters = job.request, job.argv, job.job_id, job.clusters
         scratch, log_path, started = job.scratch, job.log_path, job.started
         try:
@@ -703,7 +703,7 @@ class SlurmBackend:
                 try:
                     # A handle that already cancelled it for max_wait while
                     # polling sees it gone here; it was still a cancel.
-                    cancelled = self._wait(job_id, clusters, started) or queue_cancelled
+                    cancelled = self._wait(job_id, clusters, started) or max_wait_cancelled
                 except BaseException:
                     self._cancel(job_id, clusters)
                     raise
@@ -922,8 +922,8 @@ class _BatchHandle(JobHandle):
 
     ``done()`` queries ``squeue`` at most once per backend ``poll_interval``
     and answers from that state in between. While polled it also applies
-    ``max_wait`` to a job that is still queued, as ``run`` would, so a job
-    whose turn to be collected comes late is not left waiting past it.
+    ``max_wait``, as ``run`` would, so a job whose turn to be collected comes
+    late is not left waiting past it.
     """
 
     def __init__(self, backend: SlurmBackend, job: _BatchJob) -> None:
@@ -933,30 +933,40 @@ class _BatchHandle(JobHandle):
         self._outcome: Optional[tuple[Optional[ExecutionResult], Optional[BaseException]]] = None
         self._finished = False
         self._polled: Optional[float] = None
-        self._queue_cancelled = False
+        self._unknown = 0
+        #: When ``done()`` cancelled the job for ``max_wait``.
+        self._max_wait_cancel: Optional[float] = None
 
-    def _poll(self, *, force: bool = False) -> bool:
-        """Whether the job has left the queue; queries squeue when due (or ``force``)."""
+    def _poll(self) -> bool:
+        """Whether ``result()`` would no longer wait on the cluster.
+
+        Mirrors :meth:`SlurmBackend._wait`, at most one ``squeue`` per
+        ``poll_interval``: a job past ``max_wait`` (queued or running) is
+        cancelled and given ``cancel_grace`` to leave, and ``squeue`` failing
+        ``_UNKNOWN_POLLS`` times in a row hands over to ``result()``, whose
+        own wait asks accounting and raises rather than spin.
+        """
         if self._finished:
             return True
         now = time.monotonic()
-        if not force and self._polled is not None and now - self._polled < self._backend.poll_interval:
+        if self._polled is not None and now - self._polled < self._backend.poll_interval:
             return False
         self._polled = now
-        if self._backend._live(self._job.job_id, self._job.clusters) is False:
+        live = self._backend._live(self._job.job_id, self._job.clusters)
+        if live is False:
+            self._finished = True
+            return True
+        self._unknown = self._unknown + 1 if live is None else 0
+        if self._unknown >= _UNKNOWN_POLLS:
             self._finished = True
             return True
         max_wait = self._backend.max_wait
-        if (
-            max_wait is not None
-            and not self._queue_cancelled
-            and now - self._job.started > max_wait
-            and not (self._job.scratch / "started").exists()
-        ):
-            # Still queued past max_wait: cancel it now, while it has not
-            # started, rather than when it is collected (cold review #1018).
+        if self._max_wait_cancel is None and max_wait is not None and now - self._job.started > max_wait:
             self._backend._cancel(self._job.job_id, self._job.clusters)
-            self._queue_cancelled = True
+            self._max_wait_cancel = now
+        elif self._max_wait_cancel is not None and now - self._max_wait_cancel > self._backend.cancel_grace:
+            self._finished = True
+            return True
         return False
 
     def done(self) -> bool:
@@ -970,7 +980,9 @@ class _BatchHandle(JobHandle):
         if self._outcome is None:
             try:
                 self._outcome = (
-                    self._backend._finish_batch(self._job, queue_cancelled=self._queue_cancelled),
+                    self._backend._finish_batch(
+                        self._job, max_wait_cancelled=self._max_wait_cancel is not None
+                    ),
                     None,
                 )
             except Exception as error:  # noqa: BLE001 - kept, so a second call raises it again
@@ -984,12 +996,15 @@ class _BatchHandle(JobHandle):
     def cancel(self) -> bool:
         if self._cancelled or self._outcome is not None:
             return False
-        if self._poll(force=True):
-            # Finished but not collected: nothing to stop, and scancel on a
-            # finished job only fails (with retries).
+        if self._poll():
+            # Finished but not collected (as of the last poll): nothing to
+            # stop, and scancel on a finished job only fails, with retries.
             return False
+        if self._max_wait_cancel is None:
+            self._backend._cancel(self._job.job_id, self._job.clusters)
+        # Marked only once scancel returned: a signal cutting it short leaves
+        # the handle cancellable, so a repeated cancel_handles sends it again.
         self._cancelled = True
-        self._backend._cancel(self._job.job_id, self._job.clusters)
         return True
 
     def settle(self, timeout: Optional[float] = None) -> None:

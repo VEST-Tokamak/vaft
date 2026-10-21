@@ -730,6 +730,45 @@ def test_a_polled_handle_applies_max_wait_to_a_queued_job(tmp_path, slurm, monke
     assert (result.timed_out, result.runtime_status) == (True, "queue_timeout")
 
 
+def test_a_polled_handle_applies_max_wait_to_a_running_job(tmp_path, slurm):
+    """Re-review #1018: a running head-of-line job is not exempt from max_wait."""
+    import time
+
+    work = _workdir(tmp_path)
+    backend = _batch(max_wait=0.5)
+    handle = backend.submit(_python(work, "import time; time.sleep(60)"))
+    deadline = time.monotonic() + 30
+    while not handle.done() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert handle.done() and slurm("scancel")
+    result = handle.result()
+    assert result.timed_out and result.runtime_status == "timeout"
+
+
+def test_a_handle_whose_squeue_never_answers_raises_instead_of_spinning(tmp_path, slurm, monkeypatch):
+    import time
+
+    monkeypatch.setenv("FAKE_SQUEUE_FLAKY", "100000")
+    monkeypatch.setenv("FAKE_SLURM_NO_SACCT", "1")
+    work = _workdir(tmp_path)
+    handle = _batch().submit(_python(work, "import time; time.sleep(30)"))
+    deadline = time.monotonic() + 60
+    while not handle.done() and time.monotonic() < deadline:
+        pass
+    assert handle.done()
+    with pytest.raises(RuntimeError, match="could not be followed"):
+        handle.result()
+    subprocess_kill = slurm.directory / "1000.pid"
+    if subprocess_kill.exists():  # do not leave the fake job sleeping
+        import os
+        import signal
+
+        try:
+            os.killpg(int(subprocess_kill.read_text()), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
 def test_a_batch_handle_polls_squeue_at_most_once_per_interval(tmp_path, slurm, monkeypatch):
     monkeypatch.setenv("FAKE_SLURM_OUTCOME", "PENDING")
     work = _workdir(tmp_path)
