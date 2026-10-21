@@ -2299,15 +2299,15 @@ One local gyrokinetic state projected into TGLF (quasilinear) and CGYRO (local d
 | Quasilinear fluxes and spectrum | native result | $Q_s,\ \Gamma_s;\ \gamma(k_y),\ \omega(k_y)$ | `vaft.code.gacode.tglf.collect_tglf_outputs` |  |
 | Linear eigenmodes | native result | $\gamma,\ \omega,\ \phi(\theta)$ | `vaft.code.gacode.cgyro.collect_cgyro_outputs` |  |
 | Saturated fluxes (nonlinear) | native result | $\langle Q_s\rangle_t,\ \langle\Gamma_s\rangle_t$ | `vaft.code.gacode.cgyro.collect_cgyro_outputs` |  |
-| Turbulent transport (TGLF) | standardized IMAS | $Q_s,\ \Gamma_s\ \mathrm{(quasilinear)}$ | `vaft.machine_mapping.turbulence.core_transport_from_tglf` | `core_transport.model[:]`; **IMAS mapping TODO:** no TGLF to gyrokinetics_local writer |
-| Gyrokinetic run (CGYRO) | standardized IMAS | $\gamma,\ \omega;\ \langle Q_s\rangle_t,\ \langle\Gamma_s\rangle_t$ | `vaft.machine_mapping.gyrokinetics.gyrokinetics_local_from_cgyro` | `gyrokinetics_local.{linear.wavevector[:].eigenmode[:], non_linear.fluxes_1d}` |
+| Turbulent transport (TGLF) | standardized IMAS | $Q_s,\ \Gamma_s\ \mathrm{(quasilinear)}$ | `vaft.machine_mapping.turbulence.core_transport_from_tglf` | `core_transport.model[:]`; **IMAS mapping TODO:** gyrokinetics_local (via gyrokinetics_local_from_tglf) not stored by any stage (#1128/#1129) |
+| Gyrokinetic run (CGYRO) | standardized IMAS | $\gamma,\ \omega;\ \langle Q_s\rangle_t,\ \langle\Gamma_s\rangle_t$ | `vaft.machine_mapping.gyrokinetics.gyrokinetics_local_from_cgyro` | `gyrokinetics_local.{linear.wavevector[:].eigenmode[:], non_linear.fluxes_1d}`; **IMAS mapping TODO:** gyrokinetics_local not stored by any stage (#1128/#1129) |
 
 Follow-up TODOs (implementation or IMAS mapping):
 
 - Rotation and ExB shear are zero in both projections (TGLF VEXB_SHEAR, CGYRO GAMMA_E, MACH): their derivation from data is not implemented (#553).
 - Squareness zeta enters as 0 (VEST equilibria carry no squareness); Z_EFF is not written to input.cgyro by design: CGYRO recomputes it from the species list (Z_EFF_METHOD=2).
 - No implemented local-gyrokinetic validity criterion (rho*): compare_with_oracle checks only the input translation against CGYRO's own projection.
-- No TGLF to gyrokinetics_local mapping.
+- gyrokinetics_local_from_tglf and gyrokinetics_local_from_cgyro write gyrokinetics_local, but no pipeline stage stores that IDS: turbulent_transport owns core_transport only, and one occurrence per flux surface awaits the #1128/#1129 occurrence model (#2020).
 
 ### Plasma parameter inference: completing the kinetic profiles
 
