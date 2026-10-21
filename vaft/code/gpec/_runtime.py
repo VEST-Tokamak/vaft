@@ -407,8 +407,11 @@ def run_subprocess(
     log_path: Path,
     *,
     config: "GPECSuiteConfig",
+    command_prefix: tuple[str, ...] = (),
 ) -> tuple[int, Path]:
-    command = (str(executable_path),)
+    # A prefix runs the program through a filter that owns its output, such as
+    # PENTRC's log cap (#1929); the program itself is still the last word.
+    command = (*command_prefix, str(executable_path))
     execution = resolve_backend(config).run(
         ExecutionRequest(
             command=command,
