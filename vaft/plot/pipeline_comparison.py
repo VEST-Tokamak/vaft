@@ -84,6 +84,22 @@ def _values(table: pd.DataFrame, value: str, side: str, by: str, better: str | N
     return column[column > 0] if log else column
 
 
+def _thin_symlog_ticks(ax, linthresh: float, max_ticks: int = 9) -> None:
+    """Decade ticks on a symlog axis, every k-th decade so at most ``max_ticks`` show."""
+    from matplotlib.ticker import NullLocator
+
+    low, high = ax.get_xlim()
+    base = np.log10(linthresh)
+    top = [int(np.ceil(np.log10(v))) if v > linthresh else None for v in (abs(low), abs(high))]
+    neg = range(int(np.floor(base)), (top[0] or int(base)) + 1) if low < -linthresh else range(0)
+    pos = range(int(np.floor(base)), (top[1] or int(base)) + 1) if high > linthresh else range(0)
+    count = len(neg) + len(pos) + 1
+    step = max(1, int(np.ceil(count / max_ticks)))
+    ticks = [-(10.0 ** d) for d in list(neg)[::-1][::step]][::-1] + [0.0] + [10.0 ** d for d in list(pos)[::step]]
+    ax.set_xticks([t for t in ticks if low <= t <= high])
+    ax.xaxis.set_minor_locator(NullLocator())
+
+
 def pipeline_comparison_distribution(
     table: pd.DataFrame,
     value: str,
@@ -122,23 +138,20 @@ def pipeline_comparison_distribution(
         ax.plot([median], [0.5], marker="o", markersize=8, color=style["color"],
                 markeredgecolor="white", markeredgewidth=2.0, zorder=3)
         curves.append((median, data.size, style))
-    # Labels sit in the two corners the curves leave empty: the curve further
-    # left (smaller median) is named top-left, the other bottom-right. Each
-    # label carries a short line sample, so identity is not colour alone.
+    # Each side is named in a row above the axes, with a line sample, so no
+    # label can sit on a curve and identity is not colour alone.
     from matplotlib.lines import Line2D
 
-    for rank, (median, count, style) in enumerate(sorted(curves, key=lambda c: c[0])):
-        top = rank == 0
-        # (text x, text y, sample x0, sample x1, sample y) in axes fractions.
-        tx, ty, x0, x1, sy = (0.13, 0.97, 0.03, 0.11, 0.935) if top else (0.87, 0.03, 0.89, 0.97, 0.115)
-        ax.text(tx, ty, f"{style['label']}\nn = {count}, median {median:.3g}", transform=ax.transAxes,
-                ha="left" if top else "right", va="top" if top else "bottom", color=INK,
-                fontsize=_font("legend.fontsize", 1.1))
-        ax.add_line(Line2D((x0, x1), (sy, sy), transform=ax.transAxes, color=style["color"],
-                           linestyle=style["linestyle"], linewidth=2.0))
+    for k, (median, count, style) in enumerate(curves):
+        x0 = 0.0 + 0.5 * k
+        ax.add_line(Line2D((x0, x0 + 0.07), (1.075, 1.075), transform=ax.transAxes, color=style["color"],
+                           linestyle=style["linestyle"], linewidth=2.0, clip_on=False))
+        ax.text(x0 + 0.09, 1.04, f"{style['label']}\nn = {count}, median {median:.3g}", transform=ax.transAxes,
+                ha="left", va="bottom", color=INK, fontsize=_font("legend.fontsize", 1.0))
     if linthresh is not None:
         ax.set_xscale("symlog", linthresh=float(linthresh))
         ax.axvline(0.0, color=MUTED, linewidth=1.0, linestyle=":")
+        _thin_symlog_ticks(ax, float(linthresh))
     elif log:
         ax.set_xscale("log")
     ax.set_ylim(0.0, 1.02)

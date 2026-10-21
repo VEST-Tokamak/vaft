@@ -563,11 +563,12 @@ def process_shot(shot: int, args, tables: Mapping[str, Table], points_budget: li
     if "vacuum" in checks and shot not in _done(args.output, "vacuum"):
         rows, loaded = [], {}
         for source in ("public", "main"):
+            # A failed read propagates: the shot is logged and left for a resume
+            # rather than marked done with a load-error row (an hsget that ran out
+            # of file descriptors once dropped 234 shots that way).
             try:
                 loaded[source] = vaft.database.load(
                     shot, source=source, paths=["magnetics", "pf_active", "pf_passive"], cache="off")
-            except Exception as error:
-                rows.append({"source": source, "shot": shot, "status": "load_error", "reason": repr(error)[:300]})
             finally:
                 time.sleep(args.hsds_sleep)
         for source, ods in loaded.items():
