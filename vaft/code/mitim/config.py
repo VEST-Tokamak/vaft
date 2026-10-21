@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any, Mapping, Optional
 from ..base import RunOutcome
 
 if TYPE_CHECKING:
-    from ..execution import ExecutionBackend
+    from ..execution import ExecutionBackend, ResourceRequest
     from ..gacode._types import GACODEConfig
 
 __all__ = [
@@ -84,6 +84,10 @@ class MITIMConfig:
     cores: int = 1
     timeout: Optional[float] = None
     backend: Optional["ExecutionBackend"] = None
+    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: own declaration; a value replaces it, and its ``threads_per_task`` is
+    #: set in the launch environment over ``env`` and the inherited one.
+    resources: Optional["ResourceRequest"] = None
     env: Mapping[str, str] = field(default_factory=dict)
     verbose_level: int = 1
 

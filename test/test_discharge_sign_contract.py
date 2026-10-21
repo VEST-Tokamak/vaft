@@ -260,7 +260,7 @@ def test_the_packaged_gfile_validates_as_cocos_one_and_eleven_not_three():
     Guards the claim the docstring makes, using the repository's own validator
     rather than restating the prose.
     """
-    from vaft.process.cocos import validate_cocos
+    from vaft.validation.cocos import validate_cocos
     from vaft.process.equilibrium import as_equilibrium
 
     equilibrium = as_equilibrium(_packaged_gfile())
@@ -282,7 +282,7 @@ def test_applying_the_ip_transformation_makes_the_gfile_cocos_three_or_thirteen(
     """
     from vaft.data.eqdsk import GEQDSK
     from vaft.machine_mapping import IP_SIGN_VEST_TO_IMAS
-    from vaft.process.cocos import validate_cocos
+    from vaft.validation.cocos import validate_cocos
     from vaft.process.equilibrium import as_equilibrium
 
     mapping = dict(_packaged_gfile().mapping)

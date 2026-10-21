@@ -565,6 +565,24 @@ path.
 
 ---
 
+## Who runs things in parallel
+
+Three layers can run work concurrently, and each owns one kind of parallelism (#1018):
+
+| Layer | Owns | Does not |
+| --- | --- | --- |
+| Snakemake and its cluster profile | parallelism across rules and shots of a DAG | reach inside a rule |
+| a scan or campaign inside one script (`scan_chease`, a VFIT driver) | parallelism across the independent cases of that call, through `submit` / `wait` / `cancel` on its execution backend | start MPI ranks or pick GPUs itself |
+| the execution backend | realizing one case: a local child, a Slurm step or batch job, with that case's `ResourceRequest` | schedule other cases |
+
+Inside a Snakemake job that runs under Slurm, `SlurmBackend` in `auto` mode uses `srun` steps in the
+job's allocation and never submits a nested `sbatch`; its `submit` is eager there, so a scan inside a
+rule solves its cases one after another. Outside any allocation, a script's scan can fan out with
+`SlurmBackend(mode="batch")` or `LocalBackend(max_concurrent=N)`. A rule that declares `threads:`
+should not also run a `max_concurrent` scan wider than those threads.
+
+---
+
 ## Related
 
 Each pipeline stage has an interactive notebook counterpart — read those first if you want to understand what

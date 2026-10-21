@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
 if TYPE_CHECKING:
     from vaft.machine_mapping.coils_non_axisymmetric_geometry import CoilSet3D
 
-    from ..execution import ExecutionBackend
+    from ..execution import ExecutionBackend, ResourceRequest
     from ._coil_input import CoilInputSpec
 
 GPEC_HOME_ENV = "GPECHOME"
@@ -630,6 +630,10 @@ class GPECSuiteConfig:
     stride: STRIDEOptions = field(default_factory=STRIDEOptions)
     gpec: IdealGPECOptions = field(default_factory=IdealGPECOptions)
     backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
+    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: own declaration; a value replaces it, and its ``threads_per_task`` is
+    #: set in the launch environment over ``env`` and the inherited one.
+    resources: Optional["ResourceRequest"] = None
 
 
 @dataclass

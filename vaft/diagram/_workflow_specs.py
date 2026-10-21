@@ -1304,9 +1304,7 @@ _SPECS = (
                "them from the DD-conformant magnetics and pf_active IDSs.",
                "rho_tor integrates q from the axis, so EFIT's often outlying q[0] moves rho_tor_norm by up to "
                "about 0.04 on the innermost surfaces; packaged samples older than #192 still hold the "
-               "sqrt(psi_N) proxy.",
-               "convert_cocos shifts the identified-candidate list on the assumption that every candidate "
-               "shares the source's storage family, which can produce an out-of-range index (#601)."),
+               "sqrt(psi_N) proxy."),
     ),
     WorkflowSpec(
         key="power_balance_confinement", title="Power balance and confinement: experimental and modelled",

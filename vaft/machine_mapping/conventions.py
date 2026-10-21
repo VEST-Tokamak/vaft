@@ -71,7 +71,7 @@ conventions.
 corroborating it.**  ``g039915.00319`` stores ``CURRENT = +77040`` beside
 ``BCENTR = +0.1498``: parallel, where the contract requires antiparallel.  By its
 own signs it validates as COCOS 1 or 11 and *fails* validation against 3 and 13
-on ``dpsi`` and ``pprime`` -- which :func:`vaft.process.cocos.validate_cocos`
+on ``dpsi`` and ``pprime`` -- which :func:`vaft.validation.cocos.validate_cocos`
 reports directly.  Its ``q > 0`` is therefore not evidence for COCOS 3; it is
 what a parallel configuration gives in COCOS 1/11.
 
