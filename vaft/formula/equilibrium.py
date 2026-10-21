@@ -2527,13 +2527,14 @@ def beta_poloidal_from_circumference(p_average: float,
 
 def current_limit_from_q(q_95: float,
                         a: float,
-                        B0: float) -> float:
+                        B0: float,
+                        R0: float) -> float:
     r"""Plasma current at a prescribed edge safety factor, cylindrical approximation.
 
-    $$I_p = \frac{2\pi a^2 B_0}{\mu_0\,q_{95}}$$
+    $$I_p = \frac{2\pi a^2 B_0}{\mu_0 R_0\,q_{95}}$$
 
-    the inversion of $q_{cyl} = 2\pi a^2 B_0/(\mu_0 R\,I_p)\times R/R$ for a
-    circular cross-section written per unit major radius.
+    the inversion of the cylindrical safety factor
+    $q_{cyl} = 2\pi a^2 B_0/(\mu_0 R_0 I_p)$ of a circular cross-section.
 
     Parameters
     ----------
@@ -2542,12 +2543,14 @@ def current_limit_from_q(q_95: float,
     a : float
         Minor radius [m].
     B0 : float
-        Toroidal field on axis [T].
+        Vacuum toroidal field at ``R0`` [T].
+    R0 : float
+        Major radius [m].
 
     Returns
     -------
     float
-        Plasma current reaching ``q_95`` [A m].
+        Plasma current at which $q_{cyl}$ equals ``q_95`` [A].
 
     Assumptions
     -----------
@@ -2556,22 +2559,36 @@ def current_limit_from_q(q_95: float,
 
     Limitations
     -----------
-    As written the expression lacks the $1/R$ of the cylindrical safety factor
-    $q = 2\pi a^2 B_0/(\mu_0 R I_p)$ and therefore returns $I_p R$ [A m], not a
-    current; divide by $R$ for amperes.  Elongation is ignored.  Tracked in #362.
+    Elongation is ignored: an elongated plasma carries $(1+\kappa^2)/2$ times
+    more current at the same edge $q$.  At low aspect ratio the cylindrical
+    $q$ is well below $q_{95}$, so reaching a given $q_{95}$ takes more current
+    than this returns: the result is an underestimate there (conservative as a
+    limit), by a factor of about 2.4 at $A \approx 1.3$ for a circular
+    cross-section with the START factor of :func:`estimated_q95` (about
+    $2.4\,(1+\kappa^2)/2$ with elongation), which covers both shape and aspect
+    ratio.  Before #362 the
+    expression lacked the $1/R_0$ and returned $I_p R_0$ [A m]; ``R0`` is now a
+    required argument, so an old three-argument call fails rather than
+    returning that.
 
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 3.4 (cylindrical safety factor).
     """
-    return 2 * np.pi * a**2 * B0 / (MU0 * q_95)
+    return 2 * np.pi * a**2 * B0 / (MU0 * R0 * q_95)
 
 
 def current_limit_from_beta(beta_N: float,
                           a: float,
                           B0: float) -> float:
-    r"""Current figure obtained by substituting $\beta_N$ for $q$ in the cylindrical relation.
+    r"""Deprecated: the cylindrical-$q$ current formula with $\beta_N$ substituted for $q$; no drop-in replacement.
+
+    No derivation or source records what this was meant to bound (#362).  A
+    current at a Troyon limit follows from $\beta_N = \beta\,a B_0/I_p$
+    (:func:`vaft.formula.stability.beta_N_from_beta_a_B0_Ip`) and the
+    ``troyon`` boundary of :mod:`vaft.formula.boundaries`.  Results are
+    unchanged; a ``DeprecationWarning`` is emitted.
 
     $$I_p = \frac{2\pi a^2 B_0}{\mu_0\,\beta_N}$$
 
@@ -2593,15 +2610,22 @@ def current_limit_from_beta(beta_N: float,
     -----------
     Dimensionally the cylindrical-$q$ formula with $\beta_N$ in the place of $q$;
     no derivation or source records what this is meant to bound, and the result
-    depends on the units chosen for $\beta_N$.  Kept for compatibility; prefer
-    :func:`vaft.formula.stability.beta_N_from_beta_a_B0_Ip` and the Troyon limit.
-    Tracked in #362.
+    depends on the units chosen for $\beta_N$.  It also lacks the $1/R$ that
+    :func:`current_limit_from_q` now carries.  Deprecated (#362).
 
     References
     ----------
     .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209 (the
            $\beta_N$ limit this appears to invert).
     """
+    warnings.warn(
+        "`current_limit_from_beta` is deprecated (#362): it is the cylindrical-q current formula "
+        "with beta_N substituted for q and has no derivation. For a current at a beta_N limit "
+        "invert `vaft.formula.stability.beta_N_from_beta_a_B0_Ip` (beta_N = beta a B0 / I_p in its "
+        "Troyon units: beta in %, I_p in MA, beta_N in %·m·T/MA).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return 2 * np.pi * a**2 * B0 / (MU0 * beta_N)
 
 
