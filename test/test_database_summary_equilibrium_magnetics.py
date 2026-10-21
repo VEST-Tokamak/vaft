@@ -14,10 +14,12 @@ from contextlib import contextmanager
 import copy
 
 import numpy as np
+import pandas as pd
 import pytest
 
 import vaft
 from vaft import database
+from vaft.database._summary import extract_equilibrium_global
 
 
 def _head(location) -> str:
@@ -79,9 +81,36 @@ def test_the_measured_mu_i_is_filled_through_the_lazy_view(monkeypatch, shot):
     assert np.isfinite(table["virial_mui_measured"].to_numpy(dtype=float)).any()
 
 
-def test_a_shot_without_magnetics_keeps_its_reconstructed_flux(monkeypatch):
-    """48224 stores an equilibrium but no magnetics: the 404 costs only the measured flux."""
+def test_a_shot_without_magnetics_loses_only_the_measured_flux(monkeypatch):
+    """48224 stores an equilibrium but no magnetics: the 404 costs nothing else.
+
+    The reconstructed diamagnetic flux and every equilibrium-derived virial
+    column must equal what the full in-memory ODS gives.
+    """
     ods, _, table = _table(monkeypatch, 48224)
     assert "magnetics" not in ods
+    offline = pd.DataFrame(extract_equilibrium_global(copy.deepcopy(ods), 48224))
     assert np.isfinite(table["dia_flux_Wb"].to_numpy(dtype=float)).all()
+    assert np.isfinite(table["virial_beta"].to_numpy(dtype=float)).all()
     assert np.isnan(table["virial_mui_measured"].to_numpy(dtype=float)).all()
+    columns = [column for column in offline.columns if column in table.columns]
+    pd.testing.assert_frame_equal(
+        table[columns].reset_index(drop=True), offline[columns], check_dtype=False
+    )
+
+
+def test_a_magnetics_read_failure_other_than_404_is_not_hidden():
+    """A 403 or a dropped connection is not an ODS without a diamagnetic loop."""
+    ods = vaft.omas.sample_ods(39915)
+    from omas import ODS
+
+    class Forbidden(ODS):
+        def __contains__(self, location):
+            if not self.location and _head(location) == "magnetics":
+                raise OSError(403, "Forbidden")
+            return super().__contains__(location)
+
+    view = Forbidden(imas_version=ods.imas_version, consistency_check=False)
+    view["equilibrium"] = copy.deepcopy(ods["equilibrium"])
+    with pytest.raises(OSError, match="Forbidden"):
+        vaft.omas.update_equilibrium_constraints_diamagnetic_flux(view)

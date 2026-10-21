@@ -1724,10 +1724,15 @@ def update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None):
             and "magnetics.time" in ods
             and len(ods.get("magnetics.diamagnetic_flux", [])) > 0
         )
-    except (KeyError, OSError):
+    except KeyError:
+        has_measured = False
+    except OSError as exc:
         # A lazy database view asked for magnetics that the shot does not store
         # answers with a 404 on first access; the reconstructed flux below
-        # needs only the equilibrium and must not be lost with it.
+        # needs only the equilibrium and must not be lost with it. Any other
+        # status (403, a dropped connection) is not "no measurement".
+        if exc.errno != 404:
+            raise
         has_measured = False
     if has_measured:
         t_mag = np.asarray(ods["magnetics.time"], float)
