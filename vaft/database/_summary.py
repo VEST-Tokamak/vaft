@@ -598,6 +598,7 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
     back-solved value the database stores.
     """
     edges: list[float] = []
+    edge_signs: set[float] = set()
     slices = ods["equilibrium.time_slice"]
     for index in range(len(slices)):
         try:
@@ -605,7 +606,12 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
         except Exception:
             edges.append(np.nan)
             continue
-        edges.append(abs(float(f[-1])) if f.size and np.isfinite(f[-1]) else np.nan)
+        if f.size and np.isfinite(f[-1]):
+            edges.append(abs(float(f[-1])))
+            if f[-1] != 0.0:
+                edge_signs.add(float(np.sign(f[-1])))
+        else:
+            edges.append(np.nan)
     if not any(np.isfinite(edge) and edge != 0.0 for edge in edges):
         return
 
@@ -616,16 +622,36 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
         return
 
     stored = _safe_get(ods, "equilibrium.vacuum_toroidal_field.b0")
-    # Keep whatever sign the file used; f and b0 follow different COCOS on VEST
-    # and flipping it here would show up as a sign change in the sheet.
+    # The magnitude comes from |f_edge| because the stored b0's magnitude is
+    # what drifts (#325); the sign is the stored b0's, so this repair changes
+    # magnitudes only and the sheet's vacuum_b0_T keeps the sign it always had.
+    # f and b0 transform identically under a COCOS change (both TOR in OMAS's
+    # table), so they cannot "follow different COCOS": a file whose f_edge and
+    # b0 disagree in sign is internally inconsistent under every COCOS. Which of
+    # the two is physical is not decided here -- the disagreement is logged and
+    # the stored sign kept (#692).
     sign = 1.0
+    stored_has_sign = False
     try:
         first = np.asarray(stored, float).reshape(-1)
         finite = first[np.isfinite(first)]
+        stored_has_sign = bool(finite.size) and finite[0] != 0.0
         if finite.size and finite[0] < 0:
             sign = -1.0
     except Exception:
         pass
+
+    # DEBUG, not INFO: a summary run covers thousands of shots, and a legacy
+    # database with one systematic sign split would otherwise log every one.
+    if stored_has_sign and edge_signs and edge_signs != {sign}:
+        logger.debug(
+            "Shot %s: stored vacuum_toroidal_field.b0 has sign %+d but profiles_1d.f "
+            "at the boundary has sign(s) %s; f and b0 share a COCOS transformation, "
+            "so the pair is inconsistent. Keeping the stored b0 sign (#692).",
+            shot,
+            int(sign),
+            sorted(int(value) for value in edge_signs),
+        )
 
     corrected = np.array(
         [sign * edge / r0 if np.isfinite(edge) and edge != 0.0 else np.nan for edge in edges],
