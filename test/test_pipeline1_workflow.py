@@ -130,7 +130,7 @@ def test_an_efit_preset_reaches_the_kfile_stage_in_place_of_the_basis(tmp_path):
     assert preset.returncode == 0, preset.stderr[-3000:]
     command = _kfile_command(preset.stdout)
     assert "--preset statistical_891" in command
-    assert "--npprime" not in command  # the constraints stage still takes its own
+    assert "--npprime" not in command
     # Naming nothing is the library default (statistical_891 since 2026-10-01):
     # no basis and no preset flag; generate_kfile.py records the default itself.
     default = _dry_run(tmp_path, target, extra=["-p"])

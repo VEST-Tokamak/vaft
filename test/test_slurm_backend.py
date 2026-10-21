@@ -322,6 +322,24 @@ def test_batch_job_gets_stdin_env_delta_and_thread_defaults(tmp_path, slurm, mon
     assert "SLURM_MEM_PER_CPU" not in submitted
 
 
+def test_a_pinned_thread_count_is_exported_even_when_the_parent_matches():
+    """#1016 review: under a remote cluster --export=ALL carries *its* environment."""
+    from vaft.code.slurm import _job_script
+
+    request = ExecutionRequest(
+        command=("solver",), workdir=Path("/w"),
+        env={"OMP_NUM_THREADS": "4", "MKL_NUM_THREADS": "4", "HOME": os.environ.get("HOME", "")},
+        resources=ResourceRequest(threads_per_task=4),
+    )
+    os.environ["OMP_NUM_THREADS"] = "4"
+    try:
+        script = _job_script(request, "/w", None, "/w/.s")
+    finally:
+        del os.environ["OMP_NUM_THREADS"]
+    assert "export OMP_NUM_THREADS=4" in script and "export MKL_NUM_THREADS=4" in script
+    assert "export HOME=" not in script  # unrelated values equal to the parent still travel by --export
+
+
 def test_log_mode_merges_streams_into_the_log(tmp_path, slurm):
     work = _workdir(tmp_path)
     log = work / "logs" / "neo.log"
@@ -739,6 +757,124 @@ def test_environment_selects_the_default_backend(monkeypatch):
     monkeypatch.setenv(BACKEND_ENV, "pbs")
     with pytest.raises(ValueError, match=BACKEND_ENV):
         default_backend()
+
+
+def test_batch_submit_queues_every_job_before_any_wait(tmp_path, slurm):
+    """#1018: submit is sbatch alone; result() polls and collects."""
+    work = _workdir(tmp_path)
+    backend = _batch()
+    handles = [
+        backend.submit(_python(work, f"import time; time.sleep(0.3); print({index})", label=f"case{index}"))
+        for index in range(3)
+    ]
+    assert [handle.job_id for handle in handles] == ["1000", "1001", "1002"]
+    assert len(slurm("sbatch")) == 3 and not slurm("squeue")  # nothing waited for yet
+    results = [backend.wait(handle) for handle in handles]
+    assert [(r.returncode, r.stdout.strip(), r.job_id) for r in results] == [
+        (0, "0", "1000"), (0, "1", "1001"), (0, "2", "1002"),
+    ]
+    assert all(handle.done() for handle in handles)
+
+
+def test_cancelling_a_submitted_batch_job_scancels_it(tmp_path, slurm, monkeypatch):
+    from concurrent.futures import CancelledError
+
+    monkeypatch.setenv("FAKE_SLURM_OUTCOME", "PENDING")
+    work = _workdir(tmp_path)
+    backend = _batch()
+    handle = backend.submit(_python(work, "print('never')"))
+    assert not handle.done()
+    assert backend.cancel(handle)
+    assert slurm("scancel")[-1][-1] == handle.job_id
+    with pytest.raises(CancelledError):
+        handle.result()
+    assert not handle.cancel()
+
+
+def test_a_polled_handle_applies_max_wait_to_a_queued_job(tmp_path, slurm, monkeypatch):
+    """Cold review #1018: max_wait is not deferred until the job's turn to be collected."""
+    import time
+
+    monkeypatch.setenv("FAKE_SLURM_OUTCOME", "PENDING")
+    work = _workdir(tmp_path)
+    backend = _batch(max_wait=0.3)
+    handle = backend.submit(_python(work, "print('never')"))
+    time.sleep(0.4)
+    assert not handle.done()  # still listed; but now cancelled for max_wait
+    assert slurm("scancel")
+    result = handle.result()
+    assert (result.timed_out, result.runtime_status) == (True, "queue_timeout")
+
+
+def test_a_polled_handle_applies_max_wait_to_a_running_job(tmp_path, slurm):
+    """Re-review #1018: a running head-of-line job is not exempt from max_wait."""
+    import time
+
+    work = _workdir(tmp_path)
+    backend = _batch(max_wait=0.5)
+    handle = backend.submit(_python(work, "import time; time.sleep(60)"))
+    deadline = time.monotonic() + 30
+    while not handle.done() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert handle.done() and slurm("scancel")
+    result = handle.result()
+    assert result.timed_out and result.runtime_status == "timeout"
+
+
+def test_a_handle_whose_squeue_never_answers_raises_instead_of_spinning(tmp_path, slurm, monkeypatch):
+    import time
+
+    monkeypatch.setenv("FAKE_SQUEUE_FLAKY", "100000")
+    monkeypatch.setenv("FAKE_SLURM_NO_SACCT", "1")
+    work = _workdir(tmp_path)
+    handle = _batch().submit(_python(work, "import time; time.sleep(30)"))
+    deadline = time.monotonic() + 60
+    while not handle.done() and time.monotonic() < deadline:
+        pass
+    assert handle.done()
+    with pytest.raises(RuntimeError, match="could not be followed"):
+        handle.result()
+    subprocess_kill = slurm.directory / "1000.pid"
+    if subprocess_kill.exists():  # do not leave the fake job sleeping
+        import os
+        import signal
+
+        try:
+            os.killpg(int(subprocess_kill.read_text()), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+def test_a_batch_handle_polls_squeue_at_most_once_per_interval(tmp_path, slurm, monkeypatch):
+    monkeypatch.setenv("FAKE_SLURM_OUTCOME", "PENDING")
+    work = _workdir(tmp_path)
+    backend = SlurmBackend(mode="batch", poll_interval=60)
+    handle = backend.submit(_python(work, "pass"))
+    assert not any(handle.done() for _ in range(20))
+    assert len(slurm("squeue")) == 1
+    assert backend.cancel(handle)
+
+
+def test_cancelling_a_finished_uncollected_job_does_not_scancel(tmp_path, slurm):
+    import time
+
+    work = _workdir(tmp_path)
+    backend = _batch()
+    handle = backend.submit(_python(work, "print('ok')"))
+    deadline = time.monotonic() + 30
+    while not handle.done() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not backend.cancel(handle)
+    assert not slurm("scancel")
+    assert handle.result().stdout.strip() == "ok"
+
+
+def test_step_mode_submit_is_eager(tmp_path, slurm, monkeypatch):
+    monkeypatch.setenv("SLURM_JOB_ID", "77")
+    work = _workdir(tmp_path)
+    handle = SlurmBackend().submit(_python(work, "print('step')"))
+    assert handle.done() and handle.result().stdout.strip() == "step"
+    assert slurm("srun") and not slurm("sbatch")
 
 
 def test_an_adapter_runs_unchanged_through_slurm(tmp_path, slurm):

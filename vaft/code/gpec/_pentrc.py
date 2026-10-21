@@ -48,10 +48,14 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 from ...compat import is_executable
+from ..execution import LocalBackend, resolve_backend
+from . import _log_cap
 from . import _runtime as rt
+from ._log_cap import STALL_EXIT_CODE, STALL_MARKER
 from ._types import GPECModuleRun, GPECSuiteConfig, PENTRCOptions
 
 #: The module name PENTRC records itself under in a :class:`GPECModuleRun`.
@@ -575,6 +579,39 @@ def _stage_kinetic_file(run_dir: Path, kinetic_file: Path | str) -> Path:
     return staged
 
 
+def _log_cap_prefix(config: GPECSuiteConfig) -> tuple[str, ...]:
+    """The command that streams PENTRC through :mod:`._log_cap`, or ``()``.
+
+    Only on the local backend: the filter is this package's own file, run by
+    this interpreter, which another backend's host need not have.  ``-I``
+    keeps the package directory off the filter's import path -- it imports
+    nothing but the standard library.
+    """
+    limits = config.pentrc_log
+    if not limits.active or not isinstance(resolve_backend(config), LocalBackend):
+        return ()
+    prefix = [sys.executable, "-I", str(Path(_log_cap.__file__).resolve())]
+    if limits.max_bytes is not None:
+        prefix += ["--max-bytes", str(limits.max_bytes)]
+    if limits.stall_lines is not None:
+        prefix += [
+            "--stall-lines", str(limits.stall_lines),
+            "--stall-pattern", PENTRC_NONCONVERGENCE_LINE.pattern,
+            "--ignore-case",
+        ]
+    return (*prefix, "--")
+
+
+def _stall_line(log_path: Path) -> str | None:
+    """The cap's stall line, which it writes last, or ``None``."""
+    if not log_path.is_file():
+        return None
+    with log_path.open("rb") as handle:
+        handle.seek(max(0, log_path.stat().st_size - 4096))
+        tail = handle.read().decode("utf-8", errors="replace").splitlines()
+    return next((line for line in reversed(tail) if line.startswith(STALL_MARKER)), None)
+
+
 def _run_pentrc(
     run_dir: Path | str,
     *,
@@ -665,9 +702,11 @@ def _run_pentrc(
     if output.exists():
         output.unlink()
     log_path = run_dir / "pentrc.log"
+    limits = config.pentrc_log
     try:
         returncode, log_path = rt.run_subprocess(
-            executable, run_dir, log_path, config=config
+            executable, run_dir, log_path, config=config,
+            command_prefix=_log_cap_prefix(config),
         )
     except subprocess.TimeoutExpired as expired:
         # A timeout is a `failed` record, not an exception. PENTRC does not stop
@@ -686,6 +725,8 @@ def _run_pentrc(
             record.reason = f"{expired.reason}; its log is {log_bytes} bytes"
         else:
             record.reason = f"pentrc did not finish within {expired.timeout:g} s; its log is {log_bytes} bytes"
+        if _log_cap_prefix(config) and limits.max_bytes is not None:
+            record.reason += f" (capped at {limits.max_bytes} bytes, head and tail kept)"
         if policy == "strict":
             raise
         return record
@@ -693,6 +734,19 @@ def _run_pentrc(
     record.commands = (str(executable),)
     record.logs = (log_path,)
     record.outputs = (output,) if output.is_file() else ()
+    stall = _stall_line(log_path) if returncode == STALL_EXIT_CODE else None
+    if stall is not None:
+        # Stopped by the cap, not by PENTRC: the energy LSODE kept failing and
+        # PENTRC kept going, which would have run to the timeout (#1929).
+        record.status = "failed"
+        record.outputs = ()
+        record.reason = (
+            f"pentrc stalled: LSODE reported non-convergence on {limits.stall_lines} lines "
+            f"(GPECSuiteConfig.pentrc_log.stall_lines) and the run was stopped; "
+            f"{stall.removeprefix(STALL_MARKER).strip()}; its log is "
+            f"{log_path.stat().st_size} bytes, head and tail kept"
+        )
+        return record
     fatal, nonconvergence = scan_pentrc_log(log_path)
     unconverged = (
         ""

@@ -50,6 +50,14 @@ Contract details specific to Slurm:
   exists on the submitting host but not on the compute node shows up as exit
   status 127.
 * ``KeyboardInterrupt`` while waiting cancels the job and re-raises.
+* ``submit`` (#1018) in batch mode runs ``sbatch`` at once and returns a
+  handle carrying the job id; ``result()`` then polls and collects it as
+  ``run`` would, in the calling thread, and ``cancel()`` is ``scancel``. Many
+  jobs can be queued before any is waited for, without a thread each.
+  ``max_wait`` counts from submission; a job past it is cancelled when its
+  handle is next polled (``done()``) or collected. In step
+  mode ``submit`` is eager: ``srun`` runs the step to completion first, so a
+  scan inside an allocation runs its steps one after another.
 * The working directory, and the executables, must be on a filesystem the
   compute nodes share. This is not checked.
 * Only the part of ``ExecutionRequest.env`` that differs from the submitting
@@ -70,7 +78,8 @@ import signal
 import subprocess
 import time
 import uuid
-from dataclasses import replace
+from concurrent.futures import CancelledError
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import IO, Any, Mapping, Optional, Sequence
@@ -81,8 +90,10 @@ from .execution import (
     THREAD_ENV_VARIABLES,
     ExecutionRequest,
     ExecutionResult,
+    JobHandle,
     _text,
     execution_environment,
+    finished_handle,
 )
 
 #: Slurm states a job ends in because of a time limit.
@@ -246,9 +257,22 @@ def _job_script(
         f"cd {quote(str(workdir))} || exit 1",
         f"rm -f {quote(status)}",
     ]
-    for key, value in sorted(exported_environment(request.env).items()):
-        lines.append(f"export {key}={quote(value)}")
+    exported = exported_environment(request.env)
     threads = request.resources.threads_per_task
+    if threads is not None:
+        # A thread count the request pins in its overlay (config.resources,
+        # #1016) is exported even when it equals the submitting environment's:
+        # under RemoteSlurmBackend ``--export=ALL`` carries the *remote*
+        # login environment, which must not win over it.
+        exported.update(
+            {
+                variable: str(request.env[variable])
+                for variable in THREAD_ENV_VARIABLES
+                if str(request.env.get(variable)) == str(threads)
+            }
+        )
+    for key, value in sorted(exported.items()):
+        lines.append(f"export {key}={quote(value)}")
     if threads is not None:
         # setdefault semantics, as for a local launch.
         for variable in THREAD_ENV_VARIABLES:
@@ -628,7 +652,26 @@ class SlurmBackend:
 
     # -- batch mode -------------------------------------------------------
 
+    def submit(self, request: ExecutionRequest) -> JobHandle:
+        """Submit ``request`` and return its handle (see the module notes)."""
+        if not Path(request.workdir).is_dir():
+            raise FileNotFoundError(f"working directory does not exist: {request.workdir}")
+        if self.resolved_mode() == "step":
+            return finished_handle(request, lambda: self._run_step(request))
+        return _BatchHandle(self, self._start_batch(request))
+
+    def wait(self, handle: JobHandle) -> ExecutionResult:
+        """``handle.result()``: what ``run`` would have returned."""
+        return handle.result()
+
+    def cancel(self, handle: JobHandle) -> bool:
+        """``handle.cancel()``: ``scancel`` a batch job that has not finished."""
+        return handle.cancel()
+
     def _run_batch(self, request: ExecutionRequest) -> ExecutionResult:
+        return self._finish_batch(self._start_batch(request))
+
+    def _start_batch(self, request: ExecutionRequest) -> "_BatchJob":
         sbatch = self._tool("sbatch")
         workdir = Path(request.workdir).resolve()
         scratch = workdir / SCRATCH_DIRECTORY / _scratch_name(request.label)
@@ -659,7 +702,11 @@ class SlurmBackend:
         started = time.monotonic()
         job_id, cluster = self._submit(argv)
         clusters = ["-M", cluster] if cluster else []
+        return _BatchJob(request, tuple(argv), job_id, clusters, scratch, log_path, started)
 
+    def _finish_batch(self, job: "_BatchJob", *, max_wait_cancelled: bool = False) -> ExecutionResult:
+        request, argv, job_id, clusters = job.request, job.argv, job.job_id, job.clusters
+        scratch, log_path, started = job.scratch, job.log_path, job.started
         try:
             # A SIGTERM or SIGHUP while the job is queued or running has to
             # cancel it, like a KeyboardInterrupt; without the guard the
@@ -667,7 +714,9 @@ class SlurmBackend:
             # the cluster.
             with _process_tree.forward_termination():
                 try:
-                    cancelled = self._wait(job_id, clusters, started)
+                    # A handle that already cancelled it for max_wait while
+                    # polling sees it gone here; it was still a cancel.
+                    cancelled = self._wait(job_id, clusters, started) or max_wait_cancelled
                 except BaseException:
                     self._cancel(job_id, clusters)
                     raise
@@ -867,6 +916,112 @@ class SlurmBackend:
             time.sleep(min(1.0, self.accounting_grace))
 
 
+
+@dataclass(frozen=True)
+class _BatchJob:
+    """A batch job sbatch accepted: everything collecting it needs."""
+
+    request: ExecutionRequest
+    argv: tuple[str, ...]
+    job_id: str
+    clusters: list[str]
+    scratch: Path
+    log_path: Optional[Path]
+    started: float
+
+
+class _BatchHandle(JobHandle):
+    """A submitted batch job; collected in the thread that asks for its result.
+
+    ``done()`` queries ``squeue`` at most once per backend ``poll_interval``
+    and answers from that state in between. While polled it also applies
+    ``max_wait``, as ``run`` would, so a job whose turn to be collected comes
+    late is not left waiting past it.
+    """
+
+    def __init__(self, backend: SlurmBackend, job: _BatchJob) -> None:
+        super().__init__(job.request, None, job_id=job.job_id)  # type: ignore[arg-type]
+        self._backend = backend
+        self._job = job
+        self._outcome: Optional[tuple[Optional[ExecutionResult], Optional[BaseException]]] = None
+        self._finished = False
+        self._polled: Optional[float] = None
+        self._unknown = 0
+        #: When ``done()`` cancelled the job for ``max_wait``.
+        self._max_wait_cancel: Optional[float] = None
+
+    def _poll(self) -> bool:
+        """Whether ``result()`` would no longer wait on the cluster.
+
+        Mirrors :meth:`SlurmBackend._wait`, at most one ``squeue`` per
+        ``poll_interval``: a job past ``max_wait`` (queued or running) is
+        cancelled and given ``cancel_grace`` to leave, and ``squeue`` failing
+        ``_UNKNOWN_POLLS`` times in a row hands over to ``result()``, whose
+        own wait asks accounting and raises rather than spin.
+        """
+        if self._finished:
+            return True
+        now = time.monotonic()
+        if self._polled is not None and now - self._polled < self._backend.poll_interval:
+            return False
+        self._polled = now
+        live = self._backend._live(self._job.job_id, self._job.clusters)
+        if live is False:
+            self._finished = True
+            return True
+        self._unknown = self._unknown + 1 if live is None else 0
+        if self._unknown >= _UNKNOWN_POLLS:
+            self._finished = True
+            return True
+        max_wait = self._backend.max_wait
+        if self._max_wait_cancel is None and max_wait is not None and now - self._job.started > max_wait:
+            self._backend._cancel(self._job.job_id, self._job.clusters)
+            self._max_wait_cancel = now
+        elif self._max_wait_cancel is not None and now - self._max_wait_cancel > self._backend.cancel_grace:
+            self._finished = True
+            return True
+        return False
+
+    def done(self) -> bool:
+        if self._cancelled or self._outcome is not None:
+            return True
+        return self._poll()
+
+    def result(self) -> ExecutionResult:
+        if self._cancelled:
+            raise CancelledError(f"slurm job {self._job.job_id} was cancelled")
+        if self._outcome is None:
+            try:
+                self._outcome = (
+                    self._backend._finish_batch(
+                        self._job, max_wait_cancelled=self._max_wait_cancel is not None
+                    ),
+                    None,
+                )
+            except Exception as error:  # noqa: BLE001 - kept, so a second call raises it again
+                self._outcome = (None, error)
+        result, error = self._outcome
+        if error is not None:
+            raise error
+        assert result is not None
+        return result
+
+    def cancel(self) -> bool:
+        if self._cancelled or self._outcome is not None:
+            return False
+        if self._poll():
+            # Finished but not collected (as of the last poll): nothing to
+            # stop, and scancel on a finished job only fails, with retries.
+            return False
+        if self._max_wait_cancel is None:
+            self._backend._cancel(self._job.job_id, self._job.clusters)
+        # Marked only once scancel returned: a signal cutting it short leaves
+        # the handle cancellable, so a repeated cancel_handles sends it again.
+        self._cancelled = True
+        return True
+
+    def settle(self, timeout: Optional[float] = None) -> None:
+        """``scancel`` is asynchronous on the cluster; nothing local to wait for."""
 
 __all__ = [
     "LIVE_STATES",

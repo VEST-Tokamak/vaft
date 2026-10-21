@@ -754,7 +754,7 @@ def _timing_out(seconds: float):
     """
     import subprocess
 
-    def run(executable_path, cwd, log_path, *, config):
+    def run(executable_path, cwd, log_path, *, config, **_):
         Path(log_path).write_text(
             " LSODE- Energy-  At T (=R1) and step size H (=R2), the\n"
             "       corrector convergence failed repeatedly\n" * 64,
@@ -794,7 +794,7 @@ def test_a_pentrc_memory_stop_says_so(cell, tmp_path, monkeypatch):
     from vaft.code.execution import ExecutionResult
     from vaft.code.gpec import _pentrc, _runtime
 
-    def run(executable_path, cwd, log_path, *, config):
+    def run(executable_path, cwd, log_path, *, config, **_):
         # bytes, not text: text mode writes "\r\n" on Windows and the reason counts bytes
         Path(log_path).write_bytes(b"partial\n")
         execution = ExecutionResult(returncode=None, timed_out=True, runtime_status="memory_limit",
@@ -970,3 +970,40 @@ def test_preparing_only_needs_no_timeout(cell, tmp_path):
         ),
     )
     assert record.status == "prepared"
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="POSIX shell stub")
+def test_a_stalled_pentrc_is_stopped_with_a_stall_reason_and_a_capped_log(cell, tmp_path):
+    """#1929: a stalled energy LSODE fills the log until the timeout; the cap stops it."""
+    config = _config(
+        tmp_path, timeout=120.0,
+        pentrc_log=gpec.PENTRCLogLimits(max_bytes=20_000, stall_lines=2_000),
+    )
+    stub = Path(config.gpec_home) / "bin" / "pentrc"
+    stub.write_text(
+        "#!/bin/sh\necho ' PENTRC START'\n"
+        "yes ' LSODE--  Corrector convergence failed repeatedly'\n",
+        encoding="utf-8",
+    )
+    record = gpec.run_pentrc(
+        cell, mode=1, options=_options(),
+        kinetic_file=cell.parents[2] / "profiles.kin", config=config,
+    )
+    assert record.status == "failed"
+    assert record.reason.startswith("pentrc stalled")
+    assert "2000 lines" in record.reason
+    assert record.outputs == ()
+    log = cell / "pentrc.log"
+    assert log.stat().st_size < 20_000 + 500
+    assert log.read_text(encoding="utf-8").startswith(" PENTRC START")
+
+
+def test_the_cap_is_not_applied_off_the_local_backend(tmp_path):
+    from external_code_stubs import RecordingBackend
+
+    from vaft.code.gpec._pentrc import _log_cap_prefix
+
+    assert _log_cap_prefix(_config(tmp_path))[-1] == "--"
+    assert _log_cap_prefix(_config(tmp_path, backend=RecordingBackend())) == ()
+    off = gpec.PENTRCLogLimits(max_bytes=None, stall_lines=None)
+    assert _log_cap_prefix(_config(tmp_path, pentrc_log=off)) == ()
