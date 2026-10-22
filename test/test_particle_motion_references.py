@@ -151,3 +151,22 @@ def test_the_documentation_catalog_gate_runs_the_check(monkeypatch):
     monkeypatch.setattr(references, "check_references", refuse)
     with pytest.raises(ValueError, match="Stale particle-motion scientific source"):
         catalog.documentation_snapshot()
+
+
+def test_every_hashed_source_is_pinned_to_lf_in_gitattributes():
+    """The manifest records sha256 of each source's bytes; a CRLF checkout
+    (Git for Windows' default) rewrites every line ending and the Windows gate
+    reports the source stale. Each hashed path therefore carries an explicit
+    ``text eol=lf`` rule, as the animation sources do (release 0.9.0)."""
+    from vaft.diagram._particle_references import ROOT, scientific_source_paths
+
+    rules = {}
+    for line in (ROOT / ".gitattributes").read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            pattern, *attrs = line.split()
+            rules[pattern] = attrs
+    missing = [path for path in scientific_source_paths() if "eol=lf" not in rules.get(path, [])]
+    assert not missing, missing
+    assert "eol=lf" in rules.get("docs/assets/particle-motion/**", [])
+
