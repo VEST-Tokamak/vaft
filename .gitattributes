@@ -15,6 +15,9 @@ docs/assets/notebook-outputs/** text=auto eol=lf
 # Preserve the exact bytes on every platform and treat CRLF as a line ending.
 notebooks/data/verification_and_validation/** -text
 notebooks/data/verification_and_validation/v1/*.csv whitespace=cr-at-eol
+# ... and the sha256 of the two scripts that wrote it (snapshot_manifest.json).
+workflow/kinetic_state/export_virial_identity.py text eol=lf
+workflow/kinetic_state/capture_verification_snapshot.py text eol=lf
 vaft/data/samples/** text=auto eol=lf
 # The EFIT table's text inputs are pinned by efund_table_manifest.json, and
 # mhdin.dat's hash is quoted in its #649 note; a CRLF checkout hashed to
