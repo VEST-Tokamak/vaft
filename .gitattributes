@@ -68,3 +68,16 @@ vaft/diagram/_scene.py text eol=lf
 vaft/formula/equilibrium.py text eol=lf
 vaft/formula/particle.py text eol=lf
 vaft/formula/stability.py text eol=lf
+# The particle-motion reference manifest (docs/assets/particle-motion) pins
+# these sources the same way; a CRLF checkout changed vaft/data/particle.py's
+# digest on the Windows gate (release 0.9.0).
+docs/assets/particle-motion/** text=auto eol=lf
+vaft/data/particle.py text eol=lf
+vaft/diagram/_guiding_center.py text eol=lf
+vaft/diagram/_particle_references.py text eol=lf
+vaft/diagram/_particle_states.py text eol=lf
+vaft/diagram/_ripple.py text eol=lf
+vaft/plot/particle.py text eol=lf
+vaft/process/particle.py text eol=lf
+vaft/process/particle_fields.py text eol=lf
+workflow/particle_motion/run.py text eol=lf
