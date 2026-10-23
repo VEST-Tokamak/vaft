@@ -370,5 +370,127 @@
       "transit_period_s": [],
       "fidelity": "independent centered Boris and Hamiltonian GC integration; analytic benchmark field"
     }
-  ]
+  ],
+  "artifacts": {
+    "cartesian-diagnostics.png": {
+      "sha256": "c7d75d85e1ee6e59b8b186292fee8da97af925a9c92467fd7a836c6e9b57fb68",
+      "bytes": 154366,
+      "kind": "render"
+    },
+    "cartesian.gif": {
+      "sha256": "be27b9fdc8bda1ccc5f25c21c63bb28abb7fddb40a444174dd2f93413381e376",
+      "bytes": 30529,
+      "kind": "render"
+    },
+    "cartesian.gif.json": {
+      "sha256": "26da6a38cb86e18c6f9ec1e363f086b3fc965501fbf13e1a97eaa75deaec69c9",
+      "bytes": 27228,
+      "kind": "data"
+    },
+    "cartesian.svg": {
+      "sha256": "806726f51144c1f4138409d26a1997468609f68d66b9514dff504854c9c78641",
+      "bytes": 81118,
+      "kind": "render"
+    },
+    "full-gc-diagnostics.png": {
+      "sha256": "ee082428a978ef6719b607d475d15978b56df11d76503266dd073844d3443b35",
+      "bytes": 376783,
+      "kind": "render"
+    },
+    "full-gc.gif": {
+      "sha256": "fa6d9cd6c96a76db8ca8e73b9e30722e1d41ad74474bf330c4ff348bedbf81ee",
+      "bytes": 30660,
+      "kind": "render"
+    },
+    "full-gc.gif.json": {
+      "sha256": "e1ac5cc88d80c364fb5a9ce0e52997e0e3b6ed6d42ff874fb0e8c08aa42af1db",
+      "bytes": 37548,
+      "kind": "data"
+    },
+    "full-gc.svg": {
+      "sha256": "ca3faf6873192a1c57bb727d8b4603d0f4c620d519dc2e4c6d637ef631ebba9d",
+      "bytes": 93198,
+      "kind": "render"
+    },
+    "invariants.gif": {
+      "sha256": "f1f14a6d55565f71441ded6f31abd4c1ef6c5c11c853e605097e793c37475494",
+      "bytes": 33774,
+      "kind": "render"
+    },
+    "invariants.gif.json": {
+      "sha256": "d46e11a42433f198c3157427d48936ba7a73b1eba2c5c09c41645e45c4b8e6ba",
+      "bytes": 45287,
+      "kind": "data"
+    },
+    "invariants.svg": {
+      "sha256": "665a1b93f3d69cd57615f5c8babea3a6e1575da733818d9389a4a585c740135a",
+      "bytes": 98570,
+      "kind": "render"
+    },
+    "mirror-diagnostics.gif": {
+      "sha256": "986bc81dad1cfe0866d5f4e6dd2d4fa69884bf87564afe9ad3e88a91618e6eab",
+      "bytes": 139134,
+      "kind": "render"
+    },
+    "mirror-diagnostics.gif.json": {
+      "sha256": "c6ba1827dbde326d4808de460d9b664843fc226dc4bef487ee713b8aa0f4e6f3",
+      "bytes": 44945,
+      "kind": "data"
+    },
+    "mirror-diagnostics.png": {
+      "sha256": "e18e31cd566c4b277a9d6abab411d66351ecde8b555628a26ad76f34a6000a30",
+      "bytes": 214950,
+      "kind": "render"
+    },
+    "mirror.gif": {
+      "sha256": "0b9aa254c9b6c81839e2d48d6e2f80c61a2c54577116a38c8a1f0b642bb2f2fa",
+      "bytes": 39597,
+      "kind": "render"
+    },
+    "mirror.gif.json": {
+      "sha256": "da29ed2891e33436aecd81d4a07ad6ab6c95e509f50495e477c99e45e2e65c75",
+      "bytes": 45283,
+      "kind": "data"
+    },
+    "mirror.svg": {
+      "sha256": "c4a5ea1ac7c689360a2ee463940565d8be59a9db7b5cceb095dd7053d0999280",
+      "bytes": 96729,
+      "kind": "render"
+    },
+    "symmetry-breaking-diagnostics.png": {
+      "sha256": "9ad672bb66f8725e1e6f02734fbaa77fce98a66d6b365d322eed137373d66aa7",
+      "bytes": 285744,
+      "kind": "render"
+    },
+    "symmetry-breaking.gif": {
+      "sha256": "484757450d2ba1e25a79c41958cef183628431968db0d0b71d00d99bcb898e7c",
+      "bytes": 95973,
+      "kind": "render"
+    },
+    "symmetry-breaking.gif.json": {
+      "sha256": "8b40017bad5e91cc7359a76fa9a0e11e696605cf32b12207b4cd7ac4e5bfea32",
+      "bytes": 121006,
+      "kind": "data"
+    },
+    "tokamak-diagnostics.png": {
+      "sha256": "ac50779d5491178a400ebd997d0580cc02f513b82adabfe75f1d51e96f416680",
+      "bytes": 249720,
+      "kind": "render"
+    },
+    "tokamak.gif": {
+      "sha256": "0a6f12c8e6f24af3b173db84188420e9ff0a65a8df19c3a0a54bed16f2d52fde",
+      "bytes": 52688,
+      "kind": "render"
+    },
+    "tokamak.gif.json": {
+      "sha256": "a2bd6bf1604a12193fea6b916d5435ee6d1e7f438983e87b29c23ce9b3bd3b87",
+      "bytes": 121066,
+      "kind": "data"
+    }
+  },
+  "toolchain": {
+    "matplotlib": "3.10.8",
+    "Pillow": "12.1.1",
+    "dvisvgm": "dvisvgm 3.2.2"
+  }
 }

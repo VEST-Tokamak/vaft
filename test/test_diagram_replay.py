@@ -180,3 +180,31 @@ def test_valid_checksum_cannot_hide_scientific_metadata_drift(tmp_path, field):
     manifest_path.write_bytes(encode(manifest))
     with pytest.raises(ValueError, match="scientific (driver|inputs) disagree"):
         catalog_rows(tmp_path)
+
+
+def test_an_unchanged_regeneration_rewrites_nothing(tmp_path, monkeypatch):
+    """#2117: identical bytes leave files and the producing commit alone."""
+    import vaft.diagram._replay as replay
+
+    recipe = {"builder": "exb_drift", "variant": "stub"}
+    payload = {"states": [[], []], "fps": 2, "sources": []}
+    monkeypatch.setattr(replay, "RECIPES", (recipe,))
+    monkeypatch.setattr(replay, "make_payload", lambda recipe: payload)
+
+    def at_commit(sha):
+        monkeypatch.setattr(replay.subprocess, "check_output", lambda *a, **k: sha + "\n")
+
+    at_commit("a" * 40)
+    replay.generate(tmp_path)
+    files = sorted(tmp_path.iterdir())
+    stamps = {p.name: p.stat().st_mtime_ns for p in files}
+
+    at_commit("b" * 40)
+    (record,) = replay.generate(tmp_path)
+    assert record["generated_commit"] == "a" * 40
+    assert {p.name: p.stat().st_mtime_ns for p in files} == stamps
+
+    payload["fps"] = 3
+    (record,) = replay.generate(tmp_path)
+    assert record["generated_commit"] == "b" * 40, "changed bytes take the new commit"
+    assert (tmp_path / "manifest.json").stat().st_mtime_ns != stamps["manifest.json"]
