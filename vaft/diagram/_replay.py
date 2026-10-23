@@ -80,6 +80,19 @@ def atomic_write(path, data):
         temporary.unlink(missing_ok=True)
 
 
+def write_if_changed(path, data):
+    """Write ``data`` only if ``path`` does not already hold exactly these bytes.
+
+    Unchanged regenerations then leave files, mtimes and git status alone (#2117).
+    Returns whether the file was written.
+    """
+    path = Path(path)
+    if path.is_file() and path.read_bytes() == data:
+        return False
+    atomic_write(path, data)
+    return True
+
+
 def scientific_sources(builder):
     """Hash the model, primitive definitions and actual formulas, not just the recipe."""
     from .docs_catalog import formula_references
@@ -321,6 +334,16 @@ def generate(output=ASSETS):
     commit = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
     ).strip()
+    # An artifact whose bytes did not change keeps the commit that produced it,
+    # so regenerating at a new HEAD does not rewrite the manifest for nothing.
+    previous = {}
+    try:
+        old = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+        previous = {
+            row["id"]: row for row in old.get("animations", []) if "id" in row
+        }
+    except (OSError, ValueError):
+        pass
     for recipe in RECIPES:
         payload = make_payload(recipe)
         raw = encode(payload)
@@ -328,7 +351,13 @@ def generate(output=ASSETS):
         if size > STATE_BUDGET:
             raise ValueError(f"{recipe['builder']}: gzip state budget exceeded: {size}")
         name = f"{recipe['builder']}--{recipe['variant']}.json"
-        atomic_write(output / name, raw)
+        write_if_changed(output / name, raw)
+        before = previous.get(name[:-5], {})
+        produced_by = (
+            before["generated_commit"]
+            if before.get("sha256") == digest(raw) and before.get("generated_commit")
+            else commit
+        )
         records.append(
             {
                 **recipe,
@@ -340,7 +369,7 @@ def generate(output=ASSETS):
                 "count": len(payload["states"]),
                 "fps": payload["fps"],
                 "sources": payload["sources"],
-                "generated_commit": commit,
+                "generated_commit": produced_by,
                 "representation": "svg_state"
                 if recipe["builder"] == "magnetic_island"
                 else "trajectory_replay",
@@ -349,7 +378,7 @@ def generate(output=ASSETS):
                 "recipe_source": "vaft/diagram/_replay.py",
             }
         )
-    atomic_write(
+    write_if_changed(
         output / "manifest.json",
         encode({"schema_version": SCHEMA_VERSION, "animations": records}),
     )

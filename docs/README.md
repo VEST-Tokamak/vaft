@@ -142,6 +142,37 @@ Publishing normally happens in CI, on a push to `main` or `develop`:
 python build.py --publish
 ```
 
+## Media kept outside git
+
+Large generated media are not committed: the particle-motion GIFs and their
+trajectory sidecars. They are assets of the `docs-media` GitHub prerelease, and
+`media.lock.json` pins each one by SHA-256 and size (#2117). `build.py` fetches
+them into each track's extracted tree before Jekyll runs. A file that does not
+match its digest fails the build. Without network access and with an empty
+cache, the build fails with an error that names every missing file.
+
+```bash
+python scripts/media.py fetch    # place them in this checkout (npm run data does this too)
+python scripts/media.py verify   # local files match the lock
+```
+
+Downloads are cached in `~/.cache/vaft-docs-media`; set `VAFT_DOCS_MEDIA_CACHE`
+or pass `build.py --media-cache` to change this. `--offline-media` uses only the
+cache.
+
+After regenerating media (for example with
+`python -m workflow.particle_motion.run`), re-pin and publish them, then commit
+the lock:
+
+```bash
+python scripts/media.py lock     # re-pin every file matching the lock's "include"
+python scripts/media.py upload   # maintainers: adds only the missing assets (needs gh)
+```
+
+Asset names are content-addressed (`<sha256[:16]>-<file>`), so uploads only add
+files and never replace one: every commit's lock keeps resolving. The
+`.gitignore` entries mirror the lock's `include` patterns.
+
 ## Working on a page
 
 ```bash
@@ -151,6 +182,9 @@ npm run docs:serve    # http://localhost:4000/vaft/ with live reload
 npm run test:docs     # build and validate the stable track
 npm run test:docs:develop
 ```
+
+`npm run data` (and so `npm run docs:serve`) also places the media kept outside
+git; see "Media kept outside git" above.
 
 `_data/vest_diagnostics.yml`, `_data/formula_catalog.yml`,
 `_data/process_catalog.yml`, `_data/plot_catalog.yml`,
@@ -282,7 +316,7 @@ can produce different sizes. Validation enforces the budget for both recorded
 and locally measured sizes, with raw SHA-256 and byte length proving integrity.
 Actual transfer depends on hosting compression, so manifests also expose
 uncompressed sizes. The existing composed-site size
-budget in `build.py` applies independently. External media hosting is deferred.
+budget in `build.py` applies independently. Large GIFs and sidecars are kept outside git (see "Media kept outside git").
 
 The adaptive shell retains the 1240px three-region boundary. Below it,
 independent navigation and page-ToC drawers overlay the reading column. Drawer

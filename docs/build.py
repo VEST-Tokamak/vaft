@@ -18,6 +18,10 @@ makes no difference to the result.
     python docs/build.py --publish            # the same, then one commit on gh-pages
     python docs/build.py --regenerate-only    # refresh _data in this checkout, for a local preview
 
+Large generated media (GIFs, trajectory sidecars) are not in git: each track's
+``docs/media.lock.json`` pins them by SHA-256, and they are fetched from the
+``docs-media`` release into the extracted tree before Jekyll runs (#2117).
+
 Publishing is all-or-nothing.  If any track fails to generate, build or
 validate, or if the composed tree fails its own checks, ``gh-pages`` is left
 exactly as it was.
@@ -31,6 +35,7 @@ from __future__ import annotations
 import argparse
 import datetime as _datetime
 import hashlib
+import importlib.util
 import os
 import re
 import shutil
@@ -366,6 +371,23 @@ def write_track_provenance(track: Track) -> Path:
 BUNDLE_ROOT = Path(__file__).resolve().parent
 
 
+def _media():
+    """docs/scripts/media.py of the checkout running this script, loaded by path."""
+    spec = importlib.util.spec_from_file_location("vaft_docs_media", BUNDLE_ROOT / "scripts" / "media.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def materialize_media(track: Track, cache: Path | None = None, *, offline: bool = False) -> list[str]:
+    """Fetch the track's locked media into its extracted tree; a lock-less track has none."""
+    media = _media()
+    try:
+        return media.materialize(track.docs, cache, offline=offline)
+    except media.MediaError as error:
+        raise BuildError(f"{track.name}: {error}") from error
+
+
 def _bundle_env() -> dict[str, str]:
     env = dict(os.environ)
     env["BUNDLE_GEMFILE"] = str(BUNDLE_ROOT / "Gemfile")
@@ -525,6 +547,20 @@ def validate_composed(tree: Path, tracks: list[Track]) -> float:
             for reference in re.findall(r'href="(/vaft/develop/[^"]*)"', text):
                 problems.append(f"stable page links into the development track: {relative} -> {reference}")
 
+    media = _media()
+    for track in tracks:
+        try:
+            lock = media.load_lock(track.docs) if track.root is not None else None
+        except (media.MediaError, ValueError) as error:
+            problems.append(f"{track.name}: unreadable media lock: {error}")
+            continue
+        for path, entry in sorted((lock or {}).get("files", {}).items()):
+            published = tree / track.spec.prefix / path if track.spec.prefix else tree / path
+            if not published.is_file():
+                problems.append(f"{track.name}: locked media {path} is not in the composed tree")
+            elif hashlib.sha256(published.read_bytes()).hexdigest() != entry["sha256"]:
+                problems.append(f"{track.name}: locked media {path} does not match its sha256")
+
     size_mib = sum(p.stat().st_size for p in tree.rglob("*") if p.is_file()) / 1048576
     if size_mib > MAX_SITE_MIB:
         problems.append(f"composed tree is {size_mib:.1f} MiB, over the {MAX_SITE_MIB} MiB ceiling")
@@ -657,6 +693,9 @@ def _regenerate_only(repo: Path, quiet: bool) -> int:
     )
     if not quiet:
         print(f"==> regenerating docs/_data from {branch} ({head[:7]})")
+    placed = materialize_media(track)
+    if not quiet and placed:
+        print(f"    {len(placed)} locked media file(s) fetched")
     regenerate_data(track, quiet=quiet)
     write_track_provenance(track)
     if not quiet:
@@ -683,6 +722,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--remote", default="origin")
     parser.add_argument("--branch", default=PUBLISH_BRANCH)
     parser.add_argument("--no-fetch", action="store_true", help="skip `git fetch`")
+    parser.add_argument("--media-cache", type=Path,
+                        help="cache for media outside git (default: $VAFT_DOCS_MEDIA_CACHE "
+                             "or ~/.cache/vaft-docs-media)")
+    parser.add_argument("--offline-media", action="store_true",
+                        help="use only the media cache; fail clearly instead of downloading")
     parser.add_argument("--keep-temp", action="store_true")
     parser.add_argument("--quiet", action="store_true")
     arguments = parser.parse_args(argv)
@@ -723,6 +767,11 @@ def main(argv: list[str] | None = None) -> int:
             for track in tracks:
                 say(f"==> {track.name}: exporting, regenerating, building")
                 export_source(track, scratch / "src" / track.name, repo)
+                placed = materialize_media(
+                    track, arguments.media_cache, offline=arguments.offline_media
+                )
+                if placed:
+                    say(f"    media{'':<29} {len(placed)} locked file(s) verified")
                 regenerate_data(track, quiet=arguments.quiet)
                 write_track_provenance(track)
                 build_track(track, scratch / "site" / track.name)
