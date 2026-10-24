@@ -1,8 +1,9 @@
 {
- "created": "2026-10-21T14:42:12+00:00",
+ "created": "2026-10-24T17:15:11+00:00",
  "producer": "workflow/pipeline_improvement/make_snapshot.py",
  "tables": [
   "/home/user1/runs/pipeline_improvement/tables/efit",
+  "/home/user1/runs/pipeline_improvement/tables/efit2",
   "/home/user1/runs/pipeline_improvement/tables/vacuum",
   "/home/user1/runs/pipeline_improvement/tables/vacuum_rerun"
  ],
@@ -13,7 +14,7 @@
   },
   "fit.csv.gz": {
    "rows": 12905,
-   "sha256": "c8fbbebec8c328e5ba74753f5118cde0c9de3f92e64c21dfbe76a5b946c733ee"
+   "sha256": "78e7867766637f0f85e7a0eda48ee450e92653b5224d0ec194c3b63a05f3da16"
   },
   "virial.csv.gz": {
    "rows": 12905,
@@ -23,9 +24,13 @@
    "rows": 1759,
    "sha256": "80f6681d4f98bbbdf80c2bc2083f416e15974044d529f7de8a8d3cf2ac589975"
   },
+  "thomson_channels.csv.gz": {
+   "rows": 774,
+   "sha256": "99cad3deece9220ac912c08d8ebdd49796473e78388e0746e09dcd51e418a91b"
+  },
   "constraint_points.csv.gz": {
-   "rows": 17647,
-   "sha256": "f0a1ed7c48b06087b6da786c88da34b82521b3ab68e47cc8eaf77a3007e8bf16"
+   "rows": 50639,
+   "sha256": "3edf54618a7acb70a3a7e88cac282886526327ecd02e0056a207be2c01cf7911"
   },
   "vacuum_by_family.csv.gz": {
    "rows": 40100,
@@ -145,6 +150,86 @@
       "virial",
       "thomson",
       "stability"
+     ],
+     "shots": 368,
+     "shard": "3/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/efit2/manifest_0of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-24T17:02:21+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "fit",
+      "thomson"
+     ],
+     "shots": 368,
+     "shard": "0/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/efit2/manifest_1of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-24T17:02:21+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "fit",
+      "thomson"
+     ],
+     "shots": 368,
+     "shard": "1/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/efit2/manifest_2of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-24T17:02:21+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "fit",
+      "thomson"
+     ],
+     "shots": 368,
+     "shard": "2/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/efit2/manifest_3of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-24T17:02:21+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "fit",
+      "thomson"
      ],
      "shots": 368,
      "shard": "3/4"

@@ -1,7 +1,7 @@
 # Legacy archive against the current pipeline: snapshot
 
 The tables behind `notebooks/pipeline_improvement_public_vs_main.ipynb`. They were built on vestserver on
-2026-10-21 by `workflow/pipeline_improvement/build_comparison_tables.py` and merged by `make_snapshot.py`.
+2026-10-21 (fit and Thomson tables rebuilt 2026-10-25) by `workflow/pipeline_improvement/build_comparison_tables.py` and merged by `make_snapshot.py`.
 `snapshot_manifest.json` records the producer commit of every run shard, the sources, the row counts and the
 SHA-256 of each file.
 
@@ -25,9 +25,10 @@ SHA-256 of each file.
 | File | One row per | Notes |
 |---|---|---|
 | `slices.csv.gz` | side and slice | Pairs share `pair_id`; matched by time, within 0.5 ms. |
-| `fit.csv.gz` | side and slice | m-file relative RMS per family. `*_common` columns cover the channels both sides fitted. |
-| `constraint_points.csv.gz` | fitted channel | Subsample of 150 paired slices. |
+| `fit.csv.gz` | side and slice | m-file relative RMS per family. `*_common` columns cover the channels both sides fitted. `ip_*` and `dia_*` hold the measured and reconstructed values and their fit weights (SI). |
+| `constraint_points.csv.gz` | fitted channel | Subsample of 400 paired slices. |
 | `virial.csv.gz` | side and slice | Volume integral against the pair_13 closure, Grad-Shafranov residual, a-file scalars. |
 | `thomson.csv.gz` | side and slice | g-file against HSDS `public` Thomson. `no_thomson` rows mark shots without it. |
+| `thomson_channels.csv.gz` | Thomson channel | Per-channel `p_e` and `p_recon` behind each Thomson verdict, from `thomson_pressure_samples`. |
 | `vacuum_by_family.csv.gz` | source, shot, wall model and family | Medians over channels both sources evaluated. |
 | `stability_legacy*.csv.gz` | DCON/RDCON run, or RDCON surface | Read from the legacy `linear_stability` text output. |

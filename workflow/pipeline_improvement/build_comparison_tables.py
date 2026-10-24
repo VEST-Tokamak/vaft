@@ -65,7 +65,7 @@ CHECKS = ("fit", "virial", "thomson", "vacuum", "stability")
 MAIN_TIME_TOLERANCE = 5.0e-4
 GFILE = re.compile(r"^g0*(\d+)\.0*(\d+)$")
 #: Per-channel constraint points are kept for this many paired slices (the snapshot stays small).
-CONSTRAINT_POINT_SLICES = 150
+CONSTRAINT_POINT_SLICES = 400
 
 _MODULES: dict[str, Any] = {}
 
@@ -167,6 +167,16 @@ def fit_row(entry: Mapping[str, Any]) -> tuple[dict[str, Any], list[dict[str, An
         "probe_median_relative": fit.get("probe_median_relative"),
         "loop_median_relative": fit.get("loop_median_relative"),
     }
+    # The single-channel constraints as values, for a measured-against-
+    # reconstructed view in physical units; the weight says whether the fit used it.
+    for family in ("ip", "dia"):
+        measured, reconstructed, weight, _sigma = convergence_study().MAGNETIC_FAMILIES[family]
+        for key, name in (("measured", measured), ("reconstructed", reconstructed), ("weight", weight)):
+            try:
+                value = np.asarray(getattr(variables[name], "data", variables[name]), float).reshape(-1)
+                row[f"{family}_{key}"] = float(value[0]) if value.size else float("nan")
+            except KeyError:
+                row[f"{family}_{key}"] = float("nan")
     points = []
     arrays: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
     for family, (measured, reconstructed, weight, _sigma) in convergence_study().MAGNETIC_FAMILIES.items():
@@ -272,11 +282,27 @@ def virial_row(entry: Mapping[str, Any]) -> dict[str, Any]:
     return row
 
 
-def thomson_row(entry: Mapping[str, Any], diagnostics: Any) -> dict[str, Any]:
+def thomson_row(entry: Mapping[str, Any], diagnostics: Any) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """The summary verdict of ``check_gfile`` and the per-channel samples behind it.
+
+    The channels come from :func:`vaft.validation.equilibrium.thomson_pressure_samples`,
+    the sampler the verdict itself is computed from, on the same g-file.
+    """
+    from vaft.validation.equilibrium import thomson_pressure_samples
+
     result = thomson_check().check_gfile(entry["gfile"], diagnostics)
-    return {"status": result.get("status"), "thomson_log_ratio": result.get("log_ratio"),
-            "thomson_sum_ratio": result.get("sum_ratio"), "thomson_points": result.get("points"),
-            "thomson_time_offset_s": result.get("time_offset_s"), "reason": result.get("reason")}
+    row = {"status": result.get("status"), "thomson_log_ratio": result.get("log_ratio"),
+           "thomson_sum_ratio": result.get("sum_ratio"), "thomson_points": result.get("points"),
+           "thomson_time_offset_s": result.get("time_offset_s"), "reason": result.get("reason")}
+    _, ods = _equilibrium_ods(entry["gfile"])
+    sampled = thomson_pressure_samples(ods, 0, diagnostics)
+    channels = []
+    if sampled.get("available"):
+        for sample in sampled["channels"]:
+            channels.append({key: sample.get(key) for key in
+                             ("channel", "r", "z", "psi_norm", "n_e", "t_e", "p_e", "p_recon")})
+            channels[-1]["ts_time"] = sampled.get("ts_time")
+    return row, channels
 
 
 #: Wall models of the vacuum check. ``stored`` keeps each product's own
@@ -523,7 +549,7 @@ def process_shot(shot: int, args, tables: Mapping[str, Table], points_budget: li
                 tables[check].append_rows([{"side": None, "shot": shot, "status": "no_thomson"}])
                 _mark(args.output, check, shot)
                 continue
-            rows, points, arrays = [], [], {}
+            rows, points, arrays, channels = [], [], {}, []
             for side, entries in sides.items():
                 for i, entry in enumerate(entries):
                     pair_id = partner.get((side, i), (None, None))[0]
@@ -539,7 +565,8 @@ def process_shot(shot: int, args, tables: Mapping[str, Table], points_budget: li
                         elif check == "virial":
                             row = virial_row(entry)
                         else:
-                            row = thomson_row(entry, diagnostics)
+                            row, slice_channels = thomson_row(entry, diagnostics)
+                            channels += [{**base, **c} for c in slice_channels]
                     except Exception as error:
                         row = {"status": "error", "error": repr(error)[:300]}
                         if args.verbose:
@@ -557,6 +584,8 @@ def process_shot(shot: int, args, tables: Mapping[str, Table], points_budget: li
                 points = [p for p in points if p["pair_id"] in pairs]
                 points_budget[0] -= len(pairs)
                 tables["constraint_points"].extend(points)
+            if channels:
+                tables["thomson_channels"].extend(channels)
             tables[check].extend(rows)
             _mark(args.output, check, shot)
 
@@ -659,7 +688,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     shots = read_shots(args)
     write_manifest(args, shots)
     copy_atlas(args)
-    names = ("slices", "fit", "constraint_points", "virial", "thomson", "vacuum",
+    names = ("slices", "fit", "constraint_points", "virial", "thomson", "thomson_channels", "vacuum",
              "stability_legacy", "stability_legacy_surfaces")
     suffix = "" if not args.shard else "_" + args.shard.replace("/", "of")
     tables = {name: Table(args.output / f"{name}{suffix}.csv") for name in names}

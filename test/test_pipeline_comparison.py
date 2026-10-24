@@ -176,16 +176,66 @@ def test_scorecard_skips_metrics_without_a_direction():
     plt.close(fig)
 
 
-def test_measured_vs_reconstructed_reports_each_side():
+def test_measured_vs_reconstructed_reports_each_side_in_display_units():
     import matplotlib.pyplot as plt
     import pandas as pd
 
     from vaft.plot.pipeline_comparison import pipeline_comparison_measured_vs_reconstructed
 
     points = pd.DataFrame({"side": ["legacy", "legacy", "current"], "family": ["probe"] * 3,
-                           "measured": [1.0, 2.0, 1.0], "reconstructed": [1.5, 2.5, 1.0]})
-    fig, ax = pipeline_comparison_measured_vs_reconstructed(points, "probe", scale=1.0, unit="T")
-    texts = [t.get_text() for t in ax.texts]
-    assert any("legacy archive: 2 points, RMS(r - m) 0.5 T" in t for t in texts)
-    assert any("current pipeline: 1 points, RMS(r - m) 0 T" in t for t in texts)
+                           "measured": [0.010, 0.020, 0.010], "reconstructed": [0.015, 0.025, 0.010]})
+    fig, ax = pipeline_comparison_measured_vs_reconstructed(points, family="probe", format="legacy")
+    labels = [t.get_text() for t in ax.get_legend().get_texts()]
+    assert "Legacy archive (n=2, MAE 5.00 mT)" in labels
+    assert "Current pipeline (n=1, MAE 0.00 mT)" in labels
+    assert ax.get_title() == "Poloidal probes"
+    plt.close(fig)
+
+
+def test_single_channel_family_reads_the_fit_table():
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    from vaft.plot.pipeline_comparison import pipeline_comparison_measured_vs_reconstructed
+
+    fit = pd.DataFrame({"side": ["legacy", "current"], "ip_measured": [80e3, 80e3],
+                        "ip_reconstructed": [80e3, 84e3]})
+    fig, ax = pipeline_comparison_measured_vs_reconstructed(fit, family="ip", format="legacy")
+    assert "Current pipeline (n=1, MAE 4.00 kA)" in [t.get_text() for t in ax.get_legend().get_texts()]
+    plt.close(fig)
+
+
+def test_virial_view_counts_slices_it_cannot_show():
+    """A non-positive beta_p on a log axis is counted, not silently dropped."""
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    from vaft.plot.pipeline_comparison import pipeline_comparison_virial
+
+    table = pd.DataFrame({"side": ["legacy", "current", "current", "current"],
+                          "beta_p_integral": [0.01, 0.2, -0.5, float("nan")],
+                          "beta_p_pair_13": [0.02, 0.21, 0.2, 0.1]})
+    fig, ax = pipeline_comparison_virial(table, quantity="beta_p", limits=(1e-3, 2.0), format="legacy")
+    assert ax.get_xscale() == "log"
+    assert "Current pipeline (n=3, 2 not shown)" in [t.get_text() for t in ax.get_legend().get_texts()]
+    assert any("not shown: legacy 0, current 2" in t.get_text() for t in ax.texts)
+    plt.close(fig)
+
+
+def test_overview_is_a_two_by_two_with_one_legend():
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    from vaft.plot.pipeline_comparison import pipeline_comparison_overview
+
+    points = pd.DataFrame({"side": ["legacy", "current"] * 2, "family": ["probe", "probe", "loop", "loop"],
+                           "measured": [0.01, 0.01, -0.002, -0.002], "reconstructed": [0.012, 0.01, -0.0021, -0.002]})
+    virial = pd.DataFrame({"side": ["legacy", "current"], "beta_p_integral": [0.01, 0.2],
+                           "beta_p_pair_13": [0.02, 0.2], "li_volume": [0.7, 0.6], "li_pair_13": [0.65, 0.6]})
+    fig, axes = pipeline_comparison_overview(points, virial)
+    assert axes.shape == (2, 2)
+    assert all(ax.get_legend() is None for ax in axes.ravel())
+    assert len(fig.legends) == 1
+    with pytest.raises(ValueError):
+        pipeline_comparison_overview(points, virial, limits_by_panel={"thomson": (0, 1)})
     plt.close(fig)

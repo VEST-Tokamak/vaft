@@ -33,6 +33,7 @@ KEYS = {
     "fit": ("side", "shot", "time_ms"),
     "virial": ("side", "shot", "time_ms"),
     "thomson": ("side", "shot", "time_ms"),
+    "thomson_channels": ("side", "shot", "time_ms", "channel"),
     "constraint_points": ("side", "shot", "time_ms", "family", "channel"),
     "vacuum": ("source", "shot", "wall_model", "name"),
     "stability_legacy": ("shot", "time_ms", "solver", "n"),
