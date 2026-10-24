@@ -468,17 +468,31 @@ STABILITY_QUANTITIES = {
 }
 
 
+def _mode_colors(modes) -> dict[int, Any]:
+    """One colour per toroidal mode, from the colormap of the atlas figure."""
+    import matplotlib.pyplot as plt
+
+    cmap = plt.get_cmap("viridis")
+    modes = sorted(int(n) for n in modes)
+    return {n: cmap(i / max(len(modes) - 1, 1) * 0.92) for i, n in enumerate(modes)}
+
+
 def pipeline_comparison_stability(table: pd.DataFrame, *, quantity: str = "w_t", value: str = "value",
-                                  by: str = "side", normalize: bool = True, ax=None, show: bool = False,
+                                  by: str = "side", mode: str = "n", modes=None, colors=None,
+                                  normalize: bool = True, ax=None, show: bool = False,
                                   figsize: tuple[float, float] = (5.2, 3.0)):
-    """Legacy and current populations of ``W_t`` or ``Delta'_max`` as step histograms on a symlog axis.
+    """Legacy and current populations of ``W_t`` or ``Delta'_max`` per toroidal mode, on a symlog axis.
 
     The panel of :func:`vaft.plot.stability_atlas.stability_atlas_population`,
-    with its bins, ticks and stable/unstable zones, and the pipeline as the
-    series. The count axis is linear. ``normalize`` divides each side by its
-    own number of slices, because the two populations differ in size by more
-    than an order of magnitude; the legend gives each count. A value past the
-    outermost bin is drawn in the edge bin, as the atlas figure does.
+    with its bins, ticks and stable/unstable zones. Colour is the toroidal mode
+    (column ``mode``), as in the atlas figure; the pipeline is the line style,
+    dashed for the legacy archive and solid for the current pipeline. The
+    count axis is linear. ``normalize`` divides every (pipeline, mode) curve by
+    its own number of slices, because the two populations differ in size by
+    more than an order of magnitude. A value past the outermost bin is drawn in
+    the edge bin, as the atlas figure does. The key is left to the caller
+    (:func:`pipeline_comparison_stability_overview` draws one for both panels);
+    each step carries a ``"<side>:<mode>"`` label.
     """
     from .stability_atlas import _BINNING, _TICKS, _prepare, _symlog_bins, _zones
 
@@ -490,30 +504,26 @@ def pipeline_comparison_stability(table: pd.DataFrame, *, quantity: str = "w_t",
     bins = _symlog_bins(lowest, highest, linthresh, per_decade)
     # The atlas's ticks, thinned where a slide-size font would make them touch.
     _prepare(ax, bins, linthresh, ticks or _TICKS[panel])
+    present = sorted(int(n) for n in pd.unique(table[mode].dropna()))
+    modes = present if modes is None else [int(n) for n in modes]
+    colors = colors or _mode_colors(modes)
     tallest = 0.0
-    summary = []
     for side in SIDES:
-        values = pd.to_numeric(table.loc[table[by] == side, value], errors="coerce").to_numpy(float)
-        values = values[np.isfinite(values)]
-        if not values.size:
-            continue
-        values = np.clip(values, bins[0], bins[-1])
-        weights = np.full(values.size, 1.0 / values.size) if normalize else None
-        style = SIDE_STYLE[side]
-        unstable = float(np.mean(values > 0) if unstable_right else np.mean(values < 0))
-        counts, _, _ = ax.hist(values, bins=bins, weights=weights, histtype="step", lw=1.6,
-                               color=style["color"], linestyle=style["linestyle"],
-                               label=f"{COMPARISON_LABELS[side]} (n={values.size:,}, {unstable:.0%} unstable side)")
-        tallest = max(tallest, float(np.max(counts)))
-        summary.append(f"{COMPARISON_LABELS[side].split()[0].lower()} {unstable:.0%} (n={values.size:,})")
-    # The unstable-side share per pipeline, as the title, where no bar can hide it.
-    ax.set_title("unstable: " + " · ".join(summary), fontsize="small", loc="right")
-    # Headroom above the tallest bar for the zone names and the key.
-    ax.set_ylim(0, max(tallest, 1e-9) * 1.9)
+        for n in modes:
+            rows = (table[by] == side) & (table[mode] == n)
+            values = pd.to_numeric(table.loc[rows, value], errors="coerce").to_numpy(float)
+            values = values[np.isfinite(values)]
+            if not values.size:
+                continue
+            values = np.clip(values, bins[0], bins[-1])
+            weights = np.full(values.size, 1.0 / values.size) if normalize else None
+            counts, _, _ = ax.hist(values, bins=bins, weights=weights, histtype="step", lw=1.6,
+                                   color=colors[n], linestyle=SIDE_STYLE[side]["linestyle"], label=f"{side}:{n}")
+            tallest = max(tallest, float(np.max(counts)))
+    # Headroom above the tallest bar for the zone names.
+    ax.set_ylim(0, max(tallest, 1e-9) * 1.3)
     ax.set_ylabel("fraction of slices" if normalize else "slices")
     _zones(ax, unstable_right=unstable_right)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 0.86), frameon=True, framealpha=0.9, edgecolor="none",
-              fontsize="small", handlelength=2.4)
     ax.set_xlabel(xlabel)
     _finish(fig, show)
     return fig, ax
@@ -521,26 +531,36 @@ def pipeline_comparison_stability(table: pd.DataFrame, *, quantity: str = "w_t",
 
 def pipeline_comparison_stability_overview(w_t: pd.DataFrame, delta_prime: pd.DataFrame, *,
                                            normalize: bool = True, show: bool = False,
-                                           figsize: tuple[float, float] = (8.0, 7.4),
+                                           figsize: tuple[float, float] = (8.0, 7.6),
                                            panel_labels: bool = True):
-    """``W_t`` over ``Delta'_max`` for one toroidal mode, legacy and current, stacked as the atlas figure is."""
-    import matplotlib.pyplot as plt
+    """``W_t`` over ``Delta'_max``, legacy and current, per toroidal mode, stacked as the atlas figure is.
 
+    Both tables are long form (``side``, ``n``, ``value``). One colour per mode
+    across both panels; one shared key below them: the line style names the
+    pipeline, the colour the toroidal mode.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+
+    modes = sorted({int(n) for n in pd.unique(w_t["n"].dropna())} | {int(n) for n in pd.unique(delta_prime["n"].dropna())})
+    colors = _mode_colors(modes)
     presentation = resolve_presentation("slide", None)
     with presentation.context():
         fig, axes = plt.subplots(2, 1, figsize=figsize)
-        from matplotlib.lines import Line2D
-
-        pipeline_comparison_stability(w_t, quantity="w_t", normalize=normalize, ax=axes[0])
-        pipeline_comparison_stability(delta_prime, quantity="delta_prime", normalize=normalize, ax=axes[1])
-        for letter, ax in zip("ab", axes):
-            ax.get_legend().remove()
-            ax.set_ylim(0, ax.get_ylim()[1] / 1.9 * 1.35)  # no in-panel key left to make room for
-            if panel_labels:
+        pipeline_comparison_stability(w_t, quantity="w_t", colors=colors, normalize=normalize, ax=axes[0])
+        pipeline_comparison_stability(delta_prime, quantity="delta_prime", colors=colors, normalize=normalize,
+                                      ax=axes[1])
+        if panel_labels:
+            for letter, ax in zip("ab", axes):
                 _panel_letter(ax, letter)
-        handles = [Line2D([], [], color=SIDE_STYLE[side]["color"], linestyle=SIDE_STYLE[side]["linestyle"],
-                          lw=1.6, label=COMPARISON_LABELS[side]) for side in SIDES]
-        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=2, frameon=False)
+        styles = [Line2D([], [], color=INK, linestyle=SIDE_STYLE[side]["linestyle"], lw=1.6,
+                         label=COMPARISON_LABELS[side]) for side in SIDES]
+        swatches = [Line2D([], [], color=colors[n], lw=3.0, label=str(n)) for n in modes]
+        # The mode key sits in the empty unstable half of the W_t panel; the
+        # pipeline key goes under both panels.
+        axes[0].legend(handles=swatches, loc="center left", bbox_to_anchor=(0.03, 0.5), ncol=len(swatches),
+                       frameon=False, title="toroidal mode", handlelength=1.2, columnspacing=1.0)
+        fig.legend(handles=styles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=2, frameon=False)
         fig.tight_layout(rect=(0.0, 0.06, 1.0, 1.0), pad=0.8, h_pad=1.4)
     if show:
         plt.show()

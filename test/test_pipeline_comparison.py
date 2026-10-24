@@ -241,31 +241,38 @@ def test_overview_is_a_two_by_two_with_one_legend():
     plt.close(fig)
 
 
-def test_stability_histogram_normalises_each_side_and_reports_the_unstable_share():
+def test_stability_histogram_draws_one_normalised_step_per_pipeline_and_mode():
     import matplotlib.pyplot as plt
     import pandas as pd
 
     from vaft.plot.pipeline_comparison import pipeline_comparison_stability
 
-    table = pd.DataFrame({"side": ["legacy"] * 4 + ["current"] * 2,
-                          "value": [-2.0, 3.0, 4.0, 5.0, 6.0, 7.0]})
+    table = pd.DataFrame({"side": ["legacy"] * 4 + ["current"] * 3, "n": [1, 1, 2, 2, 1, 2, 2],
+                          "value": [-2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]})
     fig, ax = pipeline_comparison_stability(table, quantity="w_t")
-    heights = [patch.get_path().vertices[:, 1].max() for patch in ax.patches if hasattr(patch, "get_path")]
+    steps = {p.get_label(): p for p in ax.patches if p.get_label().count(":") == 1}
+    assert set(steps) == {"legacy:1", "legacy:2", "current:1", "current:2"}
+    assert steps["legacy:1"].get_linestyle() != steps["current:1"].get_linestyle()  # pipeline = line style
+    assert steps["legacy:1"].get_edgecolor() == steps["current:1"].get_edgecolor()  # mode = colour
+    assert steps["legacy:1"].get_edgecolor() != steps["legacy:2"].get_edgecolor()
+    heights = [p.get_path().vertices[:, 1].max() for p in steps.values()]
     assert max(heights) <= 1.0 + 1e-9  # fractions, not counts
     assert ax.get_yscale() == "linear" and ax.get_xscale() == "symlog"
-    assert "legacy 25% (n=4)" in ax.get_title(loc="right")
-    assert "current 0% (n=2)" in ax.get_title(loc="right")
+    assert ax.get_title(loc="right") == ""
     plt.close(fig)
 
 
-def test_stability_overview_has_one_shared_legend():
+def test_stability_overview_keys_pipeline_and_mode_once():
     import matplotlib.pyplot as plt
     import pandas as pd
 
     from vaft.plot.pipeline_comparison import pipeline_comparison_stability_overview
 
-    w = pd.DataFrame({"side": ["legacy", "current"], "value": [1.0, -1.0]})
-    d = pd.DataFrame({"side": ["legacy", "current"], "value": [10.0, -10.0]})
+    w = pd.DataFrame({"side": ["legacy", "current", "legacy"], "n": [1, 1, 2], "value": [1.0, -1.0, 2.0]})
+    d = pd.DataFrame({"side": ["legacy", "current"], "n": [1, 1], "value": [10.0, -10.0]})
     fig, axes = pipeline_comparison_stability_overview(w, d)
-    assert all(ax.get_legend() is None for ax in axes) and len(fig.legends) == 1
+    assert axes[1].get_legend() is None and len(fig.legends) == 1
+    texts = [t.get_text() for t in fig.legends[0].get_texts()] + [t.get_text() for t in axes[0].get_legend().get_texts()]
+    assert texts == ["Legacy archive", "Current pipeline", "1", "2"]
+    assert not any("n=" in t or "n =" in t for t in texts)
     plt.close(fig)
