@@ -135,8 +135,12 @@ def test_vest_yaml_has_canonical_top_level_diagnostic_structure():
     )
     defaults = content[0]
 
+    # The placeholder 0.magnetics block (one fictitious loop) was removed with
+    # the sensor registry (#2158); the 75 sensors live under diagnostics.
+    assert "magnetics" not in defaults
+    sensors = defaults["diagnostics"]["equilibrium_magnetics"]["sensors"]["records"]
+    assert len(sensors) == 75
     assert {
-        "magnetics",
         "pf_active",
         "tf",
         "barometry",
