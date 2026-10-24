@@ -463,8 +463,8 @@ def pipeline_comparison_overview(points: pd.DataFrame, virial: pd.DataFrame, *, 
 #: Stability quantities: binning and ticks of :mod:`vaft.plot.stability_atlas`, the
 #: side of zero that is unstable, and the axis label.
 STABILITY_QUANTITIES = {
-    "w_t": ("ideal", False, r"$\delta W$", (-1e3, -1.0, 0.0, 1.0, 1e2)),
-    "delta_prime": ("resistive", True, r"$\Delta'$", None),
+    "w_t": ("ideal", False, r"$\delta W$", (-1e3, -1.0, 0.0, 1.0, 1e2), "Ideal MHD stability (DCON)"),
+    "delta_prime": ("resistive", True, r"$\Delta'$", None, "Resistive MHD stability (RDCON)"),
 }
 
 
@@ -499,7 +499,7 @@ def pipeline_comparison_stability(table: pd.DataFrame, *, quantity: str = "w_t",
 
     if quantity not in STABILITY_QUANTITIES:
         raise ValueError(f"unknown quantity {quantity!r}; known: {sorted(STABILITY_QUANTITIES)}")
-    panel, unstable_right, xlabel, ticks = STABILITY_QUANTITIES[quantity]
+    panel, unstable_right, xlabel, ticks, title = STABILITY_QUANTITIES[quantity]
     fig, ax = _axes(ax, figsize)
     lowest, highest, linthresh, per_decade = _BINNING[panel]
     bins = _symlog_bins(lowest, highest, linthresh, per_decade)
@@ -526,6 +526,7 @@ def pipeline_comparison_stability(table: pd.DataFrame, *, quantity: str = "w_t",
     ax.set_ylabel("fraction of slices" if normalize else "slices")
     _zones(ax, unstable_right=unstable_right)
     ax.set_xlabel(xlabel)
+    ax.set_title(title)
     _finish(fig, show)
     return fig, ax
 

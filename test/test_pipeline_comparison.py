@@ -259,7 +259,7 @@ def test_stability_histogram_draws_one_normalised_step_per_pipeline_and_mode():
     heights = [p.get_path().vertices[:, 1].max() for p in steps.values()]
     assert max(heights) <= 1.0 + 1e-9  # fractions, not counts
     assert ax.get_yscale() == "linear" and ax.get_xscale() == "symlog"
-    assert ax.get_title(loc="right") == ""
+    assert ax.get_title() == "Ideal MHD stability (DCON)"
     plt.close(fig)
 
 
@@ -275,5 +275,6 @@ def test_stability_overview_keys_pipeline_and_mode_once():
     assert all(ax.get_legend() is None for ax in axes) and len(fig.legends) == 2
     texts = [t.get_text() for legend in fig.legends for t in legend.get_texts()]
     assert sorted(texts) == sorted(["Legacy archive", "Current pipeline", "toroidal mode", "1", "2"])
+    assert [ax.get_title() for ax in axes] == ["Ideal MHD stability (DCON)", "Resistive MHD stability (RDCON)"]
     assert not any("n=" in t or "n =" in t for t in texts)
     plt.close(fig)
