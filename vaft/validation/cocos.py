@@ -19,7 +19,7 @@ from vaft.data.cocos import cocos_spec
 from vaft.data.equilibrium import ValidationIssue, ValidationReport
 from vaft.process.cocos import _sign, cocos_consistency_signs
 
-__all__ = ["validate_cocos"]
+__all__ = ["check_cocos_transform", "validate_cocos"]
 
 #: Relations Eq. 23 defines, in report order, with the field each one inspects.
 _RELATIONS = (
@@ -152,4 +152,107 @@ def validate_cocos(
             f"COCOS {cocos} relations not checked because their inputs are "
             f"unavailable: {', '.join(unverifiable)}",
         ))
+    return ValidationReport(tuple(issues))
+
+
+#: Relative tolerance on the quantities a COCOS transform must leave unchanged
+#: in magnitude.  The transform multiplies by exact signs and powers of 2*pi, so
+#: anything above rounding is a wrong factor, not noise.
+TRANSFORM_RTOL = 1e-9
+
+
+def check_cocos_transform(before: Any, after: Any) -> ValidationReport:
+    """Check that a COCOS conversion preserved what no convention can change.
+
+    The registry check ``verification.cocos_transform_invariants``: the
+    transformation-axis evidence that a conversion was carried out correctly,
+    as opposed to merely declared (#2165).
+
+    Parameters
+    ----------
+    before : EquilibriumData
+        The equilibrium in its source convention [-].
+    after : EquilibriumData
+        The same equilibrium after the conversion [-].
+
+    Returns
+    -------
+    ValidationReport
+        An error per broken invariant, a warning per invariant that could not
+        be checked; empty when every checkable invariant held [-].
+
+    Raises
+    ------
+    ValueError
+        Either equilibrium carries no COCOS index.
+
+    Processing steps
+    ----------------
+    1. Both conventions must carry an index.
+    2. ``|I_p|``, ``|B_0|``, ``|q|``, ``|F|`` and the pressure are invariant
+       in magnitude under any COCOS change.
+    3. ``|psi_boundary - psi_axis|`` scales by ``(2*pi)**(e_Bp,after - e_Bp,before)``.
+    4. The converted equilibrium satisfies the Sauter Eq. 23 sign relations of
+       its new index, as far as :func:`validate_cocos` can check them.
+
+    Convention
+    ----------
+    Mathematical consistency of the transform only.  A passing report says the
+    conversion was faithful to the source convention; it says nothing about
+    whether that source convention was right, and so nothing about the VEST
+    machine polarity (#288).
+
+    Limitations
+    -----------
+    The standing ``cocos_unverifiable`` warning of :func:`validate_cocos`
+    (``j_phi`` and ``phi_tor`` have no field) is not repeated here; only its
+    sign-relation findings are.
+
+    Provenance
+    ----------
+    .. [1] Sauter and Medvedev (2013), Table I (``e_Bp``) and Eq. 23.
+    """
+    import numpy as np
+
+    from vaft.data.cocos import psi_is_per_radian
+
+    issues: list[ValidationIssue] = []
+    source = getattr(getattr(before, "convention", None), "cocos", None)
+    target = getattr(getattr(after, "convention", None), "cocos", None)
+    if source is None or target is None:
+        raise ValueError("both equilibria must carry a COCOS index; a conversion that produced "
+                         "an undeclared convention is not a conversion to check")
+
+    def magnitude(field: str) -> None:
+        a, b = getattr(before, field, None), getattr(after, field, None)
+        if a is None or b is None:
+            issues.append(ValidationIssue("warning", "cocos_transform_unverifiable", field,
+                                          f"{field} is missing, so its invariance is not checked"))
+            return
+        a, b = np.abs(np.asarray(a, dtype=float)), np.abs(np.asarray(b, dtype=float))
+        if a.shape != b.shape or not np.allclose(a, b, rtol=TRANSFORM_RTOL, atol=0.0, equal_nan=True):
+            issues.append(ValidationIssue("error", f"cocos_transform_{field}", field,
+                                          f"|{field}| changed under COCOS {source} -> {target}"))
+
+    for field in ("ip", "bt0", "q", "f", "pressure"):
+        magnitude(field)
+
+    spans = [getattr(e, "psi_boundary", None) - getattr(e, "psi_axis", None)
+             if getattr(e, "psi_boundary", None) is not None and getattr(e, "psi_axis", None) is not None
+             else None for e in (before, after)]
+    if None in spans or spans[0] == 0:
+        issues.append(ValidationIssue("warning", "cocos_transform_unverifiable", "psi",
+                                      "psi_axis or psi_boundary is missing, so the flux scale is not checked"))
+    else:
+        exponent = int(not psi_is_per_radian(target)) - int(not psi_is_per_radian(source))
+        expected = (2.0 * np.pi) ** exponent
+        ratio = abs(float(spans[1])) / abs(float(spans[0]))
+        if not np.isclose(ratio, expected, rtol=TRANSFORM_RTOL, atol=0.0):
+            issues.append(ValidationIssue("error", "cocos_transform_psi", "psi",
+                                          f"|dpsi| scaled by {ratio:.12g}, expected {expected:.12g} "
+                                          f"for COCOS {source} -> {target}"))
+
+    for issue in validate_cocos(after, target).issues:
+        if issue.code != "cocos_unverifiable":
+            issues.append(issue)
     return ValidationReport(tuple(issues))

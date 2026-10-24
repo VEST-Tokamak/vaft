@@ -63,6 +63,9 @@ __all__ = [
     "assess_compatibility",
     "canonical_quantity",
     "representation_from_convention",
+    "TRANSFORMATION_RECORD_SCHEMA",
+    "TransformationRecord",
+    "cocos_transformation_record",
 ]
 
 #: Providers a :class:`TransformRef` names.  They are references to existing
@@ -373,3 +376,89 @@ def representation_from_convention(convention, *, quantity: str = "psi", unit: O
     supported = index in convention.identified or not declared
     level = EvidenceLevel.INFERRED if supported else EvidenceLevel.DECLARED
     return Representation(quantity, unit, index, None, level, note=f"source: {convention.source}")
+
+
+#: Version of :meth:`TransformationRecord.as_dict`.
+TRANSFORMATION_RECORD_SCHEMA = 1
+
+
+@dataclass(frozen=True)
+class TransformationRecord:
+    """A scientific transformation, declared or executed, by reference (#2165).
+
+    Records *what* was transformed and *by which provider*, never the arrays.
+    ``executed`` separates a transformation an assessment found necessary from
+    one that was actually applied; ``checks`` names the registry keys of the
+    checks run on the result (:mod:`vaft.validation.registry`), and an empty
+    tuple means none was.  ``unresolved`` carries what the transformation could
+    not settle -- an unconfirmed machine polarity is not repaired by a COCOS
+    relabel, so it stays listed after one.  The record is evidence of
+    execution only: its credibility is decided by
+    :func:`vaft.validation.credibility.transformation_evidence` from an actual
+    check, never from the record alone.
+    """
+
+    kind: str
+    provider: str
+    source: Representation
+    target: Representation
+    parameters: Mapping[str, Any] = field(default_factory=dict, hash=False)
+    executed: bool = False
+    checks: tuple[str, ...] = ()
+    unresolved: tuple[str, ...] = ()
+
+    def __post_init__(self):
+        if self.kind not in ("unit", "cocos", "fourier"):
+            raise ValueError(f"unknown transformation kind {self.kind!r}")
+        for name in ("checks", "unresolved"):
+            value = getattr(self, name)
+            object.__setattr__(self, name, (value,) if isinstance(value, str) else tuple(value))
+
+    @classmethod
+    def from_reference(cls, reference: TransformRef, source: Representation, target: Representation, *,
+                       executed: bool = False, checks=(), unresolved=()) -> "TransformationRecord":
+        """The record of carrying out one :class:`TransformRef` of an assessment."""
+        return cls(reference.kind, reference.provider, source, target, dict(reference.parameters),
+                   executed, tuple(checks), tuple(unresolved))
+
+    def as_dict(self) -> dict:
+        """Strict-JSON fields, with ``schema_version``; no arrays."""
+
+        def rep(r: Representation) -> dict:
+            return {"quantity": r.quantity, "unit": r.unit, "cocos": r.cocos,
+                    "fourier": None if r.fourier is None else r.fourier.name,
+                    "evidence": r.evidence.value}
+
+        return {
+            "schema_version": TRANSFORMATION_RECORD_SCHEMA,
+            "kind": self.kind,
+            "provider": self.provider,
+            "source": rep(self.source),
+            "target": rep(self.target),
+            "parameters": {str(k): v for k, v in self.parameters.items()},
+            "executed": self.executed,
+            "checks": list(self.checks),
+            "unresolved": list(self.unresolved),
+        }
+
+
+def cocos_transformation_record(source_cocos: int, target_cocos: int, *, provider: str = COCOS_PROVIDER,
+                                quantity: str = "psi", source_evidence: EvidenceLevel = EvidenceLevel.DECLARED,
+                                executed: bool = True, checks=(), unresolved=(),
+                                parameters: Optional[Mapping[str, Any]] = None) -> TransformationRecord:
+    """The record of one COCOS conversion of an equilibrium, ``source_cocos`` to ``target_cocos``.
+
+    The units are the storage family of each index.  ``parameters`` defaults
+    to the two indices; a caller that applied explicit factors adds them.
+    """
+    from vaft.data.cocos import psi_is_per_radian
+
+    def unit(index: int) -> str:
+        return "Wb/rad" if psi_is_per_radian(index) else "Wb"
+
+    params = {"source_cocos": int(source_cocos), "target_cocos": int(target_cocos), **dict(parameters or {})}
+    return TransformationRecord(
+        "cocos", provider,
+        Representation(quantity, unit(source_cocos), int(source_cocos), evidence=source_evidence),
+        Representation(quantity, unit(target_cocos), int(target_cocos), evidence=EvidenceLevel.DECLARED),
+        params, executed, tuple(checks), tuple(unresolved))

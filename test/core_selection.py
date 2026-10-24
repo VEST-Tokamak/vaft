@@ -406,6 +406,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_data_fourier_convention.py",
     "test_formula_units.py",
     "test_scientific_compatibility.py",
+    # Scientific evidence and transformation provenance (#2165): transformation
+    # records, the transformation (T) axis and the result context over a
+    # synthetic EFIT -> COCOS -> CHEASE -> GPEC chain. One g-file; under 5 s.
+    "test_scientific_provenance.py",
     # Sensitivity contract (lane AP, #1642): finite differences against the
     # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map; per-formula
     # propagation and analytic Jacobians of the pilot formulas (#1874). ~3 s.

@@ -633,6 +633,10 @@ def test_the_converted_file_gives_neo_the_imas_field_directions(ods_48224):
     ip = float(ods_48224["equilibrium.time_slice.0.global_quantities.ip"])
     assert _directions(profile) == (int(np.sign(b0)), int(np.sign(ip)))
     assert profile.provenance["cocos"]["to"] == 2
+    record = profile.provenance["cocos"]["transformation"]
+    assert (record["kind"], record["executed"], record["checks"]) == ("cocos", True, [])
+    assert (record["source"]["cocos"], record["target"]["cocos"]) == (11, 2)
+    assert (record["source"]["unit"], record["target"]["unit"]) == ("Wb", "Wb/rad")
 
 
 @requires_sample

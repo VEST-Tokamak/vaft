@@ -89,6 +89,8 @@ __all__ = [
     "compose",
     "evidence_from_efit_criteria",
     "evidence_from_equilibrium_report",
+    "phase_verdict_evidence",
+    "transformation_evidence",
 ]
 
 #: The six credibility axes of #1639 §4, in E, T, I, A, N, V order.
@@ -136,6 +138,11 @@ CATEGORY_AXES: Mapping[str, str] = MappingProxyType({
 #: Registry checks (:data:`vaft.validation.registry.CHECKS`) whose axis differs
 #: from their category's default, with the reason in the comment.
 CHECK_AXES: Mapping[str, str] = MappingProxyType({
+    # A convention change checked against what it must preserve: how faithfully
+    # the input was turned into what is consumed (#2165), not whether the
+    # calculation that consumes it converged.
+    "verification.cocos_transform_invariants": "transformation",
+    "verification.harmonic_phase_convention": "transformation",
     # Leave-one-identity-out: each closure is scored on the identity it did not
     # use -- the "infer with A+B, test with C" pattern of #1639 §10.
     "physical_validity.virial_pair_consistency": "independent_validation",
@@ -392,3 +399,54 @@ def evidence_from_efit_criteria(
         evidence.append(Evidence(axis, f"efit_criteria.{name}", verdict.get("status", "not_available"),
                                  metrics, tuple(verdict.get("reasons") or ()), role=role))
     return tuple(evidence)
+
+
+def transformation_evidence(record: Any, report: Any = None, *, key: str | None = None) -> tuple[Evidence, ...]:
+    """Evidence on the ``transformation`` axis for one transformation record (#2165).
+
+    Distinguishes what the record alone cannot: a transformation that was only
+    declared or found necessary (``record.executed`` false) yields **no**
+    evidence -- availability is not execution.  An executed transformation with
+    no check yields ``not_available``: it happened, and nothing says how well.
+    Only an actual check -- ``report``, a
+    :class:`~vaft.validation.model.ValidationReport` such as
+    :func:`vaft.validation.cocos.check_cocos_transform` returns -- yields its
+    own status.  ``key`` defaults to the record's first check, else to
+    ``transformation.<kind>``.
+
+    The record's ``unresolved`` items travel in the reasons and do not change
+    the status: a faithful COCOS conversion of an unconfirmed polarity is a
+    faithful conversion (T), and the polarity stays an open source question (E).
+    """
+    if not getattr(record, "executed", False):
+        return ()
+    key = key or (record.checks[0] if record.checks else f"transformation.{record.kind}")
+    reasons = [f"{record.kind} transformation by {record.provider}"]
+    reasons += [f"unresolved: {item}" for item in record.unresolved]
+    metrics = {"parameters": dict(record.parameters)}
+    if report is None:
+        return (Evidence("transformation", key, ValidationStatus.NOT_AVAILABLE, metrics,
+                         tuple(reasons + ["executed, but no check was run on the result"])),)
+    issues = tuple(getattr(report, "issues", ()))
+    reasons += [f"{issue.code}: {issue.message}" for issue in issues]
+    return (Evidence("transformation", key, report.status, metrics, tuple(reasons)),)
+
+
+def phase_verdict_evidence(verdict: Any, *, key: str = "verification.harmonic_phase_convention",
+                           cost: str = "moderate") -> Evidence:
+    """A :class:`~vaft.validation.perturbation_phase.PhaseConventionVerdict` on the ``transformation`` axis.
+
+    The verdict says which reconstruction a stored harmonic belongs to; the
+    evidence says whether that is the one it was declared to be.  ``"stored"``
+    -- the declared kernel -- is ``pass``; ``"conjugate"`` is ``fail``, the
+    declaration is wrong; ``indeterminate`` stays ``indeterminate``, never a
+    pass.  The audit evaluates the field independently (Biot-Savart), so it is
+    ``moderate`` cost by default.
+    """
+    status = ValidationStatus(verdict.status)
+    if status is ValidationStatus.PASS and verdict.convention == "conjugate":
+        status = ValidationStatus.FAIL
+        reason = "the audit settles the conjugate of the declared kernel: " + verdict.reason
+    else:
+        reason = verdict.reason
+    return Evidence("transformation", key, status, {"convention": verdict.convention}, (reason,), cost=cost)
