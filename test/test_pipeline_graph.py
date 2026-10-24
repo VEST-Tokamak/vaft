@@ -110,7 +110,11 @@ def test_execution_edges_are_snakemake_rule_dependencies(snapshot):
         ("routine:run_efit_reconstruction", "routine:generate_efit_ods"),
         ("routine:generate_efit_ods", "routine:replicate_efit_to_hsds"),
         ("corrective:generate_thomson_ods", "corrective:generate_core_profiles_ods"),
-        ("corrective:generate_core_profiles_ods", "corrective:generate_kinetic_efit_ods"),
+        ("corrective:generate_core_profiles_ods", "corrective:generate_composition_ods"),
+        # the kinetic lineages read the composed product, not the measured one (#1842)
+        ("corrective:generate_composition_ods", "corrective:generate_kinetic_efit_ods"),
+        ("corrective:generate_composition_ods", "corrective:generate_ti_inferred_ods"),
+        ("corrective:generate_ti_inferred_ods", "corrective:generate_resistive_zeff_ods"),
     ]:
         assert edge in execution, edge
     # Snakemake never schedules across pipelines: those relations are references only.
@@ -256,6 +260,18 @@ def test_generation_is_a_dry_run_without_credentials(monkeypatch, tmp_path):
     assert environment["HOME"].startswith(str(tmp_path))  # no ~/.hscfg or database config is reachable
     for name in ("EFIT", "CHEASE", "GPECHOME", "VAFT_FILEDB_DIR", "VAFT_DATA_DIR"):
         assert environment[name].startswith(str(tmp_path)) and not Path(environment[name]).exists()
+
+
+def test_windows_application_data_folders_point_into_the_workspace(monkeypatch, tmp_path):
+    """Snakemake's CLI asks Windows for the common and per-user app-data folders; they must resolve,
+    and only to the workspace (a real APPDATA or ProgramData could carry a Snakemake profile)."""
+    for name in ("APPDATA", "LOCALAPPDATA", "PROGRAMDATA", "ALLUSERSPROFILE"):
+        monkeypatch.setenv(name, str(Path("C:/real") / name))
+    environment = pipeline_graph._environment(tmp_path)
+    for name in ("APPDATA", "LOCALAPPDATA", "PROGRAMDATA", "ALLUSERSPROFILE"):
+        assert environment[name].startswith(str(tmp_path)), name
+        assert Path(environment[name]).is_dir(), name
+    assert environment["APPDATA"].startswith(environment["USERPROFILE"])
 
 
 def test_windows_appdata_is_existing_and_isolated(monkeypatch, tmp_path):

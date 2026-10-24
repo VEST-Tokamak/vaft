@@ -1,8 +1,11 @@
-"""Deprecated helpers kept for the ``vaft.plot`` compatibility window.
+"""Helpers of the pre-redesign ``vaft.plot`` modules.
 
 Both functions here interpret OMAS objects, which is adapter work rather than
-plotting work, so they now live in :mod:`vaft.omas`.  This module re-exports them
-until the removal release; see :func:`vaft.plot.migration_table`.
+plotting work, so they now live in :mod:`vaft.omas`.  The package-level
+aliases (``vaft.plot.extract_labels_from_odc``, ``vaft.plot.get_from_path``)
+are gone; this module stays because the legacy implementation modules
+(``vaft.plot.time``, ``vaft.plot.onedim``) still import it.  See
+:func:`vaft.plot.migration_table`.
 """
 
 from __future__ import annotations

@@ -194,6 +194,44 @@ recovered to 0.01. The older `vaft.formula.empirical_li_qa()` arrays are the Wes
 boundary of Fig. 6 (not Fig. 5, which is the Hugill diagram) and agree with the audit to about
 0.03. Prefer the registered entries.
 
+### Atlas population histograms
+
+The Tier A stability atlas population (#1852) is drawn as three stacked histograms, each against
+its own criterion: DCON ideal $W_t$ for $n = 1$–$6$ (unstable by sign only, $W_t < 0$; no
+$|W_t|$ band), each slice's largest RDCON/STRIDE $\Delta'$ over its rational surfaces at
+$n = 1, 2$ (unstable if $\Delta'_{\max} > 0$), and the local Mercier $\max D_I$ (unstable $> 0$)
+and ballooning $\min C_A$ (unstable $< 0$). All values are the mpsi 512 run. The QA flags are
+counted in the reader's `summary` table and do not filter the histograms.
+
+<!-- docs-snippet: skip needs-file (reads the campaign atlas tables on vestserver) -->
+```python
+from vaft.process.mhd_stability import load_stability_atlas, stability_atlas_populations
+from vaft.plot.stability_atlas import stability_atlas_population
+populations = stability_atlas_populations(*load_stability_atlas("~/runs/campaign/atlas/stability"))
+print(populations.summary)           # slices, QA and unstable counts per series
+fig, axes = stability_atlas_population(populations)
+```
+
+`notebooks/stability_atlas_population.ipynb` re-runs it from `$VAFT_ATLAS_DIR`.
+
+### Local MHD criteria from one equilibrium
+
+`vaft.process.local_mhd_criteria` evaluates, from one reconstructed equilibrium and with no stability code:
+- Mercier `D_I` and GGJ `D_R` (DCON's formulas, checked against DCON's own output);
+- the normal and geodesic field-line curvature and the local shear, along flux surfaces and in R–Z;
+- per-surface s–α in the #1720 normalisation (#1902).
+
+The renderers in `vaft.plot.local_mhd_criteria` draw each against its own criterion: `D > 0` is unstable, and the s–α boundary is the circular model's, labelled as such.
+
+<!-- docs-snippet: skip fragment (ods is a reconstructed equilibrium the reader supplies) -->
+```python
+from vaft.process.local_mhd_criteria import mercier_ggj_from_ods, s_alpha_from_ods
+from vaft.plot.local_mhd_criteria import local_mhd_criteria_profile_interchange, local_mhd_criteria_s_alpha
+profile = mercier_ggj_from_ods(ods, 0)            # D_I, D_R, H per surface
+fig, ax = local_mhd_criteria_profile_interchange(profile)
+fig, ax = local_mhd_criteria_s_alpha(s_alpha_from_ods(ods, 0))
+```
+
 ---
 
 # Running the GPEC suite

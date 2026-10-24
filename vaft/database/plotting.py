@@ -158,10 +158,12 @@ def render(
     ``backend="plotly"`` among the options returns a Plotly figure instead of
     ``(Figure, Axes)`` (see :mod:`vaft.plot.backends`).
     """
-    if options.get("interactive") and lazy:
-        # The controls rebuild the model on every widget event, long after
-        # this call returns and its lazy store has closed: load once instead,
-        # with the eager path's whole contract (an occurrence is honoured).
+    if (options.get("interactive") or options.get("animation")) and lazy:
+        # The controls rebuild the model on every widget event, and an
+        # Animation builds its frames only when it is saved or shown -- both
+        # long after this call returns and its lazy store has closed: load
+        # once instead, with the eager path's whole contract (an occurrence
+        # is honoured).
         lazy = False
     _refuse_lazy_occurrence(lazy, occurrence)
     resolved = _resolve_source(source)
@@ -350,11 +352,11 @@ def render_to_file(
     """Render plot ``name`` for ``shot`` and write it to ``path``; returns ``path``.
 
     Draws without a display (:func:`vaft.plot.environment.
-    use_non_interactive_backend`) and saves with :func:`vaft.plot.save_figure`,
+    use_non_interactive_backend`) and saves with :func:`vaft.plot.save_rendered`,
     the format following the file extension.  This is what ``vaft plot --out``
     runs.
     """
-    from vaft.plot import save_figure
+    from vaft.plot import save_rendered
     from vaft.plot.environment import use_non_interactive_backend
     from vaft.plot.registry import NON_GRAPHICAL_VIEWS, get_spec
 
@@ -369,11 +371,15 @@ def render_to_file(
         figure = render(name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options)
         figure.write_html(str(path), include_plotlyjs="cdn")
         return path
+    if options.get("interactive"):
+        # Live controls are a window, not a file: refused before anything is loaded.
+        raise ValueError("interactive=True draws live controls that no file can hold; drop --out or interactive=")
     use_non_interactive_backend()
-    figure, _ = render(
+    result = render(
         name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options
     )
-    return save_figure(figure, path, figure_options=options.get("figure_options"))
+    # A figure tuple, or an Animation written by its own save (issue #1050).
+    return save_rendered(result, path, figure_options=options.get("figure_options"))
 
 
 def available_plots(

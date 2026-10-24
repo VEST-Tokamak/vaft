@@ -141,6 +141,11 @@ class Series(ViewModel):
     #: The channel's index in its diagnostic array, when the trace is one
     #: channel of an array; identity that survives whatever the label says.
     index: int | None = None
+    #: Drawn against the panel's secondary (right-hand) y-axis, for traces
+    #: whose scale would vanish beside the primary ones -- one eddy loop
+    #: beside the total of all of them.  The secondary axis is labelled by
+    #: :attr:`LineSeries.secondary_y_label` / ``secondary_y_unit``.
+    secondary: bool = False
 
     def __post_init__(self) -> None:
         x = as_model_array(self.x, where="Series.x")
@@ -182,6 +187,7 @@ class Series(ViewModel):
         object.__setattr__(self, "role", str(self.role or ""))
         if self.index is not None:
             object.__setattr__(self, "index", int(self.index))
+        object.__setattr__(self, "secondary", bool(self.secondary))
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
 
@@ -237,6 +243,10 @@ class LineSeries(ViewModel):
     #: Resolved display policy (unit/scale/notation) the series were built
     #: with; ``None`` for models assembled outside the display layer.
     display: "DisplaySpec | None" = None
+    #: Label and unit of the right-hand axis that :attr:`Series.secondary`
+    #: traces are drawn against; unused when no trace is secondary.
+    secondary_y_label: str = ""
+    secondary_y_unit: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -265,16 +275,22 @@ class ReferenceLine(ViewModel):
 
     ``x`` is in the profile's coordinate; ``label`` joins the legend when set
     (an empty label draws the line unlabelled, for the second of a pair);
-    ``style`` overrides the renderer's dotted grey default.
+    ``style`` overrides the renderer's dotted grey default.  With ``x_end``
+    the marker is the shaded interval ``[x, x_end]`` instead of a line -- the
+    radial span a diagnostic measured, beyond which a fitted profile is
+    extrapolated (issue #1837).
     """
 
     x: float
     label: str = ""
     style: Mapping[str, Any] = field(default_factory=dict)
+    x_end: float | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "x", float(self.x))
         object.__setattr__(self, "style", dict(self.style))
+        if self.x_end is not None:
+            object.__setattr__(self, "x_end", float(self.x_end))
 
 
 @dataclass(frozen=True)
@@ -296,16 +312,19 @@ class Profile1D(ViewModel):
     #: :func:`vaft.process.profile_gradients.profile_gradient` here (issue
     #: #551).  ``to_xarray`` writes it to the ``metadata`` attribute.
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    #: Fixed y range in display units; ``None`` autoscales.  A sequence of
+    #: cuts of one figure keeps the full figure's range (issue #1957).
+    y_limits: tuple[float, float] | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
             self, "series", _as_series_tuple(self.series, where="Profile1D.series")
         )
         object.__setattr__(self, "metadata", dict(self.metadata or {}))
-        if self.x_limits is not None:
-            object.__setattr__(
-                self, "x_limits", (float(self.x_limits[0]), float(self.x_limits[1]))
-            )
+        for name in ("x_limits", "y_limits"):
+            limits = getattr(self, name)
+            if limits is not None:
+                object.__setattr__(self, name, (float(limits[0]), float(limits[1])))
         lines = tuple(self.reference_lines)
         for line in lines:
             if not isinstance(line, ReferenceLine):
@@ -1061,6 +1080,13 @@ class Panels(ViewModel):
     #: Mark the panels ``(a)``, ``(b)``, ... in slot order, the way a
     #: publication figure refers to them.
     panel_labels: bool = False
+    #: The widest a presentation format draws this figure, in inches: a
+    #: stack read as a narrow column beside another figure on a slide.  A
+    #: format no wider keeps its own width; an explicit ``figsize=`` wins.
+    max_width_in: float | None = None
+    #: Centre the suptitle over the panels' columns rather than the canvas,
+    #: for a figure whose right margin (a secondary axis) shifts the two.
+    title_over_axes: bool = False
 
     def __post_init__(self) -> None:
         _reject_data_objects(self.models, where="Panels.models")

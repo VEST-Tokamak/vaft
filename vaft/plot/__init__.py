@@ -169,28 +169,30 @@ unless ``overwrite=True`` is passed.
 Migration
 ---------
 
-Names from before the redesign still resolve here and emit a
-``DeprecationWarning`` naming their replacement.  Print the full per-symbol
-table, including the removal release, with::
+The names from before the redesign (the 0.5.0 legacy renderers and the
+0.6.0 renamed stems) were deleted in 0.9.0 after their deprecation window:
+``vaft.plot.<old name>`` raises ``AttributeError`` naming the replacement.
+Print the full per-symbol history table with::
 
     python -c "import vaft.plot; print(vaft.plot.migration_table())"
 """
 
 from __future__ import annotations
 
-import warnings
 from importlib import import_module
 from typing import Any
 
 from . import models, registry, renderers, style
 from ._migration import (
     DEPRECATED,
+    INTRODUCED_IN,
     LEGACY,
     LEGACY_MODULES,
     RELOCATED,
     REMOVAL_RELEASE,
     REMOVED,
     RENAMED,
+    RENAMED_IN,
     RENAMED_REMOVAL_RELEASE,
 )
 from ._migration import render_markdown_table as migration_table
@@ -236,8 +238,22 @@ from .renderers.profiles import render_profile_1d
 from .renderers.spectra import render_power_spectrum
 from .renderers.spectrograms import render_spectrogram
 from .renderers.tables import RenderedTable, RenderedTextSummary, render_table, render_text_summary
+from .particle import (
+    ParticleOrbitView,
+    particle_overview,
+)
 from .presentation import DEFAULT_FORMAT, FORMATS, THEMES, resolve_presentation
-from .style import save_figure
+from .kinetic_state import (kinetic_state_pressure_comparison,
+                            kinetic_state_virial_pair13_comparison,
+                            kinetic_state_virial_li_comparison,
+                            kinetic_state_pressure_ratio_distribution,
+                            kinetic_state_virial_identity_distribution)
+from .equilibrium_quality import (
+    equilibrium_quality_diagnostic_grid,
+    equilibrium_quality_diagnostic_slides,
+    equilibrium_quality_measured_vs_reconstructed,
+)
+from .style import save_figure, save_rendered
 
 # Canonical renderers are re-exported explicitly rather than bound in a loop, so
 # documentation tools, IDEs and type checkers see every ``vaft.plot.<name>``.
@@ -353,8 +369,10 @@ from .renderers.panels import (
     chease_overview_refinement_summary,
     core_profiles_time_volume_averaged,
     current_overview,
+    current_overview_reconstruction,
     diagnostics_overview,
     kinetic_overview_profiles,
+    kinetic_overview_state,
     equilibrium_overview,
     equilibrium_overview_constraint_coverage,
     equilibrium_overview_constraints,
@@ -375,6 +393,7 @@ from .renderers.panels import (
     magnetics_overview_plasma_residual,
     startup_proxies_time,
     magnetics_overview_vacuum,
+    magnetics_overview_vacuum_benchmark,
     mhd_linear_overview_eigenfunction,
     limiter_current_time,
     soft_x_rays_overview,
@@ -444,6 +463,8 @@ from .renderers.tables import (
     equilibrium_table_summary,
     equilibrium_table_validation,
     equilibrium_text_summary,
+    magnetics_table_vacuum_benchmark,
+    magnetics_table_vacuum_benchmark_aggregate,
 )
 from .parameter_history import plot_parameter_history
 from .analytic import (
@@ -489,6 +510,8 @@ _SUPPORT_EXPORTS = (
     "PlotCatalog",
     "PlotDocumentation",
     "PlotSpec",
+    "ParticleOrbitView",
+    "particle_overview",
     "PowerSpectrum",
     "Profile1D",
     "ReferenceSlope",
@@ -526,6 +549,7 @@ _SUPPORT_EXPORTS = (
     "render_table",
     "render_text_summary",
     "save_figure",
+    "save_rendered",
     "plot_parameter_history",
     "miller_surfaces_model",
     "plasma_state_projection_model",
@@ -541,6 +565,14 @@ _SUPPORT_EXPORTS = (
     "plot_multi_diagnostic_participation",
     "plot_multi_diagnostic_phase",
     "plot_fluctuation_frequency_coverage",
+    "kinetic_state_pressure_comparison",
+    "kinetic_state_virial_pair13_comparison",
+    "kinetic_state_virial_li_comparison",
+    "kinetic_state_pressure_ratio_distribution",
+    "kinetic_state_virial_identity_distribution",
+    "equilibrium_quality_measured_vs_reconstructed",
+    "equilibrium_quality_diagnostic_slides",
+    "equilibrium_quality_diagnostic_grid",
     "THEMES",
     "resolve_presentation",
 )
@@ -606,8 +638,14 @@ def _extract_namespace(source: Any) -> str:
         f"IDSToplevel/DBEntry/handle (vaft.imas.extract_*); got {type(item).__name__}"
     )
 
-#: Legacy submodules that stay importable as ``vaft.plot.<name>``.
-_LEGACY_SUBMODULES = frozenset(LEGACY_MODULES.values()) | {"utils"}
+#: Pre-redesign implementation modules that stay importable as
+#: ``vaft.plot.<name>``.  Only the ``LEGACY`` cross-shot statistics (in
+#: ``history``) are still exported from the package itself; the other modules
+#: are reached by their own path, e.g. ``vaft.plot.time``.
+_LEGACY_SUBMODULES = frozenset(
+    {"analysis", "history", "mirnov", "onedim", "profile", "soft_x_rays",
+     "time", "topview", "twodim", "utils"}
+)
 
 
 def _resolve_legacy(name: str) -> Any:
@@ -615,13 +653,9 @@ def _resolve_legacy(name: str) -> Any:
     return getattr(module, name)
 
 
-def _resolve_relocated(name: str) -> Any:
-    target = RELOCATED[name]
-    module_path, _, attribute = target.rpartition(".")
-    return getattr(import_module(module_path), attribute)
-
-
 def __getattr__(name: str) -> Any:
+    # The names below were deleted in 0.9.0 after their deprecation window;
+    # each raises with the replacement the DeprecationWarning used to name.
     if name in REMOVED:
         raise AttributeError(
             f"vaft.plot.{name} was an internal helper and is no longer exported "
@@ -629,35 +663,27 @@ def __getattr__(name: str) -> Any:
         )
     if name in RENAMED:
         replacement = RENAMED[name]
-        warnings.warn(
+        raise AttributeError(
             f"vaft.plot.{name} was renamed to vaft.plot.{replacement} in the "
-            f"subject-taxonomy redesign (issue #251); use the new name, or "
+            f"subject-taxonomy redesign (issue #251, {RENAMED_IN}) and the old "
+            f"name was removed in {RENAMED_REMOVAL_RELEASE}; use the new name, or "
             f"vaft.omas.plot_{replacement} to render directly from an ODS. "
-            f"The old name is removed in {RENAMED_REMOVAL_RELEASE}.",
-            DeprecationWarning,
-            stacklevel=2,
+            f"See vaft.plot.migration_table()."
         )
-        value = globals()[replacement]
-        globals()[name] = value
-        return value
     if name in RELOCATED:
-        warnings.warn(
+        raise AttributeError(
             f"vaft.plot.{name} moved to {RELOCATED[name]}; import it from there. "
-            f"The vaft.plot alias is removed in {REMOVAL_RELEASE}.",
-            DeprecationWarning,
-            stacklevel=2,
+            f"The vaft.plot alias was removed in {REMOVAL_RELEASE}. "
+            f"See vaft.plot.migration_table()."
         )
-        value = _resolve_relocated(name)
-    elif name in DEPRECATED:
-        warnings.warn(
-            f"vaft.plot.{name} is deprecated; use vaft.plot.{DEPRECATED[name]} "
-            f"with a view model, or vaft.omas.plot_{DEPRECATED[name]} to render "
-            f"directly from an ODS. Removed in {REMOVAL_RELEASE}.",
-            DeprecationWarning,
-            stacklevel=2,
+    if name in DEPRECATED:
+        raise AttributeError(
+            f"vaft.plot.{name} was deprecated in {INTRODUCED_IN} and removed in "
+            f"{REMOVAL_RELEASE}; use vaft.plot.{DEPRECATED[name]} with a view "
+            f"model, or vaft.omas.plot_{DEPRECATED[name]} to render directly "
+            f"from an ODS. See vaft.plot.migration_table()."
         )
-        value = _resolve_legacy(name)
-    elif name in LEGACY:
+    if name in LEGACY:
         value = _resolve_legacy(name)
     elif name in _LEGACY_SUBMODULES:
         # Submodule access such as ``vaft.plot.time`` keeps working.

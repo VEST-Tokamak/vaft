@@ -1,5 +1,5 @@
 # Version information
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 
 __all__ = ["__version__"]
 
@@ -7,6 +7,136 @@ __all__ = ["__version__"]
 # ────────────────────────────────────────────────────────
 # patch notes
 # ────────────────────────────────────────────────────────
+# 0.9.0
+# - development line 2026-10-09 .. 2026-10-21 merged into main: 162 pull
+#   requests (first-parent merges on develop since the v0.8.0 forward-port);
+#   it absorbs the 0.8.1 bug-fix set (#1838 carry-over, #1888 remainder,
+#   #1842 core_profiles regeneration) that was never released on its own.
+#   The detailed notes are on the release pull request and the GitHub
+#   release. Headlines:
+# - BREAKING: vaft.process.core_q_context binds the documented function;
+#   the submodule is renamed q_profile_context (#1861, #1838); the
+#   power_limit_* helpers are removed and current_limit_from_q takes 1/R0
+#   (#2086); fit_profile's linear mode returns nan outside the data unless
+#   asked (#2080); calculate_toroidal_flux integrates over an (R, Z) grid and
+#   refuses a 2-D positional dA (#2077); q_min is the smallest |q| with its
+#   sign (#2095); validate_cocos lives in vaft.validation.cocos and IMPA shot
+#   grading in vaft.validation.impa, the old paths warn (#2099, #2094);
+#   alpha_heating_power is deprecated and SIGMA_V_COEF carries its unit
+#   (#2078); the `optimize` extra installs Optuna >= 5, < 6 (#1912); the
+#   legacy vaft.plot renderer names of 0.5.0 and the renamed stems of 0.6.0
+#   (vaft.plot.<old>, vaft.omas.plot_<old>) are deleted after their
+#   deprecation window -- the old spelling raises AttributeError naming the
+#   new one, migration_table() keeps the history -- and
+#   verify_kadomtsev_constraint no longer emits its FutureWarning (#2142);
+#   spitzer_resistivity_from_T_e_Z_eff_ln_Lambda, resistive_layer_at,
+#   resistive_layer_parameters and
+#   compute_ohmic_heating_power_from_core_profiles raise TypeError without
+#   Z_eff and ln_Lambda, the hidden 2 / 17 fallbacks promised to go in 0.9
+#   (#1188, #2142)
+# - pipeline 2 and kinetic state: composition with <Z_eff> = 2 and T_i = T_e
+#   by default, opt-in inferred T_i and resistive Z_eff, staged inference
+#   with its provenance (#1966, #1970); the Ohmic confinement chain as one
+#   process kernel with one ODS entry and summary columns v_res, P_ohm,
+#   P_net, W_mhd, tau_E,net (#1907, #1979); kinetic-state atlas population,
+#   V&V distributions and a reproducible snapshot capture (#1968, #1982,
+#   #2034); an opt-in positive regular flux-profile fitter (#2061); the
+#   immutable experiment record store (#2063); analytic fast-ion closure
+#   checked against NUBEAM (#1927); species projections on the resolved
+#   transport state (#1913)
+# - stability and 3-D fields: the Hermitian quadratic NTV coil-response
+#   model T = c^H Q c with held-out qualification and the GPEC -> PENTRC
+#   reference (#1922, #1930); the verified resonant-field operator
+#   Phi = H conj(c) and its optimisation stages (#1933); CoilOperatingSpace
+#   as the common #1178 result (#1925); equilibrium-native Mercier/GGJ,
+#   curvature, local shear and s-alpha with plots (#1938); ordering spaces,
+#   ordering-margin plots, the ordering atlas and advisory ordering state in
+#   EFIT/GPEC/CGYRO provenance (#1951, #1856, #1964, #1986, #2000); VEST
+#   Tier A on the multi-machine operational-space planes, Troyon-plane and
+#   aspect-ratio-robust beta views, l_i(1) as its own quantity (#1976,
+#   #1923, #1935, #1943); stability atlas histograms (#1859); the
+#   turbulence-zonal-flow predator-prey model, diagnostics and views
+#   (#1858, #1915, #1994); the PENTRC native reader under vaft.code.gpec
+#   with a capped log and a stalled-LSODE stop (#1911, #2091); RDCON reads
+#   rmatch's delta.out (#1850)
+# - transport and gyrokinetics: vaft.formula.transport and the turbulence
+#   reference formulas with canonical transport and turbulence concept
+#   diagrams (#2074, #2076, #2079); classical coefficients in
+#   vaft.formula.kinetic (#1916); TGLF flux decomposition, SAT pairs,
+#   per-configuration HSDS sources and local sensitivities in dimensionless
+#   coordinates (#1932, #1941, #1940); nonlinear CGYRO workflow with
+#   locality QA and requeue-safe parsing, native 2-D field reconstruction
+#   (#1656, #2038); MITIM/PORTALS synthetic closed loop (#1908); adapter
+#   modes mapped to ordering contracts, plasma-formalism provenance for
+#   GACODE, NEO per-model provenance with ion z_n from core_profiles
+#   (#1961, #1971, #1988, #2107)
+# - formula families and conventions: per-formula uncertainty propagation
+#   and boundary/margin uncertainty (#1928, #1972); ITPA20 and ITPA20-IL
+#   scalings (#1954); closed-form diamagnetic beta_p and W_dia (#2092);
+#   five convention-sensitive formulas state their convention (#2082);
+#   convert_cocos carries identified COCOS candidates, nested Miller fits
+#   carry the equilibrium's convention, the vacuum-field COCOS premise is
+#   corrected, rho_tor_n names psi_n (#2096, #2097, #2098, #2093); measured
+#   mu_i falls back to tf's R*B_phi on a slice without profiles (#2100);
+#   gradient differentiates the first axis and B_R/B_Z accept 2-D maps
+#   (#1965); the diamagnetic EFIT row is left out where the flux is zero by
+#   construction (#1955)
+# - vaft.diagram and docs: the semantic vector pictogram library applied
+#   across the concept, documentation and workflow diagrams (#2121, #2123,
+#   #2124, #2125); per-diagram build records in the SVG (#1855); the
+#   experimental-processing, derived-physics, eddy/profile/transport
+#   workflow diagrams and the architecture coverage table (#2066, #2070,
+#   #2073, #2129); the plasma model guide with its figures and scale
+#   orderings (#1989, #1992, #1993); the characteristic scales and
+#   research-domains reference pages (#1985, #1919); native static-field
+#   particle and guiding-centre tracing with replayed trajectories and
+#   reproducible animation references (#2043, #2044, #2045); the remaining
+#   plasma-wall interaction diagrams (#1906); docs site ceiling 200 MiB and
+#   gh-pages published as one parentless commit (#2119, #2128)
+# - plotting: kinetic_overview_state and current_overview_reconstruction
+#   (#1914, #1963, #1845); multi-machine figures with direct labels (#1947);
+#   vacuum benchmark per-channel and cross-shot plots (#1849); workflow
+#   figures sized by the presentation formats (#1885); VEST H-factor figure
+#   without the Goldston 1984 rows by default (#1948)
+# - GUI: the equilibrium workspace with modes, one shared slice and
+#   validation verdicts (#1910); responsive layout and touch input (#1918,
+#   #1978); hosted-session isolation tests and a hosted test instance with
+#   its runbook (#1937, #1939)
+# - database and HSDS: the local HSDS domain cache capped at 1 GiB with LRU
+#   eviction and `vaft cache` (#2102); preset summaries from in-memory ODS
+#   (#2110); equilibrium_global summaries read magnetics for
+#   virial_mui_measured (#2127); HSDS I/O instrumentation and benchmark
+#   (#1917); raw DAQ sources per registry diagnostic (#1953); eddy records
+#   no_output when its inputs are recorded absent (#1857); read-only
+#   equilibrium monitoring (#2072); shot 42962 as a repository-only
+#   pipeline sample (#2126); the ML research line: structured observations,
+#   portable graphs, data-role provenance and evidence-bound evaluations
+#   (#2027, #2029, #2039, #2050, #2054)
+# - EFIT, magnetics and camera: the k-file records the profile model it
+#   writes and exposes ICUTFP (#2087, #2088); an absent TF waveform is a
+#   verdict, not a stub (#1952); regime descriptors and cohort runner
+#   (#1980); magnetics in the shared machine-geometry registry (#1853);
+#   camera frame selection against each shot's dark level, capped at the
+#   I_p end (#1890, #1904); NUBEAM markers from the last step (#1981);
+#   TokaMaker notebooks refreshed (#1984)
+# - execution and packaging: non-blocking submit/wait/cancel on execution
+#   backends with scan_chease fanning out (#2115); config-level resources and
+#   one thread precedence for solver adapters (#2120); python_task_request
+#   for in-repo Python tasks (#2103); the lab cluster satisfies the develop
+#   gate through one merge-gate status (#2108); Windows rounds for the 0.8.1
+#   fix set (#1974, #1999); the v0.7.0 cold-review residue fixed (#1920,
+#   #1921, #1924, #1926); magnetics baselines fitted at the configured
+#   seconds (#1888); the +0.06 probe fault windows recorded (#1949)
+# - cold review of this line (9 area slices with adversarial verification,
+#   33 same-day drain PRs reviewed per PR; 0 critical, 2 major after
+#   verification): the two docs-snippet gate failures and the
+#   particle-motion reference provenance are fixed on the release branch;
+#   45 minor and 7 nit findings ship as known issues in #2137
+# - known issues: see #2137 and the open #1838 rows (camera-overlay pose
+#   frame #746, README develop-track links, signed pressure_anisotropy,
+#   #1831 provenance); the Windows test_process_tree timeout leg can fail at
+#   random (~2 % of runs, pre-existing); 126 plot thumbnails are stale
+#   (no gate fails); main HSDS source EFIT equilibria <= shot 45000
 # 0.8.0
 # - development release line 2026-09-18 .. 2026-10-08 merged into main: 488
 #   pull requests (first-parent merges on develop since v0.7.1); the

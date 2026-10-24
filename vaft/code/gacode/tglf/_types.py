@@ -157,6 +157,7 @@ __all__ = [
     "TGLFResult",
     "TGLF_DEFAULT_SCALARS",
     "TGLF_DEFAULT_SPECIES",
+    "plasma_formalism",
 ]
 
 
@@ -184,6 +185,10 @@ class TGLFConfig(GACODEConfig):
     #: Number of species including electrons; resolved from the profile when None.
     n_species: Optional[int] = None
     extra_parameters: Mapping[str, Any] = field(default_factory=dict)
+
+    def _launcher_threads(self) -> int:
+        # The tglf script hardwires NOMP=1, whatever n_omp says.
+        return 1
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -221,3 +226,30 @@ class TGLFResult(CodeResult):
             and self.outputs_native is not None
             and self.outputs_native.solved
         )
+
+
+def plasma_formalism(config: Optional[TGLFConfig] = None, *,
+                     parameters: Optional[Mapping[str, Any]] = None):
+    """The #1727 record of a TGLF run (:class:`vaft.code.formalism.PlasmaFormalism`, #1735).
+
+    A reduced model derived from gyrokinetics, never a gyrokinetic solve. Derived from
+    ``parameters``, the ``KEY=VALUE`` pairs the run was written with
+    (:func:`vaft.code.gacode.tglf.inputs.tglf_parameters`), or, without them, from what
+    the configuration itself writes. The saturation rule and the linear controls TGLF's
+    start-up presets impose with it are recorded as the effective values; see
+    :func:`vaft.code.gacode._formalism.tglf_plasma_formalism`.
+    """
+    from .._formalism import tglf_plasma_formalism
+
+    if parameters is None:
+        configuration = config or TGLFConfig()
+        parameters = {
+            **TGLF_DEFAULT_SCALARS,
+            "SAT_RULE": int(configuration.sat_rule),
+            "USE_TRANSPORT_MODEL": bool(configuration.use_transport_model),
+            "GEOMETRY_FLAG": int(configuration.geometry_flag),
+            "USE_BPER": bool(configuration.use_bper),
+            "USE_BPAR": bool(configuration.use_bpar),
+            **{str(key).upper(): value for key, value in configuration.extra_parameters.items()},
+        }
+    return tglf_plasma_formalism(parameters)

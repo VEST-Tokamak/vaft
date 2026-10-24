@@ -15,9 +15,10 @@ The site has two tracks, and each is built from the branch it documents:
 | `/vaft/develop/` | `develop/docs/` | development documentation, with a banner and `noindex` |
 
 Both are composed into one tree and published as a single commit on the
-**`gh-pages`** branch. That branch is generated output only: every file on it is
-rewritten on each publish, so an edit made there survives until the next build
-and reaches nobody's review. Change documentation here, on the branch it belongs
+**`gh-pages`** branch. That branch is generated output only: each publish
+replaces it with one parentless commit (#2117), so it never accumulates history,
+and an edit made there survives until the next build and reaches nobody's
+review. Change documentation here, on the branch it belongs
 to.
 
 Building each track from its own branch is the point rather than a detail. The
@@ -215,14 +216,23 @@ suite asserts on. Change them deliberately; they affect every page.
 
 ## Rolling back a publish
 
-Each publish is one ordinary commit on `gh-pages`, so the previous site is the
-previous commit:
+`gh-pages` keeps no history, so the previous site is not a commit to go back to.
+It is reproducible instead: every publish records the `main` and `develop`
+commits it was built from (in its commit message and in `provenance.yml`), and
+rebuilding from those commits republishes that site:
 
 ```bash
-git push origin <previous-tip>:refs/heads/gh-pages --force-with-lease
+python build.py --stable-ref <main-commit> --develop-ref <develop-commit> --publish
 ```
 
-That is the only place a force push is legitimate here.
+This uses today's `build.py` and validation on the old sources, so the result can
+differ slightly from what was served then, and the next push to `main` or
+`develop` replaces it again.
+
+The docs workflow's build job also keeps the tree it validated as the
+`composed-site` artifact for seven days. The push that replaces `gh-pages` is the only forced
+push here, and it is leased on the tip read before the build, so a concurrent
+publish is reported rather than overwritten.
 
 ## If the workflow cannot push
 
@@ -243,6 +253,7 @@ maintain a second YAML registry. Generate explicitly after changing the source:
 ```bash
 python -m vaft.diagram._replay
 python -m vaft.diagram._replay --check
+python -m workflow.particle_motion.run --check   # particle-motion references: digests + re-traced rows
 python docs/scripts/animation_preview.py --output /tmp/vaft-animation-preview
 python docs/scripts/serve_animation_preview.py --directory /tmp/vaft-animation-preview
 ```

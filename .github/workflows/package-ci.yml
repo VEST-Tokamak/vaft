@@ -137,6 +137,32 @@ jobs:
         # a time with nobody watching.
         run: python -m pytest -q -m "core and not perf" --durations=25
 
+  # The develop ruleset requires one commit status, `merge-gate`, rather than
+  # the two jobs above, so that the lab cluster can satisfy it too:
+  # .github/scripts/tdst_gate.sh runs the same core-test + package steps under
+  # Slurm and posts the same status (CONTRIBUTING.md, "Two ways to satisfy the
+  # develop gate"). This job is the Actions route. It posts only on success --
+  # a failed `needs` skips it, the status stays "expected", the PR stays
+  # blocked -- so a red Actions run never overwrites a green cluster verdict.
+  merge-gate:
+    name: post merge-gate
+    needs: [package, core-test]
+    if: >-
+      github.event_name == 'pull_request' && github.base_ref == 'develop'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Post the merge-gate status on the PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh api -X POST "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}"
+          -f context=merge-gate -f state=success
+          -f description="core-test and package passed on GitHub Actions"
+          -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
   test-matrix:
     name: test (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
@@ -210,7 +236,7 @@ jobs:
       - name: Check documentation assets and isolated pipeline generation
         # Surface compressor / Windows profile failures before the long suite.
         # The complete platform suite below still runs with its usual selection.
-        run: python -m pytest -q test/test_diagram_replay.py test/test_pipeline_graph.py test/test_docs_catalogs.py test/test_docs_sources.py
+        run: python -m pytest -q test/test_diagram_replay.py test/test_particle_motion_references.py test/test_pipeline_graph.py test/test_docs_catalogs.py test/test_docs_sources.py
 
       - name: Run test suite
         # Deliberately serial. VAFT is a scientific validation suite, so the

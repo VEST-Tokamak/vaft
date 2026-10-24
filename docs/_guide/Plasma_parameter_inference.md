@@ -80,7 +80,7 @@ $\sum_s n_{i,s} = f\,n_e$ (common ion temperature),
 
 $$p_i = p_{\mathrm{eq}} - e\,n_e T_e, \qquad T_i = \frac{p_i}{e\,f\,n_e} = \frac{p_{\mathrm{eq}}}{e f n_e} - \frac{T_e}{f}.$$
 
-`vaft.validation.kinetic_state.infer_ti_pressure_partition` implements this (#1426). It propagates
+`vaft.process.kinetic_closure.infer_ti_pressure_partition` implements this (#1426). It propagates
 the uncertainty linearly — keeping the $n_e$ correlation between $p_e$ and the ion density — and
 **flags points, never fills them**: $p_i \le 0$ and $p_i < \sigma(p_i)$ return `NaN`. It also refuses a
 circular input: a pressure reconstructed with an assumed $T_i/T_e$ (a kinetic EFIT) returns that
@@ -233,7 +233,7 @@ and the shared shape are assumptions, not data.
 
 ```python
 import numpy as np
-from vaft.validation.kinetic_state import infer_ti_pressure_partition
+from vaft.process.kinetic_closure import infer_ti_pressure_partition
 
 result = infer_ti_pressure_partition(
     np.array([500.0, 330.0, 120.0]),              # p_eq [Pa], magnetic-only equilibrium

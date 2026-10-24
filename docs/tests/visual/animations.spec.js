@@ -90,11 +90,17 @@ test('charged particles retain scientific positions, species colours and gated d
   await expect(root.locator('[data-state-download]')).toBeHidden();
 });
 
-for(const width of [320,390,768,1024,1440])test(`adaptive layout at ${width}px`,async({page})=>{
-  await page.setViewportSize({width,height:900});
-  for(const route of ['','workflows/experimental-interpretation/','reference/animation/','reference/diagram/','reference/formula/','reference/api/diagram/','reference/process/','reference/dependency-graph/','reference/pipeline-graph/','workflows/automated-pipelines/']){
-    if(route.startsWith('reference/')&&(await page.request.get(route)).status()===404)continue;
+// One test per (width, route) and a separate menu test: WebKit needs ~28 s for the
+// whole route loop, so a shared 30 s budget timed out on whichever step came last.
+const ADAPTIVE_ROUTES=['','workflows/experimental-interpretation/','reference/animation/','reference/diagram/','reference/formula/','reference/api/diagram/','reference/process/','reference/dependency-graph/','reference/pipeline-graph/','workflows/automated-pipelines/'];
+for(const width of [320,390,768,1024,1440]){
+  for(const route of ADAPTIVE_ROUTES)test(`adaptive layout at ${width}px: /${route}`,async({page})=>{
+    test.skip(route.startsWith('reference/')&&(await page.request.get(route)).status()===404,'This track has no such reference page');
+    await page.setViewportSize({width,height:900});
     await page.goto(route);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
-  }
-  if(width<=1240){await page.goto('workflows/experimental-interpretation/');const menu=page.locator('.book-header .fa-align-justify').locator('..');await menu.click();await expect(page.locator('.book-summary')).toBeVisible();await page.keyboard.press('Tab');expect(await page.evaluate(()=>document.querySelector('.book-summary').contains(document.activeElement))).toBe(true);await page.keyboard.press('Escape');await expect(menu).toBeFocused();await expect(page.locator('.body-inner')).not.toHaveAttribute('inert','');}
-});
+  });
+  if(width<=1240)test(`adaptive menu at ${width}px`,async({page})=>{
+    await page.setViewportSize({width,height:900});
+    await page.goto('workflows/experimental-interpretation/');const menu=page.locator('.book-header .fa-align-justify').locator('..');await menu.click();await expect(page.locator('.book-summary')).toBeVisible();await page.keyboard.press('Tab');expect(await page.evaluate(()=>document.querySelector('.book-summary').contains(document.activeElement))).toBe(true);await page.keyboard.press('Escape');await expect(menu).toBeFocused();await expect(page.locator('.body-inner')).not.toHaveAttribute('inert','');
+  });
+}

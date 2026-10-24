@@ -146,6 +146,34 @@ def test_the_product_carries_what_neo_produced_and_the_identity_of_its_input(tmp
 
 
 @requires_sample
+def test_the_product_reads_ion_nuclear_charge_from_the_source_state(state, tmp_path):
+    """The product ODS has no core_profiles ions; z_n must come from the state NEO ran on.
+
+    The source z_n is set apart from the ion charge so that the old ``z_n = charge``
+    cannot pass for a value read from the source.
+    """
+    import copy
+
+    from omas import save_omas_json
+
+    from vaft.omas.vest_upstream import build_neoclassical_ods
+
+    marked = copy.deepcopy(state)
+    marked["core_profiles.profiles_1d.0.ion.0.element.0.z_n"] = 2.0
+    path = tmp_path / "state.json"
+    save_omas_json(marked, str(path))
+    ods, _ = build_neoclassical_ods(
+        shot=48224, state=path, run_directory=PROFILE_RUN, z_eff=2.0
+    )
+    ion = "core_transport.model.0.profiles_1d.0.ion.0"
+    assert float(ods[f"{ion}.z_ion"]) == 1.0
+    assert float(ods[f"{ion}.element.0.z_n"]) == 2.0
+    assert "core_profiles.profiles_1d.0.ion" not in ods
+    assert str(ods["core_transport.model.0.code.name"]) == "NEO"
+    assert "core_transport.code.name" not in ods
+
+
+@requires_sample
 def test_an_unqualified_state_is_refused_rather_than_promoted_with_a_caveat(tmp_path):
     """The rule gates the write. A product built from a rejected input is the thing
     #550 defers, and a manifest field saying so would not stop anyone querying it."""
@@ -252,7 +280,12 @@ def test_the_source_hangs_beneath_the_lineage_that_can_feed_it():
 
 
 def test_it_does_not_publish_into_the_source_that_owns_the_kinetic_profiles():
-    """core_profiles has two owners now; only a source split keeps them apart."""
+    """core_profiles has two writers per source family; only a source split keeps neoclassical apart.
+
+    The corrective composition, ti_inferred and resistive_zeff stages overlay the
+    measured core_profiles in the same source on purpose (#1842); neoclassical must
+    still publish to a source none of them writes.
+    """
     from vaft.database.sources import STAGE_REPLICATION
 
     owners = {
@@ -260,8 +293,10 @@ def test_it_does_not_publish_into_the_source_that_owns_the_kinetic_profiles():
         for stage, entry in STAGE_REPLICATION.items()
         if "core_profiles" in entry.ids
     }
-    assert set(owners) == {"core_profiles", "neoclassical"}
-    assert len(set(owners.values())) == 2
+    overlay = {"core_profiles", "composition", "ti_inferred", "resistive_zeff"}
+    assert set(owners) == overlay | {"neoclassical"}
+    assert len({owners[stage] for stage in overlay}) == 1, "the overlay shares one source"
+    assert owners["neoclassical"] not in {owners[stage] for stage in overlay}
 
 
 @requires_sample

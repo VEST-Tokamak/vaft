@@ -1,7 +1,7 @@
 """Running PENTRC in a completed ideal-GPEC cell.
 
 PENTRC is the GPEC suite's neoclassical toroidal viscous torque calculation.
-:mod:`vaft.code.pentrc` reads what it produced; this is what produces it.
+:func:`read_pentrc_output` (:mod:`._pentrc_output`) reads what it produced; this is what produces it.
 
 **Where it runs, and why not as a fifth suite module.**  PENTRC needs three
 inputs at once: DCON's ``euler.bin``, the ``gpec_xclebsch_n<n>.out`` displacement
@@ -26,13 +26,12 @@ only while ``equil.in`` says ``jac_type='hamada'`` *and* ``gpec.in`` leaves
 
 Typical use, after :func:`~vaft.code.gpec.run_gpec_suite_case` has completed::
 
-    from vaft.code.gpec import PENTRCOptions, run_pentrc
-    from vaft.code import pentrc
+    from vaft.code import gpec
 
-    record = run_pentrc(
+    record = gpec.run_pentrc(
         gpec_cell,
         mode=1,
-        options=PENTRCOptions(
+        options=gpec.PENTRCOptions(
             methods=("fgar", "tgar"),
             main_ion="deuterium",
             impurity="carbon",
@@ -41,18 +40,22 @@ Typical use, after :func:`~vaft.code.gpec.run_gpec_suite_case` has completed::
         kinetic_file="profiles.kin",
         config=config,
     )
-    with pentrc.read_pentrc_output(record.outputs[0]) as run:
-        psi_norm, torque = pentrc.torque_profile(run, "fgar")
+    with gpec.read_pentrc_output(record.outputs[0]) as run:
+        psi_norm, torque = gpec.torque_profile(run, "fgar")
 """
 
 from __future__ import annotations
 
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 from ...compat import is_executable
+from ..execution import LocalBackend, resolve_backend
+from . import _log_cap
 from . import _runtime as rt
+from ._log_cap import STALL_EXIT_CODE, STALL_MARKER
 from ._types import GPECModuleRun, GPECSuiteConfig, PENTRCOptions
 
 #: The module name PENTRC records itself under in a :class:`GPECModuleRun`.
@@ -234,7 +237,7 @@ def _method_flags(selected: set[str]) -> tuple[dict[str, bool], dict[str, bool]]
     18, and a template is entitled to leave the others out (cold review 0.8.0
     delta-squash F2).
     """
-    from ..pentrc import TORQUE_METHODS
+    from ._pentrc_output import TORQUE_METHODS
 
     required: dict[str, bool] = {}
     optional: dict[str, bool] = {}
@@ -576,7 +579,40 @@ def _stage_kinetic_file(run_dir: Path, kinetic_file: Path | str) -> Path:
     return staged
 
 
-def run_pentrc(
+def _log_cap_prefix(config: GPECSuiteConfig) -> tuple[str, ...]:
+    """The command that streams PENTRC through :mod:`._log_cap`, or ``()``.
+
+    Only on the local backend: the filter is this package's own file, run by
+    this interpreter, which another backend's host need not have.  ``-I``
+    keeps the package directory off the filter's import path -- it imports
+    nothing but the standard library.
+    """
+    limits = config.pentrc_log
+    if not limits.active or not isinstance(resolve_backend(config), LocalBackend):
+        return ()
+    prefix = [sys.executable, "-I", str(Path(_log_cap.__file__).resolve())]
+    if limits.max_bytes is not None:
+        prefix += ["--max-bytes", str(limits.max_bytes)]
+    if limits.stall_lines is not None:
+        prefix += [
+            "--stall-lines", str(limits.stall_lines),
+            "--stall-pattern", PENTRC_NONCONVERGENCE_LINE.pattern,
+            "--ignore-case",
+        ]
+    return (*prefix, "--")
+
+
+def _stall_line(log_path: Path) -> str | None:
+    """The cap's stall line, which it writes last, or ``None``."""
+    if not log_path.is_file():
+        return None
+    with log_path.open("rb") as handle:
+        handle.seek(max(0, log_path.stat().st_size - 4096))
+        tail = handle.read().decode("utf-8", errors="replace").splitlines()
+    return next((line for line in reversed(tail) if line.startswith(STALL_MARKER)), None)
+
+
+def _run_pentrc(
     run_dir: Path | str,
     *,
     mode: int,
@@ -585,42 +621,7 @@ def run_pentrc(
     config: GPECSuiteConfig | None = None,
     allow_unbounded_runtime: bool = False,
 ) -> GPECModuleRun:
-    """Prepare and run PENTRC in a completed ideal-GPEC cell.
-
-    Parameters
-    ----------
-    run_dir : Path
-        A completed ideal-GPEC cell [-].
-    mode : int
-        Toroidal mode number [-].
-    options : PENTRCOptions
-        What to compute, and for which plasma [-].
-    kinetic_file : Path
-        A GPEC ``.kin`` [-].
-    config : GPECSuiteConfig, optional
-        Where the executable and the ``pentrc.in`` template come from, plus the
-        subprocess timeout and environment.  ``run_mode`` is honoured the way
-        the suite honours it: ``prepare_only`` writes the namelist and stops,
-        ``strict`` raises where the others report [-].
-    allow_unbounded_runtime : bool, optional
-        Permit ``config.timeout=None``.  Off by default: a diverging PENTRC
-        prints rather than stops, so an unbounded run reports nothing and grows a
-        log without limit.  Pass it when a scheduler bounds the process [-].
-
-    Returns
-    -------
-    GPECModuleRun
-        ``module="pentrc"``, with the status, the log and the output found.
-        ``status`` is ``completed`` on success, ``prepared`` under
-        ``prepare_only``, ``skipped`` when PENTRC is not installed or an input
-        is missing, and ``failed`` when it ran and did not produce its output [-].
-
-    Raises
-    ------
-    FileNotFoundError, RuntimeError
-        Under ``run_mode="strict"``, for a missing executable and a missing
-        input respectively.
-    """
+    """The body of :func:`run_pentrc`, before the run is given its formalism."""
     run_dir = Path(run_dir)
     config = config or GPECSuiteConfig()
     policy = rt.run_policy(config)
@@ -701,9 +702,11 @@ def run_pentrc(
     if output.exists():
         output.unlink()
     log_path = run_dir / "pentrc.log"
+    limits = config.pentrc_log
     try:
         returncode, log_path = rt.run_subprocess(
-            executable, run_dir, log_path, config=config
+            executable, run_dir, log_path, config=config,
+            command_prefix=_log_cap_prefix(config),
         )
     except subprocess.TimeoutExpired as expired:
         # A timeout is a `failed` record, not an exception. PENTRC does not stop
@@ -722,6 +725,8 @@ def run_pentrc(
             record.reason = f"{expired.reason}; its log is {log_bytes} bytes"
         else:
             record.reason = f"pentrc did not finish within {expired.timeout:g} s; its log is {log_bytes} bytes"
+        if _log_cap_prefix(config) and limits.max_bytes is not None:
+            record.reason += f" (capped at {limits.max_bytes} bytes, head and tail kept)"
         if policy == "strict":
             raise
         return record
@@ -729,6 +734,19 @@ def run_pentrc(
     record.commands = (str(executable),)
     record.logs = (log_path,)
     record.outputs = (output,) if output.is_file() else ()
+    stall = _stall_line(log_path) if returncode == STALL_EXIT_CODE else None
+    if stall is not None:
+        # Stopped by the cap, not by PENTRC: the energy LSODE kept failing and
+        # PENTRC kept going, which would have run to the timeout (#1929).
+        record.status = "failed"
+        record.outputs = ()
+        record.reason = (
+            f"pentrc stalled: LSODE reported non-convergence on {limits.stall_lines} lines "
+            f"(GPECSuiteConfig.pentrc_log.stall_lines) and the run was stopped; "
+            f"{stall.removeprefix(STALL_MARKER).strip()}; its log is "
+            f"{log_path.stat().st_size} bytes, head and tail kept"
+        )
+        return record
     fatal, nonconvergence = scan_pentrc_log(log_path)
     unconverged = (
         ""
@@ -768,4 +786,68 @@ def run_pentrc(
         # LSODE can complain and recover, and whether the profile it then wrote
         # is usable is a physics judgement rather than this function's.
         record.reason = unconverged.lstrip("; ")
+    return record
+
+
+def run_pentrc(
+    run_dir: Path | str,
+    *,
+    mode: int,
+    options: PENTRCOptions,
+    kinetic_file: Path | str,
+    config: GPECSuiteConfig | None = None,
+    allow_unbounded_runtime: bool = False,
+) -> GPECModuleRun:
+    """Prepare and run PENTRC in a completed ideal-GPEC cell.
+
+    Parameters
+    ----------
+    run_dir : Path
+        A completed ideal-GPEC cell [-].
+    mode : int
+        Toroidal mode number [-].
+    options : PENTRCOptions
+        What to compute, and for which plasma [-].
+    kinetic_file : Path
+        A GPEC ``.kin`` [-].
+    config : GPECSuiteConfig, optional
+        Where the executable and the ``pentrc.in`` template come from, plus the
+        subprocess timeout and environment.  ``run_mode`` is honoured the way
+        the suite honours it: ``prepare_only`` writes the namelist and stops,
+        ``strict`` raises where the others report [-].
+    allow_unbounded_runtime : bool, optional
+        Permit ``config.timeout=None``.  Off by default: a diverging PENTRC
+        prints rather than stops, so an unbounded run reports nothing and grows a
+        log without limit.  Pass it when a scheduler bounds the process [-].
+
+    Returns
+    -------
+    GPECModuleRun
+        ``module="pentrc"``, with the status, the log and the output found.
+        ``status`` is ``completed`` on success, ``prepared`` under
+        ``prepare_only``, ``skipped`` when PENTRC is not installed or an input
+        is missing, and ``failed`` when it ran and did not produce its output [-].
+
+    Raises
+    ------
+    FileNotFoundError, RuntimeError
+        Under ``run_mode="strict"``, for a missing executable and a missing
+        input respectively.
+    """
+    record = _run_pentrc(
+        run_dir, mode=mode, options=options, kinetic_file=kinetic_file,
+        config=config, allow_unbounded_runtime=allow_unbounded_runtime,
+    )
+    skipped_for_another_reason = record.status == "skipped" and record.reason != "run_mode=prepare_only"
+    if Path(record.workdir).is_dir() and not skipped_for_another_reason:
+        # A closure on the GPEC displacement, one species per run (#1734); no
+        # record when the cell holds no pentrc.in to show what it was.
+        from ._formalism import resolve_plasma_formalism
+
+        formalism = resolve_plasma_formalism("pentrc", record.workdir)
+        if formalism is not None:
+            from vaft.validation.model_contracts import safe_ordering_provenance
+
+            record.plasma_formalism = formalism.as_dict()
+            record.ordering_check = safe_ordering_provenance(formalism, getattr(config, "ordering_state", None))
     return record

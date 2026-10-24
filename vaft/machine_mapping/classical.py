@@ -192,6 +192,8 @@ def core_transport_from_classical(
                        "time could not be told apart)")
         return {"model": None, "profile_index": None, "written": written, "skipped": skipped}
     for record in records:
+        if hasattr(record, "as_record"):   # a ClassicalHeatFluxes (#1899) or its mapping
+            record = record.as_record()
         r = record.get("r_over_a")
         q_e = record.get("electron_energy_flux_W_m2")
         ions = record.get("ion_energy_flux_W_m2") or {}

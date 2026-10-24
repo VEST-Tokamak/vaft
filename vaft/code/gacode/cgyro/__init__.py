@@ -13,6 +13,11 @@ Formalism (#1353 §14): delta-f, local flux tube, continuum, closed flux surface
 geometry, kinetic electrons; the field model and linear/nonlinear regime come from the
 configuration and are recorded with every run (:func:`formalism`).
 
+Locality QA (:mod:`~vaft.code.gacode.cgyro.locality`): every run can be judged for box
+adequacy (``l_corr/L_x``) and for the local approximation itself
+(``epsilon_local = l_corr / min(L_Ti, L_Te, L_n, L_q)``), separately -- a box comparable
+to the minor radius on VEST (``a/rho_s ~ 50``) is not by itself a verdict.
+
 Importing this package does not need GACODE.
 """
 
@@ -49,15 +54,36 @@ from .outputs import (
     CgyroOutputs,
     collect_cgyro_outputs,
 )
+from .fields import FieldHistory, read_field_history
+from .time import (
+    CgyroTimeNormalization, gyrokinetic_time_scale_s,
+    gyrokinetic_elapsed_time_s, gyrokinetic_normalized_time,
+)
+from .locality import (
+    BOX_THRESHOLDS,
+    LOCALITY_THRESHOLDS,
+    locality_report,
+    radial_correlation_length,
+    scale_lengths,
+)
 from .runner import (
     CGYROExecutionError,
     gacode_revision,
     read_cgyro_case,
     run_cgyro,
     run_cgyro_case,
+    local_ordering_state,
 )
 
 __all__ = [
+    "CgyroTimeNormalization", "gyrokinetic_time_scale_s",
+    "gyrokinetic_elapsed_time_s", "gyrokinetic_normalized_time",
+    "FieldHistory", "read_field_history",
+    "BOX_THRESHOLDS",
+    "LOCALITY_THRESHOLDS",
+    "locality_report",
+    "radial_correlation_length",
+    "scale_lengths",
     "CGYROConfig",
     "CGYROExecutionError",
     "CGYROInput",
@@ -86,6 +112,7 @@ __all__ = [
     "read_cgyro_case",
     "run_cgyro",
     "run_cgyro_case",
+    "local_ordering_state",
     "stage_cgyro_case",
     "write_input_cgyro",
 ]

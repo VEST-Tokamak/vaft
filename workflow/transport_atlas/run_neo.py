@@ -122,8 +122,9 @@ def project(native: Any, time: float) -> dict[str, Any]:
             "ion_energy_flux_W_m2": {f"z={z:g}": None if q is None else float(q[i]) for z, q, _ in ions},
             "ion_particle_flux_m2_s": {f"z={z:g}": None if g is None else float(g[i]) for z, _, g in ions},
         })
-    code = {k: ods[f"core_transport.code.{k}"] for k in ("name", "version")
-            if f"core_transport.code.{k}" in ods}
+    # The mapper records its producer on its own model entry, not the IDS.
+    owner = f"core_transport.model.{report['model']}.code"
+    code = {k: ods[f"{owner}.{k}"] for k in ("name", "version") if f"{owner}.{k}" in ods}
     return {"written": report["written"], "skipped": report["skipped"], "code": code,
             "surfaces": rows}
 

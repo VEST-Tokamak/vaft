@@ -47,6 +47,25 @@ linear transformation between shot and date. Date-primary plots omit rows
 without acquisition timestamps. Summaries with several rows per shot retain
 every row; select the desired time slices in the DataFrame before plotting.
 
+The same tables can be built offline from in-memory ODS, for example the packaged samples:
+
+```python
+samples = {shot: vaft.omas.sample_ods(shot) for shot in (39915, 41672)}
+slices = vaft.database.summary(odss=samples, preset="equilibrium_global")
+slices.attrs["skipped"]        # [{"shot": ..., "reason": ...}] for shots the preset could not run on
+```
+
+`summary(odss=...)` (also `vaft.database.summary_from_ods`) runs the same extractor, shot-level
+columns, column order and sort as the database path, so a shot gives the same table either way. It
+takes a `{shot: ods}` mapping or ODS objects that record `dataset_description.data_entry.pulse`.
+Each extractor sees a private copy of only the IDS the preset reads, exactly as the database path's
+`open(..., paths=...)` view does, so the caller's ODS is not modified and an IDS outside the preset
+does not change the result. A preset IDS the ODS lacks is absent offline; on the database path it
+fails only when first read, so an extractor that tolerates the missing IDS gives the same row either
+way. `source` (default
+`"local"`) only labels the `source`/`equilibrium_source` columns. Both paths list the shots they
+skipped, with the reason, in `attrs["skipped"]`.
+
 ## Transport summary hierarchy
 
 `equilibrium_global` and `core_profiles` describe their respective time
@@ -261,6 +280,49 @@ sources. Use `vaft.database.compose(shot)` when analysis needs products from
 `python -m vaft.cli summary sources` lists the catalog; custom namespaces must
 be declared in `VAFT_HSDS_EXTRA_SOURCES`.
 
+### Transitional TGLF configuration sources
+
+TGLF results depend on the saturation rule (SAT0–SAT3) and the field model
+(`es`, `em-bper`, `em-bper-bpar`), and no configuration is the default
+([#1482](https://github.com/VEST-Tokamak/vaft/issues/1482)). Each
+configuration is therefore stored as its own sparse source beneath the
+reconstruction its state was mapped on, so alternative configurations of one
+state coexist instead of overwriting one another
+([#1900](https://github.com/VEST-Tokamak/vaft/issues/1900)). The
+`turbulent_transport` stage owns `core_transport` only. Its FileDB product is
+`omas/turbulent_transport/{family}/tglf-sat<n>-<field>/{shot}/`, and
+`replication_for_stage("turbulent_transport", family=..., product="tglf-sat3-em-bper")`
+names its destination. There is no default configuration: a call without
+`product` is refused.
+
+These sources are **transitional**. In the self-describing occurrence model of
+[#1128](https://github.com/VEST-Tokamak/vaft/issues/1128) and
+[#1129](https://github.com/VEST-Tokamak/vaft/issues/1129), each one becomes a
+named `core_transport` occurrence. The builder already writes the future name
+into `ids_properties.name`, so migration renames nothing:
+
+| Transitional source | IDS | Future `ids_properties.name` | Occurrence |
+|---|---|---|---|
+| `main/tglf-sat<n>-<field>` | `core_transport` | `tglf-sat<n>-<field>-from-magnetic-efit` | allocated by the #1129 VEST catalog (not assigned yet) |
+| `electron-efit/tglf-sat<n>-<field>` | `core_transport` | `tglf-sat<n>-<field>-from-electron-efit` | allocated by the #1129 VEST catalog (not assigned yet) |
+| `kinetic-efit/tglf-sat<n>-<field>` | `core_transport` | `tglf-sat<n>-<field>-from-kinetic-efit` | allocated by the #1129 VEST catalog (not assigned yet) |
+
+For example, SAT3 with `em-bper` on a magnetic-EFIT state is stored in
+`main/tglf-sat3-em-bper` and named `tglf-sat3-em-bper-from-magnetic-efit`.
+The routine driver's lineage `magnetics` maps to the magnetic family and
+`electron_kinetic` to the electron family. The kinetic family has no TGLF
+states yet, but its sources are catalogued. The full list of 36 rows is
+`vaft.database.sources.turbulent_transport_migration()`. The upstream state's
+identity (state identity, run identities, TGLF parameters, GACODE revision)
+travels in `core_transport.model[:].code.parameters` and in the stage manifest.
+
+Coexistence holds across configurations and lineages. Alternative Ti
+assumptions of one state (a different `--ti-te-ratio`, `--use-inferred-ti` or
+`--rho-max` gives a different state identity on the same path) are refused, not
+stored side by side, until #1128/#1129: writing a product whose state
+identities differ from the stored one raises, and rewriting the same states is
+allowed.
+
 Eager `load()` stages a complete shot when `paths` is absent. With
 `paths=["equilibrium"]`, it stages only that IDS and `dataset_description`,
 normally using a validated local domain cache. Byte-exact per-IDS images avoid
@@ -268,6 +330,53 @@ repeated `hsget` requests when available; `transport="canonical"` bypasses
 them and `transport="h5image"` requires them. Direct lazy `open()` reads
 selected leaves from the canonical IDS domain and currently supports occurrence
 0. Native lazy IMAS also requires the exact stored Data Dictionary version.
+
+### The local HSDS cache
+
+`cache="auto"` (the default) keeps every validated domain it downloads in a persistent local cache,
+`~/.cache/vaft/hsds`, or `$VAFT_CACHE_DIR/hsds` when that is set. The cache is disposable: every entry is checked against the server's revision before use and is
+fetched again when missing, so it is never the source of truth. `cache="off"` always downloads;
+`cache=<path>` uses another base directory.
+
+The cache is capped at **1 GiB** by default. After every write the least-recently-used domains
+are evicted until it fits, and a single domain larger than the cap is read without being cached.
+The cap is taken from the first of:
+
+1. the `cache_max` argument of `load()` or `export()`;
+2. the `VAFT_HSDS_CACHE_MAX` environment variable;
+3. `cache_max` in the `[hsds]` table of `~/.config/vaft/config.toml` (or under
+   `$XDG_CONFIG_HOME`), which `vaft cache set-limit` writes (it refuses a file layout it cannot
+   edit safely; on Python 3.10 without `tomli` that is anything beyond plain tables and
+   `key = value` lines);
+4. the 1 GiB default.
+
+Sizes are bytes or binary multiples (`500M`, `20G`; `1G` is 1024³ bytes). `0` disables caching,
+and `none` or `unlimited` removes the cap. A server or pipeline can keep a large cache on its own
+volume (`VAFT_CACHE_DIR`), and one-shot reads can pass `cache_max=0`.
+
+```bash
+vaft cache info                 # location, used size, cap and which setting it came from
+vaft cache list --shot 39915    # cached domains, least recently used first
+vaft cache prune                # evict down to the cap now (or --max 500M, --older-than 30d)
+vaft cache clear --shot 39915   # remove one shot's domains; the whole cache needs --yes
+vaft cache set-limit 5G         # persist the cap in the user config file
+```
+
+The same operations are available from Python in `vaft.database.hsds_cache` (`info`, `entries`,
+`prune`, `clear`, `set_cache_max`).
+
+- **What can be removed.** Only domains VAFT wrote: a file in an `<endpoint hash>/<source>/<shot>/`
+  directory that the directory's `manifest.json` lists. A `cache=<path>` base other than the default
+  must also carry the `.vaft-hsds-cache` marker, which the first `load()` using it writes. Other
+  files under the cache directory, and data given by `path=`/`local_dir=`, are never touched.
+- **Recency.** It is the file modification time, which VAFT sets on every hit and write, so
+  `noatime` mounts do not matter.
+- **Concurrency.** Copies into and out of the cache, manifest updates and every eviction are
+  serialized by a lock file in the cache directory. That lock is POSIX-only: on Windows two processes sharing a capped
+  cache are not serialized.
+- **Failures.** The cache is best-effort. A failed cache write or eviction is logged and the load
+  still returns its data. An unreadable `VAFT_HSDS_CACHE_MAX` or config file is logged and the
+  default cap applies.
 
 Canonical IMAS images remain authoritative after a save. The default
 `derived_cache="auto"` also creates per-IDS images; the historical full-ODS
@@ -292,7 +401,8 @@ The current high-level signature is:
 <!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
 ```python
 load(shot, source=None, *, representation="omas", paths=None,
-     occurrence=None, imas_version=None, cache="auto", transport="auto")
+     occurrence=None, imas_version=None, cache="auto", transport="auto",
+     cache_max=None)
 ```
 
 `source=None` resolves to the default source, `main`; pass `source="public"` for the legacy public
@@ -556,6 +666,10 @@ digitiser origin: 0.24 s for `shot < 41446`, 0.26 s for shots 41446–41451, 0.2
 0.26 s from 41660 on.
 
 ### Processing new shots automatically
+
+The Thomson lineage (pipeline 2) has its own worker, `vaft corrective-worker run`, which watches the upload
+directory instead of the SQL table; it is described in the Pipelines guide and in
+`workflow/automatic_pipeline_2_corrective_data_update/DEPLOYMENT.md`. The rest of this section is the routine worker.
 
 On the VEST server, `vaft pipeline-worker run` polls the SQL `shot` table and runs the routine
 Snakemake pipeline on each new shot as soon as its upload has finished (issue #58). The upload

@@ -39,13 +39,14 @@ vaft gui --sample 39915 41524     # two samples, compared on each plot
 vaft gui --file equilibrium.json
 vaft gui --shot 39915 41524       # database shots (needs HSDS read access)
 vaft gui --plot equilibrium_field_psi --port 5010
-vaft gui --workspace diagnostics  # start in another workspace (plots, diagnostics, database)
+vaft gui --workspace diagnostics  # start in another workspace (plots, diagnostics, equilibrium, database)
 ```
 
 The page is an application shell. The sidebar starts with the **workspaces**:
 
 - **Plots:** the plot explorer described below.
 - **Diagnostics:** the same explorer narrowed to one diagnostic.
+- **Equilibrium:** equilibrium plots by mode with one shared time slice, and validation verdicts.
 - **Database:** the database sources, the connection, and opening database shots.
 
 A strip above the main area shows the shared selection, which every workspace reads: what is open, the time on
@@ -112,6 +113,24 @@ The **Diagnostics** workspace shows processed diagnostics by diagnostic, not by 
 - **Not yet available.** Raw-versus-processed comparison and raw field inspection need an API
   that names each diagnostic's raw DAQ fields; they come when that API lands.
 
+The **Equilibrium** workspace inspects reconstructed equilibria, after Tutorial 03:
+
+- **One time slice.** Pick a slice on any plot that has one. Every other equilibrium plot you
+  open shows the same slice, and the status strip names it.
+- **Modes.**
+  - **Inspect:** the 2-D state (flux map, boundary) and 1-D profiles.
+  - **Constraints & fit:** constraints, their coverage and weights, residuals and convergence.
+  - **Time evolution:** global quantities across the discharge.
+  - **Quality:** fit-quality plots and table.
+
+  The plots come from plot discovery. A plot no mode claims is shown under Inspect.
+- **Validation verdicts.** In Quality, **Check this slice** (or **Check all slices**) runs
+  `vaft.validation.equilibrium.validate_equilibrium` on each open shot. It shows the verdict of
+  every check (verification, diagnostic fit, physical validity, independent validation) with its
+  reason, exactly as the validation layer states it.
+- **Several shots** compare on each plot as in **Plots**. Nothing in this workspace edits or
+  reruns a reconstruction.
+
 The **Database** workspace contains:
 
 - **Namespaces.** A table of the namespaces a shot can be read from: what each holds, whether
@@ -134,7 +153,7 @@ in the same way:
 ```python
 from vaft.gui import register_workspace
 
-class EquilibriumWorkspace:
+class MyWorkspace:
     def __init__(self, shell):           # shell.selection, shell.report, shell.show
         self.shell = shell
     def sidebar(self): return [...]      # Panel objects
@@ -142,12 +161,53 @@ class EquilibriumWorkspace:
     def activate(self): ...              # optional: called each time it is shown
     def close(self): ...                 # optional: called when the browser session ends
 
-register_workspace("equilibrium", "Equilibrium", EquilibriumWorkspace, order=30)
+register_workspace("my_workspace", "My workspace", MyWorkspace, order=90)
 ```
 
 A workspace is built the first time it is shown. It reads and changes the shared selection
 through `shell.selection` (a `vaft.gui.SelectionState`), and draws through the public VAFT APIs
 like every other workspace.
+
+## Phones and tablets
+
+The GUI is one web page for every screen. There is no separate mobile app, and nothing else to
+install.
+
+- **Desktop:** the controls stay in a sidebar beside the figure.
+- **Tablet** (narrower than 1100 px): the sidebar narrows to 300 px so the figure keeps room.
+- **Phone** (narrower than 768 px, or under 500 px tall and 950 px wide: a phone held sideways, or a very small desktop window):
+  - The controls become a drawer over the page, and the page opens with the drawer closed, so
+    the figure and the status line are the first thing you see.
+  - The ☰ button in the header opens the drawer to change the workspace, source, plot or
+    figure options; press it again to see the figure.
+  - Wide tables, such as the database namespaces, scroll sideways inside their own box instead
+    of widening the page.
+
+Every control is reachable at every width; nothing is hidden on small screens. The rules live
+in `vaft.gui.layout`, and a new workspace gets them by using `vaft.gui.layout.page`, as the
+shell does.
+
+### Touch
+
+On a phone or tablet the page renders at the device's own width (it declares a `viewport`), and
+interactive plots start in a touch-friendly mode:
+
+- **Drag on the plot** (under the renderer choice, for a single plot) decides what a one-finger drag over an
+  interactive plot does: *Zoom box*, *Pan* or *Scroll the page*. Phones and tablets start on
+  *Scroll the page*, so a plot as wide as the screen never traps the reader; desktops start on
+  *Zoom box*. The choice is recognised from the browser's User-Agent and only sets the default.
+  Switching keeps the current zoom. A composition uses the default; use its mode bar to zoom or
+  pan.
+  An iPad that asks for desktop sites starts on *Zoom box*; change it in the list.
+- To zoom in on a touch screen, choose *Zoom box* and drag over the region you want, or use the
+  zoom buttons in the plot's mode bar, which stays shown on a touch screen. To zoom back out, use the mode bar's *Autoscale* or
+  *Reset axes*. A double tap does not reset the zoom, and Plotly has no two-finger pinch zoom on
+  its 2-D plots.
+- Legends move underneath the plot on a touch screen, so they do not take the plot's width.
+  *Figure options* can still hide the legend.
+- A static (Matplotlib) image is scaled to the screen width, so its text gets small on a phone.
+  Pinch-zoom the page or turn the phone sideways, or switch to the interactive renderer when
+  the plot has one.
 
 ## Run on a remote host over SSH
 
@@ -243,6 +303,93 @@ need internet access; the server does not.
 
 Hosted, one process holds every reader's session, and each session keeps the IDS it has read in
 memory until its tab closes. `MemoryMax` in the unit bounds the whole service.
+
+### Sessions
+
+Every browser tab is its own session on the server.
+
+- **Isolation.** A session has its own shell, workspaces, loaded data, selection, time slice and
+  uploads. What one reader opens or changes is never visible to another. Sessions share
+  code, the list of workspaces and the server process's settings. (**Test connection** used
+  to lower the process-wide logging level; since #1936 it only quietens the `h5pyd` and
+  `urllib3` loggers, and only when they were not configured.)
+- **Clean-up.** When a tab is closed, the server discards its session once Bokeh's
+  unused-session lifetime has passed: 15 s, checked every 17 s, so within about half a minute.
+  Discarding a session closes its shell, which releases its figures, loaded data and uploaded
+  files.
+- **Not limited yet.**
+  - A tab left open keeps its session, and its data, until it is closed.
+  - There is no idle timeout, per-session memory cap or concurrency limit.
+  - These limits will be set from measurements on the hosted test instance (#1862, #1863), not
+    guessed in advance.
+- **Shared data account.** With `--auth hsds`, sign-in only decides who may open the page. Every
+  session reads data with the service's own HSDS credentials, so the GUI does not apply each
+  user's HSDS permissions.
+
+### Validate a test instance before team access
+
+A hosted GUI is first validated as an isolated **test instance** next to any production one. It
+gets its own systemd unit, user, venv, environment file, port (5016) and URL prefix
+(`/gui-test/`). Nothing in the production unit, site or HSDS accounts changes, and every step on
+the host needs the maintainer's approval of the concrete configuration first.
+
+1. **Service account.** Create a dedicated HSDS login (for example `gui-test-reader`) through
+   the server's HSDS account procedure.
+   - Adding a login means restarting the HSDS stack, which is a production change.
+   - Grant it **read only** (`+r`) on the approved dataset domains, preferably through a group.
+     Existing domains do not inherit a later folder ACL, so check every in-scope domain.
+   - Never reuse the production GUI's or an administrator's credentials.
+2. **Install the service.** Either run `sudo bash test-instance.sh install <commit>` from the
+   installed `vaft/deploy/gui/` directory (add `--dry-run` to only print the commands; it never
+   starts the service while the environment file still holds the placeholder), or follow the
+   comments in `vaft-gui-test.service`:
+   - create the user and the venv, installing a fixed commit;
+   - put the account in `/etc/vaft-gui-test.env` (mode 0600);
+   - install and start the unit.
+
+   It listens on 127.0.0.1:5016 only. Local accounts on the host can still reach that port
+   without passing through Nginx's allow list or rate limit, as with production's 5006. Sign-in
+   still applies there.
+3. **First check, through an SSH tunnel** (no Nginx change):
+   `ssh -L 5016:127.0.0.1:5016 <host>`, then
+   `VAFT_SMOKE_USERNAME=... VAFT_SMOKE_PASSWORD=... python -m vaft.deploy.gui.smoke http://localhost:5016/gui-test/`.
+   The checks:
+   - the page needs sign-in;
+   - a wrong password is refused;
+   - the account signs in;
+   - the websocket upgrades.
+
+   The password comes from the environment and is never printed.
+4. **Restricted route.**
+   - Install `nginx-vaft-gui-test-http.conf` as `/etc/nginx/conf.d/vaft-gui-test.conf`. It gives
+     the test instance its own login rate limit, so test sign-ins never use up production's.
+   - Include `nginx-vaft-gui-test-locations.conf` in the 443 server of the hosted GUI's live
+     site, next to its `/gui/` locations.
+   - Fill in the `allow` lines with the approved internal ranges; `deny all` stays last.
+     `sudo bash test-instance.sh nginx <cidr>...` does these three steps. It keeps a copy of the
+     site, runs `nginx -t`, and restores the copy if the test fails.
+   - Run `nginx -t`, reload, and repeat the smoke check against `https://<host>/gui-test/` **from
+     an allowed address**. From anywhere else the check reports "blocked with 403", which is the
+     restriction working, not a sign-in result.
+   - `--insecure` turns certificate checks off entirely. Use it only for the self-signed or
+     IP-only certificate of the test host.
+5. **Record the evidence:**
+   - the tested commit, install method and redacted host/proxy settings;
+   - each smoke result and a failed-sign-in result;
+   - the hosted restrictions seen in the page (no server file browser, no uploads, no file
+     sources);
+   - the remaining risks.
+6. **Rollback** (`sudo bash test-instance.sh remove` does the first two items).
+   - `systemctl disable --now vaft-gui-test`, then remove the unit, venv, environment file and
+     user.
+   - Remove the `include` line and the `conf.d` file, run `nginx -t` and reload.
+   - Remove the HSDS login through the account procedure: drop its ACL rows first, then the
+     login, then restart.
+
+What sign-in does **not** do: `--auth hsds` decides who may open the page. It is not per-user
+data authorization, because every session reads with the service account. Give that account
+only what every signed-in reader may see. Also note that this HSDS deployment allows
+unauthenticated reads, so its default ACL is what anonymous clients of HSDS itself get.
 
 ## What comes next
 

@@ -245,6 +245,30 @@ def test_a_product_without_a_plasma_current_keeps_every_instant():
     assert dropped == []
 
 
+def test_a_homogeneous_time_product_is_still_judged_by_the_cut():
+    """A product that stores only `magnetics.time` carries the current too.
+
+    The cut used to read `magnetics.ip.0.time` by name and, finding none,
+    kept every instant -- exactly where the window selector two steps earlier
+    had resolved the same node through `magnetics.time` (cold review 0.7.0
+    data F10, #1888).  Both steps now go through the same resolver.
+    """
+    from omas import ODS
+
+    values = [1_000.0] * 5 + [80_000.0] * 5 + [500.0] * 5
+    ods = ODS(consistency_check=False)
+    clock = np.arange(len(values), dtype=float) * DT + 0.300
+    ods["magnetics.time"] = clock
+    ods["magnetics.ip.0.data"] = np.asarray(values, dtype=float)
+    times = clock[::5] + 2 * DT
+
+    kept, dropped = MODULE._drop_vacuum_times(ods, times, average_window=DT)
+
+    assert kept.size == 1
+    assert [round(current / 1e3) for _, current in dropped] == [1, 0]
+    assert "magnetics.ip.0.time" not in ods, "the cut must not materialise the node"
+
+
 def test_the_product_says_how_many_instants_the_cut_removed():
     """A reader cannot otherwise tell a dropped instant from a failed one."""
     comment = MODULE._window_comment(

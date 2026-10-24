@@ -378,3 +378,93 @@ def test_two_programmes_on_one_machine_never_share_a_connection_length(solved):
 
     np.testing.assert_array_equal(second["length_m"], second_fresh["length_m"])
     assert not np.array_equal(first["length_m"], second["length_m"], equal_nan=True)
+
+
+# ---------------------------------------------------------------------------
+# The passive loops are paired by time, not by position (cold review 0.7.0 plot F1)
+# ---------------------------------------------------------------------------
+
+def _shift_passive_base(ods, samples):
+    """Re-stamp the solved loop currents on a base ``samples`` later: the same waveforms in time."""
+    time_base = np.asarray(ods["pf_active.time"], dtype=float)
+    shifted = time_base + samples * (time_base[1] - time_base[0])
+    for index in range(len(ods["pf_passive.loop"])):
+        current = np.asarray(ods[f"pf_passive.loop.{index}.current"], dtype=float)
+        # anti-alias: a pure shift onto the same grid spacing resamples nothing
+        ods[f"pf_passive.loop.{index}.current"] = np.interp(shifted, time_base, current)
+    ods["pf_passive.time"] = shifted
+
+
+def test_a_passive_base_that_is_not_the_coil_base_is_matched_by_time():
+    """A loop waveform on its own (shifted) base must give the flux of the same instant."""
+    reference = vaft.omas.sample_ods()
+    vaft.omas.compute_eddy_currents(reference, [], [])
+    time_base = np.asarray(reference["pf_active.time"], dtype=float)
+    wanted = float(time_base[len(time_base) // 2])
+    expected = pw.compute_vacuum_field_map(reference, time=wanted, grid=COARSE)
+    pw.clear_vacuum_field_cache()
+
+    shifted = vaft.omas.sample_ods()
+    vaft.omas.compute_eddy_currents(shifted, [], [])
+    _shift_passive_base(shifted, 20)
+    result = pw.compute_vacuum_field_map(shifted, time=wanted, grid=COARSE)
+    assert result["time"] == expected["time"]
+    np.testing.assert_allclose(result["psi"], expected["psi"], rtol=1e-9, atol=0)
+    np.testing.assert_allclose(result["dpsi_dt"], expected["dpsi_dt"], rtol=1e-6, atol=0)
+
+
+def test_a_decimated_passive_base_is_resampled_onto_the_coil_base():
+    """A coarser passive record must still give the eddy share of dpsi/dt.
+
+    dpsi/dt differences three consecutive coil samples; loop currents snapped
+    to their own nearest sample would make that difference zero (the same
+    loop sample three times) or one passive step over one coil step.
+    Resampled onto the coil base, the derivative follows the record's secant.
+    """
+    ods = vaft.omas.sample_ods()
+    vaft.omas.compute_eddy_currents(ods, [], [])
+    time_base = np.asarray(ods["pf_active.time"], dtype=float)
+    loops = [np.asarray(ods[f"pf_passive.loop.{i}.current"], dtype=float) for i in range(len(ods["pf_passive.loop"]))]
+    wanted = float(time_base[(len(time_base) // 2) // 4 * 4])
+    expected = pw.compute_vacuum_field_map(ods, time=wanted, grid=COARSE)
+    pw.clear_vacuum_field_cache()
+    # Every fourth sample, taken exactly where the full base has it: the
+    # requested instant is one of them, so the flux there is unchanged.
+    ods["pf_passive.time"] = time_base[::4]
+    for index, current in enumerate(loops):
+        ods[f"pf_passive.loop.{index}.current"] = current[::4]
+    assert wanted in time_base[::4]
+    result = pw.compute_vacuum_field_map(ods, time=wanted, grid=COARSE)
+    np.testing.assert_allclose(result["psi"], expected["psi"], rtol=1e-9, atol=0)
+    # The eddy share of dpsi/dt on this sample is a quarter of the whole; a
+    # linear secant over four coil steps reproduces it to about one per cent.
+    scale = np.max(np.abs(expected["dpsi_dt"]))
+    np.testing.assert_allclose(result["dpsi_dt"], expected["dpsi_dt"], rtol=0, atol=0.03 * scale)
+    assert np.max(np.abs(result["dpsi_dt"] - expected["dpsi_dt"])) < 0.2 * np.max(np.abs(expected["dpsi_dt"] - _coil_only_dpsi_dt(ods, wanted)))
+
+
+def _coil_only_dpsi_dt(ods, wanted):
+    """dpsi/dt with every passive loop frozen: what a lost eddy share looks like."""
+    frozen = vaft.omas.sample_ods()
+    vaft.omas.compute_eddy_currents(frozen, [], [])
+    for index in range(len(frozen["pf_passive.loop"])):
+        current = np.asarray(frozen[f"pf_passive.loop.{index}.current"], dtype=float)
+        frozen[f"pf_passive.loop.{index}.current"] = np.full_like(current, current[len(current) // 2])
+    pw.clear_vacuum_field_cache()
+    return pw.compute_vacuum_field_map(frozen, time=wanted, grid=COARSE)["dpsi_dt"]
+
+
+def test_a_passive_base_that_does_not_cover_the_instant_is_refused():
+    """A record that ends before (or starts after) the request must not be clamped to its end."""
+    ods = vaft.omas.sample_ods()
+    vaft.omas.compute_eddy_currents(ods, [], [])
+    time_base = np.asarray(ods["pf_active.time"], dtype=float)
+    ods["pf_passive.time"] = time_base + 1.0  # no overlap with the coil programme at all
+    with pytest.raises(ValueError, match="pf_passive.time .* does not cover"):
+        pw.compute_vacuum_field_map(ods, time=float(time_base[len(time_base) // 2]), grid=COARSE)
+    # A record one coil step short at the end still serves an instant inside it.
+    ods["pf_passive.time"] = time_base[:-1]
+    for index in range(len(ods["pf_passive.loop"])):
+        ods[f"pf_passive.loop.{index}.current"] = np.asarray(ods[f"pf_passive.loop.{index}.current"], dtype=float)[:-1]
+    pw.clear_vacuum_field_cache()
+    assert np.isfinite(pw.compute_vacuum_field_map(ods, time=float(time_base[-1]), grid=COARSE)["psi"]).all()

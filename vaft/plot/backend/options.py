@@ -65,6 +65,9 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("yunit", "str", description="display unit of the y axis"),
         OptionSpec("xunit", "str", description="display unit of the x axis"),
         OptionSpec("time_slice", "int", description="stored equilibrium slice index"),
+        OptionSpec("comparison_intent", "str", description="matched_baseline, controlled_sensitivity or exploratory_overlay"),
+        OptionSpec("controlled_differences", "any", description="explicit axis.key scientific variations"),
+        OptionSpec("time_tolerance", "float", description="maximum radial transport experimental-time mismatch [s]"),
         OptionSpec("time", "float", description="a time in seconds, snapped to a stored slice"),
         OptionSpec("time_range", "range",
                    description="(start, stop) in seconds: the window of a time history, honoured "
@@ -177,7 +180,20 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("log_y", "bool"), OptionSpec("marker_frequencies"), OptionSpec("max_frequency", "float"),
         OptionSpec("max_harmonics", "int"), OptionSpec("max_length_m", "float"), OptionSpec("n_tor", "int"),
         OptionSpec("ncols", "int"), OptionSpec("noverlap", "int"), OptionSpec("nperseg", "int"),
-        OptionSpec("per_family", "bool"),
+        # A channel count per family: the #139 vacuum figures read it as
+        # int(per_family) (default 2), the vacuum benchmark views as a positive
+        # count or None for every usable channel.
+        OptionSpec("per_family", "int",
+                   description="magnetic channels kept per family (vacuum views and benchmark)"),
+        # The plasma-free vacuum benchmark (#190, roadmap #1242 C3): the one
+        # global wall-resistance factor its resistance study varies, and the
+        # wall time constants of solver history the validation window waits for.
+        # Only recipes.VACUUM_BENCHMARK_PLOTS take them (DECLARED_ONLY_OPTIONS).
+        OptionSpec("resistance_scale", "float",
+                   description="vacuum benchmark: global scale factor on every passive-loop resistance"),
+        OptionSpec("n_tau", "float",
+                   description="vacuum benchmark: slowest wall time constants of solver history "
+                               "before the validation window opens"),
         # wall eigenmode views (vaft #473)
         OptionSpec("basis"), OptionSpec("segment"), OptionSpec("mode"), OptionSpec("max_modes", "int"),
         OptionSpec("whole_wall", "bool"), OptionSpec("remap_em_coupling", "bool"), OptionSpec("rows"),
@@ -241,6 +257,21 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "edge-q estimate: START (Akers 2000) or ITER (Post 1991)"),
         OptionSpec("start_configuration", "choice", "recipes.START_CONFIGURATIONS",
                    "edge-q estimate: START scaling C, limiter (1.0) or double_null (0.77)"),
+        # One matched kinetic state (#1837): the equilibrium occurrence the
+        # caller says the input's equilibrium is, refused when it contradicts
+        # the occurrence the kinetic state was built on.  Only
+        # kinetic_overview_state takes it (DECLARED_ONLY_OPTIONS).
+        OptionSpec("equilibrium_occurrence", "int",
+                   description="kinetic state: the equilibrium occurrence the Thomson channels are mapped "
+                               "through; must match the one the state records"),
+        # Inference stages (#1957): stage= cuts the kinetic state at one stage
+        # of its chain (and is what animation=True walks); stages= names the
+        # columns of its layout="stages" small multiples.
+        OptionSpec("stage", "int",
+                   description="kinetic state: draw the inference chain up to this stage (1-8) on the full "
+                               "figure's axis limits; default the full figure"),
+        OptionSpec("stages", "any",
+                   description="kinetic state: the stages layout='stages' draws as columns, increasing"),
         # Linear gyrokinetic spectra (#1591): an initial-value eigenmode that
         # reached no growth-rate tolerance is left out unless asked for.  Only
         # the plots in recipes.UNCONVERGED_MODE_PLOTS take it (DECLARED_ONLY_OPTIONS).
@@ -265,7 +296,13 @@ DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
     # issue #460: the Mirnov spectrogram's predicted mode tracks.
     "mode_overlay",
     # issue #1591: the linear gyrokinetic spectra's unconverged-mode switch.
-    "include_unconverged",
+    "include_unconverged", "time_tolerance", "comparison_intent", "controlled_differences",
+    # roadmap #1242 C3: the vacuum benchmark's knobs.
+    "resistance_scale", "n_tau",
+    # issue #1837: the kinetic state's equilibrium occurrence.
+    "equilibrium_occurrence",
+    # issue #1957: the kinetic state's inference stages.
+    "stage", "stages",
 })
 
 #: Options an adapter passes on internally (besides leading-underscore keys);

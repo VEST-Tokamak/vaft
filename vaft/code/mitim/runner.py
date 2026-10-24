@@ -17,7 +17,13 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from ... import compat
-from ..execution import ExecutionRequest, resolve_backend, timeout_reason
+from ..execution import (
+    ExecutionRequest,
+    ResourceRequest,
+    configured_resources,
+    resolve_backend,
+    timeout_reason,
+)
 from .availability import MITIMAvailability, mitim_availability
 from .config import MITIMConfig, MITIMResult, mitim_user_config
 
@@ -36,6 +42,9 @@ _RAN_TOLERANCE = 1e-4
 
 #: The GACODE members MITIM may call; each one's ``bin`` goes on ``PATH``.
 _GACODE_MEMBERS = ("neo", "tglf", "tgyro", "cgyro", "vgen")
+
+#: Shared modules staged beside every driver (drivers import them by name).
+DRIVER_HELPERS = ("_manufacture.py",)
 
 
 def _environment(config: MITIMConfig, config_path: Path) -> dict[str, str]:
@@ -168,6 +177,10 @@ def run_mitim_driver(
         raise ValueError(f"no MITIM driver named {driver!r}")
     script = workdir / f"{driver}.py"
     script.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    # Helper modules a driver imports by name from its own directory.
+    for helper in DRIVER_HELPERS:
+        text = resources.files("vaft.code.mitim.drivers").joinpath(helper).read_text(encoding="utf-8")
+        (workdir / helper).write_text(text, encoding="utf-8")
     (workdir / "result.json").unlink(missing_ok=True)
     argument_path = workdir / "arguments.json"
     argument_path.write_text(json.dumps(dict(arguments), indent=1, default=str), encoding="utf-8")
@@ -176,12 +189,14 @@ def run_mitim_driver(
                            encoding="utf-8")
     (workdir / "mitim_scratch").mkdir(exist_ok=True)
 
+    launch_resources, env = configured_resources(config, ResourceRequest(), _environment(config, config_path))
     execution = resolve_backend(config).run(
         ExecutionRequest(
             command=_command(config, availability.python, script.name, argument_path.name),
             workdir=workdir,
-            env=_environment(config, config_path),
+            env=env,
             timeout=config.timeout,
+            resources=launch_resources,
             label=f"mitim-{driver}",
         )
     )
@@ -199,6 +214,7 @@ def run_mitim_driver(
     record = {
         "driver": driver,
         "driver_sha256": _sha256(script),
+        "helper_sha256": {helper: _sha256(workdir / helper) for helper in DRIVER_HELPERS},
         "arguments": json.loads(argument_path.read_text(encoding="utf-8")),
         "mitim": availability.as_dict(),
         "mitim_config": json.loads(config_path.read_text(encoding="utf-8")),

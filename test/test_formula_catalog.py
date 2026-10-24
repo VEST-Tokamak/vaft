@@ -76,9 +76,9 @@ def test_the_catalog_counts_the_known_public_surface():
         # #670 moved neo-Alcator, Goldston L-mode and their quadrature in: 101 + 3 = 104.
         # #1713 added confinement_scaling_basis, the energy/power basis of each scaling: 104 + 1 = 105.
         # #1691 added the volume beta and its normalized form: 105 + 2 = 107.
-        "equilibrium": 110,  # +volume-radius shear and Miller alpha (#1637), +thermal_energy_from_p_V (W_th = 3/2 int p dV), +volume beta and its normalized form (#1691), +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
+        "equilibrium": 115,  # +4 closed-form diamagnetic beta_p / W_dia, circular and elliptic (#684), +li_1_from_Bp2_volume_integral, Strait's l_i(1) (#1691), +volume-radius shear and Miller alpha (#1637), +thermal_energy_from_p_V (W_th = 3/2 int p dV), +volume beta and its normalized form (#1691), +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
-        "stability": 45,  # +ggj_resistive_interchange_index_from_ideal (#939), +Suydam, circular Mercier, GGJ D_I/D_R, magnetic well, Bussac beta_p1/delta W (#1635), +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
+        "stability": 43,  # -power_limit_from_beta, -power_limit_from_q, not powers (#362), +ggj_resistive_interchange_index_from_ideal (#939), +Suydam, circular Mercier, GGJ D_I/D_R, magnetic well, Bussac beta_p1/delta W (#1635), +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
         "atomic": 11,  # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952), +hydrogenic levels and wavelengths (#1046), +mean square charge, transient abundances, coronal relaxation time (#1565)
         "statistics": 22,
@@ -99,7 +99,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # the gas-keyed threshold: 28 + 2 = 30.  #782's boundary-voltage and
         # internal inductive-voltage splits: 30 + 2 = 32.
         "startup": 32,
-        "particle": 13,  # +gyration_offset (#1145), +mirror (#1070), +invariants and P_phi (#1092)
+        "particle": 18,  # +gyration_offset (#1145), +mirror (#1070), +invariants and P_phi (#1092)
         "geometry": 16,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063), +enclosed current, flux, l_i (#1604), +current diffusion (#1605)
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
         "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
@@ -109,13 +109,19 @@ def test_the_catalog_counts_the_known_public_surface():
         "sol": 19,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951), MARFE (#1209), blobs (#1211)
         "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
         "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
-        "boundaries": 14,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068), +threshold line and quantity identity (#1425), +Freidberg kink coordinates (#1456), +Menard q*, ITER and START q95 estimates (#1580), +spherical-tokamak Hugill coordinates (#1602)
+        "boundaries": 15,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068), +threshold line and quantity identity (#1425), +Freidberg kink coordinates (#1456), +Menard q*, ITER and START q95 estimates (#1580), +spherical-tokamak Hugill coordinates (#1602), +margin uncertainty (#1874)
         "impurity": 9,  # mixture moments, target-Z_eff solver, reduce/expand pseudo-impurity, dilution (#1565)
         "dimensional": 7,  # dimension matrix, exact null space, Pi groups, basis change, similarity constraints (#1621)
-        "sensitivity": 5,  # finite-difference Jacobian, J Sigma J^T, Monte Carlo, SVD spectrum, linearity ratio (#1642)
+        "sensitivity": 6,  # FD Jacobian, J Sigma J^T, Monte Carlo, SVD, linearity (#1642), per-formula propagation (#1874)
         "ordering": 16,  # asymptotic ordering parameters (#1627), +Debye length, Mach number, pressure anisotropy (#1627 phase C)
         "fast_ion": 8,  # critical speed/energy, slowing-down times, distribution, density/energy/pressure (#1606)
-        "kinetic": 2,  # electron collision time and electron-ion energy exchange, multi-species (#1606)
+        # electron collision time and electron-ion energy exchange, multi-species (#1606);
+        # +5 for the classical baseline moved out of the process layer (#1899): the ion
+        # collision time, ion-ion lnLambda, gamma_1'(Z), chi_perp,e and chi_perp,i.
+        "kinetic": 7,
+        "turbulence": 16,  # predator-prey (5, #1820) + fluctuation fluxes, drift, shear, Reynolds stress (11, #1112)
+        "transport": 9,  # random-walk/TGK diffusivity, constitutive fluxes, classical/Bohm/gyro-Bohm scales (#1112)
+        "regularized_profiles": 3,  # explicit opt-in module, outside the star namespace
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
@@ -142,8 +148,20 @@ def test_aliases_resolve_to_their_canonical_spec(alias, canonical):
 
 def test_bare_name_lookup_agrees_with_package_attribute_resolution():
     for spec in catalog.list_formulas():
+        if spec.category in vaft.formula._CATALOG_ONLY_SUBMODULES:
+            assert catalog.describe(spec.qualname) is spec
+            with pytest.raises(KeyError):
+                catalog.describe(spec.name)
+            assert spec.name not in vaft.formula.__all__
+            continue
         resolved = catalog.describe(spec.name)
         assert resolved.module == getattr(vaft.formula, spec.name).__module__, spec.name
+
+
+def test_explicit_profile_api_is_discoverable_without_extending_star_imports():
+    loaded = _loaded_after("from vaft.formula import *")
+    assert "vaft.formula.regularized_profiles" not in loaded
+    assert catalog.describe("regularized_profiles.fit_regularized_profile").category == "regularized_profiles"
 
 
 def test_the_one_colliding_function_name_reports_who_wins():
@@ -313,7 +331,7 @@ _ROW_KEYS = {
     "id", "name", "category", "module", "signature", "summary", "description",
     "parameters", "returns", "sections", "references", "empirical",
     "convention_sensitive", "deprecated", "aliases", "shadowed_by", "raises", "source",
-    "definitions", "reduction",
+    "definitions", "reduction", "semantics", "uncertainty_propagation", "analytic_jacobian",
 }
 
 
@@ -322,12 +340,12 @@ def test_snapshot_schema():
     assert snapshot["schema_version"] == catalog.SCHEMA_VERSION
     assert set(snapshot) == {"schema_version", "generator", "source", "categories", "formulas"}
     assert [entry["path"] for entry in snapshot["source"]] == [
-        f"vaft/formula/{key}.py" for key in vaft.formula._IMPORT_ORDER
+        f"vaft/formula/{key}.py" for key in catalog._CATALOG_ORDER
     ]
     for entry in snapshot["source"]:
         assert re.fullmatch(r"[0-9a-f]{64}", entry["sha256"])
     category_names = [doc["name"] for doc in snapshot["categories"]]
-    assert category_names == list(vaft.formula._IMPORT_ORDER)
+    assert category_names == list(catalog._CATALOG_ORDER)
     ids = [row["id"] for row in snapshot["formulas"]]
     assert len(ids) == len(set(ids))
     for row in snapshot["formulas"]:

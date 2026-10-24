@@ -33,6 +33,7 @@ _ALLOWED_DATA_FILES = {
     "samples/41524/manifest.yaml",
     "samples/40600/manifest.yaml",
     "samples/41672/manifest.yaml",
+    "samples/42962/manifest.yaml",
     "samples/45531/manifest.yaml",
     "samples/48224/manifest.yaml",
 }
@@ -110,6 +111,13 @@ REQUIRED_FILES = {
     "vaft/deploy/gui/vaft-gui.env.example",
     "vaft/deploy/gui/nginx-vaft-gui.conf",
     "vaft/deploy/gui/vaft-gui-proxy.conf",
+    "vaft/deploy/gui/vaft-gui-test.service",
+    "vaft/deploy/gui/vaft-gui-test.env.example",
+    "vaft/deploy/gui/nginx-vaft-gui-test-locations.conf",
+    "vaft/deploy/gui/nginx-vaft-gui-test-http.conf",
+    "vaft/deploy/gui/vaft-gui-test-proxy-headers.conf",
+    "vaft/deploy/gui/smoke.py",
+    "vaft/deploy/gui/test-instance.sh",
 } | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES} | {
     f"{_STUDIES}{name}" for name in _SHIPPED_STUDY_SCRIPTS
 }

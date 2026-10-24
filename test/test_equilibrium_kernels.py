@@ -12,10 +12,17 @@ is met, and its default ``abs=1e-12`` swamps anything smaller than that, so
 every comparison of a small number passes ``abs=0.0`` explicitly.
 """
 
+import warnings
+
 import numpy as np
 import pytest
 
 from vaft.formula import (
+    beta_p_diamagnetic_from_flux_circular,
+    beta_poloidal_from_pressure_integral,
+    beta_p_diamagnetic_from_flux_elliptic,
+    stored_energy_diamagnetic_from_beta_p_circular,
+    stored_energy_diamagnetic_from_beta_p_geometry,
     alpha_heating_power,
     alpha_heating_power_from_n_D_n_T_T_keV_V,
     aspect_ratio_from_a_R,
@@ -280,6 +287,76 @@ def test_radial_field_from_a_linear_psi_cut_matches_the_cocos_prefactor():
     )
 
 
+def _solovev_psi_and_field(R, Z, A=0.3, B=0.8, R0=0.45):
+    # psi = A R^2 Z^2 + B (R^2 - R0^2)^2 has Delta* psi = (2A + 8B) R^2: a
+    # Solov'ev equilibrium (constant p', zero FF'), with closed-form
+    # dpsi/dZ = 2 A R^2 Z and dpsi/dR = 2 A R Z^2 + 4 B R (R^2 - R0^2).
+    RR, ZZ = np.meshgrid(R, Z)  # [Z, R]
+    psi = A * RR**2 * ZZ**2 + B * (RR**2 - R0**2) ** 2
+    k = poloidal_field_factor(None)
+    B_R = k / RR * (2 * A * RR**2 * ZZ)
+    B_Z = -k / RR * (2 * A * RR * ZZ**2 + 4 * B * RR * (RR**2 - R0**2))
+    return psi, B_R, B_Z
+
+
+def test_radial_field_of_a_2d_ZR_map_stacks_the_1d_cuts():
+    R = np.linspace(0.15, 0.85, 23)
+    Z = np.linspace(-0.6, 0.6, 31)
+    psi, _, _ = _solovev_psi_and_field(R, Z)
+    expected = np.stack(
+        [radial_magnetic_field_from_psi(psi[:, j], R[j], Z) for j in range(R.size)],
+        axis=1,
+    )
+    np.testing.assert_allclose(
+        radial_magnetic_field_from_psi(psi, R, Z), expected, rtol=1e-13, atol=0.0
+    )
+
+
+def test_vertical_field_of_a_2d_RZ_map_stacks_the_1d_cuts():
+    R = np.linspace(0.15, 0.85, 23)
+    Z = np.linspace(-0.6, 0.6, 31)
+    psi_RZ = _solovev_psi_and_field(R, Z)[0].T
+    expected = np.stack(
+        [vertical_magnetic_field_from_psi(psi_RZ[:, i], R, Z[i]) for i in range(Z.size)],
+        axis=1,
+    )
+    np.testing.assert_allclose(
+        vertical_magnetic_field_from_psi(psi_RZ, R, Z), expected, rtol=1e-13, atol=0.0
+    )
+
+
+def test_vertical_field_of_a_square_RZ_map_divides_by_R_along_the_R_axis():
+    # With nR == nZ a 1/R broadcast along the last (Z) axis raises nothing and
+    # is silently wrong; the column through each Z must still match its cut.
+    R = np.linspace(0.15, 0.85, 25)
+    Z = np.linspace(-0.6, 0.6, 25)
+    psi_RZ = _solovev_psi_and_field(R, Z)[0].T
+    field = vertical_magnetic_field_from_psi(psi_RZ, R, Z)
+    for i in (0, 7, 24):
+        np.testing.assert_allclose(
+            field[:, i], vertical_magnetic_field_from_psi(psi_RZ[:, i], R, Z[i]),
+            rtol=1e-13, atol=0.0,
+        )
+
+
+def test_the_poloidal_field_of_a_solovev_map_matches_its_closed_form():
+    R = np.linspace(0.15, 0.85, 281)
+    Z = np.linspace(-0.6, 0.6, 241)
+    psi, B_R, B_Z = _solovev_psi_and_field(R, Z)
+    interior = (slice(1, -1), slice(1, -1))
+
+    numeric_B_R = radial_magnetic_field_from_psi(psi, R, Z)
+    numeric_B_Z = vertical_magnetic_field_from_psi(psi.T, R, Z).T
+    # psi is quadratic in Z, so the central difference in Z is exact; the
+    # quartic R dependence leaves an O(h^2) residual in B_Z.
+    np.testing.assert_allclose(
+        numeric_B_R[interior], B_R[interior], rtol=0.0, atol=1e-12 * np.abs(B_R).max()
+    )
+    np.testing.assert_allclose(
+        numeric_B_Z[interior], B_Z[interior], rtol=0.0, atol=1e-4 * np.abs(B_Z).max()
+    )
+
+
 def test_an_explicit_cocos_index_rescales_the_field_by_the_factor_ratio():
     R = np.linspace(1.0, 2.0, 41)
     psi = 0.3 + 0.07 * R
@@ -376,12 +453,20 @@ def test_psi_from_RBtheta_adds_the_axis_offset():
     )
 
 
-def test_phi_from_Bphi_is_the_area_weighted_sum():
+def test_phi_from_Bphi_integrates_over_the_grid():
+    R = np.linspace(0.1, 0.8, 8)
+    Z = np.linspace(-0.5, 0.5, 11)
+    B_phi = np.full((R.size, Z.size), 0.2)
+    assert phi_from_Bphi(B_phi, R, Z) == pytest.approx(0.2 * 0.7, rel=1e-13, abs=0.0)
+
+
+def test_phi_from_Bphi_legacy_area_sum_is_deprecated():
     B_phi = np.array([0.18, 0.20, 0.22])
     dA = np.array([0.01, 0.02, 0.03])
-    assert phi_from_Bphi(B_phi, dA) == pytest.approx(
-        float(np.sum(B_phi * dA)), rel=1e-13, abs=0.0
-    )
+    with pytest.warns(DeprecationWarning, match="#358"):
+        assert phi_from_Bphi(B_phi, dA) == pytest.approx(
+            float(np.sum(B_phi * dA)), rel=1e-13, abs=0.0
+        )
 
 
 # --------------------------------------------------------------------------
@@ -572,14 +657,25 @@ def test_kink_safety_factor_rejects_an_unknown_shape():
         kink_safety_factor(1.8, 0.4, 1.6, 1.0e5, 0.2, "spheromak")
 
 
-def test_current_limits_from_q_and_from_beta_share_one_closed_form():
-    # The beta form is the q form with beta_N substituted for q_95, which is
-    # exactly what its docstring says; equal arguments must give equal results.
+def test_current_limit_from_q_inverts_the_cylindrical_safety_factor():
+    # q_cyl = 2 pi a^2 B0 / (mu0 R0 I_p): the current must come back in amperes
+    # and reproduce q_95 when put back in (#362 added the missing 1/R0).
+    a, B0, R0, q_95 = 0.4, 0.2, 0.45, 3.0
+    I_p = current_limit_from_q(q_95, a, B0, R0)
+    assert I_p == pytest.approx(2 * np.pi * a**2 * B0 / (MU0 * R0 * q_95), rel=1e-12, abs=0.0)
+    assert 2 * np.pi * a**2 * B0 / (MU0 * R0 * I_p) == pytest.approx(q_95, rel=1e-12)
+    # VEST-like numbers land at a ~100 kA current, not ~45 kA m.
+    assert 1e4 < I_p < 1e6
+    # The old three-argument call returned I_p R0 [A m]; it now fails loudly.
+    with pytest.raises(TypeError):
+        current_limit_from_q(q_95, a, B0)
+
+
+def test_current_limit_from_beta_is_deprecated_but_unchanged():
     a, B0 = 0.4, 0.2
-    assert current_limit_from_q(3.0, a, B0) == pytest.approx(
-        2 * np.pi * a**2 * B0 / (MU0 * 3.0), rel=1e-12, abs=0.0
-    )
-    assert current_limit_from_beta(3.0, a, B0) == current_limit_from_q(3.0, a, B0)
+    with pytest.warns(DeprecationWarning, match="#362"):
+        value = current_limit_from_beta(3.0, a, B0)
+    assert value == pytest.approx(2 * np.pi * a**2 * B0 / (MU0 * 3.0), rel=1e-12, abs=0.0)
 
 
 def test_normalized_plasma_current_converts_amps_to_megaamps():
@@ -786,6 +882,12 @@ def test_alpha_heating_power_is_the_same_object_as_its_long_name():
     assert alpha_heating_power is alpha_heating_power_from_n_D_n_T_T_keV_V
 
 
+def test_alpha_heating_power_is_deprecated_and_cites_the_bosch_hale_erratum():
+    with pytest.warns(DeprecationWarning, match=r"#360.*Nucl\. Fusion 33 \(1993\) 1919"):
+        alpha_heating_power(0.5, 0.5, 10.0, 2.5)
+
+
+@pytest.mark.filterwarnings("ignore:.*alpha_heating_power.*:DeprecationWarning")
 def test_alpha_heating_power_matches_its_closed_form():
     n_D, n_T, T, V = 0.5, 0.5, 10.0, 2.5
     assert alpha_heating_power(n_D, n_T, T, V) == pytest.approx(
@@ -795,6 +897,7 @@ def test_alpha_heating_power_matches_its_closed_form():
     )
 
 
+@pytest.mark.filterwarnings("ignore:.*alpha_heating_power.*:DeprecationWarning")
 def test_alpha_heating_power_is_quadratic_in_the_temperature_fit():
     base = alpha_heating_power(0.5, 0.5, 10.0, 2.5)
     assert alpha_heating_power(0.5, 0.5, 20.0, 2.5) == pytest.approx(
@@ -891,7 +994,9 @@ def test_kadomtsev_constraint_matches_its_closed_form():
     # alpha_K = (1 + a_P)(mu_rho + 2 mu_beta - 4 mu_nu) - 2 a_P (#351).
     mu_rho, mu_beta, mu_nu, a_P = 0.4, 0.2, 0.1, 0.5
     expected = (1 + a_P) * (mu_rho + 2 * mu_beta - 4 * mu_nu) - 2 * a_P
-    with pytest.warns(FutureWarning, match="351"):
+    # The FutureWarning that announced the #351 change was dropped in 0.9.0.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
         got = verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P)
     assert got == pytest.approx(expected, rel=1e-12, abs=1e-12)
 
@@ -899,12 +1004,80 @@ def test_kadomtsev_constraint_matches_its_closed_form():
 def test_kadomtsev_constraint_vanishes_for_a_pure_dimensionless_scaling():
     # Bohm, beta- and nu-free: B tau ~ rho*^-2.  Its T exponent is -1, which
     # a_P = -1/2 reproduces (a_P / (1 + a_P) = -1), so the residual is 0 ...
-    with pytest.warns(FutureWarning):
-        assert verify_kadomtsev_constraint(-2.0, 0.0, 0.0, -0.5) == pytest.approx(
-            0.0, abs=1e-12
-        )
+    assert verify_kadomtsev_constraint(-2.0, 0.0, 0.0, -0.5) == pytest.approx(
+        0.0, abs=1e-12
+    )
     # ... and a mismatched a_P shows up as a non-zero residual.
-    with pytest.warns(FutureWarning):
-        assert verify_kadomtsev_constraint(-2.0, 0.0, 0.0, 0.0) != pytest.approx(
-            0.0, abs=1e-6
-        )
+    assert verify_kadomtsev_constraint(-2.0, 0.0, 0.0, 0.0) != pytest.approx(
+        0.0, abs=1e-6
+    )
+
+
+# --------------------------------------------------------------------------
+# Closed-form diamagnetic estimates (#684)
+# --------------------------------------------------------------------------
+
+def test_diamagnetic_beta_p_is_one_without_diamagnetic_flux():
+    assert beta_p_diamagnetic_from_flux_circular(0.0, 0.15, 1.0e5) == 1.0
+    assert beta_p_diamagnetic_from_flux_elliptic(0.0, 0.15, 1.0e5, 1.8) == 1.0
+
+
+def test_diamagnetic_beta_p_matches_its_closed_form():
+    Phi, B, Ip = -2.0e-4, 0.15, 1.0e5
+    term = 8 * np.pi * B * Phi / (MU0**2 * Ip**2)
+    assert beta_p_diamagnetic_from_flux_circular(Phi, B, Ip) == pytest.approx(1 - term, rel=1e-13)
+    assert beta_p_diamagnetic_from_flux_elliptic(Phi, B, Ip, 2.0) == pytest.approx(
+        1 - (1 + 4.0) / 4.0 * term, rel=1e-13
+    )
+
+
+def test_diamagnetic_beta_p_sign_follows_the_flux_and_is_not_abs():
+    # Positive (paramagnetic, along B) flux lowers beta_p below one, a
+    # diamagnetic one raises it; flipping field and flux together is invariant.
+    B, Ip = 0.15, 1.0e5
+    para = beta_p_diamagnetic_from_flux_circular(+1.0e-4, B, Ip)
+    dia = beta_p_diamagnetic_from_flux_circular(-1.0e-4, B, Ip)
+    assert para < 1.0 < dia
+    assert para + dia == pytest.approx(2.0, rel=1e-13)
+    assert beta_p_diamagnetic_from_flux_circular(-1.0e-4, -B, Ip) == pytest.approx(para, rel=1e-13)
+    assert beta_p_diamagnetic_from_flux_circular(+1.0e-4, B, -Ip) == pytest.approx(para, rel=1e-13)
+
+
+def test_elliptic_diamagnetic_formulas_reduce_to_the_circular_ones():
+    Phi, B, Ip, R0, a = -1.5e-4, 0.15, 1.0e5, 0.45, 0.3
+    beta_c = beta_p_diamagnetic_from_flux_circular(Phi, B, Ip)
+    assert beta_p_diamagnetic_from_flux_elliptic(Phi, B, Ip, 1.0) == pytest.approx(beta_c, rel=1e-14)
+    volume, perimeter = 2 * np.pi**2 * R0 * a**2, 2 * np.pi * a
+    assert stored_energy_diamagnetic_from_beta_p_geometry(beta_c, volume, Ip, perimeter) == pytest.approx(
+        stored_energy_diamagnetic_from_beta_p_circular(beta_c, R0, Ip), rel=1e-13
+    )
+
+
+def test_diamagnetic_stored_energy_is_three_halves_of_the_pressure_integral():
+    # beta_p = 4 int p dV / (mu0 R0 Ip^2) (DD) and W = 3/2 int p dV.
+    pressure_integral, R0, Ip = 120.0, 0.45, 1.0e5
+    beta_p = beta_poloidal_from_pressure_integral(pressure_integral, R0, Ip)
+    assert stored_energy_diamagnetic_from_beta_p_circular(beta_p, R0, Ip) == pytest.approx(
+        1.5 * pressure_integral, rel=1e-13
+    )
+    # And through the circumference normalisation for the geometric form.
+    volume, perimeter, p_avg = 0.9, 2.4, 133.0
+    beta_p_c = 2 * MU0 * p_avg * perimeter**2 / (MU0 * Ip) ** 2
+    assert stored_energy_diamagnetic_from_beta_p_geometry(beta_p_c, volume, Ip, perimeter) == pytest.approx(
+        1.5 * p_avg * volume, rel=1e-13
+    )
+
+
+def test_diamagnetic_helpers_reject_degenerate_inputs():
+    with pytest.raises(ValueError, match="Ip"):
+        beta_p_diamagnetic_from_flux_circular(1e-4, 0.15, 0.0)
+    with pytest.raises(ValueError, match="kappa"):
+        beta_p_diamagnetic_from_flux_elliptic(1e-4, 0.15, 1e5, 0.0)
+    with pytest.raises(ValueError, match="perimeter"):
+        stored_energy_diamagnetic_from_beta_p_geometry(1.0, 1.0, 1e5, 0.0)
+    with pytest.raises(ValueError, match="volume"):
+        stored_energy_diamagnetic_from_beta_p_geometry(1.0, 0.0, 1e5, 2.0)
+    with pytest.raises(ValueError, match="R0"):
+        stored_energy_diamagnetic_from_beta_p_circular(1.0, -0.4, 1e5)
+    with pytest.raises(ValueError, match="finite"):
+        beta_p_diamagnetic_from_flux_circular(np.nan, 0.15, 1e5)

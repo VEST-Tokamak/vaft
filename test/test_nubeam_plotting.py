@@ -50,6 +50,7 @@ def outputs(tmp_path):
                 "zeta": np.array([0.0, 90.0, 180.0, 270.0]),
                 "wght": np.array([1e14, 2e14, 3e14, 4e14]),
             },
+            step=5,
         ),
         lost=NUBEAMLostParticles(
             path=tmp_path / "xplasma_out.cdf",
@@ -176,6 +177,12 @@ def test_deposition_markers_are_converted_from_centimetres(outputs):
     np.testing.assert_allclose(layer.r, [0.20, 0.40, 0.60, 0.50])
     np.testing.assert_allclose(layer.z, [-0.10, 0.0, 0.10, 0.05])
     assert model.x_label == "R [m]"
+
+
+def test_deposition_label_names_the_step(outputs):
+    """`birth` is one step's deposition; the legend must not imply the run's."""
+    for build in (nbp.build_nubeam_deposition_poloidal, nbp.build_nubeam_deposition_topview):
+        assert build(outputs).layers[0].label == "deposition, step 5 (4 markers)"
 
 
 def test_topview_projects_from_degrees(outputs):

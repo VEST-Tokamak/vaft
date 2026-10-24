@@ -25,7 +25,7 @@ from vaft.code.efit.applicability import not_applicable_constraints
 from vaft.database.composition import EddyNoOutputError, compose_stage_products
 from vaft.machine_mapping.utils import PlasmaTimingPolicy, resolve_plasma_timing_policy
 from vaft.omas.plasma_timing import plasma_timing
-from vaft.omas.vest_upstream import machine_era_for_shot
+from vaft.omas.vest_upstream import efit_constraint_inputs_absent_from_data, machine_era_for_shot
 from vaft.validation.imas import is_condemned_channel, resolve_signal_time, resolve_signal_waveform
 from vaft.validation.validity import VALIDITY_SUSPECT
 
@@ -258,14 +258,16 @@ def _drop_vacuum_times(
     if threshold <= 0.0:
         return times, []
 
-    try:
-        clock = np.asarray(ods["magnetics.ip.0.time"], dtype=float)
-        data = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
-    except Exception:
+    # The same resolver the window selector uses: a homogeneous-time product
+    # stores only `magnetics.time`, and reading `ip.0.time` by name skipped the
+    # cut exactly there (cold review 0.7.0 data F10, #1888).
+    waveform = resolve_signal_waveform(ods, "magnetics.ip.0")
+    if waveform is None:
         LOGGER.warning(
             "no magnetics.ip.0 to judge the vacuum cut by; every selected time is kept"
         )
         return times, []
+    clock, data = waveform
 
     keep, dropped = [], []
     for value in times:
@@ -433,6 +435,13 @@ def main() -> int:
         type=Path,
         help="The eddy stage manifest, for the input-provenance check.",
     )
+    parser.add_argument(
+        "--diagnostics-manifest",
+        default=None,
+        type=Path,
+        help="The diagnostics stage manifest: a required input it records as absent "
+        "from the raw data makes the result 'not applicable' instead of an error.",
+    )
     parser.add_argument("--output", required=True, type=Path, help="Output constraints ODS JSON.")
     parser.add_argument("--efit-table-dir", default="", help="EFIT table/input directory written into kfiles.")
     parser.add_argument("--timeset", default="auto", choices=["auto", "manual"], help="EFIT constraint time selection mode.")
@@ -463,8 +472,10 @@ def main() -> int:
         type=int,
         help="Recovery backend: 0 none, 1 Gaussian family fit for rejected probes, 2 for every probe.",
     )
-    parser.add_argument("--npprime", default=2, type=int, help="EFIT KPPCUR value.")
-    parser.add_argument("--nffprime", default=2, type=int, help="EFIT KFFCUR value.")
+    # Accepted and ignored: the constraints product no longer records a
+    # profile basis it does not choose; the k-file stage's configuration does (#869).
+    parser.add_argument("--npprime", default=None, type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--nffprime", default=None, type=int, help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     # force=True: vaft.database.raw installs a root handler at import time, which makes
@@ -472,6 +483,11 @@ def main() -> int:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
     )
+    if args.npprime is not None or args.nffprime is not None:
+        LOGGER.warning(
+            "--npprime/--nffprime are ignored: the constraints product no longer records "
+            "a profile basis; the k-file stage's EFIT configuration chooses it (#869)"
+        )
     try:
         ods, composition = compose_stage_products(
             diagnostics=args.diagnostics_ods,
@@ -490,6 +506,21 @@ def main() -> int:
         LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, reason)
         return 0
     LOGGER.info("composed inputs: %s", json.dumps(composition, default=str))
+    # A shot whose raw dump has no TF waveform (42675, #1799) cannot be
+    # reconstructed: BTOR has no other source. Recognised only from the
+    # diagnostics stage's own record of the absence; a TF missing for any other
+    # reason reaches build_constraints and fails there, by name.
+    absent = (
+        efit_constraint_inputs_absent_from_data(args.diagnostics_ods, args.diagnostics_manifest)
+        if args.diagnostics_manifest is not None and "tf.b_field_tor_vacuum_r.data" not in ods
+        else None
+    )
+    if absent is not None:
+        reason = f"required input absent from the raw data: {absent}"
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        vaft.omas.save(not_applicable_constraints(reason), args.output)
+        LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, reason)
+        return 0
     times, window = _select_times(ods, args.timeset, args.tstep, args.tstart, args.tend)
     if times.size == 0:
         raise ValueError("No EFIT constraint times selected")
@@ -548,8 +579,6 @@ def main() -> int:
         _csv_floats(args.uncertainty),
         _csv_floats(args.weighting),
         fl_correct_coeff=fl_correct_coeff,
-        FFCUR=args.nffprime,
-        PPCUR=args.npprime,
         decisions=decisions,
         recovery=recovery,
         average_window=args.average_window,

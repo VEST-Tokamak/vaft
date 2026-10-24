@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
 if TYPE_CHECKING:
     from vaft.machine_mapping.coils_non_axisymmetric_geometry import CoilSet3D
 
-    from ..execution import ExecutionBackend
+    from ..execution import ExecutionBackend, ResourceRequest
     from ._coil_input import CoilInputSpec
 
 GPEC_HOME_ENV = "GPECHOME"
@@ -70,7 +70,7 @@ class RDCONOptions:
     ``rmatch`` wants one resistivity and one mass density *per rational
     surface*, and the packaged ``rmatch.in`` supplies a single scalar, so it
     stops with ``eta requires N non-zero elements`` before writing
-    ``globalsol.bin`` (#716). Delta-prime is unaffected -- RDCON computes it
+    ``delta.out`` or any inner-layer solution (#716). Delta-prime is unaffected -- RDCON computes it
     and ``rmatch`` does not -- so this is opt-in rather than required.
 
     Supplying ``t_e``/``n_e`` fills both arrays from the plasma: after RDCON
@@ -413,7 +413,7 @@ class PENTRCOptions:
     PENTRC turns a perturbed field and a kinetic profile into the neoclassical
     toroidal viscous torque.  Which *calculation* it uses is not a detail: its
     eighteen methods are different physics models of the same quantity and
-    disagree by design (see :data:`vaft.code.pentrc.TORQUE_METHODS`), so
+    disagree by design (see :data:`vaft.code.gpec.TORQUE_METHODS`), so
     ``methods``, ``main_ion``, ``impurity`` and ``collision_operator`` are all
     required.  Nothing here has a physics default, and the packaged
     ``pentrc.in`` ships every method flag off so that a namelist this writes
@@ -424,7 +424,7 @@ class PENTRCOptions:
     Attributes
     ----------
     methods : sequence of str
-        Keys of :data:`vaft.code.pentrc.TORQUE_METHODS`; each becomes
+        Keys of :data:`vaft.code.gpec.TORQUE_METHODS`; each becomes
         ``<method>_flag=t`` [-].
     main_ion : str
         A key of :data:`PENTRC_ION_SPECIES` [-].
@@ -441,7 +441,7 @@ class PENTRCOptions:
         ``"pressure"`` for torque and particle transport, ``"heat"`` for heat
         transport.  Both write the same variable names and units and differ only
         in ``long_name``, which is what
-        :data:`vaft.code.pentrc.TORQUE_LONG_NAME` exists to check [-].
+        :data:`vaft.code.gpec.TORQUE_LONG_NAME` exists to check [-].
     electron : bool
         Run for electrons instead of ions.  PENTRC does one species per run [-].
     psi_limits : tuple of float, optional
@@ -449,7 +449,7 @@ class PENTRCOptions:
     grids : sequence of str
         Which radial grids each method is written on: ``"dynamic"`` (the
         solver's own adaptive steps, read back as
-        :data:`vaft.code.pentrc.TORQUE_GRIDS`' ``lsode``), ``"equil"``,
+        :data:`vaft.code.gpec.TORQUE_GRIDS`' ``lsode``), ``"equil"``,
         ``"input"`` [-].
     artificial_factors : Mapping, optional
         ``wefac``/``wdfac``/``wpfac``/``nufac``/``divxfac``, PENTRC's scans of a
@@ -466,7 +466,7 @@ class PENTRCOptions:
         ``pentrc_threads``; ``0`` defers to ``$OMP_NUM_THREADS`` [-].
     output_ascii, output_netcdf : bool
         Which of the two output forms PENTRC writes.
-        :func:`vaft.code.pentrc.read_pentrc_output` reads the netCDF one [-].
+        :func:`vaft.code.gpec.read_pentrc_output` reads the netCDF one [-].
     """
 
     methods: Sequence[str]
@@ -507,7 +507,7 @@ class PENTRCOptions:
     ARTIFICIAL_FACTORS = ("wefac", "wdfac", "wpfac", "nufac", "divxfac")
 
     def __post_init__(self) -> None:
-        from ..pentrc import TORQUE_METHODS
+        from ._pentrc_output import TORQUE_METHODS
 
         if not self.methods:
             raise ValueError(
@@ -518,7 +518,7 @@ class PENTRCOptions:
         if unknown:
             raise ValueError(
                 f"unknown PENTRC method(s) {unknown}; the calculations are "
-                f"{sorted(TORQUE_METHODS)} (vaft.code.pentrc.TORQUE_METHODS)"
+                f"{sorted(TORQUE_METHODS)} (vaft.code.gpec.TORQUE_METHODS)"
             )
         if self.main_ion not in PENTRC_ION_SPECIES:
             raise ValueError(
@@ -590,6 +590,44 @@ class PENTRCOptions:
 
 
 @dataclass(frozen=True)
+class PENTRCLogLimits:
+    """How much a PENTRC run may write to its log, and when it has stalled (#1929).
+
+    PENTRC does not stop when an energy integration will not converge: LSODE
+    repeats the same complaint and PENTRC carries on, so a stalled run writes
+    gigabytes (1.8 GB before a one-hour timeout in the #1887 scan) and is then
+    reported as a timeout.  Applied by streaming PENTRC's output through
+    :mod:`vaft.code.gpec._log_cap` on the local backend.
+
+    ``max_bytes``
+        Log size kept: the first half as written and the last half when the
+        run ends, with one line saying what was left out between.  ``None``
+        keeps everything.  The held half is memory the filter process uses
+        (somewhat more than ``max_bytes / 2``), counted by a memory limit.
+    ``stall_lines``
+        After this many LSODE non-convergence lines the run is stopped and
+        recorded as *stalled* rather than left to the timeout.  ``None``
+        never stops it.  A run that recovers prints a handful; a stalled one
+        prints millions.
+    """
+
+    max_bytes: Optional[int] = 64 * 1024 * 1024
+    stall_lines: Optional[int] = 100_000
+
+    def __post_init__(self) -> None:
+        for name in ("max_bytes", "stall_lines"):
+            value = getattr(self, name)
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"PENTRCLogLimits.{name} must be a positive integer or None, got {value!r}")
+
+    @property
+    def active(self) -> bool:
+        return self.max_bytes is not None or self.stall_lines is not None
+
+
+@dataclass(frozen=True)
 class GPECSuiteConfig:
     """Runtime and VEST-default configuration for the GPEC suite.
 
@@ -620,11 +658,22 @@ class GPECSuiteConfig:
     verify_outputs: bool = False
     timeout: Optional[float] = 1200.0
     env: Mapping[str, str] = field(default_factory=dict)
+    #: Ordering quantities of the equilibrium being analysed, by
+    #: ``vaft.validation.orderings.ORDERING_QUANTITIES`` name (#1823), e.g. from
+    #: ``vaft.process.ordering_state``; mode and layer quantities when the caller
+    #: has them. Advisory only: recorded per run as ``ordering_check``.
+    ordering_state: Mapping[str, Any] = field(default_factory=dict)
     dcon: DCONOptions = field(default_factory=DCONOptions)
     rdcon: RDCONOptions = field(default_factory=RDCONOptions)
     stride: STRIDEOptions = field(default_factory=STRIDEOptions)
     gpec: IdealGPECOptions = field(default_factory=IdealGPECOptions)
+    #: Log size and stall limits of a PENTRC run; see :class:`PENTRCLogLimits`.
+    pentrc_log: PENTRCLogLimits = field(default_factory=PENTRCLogLimits)
     backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
+    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: own declaration; a value replaces it, and its ``threads_per_task`` is
+    #: set in the launch environment over ``env`` and the inherited one.
+    resources: Optional["ResourceRequest"] = None
 
 
 @dataclass
@@ -665,6 +714,26 @@ class GPECModuleRun:
     #: that has an eigenfunction and one that never will, so it is reported
     #: rather than left for a caller to rediscover by listing the directory.
     missing_optional_outputs: tuple[str, ...] = ()
+    #: The run's physical formulation (#1734), the versioned
+    #: :meth:`vaft.code.formalism.PlasmaFormalism.as_dict`, derived from the
+    #: namelists the cell was prepared with.  Kept as that plain dict so a run
+    #: manifest built with ``dataclasses.asdict`` carries it unchanged; ``None``
+    #: when the cell was never prepared.  :attr:`formalism` rebuilds the record.
+    plasma_formalism: Optional[Mapping[str, Any]] = None
+    #: The advisory ordering check of that formalism on
+    #: :attr:`GPECSuiteConfig.ordering_state` (#1823): the contracts the run
+    #: consumes, in what role, with each status and margin.  JSON-ready, so the
+    #: ``dataclasses.asdict`` run manifest carries it; ``None`` with no formalism.
+    ordering_check: Optional[Mapping[str, Any]] = None
+
+    @property
+    def formalism(self):
+        """The :class:`vaft.code.formalism.PlasmaFormalism` of this run, or ``None``."""
+        if self.plasma_formalism is None:
+            return None
+        from ..formalism import PlasmaFormalism
+
+        return PlasmaFormalism.from_dict(self.plasma_formalism)
 
     @property
     def ok(self) -> bool:

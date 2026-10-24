@@ -9,10 +9,13 @@
 Freshness is judged on the generated TikZ source, not on SVG bytes: two
 ``dvisvgm`` releases write different (equally correct) SVG for the same
 picture, so a byte comparison would fail on every machine but the last one
-to render. ``manifest.json`` records, per asset, the SHA-256 of the TikZ
-document it was rendered from and of the SVG itself. ``--check`` rebuilds
-the TikZ (pure Python), and fails when either hash disagrees -- a stale
-asset, or a hand-edited one -- or when an asset is missing or orphaned.
+to render. Each SVG carries its own build record -- one comment line after
+the XML declaration holding the call, the SHA-256 of the TikZ document it
+was rendered from and of the SVG without that line -- so a diagram's
+freshness lives in its own file and two PRs that change different diagrams
+share no generated file (#1750). ``--check`` rebuilds the TikZ (pure
+Python), and fails when either hash disagrees -- a stale asset, or a
+hand-edited one -- or when an asset is missing, unrecorded or orphaned.
 """
 
 from __future__ import annotations
@@ -25,7 +28,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-MANIFEST = "manifest.json"
+#: The single manifest the records replaced (#1750): read once to migrate, then removed; never written.
+LEGACY_MANIFEST = "manifest.json"
 
 #: The reference island: a 3/2 mode on a D-shaped (elongated, triangular) plasma.
 REFERENCE_ISLAND = {
@@ -39,6 +43,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
         f"magnetic_island_{projection}.svg": ("magnetic_island", {**REFERENCE_ISLAND, "projection": projection})
         for projection in ("poloidal", "top", "3d")
     },
+    # Computed static references share the time-selected particle animation model (#2003).
+    **{f"{name}.svg": (name, {}) for name in ("gyration", "grad_b_drift", "magnetic_mirror")},
     "magnetic_island_phase_scan.svg": ("magnetic_island", {"m": 2, "n": 1, "width": 0.24, "phase": 0.0, "projection": "poloidal", "labels": False}),
     # stability and operational-space charts, at their documented defaults
     **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "hugill_st", "troyon")},
@@ -66,10 +72,18 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
        for g in ("toroidal", "cylindrical", "slab")},
     "mode_number_mapping.svg": ("mode_number_mapping", {}),
     "timescale_hierarchy.svg": ("timescale_hierarchy", {}),  # asymptotic orderings (#1627)
+    "spatial_scale_orderings.svg": ("spatial_scale_orderings", {}),  # plasma-model guide (#1739)
     "ordering_contract_map.svg": ("ordering_contract_map", {}),
+    "adapter_contract_map.svg": ("adapter_contract_map", {}),  # adapter modes x contracts (#1823)
+    "plasma_model_reduction_map.svg": ("plasma_model_reduction_map", {}),  # plasma-model guide (#1739)
+    "formalism_axes_map.svg": ("formalism_axes_map", {}),
+    "solver_placement_map.svg": ("solver_placement_map", {}),
+    "kinetic_mhd_coupling.svg": ("kinetic_mhd_coupling", {}),
+    "reduced_model_ancestry.svg": ("reduced_model_ancestry", {}),
     "mhd_mode_geometry_map.svg": ("mhd_mode_geometry_map", {}),
     # reduced physical representations (#1626)
     "reduced_representation_hierarchy.svg": ("reduced_representation_hierarchy", {}),
+    "reduced_representation_hierarchy_compact.svg": ("reduced_representation_hierarchy_compact", {}),
     **{f"reduction_graph_{f}.svg": ("reduction_graph", {"family": f})
        for f in ("current_q", "pressure_energy", "kinetic_profiles", "dimensionless_similarity")},
     # tokamak geometry and flux coordinates
@@ -145,6 +159,12 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # E_s = 8.68 eV: the sublimation energy of W, the usual surface binding energy (Behrisch & Eckstein,
     # "Sputtering by Particle Bombardment", Springer 2007, tables) -- an input, shown on the figure
     "plasma_wall_interaction_sputtering.svg": ("plasma_wall_interaction_sputtering", {"surface_binding_energy": 8.68}),
+    "plasma_wall_interaction_sputtering_threshold.svg": ("plasma_wall_interaction_sputtering_threshold",
+                                                         {"surface_binding_energy": 8.68}),
+    **{f"{name}.svg": (name, {}) for name in ("plasma_wall_interaction_reflection_energy",
+                                              "plasma_wall_interaction_angle_dependence",
+                                              "plasma_wall_interaction_particle_balance",
+                                              "plasma_wall_interaction_surface_response")},
     # spectroscopy and ionization concepts (#1046)
     "spectroscopy_ionization_stages.svg": ("spectroscopy_ionization_stages", {"term": "C III"}),
     **{f"spectroscopy_transitions_{name}.svg": ("spectroscopy_transitions", {"term": term})
@@ -169,6 +189,10 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "neoclassical_collisionality.svg": ("neoclassical_collisionality", {}),
     "ntv_collisionality.svg": ("ntv_collisionality", {}),
     "ntv_precession_regimes.svg": ("ntv_precession_regimes", {}),
+    # canonical turbulence concepts: drift waves, cross-phase, saturation, shear, zonal flows, scales (#1112)
+    **{f"{name}.svg": (name, {}) for name in (
+        "drift_wave_transport_cycle", "cross_phase_transport", "mixing_length_saturation", "exb_shear_decorrelation",
+        "zonal_flow_feedback", "turbulence_scale_hierarchy")},
     # wall conditioning as wall-state transitions (#1051)
     "wall_conditioning_baking.svg": ("wall_conditioning_baking", {}),
     "wall_conditioning_gdc_deuterium.svg": ("wall_conditioning_gdc", {"gas": "D2"}),
@@ -190,6 +214,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("blob_polarization", "blob_velocity_scaling", "blob_regimes")},
     "blob_polarization_hole.svg": ("blob_polarization", {"perturbation": "hole"}),
     **{f"blob_current_closure_{r}.svg": ("blob_current_closure", {"regime": r}) for r in ("sheath", "inertial")},
+    # canonical transport concepts: random walk, flux and gradient, reference scales (#1112)
+    **{f"{name}.svg": (name, {}) for name in ("random_walk_diffusion", "transport_flux_gradient",
+                                              "transport_reference_scales")},
     # MARFE on the high-field side and next to the X-point, with Drake's condition (#1209)
     "marfe.svg": ("marfe", {}),
     "marfe_xpoint.svg": ("marfe", {"localization": "xpoint"}),
@@ -236,6 +263,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
     "software_dependency_ecosystem.svg": ("software_dependency_ecosystem", {}),
     "external_code_integration.svg": ("external_code_integration", {}),
+    "pictogram_catalog.svg": ("pictogram_catalog", {}),
     # the physics-workflow spine, level 2 below the platform overview (#1585)
     **{f"{name}.svg": (name, {}) for name in (
         "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",
@@ -244,6 +272,24 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # plasma parameter inference: architecture and provenance (#1601)
     "parameter_inference_overview.svg": ("parameter_inference_overview", {"references": True}),
     "parameter_inference_dependency_graph.svg": ("parameter_inference_dependency_graph", {"references": True}),
+    # reconstruction inputs and the transport hierarchy (#1901)
+    "eddy_current_model.svg": ("eddy_current_model", {}),
+    "kinetic_profile_fitting.svg": ("kinetic_profile_fitting", {}),
+    "transport_hierarchy.svg": ("transport_hierarchy", {"references": True}),
+    "neoclassical_model_comparison.svg": ("neoclassical_model_comparison", {"references": True}),
+    # experimental processing: raw records to qualified state (#1901)
+    "machine_model_history.svg": ("machine_model_history", {}),
+    "signal_processing.svg": ("signal_processing", {}),
+    "quality_validation.svg": ("quality_validation", {}),
+    "fault_anomaly_detection.svg": ("fault_anomaly_detection", {}),
+    "shot_classification.svg": ("shot_classification", {}),
+    "event_detection.svg": ("event_detection", {}),
+    # derived physics: quantities computed from the state (#1901)
+    "vacuum_field_proxies.svg": ("vacuum_field_proxies", {}),
+    "derived_mhd_parameters.svg": ("derived_mhd_parameters", {}),
+    "synthetic_diagnostics.svg": ("synthetic_diagnostics", {}),
+    "coordinate_cocos_conversions.svg": ("coordinate_cocos_conversions", {}),
+    "power_balance_confinement.svg": ("power_balance_confinement", {}),
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),
     "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),
@@ -282,76 +328,86 @@ def _diagram(builder: str, kwargs: dict):
     return getattr(vaft.diagram, builder)(**kwargs)
 
 
-def _read_manifest(out_dir: Path) -> dict:
-    path = out_dir / MANIFEST
+def _read_legacy_manifest(out_dir: Path) -> dict:
+    path = out_dir / LEGACY_MANIFEST
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8")).get("diagrams", {})
 
 
+def read_record(svg_path: Path) -> Tuple[Optional[dict], str]:
+    """The build record of one committed SVG and the SVG without it (see :func:`_render.split_svg_record`)."""
+    from ._render import split_svg_record
+
+    return split_svg_record(svg_path.read_text(encoding="utf-8"))
+
+
 def check(out_dir: Optional[Path] = None) -> List[str]:
     """Every way the committed assets disagree with the current source."""
     out_dir = Path(out_dir or default_output())
-    recorded = _read_manifest(out_dir)
     problems: List[str] = []
     for name, (builder, kwargs) in CANONICAL.items():
-        entry = recorded.get(name)
         svg = out_dir / name
-        if entry is None:
-            problems.append(f"{name}: not in {MANIFEST}")
-            continue
         if not svg.exists():
             problems.append(f"{name}: missing")
+            continue
+        record, body = read_record(svg)
+        if record is None:
+            problems.append(f"{name}: no build record; run python -m vaft.diagram.build")
             continue
         try:
             source_sha256 = _diagram(builder, kwargs).source_sha256
         except Exception as exc:  # noqa: BLE001 -- one broken builder must not hide the report on the others
             problems.append(f"{name}: builder raised {type(exc).__name__}: {exc}")
             continue
-        if source_sha256 != entry.get("source_sha256"):
+        if source_sha256 != record.get("source_sha256"):
             problems.append(f"{name}: stale -- its TikZ source or the render recipe changed; run python -m vaft.diagram.build")
-        if _sha256(svg.read_bytes()) != entry.get("svg_sha256"):
-            problems.append(f"{name}: the SVG does not match {MANIFEST} (edited by hand?)")
-    for name in sorted(set(recorded) - set(CANONICAL)):
-        problems.append(f"{name}: recorded in {MANIFEST} but no longer canonical")
+        if _sha256(body.encode("utf-8")) != record.get("svg_sha256"):
+            problems.append(f"{name}: the SVG does not match its build record (edited by hand?)")
     for svg in sorted(out_dir.glob("*.svg")):
         if svg.name not in CANONICAL:
             problems.append(f"{svg.name}: orphaned asset, not produced by the build")
+    if (out_dir / LEGACY_MANIFEST).exists():
+        problems.append(f"{LEGACY_MANIFEST}: obsolete since #1750 (records live in each SVG); "
+                        "git rm it and run python -m vaft.diagram.build")
     return problems
 
 
 def build(out_dir: Optional[Path] = None, *, force: bool = False) -> List[str]:
-    """Render stale (or, with ``force``, all) canonical diagrams; return what was written."""
+    """Render stale (or, with ``force``, all) canonical diagrams; return what was rendered.
+
+    An SVG that is fresh but has no record yet (committed under the legacy
+    manifest) gets its record written without re-rendering, so migrating does
+    not churn every file; the legacy manifest is then removed.
+    """
+    from ._render import with_svg_record
+
     out_dir = Path(out_dir or default_output())
     out_dir.mkdir(parents=True, exist_ok=True)
-    recorded = _read_manifest(out_dir)
-    manifest: Dict[str, dict] = {}
+    legacy = _read_legacy_manifest(out_dir)
     written: List[str] = []
     for name, (builder, kwargs) in CANONICAL.items():
         diagram = _diagram(builder, kwargs)
+        call = _call_text(builder, kwargs)
         svg_path = out_dir / name
-        entry = recorded.get(name, {})
+        record, body = read_record(svg_path) if svg_path.exists() else (None, "")
+        if record is None and name in legacy and svg_path.exists():
+            # committed before #1750: the legacy manifest vouched for the whole file
+            entry = legacy[name]
+            record = {"source_sha256": entry.get("source_sha256"), "svg_sha256": entry.get("svg_sha256")}
         fresh = (
             not force
-            and svg_path.exists()
-            and entry.get("source_sha256") == diagram.source_sha256
-            and entry.get("svg_sha256") == _sha256(svg_path.read_bytes())
+            and record is not None
+            and record.get("source_sha256") == diagram.source_sha256
+            and record.get("svg_sha256") == _sha256(body.encode("utf-8"))
         )
         if not fresh:
-            svg_path.write_text(diagram.svg, encoding="utf-8", newline="\n")
+            body = diagram.svg
             written.append(name)
-        manifest[name] = {
-            "call": _call_text(builder, kwargs),
-            "source_sha256": diagram.source_sha256,
-            "svg_sha256": _sha256(svg_path.read_bytes()),
-        }
-    document = {
-        "generator": "python -m vaft.diagram.build",
-        "note": "source_sha256 hashes the render recipe and the generated TikZ document; --check compares it without TeX.",
-        "diagrams": manifest,
-    }
-    (out_dir / MANIFEST).write_text(json.dumps(document, indent=2, sort_keys=True) + "\n",
-                                    encoding="utf-8", newline="\n")
+        text = with_svg_record(body, call, diagram.source_sha256)
+        if not svg_path.exists() or svg_path.read_text(encoding="utf-8") != text:
+            svg_path.write_text(text, encoding="utf-8", newline="\n")
+    (out_dir / LEGACY_MANIFEST).unlink(missing_ok=True)
     return written
 
 

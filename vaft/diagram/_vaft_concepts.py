@@ -45,12 +45,14 @@ documentation can read it.
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from ._concept import Box, band, escape_latex
 from ._concept import box as _concept_box
 from ._concept import connector
 from ._concept import database as _concept_database
+from .pictograms import PICTOGRAM, PICTOGRAM_MUTED, badge, corner, pictogram
 from ._render import Diagram
 from ._scene import Arrow, Label, Polyline, Scene
 
@@ -126,6 +128,9 @@ PILLARS: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
     ("archive", "Machine Knowledge Archive",
      ("machine configuration & history", "decisions & documentation", "tutorials, notebooks, know-how")),
 )
+#: each pillar's pictogram (#2109)
+PILLAR_SYMBOLS: Dict[str, str] = {"interface": "interface", "pipeline": "workflow", "repository": "database",
+                                  "archive": "archive"}
 #: the framework-level design principles, stated once for all four pillars
 DESIGN_PRINCIPLES: Tuple[str, ...] = ("standardized", "traceable", "reproducible", "interoperable",
                                       "machine-agnostic")
@@ -146,6 +151,8 @@ def vaft_four_pillars(*, labels: bool = True) -> Diagram:
     """
     labels = _check_labels(labels)
     width, gap, height = 4.1, 0.45, 3.9
+    # the pillars grow downward by icon_room, so each pictogram has its own row above the title (#2109)
+    icon_room = 0.9
     span = 4 * width + 3 * gap
     x0 = -0.5 * span
     items: List = []
@@ -157,16 +164,19 @@ def vaft_four_pillars(*, labels: bool = True) -> Diagram:
         cx = x0 + 0.5 * width + i * (width + gap)
         body = ("\\textbf{" + escape_latex(title) + "}\\\\[5pt]{\\small "
                 + "\\\\[1pt]".join(map(escape_latex, points)) + "}")
-        b = box(cx, 0.0, width, height, body, style="concept pillar", role=f"pillar:{key}", latex=True)
-        items += list(b.items)
-    principles = box(0.0, -0.5 * height - 0.6, span + 0.8, 0.8,
+        outline, text = box(cx, -0.5 * icon_room, width, height + icon_room, body, style="concept pillar",
+                            role=f"pillar:{key}", latex=True).items
+        # the capability's pictogram (#2109) in a common row; every pillar's text starts just below it
+        items += [outline, replace(text, at=(cx, 0.5 * height - icon_room - 0.12), anchor="north")]
+        items += pictogram(PILLAR_SYMBOLS[key], (cx, 0.5 * height - 0.5), 0.72, role=f"symbol:pillar:{key}").items
+    principles = box(0.0, -0.5 * height - icon_room - 0.6, span + 0.8, 0.8,
                      "\\textbf{Design principles}: " + " $\\cdot$ ".join(DESIGN_PRINCIPLES), style="concept base",
                      role="principles", latex=True)
     items += list(principles.items)
-    items.append(Label((0.5 * span + 0.4, -0.5 * height - 1.1), "Reference implementation: VEST",
+    items.append(Label((0.5 * span + 0.4, -0.5 * height - icon_room - 1.1), "Reference implementation: VEST",
                        "concept annotation", anchor="north east", role="reference"))
     if labels:
-        items.append(Label((0.0, -0.5 * height - 1.7), "Four capabilities at one level; the architecture is "
+        items.append(Label((0.0, -0.5 * height - icon_room - 1.7), "Four capabilities at one level; the architecture is "
                            "machine-agnostic", "note", anchor="north", role="note"))
     return Diagram("vaft_four_pillars", Scene(tuple(items)),
                    model={"pillars": tuple(k for k, *_ in PILLARS), "titles": tuple(t for _, t, _ in PILLARS),
@@ -183,6 +193,11 @@ LIFECYCLE: Tuple[Tuple[str, str, str], ...] = (
     ("comparison", "Comparison & Synthesis", "cross-shot, cross-campaign, cross-machine, cross-model"),
     ("discovery", "Discovery & New Questions", "new questions drive the next experiment"),
 )
+
+#: each stage's pictogram (#2109): seven distinct symbols for seven distinct stages
+LIFECYCLE_SYMBOLS: Dict[str, str] = {"experiment": "experiment", "raw": "signal", "processing": "processing",
+                                     "modelling": "computation", "interpretation": "analysis",
+                                     "comparison": "comparison", "discovery": "discovery"}
 
 
 def fusion_science_knowledge_lifecycle(*, labels: bool = True) -> Diagram:
@@ -203,7 +218,8 @@ def fusion_science_knowledge_lifecycle(*, labels: bool = True) -> Diagram:
     items: List = []
     edges: List = []
     boxes: Dict[str, Box] = {}
-    rx, ry, w, h = 7.7, 5.3, 4.9, 1.7
+    # 0.25 cm taller than text alone needs, so each stage's badge clears its first line (#2109)
+    rx, ry, w, h = 7.7, 5.3, 4.9, 1.95
     n = len(LIFECYCLE)
     for i, (key, title, sub) in enumerate(LIFECYCLE):
         a = math.radians(90.0 - 360.0 * i / n)
@@ -212,6 +228,7 @@ def fusion_science_knowledge_lifecycle(*, labels: bool = True) -> Diagram:
                 role=f"node:{key}", latex=True)
         boxes[key] = b
         items += list(b.items)
+        items += badge(LIFECYCLE_SYMBOLS[key], corner(b, 0.72), 0.72, role=f"symbol:node:{key}").items
     keys = [k for k, _, _ in LIFECYCLE]
     for k0, k1 in zip(keys, keys[1:]):
         _edge(items, edges, boxes[k0], boxes[k1], k0, k1)
@@ -242,6 +259,9 @@ MANAGEMENT: Tuple[Tuple[str, str, str], ...] = (
     ("vv", "Verification, Validation & Quality Assessment", "quality metrics"),
 )
 
+#: the pictogram of each workflow phase that names a kind of work (#2101)
+WORKFLOW_SYMBOLS: Dict[str, str] = {"diagnostic": "processing", "reconstruction": "reconstruction",
+                                    "simulation": "computation", "vv": "validation"}
 
 def scientific_workflow(*, labels: bool = True) -> Diagram:
     r"""A managed scientific processing pipeline: heterogeneous sources to qualified, analysis-ready data.
@@ -308,6 +328,10 @@ def scientific_workflow(*, labels: bool = True) -> Diagram:
     for key, b in nodes.items():
         if not key.startswith("source:"):  # the sources were drawn inside their group
             items += list(b.items)
+    # semantic pictograms (#2101): the machine sources, and a badge clipped on each phase's top-left corner
+    items += pictogram("tokamak", (-0.5 * main_w + 0.6, 12.4), 0.8, role="symbol:group:sources").items
+    for key, name in WORKFLOW_SYMBOLS.items():
+        items += badge(name, corner(nodes[key], 0.78), 0.78, role=f"symbol:node:{key}").items
     first = nodes["diagnostic"]
     _down_or_up(items, edges, nodes["ingestion"], first, "ingestion", "diagnostic", at_x=first.x)
     for (k0, _, _), (k1, _, _) in zip(PHASES, PHASES[1:]):
@@ -397,6 +421,9 @@ PROVENANCE: Tuple[Tuple[str, str, str], ...] = (
     ("derived", "Derived Physics Quantities", "definition, units, uncertainty"),
     ("analysis", "Analysis & Visualization", "analysis method, selection criteria, environment"),
 )
+#: each product stage's pictogram (#2113); the quality and versioned metadata get none: provenance is not validation
+PROVENANCE_SYMBOLS: Dict[str, str] = {"raw": "signal", "processed": "processing", "reconstruction": "reconstruction",
+                                      "derived": "calculation", "analysis": "analysis"}
 #: what is versioned, and what quality metadata travels with every product
 VERSIONED: Tuple[str, ...] = ("machine description", "geometry", "calibration", "mappings", "conventions",
                               "processing and model configuration", "schema")
@@ -431,6 +458,7 @@ def scientific_provenance_chain(*, labels: bool = True) -> Diagram:
         b = box(i * (w + gap), 0.0, w, h, text, role=f"step:{key}")
         boxes.append(b)
         items += list(b.items)
+        items += badge(PROVENANCE_SYMBOLS[key], corner(b, 0.72), 0.72, role=f"symbol:step:{key}").items
         items.append(Label((b.x, -0.5 * h - 0.15), _dotted(records.split(", ")),
                            "concept annotation,text width=3.2cm", anchor="north", role=f"record:{key}"))
     for (k0, _, _), (k1, _, _), a, b in zip(PROVENANCE, PROVENANCE[1:], boxes, boxes[1:]):
@@ -895,6 +923,11 @@ INTERFACES: Tuple[Tuple[str, str, str, bool], ...] = (
     ("mcp", "MCP", "agent tools", True),
 )
 
+#: the pictograms of the two actors and the five interfaces (#2109)
+INTERFACE_SYMBOLS: Dict[str, str] = {"actor:human": "researcher", "actor:agent": "ai_agent", "python": "code",
+                                     "cli": "terminal", "gui": "monitor", "repository": "repository",
+                                     "mcp": "integration"}
+
 
 def human_ai_interface(*, labels: bool = True) -> Diagram:
     r"""Human-AI collaborative access: who, how, and what.
@@ -916,6 +949,8 @@ def human_ai_interface(*, labels: bool = True) -> Diagram:
                 latex=True)
     agent = box(4.6, 5.0, 4.0, 1.0, "\\textbf{AI agents}", style="concept actor", role="actor:agent", latex=True)
     items += list(human.items) + list(agent.items)
+    for key, actor in (("human", human), ("agent", agent)):
+        items += badge(INTERFACE_SYMBOLS[f"actor:{key}"], corner(actor, 0.72), 0.72, role=f"symbol:actor:{key}").items
     _edge(items, edges, human, agent, "actor:human", "actor:agent", both=True)
     items.append(Label((0.0, 5.1), "collaborate", "concept annotation", anchor="south", role="collaborate"))
     bar_y = 3.75
@@ -946,6 +981,9 @@ def human_ai_interface(*, labels: bool = True) -> Diagram:
         b = box(x, 1.45, w, 2.1, body, style="concept group" if planned else "concept box",
                 role=f"interface:{key}", latex=True)
         items += list(b.items)
+        # a planned interface keeps its planned look: a muted, dashed badge
+        items += badge(INTERFACE_SYMBOLS[key], corner(b, 0.72), 0.72, role=f"symbol:interface:{key}",
+                       style=PICTOGRAM_MUTED if planned else PICTOGRAM).items
         items.append(Arrow((x, bar_y), (x, b.y + 1.05 + 0.08), "connector", role=f"edge:access->interface:{key}"))
         _record(edges, "access", f"interface:{key}", "forward")
         items.append(Polyline.of([(x, b.y - 1.05), (x, collector_y)], "connector line", role=f"edge:interface:{key}->interfaces"))
@@ -970,6 +1008,9 @@ ARCHIVE_TRACKS: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
                                         "documentation & tutorials", "reference datasets & notebooks",
                                         "publications & reproducible analyses")),
 )
+
+#: each track's pictogram (#2113): the VEST machine, research carried out on it, research knowledge
+ARCHIVE_SYMBOLS: Dict[str, str] = {"machine": "tokamak", "studies": "experiment", "research": "library"}
 
 
 def machine_research_archive(*, labels: bool = True) -> Diagram:
@@ -998,7 +1039,9 @@ def machine_research_archive(*, labels: bool = True) -> Diagram:
     for key, title, entries in ARCHIVE_TRACKS:
         y = track_y[key]
         items += band(x0, x1, y - 1.3, y + 1.3, role=f"track:{key}")
-        items.append(Label((x0 + 0.2, y + 1.0), "\\textbf{" + escape_latex(title) + "}", "concept plain",
+        # one pictogram per track (#2113), none per entry; the title follows it
+        items += pictogram(ARCHIVE_SYMBOLS[key], (x0 + 0.5, y + 0.83), 0.5, role=f"symbol:track:{key}").items
+        items.append(Label((x0 + 0.85, y + 1.0), "\\textbf{" + escape_latex(title) + "}", "concept plain",
                            anchor="north west", role=f"track:{key}"))
         n = len(entries)
         w = (x1 - x0 - 0.6 - (n - 1) * 0.25) / n

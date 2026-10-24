@@ -134,7 +134,8 @@ def test_small_fixture_sources_and_reflected_chord():
     before = set(data.flat())
     records = machine_geometry_registry(data, manifest=manifest)
     assert set(data.flat()) == before
-    assert {record.family for record in records} == {"thomson_scattering", "charge_exchange", "langmuir_probes", "interferometer", "soft_x_rays", "coils_non_axisymmetric", "ec_launchers", "nbi"}
+    assert {record.family for record in records} == {"thomson_scattering", "charge_exchange", "langmuir_probes", "interferometer", "soft_x_rays", "coils_non_axisymmetric", "ec_launchers", "nbi",
+                                                    "flux_loop", "b_field_pol_probe"}  # magnetics since #1829
     chords = [record for record in records if record.family == "interferometer"]
     assert [record.r.size for record in chords] == [3, 2]
     assert [next(iter(json.loads(record.provenance_json)["sources"])) for record in chords] == [

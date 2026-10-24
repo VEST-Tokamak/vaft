@@ -114,11 +114,13 @@ def ensure_shot_folder(source: str, shot: int) -> None:
 def processed_registry_uri(
     source: Optional[str] = None, *, writable: bool = False
 ) -> str:
-    """Return the corrective-pipeline registry domain for one named source.
+    """Return the legacy corrective-pipeline registry domain for one named source.
 
-    Must match the path the corrective updaters write to
-    (workflow/automatic_pipeline_2_corrective_data_update/*.py), otherwise
-    exist_shot() reads a stale copy and never reflects reprocessing.
+    Must match the path the legacy polling updaters write to
+    (workflow/automatic_pipeline_2_corrective_data_update/legacy/*.py), otherwise
+    exist_shot() reads a stale copy and never reflects reprocessing. The
+    Snakemake pipeline 2 does not maintain this registry; its record is the
+    per-stage manifest and replication record.
 
     The registry is opened with raw h5pyd rather than through
     :func:`vaft.database.save`, so its own writability gate is the only thing
@@ -187,6 +189,25 @@ def ensure_imas_hdf5_userblock(path: Union[str, Path], entry_dir: Union[str, Pat
     tmp_path.replace(file_path)
 
 
+# The HTTP stack logs every request at INFO/DEBUG. These helpers used to lower
+# the *root* logger to WARNING, which silenced INFO logging for the whole
+# process -- for the hosted GUI, for every session at once (#1936). Only the
+# two noisy libraries are quietened now, and only when nobody configured them.
+_NOISY_HTTP_LOGGERS = ("h5pyd", "urllib3")
+
+
+def _quiet_http_loggers() -> None:
+    """Raise the h5pyd and urllib3 loggers to WARNING unless already configured.
+
+    A logger whose level was set explicitly (e.g. ``urllib3`` at DEBUG while
+    debugging a connection) is left alone; the root logger is never touched.
+    """
+    for name in _NOISY_HTTP_LOGGERS:
+        logger = logging.getLogger(name)
+        if logger.level == logging.NOTSET:
+            logger.setLevel(logging.WARNING)
+
+
 def is_connect() -> bool:
     """
     Check if the user is connected to the HSDS server.
@@ -194,7 +215,7 @@ def is_connect() -> bool:
     Returns:
         bool: True if connected and server is READY, False otherwise.
     """
-    logging.getLogger().setLevel(logging.WARNING)
+    _quiet_http_loggers()
     try:
         return h5pyd.getServerInfo().get("state") == "READY"
     except requests.exceptions.ConnectTimeout:
@@ -284,8 +305,11 @@ def exist_shot(
     - 'cx' or 'charge_exchange': Charge exchange (IDS/CES) processed shots from processed_shots.h5
     - 'cp' or 'core_profiles': Kinetic core_profiles built shots from processed_shots.h5
 
-    Note: the 'ts'/'cx'/'cp' tables are read from the corrective-pipeline registry
-    (``processed_shots.h5``), which logs what the updater *attempted*. A row does
+    Note: the 'ts'/'cx'/'cp' tables are read from the legacy corrective-pipeline
+    registry (``processed_shots.h5``), written only by the quarantined polling
+    scripts under ``workflow/automatic_pipeline_2_corrective_data_update/legacy/``.
+    The Snakemake pipeline 2 does not update it, so a source it alone has filled
+    returns ``None``. It logs what the updater *attempted*. A row does
     not guarantee the shot ODS actually carries that diagnostic — check the
     ``Status`` column ('invalid' means the run found nothing usable). Each updater
     writes its own registry group (``shots`` / ``cx_shots`` / ``cp_shots``), so the
@@ -319,7 +343,7 @@ def exist_shot(
               - pd.DataFrame with columns: Index, Shot Number, Last Processed, Status
               - None on error or no matching data
     """
-    logging.getLogger().setLevel(logging.WARNING)
+    _quiet_http_loggers()
 
     _filter = data_filter.lower().strip() if isinstance(data_filter, str) else data_filter
     source = resolve_source(source, directory=username)
@@ -388,11 +412,11 @@ def read_legacy_processed_registry(group: str) -> dict:
 
 # HDF5 groups inside processed_shots.h5, one per diagnostic. Each updater owns
 # its own group so Thomson and charge_exchange records never collide (both are
-# keyed by bare shot number). Keep these in sync with the corrective updaters in
-# workflow/automatic_pipeline_2_corrective_data_update/.
-TS_REGISTRY_GROUP = "shots"       # update_thomson_scattering_and_core_profile.py
-CX_REGISTRY_GROUP = "cx_shots"    # update_charge_exchange.py
-CP_REGISTRY_GROUP = "cp_shots"    # update_core_profile.py
+# keyed by bare shot number). Keep these in sync with the legacy updaters in
+# workflow/automatic_pipeline_2_corrective_data_update/legacy/.
+TS_REGISTRY_GROUP = "shots"       # legacy/update_thomson_scattering_and_core_profile.py
+CX_REGISTRY_GROUP = "cx_shots"    # legacy/update_charge_exchange.py
+CP_REGISTRY_GROUP = "cp_shots"    # legacy/update_core_profile.py
 
 
 def _exist_shot_ts(sort: bool = True, source: Optional[str] = None) -> Union[pd.DataFrame, None]:
@@ -440,7 +464,7 @@ def _exist_shot_cp(sort: bool = True, source: Optional[str] = None) -> Union[pd.
 
     Identical in shape and behavior to :func:`_exist_shot_ts`, reading the
     core_profiles registry group (:data:`CP_REGISTRY_GROUP`). Statuses recorded
-    by ``update_core_profile.py``: ``kinetic_core_profile`` (real Ti/Vtor slice),
+    by ``legacy/update_core_profile.py``: ``kinetic_core_profile`` (real Ti/Vtor slice),
     ``core_profile`` (electron-only slices), ``thomson_only``, ``invalid``.
 
     Args:
@@ -473,7 +497,7 @@ def _read_processed_registry(
         DataFrame with columns Index, Shot Number, Last Processed, Status, or
         None on error / when the group is missing or empty.
     """
-    logging.getLogger().setLevel(logging.WARNING)
+    _quiet_http_loggers()
 
     try:
         uri = processed_registry_uri(source)

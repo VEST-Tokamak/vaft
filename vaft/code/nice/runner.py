@@ -13,7 +13,13 @@ from .._executables import (
     executable_from_home,
     missing_home_message,
 )
-from ..execution import ExecutionRequest, resolve_backend, timeout_reason
+from ..execution import (
+    ExecutionRequest,
+    ResourceRequest,
+    configured_resources,
+    resolve_backend,
+    timeout_reason,
+)
 from .config import NiceConfig, NiceInputs, NiceResult
 from .outputs import collect_nice_outputs
 
@@ -84,13 +90,15 @@ def run_nice(inputs: NiceInputs, config: NiceConfig) -> NiceResult:
     # a run that never starts must not leave an earlier run's logs behind.
     stdout_file.write_text("", encoding="utf-8")
     stderr_file.write_text("", encoding="utf-8")
+    resources, env = configured_resources(config, ResourceRequest(), config.env)
     try:
         execution = backend.run(
             ExecutionRequest(
                 command=(str(exe), *config.arguments),
                 workdir=Path(inputs.workdir),
-                env=dict(config.env),
+                env=env,
                 timeout=config.timeout,
+                resources=resources,
                 label="nice",
             )
         )

@@ -44,7 +44,9 @@ flowchart LR
 | `vaft.formula.atomic` | OPEN-ADAS ADF11 interpolation, coronal charge-state fractions, line-radiation cooling coefficients |
 | `vaft.formula.impurity` | Impurity-mixture moments, densities for a target $Z_\mathrm{eff}$, the reduced pseudo-impurity, main-ion dilution |
 | `vaft.formula.fast_ion` | Classical fast-ion slowing down: critical speed and energy, slowing-down times, distribution, density, energy density and pressure |
-| `vaft.formula.kinetic` | Multi-species electron collision time and electron–ion energy-exchange time |
+| `vaft.formula.kinetic` | Multi-species electron and ion collision times, electron–ion energy-exchange time, and the Braginskii perpendicular heat diffusivities (classical baseline) |
+| `vaft.formula.turbulence` | Fluctuation-driven transport references (diamagnetic velocity and frequency, E×B velocity, turbulent and cross-phase fluxes, mixing length, E×B shearing rate, Reynolds stress, zonal-flow drive) and the turbulence–zonal-flow predator–prey (Lotka–Volterra) model |
+| `vaft.formula.transport` | Transport reference relations: mean-square-displacement and Taylor–Green–Kubo diffusivities, constitutive particle and conductive heat fluxes, classical, Bohm and gyro-Bohm scales |
 | `vaft.formula.statistics` | Residual, goodness-of-fit and solver-convergence statistics used by the validation layer |
 
 `vaft/formula/__init__.py` resolves its submodules lazily (PEP 562): importing one of them costs
@@ -86,7 +88,7 @@ from vaft.formula.constants import MU0, EPS0, QE, ME, MI_P, E_ALPHA
 | `ME` | $9.10938356 \times 10^{-31}$ | Electron mass [kg] |
 | `MI_P` | $1.67262192 \times 10^{-27}$ | Proton mass [kg] |
 | `E_ALPHA` | $3.5\,\mathrm{MeV} \times$ `QE` | Alpha particle energy [J] |
-| `SIGMA_V_COEF` | $1.1 \times 10^{-24}$ | Fusion cross-section coefficient [m³/s] |
+| `SIGMA_V_COEF` | $1.1 \times 10^{-24}$ | D-T reactivity fit prefactor, $\langle\sigma v\rangle = $ `SIGMA_V_COEF` $T_{keV}^2$ [m³ s⁻¹ keV⁻²]; deprecated with `alpha_heating_power` (#360) |
 | `SPITZER_RESISTIVITY_COEF` | $5.2 \times 10^{-5}$ | Spitzer resistivity prefactor [Ω·m] |
 | `COLLISIONALITY_COEF` | $6.921 \times 10^{-18}$ | Collisionality coefficient, declared dimensionless [-] in the source; its only consumer is `collisionality_from_n_T_B_R` |
 
@@ -106,7 +108,7 @@ import vaft
 psi  = vaft.formula.psi_from_RBtheta(R, B_theta, l, psi_axis=0.0)   # psi = int R B_theta dl + psi_a
 psiN = vaft.formula.psi_normalised(psi, psi_axis, psi_boundary)     # psi_N = (psi-psi_a)/(psi_b-psi_a)
 
-phi  = vaft.formula.phi_from_Bphi(B_phi, dA)                        # Phi = int B_phi dA
+phi  = vaft.formula.phi_from_Bphi(B_phi, R, Z, mask=inside_lcfs)    # Phi = int B_phi dR dZ
 rhoN = vaft.formula.rhoN_from_phi(phi, phi_boundary)                # rho_N = sqrt(Phi/Phi_b)
 
 q    = vaft.formula.q_from_phi(psi, phi)                            # q = dPhi/dpsi
@@ -197,7 +199,7 @@ ln_lambda = vaft.formula.coulomb_logarithm_from_n_T(n_m3=4e19, T_eV=200.0)   # 3
 
 ---
 
-# Beta, current and power limits
+# Beta and current limits
 
 <!-- docs-snippet: skip fragment (placeholder name beta_percent is never defined on the page) -->
 ```python
@@ -205,9 +207,8 @@ beta_N = vaft.formula.beta_N_from_beta_a_B0_Ip(beta_percent, a, B0, I_p_MA)   # 
 beta_p = vaft.formula.beta_pol_from_beta_tor(beta_tor, q_95, epsilon)   # beta_p = beta_t (q95/eps)^2
 beta_t = vaft.formula.beta_tor_from_beta_pol(beta_pol, q_95, epsilon)   # beta_t = beta_p (eps/q95)^2
 
-I_max  = vaft.formula.current_limit_from_q(q_95, a, B0)           # I_p = 2 pi a^2 B0 / (mu0 q95)
-P_max  = vaft.formula.power_limit_from_beta(beta_N, B0, V)
-P_max  = vaft.formula.power_limit_from_q(q_95, I_p, R0)
+I_max  = vaft.formula.current_limit_from_q(q_95, a, B0, R0)       # I_p = 2 pi a^2 B0 / (mu0 R0 q95)
+pV     = vaft.formula.stored_energy_from_beta_V(beta, B0, V)       # <p> V = beta B0^2 V / (2 mu0)
 ```
 
 `beta_N_from_beta_a_B0_Ip` works in the Troyon convention, **%·m·T/MA**: pass $\beta$ **in percent**
@@ -232,7 +233,7 @@ Only the `'conventional'` and `'ST'` branches return `beta_max` / `beta_crit`; `
 
 $$ q_{\rm kink} = \frac{2\pi a^2 B_t}{\mu_0 I_p R}\left(1 + \frac{\kappa^2}{2}\right) $$
 
-Normalised plasma current (Phys. Plasmas **23**, 072508):
+Normalised plasma current, the Troyon normalisation $I_N = I_p/(a B_t)$ (Plasma Phys. Control. Fusion **26**, 209) and the current axis of the Menard et al. low-aspect-ratio stability maps (Nucl. Fusion **37**, 595):
 
 <!-- docs-snippet: skip fragment (placeholder name Ip is never defined on the page) -->
 ```python
@@ -340,16 +341,35 @@ H = vaft.formula.confinement_factor_ITER89P(tau_exp, tau_iter89p)   # H = tau_ex
 
 $$ \tau_{E,\rm th}^{\rm fit} = C \prod_i x_i^{\alpha_i} $$
 
-with the product running **only** over the variables the selected scaling actually declares. Five
+with the product running **only** over the variables the selected scaling actually declares. Eight
 `scaling` names are accepted; anything else raises `ValueError` listing the available keys.
 
 | `scaling` | $C$ | Variables in the product | Reference stored in the table |
 | --- | --- | --- | --- |
 | `"ITER89P"` (default) | 0.038 | `Ip_MA`, `R`, `epsilon`, `kappa`, `n_19`, `Bt`, `Mi`, `P_MW` | ITER Physics Basis 1989 L-mode scaling |
 | `"H98y2"` | 0.0562 | `Ip_MA`, `R`, `epsilon`, `kappa`, `n_19`, `Bt`, `Mi`, `P_MW` | IPB98(y,2) ELMy H-mode scaling |
+| `"ITER97L"` | 0.023 | `Ip_MA`, `Bt`, `R`, `epsilon`, `kappa`, `n_19`, `Mi`, `P_MW` | Kaye *et al.*, Nucl. Fusion **37**, 1303 (1997), thermal L-mode |
 | `"NSTX2006H"` | 0.0715 | `Ip_MA`, `Bt`, `n_19`, `P_MW` | Kaye *et al.*, Nucl. Fusion **46**, 848 (2006), H-mode thermal |
 | `"NSTX2006L"` | 0.141 | `Ip_MA`, `Bt`, `n_19`, `P_MW` | Kaye *et al.*, Nucl. Fusion **46**, 848 (2006), L-mode global |
 | `"Kurskiev2022"` | 0.066 | `Ip_MA`, `Bt`, `n_19`, `P_MW`, `R`, `kappa` | Kurskiev *et al.*, Nucl. Fusion **62**, 016011 (2022), ST multi-machine H-mode |
+| `"ITPA20"` | 0.053 | `Ip_MA`, `Bt`, `n_19`, `P_MW`, `R`, `one_plus_delta`, `kappa`, `epsilon`, `Mi` | Verdoolaege *et al.*, Nucl. Fusion **61**, 076006 (2021), eq. (7), all DB5.2.3-STD5 ELMy H-modes |
+| `"ITPA20_IL"` | 0.067 | `Ip_MA`, `Bt`, `n_19`, `P_MW`, `R`, `one_plus_delta`, `kappa`, `Mi` | same paper, eq. (5), the ITER-like subset (ITPA20-IL, the basis of $H_{20}$) |
+
+The ITPA20 fits add a triangularity factor $(1+\delta)^{\alpha}$: pass `delta=` (the average of the upper and
+lower LCFS triangularity) or they raise `ValueError`; the other scalings ignore it. Their `kappa` is the volume
+elongation $\kappa_a = V/(2\pi R\,\pi a^2)$ and their power the thermal loss power through the LCFS with
+radiation not subtracted. The paper's ITER point (15 MA, 5.3 T, $10.3\times10^{19}$ m⁻³, 87 MW, 6.2 m,
+$\delta = 0.48$, $\kappa_a = 1.7$, $\epsilon = 0.32$, $M = 2.5$) gives 3.08 s (ITPA20) and 2.89 s (ITPA20-IL)
+with the printed coefficients, against the paper's 3.07 s and 2.90 s from the unrounded fits.
+ITPA20-IL was fitted on the paper's ITER-like subset (Sec. 2.1: eight conventional tokamaks, $q_{95} > 2.8$,
+$1.3 < \kappa < 2.2$, $\epsilon < 0.5$, $Z_{eff} < 5$), so it is an ITER extrapolation tool, not a fit for a
+spherical tokamak.
+
+On the ODS path, `vaft.omas.formula_wrapper.compute_tau_E_scaling` takes $\delta$ from
+`equilibrium.time_slice[i].boundary`: the mean of `triangularity_upper` and `triangularity_lower` when both
+exist, else `triangularity`. Without either, an ITPA20 scaling does not raise there: the slice gets `NaN` and a
+warning that names the missing triangularity, as the wrapper does for every input it cannot map. That wrapper
+passes `boundary.elongation` (b/a) as `kappa` for every scaling, not $\kappa_a$.
 
 The two NSTX entries omit `R`, `epsilon`, `kappa` and `Mi` on purpose: only the dependencies the paper
 publishes are implemented, and unspecified ones are not assumed. The signature is the same for every
@@ -364,7 +384,7 @@ Things the evaluator does for you, and things it does not:
   papers' SI-like form into this common convention, so the stored $C$ is only correct with the inputs above.
 - **Every variable used by the selected scaling must be finite and strictly positive**, or you get a
   `ValueError` naming the offending argument.
-- **Density definitions are explicit.** Each table entry declares a `density_definition`; all five
+- **Density definitions are explicit.** Each table entry declares a `density_definition`; all eight
   currently declare `"line_avg"`. If your `input_density_definition` differs from the entry's target,
   you must also pass `line_to_volume_factor` — the evaluator refuses to guess and raises `ValueError`.
 
@@ -391,10 +411,25 @@ tau_exp = vaft.omas.compute_tau_E_exp(ods, 0)
 `compute_tau_E_scaling` picks the line- or volume-averaged density out of `eng` to match whatever the
 requested scaling declares, so you never pass `input_density_definition` at the ODS level.
 
-> **Pass `scaling=` explicitly.** The default value of that argument in `compute_tau_E_scaling` is the
-> misspelled `"IBP98y2"`, which is not a key of the coefficient table. The wrappers are skip-tolerant:
-> instead of raising, they log a warning and return `NaN` for that time slice — a silent column of NaNs
-> is the symptom.
+`scaling=` is required. The wrappers are skip-tolerant: an unknown key or a missing input logs a warning
+and returns `NaN` for that time slice instead of raising.
+
+> **Two experimental confinement times, kept apart (#1905).** `compute_tau_E_exp` and the `P_loss` above
+> are the *legacy modelled budget*: Spitzer $\int\eta J^2 dV$ heating ($Z_\mathrm{eff}=2$,
+> $\ln\Lambda=17$), modelled radiation (line + bremsstrahlung + synchrotron) always subtracted, and
+> $W = \tfrac32\langle p\rangle V$ with $p = 2n_eT_e$. They keep that definition, and calling
+> `compute_tau_E_exp` says so with a `FutureWarning`. The experimental Ohmic chain is
+> `vaft.omas.confinement.ohmic_confinement_ods`:
+>
+> - $P_\mathrm{OH} = I_p V_\mathrm{res}$, from the measured inboard-midplane loop voltage with the
+>   internal-inductive voltage removed (Romero 2010 eq. 24). Both terms, $L_i\dot I_p$ and
+>   $\tfrac14\mu_0R_0I_p\dot l_{i3}$, are kept.
+> - $P_\mathrm{net} = P_\mathrm{OH} - dW/dt$, with unmeasured radiation **not** subtracted.
+> - An explicit stored-energy source (`w_source`) and recorded windows.
+> - A `NaN` with a reason where a rate is missing, never $dW/dt = 0$.
+>
+> $V_\mathrm{res}$ is inferred, not measured, and exact only at the plasma boundary. The `core_profiles`
+> summary sheet carries both definitions in separate columns (`CORE_PROFILES_DEFINITIONS`).
 
 ---
 
@@ -415,6 +450,7 @@ Everything on this page that will silently give you a wrong number if you feed i
 | `c_s_from_Te_Ti_mi` | Temperatures in **keV**. |
 | `v_alfven_from_B_n_mi` vs `collisionality_from_n_T_B_R` | $n$ in $\mathrm{m^{-3}}$ for the Alfvén speed, but $n_e$ in $10^{19}\ \mathrm{m^{-3}}$ for $\nu_*$. |
 | `confinement_time_from_engineering_parameters` | Strict **SI in** (A, W, m⁻³); the conversion to MA/MW/$10^{19}$ m⁻³ happens inside. Pre-scaled inputs are wrong by many orders of magnitude. |
-| `vaft.omas.compute_tau_E_scaling` | Default `scaling="IBP98y2"` is not a valid key → warning + `NaN`. |
+| `vaft.omas.compute_tau_E_scaling` | `scaling=` is required; an unknown key or a missing input → warning + `NaN`. |
+| `vaft.omas.compute_tau_E_exp` | The legacy modelled budget (Spitzer heating, modelled radiation), not the measured-loop Ohmic $\tau_E$ of `vaft.omas.confinement.ohmic_confinement_ods` (#1905). |
 
 ---

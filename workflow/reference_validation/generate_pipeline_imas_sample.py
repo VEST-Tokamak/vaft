@@ -188,6 +188,19 @@ def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
         set_path(ods, "barometry.ids_properties.homogeneous_time", 1)
     if "equilibrium.time" in ods:
         set_path(ods, "equilibrium.ids_properties.homogeneous_time", 1)
+    # The IMAS writer (omas's satisfy_imas_requirements) makes an IDS whose
+    # time vectors all coincide homogeneous and adds its root time in place,
+    # so a pipeline source's heterogeneous langmuir_probes would come back
+    # with a root time it does not declare. Materialize it here when the
+    # probes share one time base, so the parity check compares like with like.
+    probe_times = [
+        np.asarray(ods[f"langmuir_probes.embedded.{index}.time"])
+        for index in range(len(ods.get("langmuir_probes.embedded", [])))
+        if f"langmuir_probes.embedded.{index}.time" in ods
+    ]
+    if probe_times and all(np.array_equal(probe_times[0], time) for time in probe_times):
+        set_path(ods, "langmuir_probes.time", probe_times[0])
+        set_path(ods, "langmuir_probes.ids_properties.homogeneous_time", 1)
     # Opt-in per manifest (issue #478): the 41524/41672 artifacts are not
     # regenerated with it yet, so they keep the legacy Wb/rad psi, declared
     # through generation.canonical_equilibrium_cocos above.

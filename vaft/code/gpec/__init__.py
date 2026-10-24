@@ -71,6 +71,19 @@ from ._gpec_output import (
     read_gpec_netcdf,
 )
 from ._matching_output import Pest3MatchingOutput, read_pest3_matching_output
+from ._ordering import ordering_state_for_case
+from ._pentrc_output import (
+    PROFILE_VARIABLES,
+    TORQUE_GRIDS,
+    TORQUE_LONG_NAME,
+    TORQUE_METHODS,
+    TORQUE_QUANTITIES,
+    PentrcFormatError,
+    PentrcOutput,
+    energy_profile,
+    read_pentrc_output,
+    torque_profile,
+)
 from ._pentrc import (
     PENTRC_MODULE,
     JACOBIAN_NAMES,
@@ -111,6 +124,7 @@ from ._types import (
     GPECSuiteConfig,
     GPECSuiteResult,
     IdealGPECOptions,
+    PENTRCLogLimits,
     PENTRCOptions,
     RDCONOptions,
     STRIDEOptions,
@@ -424,6 +438,28 @@ def _threshold_blockers_in_dcon(dcon_dir: Path) -> list[str]:
     return problems
 
 
+def _attach_formalism(record: GPECModuleRun, config: GPECSuiteConfig, *, dcon_dir: Path | None = None) -> None:
+    """Record the run's plasma formalism (#1734) from the namelists it was prepared with.
+
+    Only for a cell this call prepared and ran (or deliberately left at
+    ``prepare_only``): a cell skipped for a missing executable, an invalid DCON
+    result or an unprepared directory may hold another configuration's
+    namelists, which are not this run's formalism.
+    """
+    if not Path(record.workdir).is_dir():
+        return
+    if record.status == "skipped" and record.reason != "run_mode=prepare_only":
+        return
+    from ._formalism import resolve_plasma_formalism
+
+    formalism = resolve_plasma_formalism(record.module, record.workdir, config=config, dcon_dir=dcon_dir)
+    if formalism is not None:
+        from vaft.validation.model_contracts import safe_ordering_provenance
+
+        record.plasma_formalism = formalism.as_dict()
+        record.ordering_check = safe_ordering_provenance(formalism, getattr(config, "ordering_state", None))
+
+
 def _dcon_run_dir(inputs: GPECCaseInputs, mode: int, geqdsk: Path) -> Path:
     """Locate same-cell DCON output, possibly in a separate code work tree."""
 
@@ -592,7 +628,7 @@ def _run_module(
     #
     # Except on a stable equilibrium: there the companion has nothing to match
     # and legitimately writes nothing (#423; with the packaged scalar `eta`,
-    # `rmatch` stops before `globalsol.bin` on every stable RDCON cell), so its
+    # `rmatch` stops before `delta.out` on every stable RDCON cell), so its
     # missing output is this cell's finished state, not a step to retry.
     # Without the condition every such cell was solved again on each call.
     required = required_outputs(solver, mode)
@@ -841,7 +877,12 @@ def run_gpec_suite_case(
     run_order = tuple(module for module in ("dcon", "rdcon", "stride", "gpec") if module in modules)
     for mode in modes:
         for module in run_order:
-            records.append(_run_module(inputs, config, module, mode))
+            record = _run_module(inputs, config, module, mode)
+            _attach_formalism(
+                record, config,
+                dcon_dir=_dcon_run_dir(inputs, mode, Path(inputs.geqdsk)) if module == "gpec" else None,
+            )
+            records.append(record)
 
     failures = [record for record in records if record.status == "failed"]
     returncode = 1 if failures else 0
@@ -865,6 +906,7 @@ __all__ = [
     "RDCONOptions",
     "STRIDEOptions",
     "IdealGPECOptions",
+    "PENTRCLogLimits",
     "PENTRCOptions",
     "PENTRC_COLLISION_OPERATORS",
     "PENTRC_IMPURITY_SPECIES",
@@ -882,6 +924,19 @@ __all__ = [
     "run_pentrc",
     "validate_pentrc_inputs",
     "write_threshold_pentrc_input",
+    # The native PENTRC reader, owned here since #1883 (vaft.code.pentrc re-exports it).
+    # The advisory ordering state of a case, from its g-file or stage ODS (#1987).
+    "ordering_state_for_case",
+    "PentrcFormatError",
+    "PentrcOutput",
+    "read_pentrc_output",
+    "torque_profile",
+    "energy_profile",
+    "TORQUE_METHODS",
+    "TORQUE_GRIDS",
+    "TORQUE_QUANTITIES",
+    "TORQUE_LONG_NAME",
+    "PROFILE_VARIABLES",
     "validate_threshold_inputs",
     "GPEC_HOME_ENV",
     "GPECCaseInputs",

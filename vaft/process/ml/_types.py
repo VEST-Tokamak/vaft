@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import math
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Mapping
@@ -421,10 +422,35 @@ class TrainingConfig:
     target_normalize_axes: tuple[int, ...] = ()
     augmentation: str | None = None
     device: str = "cpu"
+    optimizer: str = "adam"
+    scheduler: str | None = None
+    max_grad_norm: float | None = None
+    precision: str = "fp32"
+    loader_workers: int = 0
+    loader_pin_memory: bool = False
+    # Epoch-boundary checkpoint output; resume uses the same total epoch budget.
+    checkpoint_path: str | None = None
+    resume_from: str | None = None
+    warm_start_from: str | None = None
+    max_epochs_this_run: int | None = None
     train_partition: str = "train"
     validation_partition: str | None = "validation"
 
     def __post_init__(self):
+        if self.optimizer not in ("adam", "adamw") or self.scheduler not in (None, "onecycle"):
+            raise ModelContractError("optimizer must be adam/adamw; scheduler None/onecycle")
+        if self.precision not in ("fp32", "bf16", "fp16"):
+            raise ModelContractError("precision must be fp32/bf16/fp16")
+        if self.epochs < 1 or self.batch_size < 1 or not math.isfinite(self.learning_rate) or self.learning_rate <= 0 or self.loader_workers < 0:
+            raise ModelContractError("epochs/batch_size/lr must be positive and loader_workers nonnegative")
+        if not math.isfinite(self.weight_decay) or self.weight_decay < 0:
+            raise ModelContractError("weight_decay must be finite and nonnegative")
+        if self.max_grad_norm is not None and (not math.isfinite(self.max_grad_norm) or self.max_grad_norm <= 0):
+            raise ModelContractError("max_grad_norm must be positive")
+        if self.resume_from and self.warm_start_from:
+            raise ModelContractError("resume and warm-start are distinct; select only one")
+        if self.max_epochs_this_run is not None and self.max_epochs_this_run < 1:
+            raise ModelContractError("max_epochs_this_run must be positive")
         for key in ("normalize_axes", "target_normalize_axes"):
             axes = tuple(int(a) for a in getattr(self, key))
             if any(a < 1 for a in axes):
@@ -478,9 +504,13 @@ class CalibrationResult:
     groups: tuple[str, ...] = ()
     #: How the calibration population was restricted within the partition, if at all.
     population: str | None = None
+    usage: dict | None = None
 
     def to_dict(self) -> dict:
-        return {**dataclasses.asdict(self), "groups": list(self.groups)}
+        record = {**dataclasses.asdict(self), "groups": list(self.groups)}
+        if self.usage is None:
+            record.pop("usage")
+        return record
 
 
 @dataclass(frozen=True, kw_only=True, eq=False)
@@ -505,6 +535,7 @@ class ModelArtifact:
     training: Mapping[str, Any] = field(default_factory=dict)
     metrics: Mapping[str, Any] = field(default_factory=dict)
     calibration: Mapping[str, CalibrationResult] = field(default_factory=dict)
+    tensor_schema: Mapping[str, Any] = field(default_factory=dict)
     identity: ModelIdentity | None = None
 
     def __post_init__(self):
@@ -513,7 +544,7 @@ class ModelArtifact:
             object.__setattr__(self, "target_shape", tuple(int(s) for s in self.target_shape))
         object.__setattr__(self, "outputs", tuple(self.outputs))
         object.__setattr__(self, "input_names", tuple(self.input_names))
-        for key in ("normalization", "training", "metrics", "calibration"):
+        for key in ("normalization", "training", "metrics", "calibration", "tensor_schema"):
             object.__setattr__(self, key, _frozen_mapping(getattr(self, key)))
 
     @property
@@ -525,6 +556,21 @@ class ModelArtifact:
         from ._provenance import sha256_bytes
 
         return sha256_bytes(self.state)
+
+    @property
+    def contract_sha256(self) -> str:
+        """Bind weights, normalization, configuration and declared use history.
+
+        In-memory state identity alone does not distinguish changed transforms.
+        A validation report also needs this contract captured at evaluation time.
+        """
+        from ._provenance import sha256_bytes
+        return sha256_bytes(canonical_json({"state_sha256": self.state_sha256,
+            "name": self.name, "kind": self.kind, "outputs": self.outputs,
+            "input_shape": self.input_shape, "target_shape": self.target_shape, "input_names": self.input_names,
+            "model_spec": self.model_spec.to_dict(), "normalization": dict(self.normalization),
+            "tensor_schema": dict(self.tensor_schema), "training": dict(self.training),
+            "calibration": {k: v.to_dict() for k, v in self.calibration.items()}}).encode())
 
     def resolved_identity(self) -> ModelIdentity:
         """The identity to stamp on a result: the resolved one, else in-memory."""
@@ -604,6 +650,8 @@ class EvaluationResult:
     per_group: Mapping[str, Mapping[str, float]]
     n_samples: int
     model_identity: ModelIdentity
+    #: Opt-in observed evaluation use, distinct from scientific validation.
+    provenance: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, kw_only=True, eq=False)

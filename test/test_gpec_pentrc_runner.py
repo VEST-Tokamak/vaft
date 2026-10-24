@@ -1,6 +1,6 @@
 """Running PENTRC, and the one convention that decides whether the answer means anything.
 
-``vaft.code.pentrc`` reads what PENTRC produced.  This is the half that produces
+``vaft.code.gpec.read_pentrc_output`` reads what PENTRC produced.  This is the half that produces
 it, and the thing worth testing is not the subprocess call -- it is the
 ``pentrc.in`` that goes beside the result:
 
@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from vaft.code import gpec, pentrc
+from vaft.code import gpec
 from vaft.code.gpec import PENTRCOptions
 
 import stat
@@ -178,7 +178,7 @@ def test_the_requested_methods_are_on_and_every_other_one_is_written_off(cell):
     # PENTRC's own default for this one is `.true.`, so leaving it unwritten
     # would add a calculation nobody asked for.
     assert values["tgar_flag"] == "f"
-    for method in pentrc.TORQUE_METHODS:
+    for method in gpec.TORQUE_METHODS:
         assert values[f"{method}_flag"] == ("t" if method == "fgar" else "f"), method
 
 
@@ -194,11 +194,11 @@ def test_every_method_vaft_can_read_has_a_namelist_flag_to_ask_for_it(cell):
     path = gpec.prepare_pentrc_run(
         cell,
         mode=1,
-        options=_options(methods=tuple(pentrc.TORQUE_METHODS)),
+        options=_options(methods=tuple(gpec.TORQUE_METHODS)),
         kinetic_file=cell.parents[2] / "profiles.kin",
     )
     values = _pent(path, "pent_output")
-    assert all(values[f"{method}_flag"] == "t" for method in pentrc.TORQUE_METHODS)
+    assert all(values[f"{method}_flag"] == "t" for method in gpec.TORQUE_METHODS)
 
 
 def _template_without(tmp_path, *methods: str) -> Path:
@@ -721,9 +721,9 @@ def test_the_grid_names_are_the_readers_grid_names_where_they_overlap():
     that produced it.  Pinned so the mismatch is a documented fact rather than a
     surprise at read time.
     """
-    assert set(PENTRCOptions.GRID_FLAGS) - {"dynamic"} <= set(pentrc.TORQUE_GRIDS)
-    assert "dynamic" not in pentrc.TORQUE_GRIDS
-    assert "lsode" in pentrc.TORQUE_GRIDS
+    assert set(PENTRCOptions.GRID_FLAGS) - {"dynamic"} <= set(gpec.TORQUE_GRIDS)
+    assert "dynamic" not in gpec.TORQUE_GRIDS
+    assert "lsode" in gpec.TORQUE_GRIDS
 
 
 def test_the_packaged_template_ships_every_method_off():
@@ -735,7 +735,7 @@ def test_the_packaged_template_ships_every_method_off():
     from vaft.code.gpec._runtime import package_vest_dir
 
     values = _pent(package_vest_dir() / "pentrc.in", "pent_output")
-    for method in pentrc.TORQUE_METHODS:
+    for method in gpec.TORQUE_METHODS:
         assert values[f"{method}_flag"] == "f", method
 
 
@@ -754,7 +754,7 @@ def _timing_out(seconds: float):
     """
     import subprocess
 
-    def run(executable_path, cwd, log_path, *, config):
+    def run(executable_path, cwd, log_path, *, config, **_):
         Path(log_path).write_text(
             " LSODE- Energy-  At T (=R1) and step size H (=R2), the\n"
             "       corrector convergence failed repeatedly\n" * 64,
@@ -794,7 +794,7 @@ def test_a_pentrc_memory_stop_says_so(cell, tmp_path, monkeypatch):
     from vaft.code.execution import ExecutionResult
     from vaft.code.gpec import _pentrc, _runtime
 
-    def run(executable_path, cwd, log_path, *, config):
+    def run(executable_path, cwd, log_path, *, config, **_):
         # bytes, not text: text mode writes "\r\n" on Windows and the reason counts bytes
         Path(log_path).write_bytes(b"partial\n")
         execution = ExecutionResult(returncode=None, timed_out=True, runtime_status="memory_limit",
@@ -970,3 +970,40 @@ def test_preparing_only_needs_no_timeout(cell, tmp_path):
         ),
     )
     assert record.status == "prepared"
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="POSIX shell stub")
+def test_a_stalled_pentrc_is_stopped_with_a_stall_reason_and_a_capped_log(cell, tmp_path):
+    """#1929: a stalled energy LSODE fills the log until the timeout; the cap stops it."""
+    config = _config(
+        tmp_path, timeout=120.0,
+        pentrc_log=gpec.PENTRCLogLimits(max_bytes=20_000, stall_lines=2_000),
+    )
+    stub = Path(config.gpec_home) / "bin" / "pentrc"
+    stub.write_text(
+        "#!/bin/sh\necho ' PENTRC START'\n"
+        "yes ' LSODE--  Corrector convergence failed repeatedly'\n",
+        encoding="utf-8",
+    )
+    record = gpec.run_pentrc(
+        cell, mode=1, options=_options(),
+        kinetic_file=cell.parents[2] / "profiles.kin", config=config,
+    )
+    assert record.status == "failed"
+    assert record.reason.startswith("pentrc stalled")
+    assert "2000 lines" in record.reason
+    assert record.outputs == ()
+    log = cell / "pentrc.log"
+    assert log.stat().st_size < 20_000 + 500
+    assert log.read_text(encoding="utf-8").startswith(" PENTRC START")
+
+
+def test_the_cap_is_not_applied_off_the_local_backend(tmp_path):
+    from external_code_stubs import RecordingBackend
+
+    from vaft.code.gpec._pentrc import _log_cap_prefix
+
+    assert _log_cap_prefix(_config(tmp_path))[-1] == "--"
+    assert _log_cap_prefix(_config(tmp_path, backend=RecordingBackend())) == ()
+    off = gpec.PENTRCLogLimits(max_bytes=None, stall_lines=None)
+    assert _log_cap_prefix(_config(tmp_path, pentrc_log=off)) == ()

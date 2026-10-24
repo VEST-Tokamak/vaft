@@ -329,10 +329,18 @@ class MemoryLedger:
             _write_json_atomic(path, {"owner": os.getpid(), "reserve_mb": float(reserve_mb), "root": None})
             return Reservation(self, path, float(reserve_mb))
 
-    def admit(self, reserve_mb: float, *, wait_s: Optional[float], poll_s: float = 5.0) -> Optional[Reservation]:
+    def admit(
+        self,
+        reserve_mb: float,
+        *,
+        wait_s: Optional[float],
+        poll_s: float = 5.0,
+        cancelled: Optional[Callable[[], bool]] = None,
+    ) -> Optional[Reservation]:
         """Wait up to ``wait_s`` seconds (``None``: forever) for admission.
 
-        A reservation that cannot fit even on an idle host returns ``None`` at once.
+        A reservation that cannot fit even on an idle host returns ``None`` at once,
+        and so does a wait that ``cancelled()`` ends (checked once per poll).
         """
         if not self.fits(reserve_mb):
             return None
@@ -342,6 +350,8 @@ class MemoryLedger:
             if reservation is not None:
                 return reservation
             if wait_s is not None and time.monotonic() - started >= wait_s:
+                return None
+            if cancelled is not None and cancelled():
                 return None
             time.sleep(poll_s)
 

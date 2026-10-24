@@ -51,6 +51,8 @@ _SUBMODULES = {
     "ordering": ".ordering",
     "fast_ion": ".fast_ion",
     "kinetic": ".kinetic",
+    "turbulence": ".turbulence",
+    "transport": ".transport",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -90,6 +92,8 @@ _IMPORT_ORDER = (
     "ordering",
     "fast_ion",
     "kinetic",
+    "turbulence",
+    "transport",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in
@@ -101,12 +105,17 @@ _CATALOG_NAMES = frozenset(
 
 _MODULES: dict[str, object] = {}
 
+# Explicit opt-in APIs are documented without extending the historical star
+# namespace. Only the catalog and explicit submodule callers load them.
+_CATALOG_ONLY_SUBMODULES = {"regularized_profiles": ".regularized_profiles"}
+
 
 def _submodule(key: str):
     """Import one submodule, caching it."""
     module = _MODULES.get(key)
     if module is None:
-        module = _MODULES[key] = import_module(_SUBMODULES[key], __name__)
+        target = _SUBMODULES.get(key) or _CATALOG_ONLY_SUBMODULES[key]
+        module = _MODULES[key] = import_module(target, __name__)
     return module
 
 

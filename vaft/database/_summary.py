@@ -11,7 +11,7 @@ import logging
 import os
 from pathlib import Path
 import tempfile
-from typing import Callable, Sequence
+from typing import Callable, Mapping, Sequence
 import warnings
 
 import numpy as np
@@ -114,6 +114,9 @@ EQUILIBRIUM_GLOBAL_PATHS = (
     "equilibrium.time",
     "equilibrium.time_slice",
     "equilibrium.vacuum_toroidal_field",
+    # The diamagnetic update interpolates the measured flux from magnetics, and
+    # the virial mu_i columns are built on it; without it they are NaN.
+    "magnetics",
     # beta_pol and li_3 divide by R_0, and the VEST database's
     # equilibrium.vacuum_toroidal_field.r0 is not trustworthy (#325). The
     # resolver cross-checks it against tf, so tf has to be loaded or the check
@@ -138,6 +141,11 @@ CORE_PROFILES_COLUMNS = (
     "tau_e_nstx_s",
     "tau_e_nstx2006l_s",
     "tau_e_kurskiev2022_s",
+    "v_res_V",
+    "p_ohm_MW",
+    "p_net_MW",
+    "w_mhd_kJ",
+    "tau_e_net_s",
     "ne_line_1e19_m3",
     "ne_volume_1e19_m3",
     "te_mean_eV",
@@ -409,9 +417,7 @@ def _extract_time(eq_slice, eq_times, index: int) -> float:
 
 
 def _extract_q_min(eq_slice) -> float:
-    value = _as_float(_safe_get(eq_slice, "global_quantities.q_min", np.nan))
-    if np.isfinite(value):
-        return value
+    # q_min is a structure in the DD; its signed min-|q| is q_min.value (#277).
     return _as_float(_safe_get(eq_slice, "global_quantities.q_min.value", np.nan))
 
 
@@ -595,6 +601,7 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
     back-solved value the database stores.
     """
     edges: list[float] = []
+    edge_signs: set[float] = set()
     slices = ods["equilibrium.time_slice"]
     for index in range(len(slices)):
         try:
@@ -602,7 +609,12 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
         except Exception:
             edges.append(np.nan)
             continue
-        edges.append(abs(float(f[-1])) if f.size and np.isfinite(f[-1]) else np.nan)
+        if f.size and np.isfinite(f[-1]):
+            edges.append(abs(float(f[-1])))
+            if f[-1] != 0.0:
+                edge_signs.add(float(np.sign(f[-1])))
+        else:
+            edges.append(np.nan)
     if not any(np.isfinite(edge) and edge != 0.0 for edge in edges):
         return
 
@@ -613,16 +625,36 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
         return
 
     stored = _safe_get(ods, "equilibrium.vacuum_toroidal_field.b0")
-    # Keep whatever sign the file used; f and b0 follow different COCOS on VEST
-    # and flipping it here would show up as a sign change in the sheet.
+    # The magnitude comes from |f_edge| because the stored b0's magnitude is
+    # what drifts (#325); the sign is the stored b0's, so this repair changes
+    # magnitudes only and the sheet's vacuum_b0_T keeps the sign it always had.
+    # f and b0 transform identically under a COCOS change (both TOR in OMAS's
+    # table), so they cannot "follow different COCOS": a file whose f_edge and
+    # b0 disagree in sign is internally inconsistent under every COCOS. Which of
+    # the two is physical is not decided here -- the disagreement is logged and
+    # the stored sign kept (#692).
     sign = 1.0
+    stored_has_sign = False
     try:
         first = np.asarray(stored, float).reshape(-1)
         finite = first[np.isfinite(first)]
+        stored_has_sign = bool(finite.size) and finite[0] != 0.0
         if finite.size and finite[0] < 0:
             sign = -1.0
     except Exception:
         pass
+
+    # DEBUG, not INFO: a summary run covers thousands of shots, and a legacy
+    # database with one systematic sign split would otherwise log every one.
+    if stored_has_sign and edge_signs and edge_signs != {sign}:
+        logger.debug(
+            "Shot %s: stored vacuum_toroidal_field.b0 has sign %+d but profiles_1d.f "
+            "at the boundary has sign(s) %s; f and b0 share a COCOS transformation, "
+            "so the pair is inconsistent. Keeping the stored b0 sign (#692).",
+            shot,
+            int(sign),
+            sorted(int(value) for value in edge_signs),
+        )
 
     corrected = np.array(
         [sign * edge / r0 if np.isfinite(edge) and edge != 0.0 else np.nan for edge in edges],
@@ -1276,8 +1308,52 @@ def _bootstrap_current_kA(ods, cp_index: int, current, rho, solved) -> float:
     )
 
 
+#: What the confinement columns of the ``core_profiles`` preset mean (#1905).
+#: Two definitions live side by side and are never merged: the legacy modelled
+#: budget keeps ``p_loss_MW`` / ``tau_e_s`` as they always were, and the
+#: experimental Ohmic chain of :func:`vaft.omas.confinement.ohmic_confinement_ods`
+#: fills the five columns after them.
+CORE_PROFILES_DEFINITIONS = {
+    "p_loss_MW": ("legacy modelled loss power: Spitzer int eta J^2 dV (Z_eff = 2, ln Lambda = 17) - dW/dt - "
+                  "modelled P_rad (line + bremsstrahlung + synchrotron), W = (3/2) <p> V with p = 2 n_e T_e"),
+    "tau_e_s": "legacy W_th / p_loss on that modelled budget (compute_tau_E_exp)",
+    "v_res_V": ("inferred resistive loop voltage: measured inboard-midplane flux-loop voltage minus the "
+                "internal-inductive voltage (Romero 2010 eq. 24); a loop off the LCFS keeps the external flux"),
+    "p_ohm_MW": "P_OH = measured I_p * V_res",
+    "p_net_MW": "P_net = P_OH - dW_MHD/dt; radiation not subtracted (unmeasured), as DB5 PLTH",
+    "w_mhd_kJ": "W_MHD = (3/2) int p_EFIT dV of the matched equilibrium slice (reconstruction-derived)",
+    "tau_e_net_s": ("W_MHD / P_net; rates over every equilibrium slice with finite positive W_MHD (3 ms "
+                    "local linear fit), validated or not: the summary knows no study labels, so an "
+                    "unreconstructed slice with positive W can bias its neighbours' rate (the Tier A table "
+                    "of workflow/confinement_scaling uses labelled slices only); NaN with no rate, never "
+                    "dW/dt = 0"),
+}
+
+
+def _ohmic_columns(ods, shot: int) -> dict:
+    """``eq_index -> {v_res_V, p_ohm_MW, p_net_MW, w_mhd_kJ, tau_e_net_s}`` from the shared chain; {} if it cannot run."""
+    try:
+        from vaft.omas.confinement import ohmic_confinement_ods
+
+        result = ohmic_confinement_ods(ods, w_source="efit_pressure", require_positive_energy=True)
+    except Exception as exc:  # noqa: BLE001 - the columns stay NaN; the legacy ones are unaffected
+        logger.info("Shot %s: experimental Ohmic chain unavailable (%s)", shot, exc)
+        return {}
+    chain = result.chain
+    return {
+        int(k): {"v_res_V": float(chain.v_res[j]), "p_ohm_MW": float(chain.p_ohmic[j]) / 1e6,
+                 "p_net_MW": float(chain.p_net[j]) / 1e6, "w_mhd_kJ": float(chain.w[j]) / 1e3,
+                 "tau_e_net_s": float(chain.tau_e_net[j])}
+        for j, k in enumerate(result.eq_index)
+    }
+
+
 def extract_core_profiles(ods, shot: int) -> list[dict]:
-    """Extract confinement and engineering parameters on core-profile slices."""
+    """Extract confinement and engineering parameters on core-profile slices.
+
+    The confinement columns carry two definitions side by side, see
+    :data:`CORE_PROFILES_DEFINITIONS`.
+    """
     from vaft.omas import formula_wrapper
     from vaft.omas.general import find_matching_time_indices
 
@@ -1292,6 +1368,8 @@ def extract_core_profiles(ods, shot: int) -> list[dict]:
     except Exception as exc:
         logger.debug("Shot %s: boundary update failed: %s", shot, exc)
 
+    ohmic = _ohmic_columns(ods, shot)
+    nan_ohmic = dict.fromkeys(("v_res_V", "p_ohm_MW", "p_net_MW", "w_mhd_kJ", "tau_e_net_s"), float("nan"))
     rows: list[dict] = []
     for cp_index in range(len(ods["core_profiles.profiles_1d"])):
         try:
@@ -1340,6 +1418,7 @@ def extract_core_profiles(ods, shot: int) -> list[dict]:
                     "tau_e_nstx_s": float(tau_nstx),
                     "tau_e_nstx2006l_s": float(tau_nstx2006l),
                     "tau_e_kurskiev2022_s": float(tau_kurskiev2022),
+                    **ohmic.get(int(eq_index), nan_ohmic),
                     "ne_line_1e19_m3": ne_line / 1e19,
                     "ne_volume_1e19_m3": ne_volume / 1e19,
                     "te_mean_eV": temperature,
@@ -2077,13 +2156,12 @@ def summary(
             raise ValueError("shot_range start must be less than or equal to end")
         shots = list(range(start, end + 1))
     frames: list[pd.DataFrame] = []
+    skipped: list[dict] = []
     from . import open as open_shot
 
     for shot in shots:
         try:
-            paths = list(definition.paths)
-            if "pulse_time_begin" in definition.columns and "dataset_description" not in paths:
-                paths.append("dataset_description")
+            paths = _preset_paths(definition)
             try:
                 with open_shot(shot, source=source, paths=paths) as ods:
                     rows = definition.extractor(ods, shot)
@@ -2097,40 +2175,163 @@ def summary(
                 with open_shot(shot, source=source, paths=remaining_paths) as ods:
                     rows = definition.extractor(ods, shot)
                 pulse_time_begin = None
-            if "pulse_time_begin" in definition.columns:
-                for row in rows:
-                    row["pulse_time_begin"] = pulse_time_begin
-            if not rows:
-                logger.warning(
-                    "Shot %s: preset %s produced no rows; skipping", shot, preset
-                )
-                continue
-            if "equilibrium_source" in definition.columns:
-                for row in rows:
-                    row["equilibrium_source"] = source
-            if "source" in definition.columns:
-                for row in rows:
-                    row["source"] = source
-            frames.append(pd.DataFrame(rows))
+            frame = _shot_frame(rows, definition, preset, shot, source, pulse_time_begin)
+            if frame is not None:
+                frames.append(frame)
         except Exception as exc:
             if _is_connection_error(exc):
                 raise ConnectionError(
                     f"Shot {shot}: source {source!r} is unreachable while summarising "
                     f"preset {preset}; stopped before trying the remaining shots"
                 ) from exc
-            logger.warning("Shot %s: preset %s failed; skipping: %s", shot, preset, exc)
+            _skip(skipped, shot, preset, exc)
 
+    return _assemble(frames, definition, skipped)
+
+
+def _preset_paths(definition: SummaryPreset) -> list[str]:
+    """The IDS paths one preset reads (``dataset_description`` for the pulse time)."""
+    paths = list(definition.paths)
+    if "pulse_time_begin" in definition.columns and "dataset_description" not in paths:
+        paths.append("dataset_description")
+    return paths
+
+
+def _shot_frame(
+    rows: list[dict],
+    definition: SummaryPreset,
+    preset: str,
+    shot: int,
+    source: str,
+    pulse_time_begin: str | None,
+) -> pd.DataFrame | None:
+    """One shot's rows with the shot-level columns every preset carries."""
+    if "pulse_time_begin" in definition.columns:
+        for row in rows:
+            row["pulse_time_begin"] = pulse_time_begin
+    if not rows:
+        logger.warning("Shot %s: preset %s produced no rows; skipping", shot, preset)
+        return None
+    if "equilibrium_source" in definition.columns:
+        for row in rows:
+            row["equilibrium_source"] = source
+    if "source" in definition.columns:
+        for row in rows:
+            row["source"] = source
+    return pd.DataFrame(rows)
+
+
+def _skip(skipped: list[dict], shot: int, preset: str, exc: BaseException) -> None:
+    logger.warning("Shot %s: preset %s failed; skipping: %s", shot, preset, exc)
+    skipped.append({"shot": int(shot), "reason": f"{type(exc).__name__}: {exc}"})
+
+
+def _assemble(
+    frames: list[pd.DataFrame], definition: SummaryPreset, skipped: list[dict]
+) -> pd.DataFrame:
+    """The canonical table: preset columns in order, sorted, skipped shots in ``attrs``."""
     if not frames:
-        return pd.DataFrame(columns=definition.columns)
-    result = pd.concat(frames, ignore_index=True)
-    for column in definition.columns:
-        if column not in result:
-            result[column] = np.nan
-    return (
-        result.loc[:, definition.columns]
-        .sort_values(list(definition.sort_columns), kind="stable")
-        .reset_index(drop=True)
+        result = pd.DataFrame(columns=definition.columns)
+    else:
+        result = pd.concat(frames, ignore_index=True)
+        for column in definition.columns:
+            if column not in result:
+                result[column] = np.nan
+        result = (
+            result.loc[:, definition.columns]
+            .sort_values(list(definition.sort_columns), kind="stable")
+            .reset_index(drop=True)
+        )
+    result.attrs["skipped"] = list(skipped)
+    return result
+
+
+def _preset_view(ods, definition: SummaryPreset):
+    """A private copy of the IDS one preset may read, and nothing else.
+
+    The database path opens a shot with ``paths=`` and its lazy view exposes
+    only those root IDS (``"magnetics" in view`` is false for a preset that did
+    not ask for it), so an extractor that would use another IDS when present
+    -- the diamagnetic-flux update reads ``magnetics`` -- must not see it here
+    either, or the two paths would give different tables. The copy also keeps
+    the caller's ODS unchanged: the extractors write derived quantities into
+    the ODS they are given, and OMAS item access creates a missing path.
+    """
+    import copy
+
+    from omas import ODS
+
+    view = ODS(imas_version=getattr(ods, "imas_version", None), consistency_check=False)
+    for name in dict.fromkeys(
+        path.split(".", 1)[0].split("[", 1)[0] for path in _preset_paths(definition)
+    ):
+        if name in ods:
+            view[name] = copy.deepcopy(ods[name])
+    return view
+
+
+def _ods_shot(ods, key) -> int:
+    if key is not None:
+        return int(key)
+    # Test before reading: item access on a missing path would create it in
+    # the caller's ODS.
+    if "dataset_description.data_entry.pulse" in ods:
+        try:
+            return int(ods["dataset_description.data_entry.pulse"])
+        except (TypeError, ValueError):
+            pass
+    raise ValueError(
+        "an ODS without dataset_description.data_entry.pulse needs its shot: "
+        "pass a {shot: ods} mapping"
     )
+
+
+def summary_from_ods(
+    odss,
+    *,
+    preset: str = "equilibrium_global",
+    source: str = "local",
+) -> pd.DataFrame:
+    """The same canonical preset table as :func:`summary`, from in-memory ODS.
+
+    ``odss`` is a ``{shot: ods}`` mapping, or ODS objects that record their
+    shot in ``dataset_description.data_entry.pulse``. Each shot goes through
+    exactly what :func:`summary` does with a database shot -- the preset's
+    extractor on the preset's IDS only (see :func:`_preset_view`),
+    ``pulse_time_begin``, the source columns,
+    then the preset's column order and sort -- so the two paths give the same
+    table for the same data. ``source`` fills the ``source`` and
+    ``equilibrium_source`` columns where the preset has them.
+
+    A shot whose extractor fails is skipped with a warning, as on the database
+    path; ``result.attrs["skipped"]`` lists ``{"shot", "reason"}`` for each.
+    The caller's ODS objects are not modified. A shot that cannot be
+    determined, or appears twice, raises ``ValueError`` before any extractor
+    runs; ``source=None`` means ``"local"``.
+    """
+    definition = get_summary_preset(preset)
+    source = "local" if source is None else source
+    if isinstance(odss, Mapping):
+        items = [(_ods_shot(ods, shot), ods) for shot, ods in odss.items()]
+    else:
+        items = [(_ods_shot(ods, None), ods) for ods in odss]
+    shots = [shot for shot, _ in items]
+    repeated = sorted({shot for shot in shots if shots.count(shot) > 1})
+    if repeated:
+        raise ValueError(f"shot(s) given more than once: {repeated}")
+    frames: list[pd.DataFrame] = []
+    skipped: list[dict] = []
+    for shot, ods in items:
+        try:
+            view = _preset_view(ods, definition)
+            rows = definition.extractor(view, shot)
+            pulse_time_begin = _pulse_time_begin(view)
+            frame = _shot_frame(rows, definition, preset, shot, source, pulse_time_begin)
+            if frame is not None:
+                frames.append(frame)
+        except Exception as exc:
+            _skip(skipped, shot, preset, exc)
+    return _assemble(frames, definition, skipped)
 
 
 def _columns(values: Sequence[str] | None, label: str) -> tuple[str, ...]:
@@ -2257,6 +2458,7 @@ def export_summary(
 
 __all__ = [
     "CORE_PROFILES_COLUMNS",
+    "CORE_PROFILES_DEFINITIONS",
     "EFIT_RELIABILITY_COLUMNS",
     "EQUILIBRIUM_GLOBAL_COLUMNS",
     "SummaryPreset",

@@ -11,7 +11,7 @@ workspaces of roadmap #1359) plugs in with one call::
 
     from vaft.gui.shell import register_workspace
 
-    register_workspace("equilibrium", "Equilibrium", EquilibriumWorkspace, order=30)
+    register_workspace("my_workspace", "My workspace", MyWorkspace, order=90)
 
 A workspace is any object with ``sidebar()`` and ``main()`` returning lists
 of Panel objects; ``activate()`` (called each time it is shown) and
@@ -234,15 +234,12 @@ class Shell:
         ``timeout`` seconds (:data:`CONNECT_TIMEOUT`): one session waiting on
         an unreachable server must not hold every other session's page.
         """
-        import logging
         from concurrent.futures import ThreadPoolExecutor
         from concurrent.futures import TimeoutError as Timeout
 
         from vaft.database import utils
 
         timeout = CONNECT_TIMEOUT if timeout is None else timeout
-        root = logging.getLogger()
-        level = root.level  # is_connect lowers the root logger; the server's is kept
         pool = ThreadPoolExecutor(max_workers=1)
         try:
             ready = pool.submit(utils.is_connect).result(timeout=timeout)
@@ -253,7 +250,6 @@ class Shell:
             self.connection = f"unreachable ({_first_line(error)})"
         finally:
             pool.shutdown(wait=False)
-            root.setLevel(level)
         self._update_status()
         return self.connection
 
@@ -279,10 +275,10 @@ class Shell:
 
     def view(self) -> Any:
         """The page served by ``vaft gui``."""
-        pn = require_panel()
-        return pn.template.FastListTemplate(
-            title="VAFT", sidebar=self.sidebar(), main=self.main(), sidebar_width=360,
-        )
+        from .app import BRANDING
+        from .layout import page
+
+        return page(self.sidebar(), self.main(), **BRANDING)
 
     def close(self) -> None:
         """Close every built workspace, even when one of them fails to."""

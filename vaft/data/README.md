@@ -4,7 +4,7 @@
 repository-only full-shot examples and regeneration inputs. The PyPI
 distribution includes runtime resources, all sample manifests, and both
 compact representations of shot 39915. Clone the repository to access the
-full native IMAS examples for shots 41524 and 41672, archived EFIT and
+full native IMAS examples for shots 41524, 41672 and 42962, archived EFIT and
 kinetic-EFIT data, and legacy diagnostic and digitizer samples.
 
 ## Layout
@@ -19,6 +19,8 @@ kinetic-EFIT data, and legacy diagnostic and digitizer samples.
 | `samples/41524/source/` | frozen SQL raw input, configuration, stage manifests, canonical ODS | Repository-only regeneration inputs for the 41524 pipeline run through EFIT |
 | `samples/41672/` | `manifest.yaml`, `imas.nc` | Complete repository-only native IMAS example composed from the current pipeline through EFIT |
 | `samples/41672/source/` | frozen SQL raw input, configuration, stage manifests, canonical ODS | Repository-only regeneration inputs for the 41672 pipeline run through EFIT |
+| `samples/42962/` | `manifest.yaml`, `omas.json.gz`, `imas.nc` | Complete repository-only example from a fresh pipeline run through the `statistical_891` EFIT (2026-10-21), the second offline shot of VEST-Tokamak/vfit#119's R1 set; the manifest carries each slice's #1644 label |
+| `samples/42962/source/` | frozen raw input, effective configuration, stage manifests, canonical ODS | Repository-only regeneration inputs; `compose_until_efit_sample.py` builds the canonical ODS from the static, diagnostics, eddy and EFIT products |
 | `samples/48224/` | `manifest.yaml`, `omas.json.gz`, `efit_magnetic_server/`, `equilibria/` | Repository-only kinetic slice (300 ms): the `kineticEfit/` ODS gzipped byte for byte; the server's magnetic EFIT k/g/m/a files; compact magnetic-only and kinetic EFIT equilibria with their constraints (`vaft.omas.sample_equilibria(48224)`) |
 | `kineticEfit/` | `g048224.00300`, `g048224.00300.kinetic_efit`, `g048224.00300.chease`, `NeTe_48224.mat`, `IDS_48224.mat`, `ods_48224_300ms.json` | Paired kinetic-EFIT sample for shot 48224 @ 300 ms (equilibrium + Thomson + ion Doppler) and the stored kinetic-profile ODS |
 | `legacy/` | `41514.h5`, `46051_NeTe.mat`, `CES_47514.mat`, `IDS_47518.mat`, `NeTe_Shot39915_v9_rev.mat`, `digitizer_17592_45531.csv`, `digitizer_22577_45531.csv`, `47230_056789_LID_1_100.mat`, `47230_ALL_LID_1_100.mat`, `shot_44740.json.gz`, `shot_45531.json.gz`, `langmuir_probe_positions.csv`, `langmuir_probes_42699.json.gz`, `sql_table.txt` | Legacy diagnostic samples, raw SQL dump, and DB lookup table |
@@ -167,8 +169,9 @@ Wb and declares COCOS 11 on `equilibrium.code.parameters.cocos`, which every
 reader (`ods_psi_to_wb_per_radian_factor`, `as_equilibrium`) honours before
 probing the data. 41524 and 41672 (repository-only `imas.nc`) still hold the
 legacy Wb/rad and declare COCOS 1, and this frozen ODS (psi in Wb) declares
-COCOS 11, the same field. Each manifest records the evidence for its index;
-for 41524 and 41672 `generate_pipeline_imas_sample.py` reads it from
+COCOS 11, the same field. 42962's EFIT stage already wrote psi in Wb, so it
+declares COCOS 11 without a conversion. Each manifest records the evidence for its index;
+for 41524, 41672 and 42962 `generate_pipeline_imas_sample.py` reads it from
 `generation.canonical_equilibrium_cocos`. The committed sample is
 kept as a frozen artifact rather than regenerated -- do not overwrite it
 casually. Keep `user`

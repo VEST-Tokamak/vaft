@@ -1,7 +1,10 @@
 # Enabling HSDS replication
 
 Operator procedure for bringing the `main` and `chease-mhd-stability` namespaces
-online. Written against HSDS 0.9.0.alpha0 and h5pyd 0.20.0.
+online. Written against HSDS 0.9.0.alpha0 and h5pyd 0.24.0, the version VAFT pins
+(`pyproject.toml`) and the production vestserver client since 2026-09-29 (#969,
+#1272). Do not upgrade to h5pyd 1.x: against this server it silently drops HDF5
+attributes (#1271).
 
 Every check in step 1 and step 3 is read-only. The first command that changes
 anything on the server is in step 2.
@@ -63,8 +66,12 @@ run step 2's `-o`; ask an administrator to.
 
 Configuration comes from `~/.hscfg` (`hs_endpoint`, `hs_username`, and one of
 `hs_password` / `hs_api_key`), or from `HS_ENDPOINT` / `HS_USERNAME` /
-`HS_PASSWORD`. `hsconfigure` writes the file interactively. VAFT reads no HSDS
-settings of its own — it inherits whatever h5pyd resolves.
+`HS_PASSWORD`. `vaft hsds configure` writes the file: it reads the password and
+API key without echo and writes `~/.hscfg` with mode 0600 (`--endpoint`,
+`--username` and `--password-stdin` skip the prompts). Do not use the upstream
+`hsconfigure`, which echoes the password and shows a stored one as the prompt
+default. VAFT reads no HSDS credentials of its own — it inherits whatever h5pyd
+resolves.
 
 ### Which account is which
 
@@ -181,7 +188,9 @@ except ReadOnlySourceError:
 
 # A stage that is one solve's result goes to one source per stability product,
 # so it has no destination until the product is named.
-PER_PRODUCT = {"mhd_linear": ("dcon-peeling", "dcon-kink", "rdcon", "stride")}
+# TGLF's result goes to one transitional source per configuration (#1900).
+PER_PRODUCT = {"mhd_linear": ("dcon-peeling", "dcon-kink", "rdcon", "stride"),
+               "turbulent_transport": s.tglf_configurations()}
 
 for stage in s.replicable_stages():
     for product in PER_PRODUCT.get(stage, (None,)):
@@ -192,7 +201,8 @@ PY
 ```
 
 Expect `read-only: ['public', 'chease-mhd-stability', 'magnetic-efit']` and one
-`ok:` line per stage, four for `mhd_linear` (one per stability product).
+`ok:` line per stage, four for `mhd_linear` (one per stability product) and
+twelve for `turbulent_transport` (one per TGLF configuration, magnetic family).
 
 ```bash
 # user= cannot falsify the destination -- must raise before connecting
@@ -217,7 +227,7 @@ except Exception as e:
 
 # and the corrective updaters refuse to be pointed at public
 VAFT_HSDS_SOURCE=public python -c '
-import sys; sys.path.insert(0, "workflow/automatic_pipeline_2_corrective_data_update")
+import sys; sys.path.insert(0, "workflow/automatic_pipeline_2_corrective_data_update/legacy")
 try:
     import update_thomson_scattering_and_core_profile; print("FAIL")
 except Exception as e:

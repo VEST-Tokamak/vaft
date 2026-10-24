@@ -9,7 +9,7 @@ return ``(Figure, Axes)``), and give each cohort a fixed colour *and* marker so
 identity never rests on colour alone.
 
 The measured-versus-reconstructed view keeps ``y = x`` as the reference and
-reports deviation from it (bias and RMS of ``z``), not a fitted regression.
+reports mean absolute error in the diagnostic's unit, not a fitted regression.
 """
 
 from __future__ import annotations
@@ -17,8 +17,12 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from .presentation import presented, resolve_presentation
+
 __all__ = [
     "COHORT_STYLE",
+    "equilibrium_quality_diagnostic_grid",
+    "equilibrium_quality_diagnostic_slides",
     "equilibrium_quality_measured_vs_reconstructed",
     "equilibrium_quality_reduced_chi2",
     "equilibrium_quality_residual_distribution",
@@ -26,12 +30,20 @@ __all__ = [
     "equilibrium_quality_validation_matrix",
 ]
 
+DIAGNOSTIC_FAMILIES = ("bpol_probe", "flux_loop", "ip", "diamagnetic_flux")
+
 #: Cohort -> (colour, marker, label), in report order (validated palette of
 #: vaft.plot.population; the failed cohort is the neutral grey).
 COHORT_STYLE = {
     "good": ("#2a78d6", "o", "good"),
     "admissible": ("#eb6834", "s", "admissible-only"),
     "unreconstructible": ("#8b8a82", "x", "unreconstructible attempt"),
+}
+
+COMPARISON_LABELS = {
+    "good": "High quality",
+    "admissible": "Admissible",
+    "unreconstructible": "Failure",
 }
 
 FAMILY_TITLES = {
@@ -83,52 +95,143 @@ def _cohorts(table: pd.DataFrame, by: str):
             yield cohort, mask, color, marker, label
 
 
+@presented(default_figsize=(5.2, 5.0))
 def equilibrium_quality_measured_vs_reconstructed(points: pd.DataFrame, *, family: str, by: str = "quality_label",
                                                   fitted_only: bool = True, ax=None, show: bool = False,
-                                                  figsize=(5.2, 5.0)):
+                                                  figsize=None, format: str | None = None,
+                                                  theme: str | None = None, limits=None):
     """Measured (x) against reconstructed (y) for one constraint family, by cohort, with ``y = x``.
 
     ``points`` are :func:`~vaft.validation.equilibrium_quality.equilibrium_quality_constraint_points`
-    rows joined with each slice's ``quality_label``.  The legend gives, per
-    cohort, the number of channels and the bias and RMS of ``z`` -- deviation
-    from the identity line, not a regression.
+    rows joined with each slice's ``quality_label``.  The legend gives the
+    number of channels and mean absolute error from ``y = x`` in the family's
+    native unit, not a regression R². ``limits=(min, max)`` sets both axes;
+    otherwise their common range is derived from the data. Cohort statistics
+    use all fitted points, including those outside the requested view.
     """
-    fig, ax = _axes(ax, figsize)
+    if limits is not None:
+        limits = _comparison_limits(limits)
+    fig, ax = _axes(ax, figsize or (5.2, 5.0))
     data = points[points["family"] == family]
     if fitted_only and "fitted" in data:
         data = data[data["fitted"].astype(bool)]
     x = pd.to_numeric(data["measured"], errors="coerce").to_numpy(float)
     y = pd.to_numeric(data["reconstructed"], errors="coerce").to_numpy(float)
-    z = pd.to_numeric(data.get("z", pd.Series(np.nan, index=data.index)), errors="coerce").to_numpy(float)
     finite = np.isfinite(x) & np.isfinite(y)
-    for _cohort, mask, color, marker, label in _cohorts(data, by):
+    unit = data["unit"].iloc[0] if "unit" in data and len(data) else ""
+    import matplotlib.pyplot as plt
+
+    font_scale = plt.rcParams["font.size"] / 10.0
+    for cohort, mask, color, marker, _label in _cohorts(data, by):
         use = mask & finite
         if not use.any():
             continue
-        zc = z[use][np.isfinite(z[use])]
-        stats = f", z bias {zc.mean():+.2f}, z rms {np.sqrt(np.mean(zc ** 2)):.2f}" if zc.size else ""
+        mae = float(np.mean(np.abs(y[use] - x[use])))
+        label = COMPARISON_LABELS.get(cohort, cohort)
+        error_label = f"{mae:.2f} {unit}" if unit else f"{mae:.2f}"
         # Failed attempts underneath and faint, good on top: the largest cohort
         # must not hide the one the figure is about.
-        layer = {"good": 3, "admissible": 2}.get(_cohort, 1)
-        ax.scatter(x[use], y[use], s=14 if layer > 1 else 8, marker=marker, color=color,
+        layer = {"good": 3, "admissible": 2}.get(cohort, 1)
+        ax.scatter(x[use], y[use], s=(14 if layer > 1 else 8) * font_scale ** 2, marker=marker, color=color,
                    alpha=0.8 if layer == 3 else 0.55 if layer == 2 else 0.2, zorder=layer,
                    linewidths=1.0 if marker == "x" else 0.4, edgecolors=None if marker == "x" else "white",
-                   label=f"{label} (n={int(use.sum())}{stats})")
+                   label=f"{label} (n={int(use.sum())}, MAE {error_label})")
     if finite.any():
         lo = float(np.nanmin(np.r_[x[finite], y[finite]]))
         hi = float(np.nanmax(np.r_[x[finite], y[finite]]))
         pad = 0.05 * (hi - lo or 1.0)
-        ax.plot([lo - pad, hi + pad], [lo - pad, hi + pad], color="#1a1a19", lw=1.0, ls="--", label="y = x")
-        ax.set_xlim(lo - pad, hi + pad)
-        ax.set_ylim(lo - pad, hi + pad)
-    unit = data["unit"].iloc[0] if "unit" in data and len(data) else ""
+        reference = limits if limits is not None else (lo - pad, hi + pad)
+        ax.plot(reference, reference, color="#1a1a19", lw=1.0, ls="--", label="y = x")
+        ax.set_xlim(reference)
+        ax.set_ylim(reference)
     ax.set_xlabel(f"measured [{unit}]" if unit else "measured")
     ax.set_ylabel(f"reconstructed [{unit}]" if unit else "reconstructed")
+    if limits is not None:
+        ax.set_xlim(limits)
+        ax.set_ylim(limits)
     ax.set_title(FAMILY_TITLES.get(family, family))
     ax.set_aspect("equal", adjustable="box")
-    ax.legend(fontsize=7, loc="upper left", frameon=False)
+    if font_scale >= 1.5:
+        ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), frameon=False)
+    else:
+        ax.legend(loc="upper left", frameon=False)
     _finish(show)
     return fig, ax
+
+
+def _comparison_limits(limits):
+    values = np.asarray(limits, dtype=float)
+    if values.shape != (2,) or not np.isfinite(values).all() or values[0] >= values[1]:
+        raise ValueError("limits must be two finite increasing values")
+    return tuple(values)
+
+
+def _family_limits(limits_by_family):
+    limits = limits_by_family or {}
+    unknown = set(limits) - set(DIAGNOSTIC_FAMILIES)
+    if unknown:
+        raise ValueError(f"unknown diagnostic family in limits_by_family: {sorted(unknown)}")
+    return {family: _comparison_limits(value) for family, value in limits.items()}
+
+
+def equilibrium_quality_diagnostic_slides(points: pd.DataFrame, *, show: bool = False,
+                                          format: str = "slide", theme: str | None = None,
+                                          limits_by_family=None):
+    """Render one measured-versus-reconstructed slide per diagnostic family.
+
+    Keeping a single comparison on each slide leaves room for readable axes,
+    cohort statistics and the identity reference.  Returns figures keyed by
+    diagnostic family in presentation order.
+    """
+    limits_by_family = _family_limits(limits_by_family)
+    return {
+        family: equilibrium_quality_measured_vs_reconstructed(
+            points, family=family, show=show, format=format, theme=theme,
+            limits=limits_by_family.get(family),
+        )
+        for family in DIAGNOSTIC_FAMILIES
+        if "family" in points and (points["family"] == family).any()
+    }
+
+
+def equilibrium_quality_diagnostic_grid(points: pd.DataFrame, *, show: bool = False,
+                                        figsize: tuple[float, float] = (9.8, 10.0),
+                                        limits_by_family=None):
+    """A presentation-size 2×2 overview of the four diagnostic comparisons.
+
+    The individual slides retain cohort counts and MAE.  This overview uses
+    one shared cohort legend so four panels remain readable together.  It
+    accepts the same ``limits_by_family`` as the individual slides.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+
+    limits_by_family = _family_limits(limits_by_family)
+    presentation = resolve_presentation("slide", None)
+    with presentation.context():
+        fig, axes = plt.subplots(2, 2, figsize=figsize)
+        for ax, family in zip(axes.ravel(), DIAGNOSTIC_FAMILIES):
+            if "family" not in points or not (points["family"] == family).any():
+                ax.set_axis_off()
+                continue
+            equilibrium_quality_measured_vs_reconstructed(
+                points, family=family, ax=ax, limits=limits_by_family.get(family))
+            legend = ax.get_legend()
+            if legend is not None:
+                legend.remove()
+
+        handles = [
+            Line2D([], [], color=color, marker=marker, linestyle="none", markersize=10,
+                   label=COMPARISON_LABELS[cohort])
+            for cohort, (color, marker, _label) in COHORT_STYLE.items()
+        ]
+        handles.append(Line2D([], [], color="#1a1a19", linestyle="--", label="y = x"))
+        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.015),
+                   ncol=4, frameon=False)
+        fig.tight_layout(rect=(0.0, 0.08, 1.0, 1.0), pad=0.8, w_pad=0.8, h_pad=1.2)
+    if show:
+        plt.show()
+    return fig, axes
 
 
 def equilibrium_quality_residual_distribution(points: pd.DataFrame, *, family: str, by: str = "quality_label",
@@ -155,7 +258,7 @@ def equilibrium_quality_residual_distribution(points: pd.DataFrame, *, family: s
     ax.set_ylabel("fraction of channels ≤ |z|")
     ax.set_ylim(0, 1.02)
     ax.set_title(FAMILY_TITLES.get(family, family))
-    ax.legend(fontsize=7, frameon=False, loc="lower right")
+    ax.legend(fontsize="x-small", frameon=False, loc="lower right")
     _finish(show)
     return fig, ax
 
@@ -177,7 +280,7 @@ def equilibrium_quality_reduced_chi2(table: pd.DataFrame, *, column: str = "prob
     ax.set_xlabel(column.replace("_", " "))
     ax.set_ylabel("fraction of slices ≤ value")
     ax.set_ylim(0, 1.02)
-    ax.legend(fontsize=7, frameon=False, loc="lower right")
+    ax.legend(fontsize="x-small", frameon=False, loc="lower right")
     _finish(show)
     return fig, ax
 
@@ -213,7 +316,7 @@ def equilibrium_quality_validation_matrix(census: dict, *, ax=None, show: bool =
             na = 1.0 - p - f
             text = f"{p:.0%} / {f:.0%}" + (f"\n(n/a {na:.0%})" if na > 0.005 else "")
             dark = np.isfinite(fail[i, j]) and fail[i, j] > 0.6
-            ax.text(j, i, text, ha="center", va="center", fontsize=6.5, color="white" if dark else "#1a1a19")
+            ax.text(j, i, text, ha="center", va="center", fontsize="x-small", color="white" if dark else "#1a1a19")
             if not np.isfinite(fail[i, j]):
                 ax.add_patch(Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False, hatch="///",
                                        edgecolor="#b8b7ae", lw=0))
@@ -221,10 +324,10 @@ def equilibrium_quality_validation_matrix(census: dict, *, ax=None, show: bool =
         ax.axhline(rules.index("thomson_status") - 0.5, color="#1a1a19", lw=1.2)
     ax.set_xticks(range(len(cohorts)))
     ax.set_xticklabels([f"{COHORT_STYLE[c][2]}\n(n={(matrix[rules[0]].get(c) or {}).get('n', 0)})" for c in cohorts],
-                       fontsize=8)
+                       fontsize="small")
     ax.set_yticks(range(len(rules)))
-    ax.set_yticklabels([RULE_TITLES.get(r, r) for r in rules], fontsize=8)
-    ax.set_title("Rule verdicts by cohort (pass / fail; colour = fail share of graded)", fontsize=9)
+    ax.set_yticklabels([RULE_TITLES.get(r, r) for r in rules], fontsize="small")
+    ax.set_title("Rule verdicts by cohort (pass / fail; colour = fail share of graded)", fontsize="medium")
     fig.colorbar(image, ax=ax, fraction=0.04, pad=0.02, label="fail fraction")
     _finish(show)
     return fig, ax
@@ -250,22 +353,22 @@ def equilibrium_quality_selection_funnel(funnel: dict, *, ax=None, show: bool = 
             width = removed.get(rule, 0)
             if width:
                 ax.barh(i, width, left=left, color=shades[j % len(shades)], edgecolor="white")
-                ax.text(left + width / 2, i, str(width), ha="center", va="center", fontsize=7, color="white" if j < 2 else "#1a1a19")
+                ax.text(left + width / 2, i, str(width), ha="center", va="center", fontsize="x-small", color="white" if j < 2 else "#1a1a19")
             left += width
         color = COHORT_STYLE.get(cohort, ("#2a78d6", "o", cohort))[0]
         ax.barh(i, entry["selected"], left=left, color=color, edgecolor="white")
         ax.text(left + entry["selected"] / 2 if entry["selected"] else left, i, f"{entry['selected']} selected",
-                ha="center", va="center", fontsize=7, color="white" if entry["selected"] else "#1a1a19")
+                ha="center", va="center", fontsize="x-small", color="white" if entry["selected"] else "#1a1a19")
     from matplotlib.patches import Patch
 
     handles = [Patch(color=shades[j % len(shades)], label=f"removed by {rule}") for j, rule in enumerate(rules)]
     # Below the axes: inside, it would cover the widest cohort's bar.
-    ax.legend(handles=handles, fontsize=7, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
+    ax.legend(handles=handles, fontsize="x-small", frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
     ax.set_yticks(range(len(cohorts)))
     ax.set_yticklabels([f"{COHORT_STYLE.get(c, (None, None, c))[2]}\n(n={funnel['cohorts'][c]['candidates']})" for c in cohorts],
-                       fontsize=8)
+                       fontsize="small")
     ax.invert_yaxis()
     ax.set_xlabel("confinement candidate slices")
-    ax.set_title("EFIT quality → confinement selection", fontsize=9)
+    ax.set_title("EFIT quality → confinement selection", fontsize="medium")
     _finish(show)
     return fig, ax

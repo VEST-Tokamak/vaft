@@ -1,0 +1,488 @@
+"""Per-formula uncertainty propagation: the optional contract and evaluation API (#1874).
+
+The pilot formulas keep their signatures, values and cost; the analytic
+Jacobians they carry agree with a well-scaled finite difference; correlated
+and independent inputs reproduce the closed forms; an unknown uncertainty, a
+mismatched input and an out-of-domain point are refused; and the first-order
+result says when it stops describing the spread.
+"""
+
+from __future__ import annotations
+
+import inspect
+import subprocess
+import sys
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from vaft.formula import equilibrium, sensitivity
+from vaft.formula._propagation import analytic_jacobian
+
+ROOT = Path(__file__).resolve().parents[1]
+TAU = equilibrium.confinement_time_from_P_loss_W_th
+OHMIC = equilibrium.ohmic_heating_power_from_I_p_V_res
+POINT = {"P_loss": 1.0e5, "W_th": 2.0e3}
+
+
+def propagate(formula=TAU, inputs=POINT, **kwargs):
+    return sensitivity.propagate_formula_uncertainty(formula, inputs, **kwargs)
+
+
+# --- the fast path is untouched ---------------------------------------------
+
+
+def test_the_pilot_formulas_keep_their_signature_value_and_identity():
+    assert list(inspect.signature(TAU).parameters) == ["P_loss", "W_th"]
+    assert list(inspect.signature(OHMIC).parameters) == ["I_p", "V_res"]
+    assert TAU(1.0e5, 2.0e3) == 2.0e-2 and isinstance(TAU(1.0e5, 2.0e3), float)
+    assert OHMIC(1.0e5, 0.5) == 5.0e4
+    # the decorator returns the function itself: no wrapper on the call path
+    assert TAU.__module__ == "vaft.formula.equilibrium" and not hasattr(TAU, "__wrapped__")
+    assert analytic_jacobian(TAU)[1] == ("P_loss", "W_th")
+
+
+def test_the_catalog_reads_the_attribute_the_decorator_writes():
+    from vaft.formula import _propagation, catalog
+
+    assert catalog._JACOBIAN_ATTRIBUTE == _propagation._ATTRIBUTE
+    assert catalog._analytic_jacobian(TAU) == _propagation.analytic_jacobian(TAU)
+
+
+def test_importing_the_formula_package_does_not_load_the_propagation_api():
+    code = "import sys, vaft.formula; print('vaft.formula.sensitivity' in sys.modules)"
+    result = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True, check=True)
+    assert result.stdout.strip() == "False"
+
+
+# --- analytic derivatives against finite differences -------------------------
+
+
+@pytest.mark.parametrize(("formula", "point"), [
+    (TAU, {"P_loss": 1.0e5, "W_th": 2.0e3}),
+    (TAU, {"P_loss": 3.0e3, "W_th": 7.0e1}),
+    (OHMIC, {"I_p": 1.0e5, "V_res": 0.4}),
+])
+def test_the_analytic_jacobian_agrees_with_a_scaled_finite_difference(formula, point):
+    analytic = propagate(formula, point, std=[1.0, 1.0], derivative="analytic")
+    numeric = propagate(formula, point, std=[1.0, 1.0], derivative="finite_difference")
+    assert analytic.derivative_method == "analytic" and numeric.derivative_method == "finite_difference"
+    np.testing.assert_allclose(analytic.jacobian, numeric.jacobian, rtol=1e-7)
+
+
+def test_the_finite_difference_step_follows_each_inputs_own_scale():
+    # inputs 8 orders of magnitude apart; a unit-floored step would ruin the small one
+    point = {"P_loss": 2.0e-3, "W_th": 4.0e5}
+    analytic = propagate(TAU, point, std=[1e-4, 1e4], derivative="analytic")
+    numeric = propagate(TAU, point, std=[1e-4, 1e4], derivative="finite_difference")
+    np.testing.assert_allclose(numeric.jacobian, analytic.jacobian, rtol=1e-7)
+
+
+# --- closed forms, independent and correlated --------------------------------
+
+
+def test_independent_inputs_reproduce_the_relative_error_sum():
+    sigma_p, sigma_w = 1.0e4, 1.0e2
+    result = propagate(std=[sigma_p, sigma_w])
+    tau = POINT["W_th"] / POINT["P_loss"]
+    expected = tau * np.hypot(sigma_p / POINT["P_loss"], sigma_w / POINT["W_th"])
+    np.testing.assert_allclose(result.std, [expected], rtol=1e-12)
+    assert result.method == "linear" and result.input_names == ("P_loss", "W_th")
+
+
+def test_a_positive_correlation_reduces_the_spread_of_a_ratio():
+    sigma_p, sigma_w, rho = 1.0e4, 2.0e2, 0.8
+    cov = np.array([[sigma_p ** 2, rho * sigma_p * sigma_w], [rho * sigma_p * sigma_w, sigma_w ** 2]])
+    correlated = propagate(covariance=cov)
+    independent = propagate(std=[sigma_p, sigma_w])
+    P, W = POINT["P_loss"], POINT["W_th"]
+    rel2 = (sigma_p / P) ** 2 + (sigma_w / W) ** 2 - 2 * rho * sigma_p * sigma_w / (P * W)
+    np.testing.assert_allclose(correlated.std, [W / P * np.sqrt(rel2)], rtol=1e-12)
+    assert correlated.std[0] < independent.std[0]
+
+
+def test_a_bilinear_product_with_correlation():
+    I, V, sI, sV, rho = 1.0e5, 0.5, 2.0e3, 0.05, -0.3
+    cov = np.array([[sI ** 2, rho * sI * sV], [rho * sI * sV, sV ** 2]])
+    result = propagate(OHMIC, {"I_p": I, "V_res": V}, covariance=cov)
+    expected = V ** 2 * sI ** 2 + I ** 2 * sV ** 2 + 2 * I * V * rho * sI * sV
+    np.testing.assert_allclose(result.covariance, [[expected]], rtol=1e-12)
+
+
+def test_input_order_is_the_covariance_order():
+    sigma_p, sigma_w = 1.0e4, 1.0e2
+    forward = propagate(std=[sigma_p, sigma_w], input_names=("P_loss", "W_th"))
+    reverse = propagate(std=[sigma_w, sigma_p], input_names=("W_th", "P_loss"))
+    np.testing.assert_allclose(forward.std, reverse.std, rtol=1e-12)
+    np.testing.assert_allclose(forward.jacobian[:, ::-1], reverse.jacobian, rtol=1e-12)
+
+
+def test_a_fixed_input_carries_no_uncertainty():
+    result = propagate(input_names=("W_th",), std=[1.0e2])
+    assert result.fixed == {"P_loss": 1.0e5}
+    np.testing.assert_allclose(result.std, [1.0e2 / 1.0e5], rtol=1e-12)
+    assert result.jacobian.shape == (1, 1)
+
+
+def test_variance_and_standard_deviation_are_not_confused():
+    by_variance = propagate(covariance=[1.0e8, 1.0e4])  # 1-D covariance means variances
+    by_std = propagate(std=[1.0e4, 1.0e2])
+    np.testing.assert_allclose(by_variance.covariance, by_std.covariance, rtol=1e-12)
+    np.testing.assert_allclose(by_std.std ** 2, np.diag(by_std.covariance), rtol=1e-12)
+
+
+def test_the_output_covariance_is_symmetric_and_positive_semidefinite():
+    cov = np.array([[1.0e8, 5.0e5], [5.0e5, 1.0e4]])
+    out = propagate(covariance=cov).covariance
+    np.testing.assert_allclose(out, out.T)
+    assert np.linalg.eigvalsh(out).min() >= -1e-18
+
+
+# --- refused inputs -----------------------------------------------------------
+
+
+@pytest.mark.parametrize(("kwargs", "message"), [
+    ({}, "unknown, not zero"),
+    ({"std": [1.0, 1.0], "covariance": [1.0, 1.0]}, "exactly one"),
+    ({"std": [np.nan, 1.0]}, "known"),
+    ({"covariance": [[1.0, np.nan], [np.nan, 1.0]]}, "NaN is an unknown"),
+    ({"std": [1.0]}, "one entry per input"),
+    ({"std": [-1.0, 1.0]}, "non-negative"),
+    ({"std": [np.inf, 1.0]}, "finite"),
+    ({"covariance": [np.inf, 1.0]}, "finite"),
+    ({"std": [[1.0, 1.0]]}, "1-D"),
+    ({"std": [1.0, 1.0], "derivative": "finite_difference", "fd_step": [1.0]}, "entries for 2 inputs"),
+    ({"std": [1.0, 1.0], "derivative": "finite_difference", "fd_step": {"P_loss": 1.0}}, "exactly the uncertain"),
+    ({"std": [1.0, 1.0], "derivative": "finite_difference", "fd_step": [1.0, -1.0]}, "positive"),
+    ({"covariance": [[1.0, 2.0], [0.0, 1.0]]}, "symmetric"),
+    ({"covariance": [[1.0, 2.0], [2.0, 1.0]]}, "positive semi-definite"),
+    ({"std": [1.0, 1.0], "method": "bootstrap"}, "method"),
+    ({"std": [1.0, 1.0], "derivative": "autodiff"}, "derivative"),
+    ({"std": [1.0, 1.0], "input_names": ("P_loss", "P_loss")}, "repeats"),
+    ({"std": [1.0, 1.0], "input_names": ("P_loss", "W")}, "missing"),
+])
+def test_an_ambiguous_or_invalid_request_is_refused(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        propagate(**kwargs)
+
+
+def test_an_unknown_parameter_and_an_array_input_are_refused():
+    with pytest.raises(ValueError, match="no parameter"):
+        propagate(inputs={**POINT, "R0": 0.4}, std=[1.0, 1.0])
+    with pytest.raises(ValueError, match="not a scalar"):
+        propagate(inputs={"P_loss": np.array([1.0, 2.0]), "W_th": 1.0}, input_names=("P_loss", "W_th"),
+                  std=[1.0, 1.0])
+
+
+@pytest.mark.parametrize("point", [{"P_loss": 0.0, "W_th": 1.0e3}, {"P_loss": -1.0e5, "W_th": 2.0e3},
+                                   {"P_loss": 1.0e5, "W_th": -2.0e3}])
+def test_a_point_outside_the_domain_is_refused_not_propagated(point):
+    # a negative P_loss gives a finite W/P, but tau has no meaning there
+    with pytest.raises(ValueError, match="domain"):
+        propagate(inputs=point, std=[1.0, 1.0])
+
+
+def test_a_caller_domain_overrides_the_declared_one():
+    with pytest.raises(ValueError, match="domain"):
+        propagate(std=[1.0, 1.0], domain=lambda P_loss, W_th: P_loss > 2.0e5)
+
+
+def test_analytic_is_refused_for_a_formula_without_one():
+    with pytest.raises(ValueError, match="carries no analytic Jacobian"):
+        propagate(equilibrium.beta_toroidal_from_p_B0, {"p_average": 1.0e3, "B0": 0.3}, std=[1.0, 0.01],
+                  derivative="analytic")
+
+
+def test_a_zero_input_needs_an_explicit_step():
+    with pytest.raises(ValueError, match="give fd_step"):
+        propagate(OHMIC, {"I_p": 1.0e5, "V_res": 0.0}, std=[1.0, 0.01], derivative="finite_difference")
+    result = propagate(OHMIC, {"I_p": 1.0e5, "V_res": 0.0}, std=[1.0, 0.01], derivative="finite_difference",
+                       fd_step={"I_p": 1.0, "V_res": 1e-6})
+    np.testing.assert_allclose(result.jacobian, [[0.0, 1.0e5]], atol=1e-6)
+
+
+# --- validity of the first-order result ----------------------------------------
+
+
+def test_linearity_grows_with_the_relative_spread_and_is_infinite_across_the_pole():
+    small = propagate(std=[1.0e3, 0.0]).linearity
+    large = propagate(std=[5.0e4, 0.0]).linearity
+    at_pole = propagate(std=[1.0e5, 0.0]).linearity  # P_loss - 1 sigma reaches the pole
+    beyond = propagate(std=[1.5e5, 0.0]).linearity  # ... and crosses it into P_loss < 0
+    assert small < 0.02 < large < 1.0
+    assert at_pole == beyond == float("inf")
+    # exact inputs test nothing: no ratio is reported
+    assert propagate(std=[0.0, 0.0]).linearity is None
+
+
+def test_linear_and_sampled_propagation_agree_when_linear_and_part_when_not():
+    near = propagate(std=[2.0e3, 2.0e1])
+    near_mc = propagate(std=[2.0e3, 2.0e1], method="monte_carlo", samples=40000, seed=1)
+    assert near_mc.method == "monte_carlo" and near_mc.jacobian is None and near_mc.derivative_method is None
+    np.testing.assert_allclose(near_mc.std, near.std, rtol=0.03)
+    far = propagate(std=[4.0e4, 2.0e1])
+    far_mc = propagate(std=[4.0e4, 2.0e1], method="monte_carlo", samples=40000, seed=1)
+    # 1/P is convex with a pole inside a 40 % spread: sampling is much wider than first order,
+    # and the linearity ratio says so before anyone compares
+    assert far_mc.std[0] > 1.2 * far.std[0]
+    assert far.linearity > 0.3
+
+
+def test_monte_carlo_rejects_draws_outside_the_declared_domain():
+    # 1/P is finite for a negative draw, but tau is undefined there: the domain rejects it
+    result = propagate(std=[6.0e4, 2.0e1], method="monte_carlo", samples=5000, seed=2)
+    assert result.rejected > 0 and result.samples + result.rejected == 5000
+
+
+def test_monte_carlo_refuses_when_almost_every_draw_is_rejected():
+    with pytest.raises(ValueError, match="accepted"):
+        propagate(inputs={"P_loss": 1.0, "W_th": 2.0e3}, std=[1.0e6, 1.0], method="monte_carlo", samples=50,
+                  seed=0, domain=lambda P_loss, W_th: abs(P_loss - 1.0) < 1.0e-3)  # the mean only
+
+
+def test_monte_carlo_takes_no_derivative_choice():
+    with pytest.raises(ValueError, match="no derivative"):
+        propagate(std=[1.0, 1.0], method="monte_carlo", derivative="analytic")
+
+
+# --- the catalog contract -------------------------------------------------------
+
+
+def test_the_catalog_reports_the_contract_and_requires_the_section():
+    from vaft.formula import catalog
+
+    for name in ("equilibrium.confinement_time_from_P_loss_W_th", "equilibrium.ohmic_heating_power_from_I_p_V_res"):
+        spec = catalog.describe(name)
+        assert spec.uncertainty_propagation and spec.analytic_jacobian and spec.errors == ()
+        assert "Uncertainty propagation" in dict(spec.sections)
+        row = spec.as_dict()
+        assert row["uncertainty_propagation"] and row["analytic_jacobian"]
+
+    from vaft.formula._propagation import jacobian
+
+    @jacobian(lambda x: [[1.0]], wrt=("x",))
+    def toy(x):
+        """Toy.
+
+        Parameters
+        ----------
+        x : float [m]
+            A length.
+
+        Returns
+        -------
+        float [m]
+            The length.
+        """
+        return x
+
+    spec = catalog._spec(toy, "toy", "utils", "vaft.formula.utils", ())
+    assert any("Uncertainty propagation" in error for error in spec.errors)
+
+
+# --- the facade beyond the pilots ------------------------------------------------
+
+
+def test_auto_falls_back_to_a_finite_difference_without_an_analytic_jacobian():
+    result = propagate(equilibrium.beta_toroidal_from_p_B0, {"p_average": 1.0e3, "B0": 0.3}, std=[10.0, 0.003])
+    assert result.derivative_method == "finite_difference"
+
+
+def test_a_single_input_takes_a_scalar_uncertainty():
+    by_std = propagate(input_names=("W_th",), std=1.0e2)
+    by_variance = propagate(input_names=("W_th",), covariance=1.0e4)
+    np.testing.assert_allclose(by_std.std, by_variance.std, rtol=1e-12)
+
+
+def test_the_analytic_jacobian_sees_fixed_configuration():
+    from vaft.formula._propagation import jacobian
+
+    @jacobian(lambda x, k, **_: [[k]], wrt=("x",))
+    def scaled(x, k):
+        return k * x
+
+    result = sensitivity.propagate_formula_uncertainty(scaled, {"x": 2.0, "k": 3.0}, input_names=("x",), std=[0.1])
+    np.testing.assert_allclose(result.jacobian, [[3.0]])
+    np.testing.assert_allclose(result.std, [0.3])
+
+
+def test_a_vector_output_keeps_its_shape_and_ravel_order():
+    def field(a, b):
+        return np.array([[a * b, a + b], [a - b, a / b]])
+
+    result = sensitivity.propagate_formula_uncertainty(field, {"a": 2.0, "b": 4.0}, std=[0.1, 0.2])
+    assert result.value.shape == (2, 2) and result.jacobian.shape == (4, 2) and result.covariance.shape == (4, 4)
+    np.testing.assert_allclose(result.jacobian, [[4.0, 2.0], [1.0, 1.0], [1.0, -1.0], [0.25, -0.125]], rtol=1e-6)
+    np.testing.assert_allclose(result.covariance, result.covariance.T)
+    assert np.linalg.eigvalsh(result.covariance).min() >= -1e-12
+
+
+def test_a_zero_response_the_jacobian_does_not_predict_is_not_linear():
+    # x(x-1)(x+1) at 0: J = -1, but the +/- 1 response is exactly zero
+    result = sensitivity.propagate_formula_uncertainty(lambda x: x * (x - 1.0) * (x + 1.0), {"x": 0.0},
+                                                       std=[1.0], fd_step=1e-6)
+    assert result.linearity == float("inf")
+
+
+# --- Phase C: an operational boundary and its margin -------------------------------
+
+
+def _boundaries():
+    from vaft.formula import boundaries
+
+    return boundaries
+
+
+GREENWALD_INPUTS = {"plasma_current": 0.1, "minor_radius": 0.3}  # MA, m
+
+
+def test_the_greenwald_margin_matches_its_closed_form_with_a_shared_measurement():
+    B = _boundaries()
+    g = B.get_boundary("greenwald")
+    x, I, a = 2.0, GREENWALD_INPUTS["plasma_current"], GREENWALD_INPUTS["minor_radius"]
+    s_x, s_I, s_a, rho = 0.2, 0.005, 0.01, 0.6  # density and current from one shot, correlated
+    cov = np.array([[s_x ** 2, rho * s_x * s_I, 0.0], [rho * s_x * s_I, s_I ** 2, 0.0], [0.0, 0.0, s_a ** 2]])
+    result = B.propagate_boundary_uncertainty(g, x, inputs=GREENWALD_INPUTS, covariance=cov)
+    b = 10.0 * I / (np.pi * a ** 2)  # n_G = I_p/(pi a^2) in 1e20 m^-3; the target is in 1e19 m^-3
+    # m = 1 - x / b = 1 - x pi a^2 / (10 I)
+    J = np.array([-1.0 / b, x / (b * I), -2.0 * x / (b * a)])
+    np.testing.assert_allclose(result.boundary.value, b, rtol=1e-12)
+    np.testing.assert_allclose(result.margin.value, 1 - x / b, rtol=1e-12)
+    np.testing.assert_allclose(result.margin.std, [np.sqrt(J @ cov @ J)], rtol=1e-6)
+    np.testing.assert_allclose(result.boundary.std, [b * np.hypot(s_I / I, 2 * s_a / a)], rtol=1e-6)
+
+
+def test_a_state_on_the_boundary_gets_a_margin_spread_and_no_verdict():
+    B = _boundaries()
+    g = B.get_boundary("greenwald")
+    b = float(B.boundary_value(g, **GREENWALD_INPUTS))
+    linear = B.propagate_boundary_uncertainty(g, b, inputs=GREENWALD_INPUTS, std=[0.1 * b, 0.005, 0.005])
+    sampled = B.propagate_boundary_uncertainty(g, b, inputs=GREENWALD_INPUTS, std=[0.1 * b, 0.005, 0.005],
+                                               method="monte_carlo", samples=40000, seed=3)
+    assert abs(float(linear.margin.value)) < 1e-12 and linear.margin.std[0] > 0
+    np.testing.assert_allclose(sampled.margin.std, linear.margin.std, rtol=0.05)
+    # the propagation reports geometry and spread; whether the state is permitted is not its call
+    assert not hasattr(linear, "allowed") and not hasattr(linear.margin, "allowed")
+
+
+def test_the_margin_sign_follows_the_permitted_side():
+    B = _boundaries()
+    below = B.propagate_boundary_uncertainty(B.get_boundary("greenwald"), 2.0, inputs=GREENWALD_INPUTS,
+                                             std=[0.1, 0.0, 0.0])
+    above = B.propagate_boundary_uncertainty(
+        B.get_boundary("martin_2008_lh"), 0.3,
+        inputs={"line_average_density": 1.0, "toroidal_field": 0.2, "plasma_surface_area": 3.0},
+        std=[0.03, 0.0, 0.0, 0.0])
+    assert below.margin.jacobian[0, 0] < 0 < above.margin.jacobian[0, 0]  # dm/dx, permitted below vs above
+
+
+def test_the_source_uncertainty_is_reported_apart_from_the_measurement():
+    B = _boundaries()
+    m = B.get_boundary("martin_2008_lh")
+    inputs = {"line_average_density": 1.0, "toroidal_field": 0.2, "plasma_surface_area": 3.0}
+    result = B.propagate_boundary_uncertainty(m, 0.3, inputs=inputs, std=[0.0, 0.0, 0.0, 0.0])
+    assert result.margin.std[0] == 0.0  # exact measurements: no measurement spread ...
+    u = m.uncertainty
+    # by hand: sqrt(ln(1.05866)^2 + (0.035 ln 1)^2 + (0.032 ln 0.2)^2 + (0.019 ln 3)^2)
+    expected = 0.0796063
+    np.testing.assert_allclose(result.source_parameters_relative, expected, rtol=1e-5)  # ... but the source's own
+    assert result.source_parameters_complete
+    assert result.source_scatter_relative == u.rms_relative
+    b = float(B.boundary_value(m, **inputs))
+    np.testing.assert_allclose(result.margin_std_from_source_parameters, 0.3 / b * expected, rtol=1e-5)
+    assert result.source is u  # boundaries.Uncertainty passes through untouched
+    assert "independent" in result.source_note
+
+
+def test_a_boundary_without_source_uncertainty_reports_unknown_not_zero():
+    B = _boundaries()
+    result = B.propagate_boundary_uncertainty(B.get_boundary("greenwald"), 2.0, inputs=GREENWALD_INPUTS,
+                                              std=[0.1, 0.005, 0.01])
+    assert result.source_parameters_relative is None and result.source_scatter_relative is None
+    assert result.margin_std_from_source_parameters is None and "reports no" in result.source_note
+
+
+def test_only_the_operating_value_uncertain_leaves_the_boundary_exact():
+    B = _boundaries()
+    result = B.propagate_boundary_uncertainty(B.get_boundary("greenwald"), 2.0, inputs=GREENWALD_INPUTS,
+                                              input_names=("operating_value",), std=[0.1])
+    assert result.boundary is None
+    b = float(B.boundary_value(B.get_boundary("greenwald"), **GREENWALD_INPUTS))
+    np.testing.assert_allclose(result.margin.std, [0.1 / b], rtol=1e-6)
+
+
+def test_a_boundary_with_no_margin_at_the_inputs_is_refused():
+    B = _boundaries()
+    with pytest.raises(ValueError, match="no margin is defined"):
+        B.propagate_boundary_uncertainty(B.get_boundary("greenwald"), 2.0,
+                                         inputs={"plasma_current": 0.0, "minor_radius": 0.3}, std=[0.1, 0.0, 0.0])
+    with pytest.raises(ValueError, match="has no input"):
+        B.propagate_boundary_uncertainty(B.get_boundary("greenwald"), 2.0, inputs=GREENWALD_INPUTS,
+                                         input_names=("operating_value", "elongation"), std=[0.1, 0.1])
+
+
+def test_a_partly_reported_source_uncertainty_is_a_lower_bound_not_a_complete_value():
+    import dataclasses
+
+    B = _boundaries()
+    m = B.get_boundary("martin_2008_lh")
+    partial = dataclasses.replace(m, uncertainty=B.Uncertainty(exponents={"line_average_density": 0.035}))
+    inputs = {"line_average_density": 2.0, "toroidal_field": 0.2, "plasma_surface_area": 3.0}
+    result = B.propagate_boundary_uncertainty(partial, 0.3, inputs=inputs, std=[0.0, 0.0, 0.0, 0.0])
+    np.testing.assert_allclose(result.source_parameters_relative, 0.035 * np.log(2.0), rtol=1e-12)
+    assert not result.source_parameters_complete
+    assert "lower bound" in result.source_note and "toroidal_field" in result.source_note
+
+
+def test_a_threshold_boundary_has_an_exact_value_and_an_uncertain_margin():
+    B = _boundaries()
+    result = B.propagate_boundary_uncertainty(B.get_boundary("low_q"), 2.5, inputs={}, std=[0.1])
+    assert result.boundary is None
+    np.testing.assert_allclose([result.margin.value, result.margin.std[0]], [0.25, 0.05], rtol=1e-6)
+
+
+def test_a_function_boundary_with_an_absolute_coefficient_uncertainty_is_not_propagated_silently():
+    B = _boundaries()
+    g = B.get_boundary("giacomin_edge")
+    inputs = {"mass_number": 2.0, "minor_radius": 0.5, "separatrix_power": 1.0, "major_radius": 1.7,
+              "edge_safety_factor_95": 4.0, "elongation": 1.7, "toroidal_field": 2.0}
+    result = B.propagate_boundary_uncertainty(g, 0.3, inputs=inputs, input_names=("operating_value",), std=[0.03])
+    assert result.source_parameters_relative is None and "not propagated" in result.source_note
+
+
+def test_monte_carlo_on_a_margin_counts_rejected_draws():
+    B = _boundaries()
+    result = B.propagate_boundary_uncertainty(
+        B.get_boundary("martin_2008_lh"), 0.3,
+        inputs={"line_average_density": 0.1, "toroidal_field": 0.2, "plasma_surface_area": 3.0},
+        std=[0.03, 0.08, 0.0, 0.0], method="monte_carlo", samples=4000, seed=5)
+    assert result.margin.rejected > 0  # density draws below zero leave the boundary undefined
+
+
+def test_a_zero_mean_input_takes_an_explicit_step_and_extrapolation_is_warned():
+    B = _boundaries()
+    a = B.get_boundary("akers_2000_q95_current")
+    inputs = {"minor_radius": 0.3, "major_radius": 0.45, "toroidal_field": 0.1, "elongation": 1.6,
+              "triangularity": 0.0}
+    with pytest.raises(ValueError, match="fd_step"):
+        B.propagate_boundary_uncertainty(a, 0.1, inputs=inputs, std=[0.01, 0.0, 0.0, 0.0, 0.0, 0.05])
+    result = B.propagate_boundary_uncertainty(a, 0.1, inputs=inputs, std=[0.01, 0.0, 0.0, 0.0, 0.0, 0.05],
+                                              fd_step=[1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4])
+    assert result.margin.std[0] > 0
+    vest = {"mass_number": 1.0, "minor_radius": 0.3, "separatrix_power": 0.2, "major_radius": 0.45,
+            "edge_safety_factor_95": 6.0, "elongation": 1.6, "toroidal_field": 0.1}  # VEST: far below 1.4 T
+    edge = B.propagate_boundary_uncertainty(B.get_boundary("giacomin_edge"), 0.05, inputs=vest,
+                                            input_names=("operating_value",), std=[0.01])
+    assert set(edge.extrapolated) == {"major_radius", "toroidal_field"} and len(edge.warnings) == 2
+
+
+def test_a_reordered_correlated_request_matches_the_canonical_order():
+    B = _boundaries()
+    g = B.get_boundary("greenwald")
+    cov = np.array([[0.04, 6e-4, 0.0], [6e-4, 2.5e-5, 0.0], [0.0, 0.0, 1e-4]])
+    canonical = B.propagate_boundary_uncertainty(g, 2.0, inputs=GREENWALD_INPUTS, covariance=cov)
+    order = [2, 0, 1]
+    reordered = B.propagate_boundary_uncertainty(g, 2.0, inputs=GREENWALD_INPUTS, covariance=cov[np.ix_(order, order)],
+                                                 input_names=("minor_radius", "operating_value", "plasma_current"))
+    np.testing.assert_allclose(reordered.margin.std, canonical.margin.std, rtol=1e-12)

@@ -71,7 +71,8 @@ SWEEP = {
 EXTENSION_UNITS = {
     "time_efit_s": "s", "efit_lineage": "", "efit_quality": "", "efit_product_sha256": "",
     "ts_status": "", "thomson_consistent": "", "paired_electron_kinetic": "", "ip_efit_A": "A", "dip_dt_A_s": "A/s",
-    "v_loop_V": "V", "v_ind_V": "V", "v_res_V": "V", "r_p_ohm": "Ohm", "n_labelled_slices": "-", "w_kin_status": "", "li_3": "-", "beta_normal": "% m T/MA",
+    "v_loop_V": "V", "v_ind_V": "V", "v_ind_current_V": "V", "v_ind_profile_V": "V", "li3_rate_fallback": "",
+    "v_loop_name": "", "v_loop_source": "", "v_res_V": "V", "r_p_ohm": "Ohm", "n_labelled_slices": "-", "w_kin_status": "", "li_3": "-", "beta_normal": "% m T/MA",
     "w_mhd_J": "J", "w_kin_J": "J", "w_e_ts_J": "J", "dwdt_W": "W", "p_ohm_W": "W", "p_net_W": "W",
     "p_rad_W": "W", "p_transport_W": "W", "tau_e_kin_s": "s",
     "p_ohm_efit_flux_W": "W", "v_res_efit_flux_V": "V", "p_ohm_spitzer_W": "W",
@@ -114,15 +115,6 @@ def _match(times: np.ndarray, t: float):
         return None
     k = int(np.argmin(np.abs(times - t)))
     return k if abs(times[k] - t) <= TIME_TOLERANCE_S else None
-
-
-def _window_mean(t, y, at, width):
-    out = np.full(np.shape(at), np.nan)
-    for k, t0 in enumerate(np.atleast_1d(at)):
-        sel = np.abs(t - t0) <= 0.5 * width
-        if np.any(sel & np.isfinite(y)):
-            out[k] = float(np.nanmean(y[sel]))
-    return out
 
 
 def _li3_beta(efit):
@@ -259,36 +251,14 @@ def power_balance_series(t, ip_meas, dip_dt, v_loop, li3, r0, w_mhd, *, dwdt_win
     l_i is held fixed in V_ind, and only the rate-dependent columns are NaN.
     dW/dt is NaN at exactly those slices, so P_net and tau_E stay NaN there.
     """
-    from vaft.process.confinement import (
-        ConfinementPowerBalance,
-        confinement_power_balance,
-        confinement_slice_evidence,
-        resistive_loop_voltage,
-        smoothed_time_derivative,
-    )
+    from vaft.process.confinement import confinement_slice_evidence, ohmic_confinement_series
 
-    t = np.asarray(t, dtype=float)
-    has_rate = t.size >= 2
-
-    def rate(y):
-        return smoothed_time_derivative(t, y, window_s=dwdt_window_s, polyorder=rate_polyorder)
-
-    dli3_dt = rate(li3) if has_rate else np.full(t.size, np.nan)
-    # No rate in the window: hold l_i fixed there instead of losing P_OH and R_p.
-    dli3_dt = np.where(np.isfinite(dli3_dt), dli3_dt, 0.0)
-    split = resistive_loop_voltage(v_loop, ip_meas, dip_dt, li3, r0, dli3_dt=dli3_dt)
-    # A loop voltage and current of opposite orientation make every P_OH negative;
-    # flag it instead of letting the shot fail its rules silently.
-    orientation = float(np.nanmedian(np.sign(ip_meas * v_loop))) if t.size else np.nan
-    if has_rate:
-        pb = confinement_power_balance(t, ip_meas, split.v_res, w_mhd, dwdt_window_s=dwdt_window_s,
-                                       dwdt_polyorder=rate_polyorder)
-    else:  # one labelled slice: no dW/dt, so P_OH (l_i held fixed) and nothing that needs a rate
-        nan = np.full(t.size, np.nan)
-        pb = ConfinementPowerBalance(time=t, p_ohmic=np.asarray(ip_meas, float) * split.v_res, dwdt=nan,
-                                     p_net=nan, p_transport=nan, tau_e_net=nan, tau_e_transport=nan)
-    ev = confinement_slice_evidence(ip_meas, dip_dt, w_mhd, pb.p_ohmic, pb.dwdt, pb.tau_e_net)
-    return split, pb, ev, orientation
+    # The physics is vaft.process.confinement's (#1905); this keeps only the
+    # Tier A choices: the labelled slices, the window and the l_i fallback.
+    chain = ohmic_confinement_series(t, ip_meas, dip_dt, v_loop, li3, r0, w_mhd, rate_window_s=dwdt_window_s,
+                                     rate_polyorder=rate_polyorder, hold_li3_where_missing=True)
+    ev = confinement_slice_evidence(ip_meas, dip_dt, w_mhd, chain.p_ohmic, chain.dwdt, chain.tau_e_net)
+    return chain, chain.power_balance(), ev, chain.orientation
 
 
 def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
@@ -298,10 +268,7 @@ def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
     (good/admissible) slices: the product's other slices are unreconstructed and
     their stored energy is meaningless (down to -75 kJ on 42985).
     """
-    from vaft.omas.discharge_timing import inboard_midplane_loop, loop_voltage
     from vaft.omas.formula_wrapper import compute_voltage_consumption
-    from vaft.omas.update import resolve_reference_major_radius
-    from vaft.process.confinement import smoothed_time_derivative
 
     efit_path = filedb / "omas/efit/magnetic" / str(shot) / "output/efit.json.gz"
     diag = _load(filedb / "omas/diagnostics" / str(shot) / "output/diagnostics.json.gz")
@@ -316,28 +283,23 @@ def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
     descriptors = [every_slice[i] for i in idx]
     w_mhd = np.array([r.get("w_th_J", np.nan) for r in descriptors], dtype=float)
 
-    # Measured current and its rate at the EFIT times.
-    ip_t = np.asarray(diag["magnetics.ip.0.time"], dtype=float)
-    ip_y = np.asarray(diag["magnetics.ip.0.data"], dtype=float)
-    ip_meas = _window_mean(ip_t, ip_y, t, args.vloop_window_s)
-    dip_dt = smoothed_time_derivative(ip_t, ip_y, window_s=args.dip_window_s, at=t)
+    # The ODS-facing chain of #1905: measured I_p and inboard loop voltage at the
+    # labelled EFIT times, l_i3, R0 and W_mhd, power balance and tau_E.
+    from vaft.omas.confinement import ohmic_confinement_ods
+    from vaft.process.confinement import confinement_slice_evidence
 
-    # Measured loop voltage at the inboard midplane.
-    loop = inboard_midplane_loop(diag)
-    if loop is None:
-        raise RuntimeError("no inboard flux loop carries a waveform")
-    vt, vy, v_source = loop_voltage(diag, loop, prefer_measured=True)
-    v_loop = _window_mean(np.asarray(vt, float), np.asarray(vy, float), t, args.vloop_window_s)
-    name_path = f"magnetics.flux_loop.{loop}.name"
-    loop_name = str(diag[name_path]) if name_path in diag else str(loop)
-
-    li3_all, beta_all = _li3_beta(efit)
-    li3, beta_n = li3_all[idx], beta_all[idx]
-    r0 = float(resolve_reference_major_radius(efit))
-
-    split, pb, ev, orientation = power_balance_series(
-        t, ip_meas, dip_dt, v_loop, li3, r0, w_mhd,
-        dwdt_window_s=args.dwdt_window_s, rate_polyorder=args.rate_polyorder)
+    result = ohmic_confinement_ods(
+        efit, diagnostics=diag, time_slices=idx, w_source="efit_pressure", rate_window_s=args.dwdt_window_s,
+        rate_polyorder=args.rate_polyorder, dip_window_s=args.dip_window_s, average_window_s=args.vloop_window_s)
+    split = result.chain
+    if not np.array_equal(result.eq_index, idx):
+        raise RuntimeError("the confinement chain reordered or dropped labelled slices")
+    pb, orientation = split.power_balance(), split.orientation
+    ip_meas, dip_dt, v_loop, r0 = split.i_p, split.dip_dt, split.v_loop, split.r0
+    ev = confinement_slice_evidence(ip_meas, dip_dt, w_mhd, pb.p_ohmic, pb.dwdt, pb.tau_e_net)
+    loop_name, v_source = result.loop_name, result.voltage_source
+    li3 = split.li_3
+    beta_n = _li3_beta(efit)[1][idx]
 
     # Comparison path: the EFIT boundary flux (#652) over the labelled slices; never the default.
     v_res_efit = np.full(t.size, np.nan)
@@ -360,7 +322,8 @@ def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
 
     return dict(
         t=t, descriptors=descriptors, w_mhd=w_mhd, ip_meas=ip_meas, dip_dt=dip_dt, v_loop=v_loop,
-        v_ind=split.v_ind, v_res=split.v_res, r_p=split.r_p, li3=li3, beta_n=beta_n, r0=r0, pb=pb, ev=ev,
+        v_ind=split.v_ind, v_ind_current=split.v_ind_current, v_ind_profile=split.v_ind_profile,
+        li3_fallback=split.li3_rate_fallback, v_res=split.v_res, r_p=split.r_p, li3=li3, beta_n=beta_n, r0=r0, pb=pb, ev=ev,
         v_res_efit=v_res_efit, p_spitzer=p_spitzer, loop_name=loop_name, v_source=v_source,
         efit_sha=_sha256(efit_path), orientation=orientation,
     )
@@ -449,6 +412,9 @@ def build(args) -> int:
                 "v_res_efit_flux_V": series["v_res_efit"], "li_3": series["li3"],
                 "w_mhd_J": series["w_mhd"], "dwdt_W": pb.dwdt, "p_ohm_W": pb.p_ohmic,
                 "p_net_W": pb.p_net, "tau_e_net_s": pb.tau_e_net,
+                # after the original columns, so older series files read the same (#1905)
+                "v_ind_current_V": series["v_ind_current"], "v_ind_profile_V": series["v_ind_profile"],
+                "li3_rate_fallback": series["li3_fallback"],
             }).to_csv(out / "series" / f"{shot}.csv", index=False)
 
         for state in (s for s in magnetics if int(s["shot"]) == shot):
@@ -494,6 +460,9 @@ def build(args) -> int:
                     "w_kin_status": w_k_status,
                     "dip_dt_A_s": series["dip_dt"][k], "v_loop_V": series["v_loop"][k],
                     "v_ind_V": series["v_ind"][k], "v_res_V": series["v_res"][k],
+                    "v_ind_current_V": series["v_ind_current"][k], "v_ind_profile_V": series["v_ind_profile"][k],
+                    "li3_rate_fallback": bool(series["li3_fallback"][k]),
+                    "v_loop_name": series["loop_name"], "v_loop_source": series["v_source"],
                     "li_3": series["li3"][k], "beta_normal": series["beta_n"][k],
                     "w_mhd_J": series["w_mhd"][k], "w_th_J": series["w_mhd"][k], "w_kin_J": w_k,
                     "w_e_ts_J": c.get("w_e_ts_J", np.nan),

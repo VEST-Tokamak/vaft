@@ -57,7 +57,7 @@ import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Mapping, Optional, Sequence
+from typing import Any, Callable, List, Mapping, Optional, Sequence
 
 import numpy as np
 
@@ -234,6 +234,18 @@ class KineticEFITConfig:
     # kfile when it is built from the ODS; None is the default configuration
     # (statistical_891 since 2026-10-01).
     efit_preset: Optional[str] = None
+    # Impurity dilution of the ion pressure: ``f(psi_N) = n_i,tot / n_e`` with
+    # ``n_i,tot`` summed over every charged ion. ``None`` is the legacy
+    # ``n_i = n_e``. Applied to the raw encodings, whose pressure is built here
+    # from the Thomson/CX points; the ``spline`` encoding reads
+    # ``core_profiles.pressure_thermal``, which already carries it.
+    ion_density_ratio: Optional[Callable[[np.ndarray], np.ndarray]] = None
+    #: Ordering quantities of the state being reconstructed (#1823), by
+    #: ``vaft.validation.orderings.ORDERING_QUANTITIES`` name, e.g.
+    #: ``vaft.process.ordering_state.ordering_inputs_from_ods(ods, t).state``.
+    #: Advisory only: passed to every PLASMA-scale run's ``EFITConfig`` and
+    #: recorded there as ``ordering_check``; never part of the k-file.
+    ordering_state: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -605,6 +617,7 @@ def kinetic_pressure_points(
     sigma_floor: float = 0.05,
     ti_te_ratio: Any = "auto",
     ti_te_ratio_sigma: Optional[float] = None,
+    ion_density_ratio: Optional[Callable[[np.ndarray], np.ndarray]] = None,
 ) -> PressurePoints:
     """Build the EFIT ``KPRFIT`` pressure points for the requested encoding.
 
@@ -634,6 +647,14 @@ def kinetic_pressure_points(
     restore the strict behaviour
     (raise when ion data is missing) or a float to force a coefficient.
     Shots with ion data are unaffected.
+
+    Impurity dilution: ``ion_density_ratio`` is ``f(psi_N) = n_i,tot / n_e``
+    and turns the raw encodings' pressure into ``p = e*ne*(Te + f*Ti)`` (the
+    ions share ``Ti``), so a Z_eff = 2 C/O plasma is no longer counted as one
+    ion per electron. ``f`` is taken as exact: it is an assumed composition, and
+    its uncertainty is not folded into SIGPRE. It needs ``geq`` to map the
+    Thomson radii to ``psi_N``, and raises without one rather than skipping the
+    correction silently. ``None`` is the legacy ``n_i = n_e``.
     """
     enc = encoding.lower()
     if enc in ("raw6", "raw5"):
@@ -642,20 +663,34 @@ def kinetic_pressure_points(
             ti_te_ratio=ti_te_ratio, ti_te_ratio_sigma=ti_te_ratio_sigma,
             return_fallback_meta=True,
         )
-        p = ne * (Te + Ti) * EQE
+        if ion_density_ratio is None:
+            f = np.ones_like(R)
+        else:
+            if geq is None:
+                raise ValueError(
+                    "ion_density_ratio needs geq to map the Thomson radii to psi_N; "
+                    "pass it, or None for n_i = n_e"
+                )
+            f = np.asarray(ion_density_ratio(_psin_of_r(geq, R)), dtype=float)
+            if f.shape != R.shape or not np.all(np.isfinite(f)) or np.any(f <= 0.0):
+                raise ValueError(
+                    f"ion_density_ratio must give a finite positive n_i/n_e at each of "
+                    f"the {R.size} Thomson radii, got {f!r}"
+                )
+        p = ne * (Te + f * Ti) * EQE
         if fallback_meta is None:
             sig = EQE * np.sqrt(
-                ((Te + Ti) * sne) ** 2 + (ne * sTe) ** 2 + (ne * sTi) ** 2
+                ((Te + f * Ti) * sne) ** 2 + (ne * sTe) ** 2 + (ne * f * sTi) ** 2
             )
         else:
             # Ti = ratio*Te shares the same Te measurement, so Te and Ti are
-            # correlated. Propagate p=e*ne*(1+ratio)*Te directly instead of
+            # correlated. Propagate p=e*ne*(1+f*ratio)*Te directly instead of
             # treating their temperature uncertainties as independent.
             ratio, ratio_sigma = fallback_meta
             sig = EQE * np.sqrt(
-                ((1.0 + ratio) * Te * sne) ** 2
-                + (ne * (1.0 + ratio) * sTe) ** 2
-                + (ne * Te * ratio_sigma) ** 2
+                ((1.0 + f * ratio) * Te * sne) ** 2
+                + (ne * (1.0 + f * ratio) * sTe) ** 2
+                + (ne * Te * f * ratio_sigma) ** 2
             )
         sig = np.maximum(sig, sigma_floor * p)   # floor (default 5%)
 
@@ -994,6 +1029,7 @@ def prepare_kinetic_efit_inputs(
         ods, config.time_ms, geq, encoding=config.encoding,
         ti_te_ratio=config.ti_te_ratio,
         ti_te_ratio_sigma=config.ti_te_ratio_sigma,
+        ion_density_ratio=config.ion_density_ratio,
     )
 
     ordered = ((base_kfile,) if base_kfile is not None else ()) + tuple(
@@ -1076,6 +1112,7 @@ def run_kinetic_efit(
             args=(str(int(config.grid_size)),),  # EFIT needs the grid size: `efit <n>`
             env=config.env,
             timeout=config.timeout,
+            ordering_state=config.ordering_state,
         )
         efit_inputs = EFITInputs(
             workdir=scale_dir, kfiles=(kpath,), files=(kpath,)

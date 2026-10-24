@@ -14,6 +14,7 @@ The chain::
     -> ion temperature: measured -> pressure-inferred (#1426) -> policy      [ti]
     -> composition closure via prepare_gacode_profile(impurity=, z_eff=)     [GACODEProfile]
     -> ResolvedTransportState (profile + per-quantity provenance + identity)
+    -> canonical species state + physics projection (#1567)                  [optional]
     -> solver readiness: assess_tglf_readiness / assess_neo_readiness
 
 Nothing here runs a solver.  Execution stays with :mod:`vaft.code.gacode`; this
@@ -54,17 +55,21 @@ __all__ = [
     "ReadinessReport",
     "ResolvedTransportState",
     "SurfaceReadiness",
+    "TransportProjection",
     "TransportStateKey",
     "assess_neo_readiness",
     "assess_tglf_readiness",
     "inferred_ti_supported",
     "CLASSICAL_MODEL",
+    "ClassicalHeatFluxes",
     "classical_heat_fluxes",
     "surface_toroidal_field",
     "physics_parameters",
+    "project_transport_state",
     "resolve_transport_state",
     "run_identity",
     "transport_partition",
+    "transport_species_state",
 ]
 
 #: Bumped whenever a change here can alter a resolved state; part of every identity.
@@ -91,6 +96,11 @@ DEFAULT_RHO_MAX = 0.95
 
 #: Hydrogen, the VEST main ion written when core_profiles carries none.
 _HYDROGEN = {"label": "H+", "z": 1.0, "a": 1.00794}
+
+#: GACODE profile units (``vaft.code.gacode.inputs.DENSITY_SCALE`` / ``TEMPERATURE_SCALE``):
+#: densities in 1e19 m^-3, temperatures in keV.
+_DENSITY_SCALE = 1.0e19
+_TEMPERATURE_SCALE = 1.0e3
 
 
 @dataclass(frozen=True)
@@ -1024,6 +1034,7 @@ def assess_tglf_readiness(
     surfaces: Sequence[float] = DEFAULT_SURFACES,
     *,
     config: Any = None,
+    projection: Optional["TransportProjection"] = None,
 ) -> ReadinessReport:
     """Decide whether a resolved state, and each requested surface, can go to TGLF.
 
@@ -1035,6 +1046,11 @@ def assess_tglf_readiness(
         Requested surfaces as r/a [-].
     config : TGLFConfig, optional
         Only ``n_species`` is consulted, through ``prepare_tglf_input`` [-].
+    projection : TransportProjection, optional
+        A ``turbulence`` projection of this state (:func:`project_transport_state`);
+        the surfaces are then built on its profile, and a reduced projection adds
+        ``species_projection_<method>`` to ``conditions``.  Default: the state's own
+        species list, unchanged [-].
 
     Returns
     -------
@@ -1042,9 +1058,16 @@ def assess_tglf_readiness(
         State verdict plus one :class:`SurfaceReadiness` per surface, each carrying
         the built ``TGLFInput`` when ready [-].
 
+    Raises
+    ------
+    ValueError
+        A projection of another state, for another physics, or by a method TGLF
+        does not accept.
+
     Processing steps
     ----------------
-    1. An unresolved state is ``insufficient`` and no surface is built.
+    1. An unresolved state is ``insufficient`` and no surface is built; a projection
+       is checked against the state and the solver.
     2. Each surface is projected with ``prepare_tglf_input``; its documented refusal
        becomes a reason code, then ``check_tglf_requirements`` and finite gradients
        are required.
@@ -1056,6 +1079,7 @@ def assess_tglf_readiness(
     """
     if not state.resolved:
         return ReadinessReport("tglf", "insufficient", reasons=state.reasons)
+    state, projected = _projected_state(state, projection, "tglf")
     from vaft.code.gacode.tglf.inputs import LocalConversionError, prepare_tglf_input
 
     results = []
@@ -1078,7 +1102,7 @@ def assess_tglf_readiness(
     if not any(s.ready for s in results):
         return ReadinessReport("tglf", "insufficient", reasons=("no_ready_surface",),
                                surfaces=tuple(results))
-    conditions = _state_conditions(state)
+    conditions = _state_conditions(state) + projected
     if any(s.ready and s.local_input.vexb_shear is None for s in results):
         # prepare_tglf_input does not derive ExB shear yet (#553), so TGLF runs with
         # its own zero whatever rotation core_profiles carries.
@@ -1088,7 +1112,8 @@ def assess_tglf_readiness(
 
 
 def assess_neo_readiness(state: ResolvedTransportState,
-                         surfaces: Sequence[float] = DEFAULT_SURFACES) -> ReadinessReport:
+                         surfaces: Sequence[float] = DEFAULT_SURFACES, *,
+                         projection: Optional["TransportProjection"] = None) -> ReadinessReport:
     """Decide whether a resolved state can go to NEO.
 
     Parameters
@@ -1098,12 +1123,20 @@ def assess_neo_readiness(state: ResolvedTransportState,
     surfaces : sequence of float
         The r/a NEO will solve; with an inferred-Ti gap fill, at least one must have
         an input independent of the fill [-].
+    projection : TransportProjection, optional
+        A ``neoclassical`` projection of this state; NEO accepts only explicit
+        species, which is the state's own list [-].
 
     Returns
     -------
     ReadinessReport
         ``ready``/``conditional``/``insufficient``; NEO is a profile code, so no
         per-surface entries [-].
+
+    Raises
+    ------
+    ValueError
+        A projection of another state, for another physics, or a reduced one.
 
     Processing steps
     ----------------
@@ -1118,6 +1151,7 @@ def assess_neo_readiness(state: ResolvedTransportState,
     """
     if not state.resolved:
         return ReadinessReport("neo", "insufficient", reasons=state.reasons)
+    state, projected = _projected_state(state, projection, "neo")
     missing = tuple(state.profile.check_neo_requirements())
     if missing:
         return ReadinessReport("neo", "insufficient",
@@ -1125,9 +1159,306 @@ def assess_neo_readiness(state: ResolvedTransportState,
     if state.fill_probe is not None and not any(
             inferred_ti_supported(state, r, solver="neo") for r in surfaces):
         return ReadinessReport("neo", "insufficient", reasons=("no_surface_independent_of_ti_fill",))
-    conditions = _state_conditions(state)
+    conditions = _state_conditions(state) + projected
     return ReadinessReport("neo", "conditional" if conditions else "ready",
                            conditions=conditions)
+
+
+# --------------------------------------------------------------------------- species projection
+
+
+#: The target physics (``vaft.process.species.PROJECTION_POLICY``) each solver reads.
+SOLVER_TARGET_PHYSICS = {"tglf": "turbulence", "neo": "neoclassical"}
+
+#: GACODE species type -> canonical population.
+_POPULATION_OF_TYPE = {"[therm]": "thermal", "[fast]": "fast_unspecified"}
+
+
+@dataclass
+class TransportProjection:
+    """One physics projection of a resolved state's species, and the profile it gives the solver.
+
+    ``canonical_state_id`` is the resolved state's identity (the shared upstream);
+    ``species_state_id`` the canonical species state's; ``projection`` the species
+    contract (method, preserved quantities, ``projection_id``).  ``profile`` is the
+    state's GACODE profile with only the species arrays replaced, or ``None`` for a
+    moments-only target.
+    """
+
+    canonical_state_id: str
+    species_state_id: str
+    projection: Any
+    profile: Any = None
+    fill_probe: Any = field(default=None, repr=False, compare=False)
+
+    @property
+    def target_physics(self) -> str:
+        return self.projection.target_physics
+
+    @property
+    def method(self) -> str:
+        return self.projection.method
+
+    @property
+    def projection_id(self) -> str:
+        return self.projection.projection_id
+
+    def record(self) -> dict[str, Any]:
+        """A JSON-ready provenance record for a run on this projection."""
+        return {"canonical_state_id": self.canonical_state_id,
+                "species_state_id": self.species_state_id,
+                **_jsonable(self.projection.record())}
+
+
+def _profile_nuclide(label: str, charge: float, mass: float):
+    """Element and mass of one GACODE species: from its label, else from its mass."""
+    from vaft.data.atomic import ATOMIC_NUMBERS, STANDARD_ATOMIC_WEIGHTS, parse_species
+    from vaft.process.species import _nuclide
+
+    parsed = parse_species(str(label).replace("(", "").replace(")", ""))
+    if parsed is not None and parsed.element in ATOMIC_NUMBERS:
+        # A label is trusted only where it agrees with the stored mass and charge:
+        # "SI" parses as neutral sulphur, not silicon, and "NI" as neutral nitrogen.
+        z_n = ATOMIC_NUMBERS[parsed.element]
+        if parsed.element == "H" and mass < 3.5:
+            return _nuclide(1, mass)
+        if (parsed.element != "H" and z_n >= charge
+                and abs(STANDARD_ATOMIC_WEIGHTS[parsed.element] - mass) <= 1.0):
+            return _nuclide(z_n, mass)
+    if mass < 3.5:
+        return _nuclide(1, mass)
+    candidates = [(abs(STANDARD_ATOMIC_WEIGHTS[s] - mass), s) for s, z in ATOMIC_NUMBERS.items()
+                  if s not in ("H", "D", "T") and z >= charge]
+    gap, element = min(candidates)
+    if gap > 1.0:
+        raise ValueError(f"species {label!r} (Z = {charge:g}, A = {mass:g} u) matches no element")
+    return _nuclide(ATOMIC_NUMBERS[element], mass)
+
+
+def transport_species_state(state: ResolvedTransportState):
+    """The canonical species state of a resolved transport state: the species its solvers read.
+
+    Parameters
+    ----------
+    state : ResolvedTransportState
+        A resolved state from :func:`resolve_transport_state` [-].
+
+    Returns
+    -------
+    vaft.process.species.CanonicalSpeciesState
+        One component per species of ``state.profile`` (element and mass, charge,
+        population from the GACODE type, density [m^-3] and temperature [eV] on the
+        profile's ``rho``), with ``n_e`` and the state time [any].
+
+    Raises
+    ------
+    ValueError
+        An unresolved state, a profile that is itself a projection, or a species
+        whose label and mass match no element.
+
+    Convention
+    ----------
+    A species the converter lumped from a bundled ion (``provenance["ni"]
+    ["bundled_ions"]``) or with a non-integer charge is a bundled component.  The
+    element comes from the label only where its standard weight lies within 1 u
+    of the stored mass and its Z_n bounds the charge, else from the mass.  The
+    density origin is ``assumed`` for a policy composition closure and
+    ``unlabelled`` otherwise; the state's own record says which.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [issue] #1567 Phase C (transport-state integration).
+    """
+    from vaft.process.species import CanonicalSpeciesState, SpeciesComponent
+
+    if not state.resolved:
+        raise ValueError(f"the transport state is not resolved ({', '.join(state.reasons)})")
+    profile = state.profile
+    if "species_projection" in (getattr(profile, "provenance", {}) or {}):
+        raise ValueError("this profile is already a species projection; take the canonical state "
+                         "from the resolved state it was projected from")
+    ni = np.atleast_2d(np.asarray(profile.ni, dtype=float))
+    ti = np.atleast_2d(np.asarray(profile.ti, dtype=float))
+    charges = np.atleast_1d(np.asarray(profile.z, dtype=float))
+    masses = np.atleast_1d(np.asarray(profile.mass, dtype=float))
+    names = list(profile.name) or [f"ion{k}" for k in range(charges.size)]
+    kinds = list(profile.type) or ["[therm]"] * charges.size
+    record = dict(getattr(profile, "provenance", {}) or {}).get("ni", {})
+    bundled = set((record or {}).get("bundled_ions", {}) or {})
+    origin = "assumed" if state.composition.get("origin") == "policy_assumption" else "unlabelled"
+    components = []
+    for k, label in enumerate(names):
+        charge = float(charges[k])
+        nuclide, mass = _profile_nuclide(label, charge, float(masses[k]))
+        is_bundled = label in bundled or abs(charge - round(charge)) > 1e-9
+        components.append(SpeciesComponent(
+            nuclide, charge, _POPULATION_OF_TYPE.get(str(kinds[k]).strip(), "other"),
+            ni[k] * _DENSITY_SCALE, mass, temperature=ti[min(k, ti.shape[0] - 1)] * _TEMPERATURE_SCALE,
+            bundled=is_bundled, origin=origin,
+            source=f"transport state {state.identity[:12]}, GACODE species {label}"))
+    return CanonicalSpeciesState(
+        tuple(components), rho=np.asarray(profile.rho, dtype=float),
+        n_e=np.asarray(profile.ne, dtype=float) * _DENSITY_SCALE, time=float(state.key.time_efit_s),
+        provenance={"source": "resolved transport state profile", "state_identity": state.identity,
+                    "composition": dict(state.composition)})
+
+
+def _constant(values: Any, name: str) -> float:
+    array = np.asarray(values, dtype=float)
+    finite = array[np.isfinite(array)] if array.ndim else array
+    if array.ndim and (finite.size == 0 or np.ptp(finite) > 1e-9 * max(abs(float(np.mean(finite))), 1.0)):
+        raise ValueError(
+            f"the effective impurity's {name} varies with radius; GACODE carries one value per "
+            "species, so lump it per surface (vaft.process.impurity.surface_composition_profile)")
+    return float(np.mean(finite)) if array.ndim else float(array)
+
+
+def _species_profile(profile: Any, species_state: Any, projection: Any) -> Any:
+    """``profile`` with its species replaced by the projection's components (others unchanged)."""
+    import dataclasses
+
+    index = {id(c): k for k, c in enumerate(species_state.components)}
+    ti = np.atleast_2d(np.asarray(profile.ti, dtype=float))
+    count = len(species_state.components)
+    names = list(profile.name) or [f"ion{k}" for k in range(count)]
+    kinds = list(profile.type) or ["[therm]"] * count
+    merged_ids = set(projection.notes.get("merged", ()))
+    merged = [k for k, m in enumerate(species_state.components) if m.component_id in merged_ids]
+
+    def rows(field_value, picks):
+        if field_value is None:
+            return None
+        values = np.atleast_2d(np.asarray(field_value, dtype=float))
+        return np.vstack([values[min(k, values.shape[0] - 1)] for k in picks])
+
+    charges, masses, densities, temperatures, labels, types, picks = [], [], [], [], [], [], []
+    for c in projection.components:
+        if id(c) in index:
+            k = index[id(c)]
+            charges.append(float(np.asarray(profile.z, dtype=float)[k]))
+            masses.append(float(np.asarray(profile.mass, dtype=float)[k]))
+            densities.append(c.density / _DENSITY_SCALE)
+            temperatures.append(ti[min(k, ti.shape[0] - 1)])
+            labels.append(names[k])
+            types.append(kinds[k])
+            picks.append(k)
+            continue
+        weights = np.stack([species_state.components[k].density for k in merged])
+        temps = np.stack([ti[min(k, ti.shape[0] - 1)] for k in merged])
+        with np.errstate(invalid="ignore", divide="ignore"):
+            pseudo_t = np.sum(weights * temps, axis=0) / np.sum(weights, axis=0)
+        pseudo_t = np.where(np.isfinite(pseudo_t), pseudo_t, temps[0])
+        charges.append(_constant(c.charge, "charge"))
+        masses.append(_constant(c.mass_amu, "mass"))
+        densities.append(c.density / _DENSITY_SCALE)
+        temperatures.append(pseudo_t)
+        labels.append("+".join(c.pseudo_of) + "_eff")
+        types.append("[therm]")
+        picks.append(max(merged, key=lambda k: species_state.components[k].z_n))
+    provenance = dict(getattr(profile, "provenance", {}) or {})
+    provenance["species_projection"] = _jsonable(projection.record())
+    return dataclasses.replace(
+        profile, z=np.asarray(charges), mass=np.asarray(masses), ni=np.vstack(densities),
+        ti=np.vstack(temperatures), name=tuple(labels), type=tuple(types),
+        vtor=rows(profile.vtor, picks), vpol=rows(profile.vpol, picks), provenance=provenance)
+
+
+def project_transport_state(state: ResolvedTransportState, target_physics: str,
+                            method: Optional[str] = None) -> TransportProjection:
+    """One physics projection of a resolved state's species, with the profile its solver reads.
+
+    Parameters
+    ----------
+    state : ResolvedTransportState
+        A resolved state [-].
+    target_physics : str
+        A target of :data:`vaft.process.species.PROJECTION_POLICY`, e.g.
+        ``"turbulence"`` (TGLF), ``"neoclassical"`` (NEO), ``"resistive"`` [-].
+    method : str, optional
+        A method the target allows (``"explicit"``, ``"effective_impurity"``, ...);
+        default the target's own [-].
+
+    Returns
+    -------
+    TransportProjection
+        The species contract, ``canonical_state_id`` (the state's identity) and
+        ``species_state_id``, and the projected profile for an ``explicit`` or
+        ``effective_impurity`` method (``None`` for ``moments_only``) [any].
+
+    Raises
+    ------
+    ValueError
+        An unresolved state; a target or method the species policy refuses (an
+        effective impurity for NEO); an effective impurity whose charge or mass
+        varies with radius, which one GACODE species cannot carry.
+
+    Processing steps
+    ----------------
+    1. :func:`transport_species_state` from the resolved profile.
+    2. :func:`vaft.process.species.project_species_state` on that state.
+    3. ``explicit``: the state's own profile, unchanged; ``effective_impurity``:
+       the profile with the thermal impurities replaced by one pseudo-ion
+       (charge, mass constant over the grid; temperature density-weighted);
+       the inferred-Ti probe, if any, gets the same replacement.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The effective impurity keeps the charge density and the Z^2 moment at every
+    point, not the impurity thermal pressure: its density
+    ``(sum n Z)^2 / sum n Z^2`` is below ``sum n``, so the impurity ``n T`` (and
+    a gyrokinetic ``p'``) is slightly lower than the explicit species give;
+    ``ptot`` is left as the state carries it.
+
+    Provenance
+    ----------
+    .. [issue] #1567 Sec. 6-7 and Phase C; policy from #1709.
+    """
+    from vaft.process.species import project_species_state
+
+    species_state = transport_species_state(state)
+    projection = project_species_state(species_state, target_physics, method)
+    profile = probe = None
+    if projection.method == "explicit":
+        profile, probe = state.profile, state.fill_probe
+    elif projection.method == "effective_impurity":
+        profile = _species_profile(state.profile, species_state, projection)
+        if state.fill_probe is not None:
+            probe = _species_profile(state.fill_probe, species_state, projection)
+    return TransportProjection(canonical_state_id=state.identity, species_state_id=species_state.state_id,
+                               projection=projection, profile=profile, fill_probe=probe)
+
+
+def _projected_state(state: ResolvedTransportState, projection: Optional[TransportProjection],
+                     solver: str) -> tuple[ResolvedTransportState, tuple[str, ...]]:
+    """The state a solver is assessed on, and the condition naming its projection."""
+    import dataclasses
+
+    from vaft.process.species import PROJECTION_POLICY
+
+    if projection is None:
+        return state, ()
+    target = SOLVER_TARGET_PHYSICS[solver]
+    if projection.canonical_state_id != state.identity:
+        raise ValueError("the projection was made from another transport state")
+    if (projection.fill_probe is None) != (state.fill_probe is None):
+        raise ValueError("the projection and the state disagree on the inferred-Ti fill probe")
+    if projection.target_physics != target:
+        raise ValueError(f"{solver} reads a {target!r} projection, not {projection.target_physics!r}")
+    if projection.method not in PROJECTION_POLICY[target][1] or projection.profile is None:
+        raise ValueError(f"{solver} cannot run on a {projection.method!r} projection")
+    if projection.method == "explicit":
+        # the state's own species list: no assumption beyond the state's
+        return state, ()
+    projected = dataclasses.replace(state, profile=projection.profile, fill_probe=projection.fill_probe)
+    return projected, (f"species_projection_{projection.method}",)
 
 
 # --------------------------------------------------------------------------- identity
@@ -1140,6 +1471,7 @@ def run_identity(
     parameters: Mapping[str, Any],
     surface: Optional[float] = None,
     solver_revision: Optional[str] = None,
+    projection: Optional["TransportProjection"] = None,
 ) -> str:
     """Deterministic identity of one solver calculation on one resolved state.
 
@@ -1156,23 +1488,40 @@ def run_identity(
         r/a of a local calculation [-].
     solver_revision : str, optional
         The GACODE revision the run used or will use [-].
+    projection : TransportProjection, optional
+        The species projection the run used (#1567).  A reduced projection's
+        ``projection_id`` is folded in, so an effective-impurity run differs from
+        the explicit one; an explicit projection is the state's own species list
+        and gives the identity this function always gave [-].
 
     Returns
     -------
     str
         sha256 hex digest; equal inputs give equal identities, which is the cache key [-].
 
+    Raises
+    ------
+    ValueError
+        A projection of another state.
+
     Applicability
     -------------
     Machine-independent.
     """
-    return _digest({
+    payload = {
         "state": state.identity,
         "solver": solver,
         "parameters": dict(parameters),
         "surface": None if surface is None else round(float(surface), 6),
         "solver_revision": solver_revision,
-    })
+    }
+    if projection is not None:
+        if projection.canonical_state_id != state.identity:
+            raise ValueError("the projection was made from another transport state")
+        if projection.method != "explicit":
+            # an explicit projection is the state's own species list: same run, same key
+            payload["species_projection"] = projection.projection_id
+    return _digest(payload)
 
 
 def physics_parameters(config: Any, *, exclude: Iterable[str] = ()) -> dict[str, Any]:
@@ -1352,10 +1701,56 @@ CLASSICAL_MODEL = {
     "reference": "S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205; NRL Plasma Formulary",
 }
 
-#: Braginskii's gamma_1' (electron perpendicular heat conductivity) against Z,
-#: Braginskii 1965, Table 2: 4.66, 4.0, 3.7, 3.6, 3.25 for Z = 1, 2, 3, 4, inf.  The
-#: Z = inf knot sits at 1e9, so a linear lookup in Z is held at 3.6 for Z > 4.
-_GAMMA1_PERP = ((1.0, 4.66), (2.0, 4.0), (3.0, 3.7), (4.0, 3.6), (1e9, 3.25))
+@dataclass(frozen=True)
+class ClassicalHeatFluxes:
+    """The classical (Braginskii) baseline at one surface (#1435, typed by #1899).
+
+    Fluxes are physical fluxes of the stated reduced model (``CLASSICAL_MODEL``);
+    ``chi_*`` are that model's diffusivities; the collision times, Coulomb logarithms,
+    ``gamma1_perp`` and ``b_tesla`` are diagnostics of the evaluation. The model has
+    no particle flux: ``electron_particle_flux_m2_s`` is None (not evaluated, not 0).
+    """
+
+    r_over_a: float
+    electron_energy_flux_W_m2: float
+    ion_energy_flux_W_m2: Mapping[str, float]
+    chi_e_m2_s: float
+    chi_i_m2_s: float
+    tau_e_s: float
+    tau_i_s: float
+    coulomb_logarithm: float
+    coulomb_logarithm_ion: float
+    coulomb_log_valid: bool
+    gamma1_perp: float
+    b_tesla: float
+    model: Mapping[str, Any] = field(default_factory=lambda: dict(CLASSICAL_MODEL))
+    electron_particle_flux_m2_s: Optional[float] = None
+    ion_particle_flux_m2_s: Mapping[str, float] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # Frozen all the way down: the mappings become read-only views of private copies.
+        from types import MappingProxyType
+
+        for name in ("ion_energy_flux_W_m2", "ion_particle_flux_m2_s", "model"):
+            object.__setattr__(self, name, MappingProxyType(copy.deepcopy(dict(getattr(self, name)))))
+
+    def as_record(self) -> dict[str, Any]:
+        """The JSON-ready mapping the atlas driver stores and the core_transport
+        projection reads; the keys of the pre-#1899 dict, unchanged. A deep copy."""
+        return {
+            "r_over_a": self.r_over_a,
+            "electron_energy_flux_W_m2": self.electron_energy_flux_W_m2,
+            "electron_particle_flux_m2_s": self.electron_particle_flux_m2_s,
+            "ion_energy_flux_W_m2": dict(self.ion_energy_flux_W_m2),
+            "ion_particle_flux_m2_s": dict(self.ion_particle_flux_m2_s),
+            "chi_e_m2_s": self.chi_e_m2_s, "chi_i_m2_s": self.chi_i_m2_s,
+            "tau_e_s": self.tau_e_s, "tau_i_s": self.tau_i_s,
+            "coulomb_logarithm": self.coulomb_logarithm,
+            "coulomb_logarithm_ion": self.coulomb_logarithm_ion,
+            "coulomb_log_valid": self.coulomb_log_valid,
+            "gamma1_perp": self.gamma1_perp, "b_tesla": self.b_tesla,
+            "model": copy.deepcopy(dict(self.model)),
+        }
 
 
 def surface_toroidal_field(profile: Any, local: Any) -> float:
@@ -1389,7 +1784,7 @@ def surface_toroidal_field(profile: Any, local: Any) -> float:
     return abs(float(profile.bcentr)) * float(profile.rcentr) / r_surface
 
 
-def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
+def classical_heat_fluxes(local: Any, b_tesla: float) -> ClassicalHeatFluxes:
     """Classical perpendicular heat fluxes at one surface, from a TGLF local input.
 
     Parameters
@@ -1403,11 +1798,12 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
 
     Returns
     -------
-    dict
+    ClassicalHeatFluxes
         ``r_over_a``; ``electron_energy_flux_W_m2``; ``ion_energy_flux_W_m2`` keyed
         ``z=<charge>`` for the main ion; ``chi_e_m2_s``, ``chi_i_m2_s``; the collision
         times, Coulomb logarithms, ``coulomb_log_valid`` and ``model``
-        (:data:`CLASSICAL_MODEL`) [W/m^2].
+        (:data:`CLASSICAL_MODEL`); :meth:`ClassicalHeatFluxes.as_record` gives the
+        JSON mapping [W/m^2].
 
     Convention
     ----------
@@ -1440,16 +1836,25 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
        3.25 for Z = 1, 2, 3, 4, inf) and kappa_perp,i coefficient 2.
     .. [2] NRL Plasma Formulary: tau_e = 3.44e5 T_e^1.5 / (n lnLambda),
        tau_i = 2.09e7 T_i^1.5 mu^0.5 / (n lnLambda Z^4) and the ion-ion lnLambda
-       (cgs, eV), which the SI forms here reproduce (test_transport_state.py).
+       (cgs, eV), which the SI forms reproduce (test_transport_state.py). Every
+       coefficient and collision time comes from :mod:`vaft.formula.kinetic` (#1899).
     """
     from scipy import constants as c
 
+    from vaft.formula.constants import AMU
     from vaft.formula.equilibrium import coulomb_logarithm_from_n_T
+    from vaft.formula.kinetic import (
+        braginskii_gamma1_perp_from_Z,
+        classical_electron_heat_diffusivity_from_T_e_B,
+        classical_ion_heat_diffusivity_from_T_i_B,
+        electron_collision_time_from_T_e_n_species,
+        ion_collision_time_from_T_i_n_species,
+        ion_ion_coulomb_logarithm_from_n_T,
+    )
 
     norm = local.normalisation
     ne = float(norm.electron_density)
-    te = float(norm.electron_temperature)               # J
-    te_ev = te / c.e
+    te_ev = float(norm.electron_temperature) / c.e
     a = float(norm.minor_radius)
     b = abs(float(b_tesla))
     if not (b > 0.0 and np.isfinite(b)):
@@ -1462,40 +1867,36 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
     z_i = float(charges[0])
     if z_i != float(charges.min()):
         raise ValueError(f"species 1 (z={z_i:g}) is not the lowest-charge ion; it is not the main ion")
-    m_i = float(local.mass[1]) * _MASS_DEUTERIUM_KG
+    # TGLF's MASS_* are in GACODE deuterium masses; the formula layer takes amu.
+    mass_number = float(local.mass[1]) * _MASS_DEUTERIUM_KG / AMU
     n_i = float(fractions[0]) * ne
-    ti = float(local.taus[1]) * te
-    ti_ev = ti / c.e
+    ti_ev = float(local.taus[1]) * te_ev
     lnl_e = float(coulomb_logarithm_from_n_T(ne, te_ev))
-    # NRL ion-ion, same species: 23 - ln[(Z^2 / T_i) (2 n_i Z^2 / T_i)^(1/2)], cgs/eV.
-    lnl_i = 23.0 - np.log(z_i ** 2 / ti_ev * np.sqrt(2.0 * n_i * 1e-6 * z_i ** 2 / ti_ev))
-    field_density = float(np.sum(fractions * ne * charges ** 2))   # sum_j n_j Z_j^2
+    lnl_i = float(ion_ion_coulomb_logarithm_from_n_T(n_i, ti_ev, z_i))
+    if not lnl_i > 0.0:
+        # The NRL ion-ion form is not defined there (cold, dense ions); before #1899 a
+        # negative logarithm silently gave a negative tau_i and chi_i.
+        raise ValueError(f"ion-ion Coulomb logarithm {lnl_i:.3g} is not positive at "
+                         f"n_i = {n_i:.3g} m^-3, T_i = {ti_ev:.3g} eV, Z = {z_i:g}; "
+                         "the classical ion baseline is not defined")
 
-    tau_e = (6.0 * np.sqrt(2.0) * np.pi ** 1.5 * c.epsilon_0 ** 2 * np.sqrt(c.m_e) * te ** 1.5
-             / (lnl_e * c.e ** 4 * ne * zeff))
-    # Braginskii: tau_i / tau_e = sqrt(2 m_i / m_e) (T_i/T_e)^1.5 at equal density and
-    # Z = 1, i.e. 12 here against 6 sqrt(2) above (NRL: 2.09e7 vs 3.44e5).
-    tau_i = (12.0 * np.pi ** 1.5 * c.epsilon_0 ** 2 * np.sqrt(m_i) * ti ** 1.5
-             / (lnl_i * c.e ** 4 * z_i ** 2 * field_density))
-    # anti-alias: not a time series and not a downsample; a lookup in Braginskii's
-    # gamma_1'(Z) table at one effective charge.
-    gamma1 = float(np.interp(zeff, *zip(*_GAMMA1_PERP)))
-    omega_e = c.e * b / c.m_e
-    omega_i = z_i * c.e * b / m_i
-    chi_e = gamma1 * te / (c.m_e * omega_e ** 2 * tau_e)
-    chi_i = 2.0 * ti / (m_i * omega_i ** 2 * tau_i)
-    q_e = ne * chi_e * te * float(local.rlts[0]) / a
-    q_i = n_i * chi_i * ti * float(local.rlts[1]) / a
-    return {
-        "r_over_a": float(local.rho),
-        "electron_energy_flux_W_m2": float(q_e),
-        "electron_particle_flux_m2_s": None,
-        "ion_energy_flux_W_m2": {f"z={z_i:g}": float(q_i)},
-        "ion_particle_flux_m2_s": {},
-        "chi_e_m2_s": float(chi_e), "chi_i_m2_s": float(chi_i),
-        "tau_e_s": float(tau_e), "tau_i_s": float(tau_i),
-        "coulomb_logarithm": lnl_e, "coulomb_logarithm_ion": float(lnl_i),
-        "coulomb_log_valid": bool(te_ev >= 10.0),
-        "gamma1_perp": gamma1, "b_tesla": b,
-        "model": CLASSICAL_MODEL,
-    }
+    # tau_e against n_e Z_eff; tau_i against every ion species (like-particle form).
+    tau_e = float(electron_collision_time_from_T_e_n_species(te_ev, [ne * zeff], [1.0], lnl_e))
+    tau_i = float(ion_collision_time_from_T_i_n_species(ti_ev, mass_number, z_i, fractions * ne,
+                                                        charges, lnl_i))
+    gamma1 = float(braginskii_gamma1_perp_from_Z(zeff))
+    chi_e = float(classical_electron_heat_diffusivity_from_T_e_B(te_ev, b, tau_e, zeff))
+    chi_i = float(classical_ion_heat_diffusivity_from_T_i_B(ti_ev, b, tau_i, mass_number, z_i))
+    q_e = ne * chi_e * te_ev * c.e * float(local.rlts[0]) / a
+    q_i = n_i * chi_i * ti_ev * c.e * float(local.rlts[1]) / a
+    return ClassicalHeatFluxes(
+        r_over_a=float(local.rho),
+        electron_energy_flux_W_m2=float(q_e),
+        ion_energy_flux_W_m2={f"z={z_i:g}": float(q_i)},
+        chi_e_m2_s=chi_e, chi_i_m2_s=chi_i,
+        tau_e_s=tau_e, tau_i_s=tau_i,
+        coulomb_logarithm=lnl_e, coulomb_logarithm_ion=lnl_i,
+        coulomb_log_valid=bool(te_ev >= 10.0),
+        gamma1_perp=gamma1, b_tesla=b,
+        model=dict(CLASSICAL_MODEL),
+    )

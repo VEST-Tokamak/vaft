@@ -112,6 +112,16 @@ def predict(model, data):
     -------------
     Machine-independent.
     """
+    from .usage import _inference_use
+    usage = _inference_use(data) if hasattr(data, "spec") else None
+    from .structured import StructuredDatasetArtifact
+    if isinstance(data, StructuredDatasetArtifact):
+        from ._structured_lifecycle import predict_structured
+        result = predict_structured(model, data)
+        from dataclasses import replace
+        return replace(result, provenance={**result.provenance, "data_use": usage}) if usage else result
+    if model.tensor_schema:
+        raise ModelContractError("structured models require a StructuredDatasetArtifact")
     if isinstance(data, DatasetArtifact):
         _check_columns(model, data)
         x = np.asarray(data.inputs)
@@ -124,6 +134,8 @@ def predict(model, data):
         groups, meta = None, {}
         digest = hashlib.sha256(np.ascontiguousarray(x).tobytes()).hexdigest()
         provenance = {"input": "array", "input_sha256": digest}
+    if usage:
+        provenance["data_use"] = usage
     outputs = _forward(model, x, available)
     return InferenceResult(
         outputs=outputs,

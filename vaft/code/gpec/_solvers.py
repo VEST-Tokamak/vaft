@@ -457,6 +457,27 @@ def write_rmatch_resistive_layers(run_dir: Path, mode: int, options) -> dict:
     }
 
 
+#: What ``rmatch`` writes when it solves the inner layers (``match_flag``).
+#:
+#: ``match_run`` takes one of two exits. With ``coil%rpec_flag`` -- which it
+#: reads back from RDCON's ``deltabin`` header (``rmatch/match.f:173``), so
+#: ``rdcon.in`` decides it -- it runs ``match_rpec``, writes ``globalsol.bin``
+#: (``match.f:1463``) and stops with "RPEC termination." (``match.f:266-272``).
+#: Otherwise, under ``match_flag``, ``match_solution`` writes
+#: ``outsol_tot.bin`` (``match.f:715``), ``insol.bin`` (``match.f:750``) and
+#: ``delta.out`` (``match.f:814``), and never ``globalsol.bin``.  The packaged
+#: ``rdcon.in`` sets ``coil%rpec_flag=f`` and ``rmatch.in`` sets
+#: ``match_flag=t``, so these three are what a successful companion leaves.
+#: ``delta.out`` is also the file the plasma-formalism classification (#1734)
+#: reads as evidence that the inner layer was solved.
+RMATCH_MATCH_OUTPUTS: tuple[str, ...] = ("delta.out", "insol.bin", "outsol_tot.bin")
+
+#: What ``rmatch`` writes on its RPEC path instead (``match.f:1463``).  VAFT
+#: never enables it; a configuration that did would expect this in place of
+#: :data:`RMATCH_MATCH_OUTPUTS`.
+RMATCH_RPEC_OUTPUTS: tuple[str, ...] = ("globalsol.bin",)
+
+
 class RDCONSolver:
     name = "rdcon"
 
@@ -475,8 +496,8 @@ class RDCONSolver:
             f"rdcon_output_n{mode}.nc",
             "delta_gw.out",
             "dcon.out",
-            "globalsol.bin",
             "vmat.bin",
+            *RMATCH_MATCH_OUTPUTS,
         )
 
     def prepare_companions(self, run_dir: Path, mode: int, config) -> None:
@@ -498,10 +519,11 @@ class RDCONSolver:
         return ("rmatch",)
 
     def companion_outputs(self, mode: int) -> tuple[str, ...]:
-        # globalsol.bin is rmatch's (rmatch/match.f:1372). vmat.bin and
-        # delta_gw.out only look like companion output: RDCON writes both
-        # itself (rdcon/sing.f:73, rdcon/gal.f:1419).
-        return ("globalsol.bin",)
+        # What rmatch writes on the path the packaged namelists select; see
+        # RMATCH_MATCH_OUTPUTS. vmat.bin and delta_gw.out only look like
+        # companion output: RDCON writes both itself (rdcon/sing.f:73,
+        # rdcon/gal.f:1419).
+        return RMATCH_MATCH_OUTPUTS
 
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:
         return _check_matching_output(run_dir, self.stability_output(mode))
@@ -538,7 +560,8 @@ class STRIDESolver:
 #: ``rdconfile``) and GPEC joins each onto ``dcon_dir``.  Only the first two
 #: are always needed: ``vacuum.bin`` is deprecated and ignored (GPEC says so
 #: on startup) and ``globalsol.bin`` is read only under ``gal_flag``, which is
-#: off in the packaged namelist.  So the optional two are staged when a DCON
+#: off in the packaged namelist (and only ``rmatch``'s RPEC path writes it,
+#: see :data:`RMATCH_RPEC_OUTPUTS`).  So the optional two are staged when a DCON
 #: run produced them and their absence is not an error.
 DCON_PRODUCTS_FOR_GPEC: tuple[tuple[str, bool], ...] = (
     ("euler.bin", True),
@@ -675,6 +698,31 @@ def stage_dcon_products(dcon_dir: Path, run_dir: Path) -> tuple[Path, ...]:
     return tuple(staged)
 
 
+#: What ideal GPEC's ``gpec.in`` names as ``dcon_dir``: its own working
+#: directory, relative, so no path length can reach GPEC's 128-character
+#: fixed-length strings (#1239).  See :meth:`IdealGPECSolver.prepare`.
+GPEC_DCON_DIR = "."
+
+#: ``CHARACTER(256) :: data_dir`` in GPEC's ``coil/coil.F``.  A longer value is
+#: truncated by the namelist read and the coil files are not found.
+GPEC_COIL_DATA_DIR_MAX = 256
+
+
+def _coil_data_dir(directory: Path) -> Path:
+    """The absolute coil directory for ``coil.in``, refused past GPEC's limit."""
+    resolved = Path(directory).resolve()
+    # Fortran counts bytes, not characters: a non-ASCII directory name is longer.
+    length = len(os.fsencode(resolved))
+    if length > GPEC_COIL_DATA_DIR_MAX:
+        raise ValueError(
+            f"the GPEC coil data directory is {length} bytes long, "
+            f"over the {GPEC_COIL_DATA_DIR_MAX} GPEC reads into coil.in's data_dir "
+            f"(coil/coil.F); it would be truncated and the coil files not found: "
+            f"{resolved}. Use a shorter work directory or install path."
+        )
+    return resolved
+
+
 class IdealGPECSolver:
     name = "gpec"
 
@@ -685,9 +733,16 @@ class IdealGPECSolver:
         # are brought here by `stage_dcon_products` once DCON has produced
         # them, which is after this runs. See that function for the failure
         # this avoids.
+        #
+        # Written as ".", not as the cell's absolute path: GPEC runs with this
+        # cell as its working directory, and it reads `dcon_dir` into a
+        # CHARACTER(128) and then joins `euler.bin` etc. onto it in variables
+        # of the same length, so an absolute path past ~118 characters (a deep
+        # worktree, a scratch or Slurm directory) was silently truncated and
+        # GPEC failed to open its input (#1239).
         options = ctx.config.gpec
         replacements: dict[str, object] = {
-            "dcon_dir": str(ctx.run_dir.resolve()),
+            "dcon_dir": GPEC_DCON_DIR,
             "coil_flag": options.coil_flag,
         }
         # PENTRC reads the ASCII displacement and GPEC writes it only with both of
@@ -779,10 +834,12 @@ class IdealGPECSolver:
             coil_dir = ctx.run_dir / "coil"
             # coil.in first: it carries the current-count validation, so a
             # rejected request leaves no half-staged coil/ tree behind.
+            # Named relative, like dcon_dir: the staged sets sit in the cell
+            # GPEC runs in, so no workdir path can reach coil.F's limit (#1239).
             write_coil_in(
                 ctx.template_dir / "coil.in",
                 ctx.run_dir / "coil.in",
-                data_dir=coil_dir.resolve(),
+                data_dir=Path(coil_dir.name),
                 specs=specs,
                 machine=options.machine,
                 coil_config=coil_config,
@@ -804,7 +861,7 @@ class IdealGPECSolver:
                 ctx.template_dir / "coil.in",
                 ctx.run_dir / "coil.in",
                 {
-                    "data_dir": str(ctx.coil_data_dir.resolve()),
+                    "data_dir": str(_coil_data_dir(ctx.coil_data_dir)),
                     "machine": DEFAULT_MACHINE,
                     "coil_num": 3,
                     **VEST_GPEC_COIL_DIRECTIONS,

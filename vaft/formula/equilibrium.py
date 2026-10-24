@@ -27,6 +27,7 @@ from typing import NamedTuple, Union, Tuple, Optional
 import numpy as np
 
 from ._exports import public_names
+from ._propagation import jacobian as _jacobian
 from .constants import (
     MU0, QE, ME, MI_P, EPS0, C_LIGHT,
     E_ALPHA, SIGMA_V_COEF,
@@ -39,12 +40,13 @@ from scipy.integrate import cumulative_trapezoid
 
 from .utils import (
     _guarded_ratio,
+    _toroidal_flux,
     calculate_peaking_factor,
     gradient,
     trapz_integral,
     normalize_profile,
     calculate_poloidal_flux,
-    calculate_toroidal_flux,
+    calculate_toroidal_flux,  # noqa: F401 -- kept importable from here for existing callers
     calculate_volume_weighted_average
 )
 
@@ -229,17 +231,31 @@ def normalize_psi(*args, **kw):  # noqa: N802
 # ------------------------------------------------------------------
 
 def phi_from_Bphi(B_phi: np.ndarray,
-                  dA: np.ndarray) -> float:
+                  R: np.ndarray = None,
+                  Z: np.ndarray = None,
+                  mask: np.ndarray = None,
+                  *,
+                  dA: np.ndarray = None) -> float:
     r"""Toroidal flux $\Phi$ through a poloidal cross-section.
 
-    $$\Phi = \int_{S} B_\varphi\,dA \approx \sum_i B_{\varphi,i}\,\Delta A_i$$
+    $$\Phi = \int_{S} B_\varphi\,dA = \iint_{S} B_\varphi\,dR\,dZ$$
 
     Parameters
     ----------
     B_phi : np.ndarray
-        Toroidal magnetic field on the area elements [T].
-    dA : np.ndarray
-        Poloidal-plane area element of each sample, same shape as ``B_phi`` [m^2].
+        Toroidal magnetic field on a rectilinear grid, indexed ``[R, Z]`` [T].
+    R : np.ndarray, optional
+        Major-radius axis (1-D) or ``ij`` mesh (2-D) of the grid [m].
+    Z : np.ndarray, optional
+        Height axis (1-D) or ``ij`` mesh (2-D) of the grid [m].
+    mask : np.ndarray, optional
+        Boolean map, ``True`` inside the cross-section bounded by the flux
+        surface of interest (for the LCFS of a diverted plasma, ``psi_N <= 1``
+        *and* inside the LCFS, excluding the private-flux region); default the
+        whole grid [-].
+    dA : np.ndarray, optional
+        Deprecated (#358): caller-supplied area elements of the old bare sum,
+        also accepted as the second positional argument for a 1-D ``B_phi`` [m^2].
 
     Returns
     -------
@@ -249,25 +265,27 @@ def phi_from_Bphi(B_phi: np.ndarray,
     Convention
     ----------
     Full weber, never per radian: toroidal flux carries no $2\pi$ ambiguity.  The
-    sign is that of $B_\varphi$, i.e. $\sigma_{B_\varphi}$ of the COCOS in use
-    (COCOS 1-8 and 11-18 differ only in the poloidal flux).
+    sign is that of $B_\varphi$ along the COCOS $\varphi$ direction: the
+    machine's field orientation, not a COCOS index (COCOS 1-8 and 11-18 differ
+    only in the poloidal flux).
 
     Assumptions
     -----------
-    ``dA`` are true area elements of the cross-section bounded by the flux surface
-    of interest; the routine does not construct them.
+    ``mask`` selects the cross-section bounded by the flux surface of interest;
+    the routine integrates what it is given and does not trace the surface.
 
     Numerical notes
     ---------------
-    A Riemann sum, not a quadrature rule: accuracy is first order in the cell size
-    of the caller's grid.
+    :func:`vaft.formula.utils.calculate_toroidal_flux`: 2-D trapezoidal rule,
+    second order on the full grid, first order in the cell size at a masked
+    (staircase) boundary.
 
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 3.4 (toroidal flux and the safety factor).
     """
-    return calculate_toroidal_flux(B_phi, dA)
+    return _toroidal_flux(B_phi, R, Z, mask, dA, stacklevel=3)
 
 
 def rhoN_from_phi(phi: Union[np.ndarray, float],
@@ -1889,9 +1907,11 @@ def radial_magnetic_field_from_psi(psi: np.ndarray,
     Parameters
     ----------
     psi : np.ndarray
-        Poloidal flux along the vertical direction; a 1-D cut in $Z$ [Wb/rad or Wb].
+        Poloidal flux; a 1-D cut in $Z$ or a 2-D map indexed ``[Z, R]``
+        [Wb/rad or Wb].
     R : np.ndarray or float
-        Major radius of the samples [m].
+        Major radius of the samples: a scalar, an array of the shape of
+        ``psi``, or for a ``[Z, R]`` map the 1-D radial grid [m].
     Z : np.ndarray
         Vertical coordinate of the samples, monotonic [m].
     cocos : int or None, optional
@@ -1942,9 +1962,11 @@ def vertical_magnetic_field_from_psi(psi: np.ndarray,
     Parameters
     ----------
     psi : np.ndarray
-        Poloidal flux along the radial direction; a 1-D cut in $R$ [Wb/rad or Wb].
+        Poloidal flux; a 1-D cut in $R$ or a 2-D map indexed ``[R, Z]``
+        [Wb/rad or Wb].
     R : np.ndarray
-        Major radius of the samples, monotonic [m].
+        Major radius of the samples, 1-D and monotonic, of the length of the
+        first axis of ``psi`` [m].
     Z : np.ndarray
         Vertical coordinate of the samples, unused by the derivative [m].
     cocos : int or None, optional
@@ -1966,7 +1988,9 @@ def vertical_magnetic_field_from_psi(psi: np.ndarray,
     Assumptions
     -----------
     Axisymmetry.  The derivative is taken along the *first* axis of ``psi``
-    against ``R``, so the map must be indexed ``[R]`` or ``[R, Z]``.
+    against ``R``, so the map must be indexed ``[R]`` or ``[R, Z]``; the
+    $1/R$ prefactor is broadcast along that same axis.  A ``[Z, R]``-ordered
+    2-D array differentiates along the wrong axis.
 
     Numerical notes
     ---------------
@@ -1977,7 +2001,11 @@ def vertical_magnetic_field_from_psi(psi: np.ndarray,
     .. [1] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293,
            Eq. (20) and Table I.
     """
-    return -poloidal_field_factor(cocos)/R * gradient(R, psi)
+    R = np.asarray(R, dtype=float)
+    psi = np.asarray(psi)
+    # R is the first-axis grid; align 1/R with that axis, not the last one.
+    R_axis = R.reshape(R.shape + (1,) * (psi.ndim - 1)) if R.ndim == 1 else R
+    return -poloidal_field_factor(cocos)/R_axis * gradient(R, psi)
 
 
 
@@ -2001,7 +2029,18 @@ def beta_toroidal_from_p_B0(p_average: float,
     -------
     float
         Toroidal beta [-].
-    
+
+    Convention
+    ----------
+    ``B0`` is the **vacuum** toroidal field at the reference radius
+    ``vacuum_toroidal_field.r0``, as the DD defines ``beta_tor``.  It is not
+    the total field on the magnetic axis, which includes the plasma's own
+    diamagnetic or paramagnetic contribution and so moves with the very
+    pressure being measured, and it is not the vacuum field at another
+    radius: since $B_\varphi \propto 1/R$, a vacuum field taken at $R$ instead
+    of $r_0$ scales $\beta_t$ by $(R/r_0)^2$, about 27 % for $R = 0.45$ m
+    against $r_0 = 0.40$ m.  The sign of ``B0`` does not enter.
+
     Reduction
     ---------
     input: scalar_0d
@@ -2086,7 +2125,22 @@ def beta_normal_from_beta_tor(beta_tor: float,
     -------
     float
         Normalized beta [% m T/MA].
-    
+
+    Convention
+    ----------
+    SI in, Troyon units out: ``beta_tor`` is a **fraction** and ``Ip`` is in
+    **amperes**, and the factor 100 and the conversion to MA are applied here,
+    so the result is directly comparable with a Troyon coefficient of about
+    2.8.  :func:`vaft.formula.stability.beta_N_from_beta_a_B0_Ip` evaluates the
+    same ratio with its own ``B0`` (documented as the field on axis) but
+    takes $\beta$ in percent and $I_p$ in MA and does not
+    rescale: fed this function's fraction and amperes it returns $10^{-8}$ of
+    this value (#349), and this function fed percent returns 100 times too
+    much; its sign also follows $B_0 I_p$, so under a COCOS with a negative
+    field or current it comes back negative.  Here ``B0`` is the vacuum field
+    at ``r0`` (the DD ``beta_normal``), and $|B_0|$ and $|I_p|$ are used, so the
+    result is positive under every COCOS sign convention.
+
     Reduction
     ---------
     input: scalar_0d
@@ -2181,6 +2235,10 @@ def beta_normal_from_beta_volume(beta_volume: float,
     $\beta_N$ of an optimized no-wall sequence nearly doubles (3.15 at A = 10 to
     5.85 at A = 1.25) while this one stays at 3.2 within 3 % [2]_, [3]_.
     
+    Semantics
+    ---------
+    consumes: minor_radius, b_t, plasma_current
+
     References
     ----------
     .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
@@ -2213,7 +2271,25 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
     -------
     float
         Internal inductance, ``li_3`` definition [-].
-    
+
+    Convention
+    ----------
+    ``li_3`` is one of several internal-inductance definitions in circulation
+    (EFIT also reports an $l_i(2)$), and they are not comparable.  The Lao/EFIT $l_i(1)$
+    (:func:`li_1_from_Bp2_volume_integral`) normalises
+    $\langle B_p^2\rangle_V$ by the edge poloidal field
+    $(\mu_0 I_p/\Gamma)^2$, and the cylindrical form by
+    $(\mu_0 I_p/2\pi a)^2$; ``li_3`` normalises the volume integral by
+    $\mu_0^2 I_p^2 R_0/2$.  They are related by
+    $l_{i1} = l_{i3}\,(R_0/R_c)\,\Gamma^2/(4\pi A)$ with $A$ the cross-section
+    area and $R_c = V/(2\pi A)$ its centroid radius: a shape part that grows
+    with elongation (about 8.5 % for an ellipse at $\kappa = 1.6$) times a
+    radius part, so an EFIT ``li`` read as ``li_3`` is wrong by their
+    product.  Within ``li_3`` the result is also inversely proportional to
+    the ``R0`` passed: the magnetic-axis radius, the
+    geometric centre and ``vacuum_toroidal_field.r0`` give different numbers,
+    and :func:`internal_inductance_from_li_3_R0` must be given the same one.
+
     Reduction
     ---------
     input: scalar_0d
@@ -2229,6 +2305,60 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
            Ch. 3, Equilibrium (internal inductance).
     """
     return 2 * float(Bp2_dV) / (MU0**2 * float(Ip) ** 2 * float(R0))
+
+
+def li_1_from_Bp2_volume_integral(Bp2_dV: float,
+                                  volume: float,
+                                  Ip: float,
+                                  perimeter: float) -> float:
+    r"""Internal inductance in the circumference-normalized ``l_i(1)`` definition.
+
+    $$l_{i1} = \frac{\langle B_p^2 \rangle_V}{B_{pa}^2},\qquad
+      \langle B_p^2 \rangle_V = \frac{\int B_p^2 \, dV}{V},\qquad
+      B_{pa} = \frac{\mu_0 I_p}{\Gamma}$$
+
+    $B_{pa}$ is the poloidal field averaged along the boundary circumference $\Gamma$.
+    This is the $\ell_i$ of the DIII-D beta-limit scaling $\beta_{max} = 4\,\ell_i\,I/aB$
+    (Strait 1994), not the IMAS ``li_3`` of :func:`li_3_from_Bp2_volume_integral`.
+    The two differ by $l_{i1} = l_{i3}\,R_0 \Gamma^2 / (2V)
+    = l_{i3}\,(R_0/R_c)\,\Gamma^2/(4\pi A)$, with $A$ the cross-section area and
+    $R_c = V/(2\pi A)$ its centroid radius: a shape part $\Gamma^2/(4\pi A) \ge 1$ (1 for a
+    circle) and a radius part $R_0/R_c$ from the radius $l_{i3}$ normalizes by.
+
+    Parameters
+    ----------
+    Bp2_dV : float
+        Poloidal field squared integrated over the plasma volume [T^2 m^3].
+    volume : float
+        Plasma volume inside the boundary [m^3].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+    perimeter : float
+        Poloidal circumference of the boundary, Gamma [m].
+
+    Returns
+    -------
+    float
+        Internal inductance, ``l_i(1)`` definition [-].
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: global_descriptor
+
+    References
+    ----------
+    .. [1] E. J. Strait, Phys. Plasmas 1 (1994) 1415, doi:10.1063/1.870691, p. 1421:
+           $l_i = \langle B_p^2\rangle/B_{pa}^2$ with $B_{pa} = \mu_0 I/\Gamma$.
+    """
+    volume, perimeter = float(volume), float(perimeter)
+    if not (volume > 0 and perimeter > 0):
+        raise ValueError(f"volume and perimeter must be positive, got {volume!r} and {perimeter!r}")
+    b_pa = MU0 * abs(float(Ip)) / perimeter
+    return float(Bp2_dV) / volume / b_pa ** 2
 
 
 def internal_inductance_from_W_int_Ip(W_int: float, Ip: float) -> float:
@@ -2397,13 +2527,14 @@ def beta_poloidal_from_circumference(p_average: float,
 
 def current_limit_from_q(q_95: float,
                         a: float,
-                        B0: float) -> float:
+                        B0: float,
+                        R0: float) -> float:
     r"""Plasma current at a prescribed edge safety factor, cylindrical approximation.
 
-    $$I_p = \frac{2\pi a^2 B_0}{\mu_0\,q_{95}}$$
+    $$I_p = \frac{2\pi a^2 B_0}{\mu_0 R_0\,q_{95}}$$
 
-    the inversion of $q_{cyl} = 2\pi a^2 B_0/(\mu_0 R\,I_p)\times R/R$ for a
-    circular cross-section written per unit major radius.
+    the inversion of the cylindrical safety factor
+    $q_{cyl} = 2\pi a^2 B_0/(\mu_0 R_0 I_p)$ of a circular cross-section.
 
     Parameters
     ----------
@@ -2412,12 +2543,14 @@ def current_limit_from_q(q_95: float,
     a : float
         Minor radius [m].
     B0 : float
-        Toroidal field on axis [T].
+        Vacuum toroidal field at ``R0`` [T].
+    R0 : float
+        Major radius [m].
 
     Returns
     -------
     float
-        Plasma current reaching ``q_95`` [A m].
+        Plasma current at which $q_{cyl}$ equals ``q_95`` [A].
 
     Assumptions
     -----------
@@ -2426,22 +2559,36 @@ def current_limit_from_q(q_95: float,
 
     Limitations
     -----------
-    As written the expression lacks the $1/R$ of the cylindrical safety factor
-    $q = 2\pi a^2 B_0/(\mu_0 R I_p)$ and therefore returns $I_p R$ [A m], not a
-    current; divide by $R$ for amperes.  Elongation is ignored.  Tracked in #362.
+    Elongation is ignored: an elongated plasma carries $(1+\kappa^2)/2$ times
+    more current at the same edge $q$.  At low aspect ratio the cylindrical
+    $q$ is well below $q_{95}$, so reaching a given $q_{95}$ takes more current
+    than this returns: the result is an underestimate there (conservative as a
+    limit), by a factor of about 2.4 at $A \approx 1.3$ for a circular
+    cross-section with the START factor of :func:`estimated_q95` (about
+    $2.4\,(1+\kappa^2)/2$ with elongation), which covers both shape and aspect
+    ratio.  Before #362 the
+    expression lacked the $1/R_0$ and returned $I_p R_0$ [A m]; ``R0`` is now a
+    required argument, so an old three-argument call fails rather than
+    returning that.
 
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 3.4 (cylindrical safety factor).
     """
-    return 2 * np.pi * a**2 * B0 / (MU0 * q_95)
+    return 2 * np.pi * a**2 * B0 / (MU0 * R0 * q_95)
 
 
 def current_limit_from_beta(beta_N: float,
                           a: float,
                           B0: float) -> float:
-    r"""Current figure obtained by substituting $\beta_N$ for $q$ in the cylindrical relation.
+    r"""Deprecated: the cylindrical-$q$ current formula with $\beta_N$ substituted for $q$; no drop-in replacement.
+
+    No derivation or source records what this was meant to bound (#362).  A
+    current at a Troyon limit follows from $\beta_N = \beta\,a B_0/I_p$
+    (:func:`vaft.formula.stability.beta_N_from_beta_a_B0_Ip`) and the
+    ``troyon`` boundary of :mod:`vaft.formula.boundaries`.  Results are
+    unchanged; a ``DeprecationWarning`` is emitted.
 
     $$I_p = \frac{2\pi a^2 B_0}{\mu_0\,\beta_N}$$
 
@@ -2463,15 +2610,22 @@ def current_limit_from_beta(beta_N: float,
     -----------
     Dimensionally the cylindrical-$q$ formula with $\beta_N$ in the place of $q$;
     no derivation or source records what this is meant to bound, and the result
-    depends on the units chosen for $\beta_N$.  Kept for compatibility; prefer
-    :func:`vaft.formula.stability.beta_N_from_beta_a_B0_Ip` and the Troyon limit.
-    Tracked in #362.
+    depends on the units chosen for $\beta_N$.  It also lacks the $1/R$ that
+    :func:`current_limit_from_q` now carries.  Deprecated (#362).
 
     References
     ----------
     .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209 (the
            $\beta_N$ limit this appears to invert).
     """
+    warnings.warn(
+        "`current_limit_from_beta` is deprecated (#362): it is the cylindrical-q current formula "
+        "with beta_N substituted for q and has no derivation. For a current at a beta_N limit "
+        "invert `vaft.formula.stability.beta_N_from_beta_a_B0_Ip` (beta_N = beta a B0 / I_p in its "
+        "Troyon units: beta in %, I_p in MA, beta_N in %·m·T/MA).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return 2 * np.pi * a**2 * B0 / (MU0 * beta_N)
 
 
@@ -2712,6 +2866,300 @@ def stored_energy_from_beta_V(beta: float,
            Sec. 3.5 (definition of beta).
     """
     return beta * B0**2 * V / (2 * MU0)
+
+
+def beta_p_diamagnetic_from_flux_circular(Phi_dia: float,
+                                          B_phi0: float,
+                                          Ip: float) -> float:
+    r"""Diamagnetic poloidal beta of a circular high-aspect-ratio plasma from the diamagnetic flux.
+
+    $$\beta_{p,\mathrm{dia}} \simeq 1 - \frac{8\pi B_{\varphi 0}\,\Phi_{\mathrm{dia}}}{\mu_0^2 I_p^2}$$
+
+    Parameters
+    ----------
+    Phi_dia : float
+        Diamagnetic flux, the plasma's change of toroidal flux, signed in the
+        frame of ``B_phi0`` (see Convention) [Wb].
+    B_phi0 : float
+        Vacuum toroidal field at the plasma centre, signed [T].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+
+    Returns
+    -------
+    float
+        Poloidal beta of the perpendicular pressure, $\beta_{p\perp}$ [-].
+
+    Raises
+    ------
+    ValueError
+        If ``Ip`` is zero or non-finite, or ``Phi_dia`` or ``B_phi0`` is
+        non-finite.
+
+    Convention
+    ----------
+    ``Phi_dia`` and ``B_phi0`` are signed in one frame: ``Phi_dia`` is the
+    plasma's change of the toroidal flux, $\int (B_\varphi - B_{\varphi,vac})\,dA$,
+    so the product $B_{\varphi 0}\Phi_{dia}$ is positive for a paramagnetic
+    and negative for a diamagnetic plasma ($\beta_p > 1$) whichever way the
+    field points.  VAFT's ``magnetics.diamagnetic_flux`` follows EFIT's
+    ``cdflux``, signed with $B_t$ (#1196); pass it with the signed vacuum
+    field of the same record, not $|B_{\varphi 0}|$, which is right only in a
+    positive field.  ``vacuum_toroidal_field.b0`` is the field at ``r0``;
+    rescale it to the plasma centre $R_0$ as $b_0\,r_0/R_0$ where the two
+    radii differ, or the result is off by $r_0/R_0$ in the diamagnetic term.  No ``abs()`` is applied: a flux
+    whose sign disagrees with the field's turns a paramagnetic $\beta_p < 1$
+    into a diamagnetic $\beta_p > 1$ rather than failing.
+
+    Assumptions
+    -----------
+    Circular cross-section, large aspect ratio, $\beta_p$ of the perpendicular
+    pressure (what a diamagnetic loop sees).
+
+    Limitations
+    -----------
+    A closed-form high-aspect-ratio approximation, not a spherical-tokamak
+    formula: at low aspect ratio the toroidal corrections it drops are of
+    order one and the error can be large [2]_; [3]_ describes the VEST
+    measurement and a low-aspect-ratio treatment.  Use the virial/Shafranov
+    integrals of :mod:`vaft.formula.virial` for a quantitative value.
+
+    References
+    ----------
+    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer,
+           Nucl. Fusion 25 (1985) 1421.
+    .. [2] M. W. Bongard et al., Phys. Plasmas 23 (2016) 072508 (limitations
+           at low aspect ratio).
+    .. [3] J. Yang et al., Rev. Sci. Instrum. 89 (2018) 103508 (VEST
+           diamagnetic-flux measurement, low-aspect-ratio treatment).
+    """
+    return 1.0 - _diamagnetic_flux_term(Phi_dia, B_phi0, Ip)
+
+
+def beta_p_diamagnetic_from_flux_elliptic(Phi_dia: float,
+                                          B_phi0: float,
+                                          Ip: float,
+                                          kappa: float) -> float:
+    r"""Diamagnetic poloidal beta of an elliptical high-aspect-ratio plasma from the diamagnetic flux.
+
+    $$\beta_{p\perp,\mathrm{dia}} \simeq 1 - \frac{1+\kappa^2}{2\kappa}\,
+      \frac{8\pi B_{\varphi 0}\,\Phi_{\mathrm{dia}}}{\mu_0^2 I_p^2}$$
+
+    Reduces to :func:`beta_p_diamagnetic_from_flux_circular` at $\kappa = 1$.
+
+    Parameters
+    ----------
+    Phi_dia : float
+        Diamagnetic flux, signed in the frame of ``B_phi0`` [Wb].
+    B_phi0 : float
+        Vacuum toroidal field at the plasma centre, signed [T].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+    kappa : float
+        Elongation of the elliptical cross-section, positive [-].
+
+    Returns
+    -------
+    float
+        Poloidal beta of the perpendicular pressure, $\beta_{p\perp}$ [-].
+
+    Raises
+    ------
+    ValueError
+        If ``Ip`` is zero or non-finite, ``Phi_dia`` or ``B_phi0`` is
+        non-finite, or ``kappa`` is not positive.
+
+    Convention
+    ----------
+    ``Phi_dia`` and ``B_phi0`` are signed in one frame: ``Phi_dia`` is the
+    plasma's change of the toroidal flux, $\int (B_\varphi - B_{\varphi,vac})\,dA$,
+    so the product $B_{\varphi 0}\Phi_{dia}$ is positive for a paramagnetic
+    and negative for a diamagnetic plasma ($\beta_p > 1$) whichever way the
+    field points.  VAFT's ``magnetics.diamagnetic_flux`` follows EFIT's
+    ``cdflux``, signed with $B_t$ (#1196); pass it with the signed vacuum
+    field of the same record, not $|B_{\varphi 0}|$, which is right only in a
+    positive field.  ``vacuum_toroidal_field.b0`` is the field at ``r0``;
+    rescale it to the plasma centre $R_0$ as $b_0\,r_0/R_0$ where the two
+    radii differ, or the result is off by $r_0/R_0$ in the diamagnetic term.  No ``abs()`` is applied: a flux
+    whose sign disagrees with the field's turns a paramagnetic $\beta_p < 1$
+    into a diamagnetic $\beta_p > 1$ rather than failing.
+
+    Assumptions
+    -----------
+    Elliptical cross-section of elongation $\kappa$ at large aspect ratio; the
+    poloidal field is normalised by its boundary average
+    $\mu_0 I_p / L_C$ with the ellipse perimeter approximated as
+    $L_C \approx 2\pi a\sqrt{(1+\kappa^2)/2}$; with the area $\pi a^2\kappa$
+    that gives the factor $(1+\kappa^2)/2\kappa$.
+
+    Limitations
+    -----------
+    A closed-form high-aspect-ratio approximation, not a spherical-tokamak
+    formula: at low aspect ratio the toroidal corrections it drops are of
+    order one and the error can be large [2]_; [3]_ describes the VEST
+    measurement and a low-aspect-ratio treatment.  Use the virial/Shafranov
+    integrals of :mod:`vaft.formula.virial` for a quantitative value.
+
+    References
+    ----------
+    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer,
+           Nucl. Fusion 25 (1985) 1421.
+    .. [2] M. W. Bongard et al., Phys. Plasmas 23 (2016) 072508 (limitations
+           at low aspect ratio).
+    .. [3] J. Yang et al., Rev. Sci. Instrum. 89 (2018) 103508 (VEST
+           diamagnetic-flux measurement, low-aspect-ratio treatment).
+    """
+    kappa = float(kappa)
+    if not np.isfinite(kappa) or kappa <= 0.0:
+        raise ValueError(f"kappa must be positive and finite, got {kappa!r}")
+    return 1.0 - (1.0 + kappa**2) / (2.0 * kappa) * _diamagnetic_flux_term(Phi_dia, B_phi0, Ip)
+
+
+def stored_energy_diamagnetic_from_beta_p_circular(beta_p: float,
+                                                   R0: float,
+                                                   Ip: float) -> float:
+    r"""Diamagnetic stored energy of a circular high-aspect-ratio plasma from its poloidal beta.
+
+    $$W_{\mathrm{dia}} \simeq \frac{3}{8}\,\mu_0 R_0 I_p^2\,\beta_{p,\mathrm{dia}}$$
+
+    Parameters
+    ----------
+    beta_p : float
+        Diamagnetic poloidal beta in the DD $R_0$ normalisation; for a
+        circular cross-section, $V = 2\pi^2 R_0 a^2$, this is what
+        :func:`beta_p_diamagnetic_from_flux_circular` returns [-].
+    R0 : float
+        Major radius of the plasma centre [m].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+
+    Returns
+    -------
+    float
+        Stored kinetic energy $\tfrac32\int p_\perp\,dV$ [J].
+
+    Raises
+    ------
+    ValueError
+        If ``R0`` is not positive.
+
+    Convention
+    ----------
+    The thermal energy, $\tfrac32\int p\,dV$, not the pressure integral
+    $\int p\,dV$ that :func:`stored_energy_from_beta_V` returns: with the DD
+    $\beta_p = 4\int p\,dV/(\mu_0 R_0 I_p^2)$
+    (:func:`beta_poloidal_from_pressure_integral`) this is $\tfrac32$ of that
+    integral.  ``R0`` must be the radius ``beta_p`` was normalised by.  A
+    flux-derived $\beta_p$ is normalised by the boundary field
+    $\mu_0 I_p/L_C$ instead; the two agree only for the circle
+    ($R_0 L_C^2 = 2V$), so for a shaped plasma use
+    :func:`stored_energy_diamagnetic_from_beta_p_geometry`, which takes that
+    normalisation directly.
+
+    Limitations
+    -----------
+    A closed-form high-aspect-ratio approximation, not a spherical-tokamak
+    formula: at low aspect ratio the toroidal corrections it drops are of
+    order one and the error can be large [2]_; [3]_ describes the VEST
+    measurement and a low-aspect-ratio treatment.  Use the virial/Shafranov
+    integrals of :mod:`vaft.formula.virial` for a quantitative value.
+
+    References
+    ----------
+    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer,
+           Nucl. Fusion 25 (1985) 1421.
+    .. [2] M. W. Bongard et al., Phys. Plasmas 23 (2016) 072508 (limitations
+           at low aspect ratio).
+    .. [3] J. Yang et al., Rev. Sci. Instrum. 89 (2018) 103508 (VEST
+           diamagnetic-flux measurement, low-aspect-ratio treatment).
+    """
+    R0 = float(R0)
+    if not np.isfinite(R0) or R0 <= 0.0:
+        raise ValueError(f"R0 must be positive and finite, got {R0!r}")
+    return 3.0 / 8.0 * MU0 * R0 * float(Ip) ** 2 * float(beta_p)
+
+
+def stored_energy_diamagnetic_from_beta_p_geometry(beta_p: float,
+                                                   volume: float,
+                                                   Ip: float,
+                                                   perimeter: float) -> float:
+    r"""Diamagnetic stored energy from poloidal beta, plasma volume and boundary circumference.
+
+    $$W_{\mathrm{dia}} \simeq \frac{3}{4}\,\mu_0 V \left(\frac{I_p}{L_C}\right)^2
+      \beta_{p\perp,\mathrm{dia}}$$
+
+    For a circle, $V = 2\pi^2 R_0 a^2$ and $L_C = 2\pi a$, this is
+    :func:`stored_energy_diamagnetic_from_beta_p_circular`.
+
+    Parameters
+    ----------
+    beta_p : float
+        Diamagnetic poloidal beta normalised by the boundary-average poloidal
+        field $\mu_0 I_p/L_C$, e.g. from
+        :func:`beta_p_diamagnetic_from_flux_elliptic` [-].
+    volume : float
+        Plasma volume [m^3].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+    perimeter : float
+        Poloidal circumference of the plasma boundary, $L_C$ [m].
+
+    Returns
+    -------
+    float
+        Stored kinetic energy $\tfrac32\int p_\perp\,dV$ [J].
+
+    Raises
+    ------
+    ValueError
+        If ``volume`` or ``perimeter`` is not positive.
+
+    Convention
+    ----------
+    $\beta_p = 2\mu_0\langle p\rangle_V L_C^2/(\mu_0 I_p)^2$, the circumference
+    normalisation of :func:`beta_poloidal_from_circumference`, not the DD
+    $R_0$ form; the two agree only for a circular cross-section.  The result
+    is the thermal energy $\tfrac32\int p\,dV$, the same expression as
+    :func:`kinetic_energy_from_beta_p_B_pa_V_p` with
+    $B_{pa} = \mu_0 I_p/L_C$.  ``perimeter`` must be the $L_C$ that ``beta_p``
+    was normalised with: :func:`beta_p_diamagnetic_from_flux_elliptic` uses
+    the approximation $2\pi a\sqrt{(1+\kappa^2)/2}$, so pair its result with
+    that value, not the exact ellipse perimeter (about 2.5 % shorter at
+    $\kappa = 2$, which would make the energy about 5 % high).
+
+    Limitations
+    -----------
+    A closed-form high-aspect-ratio approximation, not a spherical-tokamak
+    formula: at low aspect ratio the toroidal corrections it drops are of
+    order one and the error can be large [2]_; [3]_ describes the VEST
+    measurement and a low-aspect-ratio treatment.  Use the virial/Shafranov
+    integrals of :mod:`vaft.formula.virial` for a quantitative value.
+
+    References
+    ----------
+    .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer,
+           Nucl. Fusion 25 (1985) 1421.
+    .. [2] M. W. Bongard et al., Phys. Plasmas 23 (2016) 072508 (limitations
+           at low aspect ratio).
+    .. [3] J. Yang et al., Rev. Sci. Instrum. 89 (2018) 103508 (VEST
+           diamagnetic-flux measurement, low-aspect-ratio treatment).
+    """
+    volume, perimeter = float(volume), float(perimeter)
+    if not np.isfinite(volume) or volume <= 0.0:
+        raise ValueError(f"volume must be positive and finite, got {volume!r}")
+    if not np.isfinite(perimeter) or perimeter <= 0.0:
+        raise ValueError(f"perimeter must be positive and finite, got {perimeter!r}")
+    return 0.75 * MU0 * volume * (float(Ip) / perimeter) ** 2 * float(beta_p)
+
+
+def _diamagnetic_flux_term(Phi_dia, B_phi0, Ip) -> float:
+    """8 pi B_phi0 Phi_dia / (mu0 Ip)^2, the circular diamagnetic term (#684)."""
+    Ip, B_phi0, Phi_dia = float(Ip), float(B_phi0), float(Phi_dia)
+    if not np.isfinite(Ip) or Ip == 0.0:
+        raise ValueError(f"Ip must be finite and non-zero, got {Ip!r}")
+    if not (np.isfinite(B_phi0) and np.isfinite(Phi_dia)):
+        raise ValueError(f"Phi_dia and B_phi0 must be finite, got {Phi_dia!r}, {B_phi0!r}")
+    return 8.0 * np.pi * B_phi0 * Phi_dia / (MU0 * Ip) ** 2
 
 # ------------------------------------------------------------------
 # Geometry
@@ -3195,11 +3643,12 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
     T_e : float
         Electron temperature [eV].
     Z_eff : float
-        Effective ion charge. Omitting it is deprecated (#1188): it still
-        falls back to 2 with a ``FutureWarning`` and will raise in 0.9 [-].
+        Effective ion charge. Required: omitting it raises ``TypeError``
+        since 0.9.0 (#1188); the hidden fallback of 2 was deprecated in
+        0.7.0 [-].
     ln_Lambda : float
-        Coulomb logarithm. Omitting it is deprecated (#1188): it still falls
-        back to 17 with a ``FutureWarning`` and will raise in 0.9 [-].
+        Coulomb logarithm. Required: omitting it raises ``TypeError`` since
+        0.9.0 (#1188); the hidden fallback of 17 was deprecated in 0.7.0 [-].
 
     Returns
     -------
@@ -3224,8 +3673,8 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
     Core tokamak plasmas well above the ionisation stage.  $Z_{\mathrm{eff}}$
     and $\ln\Lambda$ are physics inputs, not defaults: the former fallbacks
     $Z_{\mathrm{eff}}=2$, $\ln\Lambda=17$ were typical rather than derived and
-    are deprecated (#1188); use :func:`coulomb_logarithm_from_n_T` for a
-    self-consistent $\ln\Lambda$.
+    were removed in 0.9.0 (#1188); use :func:`coulomb_logarithm_from_n_T`
+    for a self-consistent $\ln\Lambda$.
 
     Limitations
     -----------
@@ -3240,19 +3689,13 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
            Sec. 2.16 (resistivity).
     """
     if Z_eff is None or ln_Lambda is None:
-        import warnings
-
         missing = [name for name, value in (("Z_eff", Z_eff), ("ln_Lambda", ln_Lambda))
                    if value is None]
-        warnings.warn(
+        raise TypeError(
             f"spitzer_resistivity_from_T_e_Z_eff_ln_Lambda called without {', '.join(missing)}; "
-            "the hidden fallbacks Z_eff=2, ln_Lambda=17 are deprecated and will raise in 0.9 "
-            "(#1188). Pass them explicitly.",
-            FutureWarning,
-            stacklevel=2,
+            "Z_eff and ln_Lambda are physics inputs, not defaults -- the hidden fallbacks "
+            "Z_eff=2, ln_Lambda=17 were removed in 0.9.0 (#1188). Pass them explicitly."
         )
-        Z_eff = 2.0 if Z_eff is None else Z_eff
-        ln_Lambda = 17.0 if ln_Lambda is None else ln_Lambda
     return SPITZER_RESISTIVITY_COEF * Z_eff * ln_Lambda / T_e**1.5
 
 
@@ -3286,15 +3729,24 @@ def normalized_plasma_current(Ip: Union[float, np.ndarray],
 
     Convention
     ----------
-    SI current in, engineering-unit ratio out: the same $I_N$ that normalises
-    $\beta_N = \beta_t[\%]/I_N$ and that the ST beta-limit literature plots
-    against.
+    SI current in, engineering-unit ratio out: the Troyon normalisation
+    $I_N = I_p/(a B_t)$ [1] that turns $\beta_t$ into $\beta_N = \beta_t[\%]/I_N$,
+    and the current axis of the low-aspect-ratio $(I_N, \beta_N)$ stability
+    maps [2].
+
+    Semantics
+    ---------
+    consumes: plasma_current, minor_radius, b_t
+    produces: normalized_current
 
     References
     ----------
-    .. [1] J. E. Menard et al., Phys. Plasmas 23 (2016) 072508,
-           https://doi.org/10.1063/1.4959808, Sec. II.
-    .. [2] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
+    .. [1] F. Troyon, R. Gruber, H. Saurenmann, S. Semenzato and S. Succi,
+           Plasma Phys. Control. Fusion 26 (1984) 209,
+           https://doi.org/10.1088/0741-3335/26/1A/319.
+    .. [2] J. E. Menard, S. C. Jardin, S. M. Kaye, C. E. Kessel and
+           J. Manickam, Nucl. Fusion 37 (1997) 595,
+           https://doi.org/10.1088/0029-5515/37/5/I03.
     """
     Ip = Ip / 1e6  # Convert A to MA
     return Ip / (a * Bt)
@@ -3468,6 +3920,11 @@ def estimated_q95(a: Union[float, np.ndarray],
     kind: closure
     locality: global
     role: global_descriptor
+
+    Semantics
+    ---------
+    consumes: plasma_current, b_t, minor_radius, major_radius, elongation, triangularity
+    produces: estimated_q95
 
     References
     ----------
@@ -4014,6 +4471,12 @@ def inductive_voltage_from_dW_magdt_I_p(dW_magdt: float, I_p: float) -> float:
 # Power Balance
 # ------------------------------------------------------------------
 
+def _ohmic_heating_power_jacobian(I_p, V_res, **_):
+    """``[dP/dI_p, dP/dV_res]`` of :func:`ohmic_heating_power_from_I_p_V_res`."""
+    return [[V_res, I_p]]
+
+
+@_jacobian(_ohmic_heating_power_jacobian, wrt=("I_p", "V_res"))
 def ohmic_heating_power_from_I_p_V_res(I_p: float,
                                         V_res: float) -> float:
     r"""Ohmic heating power $P_{ohm} = I_pV_{res}$.
@@ -4038,6 +4501,19 @@ def ohmic_heating_power_from_I_p_V_res(I_p: float,
     counts the inductive power $L\,dI_p/dt$ and the change of internal
     inductance, so it is a resistive-heating estimate only when $dI_p/dt \approx 0$.
 
+    Uncertainty propagation
+    -----------------------
+    Inputs in order $(I_p, V_{res})$ [A, V]; analytic Jacobian
+    $J = (V_{res},\ I_p)$ [V, A], so
+    $\sigma_P^2 = V_{res}^2\sigma_{I}^2 + I_p^2\sigma_{V}^2 + 2I_pV_{res}\,\mathrm{cov}(I_p, V_{res})$.
+    The product is bilinear: for Gaussian inputs first order misses only the
+    $\mathrm{cov}(I_p, V_{res})^2 + \sigma_I^2\sigma_V^2$ term of the variance and the
+    mean shift $E[I_pV_{res}] - I_pV_{res} = \mathrm{cov}(I_p, V_{res})$, both negligible
+    when the relative uncertainties are small. $I_p$ and $V_{res}$ share the
+    loop-voltage and Rogowski calibration chain, so their covariance is rarely
+    zero. $V_{res}$ already carries the inductive correction; its uncertainty
+    includes that of $L\,dI_p/dt$, which this formula cannot see.
+
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
@@ -4049,10 +4525,17 @@ def ohmic_heating_power_from_I_p_V_res(I_p: float,
 def alpha_heating_power_from_n_D_n_T_T_keV_V(
     n_D_1e19: float, n_T_1e19: float, T_keV: float, V_m3: float
 ) -> float:
-    r"""D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit.
+    r"""Deprecated: D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit; no replacement.
+
+    VEST runs hydrogen (and occasionally helium), so a D-T reactivity is
+    physics nothing in VAFT calls, and the quadratic fit is not worth
+    reimplementing as Bosch-Hale [2]_ (with its erratum [3]_) for it (#360).
+    A caller who needs D-T power should evaluate the Bosch-Hale
+    parametrisation with the erratum coefficients.  Results are unchanged; a
+    ``DeprecationWarning`` is emitted.
 
     $$P_\alpha = n_D\,n_T\,\langle\sigma v\rangle\,E_\alpha\,V, \qquad
-      \langle\sigma v\rangle \approx 1.1\times10^{-24}\,T_{\mathrm{keV}}^2\ \mathrm{m^3/s}$$
+      \langle\sigma v\rangle \approx 1.1\times10^{-24}\,T_{\mathrm{keV}}^2\ \mathrm{m^3\,s^{-1}}\quad(T\ \mathrm{in\ keV})$$
 
     Parameters
     ----------
@@ -4077,22 +4560,33 @@ def alpha_heating_power_from_n_D_n_T_T_keV_V(
 
     Validity
     --------
-    Empirical fit.  The quadratic $\langle\sigma v\rangle$ is Wesson's
-    interpolation of the D-T reactivity, accurate to ~10 % for $10 < T <
-    20$ keV [1]_; outside that window use the Bosch-Hale parametrisation [2]_.
+    The quadratic $\langle\sigma v\rangle$ is Wesson's interpolation of the D-T
+    reactivity, accurate to ~10 % for $10 < T < 20$ keV [1]_; ``T_keV`` is not
+    checked against that window, and at the sub-keV temperatures of a
+    spherical tokamak the number is meaningless.
 
     Limitations
     -----------
-    Irrelevant for a hydrogen device such as VEST, which runs hydrogen and
-    occasionally helium and so sustains no D-T reaction; kept for power-balance
-    completeness.  Tracked in #360 (Bosch-Hale replacement).
+    Irrelevant for a hydrogen device such as VEST, which sustains no D-T
+    reaction; deprecated rather than replaced (#360).
 
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 1.3.
     .. [2] H.-S. Bosch and G. M. Hale, Nucl. Fusion 32 (1992) 611, Table VII.
+    .. [3] H.-S. Bosch and G. M. Hale, erratum, Nucl. Fusion 33 (1993) 1919;
+           corrects coefficients of the 1992 parametrisation, so an
+           implementation from the original paper alone is wrong.
     """
+    warnings.warn(
+        "`alpha_heating_power_from_n_D_n_T_T_keV_V` (alias `alpha_heating_power`) is deprecated (#360): "
+        "the <sigma v> = 1.1e-24 T_keV^2 fit holds only for 10-20 keV and VEST runs no D-T. "
+        "For D-T power use the Bosch-Hale reactivity, Nucl. Fusion 32 (1992) 611 with the "
+        "erratum Nucl. Fusion 33 (1993) 1919.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     n_D = n_D_1e19 * 1e19  # m^-3
     n_T = n_T_1e19 * 1e19  # m^-3
     sigma_v = SIGMA_V_COEF * T_keV**2  # m^3/s (rough fit)
@@ -5204,6 +5698,13 @@ calc_omega_i_tau_E = omega_i_tau_E_from_B_tau_E_M
 # ------------------------------------------------------------------
 # Confinement Time
 # ------------------------------------------------------------------
+def _confinement_time_jacobian(P_loss, W_th, **_):
+    """``[dtau/dP_loss, dtau/dW_th]`` of :func:`confinement_time_from_P_loss_W_th`."""
+    return [[-W_th / P_loss ** 2, 1.0 / P_loss]]
+
+
+@_jacobian(_confinement_time_jacobian, wrt=("P_loss", "W_th"),
+           domain=lambda P_loss, W_th, **_: P_loss > 0 and W_th >= 0)
 def confinement_time_from_P_loss_W_th(P_loss: float, W_th: float) -> float:
     r"""Energy confinement time as stored energy over loss power.
 
@@ -5227,6 +5728,24 @@ def confinement_time_from_P_loss_W_th(P_loss: float, W_th: float) -> float:
     radiation subtracted depending on the database); the ITER definition of
     $\tau_{E,th}$ needs $P_{loss}$ from :func:`loss_power_from_p_heat_dWdt_p_rad`.
 
+    Semantics
+    ---------
+    produces: energy_confinement_time
+
+    Uncertainty propagation
+    -----------------------
+    Inputs in order $(P_{loss}, W_{th})$ [W, J]; analytic Jacobian
+    $J = (-W_{th}/P_{loss}^2,\ 1/P_{loss})$ [s/W, s/J], so
+    $(\sigma_\tau/\tau)^2 = (\sigma_P/P)^2 + (\sigma_W/W)^2 - 2\,\mathrm{cov}(P, W)/(PW)$.
+    First order is local: the ratio is nonlinear in $P_{loss}$, and the
+    linearization stops describing the spread as $\sigma_P/P_{loss}$ grows
+    (it is singular at $P_{loss} = 0$ and undefined for $P_{loss} \le 0$, a
+    transient with $dW/dt$ larger than the heating power; the declared domain is
+    $P_{loss} > 0$, $W_{th} \ge 0$, so such a point or Monte Carlo draw is refused). A positive
+    correlation (both inputs from one equilibrium reconstruction, or $dW/dt$
+    in $P_{loss}$ from the same $W_{th}$) *reduces* the spread. Measured-input
+    covariance only; no confinement-scaling or model-form uncertainty.
+
     References
     ----------
     .. [1] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2, Sec. 3.
@@ -5245,6 +5764,7 @@ def confinement_time_from_engineering_parameters(
     scaling: str = "ITER89P",
     input_density_definition: str = "line_avg",
     line_to_volume_factor: Optional[float] = None,
+    delta: Optional[float] = None,
 ) -> float:
     r"""Thermal energy confinement time from an engineering-parameter scaling law.
 
@@ -5252,6 +5772,8 @@ def confinement_time_from_engineering_parameters(
 
     with the product running only over the variables the selected scaling
     declares, in the engineering units MA, T, MW, $10^{19}$ m^-3, amu and m.
+    The ITPA20 and ITPA20-IL fits also carry a triangularity factor
+    $(1+\delta)^{\alpha_{1+\delta}}$.
 
     Parameters
     ----------
@@ -5274,13 +5796,17 @@ def confinement_time_from_engineering_parameters(
     scaling : str, optional
         Scaling-law name; default ``"ITER89P"`` [str].
         One of ``"ITER89P"``, ``"H98y2"``, ``"ITER97L"``, ``"NSTX2006H"``,
-        ``"NSTX2006L"``, ``"Kurskiev2022"``.
+        ``"NSTX2006L"``, ``"Kurskiev2022"``, ``"ITPA20"``, ``"ITPA20_IL"``.
     input_density_definition : str, optional
         What ``n_e`` is: ``"line_avg"`` (default) or ``"volume_avg"`` [str].
     line_to_volume_factor : float or None, optional
         Volume-to-line density ratio, default ``None`` [-].
         Used only when the input and the scaling's density definitions differ,
         and required then.
+    delta : float or None, optional
+        Average LCFS triangularity $(\delta_u+\delta_l)/2$, default ``None`` [-].
+        Required by the scalings with a $(1+\delta)$ term (ITPA20, ITPA20-IL),
+        where $1+\delta$ must be > 0; ignored by the others.
 
     Returns
     -------
@@ -5290,8 +5816,9 @@ def confinement_time_from_engineering_parameters(
     Raises
     ------
     ValueError
-        Unknown scaling, non-positive input, or a density-definition mismatch
-        without ``line_to_volume_factor``.
+        Unknown scaling, non-positive input, a density-definition mismatch
+        without ``line_to_volume_factor``, or a triangularity scaling without
+        ``delta``.
 
     Convention
     ----------
@@ -5308,8 +5835,13 @@ def confinement_time_from_engineering_parameters(
     Empirical fit.  Multi-machine regressions of the ITER L-mode (ITER89P [1]_)
     and ELMy H-mode (IPB98(y,2) [2]_) databases, the ITER97-L thermal L-mode fit
     [5]_, the NSTX H- and L-mode fits of Kaye [3]_, and the spherical-tokamak
-    multi-machine H-mode fit of Kurskiev [4]_; each is valid over its database's parameter range and the ST fits are
-    the only ones that include low-aspect-ratio data.
+    multi-machine H-mode fit of Kurskiev [4]_, and the ITPA20 (all DB5.2.3-STD5
+    ELMy H-modes) and ITPA20-IL (its ITER-like subset) fits of Verdoolaege [6]_,
+    both on the thermal loss power $P_{l,th}$ (radiation inside the LCFS not
+    subtracted), the volume elongation $\kappa_a = V/(2\pi R\,\pi a^2)$ and the
+    average triangularity; each is valid over its database's parameter range and the ST fits and
+    ITPA20 (which keeps the NSTX, MAST and START points of STD5) are the only
+    ones that include low-aspect-ratio data.
 
     Limitations
     -----------
@@ -5333,6 +5865,8 @@ def confinement_time_from_engineering_parameters(
     .. [3] S. M. Kaye et al., Nucl. Fusion 46 (2006) 848, Table 2.
     .. [4] G. S. Kurskiev et al., Nucl. Fusion 62 (2022) 016011.
     .. [5] S. M. Kaye et al., Nucl. Fusion 37 (1997) 1303 (ITER97-L).
+    .. [6] G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006, eqs. (5)
+           (ITPA20-IL) and (7) (ITPA20).
     """
     def _normalise_density_definition(label: str) -> str:
         mapping = {
@@ -5416,6 +5950,16 @@ def confinement_time_from_engineering_parameters(
         "epsilon": epsilon,
         "kappa": kappa,
     }
+    if "one_plus_delta" in exponents:
+        if delta is None:
+            raise ValueError(
+                f"Scaling '{scaling}' has a (1 + delta) triangularity term; pass delta "
+                "(average LCFS triangularity)."
+            )
+        delta_array = np.asarray(delta, dtype=float)
+        if np.any(~np.isfinite(delta_array)) or np.any(1.0 + delta_array <= 0.0):
+            raise ValueError(f"delta must satisfy 1 + delta > 0, got {delta!r}")
+        variable_values["one_plus_delta"] = 1.0 + delta_array
 
     result = C
     used_variables = []
@@ -5441,7 +5985,7 @@ def confinement_time_from_engineering_parameters(
                 f"Confinement time calculation resulted in complex number for scaling '{scaling}'. "
                 f"Used variables: {used_variables}. "
                 f"Inputs: I_p={I_p}, B_t={B_t}, P_loss={P_loss}, n_e={n_e}, M={M}, R={R}, "
-                f"epsilon={epsilon}, kappa={kappa}"
+                f"epsilon={epsilon}, kappa={kappa}, delta={delta}"
             )
         result = np.real(result_complex)
 
@@ -5451,7 +5995,7 @@ def confinement_time_from_engineering_parameters(
             f"Invalid confinement time result: {result}. "
             f"Used variables: {used_variables}. "
             f"Inputs: I_p={I_p}, B_t={B_t}, P_loss={P_loss}, n_e={n_e}, M={M}, R={R}, "
-            f"epsilon={epsilon}, kappa={kappa}, scaling={scaling}"
+            f"epsilon={epsilon}, kappa={kappa}, delta={delta}, scaling={scaling}"
         )
 
     return float(result)
@@ -5574,6 +6118,11 @@ def goldston_l_mode_confinement_time_from_I_P_R_a_kappa(
     Pure L-mode; the ohmic phase needs the quadrature of
     :func:`ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux`.
 
+    Semantics
+    ---------
+    consumes: plasma_current, major_radius, minor_radius, elongation
+    produces: energy_confinement_time
+
     References
     ----------
     .. [1] R. J. Goldston, Plasma Phys. Control. Fusion 26 (1984) 87, Eq. (6).
@@ -5656,7 +6205,8 @@ def confinement_scaling_basis(scaling: str) -> ConfinementScalingBasis:
     ----------
     scaling : str
         Scaling name: a key of ``_SCALING_COEFS`` (``"ITER89P"``, ``"ITER97L"``,
-        ``"H98y2"``, ``"NSTX2006H"``, ``"NSTX2006L"``, ``"Kurskiev2022"``) or
+        ``"H98y2"``, ``"NSTX2006H"``, ``"NSTX2006L"``, ``"Kurskiev2022"``,
+        ``"ITPA20"``, ``"ITPA20_IL"``) or
         one of the ohmic/L-mode forms ``"NeoAlcator"``, ``"Goldston84L"``,
         ``"Goldston84OhmicL"`` [str].
 
@@ -5957,9 +6507,10 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     -----------
     Until #351 this returned
     $5 + \mu_\rho(1+\alpha_P) - \tfrac32(\mu_\rho + 2\mu_\beta - 4\mu_\nu - 2)$,
-    "5 for a consistent mapping", which no published scaling reached.  It now
-    returns the residual and emits a ``FutureWarning`` saying so, until
-    0.9.0; prefer :func:`check_kadomtsev_constraint` on engineering exponents.
+    "5 for a consistent mapping", which no published scaling reached.  It has
+    returned the residual since; the ``FutureWarning`` that announced the
+    change was dropped in 0.9.0.  Prefer :func:`check_kadomtsev_constraint`
+    on engineering exponents.
 
     References
     ----------
@@ -5967,14 +6518,6 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     .. [2] T. C. Luce, C. C. Petty and J. G. Cordey, Plasma Phys. Control.
            Fusion 50 (2008) 043001.
     """
-    warnings.warn(
-        "verify_kadomtsev_constraint now returns the Kadomtsev residual "
-        "alpha_K (0 when consistent), the quantity check_kadomtsev_constraint "
-        "tests, instead of the old value that 'should be 5' (#351). This "
-        "warning is removed in 0.9.0.",
-        FutureWarning,
-        stacklevel=2,
-    )
     alpha_i, alpha_b, alpha_p, alpha_n, alpha_r = (
         engineering_exponents_from_dimensionless_coeffs(mu_rho, mu_beta, mu_nu, a_P)
     )

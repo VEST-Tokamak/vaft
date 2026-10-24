@@ -51,6 +51,22 @@ def vaft_revision() -> tuple[str | None, bool | None]:
     """
     toplevel = _git("rev-parse", "--show-toplevel")
     if toplevel is None or Path(toplevel).resolve() != _PACKAGE_ROOT:
+        # PEP 610 pins a VCS installation without mistaking its consumer's repo
+        # for VAFT. Ordinary wheels have no VCS evidence and remain unknown.
+        from importlib.metadata import distribution, PackageNotFoundError
+        import json
+        import re
+        try:
+            metadata = distribution("vaft")
+            if Path(metadata.locate_file("vaft")).resolve() != (_PACKAGE_ROOT / "vaft").resolve():
+                return None, None
+            direct = json.loads(metadata.read_text("direct_url.json") or "{}")
+            vcs = direct.get("vcs_info", {})
+            revision = vcs.get("commit_id", "")
+            if vcs.get("vcs") == "git" and re.fullmatch(r"[0-9a-fA-F]{40}", revision):
+                return revision.lower(), None
+        except (PackageNotFoundError, ValueError, TypeError, AttributeError):
+            pass
         return None, None
     if not (_PACKAGE_ROOT / "vaft" / "version.py").is_file():
         return None, None

@@ -1,0 +1,31 @@
+{
+  "versions": {
+    "torch": "2.10.0",
+    "mlflow": "3.17.1",
+    "torchview": "0.2.7"
+  },
+  "graph_tools": {
+    "fx": {
+      "supported": true,
+      "diagnostics": []
+    },
+    "export": {
+      "supported": true,
+      "diagnostics": []
+    },
+    "torchview": {
+      "supported": true,
+      "notes": "External visual graph; not VAFT semantic/provenance schema."
+    }
+  },
+  "tracking": {
+    "tracking_run_id": "<local-tracking-run-id>",
+    "run_id": "qualification-reference",
+    "uri": "sqlite:///<local-output>/mlflow/tracking.db"
+  },
+  "json_seconds": 0.00036854200152447447,
+  "mlflow_seconds": 1.6711983749992214,
+  "decision": "defer MLflow as default; keep explicit local optional PoC",
+  "rationale": "JSON already retains all provenance and is service-free. MLflow adds indexed history/querying, but no requirement for that index justifies a default dependency.",
+  "graph_decision": "FX default; export explicit alternate for complex/dynamic operators; torchview remains a comparison tool."
+}

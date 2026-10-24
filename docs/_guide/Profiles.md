@@ -170,7 +170,7 @@ Here too the velocity function comes back before the temperature function.
 | `core_poly_edge_exp` | core polynomial blended into an edge exponential via a $\tanh$ transition |
 | `eped_tanh` | EPED-style pedestal: a $\tanh$ pedestal plus a gated core shape — see [Pedestal top](#pedestal-top) |
 | `gp` | Gaussian process regression (scikit-learn), with optional anchor points |
-| `linear` | 1D interpolation through the data — no smoothing |
+| `linear` | 1D interpolation through the data — no smoothing; `nan` outside the data range unless `extrapolate=True` holds the end values |
 
 The `(1-\rho)` factor in the polynomial and exponential bases drives the fitted profile toward zero at
 the boundary, which is usually what you want for $T_e$ and $n_e$ but is a real assumption — `gp`,
@@ -712,7 +712,10 @@ more than it would on a large device:
 - Use `core_poly_edge_exp` when the edge gradient is the quantity of interest, since the polynomial
   bases force the profile to zero at $\rho = 1$ regardless of the data.
 - `linear` is a diagnostic aid, not a physics result: it interpolates the channels exactly and will
-  happily reproduce measurement noise.
+  happily reproduce measurement noise. Called directly, `vaft.formula.fit_profile` returns `nan`
+  outside the span of the channels (inside the innermost or beyond the outermost) rather than a flat
+  copy of the end value; pass `extrapolate=True` for the old hold. The Thomson and charge-exchange
+  fitters in `vaft.process` do, and the Thomson fit report notes it (#359).
 
 Always keep `uncertainty_option=1` if error bars exist. With it disabled every channel is weighted
 equally, including ones the diagnostic itself flagged as unreliable.
@@ -823,7 +826,7 @@ The rest of the chain -- `shafranov_integrals`, `efit_virial_volume_integrals`, 
 - Source: [vaft/process/profile.py](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/process/profile.py)
 - Source: [vaft/plot/profile.py](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/plot/profile.py)
 - Source: [vaft/formula/utils.py](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/formula/utils.py)
-- Batch pipeline: [workflow/automatic_pipeline_2_corrective_data_update/update_thomson_scattering_and_core_profile.py](https://github.com/VEST-Tokamak/vaft/blob/main/workflow/automatic_pipeline_2_corrective_data_update/update_thomson_scattering_and_core_profile.py)
+- Batch pipeline: [workflow/automatic_pipeline_2_corrective_data_update/legacy/update_thomson_scattering_and_core_profile.py](https://github.com/VEST-Tokamak/vaft/blob/main/workflow/automatic_pipeline_2_corrective_data_update/legacy/update_thomson_scattering_and_core_profile.py)
 - Related: [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) ·
   [Data structures]({{ site.baseurl }}/guide/Data_structures/) ·
   [Physics formulas]({{ site.baseurl }}/guide/Formula/) ·

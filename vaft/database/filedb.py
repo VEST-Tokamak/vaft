@@ -12,6 +12,7 @@ The grammar (#77)::
     omas/static/{machine_version}/
     omas/{stage}/{shot}/                                  diagnostics, eddy, impa, ...
     omas/{stage}/{family}/{shot}/                         efit, chease, mhd_linear, gpec_ideal
+    omas/{stage}/{family}/{configuration}/{shot}/         turbulent_transport
     efit/{family}/{shot}/
     chease/{family}/{shot}/
     gpec/{family}/{refinement}/{product}/{shot}/n={n}/
@@ -82,6 +83,19 @@ class OMASStage(str, Enum):
     EDDY = "eddy"
     EFIT = "efit"
     CORE_PROFILES = "core_profiles"
+    # The measured core_profiles plus the VEST impurity composition, n_i and
+    # Z_eff(rho) (#1842). Same IDS as CORE_PROFILES in the same source, on
+    # purpose: it replaces the measured product in `main` once it exists, and
+    # the measured one stays when it does not.
+    COMPOSITION = "composition"
+    # The composed profiles plus an ion temperature inferred from the magnetic
+    # pressure partition on the slices that have none measured (#1842). Another
+    # overlay on the same IDS: it replaces the composed product in `main` only
+    # when it exists.
+    TI_INFERRED = "ti_inferred"
+    # The window Z_eff of Lane Z's Romero estimator, stored beside the composition
+    # Z_eff and never over it (#1842). The last overlay on `core_profiles`.
+    RESISTIVE_ZEFF = "resistive_zeff"
     ELECTRON_EFIT = "electron_efit"
     KINETIC_EFIT = "kinetic_efit"
     CHEASE = "chease"
@@ -91,6 +105,12 @@ class OMASStage(str, Enum):
     # Owns core_transport outright and re-owns core_profiles, which is why it has
     # its own source rather than a place in the baseline.
     NEOCLASSICAL = "neoclassical"
+    # TGLF's result for one named configuration (`tglf-sat<n>-<field>`, #1900).
+    # Owns core_transport only -- never core_profiles or equilibrium, which stay
+    # with the stages that produced the state it ran on. One product per
+    # (family, configuration), so alternative configurations of one state
+    # coexist rather than overwrite each other.
+    TURBULENT_TRANSPORT = "turbulent_transport"
     SOFT_X_RAYS = "soft_x_rays"
     CAMERA_VISIBLE = "camera_visible"
     # The >= 50 kfps acquisitions are the same instrument and the same IDS as
@@ -188,6 +208,30 @@ _PRODUCT_STAGES: frozenset[str] = frozenset(
     {OMASStage.MHD_LINEAR.value, OMASStage.GPEC_IDEAL.value}
 )
 
+#: OMAS stages filed under one equilibrium family and one TGLF configuration.
+#:
+#: Kept apart from :data:`_FAMILY_STAGES` on purpose. Those stages have an
+#: old ``omas/{stage}/{shot}`` shape that the grammar relocation attributes to
+#: the magnetic family; a configuration stage never had one, and attributing a
+#: product to a family *and* a configuration from a path that names neither
+#: would invent its provenance. Its ``product`` is a TGLF configuration
+#: (``tglf-sat<n>-<field>``), not a :class:`StabilityProduct`, and it takes no
+#: refinement: TGLF runs on the mapped state, not on a CHEASE refinement.
+_CONFIGURATION_STAGES: frozenset[str] = frozenset(
+    {OMASStage.TURBULENT_TRANSPORT.value}
+)
+
+
+def _tglf_configuration(value: Any) -> str:
+    """Validate a TGLF configuration path segment against the source grammar."""
+    from .sources import HSDSSourceError, parse_tglf_configuration
+
+    try:
+        parse_tglf_configuration(value)
+    except HSDSSourceError as exc:
+        raise FileDBPathError(str(exc)) from exc
+    return value
+
 
 def stage_lineage(
     stage: str,
@@ -208,7 +252,18 @@ def stage_lineage(
     :data:`_PRODUCT_STAGES` and refused for any other. They have no default
     there: a stage product that is one solve's result has no sensible fallback,
     and guessing would file one solver's result under another's identity.
+
+    A stage in :data:`_CONFIGURATION_STAGES` takes ``family`` and ``product``
+    (its TGLF configuration), both required, and never a refinement.
     """
+    if stage in _CONFIGURATION_STAGES:
+        if product is None:
+            raise FileDBPathError(
+                f"The {stage!r} stage product belongs to one TGLF configuration, "
+                "so it cannot be resolved without naming it: pass product= "
+                "(for example 'tglf-sat3-em-bper')."
+            )
+        return {"family": family, "product": product}
     if stage not in _FAMILY_STAGES:
         return {}
     if stage not in _PRODUCT_STAGES:
@@ -514,13 +569,21 @@ class FileDB:
             else:
                 _absent(machine_version, "machine_version", f"omas/{stage}")
                 path = self.root / domain_value / stage
-                if stage in _FAMILY_STAGES:
+                if stage in _FAMILY_STAGES or stage in _CONFIGURATION_STAGES:
                     path = path / _enum_value(
                         family, EquilibriumFamily, "equilibrium family"
                     )
                 else:
                     _absent(family, "family", f"omas/{stage}")
-                if stage in _PRODUCT_STAGES:
+                if stage in _CONFIGURATION_STAGES:
+                    _absent(refinement, "refinement", f"omas/{stage}")
+                    if product is None:
+                        raise FileDBPathError(
+                            f"omas/{stage} needs product= naming its TGLF "
+                            "configuration, for example 'tglf-sat3-em-bper'"
+                        )
+                    path = path / _tglf_configuration(product)
+                elif stage in _PRODUCT_STAGES:
                     path = path / _enum_value(refinement, Refinement, "refinement")
                     path = path / _enum_value(
                         product, StabilityProduct, "stability product"

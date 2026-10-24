@@ -80,7 +80,8 @@ class CgyroOutputs:
         Local parameters and normalisations CGYRO actually used, from
         ``out.cgyro.equilibrium``; ``species`` is a sub-dict of arrays.
     time
-        ``t`` in ``a/c_s`` per print step.
+        Normalized gyrokinetic elapsed time ``t*c_s/a`` per print step, measured
+        from the solver origin, distinct from the experimental discharge timestamp.
     frequency, growth_rate
         ``(n_n, n_time)`` in ``c_s/a``, **as CGYRO wrote them**: the frequency sign is
         the native ``exp(-i omega t)`` one, which depends on the field orientation.
@@ -100,6 +101,13 @@ class CgyroOutputs:
         ``ERROR:`` lines. Non-empty means not executed, whatever the exit status.
     exit_message
         The text after ``EXIT: (CGYRO)``, or ``None`` when the kernel never finished.
+    record_index
+        Indices of the print records kept, into the raw per-step records of every
+        time-history file; ``None`` when all were kept. A restart after a node failure
+        can leave stray records out of time order (``out.cgyro.time`` going back by a
+        few steps); only the first record of each strictly increasing time is kept,
+        and every time-history array here is aligned to it. Files read elsewhere
+        (``bin.cgyro.kxky_phi``) are aligned with :meth:`align_records`.
     """
 
     directory: str
@@ -117,8 +125,29 @@ class CgyroOutputs:
     exit_message: Optional[str] = None
     version: Optional[dict[str, Any]] = None
     files: tuple[str, ...] = ()
+    record_index: Optional[np.ndarray] = None
 
     # -- derived ---------------------------------------------------------------
+
+    @property
+    def gyrokinetic_normalized_time(self):
+        """Native elapsed time, unchanged and restart-aligned like ``time``."""
+        return self.time
+
+    @property
+    def time_normalization(self):
+        """Verified SI scales from native output; unavailable scales raise ValueError."""
+        from .time import CgyroTimeNormalization
+        return CgyroTimeNormalization.from_equilibrium(
+            self.equilibrium, source=f"{self.directory}/out.cgyro.equilibrium")
+
+    @property
+    def gyrokinetic_elapsed_time_s(self):
+        """Elapsed seconds from the solver origin, never a discharge timestamp."""
+        if self.time is None:
+            return None
+        from .time import gyrokinetic_elapsed_time_s
+        return gyrokinetic_elapsed_time_s(self.time, self.time_normalization)
 
     @property
     def ky(self) -> Optional[np.ndarray]:
@@ -204,8 +233,25 @@ class CgyroOutputs:
         mask = (t >= window[0]) & (t <= window[1])
         if np.count_nonzero(mask) < 2:
             return None
-        integrate = getattr(np, "trapezoid", None) or np.trapz
-        return integrate(trace[..., mask], t[mask], axis=-1) / (t[mask][-1] - t[mask][0])
+        from vaft.process.gyrokinetics import time_window_average
+        return time_window_average(t, trace, window=window)
+
+    def align_records(self, data: np.ndarray) -> Optional[np.ndarray]:
+        """A raw time-history array (time on the last axis) aligned to :attr:`time`.
+
+        Drops the out-of-order records :attr:`record_index` excludes and any record
+        written past the last time line. A file shorter than the time record (a run
+        cut mid-step) gives the aligned *prefix*: element ``k`` of the result always
+        belongs to ``time[k]``, so pair it with ``time[: result.shape[-1]]``.
+        ``None`` only without a time record.
+        """
+        if self.time is None:
+            return None
+        steps = data.shape[-1]
+        if self.record_index is None:
+            return data[..., : min(steps, self.time.size)]
+        index = np.asarray(self.record_index, dtype=int)
+        return data[..., index[index < steps]]
 
     def missing(self) -> tuple[str, ...]:
         return tuple(
@@ -257,6 +303,8 @@ class CgyroOutputs:
             value = payload[f.name]
             if f.name in ("time", "time_error", "frequency", "growth_rate", "flux"):
                 value = None if value is None else np.asarray(value, dtype=float)
+            elif f.name == "record_index":
+                value = None if value is None else np.asarray(value, dtype=int)
             elif f.name == "ballooning":
                 value = {key: decode(item) for key, item in (value or {}).items()}
             elif f.name in ("info", "errors", "files"):
@@ -462,12 +510,16 @@ def collect_cgyro_outputs(workdir: str | Path) -> Optional[CgyroOutputs]:
         files=tuple(produced),
     )
 
+    raw_count = None
     time_data = _ascii(directory / "out.cgyro.time")
     if time_data is not None and time_data.size >= 4:
-        count = time_data.size // 4
-        table = time_data[: 4 * count].reshape(count, 4)
-        outputs.time = table[:, 0]
-        outputs.time_error = table[:, 1:3]
+        raw_count = time_data.size // 4
+        table = time_data[: 4 * raw_count].reshape(raw_count, 4)
+        keep = _monotonic_records(table[:, 0])
+        outputs.time = table[keep, 0]
+        outputs.time_error = table[keep, 1:3]
+        if keep.size < raw_count:
+            outputs.record_index = keep
 
     if grid is None:
         return outputs
@@ -479,6 +531,8 @@ def collect_cgyro_outputs(workdir: str | Path) -> Optional[CgyroOutputs]:
     if freq is not None and freq.size >= 2 * n_n:
         steps = freq.size // (2 * n_n)
         cube = freq[: 2 * n_n * steps].reshape((2, n_n, steps), order="F")
+        if outputs.time is not None:
+            cube = outputs.align_records(cube)
         outputs.frequency = cube[0].astype(float)
         outputs.growth_rate = cube[1].astype(float)
 
@@ -494,8 +548,28 @@ def collect_cgyro_outputs(workdir: str | Path) -> Optional[CgyroOutputs]:
 
     flux = _binary(directory, "ky_flux", real)
     if flux is not None:
-        outputs.flux = _ky_flux(flux, grid, None if outputs.time is None else outputs.time.size)
+        cube = _ky_flux(flux, grid, raw_count)
+        if cube is not None and outputs.time is not None:
+            cube = outputs.align_records(cube)
+        outputs.flux = cube
     return outputs
+
+
+def _monotonic_records(time: np.ndarray) -> np.ndarray:
+    """Indices of the records whose time exceeds every earlier record's.
+
+    The first record of each time is kept, deliberately. In the requeued run that
+    prompted this (#1484), a second writer interleaved a few stale records (t going
+    back by ~4 a/c_s for one step at a time) into an otherwise continuous sequence;
+    keeping the first keeps that sequence whole, whereas "last wins" would splice
+    the two. CGYRO's own restart rewinds its files, so a clean restart leaves no
+    back-steps at all."""
+    keep, last = [], -np.inf
+    for i, value in enumerate(np.asarray(time, dtype=float)):
+        if value > last:
+            keep.append(i)
+            last = value
+    return np.asarray(keep, dtype=int)
 
 
 def _ky_flux(data: np.ndarray, grid: Mapping[str, Any], n_time: Optional[int]) -> Optional[np.ndarray]:
@@ -510,11 +584,19 @@ def _ky_flux(data: np.ndarray, grid: Mapping[str, Any], n_time: Optional[int]) -
     base = grid["n_species"] * grid["n_field"] * grid["n_n"]
     moments = len(FLUX_MOMENTS)
     if n_time:
-        if data.size % (base * n_time) == 0 and data.size // (base * n_time) >= moments:
+        if data.size % (base * moments) == 0 and data.size // (base * moments) == n_time + 1:
+            # one record written past the last time line (a job stopped between the
+            # flux and time writes), checked first: for n_time = 1 or 3 the size would
+            # otherwise also read as a four-moment file
+            m, steps = moments, n_time
+        elif data.size % (base * n_time) == 0 and data.size // (base * n_time) >= moments:
             m, steps = data.size // (base * n_time), n_time
         elif data.size >= base * moments and (data.size // (base * moments)) <= n_time:
             # a run cut short mid-record: whole steps only, three moments
             m, steps = moments, data.size // (base * moments)
+        elif data.size % (base * moments) == 0 and data.size // (base * moments) > n_time:
+            # several records past the last time line: the steps that have a time
+            m, steps = moments, n_time
         else:
             return None
     else:

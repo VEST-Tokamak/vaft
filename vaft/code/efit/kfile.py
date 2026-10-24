@@ -183,8 +183,67 @@ def apply_validity_exclusions(ods, EQ, *, min_validity: int = 0) -> dict[tuple[s
     return excluded
 
 
+#: Margin on the baseline anchors: the window is written to 0.1 ms
+#: (``.4f``), and the zeroed tail starts at the raw sample nearest the end.
+DIAMAGNETIC_ANCHOR_TOLERANCE = 1.0e-4
+
+
+def diamagnetic_anchored_slices(times, method_name, *, average_window: float) -> list[int]:
+    """Slices whose diamagnetic box average reaches a baseline anchor or the zeroed tail.
+
+    The stored diamagnetic flux is ``flux - baseline`` with the baseline drawn
+    through the flux at the plasma window's two ends, and it is set to zero
+    from the end onwards (:func:`vaft.machine_mapping.magnetics.vest_diamagnetic_flux_detailed`).
+    Before the start nothing was baselined. A slice whose box
+    ``[t - w, t + w]`` reaches the start or the end therefore averages values
+    that are zero, or unbaselined, by construction rather than by
+    measurement -- and with a relative error model its sigma goes to zero
+    with it (42914, 45663, #1799). Those slices are fitted without the row.
+
+    Returns ``[]`` when the product does not record its window. A window
+    that ran past the Rogowski record ("window clipped to the Rogowski
+    record") is anchored at the record's edge, which the product does not
+    record; a slice beyond that edge is not caught here and the k-file
+    writer still refuses its zero sigma -- loudly, not silently.
+    """
+    from vaft.machine_mapping.magnetics import diamagnetic_baseline_window
+
+    window = diamagnetic_baseline_window(method_name)
+    if window is None:
+        return []
+    start, end = window
+    half = float(average_window)
+    return [
+        int(i)
+        for i, t in enumerate(np.asarray(times, dtype=float).ravel())
+        if t - half <= start + DIAMAGNETIC_ANCHOR_TOLERANCE or t + half >= end - DIAMAGNETIC_ANCHOR_TOLERANCE
+    ]
+
+
 PROBE_WEIGHT_INDEX = {"inboard": 3, "side": 4, "outboard": 5}
 FLUX_WEIGHT_INDEX = {"inboard": 6, "outboard": 7}
+
+
+#: Constraint inputs EFIT cannot be run without: BTOR (from the TF coil
+#: current) and the plasma current. Diamagnetic flux is optional (#993).
+REQUIRED_CONSTRAINT_INPUTS = {
+    "tf.b_field_tor_vacuum_r.data": "vacuum toroidal field R*B_t (TF coil current)",
+    "magnetics.ip.0.data": "plasma current",
+}
+
+
+class MissingConstraintInputError(ValueError):
+    """A required EFIT constraint input is absent from the ODS.
+
+    Raised before anything is read: OMAS answers a read of a missing path with
+    an empty ODS rather than an error, which surfaced as ``float * ODS``
+    deep in the arithmetic (42675, #1799).
+    """
+
+    def __init__(self, missing: dict[str, str]):
+        self.missing = dict(missing)
+        listed = "; ".join(f"{path} ({what})" for path, what in self.missing.items())
+        super().__init__(f"EFIT constraints need inputs this ODS does not have: {listed}")
 
 
 @dataclass(frozen=True)
@@ -372,8 +431,8 @@ def generate_constraints_ods(
     broken=None,
     fit=0,
     fl_correct_coeff=None,
-    FFCUR=2,
-    PPCUR=2,
+    FFCUR=None,
+    PPCUR=None,
     *,
     decisions: ChannelDecisions | None = None,
     recovery=None,
@@ -403,7 +462,20 @@ def generate_constraints_ods(
     are deprecated: when ``decisions`` is not given they are turned into the
     equivalent policy and backend, with a warning.  Returns the decisions the
     product was built from.
+
+    ``FFCUR``/``PPCUR`` are deprecated and ignored.  The profile basis is
+    the k-file configuration's (:class:`EFITScientificConfig`), and the
+    constraints product no longer records one it does not choose (#869).
     """
+
+    if FFCUR is not None or PPCUR is not None:
+        warnings.warn(
+            "generate_constraints_ods(FFCUR=..., PPCUR=...) is deprecated and ignored: "
+            "the profile basis is chosen by the k-file configuration "
+            "(EFITScientificConfig.profile), which generate_kfile records (#869)",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     # A Green table is a projection of one machine's conductors and is only
     # valid for the era it was built from. The caller resolves which era this
@@ -421,6 +493,10 @@ def generate_constraints_ods(
                 "table for this era (workflow/efit_tables/regenerate_legacy_table.py "
                 f"--era {expected_table_era}) or analyse a shot from {declared!r}."
             )
+
+    missing_inputs = {path: what for path, what in REQUIRED_CONSTRAINT_INPUTS.items() if path not in ods}
+    if missing_inputs:
+        raise MissingConstraintInputError(missing_inputs)
 
     # coilset_opt
     # "16_coils" : PF1 - 8 segments + PF5, 6, 9, 10 Upper and Lower Segments
@@ -626,6 +702,22 @@ def generate_constraints_ods(
         EQ[f"time_slice.{i}.constraints.diamagnetic_flux.weight"] = (
             weights.diamagnetic_flux if "diamagnetic_flux" in constraints else 0.0
         )
+    if "diamagnetic_flux" in constraints:
+        anchored = diamagnetic_anchored_slices(
+            EQ["time"], MG["diamagnetic_flux.0.method_name"] if "diamagnetic_flux.0.method_name" in MG else None,
+            average_window=default_average,
+        )
+        for i in anchored:
+            EQ[f"time_slice.{i}.constraints.diamagnetic_flux.weight"] = 0.0
+        if anchored:
+            anchor_times = np.asarray(EQ["time"], dtype=float)
+            listed = ", ".join(f"{anchor_times[i]:.4f}" for i in anchored)
+            warnings.warn(
+                f"shot {shotnumber}: the diamagnetic flux is zero by construction at its baseline "
+                f"anchors and after the window end; its row is left out at {listed} s",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     if decisions is None:
         # The legacy interface: the manual list and the fit option are the
@@ -675,16 +767,15 @@ def generate_constraints_ods(
         PM[f"time_slice.{i}.IN1.TABLE_DIR"] = efit_table_dir
 
         PM[f"time_slice.{i}.IN1.IECURR"] = 0
-        PM[f"time_slice.{i}.IN1.KFFCUR"] = FFCUR
-        PM[f"time_slice.{i}.IN1.KPPCUR"] = PPCUR
-        PM[f"time_slice.{i}.IN1.KFFFNC"] = 0
-        PM[f"time_slice.{i}.IN1.KPPFNC"] = 0
-        PM[f"time_slice.{i}.IN1.IVESEL"] = 1
-        PM[f"time_slice.{i}.IN1.IFITVS"] = 0
-        PM[f"time_slice.{i}.IN1.FCURBD"] = 1
-        PM[f"time_slice.{i}.IN1.PCURBD"] = 1
         PM[f"time_slice.{i}.IN1.KCALPA"] = 0
         PM[f"time_slice.{i}.IN1.KCGAMA"] = 0
+        # The profile model (KPPCUR, KFFCUR, KPPFNC, KFFFNC, PCURBD, FCURBD,
+        # FWTBP) and the passive-structure flags (IVESEL, IFITVS) are NOT
+        # written here either: they are the k-file configuration's choice,
+        # made later and possibly differently, and this tree recorded a fixed
+        # (2,2) hard-edge model whatever was written (#869). The k-file
+        # writer records the values it writes, and the EFIT product carries
+        # the submitted namelist itself (`time_slice.*.in1`).
         # The seed ellipse, the reference radius and the plasma-current floor
         # are NOT written here. They were, as five VEST numbers, and the writer
         # took them from `EFITScientificConfig` regardless -- so they never
@@ -811,6 +902,10 @@ def generate_kfile(
     numerics = scientific.numerics
     constraint_config = scientific.constraints
 
+    # What the k-file states is recorded on the caller's ODS, not on the copy
+    # the sigma floor works on, so the record survives the floor (#869).
+    recorded_parameters = ods["equilibrium.code.parameters"]
+
     # The sigma floor is part of the configuration, so it is applied here, on a
     # copy, for every caller -- the routine configuration's is 0 (#891).
     if constraint_config.sigma_floor:
@@ -899,11 +994,16 @@ def generate_kfile(
         scale = float(constraint_config.uncertainty_scales[group])
         if constraint_config.uncertainty_mode == "legacy_weight":
             return float(fallback) / scale
+        key = f"{path}.measured_error_upper"
+        # Membership before the read: on an ODS a missing leaf is created by
+        # the lookup, so a failed read would leave an empty node behind.
+        if key not in cstr:
+            raise ValueError(f"standard_deviation mode requires {key}")
         try:
-            value = abs(float(cstr[f"{path}.measured_error_upper"]))
+            value = abs(float(cstr[key]))
         except Exception as exc:
             raise ValueError(
-                f"standard_deviation mode requires {path}.measured_error_upper"
+                f"standard_deviation mode requires a finite {key}, got {cstr[key]!r}"
             ) from exc
         return value * unit_scale / scale
 
@@ -1230,6 +1330,12 @@ def generate_kfile(
         f.write(f" ZELIP = {initialization.zzero}\n")
         f.write(f" FCURBD = {profile.fcurbd}\n")
         f.write(f" FWTBP = {profile.fwtbp}\n")
+        # The attached-current model is written only when on: ICUTFP = 0 is
+        # EFIT's own default, so a k-file without it is the one it always was (#672).
+        if profile.icutfp:
+            f.write(f" ICUTFP = {profile.icutfp}\n")
+            if profile.alphafp is not None:
+                f.write(f" ALPHAFP = {profile.alphafp!r}\n")
         if initialization.icinit is not None:
             f.write(f" ICINIT = {initialization.icinit}\n")
         f.write(
@@ -1265,12 +1371,24 @@ def generate_kfile(
         f.write(f" RELIP = {initialization.seed_rzero}\n")
         f.write(f" RZERO = {initialization.rzero}\n")
         f.write(f" SERROR = {serror_written}\n")
-        PM[f"time_slice.{time_idx}.IN1.SERROR"] = serror_written
+        written = {
+            "KFFCUR": profile.kffcur,
+            "KPPCUR": profile.kppcur,
+            "KFFFNC": profile.kfffnc,
+            "KPPFNC": profile.kppfnc,
+            "FCURBD": profile.fcurbd,
+            "PCURBD": profile.pcurbd,
+            "FWTBP": profile.fwtbp,
+            "IVESEL": ivesel,
+            "IFITVS": ifitvs,
+            "SERROR": serror_written,
+        }
         if statistical:
             f.write(" VBIT = 1.0\n")
             f.write(" ERRSIL = 0.0\n")
-            PM[f"time_slice.{time_idx}.IN1.VBIT"] = 1.0
-            PM[f"time_slice.{time_idx}.IN1.ERRSIL"] = 0.0
+            written.update(VBIT=1.0, ERRSIL=0.0)
+        for key, value in written.items():
+            recorded_parameters[f"time_slice.{time_idx}.IN1.{key}"] = value
         f.write(TABLE_DIR)
         f.write(VCURRT)
         f.write("\n")
@@ -1351,4 +1469,6 @@ __all__ = [
     "apply_channel_decisions",
     "generate_constraints_ods",
     "generate_kfile",
+    "MissingConstraintInputError",
+    "diamagnetic_anchored_slices",
 ]

@@ -25,8 +25,13 @@ _LAO = "L. L. Lao et al., Nucl. Fusion 25 (1985) 1611"
 _WESSON = "J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 4.25"
 _ROMERO = "J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002"
 _SPITZER = "L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977"
-_SAUTER = "O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834"
+_SAUTER = "O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834; 9 (2002) 5140 (erratum)"
 _REDL = "A. Redl et al., Phys. Plasmas 28 (2021) 022502"
+_BRAGINSKII = "S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205"
+_BELLI_2008 = "E. A. Belli and J. Candy, Plasma Phys. Control. Fusion 50 (2008) 095010"
+_BELLI_2012 = "E. A. Belli and J. Candy, Plasma Phys. Control. Fusion 54 (2012) 015015"
+_STAEBLER = "G. M. Staebler, J. E. Kinsey and R. E. Waltz, Phys. Plasmas 14 (2007) 055909"
+_CANDY_2016 = "J. Candy, E. A. Belli and R. V. Bravenec, J. Comput. Phys. 324 (2016) 73"
 
 _SPECS = (
     # ------------------------------------------------------------------ inference
@@ -44,7 +49,7 @@ _SPECS = (
             N("ti_cx", "Measured ion temperature (CX)", "measured", ids=f"{_CP}.ion[:].temperature",
               symbols=r"T_i^{\mathrm{CX}}(\rho)"),
             N("ti_pressure", "Pressure-partition ion temperature", "inferred",
-              api="vaft.validation.kinetic_state.infer_ti_pressure_partition",
+              api="vaft.process.kinetic_closure.infer_ti_pressure_partition",
               relation=r"T_i = \frac{p_{\mathrm{eq}} - e\,n_e T_e}{e\,f_i\,n_e}"),
             N("ti_ratio", "Temperature ratio", "prior", api="vaft.machine_mapping.core_profiles.vest_core_profiles_policy",
               relation=r"T_i = r\,T_e,\ \ r\ \mathrm{from\ record\ or\ machine\ policy}"),
@@ -461,11 +466,12 @@ _SPECS = (
             N("ct_tglf", "Turbulent transport (TGLF)", "standardized",
               api="vaft.machine_mapping.turbulence.core_transport_from_tglf", ids="core_transport.model[:]",
               symbols=r"Q_s,\ \Gamma_s\ \mathrm{(quasilinear)}",
-              mapping_todo="no TGLF to gyrokinetics_local writer"),
+              mapping_todo="gyrokinetics_local (via gyrokinetics_local_from_tglf) not stored by any stage (#1128/#1129)"),
             N("gk_local", "Gyrokinetic run (CGYRO)", "standardized",
               api="vaft.machine_mapping.gyrokinetics.gyrokinetics_local_from_cgyro",
               ids="gyrokinetics_local.{linear.wavevector[:].eigenmode[:], non_linear.fluxes_1d}",
-              symbols=r"\gamma,\ \omega;\ \langle Q_s\rangle_t,\ \langle\Gamma_s\rangle_t"),
+              symbols=r"\gamma,\ \omega;\ \langle Q_s\rangle_t,\ \langle\Gamma_s\rangle_t",
+              mapping_todo="gyrokinetics_local not stored by any stage (#1128/#1129)"),
         ),
         rows=(("eq", "cp"), ("state",), ("tglf_in", "cgyro_in"), ("tglf", "cgyro"),
               ("tglf_out", "cgyro_lin", "cgyro_nl"), ("ct_tglf", "gk_local")),
@@ -480,7 +486,9 @@ _SPECS = (
                "input.cgyro by design: CGYRO recomputes it from the species list (Z_EFF_METHOD=2).",
                "No implemented local-gyrokinetic validity criterion (rho*): compare_with_oracle checks only the "
                "input translation against CGYRO's own projection.",
-               "No TGLF to gyrokinetics_local mapping."),
+               "gyrokinetics_local_from_tglf and gyrokinetics_local_from_cgyro write gyrokinetics_local, but no "
+               "pipeline stage stores that IDS: turbulent_transport owns core_transport only, and one occurrence "
+               "per flux surface awaits the #1128/#1129 occurrence model (#2020)."),
     ),
     # ------------------------------------------------------------------ plasma parameter inference (#1601)
     WorkflowSpec(
@@ -507,7 +515,7 @@ _SPECS = (
               symbols=r"\mathrm{common}\ T_i,\ \mathrm{impurity\ species},\ Z_{\mathrm{eff}}\qquad "
                       r"\sigma_\parallel:\ \mathrm{Spitzer\ or\ neoclassical},\ \ln\Lambda"),
             N("thermo", "Thermodynamic closure", "inferred",
-              api="vaft.validation.kinetic_state.infer_ti_pressure_partition",
+              api="vaft.process.kinetic_closure.infer_ti_pressure_partition",
               relation=r"p_{\mathrm{eq}} = e\,n_e T_e + e\sum_s n_s T_i\qquad T_i = \frac{p_{\mathrm{eq}} - e n_e T_e}"
                        r"{e f n_e}"),
             N("composition", "Impurity closure", "inferred",
@@ -557,7 +565,7 @@ _SPECS = (
               references=(_WESSON,),
               equation="vaft.formula.impurity.main_ion_density_from_species"),
             N("ti", "Pressure-partition ion temperature", "inferred",
-              api="vaft.validation.kinetic_state.infer_ti_pressure_partition",
+              api="vaft.process.kinetic_closure.infer_ti_pressure_partition",
               relation=r"T_i = \frac{p_{\mathrm{eq}}}{e f n_e} - \frac{T_e}{f}\qquad \sigma_{T_i}\ \mathrm{propagated};"
                        r"\ p_i \le \sigma_{p_i}\ \mathrm{flagged,\ never\ filled}"),
             N("pi", "Ion pressure", "derived", equation="vaft.formula.equilibrium.ion_pressure",
@@ -574,6 +582,812 @@ _SPECS = (
         side=(("composition", "ions"), ("gamma", "gk")),
         todos=("E_r, rotation and gamma_E are not inferred from data (#553): gamma_E = 0 enters the gyrokinetic "
                "input as an assumption, and force balance is future scope.",),
+    ),
+    # ------------------------------------------------------------------ reconstruction inputs (#1901)
+    WorkflowSpec(
+        key="eddy_current_model", title="Vessel eddy currents: a circuit driven by the coils and the plasma",
+        family="reconstruction", status="implemented",
+        summary="The passive structure is a set of resistive loops driven by the changing PF and plasma currents. "
+                "VAFT solves that circuit forward from rest -- it does not fit the vessel currents to the "
+                "magnetics -- and checks the result against the pre-plasma flux loops and probes.",
+        nodes=(
+            N("pf", "PF coil currents", "measured", ids="pf_active.coil[:].current.data",
+              api="vaft.machine_mapping.pf_active.vfit_pf_active_dynamic", symbols=r"I_{\mathrm{PF},j}(t)"),
+            N("ip", "Plasma current", "measured", ids="magnetics.ip[0].data", symbols=r"I_p(t)"),
+            N("filaments", "Plasma filaments", "prior",
+              symbols=r"(R_k, Z_k),\ f_k\ \mathrm{set\ by\ the\ caller}\qquad I_k = f_k I_p"),
+            N("machine", "Loops and mutual inductances", "machine",
+              api="vaft.omas.process_wrapper.ensure_em_coupling",
+              ids="{pf_passive.loop[:].resistance, em_coupling.mutual_passive_passive}",
+              symbols=r"R = \mathrm{diag}(R_k),\ M_{\mathrm{pp}},\ M_{\mathrm{pa}}"),
+            N("matrices", "Circuit matrices", "derived",
+              api="vaft.process.electromagnetics.compute_impedance_matrices",
+              symbols=r"M,\ R,\ L = [M_{\mathrm{pa}},\ M_{\mathrm{plasma}}]\qquad M_{\mathrm{plasma}}\ "
+                      r"\mathrm{from\ Green's\ functions}"),
+            N("solve", "Forward circuit solve", "solver", api="vaft.process.electromagnetics.solve_eddy_currents",
+              relation=r"M\,\dot{\mathbf I} + R\,\mathbf I = -L\,\frac{d}{dt}[\mathbf I_{\mathrm{PF}},\ I_p]"
+                       r"\qquad e^{-M^{-1}R\,\Delta t},\ \Delta t = 50\ \mu\mathrm{s},\ \mathbf I(0) = 0"),
+            N("currents", "Vessel loop currents", "standardized", api="vaft.omas.vest_upstream.build_eddy_ods",
+              ids="pf_passive.loop[:].current", symbols=r"I_{\mathrm{loop},k}(t)"),
+            N("vacuum", "Pre-plasma magnetics", "measured", ids="magnetics.{flux_loop, b_field_pol_probe}",
+              symbols=r"\psi_{\mathrm{FL}},\ B_p\ \mathrm{before\ breakdown}"),
+            N("check", "Eddy improvement", "derived", api="vaft.omas.vacuum_magnetics.eddy_improvement",
+              relation=r"1 - \frac{\mathrm{RMS}(m - m_{\mathrm{coil}} - m_{\mathrm{eddy}})}"
+                       r"{\mathrm{RMS}(m - m_{\mathrm{coil}})}"),
+        ),
+        rows=(("matrices",), ("pf", "solve", "ip"), ("currents", "vacuum"), ("check",)),
+        edges=(("pf", "solve", ""), ("ip", "solve", ""), ("matrices", "solve", ""), ("solve", "currents", ""),
+               ("currents", "check", ""), ("vacuum", "check", "")),
+        side=(("machine", "matrices"), ("filaments", "matrices")),
+        todos=("Vessel currents are a forward model, not fitted to the magnetics; EFIT then treats them as known "
+               "(IFITVS=0).",
+               "The plasma filaments are placed by the caller, not taken from the equilibrium.",
+               "The circuit is constant in time and starts from zero current; the 50 us substep is coarser than "
+               "the 40 us diagnostics grid (#425).",
+               "A missing PF channel (PF5 48644-48760, PF6 48534-48537) leaves NaN currents and the stage refuses "
+               "to run."),
+    ),
+    WorkflowSpec(
+        key="kinetic_profile_fitting", title="Kinetic profile fitting: point measurements to profiles",
+        family="reconstruction", status="implemented",
+        summary="Thomson and charge-exchange points are placed on flux surfaces by the equilibrium and fitted to "
+                "smooth profiles with declared fitting choices; each fitted profile keeps its origin record.",
+        nodes=(
+            N("ts", "Thomson scattering", "measured", ids="thomson_scattering.channel[:].{t_e, n_e, position}",
+              symbols=r"T_e,\ n_e \pm \sigma\ \mathrm{at}\ (R, Z)"),
+            N("eq", "Magnetic equilibrium", "reconstructed", ids="equilibrium.time_slice[:].{profiles_2d, profiles_1d.q}",
+              symbols=r"\psi(R, Z),\ q(\psi)"),
+            N("cx", "Charge exchange (optional)", "measured",
+              ids="charge_exchange.channel[:].ion[:].{t_i, velocity_tor}",
+              symbols=r"T_i,\ v_\phi\ \mathrm{at}\ (R, Z)"),
+            N("mapping", "Flux-surface mapping (Thomson)", "derived",
+              api="vaft.process.profile.equilibrium_mapping_thomson_scattering",
+              symbols=r"(R,Z) \to \psi_N \to \rho_{\mathrm{pol}} = \sqrt{\psi_N}\qquad \rho_{\mathrm{tor},N}\ "
+                      r"\mathrm{from}\ \Phi = \int q\,d\psi;\ \mathrm{outside\ the\ LCFS:\ NaN}"),
+            N("mapping_cx", "Flux-surface mapping (CX)", "derived",
+              api="vaft.process.profile.equilibrium_mapping_charge_exchange",
+              symbols=r"\mathrm{same\ coordinates};\ \mathrm{outside\ the\ LCFS:\ NaN}"),
+            N("coordinate", "Fitting coordinate (both fits)", "convention",
+              symbols=r"x = \rho_{\mathrm{tor},N}\ (\mathrm{default})\ |\ \psi_N\ |\ \rho_{\mathrm{pol},N}"),
+            N("fit_e", "Electron profile fit", "derived",
+              api="vaft.process.profile.profile_fitting_thomson_scattering",
+              symbols=r"T_e(x),\ n_e(x)"),
+            N("fit_i", "Ion profile fit", "derived", api="vaft.process.profile.profile_fitting_charge_exchange",
+              symbols=r"T_i(x),\ v_\phi(x)"),
+            N("model", "Fit model and order", "convention", api="vaft.formula.utils.fit_profile",
+              symbols=r"\mathrm{polynomial\ |\ core\text{-}poly/edge\text{-}exp\ |\ tanh\ |\ GP},\ N = 3"
+                      r"\qquad \sigma\text{-}\mathrm{weighted};\ T > 0:\ \mathrm{order\ stepped\ down}"),
+            N("ratio", "Ion temperature without CX", "prior", api="vaft.process.profile.fit_ti_te_ratio",
+              symbols=r"T_i = r\,T_e,\ r\ \mathrm{fitted\ or\ assumed}"),
+            N("profiles", "Kinetic profiles", "standardized", api="vaft.process.profile.core_profiles",
+              ids="core_profiles.profiles_1d[:].{electrons, ion[0], *_fit}",
+              symbols=r"T_e, n_e, T_i, v_\phi\qquad \mathrm{each\ with\ origin=\ldots;\ method=\ldots}"),
+        ),
+        rows=(("ts", "eq", "cx"), ("mapping", None, "mapping_cx"), ("fit_e", None, "fit_i"), ("profiles",)),
+        edges=(("ts", "mapping", ""), ("eq", "mapping", ""), ("eq", "mapping_cx", ""), ("cx", "mapping_cx", ""),
+               ("mapping", "fit_e", ""), ("mapping_cx", "fit_i", ""), ("fit_e", "profiles", ""),
+               ("fit_i", "profiles", "")),
+        side=(("coordinate", "mapping"), ("model", "fit_e"), ("ratio", "fit_i")),
+        todos=("Thomson and charge exchange are fitted separately and combined only in core_profiles; there is "
+               "no joint multi-diagnostic fit.",
+               "The kinetic-profile evidence framework (#1204) is not yet referenced by the fit records."),
+    ),
+    # ------------------------------------------------------------------ transport hierarchy (#1901)
+    WorkflowSpec(
+        key="transport_hierarchy", title="Transport hierarchy: classical, neoclassical, turbulent",
+        family="transport", status="implemented",
+        summary="One resolved local state and five independently computed routes; none feeds another. "
+                "'Always available' means the route needs no external code, not that its physics applies "
+                "everywhere. Each route with a writer lands in its own core_transport.model entry, found by its "
+                "identifier.index and code name -- the array position k is assigned at write time.",
+        nodes=(
+            N("state", "Resolved local state", "derived", api="vaft.process.transport_state.resolve_transport_state",
+              symbols=r"T_s,\ n_s,\ a/L_{T,n},\ q,\ \hat s,\ \hat\nu"),
+            N("classical", "Classical: Braginskii", "derived", api="vaft.process.transport_state.classical_heat_fluxes",
+              references=(_BRAGINSKII,),
+              symbols=r"\mathrm{perpendicular\ conductive}\ q_{\perp,e},\ q_{\perp,i}\qquad "
+                      r"\mathrm{strongly\ magnetized}:\ \kappa_\perp \propto nT/(m\Omega^2\tau)\qquad "
+                      r"\mathrm{software:\ always\ available}"),
+            N("neo_fit", "Neoclassical closures: Sauter / Redl", "derived",
+              api="vaft.omas.neoclassical.compute_bootstrap_current", references=(_SAUTER, _REDL),
+              symbols=r"j_{\mathrm{bs}};\ \sigma_\parallel\ \mathrm{from\ a\ separate\ conductivity\ call};"
+                      r"\ \mathrm{no}\ \Gamma_s,\ Q_s\qquad "
+                      r"\mathrm{software:\ always\ available}"),
+            N("neo_code", "Neoclassical: NEO", "solver", api="vaft.code.gacode.neo.runner.run_neo_pair",
+              references=(_BELLI_2008, _BELLI_2012),
+              symbols=r"\Gamma_s,\ Q_s,\ j_{\mathrm{bs}}\ (\mathrm{transport\ run})\qquad "
+                      r"\sigma_\parallel\ (\mathrm{separate}\ E_\parallel\ \mathrm{run})\qquad "
+                      r"\mathbf{optional}\ \mathrm{external\ code}"),
+            N("turb_ql", "Turbulent: TGLF", "solver", api="vaft.code.gacode.tglf.run_tglf", references=(_STAEBLER,),
+              symbols=r"Q_s,\ \Gamma_s\ (\mathrm{quasilinear})\qquad \mathbf{optional}\ \mathrm{external\ code}"),
+            N("turb_gk", "Turbulent: CGYRO", "solver", api="vaft.code.gacode.cgyro.run_cgyro", references=(_CANDY_2016,),
+              symbols=r"\mathrm{nonlinear}\ Q_s(t),\ \Gamma_s(t)\qquad \mathbf{optional}\ \mathrm{external\ code}"),
+            N("window", "Saturation window", "prior", symbols=r"(t_0, t_1)\ [a/c_s],\ \mathrm{chosen\ by\ the\ caller}"),
+            N("ct_classical", "Classical transport", "standardized",
+              api="vaft.machine_mapping.classical.core_transport_from_classical",
+              ids="core_transport.model[k] (identifier.index -1)", symbols=r"\chi_e,\ \chi_i\ (\mathrm{private\ index})"),
+            N("ct_neo", "Neoclassical transport", "standardized",
+              api="vaft.machine_mapping.neoclassical.core_transport_from_neo",
+              ids="core_transport.model[k] (identifier.index 5)", symbols=r"\Gamma_s,\ Q_s\ (\mathrm{NEO})"),
+            N("ct_tglf", "Anomalous transport (TGLF)", "standardized",
+              api="vaft.machine_mapping.turbulence.core_transport_from_tglf",
+              ids="core_transport.model[k] (identifier.index 6, code TGLF)", symbols=r"\Gamma_s,\ Q_s,\ \Pi_\phi"),
+            N("ct_cgyro", "Anomalous transport (CGYRO)", "standardized",
+              api="vaft.machine_mapping.gyrokinetics.core_transport_from_cgyro",
+              ids="core_transport.model[k] (identifier.index 6, code CGYRO)",
+              symbols=r"\langle\Gamma_s\rangle_t,\ \langle Q_s\rangle_t\ \mathrm{over}\ (t_0, t_1)"),
+        ),
+        rows=(("state",), ("classical", "neo_fit", "neo_code", "turb_ql", "turb_gk"),
+              ("ct_classical", None, "ct_neo", "ct_tglf", "ct_cgyro")),
+        edges=(("state", "classical", ""), ("state", "neo_fit", ""), ("state", "neo_code", ""),
+               ("state", "turb_ql", ""), ("state", "turb_gk", ""), ("classical", "ct_classical", ""),
+               ("neo_code", "ct_neo", ""), ("turb_ql", "ct_tglf", ""), ("turb_gk", "ct_cgyro", "")),
+        side=(("window", "ct_cgyro"),),
+        todos=("The closed-form Sauter/Redl results have no core_transport writer (and carry no particle or heat "
+               "flux to write); they are returned, not stored.",
+               "Classical transport uses a private identifier.index (-1): the data dictionary has no classical "
+               "entry. The Braginskii forms assume a strongly magnetized plasma, and ln Lambda is flagged invalid "
+               "below 10 eV.",
+               "core_transport.model[k]: k is the array position the writer finds or appends (matching "
+               "identifier.index and code.name); it is not the identifier.index.",
+               "A nonlinear CGYRO run writes no fluxes without a saturation window: choosing it is the caller's "
+               "judgement.",
+               "The TGLF-NN surrogate (vaft.code.gacode.tglf.surrogate) refuses VEST inputs as out of domain and "
+               "has no IMAS writer."),
+    ),
+    WorkflowSpec(
+        key="neoclassical_model_comparison", title="Sauter / Redl against NEO at one state",
+        family="transport", status="implemented",
+        summary="One shared source state, two independently prepared input paths, and an end-to-end comparison "
+                "against NEO as the numerical reference -- not as ground truth. The bootstrap current is compared "
+                "in one definition, <J.B>/B0 with the vacuum B0 and its sign, on one grid; a plasma mismatch is "
+                "refused, while differences in grid construction, trapped fraction and collisionality between the "
+                "two input paths remain part of the gap.",
+        nodes=(
+            N("state", "Shared source state", "reconstructed",
+              ids="{core_profiles.profiles_1d[:], equilibrium.time_slice[:]}",
+              symbols=r"T_s,\ n_s,\ Z_{\mathrm{eff}},\ \mathrm{impurity},\ \psi,\ q\ (\mathrm{one\ time\ slice})"),
+            N("analytic_in", "Analytic-model inputs (VAFT)", "derived",
+              api="vaft.omas.neoclassical.compute_bootstrap_current",
+              symbols=r"\rho_{\mathrm{tor},N}\ \mathrm{from\ the\ equilibrium};\ f_t\ \mathrm{from\ the\ equilibrium}"
+                      r"\qquad \nu^*\ (\mathrm{Sauter\ definition});\ Z_{\mathrm{eff}},\ n_i/n_e"),
+            N("neo_in", "NEO inputs (GACODE conversion)", "code_input", api="vaft.code.gacode.neo.inputs.prepare_neo_case",
+              symbols=r"\mathrm{input.gacode\ grid\ and\ geometry};\ f_t,\ \nu\ \mathrm{as\ NEO\ forms\ them}"
+                      r"\qquad \mathrm{species\ list}\ (Z_{\mathrm{eff}}\ \mathrm{from\ it})"),
+            N("sauter", "Sauter closure", "derived", api="vaft.validation.neoclassical.bootstrap_models",
+              equation="vaft.formula.neoclassical.sauter_bootstrap_current", references=(_SAUTER,)),
+            N("redl", "Redl closure", "derived", api="vaft.validation.neoclassical.bootstrap_models",
+              references=(_REDL,),
+              symbols=r"j_{\mathrm{bs}}\ \mathrm{with\ Redl's\ refitted}\ L_{31}, L_{32}, \alpha"),
+            N("neo_tr", "NEO transport solve", "solver", api="vaft.code.gacode.neo.runner.run_neo_case",
+              references=(_BELLI_2008, _BELLI_2012),
+              symbols=r"j_{\mathrm{bs}},\ \Gamma_s,\ Q_s\qquad \mathbf{optional}\ \mathrm{external\ code}"),
+            N("neo_cond", "NEO conductivity solve", "solver", api="vaft.code.gacode.neo.runner.run_neo_conductivity_case",
+              symbols=r"\sigma_\parallel = j_\parallel / E_\parallel\qquad E_\parallel = 1,\ \mathrm{all\ gradients\ off}"),
+            N("mapping", "NEO into the IMAS definition", "standardized",
+              api="vaft.machine_mapping.neoclassical.core_profiles_from_neo",
+              ids="core_profiles.profiles_1d[:].{j_bootstrap, conductivity_parallel}",
+              symbols=r"\langle J\cdot B\rangle/B_{\mathrm{unit}} \to \langle J\cdot B\rangle/B_0\qquad "
+                      r"\mathrm{signed}\ B_{\mathrm{unit}}\ (\mathrm{GACODE\ COCOS\ 2})"),
+            N("basis", "Comparison basis", "convention",
+              symbols=r"j_{\mathrm{bs}} = \langle J\cdot B\rangle/B_0,\ \mathrm{vacuum}\ B_0,\ \mathrm{signed}"
+                      r"\qquad \mathrm{same}\ \rho_{\mathrm{tor},N}\ \mathrm{grid};\ Z_{\mathrm{eff}},\ n_i/n_e\ "
+                      r"\mathrm{must\ match}"),
+            N("compare", "Model agreement", "derived", api="vaft.validation.neoclassical.model_comparison",
+              symbols=r"\mathrm{reference = NEO\ (numerical,\ not\ ground\ truth)}\qquad "
+                      r"\mathrm{integrated,\ RMS/peak,\ peak\ differences}"),
+        ),
+        rows=(("state",), ("analytic_in", None, "neo_in", None), ("sauter", "redl", "neo_tr", "neo_cond"),
+              ("compare", None, "mapping", None)),
+        edges=(("state", "analytic_in", "VAFT path"), ("state", "neo_in", "GACODE path"), ("analytic_in", "sauter", ""),
+               ("analytic_in", "redl", ""), ("neo_in", "neo_tr", ""), ("neo_in", "neo_cond", ""),
+               ("neo_tr", "mapping", ""), ("neo_cond", "mapping", ""), ("sauter", "compare", ""),
+               ("redl", "compare", ""), ("mapping", "compare", "reference")),
+        side=(("basis", "compare"),),
+        todos=("End-to-end, not like-for-like: the two input paths differ in grid construction, trapped fraction "
+               "and collisionality definition, so part of any gap is the input path. The like-for-like check "
+               "against NEO's own Sauter/Redl columns (agreement to 1e-7) is a test, not a product.",
+               "A stored NEO profile on a different rho_tor_norm grid is refused, not interpolated; a run whose "
+               "Z_eff or n_i/n_e differs is refused when the solver's values are passed.",
+               "Without NEO there is no reference and no comparison; the closed-form results are not written to "
+               "IMAS."),
+    ),
+    # ------------------------------------------------------------------ experimental processing (#1901 part B)
+    WorkflowSpec(
+        key="machine_model_history", title="Machine model and shot history: one shot number selects the machine",
+        family="experimental_processing", status="implemented",
+        summary="The shot number is the only key. It selects the machine era (PF and wall geometry), each "
+                "diagnostic's revision (wiring, gains, baseline windows) and the shot-log record; the static "
+                "machine description is built once per era and the processing era is reported per diagnostic.",
+        nodes=(
+            N("shot", "Shot number", "measured", ids="dataset_description.data_entry.pulse", symbols=r"s"),
+            N("era", "Machine era", "machine", api="vaft.omas.vest_upstream.machine_era_for_shot",
+              symbols=r"\mathrm{PF\ 1906\ /\ 2507},\ \mathrm{wall\ 1512\ /\ 2409}"),
+            N("revisions", "Diagnostic revisions", "machine", api="vaft.machine_mapping.utils.resolve_vest_diagnostic",
+              symbols=r"\mathrm{from\_shot} \le s \le \mathrm{to\_shot}\qquad \mathrm{wiring,\ gain,\ baseline}"),
+            N("schedule", "Shot log", "measured", api="vaft.machine_mapping.pulse_schedule.mapping.pulse_schedule",
+              ids="pulse_schedule", symbols=r"\mathrm{set\ points,\ gas,\ timing}"),
+            N("conventions", "IMAS sign and angle conventions", "convention",
+              api="vaft.machine_mapping.registry.port_phi",
+              symbols=r"\phi = (-30^\circ\,h) \bmod 360^\circ\qquad \mathrm{discharge\ sign\ contract}"),
+            N("static", "Static machine description", "standardized", api="vaft.omas.vest_upstream.build_static_ods",
+              ids="{wall | pf_active | pf_passive | em_coupling | magnetics | tf}",
+              symbols=r"\mathrm{geometry},\ M_{ij},\ \mathrm{sensor\ positions}"),
+            N("provenance", "Processing era per diagnostic", "derived",
+              api="vaft.machine_mapping.provenance.vest_processing_provenance",
+              symbols=r"\mathrm{calibration\ lineage}",
+              mapping_todo="returned as a dict; not written to an IDS"),
+        ),
+        rows=(("shot",), ("era", "revisions", "schedule"), ("static", "provenance")),
+        edges=(("shot", "era", ""), ("shot", "revisions", ""), ("shot", "schedule", ""), ("era", "static", ""),
+               ("revisions", "provenance", "")),
+        side=(("conventions", "static"),),
+        todos=("The VEST COCOS index is not resolved yet (vaft.machine_mapping.conventions."
+               "equilibrium_orientation_is_resolved); the discharge sign contract stands in for it.",
+               "The shot-log mapper writes pulse_schedule when called (vaft shotlog CLI) but "
+               "build_diagnostics_ods does not call it.",
+               "Wall and limiter history is the era table only; there is no per-component calibration lineage.",
+               "There is no single shot-to-machine object: era, revisions and provenance are separate lookups.",
+               "The static description is built per era, not per shot: PF, passive structure and coupling at the "
+               "era's reference shot, magnetics and TF as the un-gated inventory. Per-shot wiring and revisions "
+               "apply when the diagnostics IDS is built."),
+    ),
+    WorkflowSpec(
+        key="signal_processing", title="Signal processing: raw digitizer records to a diagnostic IDS",
+        family="experimental_processing", status="implemented",
+        summary="A representative chain, in the order the magnetic probes use it: anti-alias low-pass on the "
+                "native grid, calibration, time integration of the inductive voltage, a linear baseline over the "
+                "era's leading samples, then interpolation onto the analysis grid. Other diagnostics reorder or "
+                "skip steps.",
+        nodes=(
+            N("raw", "Raw digitizer record", "measured", api="vaft.database.raw.load",
+              symbols=r"V(t)\ \mathrm{per\ DAQ\ field}"),
+            N("fields", "DAQ field codes", "machine", api="vaft.machine_mapping.raw_daq_sources.raw_sources",
+              symbols=r"(\mathrm{diagnostic},\ s) \rightarrow \mathrm{field\ codes}"),
+            N("lowpass", "Anti-alias low-pass", "derived", api="vaft.process.signal_processing.fir_filter",
+              symbols=r"\mathrm{FIR\ on\ the\ native\ fast\ grid}"),
+            N("calibrate", "Calibration", "derived", api="vaft.machine_mapping.utils.calibrate_vest_signal",
+              relation=r"x = c\,V\ \mathrm{(linear)}\qquad \mathrm{or\ an\ exponential\ gauge\ law}"),
+            N("revision", "Calibration revision", "machine", api="vaft.machine_mapping.utils.resolve_vest_diagnostic",
+              symbols=r"c,\ \mathrm{sign},\ \mathrm{baseline\ window}"),
+            N("integrate", "Time integration", "derived",
+              api="vaft.process.magnetics.vest_b_field_pol_probe_legacy",
+              relation=r"B(t) = -\int_0^t \dot B\,dt'\qquad \dot B\ \mathrm{the\ calibrated\ record}"),
+            N("baseline", "Baseline subtraction", "derived", api="vaft.process.signal_processing.subtract_baseline",
+              symbols=r"\mathrm{linear\ fit\ over\ the\ era's\ leading\ samples}"),
+            N("resample", "Resampling", "derived", api="vaft.process.signal_processing.resample_to_time",
+              symbols=r"t_k = t_{\mathrm{start}} + k\,\Delta t"),
+            N("grid", "Analysis time grid", "convention",
+              api="vaft.machine_mapping.utils.resolve_diagnostics_time_policies",
+              symbols=r"t_{\mathrm{start}},\ t_{\mathrm{end}},\ \Delta t"),
+            N("ids", "Diagnostic IDS", "standardized", api="vaft.omas.vest_upstream.build_diagnostics_ods",
+              ids="{magnetics | pf_active | tf | spectrometer_uv | barometry}",
+              symbols=r"\psi_{\mathrm{FL}},\ B_p,\ I_p,\ I_{\mathrm{PF}}"),
+        ),
+        rows=(("raw",), ("lowpass",), ("calibrate",), ("integrate",), ("baseline",), ("resample",), ("ids",)),
+        edges=(("raw", "lowpass", ""), ("lowpass", "calibrate", ""), ("calibrate", "integrate", ""),
+               ("integrate", "baseline", ""), ("baseline", "resample", ""), ("resample", "ids", "")),
+        side=(("fields", "raw"), ("revision", "calibrate"), ("grid", "resample")),
+        todos=("The order is per diagnostic: PF coils subtract a baseline mean, filter, scale and align; H-alpha "
+               "shifts in time and resamples with an anti-aliased resampler; flux loops integrate per radian.",
+               "There is no drift-correction stage separate from the baseline fit, and no cross-DAQ "
+               "synchronization module: each mapper applies its own time shift and interpolation.",
+               "Integration is inline in each mapper; vaft.process has no shared integration helper.",
+               "Thomson scattering and the interferometer read post-processed files, so this chain does not apply "
+               "to them."),
+    ),
+    WorkflowSpec(
+        key="quality_validation", title="Quality and validation: measurements against references to evidence",
+        family="experimental_processing", status="implemented",
+        summary="Three separate kinds of evidence: per-sample source validity (written to the IDS validity "
+                "nodes), agreement with the vacuum model before the plasma (a report), and equilibrium fit "
+                "quality turned into a slice class. Model disagreement never sets a channel's validity.",
+        nodes=(
+            N("meas", "Processed magnetics", "measured", ids="magnetics.{flux_loop, b_field_pol_probe, ip}",
+              symbols=r"m_i(t)"),
+            N("model", "Synthetic vacuum magnetics", "derived",
+              api="vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics",
+              symbols=r"\hat m_i = m_{\mathrm{coil}} + m_{\mathrm{eddy}}"),
+            N("eq", "Magnetic equilibrium", "reconstructed", ids="equilibrium.time_slice[:]",
+              symbols=r"\psi(R, Z),\ \chi^2"),
+            N("source", "Source validity checks", "derived", api="vaft.validation.magnetics.validate_magnetics_signals",
+              symbols=r"\mathrm{per\ sample,\ per\ channel}"),
+            N("residual", "Residual metrics", "derived", api="vaft.omas.vacuum_magnetics.vacuum_magnetics_metrics",
+              symbols=r"m_i - \hat m_i:\ \mathrm{RMS},\ \mathrm{correlation}"),
+            N("efitq", "Fit and convergence quality", "derived", api="vaft.omas.efit_quality.efit_quality_metrics",
+              symbols=r"\chi^2_\nu,\ \mathrm{residual\ bias},\ \mathrm{convergence}"),
+            N("validity", "Channel validity", "standardized", api="vaft.validation.imas.write_validity",
+              ids="magnetics.{flux_loop[:].flux | b_field_pol_probe[:].field | ip[:]}.validity_timed",
+              symbols=r"0\ \mathrm{valid},\ 1\ \mathrm{flagged},\ -2\ \mathrm{rejected}"),
+            N("gate", "Vacuum-model quality gate", "derived", api="vaft.omas.vacuum_magnetics.quality_gate",
+              symbols=r"\mathrm{pass\ /\ fail\ per\ sensor\ group}", mapping_todo="a report; not written to an IDS"),
+            N("classes", "Slice quality class", "derived",
+              api="vaft.validation.equilibrium_quality.equilibrium_quality_table",
+              symbols=r"\mathrm{good\ /\ admissible\ /\ unreconstructible}",
+              mapping_todo="a table; not written to an IDS"),
+            N("criteria", "Acceptance criteria", "convention", symbols=r"\mathrm{versioned\ thresholds}"),
+        ),
+        rows=(("meas", "model", "eq"), ("source", "residual", "efitq"), ("validity", "gate", "classes")),
+        edges=(("meas", "source", ""), ("meas", "residual", ""), ("model", "residual", "reference"),
+               ("eq", "efitq", ""), ("source", "validity", ""), ("residual", "gate", ""),
+               ("efitq", "classes", "")),
+        side=(("criteria", "classes"),),
+        todos=("Only source validity reaches IMAS; model-agreement and fit-quality metrics are returned as "
+               "dicts and tables in the stage manifests.",
+               "Flux-loop agreement with the vacuum model is report-only by default; only source validity can "
+               "reject a loop.",
+               "The vacuum check covers the pre-plasma window only; there is no plasma-phase synthetic "
+               "magnetics check outside the EFIT residuals."),
+    ),
+    WorkflowSpec(
+        key="fault_anomaly_detection", title="Fault and anomaly evidence: diagnostic-specific checks",
+        family="experimental_processing", status="implemented",
+        summary="There is no single anomaly model: each diagnostic has its own checks. Magnetics separate hard "
+                "faults from soft flags and honour the recorded fault list; the Rogowski coil has a square-wave "
+                "test; clipped PF, diamagnetic and TF records are repaired over the clipped interval; H-alpha "
+                "channels are screened before they time the plasma.",
+        nodes=(
+            N("signals", "Processed channels", "measured", ids="{magnetics | pf_active | tf | spectrometer_uv}",
+              symbols=r"x_i(t)"),
+            N("known", "Recorded faults", "machine", api="vaft.machine_mapping.magnetics.known_magnetics_faults",
+              symbols=r"(\mathrm{kind},\ i) \rightarrow \mathrm{reason}"),
+            N("mag", "Magnetics channel checks", "derived", api="vaft.validation.magnetics.validate_magnetics_signals",
+              symbols=r"\mathrm{hard:\ non\text{-}finite,\ flatline,\ magnitude,\ outlier}\qquad"
+                      r"\mathrm{soft:\ spike,\ offset\ jump,\ drift,\ noise}"),
+            N("rog", "Rogowski square-wave test", "derived", api="vaft.validation.plasma_current.assess_plasma_rogowski",
+              symbols=r"I_p(t)\ \mathrm{shape}"),
+            N("clip", "Clipping detection", "derived", api="vaft.process.signal_processing.detect_clipped_samples",
+              symbols=r"\mathrm{PF,\ diamagnetic,\ TF}"),
+            N("halpha", "H-alpha usability", "derived", api="vaft.omas.plasma_timing.halpha_usability",
+              symbols=r"\mathrm{finite,\ not\ railed,\ live\ baseline}"),
+            N("validity", "Channel validity", "standardized", api="vaft.validation.magnetics.project_validity",
+              ids="magnetics.{flux_loop[:].flux | b_field_pol_probe[:].field | ip[:]}.validity_timed",
+              symbols=r"0,\ 1,\ -2"),
+            N("rog_validity", "Plasma-current Rogowski validity", "standardized",
+              ids="magnetics.rogowski_coil[0].current.validity", symbols=r"\mathrm{one\ value\ per\ record}"),
+            N("repair", "Repaired interval", "derived", api="vaft.process.signal_processing.repair_clipped_interval",
+              symbols=r"x_i(t)\ \mathrm{across\ the\ clipped\ samples}"),
+            N("usable", "Light sources for timing", "derived", api="vaft.omas.plasma_timing.plasma_timing",
+              symbols=r"\mathrm{usable}\ H_\alpha\ \mathrm{channels}"),
+        ),
+        rows=(("signals",), ("mag", "rog", "clip", "halpha"), ("validity", "rog_validity", "repair", "usable")),
+        edges=(("signals", "mag", ""), ("signals", "rog", ""), ("signals", "clip", ""), ("signals", "halpha", ""),
+               ("mag", "validity", ""), ("rog", "rog_validity", ""), ("clip", "repair", ""), ("halpha", "usable", "")),
+        side=(("known", "mag"),),
+        todos=("No general anomaly model runs in the pipeline: vaft.process.ml provides the framework "
+               "(PCA autoencoder, k-NN, one-class SVM) but no trained model ships with the package.",
+               "The spectrometer and barometry fault registry (known_diagnostic_faults) has no pipeline consumer.",
+               "Missing raw data marks the component unavailable or partial; it is not a per-channel fault flag."),
+    ),
+    WorkflowSpec(
+        key="shot_classification", title="Shot classification: rules over derived features",
+        family="experimental_processing", status="implemented",
+        summary="A shot class is a rule applied to derived features -- the plasma window, the gauge-pressure "
+                "response, the peak current -- under stated thresholds, and it records which rule decided. It is "
+                "not a measurement. A separate pre-run check classifies DAQ completeness, and equilibrium slices "
+                "get a phase label from their own rule.",
+        nodes=(
+            N("fields", "Raw field inventory", "measured", symbols=r"\mathrm{field\ codes\ in\ the\ DAQ\ database}"),
+            N("pressure", "Gauge pressure", "measured", ids="barometry.gauge[0].pressure.data", symbols=r"p(t)"),
+            N("signals", "Plasma current and H-alpha", "measured", ids="magnetics.ip[0].data; spectrometer_uv",
+              symbols=r"I_p(t),\ H_\alpha(t)"),
+            N("eq", "Equilibrium slices", "reconstructed", ids="equilibrium.time_slice[:].global_quantities.ip",
+              symbols=r"I_p(t_k)"),
+            N("daq", "DAQ completeness", "derived", api="vaft.database.worker.classify.RawFieldClassifier",
+              symbols=r"\mathrm{daq\_missing\ /\ raw\_incomplete}"),
+            N("response", "Pressure response", "derived", api="vaft.omas.shot_class.pressure_response",
+              symbols=r"\Delta p\ \mathrm{during\ the\ shot}"),
+            N("timing", "Plasma window", "derived", api="vaft.omas.plasma_timing.plasma_timing",
+              symbols=r"t_{\mathrm{start}},\ t_{\mathrm{end}}"),
+            N("regime", "Slice phase", "derived", api="vaft.validation.equilibrium_regime.classify_equilibrium_regimes",
+              symbols=r"\mathrm{ramp\text{-}up\ /\ flat\ /\ ramp\text{-}down}:\ \mathrm{level}\ 0.9\,|I_p|_{\max}"),
+            N("rule", "Shot class", "derived", api="vaft.omas.shot_class.shot_class",
+              symbols=r"\mathrm{Plasma\ /\ BD\ failure\ /\ Vacuum},\ \mathrm{decided\ by}",
+              mapping_todo="optionally kept in the database worker record (record_shot_class), not in an IDS"),
+            N("thresholds", "Default thresholds", "convention",
+              symbols=r"p_{\mathrm{th}} = 10^{-2},\ I_{p,\min} = 2\ \mathrm{kA}"),
+        ),
+        rows=(("fields", "pressure", "signals", "eq"), ("daq", "response", "timing", "regime"),
+              (None, "rule", None, None)),
+        edges=(("fields", "daq", ""), ("pressure", "response", ""), ("signals", "timing", ""), ("eq", "regime", ""),
+               ("response", "rule", ""), ("timing", "rule", "")),
+        side=(("thresholds", "rule"),),
+        todos=("The four-way physics class of #57 is not implemented; the class is Plasma, BD failure or Vacuum.",
+               "There are no disruption labels and no label-provenance store; vaft.process.ml datasets take "
+               "targets from the caller.",
+               "Events passed to the slice classifier (VDE, IRE, disruption) are caller annotations, not "
+               "detections."),
+    ),
+    WorkflowSpec(
+        key="event_detection", title="Event detection: onsets and windows from a robust baseline",
+        family="experimental_processing", status="implemented",
+        summary="Each waveform gets a robust baseline and spread from its quiet reference, a threshold that is "
+                "the larger of a fraction of the peak and a number of robust sigmas, and an active window that "
+                "must stay above it. The plasma window is then confirmed across signals: H-alpha light against "
+                "the plasma current. Coil onsets anchor the loop-voltage time base.",
+        nodes=(
+            N("light", "H-alpha and plasma current", "measured", ids="spectrometer_uv; magnetics.ip[0].data",
+              symbols=r"H_\alpha(t),\ I_p(t)"),
+            N("coils", "Coil currents", "measured", ids="pf_active.coil[:].current.data",
+              symbols=r"I_{\mathrm{PF},j}(t)"),
+            N("baseline", "Robust baseline", "derived", api="vaft.process.onset.robust_baseline",
+              symbols=r"b,\ \sigma\ \mathrm{from\ the\ median\ and\ MAD}"),
+            N("rules", "Detection rules", "convention", symbols=r"f,\ k,\ t_{\mathrm{hold}}\ \mathrm{per\ signal}"),
+            N("threshold", "Activity threshold", "derived", api="vaft.process.onset.excess_threshold",
+              relation=r"x_{\mathrm{th}} = b + \max(f\,x_{\mathrm{peak}},\ k\,\sigma)"),
+            N("window", "Active window", "derived", api="vaft.process.onset.active_window",
+              symbols=r"x > x_{\mathrm{th}}\ \mathrm{for\ at\ least}\ t_{\mathrm{hold}}"),
+            N("confirm", "Light against current", "derived", api="vaft.omas.plasma_timing.plasma_timing",
+              symbols=r"\mathrm{consistent},\ I_p\ \mathrm{before}\ H_\alpha,\ \mathrm{offset\ disagreement}"),
+            N("plasma", "Plasma window", "derived", symbols=r"t_{\mathrm{start}},\ t_{\mathrm{end}}",
+              mapping_todo="a dataclass; not written to an IDS"),
+            N("onsets", "Coil onsets", "derived", api="vaft.omas.discharge_timing.coil_onsets",
+              symbols=r"t_{\mathrm{on},j},\ t_{\mathrm{OH}}"),
+            N("vloop", "Loop-voltage event", "derived", api="vaft.omas.discharge_timing.loop_voltage_event",
+              symbols=r"\mathrm{zero\ crossing\ after\ the\ OH\ onset}",
+              mapping_todo="a dataclass; not written to an IDS"),
+        ),
+        rows=(("light", "coils"), ("baseline", "onsets"), ("threshold", "vloop"), ("window", None),
+              ("confirm", None), ("plasma", None)),
+        edges=(("light", "baseline", ""), ("baseline", "threshold", ""), ("threshold", "window", ""),
+               ("window", "confirm", ""), ("confirm", "plasma", ""), ("coils", "onsets", ""),
+               ("onsets", "vloop", "")),
+        side=(("rules", "threshold"),),
+        todos=("Breakdown time is the plasma-window start; there is no separate breakdown detector.",
+               "There is no flat-top detector (only the post-hoc slice phase) and no IRE, sawtooth or disruption "
+               "detector.",
+               "current_quench and current_spike (vaft.process.transients) measure a quench or spike in a given "
+               "window; nothing in the pipeline calls them, and they do not label it an IRE or a disruption."),
+    ),
+    # ------------------------------------------------------------------ derived physics (#1901)
+    WorkflowSpec(
+        key="vacuum_field_proxies", title="Vacuum fields and startup proxies: coils and vessel, no plasma",
+        family="derived", status="implemented",
+        summary="The field of the PF coils and the vessel currents alone, evaluated from geometric Green's "
+                "functions on a grid or at a point, and the breakdown proxies read from it. Everything is "
+                "returned to the caller; nothing is written to an IDS except the vessel currents the evaluators "
+                "solve when the ODS has none.",
+        nodes=(
+            N("pf", "PF coil currents", "measured", ids="pf_active.coil[:].current.data", symbols=r"I_{\mathrm{PF},j}(t)"),
+            N("tf", "Toroidal field", "measured", ids="tf.b_field_tor_vacuum_r.data", symbols=r"R_0 B_0\ [\mathrm{T\,m}]"),
+            N("gauge", "Prefill pressure", "measured", api="vaft.omas.process_wrapper.compute_prefill_pressure_ods",
+              ids="barometry.gauge[:].pressure.data", symbols=r"p\ [\mathrm{Pa}],\ \mathrm{median\ over\ 20\ ms\ before\ the\ onset}"),
+            N("ec", "Launched EC power", "measured", ids="ec_launchers.beam[0].power_launched.data",
+              symbols=r"P_{\mathrm{EC}}\ \mathrm{at\ the\ onset} \pm 1\ \mathrm{ms}"),
+            N("vessel", "Vessel loop currents", "standardized", api="vaft.omas.process_wrapper.compute_eddy_currents",
+              ids="pf_passive.{time, loop[:].current}",
+              symbols=r"I_{\mathrm{loop},k}(t)\qquad \mathrm{solved\ and\ written\ when}\ \mathtt{pf\_passive}\ "
+                      r"\mathrm{has\ no\ time}"),
+            N("geometry", "Conductor and limiter geometry", "machine",
+              ids="{pf_active.coil[:].element, pf_passive.loop[:].element, wall.description_2d[0].limiter}",
+              symbols=r"(R, Z)\ \mathrm{of\ every\ filament},\ \mathrm{limiter\ unit\ 0}"),
+            N("field", "Vacuum field", "derived", api="vaft.omas.process_wrapper.compute_vacuum_field_map",
+              equation="vaft.formula.green.green_psi_exact",
+              symbols=r"\psi\ [\mathrm{Wb,\ not\ Wb/rad}],\ B_R,\ B_Z,\ \partial\psi/\partial t\ \mathrm{on}\ (R, Z)"
+                      r"\qquad \mathrm{time\ snapped\ to\ a\ PF\ sample}"),
+            N("proxies", "Point proxies", "derived", api="vaft.omas.process_wrapper.compute_startup_proxies_ods",
+              relation=r"V_{\mathrm{loop}} = -\frac{d\psi}{dt},\quad n = -\frac{R}{B_Z}\frac{dB_Z}{dR}"
+                       r"\qquad \mathrm{at}\ (0.4, 0)\ \mathrm{m,\ every\ PF\ sample}"),
+            N("length", "Connection length", "derived",
+              api="vaft.omas.process_wrapper.compute_connection_length_map_ods",
+              symbols=r"L\ \mathrm{to\ the\ limiter,\ both\ directions},\ \le 150\ \mathrm{m\ each}"),
+            N("merit", "Lloyd figure of merit", "derived",
+              api="vaft.omas.process_wrapper.compute_vacuum_midplane_profiles_ods",
+              equation="vaft.formula.startup.lloyd_figure_of_merit",
+              symbols=r"|E_\phi| = |\partial\psi/\partial t|/(2\pi R),\ B_\phi = R_0 B_0/R"),
+            N("margin", "Lloyd breakdown margin", "derived",
+              api="vaft.omas.process_wrapper.compute_vacuum_midplane_profiles_ods",
+              equation="vaft.formula.startup.breakdown_margin",
+              symbols=r"E_{BD}(p, L)\ \mathrm{(Lloyd)};\ \mathrm{NaN\ where}\ A p L \le 1"),
+            N("summary", "Startup summary", "derived", api="vaft.omas.startup_summary.startup_summary",
+              symbols=r"\mathrm{point\ proxies;\ null\ area\ and\ Lloyd\ margin\ fraction\ of\ the\ map}\qquad "
+                      r"R_{\mathrm{ECR}}\ \mathrm{from\ the\ toroidal\ field},\ P_{\mathrm{EC}}\qquad "
+                      r"\mathrm{one\ flat\ dict;\ evaluated\ on\ a\ private\ copy}",
+              mapping_todo="maps, profiles and proxies are returned, never written to an IDS"),
+        ),
+        rows=(("pf", "vessel"), ("field", "tf"), ("proxies", "length", "merit"), ("margin", "gauge"), ("summary", "ec")),
+        edges=(("pf", "vessel", "if absent"), ("pf", "field", ""), ("vessel", "field", ""),
+               ("field", "proxies", ""), ("field", "length", ""), ("tf", "length", ""), ("field", "merit", ""),
+               ("tf", "merit", ""), ("field", "margin", ""), ("length", "margin", ""), ("gauge", "margin", ""),
+               ("margin", "summary", ""), ("proxies", "summary", ""),
+               ("ec", "summary", "")),
+        side=(("geometry", "field"),),
+        todos=("No vacuum field, map, proxy or breakdown margin is written to an IDS: every evaluator returns a "
+               "dict, and the startup summary is a dict too.",
+               "compute_vacuum_field_map and compute_startup_proxies_ods solve the vessel currents and store them "
+               "in the caller's pf_passive when it has no time base; startup_summary avoids that by evaluating "
+               "on a private copy.",
+               "Only vacuum sources contribute (coils and vessel, no plasma); above roughly 10 kA of plasma "
+               "current the map no longer describes the machine.",
+               "The loop voltage is a model quantity from the coil and vessel flux; it is to be compared with the "
+               "measured flux-loop voltage, not substituted for it.",
+               "No empirical threshold is applied to the Lloyd figure of merit, and the startup summary does not "
+               "report it: the summary counts the null area and the Lloyd margin on the 2-D map itself.",
+               "The point proxies come from their own point response (compute_point_response_matrices_ods), not "
+               "from the grid map; the two agree to about 1e-7 relative."),
+    ),
+    WorkflowSpec(
+        key="derived_mhd_parameters", title="Derived MHD parameters: global quantities of an equilibrium",
+        family="derived", status="implemented",
+        summary="Global quantities computed from a reconstructed equilibrium. The DD-defined betas, l_i3 and "
+                "W_MHD are written to equilibrium.global_quantities; the descriptor set and the edge-q proxies "
+                "are returned with their derivation records. Two poloidal betas exist on purpose: the DD leaf "
+                "and the circumference form EFIT reports.",
+        nodes=(
+            N("eq", "Magnetic equilibrium", "reconstructed",
+              ids="equilibrium.time_slice[:].{profiles_1d.{pressure, volume}, profiles_2d, boundary}",
+              symbols=r"p(\psi),\ V(\psi),\ \psi(R, Z),\ I_p"),
+            N("ip", "Plasma current", "measured", ids="magnetics.ip[0].data", symbols=r"I_p(t)"),
+            N("tf", "Toroidal field", "measured", ids="tf.b_field_tor_vacuum_r.data", symbols=r"R_0 B_0\ [\mathrm{T\,m}]"),
+            N("reference", "Reference radius and field", "convention",
+              api="vaft.omas.update.resolve_reference_major_radius",
+              ids="{equilibrium.vacuum_toroidal_field.r0, equilibrium.vacuum_toroidal_field.b0, tf.r0}",
+              symbols=r"R_0:\ \mathtt{tf.r0}\ \mathrm{when\ the\ stored}\ r_0\ \mathrm{is\ corrupt},\ "
+                      r"B_0 = \mathtt{b0}"),
+            N("surfaces", "Volume and surface integrals", "derived",
+              api="vaft.process.equilibrium.flux_surface_quantities",
+              symbols=r"\int p\,dV\ \mathrm{(trapezoid\ over}\ V(\psi))\qquad "
+                      r"\int B_p^2\,dV,\ L_{\mathrm{pol}}\ \mathrm{from\ the\ surface\ traces}"),
+            N("descriptors", "Global descriptors", "derived", api="vaft.process.equilibrium.derive_global_descriptors",
+              relation=r"\beta_p = 2\mu_0\langle p\rangle_V / \langle B_p\rangle_{\mathrm{LCFS}}^2",
+              symbols=r"\kappa,\ \delta,\ V,\ \beta_t,\ \beta_N,\ q_{95},\ \mathrm{virial}\ l_i"
+                      r"\qquad \mathrm{each\ a\ DerivedValue\ with\ its\ record}",
+              mapping_todo="returned, not written"),
+            N("edge_q", "Edge safety-factor proxies", "derived", api="vaft.omas.edge_q.edge_q_estimate",
+              equation="vaft.formula.equilibrium.estimated_q95",
+              symbols=r"q_{95}^{\mathrm{est}},\ q^*_{\mathrm{Menard}},\ q^*_{\mathrm{Freidberg}},\ I_N"
+                      r"\qquad \mathrm{source:\ equilibrium\ |\ magnetics}",
+              mapping_todo="returned (EdgeQEstimate), not written"),
+            N("shape", "Machine default shape", "prior", api="vaft.machine_mapping.edge_q_estimate.vest_edge_q_estimate_policy",
+              symbols=r"a,\ R_0,\ \kappa,\ \delta\ \mathrm{from\ vest.yaml\ without\ an\ equilibrium}"),
+            N("beta_pol", "Poloidal beta (DD)", "standardized",
+              api="vaft.omas.update.update_equilibrium_global_quantities_beta_li",
+              equation="vaft.formula.equilibrium.beta_poloidal_from_pressure_integral",
+              ids="equilibrium.time_slice[:].global_quantities.beta_pol"),
+            N("beta_tor", "Toroidal beta", "standardized",
+              api="vaft.omas.update.update_equilibrium_global_quantities_beta_li",
+              equation="vaft.formula.equilibrium.beta_toroidal_from_p_B0",
+              ids="equilibrium.time_slice[:].global_quantities.beta_tor"),
+            N("li", "Internal inductance", "standardized",
+              api="vaft.omas.update.update_equilibrium_global_quantities_beta_li",
+              equation="vaft.formula.equilibrium.li_3_from_Bp2_volume_integral",
+              ids="equilibrium.time_slice[:].global_quantities.li_3"),
+            N("beta_n", "Normalized beta", "standardized",
+              api="vaft.omas.update.update_equilibrium_global_quantities_beta_li",
+              equation="vaft.formula.equilibrium.beta_normal_from_beta_tor",
+              ids="equilibrium.time_slice[:].global_quantities.beta_normal", symbols=r"\beta_N\ [-]"),
+            N("energy", "Stored energy", "standardized", api="vaft.omas.update.update_equilibrium_stored_energy",
+              equation="vaft.formula.equilibrium.thermal_energy_from_p_V",
+              ids="equilibrium.time_slice[:].global_quantities.energy_mhd",
+              symbols=r"W_{\mathrm{MHD}}\ [\mathrm{J}]\ \mathrm{from\ the\ reconstructed}\ p"),
+        ),
+        rows=(("eq", "ip", "tf"), ("surfaces", "energy", "descriptors", "edge_q"), ("beta_pol", "beta_tor", "li", None),
+              (None, "beta_n", None, None)),
+        edges=(("eq", "surfaces", ""), ("eq", "descriptors", ""), ("eq", "edge_q", ""),
+               ("ip", "edge_q", ""), ("tf", "edge_q", ""), ("surfaces", "beta_pol", ""), ("surfaces", "beta_tor", ""),
+               ("surfaces", "li", ""), ("beta_tor", "beta_n", ""), ("eq", "energy", "")),
+        side=(("reference", "surfaces"), ("shape", "edge_q")),
+        todos=("beta_pol holds the DD definition; EFIT normalizes by the LCFS-circumference field instead and "
+               "differs by 26% on the packaged reference (#318). derive_global_descriptors reports the "
+               "boundary-average form as beta_p_boundary_average; the DD leaf is not matched to OMFIT.",
+               "equilibrium.vacuum_toroidal_field.r0 is corrupt on the VEST database and b0 drifts within a shot "
+               "(#325); R_0 is replaced by tf.r0, loudly, and b0 is used as stored.",
+               "beta_tor with the stored b0 does not reproduce the OMFIT reference (ratio 1.041); the reference "
+               "field is unidentified (#238).",
+               "li_3 is the ITER/Jackson third definition: the DD documents no formula for it.",
+               "energy_mhd is (3/2) int p dV of the reconstructed pressure: a reconstruction-derived energy, not a "
+               "kinetic measurement.",
+               "The global descriptors and the edge-q proxies are returned, not written to equilibrium or summary.",
+               "edge_q_estimate's equilibrium source takes R_0 B_0 from the stored vacuum_toroidal_field.r0 * b0, "
+               "not from resolve_reference_major_radius; the magnetics source takes it from tf."),
+    ),
+    WorkflowSpec(
+        key="synthetic_diagnostics", title="Synthetic diagnostics: predicted signals from a modelled state",
+        family="derived", status="implemented",
+        summary="A synthetic diagnostic predicts what an instrument would record from a modelled or "
+                "reconstructed state. VAFT has three: vacuum magnetics from the coil and vessel currents, the "
+                "equilibrium's diamagnetic flux, and soft-X-ray chords through a prescribed island. "
+                "Assumption-completed kinetic profiles (generate_synthetic_kinetic_profiles) are a synthetic "
+                "state, not a diagnostic, and are not drawn here.",
+        nodes=(
+            N("pf", "PF coil currents", "measured", ids="pf_active.coil[:].current.data", symbols=r"I_{\mathrm{PF},j}(t)"),
+            N("vessel", "Vessel loop currents", "standardized", ids="pf_passive.loop[:].current",
+              symbols=r"I_{\mathrm{loop},k}(t)\ \mathrm{(forward\ circuit\ model)}"),
+            N("eq", "Magnetic equilibrium", "reconstructed",
+              ids="equilibrium.time_slice[:].{profiles_2d[0].psi, profiles_1d.f, global_quantities}",
+              symbols=r"\psi(R, Z),\ F(\psi),\ \psi_{\mathrm{axis}},\ \psi_{\mathrm{b}}"),
+            N("dia_meas", "Diamagnetic flux", "measured", ids="magnetics.diamagnetic_flux[0].data",
+              symbols=r"\Phi_{\mathrm{dia}}^{\mathrm{meas}}(t)"),
+            N("sensors", "Magnetic sensor positions", "machine",
+              ids="magnetics.{flux_loop[:].position, b_field_pol_probe[:].position}",
+              symbols=r"(R, Z)\ \mathrm{of\ each\ selected\ channel}"),
+            N("mag_meas", "Measured magnetics", "measured", ids="magnetics.{flux_loop, b_field_pol_probe}",
+              symbols=r"\psi_{\mathrm{FL}},\ B_p\ \mathrm{with\ validity}"),
+            N("vacuum", "Vacuum magnetics forward model", "derived",
+              api="vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics",
+              symbols=r"m_{\mathrm{coil}},\ m_{\mathrm{coil+eddy}}\ \mathrm{on\ the\ PF\ time\ grid}"
+                      r"\qquad \mathrm{measured\ interpolated\ onto\ it,\ no\ extrapolation}"),
+            N("diamagnetic", "Diamagnetic flux of the equilibrium", "derived",
+              api="vaft.omas.process_wrapper.compute_reconstructed_diamagnetic_flux",
+              relation=r"\Phi_{\mathrm{dia}} = \int_S (B_\phi - B_{\phi,\mathrm{vac}})\,dA"
+                       r"\qquad \mathrm{negative\ for\ a\ diamagnetic\ plasma}"),
+            N("island", "Prescribed island", "prior",
+              symbols=r"(m, n),\ W\ \mathrm{at\ the\ outboard\ midplane},\ \mathrm{phase},\ \omega"
+                      r"\qquad \epsilon_0(\psi_N)\ \mathrm{background}"),
+            N("sxr", "Island soft-X-ray forward model", "derived",
+              api="vaft.process.soft_x_rays.synthetic_island_soft_x_rays",
+              symbols=r"\epsilon\ \mathrm{flattened\ in\ the\ island},\ \mathrm{integrated\ along\ each\ chord}"),
+            N("chords", "SXR chord geometry", "machine",
+              symbols=r"\mathrm{pencil\ chords,\ one\ poloidal\ plane\ each;\ optional\ clipping\ domain}"),
+            N("vac_out", "Synthetic vacuum magnetics", "derived",
+              symbols=r"\mathrm{measured},\ m_{\mathrm{coil}},\ m_{\mathrm{coil+eddy}}\ \mathrm{per\ channel}",
+              mapping_todo="returned as VacuumChannel records, not written"),
+            N("dia_out", "Diamagnetic constraint", "standardized",
+              api="vaft.omas.update.update_equilibrium_constraints_diamagnetic_flux",
+              ids="equilibrium.time_slice[:].constraints.diamagnetic_flux.{measured, reconstructed}",
+              symbols=r"\Phi_{\mathrm{dia}}^{\mathrm{meas}}\ \mathrm{vs}\ \Phi_{\mathrm{dia}}^{\mathrm{rec}}"),
+            N("sxr_out", "Synthetic SXR brightness", "derived",
+              symbols=r"b(t, \mathrm{chord})\ [\epsilon\cdot\mathrm{m}],\ \mathrm{before\ any\ detector\ response}",
+              mapping_todo="returned (SyntheticSXRResult), not written to soft_x_rays"),
+        ),
+        rows=(("pf", "vessel", "eq"), ("mag_meas", "vacuum", "diamagnetic", "sxr"),
+              ("vac_out", "dia_meas", "dia_out", "sxr_out")),
+        edges=(("pf", "vacuum", ""), ("vessel", "vacuum", ""), ("mag_meas", "vacuum", ""), ("eq", "diamagnetic", ""),
+               ("eq", "sxr", ""), ("vacuum", "vac_out", ""), ("diamagnetic", "dia_out", ""),
+               ("dia_meas", "dia_out", ""), ("sxr", "sxr_out", "")),
+        side=(("sensors", "mag_meas"), ("island", "sxr"), ("chords", "sxr")),
+        todos=("There is no synthetic Thomson, interferometer, visible-camera or bolometer model: those "
+               "measurements cannot be compared with a prediction of the reconstructed state.",
+               "The vacuum magnetics are returned with their measured counterparts and written nowhere; EFIT's "
+               "own fitted magnetics (equilibrium constraints.*.reconstructed) are the solver's native output, "
+               "not a VAFT forward model.",
+               "The vacuum forward model has no plasma current: it predicts the magnetics only before breakdown "
+               "or in plasma-free windows.",
+               "The SXR model is forward only: a rigidly rotating island of fixed width, pencil-beam chords, no "
+               "filter, etendue or noise; it is comparable with a measurement only up to a per-channel "
+               "calibration, and is not written to soft_x_rays."),
+    ),
+    WorkflowSpec(
+        key="coordinate_cocos_conversions", title="Coordinates and COCOS: one transform per layer",
+        family="derived", status="implemented",
+        summary="Two COCOS transforms, at two layers: the ODS is normalized in place to weber (COCOS 1-8 and "
+                "per-radian files become 11; a declared 11-18 is left as it is), and an "
+                "in-memory equilibrium record is converted to any target COCOS. The ODS coordinate writers "
+                "resolve the flux storage of each slice themselves (as_equilibrium), so they also run on an "
+                "unnormalized ODS; the record-level radii and angle are COCOS-independent and returned.",
+        nodes=(
+            N("src", "Equilibrium as stored", "reconstructed",
+              ids="equilibrium.time_slice[:].{profiles_1d.psi, profiles_2d[0].psi, global_quantities}",
+              symbols=r"\psi\ [\mathrm{Wb\ or\ Wb/rad}],\ I_p,\ B_0,\ q,\ F"),
+            N("declared", "Declared COCOS", "convention",
+              ids="{equilibrium.ids_properties.cocos, equilibrium.code.parameters.cocos}",
+              symbols=r"\mathrm{trusted\ as\ provenance;\ absent\ before}\ \#236"),
+            N("normalize", "ODS normalization to weber", "derived",
+              api="vaft.omas.general.equilibrium_psi_to_weber",
+              symbols=r"\mathrm{declared\ 1\text{-}8}:\ \mathrm{OMAS\ cocos\_transform\ to\ 11}\qquad "
+                      r"\mathrm{declared\ 11\text{-}18:\ unchanged}\qquad "
+                      r"\mathrm{undeclared:\ storage\ probed,\ Wb/rad\ taken\ as\ COCOS\ 1}\qquad "
+                      r"\mathrm{equilibrium\ and\ core\_profiles\ leaves}"),
+            N("ods11", "Equilibrium in weber (COCOS 11-18)", "standardized", api="vaft.omas.general.set_ods_cocos",
+              ids="{equilibrium.time_slice[:], core_profiles.profiles_1d[:], equilibrium.code.parameters.cocos}",
+              symbols=r"\psi\ [\mathrm{Wb}];\ \mathrm{declared}\ 11\ \mathrm{only\ after\ a\ transform}\qquad "
+                      r"\mathrm{constraints\ untouched}"),
+            N("psi_norm", "Normalized poloidal flux", "standardized",
+              api="vaft.omas.update.update_equilibrium_profiles_1d_normalized_psi",
+              equation="vaft.formula.equilibrium.psi_normalised",
+              ids="equilibrium.time_slice[:].profiles_1d.psi_norm", symbols=r"\psi_N\ [-]"),
+            N("rho_tor", "Toroidal flux coordinate", "standardized",
+              api="vaft.omas.update.update_equilibrium_profiles_1d_toroidal_flux",
+              equation="vaft.formula.equilibrium.toroidal_flux_from_q_psi",
+              ids="equilibrium.time_slice[:].profiles_1d.{phi, rho_tor, rho_tor_norm}",
+              symbols=r"\rho_{\mathrm{tor}} = \sqrt{|\Phi|/(\pi |B_0|)}"),
+            N("grid", "Flux-surface grid", "standardized",
+              api="vaft.omas.update.update_equilibrium_profiles_2d_sfl_coordinates",
+              relation=r"R = R_{\mathrm{ax}} + \sqrt{\psi_N}\,r_{\mathrm{LCFS}}(\theta)\cos\theta,\ "
+                       r"\theta\ \mathrm{geometric}",
+              ids="equilibrium.time_slice[:].profiles_2d[1].{grid.dim1, grid.dim2, grid_type, r, z, psi, theta}",
+              symbols=r"(\psi_N, \theta)\ \mathrm{grid},\ \mathrm{surfaces\ =\ scaled\ LCFS}",
+              mapping_todo="stored as grid_type 11 (straight field line), though theta is geometric"),
+            N("record", "Equilibrium record", "derived", api="vaft.process.equilibrium.as_equilibrium",
+              symbols=r"\mathrm{Wb\ vs\ Wb/rad\ from\ Amp\grave{e}re's\ law\ round\ the\ LCFS}\qquad "
+                      r"\mathrm{COCOS\ declared,\ or\ candidates\ from\ the\ signs\ of}\ B_0, I_p, q"),
+            N("target", "Target COCOS", "convention", symbols=r"1\text{-}18\ (\mathrm{no}\ 9, 10),\ \mathrm{chosen\ by\ the\ caller}"),
+            N("convert", "Record conversion", "derived", api="vaft.process.equilibrium.convert_cocos",
+              symbols=r"\psi,\ F,\ q,\ p',\ FF',\ I_p,\ B_0\ \times\ \mathrm{their\ cocos\_transform\ factors}"
+                      r"\qquad p\ \mathrm{and\ the\ axis\ untouched;\ ambiguous\ source\ refused}"
+                      r"\qquad \mathrm{returns\ a\ copy\ in\ the\ target\ COCOS,\ in\ memory}"),
+            N("radial", "Normalized radii", "derived", api="vaft.process.equilibrium.derive_radial_coordinates",
+              symbols=r"\psi_N,\ \rho_{\mathrm{pol},N} = \sqrt{\psi_N},\ \rho_{\mathrm{tor},N}\qquad "
+                      r"\mathrm{COCOS\text{-}independent;\ unavailable\ with\ a\ reason}"),
+            N("sfl", "Straight-field-line angle", "derived", api="vaft.process.equilibrium.straight_field_line_map",
+              equation="vaft.formula.equilibrium.straight_field_line_angle",
+              symbols=r"\theta^*\ (\mathrm{PEST})\ \mathrm{at\ any}\ (R, Z)"),
+        ),
+        rows=(("src",), ("normalize", "record"), ("ods11", "convert"),
+              ("psi_norm", "grid", "rho_tor", "radial", "sfl")),
+        edges=(("src", "normalize", ""), ("src", "record", ""), ("normalize", "ods11", ""),
+               ("ods11", "psi_norm", ""), ("ods11", "rho_tor", ""), ("ods11", "grid", ""),
+               ("record", "radial", ""), ("record", "sfl", ""), ("record", "convert", "")),
+        side=(("declared", "normalize"), ("target", "convert")),
+        todos=("The ODS writer of the 2-D flux-surface grid uses a geometric approximation (the boundary scaled "
+               "by sqrt(psi_N) about the axis, the geometric angle) for every requested convention, yet labels "
+               "it grid_type 11; the true PEST angle exists only in memory "
+               "(vaft.process.equilibrium.straight_field_line_map).",
+               "equilibrium_psi_to_weber leaves equilibrium.time_slice[:].constraints untouched: VAFT copies "
+               "them from the DD-conformant magnetics and pf_active IDSs.",
+               "rho_tor integrates q from the axis, so EFIT's often outlying q[0] moves rho_tor_norm by up to "
+               "about 0.04 on the innermost surfaces; packaged samples older than #192 still hold the "
+               "sqrt(psi_N) proxy."),
+    ),
+    WorkflowSpec(
+        key="power_balance_confinement", title="Power balance and confinement: experimental and modelled",
+        family="derived", status="implemented",
+        summary="Two power balances answer different questions. The experimental Ohmic chain splits the measured "
+                "loop voltage with l_i3 and takes the stored energy of the equilibrium; the modelled budget uses "
+                "Spitzer heating and modelled radiation. Neither writes to the summary IDS; the experimental chain "
+                "is tabulated in the database summary sheet.",
+        nodes=(
+            N("ip", "Plasma current", "measured", ids="magnetics.ip[0].{data, time}", symbols=r"I_p(t),\ dI_p/dt"),
+            N("vloop", "Loop voltage", "measured", api="vaft.omas.discharge_timing.inboard_midplane_loop",
+              ids="magnetics.flux_loop[:].{voltage, flux}",
+              symbols=r"V_{\mathrm{loop}}\ \mathrm{(inboard\ midplane\ loop,\ off\ the\ boundary)}"),
+            N("eq", "Magnetic equilibrium", "reconstructed",
+              ids="equilibrium.time_slice[:].{global_quantities.li_3, profiles_1d.pressure, profiles_2d[0].psi}",
+              symbols=r"l_{i,3},\ W = \tfrac32\int p_{\mathrm{EFIT}}\,dV\ \mathrm{(grid\ quadrature)}"),
+            N("cp", "Kinetic profiles", "standardized", ids="core_profiles.profiles_1d[:].electrons",
+              symbols=r"n_e(\rho),\ T_e(\rho)"),
+            N("w_source", "Stored-energy source", "convention",
+              symbols=r"\mathrm{efit\_pressure\ (default)\ |\ core\_profiles\_thermal}"),
+            N("split", "Resistive loop voltage", "derived", api="vaft.process.confinement.resistive_loop_voltage",
+              equation="vaft.formula.equilibrium.inductive_voltage_from_dW_magdt_I_p",
+              symbols=r"V_{\mathrm{res}} = V_{\mathrm{loop}} - V_{\mathrm{ind}},\ L_i = \mu_0 R_0 l_{i,3}/2"),
+            N("balance", "Ohmic power balance", "derived", api="vaft.process.confinement.confinement_power_balance",
+              equation="vaft.formula.equilibrium.ohmic_heating_power_from_I_p_V_res",
+              symbols=r"P_{\mathrm{net}} = P_{\mathrm{OH}} - dW/dt\ (\mathrm{DB5\ PLTH})\qquad "
+                      r"P_{\mathrm{transport}}\ \mathrm{needs\ a\ measured}\ P_{\mathrm{rad}}:\ \mathrm{NaN}"),
+            N("tau", "Confinement time", "derived", api="vaft.omas.confinement.ohmic_confinement_ods",
+              equation="vaft.formula.equilibrium.confinement_time_from_P_loss_W_th",
+              symbols=r"\tau_E\ \mathrm{per\ slice\ the\ caller\ passes\ (default\ every\ slice)}",
+              mapping_todo="not written to the summary IDS; tabulated in the database summary sheet"),
+            N("evidence", "Slice evidence", "derived", api="vaft.process.confinement.confinement_slice_evidence",
+              symbols=r"\mathrm{rates\ and\ ratios\ per\ slice;\ thresholds\ are\ the\ caller's}"),
+            N("scaling", "Confinement scaling fit", "inferred", api="vaft.process.confinement.fit_confinement_scaling",
+              relation=r"y = C\prod_j x_j^{\alpha_j},\ \mathrm{log\text{-}linear,\ errors\ clustered\ by\ shot}"),
+            N("impurity", "Impurity policy", "prior", api="vaft.machine_mapping.core_profiles.vest_core_profiles_policy",
+              symbols=r"\mathrm{C,\ O\ at}\ n_I/n_e = 1/86,\ Z_{\mathrm{eff}} = 2\ (\mathrm{assumed})"),
+            N("spitzer", "Spitzer Ohmic dissipation", "derived",
+              api="vaft.omas.process_wrapper.compute_ohmic_heating_power_from_core_profiles",
+              relation=r"P_{\mathrm{ohm,diss}} = \int_V \eta\,J_\phi^2\,dV\qquad "
+                       r"\eta_{\mathrm{Spitzer}}(T_e;\ Z_{\mathrm{eff}} = 2,\ \ln\Lambda = 17)"),
+            N("radiation", "Modelled radiation", "derived",
+              api="vaft.process.atomic.compute_line_radiation_power_series",
+              equation="vaft.formula.atomic.line_cooling_coefficient",
+              symbols=r"P_{\mathrm{line}} = \int n_e n_I L_Z\,dV\ \mathrm{(ADF11)}"),
+            N("budget", "Modelled power budget", "derived", api="vaft.omas.formula_wrapper.compute_power_balance",
+              equation="vaft.formula.equilibrium.loss_power_from_p_heat_dWdt_p_rad",
+              symbols=r"P_{\mathrm{rad}} = P_{\mathrm{line}} + P_{\mathrm{sync}} + P_{\mathrm{Br}},\ "
+                      r"P_{\mathrm{heat}} = P_{\mathrm{ohm,diss}}\qquad "
+                      r"W\ \mathrm{from\ core\_profiles}\ (T_i = T_e),\ V\ \mathrm{and}\ I_p\ \mathrm{from\ the\ equilibrium}"
+                      r"\qquad dW/dt = 0\ \mathrm{for\ one\ slice}",
+              mapping_todo="returned as a dict (plots only), not written to the summary IDS"),
+        ),
+        rows=(("ip", "vloop", "eq", "cp"), ("split", None, "spitzer", "radiation"), ("balance", None, "budget", None),
+              ("tau",), ("evidence",), ("scaling",)),
+        edges=(("ip", "split", ""), ("vloop", "split", ""), ("eq", "split", ""), ("split", "balance", ""),
+               ("eq", "balance", ""), ("cp", "spitzer", ""), ("cp", "radiation", ""), ("spitzer", "budget", ""),
+               ("radiation", "budget", ""), ("eq", "spitzer", ""),
+               ("balance", "tau", ""), ("tau", "evidence", ""), ("evidence", "scaling", "")),
+        side=(("w_source", "balance"), ("impurity", "radiation")),
+        todos=("Neither power balance nor the confinement time is written to the summary IDS. The experimental "
+               "chain's v_res, P_OH, P_net, W and tau_E,net are tabulated in the database summary sheet "
+               "(vaft.database); the modelled budget feeds plots only.",
+               "VEST has no bolometer, so no measured P_rad enters: the experimental chain's transport loss power "
+               "is NaN and its default is p_net (DB5 PLTH); the modelled budget always subtracts a modelled "
+               "P_rad, which is a sensitivity study, not a measurement.",
+               "The experimental chain pairs the measured current with EFIT's l_i3 (a hybrid), and its flux loop "
+               "is not on the plasma boundary; both are recorded assumptions.",
+               "The stored energy is reconstruction-derived (efit_pressure) or assumes T_i = T_e "
+               "(core_profiles_thermal); neither is a global energy (#1713)."),
     ),
 )
 
@@ -660,3 +1474,78 @@ def parameter_inference_dependency_graph(*, labels: bool = True, references: boo
     ``references=True`` numbers the representative papers and lists them under the legend.
     """
     return _render_workflow(WORKFLOWS["parameter_inference_dependency_graph"], labels=labels, references=references)
+
+
+def eddy_current_model(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Vessel eddy currents from the PF and plasma current circuit (#1901)."""
+    return _render_workflow(WORKFLOWS["eddy_current_model"], labels=labels, references=references)
+
+
+def kinetic_profile_fitting(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Kinetic profile fitting from Thomson and charge exchange (#1901)."""
+    return _render_workflow(WORKFLOWS["kinetic_profile_fitting"], labels=labels, references=references)
+
+
+def transport_hierarchy(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Classical, neoclassical and turbulent transport from one state (#1901)."""
+    return _render_workflow(WORKFLOWS["transport_hierarchy"], labels=labels, references=references)
+
+
+def neoclassical_model_comparison(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Sauter / Redl against NEO at one kinetic state (#1901)."""
+    return _render_workflow(WORKFLOWS["neoclassical_model_comparison"], labels=labels, references=references)
+
+
+def machine_model_history(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Shot number to machine era, diagnostic revisions and the static machine description (#1901)."""
+    return _render_workflow(WORKFLOWS["machine_model_history"], labels=labels, references=references)
+
+
+def signal_processing(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Raw digitizer records to a diagnostic IDS, in the magnetic-probe order (#1901)."""
+    return _render_workflow(WORKFLOWS["signal_processing"], labels=labels, references=references)
+
+
+def quality_validation(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Source validity, vacuum-model agreement and fit quality as separate evidence (#1901)."""
+    return _render_workflow(WORKFLOWS["quality_validation"], labels=labels, references=references)
+
+
+def fault_anomaly_detection(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Diagnostic-specific fault checks; no universal anomaly model (#1901)."""
+    return _render_workflow(WORKFLOWS["fault_anomaly_detection"], labels=labels, references=references)
+
+
+def shot_classification(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Shot and slice classes as rules over derived features (#1901)."""
+    return _render_workflow(WORKFLOWS["shot_classification"], labels=labels, references=references)
+
+
+def event_detection(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Plasma window and coil onsets from robust-baseline thresholds (#1901)."""
+    return _render_workflow(WORKFLOWS["event_detection"], labels=labels, references=references)
+
+
+def vacuum_field_proxies(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Vacuum fields and the startup proxies read from them (#1901)."""
+    return _render_workflow(WORKFLOWS["vacuum_field_proxies"], labels=labels, references=references)
+
+
+def derived_mhd_parameters(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Global MHD quantities derived from a reconstructed equilibrium (#1901)."""
+    return _render_workflow(WORKFLOWS["derived_mhd_parameters"], labels=labels, references=references)
+
+
+def synthetic_diagnostics(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Predicted diagnostic signals from a modelled or reconstructed state (#1901)."""
+    return _render_workflow(WORKFLOWS["synthetic_diagnostics"], labels=labels, references=references)
+
+
+def coordinate_cocos_conversions(*, labels: bool = True, references: bool = False) -> Diagram:
+    """COCOS transforms at the ODS and record layers, and the coordinates (#1901)."""
+    return _render_workflow(WORKFLOWS["coordinate_cocos_conversions"], labels=labels, references=references)
+
+
+def power_balance_confinement(*, labels: bool = True, references: bool = False) -> Diagram:
+    """The experimental Ohmic chain and the modelled power budget (#1901)."""
+    return _render_workflow(WORKFLOWS["power_balance_confinement"], labels=labels, references=references)

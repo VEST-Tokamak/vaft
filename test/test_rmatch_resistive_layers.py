@@ -2,7 +2,7 @@
 
 The packaged `rmatch.in` supplies one scalar where RMATCH reads an array of
 one value per rational surface (`match.f:99`, guarded at `:183`), so it stops
-before writing `globalsol.bin`. These cover the composition that fills it.
+before writing `delta.out`. These cover the composition that fills it.
 """
 
 from __future__ import annotations
@@ -83,13 +83,16 @@ def test_a_profile_that_reaches_zero_temperature_is_reported_not_clipped():
     assert not np.isfinite(got["eta"][0])
 
 
-def test_omitting_the_spitzer_inputs_is_deprecated():
-    """#1188: Z_eff and ln(Lambda) are physics inputs, not hidden defaults."""
+def test_omitting_the_spitzer_inputs_is_refused():
+    """#1188: Z_eff and ln(Lambda) are physics inputs, not hidden defaults;
+    the fallbacks warned from 0.7.0 and were removed in 0.9.0."""
     psi_norm, t_e, n_e = _profiles()
-    with pytest.warns(FutureWarning, match="#1188"):
-        implied = resistive_layer_at([0.3], psi_norm=psi_norm, t_e=t_e, n_e=n_e)
+    with pytest.raises(TypeError, match=r"resistive_layer_at called without z_eff, ln_lambda;.*#1188"):
+        resistive_layer_at([0.3], psi_norm=psi_norm, t_e=t_e, n_e=n_e)
+    with pytest.raises(TypeError, match=r"without ln_lambda;"):
+        resistive_layer_at([0.3], psi_norm=psi_norm, t_e=t_e, n_e=n_e, z_eff=_SPITZER["z_eff"])
     stated = resistive_layer_at([0.3], psi_norm=psi_norm, t_e=t_e, n_e=n_e, **_SPITZER)
-    assert implied["eta"][0] == pytest.approx(stated["eta"][0])
+    assert np.isfinite(stated["eta"][0])
 
 
 def test_mismatched_profile_length_is_refused():

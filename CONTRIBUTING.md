@@ -19,7 +19,7 @@ The two branches answer different questions, and they are gated accordingly.
 
 | | `develop` | `main` |
 | --- | --- | --- |
-| Required checks | `package`, `core-test` | `package`, `test`, `tutorial` |
+| Required checks | `merge-gate` (= `package` + `core-test`, on Actions or on the lab cluster) | `package`, `test`, `tutorial` |
 | Test selection | `pytest -m "core and not perf"` on Linux | the whole suite on Linux **and** Windows, `slow` tests included |
 | Answers | development confidence | release confidence and supported-platform qualification |
 | Measured wall clock | ~4 min | ~35 min |
@@ -42,6 +42,48 @@ surfaces within one merge, on the branch that caused it, rather than waiting for
 `main` gate. Nothing is skipped anywhere; those tests move gates, they do not
 stop running.
 
+### Two ways to satisfy the develop gate
+
+The develop ruleset requires a single commit status, `merge-gate`, on the PR
+head. Two routes post it, and whichever passes first unblocks the merge:
+
+1. **GitHub Actions.** The `post merge-gate` job in `Package CI` runs after
+   `package` and `core-test` and posts `merge-gate: success` only when both
+   passed.
+2. **The lab Slurm cluster (tdst).** When the Actions queue is backed up,
+   `.github/scripts/tdst_gate.sh <PR>` runs the same steps — ruff F821,
+   `pytest -m "core and not perf"`, build + `twine check` + `verify_dist.py` +
+   wheel smoke — on GitHub's own merge ref `refs/pull/<PR>/merge`, inside one
+   Slurm allocation, and on a pass posts `merge-gate: success`. Its verdict
+   (pass or fail) is also posted as the informational `tdst-ci` status. Run it
+   from a workstation with `gh` authenticated and ssh access to the cluster;
+   the host and Slurm account come from `~/.config/vaft/tdst-gate.env`
+   (`VAFT_TDST_SSH`, `VAFT_TDST_SBATCH`), never from the repository.
+   `VAFT_TDST_NO_STATUS=1` makes it a dry run that only prints the verdict;
+   `VAFT_TDST_ROOT` and `VAFT_TDST_PYTHON` override the remote work root and
+   interpreter.
+
+Neither route ever posts a failure to `merge-gate`, so a red run on one route
+cannot overwrite a green verdict from the other; a PR with no green route stays
+blocked with the status "expected". The status is accepted from any source
+(no `integration_id`), which is what lets the cluster post it — so it is a
+convention among people with write access, like the admin bypass below, and
+it is auditable in each commit's status history. A new push changes the head
+SHA and therefore needs a new verdict. A status sticks to its SHA: a later red
+re-run does not withdraw a green `merge-gate`, so to revoke one, post
+`merge-gate: failure` on that SHA by hand.
+
+The cluster route runs the PR's code as the operator's cluster account, so the
+script refuses PRs from forks unless `--allow-fork` is given after reading the
+diff. The Actions route skips fork PRs too (their token cannot post statuses);
+a fork PR therefore merges only through a deliberate cluster run or the admin
+bypass.
+
+The cluster route is the same *selection* on the same *tree*, not an identical
+environment: Python 3.14 from conda-forge and `uv pip install --no-sources`
+instead of `actions/setup-python` and pip. A failure that appears on only one
+route is worth reporting.
+
 ## Branch protection is configured as code
 
 Both branches' protection lives in
@@ -55,7 +97,7 @@ What `develop.json` enforces:
 
 | Rule | Effect |
 | --- | --- |
-| `required_status_checks` | The `Package CI` workflow's `core-test` and `package` jobs must both pass before anything merges into `develop`. |
+| `required_status_checks` | The `merge-gate` commit status must be `success` before anything merges into `develop`; it means `core-test` and `package` passed, on Actions or on the lab cluster (see "Two ways to satisfy the develop gate"). |
 | `deletion` | `develop` cannot be deleted. |
 | `non_fast_forward` | `develop` cannot be force-pushed. |
 | `bypass_actors` | The Admin repository role may bypass the above, for repository recovery only — see below. |
@@ -180,13 +222,43 @@ its manifest line; `python -m vaft.diagram.build --check`, which CI runs on
 every pull request, fails until it does. The Diagrams guide's "Regenerating
 and checking" section has the details.
 
+A function whose place among the scientific quantities nothing else states
+may add a `Semantics` section, the same in formulas and processes:
+
+```text
+Semantics
+---------
+consumes: plasma_current, minor_radius
+produces: q95
+```
+
+Each term must be a quantity of `vaft.plot.taxonomy` (a canonical quantity, a
+quantity subject or a registered alias); the generated ontology at
+`/reference/ontology/` fails on any other term, so add a missing quantity to the
+taxonomy on purpose rather than spelling one into a docstring. Leave it off
+generic helpers, and off functions a `Reduction` relation or a diagnostic
+mapping already connects (#1702).
+
+A formula whose uncertainty propagation is worth stating may add an
+`Uncertainty propagation` section: the input order, the analytic Jacobian or
+differential relation, what is held fixed, and where first order fails.
+Attach a domain-owned Jacobian with
+`vaft.formula._propagation.jacobian(derivative, wrt=(...), domain=...)`, which
+returns the same function object; `derivative` and `domain` receive every
+argument of the call by name, so give them `**_`. Such a formula must have the section; the catalog flags
+it otherwise. `vaft.formula.sensitivity.propagate_formula_uncertainty` is the
+opt-in way to use either (#1874).
+
 ## Processing docstrings
 
 `vaft/process` uses the same parser (`vaft/_docstring.py`) and the same unit-tag
 rule, and a different vocabulary, because a processing routine answers a
 different question: how is this input turned into this output?  Its sections
 are `Processing steps`, `Input semantics`, `Output semantics`, `Defaults`,
-`Convention`, `Assumptions`, `Applicability`, `Limitations`, `Provenance`.
+`Convention`, `Assumptions`, `Applicability`, `Limitations`, `Semantics`, `Provenance`.
+`Input semantics` and `Output semantics` are prose about the data (measured,
+reconstructed, synthetic); `Semantics` is the structured list of vocabulary
+quantities described under formula docstrings above.
 `Applicability` opens with `Machine-independent.` or `VEST-specific.`;
 `Defaults` classifies each default that matters (legacy compatibility value,
 validated-workflow default, numerical convenience, ...); `Provenance` takes

@@ -13,6 +13,7 @@ import os
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from vaft.code import mitim
@@ -447,3 +448,157 @@ def test_mitim_neo_checks_the_radius_it_ran_and_keeps_its_inputs(ready, profile,
     assert result.record["result_status"] == "partial"
     on_disk = json.loads((tmp_path / "run" / "record.json").read_text(encoding="utf-8"))
     assert on_disk["result_status"] == "partial" and on_disk["missing_r_over_a"] == [0.7]
+
+
+def test_the_closed_loop_driver_is_handed_vaft_radii_and_the_bridged_rho(ready, profile, tmp_path):
+    """The driver runs in MITIM; here only VAFT's side of the contract is checked."""
+    result, report = mitim.run_portals_closed_loop(profile, [0.3, 0.6], tmp_path / "run", ready,
+                                                   chi_e=0.8, perturbation=-0.2)
+    arguments = result.record["arguments"]
+    assert arguments["r_over_a"] == [0.3, 0.6] and arguments["perturbation"] == -0.2
+    assert arguments["rho_tor_norm"] == pytest.approx(list(mitim.rho_tor_norm_at(profile, [0.3, 0.6])))
+    assert arguments["model"] == "analytic" and arguments["chi_e"] == 0.8
+    # The stub has no powertorch, so the driver reports the failure instead of raising. Its
+    # first failing import names the gap: torch itself where torch is absent (the Windows
+    # runner), the stub-less powertorch where torch is installed.
+    assert not result.ok and report is None
+    assert result.result["error"] in ("ModuleNotFoundError: No module named 'torch'",
+                                      "ModuleNotFoundError: No module named 'mitim_modules.powertorch'")
+
+
+def test_the_tglf_closed_loop_can_switch_off_portals_early_stops(ready, profile, tmp_path):
+    """PORTALS ended a 40-iteration C1b run after 8 on its Ricci metric; the override is
+    what makes maximum_iterations bind, and it reaches the driver verbatim."""
+    from vaft.code.mitim.portals import NO_EARLY_STOP
+
+    result, _ = mitim.run_portals_closed_loop(profile, [0.55], tmp_path / "run", ready, model="tglf_neo",
+                                              maximum_iterations=40,
+                                              stopping_criteria_parameters=NO_EARLY_STOP)
+    arguments = result.record["arguments"]
+    assert arguments["maximum_iterations"] == 40
+    assert arguments["stopping_criteria_parameters"] == NO_EARLY_STOP
+    assert NO_EARLY_STOP["ricci_value"] == 0.0 and NO_EARLY_STOP["minimum_inputs_variation"] is None
+    assert NO_EARLY_STOP["maximum_value"] == 0.0 and NO_EARLY_STOP["maximum_value_is_rel"] is False
+
+
+# --------------------------------------------------------------------------- manufactured source (#1588 C1)
+def _geometry():
+    rho = np.linspace(0.0, 0.95, 96)
+    r = 0.29 * rho
+    volp = 4 * np.pi**2 * 0.4 * 1.6 * r          # dV/dr ~ r: zero on the axis
+    return rho, r, volp
+
+
+def _power_at(rho, r, volp, q, rho_k):
+    cumulative = np.concatenate(([0.0], np.cumsum(0.5 * (q[1:] * volp[1:] + q[:-1] * volp[:-1]) * np.diff(r))))
+    return np.interp(rho_k, rho, cumulative)
+
+
+@pytest.mark.parametrize("rho_k, nodes", [
+    ([0.4775], [0.045]),                                 # one radius: diverged before the fix
+    ([0.3455, 0.4775, 0.6141], [0.0022, 0.0448, 0.0966]),  # the C1b benchmark's node powers
+    ([0.3455, 0.4775, 0.6141], [0.03, 0.04, 0.05]),      # a shape whose rho-interpolant kept dP/drho(0) != 0
+    ([0.4775, 0.6141], [-0.02, -0.01]),                   # a net sink: signed, legitimate
+])
+def test_the_manufactured_source_is_finite_on_the_axis_and_hits_its_nodes(rho_k, nodes):
+    from vaft.code.mitim.drivers._manufacture import manufactured_source
+
+    rho, r, volp = _geometry()
+    q = manufactured_source(rho, r, volp, rho_k, nodes)
+    assert np.all(np.isfinite(q))
+    interior = np.abs(q[(rho > 0.15) & (rho < 0.3)]).max()
+    assert np.abs(q[1:6]).max() <= 3.0 * interior          # no 1/volp spike at the axis
+    # Within 1 % of the largest node (manufacture_error's scale): the trapezoid on this
+    # 96-point grid; the driver's node iteration removes the rest.
+    assert np.abs(_power_at(rho, r, volp, q, rho_k) - nodes).max() <= 1e-2 * np.abs(nodes).max()
+
+
+def test_the_old_rho_interpolant_was_singular_for_a_single_radius():
+    """The defect behind the diverging standalone r/a 0.55 run, kept as a contrast."""
+    from scipy.interpolate import PchipInterpolator
+
+    from vaft.code.mitim.drivers._manufacture import manufactured_source
+
+    rho, r, volp = _geometry()
+    old = PchipInterpolator([0.0, 0.4775], [0.0, 0.045], extrapolate=True)
+    q_old = np.zeros_like(r)
+    q_old[volp > 0] = old.derivative()(rho[volp > 0]) * np.gradient(rho, r)[volp > 0] / volp[volp > 0]
+    q_new = manufactured_source(rho, r, volp, [0.4775], [0.045])
+    mid = (rho > 0.15) & (rho < 0.3)
+    assert q_old[1] > 10 * np.abs(q_old[mid]).max()         # ~1/volp at the first point
+    assert abs(q_new[1]) < np.abs(q_new[mid]).max()
+
+
+def test_single_and_multi_radius_sources_agree_on_the_shared_node():
+    from vaft.code.mitim.drivers._manufacture import manufactured_source
+
+    rho, r, volp = _geometry()
+    single = manufactured_source(rho, r, volp, [0.4775], [0.0448])
+    multi = manufactured_source(rho, r, volp, [0.3455, 0.4775, 0.6141], [0.0022, 0.0448, 0.0966])
+    assert _power_at(rho, r, volp, single, [0.4775]) == pytest.approx(_power_at(rho, r, volp, multi, [0.4775]),
+                                                                       rel=1e-2)
+
+
+def test_manufacture_error_and_gate_accept_signed_fluxes_and_refuse_divergence():
+    from vaft.code.mitim.drivers._manufacture import manufacture_converged, manufacture_error
+
+    required = np.array([0.0007, -1e-7, 0.0195])          # a near-zero, negative node is legitimate
+    assert manufacture_error(required * (1 + 1e-6), required) < 1e-5
+    assert manufacture_error(required + np.array([0, 1e-6, 0]), required) < 1e-2   # vs the 1 % floor
+    # A small-flux node is held to its own scale, not the largest node's:
+    assert manufacture_error(required + np.array([0.0007 * 0.01, 0, 0]), required) == pytest.approx(0.01)
+    assert manufacture_error([np.nan, 0, 0], required) == float("inf")
+    assert manufacture_converged([0.012, 1.1e-4, 8.9e-7, 7.4e-9])
+    assert not manufacture_converged([14.75, 217.7, 3211.0, 47372.8])     # the standalone r/a 0.55 run
+    assert not manufacture_converged([0.5, float("nan")]) and not manufacture_converged([])
+
+
+def test_the_runner_stages_the_shared_helper_and_records_its_hash(ready, profile, tmp_path):
+    result, _ = mitim.run_portals_closed_loop(profile, [0.3, 0.6], tmp_path / "run", ready)
+    staged = tmp_path / "run" / "_manufacture.py"
+    assert staged.is_file()
+    assert result.record["helper_sha256"]["_manufacture.py"] == mitim.runner._sha256(staged)
+
+
+@pytest.mark.parametrize("driver, optimiser", [("portals_tglf_closed_loop", "STRATEGYtools.MITIM_BO(run_pf"),
+                                               ("portals_closed_loop", "perturbed.flux_match(")])
+def test_each_driver_gates_the_source_before_optimising(driver, optimiser):
+    """The helpers are tested above; this pins that each driver calls the gate, raises on
+    failure, and does so before its optimiser (no MITIM is needed to read the order)."""
+    text = (Path(mitim.__file__).parent / "drivers" / f"{driver}.py").read_text(encoding="utf-8")
+    gate = text.index("if not manufacture_converged(history, tolerance):")
+    assert text.index("raise RuntimeError", gate) < text.index(optimiser)
+    assert "manufactured_source(" in text and "PchipInterpolator" not in text
+
+
+def test_the_staged_helper_imports_from_the_run_directory(ready, profile, tmp_path):
+    import importlib.util
+
+    mitim.run_portals_closed_loop(profile, [0.3, 0.6], tmp_path / "run", ready)
+    spec = importlib.util.spec_from_file_location("_manufacture_staged", tmp_path / "run" / "_manufacture.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert callable(module.manufactured_source) and callable(module.manufacture_converged)
+
+
+def test_stopping_overrides_are_refused_for_the_analytic_model(ready, profile, tmp_path):
+    from vaft.code.mitim.portals import NO_EARLY_STOP
+
+    with pytest.raises(ValueError, match="tglf_neo"):
+        mitim.run_portals_closed_loop(profile, [0.55], tmp_path / "run", ready,
+                                      stopping_criteria_parameters=NO_EARLY_STOP)
+
+
+def test_rows_mitim_did_not_evaluate_are_skipped():
+    """The standalone r/a 0.55 run crashed on MITIM's empty duplicate rows (#1588 C1)."""
+    import importlib.util
+
+    path = Path(mitim.__file__).parent / "drivers" / "portals_tglf_closed_loop.py"
+    spec = importlib.util.spec_from_file_location("portals_tglf_closed_loop_rows", path)
+    driver = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(driver)
+    full = {"Iteration": "0.0", "aLte_1": "-0.093", "Qe_tr_turb_1": "0.0111", "Qe_tr_neoc_1": "4.7e-05",
+            "Qe_tar_1": "0.0112"}
+    empty = {**full, "Iteration": "2.0", "Qe_tr_turb_1": "", "Qe_tr_neoc_1": "", "Qe_tar_1": ""}
+    assert driver.evaluated_rows([full, empty, {**full, "Iteration": "5.0"}], 1) == [full, {**full, "Iteration": "5.0"}]
+    assert driver.evaluated_rows([empty], 1) == []

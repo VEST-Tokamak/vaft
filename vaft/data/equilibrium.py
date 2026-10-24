@@ -89,6 +89,12 @@ class EquilibriumConvention:
     """Indices the observable signs and flux scale support, independently of
     whatever was declared.  Kept even when a declaration wins, so a declaration
     the data contradicts can be reported rather than silently trusted."""
+    uncarried: tuple[int, ...] = ()
+    """Identified indices a COCOS conversion could not carry, set only when none
+    of them had an image in the converted convention (every one was in the other
+    storage family of a family-crossing conversion).  ``identified`` is then
+    empty, but the data still supports no index in this record's family, so the
+    record stays contradicted rather than looking clean (#601)."""
 
     @property
     def ambiguous(self) -> bool:
@@ -97,6 +103,8 @@ class EquilibriumConvention:
     @property
     def contradicted(self) -> bool:
         """True when a declared index is not among the ones the data supports."""
+        if self.cocos is not None and self.uncarried:
+            return True
         return bool(self.identified) and self.cocos is not None and self.cocos not in self.identified
 
 

@@ -549,7 +549,14 @@ def dd_paths(name: str) -> tuple[DDPath, ...]:
     elif isinstance(recipe, R.PanelRecipe):
         for member in recipe.members:
             for path in dd_paths(member):
-                found.append(DDPath(**{**path.__dict__, "attrs": {**path.attrs, "member": member}}))
+                # ``member`` is the leaf plot that reads the path; a composite
+                # nested in a composite keeps its members' attribution and
+                # records the chain it was reached through in ``via``.
+                attrs = dict(path.attrs)
+                attrs.setdefault("member", member)
+                if attrs["member"] != member:
+                    attrs["via"] = (*attrs.get("via", ()), member)
+                found.append(DDPath(**{**path.__dict__, "attrs": attrs}))
     elif isinstance(recipe, R.CallableRecipe):
         for template in recipe.reads:
             add(template, "input", attrs={"declared_by": "recipe", "backend": recipe.backend})

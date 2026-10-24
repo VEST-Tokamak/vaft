@@ -1,4 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
+<!-- vaft.diagram {"call": "vaft.diagram.magnetic_island(m=2, n=1, width=0.24, phase=0.0, projection='poloidal', labels=False)", "source_sha256": "8ac7cd35dd0c91df9aff968c414c2ea260d364a439a9403f949d6c1d6df4ac7c", "svg_sha256": "26214be915cd01bba26ab939cde1d7dafc239dcd400f235e554a4c066f5c3865"} -->
 <svg version='1.1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='235.6881pt' height='235.6881pt' viewBox='-72 -72 235.6881 235.6881'>
 <g id='page1'>
 <g stroke-miterlimit='10' transform='matrix(.996264 0 0 -.996264 45.844046 45.844046)' fill='#000' stroke='#000' stroke-width='0.4' stroke-linecap='round' stroke-linejoin='round'>

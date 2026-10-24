@@ -326,3 +326,31 @@ def test_thomson_and_the_comparison_take_the_same_time():
     assert not np.allclose(
         compare_flux_mapping(ods, {"eq": eq})["eq"].psi_norm, mapped.psi_norm, equal_nan=True
     )
+
+
+def test_linear_thomson_fit_keeps_holding_the_end_values():
+    # fit_profile's linear mode is nan outside the data by default (#359); the
+    # process fitter opts back into the hold, so the profile on [0, 1] -- past
+    # the outermost channel at both ends here -- stays finite.
+    ne_fit, te_fit, _, _, ne_rho, te_rho = profile_fitting_thomson_scattering(
+        _thomson(), 300.0, _positions(X), fitting_function_te="linear",
+        fitting_function_ne="linear", coordinate="psi_norm",
+    )
+    assert np.all(np.isfinite(te_rho)) and np.all(np.isfinite(ne_rho))
+    assert np.all(np.isfinite(te_fit(np.array([0.0, 1.0]))))
+    assert np.all(np.isfinite(ne_fit(np.array([0.0, 1.0]))))
+    te = _report(_thomson(), _positions(X), fitting_function_te="linear")["t_e"]
+    assert any("hold the end channel" in note for note in te.notes)
+
+
+def test_linear_charge_exchange_fit_keeps_holding_the_end_values():
+    # The CX fitter opts into extrapolate=True like Thomson (#359): channels at
+    # X = 0.05..0.95 do not reach rho = 0 or 1, so without it the sampled
+    # profiles would be nan at both ends of the [0, 1] grid.
+    v_fit, ti_fit, _, _, v_rho, ti_rho = profile_fitting_charge_exchange(
+        _charge_exchange(), 300.0, _positions(X), fitting_function_ti="linear",
+        fitting_function_vtor="linear", coordinate="psi_norm", clamp_to_measured_span=False,
+    )
+    assert np.all(np.isfinite(ti_rho)) and np.all(np.isfinite(v_rho))
+    assert np.all(np.isfinite(ti_fit(np.array([0.0, 1.0]))))
+    assert np.all(np.isfinite(v_fit(np.array([0.0, 1.0]))))

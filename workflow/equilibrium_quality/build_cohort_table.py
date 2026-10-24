@@ -103,14 +103,20 @@ class ProductEvidence:
             return {"evidence_status": f"error: {error!r}"[:200]}
 
 
-def write_figures(table, points, census, directory: Path) -> list[Path]:
-    """The population views of #1644 §3-§5, one PNG each."""
+def write_figures(table, points, census, directory: Path, *, fmt: str = "screen", theme: str | None = None) -> list[Path]:
+    """The population views of #1644 §3-§5, one PNG each, at a :mod:`vaft.plot.presentation` format.
+
+    ``fmt="legacy"`` keeps the sizes the views had before the format existed.
+    """
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     from vaft.plot import equilibrium_quality as plots
+    from vaft.plot.presentation import Presentation, resolve_presentation
+
+    pres = resolve_presentation(fmt, theme) or Presentation(None, None)
 
     directory.mkdir(parents=True, exist_ok=True)
     written = []
@@ -127,11 +133,13 @@ def write_figures(table, points, census, directory: Path) -> list[Path]:
         jobs.append((f"reduced_chi2_{column.split('_')[0]}",
                      lambda ax, c=column: plots.equilibrium_quality_reduced_chi2(table, column=c, ax=ax), (5.4, 3.8)))
     for name, draw, size in jobs:
-        fig, ax = plt.subplots(figsize=size)
-        draw(ax)
-        fig.tight_layout()
-        path = directory / f"{name}.png"
-        fig.savefig(path, dpi=150)
+        # The format's width, each view keeping the height-to-width ratio it had.
+        with pres.context():
+            fig, ax = plt.subplots(figsize=pres.grid_figsize(aspect=size[1] / size[0], fallback=size))
+            draw(ax)
+            fig.tight_layout()
+            path = directory / f"{name}.png"
+            fig.savefig(path, dpi=150)
         plt.close(fig)
         written.append(path)
     return written
@@ -151,6 +159,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--criteria", type=Path, default=CRITERIA_PATH)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--figures", action="store_true", help="also write the population figures (PNG)")
+    parser.add_argument("--format", default="screen", help="vaft.plot presentation format of the figures, or 'legacy'")
+    parser.add_argument("--theme", default=None, help="vaft.plot presentation theme of the figures")
     args = parser.parse_args(argv)
 
     criteria = load_study_criteria(args.criteria)
@@ -180,7 +190,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         points = pd.DataFrame(evidence.points).merge(labels, on=["shot", "time_s", "setting"], how="left")
         points.to_csv(args.output / "constraint_points.csv", index=False)
         if args.figures:
-            write_figures(table, points, summary["census"], args.output / "figures")
+            write_figures(table, points, summary["census"], args.output / "figures", fmt=args.format, theme=args.theme)
     cohorts = summary["summary"]["cohorts"]
     for case in summary["representative_cases"]:
         print(f"  {case['case']}: shot {case['shot']} t={case['time_s']} setting {case['setting']} -- {case['reason']}")
