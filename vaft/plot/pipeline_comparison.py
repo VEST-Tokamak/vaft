@@ -555,13 +555,15 @@ def pipeline_comparison_stability_overview(w_t: pd.DataFrame, delta_prime: pd.Da
                 _panel_letter(ax, letter)
         styles = [Line2D([], [], color=INK, linestyle=SIDE_STYLE[side]["linestyle"], lw=1.6,
                          label=COMPARISON_LABELS[side]) for side in SIDES]
-        swatches = [Line2D([], [], color=colors[n], lw=3.0, label=str(n)) for n in modes]
-        # The mode key sits in the empty unstable half of the W_t panel; the
-        # pipeline key goes under both panels.
-        axes[0].legend(handles=swatches, loc="center left", bbox_to_anchor=(0.03, 0.5), ncol=len(swatches),
-                       frameon=False, title="toroidal mode", handlelength=1.2, columnspacing=1.0)
-        fig.legend(handles=styles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=2, frameon=False)
-        fig.tight_layout(rect=(0.0, 0.06, 1.0, 1.0), pad=0.8, h_pad=1.4)
+        # Both keys sit under the panels, one row each: the pipelines, then the
+        # modes, whose row is headed by an inline "toroidal mode" label.
+        heading = Line2D([], [], linestyle="none", label="toroidal mode")
+        swatches = [heading] + [Line2D([], [], color=colors[n], lw=3.0, label=str(n)) for n in modes]
+        first = fig.legend(handles=styles, loc="lower center", bbox_to_anchor=(0.5, 0.045), ncol=2, frameon=False)
+        fig.legend(handles=swatches, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=len(swatches),
+                   frameon=False, handlelength=1.2, columnspacing=1.0, handletextpad=0.4)
+        fig.add_artist(first)
+        fig.tight_layout(rect=(0.0, 0.11, 1.0, 1.0), pad=0.8, h_pad=1.4)
     if show:
         plt.show()
     return fig, axes

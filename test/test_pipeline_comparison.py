@@ -271,8 +271,8 @@ def test_stability_overview_keys_pipeline_and_mode_once():
     w = pd.DataFrame({"side": ["legacy", "current", "legacy"], "n": [1, 1, 2], "value": [1.0, -1.0, 2.0]})
     d = pd.DataFrame({"side": ["legacy", "current"], "n": [1, 1], "value": [10.0, -10.0]})
     fig, axes = pipeline_comparison_stability_overview(w, d)
-    assert axes[1].get_legend() is None and len(fig.legends) == 1
-    texts = [t.get_text() for t in fig.legends[0].get_texts()] + [t.get_text() for t in axes[0].get_legend().get_texts()]
-    assert texts == ["Legacy archive", "Current pipeline", "1", "2"]
+    assert all(ax.get_legend() is None for ax in axes) and len(fig.legends) == 2
+    texts = [t.get_text() for legend in fig.legends for t in legend.get_texts()]
+    assert sorted(texts) == sorted(["Legacy archive", "Current pipeline", "toroidal mode", "1", "2"])
     assert not any("n=" in t or "n =" in t for t in texts)
     plt.close(fig)
