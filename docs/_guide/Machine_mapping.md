@@ -695,13 +695,15 @@ checked with `vaft.process.acquisition.check_declared_sample_rate(time, declared
 |---|---|---|
 | `consistent` | observed rate within `rtol` of the declared one, regular sampling | none |
 | `deviation` | a different rate, or irregular sampling | recorded; processing unchanged |
-| `invalid` | unusable declaration, non-increasing timebase, or a cutoff at or above the *observed* Nyquist | recorded; only the cutoff case (`fatal`) stops the transformation |
+| `invalid` | unusable declaration, non-increasing timebase, or a cutoff at or above the *observed* Nyquist | recorded; only the cutoff case (`fatal`) stops the transformation, and the stage then leaves that one component out with the reason |
 | `not_verifiable` | fewer than two finite timestamps | recorded |
 
 The diagnostics manifest carries the probe summary under `channel_status.magnetics.acquisition` (counts per
 status, observed-rate range, and every channel that is not `consistent`); the IMPA manifest carries its check
 under `acquisition` (#432). `mirnov_preprocess_signal(..., report={})` records each band edge as `applied`,
-`skipped` (outside `(0, Nyquist)`, with the reason) or `not_requested` instead of skipping silently.
+`skipped` (outside `(0, Nyquist)`, with the reason) or `not_requested`; without a `report` a skipped edge
+is a `RuntimeWarning`, never silent. The Ip reference comparison (`vfit_plasma_current(shot, ref, acquisition_report={})`)
+is checked the same way; the production stage does not use a reference shot.
 
 ---
 

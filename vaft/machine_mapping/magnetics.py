@@ -18,7 +18,7 @@ import yaml
 from scipy import integrate, signal
 
 from vaft.database import raw as raw_db
-from vaft.process.acquisition import check_declared_sample_rate
+from vaft.process.acquisition import AcquisitionInconsistencyError, check_declared_sample_rate
 from vaft.process.magnetics import (
     VestEquilibriumMagneticsResult,
     VestMagneticsProcessingConfig,
@@ -1226,7 +1226,9 @@ def vfit_plasma_current(
     if acquisition_report is not None:
         acquisition_report["plasma_current_reference_comparison"] = acquisition
     if acquisition.fatal:
-        raise ValueError(f"shot {shot}: Ip reference comparison filter cannot be applied: {acquisition.reason}")
+        raise AcquisitionInconsistencyError(
+            f"shot {shot}: Ip reference comparison filter cannot be applied: {acquisition.reason}"
+        )
     taps = signal.firwin(
         int(comparison["taps"]), float(comparison["cutoff_frequency"]),
         pass_zero="lowpass", fs=float(comparison["sample_rate"]),

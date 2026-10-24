@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+import gzip
+import json
+
 import numpy as np
 import pytest
 
-from vaft.process.acquisition import check_declared_sample_rate, summarize_sample_rate_checks
+from vaft.process.acquisition import (
+    AcquisitionInconsistencyError,
+    check_declared_sample_rate,
+    summarize_sample_rate_checks,
+)
 from vaft.process.magnetics import (
     VestMagneticsProcessingConfig,
     mirnov_preprocess_signal,
@@ -39,7 +46,7 @@ def test_irregular_sampling_is_a_deviation():
     assert "irregular" in check.reason
 
 
-@pytest.mark.parametrize("declared", [0.0, -1.0, float("nan"), None, "fast"])
+@pytest.mark.parametrize("declared", [0.0, -1.0, float("nan"), None, "fast", True])
 def test_an_unusable_declaration_is_invalid(declared):
     assert check_declared_sample_rate(_time(25_000.0), declared).status == "invalid"
 
@@ -49,6 +56,20 @@ def test_a_non_increasing_timebase_is_invalid_but_not_fatal():
     time[10] = time[9]
     check = check_declared_sample_rate(time, 25_000.0)
     assert (check.status, check.fatal) == ("invalid", False)
+
+
+def test_a_non_increasing_timebase_still_meets_the_nyquist_test():
+    time = _time(4_000.0)
+    time[10] = time[9]
+    check = check_declared_sample_rate(time, 250_000.0, cutoff_hz=2_500.0)
+    assert (check.status, check.fatal) == ("invalid", True)
+
+
+@pytest.mark.parametrize("cutoff", [float("nan"), -5.0, [250.0, float("nan")]])
+def test_an_unusable_cutoff_is_invalid_and_serializable(cutoff):
+    check = check_declared_sample_rate(_time(25_000.0), 25_000.0, cutoff_hz=cutoff)
+    assert (check.status, check.fatal) == ("invalid", False)
+    json.dumps(check.as_dict(), allow_nan=False)
 
 
 @pytest.mark.parametrize("time", [np.array([]), np.array([0.1]), np.array([np.nan, np.nan])])
@@ -74,6 +95,7 @@ def test_the_summary_counts_and_keeps_only_flagged_channels():
     assert summary["counts"] == {"consistent": 1, "deviation": 1, "invalid": 0, "not_verifiable": 0}
     assert list(summary["channels"]) == ["b"]
     assert summary["observed_hz_range"] == [pytest.approx(20_000.0), pytest.approx(25_000.0)]
+    json.dumps(summary, allow_nan=False)
 
 
 # --- the Mirnov band-pass no longer skips silently ----------------------------------------
@@ -82,7 +104,8 @@ def test_the_summary_counts_and_keeps_only_flagged_channels():
 def test_mirnov_records_a_skipped_band_edge_and_keeps_its_output():
     rng = np.random.default_rng(0)
     data = rng.normal(size=4000)
-    plain = mirnov_preprocess_signal(data, sample_rate=25_000.0)
+    with pytest.warns(RuntimeWarning, match="low pass not applied"):
+        plain = mirnov_preprocess_signal(data, sample_rate=25_000.0)
     report: dict = {}
     reported = mirnov_preprocess_signal(data, sample_rate=25_000.0, report=report)
     np.testing.assert_array_equal(plain, reported)
@@ -92,6 +115,9 @@ def test_mirnov_records_a_skipped_band_edge_and_keeps_its_output():
     none: dict = {}
     mirnov_preprocess_signal(data, sample_rate=25_000.0, high_pass_cutoff=None, report=none)
     assert none["high_pass"]["status"] == "not_requested"
+    empty: dict = {}
+    mirnov_preprocess_signal(np.array([]), report=empty)
+    assert empty["low_pass"]["status"] == "not_applied"
 
 
 # --- the equilibrium probe chain ---------------------------------------------------------
@@ -122,5 +148,29 @@ def test_the_probe_chain_records_its_acquisition_and_keeps_its_output():
 
 
 def test_the_probe_chain_refuses_a_cutoff_the_record_cannot_carry():
-    with pytest.raises(ValueError, match="observed Nyquist"):
+    with pytest.raises(AcquisitionInconsistencyError, match="observed Nyquist"):
         vest_equilibrium_magnetics_detailed(39915, [_PROBE], _loader(4_000.0, 4_000), config=_CONFIG)
+
+
+def test_a_fatal_acquisition_loses_only_its_component(tmp_path, monkeypatch):
+    """The stage leaves magnetics out with the reason and keeps its siblings (#989 rule)."""
+    from vaft.omas import vest_upstream
+
+    shot = 43017
+    raw = tmp_path / "raw.json.gz"
+    with gzip.open(raw, "wt", encoding="utf-8") as handle:
+        json.dump({"shot": shot, "fields": {"12": {"data": np.linspace(1.0, 2.0, 200).tolist(), "type": "slow"}}}, handle)
+    static_path = tmp_path / "static.json.gz"
+    static, manifest = vest_upstream.build_static_ods(vest_upstream.machine_era_for_shot(shot).name)
+    vest_upstream.write_stage_product(static, manifest, output=static_path, metadata=tmp_path / "static.json")
+
+    def refuse(*_args, **_kwargs):
+        raise AcquisitionInconsistencyError("probe low pass cannot be applied: synthetic")
+
+    monkeypatch.setattr(vest_upstream, "vfit_magnetics_dynamic", refuse)
+    _ods, diagnostics = vest_upstream.build_diagnostics_ods(
+        shot=shot, raw_source=raw, static_ods=static_path, tstart=0.0, tend=0.005, dt=4e-5
+    )
+    assert diagnostics["channel_status"]["magnetics"]["status"] == "unavailable"
+    assert "synthetic" in diagnostics["channel_status"]["magnetics"]["reason"]
+    assert diagnostics["channel_status"]["barometry"]["status"] == "success"

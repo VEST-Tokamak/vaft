@@ -98,6 +98,7 @@ _IMPORT_ORDER = (
     "equilibrium",
     "camera_geometry",
     "signal_processing",
+    "acquisition",
     "fluctuation",
     "soft_x_rays",
     "electromagnetics",

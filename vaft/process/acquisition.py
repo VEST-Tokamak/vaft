@@ -29,12 +29,13 @@ unchanged.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 
 __all__ = [
     "ACQUISITION_STATUSES",
+    "AcquisitionInconsistencyError",
     "SampleRateCheck",
     "check_declared_sample_rate",
     "summarize_sample_rate_checks",
@@ -67,7 +68,18 @@ class SampleRateCheck:
         return asdict(self)
 
 
+class AcquisitionInconsistencyError(ValueError):
+    """A filter was asked for a cutoff the acquired record cannot carry.
+
+    Raised by the callers of :func:`check_declared_sample_rate` when its result
+    is ``fatal``. Stage builders treat it like an unavailable signal: the
+    affected component is left out with the reason, its siblings are kept.
+    """
+
+
 def _finite_or_none(value: Any) -> float | None:
+    if isinstance(value, (bool, np.bool_)):
+        return None
     try:
         number = float(value)
     except (TypeError, ValueError):
@@ -92,7 +104,7 @@ def check_declared_sample_rate(
     declared : float
         The configured sample rate the processing is designed from [Hz].
     rtol : float, optional
-        Relative tolerance for ``consistent`` [-].
+        Relative tolerance on the rate for ``consistent`` [-].
     irregular_rtol : float, optional
         Largest relative departure of one sample interval from the median
         before the sampling counts as irregular [-].
@@ -104,13 +116,40 @@ def check_declared_sample_rate(
     Returns
     -------
     SampleRateCheck
+        Status, declared and observed rates, relative deviation, irregularity
+        and whether the cutoff is fatal [-].
+
+    Processing steps
+    ----------------
+    1. Keep the finite timestamps; fewer than two is ``not_verifiable``.
+    2. Observed rate ``1 / median`` of the positive intervals, so a few gaps or
+       duplicated samples do not move it; irregularity
+       ``max|diff - median| / median``.
+    3. A cutoff at or above half the observed rate is ``invalid`` and fatal --
+       tested even on a non-increasing timebase, which is otherwise
+       ``invalid`` but not fatal.
+    4. Otherwise ``deviation`` when the rate or the regularity is outside
+       tolerance, else ``consistent``.
+
+    Applicability
+    -------------
+    Machine-independent.  Any sampled record with a declared rate.
+
+    Limitations
+    -----------
+    Report-only: the declared rate is never replaced by the observed one. The
+    observed rate of a record with fewer than two finite timestamps cannot be
+    measured (``not_verifiable``).
+
+    Provenance
+    ----------
+    .. [1] VAFT issue #2159 (declared versus observed acquisition) and #432
+       (IMPA sample-rate consistency); no external source.
     """
     declared_hz = _finite_or_none(declared)
-    cutoffs = (
-        []
-        if cutoff_hz is None
-        else [float(c) for c in np.atleast_1d(np.asarray(cutoff_hz, dtype=float)).tolist()]
-    )
+    raw_cutoffs = [] if cutoff_hz is None else np.atleast_1d(np.asarray(cutoff_hz, dtype=float)).tolist()
+    bad_cutoff = any(not np.isfinite(value) or value <= 0.0 for value in raw_cutoffs)
+    cutoffs = [float(value) for value in raw_cutoffs if np.isfinite(value)]
     highest_cutoff = max(cutoffs) if cutoffs else None
     t = np.asarray(time, dtype=float).reshape(-1)
     t = t[np.isfinite(t)]
@@ -130,48 +169,63 @@ def check_declared_sample_rate(
 
     if declared_hz is None or declared_hz <= 0.0:
         return result("invalid", f"declared sample rate {declared!r} is not a positive finite number")
+    if bad_cutoff:
+        return result("invalid", f"filter cutoff {cutoff_hz!r} is not a positive finite frequency")
     if t.size < 2:
         return result("not_verifiable", f"{t.size} finite timestamps; a rate needs at least two")
     steps = np.diff(t)
-    if np.any(steps <= 0.0):
+    monotonic = bool(np.all(steps > 0.0))
+    positive = steps[steps > 0.0]
+    if positive.size == 0:
         return result("invalid", "the timebase is not strictly increasing")
-    median = float(np.median(steps))
+    median = float(np.median(positive))
     observed = 1.0 / median
     deviation = abs(observed - declared_hz) / declared_hz
     irregularity = float(np.max(np.abs(steps - median)) / median)
+    measured = {"observed": observed, "deviation": deviation, "irregularity": irregularity}
     if highest_cutoff is not None and highest_cutoff >= 0.5 * observed:
         return result(
             "invalid",
             f"cutoff {highest_cutoff:g} Hz is at or above the observed Nyquist frequency "
             f"{0.5 * observed:g} Hz (observed rate {observed:g} Hz, declared {declared_hz:g} Hz)",
-            observed=observed,
-            deviation=deviation,
-            irregularity=irregularity,
             fatal=True,
+            **measured,
         )
+    if not monotonic:
+        return result("invalid", "the timebase is not strictly increasing", **measured)
     reasons = []
     if deviation > rtol:
         reasons.append(f"observed rate {observed:g} Hz differs from the declared {declared_hz:g} Hz")
     if irregularity > irregular_rtol:
         reasons.append(f"irregular sampling: an interval departs {irregularity:.3g} from the median")
     if reasons:
-        return result(
-            "deviation", "; ".join(reasons), observed=observed, deviation=deviation, irregularity=irregularity
-        )
-    return result(
-        "consistent",
-        "observed rate agrees with the declaration",
-        observed=observed,
-        deviation=deviation,
-        irregularity=irregularity,
-    )
+        return result("deviation", "; ".join(reasons), **measured)
+    return result("consistent", "observed rate agrees with the declaration", **measured)
 
 
-def summarize_sample_rate_checks(checks: dict[str, SampleRateCheck]) -> dict[str, Any]:
+def summarize_sample_rate_checks(checks: Mapping[str, SampleRateCheck]) -> dict[str, Any]:
     """A compact, JSON-ready record of per-channel checks for a manifest.
 
-    Counts per status, the observed-rate range, and the full record of every
-    channel that is not ``consistent`` (consistent ones are only counted).
+    Parameters
+    ----------
+    checks : mapping of str to SampleRateCheck
+        One check per channel, keyed by channel name [-].
+
+    Returns
+    -------
+    dict
+        ``status`` (the worst outcome: ``invalid`` > ``deviation`` >
+        ``consistent`` > ``not_verifiable``), the declared rates, the
+        observed-rate range, the count per status, and the full record of every
+        channel that is not ``consistent`` [-].
+
+    Applicability
+    -------------
+    Machine-independent.  Any set of :func:`check_declared_sample_rate` results.
+
+    Provenance
+    ----------
+    .. [1] VAFT issue #2159; no external source.
     """
     counts = {status: 0 for status in ACQUISITION_STATUSES}
     observed = []

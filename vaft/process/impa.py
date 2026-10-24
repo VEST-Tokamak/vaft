@@ -125,7 +125,7 @@ import numpy as np
 from scipy import ndimage, optimize, signal
 
 from vaft.formula.statistics import rms
-from vaft.process.acquisition import check_declared_sample_rate
+from vaft.process.acquisition import AcquisitionInconsistencyError, check_declared_sample_rate
 from vaft.process.signal_processing import apply_fir_filter
 # The shot verdict lives in the validation layer (#339); it imports no kernel
 # back at run time, so this cannot cycle.
@@ -1696,7 +1696,7 @@ def process_impa(
         time, config.sample_rate, cutoff_hz=config.signal_lowpass_hz
     )
     if acquisition.fatal:
-        raise ValueError(f"IMPA low pass cannot be applied: {acquisition.reason}")
+        raise AcquisitionInconsistencyError(f"IMPA low pass cannot be applied: {acquisition.reason}")
     if channel_valid is None:
         channel_valid = np.ones(n_channels, dtype=bool)
     channel_valid = np.asarray(channel_valid, dtype=bool)

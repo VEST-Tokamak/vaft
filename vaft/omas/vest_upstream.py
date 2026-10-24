@@ -74,7 +74,7 @@ from vaft.machine_mapping.utils import (
 from vaft.omas import save
 from vaft.validation.imas import is_condemned_channel
 from vaft.omas.process_wrapper import compute_eddy_currents
-from vaft.process.acquisition import summarize_sample_rate_checks
+from vaft.process.acquisition import AcquisitionInconsistencyError, summarize_sample_rate_checks
 from vaft.process.magnetics import VestMagneticsProcessingConfig
 
 
@@ -1013,6 +1013,9 @@ def build_diagnostics_ods(
             # known setting (#152); that is the Langmuir component's gap,
             # not a reason to lose every other diagnostic (#989).
             LangmuirProbeEraGapError,
+            # A filter cutoff the acquired record cannot carry (#2159): that
+            # component cannot be processed, its siblings still can.
+            AcquisitionInconsistencyError,
         ) as error:
             # A fully saturated waveform is a property of the shot, not a fault
             # in the run: refusing to reconstruct one is correct, but it makes
@@ -1481,6 +1484,7 @@ def build_impa_ods(
         raw_db.RawSignalUnavailableError,
         FileNotFoundError,
         SignalRepairError,
+        AcquisitionInconsistencyError,
     ) as error:
         manifest["quality_summary"]["unavailable"] = ["impa"]
         manifest["reason"] = str(error)
