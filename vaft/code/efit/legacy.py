@@ -345,6 +345,13 @@ def vfit_signal_startend(time, data):
 
 
 def smooth(array, span):
+    # Kept on purpose rather than replaced by vaft.process.signal_processing.smooth
+    # (#2162). On finite data the two agree to summation-order round-off (a
+    # per-window sum here, a difference of cumulative sums there: ~1e-12
+    # relative). They are not equivalent on a record with a gap: this loop
+    # blanks only the windows that contain a NaN, while the cumulative-sum
+    # version carries it into every later sample. The only caller is the
+    # deprecated vest_Halpha_tstart_tend; delete both together.
     if span % 2 == 0:
         span = span - 1
 

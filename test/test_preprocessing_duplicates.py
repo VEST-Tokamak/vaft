@@ -203,3 +203,62 @@ def test_plot_sxr_baseline_is_a_closed_range_nanmean_without_fallback():
     np.testing.assert_allclose(corrected, signal_ - expected_offset, rtol=0, atol=1e-15)
     # A range with no sample leaves the signal alone (no tail fallback).
     np.testing.assert_array_equal(_baseline_correct(time, signal_, (2.0, 3.0)), signal_)
+
+
+# ---------------------------------------------------------------------------
+# The new canonical high-pass, independently of the recipe
+# ---------------------------------------------------------------------------
+
+def test_butterworth_highpass_is_the_frozen_recipe_filter():
+    from vaft.process.signal_processing import butterworth_highpass
+
+    values = np.cumsum(_rng().standard_normal(5_000))
+    np.testing.assert_array_equal(
+        butterworth_highpass(values, 200.0, 1e5, order=4, zero_phase=True),
+        _frozen_recipe_highpass(values, 1e5),
+    )
+
+
+def test_butterworth_highpass_magnitude_and_zero_phase():
+    from vaft.process.signal_processing import butterworth_highpass
+
+    fs, cutoff = 1e5, 1e3
+    time = np.arange(40_000) / fs
+    centre = slice(10_000, 30_000)  # away from filtfilt's edge transients
+    # A constant is removed entirely.
+    assert np.max(np.abs(butterworth_highpass(np.full(time.size, 3.0), cutoff, fs)[centre])) < 1e-9
+    # A tone a decade above the cutoff passes with the two-pass gain |H|^2 of a
+    # bilinear-transform Butterworth, 1 / (1 + (tan(pi fc/fs) / tan(pi f/fs))^(2n)),
+    # and no phase shift.
+    for order in (2, 4):
+        f = 10 * cutoff
+        tone = np.sin(2 * np.pi * f * time)
+        out = butterworth_highpass(tone, cutoff, fs, order=order)
+        ratio = np.tan(np.pi * cutoff / fs) / np.tan(np.pi * f / fs)
+        expected_gain = 1.0 / (1.0 + ratio ** (2 * order))
+        fit = np.linalg.lstsq(
+            np.column_stack((np.sin(2 * np.pi * f * time[centre]), np.cos(2 * np.pi * f * time[centre]))),
+            out[centre], rcond=None,
+        )[0]
+        assert abs(np.hypot(*fit) - expected_gain) < 1e-6
+        assert abs(np.arctan2(fit[1], fit[0])) < 1e-6
+    # At the cutoff the two-pass response is -6 dB.
+    tone = np.sin(2 * np.pi * cutoff * time)
+    out = butterworth_highpass(tone, cutoff, fs, order=2)
+    assert abs(np.max(np.abs(out[centre])) - 0.5) < 1e-3
+
+
+def test_butterworth_highpass_rejects_a_cutoff_outside_the_band():
+    from vaft.process.signal_processing import butterworth_highpass
+
+    with pytest.raises(ValueError, match="cutoff must lie"):
+        butterworth_highpass(np.zeros(100), 6e4, 1e5)
+
+
+def test_mirnov_refuses_an_even_filter_order():
+    with pytest.raises(ValueError, match="filter_order must be odd"):
+        process_magnetics.mirnov_preprocess_signal(np.ones(5_000), filter_order=250)
+
+
+def test_no_private_mirnov_designer_remains():
+    assert not hasattr(process_magnetics, "_firwin_order")
