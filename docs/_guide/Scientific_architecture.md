@@ -214,6 +214,7 @@ A box in a diagram does not mean a public Python class exists. This table says w
 | Formula, Process, Code adapters | implemented |
 | Data and database | implemented |
 | Validation | implemented, still expanding (#1639) |
+| Scientific contract interoperability (identity, units, conventions) | audited; implementation in progress (#2160) |
 | Declarative production pipelines | implemented |
 | Dependency explorer, pipeline lineage explorer, scientific ontology explorer | implemented on `develop` |
 | Learned-model infrastructure | partial, evolving (#669) |
@@ -240,6 +241,7 @@ These follow existing decisions and add none. VAFT is not meant to become:
 
 - [Computational layers]({{ '/reference/computational-layers/' | relative_url }}): Formula, Process, Code and Actor.
 - [Credibility and applicability]({{ '/reference/credibility-applicability/' | relative_url }}): computation, evidence, validation and applicability.
+- [Scientific contracts]({{ '/reference/scientific-contracts/' | relative_url }}): who owns quantity identity, units, COCOS and Fourier conventions, and how they are checked.
 - [Plasma models, orderings, and scales]({{ '/reference/plasma-models/' | relative_url }}) and
   [Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }}): what physical model a
   computation represents. This page says only where it lives.
