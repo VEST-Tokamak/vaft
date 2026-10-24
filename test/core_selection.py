@@ -123,9 +123,11 @@ CORE_MODULES: tuple[str, ...] = (
     "test_raw_sources.py",
     "test_selection_validity.py",
     "test_spectrogram_methods.py",
-    # VEST configuration loading, merge and revision rules, and the effective
-    # configuration with its overrides and fingerprint (#2159): tmp YAML and
-    # the packaged vest.yaml, no raw data, ~8 s.
+    # VEST configuration loading, merge and revision rules, the effective
+    # configuration with its overrides and fingerprint, and declared-versus-
+    # observed sample-rate checks (#2159): tmp YAML, the packaged vest.yaml
+    # and synthetic records, no raw data, ~10 s.
+    "test_acquisition_checks.py",
     "test_vest_config_loading.py",
     "test_vest_effective_config.py",
     # Predicted mode-frequency tracks and the Mirnov mode_overlay (#460):

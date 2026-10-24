@@ -685,6 +685,24 @@ summary, now with TF, IMPA and the time policies. IMPA's calibration eras keep t
 schema; `impa_shot_era` validates them like every other revision table (inclusive bounds, no overlap, an
 explicit `max_shot`).
 
+## Declared versus observed acquisition
+
+A configured sample rate is a claim, not a measurement. Wherever a filter is designed from one -- the IMPA
+low pass, the equilibrium probe low pass, the Ip reference comparison -- the record's own timestamps are
+checked with `vaft.process.acquisition.check_declared_sample_rate(time, declared, cutoff_hz=...)`:
+
+| Status | Meaning | Effect |
+|---|---|---|
+| `consistent` | observed rate within `rtol` of the declared one, regular sampling | none |
+| `deviation` | a different rate, or irregular sampling | recorded; processing unchanged |
+| `invalid` | unusable declaration, non-increasing timebase, or a cutoff at or above the *observed* Nyquist | recorded; only the cutoff case (`fatal`) stops the transformation |
+| `not_verifiable` | fewer than two finite timestamps | recorded |
+
+The diagnostics manifest carries the probe summary under `channel_status.magnetics.acquisition` (counts per
+status, observed-rate range, and every channel that is not `consistent`); the IMPA manifest carries its check
+under `acquisition` (#432). `mirnov_preprocess_signal(..., report={})` records each band edge as `applied`,
+`skipped` (outside `(0, Nyquist)`, with the reason) or `not_requested` instead of skipping silently.
+
 ---
 
 # Adding a new diagnostic

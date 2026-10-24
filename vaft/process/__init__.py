@@ -33,6 +33,7 @@ from __future__ import annotations
 from importlib import import_module
 
 _SUBMODULES = {
+    "acquisition": ".acquisition",
     "atomic": ".atomic",
     "particle": ".particle",
     "particle_fields": ".particle_fields",
