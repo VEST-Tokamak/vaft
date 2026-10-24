@@ -288,6 +288,9 @@ def test_no_new_runtime_reader_of_the_retired_magnetics_yaml():
         rule=RETIRED_YAML_RULE,
         expected=RETIRED_YAML_EXPECTED,
     )
+    # The one allowlisted reader must join the frozen fixture, never a packaged copy.
+    generator = (REPO_ROOT / "workflow" / "architecture_audit" / "build_inventory.py").read_text(encoding="utf-8")
+    assert 'GEOMETRY_DIR = Path("test/data/legacy_magnetics")' in generator
 
 
 def test_no_new_consumer_of_the_retired_magnetics_loaders():
