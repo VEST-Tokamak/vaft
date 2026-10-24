@@ -1,9 +1,9 @@
 {
  "classification_counts": {
-  "canonical": 18,
+  "canonical": 19,
   "duplicate": 11,
-  "intentional_specialization": 31,
-  "legacy": 38,
+  "intentional_specialization": 32,
+  "legacy": 37,
   "unverified": 382
  },
  "entry_modules": {
@@ -83,6 +83,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease.py"
   },
@@ -116,6 +117,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease.py"
   },
@@ -158,6 +160,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease.py"
   },
@@ -200,6 +203,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease.py"
   },
@@ -232,6 +236,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease.py"
   },
@@ -268,6 +273,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease.py"
   },
@@ -300,6 +306,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease_kinetic_iteration.py"
   },
@@ -334,6 +341,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease_kinetic_iteration.py"
   },
@@ -366,6 +374,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease_kinetic_iteration.py"
   },
@@ -398,6 +407,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease_kinetic_iteration.py"
   },
@@ -430,6 +440,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease_kinetic_iteration.py"
   },
@@ -462,6 +473,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease_kinetic_iteration.py"
   },
@@ -498,6 +510,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease_scan.py"
   },
@@ -534,6 +547,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease_synthesis.py"
   },
@@ -572,6 +586,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease_synthesis.py"
   },
@@ -604,6 +619,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/chease_synthesis.py"
   },
@@ -638,6 +654,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/code/efit/kfile.py"
   },
@@ -670,6 +687,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/code/efit/kfile.py"
   },
@@ -710,6 +728,7 @@
    "production_reachability_note": "pipeline1 generate_constraints_ods; probe/loop grouping by INBOARD_PROBE_MAX_R etc. at kfile.py ~578-624.",
    "recommended_action": "C2: grouping from the registry 'family' instead of r/z thresholds.",
    "related_issue": "#2164",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/code/efit/kfile.py"
   },
@@ -743,6 +762,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/efit/kinetic.py"
   },
@@ -783,6 +803,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/efit/kinetic.py"
   },
@@ -815,6 +836,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/efit/kinetic.py"
   },
@@ -847,6 +869,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/code/efit/kinetic.py"
   },
@@ -885,6 +908,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/efit/kinetic.py"
   },
@@ -916,6 +940,7 @@
    "production_reachability_note": "pipeline1 generate_constraints_ods (vacuum-time drop and constraint averaging).",
    "recommended_action": "keep (EFIT constraint averaging contract).",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/code/efit/legacy.py"
   },
@@ -948,6 +973,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/efit/legacy.py"
   },
@@ -980,6 +1006,7 @@
    "production_reachability_note": "config-gated off (constraints.fl_correct_option = 0).",
    "recommended_action": "E: retire or keep as explicit compatibility option.",
    "related_issue": "#2168",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/code/efit/legacy.py"
   },
@@ -1010,6 +1037,7 @@
    "production_reachability_note": "",
    "recommended_action": "B3: import vaft.process.signal_processing.smooth; equivalence test at rtol 1e-12 and a check that no caller passes span > record length.",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/code/efit/legacy.py"
   },
@@ -1040,6 +1068,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/efit/legacy.py"
   },
@@ -1072,6 +1101,7 @@
    "production_reachability_note": "statically reached through correct_flux_loop, which generate_constraints_ods runs only when fl_correct_option != 0 (0 in config.yaml).",
    "recommended_action": "E: retire with correct_flux_loop if the option stays 0.",
    "related_issue": "#2168",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/code/efit/legacy.py"
   },
@@ -1113,6 +1143,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/efit/linearization.py"
   },
@@ -1145,6 +1176,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/gacode/inputs.py"
   },
@@ -1177,6 +1209,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/gacode/inputs.py"
   },
@@ -1210,6 +1243,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/gacode/tglf/inputs.py"
   },
@@ -1250,6 +1284,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/genray/inputs.py"
   },
@@ -1282,6 +1317,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/genray/outputs.py"
   },
@@ -1312,6 +1348,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/gpec/_matching_output.py"
   },
@@ -1345,6 +1382,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/mitim/coordinates.py"
   },
@@ -1381,6 +1419,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/mitim/drivers/_manufacture.py"
   },
@@ -1413,6 +1452,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/mitim/drivers/tglf_local_inputs.py"
   },
@@ -1445,6 +1485,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/nice/diagnostics.py"
   },
@@ -1477,6 +1518,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/nice/diagnostics.py"
   },
@@ -1509,6 +1551,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/nice/inputs.py"
   },
@@ -1541,6 +1584,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/nice/inputs.py"
   },
@@ -1577,6 +1621,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/nice/outputs.py"
   },
@@ -1609,6 +1654,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/nice/response.py"
   },
@@ -1651,6 +1697,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/nice/study.py"
   },
@@ -1688,6 +1735,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/nice/study.py"
   },
@@ -1718,6 +1766,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/nubeam/plasma_state.py"
   },
@@ -1750,6 +1799,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/tes/inputs.py"
   },
@@ -1782,6 +1832,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/tes/inputs.py"
   },
@@ -1812,6 +1863,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/tes/inputs.py"
   },
@@ -1844,6 +1896,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/tes/inputs.py"
   },
@@ -1874,6 +1927,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/tes/inputs.py"
   },
@@ -1907,6 +1961,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/tokamaker/inputs.py"
   },
@@ -1939,6 +1994,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/tokamaker/inputs.py"
   },
@@ -1971,6 +2027,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/tokamaker/inputs.py"
   },
@@ -2003,6 +2060,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/tokamaker/inputs.py"
   },
@@ -2041,6 +2099,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/tokamaker/refinement.py"
   },
@@ -2082,6 +2141,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/tokamaker/runner.py"
   },
@@ -2114,6 +2174,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/transp/profiles.py"
   },
@@ -2146,6 +2207,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/transp/profiles.py"
   },
@@ -2176,6 +2238,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/code/transp/torque.py"
   },
@@ -2193,7 +2256,6 @@
     "vaft.formula.equilibrium.toroidal_flux_from_q_psi",
     "vaft.process.magnetics.b_field_pol_probe_field",
     "vaft.process.magnetics.flux_loop_flux",
-    "vaft.process.magnetics.vest_b_field_pol_probe_legacy",
     "vaft.process.magnetics.vest_flux_loop_flux_from_voltage"
    ],
    "classification": "canonical",
@@ -2210,6 +2272,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep as the single cumulative-integration owner; direct cumulative_trapezoid calls delegate (B3).",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/compat.py"
   },
@@ -2242,6 +2305,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/data/eqdsk.py"
   },
@@ -2274,6 +2338,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/data/eqdsk.py"
   },
@@ -2315,6 +2380,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/data/eqdsk.py"
   },
@@ -2351,6 +2417,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/data/eqdsk.py"
   },
@@ -2393,6 +2460,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/data/particle.py"
   },
@@ -2425,6 +2493,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/data/pfile.py"
   },
@@ -2473,6 +2542,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/data/public/vest_confinement.py"
   },
@@ -2503,6 +2573,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/data/synthetic_kinetic_profiles.py"
   },
@@ -2533,6 +2604,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/data/synthetic_kinetic_profiles.py"
   },
@@ -2563,6 +2635,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/data/synthetic_kinetic_profiles.py"
   },
@@ -2595,6 +2668,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/data/vfit.py"
   },
@@ -2633,6 +2707,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/database/_summary.py"
   },
@@ -2663,6 +2738,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/database/raw.py"
   },
@@ -2695,6 +2771,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/database/raw.py"
   },
@@ -2725,6 +2802,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_ballooning.py"
   },
@@ -2755,6 +2833,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_current_diffusion.py"
   },
@@ -2787,6 +2866,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_current_diffusion.py"
   },
@@ -2819,6 +2899,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_disruption.py"
   },
@@ -2851,6 +2932,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_divertor_footprint.py"
   },
@@ -2887,6 +2969,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_equilibrium_geometry.py"
   },
@@ -2921,6 +3004,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_equilibrium_geometry.py"
   },
@@ -2955,6 +3039,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_equilibrium_geometry.py"
   },
@@ -2985,6 +3070,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_equilibrium_geometry.py"
   },
@@ -3023,6 +3109,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_equilibrium_geometry.py"
   },
@@ -3055,6 +3142,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_equilibrium_profiles.py"
   },
@@ -3087,6 +3175,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_equilibrium_profiles.py"
   },
@@ -3134,6 +3223,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_field_aligned.py"
   },
@@ -3164,6 +3254,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_field_aligned.py"
   },
@@ -3206,6 +3297,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_gs_equilibrium.py"
   },
@@ -3240,6 +3332,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_li_qa.py"
   },
@@ -3270,6 +3363,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_magnetic_island.py"
   },
@@ -3300,6 +3394,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_magnetic_topology.py"
   },
@@ -3332,6 +3427,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_magnetic_topology.py"
   },
@@ -3370,6 +3466,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_magnetic_topology.py"
   },
@@ -3402,6 +3499,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_marfe.py"
   },
@@ -3432,6 +3530,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_nbi.py"
   },
@@ -3462,6 +3561,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_reduced_stability.py"
   },
@@ -3494,6 +3594,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_sawtooth.py"
   },
@@ -3528,6 +3629,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_sawtooth.py"
   },
@@ -3560,6 +3662,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_sfl_coordinates.py"
   },
@@ -3598,6 +3701,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_sfl_coordinates.py"
   },
@@ -3634,6 +3738,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_sfl_coordinates.py"
   },
@@ -3676,6 +3781,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_spatial.py"
   },
@@ -3706,6 +3812,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_spatial.py"
   },
@@ -3736,6 +3843,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_stability_space.py"
   },
@@ -3766,6 +3874,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_transport.py"
   },
@@ -3798,6 +3907,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_vde.py"
   },
@@ -3832,6 +3942,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/atomic.py"
   },
@@ -3864,6 +3975,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/boundaries.py"
   },
@@ -3896,6 +4008,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/boundaries.py"
   },
@@ -3928,6 +4041,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/equilibrium.py"
   },
@@ -3958,6 +4072,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/equilibrium.py"
   },
@@ -3991,6 +4106,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/equilibrium.py"
   },
@@ -4023,6 +4139,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/equilibrium.py"
   },
@@ -4057,6 +4174,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/geometry.py"
   },
@@ -4090,6 +4208,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/kinetic.py"
   },
@@ -4125,6 +4244,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/nbi.py"
   },
@@ -4155,6 +4275,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/regularized_profiles.py"
   },
@@ -4187,6 +4308,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/stability.py"
   },
@@ -4217,6 +4339,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/stability.py"
   },
@@ -4247,6 +4370,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/stability.py"
   },
@@ -4280,6 +4404,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/statistics.py"
   },
@@ -4312,6 +4437,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/statistics.py"
   },
@@ -4350,6 +4476,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/utils.py"
   },
@@ -4406,6 +4533,7 @@
    "production_reachability_note": "pipeline2 core_profiles (Thomson/CES fits).",
    "recommended_action": "keep as fit owner; the missing profile sigma is a separate uncertainty finding (Pipeline 2 trace), not a consolidation item.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/formula/utils.py"
   },
@@ -4440,6 +4568,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/utils.py"
   },
@@ -4480,6 +4609,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/utils.py"
   },
@@ -4512,6 +4642,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/utils.py"
   },
@@ -4542,6 +4673,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/vde.py"
   },
@@ -4572,6 +4704,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/formula/vde.py"
   },
@@ -4616,6 +4749,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/barometry.py"
   },
@@ -4654,6 +4788,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/machine_mapping/core_sources.py"
   },
@@ -4686,6 +4821,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/machine_mapping/ec_launchers.py"
   },
@@ -4723,6 +4859,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/machine_mapping/ec_launchers.py"
   },
@@ -4757,6 +4894,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/efund_geometry.py"
   },
@@ -4789,6 +4927,7 @@
    "production_reachability_note": "",
    "recommended_action": "B2: check_declared_sample_rate on the reference grid (#425/#432).",
    "related_issue": "#425, #432",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/impa.py"
   },
@@ -4822,6 +4961,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "#432",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/impa.py"
   },
@@ -4862,6 +5002,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep: resampling already delegates to resample_to_time (anti-alias inside).",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/langmuir_probes.py"
   },
@@ -4905,6 +5046,7 @@
    "production_reachability_note": "pipeline1 Ip for reference mode subtract_fl10_windowed (vest.yaml plasma_current, 46403-47116).",
    "recommended_action": "keep as named FL10 compensation; record the decimation factor in provenance (B2).",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -4935,6 +5077,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -4975,6 +5118,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5010,6 +5154,7 @@
    "production_reachability_note": "",
    "recommended_action": "B3: correct the comment; D: check the spectra of the unfiltered callers (loops, Ip, diamagnetic flux) above the target Nyquist before deciding on resample_to_time.",
    "related_issue": "#2162, #425",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5047,6 +5192,7 @@
    "production_reachability_note": "",
    "recommended_action": "B3: delegate to subtract_baseline(method='polyfit').",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5080,6 +5226,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1: replace with resolve_equilibrium_magnetics_sensors over vest.yaml; delete MD.yaml in the same PR.",
    "related_issue": "#2158",
+   "resolved_by": "",
    "scientific_risk": "high",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5114,6 +5261,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1: names/aliases move into the registry records; decide whether the ODS name is the physical id or the DAQ label (open question in magnetics_reconciliation.md).",
    "related_issue": "#2158",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5152,6 +5300,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1: registry resolver; delete the YAML in the same PR.",
    "related_issue": "#2158",
+   "resolved_by": "",
    "scientific_risk": "high",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5186,6 +5335,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5221,6 +5371,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5256,6 +5407,7 @@
    "production_reachability_note": "no caller anywhere in vaft/, workflow/ or test/ (dead code).",
    "recommended_action": "E: delete (nothing to delegate); the plan's 'delegate' step is moot.",
    "related_issue": "#2162, #2168",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5297,6 +5449,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5344,6 +5497,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5381,6 +5535,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5430,6 +5585,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5482,6 +5638,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5521,6 +5678,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5574,6 +5732,7 @@
    "production_reachability_note": "pipeline1 generate_diagnostics_ods (diamagnetic flux).",
    "recommended_action": "B3: cumulative_trapezoid -> cumtrapz_compat; keep the two-point baseline (documented semantics differ from a least-squares fit).",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5612,6 +5771,7 @@
    "production_reachability_note": "",
    "recommended_action": "B3: cumulative_trapezoid -> vaft.compat.cumtrapz_compat (numerically identical, one owner).",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5653,6 +5813,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5686,6 +5847,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5721,6 +5883,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5761,11 +5924,12 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
-   "algorithm_semantics": "calibrate -> polyfit baseline -> FL10 reference subtraction (subtract | subtract_fl10_windowed: decimate + smooth + interp | disabled >= 47117) -> sign flip; the ref != -1 low pass (firwin + causal lfilter on develop, apply_fir_filter after #2135) has no production caller.",
+   "algorithm_semantics": "calibrate -> polyfit baseline -> FL10 reference subtraction (subtract | subtract_fl10_windowed: decimate + smooth + interp | disabled >= 47117) -> sign flip; the ref != -1 low pass (causal lfilter before #2135, zero-phase apply_fir_filter since) has no production caller.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -5782,10 +5946,6 @@
      "snippet": "signal.firwin(int(comparison['taps']), float(comparison['cutoff_frequency']), pass_zero='lowpass', fs=float(comparison['sample_rate']))"
     },
     {
-     "call": "scipy.signal.lfilter",
-     "snippet": "signal.lfilter(taps, 1, plasma_current)"
-    },
-    {
      "call": "vaft.machine_mapping.magnetics._linear_baseline_subtract",
      "snippet": "_linear_baseline_subtract(time, calibrated_ip, x_base)"
     },
@@ -5800,6 +5960,10 @@
     {
      "call": "vaft.machine_mapping.utils.calibrate_vest_signal",
      "snippet": "calibrate_vest_signal(shot_values, config['calibration'])"
+    },
+    {
+     "call": "vaft.process.signal_processing.apply_fir_filter",
+     "snippet": "apply_fir_filter(taps, plasma_current)"
     }
    ],
    "callers": [
@@ -5826,14 +5990,15 @@
    "primitives": [
     "numpy.interp",
     "scipy.signal.firwin",
-    "scipy.signal.lfilter",
     "vaft.machine_mapping.magnetics._linear_baseline_subtract",
-    "vaft.machine_mapping.utils.calibrate_vest_signal"
+    "vaft.machine_mapping.utils.calibrate_vest_signal",
+    "vaft.process.signal_processing.apply_fir_filter"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "pipeline1 generate_diagnostics_ods (Ip, ref = -1) and generate_impa_ods.",
    "recommended_action": "keep the FL10 decimate chain as a named specialization; baselines delegate (B3).",
    "related_issue": "#2135, #2162",
+   "resolved_by": "#2135 (Ip-reference low pass only)",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5867,6 +6032,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/machine_mapping/neoclassical.py"
   },
@@ -5897,6 +6063,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep (offset, not drift, removal).",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/pf_active.py"
   },
@@ -5929,11 +6096,12 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/pf_active.py"
   },
   {
-   "algorithm_semantics": "firwin(hamming 251) -> filtfilt, lfilter fallback below _filtfilt_min_length -> uniform_filter1d(10). PR #2135 (open, about to merge) routes this low pass through vaft.process.signal_processing.apply_fir_filter (zero-phase).",
+   "algorithm_semantics": "firwin(hamming 251) -> filtfilt, lfilter fallback below _filtfilt_min_length -> uniform_filter1d(10). Since #2135 (merged, 75b154e31) the low pass is applied through vaft.process.signal_processing.apply_fir_filter.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -5942,16 +6110,12 @@
      "snippet": "ndimage.uniform_filter1d(filtered, size=min(int(filter_config['smoothing_window']), values.size))"
     },
     {
-     "call": "scipy.signal.filtfilt",
-     "snippet": "signal.filtfilt(taps, 1, values)"
-    },
-    {
      "call": "scipy.signal.firwin",
      "snippet": "signal.firwin(int(filter_config['taps']), float(filter_config['cutoff_frequency']), pass_zero='lowpass', fs=float(filter_config['sample_rate']))"
     },
     {
-     "call": "scipy.signal.lfilter",
-     "snippet": "signal.lfilter(taps, 1, values)"
+     "call": "vaft.process.signal_processing.apply_fir_filter",
+     "snippet": "apply_fir_filter(taps, values, short_record='causal')"
     }
    ],
    "callers": [
@@ -5970,14 +6134,14 @@
    "owning_layer": "machine_mapping",
    "primitives": [
     "scipy.ndimage.uniform_filter1d",
-    "scipy.signal.filtfilt",
     "scipy.signal.firwin",
-    "scipy.signal.lfilter"
+    "vaft.process.signal_processing.apply_fir_filter"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "pipeline1 generate_diagnostics_ods (all PF circuits) and IMPA strict vfit_pf.",
    "recommended_action": "B3: named pf_current_filter in vaft.process = fir_filter_coefficients(window='hamming', numtaps=251) + apply_fir_filter + uniform_filter1d; coefficient-equality and phase tests.",
    "related_issue": "#2162, #2135",
+   "resolved_by": "#2135 (filter application only; design stays a B3 item)",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/pf_active.py"
   },
@@ -6011,6 +6175,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/machine_mapping/pf_active.py"
   },
@@ -6044,6 +6209,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/pf_active.py"
   },
@@ -6084,6 +6250,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/provenance.py"
   },
@@ -6131,6 +6298,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/raw_daq_sources.py"
   },
@@ -6161,6 +6329,7 @@
    "production_reachability_note": "",
    "recommended_action": "B3: one SXR baseline owner with explicit window semantics (index range, time range, tail with fallback).",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/soft_x_rays.py"
   },
@@ -6193,6 +6362,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/machine_mapping/spectrometer_uv.py"
   },
@@ -6240,11 +6410,12 @@
    "production_reachability_note": "",
    "recommended_action": "keep (TF-specific).",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/tf.py"
   },
   {
-   "algorithm_semantics": "calibrate -> mean baseline (1000) -> repair_tf_excursions -> firwin(26) -> CAUSAL lfilter on develop -> smooth(50). PR #2135 (open, about to merge) routes this low pass through vaft.process.signal_processing.apply_fir_filter (zero-phase).",
+   "algorithm_semantics": "calibrate -> mean baseline (1000) -> repair_tf_excursions -> firwin(26) -> zero-phase apply_fir_filter (causal lfilter, 0.5 ms lag, before #2135) -> smooth(50). Since #2135 (merged, 75b154e31) the low pass is applied through vaft.process.signal_processing.apply_fir_filter.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -6253,12 +6424,12 @@
      "snippet": "signal.firwin(int(processing['taps']), float(processing['cutoff_frequency']), pass_zero='lowpass', fs=float(processing['sample_rate']))"
     },
     {
-     "call": "scipy.signal.lfilter",
-     "snippet": "signal.lfilter(taps, 1, data_raw_tf)"
-    },
-    {
      "call": "vaft.machine_mapping.utils.calibrate_vest_signal",
      "snippet": "calibrate_vest_signal(raw_tf, config['calibration'])"
+    },
+    {
+     "call": "vaft.process.signal_processing.apply_fir_filter",
+     "snippet": "apply_fir_filter(taps, data_raw_tf)"
     },
     {
      "call": "vaft.process.signal_processing.smooth",
@@ -6284,15 +6455,16 @@
    "owning_layer": "machine_mapping",
    "primitives": [
     "scipy.signal.firwin",
-    "scipy.signal.lfilter",
     "vaft.machine_mapping.utils.calibrate_vest_signal",
+    "vaft.process.signal_processing.apply_fir_filter",
     "vaft.process.signal_processing.smooth"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "pipeline1 generate_diagnostics_ods (TF) and IMPA (vfit_tf_current).",
-   "recommended_action": "merge #2135 (zero-phase); keep excursion repair + smooth(50) as TF specialization.",
+   "recommended_action": "keep excursion repair + smooth(50) as TF specialization; products made before #2135 carry the lag (regeneration needs owner approval).",
    "related_issue": "#2135",
-   "scientific_risk": "high",
+   "resolved_by": "#2135",
+   "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/tf.py"
   },
   {
@@ -6329,6 +6501,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/tf.py"
   },
@@ -6363,6 +6536,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/machine_mapping/turbulence.py"
   },
@@ -6395,6 +6569,7 @@
    "production_reachability_note": "only through apply_magnetics_uncertainties <- apply_default_constraint_uncertainties, whose only callers are test/contracts/test_models_uncertainty.py.",
    "recommended_action": "B1: use the registry and the magnetics.py threshold constants (INBOARD_PROBE_MAX_R etc.); low urgency, no production caller.",
    "related_issue": "#2158",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/utils.py"
   },
@@ -6429,6 +6604,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/utils.py"
   },
@@ -6463,6 +6639,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep as the calibration owner.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/utils.py"
   },
@@ -6493,6 +6670,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/machine_mapping/utils.py"
   },
@@ -6526,6 +6704,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/discharge_timing.py"
   },
@@ -6562,6 +6741,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/edge_q.py"
   },
@@ -6602,6 +6782,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/equilibrium_state.py"
   },
@@ -6632,6 +6813,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/fluctuation.py"
   },
@@ -6675,6 +6857,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/formula_wrapper.py"
   },
@@ -6710,6 +6893,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/formula_wrapper.py"
   },
@@ -6750,6 +6934,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/formula_wrapper.py"
   },
@@ -6784,6 +6969,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/formula_wrapper.py"
   },
@@ -6816,6 +7002,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/interactive.py"
   },
@@ -6846,6 +7033,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/kinetic_state_inference.py"
   },
@@ -6880,6 +7068,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/kinetic_state_inference.py"
   },
@@ -6912,6 +7101,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/magnetic_decomposition.py"
   },
@@ -6944,6 +7134,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/magnetic_decomposition.py"
   },
@@ -6974,6 +7165,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/neoclassical.py"
   },
@@ -7007,6 +7199,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/neoclassical.py"
   },
@@ -7037,6 +7230,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/neoclassical.py"
   },
@@ -7069,6 +7263,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7101,6 +7296,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7133,6 +7329,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7169,6 +7366,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7205,6 +7403,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7235,6 +7434,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7267,6 +7467,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7303,6 +7504,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7352,6 +7554,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7389,6 +7592,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7419,6 +7623,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7456,6 +7661,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7506,6 +7712,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7553,6 +7760,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/process_wrapper.py"
   },
@@ -7604,6 +7812,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/resistive_zeff.py"
   },
@@ -7636,6 +7845,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/update.py"
   },
@@ -7671,6 +7881,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/update.py"
   },
@@ -7701,6 +7912,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/update.py"
   },
@@ -7734,6 +7946,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/update.py"
   },
@@ -7776,6 +7989,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/update.py"
   },
@@ -7812,6 +8026,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/update.py"
   },
@@ -7847,6 +8062,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/vacuum_magnetics.py"
   },
@@ -7880,6 +8096,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/vacuum_magnetics.py"
   },
@@ -7916,6 +8133,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/vest_upstream.py"
   },
@@ -7951,6 +8169,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/vest_upstream.py"
   },
@@ -7981,6 +8200,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/vest_upstream.py"
   },
@@ -8014,6 +8234,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/vest_upstream.py"
   },
@@ -8055,6 +8276,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/omas/vest_upstream.py"
   },
@@ -8088,6 +8310,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/omas/vest_upstream.py"
   },
@@ -8132,6 +8355,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/omas/vest_upstream.py"
   },
@@ -8168,6 +8392,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/backend/recipes.py"
   },
@@ -8206,6 +8431,7 @@
    "production_reachability_note": "",
    "recommended_action": "B3: butterworth_highpass(zero_phase=True) in signal_processing (add if missing).",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/backend/recipes.py"
   },
@@ -8238,6 +8464,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/backend/recipes.py"
   },
@@ -8270,6 +8497,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/backend/recipes.py"
   },
@@ -8302,6 +8530,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/backend/recipes.py"
   },
@@ -8338,6 +8567,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/backend/recipes.py"
   },
@@ -8370,6 +8600,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/backend/recipes.py"
   },
@@ -8402,6 +8633,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/history.py"
   },
@@ -8432,6 +8664,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/history.py"
   },
@@ -8462,6 +8695,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/history.py"
   },
@@ -8494,6 +8728,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/mirnov.py"
   },
@@ -8526,6 +8761,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/mirnov.py"
   },
@@ -8562,6 +8798,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/operational_space.py"
   },
@@ -8594,6 +8831,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/operational_space.py"
   },
@@ -8627,6 +8865,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/operational_space.py"
   },
@@ -8664,6 +8903,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/operational_space.py"
   },
@@ -8712,6 +8952,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/particle.py"
   },
@@ -8744,6 +8985,7 @@
    "production_reachability_note": "",
    "recommended_action": "B3: delegate to process.soft_x_rays.sxr_baseline_correction only where the window semantics match (that one uses a tail window from baseline_start with a last-1000-samples fallback) -- not a drop-in.",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/soft_x_rays.py"
   },
@@ -8774,6 +9016,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/time.py"
   },
@@ -8804,6 +9047,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/time.py"
   },
@@ -8834,6 +9078,7 @@
    "production_reachability_note": "",
    "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/plot/time.py"
   },
@@ -8876,6 +9121,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_coil_fit.py"
   },
@@ -8922,6 +9168,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_coil_fit.py"
   },
@@ -8954,6 +9201,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_compact.py"
   },
@@ -8990,6 +9238,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_compact.py"
   },
@@ -9026,6 +9275,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_compact.py"
   },
@@ -9058,6 +9308,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_guazzotto_freidberg.py"
   },
@@ -9094,6 +9345,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_moments.py"
   },
@@ -9131,6 +9383,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_moments.py"
   },
@@ -9169,6 +9422,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9207,6 +9461,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9240,6 +9495,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9272,6 +9528,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9304,6 +9561,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9350,6 +9608,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9389,6 +9648,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9436,6 +9696,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9488,6 +9749,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9527,6 +9789,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9557,6 +9820,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9608,6 +9872,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9638,6 +9903,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9670,6 +9936,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9705,6 +9972,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9739,6 +10007,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9775,6 +10044,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9807,6 +10077,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_equilibrium_parametric.py"
   },
@@ -9846,6 +10117,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_synthetic_kinetic_profiles.py"
   },
@@ -9887,6 +10159,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_synthetic_kinetic_profiles.py"
   },
@@ -9927,6 +10200,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_synthetic_kinetic_profiles.py"
   },
@@ -9957,6 +10231,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/_synthetic_kinetic_profiles.py"
   },
@@ -9991,6 +10266,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/atomic.py"
   },
@@ -10024,6 +10300,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/camera_fluctuation.py"
   },
@@ -10062,6 +10339,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/cocos.py"
   },
@@ -10095,6 +10373,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/confinement.py"
   },
@@ -10127,6 +10406,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/confinement.py"
   },
@@ -10169,6 +10449,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/confinement.py"
   },
@@ -10202,6 +10483,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/confinement.py"
   },
@@ -10242,6 +10524,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/confinement.py"
   },
@@ -10284,6 +10567,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/electromagnetics.py"
   },
@@ -10314,6 +10598,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10344,6 +10629,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10374,6 +10660,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10404,6 +10691,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10442,6 +10730,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10475,6 +10764,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10523,6 +10813,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10556,6 +10847,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10592,6 +10884,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10637,6 +10930,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10673,6 +10967,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10713,6 +11008,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10750,6 +11046,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10784,6 +11081,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10834,6 +11132,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10877,6 +11176,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10921,6 +11221,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10959,6 +11260,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -10997,6 +11299,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11027,6 +11330,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11060,6 +11364,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11090,6 +11395,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11129,6 +11435,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11162,6 +11469,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11194,6 +11502,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11230,6 +11539,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11266,6 +11576,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11307,6 +11618,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11337,6 +11649,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11374,6 +11687,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11419,6 +11733,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11449,6 +11764,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11483,6 +11799,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11513,6 +11830,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11562,6 +11880,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/equilibrium.py"
   },
@@ -11594,6 +11913,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/fluctuation.py"
   },
@@ -11639,6 +11959,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/fluctuation.py"
   },
@@ -11673,6 +11994,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/fluctuation.py"
   },
@@ -11705,6 +12027,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/fluctuation.py"
   },
@@ -11739,6 +12062,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/fluctuation.py"
   },
@@ -11785,6 +12109,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/gyrokinetics.py"
   },
@@ -11815,6 +12140,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/gyrokinetics.py"
   },
@@ -11849,6 +12175,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/gyrokinetics.py"
   },
@@ -11881,6 +12208,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/impa.py"
   },
@@ -11913,6 +12241,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/impa.py"
   },
@@ -11949,6 +12278,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/impa.py"
   },
@@ -11987,25 +12317,22 @@
    "production_reachability_note": "",
    "recommended_action": "keep; #2135 moves the fitted coupling from 1.01-1.05 to 1.02-1.07 (TF zero-phase) -- record in D.",
    "related_issue": "#2135, #2166",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/process/impa.py"
   },
   {
-   "algorithm_semantics": "firwin(_FIR_TAPS) -> filtfilt, lfilter fallback. PR #2135 (open, about to merge) routes this low pass through vaft.process.signal_processing.apply_fir_filter (zero-phase).",
+   "algorithm_semantics": "firwin(_FIR_TAPS) -> filtfilt, lfilter fallback. Since #2135 (merged, 75b154e31) the low pass is applied through vaft.process.signal_processing.apply_fir_filter.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
-    {
-     "call": "scipy.signal.filtfilt",
-     "snippet": "signal.filtfilt(taps, 1, values, axis=-1)"
-    },
     {
      "call": "scipy.signal.firwin",
      "snippet": "signal.firwin(_FIR_TAPS, cutoff_hz, pass_zero='lowpass', fs=sample_rate)"
     },
     {
-     "call": "scipy.signal.lfilter",
-     "snippet": "signal.lfilter(taps, 1, values, axis=-1)"
+     "call": "vaft.process.signal_processing.apply_fir_filter",
+     "snippet": "apply_fir_filter(taps, values, axis=-1, short_record='causal')"
     }
    ],
    "callers": [
@@ -12024,14 +12351,14 @@
    ],
    "owning_layer": "process",
    "primitives": [
-    "scipy.signal.filtfilt",
     "scipy.signal.firwin",
-    "scipy.signal.lfilter"
+    "vaft.process.signal_processing.apply_fir_filter"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "pipeline1 generate_impa_ods (opt-in, impa.enable false in config.yaml).",
    "recommended_action": "B2: check_declared_sample_rate status at the IMPA low pass (report-only, #432).",
    "related_issue": "#432, #2159",
+   "resolved_by": "#2135 (filter application only; the sample-rate question stays open)",
    "scientific_risk": "medium",
    "source_file": "vaft/process/impa.py"
   },
@@ -12062,6 +12389,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/impa.py"
   },
@@ -12092,6 +12420,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/impa.py"
   },
@@ -12128,6 +12457,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/impurity.py"
   },
@@ -12161,6 +12491,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/impurity.py"
   },
@@ -12193,6 +12524,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/impurity.py"
   },
@@ -12223,6 +12555,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/impurity.py"
   },
@@ -12263,6 +12596,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/impurity.py"
   },
@@ -12295,6 +12629,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/langmuir.py"
   },
@@ -12334,6 +12669,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/local_mhd_criteria.py"
   },
@@ -12368,6 +12704,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/local_mhd_criteria.py"
   },
@@ -12415,6 +12752,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/local_mhd_criteria.py"
   },
@@ -12452,6 +12790,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/local_mhd_criteria.py"
   },
@@ -12484,6 +12823,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/magnetic_island.py"
   },
@@ -12521,6 +12861,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/magnetic_island.py"
   },
@@ -12553,6 +12894,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/magnetic_island.py"
   },
@@ -12585,6 +12927,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/magnetic_island.py"
   },
@@ -12617,6 +12960,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/magnetic_island.py"
   },
@@ -12631,7 +12975,6 @@
     }
    ],
    "callers": [
-    "vaft.process.magnetics.vest_b_field_pol_probe_legacy",
     "vaft.process.magnetics.vest_flux_loop_voltage"
    ],
    "classification": "duplicate",
@@ -12648,6 +12991,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/B3: registry validation rejects zero calibration; keep the private helper or route through calibrate_vest_signal (equivalent for the linear case).",
    "related_issue": "#2158, #2162",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/magnetics.py"
   },
@@ -12678,6 +13022,7 @@
    "production_reachability_note": "",
    "recommended_action": "B3: replace by fir_filter_coefficients(cutoff, fs, kind=...) -- coefficients identical; pin with an equality test.",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/magnetics.py"
   },
@@ -12696,7 +13041,7 @@
     }
    ],
    "callers": [
-    "vaft.process.magnetics.vest_b_field_pol_probe_legacy",
+    "vaft.process.magnetics.b_field_pol_probe_field",
     "vaft.process.magnetics.vest_flux_loop_flux_from_voltage"
    ],
    "classification": "duplicate",
@@ -12716,21 +13061,26 @@
    "production_reachability_note": "",
    "recommended_action": "B3: absorb into signal_processing.subtract_baseline(method='polyfit') with identical guards; keep a private alias until E.",
    "related_issue": "#2162, #639",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/process/magnetics.py"
   },
   {
-   "algorithm_semantics": "gain -> zero-phase low pass -> -cumtrapz -> linear baseline (baseline_indices, #639 degenerate handling) after #2135.",
+   "algorithm_semantics": "gain -> zero-phase apply_fir_filter -> -cumtrapz_compat -> linear baseline (_linear_baseline over baseline_indices, #639 degenerate handling). Replaced vest_b_field_pol_probe_legacy (causal lfilter, 0.5 ms lag), which #2135 removed.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
     {
-     "call": "scipy.signal.lfilter",
-     "snippet": "signal.lfilter(lowpass_param, [1.0], raw, axis=0)"
-    },
-    {
      "call": "vaft.compat.cumtrapz_compat",
      "snippet": "cumtrapz_compat(filtered_raw, x=time, initial=0, axis=0)"
+    },
+    {
+     "call": "vaft.process.magnetics._linear_baseline",
+     "snippet": "_linear_baseline(time, integrated_flux[:, i], baseline_indices, allow_zero_fallback=allow_zero_fallback, shot=shot, channel='b_field_pol_probe' if channel is..."
+    },
+    {
+     "call": "vaft.process.signal_processing.apply_fir_filter",
+     "snippet": "apply_fir_filter(lowpass_param, raw, axis=0)"
     },
     {
      "call": "vaft.process.signal_processing.define_baseline",
@@ -12741,11 +13091,13 @@
      "snippet": "subtract_baseline(time, integrated_flux[:, i], baseline_indices, fitting_opt=baseline_type)"
     }
    ],
-   "callers": [],
+   "callers": [
+    "vaft.process.magnetics.vest_equilibrium_magnetics_detailed"
+   ],
    "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
-   "evidence": "",
+   "evidence": "#2147 comment: on 39915 main = public(t - 0.50 ms) on all 63 probes before #2135; vacuum residual improves on 38030/39915/41660/44136/45001.",
    "implementation": "vaft.process.magnetics.b_field_pol_probe_field",
    "operation": [
     "baseline",
@@ -12754,15 +13106,17 @@
    ],
    "owning_layer": "process",
    "primitives": [
-    "scipy.signal.lfilter",
     "vaft.compat.cumtrapz_compat",
+    "vaft.process.magnetics._linear_baseline",
+    "vaft.process.signal_processing.apply_fir_filter",
     "vaft.process.signal_processing.define_baseline",
     "vaft.process.signal_processing.subtract_baseline"
    ],
-   "production_reachability": "not_statically_reached",
-   "production_reachability_note": "",
-   "recommended_action": "keep as the single B-pol probe chain (#2135).",
-   "related_issue": "#2135",
+   "production_reachability": "pipeline1",
+   "production_reachability_note": "pipeline1 generate_diagnostics_ods (every probe) since #2135, via vest_equilibrium_magnetics_detailed.",
+   "recommended_action": "keep as the single B-pol probe chain.",
+   "related_issue": "#2135, #1541",
+   "resolved_by": "#2135",
    "scientific_risk": "low",
    "source_file": "vaft/process/magnetics.py"
   },
@@ -12804,25 +13158,22 @@
    "production_reachability_note": "not reached by the Snakefiles (VEST uses vest_flux_loop_flux_from_voltage).",
    "recommended_action": "keep as the machine-independent loop chain; the VEST chain stays a specialization.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/magnetics.py"
   },
   {
-   "algorithm_semantics": "mean removal -> firwin(hann, _firwin_order(fs)) high/low pass -> filtfilt if size > 3*taps else lfilter -> / amplifier gain; cutoff <= 0 or >= Nyquist is SILENTLY skipped.",
+   "algorithm_semantics": "mean removal -> firwin(hann, _firwin_order(fs)) high/low pass -> apply_fir_filter(short_record='causal') (since #2135; same length rule as before) -> / amplifier gain; cutoff <= 0 or >= Nyquist is SILENTLY skipped.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
-    {
-     "call": "scipy.signal.filtfilt",
-     "snippet": "signal.filtfilt(taps, 1.0, processed)"
-    },
     {
      "call": "scipy.signal.firwin",
      "snippet": "signal.firwin(order, cutoff, fs=sample_rate, pass_zero=pass_zero, window='hann')"
     },
     {
-     "call": "scipy.signal.lfilter",
-     "snippet": "signal.lfilter(taps, 1.0, processed)"
+     "call": "vaft.process.signal_processing.apply_fir_filter",
+     "snippet": "apply_fir_filter(taps, processed, short_record='causal')"
     }
    ],
    "callers": [
@@ -12840,14 +13191,14 @@
    ],
    "owning_layer": "process",
    "primitives": [
-    "scipy.signal.filtfilt",
     "scipy.signal.firwin",
-    "scipy.signal.lfilter"
+    "vaft.process.signal_processing.apply_fir_filter"
    ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "not called by Pipeline 1 (fluctuation Mirnov voltages are published raw); research callers only.",
    "recommended_action": "B2: the Nyquist skip becomes an explicit status; B3: _firwin_order -> fir_filter_coefficients (coefficients verified identical, see _firwin_order row).",
    "related_issue": "#2159, #2162",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/process/magnetics.py"
   },
@@ -12893,64 +13244,8 @@
    "production_reachability_note": "not reached by the Snakefiles; generic (non-VEST) Rogowski chain.",
    "recommended_action": "keep; covered by the subtract_baseline owner change (B3).",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "low",
-   "source_file": "vaft/process/magnetics.py"
-  },
-  {
-   "algorithm_semantics": "firwin(251, 2.5 kHz, fs 250 kHz, hamming) -> CAUSAL lfilter (0.5 ms lag) -> divide calibration -> -cumtrapz -> polyfit deg-1 baseline over leading samples.",
-   "assets": [],
-   "audit_scope": "preprocessing",
-   "call_sites": [
-    {
-     "call": "scipy.signal.firwin",
-     "snippet": "signal.firwin(cfg.lowpass_taps, cfg.lowpass_cutoff, pass_zero='lowpass', fs=cfg.fast_sample_rate)"
-    },
-    {
-     "call": "scipy.signal.lfilter",
-     "snippet": "signal.lfilter(lowpass, 1, raw)"
-    },
-    {
-     "call": "vaft.compat.cumtrapz_compat",
-     "snippet": "cumtrapz_compat(calibrated, x=time, initial=0)"
-    },
-    {
-     "call": "vaft.process.magnetics._calibrated_signal",
-     "snippet": "_calibrated_signal(filtered, float(calibration), cfg.calibration_mode)"
-    },
-    {
-     "call": "vaft.process.magnetics._linear_baseline",
-     "snippet": "_linear_baseline(time, integrated, baseline_indices, allow_zero_fallback=fallback, shot=int(shot), channel='b_field_pol_probe' if channel is None else channe..."
-    }
-   ],
-   "callers": [
-    "vaft.process.magnetics.vest_equilibrium_magnetics_detailed",
-    "workflow.magnetics_geometry.verify_wiring.processed"
-   ],
-   "classification": "legacy",
-   "configuration_source": "vest.yaml 0.diagnostics.equilibrium_magnetics.processing.window (probe_baseline_end) + VestMagneticsProcessingConfig defaults (251 taps, 2.5 kHz, 250 kHz).",
-   "curated": true,
-   "evidence": "#2147 comment: on 39915 main = public(t - 0.50 ms) on all 63 probes; vacuum residual improves on 38030/39915/41660/44136/45001.",
-   "implementation": "vaft.process.magnetics.vest_b_field_pol_probe_legacy",
-   "operation": [
-    "baseline",
-    "calibration",
-    "filter_application",
-    "filter_design",
-    "integration"
-   ],
-   "owning_layer": "process",
-   "primitives": [
-    "scipy.signal.firwin",
-    "scipy.signal.lfilter",
-    "vaft.compat.cumtrapz_compat",
-    "vaft.process.magnetics._calibrated_signal",
-    "vaft.process.magnetics._linear_baseline"
-   ],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "pipeline1 generate_diagnostics_ods (every probe, every shot) on develop until #2135 merges.",
-   "recommended_action": "removed by #2135 (b_field_pol_probe_field + apply_fir_filter zero-phase).",
-   "related_issue": "#2135, #1541",
-   "scientific_risk": "high",
    "source_file": "vaft/process/magnetics.py"
   },
   {
@@ -12961,11 +13256,16 @@
     {
      "call": "numpy.interp",
      "snippet": "np.interp(magnetics_time, source_time, processed_full)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(magnetics_time, source_time, processed_full[:, 0])"
     }
    ],
    "callers": [
     "vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics_detailed",
-    "vaft.process.magnetics.vest_equilibrium_magnetics_signals"
+    "vaft.process.magnetics.vest_equilibrium_magnetics_signals",
+    "workflow.magnetics_geometry.verify_wiring.processed"
    ],
    "classification": "intentional_specialization",
    "configuration_source": "VestMagneticsProcessingConfig resolved from vest.yaml equilibrium_magnetics.processing.window (+ optional workflow override via magnetics_processing_for_shot).",
@@ -12983,6 +13283,7 @@
    "production_reachability_note": "pipeline1 generate_diagnostics_ods (every equilibrium probe and loop).",
    "recommended_action": "D: measure the flux-loop spectrum above 12.5 kHz on a native-DAQ shot before deciding; B3: correct the comment either way.",
    "related_issue": "#425, #2162, #2166",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/process/magnetics.py"
   },
@@ -13022,6 +13323,7 @@
    "production_reachability_note": "pipeline1 generate_diagnostics_ods, all 11 loops.",
    "recommended_action": "keep the three baseline rules (donor VEST_MagneticSignalProcessing[2].m); fix the comments that claim an 'already low-passed loop voltage' (process/magnetics.py around the flux branch, machine_mapping/magnetics.py _interpolate_signal) in B3.",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/process/magnetics.py"
   },
@@ -13055,7 +13357,41 @@
    "production_reachability_note": "",
    "recommended_action": "keep; see vest_equilibrium_magnetics_detailed for the anti-alias question.",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "medium",
+   "source_file": "vaft/process/magnetics.py"
+  },
+  {
+   "algorithm_semantics": "firwin(lowpass_taps=251, lowpass_cutoff=2.5 kHz, fs=250 kHz), Hamming window: the donor vest_filter design; not equal to fir_filter_coefficients (hann).",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "scipy.signal.firwin",
+     "snippet": "signal.firwin(cfg.lowpass_taps, cfg.lowpass_cutoff, pass_zero='lowpass', fs=cfg.fast_sample_rate)"
+    }
+   ],
+   "callers": [
+    "vaft.process.magnetics.vest_equilibrium_magnetics_detailed"
+   ],
+   "classification": "intentional_specialization",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": true,
+   "evidence": "",
+   "implementation": "vaft.process.magnetics.vest_probe_lowpass_taps",
+   "operation": [
+    "filter_design"
+   ],
+   "owning_layer": "process",
+   "primitives": [
+    "scipy.signal.firwin"
+   ],
+   "production_reachability": "pipeline1",
+   "production_reachability_note": "",
+   "recommended_action": "keep (#2135 row: FIR designs per diagnostic are intentional specializations).",
+   "related_issue": "#2135",
+   "resolved_by": "",
+   "scientific_risk": "low",
    "source_file": "vaft/process/magnetics.py"
   },
   {
@@ -13085,6 +13421,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/ml/_backends/numpy.py"
   },
@@ -13117,6 +13454,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/ml/dataset.py"
   },
@@ -13149,6 +13487,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/mode_frequency.py"
   },
@@ -13179,6 +13518,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/mode_frequency.py"
   },
@@ -13209,6 +13549,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/ntv_coil_response.py"
   },
@@ -13244,6 +13585,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep as the time-derivative owner (np.gradient callers are mostly spatial).",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/numerical.py"
   },
@@ -13276,6 +13618,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/onset.py"
   },
@@ -13314,6 +13657,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/onset.py"
   },
@@ -13351,6 +13695,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/onset.py"
   },
@@ -13384,6 +13729,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep; already delegates to the canonical Butterworth.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/onset.py"
   },
@@ -13429,6 +13775,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/ordering_state.py"
   },
@@ -13471,6 +13818,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/ordering_state.py"
   },
@@ -13527,6 +13875,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/particle.py"
   },
@@ -13563,6 +13912,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/particle.py"
   },
@@ -13599,6 +13949,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/perturbation.py"
   },
@@ -13629,6 +13980,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/perturbation.py"
   },
@@ -13663,6 +14015,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/perturbation.py"
   },
@@ -13693,6 +14046,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/profile.py"
   },
@@ -13725,6 +14079,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/profile.py"
   },
@@ -13759,6 +14114,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/profile.py"
   },
@@ -13793,6 +14149,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/profile.py"
   },
@@ -13827,6 +14184,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/profile.py"
   },
@@ -13857,6 +14215,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/profile.py"
   },
@@ -13887,6 +14246,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/profile.py"
   },
@@ -13919,6 +14279,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/profile_gradients.py"
   },
@@ -13951,6 +14312,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/profile_gradients.py"
   },
@@ -13981,6 +14343,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/profile_gradients.py"
   },
@@ -14013,6 +14376,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/profile_gradients.py"
   },
@@ -14053,6 +14417,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/profile_gradients.py"
   },
@@ -14107,6 +14472,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/q_profile_context.py"
   },
@@ -14139,6 +14505,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/q_profile_context.py"
   },
@@ -14169,6 +14536,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/resistive_zeff.py"
   },
@@ -14206,6 +14574,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/resistive_zeff.py"
   },
@@ -14238,6 +14607,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/resistive_zeff.py"
   },
@@ -14268,6 +14638,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/resonant_coil_response.py"
   },
@@ -14298,6 +14669,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14330,6 +14702,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14376,6 +14749,55 @@
    "production_reachability_note": "",
    "recommended_action": "keep as the resampling anti-alias owner.",
    "related_issue": "#425",
+   "resolved_by": "",
+   "scientific_risk": "low",
+   "source_file": "vaft/process/signal_processing.py"
+  },
+  {
+   "algorithm_semantics": "zero-phase FIR application (filtfilt); a record shorter than 3*len(taps)+1 raises (short_record='raise', default) or falls back to causal lfilter (short_record='causal').",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "<definition>",
+     "snippet": "def apply_fir_filter"
+    },
+    {
+     "call": "scipy.signal.filtfilt",
+     "snippet": "scipy_signal.filtfilt(taps, 1.0, values, axis=axis)"
+    },
+    {
+     "call": "scipy.signal.lfilter",
+     "snippet": "scipy_signal.lfilter(taps, 1.0, values, axis=axis)"
+    }
+   ],
+   "callers": [
+    "vaft.machine_mapping.magnetics.vfit_plasma_current",
+    "vaft.machine_mapping.pf_active._legacy_pf_filter",
+    "vaft.machine_mapping.tf.vfit_tf_current_detailed",
+    "vaft.process.impa.impa_lowpass",
+    "vaft.process.magnetics.b_field_pol_probe_field",
+    "vaft.process.magnetics.mirnov_preprocess_signal",
+    "vaft.process.signal_processing.fir_filter"
+   ],
+   "classification": "canonical",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": true,
+   "evidence": "",
+   "implementation": "vaft.process.signal_processing.apply_fir_filter",
+   "operation": [
+    "filter_application"
+   ],
+   "owning_layer": "process",
+   "primitives": [
+    "scipy.signal.filtfilt",
+    "scipy.signal.lfilter"
+   ],
+   "production_reachability": "pipeline1",
+   "production_reachability_note": "",
+   "recommended_action": "keep as the single FIR application (#2135 row).",
+   "related_issue": "#2135",
+   "resolved_by": "#2135",
    "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14423,6 +14845,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14472,13 +14895,14 @@
    "production_reachability_note": "",
    "recommended_action": "keep; add butterworth_highpass(zero_phase=True) for the plot recipe (B3).",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
   {
    "algorithm_semantics": "calls  (not curated)",
    "assets": [],
-   "audit_scope": "derived_numerics_not_triaged",
+   "audit_scope": "preprocessing",
    "call_sites": [
     {
      "call": "<definition>",
@@ -14500,10 +14924,11 @@
    ],
    "owning_layer": "process",
    "primitives": [],
-   "production_reachability": "not_statically_reached",
+   "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14541,11 +14966,12 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
   {
-   "algorithm_semantics": "designs with fir_filter_coefficients and applies zero-phase; after #2135 applies through apply_fir_filter.",
+   "algorithm_semantics": "designs with fir_filter_coefficients and applies zero-phase through apply_fir_filter (since #2135).",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -14554,12 +14980,12 @@
      "snippet": "def fir_filter"
     },
     {
-     "call": "scipy.signal.filtfilt",
-     "snippet": "scipy_signal.filtfilt(taps, 1.0, values, axis=-1)"
-    },
-    {
      "call": "scipy.signal.lfilter",
      "snippet": "scipy_signal.lfilter(taps, 1.0, values, axis=-1)"
+    },
+    {
+     "call": "vaft.process.signal_processing.apply_fir_filter",
+     "snippet": "apply_fir_filter(taps, values)"
     },
     {
      "call": "vaft.process.signal_processing.fir_filter_coefficients",
@@ -14578,14 +15004,15 @@
    ],
    "owning_layer": "process",
    "primitives": [
-    "scipy.signal.filtfilt",
     "scipy.signal.lfilter",
+    "vaft.process.signal_processing.apply_fir_filter",
     "vaft.process.signal_processing.fir_filter_coefficients"
    ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "#2135",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14622,6 +15049,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep; NOT a drop-in for the VEST Hamming designs (26 taps at 25 kHz there vs 25 here, #2135 row). Expose window/numtaps explicitly when B3 composes the PF filter.",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14674,6 +15102,7 @@
    "production_reachability_note": "",
    "recommended_action": "E: retire with machine_mapping.utils.process_signal once no caller remains.",
    "related_issue": "#2168",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14713,6 +15142,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep; PF6 and Rogowski/diamagnetic callers already delegate.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14760,6 +15190,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep as the resampling owner; direct np.interp in mappers stays where the source is already band-limited (documented per site).",
    "related_issue": "#425",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14793,6 +15224,7 @@
    "production_reachability_note": "",
    "recommended_action": "E: retire once onset.* replaces every caller.",
    "related_issue": "#2168",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14831,6 +15263,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep as the single moving-average owner; legacy.smooth delegates (B3).",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14880,10 +15313,11 @@
     "scipy.interpolate.UnivariateSpline",
     "scipy.optimize.curve_fit"
    ],
-   "production_reachability": "not_statically_reached",
+   "production_reachability": "pipeline1",
    "production_reachability_note": "",
    "recommended_action": "B3: become the single linear-baseline owner with a method='polyfit' path that absorbs process.magnetics._linear_baseline guards (finite-only, #639 DegenerateBaselineWindowError); equivalence to 1e-12.",
    "related_issue": "#2162, #639",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14914,6 +15348,7 @@
    "production_reachability_note": "",
    "recommended_action": "E: confirm no production caller, then deprecate in favour of the PF filter composition (B3).",
    "related_issue": "#2168",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14944,6 +15379,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/soft_x_rays.py"
   },
@@ -14980,6 +15416,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/soft_x_rays.py"
   },
@@ -15011,6 +15448,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep; plot/soft_x_rays._baseline_correct delegates (B3).",
    "related_issue": "#2162",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/process/soft_x_rays.py"
   },
@@ -15057,6 +15495,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/soft_x_rays.py"
   },
@@ -15087,6 +15526,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/soft_x_rays.py"
   },
@@ -15123,6 +15563,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/species.py"
   },
@@ -15161,6 +15602,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/transients.py"
   },
@@ -15193,6 +15635,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/transport_state.py"
   },
@@ -15227,6 +15670,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/transport_state.py"
   },
@@ -15257,6 +15701,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/wall_modes.py"
   },
@@ -15287,6 +15732,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/wall_modes.py"
   },
@@ -15320,6 +15766,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/zeff_projection.py"
   },
@@ -15356,6 +15803,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/process/zeff_projection.py"
   },
@@ -15399,6 +15847,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/validation/efit_channels.py"
   },
@@ -15431,6 +15880,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/equilibrium.py"
   },
@@ -15466,6 +15916,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/equilibrium.py"
   },
@@ -15498,6 +15949,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/equilibrium.py"
   },
@@ -15532,6 +15984,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/equilibrium.py"
   },
@@ -15564,6 +16017,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/equilibrium_regime.py"
   },
@@ -15596,6 +16050,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/equilibrium_regime.py"
   },
@@ -15630,6 +16085,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/validation/flux_loop_assessment.py"
   },
@@ -15665,6 +16121,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/kinetic_state.py"
   },
@@ -15717,6 +16174,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/kinetic_state.py"
   },
@@ -15749,6 +16207,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/kinetic_state.py"
   },
@@ -15783,6 +16242,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/validation/magnetics.py"
   },
@@ -15815,6 +16275,7 @@
    "production_reachability_note": "",
    "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/magnetics.py"
   },
@@ -15849,6 +16310,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "vaft/validation/magnetics.py"
   },
@@ -15881,6 +16343,7 @@
    "production_reachability_note": "",
    "recommended_action": "keep.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/validation/magnetics.py"
   },
@@ -15918,6 +16381,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/neoclassical.py"
   },
@@ -15955,6 +16419,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/stability.py"
   },
@@ -15991,6 +16456,7 @@
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/studies/nice_issue_666/synthetic_equilibria/run_tokamaker.py"
   },
@@ -16023,6 +16489,7 @@
    "production_reachability_note": "pipeline1 generate_constraints_ods (vacuum-time drop).",
    "recommended_action": "B3/C2: move next to legacy.box_average as a vectorised form with an equivalence test; workflow-local numerics otherwise.",
    "related_issue": "#2162, #2164",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/automatic_pipeline_1_routine_data_processing/generate_constraints_ods.py"
   },
@@ -16055,6 +16522,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/confinement_scaling/build_table.py"
   },
@@ -16087,6 +16555,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/confinement_scaling/extensions.py"
   },
@@ -16119,6 +16588,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/confinement_scaling/tglf_link.py"
   },
@@ -16155,6 +16625,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/confinement_scaling/tglf_link.py"
   },
@@ -16187,6 +16658,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/efit_numerics/convergence_study.py"
   },
@@ -16228,6 +16700,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/efit_numerics/convergence_study.py"
   },
@@ -16268,6 +16741,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/efit_profile_models/profile_model_study.py"
   },
@@ -16304,6 +16778,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/efit_uncertainty_calibration/sensitivity_pressure.py"
   },
@@ -16336,6 +16811,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/impurity_zeff/build_zeff_profile.py"
   },
@@ -16366,6 +16842,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/impurity_zeff/build_zeff_profile.py"
   },
@@ -16398,6 +16875,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/impurity_zeff/project_resistive.py"
   },
@@ -16435,6 +16913,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/kinetic_closure/nubeam_fast_ion_reference.py"
   },
@@ -16468,6 +16947,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/kinetic_state/archive_to_ods.py"
   },
@@ -16505,6 +16985,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/kinetic_state/archive_to_ods.py"
   },
@@ -16537,6 +17018,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/kinetic_state/archive_to_ods.py"
   },
@@ -16570,6 +17052,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/kinetic_state/archive_to_ods.py"
   },
@@ -16600,6 +17083,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/kinetic_state/archive_to_ods.py"
   },
@@ -16632,6 +17116,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/kinetic_state/staged_inference_evaluation.py"
   },
@@ -16664,6 +17149,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/kinetic_state/staged_inference_evaluation.py"
   },
@@ -16696,6 +17182,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/kinetic_state/ti_ratio_time_series.py"
   },
@@ -16730,6 +17217,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "workflow/magnetics_geometry/verify_wiring.py"
   },
@@ -16740,7 +17228,7 @@
    "call_sites": [
     {
      "call": "numpy.interp",
-     "snippet": "np.interp(grid, time, field)"
+     "snippet": "np.interp(grid, result.time, result.probes[0])"
     }
    ],
    "callers": [
@@ -16748,7 +17236,7 @@
     "workflow.magnetics_geometry.verify_wiring.z006_health"
    ],
    "classification": "unverified",
-   "configuration_source": "caller arguments / module literals (not curated)",
+   "configuration_source": "vest.yaml via equilibrium_magnetics_processing_config",
    "curated": false,
    "evidence": "",
    "implementation": "workflow.magnetics_geometry.verify_wiring.processed",
@@ -16763,6 +17251,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/magnetics_geometry/verify_wiring.py"
   },
@@ -16803,6 +17292,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "workflow/magnetics_geometry/verify_wiring.py"
   },
@@ -16837,6 +17327,7 @@
    "production_reachability_note": "",
    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "medium",
    "source_file": "workflow/magnetics_geometry/verify_wiring.py"
   },
@@ -16878,6 +17369,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/operational_space_atlas/build_efit_base.py"
   },
@@ -16910,6 +17402,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/ordering_atlas/build_states.py"
   },
@@ -16942,6 +17435,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/ordering_atlas/build_states.py"
   },
@@ -16984,6 +17478,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/resistive_zeff/build_zeff.py"
   },
@@ -17031,6 +17526,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/resistive_zeff/build_zeff.py"
   },
@@ -17067,6 +17563,7 @@
    "production_reachability_note": "",
    "recommended_action": "study only; C5 replaces the hard-coded 'Flux Loop - #10' name lookup with the registry id fl_10.",
    "related_issue": "#2164",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/resistive_zeff/build_zeff.py"
   },
@@ -17109,6 +17606,7 @@
    "production_reachability_note": "",
    "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
    "related_issue": "",
+   "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/stability_atlas/build_atlas.py"
   }

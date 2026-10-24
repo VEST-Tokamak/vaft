@@ -220,8 +220,8 @@ _SNIPPET_LIMIT = 160
 # --------------------------------------------------------------------------
 
 _PR2135 = (
-    "PR #2135 (open, about to merge) routes this low pass through "
-    "vaft.process.signal_processing.apply_fir_filter (zero-phase)."
+    "Since #2135 (merged, 75b154e31) the low pass is applied through "
+    "vaft.process.signal_processing.apply_fir_filter."
 )
 
 CURATED: dict[tuple[str, str], dict[str, Any]] = {
@@ -243,9 +243,24 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("vaft/process/signal_processing.py", "vaft.process.signal_processing.fir_filter"): {
         "classification": "canonical",
-        "algorithm_semantics": "designs with fir_filter_coefficients and applies zero-phase; after #2135 applies through apply_fir_filter.",
+        "algorithm_semantics": "designs with fir_filter_coefficients and applies zero-phase through apply_fir_filter (since #2135).",
         "scientific_risk": "low",
         "recommended_action": "keep.",
+        "related_issue": "#2135",
+    },
+    ("vaft/process/signal_processing.py", "vaft.process.signal_processing.apply_fir_filter"): {
+        "classification": "canonical",
+        "algorithm_semantics": "zero-phase FIR application (filtfilt); a record shorter than 3*len(taps)+1 raises (short_record='raise', default) or falls back to causal lfilter (short_record='causal').",
+        "scientific_risk": "low",
+        "recommended_action": "keep as the single FIR application (#2135 row).",
+        "related_issue": "#2135",
+        "resolved_by": "#2135",
+    },
+    ("vaft/process/magnetics.py", "vaft.process.magnetics.vest_probe_lowpass_taps"): {
+        "classification": "intentional_specialization",
+        "algorithm_semantics": "firwin(lowpass_taps=251, lowpass_cutoff=2.5 kHz, fs=250 kHz), Hamming window: the donor vest_filter design; not equal to fir_filter_coefficients (hann).",
+        "scientific_risk": "low",
+        "recommended_action": "keep (#2135 row: FIR designs per diagnostic are intentional specializations).",
         "related_issue": "#2135",
     },
     ("vaft/process/signal_processing.py", "vaft.process.signal_processing.butterworth_lowpass"): {
@@ -312,23 +327,15 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "related_issue": "#2168",
     },
     # ---- B-pol probe / magnetics chain --------------------------------------
-    ("vaft/process/magnetics.py", "vaft.process.magnetics.vest_b_field_pol_probe_legacy"): {
-        "classification": "legacy",
-        "production_reachability_note": "pipeline1 generate_diagnostics_ods (every probe, every shot) on develop until #2135 merges.",
-        "configuration_source": "vest.yaml 0.diagnostics.equilibrium_magnetics.processing.window (probe_baseline_end) + VestMagneticsProcessingConfig defaults (251 taps, 2.5 kHz, 250 kHz).",
-        "algorithm_semantics": "firwin(251, 2.5 kHz, fs 250 kHz, hamming) -> CAUSAL lfilter (0.5 ms lag) -> divide calibration -> -cumtrapz -> polyfit deg-1 baseline over leading samples.",
-        "scientific_risk": "high",
-        "recommended_action": "removed by #2135 (b_field_pol_probe_field + apply_fir_filter zero-phase).",
-        "may_be_absent": True,
-        "related_issue": "#2135, #1541",
-        "evidence": "#2147 comment: on 39915 main = public(t - 0.50 ms) on all 63 probes; vacuum residual improves on 38030/39915/41660/44136/45001.",
-    },
     ("vaft/process/magnetics.py", "vaft.process.magnetics.b_field_pol_probe_field"): {
         "classification": "canonical",
-        "algorithm_semantics": "gain -> zero-phase low pass -> -cumtrapz -> linear baseline (baseline_indices, #639 degenerate handling) after #2135.",
+        "production_reachability_note": "pipeline1 generate_diagnostics_ods (every probe) since #2135, via vest_equilibrium_magnetics_detailed.",
+        "algorithm_semantics": "gain -> zero-phase apply_fir_filter -> -cumtrapz_compat -> linear baseline (_linear_baseline over baseline_indices, #639 degenerate handling). Replaced vest_b_field_pol_probe_legacy (causal lfilter, 0.5 ms lag), which #2135 removed.",
         "scientific_risk": "low",
-        "recommended_action": "keep as the single B-pol probe chain (#2135).",
-        "related_issue": "#2135",
+        "recommended_action": "keep as the single B-pol probe chain.",
+        "related_issue": "#2135, #1541",
+        "resolved_by": "#2135",
+        "evidence": "#2147 comment: on 39915 main = public(t - 0.50 ms) on all 63 probes before #2135; vacuum residual improves on 38030/39915/41660/44136/45001.",
     },
     ("vaft/process/magnetics.py", "vaft.process.magnetics._linear_baseline"): {
         "classification": "duplicate",
@@ -351,7 +358,7 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     ("vaft/process/magnetics.py", "vaft.process.magnetics.mirnov_preprocess_signal"): {
         "classification": "intentional_specialization",
         "production_reachability_note": "not called by Pipeline 1 (fluctuation Mirnov voltages are published raw); research callers only.",
-        "algorithm_semantics": "mean removal -> firwin(hann, _firwin_order(fs)) high/low pass -> filtfilt if size > 3*taps else lfilter -> / amplifier gain; cutoff <= 0 or >= Nyquist is SILENTLY skipped.",
+        "algorithm_semantics": "mean removal -> firwin(hann, _firwin_order(fs)) high/low pass -> apply_fir_filter(short_record='causal') (since #2135; same length rule as before) -> / amplifier gain; cutoff <= 0 or >= Nyquist is SILENTLY skipped.",
         "scientific_risk": "medium",
         "recommended_action": "B2: the Nyquist skip becomes an explicit status; B3: _firwin_order -> fir_filter_coefficients (coefficients verified identical, see _firwin_order row).",
         "related_issue": "#2159, #2162",
@@ -391,10 +398,11 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "classification": "intentional_specialization",
         "production_reachability_note": "pipeline1 generate_diagnostics_ods (Ip, ref = -1) and generate_impa_ods.",
         "configuration_source": "vest.yaml plasma_current.{calibration, processing.baseline, processing.reference} with shot revisions.",
-        "algorithm_semantics": "calibrate -> polyfit baseline -> FL10 reference subtraction (subtract | subtract_fl10_windowed: decimate + smooth + interp | disabled >= 47117) -> sign flip; the ref != -1 low pass (firwin + causal lfilter on develop, apply_fir_filter after #2135) has no production caller.",
+        "algorithm_semantics": "calibrate -> polyfit baseline -> FL10 reference subtraction (subtract | subtract_fl10_windowed: decimate + smooth + interp | disabled >= 47117) -> sign flip; the ref != -1 low pass (causal lfilter before #2135, zero-phase apply_fir_filter since) has no production caller.",
         "scientific_risk": "medium",
         "recommended_action": "keep the FL10 decimate chain as a named specialization; baselines delegate (B3).",
         "related_issue": "#2135, #2162",
+        "resolved_by": "#2135 (Ip-reference low pass only)",
     },
     ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._load_equilibrium_magnetics_channels"): {
         "classification": "legacy",
@@ -438,15 +446,17 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "scientific_risk": "medium",
         "recommended_action": "B3: named pf_current_filter in vaft.process = fir_filter_coefficients(window='hamming', numtaps=251) + apply_fir_filter + uniform_filter1d; coefficient-equality and phase tests.",
         "related_issue": "#2162, #2135",
+        "resolved_by": "#2135 (filter application only; design stays a B3 item)",
     },
     ("vaft/machine_mapping/tf.py", "vaft.machine_mapping.tf.vfit_tf_current_detailed"): {
         "classification": "intentional_specialization",
         "production_reachability_note": "pipeline1 generate_diagnostics_ods (TF) and IMPA (vfit_tf_current).",
         "configuration_source": "vest.yaml 0.diagnostics.tf (calibration -3e4, 26 taps, 2.5 kHz, fs 25 kHz, baseline 1000, smoothing 50, excursion_repair).",
-        "algorithm_semantics": "calibrate -> mean baseline (1000) -> repair_tf_excursions -> firwin(26) -> CAUSAL lfilter on develop -> smooth(50). " + _PR2135,
-        "scientific_risk": "high",
-        "recommended_action": "merge #2135 (zero-phase); keep excursion repair + smooth(50) as TF specialization.",
+        "algorithm_semantics": "calibrate -> mean baseline (1000) -> repair_tf_excursions -> firwin(26) -> zero-phase apply_fir_filter (causal lfilter, 0.5 ms lag, before #2135) -> smooth(50). " + _PR2135,
+        "scientific_risk": "low",
+        "recommended_action": "keep excursion repair + smooth(50) as TF specialization; products made before #2135 carry the lag (regeneration needs owner approval).",
         "related_issue": "#2135",
+        "resolved_by": "#2135",
         "evidence": "#2135: donor VEST_TFwaveform.m uses filtfilt; causal 26 taps at 25 kHz = 0.5 ms lag; IMPA TF coupling 1.01-1.05 -> 1.02-1.07.",
     },
     ("vaft/machine_mapping/tf.py", "vaft.machine_mapping.tf.repair_tf_excursions"): {
@@ -479,6 +489,7 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "scientific_risk": "medium",
         "recommended_action": "B2: check_declared_sample_rate status at the IMPA low pass (report-only, #432).",
         "related_issue": "#432, #2159",
+        "resolved_by": "#2135 (filter application only; the sample-rate question stays open)",
     },
     ("vaft/process/soft_x_rays.py", "vaft.process.soft_x_rays.sxr_baseline_correction"): {
         "classification": "canonical",
@@ -1168,9 +1179,7 @@ def build_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
             row["operation"].add(operation)
             row["call_sites"].add(("<definition>", f"def {qualified.rsplit('.', 1)[-1]}"))
 
-    # A curated entry may name an implementation an open PR removes (it is then
-    # simply absent); any other unmatched key is a stale classification.
-    unmatched = sorted(key for key in set(CURATED) - set(rows) if not CURATED[key].get("may_be_absent"))
+    unmatched = sorted(set(CURATED) - set(rows))
     if unmatched:
         raise SystemExit(f"curated entries without a scanned row: {unmatched}")
 
@@ -1220,6 +1229,7 @@ def build_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
             ),
             "related_issue": curated.get("related_issue", ""),
             "evidence": curated.get("evidence", ""),
+            "resolved_by": curated.get("resolved_by", ""),
             "curated": bool(curated),
             "audit_scope": scope,
         }

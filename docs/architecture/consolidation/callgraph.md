@@ -1,13 +1,14 @@
 # Production call graph: Snakemake stages and the preprocessing they run
 
 Phase A audit for #2148, part of #2147. This file covers the **develop** tree at
-`7b1fcf192`. PR #2135, which is open and about to merge, is treated as the
-baseline change. Wherever #2135 changes a chain, both behaviours are given:
+`75b154e31`, i.e. after PR #2135 merged. Where #2135 changed a chain, both
+behaviours are given:
 
-- **develop:** the code that runs on develop today.
-- **#2135:** the code that runs after #2135 merges.
+- **before #2135:** the code at `7b1fcf192`, which produced the existing products;
+- **develop:** the code that runs now.
 
-Line numbers refer to develop. Paths are relative to the repository root.
+Line numbers refer to develop at `75b154e31`, except in the "before #2135" column,
+which cites `7b1fcf192`. Paths are relative to the repository root.
 
 Abbreviations:
 - `P1` = `workflow/automatic_pipeline_1_routine_data_processing`
@@ -34,20 +35,20 @@ python workflow/architecture_audit/build_inventory.py --check
 
 ## Summary of what actually runs
 
-The table shows the filter on each chain, under develop and under #2135. All
-entries were checked against the source.
+The table shows the filter on each chain before and after #2135. All entries were
+checked against the source.
 
-| Chain | Stage | Filter on develop | Filter after #2135 | Other numerics |
+| Chain | Stage | Filter before #2135 (`7b1fcf192`) | Filter on develop (since #2135) | Other numerics |
 |---|---|---|---|---|
-| B-pol probes, 64 channels | diagnostics | `firwin(251, 2.5 kHz, fs 250 kHz)`, then causal `lfilter`, a 0.5 ms lag (`vaft/process/magnetics.py:594,600`) | zero-phase `apply_fir_filter` inside `b_field_pol_probe_field` | divide by the MD.yaml calibration; `-cumtrapz_compat`; `_linear_baseline` (deg-1 polyfit over the era's leading samples); `np.interp` onto the era window, then `np.interp` onto the policy grid (`MM/magnetics.py:927`) |
-| Flux loops, 11 channels | diagnostics | **none** | none | calibration; `-cumtrapz`; divide by 2π; era baseline (leading samples, a [0.24, 0.26] s window, or legacy index ranges); `np.interp` with no anti-alias filter (`vaft/process/magnetics.py:1043-1045`). The comment there claims "an already low-passed loop voltage", which the code does not do. The same holds for the second `np.interp` onto the policy grid (`MM/magnetics.py:1928` via `_interpolate_signal`), whose comment (`:924-926`) claims every caller is low-passed; unfiltered callers there also include Ip (`:2230`) and diamagnetic flux (`:2466`). |
+| B-pol probes, 64 channels | diagnostics | `firwin(251, 2.5 kHz, fs 250 kHz)`, then causal `lfilter`, a 0.5 ms lag (`vaft/process/magnetics.py:594,600`) | zero-phase `apply_fir_filter` inside `b_field_pol_probe_field` (`vaft/process/magnetics.py:1870`; taps from `vest_probe_lowpass_taps`, `:522`) | divide by the MD.yaml calibration; `-cumtrapz_compat`; `_linear_baseline` (deg-1 polyfit over the era's leading samples); `np.interp` onto the era window, then `np.interp` onto the policy grid (`MM/magnetics.py:928`) |
+| Flux loops, 11 channels | diagnostics | **none** | none | calibration; `-cumtrapz`; divide by 2π; era baseline (leading samples, a [0.24, 0.26] s window, or legacy index ranges); `np.interp` with no anti-alias filter (`vaft/process/magnetics.py:1001-1003`). The comment there claims "an already low-passed loop voltage", which the code does not do. The same holds for the second `np.interp` onto the policy grid (`MM/magnetics.py:1930` via `_interpolate_signal`), whose comment (`:925-927`) claims every caller is low-passed; unfiltered callers there also include Ip (`:2232`) and diamagnetic flux (`:2468`). |
 | Ip (production, `ref = -1`) | diagnostics, IMPA | none | none | `calibrate_vest_signal`; `_linear_baseline_subtract` (polyfit); FL10 reference by Y `plasma_current.processing.reference`, see the note below; sign flip |
-| Ip reference comparison (`ref != -1`) | no production caller | `firwin` + causal `lfilter` (`MM/magnetics.py:1215-1225`) | `apply_fir_filter` | — |
-| Diamagnetic Rogowski (`rogowski_coil[1]`) | diagnostics | none | none | `repair_clipped_interval`; `scipy.integrate.cumulative_trapezoid` × `rogo_gain` (`MM/magnetics.py:1399`) |
-| Diamagnetic flux | diagnostics | none | none | `repair_clipped_interval`; three `cumulative_trapezoid` passes; two-point hand-written baseline; ×1000 (`MM/magnetics.py:1403-1515`) |
-| TF current | diagnostics, IMPA | `firwin(26, 2.5 kHz, fs 25 kHz)`, then causal `lfilter` (`MM/tf.py:181,195`) | zero-phase `apply_fir_filter` | `calibrate_vest_signal` (×−3e4); mean baseline (1000 samples); `repair_tf_excursions`; `smooth(50)`; `np.interp` |
-| PF active, 10 circuits | diagnostics, IMPA (strict `vfit_pf`) | `firwin(hamming 251, 2.5 kHz, fs 25 kHz)` → `filtfilt`, or `lfilter` below `_filtfilt_min_length`; then `uniform_filter1d(10)` (`MM/pf_active.py:146-161`) | same rule via `apply_fir_filter(short_record="causal")` | mean baseline (5000 samples); per-era `coil_gains`; `np.interp` alignment; PF6 `repair_clipped_interval` |
-| IMPA Hall/Bz (opt-in) | impa | `firwin` → `filtfilt`, `lfilter` fallback (`vaft/process/impa.py:380-384`) | `apply_fir_filter(short_record="causal")` | `np.interp` channel alignment (`MM/impa.py:252`); gain; baseline; `lstsq` and polyfit fits |
+| Ip reference comparison (`ref != -1`) | no production caller | `firwin` + causal `lfilter` (`MM/magnetics.py:1215-1225`) | `apply_fir_filter` (`MM/magnetics.py:1227`) | — |
+| Diamagnetic Rogowski (`rogowski_coil[1]`) | diagnostics | none | none | `repair_clipped_interval`; `scipy.integrate.cumulative_trapezoid` × `rogo_gain` (`MM/magnetics.py:1401`) |
+| Diamagnetic flux | diagnostics | none | none | `repair_clipped_interval`; three `cumulative_trapezoid` passes; two-point hand-written baseline; ×1000 (`MM/magnetics.py:1405-1517`) |
+| TF current | diagnostics, IMPA | `firwin(26, 2.5 kHz, fs 25 kHz)`, then causal `lfilter` (`MM/tf.py:181,195`) | zero-phase `apply_fir_filter` (`MM/tf.py:197`) | `calibrate_vest_signal` (×−3e4); mean baseline (1000 samples); `repair_tf_excursions`; `smooth(50)`; `np.interp` |
+| PF active, 10 circuits | diagnostics, IMPA (strict `vfit_pf`) | `firwin(hamming 251, 2.5 kHz, fs 25 kHz)` → `filtfilt`, or `lfilter` below `_filtfilt_min_length`; then `uniform_filter1d(10)` (`MM/pf_active.py:146-161`) | same rule via `apply_fir_filter(short_record="causal")` (`MM/pf_active.py:156`) | mean baseline (5000 samples); per-era `coil_gains`; `np.interp` alignment; PF6 `repair_clipped_interval` |
+| IMPA Hall/Bz (opt-in) | impa | `firwin` → `filtfilt`, `lfilter` fallback (`vaft/process/impa.py:380-384`) | `apply_fir_filter(short_record="causal")` (`vaft/process/impa.py:381`) | `np.interp` channel alignment (`MM/impa.py:252`); gain; baseline; `lstsq` and polyfit fits |
 | Mirnov raw (equilibrium positions + phase reference) | diagnostics | none: native-rate crop only | none | — |
 | Barometry | diagnostics | `medfilt` | `medfilt` | `resample_to_time` |
 | Langmuir / UV / EC | diagnostics | anti-alias inside `resample_to_time` | same | `calibrate_vest_signal` |
@@ -56,10 +57,10 @@ entries were checked against the source.
 FL10 reference modes for production Ip (the Ip row above), selected by
 Y `plasma_current.processing.reference`:
 - **subtract:** `np.interp` plus its own polyfit baseline.
-- **subtract_fl10_windowed** (shots 46403–47116): `signal.decimate`, then `smooth`, then `np.interp` (`MM/magnetics.py:1031-1096`).
+- **subtract_fl10_windowed** (shots 46403–47116): `signal.decimate`, then `smooth`, then `np.interp` (`MM/magnetics.py:1032-1097`).
 - **disabled** (shots ≥ 47117).
 
-`mirnov_preprocess_signal` (`vaft/process/magnetics.py:1136`) is **not** reached by
+`mirnov_preprocess_signal` (`vaft/process/magnetics.py:1094`) is **not** reached by
 any Snakefile: fluctuation Mirnov voltages are published raw.
 
 ## Pipeline 1 (routine)
@@ -84,8 +85,8 @@ average, i.e. `legacy.box_average` evaluated at every sample.
 - **API:** `build_static_ods` (VU:194).
 - **Era:** chosen by the hard-coded `VEST_MACHINE_ERAS` (VU:102-106). That table is
   outside vest.yaml; see `config_audit.md` G14.
-- **Magnetics:** `vfit_magnetics_static(ods)` with shot 0 (`MM/magnetics.py:1812`):
-  - probe and loop **positions** come from `VEST_MagneticsGeometry_Full_ver_2302.yaml` (`MM/magnetics.py:852`);
+- **Magnetics:** `vfit_magnetics_static(ods)` with shot 0 (`MM/magnetics.py:1814`):
+  - probe and loop **positions** come from `VEST_MagneticsGeometry_Full_ver_2302.yaml` (`MM/magnetics.py:853`);
   - **names** come from `table.yaml` (`:858`), keyed by field code.
 - **Manifest:** hashes MD.yaml and the geometry YAML under `magnetics_calibration` /
   `magnetics_geometry` (VU:278-289).
@@ -101,7 +102,7 @@ average, i.e. `legacy.box_average` evaluated at every sample.
 - **Gate:** both run only when `impa.enable` is set. It is `false` in `config.yaml`.
 - **Chain:** `build_impa_ods` (VU:1194) → `resolve_impa_config` (`MM/impa.py:107`) →
   `impa()` (`MM/impa.py:570`) → `process_impa_shot` → `process_impa`
-  (`vaft/process/impa.py:1562`).
+  (`vaft/process/impa.py:1559`).
 - **Indirect legacy chains:** `vfit_tf_current`, `vfit_plasma_current` and strict
   `vfit_pf`, i.e. the TF, Ip and PF chains above.
 - **Config:**
@@ -132,14 +133,14 @@ average, i.e. `legacy.box_average` evaluated at every sample.
 - **Configuration readers:**
   - every component calls `resolve_vest_diagnostic(shot, name)` (`MM/utils.py:299`);
   - magnetics also reads `equilibrium_magnetics_processing_config`
-    (`MM/magnetics.py:1567`), `magnetics_wiring_for_shot` (`:801`, MD.yaml plus
+    (`MM/magnetics.py:1569`), `magnetics_wiring_for_shot` (`:802`, MD.yaml plus
     `wiring` revisions) and `known_magnetics_faults` (`:833`).
 - **QA:** `validate_magnetics_signals` + `project_validity` (VU:1097-1100).
   This is **not** report-only. `project_validity` (`vaft/validation/magnetics.py:1321-1339`)
   writes the channel validity nodes, so EFIT and every other reader see the
   condemned channels through that validity (VU:1095-1096).
 - **Affected eras:**
-  - the probe causal lag (develop) applies to every shot;
+  - the probe causal lag (before #2135) affects every product made before #2135 merged;
   - the flux-loop anti-alias question applies mostly to native-DAQ shots ≥ 46404,
     where loops are acquired at 250 kHz;
   - FL10 windowed compensation covers shots 46403-47116.
@@ -223,7 +224,7 @@ mentions of it are comments and docstrings in `vaft/database/utils.py` (`:120`, 
 
 `workflow/resistive_zeff/build_zeff.py` is a study script, not part of Pipeline 2.
 It finds FL10 through the literal name `"Flux Loop - #10"` (`build_zeff.py:239`).
-That only works because `MM/magnetics.py:1675` copies `table.yaml` names into
+That only works because `MM/magnetics.py:1677` copies `table.yaml` names into
 `magnetics.flux_loop.*.name`: it is an implicit string coupling to `table.yaml`,
 so it is a C5 consumer.
 
