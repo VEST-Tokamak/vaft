@@ -53,6 +53,9 @@ sections:
       - id: credibility-applicability
         title: Credibility and applicability
         url: /reference/credibility-applicability/
+      - id: scientific-contracts
+        title: Scientific contracts
+        url: /reference/scientific-contracts/
       - id: plasma-model-guide
         title: "Plasma models: a guide"
         url: /reference/plasma-model-guide/

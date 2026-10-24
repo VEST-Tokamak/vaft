@@ -25,6 +25,7 @@ from vaft.process.magnetics import (
 )
 from vaft.process.signal_processing import (
     SignalRepairError,
+    apply_fir_filter,
     detect_clipped_samples,
     repair_clipped_interval,
     smooth,
@@ -922,7 +923,7 @@ def _interpolate_signal(target_time: np.ndarray, source_time: np.ndarray, values
     if source_time.size <= 1 or values.size <= 1:
         raise ValueError("Cannot interpolate a signal with fewer than two samples")
     # anti-alias: callers pass signals already low-passed at 2.5 kHz on the
-    # 250 kHz source grid by vest_b_field_pol_probe_legacy, well below the
+    # 250 kHz source grid by b_field_pol_probe_field, well below the
     # 12.5 kHz Nyquist of the 25 kHz target.
     return np.interp(target_time, source_time, values)
 
@@ -1222,7 +1223,8 @@ def vfit_plasma_current(
     )
     baseline_index = min(int(comparison["baseline_index"]), plasma_current.size - 1)
     plasma_current = plasma_current - plasma_current[baseline_index]
-    return time, signal.lfilter(taps, 1, plasma_current)
+    # Zero-phase, as the donor's vest_ip_with_ref.m filtfilt.
+    return time, apply_fir_filter(taps, plasma_current)
 
 
 def _diamagnetic_config(shot: int) -> dict[str, Any]:
