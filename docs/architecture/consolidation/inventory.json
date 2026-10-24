@@ -1,9 +1,9 @@
 {
  "classification_counts": {
   "canonical": 19,
-  "duplicate": 11,
+  "duplicate": 10,
   "intentional_specialization": 32,
-  "legacy": 37,
+  "legacy": 24,
   "unverified": 382
  },
  "entry_modules": {
@@ -5082,47 +5082,6 @@
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
-   "algorithm_semantics": "calls vaft.machine_mapping.magnetics._load_static_channels, vaft.machine_mapping.magnetics.magnetics_wiring_for_shot (not curated)",
-   "assets": [
-    "MD.yaml",
-    "VEST_MagneticsGeometry_Full_ver_2302.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "vaft.machine_mapping.magnetics._load_static_channels",
-     "snippet": "_load_static_channels()"
-    },
-    {
-     "call": "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot",
-     "snippet": "magnetics_wiring_for_shot(int(shot))"
-    }
-   ],
-   "callers": [
-    "vaft.machine_mapping.magnetics.toroidal_mirnov_reference_channels"
-   ],
-   "classification": "legacy",
-   "configuration_source": "vest.yaml via magnetics_wiring_for_shot",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.magnetics._equilibrium_probe_field_codes",
-   "operation": [
-    "magnetics_asset_consumer"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [
-    "vaft.machine_mapping.magnetics._load_static_channels",
-    "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot"
-   ],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
-   "source_file": "vaft/machine_mapping/magnetics.py"
-  },
-  {
    "algorithm_semantics": "np.interp onto the policy grid for flux loops (:1928), probes (:2175), Ip (_map_ip :2230) and diamagnetic flux (:2466); the comment says every caller passes a signal low-passed by the probe chain, which holds only for the probes.",
    "assets": [],
    "audit_scope": "preprocessing",
@@ -5197,185 +5156,6 @@
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
-   "algorithm_semantics": "loads the ordered MD.yaml channel list (field_code, kind, calibration).",
-   "assets": [
-    "MD.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "<string literal MD.yaml>",
-     "snippet": "MD.yaml"
-    }
-   ],
-   "callers": [
-    "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot",
-    "vaft.machine_mapping.magnetics.vest_equilibrium_magnetics_channel_definitions"
-   ],
-   "classification": "legacy",
-   "configuration_source": "vaft/data/geometry/MD.yaml (positional list).",
-   "curated": true,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.magnetics._load_equilibrium_magnetics_channels",
-   "operation": [
-    "magnetics_asset_read"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "",
-   "recommended_action": "B1: replace with resolve_equilibrium_magnetics_sensors over vest.yaml; delete MD.yaml in the same PR.",
-   "related_issue": "#2158",
-   "resolved_by": "",
-   "scientific_risk": "high",
-   "source_file": "vaft/machine_mapping/magnetics.py"
-  },
-  {
-   "algorithm_semantics": "field-code -> name map; ODS probe names follow the shot's wiring, so a position's name changes at 39438 (indices 35, 47).",
-   "assets": [
-    "table.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "<string literal table.yaml>",
-     "snippet": "table.yaml"
-    }
-   ],
-   "callers": [
-    "vaft.machine_mapping.magnetics._populate_flux_loop_static",
-    "vaft.machine_mapping.magnetics._populate_probe_static",
-    "vaft.machine_mapping.raw_daq_sources._wiring_records"
-   ],
-   "classification": "legacy",
-   "configuration_source": "vaft/data/geometry/table.yaml (field_code -> DAQ label).",
-   "curated": true,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.magnetics._load_names_by_code",
-   "operation": [
-    "magnetics_asset_read"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "",
-   "recommended_action": "B1: names/aliases move into the registry records; decide whether the ODS name is the physical id or the DAQ label (open question in magnetics_reconciliation.md).",
-   "related_issue": "#2158",
-   "resolved_by": "",
-   "scientific_risk": "medium",
-   "source_file": "vaft/machine_mapping/magnetics.py"
-  },
-  {
-   "algorithm_semantics": "loads the ordered geometry list (field_code, kind, r, z); joined to MD.yaml by list position.",
-   "assets": [
-    "VEST_MagneticsGeometry_Full_ver_2302.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "<string literal VEST_MagneticsGeometry_Full_ver_2302.yaml>",
-     "snippet": "VEST_MagneticsGeometry_Full_ver_2302.yaml"
-    }
-   ],
-   "callers": [
-    "vaft.machine_mapping.magnetics._equilibrium_probe_field_codes",
-    "vaft.machine_mapping.magnetics._pinned_channel_index",
-    "vaft.machine_mapping.magnetics._pinned_probe_index",
-    "vaft.machine_mapping.magnetics._populate_flux_loop_static",
-    "vaft.machine_mapping.magnetics._populate_probe_static",
-    "vaft.machine_mapping.magnetics.vfit_mirnov_raw_dynamic",
-    "workflow.magnetics_geometry.verify_wiring.outboard_column"
-   ],
-   "classification": "legacy",
-   "configuration_source": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (positional list; declares ver_2409.mat as source).",
-   "curated": true,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.magnetics._load_static_channels",
-   "operation": [
-    "magnetics_asset_read"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "",
-   "recommended_action": "B1: registry resolver; delete the YAML in the same PR.",
-   "related_issue": "#2158",
-   "resolved_by": "",
-   "scientific_risk": "high",
-   "source_file": "vaft/machine_mapping/magnetics.py"
-  },
-  {
-   "algorithm_semantics": "calls vaft.machine_mapping.magnetics._load_static_channels (not curated)",
-   "assets": [
-    "VEST_MagneticsGeometry_Full_ver_2302.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "vaft.machine_mapping.magnetics._load_static_channels",
-     "snippet": "_load_static_channels()"
-    }
-   ],
-   "callers": [
-    "vaft.machine_mapping.magnetics.known_magnetics_faults"
-   ],
-   "classification": "legacy",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.magnetics._pinned_channel_index",
-   "operation": [
-    "magnetics_asset_consumer"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [
-    "vaft.machine_mapping.magnetics._load_static_channels"
-   ],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
-   "source_file": "vaft/machine_mapping/magnetics.py"
-  },
-  {
-   "algorithm_semantics": "calls vaft.machine_mapping.magnetics._load_static_channels (not curated)",
-   "assets": [
-    "VEST_MagneticsGeometry_Full_ver_2302.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "vaft.machine_mapping.magnetics._load_static_channels",
-     "snippet": "_load_static_channels()"
-    }
-   ],
-   "callers": [
-    "vaft.machine_mapping.magnetics.known_magnetics_faults",
-    "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot"
-   ],
-   "classification": "legacy",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.magnetics._pinned_probe_index",
-   "operation": [
-    "magnetics_asset_consumer"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [
-    "vaft.machine_mapping.magnetics._load_static_channels"
-   ],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
-   "source_file": "vaft/machine_mapping/magnetics.py"
-  },
-  {
    "algorithm_semantics": "np.polyfit deg 1 over given indices, no finite mask, no degenerate check.",
    "assets": [],
    "audit_scope": "preprocessing",
@@ -5409,96 +5189,6 @@
    "related_issue": "#2162, #2168",
    "resolved_by": "",
    "scientific_risk": "low",
-   "source_file": "vaft/machine_mapping/magnetics.py"
-  },
-  {
-   "algorithm_semantics": "calls vaft.machine_mapping.magnetics._load_names_by_code, vaft.machine_mapping.magnetics._load_static_channels (not curated)",
-   "assets": [
-    "VEST_MagneticsGeometry_Full_ver_2302.yaml",
-    "table.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "vaft.machine_mapping.magnetics._load_names_by_code",
-     "snippet": "_load_names_by_code()"
-    },
-    {
-     "call": "vaft.machine_mapping.magnetics._load_static_channels",
-     "snippet": "_load_static_channels()"
-    }
-   ],
-   "callers": [
-    "vaft.machine_mapping.magnetics.flux_loop_from_raw_database",
-    "vaft.machine_mapping.magnetics.vfit_magnetics_static"
-   ],
-   "classification": "legacy",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.magnetics._populate_flux_loop_static",
-   "operation": [
-    "magnetics_asset_consumer"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [
-    "vaft.machine_mapping.magnetics._load_names_by_code",
-    "vaft.machine_mapping.magnetics._load_static_channels"
-   ],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
-   "source_file": "vaft/machine_mapping/magnetics.py"
-  },
-  {
-   "algorithm_semantics": "calls vaft.machine_mapping.magnetics._load_names_by_code, vaft.machine_mapping.magnetics._load_static_channels, vaft.machine_mapping.magnetics.magnetics_wiring_for_shot (not curated)",
-   "assets": [
-    "MD.yaml",
-    "VEST_MagneticsGeometry_Full_ver_2302.yaml",
-    "table.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "vaft.machine_mapping.magnetics._load_names_by_code",
-     "snippet": "_load_names_by_code()"
-    },
-    {
-     "call": "vaft.machine_mapping.magnetics._load_static_channels",
-     "snippet": "_load_static_channels()"
-    },
-    {
-     "call": "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot",
-     "snippet": "magnetics_wiring_for_shot(int(shot))"
-    }
-   ],
-   "callers": [
-    "vaft.machine_mapping.magnetics.b_field_pol_probe_from_raw_database",
-    "vaft.machine_mapping.magnetics.vfit_magnetics_static"
-   ],
-   "classification": "legacy",
-   "configuration_source": "vest.yaml via magnetics_wiring_for_shot",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.magnetics._populate_probe_static",
-   "operation": [
-    "magnetics_asset_consumer"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [
-    "vaft.machine_mapping.magnetics._load_names_by_code",
-    "vaft.machine_mapping.magnetics._load_static_channels",
-    "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot"
-   ],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
@@ -5552,7 +5242,7 @@
     },
     {
      "call": "vaft.machine_mapping.magnetics._pinned_channel_index",
-     "snippet": "_pinned_channel_index(entry, 'flux_loop', context=context)"
+     "snippet": "_pinned_channel_index(entry, FLUX_LOOP_KIND, context=context)"
     },
     {
      "call": "vaft.machine_mapping.magnetics._pinned_probe_index",
@@ -5579,59 +5269,6 @@
    "primitives": [
     "vaft.machine_mapping.magnetics._equilibrium_magnetics_revision",
     "vaft.machine_mapping.magnetics._pinned_channel_index",
-    "vaft.machine_mapping.magnetics._pinned_probe_index"
-   ],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
-   "source_file": "vaft/machine_mapping/magnetics.py"
-  },
-  {
-   "algorithm_semantics": "calls vaft.machine_mapping.magnetics._equilibrium_magnetics_revision, vaft.machine_mapping.magnetics._load_equilibrium_magnetics_channels, vaft.machine_mapping.magnetics._pinned_probe_index (not curated)",
-   "assets": [
-    "MD.yaml",
-    "VEST_MagneticsGeometry_Full_ver_2302.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "vaft.machine_mapping.magnetics._equilibrium_magnetics_revision",
-     "snippet": "_equilibrium_magnetics_revision(shot, 'wiring')"
-    },
-    {
-     "call": "vaft.machine_mapping.magnetics._load_equilibrium_magnetics_channels",
-     "snippet": "_load_equilibrium_magnetics_channels()"
-    },
-    {
-     "call": "vaft.machine_mapping.magnetics._pinned_probe_index",
-     "snippet": "_pinned_probe_index(entry, context='equilibrium_magnetics wiring')"
-    }
-   ],
-   "callers": [
-    "vaft.machine_mapping.magnetics._equilibrium_probe_field_codes",
-    "vaft.machine_mapping.magnetics._populate_probe_static",
-    "vaft.machine_mapping.magnetics.vest_equilibrium_magnetics_channel_definitions",
-    "vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics_detailed",
-    "vaft.machine_mapping.magnetics.vfit_mirnov_raw_dynamic",
-    "vaft.machine_mapping.provenance._equilibrium_magnetics_provenance",
-    "vaft.machine_mapping.raw_daq_sources._wiring_records",
-    "workflow.magnetics_geometry.verify_wiring.score_shot"
-   ],
-   "classification": "legacy",
-   "configuration_source": "vest.yaml via _equilibrium_magnetics_revision",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot",
-   "operation": [
-    "magnetics_asset_consumer"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [
-    "vaft.machine_mapping.magnetics._equilibrium_magnetics_revision",
-    "vaft.machine_mapping.magnetics._load_equilibrium_magnetics_channels",
     "vaft.machine_mapping.magnetics._pinned_probe_index"
    ],
    "production_reachability": "pipeline1",
@@ -5776,48 +5413,6 @@
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
-   "algorithm_semantics": "calls vaft.machine_mapping.magnetics._load_equilibrium_magnetics_channels, vaft.machine_mapping.magnetics.magnetics_wiring_for_shot (not curated)",
-   "assets": [
-    "MD.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "vaft.machine_mapping.magnetics._load_equilibrium_magnetics_channels",
-     "snippet": "_load_equilibrium_magnetics_channels()"
-    },
-    {
-     "call": "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot",
-     "snippet": "magnetics_wiring_for_shot(int(shot))"
-    }
-   ],
-   "callers": [
-    "vaft.machine_mapping.magnetics.equilibrium_probe_count",
-    "vaft.omas.vest_upstream.build_diagnostics_ods",
-    "vaft.validation.flux_loop_assessment._channel_definitions"
-   ],
-   "classification": "legacy",
-   "configuration_source": "vest.yaml via magnetics_wiring_for_shot",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.magnetics.vest_equilibrium_magnetics_channel_definitions",
-   "operation": [
-    "magnetics_asset_consumer"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [
-    "vaft.machine_mapping.magnetics._load_equilibrium_magnetics_channels",
-    "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot"
-   ],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
-   "source_file": "vaft/machine_mapping/magnetics.py"
-  },
-  {
    "algorithm_semantics": "calibration only (vest.yaml plasma_current.calibration).",
    "assets": [],
    "audit_scope": "preprocessing",
@@ -5877,47 +5472,6 @@
    ],
    "owning_layer": "machine_mapping",
    "primitives": [
-    "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot"
-   ],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
-   "source_file": "vaft/machine_mapping/magnetics.py"
-  },
-  {
-   "algorithm_semantics": "calls vaft.machine_mapping.magnetics._load_static_channels, vaft.machine_mapping.magnetics.magnetics_wiring_for_shot (not curated)",
-   "assets": [
-    "MD.yaml",
-    "VEST_MagneticsGeometry_Full_ver_2302.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "vaft.machine_mapping.magnetics._load_static_channels",
-     "snippet": "_load_static_channels()"
-    },
-    {
-     "call": "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot",
-     "snippet": "magnetics_wiring_for_shot(int(shot))"
-    }
-   ],
-   "callers": [
-    "vaft.machine_mapping.magnetics._map_probes"
-   ],
-   "classification": "legacy",
-   "configuration_source": "vest.yaml via magnetics_wiring_for_shot",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.magnetics.vfit_mirnov_raw_dynamic",
-   "operation": [
-    "magnetics_asset_consumer"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [
-    "vaft.machine_mapping.magnetics._load_static_channels",
     "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot"
    ],
    "production_reachability": "pipeline1",
@@ -6255,25 +5809,15 @@
    "source_file": "vaft/machine_mapping/provenance.py"
   },
   {
-   "algorithm_semantics": "calls vaft.machine_mapping.magnetics._load_names_by_code, vaft.machine_mapping.magnetics.known_magnetics_faults, vaft.machine_mapping.magnetics.magnetics_wiring_for_shot (not curated)",
+   "algorithm_semantics": "calls vaft.machine_mapping.magnetics.known_magnetics_faults (not curated)",
    "assets": [
-    "MD.yaml",
-    "VEST_MagneticsGeometry_Full_ver_2302.yaml",
-    "table.yaml"
+    "VEST_MagneticsGeometry_Full_ver_2302.yaml"
    ],
    "audit_scope": "magnetics_asset_consumer",
    "call_sites": [
     {
-     "call": "vaft.machine_mapping.magnetics._load_names_by_code",
-     "snippet": "_load_names_by_code()"
-    },
-    {
      "call": "vaft.machine_mapping.magnetics.known_magnetics_faults",
      "snippet": "known_magnetics_faults(int(shot))"
-    },
-    {
-     "call": "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot",
-     "snippet": "magnetics_wiring_for_shot(int(shot))"
     }
    ],
    "callers": [
@@ -6281,7 +5825,7 @@
     "vaft.machine_mapping.raw_daq_sources.flux_loop_raw_fields"
    ],
    "classification": "legacy",
-   "configuration_source": "vest.yaml via equilibrium_magnetics_processing_config, known_magnetics_faults, magnetics_wiring_for_shot",
+   "configuration_source": "vest.yaml via equilibrium_magnetics_processing_config, known_magnetics_faults",
    "curated": false,
    "evidence": "",
    "implementation": "vaft.machine_mapping.raw_daq_sources._wiring_records",
@@ -6290,9 +5834,7 @@
    ],
    "owning_layer": "machine_mapping",
    "primitives": [
-    "vaft.machine_mapping.magnetics._load_names_by_code",
-    "vaft.machine_mapping.magnetics.known_magnetics_faults",
-    "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot"
+    "vaft.machine_mapping.magnetics.known_magnetics_faults"
    ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
@@ -6539,39 +6081,6 @@
    "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/machine_mapping/turbulence.py"
-  },
-  {
-   "algorithm_semantics": "groups probe/loop indices into inboard/side/outboard by r/z for the default constraint uncertainties.",
-   "assets": [
-    "VEST_MagneticsGeometry_Full_ver_2302.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "<string literal VEST_MagneticsGeometry_Full_ver_2302.yaml>",
-     "snippet": "VEST_MagneticsGeometry_Full_ver_2302.yaml"
-    }
-   ],
-   "callers": [
-    "vaft.machine_mapping.utils.apply_magnetics_uncertainties"
-   ],
-   "classification": "duplicate",
-   "configuration_source": "opens VEST_MagneticsGeometry_Full_ver_2302.yaml directly; restates thresholds 0.09 / 0.8 / 0.795 / 0.15 / 0.5 as literals.",
-   "curated": true,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.utils._load_magnetics_channel_groups",
-   "operation": [
-    "magnetics_asset_read"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [],
-   "production_reachability": "not_statically_reached",
-   "production_reachability_note": "only through apply_magnetics_uncertainties <- apply_default_constraint_uncertainties, whose only callers are test/contracts/test_models_uncertainty.py.",
-   "recommended_action": "B1: use the registry and the magnetics.py threshold constants (INBOARD_PROBE_MAX_R etc.); low urgency, no production caller.",
-   "related_issue": "#2158",
-   "resolved_by": "",
-   "scientific_risk": "medium",
-   "source_file": "vaft/machine_mapping/utils.py"
   },
   {
    "algorithm_semantics": "calls vaft.machine_mapping.utils._load_magnetics_channel_groups (not curated)",
@@ -8312,51 +7821,6 @@
    "related_issue": "",
    "resolved_by": "",
    "scientific_risk": "unassessed",
-   "source_file": "vaft/omas/vest_upstream.py"
-  },
-  {
-   "algorithm_semantics": "calls  (not curated)",
-   "assets": [
-    "MD.yaml",
-    "VEST_MagneticsGeometry_Full_ver_2302.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "<string literal MD.yaml>",
-     "snippet": "MD.yaml"
-    },
-    {
-     "call": "<string literal VEST_MagneticsGeometry_Full_ver_2302.yaml>",
-     "snippet": "VEST_MagneticsGeometry_Full_ver_2302.yaml"
-    }
-   ],
-   "callers": [
-    "vaft.cli.vest_upstream.main",
-    "vaft.code.efit.efund.generate_era_table",
-    "workflow.automatic_pipeline_1_routine_data_processing.generate_static_ods.main",
-    "workflow.efit_numerics.acceptance_envelope.main",
-    "workflow.efit_numerics.domain_grid.main",
-    "workflow.efit_numerics.domain_grid.stage_case",
-    "workflow.efit_profile_models.profile_model_study.prepare_vest_tables",
-    "workflow.efit_tables.table_geometry_ab.main"
-   ],
-   "classification": "legacy",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.omas.vest_upstream.build_static_ods",
-   "operation": [
-    "magnetics_asset_read"
-   ],
-   "owning_layer": "omas",
-   "primitives": [],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
    "source_file": "vaft/omas/vest_upstream.py"
   },
   {
@@ -17185,41 +16649,6 @@
    "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/kinetic_state/ti_ratio_time_series.py"
-  },
-  {
-   "algorithm_semantics": "calls vaft.machine_mapping.magnetics._load_static_channels (not curated)",
-   "assets": [
-    "VEST_MagneticsGeometry_Full_ver_2302.yaml"
-   ],
-   "audit_scope": "magnetics_asset_consumer",
-   "call_sites": [
-    {
-     "call": "vaft.machine_mapping.magnetics._load_static_channels",
-     "snippet": "_load_static_channels()"
-    }
-   ],
-   "callers": [
-    "workflow.magnetics_geometry.verify_wiring.score_shot"
-   ],
-   "classification": "legacy",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": false,
-   "evidence": "",
-   "implementation": "workflow.magnetics_geometry.verify_wiring.outboard_column",
-   "operation": [
-    "magnetics_asset_consumer"
-   ],
-   "owning_layer": "workflow_study",
-   "primitives": [
-    "vaft.machine_mapping.magnetics._load_static_channels"
-   ],
-   "production_reachability": "not_statically_reached",
-   "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
-   "source_file": "workflow/magnetics_geometry/verify_wiring.py"
   },
   {
    "algorithm_semantics": "calls numpy.interp (not curated)",
