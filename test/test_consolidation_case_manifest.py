@@ -124,4 +124,21 @@ def test_the_committed_baseline_summary_covers_the_offline_chains(manifest):
         # The raw input the baseline was built from is the one this case froze.
         raw = next(item for item in case["required_inputs"] if item["name"] == "raw_dump")
         assert shot["inputs"]["raw_dump"]["sha256"] == raw["sha256"]
+        config = next(item for item in case["required_inputs"] if item["name"] == "pipeline_config")
+        assert shot["inputs"]["pipeline_config"]["sha256"] == config["sha256"]
+        # The captured commit carried exactly code_sha's vaft/ and pipeline-1
+        # trees (when both commits are in this clone; shallow CI may lack them).
+        import subprocess
+
+        commit = summary["captured_revision"]["commit"]
+        have = all(
+            subprocess.run(["git", "-C", str(ROOT), "cat-file", "-e", f"{ref}^{{commit}}"],
+                           capture_output=True, check=False).returncode == 0
+            for ref in (commit, summary["code_sha"])
+        )
+        if have:
+            assert subprocess.run(
+                ["git", "-C", str(ROOT), "diff", "--quiet", summary["code_sha"], commit, "--",
+                 *summary["code_trees_identical_to_code_sha"]], check=False,
+            ).returncode == 0
         assert case["status"] == "not_tested", "a captured baseline is a reference, not a pass"

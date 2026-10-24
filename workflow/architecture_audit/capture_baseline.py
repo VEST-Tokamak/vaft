@@ -527,6 +527,29 @@ def _same_code_trees(left: str, right: str) -> bool:
     return result.returncode == 0
 
 
+def _stage_manifest_status(shot_dir: Path, stage: str) -> dict[str, Any]:
+    """The stage's own verdict (e.g. diagnostics ``partial``) and which channels
+    it did not produce, so a later mismatch can be explained without the full
+    capture.  Empty when the stage wrote no manifest."""
+    candidates = sorted((shot_dir / stage).glob("*manifest.json"))
+    if not candidates:
+        return {}
+    manifest = json.loads(candidates[0].read_text(encoding="utf-8"))
+    out: dict[str, Any] = {"stage_status": manifest.get("status")}
+    channels = manifest.get("channel_status")
+    if isinstance(channels, dict):
+        not_ok: dict[str, Any] = {}
+        for name, state in sorted(channels.items()):
+            status = state.get("status") if isinstance(state, dict) else state
+            if status in ("ok", "success", "available"):
+                continue
+            not_ok[str(name)] = {"status": status}
+            if isinstance(state, dict) and "missing_channels" in state:
+                not_ok[str(name)]["missing_channels"] = state["missing_channels"]
+        out["channels_not_ok"] = not_ok
+    return out
+
+
 def summarize_root(root: Path, *, code_sha: str) -> dict[str, Any]:
     """Compact summary of every ``<root>/<shot>/baseline.json`` under ``root``.
 
@@ -560,16 +583,23 @@ def summarize_root(root: Path, *, code_sha: str) -> dict[str, Any]:
         entry: dict[str, Any] = {
             "machine_version": era,
             "inputs": record["inputs"],
+            "versions": record.get("versions"),
+            # Identifies *this* capture's per-leaf file (which also holds run
+            # timings); a re-capture never matches it.  Compare leaf digests.
             "full_baseline_sha256": sha256_file(baseline_path),
             "stages": {},
         }
         for stage, data in stages.items():
+            stage_manifest = _stage_manifest_status(baseline_path.parent, stage)
             if stage == "static":
-                entry["stages"][stage] = {"status": data["status"], "product_sha256": data.get("product_sha256")}
+                entry["stages"][stage] = {"status": data["status"], "product_sha256": data.get("product_sha256"),
+                                          "manifest_sha256": data.get("manifest_sha256"), **stage_manifest}
                 continue
             entry["stages"][stage] = {
                 "status": data["status"],
                 "product_sha256": data.get("product_sha256"),
+                "manifest_sha256": data.get("manifest_sha256"),
+                **stage_manifest,
                 **(summarize_stage(data["leaves"], reference=static_leaves) if "leaves" in data else {}),
             }
         shots[str(record["shot"])] = entry
@@ -587,6 +617,11 @@ def summarize_root(root: Path, *, code_sha: str) -> dict[str, Any]:
         "captured_revision": {"commit": commit, "dirty": False},
         "code_trees_identical_to_code_sha": list(CODE_TREES),
         "digest_hex_digits": SUMMARY_DIGEST_HEX,
+        "how_to_compare": (
+            "Re-capture at the new revision, summarize, and compare arrays / scalar_groups / "
+            "inherited_digest per stage. full_baseline_sha256 identifies this capture's own "
+            "per-leaf file (which records run timings) and never matches a re-capture."
+        ),
         "array_record": ["sha256_prefix", "shape", *_STAT_KEYS],
         "scalar_group_record": ["group_sha256_prefix", "count", *_STAT_KEYS],
         "static_by_era": static_by_era,
