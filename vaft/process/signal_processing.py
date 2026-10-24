@@ -1935,7 +1935,11 @@ def _polyfit_linear_baseline(
     """
     if nan_policy not in ("omit", "propagate"):
         raise ValueError(f"nan_policy must be 'omit' or 'propagate'; got {nan_policy!r}")
-    indices = np.asarray(baseline_indices, dtype=int)
+    indices = np.asarray(baseline_indices)
+    if indices.dtype == bool:
+        # A boolean mask selects samples; cast to int it would select 0 and 1.
+        indices = np.flatnonzero(indices)
+    indices = indices.astype(int, copy=False)
     in_bounds = indices[(indices >= 0) & (indices < signal.size)]
     if nan_policy == "omit":
         valid = in_bounds[np.isfinite(signal[in_bounds]) & np.isfinite(time[in_bounds])]
@@ -2083,6 +2087,8 @@ def subtract_baseline(
     .. [2] Issue #639, the degenerate-window guard, and #2162, which made this
        the one implementation of the index-based polyfit line.
     """
+    if nan_policy not in ("omit", "propagate"):
+        raise ValueError(f"nan_policy must be 'omit' or 'propagate'; got {nan_policy!r}")
     if fitting_opt == 'polyfit':
         fitted_baseline = _polyfit_linear_baseline(
             time,

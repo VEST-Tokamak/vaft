@@ -1,9 +1,9 @@
 {
  "classification_counts": {
-  "canonical": 19,
-  "duplicate": 11,
+  "canonical": 20,
+  "duplicate": 9,
   "intentional_specialization": 32,
-  "legacy": 37,
+  "legacy": 38,
   "unverified": 382
  },
  "entry_modules": {
@@ -5159,7 +5159,7 @@
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
-   "algorithm_semantics": "np.polyfit deg 1 over x_base indices then subtract (production Ip baseline).",
+   "algorithm_semantics": "delegates to signal_processing._polyfit_linear_baseline with nan_policy='propagate' (a NaN in the window keeps Ip all-NaN, as before) (production Ip baseline).",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -5168,32 +5168,31 @@
      "snippet": "def _linear_baseline_subtract"
     },
     {
-     "call": "numpy.polyfit",
-     "snippet": "np.polyfit(time[x_base], values[x_base], 1)"
+     "call": "vaft.process.signal_processing.subtract_baseline",
+     "snippet": "subtract_baseline(time, values, x_base, fitting_opt='polyfit', nan_policy='propagate')"
     }
    ],
    "callers": [
     "vaft.machine_mapping.magnetics.vfit_plasma_current"
    ],
-   "classification": "duplicate",
+   "classification": "legacy",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
    "evidence": "",
    "implementation": "vaft.machine_mapping.magnetics._linear_baseline_subtract",
    "operation": [
-    "baseline",
-    "polynomial_fit"
+    "baseline"
    ],
    "owning_layer": "machine_mapping",
    "primitives": [
-    "numpy.polyfit"
+    "vaft.process.signal_processing.subtract_baseline"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B3: delegate to subtract_baseline(method='polyfit').",
+   "recommended_action": "E: retire the private alias. MM._polyfit_baseline (dead) was deleted in B3.1.",
    "related_issue": "#2162",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2162 (B3.1)",
+   "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
@@ -5373,42 +5372,6 @@
    "related_issue": "",
    "resolved_by": "",
    "scientific_risk": "medium",
-   "source_file": "vaft/machine_mapping/magnetics.py"
-  },
-  {
-   "algorithm_semantics": "np.polyfit deg 1 over given indices, no finite mask, no degenerate check.",
-   "assets": [],
-   "audit_scope": "preprocessing",
-   "call_sites": [
-    {
-     "call": "<definition>",
-     "snippet": "def _polyfit_baseline"
-    },
-    {
-     "call": "numpy.polyfit",
-     "snippet": "np.polyfit(time_axis[valid], values[valid], 1)"
-    }
-   ],
-   "callers": [],
-   "classification": "legacy",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": true,
-   "evidence": "grep: the only references are its definition.",
-   "implementation": "vaft.machine_mapping.magnetics._polyfit_baseline",
-   "operation": [
-    "baseline",
-    "polynomial_fit"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [
-    "numpy.polyfit"
-   ],
-   "production_reachability": "not_statically_reached",
-   "production_reachability_note": "no caller anywhere in vaft/, workflow/ or test/ (dead code).",
-   "recommended_action": "E: delete (nothing to delegate); the plan's 'delegate' step is moot.",
-   "related_issue": "#2162, #2168",
-   "resolved_by": "",
-   "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
@@ -13027,7 +12990,7 @@
    "source_file": "vaft/process/magnetics.py"
   },
   {
-   "algorithm_semantics": "np.polyfit deg 1 over finite in-bounds indices; <2 valid -> DegenerateBaselineWindowError or zero with warning (#639).",
+   "algorithm_semantics": "delegates to signal_processing._polyfit_linear_baseline (nan_policy='omit'); keeps the caller-facing stacklevel.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -13036,33 +12999,32 @@
      "snippet": "def _linear_baseline"
     },
     {
-     "call": "numpy.polyfit",
-     "snippet": "np.polyfit(time_axis[valid], values[valid], 1)"
+     "call": "vaft.process.signal_processing._polyfit_linear_baseline",
+     "snippet": "_polyfit_linear_baseline(time_axis, values, indices, nan_policy='omit', allow_zero_fallback=allow_zero_fallback, context=', '.join(context_parts) or None, wi..."
     }
    ],
    "callers": [
     "vaft.process.magnetics.b_field_pol_probe_field",
     "vaft.process.magnetics.vest_flux_loop_flux_from_voltage"
    ],
-   "classification": "duplicate",
+   "classification": "legacy",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
-   "evidence": "curve_fit linear and polyfit deg 1 are both least squares on the same samples, but subtract_baseline has no finite-only mask and no degenerate check: not interchangeable without the guards.",
+   "evidence": "bit-identical to the frozen develop copy (values, error and warning text, stacklevel).",
    "implementation": "vaft.process.magnetics._linear_baseline",
    "operation": [
-    "baseline",
-    "polynomial_fit"
+    "baseline"
    ],
    "owning_layer": "process",
    "primitives": [
-    "numpy.polyfit"
+    "vaft.process.signal_processing._polyfit_linear_baseline"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B3: absorb into signal_processing.subtract_baseline(method='polyfit') with identical guards; keep a private alias until E.",
+   "recommended_action": "E: retire the private alias; callers use subtract_baseline(fitting_opt='polyfit').",
    "related_issue": "#2162, #639",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2162 (B3.1)",
+   "scientific_risk": "low",
    "source_file": "vaft/process/magnetics.py"
   },
   {
@@ -14707,6 +14669,45 @@
    "source_file": "vaft/process/signal_processing.py"
   },
   {
+   "algorithm_semantics": "the fitting_opt='polyfit' kernel of subtract_baseline: index guard, nan_policy, #639 degenerate error/fallback.",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "<definition>",
+     "snippet": "def _polyfit_linear_baseline"
+    },
+    {
+     "call": "numpy.polyfit",
+     "snippet": "np.polyfit(time[valid], signal[valid], 1)"
+    }
+   ],
+   "callers": [
+    "vaft.process.magnetics._linear_baseline",
+    "vaft.process.signal_processing.subtract_baseline"
+   ],
+   "classification": "canonical",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": true,
+   "evidence": "",
+   "implementation": "vaft.process.signal_processing._polyfit_linear_baseline",
+   "operation": [
+    "baseline",
+    "polynomial_fit"
+   ],
+   "owning_layer": "process",
+   "primitives": [
+    "numpy.polyfit"
+   ],
+   "production_reachability": "pipeline1",
+   "production_reachability_note": "",
+   "recommended_action": "keep (private kernel; process.magnetics._linear_baseline and MM._linear_baseline_subtract call it).",
+   "related_issue": "#2162, #639",
+   "resolved_by": "#2162 (B3.1)",
+   "scientific_risk": "low",
+   "source_file": "vaft/process/signal_processing.py"
+  },
+  {
    "algorithm_semantics": "Kaiser-sized FIR anti-alias before downsampling, zero-phase per finite run, filtfilt length rule _filtfilt_min_length (#893).",
    "assets": [],
    "audit_scope": "preprocessing",
@@ -15268,7 +15269,7 @@
    "source_file": "vaft/process/signal_processing.py"
   },
   {
-   "algorithm_semantics": "curve_fit of linear/quadratic/exp model or exact spline through baseline_indices; no finite-only filtering, no degenerate-window check.",
+   "algorithm_semantics": "fitting_opt='polyfit' (B3.1): np.polyfit deg 1 over in-bounds indices, finite-only by default (nan_policy='omit') or NaN-propagating, <2 valid -> DegenerateBaselineWindowError or zero with warning (#639). Other options: curve_fit of linear/quadratic/exp model or exact spline, no finite-only filtering, no degenerate check; 'linear' is NOT routed to polyfit (agrees only to ~7.5e-13 relative).",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -15291,9 +15292,14 @@
     {
      "call": "scipy.optimize.curve_fit",
      "snippet": "curve_fit(quadratic_baseline, x_baseline, y_baseline)"
+    },
+    {
+     "call": "vaft.process.signal_processing._polyfit_linear_baseline",
+     "snippet": "_polyfit_linear_baseline(time, signal, baseline_indices, nan_policy=nan_policy, allow_zero_fallback=allow_zero_fallback, context=context, window_desc=window_..."
     }
    ],
    "callers": [
+    "vaft.machine_mapping.magnetics._linear_baseline_subtract",
     "vaft.process.magnetics.b_field_pol_probe_field",
     "vaft.process.magnetics.flux_loop_flux",
     "vaft.process.magnetics.rogowski_coil_ip"
@@ -15301,7 +15307,7 @@
    "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
-   "evidence": "",
+   "evidence": "test/test_baseline_consolidation.py: bit-identical to frozen develop copies of _linear_baseline and _linear_baseline_subtract; 4-shot capture (39915/41524/41672/42962) leaf-identical.",
    "implementation": "vaft.process.signal_processing.subtract_baseline",
    "operation": [
     "baseline",
@@ -15311,14 +15317,15 @@
    "owning_layer": "process",
    "primitives": [
     "scipy.interpolate.UnivariateSpline",
-    "scipy.optimize.curve_fit"
+    "scipy.optimize.curve_fit",
+    "vaft.process.signal_processing._polyfit_linear_baseline"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B3: become the single linear-baseline owner with a method='polyfit' path that absorbs process.magnetics._linear_baseline guards (finite-only, #639 DegenerateBaselineWindowError); equivalence to 1e-12.",
+   "recommended_action": "keep as the single linear-baseline owner.",
    "related_issue": "#2162, #639",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2162 (B3.1)",
+   "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
   {

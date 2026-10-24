@@ -17,6 +17,15 @@ at 75b154e31 (after #2135).  They are the reference the canonical
 implementation is held to, so the comparison does not depend on the code it
 checks.  Agreement is asserted bit for bit: the canonical path performs the
 same ``np.polyfit`` / ``np.polyval`` calls on the same samples.
+
+Scope of the identity for the plasma-current helper: it holds for in-range
+integer indices with at least two samples, which is all its only caller
+(``_plasma_current_baseline_indices``) can produce.  Outside that the frozen
+helper indexed raw (negative indices wrapped, past-the-end raised
+``IndexError``, a one-sample window raised ``LinAlgError``); the delegating one
+applies the #639 guard instead (drops out-of-range indices, raises
+``DegenerateBaselineWindowError``).  A boolean mask now selects samples under
+``fitting_opt="polyfit"`` rather than being cast to the indices 0 and 1.
 """
 
 from __future__ import annotations
@@ -204,7 +213,8 @@ from vaft.process import signal_processing  # noqa: E402
 @pytest.mark.parametrize("window", sorted(_WINDOWS))
 def test_subtract_baseline_polyfit_is_the_frozen_guarded_line(window):
     indices = _WINDOWS[window]
-    values = _with_nan(_DRIFTING, (indices[len(indices) // 2] % _TIME.size,))
+    inside = indices[(indices >= 0) & (indices < _TIME.size)]
+    values = _with_nan(_DRIFTING, (int(inside[len(inside) // 2]),))  # a NaN the window really sees
     expected = _frozen_process_linear_baseline(_TIME, values, indices)
     corrected, baseline = signal_processing.subtract_baseline(
         _TIME, values, indices, fitting_opt="polyfit"
@@ -261,3 +271,29 @@ def test_one_error_class_and_no_dead_helper():
 
     assert vaft.process.DegenerateBaselineWindowError is signal_processing.DegenerateBaselineWindowError
     assert not hasattr(mm_magnetics, "_polyfit_baseline")
+
+
+def test_the_plasma_current_caller_only_produces_the_identity_domain():
+    """The precondition the identity above rests on: in-range integer indices."""
+    time = np.linspace(-0.01, 0.4, 5_000)
+    for start, end, lookback in ((100, 200, 50), (10, 20, 50), (4_990, 5_100, 30), (6_000, 6_100, 10)):
+        idx = np.asarray(mm_magnetics._plasma_current_baseline_indices(
+            time, {"analysis_start": start, "analysis_end": end, "lookback": lookback}
+        ))
+        assert idx.dtype.kind == "i"
+        assert ((idx >= 0) & (idx < time.size)).all()
+
+
+def test_polyfit_accepts_a_boolean_mask_as_a_selection():
+    mask = np.zeros(_TIME.size, dtype=bool)
+    mask[:400] = True
+    from vaft.process.signal_processing import subtract_baseline
+    by_mask = subtract_baseline(_TIME, _DRIFTING, mask, fitting_opt="polyfit")
+    by_index = subtract_baseline(_TIME, _DRIFTING, np.flatnonzero(mask), fitting_opt="polyfit")
+    np.testing.assert_array_equal(by_mask, by_index)
+
+
+def test_an_unknown_nan_policy_is_refused_for_every_fitting_option():
+    from vaft.process.signal_processing import subtract_baseline
+    with pytest.raises(ValueError, match="nan_policy"):
+        subtract_baseline(_TIME, _DRIFTING, np.arange(10), fitting_opt="linear", nan_policy="drop")
