@@ -195,21 +195,6 @@ def test_the_retired_yamls_have_no_runtime_copy():
         assert not list((ROOT / "vaft").rglob(name)), name
 
 
-def test_no_runtime_code_names_the_retired_yamls():
-    pattern = re.compile(r"(?<![\w.-])(MD|table)\.ya?ml\b|VEST_MagneticsGeometry_Full_ver_", re.IGNORECASE)
-    offenders = [
-        path.relative_to(ROOT).as_posix()
-        for top in ("vaft", "workflow")
-        for path in (ROOT / top).rglob("*.py")
-        if pattern.search(path.read_text(encoding="utf-8", errors="replace"))
-    ]
-    # The Phase A audit generator joins the fixture copies on purpose; it is
-    # not runtime code and must read them from test/data/legacy_magnetics.
-    audit = "workflow/architecture_audit/build_inventory.py"
-    assert offenders == [audit]
-    assert 'Path("test/data/legacy_magnetics")' in (ROOT / audit).read_text(encoding="utf-8")
-
-
 def test_no_second_sensor_inventory_in_vest_yaml():
     """The #843 duplicate and the dead `0.magnetics.flux_loop` placeholder stay gone."""
     content = yaml.safe_load(VEST_YAML.read_text(encoding="utf-8"))

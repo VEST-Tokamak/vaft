@@ -77,6 +77,8 @@ CORE_MODULES: tuple[str, ...] = (
     "contracts/test_machine_mapping_boundaries.py",
     "test_api_layer_boundaries.py",
     "test_architecture_guards.py",
+    # Phase A audit inventories regenerate from the tree and must match (#2174; ~11 s).
+    "test_architecture_audit_inventory.py",
     "test_code_parameters_writers.py",
     "test_no_bare_downsample.py",
     "test_no_pyplot_outside_plot.py",

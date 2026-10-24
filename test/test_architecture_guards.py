@@ -148,26 +148,12 @@ RETIRED_YAML_EXPECTED = (
 )
 
 #: (path, enclosing qualname, retired file) -> why it is still allowed.
-#: Exactly today's readers; B1 (#2158) removes them and must delete the entries.
+#: B1 (#2158) retired every runtime reader; only the audit generator names them.
 RETIRED_YAML_ALLOWLIST: dict[tuple[str, str, str], str] = {
-    ("vaft/machine_mapping/magnetics.py", "_load_equilibrium_magnetics_channels", "MD.yaml"):
-        "the calibration loader itself; rewired to the registry by #2158",
-    ("vaft/machine_mapping/magnetics.py", "_load_static_channels", "VEST_MagneticsGeometry_Full_ver_2302.yaml"):
-        "the geometry loader itself; rewired to the registry by #2158",
-    ("vaft/machine_mapping/magnetics.py", "_load_names_by_code", "table.yaml"):
-        "the field-code -> name loader itself; rewired to the registry by #2158",
-    ("vaft/machine_mapping/utils.py", "_load_magnetics_channel_groups", "VEST_MagneticsGeometry_Full_ver_2302.yaml"):
-        "direct geometry open with restated thresholds; #2158 moves it onto the resolver",
-    ("vaft/omas/vest_upstream.py", "build_static_ods", "VEST_MagneticsGeometry_Full_ver_2302.yaml"):
-        "provenance: hashes the geometry file into the static manifest; #2158 replaces it with the registry fingerprint",
-    ("vaft/omas/vest_upstream.py", "build_static_ods", "MD.yaml"):
-        "provenance: hashes the calibration file into the static manifest; #2158 replaces it with the registry fingerprint",
-    **{
-        ("workflow/architecture_audit/build_inventory.py", "<module>", name):
-            "Phase A audit generator (#2148): reads the split files as reconciliation evidence, "
-            "not as runtime configuration; #2158 repoints it at the frozen fixtures"
-        for name in ("MD.yaml", "VEST_MagneticsGeometry_Full_ver_2302.yaml", "table.yaml")
-    },
+    ("workflow/architecture_audit/build_inventory.py", "<module>", name):
+        "Phase A audit generator (#2148): joins the frozen fixture copies in "
+        "test/data/legacy_magnetics as reconciliation evidence, not runtime configuration (#2158)"
+    for name in ("MD.yaml", "VEST_MagneticsGeometry_Full_ver_2302.yaml", "table.yaml")
 }
 
 #: Private loaders of the retired files, defined in vaft/machine_mapping/magnetics.py.
@@ -178,38 +164,9 @@ RETIRED_LOADER_RULE = (
 )
 
 #: (path, enclosing qualname, loader) -> why the reference is still allowed.
-#: Every caller today, inside the owner module too, so a new public wrapper
-#: around a loader is caught. B1 (#2158) rewires them all onto the registry.
-RETIRED_LOADER_ALLOWLIST: dict[tuple[str, str, str], str] = {
-    **{
-        ("vaft/machine_mapping/magnetics.py", caller, "_load_equilibrium_magnetics_channels"):
-            "in-module consumer of MD.yaml rows; #2158 rewires it to the registry"
-        for caller in ("vest_equilibrium_magnetics_channel_definitions", "magnetics_wiring_for_shot")
-    },
-    **{
-        ("vaft/machine_mapping/magnetics.py", caller, "_load_static_channels"):
-            "in-module consumer of geometry rows (positional join); #2158 rewires it to the registry"
-        for caller in (
-            "_equilibrium_probe_field_codes",
-            "_pinned_channel_index",
-            "_pinned_probe_index",
-            "_populate_flux_loop_static",
-            "_populate_probe_static",
-            "vfit_mirnov_raw_dynamic",
-        )
-    },
-    **{
-        ("vaft/machine_mapping/magnetics.py", caller, "_load_names_by_code"):
-            "in-module consumer of table.yaml names; #2158 takes names from the registry"
-        for caller in ("_populate_flux_loop_static", "_populate_probe_static")
-    },
-    ("vaft/machine_mapping/raw_daq_sources.py", "_wiring_records", "_load_names_by_code"):
-        "raw-field names for the wiring records; #2158 takes names from the registry",
-    ("workflow/magnetics_geometry/verify_wiring.py", "<module>", "_load_static_channels"):
-        "wiring verification script imports the geometry loader; Phase C5 (#2164) moves it onto the registry",
-    ("workflow/magnetics_geometry/verify_wiring.py", "outboard_column", "_load_static_channels"):
-        "wiring verification script reads geometry rows; Phase C5 (#2164) moves it onto the registry",
-}
+#: Empty since B1 (#2158) deleted the loaders and rewired every caller onto the
+#: registry; the rule stays so a reintroduced loader or caller is caught.
+RETIRED_LOADER_ALLOWLIST: dict[tuple[str, str, str], str] = {}
 
 #: Raw-text prefilter (plain substrings of the lower-cased text, ~20x faster than
 #: a case-insensitive regex): only files that could produce a finding are parsed.
@@ -565,16 +522,12 @@ _WIRING = "0.diagnostics.equilibrium_magnetics.processing"
 
 #: (YAML path, record-collection path; list items as [], mapping values as {}) -> justification.
 INVENTORY_ALLOWLIST: dict[tuple[str, str], str] = {
-    ("vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml", "channels"):
-        "the current live geometry inventory; retired by #2158 (moved to test/data/legacy_magnetics/)",
+    ("vaft/machine_mapping/vest.yaml", "0.diagnostics.equilibrium_magnetics.sensors.records"):
+        "THE canonical equilibrium magnetics registry (#2158), validated by "
+        "vaft.machine_mapping.magnetics_registry; the single allowed sensor authority",
     ("vaft/machine_mapping/vest.yaml", f"{_WIRING}.wiring.revisions[].probe_overrides"):
-        "per-era wiring overrides pinned by index + r/z, not an inventory; #2158 re-targets them by sensor id",
-    ("vaft/machine_mapping/vest.yaml", f"{_WIRING}.known_faults.probes"):
-        "known-fault references pinned by index + r/z; #2158 re-targets them by sensor id",
-    ("vaft/machine_mapping/vest.yaml", f"{_WIRING}.known_faults.revisions[].probes"):
-        "per-era known-fault references pinned by index + r/z; #2158 re-targets them by sensor id",
-    ("vaft/machine_mapping/vest.yaml", f"{_WIRING}.known_faults.revisions[].flux_loops"):
-        "per-era known-fault references pinned by index + r/z; #2158 re-targets them by sensor id",
+        "per-era wiring overrides naming a registry id; r/z are pins the resolver checks "
+        "against that record, not an inventory (#2158)",
 }
 
 
@@ -657,13 +610,36 @@ def test_sensor_inventory_scanner_reports_a_synthetic_table(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skip(reason="enabled by #2158/#2159")
-def test_canonical_registry_schema_and_uniqueness():
+def test_canonical_registry_schema_and_uniqueness(tmp_path):
     """75 records, unique id/index/effective field code, finite r/z, nonzero calibration, 64/11 kinds.
 
-    Must call B1's own validator (vaft.machine_mapping.magnetics_registry), not
-    a CI-only reinterpretation of the schema; negative control: duplicate id.
+    Calls B1's own validator (vaft.machine_mapping.magnetics_registry), not a
+    CI-only reinterpretation of the schema; negative control: duplicate id.
+    The per-rule negative controls live in test/test_magnetics_registry.py.
     """
+    import math
+
+    from vaft.machine_mapping.utils import VestConfigurationError
+    from vaft.machine_mapping.magnetics_registry import resolve_equilibrium_magnetics_sensors
+
+    for shot in (None, 39437, 39438):
+        records = resolve_equilibrium_magnetics_sensors(shot)
+        kinds = [r.kind for r in records]
+        assert kinds == ["b_field_pol_probe"] * 64 + ["flux_loop"] * 11
+        assert [r.index for r in records] == list(range(75))
+        for attribute in ("id", "field_code"):
+            values = [getattr(r, attribute) for r in records]
+            assert len(set(values)) == len(values), (shot, attribute)
+        assert all(math.isfinite(r.r) and math.isfinite(r.z) and r.calibration != 0 for r in records)
+
+    vest = REPO_ROOT / "vaft" / "machine_mapping" / "vest.yaml"
+    content = yaml.safe_load(vest.read_text(encoding="utf-8"))
+    records = content[0]["diagnostics"]["equilibrium_magnetics"]["sensors"]["records"]
+    records[47] = dict(records[46], index=47)
+    variant = tmp_path / "vest.yaml"
+    variant.write_text(yaml.safe_dump(content, sort_keys=False), encoding="utf-8")
+    with pytest.raises(VestConfigurationError, match="duplicate id"):
+        resolve_equilibrium_magnetics_sensors(info_file=str(variant))
 
 
 @pytest.mark.skip(reason="enabled by #2158/#2159")
