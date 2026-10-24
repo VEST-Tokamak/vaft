@@ -124,5 +124,6 @@ Timings are local wall clock on the shared 10-core MacBook, `-n 0`, at
 
 ## Change log
 
+- 2026-10-25: after #2174 merged, `workflow/architecture_audit/build_inventory.py` (the Phase A generator) is allowlisted in guard (a1) for its three module-level references: it reads the split files as reconciliation evidence, not as runtime configuration. #2158 repoints it at the frozen fixtures in `test/data/legacy_magnetics/`.
 - 2026-10-25: rows P1, P2, P7 and P8 updated after #2135 merged (75b154e31). Every guard allowlist still matches exactly.
 - 2026-10-25: skeleton and active guards (a)–(c), placeholders (d). PR `architecture/2168-guards-prep`. The module adds about 1 s serial (`-n 0`) to a core gate that took 583 s locally at `-n 2`.

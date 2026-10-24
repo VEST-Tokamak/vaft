@@ -162,6 +162,12 @@ RETIRED_YAML_ALLOWLIST: dict[tuple[str, str, str], str] = {
         "provenance: hashes the geometry file into the static manifest; #2158 replaces it with the registry fingerprint",
     ("vaft/omas/vest_upstream.py", "build_static_ods", "MD.yaml"):
         "provenance: hashes the calibration file into the static manifest; #2158 replaces it with the registry fingerprint",
+    **{
+        ("workflow/architecture_audit/build_inventory.py", "<module>", name):
+            "Phase A audit generator (#2148): reads the split files as reconciliation evidence, "
+            "not as runtime configuration; #2158 repoints it at the frozen fixtures"
+        for name in ("MD.yaml", "VEST_MagneticsGeometry_Full_ver_2302.yaml", "table.yaml")
+    },
 }
 
 #: Private loaders of the retired files, defined in vaft/machine_mapping/magnetics.py.
