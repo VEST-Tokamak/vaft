@@ -81,6 +81,20 @@ def test_kept_unfiltered_the_tone_folds_to_5khz_at_full_amplitude():
     assert abs(_amplitude(out, target, 5_000.0) - 1.0) < 1e-6
 
 
+def test_a_short_chirp_is_blanked_and_kept_unfiltered_it_folds():
+    """Linear chirp 1 -> 100 kHz over a 900-sample run: everything above the
+    12.5 kHz target Nyquist would fold back. Kept, the target samples equal
+    np.interp of the raw chirp, so they carry the folded sweep; by default none
+    is stored."""
+    source = np.arange(SHORT) / FS_FAST
+    rate = (100_000.0 - 1_000.0) / source[-1]
+    chirp = np.sin(2 * np.pi * (1_000.0 * source + 0.5 * rate * source**2))
+    target = np.arange(0.0, source[-1], 1.0 / FS_SLOW)
+    kept = _decimate(source, chirp, target, unfiltered="keep")
+    np.testing.assert_array_equal(kept, np.interp(target, source, chirp))
+    assert np.std(kept[target > 0.5 * source[-1]]) > 0.3  # the fold is not small
+    assert not np.isfinite(_decimate(source, chirp, target)).any()
+
 def test_a_rate_cut_without_short_runs_is_unchanged_by_the_option():
     source = np.arange(25_000) / FS_FAST
     tone = np.sin(2 * np.pi * 1_000.0 * source) + np.sin(2 * np.pi * 40_000.0 * source)
