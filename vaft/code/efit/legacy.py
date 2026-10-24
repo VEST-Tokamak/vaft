@@ -86,6 +86,27 @@ def box_average(time, data, center: float, half_width: float, *, what: str = "si
     return float(np.mean(y[inside]))
 
 
+def box_average_series(time, data, half_width: float) -> np.ndarray:
+    """:func:`box_average` evaluated at every sample of ``time``.
+
+    Each output sample is the mean of the samples inside
+    ``[time[i] - half_width, time[i] + half_width]`` -- the same closed window
+    and the same membership test as :func:`box_average` -- computed in one pass
+    as a difference of cumulative sums.  It agrees with the per-sample
+    ``box_average`` to round-off (about 1e-12 relative: a running sum against
+    ``np.mean``).  ``time`` must be sorted and ``data`` finite: a NaN would
+    enter the running sum and reach every later sample, where ``box_average``
+    keeps it inside its own window.  Every window contains its own sample, so
+    none is empty.
+    """
+    clock = np.asarray(time, dtype=float).reshape(-1)
+    values = np.asarray(data, dtype=float).reshape(-1)
+    lo = np.searchsorted(clock, clock - half_width, side="left")
+    hi = np.searchsorted(clock, clock + half_width, side="right")
+    total = np.concatenate(([0.0], np.cumsum(values)))
+    return (total[hi] - total[lo]) / np.maximum(hi - lo, 1)
+
+
 def _window_pair(time, data, error, center, half_width, *, what):
     return (
         box_average(time, data, center, half_width, what=what),
@@ -812,6 +833,7 @@ __all__ = [
     "min_gauss_fit4",
     "annotate_constraint_equilibrium",
     "box_average",
+    "box_average_series",
     "vfit_equilibrium_form_constraints",
     "correct_flux_loop",
     "vfit_signal_startend",

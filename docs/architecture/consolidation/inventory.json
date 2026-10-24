@@ -1,8 +1,8 @@
 {
  "classification_counts": {
   "canonical": 19,
-  "duplicate": 11,
-  "intentional_specialization": 32,
+  "duplicate": 10,
+  "intentional_specialization": 33,
   "legacy": 37,
   "unverified": 382
  },
@@ -941,6 +941,44 @@
    "recommended_action": "keep (EFIT constraint averaging contract).",
    "related_issue": "",
    "resolved_by": "",
+   "scientific_risk": "low",
+   "source_file": "vaft/code/efit/legacy.py"
+  },
+  {
+   "algorithm_semantics": "cumsum-difference box average at every sample over [t-h, t+h] (searchsorted left/right): legacy.box_average evaluated at every sample; moved from the workflow's _box_averaged (B3.10).",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "<definition>",
+     "snippet": "def box_average_series"
+    },
+    {
+     "call": "numpy.cumsum",
+     "snippet": "np.cumsum(values)"
+    }
+   ],
+   "callers": [
+    "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._efit_not_applicable"
+   ],
+   "classification": "intentional_specialization",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": true,
+   "evidence": "test/test_box_average_series.py: bit-identical to the frozen workflow helper; per-sample box_average to 1e-12 relative.",
+   "implementation": "vaft.code.efit.legacy.box_average_series",
+   "operation": [
+    "cumulative_sum",
+    "smoothing"
+   ],
+   "owning_layer": "code",
+   "primitives": [
+    "numpy.cumsum"
+   ],
+   "production_reachability": "pipeline1",
+   "production_reachability_note": "pipeline1 generate_constraints_ods (EFIT applicability: the box-averaged Ip at every sample).",
+   "recommended_action": "keep beside box_average (vectorised form of the same contract).",
+   "related_issue": "#2162, #2164",
+   "resolved_by": "#2162 (B3.10)",
    "scientific_risk": "low",
    "source_file": "vaft/code/efit/legacy.py"
   },
@@ -16459,39 +16497,6 @@
    "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/studies/nice_issue_666/synthetic_equilibria/run_tokamaker.py"
-  },
-  {
-   "algorithm_semantics": "cumsum-difference box average at every sample over [t-h, t+h] (searchsorted left/right): legacy.box_average evaluated at every sample.",
-   "assets": [],
-   "audit_scope": "preprocessing",
-   "call_sites": [
-    {
-     "call": "numpy.cumsum",
-     "snippet": "np.cumsum(data)"
-    }
-   ],
-   "callers": [
-    "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._efit_not_applicable"
-   ],
-   "classification": "duplicate",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": true,
-   "evidence": "",
-   "implementation": "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._box_averaged",
-   "operation": [
-    "cumulative_sum"
-   ],
-   "owning_layer": "workflow_production",
-   "primitives": [
-    "numpy.cumsum"
-   ],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "pipeline1 generate_constraints_ods (vacuum-time drop).",
-   "recommended_action": "B3/C2: move next to legacy.box_average as a vectorised form with an equivalence test; workflow-local numerics otherwise.",
-   "related_issue": "#2162, #2164",
-   "resolved_by": "",
-   "scientific_risk": "low",
-   "source_file": "workflow/automatic_pipeline_1_routine_data_processing/generate_constraints_ods.py"
   },
   {
    "algorithm_semantics": "calls numpy.interp (not curated)",

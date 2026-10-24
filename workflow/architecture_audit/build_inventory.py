@@ -206,6 +206,7 @@ DEFINITION_OPERATIONS = {
     "vaft.machine_mapping.magnetics._baseline_correct_limiter_voltage": "baseline",
     "vaft.process.magnetics._firwin_order": "filter_design",
     "vaft.code.efit.legacy.box_average": "smoothing",
+    "vaft.code.efit.legacy.box_average_series": "smoothing",
     "vaft.machine_mapping.soft_x_rays.vfit_soft_x_rays_dynamic": "baseline",
 }
 
@@ -771,13 +772,15 @@ CURATED.update(
             "recommended_action": "keep.",
             "related_issue": "",
         },
-        ("workflow/automatic_pipeline_1_routine_data_processing/generate_constraints_ods.py", "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._box_averaged"): {
-            "classification": "duplicate",
-            "production_reachability_note": "pipeline1 generate_constraints_ods (vacuum-time drop).",
-            "algorithm_semantics": "cumsum-difference box average at every sample over [t-h, t+h] (searchsorted left/right): legacy.box_average evaluated at every sample.",
+        ("vaft/code/efit/legacy.py", "vaft.code.efit.legacy.box_average_series"): {
+            "classification": "intentional_specialization",
+            "production_reachability_note": "pipeline1 generate_constraints_ods (EFIT applicability: the box-averaged Ip at every sample).",
+            "algorithm_semantics": "cumsum-difference box average at every sample over [t-h, t+h] (searchsorted left/right): legacy.box_average evaluated at every sample; moved from the workflow's _box_averaged (B3.10).",
             "scientific_risk": "low",
-            "recommended_action": "B3/C2: move next to legacy.box_average as a vectorised form with an equivalence test; workflow-local numerics otherwise.",
+            "recommended_action": "keep beside box_average (vectorised form of the same contract).",
             "related_issue": "#2162, #2164",
+            "resolved_by": "#2162 (B3.10)",
+            "evidence": "test/test_box_average_series.py: bit-identical to the frozen workflow helper; per-sample box_average to 1e-12 relative.",
         },
         ("vaft/machine_mapping/soft_x_rays.py", "vaft.machine_mapping.soft_x_rays.vfit_soft_x_rays_dynamic"): {
             "classification": "duplicate",

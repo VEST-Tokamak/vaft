@@ -292,14 +292,6 @@ def _drop_vacuum_times(
     return np.asarray(keep, dtype=float), dropped
 
 
-def _box_averaged(clock: np.ndarray, data: np.ndarray, half_width: float) -> np.ndarray:
-    """`box_average` at every sample: the current each constraint instant would see there."""
-    lo = np.searchsorted(clock, clock - half_width, side="left")
-    hi = np.searchsorted(clock, clock + half_width, side="right")
-    total = np.concatenate(([0.0], np.cumsum(data)))
-    return (total[hi] - total[lo]) / np.maximum(hi - lo, 1)
-
-
 def _efit_not_applicable(
     ods, error: NoPlasmaCurrentError, *, average_window: float = 0.0005
 ) -> str | None:
@@ -350,7 +342,10 @@ def _efit_not_applicable(
     if not finite.any():
         return None
     current, clock = current[finite], clock[finite]
-    averaged = _box_averaged(clock, current, float(average_window))
+    from vaft.code.efit.legacy import box_average_series
+
+    # The current each constraint instant would see there (#2162 B3.10).
+    averaged = box_average_series(clock, current, float(average_window))
 
     verdict = None
     try:
