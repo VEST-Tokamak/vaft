@@ -188,3 +188,19 @@ def test_a_healthy_record_reports_no_repair(tmp_path):
     vfit_tf_dynamic({}, SHOT, 0.0, 1.0, 4e-5, raw_source=raw, report=report)
 
     assert report == {"repaired": []}
+
+
+def test_the_tf_current_is_not_delayed_by_its_low_pass(tmp_path):
+    """The TF low pass is zero-phase, as the donor's VEST_TFwaveform.m filtfilt.
+
+    The causal 26-tap filter at 25 kHz delayed the TF current by 0.5 ms (#2135).
+    """
+    from vaft.machine_mapping.tf import vfit_tf_current_detailed
+
+    true = 1000.0 * np.exp(-0.5 * ((TIME - 0.1) / 2e-3) ** 2)
+    raw = tmp_path / "raw.json.gz"
+    _write_tf_raw_dump(raw, true)
+
+    time, current, _repaired = vfit_tf_current_detailed(SHOT, raw_source=raw)
+
+    assert time[np.argmax(current)] == pytest.approx(0.1, abs=4e-5)
