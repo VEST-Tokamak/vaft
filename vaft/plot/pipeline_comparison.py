@@ -242,7 +242,7 @@ FAMILY_DISPLAY = {
 }
 #: Volume-integral and pair-13 virial columns of the virial table, per quantity.
 VIRIAL_QUANTITIES = {
-    "beta_p": ("beta_p_integral", "beta_p_pair_13", r"\beta_p", "Poloidal beta", 2.0),
+    "beta_p": ("beta_p_integral", "beta_p_pair_13", r"\beta_p", "Poloidal beta", None),
     "li": ("li_volume", "li_pair_13", r"l_i", "Internal inductance", None),
 }
 COMPARISON_LABELS = {"legacy": "Legacy archive", "current": "Current pipeline"}
@@ -332,8 +332,7 @@ def pipeline_comparison_virial(table: pd.DataFrame, *, quantity: str = "beta_p",
     The view of :func:`vaft.plot.kinetic_state.kinetic_state_virial_pair13_comparison`
     with the pipeline as the cohort, on the virial table of the comparison
     (one row per side and slice). ``band`` shades agreement within that
-    factor; ``"auto"`` is a factor of 2 for ``beta_p`` and none for ``l_i``,
-    whose two estimates agree far more closely. ``log`` defaults to ``True`` for ``beta_p``, whose two pipelines
+    factor; ``"auto"`` draws none, so ``y = x`` is the only reference. ``log`` defaults to ``True`` for ``beta_p``, whose two pipelines
     differ by an order of magnitude. Each legend entry counts the slices
     outside the view (a non-positive value on a log axis among them), so no
     slice is dropped silently.
@@ -415,7 +414,6 @@ def pipeline_comparison_overview(points: pd.DataFrame, virial: pd.DataFrame, *, 
     """
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
-    from matplotlib.patches import Patch
 
     limits = dict(limits_by_panel or {})
     unknown = set(limits) - {"probe", "loop", "beta_p", "li"}
@@ -434,9 +432,8 @@ def pipeline_comparison_overview(points: pd.DataFrame, virial: pd.DataFrame, *, 
                 legend.remove()
         handles = [Line2D([], [], color=SIDE_STYLE[side]["color"], marker=SIDE_STYLE[side]["marker"],
                           linestyle="none", markersize=10, label=COMPARISON_LABELS[side]) for side in SIDES]
-        handles += [Line2D([], [], color=INK, linestyle="--", label="y = x"),
-                    Patch(facecolor="gray", alpha=0.3, label="within a factor of 2")]
-        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.015), ncol=4, frameon=False)
+        handles.append(Line2D([], [], color=INK, linestyle="--", label="y = x"))
+        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.015), ncol=3, frameon=False)
         fig.tight_layout(rect=(0.0, 0.08, 1.0, 1.0), pad=0.8, w_pad=0.8, h_pad=1.2)
     if show:
         plt.show()
