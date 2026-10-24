@@ -2578,10 +2578,10 @@ A representative chain, in the order the magnetic probes use it: anti-alias low-
 | --- | --- | --- | --- | --- |
 | Raw digitizer record | measured | $V(t)\ \mathrm{per\ DAQ\ field}$ | `vaft.database.raw.load` |  |
 | DAQ field codes | machine geometry / static data (enters Raw digitizer record) | $(\mathrm{diagnostic},\ s) \rightarrow \mathrm{field\ codes}$ | `vaft.machine_mapping.raw_daq_sources.raw_sources` |  |
-| Anti-alias low-pass | derived | $\mathrm{FIR\ on\ the\ native\ fast\ grid}$ | `vaft.process.signal_processing.fir_filter` |  |
+| Anti-alias low-pass | derived | $\mathrm{FIR\ on\ the\ native\ fast\ grid}$ | `vaft.process.signal_processing.apply_fir_filter` |  |
 | Calibration | derived |  | `vaft.machine_mapping.utils.calibrate_vest_signal` |  |
 | Calibration revision | machine geometry / static data (enters Calibration) | $c,\ \mathrm{sign},\ \mathrm{baseline\ window}$ | `vaft.machine_mapping.utils.resolve_vest_diagnostic` |  |
-| Time integration | derived |  | `vaft.process.magnetics.vest_b_field_pol_probe_legacy` |  |
+| Time integration | derived |  | `vaft.process.magnetics.b_field_pol_probe_field` |  |
 | Baseline subtraction | derived | $\mathrm{linear\ fit\ over\ the\ era's\ leading\ samples}$ | `vaft.process.signal_processing.subtract_baseline` |  |
 | Resampling | derived | $t_k = t_{\mathrm{start}} + k\,\Delta t$ | `vaft.process.signal_processing.resample_to_time` |  |
 | Analysis time grid | model choice / convention (enters Resampling) | $t_{\mathrm{start}},\ t_{\mathrm{end}},\ \Delta t$ | `vaft.machine_mapping.utils.resolve_diagnostics_time_policies` |  |
