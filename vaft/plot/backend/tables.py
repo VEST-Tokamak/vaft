@@ -500,7 +500,9 @@ _SUMMARY_READS = RECIPES["equilibrium_overview"].reads
 #: diamagnetic flux, and the kinetic profiles and Thomson channels of the
 #: independent checks.  The builder hands validate_equilibrium a private copy
 #: of just these (it deep-copies its argument whole).
-_VALIDATION_ROOTS = ("equilibrium", "magnetics", "core_profiles", "thomson_scattering", "dataset_description")
+# tf: the virial kernel's measured mu_i falls back to the tf vacuum R*B_phi
+# on a slice without profiles_1d.f (#862, #2100).
+_VALIDATION_ROOTS = ("equilibrium", "magnetics", "tf", "core_profiles", "thomson_scattering", "dataset_description")
 _VALIDATION_READS = (*_SUMMARY_READS, *_VALIDATION_ROOTS)
 
 RECIPES["equilibrium_table_summary"] = CallableRecipe(

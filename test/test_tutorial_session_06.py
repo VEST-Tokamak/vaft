@@ -121,8 +121,11 @@ def test_no_cell_dumps_a_data_object(executed):
 
 
 def test_the_tables_come_from_the_canonical_presets(book):
+    # Since #2110 the offline tables come from the same call the database
+    # summary makes, run on in-memory ODS, so the presets' extractors, columns
+    # and sort are the database's own.
     executable = _executable(book)
-    assert "vaft.database.get_summary_preset(preset).extractor(ods, shot)" in executable
+    assert "vaft.database.summary(odss=samples, preset=preset)" in executable
     assert "# tables = {preset: vaft.database.summary(" in _source(_cell(book, "s06-load-population"))
 
 
@@ -137,8 +140,12 @@ def test_the_database_path_is_gated_by_the_mode(book, executed):
     else:
         raise AssertionError("the database summary is not inside `if LAB:`")
     assert "Offline: the database population needs lab mode" in _printed_by(executed, "s06-lab-population")
-    assert "vaft.database.summary(" not in _strip_comments(
+    # The database path is a shot_range summary; the offline cells may call the
+    # same function on in-memory ODS (odss=, #2110) without touching the database.
+    outside = _strip_comments(
         "\n".join(_source(cell) for cell in _code_cells(book) if cell.id != "s06-lab-population"))
+    assert "vaft.database.summary(shot_range=" not in outside
+    assert "vaft.database.summary(odss=" in outside
 
 
 def test_the_notebook_uses_only_public_vaft_modules_and_no_local_functions(book):

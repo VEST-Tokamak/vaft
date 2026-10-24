@@ -34,9 +34,6 @@ from typing import Any, Sequence
 
 from vaft.plot.backend.render import render_entries
 from vaft.plot.registry import get_spec, specs
-from vaft.plot._migration import (
-    RENAMED_REMOVAL_RELEASE as _RENAMED_REMOVAL_RELEASE,
-)
 
 from .interactive import (  # public entry points, issues #261 and #482
     plot_diagnostics_time_interactive,
@@ -1445,69 +1442,6 @@ def plot_soft_x_rays_spectrum(
     )
 
 
-def _renamed_adapter(old_stem: str, new_stem: str):
-    def adapter(
-        source: Any,
-        *,
-        ax: Any = None,
-        show: bool = False,
-        label: str | Sequence[str] = "shot",
-        **options: Any,
-    ) -> tuple[Any, Any]:
-        warnings.warn(
-            f"vaft.omas.plot_{old_stem} was renamed to "
-            f"vaft.omas.plot_{new_stem} in the subject-taxonomy redesign "
-            f"(issue #251); the old name is removed in "
-            f"{_RENAMED_REMOVAL_RELEASE}.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return render(new_stem, source, ax=ax, show=show, label=label, **options)
-
-    adapter.__name__ = f"plot_{old_stem}"
-    adapter.__qualname__ = f"plot_{old_stem}"
-    adapter.__doc__ = (
-        f"Deprecated alias of :func:`plot_{new_stem}` (renamed by issue #251)."
-    )
-    return adapter
-
-
-plot_coils_non_axisymmetric_geometry3d = _renamed_adapter("coils_non_axisymmetric_geometry3d", "coil_3d_geometry3d")
-plot_coils_non_axisymmetric_geometry_topview = _renamed_adapter("coils_non_axisymmetric_geometry_topview", "coil_3d_geometry_topview")
-plot_core_profiles_field_electron_density = _renamed_adapter("core_profiles_field_electron_density", "electron_density_field")
-plot_core_profiles_field_electron_temperature = _renamed_adapter("core_profiles_field_electron_temperature", "electron_temperature_field")
-plot_core_profiles_profile_electron_density = _renamed_adapter("core_profiles_profile_electron_density", "electron_density_profile")
-plot_core_profiles_profile_electron_temperature = _renamed_adapter("core_profiles_profile_electron_temperature", "electron_temperature_profile")
-plot_core_profiles_profile_ion_temperature = _renamed_adapter("core_profiles_profile_ion_temperature", "ion_temperature_profile")
-plot_core_profiles_profile_pressure = _renamed_adapter("core_profiles_profile_pressure", "thermal_pressure_profile")
-plot_core_profiles_time_electron_density = _renamed_adapter("core_profiles_time_electron_density", "electron_density_time")
-plot_core_profiles_time_electron_temperature = _renamed_adapter("core_profiles_time_electron_temperature", "electron_temperature_time")
-plot_electromagnetics_time_current = _renamed_adapter("electromagnetics_time_current", "current_overview")
-plot_equilibrium_time_beta_pol = _renamed_adapter("equilibrium_time_beta_pol", "equilibrium_time_beta_p")
-plot_equilibrium_time_beta_tor = _renamed_adapter("equilibrium_time_beta_tor", "equilibrium_time_beta_t")
-plot_magnetics_overview_impa = _renamed_adapter("magnetics_overview_impa", "impa_overview")
-plot_magnetics_profile_impa_tf = _renamed_adapter("magnetics_profile_impa_tf", "impa_profile_field")
-plot_magnetics_spectrogram_mirnov = _renamed_adapter("magnetics_spectrogram_mirnov", "mirnov_spectrogram")
-plot_magnetics_spectrum_mirnov = _renamed_adapter("magnetics_spectrum_mirnov", "mirnov_spectrum")
-plot_magnetics_time_b_field_pol_probe_field = _renamed_adapter("magnetics_time_b_field_pol_probe_field", "b_field_probe_time_field")
-plot_magnetics_time_diamagnetic_flux = _renamed_adapter("magnetics_time_diamagnetic_flux", "diamagnetic_flux_time")
-plot_magnetics_time_flux_loop_flux = _renamed_adapter("magnetics_time_flux_loop_flux", "flux_loop_time_flux")
-plot_magnetics_time_flux_loop_voltage = _renamed_adapter("magnetics_time_flux_loop_voltage", "flux_loop_time_voltage")
-plot_magnetics_time_impa_field = _renamed_adapter("magnetics_time_impa_field", "impa_time_field")
-plot_magnetics_time_impa_voltage = _renamed_adapter("magnetics_time_impa_voltage", "impa_time_voltage")
-plot_magnetics_time_ip = _renamed_adapter("magnetics_time_ip", "plasma_current_time")
-plot_magnetics_time_limiter_current = _renamed_adapter("magnetics_time_limiter_current", "limiter_current_time")
-plot_magnetics_time_mirnov_voltage = _renamed_adapter("magnetics_time_mirnov_voltage", "mirnov_time_voltage")
-plot_pf_active_geometry_poloidal = _renamed_adapter("pf_active_geometry_poloidal", "pf_coil_geometry_poloidal")
-plot_pf_active_time_current = _renamed_adapter("pf_active_time_current", "pf_coil_time_current")
-plot_pf_active_time_current_turns = _renamed_adapter("pf_active_time_current_turns", "pf_coil_time_current_turns")
-plot_pf_passive_geometry_poloidal = _renamed_adapter("pf_passive_geometry_poloidal", "passive_structure_geometry_poloidal")
-plot_summary_time_beta = _renamed_adapter("summary_time_beta", "equilibrium_time_beta")
-plot_tf_time_b_field_tor = _renamed_adapter("tf_time_b_field_tor", "tf_coil_time_b_t")
-plot_tf_time_b_field_tor_vacuum_r = _renamed_adapter("tf_time_b_field_tor_vacuum_r", "tf_coil_time_b_t_vacuum_r")
-plot_tf_time_coil_current = _renamed_adapter("tf_time_coil_current", "tf_coil_time_current")
-
-
 def plot_nbi_profile_electron_heating(
     source: Any,
     *,
@@ -1652,41 +1586,6 @@ __all__ = [
     "plot_pf_plasma_geometry_poloidal",
     "plot_soft_x_rays_spectrum",
     "render",
-    # deprecated renamed adapters (issue #251):
-    "plot_coils_non_axisymmetric_geometry3d",
-    "plot_coils_non_axisymmetric_geometry_topview",
-    "plot_core_profiles_field_electron_density",
-    "plot_core_profiles_field_electron_temperature",
-    "plot_core_profiles_profile_electron_density",
-    "plot_core_profiles_profile_electron_temperature",
-    "plot_core_profiles_profile_ion_temperature",
-    "plot_core_profiles_profile_pressure",
-    "plot_core_profiles_time_electron_density",
-    "plot_core_profiles_time_electron_temperature",
-    "plot_electromagnetics_time_current",
-    "plot_equilibrium_time_beta_pol",
-    "plot_equilibrium_time_beta_tor",
-    "plot_magnetics_overview_impa",
-    "plot_magnetics_profile_impa_tf",
-    "plot_magnetics_spectrogram_mirnov",
-    "plot_magnetics_spectrum_mirnov",
-    "plot_magnetics_time_b_field_pol_probe_field",
-    "plot_magnetics_time_diamagnetic_flux",
-    "plot_magnetics_time_flux_loop_flux",
-    "plot_magnetics_time_flux_loop_voltage",
-    "plot_magnetics_time_impa_field",
-    "plot_magnetics_time_impa_voltage",
-    "plot_magnetics_time_ip",
-    "plot_magnetics_time_limiter_current",
-    "plot_magnetics_time_mirnov_voltage",
-    "plot_pf_active_geometry_poloidal",
-    "plot_pf_active_time_current",
-    "plot_pf_active_time_current_turns",
-    "plot_pf_passive_geometry_poloidal",
-    "plot_summary_time_beta",
-    "plot_tf_time_b_field_tor",
-    "plot_tf_time_b_field_tor_vacuum_r",
-    "plot_tf_time_coil_current",
 ]
 
 # The other two verbs of every plot (umbrella #434): ``dd_<stem>()`` lists the

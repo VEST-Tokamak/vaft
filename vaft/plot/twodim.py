@@ -105,7 +105,7 @@ def overlay_all(ods):
     # make color 3 80% transparent
     from matplotlib.colors import to_rgba
     color = to_rgba(colors[3], alpha=0.6)  # 60% transparent
-    vaft.plot.pf_passive_overlay(ods, ax=ax, colors=color)
+    pf_passive_overlay(ods, ax=ax, colors=color)
     handles.append(plt.Line2D([], [], color=color))
     labels.append('Vessl (PF Passive)')
 
@@ -170,7 +170,7 @@ def overlay_all_with_vacuum_psi_contour(ods, time=None, cmap='viridis', fontsize
     # PF Passive overlay (Vessel)
     from matplotlib.colors import to_rgba
     color_vessel = to_rgba(colors[3], alpha=0.6)
-    vaft.plot.pf_passive_overlay(ods, ax=ax, colors=color_vessel)
+    pf_passive_overlay(ods, ax=ax, colors=color_vessel)
     handles.append(plt.Line2D([], [], color=color_vessel))
     labels.append('Vessl (PF Passive)')
 

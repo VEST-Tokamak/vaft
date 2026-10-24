@@ -39,9 +39,10 @@ size.
 ``<base>/.lock``; eviction, pruning and clearing hold it exclusively, so a
 domain is never removed while another process is copying it in or out. Each
 writer copies through its own temporary file, so two writers of one domain
-never see each other's half-written copy. The lock is ``fcntl.flock`` and
-therefore POSIX-only; on Windows it is a no-op. The cache is best-effort: a
-failed cache write or eviction is logged and never fails the load.
+never see each other's half-written copy. The lock is ``fcntl.flock`` on
+POSIX and ``msvcrt.locking`` on Windows (which has no shared mode, so every
+holder there is exclusive). The cache is best-effort: a failed cache write or
+eviction is logged and never fails the load.
 
 **Ownership.** Only files VAFT wrote are ever removed: a domain counts when
 it sits in ``<endpoint hash>/<source>/<shot>/`` (a 16-hex-digit endpoint
@@ -93,6 +94,8 @@ CACHE_DIR_ENV = "VAFT_CACHE_DIR"
 CONFIG_SECTION = "hsds"
 CONFIG_KEY = "cache_max"
 LOCK_NAME = ".lock"
+#: How long a Windows holder waits for another process to release the lock.
+LOCK_WAIT_S = 60.0
 MARKER_NAME = ".vaft-hsds-cache"
 #: An interrupted write's temporary older than this is debris.
 STALE_PART_SECONDS = 3600.0
@@ -358,13 +361,36 @@ def set_cache_max(value: int | str, path: Path | None = None) -> Path:
 # -- locking ---------------------------------------------------------------
 @contextmanager
 def cache_lock(base: Path, *, exclusive: bool) -> Iterator[None]:
-    """Hold ``<base>/.lock`` shared (copying files) or exclusive (removing them)."""
+    """Hold ``<base>/.lock`` shared (copying files) or exclusive (removing them).
+
+    On Windows ``msvcrt.locking`` locks one byte of the file; it knows no shared
+    mode, so a shared request is served exclusively there, and a lock held by
+    another process is waited for in short retries rather than the ten-second
+    sleep-and-fail ``LK_LOCK`` would do.
+    """
+    base.mkdir(parents=True, exist_ok=True)
     try:
         import fcntl
-    except ImportError:  # Windows: no advisory lock (see the module docstring)
-        yield
+    except ImportError:  # Windows
+        import msvcrt
+
+        with open(base / LOCK_NAME, "a+b") as handle:
+            handle.seek(0)  # lock and unlock the same byte: the first one
+            deadline = time.monotonic() + LOCK_WAIT_S
+            while True:
+                try:
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise
+                    time.sleep(0.05)
+            try:
+                yield
+            finally:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
         return
-    base.mkdir(parents=True, exist_ok=True)
     with open(base / LOCK_NAME, "a+b") as handle:
         fcntl.flock(handle.fileno(), fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
         try:

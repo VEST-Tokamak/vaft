@@ -259,9 +259,11 @@ vaft.omas.plot_plasma_current_time(odc, yunit='kA', label='shot')
 ```
 
 Plot names are built from the physical **subject**, not the IDS that stores it. The older IDS-shaped
-spellings (`magnetics_time_ip`, `time_magnetics_ip`) still resolve but emit a `DeprecationWarning`
-naming their replacement, and both are removed in 0.9.0.
-`vaft.plot.migration_table()` renders the current mapping from the code.
+spellings (`magnetics_time_ip`, `time_magnetics_ip`, and `vaft.omas.plot_magnetics_time_ip`) are
+removed as of 0.9.0 after their deprecation window: `vaft.plot.plasma_current_time` renders the view
+model and `vaft.omas.plot_plasma_current_time` renders from an ODS, and the old spellings raise an
+`AttributeError` that names them. `vaft.plot.migration_table()` renders the full old-to-new mapping
+from the code.
 
 ## Inboard $B_z$
 

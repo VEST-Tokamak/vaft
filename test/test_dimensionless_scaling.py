@@ -304,22 +304,19 @@ class EngineeringToDimensionlessTests(unittest.TestCase):
                 continue
             mu = dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
                 a_I, a_B, a_P, a_n, 0.0, a_R, 0.0, 0.0)[:3]
-            with self.assertWarns(FutureWarning):
-                residual = verify_kadomtsev_constraint(*mu, a_P)
+            residual = verify_kadomtsev_constraint(*mu, a_P)
             expected = kadomtsev_constraint_from_engineering_exponents(
                 a_I, a_B, a_P, a_n, a_R)
             self.assertAlmostEqual(residual, expected, places=9)
 
     def test_published_scalings_carry_their_published_residuals(self):
-        with self.assertWarns(FutureWarning):
-            iter89p = verify_kadomtsev_constraint(
-                *dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
-                    **self.ITER89P)[:3], self.ITER89P["a_P"])
+        iter89p = verify_kadomtsev_constraint(
+            *dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
+                **self.ITER89P)[:3], self.ITER89P["a_P"])
         self.assertAlmostEqual(iter89p, -0.15, places=9)
-        with self.assertWarns(FutureWarning):
-            ipb98 = verify_kadomtsev_constraint(
-                *dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
-                    **self.IPB98)[:3], self.IPB98["a_P"])
+        ipb98 = verify_kadomtsev_constraint(
+            *dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
+                **self.IPB98)[:3], self.IPB98["a_P"])
         self.assertAlmostEqual(ipb98, -0.01, places=9)
 
     def test_a_non_finite_exponent_raises(self):

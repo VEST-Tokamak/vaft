@@ -91,13 +91,19 @@ def test_the_offline_table_equals_the_database_table(monkeypatch, preset, shot):
 
 
 def test_an_ids_outside_the_preset_does_not_change_the_table(sample):
-    """The diamagnetic update reads magnetics, which equilibrium_global does not request."""
+    """Only the IDS the preset requests reach the table.
+
+    equilibrium_global requests equilibrium, magnetics (the measured
+    diamagnetic flux since #2127) and tf; pf_active is stored by the sample
+    but requested by no column, so dropping it must leave every value alone.
+    """
     from omas import ODS
 
-    assert "magnetics" in sample
+    assert "pf_active" in sample
+    assert "pf_active" not in {p.split(".", 1)[0] for p in database.get_summary_preset("equilibrium_global").paths}
     without = ODS(imas_version=sample.imas_version, consistency_check=False)
     for name in sample.keys():
-        if name != "magnetics":
+        if name != "pf_active":
             without[name] = copy.deepcopy(sample[name])
     pd.testing.assert_frame_equal(
         database.summary_from_ods({SHOT: sample}),
