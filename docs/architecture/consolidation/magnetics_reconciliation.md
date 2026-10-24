@@ -30,6 +30,17 @@ Mechanical checks, all of them asserted by the new test:
 Other places that restate the same sensors, none of them independent:
 
 - `toroidal_mirnov_reference` in vest.yaml restates **field 171** (see Q1).
+- **`vaft/data/legacy/sql_table.txt`** is a second field ↔ label table for every
+  DAQ field, all 75 magnetics labels included. It is read by
+  `vaft.database.raw.vest_load_by_name` (`vaft/database/raw.py:207, 967-990`) and
+  opened directly by `MM/raw_daq_sources.py:67-69`.
+  It also lists labels that no other source has:
+  - flux loops #1, #2, #7, #8 → fields 16, 17, 22, 23;
+  - `MagneticFieldProbe_C2-02_Bz` → field 168.
+
+  It also gives field 25 two names, `Flux Loop - #10` and `Arc Current`. B1 must
+  either derive it from the registry or document it as the raw-DB name table,
+  which is a different contract (see Q6).
 - The dead `0.magnetics.flux_loop` placeholder (Q3).
 - `efund_table_manifest.json` pins the sha256 of MD.yaml and the geometry YAML
   under `magnetics_calibration` / `magnetics_geometry`. That is a **historical
@@ -55,20 +66,25 @@ fixed.
 **Consequence for B1.** The stable `id` cannot be the table.yaml name. It must be
 a separate field, and the ODS `name`/`identifier` must stay the DAQ label so that
 public structures remain byte-identical (the plan's requirement). The proposed ids
-below are physical-position ids in the familiar ladder notation:
+below are physical-position ids:
 
 - For **70 of 75** sensors the table.yaml label already agrees with its column's
   geometric ladder, so `id_basis = table`.
-- For **5** it does not. Their id is the ladder position (`id_basis = ladder`), and
-  the B1 owner must confirm or replace each one:
+- For **5** it does not. Their id is **position-shaped** (`id_basis = position`).
+  It is deliberately not label-shaped: a label-shaped id such as `bpol_C4-05` would
+  reuse a string that **another** position carries as its 2409 DAQ label, and a
+  consumer deriving ids from name suffixes would then cross-wire them. The ladder
+  name is kept only as `ladder_candidate`, and the B1 owner must confirm or replace
+  each one. The new test enforces the rule: no label-shaped id may reuse another
+  position's label.
 
-| idx | r, z [m] | field (2409) | label of that field | ladder position | why |
-|---|---|---|---|---|---|
-| 35 | 0.796, +0.06 | 225 | `C4-05` | C2-04 | C2 ladder 0.18/0.14/0.10/0.06/0.02 → 01..05 (0.14 = C2-02 has no sensor); pre-39438 this position reads field 170 = `C2-04_Bz` |
-| 46 | 0.796, −0.38 | 226 | `C4-06` | C4-05 | C4 ladder −0.22 … −0.42 → 01..06 |
-| 47 | 0.796, −0.42 | 170 | `C2-04_Bz` | C4-06 | pre-39438 this position reads field 225 = `C4-05` |
-| 61 | 0.1377, −1.0328 | 72 | `L-07_Bz` | L-06 | L ladder −0.8328 … −1.1128 step 0.04 → 01..08 |
-| 62 | 0.1377, −1.0728 | 71 | `L-06_Bz` | L-07 | as above |
+| idx | proposed id | r, z [m] | field (2409) | label of that field | ladder candidate | why |
+|---|---|---|---|---|---|---|
+| 35 | `bpol_C_z+0.060` | 0.796, +0.06 | 225 | `C4-05` | C2-04 | C2 ladder 0.18/0.14/0.10/0.06/0.02 → 01..05 (0.14 = C2-02 has no sensor); pre-39438 this position reads field 170 = `C2-04_Bz` |
+| 46 | `bpol_C_z-0.380` | 0.796, −0.38 | 226 | `C4-06` | C4-05 | C4 ladder −0.22 … −0.42 → 01..06 |
+| 47 | `bpol_C_z-0.420` | 0.796, −0.42 | 170 | `C2-04_Bz` | C4-06 | pre-39438 this position reads field 225 = `C4-05` |
+| 61 | `bpol_L_z-1.0328` | 0.1377, −1.0328 | 72 | `L-07_Bz` | L-06 | L ladder −0.8328 … −1.1128 step 0.04 → 01..08 |
+| 62 | `bpol_L_z-1.0728` | 0.1377, −1.0728 | 71 | `L-06_Bz` | L-07 | as above |
 
 The ladder argument is geometric, not documentary. Indices 46/47 and 61/62 could
 just as well be labelling choices in the original `table.dat`. They do not
@@ -101,7 +117,10 @@ Known-fault windows (vest.yaml `known_faults`, pinned by r/z):
 
 Calibration is applied as **divide**. For probes the unit is V per (T/s), and the
 probe chain integrates afterwards. The `era wiring` column lists the `vest.yaml`
-revision that replaces the field and calibration.
+revision that replaces the field and calibration. In `magnetics_inventory.json`,
+`aliases` holds the DAQ labels a position carries under **another era's** wiring
+(index 35 → `C2-04_Bz`, index 47 → `C4-05`), and `ladder_candidate` holds the
+ladder name for the five position ids.
 
 | idx | proposed id | basis | kind | family | field | table.yaml name | r [m] | z [m] | calibration | era wiring | known-fault windows |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -140,7 +159,7 @@ revision that replaces the field and calibration.
 | 32 | `bpol_C1-01` | table | probe | outboard | 87 | MagneticFieldProbe_C1-01_Bz | 0.796 | 0.22 | -0.00452284 | — | — |
 | 33 | `bpol_C2-01` | table | probe | outboard | 93 | MagneticFieldProbe_C2-01_Bz | 0.796 | 0.18 | 0.004545455 | — | — |
 | 34 | `bpol_C2-03` | table | probe | outboard | 169 | MagneticFieldProbe_C2-03_Bz | 0.796 | 0.1 | 0.004595588 | — | — |
-| 35 | `bpol_C2-04` | ladder | probe | outboard | 225 | MagneticFieldProbe_C4-05 | 0.796 | 0.06 | 0.004543389 | to 39437: field 170, cal 0.004539265 | 7 |
+| 35 | `bpol_C_z+0.060` | position | probe | outboard | 225 | MagneticFieldProbe_C4-05 | 0.796 | 0.06 | 0.004543389 | to 39437: field 170, cal 0.004539265 | 7 |
 | 36 | `bpol_C2-05` | table | probe | outboard | 171 | MagneticFieldProbe_C2-05_Bz | 0.796 | 0.02 | -0.004528986 | — | — |
 | 37 | `bpol_C3-01` | table | probe | outboard | 172 | MagneticFieldProbe_C3-01_Bz | 0.796 | -0.02 | -0.00447828 | — | — |
 | 38 | `bpol_C3-02` | table | probe | outboard | 173 | MagneticFieldProbe_C3-02_Bz | 0.796 | -0.06 | -0.004679457 | — | — |
@@ -151,8 +170,8 @@ revision that replaces the field and calibration.
 | 43 | `bpol_C4-02` | table | probe | outboard | 178 | MagneticFieldProbe_C4-02_Bz | 0.796 | -0.26 | -0.004962779 | — | — |
 | 44 | `bpol_C4-03` | table | probe | outboard | 223 | MagneticFieldProbe_C4-03 | 0.796 | -0.3 | -0.004782401 | — | — |
 | 45 | `bpol_C4-04` | table | probe | outboard | 224 | MagneticFieldProbe_C4-04 | 0.796 | -0.34 | 0.004814636 | — | 15 |
-| 46 | `bpol_C4-05` | ladder | probe | outboard | 226 | MagneticFieldProbe_C4-06 | 0.796 | -0.38 | -0.004520796 | — | — |
-| 47 | `bpol_C4-06` | ladder | probe | outboard | 170 | MagneticFieldProbe_C2-04_Bz | 0.796 | -0.42 | -0.00452284 | to 39437: field 225, cal -0.00452284 | — |
+| 46 | `bpol_C_z-0.380` | position | probe | outboard | 226 | MagneticFieldProbe_C4-06 | 0.796 | -0.38 | -0.004520796 | — | — |
+| 47 | `bpol_C_z-0.420` | position | probe | outboard | 170 | MagneticFieldProbe_C2-04_Bz | 0.796 | -0.42 | -0.00452284 | to 39437: field 225, cal -0.00452284 | — |
 | 48 | `bpol_U-08` | table | probe | side | 81 | MagneticFieldProbe_U-08_Bz | 0.1377 | 0.8328 | 0.002200186 | — | — |
 | 49 | `bpol_U-07` | table | probe | side | 80 | MagneticFieldProbe_U-07_Bz | 0.1377 | 0.8728 | -0.001800815 | — | — |
 | 50 | `bpol_U-06` | table | probe | side | 79 | MagneticFieldProbe_U-06_Bz | 0.1377 | 0.9128 | 0.002034091 | — | — |
@@ -166,8 +185,8 @@ revision that replaces the field and calibration.
 | 58 | `bpol_L-03` | table | probe | side | 68 | MagneticFieldProbe_L-03_Bz | 0.1377 | -0.9128 | -0.002299347 | — | — |
 | 59 | `bpol_L-04` | table | probe | side | 69 | MagneticFieldProbe_L-04_Bz | 0.1377 | -0.9528 | 0.002237959 | — | — |
 | 60 | `bpol_L-05` | table | probe | side | 70 | MagneticFieldProbe_L-05_Bz | 0.1377 | -0.9928 | 0.001956307 | — | — |
-| 61 | `bpol_L-06` | ladder | probe | side | 72 | MagneticFieldProbe_L-07_Bz | 0.1377 | -1.0328 | 0.00204412 | — | — |
-| 62 | `bpol_L-07` | ladder | probe | side | 71 | MagneticFieldProbe_L-06_Bz | 0.1377 | -1.0728 | 0.002093101 | — | — |
+| 61 | `bpol_L_z-1.0328` | position | probe | side | 72 | MagneticFieldProbe_L-07_Bz | 0.1377 | -1.0328 | 0.00204412 | — | — |
+| 62 | `bpol_L_z-1.0728` | position | probe | side | 71 | MagneticFieldProbe_L-06_Bz | 0.1377 | -1.0728 | 0.002093101 | — | — |
 | 63 | `bpol_L-08` | table | probe | side | 73 | MagneticFieldProbe_L-08_Bz | 0.1377 | -1.1128 | 0.001943771 | — | — |
 | 64 | `fl_03` | table | loop | outboard | 18 | Flux Loop - #3 | 0.592 | 0.685 | -0.090909091 | — | — |
 | 65 | `fl_04` | table | loop | outboard | 19 | Flux Loop - #4 | 0.792 | 0.46 | 0.090909091 | — | — |
@@ -183,34 +202,55 @@ revision that replaces the field and calibration.
 
 ## 5. Open questions (recorded, not resolved here)
 
-- **Q1. Field 171 sign.**
+- **Q1. Field 171 sign: a genuine conflict with a narrow runtime effect.**
   - The values: `toroidal_mirnov_reference` lists field 171 (`MagneticFieldProbe_C2-05_Bz`,
-    clock 9.5, `disputed`, #825) with `gain: +0.004529`. MD.yaml index 36 gives
-    `calibration: −0.004528986` (divide).
-  - Runtime effect: none. `toroidal_mirnov_reference_channels` (`MM/magnetics.py:670-704`)
-    never publishes a field the equilibrium probes read, so field 171 is published
-    only as equilibrium probe 36.
-  - The gap: the convention of the reference `gain` is undocumented. The fields
-    207/209/241 use ±9e-4, and the docs do not say whether that gain multiplies or
-    divides. So "opposite sign" may be a convention difference, not a calibration
-    conflict.
-  - B1 action: keep both values as they are; open a follow-up issue (document the
-    reference-gain convention; settle #825).
+    clock 9.5, `disputed`) with `gain: +0.004529`. MD.yaml index 36 gives
+    `calibration: −0.004528986`.
+  - The convention is the same on both sides, divide:
+    - the `_fluctuation_mirnov_gains` comment says replicas' "raw voltage is still divided by 0.004529" (`MM/magnetics.py:488-500`);
+    - `vaft/plot/mirnov.py:152-160` passes that gain as `amplifier_gain` to `mirnov_preprocess_signal`, which returns `processed / amplifier_gain`;
+    - MD.yaml is divide too.
+
+    So the two copies disagree in sign.
+  - Runtime effect:
+    - #825 (CLOSED) stopped publishing 171 as a phase reference: `toroidal_mirnov_reference_channels` (`MM/magnetics.py:670-704`) drops fields the equilibrium probes read;
+    - but `_fluctuation_mirnov_gains` keeps the key `MagneticFieldProbe_C2-05_Bz:phase_reference` for replicas mapped before that fix;
+    - so preprocessed Mirnov plots of those legacy replicas use the **opposite sign** to the equilibrium chain.
+  - B1 action: keep both values as they are, and open a follow-up issue. That issue
+    decides the sign of the legacy alias against the equilibrium probe, which the
+    vacuum benchmark supports at index 36.
 - **Q2. Labels 223–226 lack `_Bz`.**
   - `MagneticFieldProbe_C4-03`, `C4-04`, `C4-05` and `C4-06` are the four
     `table.dat` labels without the `_Bz` suffix that every other probe label carries.
-  - B1 keeps the strings verbatim as `name` (ODS identifiers depend on them). It
-    records `aliases` with `_Bz` only if a raw-archive label is found for them.
+  - These are the fields on the later-added C4 lower channels.
+  - B1 keeps the strings verbatim as `name`, because ODS identifiers depend on them.
+  - `sql_table.txt` uses the same un-suffixed strings, so no `_Bz` alias is known.
 - **Q3. Dead `0.magnetics.flux_loop` placeholder** (`vest.yaml:5-18`):
   - one loop at r 0.45, z 0, channel `FL1`, read only by the uncalled `get_static_info`;
   - B1 removes it in the same PR as the registry (`config_audit.md` G13).
-- **Q4.** Ladder-inferred ids for indices 35, 46, 47, 61 and 62 (section 2).
+- **Q4.** Confirm or replace the position-shaped ids (and their ladder candidates) for indices 35, 46, 47, 61 and 62 (section 2).
 - **Q5. Which identity the ODS `identifier` should carry long term:** the DAQ label
   (today, era-dependent) or the physical id. Changing it is a public-contract
   change and is out of scope for B1, which keeps the output byte-identical.
-- **Q6. Flux-loop numbering gaps.** Loops #1, #2, #7 and #8 are absent from every
-  source, and probe position C2-02 (z = +0.14) has no sensor. Nothing indicates
-  whether these were never installed or simply never mapped.
+- **Q6. Sensors in `sql_table.txt` but not in the equilibrium set.**
+  - The labels are flux loops #1, #2, #7, #8 (fields 16, 17, 22, 23) and
+    `MagneticFieldProbe_C2-02_Bz` (field 168, the missing z = +0.14 slot of the C2
+    ladder).
+  - None of them is in the 75-sensor set, and none has a position in any geometry
+    source.
+  - D should check whether those fields record. If they do, decide whether the
+    registry lists them, e.g. as `kind`-tagged non-equilibrium sensors without
+    geometry, or excludes them explicitly.
+- **Q7. Legacy flux-baseline rule addresses loops by positional counter.**
+  - `vest_flux_loop_flux_from_voltage` gives `flux_loop_number in (9, 10, 11)` a late
+    baseline (samples 5999:7000) in the legacy index-ladder era, i.e. only when
+    neither `flux_baseline_window` nor `flux_baseline_samples` is set (shots < 43685).
+  - `flux_loop_number` is the 1-based **positional** counter
+    (`vaft/process/magnetics.py:984-993, 1037`), so the rule hits fl_13/fl_14/fl_15
+    (canonical 72–74), not physical loops #9–#11 (fl_09/fl_10/fl_11, canonical 68–70).
+  - Whether the donor meant positions or physical numbers is unverified. B1 must
+    preserve the current positional behaviour, either through an explicit id list
+    `[fl_13, fl_14, fl_15]` or through the index adapter. D should check the donor.
 
 ## 6. Consumer migration map
 
@@ -231,22 +271,24 @@ and needs an index view of the registry. **Direct** means it can take
 | `MM/magnetics.py:759/782` `_pinned_channel_index`, `_pinned_probe_index` | geometry | P1 | **adapter**: legacy `index` + r/z pin accepted, re-targeted to `id` (B1 validated legacy adapter) |
 | `MM/magnetics.py:801` `magnetics_wiring_for_shot` | MD.yaml + `wiring` | P1 | **adapter**: `MagneticsWiring.channels` structure kept; overrides resolved by `id` |
 | `MM/magnetics.py:833` `known_magnetics_faults` | geometry (pins) | P1, validation | **adapter**: returns `(kind, kind_index)` keys, as validation expects |
+| `vaft/omas/vest_upstream.py:1046` `vfit_magnetics_static(component, shot)` | geometry + table, per shot | P1 diagnostics | direct: the diagnostics stage writes per-shot names |
+| `vaft/database/raw.py:207, 967-990` `vest_load_by_name`, `MM/raw_daq_sources.py:67-69` | `vaft/data/legacy/sql_table.txt` | raw API | decide in B1: derive the magnetics rows from the registry, or document as the raw-DB name table (Q6) |
 | `MM/magnetics.py:1588` `vfit_equilibrium_magnetics_detailed`, `:1664` `_populate_flux_loop_static`, `:1711` `_populate_probe_static`, `:1827` `vfit_mirnov_raw_dynamic` | all three, positional | P1 | direct, iterating the ordered records |
 | `MM/utils.py:1350` `_load_magnetics_channel_groups` | geometry YAML, **opened directly**, with restated thresholds | tests only (`apply_default_constraint_uncertainties`) | direct, using registry `family` and the `magnetics.py` constants (B1) |
 | `MM/raw_daq_sources.py:315` `_wiring_records` | wiring + table | not in P1/P2 (raw-source API) | direct |
 | `MM/provenance.py:100` `_equilibrium_magnetics_provenance` | wiring | uncalled by stages (G11) | direct; adds the registry fingerprint |
 | `MM/efund_geometry.py:95, 293-330` | the **static ODS** in index order | P1 era tables | none: reads the ODS; projection identity test in B1 |
 | `vaft/code/efit/kfile.py:28, 394, 578-624` | `equilibrium_probe_count` + r/z thresholds on the ODS | P1 | C2: grouping from registry `family` |
-| `vaft/validation/efit_channels.py:79`, `vaft/validation/magnetics.py:1218, 1413` | count, faults | P1 | unchanged (through the adapters) |
+| `vaft/validation/efit_channels.py:79`, `vaft/validation/magnetics.py:1206-1220` (`recorded_faults_for`), `:1413` | count, faults | P1 | unchanged (through the adapters) |
 | `vaft/validation/flux_loop_assessment.py:400` | channel definitions (flux-loop field codes) | not in P1 | direct |
 | `vaft/omas/vest_upstream.py:194` `build_static_ods` (manifest, `:278-289`) | sha256 of MD + geometry | P1 | record `magnetics_registry` = vest.yaml + registry fingerprint (B1/C1) |
 | `vaft/omas/vest_upstream.py:754` `build_diagnostics_ods` (`:1017, :1098`) | channel definitions, faults | P1 | unchanged (through the adapters) |
-| `workflow/magnetics_geometry/verify_wiring.py:43-45, 80, 115` | geometry + wiring | manual tool | C5: by `id` |
+| `workflow/magnetics_geometry/verify_wiring.py:43-45, 80, 115, 132, 165` | geometry, wiring, faults | manual tool | C5: by `id` |
 | `workflow/resistive_zeff/build_zeff.py:239` (imported by `workflow/impurity_zeff/project_resistive.py:51`) | the literal `"Flux Loop - #10"` matched against the ODS name | study | C5: registry id `fl_10` |
 | `vaft/data/efit/efund_table_manifest.json:320-329`, `workflow/efit_tables/reference/*.json` | historical sha256 | EFUND era check | **unchanged** (historical identity) |
-| `MANIFEST.in:41` (`vaft/data/geometry/*.yaml`), `test/verify_dist.py:86` (requires MD.yaml) | packaging | wheel | B1: update `verify_dist.py` in the same PR that deletes the YAMLs |
+| `MANIFEST.in:41` and `pyproject.toml:232` (`data/geometry/*.yaml` globs), `test/verify_dist.py:86` (requires MD.yaml) | packaging | wheel | B1: update `verify_dist.py` in the same PR that deletes the YAMLs |
 | `test/test_magnetics_geometry_join.py` | all three; forbids probes in vest.yaml | tests | B1: replace with `test_magnetics_registry.py` (atomic) |
-| `test/test_magnetics_geometry_registry.py:17` | opens the geometry YAML directly | tests | B1: read the frozen fixture or the registry |
+| `test/test_magnetics_geometry_registry.py:46, 58` | opens the geometry YAML directly | tests | B1: read the frozen fixture or the registry |
 | `test/test_equilibrium_magnetics_processing.py`, `test_efit_constraints_missing_channels.py`, `test_flux_loop_known_faults.py`, `test_flux_loop_voltage.py`, `test_magnetics_toroidal_placement.py`, `test_mirnov_distinct_acquisitions.py`, `test_toroidal_array_eras.py`, `test_diagnostics_time_policies.py`, `test_efit_config.py`, `test_fl10_compensation_semantics.py` | loader APIs | tests | unchanged if the public adapters stay byte-identical |
 | `docs/_guide/Machine_mapping.md`, `docs/_guide/Magnetics.md`, `vaft/data/README.md`, `workflow/magnetics_geometry/README.md`, `vest.yaml:20-45` comment | prose | docs | B1 |
 | `notebooks/fluctuation_diagnostics_analysis.ipynb`, `vaft/diagram/_workflow_specs.py:932` | public API names | docs | unchanged |
@@ -265,6 +307,10 @@ and needs an index view of the registry. **Direct** means it can take
         records:                      # ordered: list order == canonical index == ODS/EFUND index
           - {id: bpol_H1-01, kind: b_field_pol_probe, index: 0, name: MagneticFieldProbe_H1-01_Bz,
              aliases: [], r: 0.089, z: 0.54, field_code: 179, calibration: -0.0042, id_basis: table}
+          # ... e.g. the position-shaped id of index 35:
+          - {id: bpol_C_z+0.060, kind: b_field_pol_probe, index: 35, name: MagneticFieldProbe_C4-05,
+             aliases: [MagneticFieldProbe_C2-04_Bz], r: 0.796, z: 0.06, field_code: 225,
+             calibration: 0.004543389, id_basis: position, ladder_candidate: C2-04}
           # ... 64 probes, then
           - {id: fl_03, kind: flux_loop, index: 64, name: "Flux Loop - #3",
              aliases: [], r: 0.592, z: 0.685, field_code: 18, calibration: -0.090909091, id_basis: table}
@@ -276,8 +322,8 @@ and needs an index view of the registry. **Direct** means it can take
             - to_shot: 39437
               layout: "pre-39438"
               probe_overrides:
-                - {id: bpol_C2-04, r: 0.796, z: 0.06, field_code: 170, calibration: 0.004539265}
-                - {id: bpol_C4-06, r: 0.796, z: -0.42, field_code: 225, calibration: -0.00452284}
+                - {id: bpol_C_z+0.060, r: 0.796, z: 0.06, field_code: 170, calibration: 0.004539265}
+                - {id: bpol_C_z-0.420, r: 0.796, z: -0.42, field_code: 225, calibration: -0.00452284}
 ```
 
 Deviations from the plan's record shape `{id, kind, index, name, aliases, r, z, field_code, calibration, source}`:
@@ -285,8 +331,8 @@ Deviations from the plan's record shape `{id, kind, index, name, aliases, r, z, 
 - `source` is **once per block**, not repeated per record. All 75 records share the
   same three assets, so per-record provenance would be 75 copies of the same three
   strings.
-- An `id_basis` field is added, so the five ladder-inferred ids remain visible
-  until Q4 is closed.
+- `id_basis` and `ladder_candidate` are added, so the five unconfirmed ids stay
+  visible until Q4 is closed. `aliases` means the DAQ labels of other wiring eras.
 - `index` is kept but **must equal the list position**. The validator checks this.
   It is not a second ordering.
 
@@ -297,6 +343,7 @@ Validation in `magnetics_registry.py`:
 - `index` equals list position;
 - r and z are finite;
 - calibration is finite and non-zero;
+- no label-shaped `id` equals the label stem of a different position;
 - every `wiring`/`known_faults` entry names an existing `id` (or, through the legacy
   adapter, an `index` whose r/z match);
 - `probe_overrides` never feed one field to two positions. This rule exists today

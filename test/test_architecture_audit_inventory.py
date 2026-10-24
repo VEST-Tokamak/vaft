@@ -113,12 +113,12 @@ def test_magnetics_inventory_carries_the_vest_yaml_wiring_revisions(sensors):
     for revision in wiring["revisions"]:
         for entry in revision["probe_overrides"]:
             expected.setdefault(int(entry["index"]), []).append(
-                (revision.get("to_shot"), int(entry["field_code"]), float(entry["calibration"]),
+                (revision.get("from_shot"), revision.get("to_shot"), int(entry["field_code"]), float(entry["calibration"]),
                  float(entry["r"]), float(entry["z"]))
             )
     actual = {
         sensor["canonical_index"]: [
-            (r["to_shot"], r["field_code"], r["calibration"], sensor["r"], sensor["z"])
+            (r["from_shot"], r["to_shot"], r["field_code"], r["calibration"], sensor["r"], sensor["z"])
             for r in sensor["wiring_revisions"]
         ]
         for sensor in sensors
@@ -127,3 +127,16 @@ def test_magnetics_inventory_carries_the_vest_yaml_wiring_revisions(sensors):
     assert actual == expected
     # The pre-39438 layout swaps the two disputed outboard positions (#956).
     assert sorted(expected) == [35, 47]
+
+
+def test_no_proposed_id_reuses_another_positions_label(sensors):
+    """A label-shaped id must name the position whose DAQ label it is (#2148 Q4)."""
+    stems = {}
+    for sensor in sensors:
+        label = sensor["name"].removeprefix("MagneticFieldProbe_").removesuffix("_Bz")
+        stems[label] = sensor["canonical_index"]
+    for sensor in sensors:
+        stem = sensor["proposed_id"].removeprefix("bpol_")
+        if stem in stems:
+            assert stems[stem] == sensor["canonical_index"], sensor["proposed_id"]
+    assert sorted(s["canonical_index"] for s in sensors if s["id_basis"] == "position") == [35, 46, 47, 61, 62]

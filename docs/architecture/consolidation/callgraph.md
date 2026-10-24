@@ -40,7 +40,7 @@ entries were checked against the source.
 | Chain | Stage | Filter on develop | Filter after #2135 | Other numerics |
 |---|---|---|---|---|
 | B-pol probes, 64 channels | diagnostics | `firwin(251, 2.5 kHz, fs 250 kHz)`, then causal `lfilter`, a 0.5 ms lag (`vaft/process/magnetics.py:594,600`) | zero-phase `apply_fir_filter` inside `b_field_pol_probe_field` | divide by the MD.yaml calibration; `-cumtrapz_compat`; `_linear_baseline` (deg-1 polyfit over the era's leading samples); `np.interp` onto the era window, then `np.interp` onto the policy grid (`MM/magnetics.py:927`) |
-| Flux loops, 11 channels | diagnostics | **none** | none | calibration; `-cumtrapz`; divide by 2π; era baseline (leading samples, a [0.24, 0.26] s window, or legacy index ranges); `np.interp` with no anti-alias filter (`vaft/process/magnetics.py:1043-1045`). The comment there claims "an already low-passed loop voltage", which the code does not do. |
+| Flux loops, 11 channels | diagnostics | **none** | none | calibration; `-cumtrapz`; divide by 2π; era baseline (leading samples, a [0.24, 0.26] s window, or legacy index ranges); `np.interp` with no anti-alias filter (`vaft/process/magnetics.py:1043-1045`). The comment there claims "an already low-passed loop voltage", which the code does not do. The same holds for the second `np.interp` onto the policy grid (`MM/magnetics.py:1928` via `_interpolate_signal`), whose comment (`:924-926`) claims every caller is low-passed; unfiltered callers there also include Ip (`:2230`) and diamagnetic flux (`:2466`). |
 | Ip (production, `ref = -1`) | diagnostics, IMPA | none | none | `calibrate_vest_signal`; `_linear_baseline_subtract` (polyfit); FL10 reference by Y `plasma_current.processing.reference`, see the note below; sign flip |
 | Ip reference comparison (`ref != -1`) | no production caller | `firwin` + causal `lfilter` (`MM/magnetics.py:1215-1225`) | `apply_fir_filter` | — |
 | Diamagnetic Rogowski (`rogowski_coil[1]`) | diagnostics | none | none | `repair_clipped_interval`; `scipy.integrate.cumulative_trapezoid` × `rogo_gain` (`MM/magnetics.py:1399`) |
@@ -66,6 +66,10 @@ any Snakefile: fluctuation Mirnov voltages are published raw.
 
 Each stage is listed as Snakefile rule → script → VAFT API → configuration →
 preprocessing.
+
+Workflow-local numerics: the only production script that computes anything is
+`P1/generate_constraints_ods.py`. Its `_box_averaged` (`:295-300`) is a cumsum box
+average, i.e. `legacy.box_average` evaluated at every sample.
 
 ### `generate_raw_db_dump` (Snakefile:462)
 
@@ -113,7 +117,7 @@ preprocessing.
 - **Time policies:** `resolve_diagnostics_time_policies` (`MM/utils.py:413`) over
   Y `diagnostics_time_policies`:
   - the analysis window is 0.26-0.36 s at dt 4e-5, and covers PF, magnetics, IMPA, UV and Langmuir;
-  - TF and barometry use the full discharge, 0-1 s;
+  - TF, barometry and EC power use the full discharge, 0-1 s;
   - config.yaml `diagnostics.tstart/tend/dt` retune only the default (analysis) window.
 - **Override path:**
   - Snakefile:605 serialises `config["vest"]["magnetics"]["processing"]`.
@@ -130,7 +134,10 @@ preprocessing.
   - magnetics also reads `equilibrium_magnetics_processing_config`
     (`MM/magnetics.py:1567`), `magnetics_wiring_for_shot` (`:801`, MD.yaml plus
     `wiring` revisions) and `known_magnetics_faults` (`:833`).
-- **QA:** `validate_magnetics_signals` + `project_validity` (VU:1097-1100). Report-only.
+- **QA:** `validate_magnetics_signals` + `project_validity` (VU:1097-1100).
+  This is **not** report-only. `project_validity` (`vaft/validation/magnetics.py:1321-1339`)
+  writes the channel validity nodes, so EFIT and every other reader see the
+  condemned channels through that validity (VU:1095-1096).
 - **Affected eras:**
   - the probe causal lag (develop) applies to every shot;
   - the flux-loop anti-alias question applies mostly to native-DAQ shots ≥ 46404,
@@ -189,7 +196,7 @@ preprocessing.
 
 - **Preprocessing:** none that feeds a stored product.
 - **Stage plots:** `render_stage_plots` dispatches by plot name
-  (`vaft/database/production_qa.py:568`).
+  (`render_stage_plots`, `vaft/database/production_qa.py:629`, then `_render_ods_plot`, `:568`).
 - **Replication:** off by default (`hsds.replicate: false`).
 - **CHEASE:** boundary and profile resampling with `np.interp`/`interp1d`
   (`vaft/code/chease.py:621-1384`), applied to equilibrium output, not to measured
@@ -212,7 +219,7 @@ then `write_stage_product`. **No workflow-local numerics.**
 | plots / replicate (454-531) | Pipeline 1 scripts | none | — |
 
 `P2/legacy/` (`update_*.py`) is imported by nothing in production. The only
-mentions of it are comments in `vaft/database/utils.py:417-419, 467`.
+mentions of it are comments and docstrings in `vaft/database/utils.py` (`:120`, `:310`, `:417-419`, `:467`).
 
 `workflow/resistive_zeff/build_zeff.py` is a study script, not part of Pipeline 2.
 It finds FL10 through the literal name `"Flux Loop - #10"` (`build_zeff.py:239`).

@@ -65,6 +65,9 @@ GEOMETRY_YAML = "VEST_MagneticsGeometry_Full_ver_2302.yaml"
 TABLE_YAML = "table.yaml"
 VEST_YAML = Path("vaft/machine_mapping/vest.yaml")
 MAGNETICS_ASSETS = (MD_YAML, GEOMETRY_YAML, TABLE_YAML)
+#: A second field-code <-> label table (all DAQ fields, magnetics included).
+SQL_TABLE = "sql_table.txt"
+ASSET_LITERALS = (*MAGNETICS_ASSETS, SQL_TABLE)
 
 #: Production entry points: the Snakefiles whose ``python <script>.py`` shell
 #: commands start a stage. Pipeline 3 calls its scripts by relative path.
@@ -125,6 +128,11 @@ PRIMITIVES.update(
         "numpy.trapezoid": "integration",
         "numpy.gradient": "differentiation",
         "numpy.polyfit": "polynomial_fit",
+        "numpy.linalg.lstsq": "least_squares_fit",
+        "scipy.optimize.least_squares": "least_squares_fit",
+        "numpy.cumsum": "cumulative_sum",
+        # ``<frame>.rolling(...)``: pandas windows; the receiver is not resolved.
+        "<attribute>.rolling": "smoothing",
         "numpy.polynomial.polynomial.polyfit": "polynomial_fit",
         "scipy.optimize.curve_fit": "curve_fit",
         # VAFT's own helpers: a call to one of them is a delegation, recorded so
@@ -185,6 +193,8 @@ MAGNETICS_LOADERS = {
     "vaft.machine_mapping.magnetics._pinned_probe_index": (GEOMETRY_YAML,),
     "vaft.machine_mapping.magnetics._pinned_channel_index": (GEOMETRY_YAML,),
     "vaft.machine_mapping.utils._load_magnetics_channel_groups": (GEOMETRY_YAML,),
+    "vaft.machine_mapping.magnetics.known_magnetics_faults": (GEOMETRY_YAML,),
+    "vaft.machine_mapping.magnetics._equilibrium_magnetics_revision": (GEOMETRY_YAML,),
 }
 
 #: VAFT helpers that implement a preprocessing operation without calling a
@@ -196,6 +206,7 @@ DEFINITION_OPERATIONS = {
     "vaft.machine_mapping.magnetics._baseline_correct_limiter_voltage": "baseline",
     "vaft.process.magnetics._firwin_order": "filter_design",
     "vaft.code.efit.legacy.box_average": "smoothing",
+    "vaft.machine_mapping.soft_x_rays.vfit_soft_x_rays_dynamic": "baseline",
 }
 
 _SNIPPET_LIMIT = 160
@@ -295,7 +306,7 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("vaft/process/signal_processing.py", "vaft.process.signal_processing.process_signal"): {
         "classification": "legacy",
-        "algorithm_semantics": "option-driven generic chain (filter/baseline/resample) kept for the old get_diagnostic_info path.",
+        "algorithm_semantics": "option-driven generic chain (Butterworth filtfilt / resample_to_time); no production caller.",
         "scientific_risk": "low",
         "recommended_action": "E: retire with machine_mapping.utils.process_signal once no caller remains.",
         "related_issue": "#2168",
@@ -308,6 +319,7 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "algorithm_semantics": "firwin(251, 2.5 kHz, fs 250 kHz, hamming) -> CAUSAL lfilter (0.5 ms lag) -> divide calibration -> -cumtrapz -> polyfit deg-1 baseline over leading samples.",
         "scientific_risk": "high",
         "recommended_action": "removed by #2135 (b_field_pol_probe_field + apply_fir_filter zero-phase).",
+        "may_be_absent": True,
         "related_issue": "#2135, #1541",
         "evidence": "#2147 comment: on 39915 main = public(t - 0.50 ms) on all 63 probes; vacuum residual improves on 38030/39915/41660/44136/45001.",
     },
@@ -330,7 +342,7 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "classification": "intentional_specialization",
         "production_reachability_note": "pipeline1 generate_diagnostics_ods, all 11 loops.",
         "configuration_source": "vest.yaml equilibrium_magnetics.processing.window (flux_baseline_window / flux_baseline_samples / daq_mode) else VestMagneticsProcessingConfig legacy index ladder.",
-        "algorithm_semantics": "-cumtrapz of the calibrated loop voltage / 2pi, then polyfit baseline chosen by era: leading samples (native DAQ), [0.24, 0.26] s window (slow DAQ 43685-46403) or legacy sample ranges (3499:5000 / 11999:15000 / loops 9-11 5999:7000). NO low pass.",
+        "algorithm_semantics": "-cumtrapz of the calibrated loop voltage / 2pi, then polyfit baseline chosen by era: leading samples (native DAQ), [0.24, 0.26] s window (slow DAQ 43685-46403) or legacy sample ranges (3499:5000 / 11999:15000, or 5999:7000 for flux_loop_number in (9, 10, 11)). flux_loop_number is the 1-based POSITIONAL counter, so 9-11 are fl_13/fl_14/fl_15 (canonical indices 72-74), not physical loops #9-#11 -- donor intent unverified (magnetics_reconciliation.md Q7). NO low pass.",
         "scientific_risk": "medium",
         "recommended_action": "keep the three baseline rules (donor VEST_MagneticSignalProcessing[2].m); fix the comments that claim an 'already low-passed loop voltage' (process/magnetics.py around the flux branch, machine_mapping/magnetics.py _interpolate_signal) in B3.",
         "related_issue": "#2162",
@@ -478,9 +490,9 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     # ---- code / plot duplicates ---------------------------------------------
     ("vaft/code/efit/legacy.py", "vaft.code.efit.legacy.smooth"): {
         "classification": "duplicate",
-        "algorithm_semantics": "verbatim MATLAB smooth(span) copy.",
+        "algorithm_semantics": "MATLAB smooth(span) re-implemented with explicit loops; agrees with signal_processing.smooth to ~1e-13 relative (cumsum vs loop rounding: 2-3e-8 absolute on 1e5-scale data), but does not clip a span longer than the record as the canonical one does.",
         "scientific_risk": "low",
-        "recommended_action": "B3: import vaft.process.signal_processing.smooth; equivalence test.",
+        "recommended_action": "B3: import vaft.process.signal_processing.smooth; equivalence test at rtol 1e-12 and a check that no caller passes span > record length.",
         "related_issue": "#2162",
     },
 }
@@ -508,9 +520,9 @@ CURATED.update(
         },
         ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._interpolate_signal"): {
             "classification": "intentional_specialization",
-            "algorithm_semantics": "np.interp of processed magnetics onto the policy grid; comment says the flux loops are 'already low-passed', which the code does not do.",
+            "algorithm_semantics": "np.interp onto the policy grid for flux loops (:1928), probes (:2175), Ip (_map_ip :2230) and diamagnetic flux (:2466); the comment says every caller passes a signal low-passed by the probe chain, which holds only for the probes.",
             "scientific_risk": "medium",
-            "recommended_action": "B3: correct the comment; C1: consider resample_to_time where the source is not band-limited (flux loops at 250 kHz native DAQ onto 25 kHz).",
+            "recommended_action": "B3: correct the comment; D: check the spectra of the unfiltered callers (loops, Ip, diamagnetic flux) above the target Nyquist before deciding on resample_to_time.",
             "related_issue": "#2162, #425",
         },
         ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._baseline_correct_limiter_voltage"): {
@@ -749,6 +761,21 @@ CURATED.update(
             "recommended_action": "keep.",
             "related_issue": "",
         },
+        ("workflow/automatic_pipeline_1_routine_data_processing/generate_constraints_ods.py", "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._box_averaged"): {
+            "classification": "duplicate",
+            "production_reachability_note": "pipeline1 generate_constraints_ods (vacuum-time drop).",
+            "algorithm_semantics": "cumsum-difference box average at every sample over [t-h, t+h] (searchsorted left/right): legacy.box_average evaluated at every sample.",
+            "scientific_risk": "low",
+            "recommended_action": "B3/C2: move next to legacy.box_average as a vectorised form with an equivalence test; workflow-local numerics otherwise.",
+            "related_issue": "#2162, #2164",
+        },
+        ("vaft/machine_mapping/soft_x_rays.py", "vaft.machine_mapping.soft_x_rays.vfit_soft_x_rays_dynamic"): {
+            "classification": "duplicate",
+            "algorithm_semantics": "np.mean baseline over an index range (baseline_range) per channel: a fourth SXR baseline variant beside process.soft_x_rays.sxr_baseline_correction, plot.soft_x_rays._baseline_correct and the rolling detrend.",
+            "scientific_risk": "low",
+            "recommended_action": "B3: one SXR baseline owner with explicit window semantics (index range, time range, tail with fallback).",
+            "related_issue": "#2162",
+        },
         ("workflow/resistive_zeff/build_zeff.py", "workflow.resistive_zeff.build_zeff._ip_trace"): {
             "classification": "unverified",
             "algorithm_semantics": "savgol_filter of Ip in a study script.",
@@ -937,6 +964,8 @@ class _ModuleScan(ast.NodeVisitor):
         return None
 
     def resolve(self, dotted: str) -> str:
+        if dotted.startswith("<attribute>."):
+            return dotted
         head, _, rest = dotted.partition(".")
         if head in self.aliases:
             target = self.aliases[head]
@@ -946,8 +975,17 @@ class _ModuleScan(ast.NodeVisitor):
             target = head
         return f"{target}.{rest}" if rest else target
 
+    def visit_Expr(self, node: ast.Expr) -> None:
+        # A bare string statement is a docstring or comment-like literal: it
+        # names an asset without reading it.
+        if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            return
+        self.generic_visit(node)
+
     def visit_Call(self, node: ast.Call) -> None:
         dotted = self._dotted(node.func)
+        if dotted is None and isinstance(node.func, ast.Attribute) and node.func.attr == "rolling":
+            dotted = "<attribute>.rolling"
         if dotted is not None:
             try:
                 snippet = ast.unparse(node)
@@ -961,7 +999,7 @@ class _ModuleScan(ast.NodeVisitor):
 
     def visit_Constant(self, node: ast.Constant) -> None:
         if isinstance(node.value, str):
-            for asset in MAGNETICS_ASSETS:
+            for asset in ASSET_LITERALS:
                 if asset in node.value:
                     self.asset_refs.append((self._current_scope(), asset, node.lineno))
         self.generic_visit(node)
@@ -1111,13 +1149,13 @@ def build_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
             row["operation"].add(operation)
             row["primitives"].add(callee)
             row["assets"].update(assets)
-            row["call_sites"].append({"line": line, "call": callee, "snippet": snippet})
+            row["call_sites"].add((callee, snippet))
         for scope, asset, line in module.asset_refs:
             key = _row_key(module.relpath, scope)
             row = rows.setdefault(key, _new_row(module, scope, defs))
             row["operation"].add("magnetics_asset_read")
             row["assets"].add(asset)
-            row["call_sites"].append({"line": line, "call": f"<string literal {asset}>", "snippet": asset})
+            row["call_sites"].add((f"<string literal {asset}>", asset))
 
     definition_ops = dict(DEFINITION_OPERATIONS)
     definition_ops.update({k: v for k, v in PRIMITIVES.items() if k.startswith("vaft.")})
@@ -1128,9 +1166,11 @@ def build_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
                 continue
             row = rows.setdefault(_row_key(module.relpath, qualified), _new_row(module, qualified, defs))
             row["operation"].add(operation)
-            row["call_sites"].append({"line": line, "call": "<definition>", "snippet": f"def {qualified.rsplit('.', 1)[-1]}"})
+            row["call_sites"].add(("<definition>", f"def {qualified.rsplit('.', 1)[-1]}"))
 
-    unmatched = sorted(set(CURATED) - set(rows))
+    # A curated entry may name an implementation an open PR removes (it is then
+    # simply absent); any other unmatched key is a stale classification.
+    unmatched = sorted(key for key in set(CURATED) - set(rows) if not CURATED[key].get("may_be_absent"))
     if unmatched:
         raise SystemExit(f"curated entries without a scanned row: {unmatched}")
 
@@ -1156,12 +1196,11 @@ def build_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
         entry = {
             "implementation": implementation,
             "source_file": row["source_file"],
-            "line": row["line"],
             "owning_layer": layer,
             "operation": sorted(row["operation"]),
             "primitives": sorted(row["primitives"]),
             "assets": sorted(row["assets"]),
-            "call_sites": sorted(row["call_sites"], key=lambda c: (c["line"], c["call"], c["snippet"])),
+            "call_sites": [{"call": call, "snippet": snippet} for call, snippet in sorted(row["call_sites"])],
             "callers": row_callers,
             "production_reachability": (
                 ",".join(pipelines) if pipelines else "not_statically_reached"
@@ -1209,12 +1248,11 @@ def _new_row(module: _ModuleScan, implementation: str, defs: dict[str, tuple[str
     return {
         "implementation": implementation,
         "source_file": module.relpath,
-        "line": defs.get(implementation, (module.relpath, 0))[1],
         "owning_layer": _owning_layer(module.relpath),
         "operation": set(),
         "primitives": set(),
         "assets": set(),
-        "call_sites": [],
+        "call_sites": set(),
     }
 
 
@@ -1223,21 +1261,25 @@ def _new_row(module: _ModuleScan, implementation: str, defs: dict[str, tuple[str
 # --------------------------------------------------------------------------
 
 #: Proposed stable B1 identifiers. ``table`` = the table.yaml DAQ label agrees
-#: with the geometric ladder of its column; ``ladder`` = the label of the field
+#: with the geometric ladder of its column; ``position`` = the label of the field
 #: the 2409 layout wires there does NOT agree with the ladder, so the id is the
-#: ladder position and the B1 owner must confirm it (magnetics_reconciliation.md).
+#: column and z, and the ladder name is only a candidate for the B1 owner to
+#: confirm (magnetics_reconciliation.md Q4).
 _LADDER_IDS = {
-    35: "bpol_C2-04",  # z=+0.06: 2409 feeds field 225 'C4-05', pre-39438 field 170 'C2-04'
-    46: "bpol_C4-05",  # z=-0.38: field 226 labelled 'C4-06'
-    47: "bpol_C4-06",  # z=-0.42: 2409 feeds field 170 'C2-04', pre-39438 field 225 'C4-05'
-    61: "bpol_L-06",   # z=-1.0328: field 72 labelled 'L-07'
-    62: "bpol_L-07",   # z=-1.0728: field 71 labelled 'L-06'
+    # Position-shaped on purpose: a label-shaped id ('bpol_C4-05') would reuse
+    # a string another position carries as its DAQ label. The ladder candidate
+    # is recorded alongside for the B1 owner (Q4).
+    35: ("bpol_C_z+0.060", "C2-04"),   # 2409 feeds field 225 'C4-05', pre-39438 field 170 'C2-04'
+    46: ("bpol_C_z-0.380", "C4-05"),   # field 226 labelled 'C4-06'
+    47: ("bpol_C_z-0.420", "C4-06"),   # 2409 feeds field 170 'C2-04', pre-39438 field 225 'C4-05'
+    61: ("bpol_L_z-1.0328", "L-06"),   # field 72 labelled 'L-07'
+    62: ("bpol_L_z-1.0728", "L-07"),   # field 71 labelled 'L-06'
 }
 
 
 def _proposed_id(index: int, kind: str, name: str) -> tuple[str, str]:
     if index in _LADDER_IDS:
-        return _LADDER_IDS[index], "ladder"
+        return _LADDER_IDS[index][0], "position"
     if kind == "flux_loop":
         match = re.fullmatch(r"Flux Loop - #(\d+)", name)
         return f"fl_{int(match.group(1)):02d}", "table"
@@ -1308,6 +1350,8 @@ def build_magnetics_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
                 "canonical_index": index,
                 "kind_index": kind_index,
                 "name": name,
+                "ladder_candidate": _LADDER_IDS[index][1] if index in _LADDER_IDS else None,
+                # DAQ labels this position carries under another era's wiring.
                 "aliases": sorted({o["name"] for o in overrides_by_index.get(index, ()) if o["name"] and o["name"] != name}),
                 "r": float(geo["r"]),
                 "z": float(geo["z"]),
