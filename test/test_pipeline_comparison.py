@@ -252,9 +252,10 @@ def test_stability_histogram_draws_one_normalised_step_per_pipeline_and_mode():
     fig, ax = pipeline_comparison_stability(table, quantity="w_t")
     steps = {p.get_label(): p for p in ax.patches if p.get_label().count(":") == 1}
     assert set(steps) == {"legacy:1", "legacy:2", "current:1", "current:2"}
-    assert steps["legacy:1"].get_linestyle() != steps["current:1"].get_linestyle()  # pipeline = line style
-    assert steps["legacy:1"].get_edgecolor() == steps["current:1"].get_edgecolor()  # mode = colour
-    assert steps["legacy:1"].get_edgecolor() != steps["legacy:2"].get_edgecolor()
+    assert steps["legacy:1"].get_edgecolor() != steps["current:1"].get_edgecolor()  # pipeline = colour
+    assert steps["legacy:1"].get_linestyle() == steps["current:1"].get_linestyle()  # mode = line style
+    assert steps["legacy:1"].get_linestyle() != steps["legacy:2"].get_linestyle()
+    assert ax.get_xlabel() == r"$\delta W$"
     heights = [p.get_path().vertices[:, 1].max() for p in steps.values()]
     assert max(heights) <= 1.0 + 1e-9  # fractions, not counts
     assert ax.get_yscale() == "linear" and ax.get_xscale() == "symlog"

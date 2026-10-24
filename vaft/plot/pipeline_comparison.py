@@ -463,30 +463,31 @@ def pipeline_comparison_overview(points: pd.DataFrame, virial: pd.DataFrame, *, 
 #: Stability quantities: binning and ticks of :mod:`vaft.plot.stability_atlas`, the
 #: side of zero that is unstable, and the axis label.
 STABILITY_QUANTITIES = {
-    "w_t": ("ideal", False, r"DCON $W_t$", (-1e3, -1.0, 0.0, 1.0, 1e2)),
-    "delta_prime": ("resistive", True, r"RDCON $\Delta'_{\max}$", None),
+    "w_t": ("ideal", False, r"$\delta W$", (-1e3, -1.0, 0.0, 1.0, 1e2)),
+    "delta_prime": ("resistive", True, r"$\Delta'$", None),
 }
 
 
-def _mode_colors(modes) -> dict[int, Any]:
-    """One colour per toroidal mode, from the colormap of the atlas figure."""
-    import matplotlib.pyplot as plt
+#: Line style per toroidal mode; the pipeline is the colour.
+MODE_LINESTYLES = ("-", "--", ":", "-.", (0, (5, 1, 1, 1, 1, 1)), (0, (1, 3)))
 
-    cmap = plt.get_cmap("viridis")
-    modes = sorted(int(n) for n in modes)
-    return {n: cmap(i / max(len(modes) - 1, 1) * 0.92) for i, n in enumerate(modes)}
+
+def _mode_styles(modes) -> dict[int, Any]:
+    """One line style per toroidal mode, in mode order."""
+    return {n: MODE_LINESTYLES[i % len(MODE_LINESTYLES)] for i, n in enumerate(sorted(int(n) for n in modes))}
 
 
 def pipeline_comparison_stability(table: pd.DataFrame, *, quantity: str = "w_t", value: str = "value",
-                                  by: str = "side", mode: str = "n", modes=None, colors=None,
+                                  by: str = "side", mode: str = "n", modes=None, styles=None,
                                   normalize: bool = True, ax=None, show: bool = False,
                                   figsize: tuple[float, float] = (5.2, 3.0)):
-    """Legacy and current populations of ``W_t`` or ``Delta'_max`` per toroidal mode, on a symlog axis.
+    """Legacy and current populations of ``delta W`` or ``Delta'`` per toroidal mode, on a symlog axis.
 
     The panel of :func:`vaft.plot.stability_atlas.stability_atlas_population`,
-    with its bins, ticks and stable/unstable zones. Colour is the toroidal mode
-    (column ``mode``), as in the atlas figure; the pipeline is the line style,
-    dashed for the legacy archive and solid for the current pipeline. The
+    with its bins, ticks and stable/unstable zones. Colour is the pipeline
+    (legacy archive and current pipeline, as in every figure of this module);
+    the toroidal mode (column ``mode``) is the line style, solid, dashed,
+    dotted, dash-dotted in mode order. The
     count axis is linear. ``normalize`` divides every (pipeline, mode) curve by
     its own number of slices, because the two populations differ in size by
     more than an order of magnitude. A value past the outermost bin is drawn in
@@ -506,7 +507,7 @@ def pipeline_comparison_stability(table: pd.DataFrame, *, quantity: str = "w_t",
     _prepare(ax, bins, linthresh, ticks or _TICKS[panel])
     present = sorted(int(n) for n in pd.unique(table[mode].dropna()))
     modes = present if modes is None else [int(n) for n in modes]
-    colors = colors or _mode_colors(modes)
+    styles = styles or _mode_styles(modes)
     tallest = 0.0
     for side in SIDES:
         for n in modes:
@@ -518,7 +519,7 @@ def pipeline_comparison_stability(table: pd.DataFrame, *, quantity: str = "w_t",
             values = np.clip(values, bins[0], bins[-1])
             weights = np.full(values.size, 1.0 / values.size) if normalize else None
             counts, _, _ = ax.hist(values, bins=bins, weights=weights, histtype="step", lw=1.6,
-                                   color=colors[n], linestyle=SIDE_STYLE[side]["linestyle"], label=f"{side}:{n}")
+                                   color=SIDE_STYLE[side]["color"], linestyle=styles[n], label=f"{side}:{n}")
             tallest = max(tallest, float(np.max(counts)))
     # Headroom above the tallest bar for the zone names.
     ax.set_ylim(0, max(tallest, 1e-9) * 1.3)
@@ -533,35 +534,35 @@ def pipeline_comparison_stability_overview(w_t: pd.DataFrame, delta_prime: pd.Da
                                            normalize: bool = True, show: bool = False,
                                            figsize: tuple[float, float] = (8.0, 7.6),
                                            panel_labels: bool = True):
-    """``W_t`` over ``Delta'_max``, legacy and current, per toroidal mode, stacked as the atlas figure is.
+    """``delta W`` over ``Delta'``, legacy and current, per toroidal mode, stacked as the atlas figure is.
 
-    Both tables are long form (``side``, ``n``, ``value``). One colour per mode
-    across both panels; one shared key below them: the line style names the
-    pipeline, the colour the toroidal mode.
+    Both tables are long form (``side``, ``n``, ``value``). One line style per
+    mode across both panels; the colour is the pipeline. Both keys sit under
+    the panels: the pipeline row, then a "toroidal mode" row.
     """
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
 
     modes = sorted({int(n) for n in pd.unique(w_t["n"].dropna())} | {int(n) for n in pd.unique(delta_prime["n"].dropna())})
-    colors = _mode_colors(modes)
+    styles = _mode_styles(modes)
     presentation = resolve_presentation("slide", None)
     with presentation.context():
         fig, axes = plt.subplots(2, 1, figsize=figsize)
-        pipeline_comparison_stability(w_t, quantity="w_t", colors=colors, normalize=normalize, ax=axes[0])
-        pipeline_comparison_stability(delta_prime, quantity="delta_prime", colors=colors, normalize=normalize,
+        pipeline_comparison_stability(w_t, quantity="w_t", styles=styles, normalize=normalize, ax=axes[0])
+        pipeline_comparison_stability(delta_prime, quantity="delta_prime", styles=styles, normalize=normalize,
                                       ax=axes[1])
         if panel_labels:
             for letter, ax in zip("ab", axes):
                 _panel_letter(ax, letter)
-        styles = [Line2D([], [], color=INK, linestyle=SIDE_STYLE[side]["linestyle"], lw=1.6,
-                         label=COMPARISON_LABELS[side]) for side in SIDES]
+        pipelines = [Line2D([], [], color=SIDE_STYLE[side]["color"], lw=3.0, label=COMPARISON_LABELS[side])
+                     for side in SIDES]
         # Both keys sit under the panels, one row each: the pipelines, then the
         # modes, whose row is headed by an inline "toroidal mode" label.
         heading = Line2D([], [], linestyle="none", label="toroidal mode")
-        swatches = [heading] + [Line2D([], [], color=colors[n], lw=3.0, label=str(n)) for n in modes]
-        first = fig.legend(handles=styles, loc="lower center", bbox_to_anchor=(0.5, 0.045), ncol=2, frameon=False)
+        swatches = [heading] + [Line2D([], [], color=INK, linestyle=styles[n], lw=1.6, label=str(n)) for n in modes]
+        first = fig.legend(handles=pipelines, loc="lower center", bbox_to_anchor=(0.5, 0.045), ncol=2, frameon=False)
         fig.legend(handles=swatches, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=len(swatches),
-                   frameon=False, handlelength=1.2, columnspacing=1.0, handletextpad=0.4)
+                   frameon=False, handlelength=2.4, columnspacing=1.2, handletextpad=0.4)
         fig.add_artist(first)
         fig.tight_layout(rect=(0.0, 0.11, 1.0, 1.0), pad=0.8, h_pad=1.4)
     if show:
