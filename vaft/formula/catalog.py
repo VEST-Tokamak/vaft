@@ -648,21 +648,21 @@ def parameter_representation(name: str, parameter: str, *, quantity: str | None 
     """The declared :class:`~vaft.data.representation.Representation` of one formula parameter.
 
     The unit is the parameter's own ``[unit]`` tag, exactly as documented.  The
-    quantity is ``quantity`` when given; otherwise the parameter name itself
-    when the canonical vocabulary resolves it (``I_p`` is a strict alias of
-    ``plasma_current``), and ``None`` -- undeclared -- when it does not.  A
-    ``Semantics`` section is not mapped onto parameters, because it declares
-    no positional correspondence.  Pair the result with
+    quantity is ``quantity`` when the caller gives it and ``None`` --
+    undeclared -- otherwise.  It is never read from the parameter name: ``n_e``
+    names a line-averaged density in ``greenwald_fraction`` and the generic
+    electron density in the vocabulary, so a name match would declare the
+    wrong quantity.  A ``Semantics`` section is not mapped onto parameters
+    either, because it declares no positional correspondence.  Pair the result with
     :func:`~vaft.data.representation.assess_compatibility` before calling the
     formula; the formula itself is unchanged and checks nothing (#2163).
     """
-    from vaft.data.representation import EvidenceLevel, Representation, canonical_quantity
+    from vaft.data.representation import EvidenceLevel, Representation
 
     spec = describe(name)
     for item in spec.parameters:
         if parameter in (n.strip() for n in item.name.split(",")):
-            term = quantity if quantity is not None else (parameter if canonical_quantity(parameter) else None)
-            return Representation(term, item.unit or None, evidence=EvidenceLevel.DECLARED,
+            return Representation(quantity, item.unit or None, evidence=EvidenceLevel.DECLARED,
                                   note=f"{spec.qualname} parameter {parameter}")
     raise KeyError(f"{spec.qualname} has no documented parameter {parameter!r}")
 

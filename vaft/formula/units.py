@@ -98,8 +98,8 @@ _SYMBOLS: dict[str, tuple[float, tuple[int, int, int, int], int]] = {
     "deg": (math.pi / 180.0, (0, 0, 0, 0), 1),
 }
 
-_FACTOR = re.compile(r"^[0-9.]+(?:[eE][+-]?[0-9]+)?$")
-_POWER = re.compile(r"^(?P<symbol>[A-Za-z%-]+)(?:\^(?P<exponent>[+-]?[0-9]+(?:/[0-9]+)?))?$")
+_FACTOR = re.compile(r"^(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
+_POWER = re.compile(r"^(?P<symbol>[A-Za-z%-]+)(?:\^(?P<exponent>[+-]?[0-9]+))?$")
 
 
 class UnknownUnitError(ValueError):
@@ -149,8 +149,8 @@ def parse_unit(unit):
 
     $$u = f \prod_j s_j^{p_j},\qquad d(u) = \sum_j p_j\, d(s_j)$$
 
-    A tag is an optional leading numeric factor ``f`` followed by symbols
-    ``s_j`` with optional integer or rational powers ``^p_j``, separated by
+    A tag is an optional positive leading numeric factor ``f`` followed by
+    symbols ``s_j`` with optional integer powers ``^p_j``, separated by
     spaces. A ``/`` divides every symbol after it, so ``% m T/MA`` is
     percent times metre times tesla per megaampere.
 
@@ -186,7 +186,10 @@ def parse_unit(unit):
     spec = UnitSpec(label=unit.strip(), scale=1.0, dimensions=(Fraction(0),) * len(BASE_DIMENSIONS))
     tokens = unit.replace("/", " / ").split()
     if tokens and _FACTOR.match(tokens[0]):
-        spec = UnitSpec(spec.label, float(tokens.pop(0)), spec.dimensions, spec.angle)
+        factor = float(tokens.pop(0))
+        if not factor > 0:
+            raise UnknownUnitError(f"unit tag {unit!r} has a non-positive factor")
+        spec = UnitSpec(spec.label, factor, spec.dimensions, spec.angle)
     sign = 1
     seen = False
     for token in tokens:
@@ -201,8 +204,8 @@ def parse_unit(unit):
         exponent = Fraction(match.group("exponent") or 1) * sign
         spec = _fold(spec, match.group("symbol"), exponent)
         seen = True
-    if not seen:
-        raise UnknownUnitError(f"unit tag {unit!r} names no unit")
+    if not seen or tokens[-1] == "/":
+        raise UnknownUnitError(f"unit tag {unit!r} names no unit" if not seen else f"unit tag {unit!r} ends in '/'")
     return spec
 
 

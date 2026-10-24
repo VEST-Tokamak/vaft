@@ -81,7 +81,7 @@ def test_the_electron_density_subject_is_not_any_of_the_averaged_densities():
 def test_greenwald_current_in_amperes_requires_an_explicit_scale():
     from vaft.formula.catalog import parameter_representation
 
-    expected = parameter_representation("greenwald_density", "I_p")
+    expected = parameter_representation("greenwald_density", "I_p", quantity="plasma_current")
     assert expected.unit == "MA" and canonical_quantity(expected.quantity) == "plasma_current"
     result = assess_compatibility(Representation("plasma_current", "A"), expected)
     assert result.status is C.REQUIRES_TRANSFORM
@@ -90,8 +90,17 @@ def test_greenwald_current_in_amperes_requires_an_explicit_scale():
     assert transform.parameters["factor"] == pytest.approx(1e-6)
 
 
-def test_a_parameter_whose_name_is_not_vocabulary_has_no_quantity_until_declared():
+def test_a_parameter_name_never_declares_its_quantity():
     from vaft.formula.catalog import parameter_representation
+
+    # n_e names the line-averaged density here; the vocabulary's ne is the generic
+    # electron density.  A name match would accept a local probe density.
+    n_e = parameter_representation("greenwald_fraction", "n_e")
+    assert n_e.quantity is None
+    assert assess_compatibility(Representation("electron_density", "1e19 m^-3"), n_e).status is C.UNRESOLVED
+    declared = parameter_representation("greenwald_fraction", "n_e", quantity="line_averaged_density")
+    assert assess_compatibility(Representation("electron_density", "1e19 m^-3"), declared).status is C.INCOMPATIBLE
+    assert parameter_representation("greenwald_density", "I_p").quantity is None
 
     minor = parameter_representation("greenwald_density", "a")
     assert minor.quantity is None and minor.unit == "m"
@@ -175,6 +184,18 @@ def test_a_unit_that_contradicts_its_cocos_is_unresolved():
     assert any("contradicts COCOS 1" in item for item in result.unresolved)
 
 
+@pytest.mark.parametrize("source, target", [
+    (Representation("psi", "Wb/rad", cocos=1), Representation("psi", "Wb/rad", cocos=11)),
+    (Representation("psi", "Wb/rad", cocos=1), Representation("psi", "Wb", cocos=1)),
+    (Representation("psi", "Pa rad/Wb", cocos=11), Representation("psi", "Pa/Wb", cocos=11)),
+    (Representation("psi", "Wb/deg", cocos=1), Representation("psi", "Wb", cocos=11)),
+    (Representation("psi", "rad/s"), Representation("psi", "1/s")),
+])
+def test_an_angle_exponent_change_is_never_waved_through(source, target):
+    result = assess_compatibility(source, target)
+    assert result.status is C.UNRESOLVED, result
+
+
 def test_one_sided_cocos_is_unresolved():
     result = assess_compatibility(Representation("psi", "Wb", cocos=11), Representation("psi", "Wb"))
     assert result.status is C.UNRESOLVED
@@ -193,6 +214,18 @@ def test_a_contradicted_convention_is_unresolved_and_never_transformed(sample):
 def test_a_declaration_without_identification_stays_declared(sample):
     declared = replace(sample.convention, identified=())
     assert representation_from_convention(declared).evidence is EvidenceLevel.DECLARED
+
+
+def test_a_single_identified_candidate_is_inferred_not_declared(sample):
+    candidate = replace(sample.convention, cocos=None, candidates=(1,))
+    rep = representation_from_convention(candidate)
+    assert (rep.cocos, rep.evidence) == (1, EvidenceLevel.INFERRED)
+
+
+def test_a_storage_flag_that_contradicts_the_index_is_unresolved(sample):
+    stale = replace(sample.convention, cocos=11, candidates=(11,), identified=(11,), psi_per_radian=True)
+    rep = representation_from_convention(stale)
+    assert rep.evidence is EvidenceLevel.UNRESOLVED and rep.cocos is None
 
 
 def test_compatible_does_not_mean_verified():

@@ -58,7 +58,8 @@ def test_an_angle_is_not_silently_dimensionless():
         unit_conversion_factor("rad", "-")
 
 
-@pytest.mark.parametrize("tag", ["", "varies", "any", "Mm", "1e19", "m^x", "A / / s", "furlong"])
+@pytest.mark.parametrize("tag", ["", "varies", "any", "Mm", "1e19", "m^x", "A / / s", "furlong",
+                                 ".", "1.2.3 m", "m /", "MA/", "0 m", "m^1/2"])
 def test_unknown_or_malformed_tags_raise_instead_of_guessing(tag):
     with pytest.raises(UnknownUnitError):
         parse_unit(tag)

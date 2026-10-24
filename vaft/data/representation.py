@@ -197,8 +197,10 @@ def assess_compatibility(source: Representation, target: Representation) -> Comp
     """Whether a value declared as ``source`` may be used where ``target`` is expected.
 
     Checks, in order: quantity identity, unit, COCOS, Fourier convention.  A
-    different quantity is ``INCOMPATIBLE`` at once.  Otherwise a missing or
-    contradicted declaration on either side makes the result ``UNRESOLVED``;
+    different quantity, or units of different dimension, is ``INCOMPATIBLE`` at
+    once: either alone proves the values mean different things, whatever else
+    is undeclared.  Otherwise a missing or contradicted declaration on either
+    side makes the result ``UNRESOLVED``;
     otherwise any difference with a known provider makes it
     ``REQUIRES_TRANSFORM``; otherwise it is ``COMPATIBLE``.  Reasons, required
     transformations and unresolved items are all reported, whatever the status.
@@ -245,11 +247,19 @@ def assess_compatibility(source: Representation, target: Representation) -> Comp
                 reasons.append(f"units {source.unit!r} and {target.unit!r} differ in dimension")
                 return result(Compatibility.INCOMPATIBLE)
             if ua.angle != ub.angle:
-                # Wb against Wb/rad: decided by COCOS, below, never by a scale factor.
-                if source.cocos is None or target.cocos is None:
+                # Only exactly Wb against Wb/rad is a storage-family change, and only a
+                # COCOS transform between two declared, different indices carries it.
+                flux = {source.unit.strip(), target.unit.strip()} == {"Wb", "Wb/rad"}
+                if not flux:
+                    unresolved.append(f"{source.unit!r} and {target.unit!r} differ in plane-angle exponent; "
+                                      "only Wb against Wb/rad is a convention difference")
+                elif source.cocos is None or target.cocos is None:
                     unresolved.append(
                         f"{source.unit!r} against {target.unit!r} is a convention (COCOS) difference, "
                         "and the COCOS of both sides is needed to decide it")
+                elif source.cocos == target.cocos:
+                    unresolved.append(f"{source.unit!r} against {target.unit!r} under one COCOS "
+                                      f"({source.cocos}) is a contradiction")
                 else:
                     reasons.append(f"{source.unit!r} against {target.unit!r} is carried by the COCOS transform")
             elif ua.scale != ub.scale:
@@ -282,9 +292,13 @@ def assess_compatibility(source: Representation, target: Representation) -> Comp
                     spec = parse_unit(rep.unit)
                 except UnknownUnitError:
                     continue
+                per_radian = psi_is_per_radian(rep.cocos)
+                if spec.angle and not per_radian:
+                    unresolved.append(f"{side} unit {rep.unit!r} is per radian, but COCOS {rep.cocos} "
+                                      "stores the full flux")
+                    continue
                 if spec.dimensions != flux.dimensions:
                     continue
-                per_radian = psi_is_per_radian(rep.cocos)
                 if (spec.angle == -1) != per_radian:
                     stored = "per radian" if per_radian else "as the full flux"
                     unresolved.append(f"{side} unit {rep.unit!r} contradicts COCOS {rep.cocos}, "
@@ -333,20 +347,29 @@ def representation_from_convention(convention, *, quantity: str = "psi", unit: O
     """The :class:`Representation` an :class:`~vaft.data.equilibrium.EquilibriumConvention` supports.
 
     A contradicted or ambiguous convention is ``UNRESOLVED`` and carries no
-    COCOS index.  A declared index the data's own identification also
-    supports is ``INFERRED`` -- self-consistency, not independent evidence.
-    A declaration with no identification behind it is ``DECLARED``.  Nothing
-    reaches ``VERIFIED`` from a convention record alone.  ``unit`` defaults to
-    the flux unit the storage family implies (``Wb`` or ``Wb/rad``).
+    COCOS index, and so is one whose ``psi_per_radian`` disagrees with its
+    index's storage family.  An index the data's own identification supports
+    -- a declaration it confirms, or the single remaining candidate -- is
+    ``INFERRED``: self-consistency, not independent evidence.  A declaration
+    with no identification behind it is ``DECLARED``.  Nothing reaches
+    ``VERIFIED`` from a convention record alone.  ``unit`` defaults to the flux
+    unit of the storage family (``Wb`` or ``Wb/rad``).
     """
     if convention.contradicted or convention.ambiguous:
         why = "contradicted by identification" if convention.contradicted else "ambiguous"
         return Representation(quantity, unit, None, None, EvidenceLevel.UNRESOLVED,
                               note=f"COCOS {why} (source: {convention.source})")
-    index = convention.cocos if convention.cocos is not None else convention.candidates[0]
-    if unit is None:
-        from vaft.data.cocos import psi_is_per_radian
+    from vaft.data.cocos import psi_is_per_radian
 
-        unit = "Wb/rad" if psi_is_per_radian(index) else "Wb"
-    level = EvidenceLevel.INFERRED if index in convention.identified else EvidenceLevel.DECLARED
+    declared = convention.cocos is not None
+    index = convention.cocos if declared else convention.candidates[0]
+    family = psi_is_per_radian(index)
+    if convention.psi_per_radian is not None and convention.psi_per_radian != family:
+        return Representation(quantity, unit, None, None, EvidenceLevel.UNRESOLVED,
+                              note=f"psi_per_radian={convention.psi_per_radian} contradicts COCOS {index} "
+                                   f"(source: {convention.source})")
+    if unit is None:
+        unit = "Wb/rad" if family else "Wb"
+    supported = index in convention.identified or not declared
+    level = EvidenceLevel.INFERRED if supported else EvidenceLevel.DECLARED
     return Representation(quantity, unit, index, None, level, note=f"source: {convention.source}")
