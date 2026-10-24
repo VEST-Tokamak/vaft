@@ -430,6 +430,10 @@ CORE_MODULES: tuple[str, ...] = (
     # Ordering spaces and margins (#1627 §3): the space registry, the margin bands and both plots
     # on a synthetic population. Under 5 s.
     "test_plot_ordering_space.py",
+    # Small preprocessing duplicates (#2162 B3.2-B3.7): each canonical owner held
+    # to a frozen copy of the code it replaced, and the two kept with a reason.
+    # Synthetic records, ~5 s.
+    "test_preprocessing_duplicates.py",
     # Adapter-mode ordering contracts (#1823): formalism mapping, registry vs the GPEC resolver and CGYRO,
     # and the advisory check. Under 5 s.
     "test_validation_model_contracts.py",
