@@ -9,10 +9,11 @@ the *current* API so the consolidation (#2147, B3 #2162) has an independent
 yardstick: a migrated implementation either still satisfies the mathematics or
 the diff says which identity it broke.
 
-What is deliberately absent: the FIR paths that #2135 converts from causal
-``lfilter`` to zero-phase application (``vest_b_field_pol_probe_legacy``,
-``apply_fir_filter``).  Their analytic tests are written against develop after
-#2135 lands, so they test the intended behaviour rather than pin the old one.
+The FIR section (``apply_fir_filter``, the VEST probe and IMPA low passes,
+``fir_filter_coefficients``) is written against develop *after* #2135 made the
+probe low pass zero-phase, so it tests the intended behaviour.  Its reference
+designs are the window-method formula written out here (Hamming-windowed sinc,
+normalized to unit DC gain), not ``scipy.signal.firwin``.
 
 Tolerances are stated next to each assertion with the reason for their size.
 Where a tolerance is "float round-off" it is a few hundred ulp of the signal
@@ -35,8 +36,12 @@ from vaft.process.magnetics import (
     _linear_baseline,
     vest_flux_loop_flux_from_voltage,
 )
+from vaft.process.impa import impa_lowpass
+from vaft.process.magnetics import b_field_pol_probe_field, vest_probe_lowpass_taps
 from vaft.process.signal_processing import (
     ResamplingError,
+    apply_fir_filter,
+    fir_filter_coefficients,
     SignalRepairError,
     anti_alias_filter,
     describe_time_grid,
@@ -651,3 +656,174 @@ def test_repair_refuses_to_extrapolate_or_invent(case, message):
         data[[20, 21, 22]] = 0.0  # three unsaturated samples < min_support = 4
     with pytest.raises(SignalRepairError, match=message):
         repair_clipped_interval(t, data, clip_value=1.0, tolerance=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# FIR: apply_fir_filter, the VEST designs, and the probe low pass (post-#2135)
+# ---------------------------------------------------------------------------
+
+def _hamming_lowpass(numtaps: int, cutoff: float, fs: float) -> np.ndarray:
+    """Window-method low pass written out: Hamming-windowed ideal sinc, unit DC gain.
+
+    h[n] = w[n] * (2 fc / fs) sinc(2 fc / fs (n - M)),  M = (N - 1) / 2,
+    w[n] = 0.54 - 0.46 cos(2 pi n / (N - 1)).  Independent of scipy.signal.
+    """
+    n = np.arange(numtaps)
+    centre = (numtaps - 1) / 2.0
+    ideal = (2.0 * cutoff / fs) * np.sinc(2.0 * cutoff / fs * (n - centre))
+    window = 0.54 - 0.46 * np.cos(2.0 * np.pi * n / (numtaps - 1))
+    taps = ideal * window
+    return taps / taps.sum()
+
+
+def _dtft(taps: np.ndarray, frequency: float, fs: float) -> complex:
+    """H(f) = sum_k h_k exp(-i 2 pi f k / fs), evaluated directly."""
+    k = np.arange(taps.size)
+    return complex(np.sum(taps * np.exp(-2j * np.pi * frequency * k / fs)))
+
+
+PROBE_TAPS = 251  # vest.yaml / VestMagneticsProcessingConfig: 251 taps, 2.5 kHz, 250 kHz
+PROBE_CUTOFF = 2_500.0
+IMPA_TAPS = 26    # vaft.process.impa._FIR_TAPS: the donor's order-round(fs * 1e-3) design
+IMPA_RATE = 25_000.0
+IMPA_CUTOFF = 250.0  # vest.yaml impa.processing.signal_lowpass_hz
+
+
+def test_the_vest_probe_design_is_the_251_tap_hamming_window_low_pass():
+    taps = vest_probe_lowpass_taps()
+    assert taps.size == PROBE_TAPS
+    # Same formula evaluated two ways: agreement to round-off.
+    np.testing.assert_allclose(taps, _hamming_lowpass(PROBE_TAPS, PROBE_CUTOFF, FAST_RATE), rtol=0, atol=1e-15)
+
+
+def test_the_impa_low_pass_is_the_26_tap_hamming_design_applied_forward_and_back():
+    """filtfilt's impulse response in the interior is h * reversed(h): the
+    autocorrelation of the taps, centred on the impulse (even length or not)."""
+    h = _hamming_lowpass(IMPA_TAPS, IMPA_CUTOFF, IMPA_RATE)
+    n = 2001
+    centre = n // 2
+    x = np.zeros(n)
+    x[centre] = 1.0
+    y = impa_lowpass(x, IMPA_CUTOFF, IMPA_RATE)
+    autocorrelation = np.correlate(h, h, mode="full")  # length 2N - 1, centred at N - 1
+    lags = np.arange(-(IMPA_TAPS - 1), IMPA_TAPS)
+    np.testing.assert_allclose(y[centre + lags], autocorrelation, rtol=0, atol=1e-14)
+    outside = np.ones(n, dtype=bool)
+    outside[centre + lags] = False
+    assert np.max(np.abs(y[outside])) < 1e-14
+
+
+@pytest.mark.parametrize(
+    ("numtaps", "cutoff", "fs"),
+    [(PROBE_TAPS, PROBE_CUTOFF, FAST_RATE), (IMPA_TAPS, IMPA_CUTOFF, IMPA_RATE)],
+)
+def test_the_hann_default_design_is_not_equivalent_to_the_vest_hamming_designs(numtaps, cutoff, fs):
+    """``fir_filter_coefficients``'s default (Hann, int(fs * 1e-3) forced odd) is
+    a different filter from either VEST Hamming design: a different length at
+    25 kHz (25 vs 26), a different window at 250 kHz, and a measurably different
+    response.  Swapping one for the other is a processing change, not a refactor."""
+    hamming = _hamming_lowpass(numtaps, cutoff, fs)
+    hann = fir_filter_coefficients(cutoff, fs)
+    expected_hann_length = int(fs * 1e-3) + (1 - int(fs * 1e-3) % 2)
+    assert hann.size == expected_hann_length
+    if hann.size == hamming.size:
+        assert np.max(np.abs(hann - hamming)) > 1e-3 * np.max(np.abs(hamming))
+    else:
+        assert hann.size != hamming.size  # 25 (Hann, odd) vs 26 (Hamming, donor)
+    # Response, two-pass magnitude, scanned over the transition and stopband.
+    freqs = np.linspace(cutoff, min(10 * cutoff, 0.49 * fs), 400)
+    gain_hamming = np.array([abs(_dtft(hamming, f, fs)) ** 2 for f in freqs])
+    gain_hann = np.array([abs(_dtft(hann, f, fs)) ** 2 for f in freqs])
+    # Equivalence would need the two to agree to within the Hamming design's
+    # own two-pass ripple (2 delta = 4.6e-3) everywhere; they do not.  (At
+    # authoring: 8.1e-3 near 2.95 kHz for 251 taps; 0.11 near 840 Hz for 26.)
+    assert np.max(np.abs(gain_hamming - gain_hann)) > HAMMING_PASSBAND_DEVIATION_FILTFILT
+
+
+def test_apply_fir_filter_is_zero_phase_with_unit_dc_gain():
+    taps = vest_probe_lowpass_taps()
+    n = 4001
+    centre = n // 2
+    x = np.zeros(n)
+    x[centre] = 1.0
+    y = apply_fir_filter(taps, x)
+    k = np.arange(1, 600)
+    np.testing.assert_allclose(y[centre + k], y[centre - k], rtol=0, atol=1e-15)
+    idx = np.arange(n)
+    assert float(np.sum(idx * y) / np.sum(y)) == pytest.approx(centre, abs=1e-9)  # group delay 0
+    assert float(np.sum(y)) == pytest.approx(1.0, abs=1e-12)  # (sum h)^2 = 1
+
+
+@pytest.mark.parametrize("frequency", [500.0, PROBE_CUTOFF, 6_000.0])
+def test_apply_fir_filter_scales_a_tone_by_the_squared_design_magnitude(frequency):
+    """Forward-backward: gain |H(f)|^2 from the taps' own DTFT, phase exactly 0."""
+    taps = vest_probe_lowpass_taps()
+    t = _uniform_time(FAST_RATE, 0.05)
+    x = np.cos(2 * np.pi * frequency * t + 0.3)
+    y = apply_fir_filter(taps, x)
+    keep = _interior(t.size, 1500)  # past the ~250-sample-per-pass edge transients
+    amplitude, phase = _tone_amplitude_phase(t[keep], y[keep], frequency)
+    expected = abs(_dtft(taps, frequency, FAST_RATE)) ** 2
+    # Least squares over >= 20 cycles of the interior; error is round-off.
+    assert amplitude == pytest.approx(expected, abs=1e-9)
+    if expected > 1e-3:
+        assert phase == pytest.approx(0.3, abs=1e-6)
+
+
+def test_a_short_record_is_refused_by_default():
+    taps = vest_probe_lowpass_taps()
+    with pytest.raises(ValueError, match=f"at least {3 * PROBE_TAPS + 1} samples"):
+        apply_fir_filter(taps, np.ones(3 * PROBE_TAPS))
+    # The boundary itself is accepted.
+    assert apply_fir_filter(taps, np.ones(3 * PROBE_TAPS + 1)).shape == (3 * PROBE_TAPS + 1,)
+
+
+def test_the_causal_fallback_is_a_forward_convolution_with_the_full_group_delay():
+    """short_record='causal' is lfilter: y = (h * x)[:n], a pure delay of (N - 1) / 2
+    samples on a linear-phase design -- 125 samples, 0.5 ms, for the probe filter."""
+    taps = vest_probe_lowpass_taps()
+    n = 600  # < 3 * 251 + 1
+    t = np.arange(n) / FAST_RATE
+    x = np.cos(2 * np.pi * 500.0 * t)
+    y = apply_fir_filter(taps, x, short_record="causal")
+    np.testing.assert_allclose(y, np.convolve(taps, x)[:n], rtol=0, atol=1e-13)
+    # Past the start-up transient the output is the input delayed by 125
+    # samples and scaled by |H(500 Hz)|.
+    delay = (PROBE_TAPS - 1) // 2
+    gain = abs(_dtft(taps, 500.0, FAST_RATE))
+    steady = slice(PROBE_TAPS, n)
+    delayed = gain * np.cos(2 * np.pi * 500.0 * (t[steady] - delay / FAST_RATE))
+    np.testing.assert_allclose(y[steady], delayed, rtol=0, atol=1e-12)
+
+
+def test_a_single_tap_is_its_gain_applied_twice():
+    x = np.linspace(-1.0, 2.0, 7)
+    np.testing.assert_array_equal(apply_fir_filter([0.5], x), x * 0.25)
+    np.testing.assert_array_equal(apply_fir_filter(np.array([-3.0]), x), x * 9.0)
+
+
+def test_unknown_short_record_policy_is_refused():
+    with pytest.raises(ValueError, match="short_record"):
+        apply_fir_filter([0.5, 0.5], np.ones(10), short_record="pad")
+
+
+def test_the_probe_low_pass_moves_no_feature_in_time():
+    """End to end through b_field_pol_probe_field: a probe voltage V = -dB/dt of
+    a Gaussian field pulse (sigma 2 ms, spectrum e^{-(2 pi f sigma)^2 / 2} below
+    1e-30 at the 2.5 kHz cutoff) comes back as B itself -- same peak instant,
+    same centroid.  The pre-#2135 causal lfilter delayed it by 125 samples."""
+    t = _uniform_time(FAST_RATE, 0.06)
+    t0, sigma, amplitude = 0.03, 2e-3, 0.05
+    field_true = amplitude * np.exp(-0.5 * ((t - t0) / sigma) ** 2)
+    voltage = -field_true * (-(t - t0) / sigma**2)  # V = -dB/dt, analytic
+    baseline = np.arange(2000)  # 8 ms of quiet lead-in: B < 1e-20 there
+    *_, field, _ = b_field_pol_probe_field(t, voltage, np.array([1.0]), vest_probe_lowpass_taps(),
+                                           baseline_indices=baseline)
+    field = field[:, 0]
+    # Passband ripple of two passes, plus the trapezoid error of integrating
+    # V: T h^2 max|V''| / 12 ~ 1e-9 here.
+    np.testing.assert_allclose(field, field_true, rtol=0, atol=HAMMING_PASSBAND_DEVIATION_FILTFILT * amplitude)
+    centroid = lambda y: float(np.sum(t * y) / np.sum(y))  # noqa: E731
+    # A causal filter moves the centroid by 0.5 ms; this bound is 1/1000 of a sample.
+    assert centroid(field) == pytest.approx(centroid(field_true), abs=1e-3 / FAST_RATE)
+    assert int(np.argmax(field)) == int(np.argmax(field_true))
