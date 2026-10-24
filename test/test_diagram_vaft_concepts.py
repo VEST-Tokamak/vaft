@@ -18,7 +18,8 @@ def test_the_registry_lists_the_expected_builders():
     assert set(BUILDERS) == {
         "fusion_science_knowledge_lifecycle", "vaft_four_pillars", "scientific_workflow", "interoperability_layers",
         "scientific_provenance_chain", "scientific_infrastructure_principles", "machine_agnostic_architecture",
-        "experiment_modeling_theory_data_network", "integrated_scientific_framework", "human_ai_interface",
+        "experiment_modeling_theory_data_network", "integrated_scientific_framework", "integration_paradigms_lineage",
+        "human_ai_interface",
         "machine_research_archive", "plasma_state_provenance"}
 
 
@@ -321,6 +322,39 @@ def test_the_framework_rejects_an_unknown_domain():
     # the framework is its own figure, not a fourth topology of the network
     with pytest.raises(ValueError, match="communication"):
         vaft.diagram.experiment_modeling_theory_data_network("integrated_framework")
+
+
+def test_the_lineage_reuses_the_three_figures_unchanged():
+    d = vaft.diagram.integration_paradigms_lineage()
+    assert d.model["paradigms"] == ("pairwise", "common_model", "framework")
+    assert d.model["precedents"] == {"pairwise": "OMFIT", "common_model": "IMAS Data Dictionary", "framework": "VAFT"}
+    sources = {"pairwise": vaft.diagram.experiment_modeling_theory_data_network("point_to_point", labels=False),
+               "common_model": vaft.diagram.experiment_modeling_theory_data_network("common_model", labels=False),
+               "framework": vaft.diagram.integrated_scientific_framework(labels=False)}
+    modes = d.model["activities"]
+    rows = {}
+    for key, source in sources.items():
+        # every item of the source figure but its adapter-count caption, shifted only (#2157: no redesign)
+        mine = [i for i in d.scene.items if i.role.startswith((f"panel:{key}:", f"edge:{key}:"))]
+        theirs = [i for i in source.scene.items if i.role != "caption"]
+        assert len(mine) == len(theirs)
+        for a, b in zip(mine, theirs):
+            assert type(a) is type(b) and getattr(a, "text", None) == getattr(b, "text", None)
+        rows[key] = {k: _box_role_bounds(d, f"panel:{key}:node:{k}")[2:] for k in modes}
+        recorded = {(a, b) for a, b, _ in d.model["edges"] if a.startswith(f"{key}:")}
+        assert recorded == {(f"{key}:{a}", f"{key}:{b}") for a, b, _ in source.model["edges"]}
+    # the research modes stand on one row across the panels
+    assert rows["pairwise"] == rows["common_model"] == rows["framework"]
+    pairwise = {(a, b) for a, b, _ in d.model["edges"] if a.startswith("pairwise:")}
+    assert len(pairwise) == d.model["pairwise_links"] == 6 and d.model["hub_links"] == 4
+    assert ("framework:hub", "framework:analysis") in {(a, b) for a, b, _ in d.model["edges"]}
+    # the panels do not lead into one another: no arrow joins two panels
+    assert all(a.split(":")[0] == b.split(":")[0] for a, b, _ in d.model["edges"])
+    text = " ".join(i.text for i in d.scene.items if isinstance(i, Label))
+    assert "Representative conceptual precedent: OMFIT" in text and "IMAS Data Dictionary" in text
+    assert "Meneghini" in text and "Imbeaux" in text and "not a historical lineage" in text
+    assert "adapters" not in text  # the sources' adapter counts give way to the paradigm captions
+    assert not vaft.diagram.integration_paradigms_lineage(labels=False).scene.role("note")
 
 
 def test_the_plasma_state_layers_feed_the_reconstruction_and_then_the_derived_state():

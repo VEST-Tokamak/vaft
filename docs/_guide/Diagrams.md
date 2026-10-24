@@ -1610,6 +1610,7 @@ vaft.diagram.scientific_infrastructure_principles()
 vaft.diagram.machine_agnostic_architecture()
 vaft.diagram.experiment_modeling_theory_data_network()   # "point_to_point", "common_model", "equilibrium"
 vaft.diagram.integrated_scientific_framework()           # domain=None or "equilibrium"
+vaft.diagram.integration_paradigms_lineage()
 vaft.diagram.human_ai_interface()
 vaft.diagram.machine_research_archive()
 ```
@@ -1626,6 +1627,7 @@ vaft.diagram.machine_research_archive()
 | `machine_agnostic_architecture` | Theory, experiment, modelling and simulation, and data-driven methods share one scientific framework and one Common Data Model (IMAS), which holds design, experimental and simulation data and is stored in the IMAS database. Machine-specific data access and mapping absorbs device differences, so the same architecture serves existing fusion experiments and future devices and reactor concepts. No device is named |
 | `experiment_modeling_theory_data_network` | A three-step argument for a common data model. Point to point needs $N(N-1)/2$ pairwise adapters, and a new mode needs $N-1$ more. The Common Data Model (IMAS) needs $N$ adapters, and a new mode needs one. The IMAS equilibrium IDS, a standardized equilibrium representation, then serves as a tokamak example with representative routes and references |
 | `integrated_scientific_framework` | The common-model network one level up (#1698). The same four research modes and Common Data Model (IMAS), placed exactly as in the network, sit inside an Integrated Framework boundary, and the shared state feeds one Analysis node. The Common Data Model is the shared representation; the framework connects, runs, compares and reproduces research through it; analysis is the scientific use. With `domain="equilibrium"` the routes and the IMAS equilibrium IDS return, and the analysis reads MHD parameters, plasma shape and operational space. These are equilibrium-derived descriptors; stability codes such as DCON and RDCON are downstream models and stay out |
+| `integration_paradigms_lineage` | Steps 1–3 of the progression below in one row (#2157): pairwise coupling of the four research modes ($N(N-1)/2$ possible undirected interfaces, OMFIT as a representative conceptual precedent rather than its literal software topology), the same modes around the Common Data Model (IMAS), with the IMAS Data Dictionary as the precedent for a shared semantic representation, and `integrated_scientific_framework()` unchanged. The panels are the three figures reused, so the modes stand on one row. It compares paradigms; it does not claim that OMFIT evolved into IMAS or VAFT, and no arrow joins the panels |
 | `human_ai_interface` | Three layers: actors, shared access interfaces and one backend. Human researchers and AI agents collaborate through the Python API, CLI, GUI, repository and docs, and MCP (planned). The interface layer reaches the framework and the IMAS database through one common connection |
 | `machine_research_archive` | VEST's institutional and scientific memory since 2012: machine history, research on VEST and research knowledge feed one living archive, which new analyses and research build on. No dates are drawn beyond the start of operation |
 
@@ -1656,6 +1658,7 @@ validated, and the labels stay authoritative.
 ![The IMAS equilibrium as a common model]({{ '/assets/diagrams/experiment_modeling_theory_data_network_equilibrium.svg' | relative_url }})
 ![Integrated scientific framework]({{ '/assets/diagrams/integrated_scientific_framework.svg' | relative_url }})
 ![Integrated scientific framework: equilibrium]({{ '/assets/diagrams/integrated_scientific_framework_equilibrium.svg' | relative_url }})
+![Integration paradigms: pairwise, common data model, integrated framework]({{ '/assets/diagrams/integration_paradigms_lineage.svg' | relative_url }})
 ![Human-AI collaborative access]({{ '/assets/diagrams/human_ai_interface.svg' | relative_url }})
 ![Machine and research archive]({{ '/assets/diagrams/machine_research_archive.svg' | relative_url }})
 
@@ -1668,7 +1671,8 @@ cross:
 1. pairwise interfaces, `experiment_modeling_theory_data_network("point_to_point")`;
 2. a shared scientific representation, `experiment_modeling_theory_data_network("common_model")`;
 3. an integrated scientific framework, `integrated_scientific_framework()`, and its equilibrium example,
-   `integrated_scientific_framework(domain="equilibrium")`;
+   `integrated_scientific_framework(domain="equilibrium")`. Steps 1–3 side by side are
+   `integration_paradigms_lineage()`;
 4. the broader research infrastructure, `experimental_research_infrastructure()` (#1636);
 5. the managed workflow, `scientific_workflow()`;
 6. the VEST implementation, `vest_data_platform()`.

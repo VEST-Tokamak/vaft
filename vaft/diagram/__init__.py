@@ -44,7 +44,7 @@ modeling (#1085): ``knowledge_basis``, ``computational_realization``,
 ``scientific_workflow``, ``interoperability_layers``,
 ``scientific_provenance_chain``, ``plasma_state_provenance``, ``scientific_infrastructure_principles``,
 ``machine_agnostic_architecture``, ``experiment_modeling_theory_data_network``,
-``integrated_scientific_framework`` (#1698), ``human_ai_interface`` and ``machine_research_archive``; research
+``integrated_scientific_framework`` (#1698), ``integration_paradigms_lineage`` (#2157), ``human_ai_interface`` and ``machine_research_archive``; research
 infrastructure (#1636, #1638, #1640, #1641, #1643, #1645), fragmented
 against integrated pairs plus the research community and ownership:
 ``scientific_representation``, ``experimental_research_infrastructure``,
@@ -272,6 +272,7 @@ __all__ = [
     "machine_agnostic_architecture",
     "experiment_modeling_theory_data_network",
     "integrated_scientific_framework",
+    "integration_paradigms_lineage",
     "human_ai_interface",
     "machine_research_archive",
     "scientific_representation",
@@ -511,6 +512,7 @@ _LOCATIONS = {
     "machine_agnostic_architecture": "._vaft_concepts",
     "experiment_modeling_theory_data_network": "._vaft_concepts",
     "integrated_scientific_framework": "._vaft_concepts",
+    "integration_paradigms_lineage": "._vaft_concepts",
     "human_ai_interface": "._vaft_concepts",
     "machine_research_archive": "._vaft_concepts",
     "scientific_representation": "._research_concepts",

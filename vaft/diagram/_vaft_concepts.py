@@ -914,6 +914,84 @@ def integrated_scientific_framework(domain: Optional[str] = None, *, labels: boo
                           "routes": dict(EQUILIBRIUM_ROUTES) if example else {}, "edges": tuple(edges)})
 
 
+#: the three integration paradigms side by side: (key, heading, caption lines, representative precedent)
+INTEGRATION_PARADIGMS: Tuple[Tuple[str, str, Tuple[str, ...], str], ...] = (
+    ("pairwise", "Direct pairwise coupling",
+     ("Six undirected pairwise links ($K_4$)", "$N(N-1)/2$ possible pairwise interfaces"), "OMFIT"),
+    ("common_model", "Common data model",
+     ("Four hub--mode links", "Shared standardized meaning"), "IMAS Data Dictionary"),
+    ("framework", "Integrated framework",
+     ("Research modes, common data model and analysis", "connected inside one framework"), "VAFT"),
+)
+#: compact references of the two precedents
+INTEGRATION_REFERENCES: Tuple[str, ...] = (
+    "OMFIT: Meneghini et al., Nucl. Fusion 55, 083008 (2015)",
+    "IMAS: Imbeaux et al., Nucl. Fusion 55, 123006 (2015)",
+)
+#: where each panel's centre sits: far enough apart that the framework boundary clears its neighbour
+_PARADIGM_X = (0.0, 13.4, 27.0)
+
+
+def _panel_role(panel: str, role: str) -> str:
+    """A reused item's role, namespaced by its panel; an edge stays an edge between namespaced nodes."""
+    if role.startswith("edge:"):
+        src, dst = role[len("edge:"):].split("->")
+        return f"edge:{panel}:{src}->{panel}:{dst}"
+    return f"panel:{panel}:{role}"
+
+
+def integration_paradigms_lineage(*, labels: bool = True) -> Diagram:
+    r"""Three integration paradigms in one row: pairwise coupling, a common data model, an integrated framework (#2157).
+
+    Panel A is ``experiment_modeling_theory_data_network("point_to_point")``:
+    the four research modes coupled pairwise, $N(N-1)/2$ possible undirected
+    interfaces, with OMFIT as a representative conceptual precedent -- not
+    the literal OMFIT software topology, and the count is of possible links,
+    not of verified OMFIT interfaces. Panel B is the ``"common_model"``
+    network: the same modes each exchanging with one Common Data Model
+    (IMAS), the IMAS Data Dictionary as precedent for a shared semantic
+    representation (not a workflow engine). Panel C is
+    ``integrated_scientific_framework()`` unchanged: the framework boundary,
+    the modes, the IMAS hub and the downstream Analysis node.
+
+    The panels are reused, not redrawn, so their research modes stand on one
+    row. They compare paradigms; they do not claim that OMFIT evolved into
+    IMAS or VAFT, nor that one supersedes another.
+    """
+    labels = _check_labels(labels)
+    panels = (experiment_modeling_theory_data_network("point_to_point", labels=False),
+              experiment_modeling_theory_data_network("common_model", labels=False),
+              integrated_scientific_framework(labels=False))
+    d = _MODE_OFFSET
+    heading_y = d + 0.5 + 1.25 + 0.55  # above the framework boundary of panel C
+    caption_y = {"pairwise": -d - 1.0, "common_model": -d - 1.0, "framework": -d - 3.85}
+    items: List = []
+    edges: List = []
+    for (key, heading, lines, precedent), diagram, x, letter in zip(INTEGRATION_PARADIGMS, panels, _PARADIGM_X,
+                                                                    "ABC"):
+        # each panel's own caption counts adapters; the comparison names its paradigm instead
+        scene = Scene(tuple(item for item in diagram.scene.items if item.role != "caption"))
+        items += [replace(item, role=_panel_role(key, item.role)) for item in scene.transformed(offset=(x, 0.0)).items]
+        edges += [(f"{key}:{a}", f"{key}:{b}", kind) for a, b, kind in diagram.model["edges"]]
+        items.append(Label((x, heading_y), "{\\large\\strut\\textbf{" + letter + "\\quad " + escape_latex(heading) + "}}",
+                           "concept plain", anchor="south", role=f"heading:{key}"))
+        example = ("Representative conceptual precedent: " if key != "framework" else "This framework: ") + precedent
+        body = "\\\\".join(lines) + "\\\\{\\small\\itshape " + escape_latex(example) + "}"
+        items.append(Label((x, caption_y[key]), body, "concept plain", anchor="north", role=f"caption:{key}"))
+    bottom = caption_y["framework"] - 1.75  # beneath the deepest caption, panel C's
+    items.append(Label((_PARADIGM_X[1], bottom), "; ".join(INTEGRATION_REFERENCES), "concept reference",
+                       anchor="north", role="references"))
+    if labels:
+        note = ("Conceptual comparison of integration paradigms, not a historical lineage: "
+                "no panel claims to supersede another")
+        items.append(Label((_PARADIGM_X[1], bottom - 0.65), note, "note", anchor="north", role="note"))
+    return Diagram("integration_paradigms_lineage", Scene(tuple(items)),
+                   model={"paradigms": tuple(k for k, _, _, _ in INTEGRATION_PARADIGMS),
+                          "precedents": {k: p for k, _, _, p in INTEGRATION_PARADIGMS},
+                          "activities": tuple(k for k, _, _ in ACTIVITIES), "edges": tuple(edges),
+                          "pairwise_links": panels[0].model["adapters"], "hub_links": panels[1].model["adapters"]})
+
+
 #: interfaces and the interaction each one is for: (key, name, use, planned)
 INTERFACES: Tuple[Tuple[str, str, str, bool], ...] = (
     ("python", "Python API", "scripts, notebooks", False),
