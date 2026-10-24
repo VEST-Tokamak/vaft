@@ -7,6 +7,8 @@ __all__ = ["__version__"]
 # ────────────────────────────────────────────────────────
 # patch notes
 # ────────────────────────────────────────────────────────
+# unreleased
+# - (develop since v0.9.0; one line per merged change, newest first)
 # 0.9.0
 # - development line 2026-10-09 .. 2026-10-21 merged into main: 162 pull
 #   requests (first-parent merges on develop since the v0.8.0 forward-port);
