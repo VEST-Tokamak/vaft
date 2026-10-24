@@ -1381,6 +1381,7 @@ def resample_to_time(
     on_unsorted: str = "error",
     axis: int = -1,
     return_filter_mask: bool = False,
+    unfiltered: str = "nan",
 ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
     """Project a signal onto ``target_time``, low-passing first if that is a rate cut.
 
@@ -1423,6 +1424,12 @@ def resample_to_time(
     return_filter_mask : bool, optional
         Also return, on the *source* grid, which samples reached the target
         band-limited [-].
+    unfiltered : {"nan", "keep"}, optional
+        When a filter was needed: ``"nan"`` sets every target sample whose
+        interpolation draws on a source sample the filter could not cover --
+        a record or finite run shorter than ``3 * numtaps + 1`` -- to NaN;
+        ``"keep"`` stores the decimated unfiltered value, for a caller that
+        flags those samples itself from ``return_filter_mask`` [-].
 
     Returns
     -------
@@ -1457,13 +1464,18 @@ def resample_to_time(
        stopband at the target Nyquist, and run :func:`anti_alias_filter` on
        the source grid.
     5. ``np.interp`` onto ``target_time`` with the ``extrapolate`` policy.
+    6. Under ``unfiltered="nan"``, project the filter mask the same way and set
+       to NaN every target sample it does not cover completely.
 
     Output semantics
     ----------------
     Interpolated.  When no filter runs, the result is **bit-for-bit**
     ``np.interp`` -- deliberately, so equal-rate call sites can adopt this
     primitive without moving a stored value.  When one does, the result is
-    band-limited to the target Nyquist and then interpolated.
+    band-limited to the target Nyquist and then interpolated, and a target
+    sample that would have been interpolated from an unfiltered short run is
+    NaN rather than a possibly aliased number (#2162 B3.12; until then it was
+    stored, with only a ``RuntimeWarning`` and the mask to tell it apart).
 
     Defaults
     --------
@@ -1474,6 +1486,10 @@ def resample_to_time(
     Nyquist puts everything that can fold into the stopband.  ``extrapolate =
     "clamp"`` matches ``np.interp``.  ``on_unsorted = "error"`` because
     ``np.interp`` returns silent nonsense for an unsorted ``x``.
+    ``unfiltered = "nan"`` is the safe choice: a run too short to filter
+    cannot be decimated without folding whatever it holds above the target
+    Nyquist into the band, and nothing downstream can tell an alias from a
+    measurement.
 
     Convention
     ----------
@@ -1516,6 +1532,8 @@ def resample_to_time(
         raise ValueError(f"extrapolate must be 'clamp', 'nan' or 'error'; got {extrapolate!r}")
     if on_unsorted not in ("error", "sort"):
         raise ValueError(f"on_unsorted must be 'error' or 'sort'; got {on_unsorted!r}")
+    if unfiltered not in ("nan", "keep"):
+        raise ValueError(f"unfiltered must be 'nan' or 'keep'; got {unfiltered!r}")
     if return_filter_mask and on_unsorted == "sort":
         # Sorting collapses duplicate times, so a source-grid mask would no
         # longer line up with the caller's samples.
@@ -1646,6 +1664,15 @@ def resample_to_time(
         covered = np.ones(moved.shape, dtype=bool)
 
     out = _interp_along_last_axis(targets, times, moved, extrapolate=extrapolate)
+    if should_filter and unfiltered == "nan" and not covered.all():
+        # The same rule the Langmuir mapper applies to its validity (#915): a
+        # target sample is trusted only if every source sample it is
+        # interpolated from was filtered. NaN source samples are uncovered too,
+        # but np.interp already returns NaN next to them.
+        covered_fraction = _interp_along_last_axis(
+            targets, times, covered.astype(float), extrapolate=extrapolate
+        )
+        out = np.where(covered_fraction >= 1.0, out, np.nan)
     out = np.moveaxis(out, -1, axis) if data.ndim > 1 else out.reshape(-1)
     return (out, _source_axis(covered)) if return_filter_mask else out
 
