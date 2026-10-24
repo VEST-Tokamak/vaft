@@ -124,6 +124,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_raw_sources.py",
     "test_selection_validity.py",
     "test_spectrogram_methods.py",
+    # VEST configuration loading, merge and revision rules (#2159): tmp YAML
+    # and the packaged vest.yaml resolved at every era bound, ~3 s.
+    "test_vest_config_loading.py",
     # Predicted mode-frequency tracks and the Mirnov mode_overlay (#460):
     # analytic fixtures only, a few seconds.
     "test_mode_frequency_overlay.py",

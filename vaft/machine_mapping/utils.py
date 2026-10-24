@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import os
 import datetime
 import warnings
@@ -61,73 +62,163 @@ def resolve_data_root(data_root: str | Path | None = None) -> Path:
     return Path(__file__).resolve().parents[1] / "data"
 
 
-def load_yaml(path: str) -> Dict[str, Any]:
+class VestConfigurationError(ValueError):
+    """Raised when VEST machine-mapping configuration is invalid."""
+
+
+def load_yaml(path: str | os.PathLike[str]) -> Dict[str, Any]:
+    """Parse one VEST configuration file.
+
+    An empty file is an empty mapping. A file that is not valid YAML, or whose
+    top level is not a mapping, raises :class:`VestConfigurationError` naming
+    the file, so a broken campaign configuration fails where it is read rather
+    than as an ``AttributeError`` in whichever resolver touches it first.
+    """
     with open(path, "r", encoding="utf-8") as handle:
-        data = yaml.safe_load(handle)
-    return {} if data is None else data
+        try:
+            data = yaml.safe_load(handle)
+        except yaml.YAMLError as exc:
+            raise VestConfigurationError(
+                f"VEST configuration {os.fspath(path)!r} is not valid YAML: {exc}"
+            ) from exc
+    if data is None:
+        return {}
+    if not isinstance(data, Mapping):
+        raise VestConfigurationError(
+            f"VEST configuration {os.fspath(path)!r} must be a mapping at the top level, "
+            f"not {type(data).__name__}"
+        )
+    return data
 
 
 @lru_cache(maxsize=8)
-def _cached_document(path: str, mtime_ns: int) -> Mapping[str, Any]:
-    """The parsed VEST configuration, cached per file and modification time."""
+def _cached_document(path: str, mtime_ns: int, size: int) -> Mapping[str, Any]:
+    """The parsed VEST configuration, cached per file, modification time and size.
+
+    The cached object is shared; nothing outside this module may see it.
+    :func:`_policy_document` hands out a private deep copy.
+    """
     return load_yaml(path)
 
 
-def _policy_document(info_file: str | None) -> Mapping[str, Any]:
-    """The VEST configuration for the policy resolvers, parsed once per edit.
+def _policy_document(info_file: str | os.PathLike[str] | None) -> Dict[str, Any]:
+    """The VEST configuration, parsed once per edit, as a caller-owned copy.
 
-    Both ``resolve_diagnostics_time_policies`` and
-    ``resolve_plasma_timing_policy`` read the whole file for one top-level
-    block, and the plasma-timing resolver needs both blocks; parsing the
-    ~2000-line document on every call cost more than the detectors it
-    configures.  Callers must not mutate the returned mapping.
+    Parsing the ~2900-line document costs ~0.1 s, a deep copy ~1 ms, so the
+    parse is cached by ``(path, st_mtime_ns, st_size)`` and every caller gets
+    its own deep copy: mutating the returned mapping -- or anything resolved
+    from it -- can never change what a later call, for another shot, sees.
+    An edit that changes the file's mtime or size re-parses it; a same-size
+    rewrite inside the filesystem's mtime granularity (1-2 s on HFS+/exFAT,
+    nanoseconds on APFS/ext4) is not detected.
     """
     path = _resolve_info_file_path(info_file)
-    return _cached_document(path, os.stat(path).st_mtime_ns)
+    stat = os.stat(path)
+    return copy.deepcopy(_cached_document(path, stat.st_mtime_ns, stat.st_size))
 
 
-def _resolve_info_file_path(filename: str | None) -> str:
+def _resolve_info_file_path(filename: str | os.PathLike[str] | None) -> str:
+    """Resolve the VEST configuration file a resolver reads.
+
+    * ``None`` selects the packaged ``vest.yaml``.
+    * An existing path -- absolute, or relative to the working directory --
+      is used as given.
+    * Otherwise a bare name is looked up among the files shipped with
+      ``vaft.machine_mapping`` (so ``"vest.yaml"`` is the packaged file).
+    * Anything else raises :class:`VestConfigurationError`. An explicit path
+      that does not exist never falls back to the packaged file: a mistyped
+      campaign configuration would otherwise run with production policy and
+      record nothing (#2159, audit gap G1).
+    """
     if filename is None:
         return package_data_path("vest.yaml")
 
     candidate = Path(filename)
-    if candidate.is_absolute() and candidate.exists():
-        return str(candidate)
     if candidate.exists():
-        return str(candidate.resolve())
+        if not candidate.is_file():
+            raise VestConfigurationError(
+                f"VEST configuration path {os.fspath(filename)!r} is not a file"
+            )
+        return str(candidate if candidate.is_absolute() else candidate.resolve())
 
-    packaged = Path(package_data_path(filename))
-    if packaged.exists():
+    packaged = Path(package_data_path(os.fspath(filename)))
+    if not candidate.is_absolute() and packaged.is_file():
         return str(packaged)
 
-    return package_data_path("vest.yaml")
+    raise VestConfigurationError(
+        f"VEST configuration file {os.fspath(filename)!r} does not exist (looked relative to "
+        f"{os.getcwd()!r} and among the packaged machine-mapping files); pass info_file=None "
+        "for the packaged vest.yaml"
+    )
 
 
-def _deep_merge(base: Any, override: Any) -> Any:
-    if not isinstance(base, Mapping) or not isinstance(override, Mapping):
-        return override
-    merged = dict(base)
-    for key, value in override.items():
-        if key in merged and isinstance(merged[key], Mapping) and isinstance(value, Mapping):
-            merged[key] = _deep_merge(merged[key], value)
-        else:
-            merged[key] = value
-    return merged
+def _deep_merge(base: Any, override: Any, *, context: str = "configuration") -> Any:
+    """Merge ``override`` over ``base`` into a new, fully independent structure.
+
+    The rules (#2159, audit gap G2):
+
+    * mapping over mapping merges key by key, recursively; keys only in
+      ``base`` are kept, keys only in ``override`` are added;
+    * any other value -- scalar, list, explicit ``null`` -- replaces the base
+      value whole. Lists are never concatenated or merged by index, and an
+      explicit ``null`` is a value ("not applicable"), not an omitted key;
+    * a ``null`` base value is a placeholder any override may fill;
+    * a mapping against a non-null non-mapping, in either direction, is a
+      structural conflict and raises :class:`VestConfigurationError` naming
+      the dotted key path -- an override must not silently change a block's
+      shape.
+
+    The result shares no mutable object with either argument, so mutating a
+    resolved block can never reach a cached document.
+    """
+    base_is_mapping = isinstance(base, Mapping)
+    override_is_mapping = isinstance(override, Mapping)
+    if base_is_mapping and override_is_mapping:
+        merged = {key: copy.deepcopy(value) for key, value in base.items()}
+        for key, value in override.items():
+            if key in merged:
+                merged[key] = _deep_merge(merged[key], value, context=f"{context}.{key}")
+            else:
+                merged[key] = copy.deepcopy(value)
+        return merged
+    if base is not None and override is not None and base_is_mapping != override_is_mapping:
+        expected, found = ("a mapping", type(override).__name__) if base_is_mapping else (
+            type(base).__name__,
+            "a mapping",
+        )
+        raise VestConfigurationError(
+            f"{context}: cannot merge {found} over {expected}; an override must keep the "
+            "configured structure (use null to clear a value)"
+        )
+    return copy.deepcopy(override)
 
 
-class VestConfigurationError(ValueError):
-    """Raised when VEST machine-mapping configuration is invalid."""
+def _shot_number(value: Any, *, name: str, context: str) -> int:
+    """``value`` as a non-negative integral shot number, or a configuration error.
+
+    Booleans, non-integral numbers (``41446.5`` would otherwise truncate
+    silently) and negative numbers are refused.
+    """
+    message = f"{context}: {name} must be a non-negative integer shot number, not {value!r}"
+    if isinstance(value, bool):
+        raise VestConfigurationError(message)
+    try:
+        number = int(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise VestConfigurationError(message) from exc
+    try:
+        integral = float(value) == number
+    except (TypeError, ValueError, OverflowError):
+        integral = True
+    if not integral or number < 0:
+        raise VestConfigurationError(message)
+    return number
 
 
 def _revision_bound(value: Any, *, name: str, context: str) -> int | None:
     if value is None:
         return None
-    if isinstance(value, bool):
-        raise VestConfigurationError(f"{context}: {name} must be an integer shot number")
-    try:
-        return int(value)
-    except (TypeError, ValueError) as exc:
-        raise VestConfigurationError(f"{context}: {name} must be an integer shot number") from exc
+    return _shot_number(value, name=name, context=context)
 
 
 def _match_revision(
@@ -150,7 +241,7 @@ def _match_revision(
 
     parsed_revisions: list[tuple[Mapping[str, Any], int | None, int | None]] = []
     matching: list[tuple[Mapping[str, Any], int, int | None, int | None]] = []
-    numeric_shot = int(shot)
+    numeric_shot = _shot_number(shot, name="shot", context=context)
     for index, revision in enumerate(revisions):
         revision_context = f"{context} revision {index}"
         if not isinstance(revision, Mapping):
@@ -190,6 +281,78 @@ def _match_revision(
     return revision, index, {"from_shot": first, "to_shot": last}
 
 
+#: The bounds of a revision entry; every other key of an entry is configuration.
+REVISION_BOUND_KEYS = frozenset({"from_shot", "to_shot"})
+
+#: Reserved base key declaring the keys that exist only inside shot eras.
+#: The resolver consumes it; it never reaches the resolved configuration.
+ERA_ONLY_KEYS = "era_only_keys"
+
+
+def _era_only_keys(base: Mapping[str, Any], *, context: str) -> frozenset[str]:
+    declared = base.get(ERA_ONLY_KEYS)
+    if declared is None:
+        return frozenset()
+    if isinstance(declared, (str, bytes)) or not isinstance(declared, Sequence):
+        raise VestConfigurationError(f"{context}: {ERA_ONLY_KEYS} must be a list of key names")
+    keys: list[str] = []
+    for key in declared:
+        if not isinstance(key, str) or not key:
+            raise VestConfigurationError(
+                f"{context}: {ERA_ONLY_KEYS} entries must be non-empty key names, not {key!r}"
+            )
+        if key in REVISION_BOUND_KEYS or key == ERA_ONLY_KEYS or key == "revisions":
+            raise VestConfigurationError(f"{context}: {ERA_ONLY_KEYS} may not name {key!r}")
+        if key in base:
+            raise VestConfigurationError(
+                f"{context}: {ERA_ONLY_KEYS} names {key!r}, which the base also defines; "
+                "a key is either a base key or an era-only key"
+            )
+        keys.append(key)
+    if len(set(keys)) != len(keys):
+        raise VestConfigurationError(f"{context}: {ERA_ONLY_KEYS} lists a key twice")
+    return frozenset(keys)
+
+
+def _validate_revision_keys(
+    base_keys: frozenset[Any],
+    era_only: frozenset[str],
+    revisions: Sequence[Mapping[str, Any]] | None,
+    *,
+    context: str,
+) -> None:
+    """Refuse a revision key that is neither a base key nor a declared era-only key.
+
+    Checked for every revision, not only the one matching the shot, so a
+    typo in any era fails for every shot (audit gap G5: a misspelt
+    ``probe_baseline_ned`` used to merge in as a key nothing reads, leaving
+    the base value in force). Only a revision's own top-level keys are
+    checked: nested mappings are merged by :func:`_deep_merge`'s rules, and
+    some of them are data tables keyed by index (``coil_field_codes``), not
+    schemas.
+    """
+    allowed = base_keys | era_only
+    used: set[str] = set()
+    for index, revision in enumerate(revisions or ()):
+        unknown = sorted(
+            str(key) for key in revision if key not in REVISION_BOUND_KEYS and key not in allowed
+        )
+        if unknown:
+            raise VestConfigurationError(
+                f"{context} revision {index}: unknown key"
+                f"{'s' if len(unknown) > 1 else ''} {', '.join(repr(k) for k in unknown)}; "
+                f"a revision may set only keys of its base ({', '.join(sorted(map(str, base_keys))) or '<none>'})"
+                f" or keys declared in {ERA_ONLY_KEYS}"
+            )
+        used.update(key for key in revision if key in era_only)
+    unused = sorted(era_only - used)
+    if unused:
+        raise VestConfigurationError(
+            f"{context}: {ERA_ONLY_KEYS} declares {', '.join(repr(k) for k in unused)}, "
+            "which no revision sets"
+        )
+
+
 def resolve_shot_revisions(
     base: Mapping[str, Any],
     revisions: Sequence[Mapping[str, Any]] | None,
@@ -201,7 +364,8 @@ def resolve_shot_revisions(
 
     Bounds are inclusive. A revision needs at least one bound; unrestricted
     defaults belong in ``base``. This helper is intentionally also usable for
-    nested processing eras such as plasma-current baseline windows.
+    nested processing eras such as plasma-current baseline windows. See
+    :func:`resolve_shot_revisions_with_provenance` for the full rules.
     """
     resolved, _provenance = resolve_shot_revisions_with_provenance(
         base, revisions, shot, context=context
@@ -222,9 +386,38 @@ def resolve_shot_revisions_with_provenance(
     inclusive shot bounds (or ``None`` for both when the shot falls back to
     ``base``), so a shot's effective processing era is recoverable without
     re-deriving it from scattered conditionals (issue #195).
+
+    Rules (#2159):
+
+    * bounds are inclusive, a revision needs at least one bound, a missing
+      bound is open-ended, ``from_shot <= to_shot``, and bounds and ``shot``
+      are non-negative integers;
+    * no two revisions may overlap, whether or not ``shot`` lies in them;
+    * exactly one revision applies over ``base`` -- revisions never chain;
+    * every key a revision sets must be a key of ``base`` or be declared in
+      the base's reserved ``era_only_keys`` list (keys that only exist inside
+      eras, such as a Langmuir tip geometry whose gaps must fail). The list
+      is consumed here and is never part of the resolved configuration;
+    * the revision is merged by :func:`_deep_merge`: nested mappings
+      recursively, lists and explicit nulls replace, a mapping/non-mapping
+      conflict raises.
+
+    Only the table being resolved consumes its declaration: a nested table
+    inside the resolved block keeps its own ``revisions`` *and*
+    ``era_only_keys`` until it is resolved in turn, so an unresolved nested
+    block is recognisable by both.
+
+    The resolved mapping is a fresh deep copy: it shares nothing with
+    ``base`` or ``revisions``.
     """
-    resolved = _deep_merge({}, dict(base))
+    if not isinstance(base, Mapping):
+        raise VestConfigurationError(f"{context}: base configuration must be a mapping")
+    era_only = _era_only_keys(base, context=context)
+    resolved = _deep_merge(
+        {}, {key: value for key, value in base.items() if key != ERA_ONLY_KEYS}, context=context
+    )
     revision, index, bounds = _match_revision(revisions, shot, context=context)
+    _validate_revision_keys(frozenset(resolved), era_only, revisions, context=context)
     provenance: dict[str, Any] = {
         "context": context,
         "revision_index": index,
@@ -234,9 +427,9 @@ def resolve_shot_revisions_with_provenance(
         override = {
             key: value
             for key, value in revision.items()
-            if key not in {"from_shot", "to_shot"}
+            if key not in REVISION_BOUND_KEYS
         }
-        resolved = _deep_merge(resolved, override)
+        resolved = _deep_merge(resolved, override, context=f"{context} revision {index}")
     return resolved, provenance
 
 
@@ -309,8 +502,11 @@ def resolve_vest_diagnostic(
     ``(config, provenance)``, where ``provenance`` records which top-level
     revision was applied. The default single-value return is unchanged for
     existing callers.
+
+    The file is parsed once per edit (see :func:`_policy_document`) and the
+    returned configuration is the caller's own copy.
     """
-    content = load_yaml(_resolve_info_file_path(info_file))
+    content = _policy_document(info_file)
     defaults = content.get("0") or content.get(0) or {}
     diagnostics = defaults.get("diagnostics", {}) if isinstance(defaults, Mapping) else {}
     if not isinstance(diagnostics, Mapping) or diagnostic not in diagnostics:
@@ -320,7 +516,7 @@ def resolve_vest_diagnostic(
         raise VestConfigurationError(f"VEST diagnostic {diagnostic!r} must be a mapping")
     base = {key: value for key, value in config.items() if key != "revisions"}
     resolved, provenance = resolve_shot_revisions_with_provenance(
-        base, config.get("revisions"), int(shot), context=f"VEST diagnostic {diagnostic!r}"
+        base, config.get("revisions"), shot, context=f"VEST diagnostic {diagnostic!r}"
     )
     calibration = resolved.get("calibration")
     if calibration is not None:
