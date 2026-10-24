@@ -324,6 +324,15 @@ def test_the_framework_rejects_an_unknown_domain():
         vaft.diagram.experiment_modeling_theory_data_network("integrated_framework")
 
 
+def _points(item):
+    """Every coordinate an item is drawn at."""
+    if isinstance(item, Polyline):
+        return list(item.points)
+    if isinstance(item, Arrow):
+        return [item.start, item.end]
+    return [item.at]
+
+
 def test_the_lineage_reuses_the_three_figures_unchanged():
     d = vaft.diagram.integration_paradigms_lineage()
     assert d.model["paradigms"] == ("pairwise", "common_model", "framework")
@@ -338,8 +347,10 @@ def test_the_lineage_reuses_the_three_figures_unchanged():
         mine = [i for i in d.scene.items if i.role.startswith((f"panel:{key}:", f"edge:{key}:"))]
         theirs = [i for i in source.scene.items if i.role != "caption"]
         assert len(mine) == len(theirs)
-        for a, b in zip(mine, theirs):
+        shift = vc._PARADIGM_X[d.model["paradigms"].index(key)]
+        for a, b in zip(mine, theirs):  # the same item, moved by the panel's offset and nothing else
             assert type(a) is type(b) and getattr(a, "text", None) == getattr(b, "text", None)
+            assert _points(a) == pytest.approx([(x + shift, y) for x, y in _points(b)])
         rows[key] = {k: _box_role_bounds(d, f"panel:{key}:node:{k}")[2:] for k in modes}
         recorded = {(a, b) for a, b, _ in d.model["edges"] if a.startswith(f"{key}:")}
         assert recorded == {(f"{key}:{a}", f"{key}:{b}") for a, b, _ in source.model["edges"]}
@@ -351,7 +362,8 @@ def test_the_lineage_reuses_the_three_figures_unchanged():
     # the panels do not lead into one another: no arrow joins two panels
     assert all(a.split(":")[0] == b.split(":")[0] for a, b, _ in d.model["edges"])
     text = " ".join(i.text for i in d.scene.items if isinstance(i, Label))
-    assert "Representative conceptual precedent: OMFIT" in text and "IMAS Data Dictionary" in text
+    assert "Representative conceptual precedent: OMFIT" in text
+    assert "Representative conceptual precedent: IMAS Data Dictionary" in text
     assert "Meneghini" in text and "Imbeaux" in text and "not a historical lineage" in text
     assert "adapters" not in text  # the sources' adapter counts give way to the paradigm captions
     assert not vaft.diagram.integration_paradigms_lineage(labels=False).scene.role("note")
