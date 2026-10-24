@@ -610,6 +610,46 @@ Database access itself is documented in
 
 ---
 
+# Configuration loading and shot-era revisions
+
+Every resolver that reads `vest.yaml` takes an optional `info_file` (#2159):
+
+- omitted (`None`): the packaged `vaft/machine_mapping/vest.yaml`;
+- an existing path, absolute or relative to the working directory: that file; a bare packaged name such as
+  `"vest.yaml"` also resolves to the packaged file;
+- anything else raises `VestConfigurationError`. A mistyped campaign configuration never falls back to the
+  production file. A file that is not valid YAML, or whose top level is not a mapping, raises the same error
+  naming the file.
+
+The parsed file is cached per `(path, mtime, size)`, so an edit is seen on the next call, and every caller gets
+its own deep copy: mutating a resolved block cannot change what the next shot resolves.
+
+A `revisions` list holds the shot eras of the block it sits in (`from_shot`/`to_shot`, inclusive; a missing
+bound is open-ended; at least one bound; non-negative integer shots). The rules, enforced by
+`resolve_shot_revisions`:
+
+- no two revisions may overlap, and exactly one revision applies over the base -- revisions never chain;
+- a revision may set only keys its base defines. A key that exists only inside eras (the FL10 compensation of
+  46403--47116, a Langmuir tip geometry whose gaps must fail) is declared in the base's `era_only_keys` list,
+  which the resolver consumes; a misspelt key is an error for every shot, not a silent no-op;
+- the revision is merged over the base: nested mappings recursively, lists and explicit `null` replace the base
+  value whole (a `null` is a value, not an omitted key), and a mapping against a non-mapping is an error.
+
+For example the native-DAQ era of the equilibrium magnetics:
+
+```python
+from vaft.machine_mapping.utils import resolve_shot_revisions, resolve_vest_diagnostic
+
+window = resolve_vest_diagnostic(46404, "equilibrium_magnetics")["processing"]["window"]
+era = resolve_shot_revisions(
+    {k: v for k, v in window.items() if k != "revisions"}, window["revisions"], 46404,
+    context="equilibrium_magnetics window",
+)
+era["daq_mode"]   # 'native_daq' from shot 46404; shot 46403 resolves 'legacy'
+```
+
+---
+
 # Adding a new diagnostic
 
 The contract to satisfy, in order:

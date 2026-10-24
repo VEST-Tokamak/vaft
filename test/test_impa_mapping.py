@@ -426,7 +426,11 @@ def test_alignment_shots_classify_as_valid(shot):
     assert result.geometry.n_channels_fitted == REFERENCE_CHANNELS
     assert 0.45 <= result.geometry.r0 <= 0.52
     assert result.geometry.nrmse < 0.15
-    np.testing.assert_allclose(np.abs(result.coupling.alpha[:REFERENCE_CHANNELS]), 1.0, atol=0.05)
+    # Unity to within a few percent. Since the TF current is low-passed
+    # zero-phase (#2135) -- it used to lag the Hall probes by 0.5 ms -- the
+    # fitted coupling sits 1.02-1.07 (was 1.01-1.05) and the coupling residual
+    # is lower on the four channels with the largest residual.
+    np.testing.assert_allclose(np.abs(result.coupling.alpha[:REFERENCE_CHANNELS]), 1.0, atol=0.08)
     # A purely radial insertion in the midplane.
     assert result.geometry.incident_angle_deg == pytest.approx(0.0, abs=1.0)
 
@@ -577,7 +581,8 @@ def test_a_reference_from_a_different_era_channel_count_does_not_crash():
     assert result.geometry.r.size == 8
     assert result.coupling.alpha.size == 8
     # Channels 0-6 (fields 114-120) got 35376's calibration transferred...
-    np.testing.assert_allclose(np.abs(result.coupling.alpha[:7]), 1.0, atol=0.05)
+    # (tolerance as in test_alignment_shots_classify_as_valid, #2135)
+    np.testing.assert_allclose(np.abs(result.coupling.alpha[:7]), 1.0, atol=0.08)
     # ...and channel 7 (field 121, unwired in the reference) is uncalibrated,
     # not silently reused from a neighbour.
     assert np.isnan(result.geometry.r[7])

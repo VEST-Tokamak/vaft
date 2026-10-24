@@ -28,12 +28,25 @@ from vaft.process.magnetics import (
     b_field_pol_probe_field,
     flux_loop_flux,
     rogowski_coil_ip,
-    vest_b_field_pol_probe_legacy,
     vest_equilibrium_magnetics_detailed,
     vest_equilibrium_magnetics_signals,
     vest_flux_loop_flux_from_voltage,
     vest_flux_loop_legacy,
+    vest_probe_lowpass_taps,
 )
+
+
+def _probe(time, raw, calibration, *, config, baseline_end, **kwargs):
+    """One probe through the standard function, as the VEST chain calls it."""
+    *_, field, _ = b_field_pol_probe_field(
+        time,
+        raw,
+        np.array([1.0 / calibration]),
+        vest_probe_lowpass_taps(config),
+        baseline_indices=np.arange(min(baseline_end, np.asarray(raw).size)),
+        **kwargs,
+    )
+    return field[:, 0]
 
 
 @pytest.mark.parametrize(
@@ -366,9 +379,7 @@ def test_b_field_pol_probe_degenerate_baseline_raises():
     cfg = VestMagneticsProcessingConfig(window_override=(0, 500, 1))
 
     with pytest.raises(DegenerateBaselineWindowError) as exc_info:
-        vest_b_field_pol_probe_legacy(
-            time, raw, 1.0, shot=41445, config=cfg, channel="probe_test"
-        )
+        _probe(time, raw, 1.0, config=cfg, baseline_end=1, shot=41445, channel="probe_test")
 
     msg = str(exc_info.value)
     assert "shot 41445" in msg
@@ -384,9 +395,7 @@ def test_b_field_pol_probe_allow_zero_fallback():
     cfg = VestMagneticsProcessingConfig(window_override=(0, 500, 1))
 
     with pytest.warns(UserWarning, match="Degenerate baseline window.*allow_zero_fallback=True"):
-        result = vest_b_field_pol_probe_legacy(
-            time, raw, 1.0, shot=41445, config=cfg, allow_zero_fallback=True
-        )
+        result = _probe(time, raw, 1.0, config=cfg, baseline_end=1, allow_zero_fallback=True)
 
     assert result.shape == raw.shape
 
@@ -461,9 +470,10 @@ def test_flux_loop_two_segment_out_of_bounds_raises_and_fallback():
 
 def test_vest_equilibrium_magnetics_detailed_channel_raises_and_fallback():
     shot = 41445
-    # Signal too short for default probe baseline (8500 samples)
-    time = np.linspace(0.0, 0.01, 500)
-    data = np.ones(500)
+    # Signal too short for default probe baseline (8500 samples), but long
+    # enough for the zero-phase low pass (3 * 251 + 1 samples)
+    time = np.linspace(0.0, 0.01, 1000)
+    data = np.ones(1000)
     channels = [
         {"field_code": 1, "calibration": 1.0, "kind": "b_field_pol_probe", "name": "Bpol_1"},
     ]
@@ -486,15 +496,69 @@ def test_vest_equilibrium_magnetics_detailed_channel_raises_and_fallback():
     assert res.probes[0].size > 0
 
 
+def test_a_probe_record_too_short_for_zero_phase_is_a_missing_channel():
+    """One truncated probe must not fail the shot when missing channels are allowed.
+
+    3 * 251 + 1 samples is the shortest record the zero-phase low pass takes;
+    a causal fallback would delay the probe by 0.5 ms, so the channel is
+    reported missing (an empty array) and the other channels are processed.
+    """
+    shot = 41445
+    long_time = np.linspace(0.0, 0.01, 1000)
+    short_time = np.linspace(0.0, 0.002, 500)
+    channels = [
+        {"field_code": 1, "calibration": 1.0, "kind": "b_field_pol_probe", "name": "Bpol_1"},
+        {"field_code": 2, "calibration": 1.0, "kind": "b_field_pol_probe", "name": "Bpol_2"},
+    ]
+    records = {1: (long_time, np.ones(1000)), 2: (short_time, np.ones(500))}
+    cfg = VestMagneticsProcessingConfig(window_override=(0, 200, 100))
+
+    with pytest.raises(ValueError, match="zero-phase"):
+        vest_equilibrium_magnetics_detailed(
+            shot, channels, lambda s, f: records[f], config=cfg
+        )
+    with pytest.warns(RuntimeWarning, match="Bpol_2: 500 samples"):
+        res = vest_equilibrium_magnetics_detailed(
+            shot, channels, lambda s, f: records[f], config=cfg, allow_missing=True
+        )
+    assert res.probes[0].size > 0
+    assert res.probes[1].size == 0
+
+
+def test_b_field_pol_probe_is_not_delayed_by_its_low_pass():
+    """The probe low pass is zero-phase, as in the donor's ``filtfilt``.
+
+    A causal 251-tap FIR delays the field by 0.5 ms against the undelayed PF
+    coil currents, which doubled the vacuum-model residual of every stored
+    probe. A 2 ms Gaussian bump is well inside the 2.5 kHz pass band, so the
+    processed field must reproduce it in place.
+    """
+    cfg = VestMagneticsProcessingConfig(window_override=(0, 0, 1750))
+    time = np.arange(25_000) / cfg.fast_sample_rate
+    center, width = 0.05, 2e-3
+    field = 0.01 * np.exp(-0.5 * ((time - center) / width) ** 2)
+    raw = -np.gradient(field, time)  # calibration 1, "divide": B = -integral(raw)
+
+    result = _probe(time, raw, 1.0, config=cfg, baseline_end=1750)
+
+    assert np.max(np.abs(result - field)) < 1e-3 * field.max()
+    assert time[np.argmax(result)] == pytest.approx(center, abs=1 / cfg.fast_sample_rate)
+
+
+def test_b_field_pol_probe_refuses_a_record_too_short_for_zero_phase():
+    cfg = VestMagneticsProcessingConfig(window_override=(0, 0, 10))
+    time = np.linspace(0.0, 0.002, 500)
+    with pytest.raises(ValueError, match="zero-phase"):
+        _probe(time, np.zeros(500), 1.0, config=cfg, baseline_end=10)
+
+
 def test_b_field_pol_probe_integer_channel_zero():
     time = np.linspace(0.0, 0.01, 1000)
     raw = np.sin(np.linspace(0.0, 10.0, 1000))
     cfg = VestMagneticsProcessingConfig(window_override=(0, 500, 1))
 
     with pytest.raises(DegenerateBaselineWindowError) as exc_info:
-        vest_b_field_pol_probe_legacy(
-            time, raw, 1.0, shot=41445, config=cfg, channel=0
-        )
+        _probe(time, raw, 1.0, config=cfg, baseline_end=1, channel=0)
     assert "channel 0" in str(exc_info.value)
 
 
@@ -505,7 +569,7 @@ def test_nan_contaminated_baseline_window_raises():
     cfg = VestMagneticsProcessingConfig(window_override=(0, 500, 500))
 
     with pytest.raises(DegenerateBaselineWindowError) as exc_info:
-        vest_b_field_pol_probe_legacy(time, raw, 1.0, shot=41445, config=cfg)
+        _probe(time, raw, 1.0, config=cfg, baseline_end=500)
     assert "1 valid sample(s)" in str(exc_info.value)
 
 
@@ -721,4 +785,7 @@ def test_probe_field_baseline_straddles_the_discharge():
         _F5_TIME, _F5_DRIFT[:, None], np.array([1.0]), [1.0], baseline_onset=0.27, baseline_offset=0.35
     )
     integrated = -cumtrapz_compat(_F5_DRIFT, x=_F5_TIME, initial=0)
-    np.testing.assert_allclose(field[:, 0], _f5_reference(integrated), atol=1e-12)
+    # The probe chain fits its linear baseline with polyfit, the reference with
+    # curve_fit: the same line to rounding (~4e-12 here), while a wrong window
+    # is off by orders of magnitude more.
+    np.testing.assert_allclose(field[:, 0], _f5_reference(integrated), atol=1e-10)
