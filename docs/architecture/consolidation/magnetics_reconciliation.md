@@ -57,7 +57,7 @@ There are three identities, and the current code mixes them:
 |---|---|---|
 | Physical sensor at (r, z) | list position `i` (pinned by r/z in vest.yaml entries) | yes |
 | DAQ field code | `MD.yaml[i].field_code`, revised by `wiring` | **no**: indices 35/47 swap at 39437/39438 |
-| Name / ODS `identifier` | `table.yaml[field_code]` | **no**: it follows the field (`_populate_probe_static`, `MM/magnetics.py:1713-1722`); `test_equilibrium_magnetics_processing.py:521` pins that names follow wiring |
+| Name / ODS `identifier` | `table.yaml[field_code]` | **no**: it follows the field (`_populate_probe_static`, `MM/magnetics.py:1713-1722`); `test_equilibrium_magnetics_processing.py:584` pins that names follow wiring |
 
 The `MagneticsWiring` docstring (`MM/magnetics.py:738-741`) says "The probe
 positions and names do not move". The **names do move**. Only the positions are
@@ -268,7 +268,7 @@ and needs an index view of the registry. **Direct** means it can take
 | `MM/magnetics.py:215` `equilibrium_probe_count` | MD.yaml | P1 (EFUND, kfile, validation) | direct (count of `kind == b_field_pol_probe`) |
 | `MM/magnetics.py:655` `_equilibrium_probe_field_codes` | MD + geometry, positional | P1 | direct (per-shot effective field codes) |
 | `MM/magnetics.py:671` `toroidal_mirnov_reference_channels` | via `:655` | P1 | unchanged |
-| `MM/magnetics.py:760/782` `_pinned_channel_index`, `_pinned_probe_index` | geometry | P1 | **adapter**: legacy `index` + r/z pin accepted, re-targeted to `id` (B1 validated legacy adapter) |
+| `MM/magnetics.py:760/783` `_pinned_channel_index`, `_pinned_probe_index` | geometry | P1 | **adapter**: legacy `index` + r/z pin accepted, re-targeted to `id` (B1 validated legacy adapter) |
 | `MM/magnetics.py:802` `magnetics_wiring_for_shot` | MD.yaml + `wiring` | P1 | **adapter**: `MagneticsWiring.channels` structure kept; overrides resolved by `id` |
 | `MM/magnetics.py:834` `known_magnetics_faults` | geometry (pins) | P1, validation | **adapter**: returns `(kind, kind_index)` keys, as validation expects |
 | `vaft/omas/vest_upstream.py:1046` `vfit_magnetics_static(component, shot)` | geometry + table, per shot | P1 diagnostics | direct: the diagnostics stage writes per-shot names |

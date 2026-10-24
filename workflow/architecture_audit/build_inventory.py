@@ -220,8 +220,9 @@ _SNIPPET_LIMIT = 160
 # --------------------------------------------------------------------------
 
 _PR2135 = (
-    "Since #2135 (merged, 75b154e31) the low pass is applied through "
-    "vaft.process.signal_processing.apply_fir_filter."
+    "Since #2135 (merged, 75b154e31) this is applied through "
+    "vaft.process.signal_processing.apply_fir_filter(short_record='causal'): "
+    "a refactor, the numerics are unchanged."
 )
 
 CURATED: dict[tuple[str, str], dict[str, Any]] = {
@@ -243,7 +244,7 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("vaft/process/signal_processing.py", "vaft.process.signal_processing.fir_filter"): {
         "classification": "canonical",
-        "algorithm_semantics": "designs with fir_filter_coefficients and applies zero-phase through apply_fir_filter (since #2135).",
+        "algorithm_semantics": "designs with fir_filter_coefficients; zero_phase=True applies through apply_fir_filter (since #2135), zero_phase=False still calls lfilter directly.",
         "scientific_risk": "low",
         "recommended_action": "keep.",
         "related_issue": "#2135",
@@ -398,7 +399,7 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "classification": "intentional_specialization",
         "production_reachability_note": "pipeline1 generate_diagnostics_ods (Ip, ref = -1) and generate_impa_ods.",
         "configuration_source": "vest.yaml plasma_current.{calibration, processing.baseline, processing.reference} with shot revisions.",
-        "algorithm_semantics": "calibrate -> polyfit baseline -> FL10 reference subtraction (subtract | subtract_fl10_windowed: decimate + smooth + interp | disabled >= 47117) -> sign flip; the ref != -1 low pass (causal lfilter before #2135, zero-phase apply_fir_filter since) has no production caller.",
+        "algorithm_semantics": "calibrate -> polyfit baseline -> FL10 reference subtraction (subtract | subtract_fl10_windowed: decimate + smooth + interp | disabled >= 47117) -> sign flip; the ref != -1 low pass (causal lfilter before #2135, zero-phase apply_fir_filter since, which raises on records under 79 samples) has no production caller.",
         "scientific_risk": "medium",
         "recommended_action": "keep the FL10 decimate chain as a named specialization; baselines delegate (B3).",
         "related_issue": "#2135, #2162",
@@ -446,13 +447,12 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "scientific_risk": "medium",
         "recommended_action": "B3: named pf_current_filter in vaft.process = fir_filter_coefficients(window='hamming', numtaps=251) + apply_fir_filter + uniform_filter1d; coefficient-equality and phase tests.",
         "related_issue": "#2162, #2135",
-        "resolved_by": "#2135 (filter application only; design stays a B3 item)",
     },
     ("vaft/machine_mapping/tf.py", "vaft.machine_mapping.tf.vfit_tf_current_detailed"): {
         "classification": "intentional_specialization",
         "production_reachability_note": "pipeline1 generate_diagnostics_ods (TF) and IMPA (vfit_tf_current).",
         "configuration_source": "vest.yaml 0.diagnostics.tf (calibration -3e4, 26 taps, 2.5 kHz, fs 25 kHz, baseline 1000, smoothing 50, excursion_repair).",
-        "algorithm_semantics": "calibrate -> mean baseline (1000) -> repair_tf_excursions -> firwin(26) -> zero-phase apply_fir_filter (causal lfilter, 0.5 ms lag, before #2135) -> smooth(50). " + _PR2135,
+        "algorithm_semantics": "calibrate -> mean baseline (1000) -> repair_tf_excursions -> firwin(26) -> zero-phase apply_fir_filter (causal lfilter, 0.5 ms lag, before #2135) -> smooth(50). apply_fir_filter uses the default short_record='raise', so a TF record under 3*26+1 = 79 samples now raises (failing TF and IMPA via vfit_tf_current) where it was filtered causally before.",
         "scientific_risk": "low",
         "recommended_action": "keep excursion repair + smooth(50) as TF specialization; products made before #2135 carry the lag (regeneration needs owner approval).",
         "related_issue": "#2135",
@@ -475,7 +475,7 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("vaft/machine_mapping/langmuir_probes.py", "vaft.machine_mapping.langmuir_probes.vfit_langmuir_probes_dynamic"): {
         "classification": "intentional_specialization",
-        "algorithm_semantics": "resample_to_time with its anti-alias filter (langmuir).",
+        "algorithm_semantics": "resample_to_time with its anti-alias filter and return_filter_mask=True: target samples touched by a run too short to filter get validity -1 (#915).",
         "scientific_risk": "low",
         "recommended_action": "keep: resampling already delegates to resample_to_time (anti-alias inside).",
         "related_issue": "#2162",
@@ -489,7 +489,6 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "scientific_risk": "medium",
         "recommended_action": "B2: check_declared_sample_rate status at the IMPA low pass (report-only, #432).",
         "related_issue": "#432, #2159",
-        "resolved_by": "#2135 (filter application only; the sample-rate question stays open)",
     },
     ("vaft/process/soft_x_rays.py", "vaft.process.soft_x_rays.sxr_baseline_correction"): {
         "classification": "canonical",

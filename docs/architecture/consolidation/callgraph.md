@@ -45,7 +45,7 @@ checked against the source.
 | Ip (production, `ref = -1`) | diagnostics, IMPA | none | none | `calibrate_vest_signal`; `_linear_baseline_subtract` (polyfit); FL10 reference by Y `plasma_current.processing.reference`, see the note below; sign flip |
 | Ip reference comparison (`ref != -1`) | no production caller | `firwin` + causal `lfilter` (`MM/magnetics.py:1215-1225`) | `apply_fir_filter` (`MM/magnetics.py:1227`) | — |
 | Diamagnetic Rogowski (`rogowski_coil[1]`) | diagnostics | none | none | `repair_clipped_interval`; `scipy.integrate.cumulative_trapezoid` × `rogo_gain` (`MM/magnetics.py:1401`) |
-| Diamagnetic flux | diagnostics | none | none | `repair_clipped_interval`; three `cumulative_trapezoid` passes; two-point hand-written baseline; ×1000 (`MM/magnetics.py:1405-1517`) |
+| Diamagnetic flux | diagnostics | none | none | `repair_clipped_interval`; three `cumulative_trapezoid` passes; two-point hand-written baseline; ×1000 (`MM/magnetics.py:1405-1536`) |
 | TF current | diagnostics, IMPA | `firwin(26, 2.5 kHz, fs 25 kHz)`, then causal `lfilter` (`MM/tf.py:181,195`) | zero-phase `apply_fir_filter` (`MM/tf.py:197`) | `calibrate_vest_signal` (×−3e4); mean baseline (1000 samples); `repair_tf_excursions`; `smooth(50)`; `np.interp` |
 | PF active, 10 circuits | diagnostics, IMPA (strict `vfit_pf`) | `firwin(hamming 251, 2.5 kHz, fs 25 kHz)` → `filtfilt`, or `lfilter` below `_filtfilt_min_length`; then `uniform_filter1d(10)` (`MM/pf_active.py:146-161`) | same rule via `apply_fir_filter(short_record="causal")` (`MM/pf_active.py:156`) | mean baseline (5000 samples); per-era `coil_gains`; `np.interp` alignment; PF6 `repair_clipped_interval` |
 | IMPA Hall/Bz (opt-in) | impa | `firwin` → `filtfilt`, `lfilter` fallback (`vaft/process/impa.py:380-384`) | `apply_fir_filter(short_record="causal")` (`vaft/process/impa.py:381`) | `np.interp` channel alignment (`MM/impa.py:252`); gain; baseline; `lstsq` and polyfit fits |
@@ -134,7 +134,7 @@ average, i.e. `legacy.box_average` evaluated at every sample.
   - every component calls `resolve_vest_diagnostic(shot, name)` (`MM/utils.py:299`);
   - magnetics also reads `equilibrium_magnetics_processing_config`
     (`MM/magnetics.py:1569`), `magnetics_wiring_for_shot` (`:802`, MD.yaml plus
-    `wiring` revisions) and `known_magnetics_faults` (`:833`).
+    `wiring` revisions) and `known_magnetics_faults` (`:834`).
 - **QA:** `validate_magnetics_signals` + `project_validity` (VU:1097-1100).
   This is **not** report-only. `project_validity` (`vaft/validation/magnetics.py:1321-1339`)
   writes the channel validity nodes, so EFIT and every other reader see the
