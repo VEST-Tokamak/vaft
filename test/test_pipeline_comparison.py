@@ -239,3 +239,33 @@ def test_overview_is_a_two_by_two_with_one_legend():
     with pytest.raises(ValueError):
         pipeline_comparison_overview(points, virial, limits_by_panel={"thomson": (0, 1)})
     plt.close(fig)
+
+
+def test_stability_histogram_normalises_each_side_and_reports_the_unstable_share():
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    from vaft.plot.pipeline_comparison import pipeline_comparison_stability
+
+    table = pd.DataFrame({"side": ["legacy"] * 4 + ["current"] * 2,
+                          "value": [-2.0, 3.0, 4.0, 5.0, 6.0, 7.0]})
+    fig, ax = pipeline_comparison_stability(table, quantity="w_t")
+    heights = [patch.get_path().vertices[:, 1].max() for patch in ax.patches if hasattr(patch, "get_path")]
+    assert max(heights) <= 1.0 + 1e-9  # fractions, not counts
+    assert ax.get_yscale() == "linear" and ax.get_xscale() == "symlog"
+    assert "legacy 25% (n=4)" in ax.get_title(loc="right")
+    assert "current 0% (n=2)" in ax.get_title(loc="right")
+    plt.close(fig)
+
+
+def test_stability_overview_has_one_shared_legend():
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    from vaft.plot.pipeline_comparison import pipeline_comparison_stability_overview
+
+    w = pd.DataFrame({"side": ["legacy", "current"], "value": [1.0, -1.0]})
+    d = pd.DataFrame({"side": ["legacy", "current"], "value": [10.0, -10.0]})
+    fig, axes = pipeline_comparison_stability_overview(w, d)
+    assert all(ax.get_legend() is None for ax in axes) and len(fig.legends) == 1
+    plt.close(fig)

@@ -34,6 +34,8 @@ __all__ = [
     "pipeline_comparison_overview",
     "pipeline_comparison_paired",
     "pipeline_comparison_scorecard",
+    "pipeline_comparison_stability",
+    "pipeline_comparison_stability_overview",
     "pipeline_comparison_virial",
 ]
 
@@ -294,11 +296,15 @@ def pipeline_comparison_measured_vs_reconstructed(points: pd.DataFrame, *, famil
     import matplotlib.pyplot as plt
 
     font_scale = plt.rcParams["font.size"] / 10.0
+    hidden = []
     for layer, side in enumerate(SIDES, start=1):
         use = (data[by] == side).to_numpy() & finite.to_numpy()
         if not use.any():
             continue
         x, y = data["x"].to_numpy()[use], data["y"].to_numpy()[use]
+        if limits is not None:
+            outside = (x < limits[0]) | (x > limits[1]) | (y < limits[0]) | (y > limits[1])
+            hidden.append(f"{COMPARISON_LABELS[side].split()[0].lower()} {int(outside.sum()):,}")
         style = SIDE_STYLE[side]
         dense = use.sum() > 2000
         ax.scatter(x, y, s=(3 if dense else 14) * font_scale ** 2, marker=style["marker"], color=style["color"],
@@ -313,6 +319,10 @@ def pipeline_comparison_measured_vs_reconstructed(points: pd.DataFrame, *, famil
         ax.plot(reference, reference, color=INK, lw=1.0, ls="--", label="y = x", zorder=5)
         ax.set_xlim(reference)
         ax.set_ylim(reference)
+    if hidden:
+        ax.text(0.97, 0.03, "not shown: " + ", ".join(hidden), transform=ax.transAxes, ha="right", va="bottom",
+                color=MUTED, fontsize=plt.rcParams["font.size"] * 0.75, zorder=6,
+                bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.8, "pad": 1.0})
     ax.set_xlabel(f"measured [{unit}]")
     ax.set_ylabel(f"reconstructed [{unit}]")
     ax.set_title(title)
@@ -403,8 +413,16 @@ def pipeline_comparison_virial(table: pd.DataFrame, *, quantity: str = "beta_p",
     return fig, ax
 
 
+def _panel_letter(ax, letter: str) -> None:
+    import matplotlib.pyplot as plt
+
+    ax.text(-0.18, 1.04, letter, transform=ax.transAxes, ha="left", va="bottom", fontweight="bold",
+            fontsize=plt.rcParams["font.size"] * 1.2)
+
+
 def pipeline_comparison_overview(points: pd.DataFrame, virial: pd.DataFrame, *, show: bool = False,
-                                 figsize: tuple[float, float] = (9.8, 10.0), limits_by_panel=None):
+                                 figsize: tuple[float, float] = (9.8, 10.0), limits_by_panel=None,
+                                 panel_labels: bool = True):
     """A presentation-size 2×2: probes and flux loops, then ``beta_p`` and ``l_i`` against the virial closure.
 
     The layout of :func:`vaft.plot.equilibrium_quality.equilibrium_quality_diagnostic_grid`,
@@ -426,15 +444,104 @@ def pipeline_comparison_overview(points: pd.DataFrame, virial: pd.DataFrame, *, 
             pipeline_comparison_measured_vs_reconstructed(points, family=family, ax=ax, limits=limits.get(family))
         for ax, quantity in zip(axes[1], ("beta_p", "li")):
             pipeline_comparison_virial(virial, quantity=quantity, ax=ax, limits=limits.get(quantity))
-        for ax in axes.ravel():
+        for letter, ax in zip("abcd", axes.ravel()):
             legend = ax.get_legend()
             if legend is not None:
                 legend.remove()
+            if panel_labels:
+                _panel_letter(ax, letter)
         handles = [Line2D([], [], color=SIDE_STYLE[side]["color"], marker=SIDE_STYLE[side]["marker"],
                           linestyle="none", markersize=10, label=COMPARISON_LABELS[side]) for side in SIDES]
         handles.append(Line2D([], [], color=INK, linestyle="--", label="y = x"))
         fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.015), ncol=3, frameon=False)
         fig.tight_layout(rect=(0.0, 0.08, 1.0, 1.0), pad=0.8, w_pad=0.8, h_pad=1.2)
+    if show:
+        plt.show()
+    return fig, axes
+
+
+#: Stability quantities: binning and ticks of :mod:`vaft.plot.stability_atlas`, the
+#: side of zero that is unstable, and the axis label.
+STABILITY_QUANTITIES = {
+    "w_t": ("ideal", False, r"DCON $W_t$", (-1e3, -1.0, 0.0, 1.0, 1e2)),
+    "delta_prime": ("resistive", True, r"RDCON $\Delta'_{\max}$", None),
+}
+
+
+def pipeline_comparison_stability(table: pd.DataFrame, *, quantity: str = "w_t", value: str = "value",
+                                  by: str = "side", normalize: bool = True, ax=None, show: bool = False,
+                                  figsize: tuple[float, float] = (5.2, 3.0)):
+    """Legacy and current populations of ``W_t`` or ``Delta'_max`` as step histograms on a symlog axis.
+
+    The panel of :func:`vaft.plot.stability_atlas.stability_atlas_population`,
+    with its bins, ticks and stable/unstable zones, and the pipeline as the
+    series. The count axis is linear. ``normalize`` divides each side by its
+    own number of slices, because the two populations differ in size by more
+    than an order of magnitude; the legend gives each count. A value past the
+    outermost bin is drawn in the edge bin, as the atlas figure does.
+    """
+    from .stability_atlas import _BINNING, _TICKS, _prepare, _symlog_bins, _zones
+
+    if quantity not in STABILITY_QUANTITIES:
+        raise ValueError(f"unknown quantity {quantity!r}; known: {sorted(STABILITY_QUANTITIES)}")
+    panel, unstable_right, xlabel, ticks = STABILITY_QUANTITIES[quantity]
+    fig, ax = _axes(ax, figsize)
+    lowest, highest, linthresh, per_decade = _BINNING[panel]
+    bins = _symlog_bins(lowest, highest, linthresh, per_decade)
+    # The atlas's ticks, thinned where a slide-size font would make them touch.
+    _prepare(ax, bins, linthresh, ticks or _TICKS[panel])
+    tallest = 0.0
+    summary = []
+    for side in SIDES:
+        values = pd.to_numeric(table.loc[table[by] == side, value], errors="coerce").to_numpy(float)
+        values = values[np.isfinite(values)]
+        if not values.size:
+            continue
+        values = np.clip(values, bins[0], bins[-1])
+        weights = np.full(values.size, 1.0 / values.size) if normalize else None
+        style = SIDE_STYLE[side]
+        unstable = float(np.mean(values > 0) if unstable_right else np.mean(values < 0))
+        counts, _, _ = ax.hist(values, bins=bins, weights=weights, histtype="step", lw=1.6,
+                               color=style["color"], linestyle=style["linestyle"],
+                               label=f"{COMPARISON_LABELS[side]} (n={values.size:,}, {unstable:.0%} unstable side)")
+        tallest = max(tallest, float(np.max(counts)))
+        summary.append(f"{COMPARISON_LABELS[side].split()[0].lower()} {unstable:.0%} (n={values.size:,})")
+    # The unstable-side share per pipeline, as the title, where no bar can hide it.
+    ax.set_title("unstable: " + " · ".join(summary), fontsize="small", loc="right")
+    # Headroom above the tallest bar for the zone names and the key.
+    ax.set_ylim(0, max(tallest, 1e-9) * 1.9)
+    ax.set_ylabel("fraction of slices" if normalize else "slices")
+    _zones(ax, unstable_right=unstable_right)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 0.86), frameon=True, framealpha=0.9, edgecolor="none",
+              fontsize="small", handlelength=2.4)
+    ax.set_xlabel(xlabel)
+    _finish(fig, show)
+    return fig, ax
+
+
+def pipeline_comparison_stability_overview(w_t: pd.DataFrame, delta_prime: pd.DataFrame, *,
+                                           normalize: bool = True, show: bool = False,
+                                           figsize: tuple[float, float] = (8.0, 7.4),
+                                           panel_labels: bool = True):
+    """``W_t`` over ``Delta'_max`` for one toroidal mode, legacy and current, stacked as the atlas figure is."""
+    import matplotlib.pyplot as plt
+
+    presentation = resolve_presentation("slide", None)
+    with presentation.context():
+        fig, axes = plt.subplots(2, 1, figsize=figsize)
+        from matplotlib.lines import Line2D
+
+        pipeline_comparison_stability(w_t, quantity="w_t", normalize=normalize, ax=axes[0])
+        pipeline_comparison_stability(delta_prime, quantity="delta_prime", normalize=normalize, ax=axes[1])
+        for letter, ax in zip("ab", axes):
+            ax.get_legend().remove()
+            ax.set_ylim(0, ax.get_ylim()[1] / 1.9 * 1.35)  # no in-panel key left to make room for
+            if panel_labels:
+                _panel_letter(ax, letter)
+        handles = [Line2D([], [], color=SIDE_STYLE[side]["color"], linestyle=SIDE_STYLE[side]["linestyle"],
+                          lw=1.6, label=COMPARISON_LABELS[side]) for side in SIDES]
+        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=2, frameon=False)
+        fig.tight_layout(rect=(0.0, 0.06, 1.0, 1.0), pad=0.8, h_pad=1.4)
     if show:
         plt.show()
     return fig, axes
