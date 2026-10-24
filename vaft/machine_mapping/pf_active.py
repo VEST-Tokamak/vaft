@@ -7,10 +7,9 @@ from pathlib import Path
 
 import numpy as np
 import scipy.io
-from scipy import ndimage, signal
 
 from vaft.database import raw as raw_db
-from vaft.process.signal_processing import apply_fir_filter, repair_clipped_interval
+from vaft.process.signal_processing import pf_current_filter, repair_clipped_interval
 
 from .utils import resolve_vest_diagnostic, set_path
 
@@ -143,18 +142,17 @@ def _optional_coils(shot: int) -> frozenset[int]:
     return frozenset(int(index) for index in (processing.get("optional_coils") or ()))
 
 
-def _legacy_pf_filter(values: np.ndarray, processing: dict) -> np.ndarray:
+def _pf_filter(values: np.ndarray, processing: dict) -> np.ndarray:
+    """:func:`~vaft.process.signal_processing.pf_current_filter` with this
+    shot's vest.yaml ``filter`` values (#2162; was ``_legacy_pf_filter``)."""
     filter_config = processing["filter"]
-    taps = signal.firwin(
-        int(filter_config["taps"]),
-        float(filter_config["cutoff_frequency"]),
-        pass_zero="lowpass",
-        fs=float(filter_config["sample_rate"]),
+    return pf_current_filter(
+        values,
+        sample_rate=float(filter_config["sample_rate"]),
+        cutoff_hz=float(filter_config["cutoff_frequency"]),
+        numtaps=int(filter_config["taps"]),
+        smoothing_window=int(filter_config["smoothing_window"]),
     )
-    # scipy.signal.filtfilt requires a long acquisition. Tiny synthetic test
-    # dumps retain a deterministic forward-filter fallback.
-    filtered = apply_fir_filter(taps, values, short_record="causal")
-    return ndimage.uniform_filter1d(filtered, size=min(int(filter_config["smoothing_window"]), values.size))
 
 
 def vfit_pf(
@@ -274,7 +272,7 @@ def _read_pf_circuits(
             continue
         waveform_time, raw_values = required_signals[field_code]
         current = raw_values - _baseline_mean(raw_values, int(processing["baseline_samples"]))
-        current = _legacy_pf_filter(current, processing) * coil_gains.get(coil_index, 0.0)
+        current = _pf_filter(current, processing) * coil_gains.get(coil_index, 0.0)
         current = _coerce_signal_to_reference(reference_time, waveform_time, current)
         repair = saturation_repair.get(coil_index)
         if repair is not None:
@@ -367,8 +365,9 @@ def vfit_pf_active_dynamic(
     set_path(ods, "pf_active.time", time_axis)
 
     for coil_index in range(PF_COIL_COUNT):
-        # anti-alias: _legacy_pf_filter has already run a firwin low-pass (with
-        # filtfilt) on the source grid, so this projection is band-limited.
+        # anti-alias: _pf_filter has already run a 2.5 kHz FIR low-pass on the
+        # source grid (zero-phase; causal on a record under 3*taps+1 samples),
+        # so this projection is band-limited.
         current = np.interp(time_axis, waveform_time, pf_data[coil_index])
         set_path(ods, f"pf_active.coil.{coil_index}.current.time", time_axis)
         # An unrecorded required circuit (#1568) is published as NaN, the only
