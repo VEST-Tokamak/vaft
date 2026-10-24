@@ -443,6 +443,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Ordering summary layer (lane AP, #1627 §2 / #1629): each builder against
     # its textbook definition; missing inputs stay NaN. Pure NumPy, ~3 s.
     "test_ordering_state.py",
+    # Preprocessing consolidation (#2162): each canonical owner held to frozen
+    # copies of the helpers it replaced, on synthetic records. Pure NumPy, ~2 s.
+    "test_baseline_consolidation.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
