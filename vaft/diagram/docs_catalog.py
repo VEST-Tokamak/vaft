@@ -184,9 +184,14 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
 
     from . import build
 
+    from ._particle_references import check_references
     from ._replay import catalog_rows
 
     animation_rows = catalog_rows(_ROOT)
+    # The particle-motion references publish traced numbers: their manifest
+    # must still describe this tree (digests only here; the workflow's
+    # ``--check`` also re-traces the rows).
+    check_references(_ROOT)
     asset_dir = _ROOT / ASSET_DIR
     recorded = {}
     for asset in build.CANONICAL:

@@ -2,7 +2,14 @@
 
 Run from the repository root:
     python -m workflow.particle_motion.run --output docs/assets/particle-motion
+    python -m workflow.particle_motion.run --check
 No external orbit solver, video encoder or display server is needed.
+
+The manifest records the commit and the SHA-256 of every scientific source the
+rows depend on (``vaft.diagram._particle_references``, the model being the
+animation manifest of ``vaft.diagram._replay``). ``--check`` verifies those
+digests against the working tree and re-traces the six examples, so a published
+number cannot outlive the code that produced it.
 """
 
 from __future__ import annotations
@@ -19,6 +26,15 @@ import numpy as np
 
 import vaft
 import vaft.diagram as diagram
+from vaft.diagram._particle_references import (
+    EXAMPLES,
+    SCHEMA_VERSION,
+    bounce_coordinate,
+    check_references,
+    generated_commit,
+    reference_row,
+    scientific_sources,
+)
 from vaft.plot import ParticleOrbitView, particle_overview
 from vaft.process.particle import particle_motion_case
 
@@ -32,15 +48,6 @@ if (
         "Run python -m workflow.particle_motion.run from this source checkout"
     )
 
-EXAMPLES = (
-    ("cartesian", "gyration", "gyration"),
-    ("mirror", "magnetic_mirror", "magnetic_mirror"),
-    ("full-gc", "grad_b_drift", "grad_b_drift"),
-    ("invariants", "magnetic_mirror", "guiding_center_invariants"),
-    ("tokamak", "tokamak_trapped", "trapped_and_passing_orbits"),
-    ("symmetry-breaking", "symmetry_breaking", "toroidal_symmetry_breaking"),
-)
-
 #: Examples without a committed static SVG. Their gyro-resolved orbits make a
 #: ~440 KB SVG that no page embeds; the GIF and panels carry the same scene,
 #: and the site has a 150 MiB budget (docs/build.py MAX_SITE_MIB).
@@ -49,6 +56,8 @@ NO_STATIC = {"tokamak", "symmetry-breaking"}
 
 def generate(output, frames=12, dpi=55):
     output.mkdir(parents=True, exist_ok=True)
+    # Recorded before any orbit is traced: the digests describe the tree that ran.
+    provenance = {"generated_commit": generated_commit(), "sources": scientific_sources()}
     experiments = {}
     panels = {}
     animated_panels = {}
@@ -86,7 +95,7 @@ def generate(output, frames=12, dpi=55):
         if kind == "magnetic_mirror":
             s = np.linspace(-9.99, 9.99, 200)
             well = {
-                "bounce_coordinate": lambda x: x[2],
+                "bounce_coordinate": bounce_coordinate(kind),
                 "well_coordinate": s,
                 "well_B": 1 + (s / 10) ** 2,
             }
@@ -104,31 +113,17 @@ def generate(output, frames=12, dpi=55):
                 view, time=times[::2], animation=True, dpi=50, fps=4
             ).save(output / "mirror-diagnostics.gif")
             animated_panels[kind] = "mirror-diagnostics.gif"
-        d = view.gc_diagnostics
+        # The scientific fields are the ones ``--check`` recomputes and compares.
         rows.append(
             {
                 "id": slug,
                 "builder": builder,
-                "case": kind,
                 "static": static,
                 "animation": f"{slug}.gif",
                 "quantitative_panels": panels[kind],
                 "animated_panels": animated_panels.get(kind),
                 "driver": {"name": "time", "unit": "s", "values": times.tolist()},
-                "field": full.field.metadata(),
-                "full_termination": full.termination,
-                "gc_termination": gc.termination,
-                "gc_energy_residual_max": float(np.max(np.abs(d["energy_residual"]))),
-                "gc_P_phi_residual_max": float(
-                    np.max(np.abs(d.get("P_phi_residual", [0.0])))
-                ),
-                "ordering_warning": experiment.metadata["ordering_warning"],
-                "rho_over_L_B_max": experiment.metadata["rho_over_L_B_max"],
-                "orbit_class": d["orbit_class"],
-                "bounce_cycles": d["bounce_cycles"],
-                "bounce_period_s": d.get("bounce_period_s", []),
-                "transit_period_s": d.get("transit_period_s", []),
-                "fidelity": experiment.metadata["fidelity"],
+                **reference_row(kind, experiment, view.gc_diagnostics),
             }
         )
     # Preserve every native timestamp while keeping generated review diffs small:
@@ -142,8 +137,9 @@ def generate(output, frames=12, dpi=55):
             json.dumps(json.loads(sidecar.read_text()), separators=(",", ":")) + "\n"
         )
     document = {
-        "schema_version": 1,
+        "schema_version": SCHEMA_VERSION,
         "generator": "workflow/particle_motion/run.py",
+        **provenance,
         "units": "SI",
         "presentation": {"frames": frames, "dpi": dpi},
         "scope": "nonrelativistic collisionless static fields; weak-flow Hamiltonian GC",
@@ -155,7 +151,9 @@ def generate(output, frames=12, dpi=55):
         ],
         "examples": rows,
     }
-    (output / "manifest.json").write_text(json.dumps(document, indent=2) + "\n")
+    (output / "manifest.json").write_text(
+        json.dumps(document, indent=2) + "\n", encoding="utf-8"
+    )
     print(f"Wrote {len(rows)} reproducible examples to {output}", flush=True)
     return document
 
@@ -167,7 +165,19 @@ if __name__ == "__main__":
     )
     parser.add_argument("--frames", type=int, default=12)
     parser.add_argument("--dpi", type=int, default=55)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="verify the references in --output: source digests and re-traced rows",
+    )
     args = parser.parse_args()
-    if args.frames < 2 or args.dpi < 20:
-        parser.error("at least two frames and dpi >= 20 required")
-    generate(args.output, args.frames, args.dpi)
+    if args.check:
+        try:
+            rows = check_references(directory=args.output, recompute=True)
+        except ValueError as error:
+            raise SystemExit(f"particle-motion references: {error}") from None
+        print(f"Validated {len(rows)} particle-motion references")
+    else:
+        if args.frames < 2 or args.dpi < 20:
+            parser.error("at least two frames and dpi >= 20 required")
+        generate(args.output, args.frames, args.dpi)

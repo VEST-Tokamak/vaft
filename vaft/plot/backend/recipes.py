@@ -389,8 +389,6 @@ def selection_presets() -> tuple[str, ...]:
 
 def _selection_option(options: dict) -> Any:
     """Read ``selection=``, honouring the deprecated ``channels=`` spelling."""
-    from vaft.plot._migration import RENAMED_REMOVAL_RELEASE
-
     selection = options.get("selection")
     channels = options.get("channels")
     if selection is not None:
@@ -403,7 +401,7 @@ def _selection_option(options: dict) -> Any:
         warnings.warn(
             "channels= is deprecated; use selection=, which takes the same "
             "indices and also accepts identifiers and named physical presets. "
-            f"Removed in {RENAMED_REMOVAL_RELEASE}.",
+            "Removed in 0.10.0.",
             DeprecationWarning,
             stacklevel=6,
         )

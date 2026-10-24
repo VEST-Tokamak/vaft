@@ -638,6 +638,8 @@ with tempfile.TemporaryDirectory() as unit_dir:
     )
     result = resolve_backend(None).run(request)
     print(result.returncode, result.stdout.strip())  # 0 {"shot":39915}
+```
+
 **Overriding resources (#1016).** Every configuration with a `backend` also takes
 `resources: ResourceRequest | None`. `None` keeps the adapter's own declaration above; a value
 replaces it whole (threads, tasks and memory, so a scheduler sizes the job from it). The thread
