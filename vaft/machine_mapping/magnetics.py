@@ -923,11 +923,14 @@ def _prepare_magnetics_context(
 def _interpolate_signal(target_time: np.ndarray, source_time: np.ndarray, values: np.ndarray) -> np.ndarray:
     if source_time.size <= 1 or values.size <= 1:
         raise ValueError("Cannot interpolate a signal with fewer than two samples")
-    # anti-alias: NOT guaranteed for every caller. Only the B-pol probes arrive
-    # low-passed (2.5 kHz FIR, zero-phase, on the 250 kHz source grid), well
-    # below the 12.5 kHz Nyquist of the 25 kHz target. The flux loops
-    # (calibrated loop voltage, integrated, never filtered), Ip and the
-    # diamagnetic flux reach this bare np.interp unfiltered: integration
+    # anti-alias: NOT guaranteed for every caller. The probes and flux loops
+    # arrive already on magnetics_time: vfit_equilibrium_magnetics_detailed
+    # resampled them there, and whatever filtering they had happened upstream
+    # (B-pol probes low-passed at 2.5 kHz zero-phase; flux loops integrated but
+    # never filtered -- see the comment at that np.interp in
+    # vaft/process/magnetics.py). Ip and the diamagnetic flux arrive on their
+    # native grid and reach this bare np.interp unfiltered (Ip on the default
+    # ref = -1 path; a reference shot adds an FIR low pass): integration
     # attenuates high frequencies as 1/f but does not band-limit, so a source
     # faster than the target can fold. Whether that matters is unverified
     # (#2147 audit finding 4, Phase D #2166); no filter is added without it.
