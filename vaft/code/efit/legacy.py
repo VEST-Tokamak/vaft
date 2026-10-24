@@ -96,11 +96,21 @@ def box_average_series(time, data, half_width: float) -> np.ndarray:
     ``box_average`` to round-off (about 1e-12 relative: a running sum against
     ``np.mean``).  ``time`` must be sorted and ``data`` finite: a NaN would
     enter the running sum and reach every later sample, where ``box_average``
-    keeps it inside its own window.  Every window contains its own sample, so
-    none is empty.
+    keeps it inside its own window.  ``half_width`` must be finite and
+    non-negative, so every window contains its own sample and none is empty.
+
+    Raises
+    ------
+    ValueError
+        ``time`` and ``data`` differ in length, or ``half_width`` is negative
+        or not finite.
     """
     clock = np.asarray(time, dtype=float).reshape(-1)
     values = np.asarray(data, dtype=float).reshape(-1)
+    if clock.size != values.size:
+        raise ValueError(f"{values.size} samples against {clock.size} time instants")
+    if not (np.isfinite(half_width) and half_width >= 0):
+        raise ValueError(f"half_width must be finite and >= 0; got {half_width!r}")
     lo = np.searchsorted(clock, clock - half_width, side="left")
     hi = np.searchsorted(clock, clock + half_width, side="right")
     total = np.concatenate(([0.0], np.cumsum(values)))

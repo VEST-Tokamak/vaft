@@ -74,4 +74,21 @@ def test_the_workflow_uses_it():
     tree = ast.parse(path.read_text(encoding="utf-8"))
     names = {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
     assert "_box_averaged" not in names
-    assert "box_average_series" in path.read_text(encoding="utf-8")
+    imported = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == "vaft.code.efit.legacy"
+        for alias in node.names
+    }
+    assert "box_average_series" in imported
+
+
+@pytest.mark.parametrize("half_width", [-0.5, float("nan"), float("inf")])
+def test_a_window_that_could_be_empty_is_refused(half_width):
+    with pytest.raises(ValueError, match="half_width"):
+        _series()(np.arange(3.0), np.arange(3.0), half_width)
+
+
+def test_mismatched_lengths_are_refused():
+    with pytest.raises(ValueError, match="samples against"):
+        _series()(np.arange(3.0), np.arange(4.0), 0.5)
