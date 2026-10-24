@@ -26,8 +26,12 @@ disposition once the owner phase lands and Phase D supplies evidence. A
 proposal is not a decision.
 
 Consumers were found by grepping `vaft/`, `workflow/`, `test/` and `docs/` on
-`develop` at 7b1fcf192 (2026-10-25). #2135 (the FIR-filter consolidation) is
-still open. Its merge may change the rows for the processing duplicates.
+`develop` at 7b1fcf192 (2026-10-25) and re-checked after #2135 (the
+FIR-filter consolidation) merged at 75b154e31. #2135 settled several facts:
+
+- `vest_b_field_pol_probe_legacy` is removed (BREAKING, see `vaft/version.py`).
+- The PF, IMPA, Mirnov, TF and I_p-reference FIR paths now all apply their
+  taps through `process.signal_processing.apply_fir_filter`.
 
 ## Configuration assets
 
@@ -53,14 +57,14 @@ still open. Its merge may change the rows for the processing duplicates.
 
 | # | Implementation | Canonical replacement | Consumers | API | Equivalence evidence | Status | Proposed | Owner phase | PR |
 |---|---|---|---|---|---|---|---|---|---|
-| P1 | `process/magnetics.py::_linear_baseline` (carries the #639 guards) | `process.signal_processing.subtract_baseline(method="polyfit")`, which absorbs the guards | `vest_b_field_pol_probe_legacy`, `vest_flux_loop_flux_from_voltage` | private | none yet (B3 targets 1e-12) | `validation_pending` | `qualified_for_removal` (after delegation) | B3 #2162 | |
-| P2 | `machine_mapping/magnetics.py::_polyfit_baseline` | `subtract_baseline` | **no caller found**: dead code on develop | private | not needed if dead; Phase A confirms | `validation_pending` | `qualified_for_removal` | B3 #2162 | |
+| P1 | `process/magnetics.py::_linear_baseline` (carries the #639 guards) | `process.signal_processing.subtract_baseline(method="polyfit")`, which absorbs the guards | `vest_flux_loop_flux_from_voltage`, `b_field_pol_probe_field` (`vest_b_field_pol_probe_legacy` was removed by #2135) | private | none yet (B3 targets 1e-12) | `validation_pending` | `qualified_for_removal` (after delegation) | B3 #2162 | |
+| P2 | `machine_mapping/magnetics.py::_polyfit_baseline` | `subtract_baseline` | **no caller** (confirmed after #2135 and by the audit PR #2174): dead code | private | not needed (dead code) | `qualified_for_removal` | delete in B3 | B3 #2162 | |
 | P3 | `machine_mapping/magnetics.py::_linear_baseline_subtract` | `subtract_baseline` | `vfit_plasma_current` (I_p and I_p reference) | private | none yet | `validation_pending` | `qualified_for_removal` (after delegation) | B3 #2162 | |
 | P4 | `code/efit/legacy.py::smooth` (verbatim copy) | `process.signal_processing.smooth` | `legacy.py::vest_Halpha_tstart_tend`; re-exported from `vaft.code.efit` | **public** (exported by `vaft.code.efit`) | none yet (expected identical) | `validation_pending` | `compatibility_required` (re-export of the canonical function, no own body) | B3 #2162 | |
 | P5 | `plot/soft_x_rays.py::_baseline_correct` | `process.soft_x_rays.sxr_baseline_correction` | `plot_soft_x_ray_signal`, `plot_soft_x_ray_spectrogram`, `plot_soft_x_ray_pattern` | private | none yet | `validation_pending` | `qualified_for_removal` | B3 #2162 | |
 | P6 | `plot/backend/recipes.py::_build_interferometer_spectrogram`: inline `butter(4, highpass)` and `filtfilt` | `butterworth_highpass(zero_phase=True)` (to be added) or the existing bandpass | interferometer spectrogram recipe (`recipes.py:2144`) | private | none yet | `validation_pending` | `qualified_for_removal` (inline code) | B3 #2162 | |
-| P7 | `process/magnetics.py::_firwin_order` (order = odd `fs·1e-3`) | `fir_filter_coefficients`, only if the coefficients are identical | `mirnov_preprocess_signal` (used by `plot/mirnov.py`, `plot/backend/recipes.py`) | private | none yet | `validation_pending` | `qualified_for_removal` if the coefficients are identical, else `scientific_specialization` (documented) | B3 #2162 | |
-| P8 | `machine_mapping/pf_active.py::_legacy_pf_filter` (Hamming `firwin(251)`, `filtfilt`/`lfilter` short-record fallback, `uniform_filter1d(10)`) | named `pf_current_filter` in `vaft.process` composed from `fir_filter_coefficients` plus `uniform_filter1d`, with machine values from vest.yaml | `pf_active.py::_read_pf_circuits` (every PF reader) | private | none yet (coefficient equality and phase tests planned) | `validation_pending` | `scientific_specialization` (a diagnostic-specific composition, kept under process ownership; #2168 §6 says not to delete it on name alone) | B3 #2162 | |
+| P7 | `process/magnetics.py::_firwin_order` (order = odd `fs·1e-3`) | `fir_filter_coefficients`, only if the coefficients are identical | `mirnov_preprocess_signal` (used by `plot/mirnov.py`, `plot/backend/recipes.py`); the taps are applied through `apply_fir_filter` since #2135 | private | audit PR #2174: the order rule gives coefficients identical to `fir_filter_coefficients` | `validation_pending` (until #2174 merges and B3 adds the equality test) | `qualified_for_removal` (replace with a `fir_filter_coefficients` call) | B3 #2162 | |
+| P8 | `machine_mapping/pf_active.py::_legacy_pf_filter` (Hamming `firwin(251)`; since #2135 the taps are applied by `apply_fir_filter(short_record="causal")`, which replaced the local `filtfilt`/`lfilter` fallback; then `uniform_filter1d(10)`) | named `pf_current_filter` in `vaft.process` composed from `fir_filter_coefficients` plus `uniform_filter1d`, with machine values from vest.yaml | `pf_active.py::_read_pf_circuits` (every PF reader) | private | application path canonical since #2135; the tap design (`firwin` here) and the smoothing are still local, and coefficient-equality tests are planned | `validation_pending` | `scientific_specialization` (a diagnostic-specific composition, kept under process ownership; #2168 §6 says not to delete it on name alone) | B3 #2162 | |
 | P9 | Deprecated aliases in `process/signal_processing.py`: `vfit_signal_start_end`, `vfit_signal_startend`, `signal_onoffset`, `VEST_CoilCurrentNoiseReduction` (each warns and delegates) | `detect_active_window`, `signal_on_offset`, `vest_coil_current_noise_reduction` | `vfit_signal_start_end`: `test_api_layer_boundaries.py`. `vfit_signal_startend`: `code/efit/legacy.py` defines its **own** function of that name, used by `vest_Halpha_tstart_tend` and exported by `vaft.code.efit`. That is a separate body, not the alias. Others: no internal caller | **public**, in `__all__` "for one deprecation cycle" | not needed (delegating) | `compatibility_required` | `compatibility_required` until a removal milestone is set. The `code/efit/legacy.py` duplicate `vfit_signal_startend` needs its own row in B3 | B3 #2162, E #2168 | |
 | P10 | `machine_mapping/utils.py::process_signal` (deprecated wrapper) | `vaft.process.process_signal` | no internal caller (`test_mirnov_spectrogram.py` defines an unrelated local function of the same name) | **public**, deprecated | not needed (delegating) | `compatibility_required` | `compatibility_required` (then removal after the deprecation cycle) | E #2168 | |
 
@@ -120,4 +124,5 @@ Timings are local wall clock on the shared 10-core MacBook, `-n 0`, at
 
 ## Change log
 
+- 2026-10-25: rows P1, P2, P7 and P8 updated after #2135 merged (75b154e31). Every guard allowlist still matches exactly.
 - 2026-10-25: skeleton and active guards (a)–(c), placeholders (d). PR `architecture/2168-guards-prep`. The module adds about 1 s serial (`-n 0`) to a core gate that took 583 s locally at `-n 2`.
