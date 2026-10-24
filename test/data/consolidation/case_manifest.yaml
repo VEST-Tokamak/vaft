@@ -1,0 +1,320 @@
+# Scientific regression portfolio for the VAFT consolidation (issue #2166, Scope A).
+#
+# One record per case.  A case is *requested evidence*, not a passed check:
+# every `status` below is `not_tested` until the test that consumes it has run
+# against the migrated code and its result is recorded here with the revision
+# it ran on.  Nothing in this file may say `passed` on the strength of
+# availability alone (#2166 A2: "a requested shot is not a passing validation
+# case until its required inputs are available and its tests have been
+# executed").  `test/test_consolidation_case_manifest.py` enforces that.
+#
+# Field meanings
+#   purpose          the scientific question the case answers
+#   evidence_types   historical_regression | analytic | experimental_physical
+#                    (#2166 3.1 A/B/C; a case may carry more than one)
+#   required_inputs  what the case needs; `path` is repository-relative when
+#                    the input is packaged, and `sha256` is the frozen identity
+#                    of that file (verified by the manifest test).  An input
+#                    that is not packaged has `available_offline: false` and
+#                    names where it lives.
+#   requires_vestserver_raw
+#                    true when at least one required input exists only on the
+#                    VEST database / vestserver FileDB.  Those cases cannot be
+#                    run from a checkout; they were NOT accessed to build this.
+#   selection        why this case is in the portfolio (documented criterion,
+#                    #2166 A1), so the list is not chosen for agreement.
+#
+# Baselines: `workflow/architecture_audit/capture_baseline.py` captures the
+# pre-migration array-by-array identity of the offline cases (39915, 41524,
+# 41672, 42962).  Pre-migration ODS baselines are deliberately NOT captured
+# yet: they must reflect develop after PR #2135 (zero-phase probe low-pass)
+# lands, or the baseline would pin a filter that is about to change.
+
+schema_version: 1
+issue: https://github.com/VEST-Tokamak/vaft/issues/2166
+umbrella: https://github.com/VEST-Tokamak/vaft/issues/2147
+generated: '2026-10-25'
+generated_from_revision: 7b1fcf1922ea4522d3336ec08f34fc7538b1bcbe   # origin/develop at authoring
+
+status_vocabulary: [not_tested, blocked, failed, passed]
+
+cases:
+
+  - id: ref-39915-chain
+    shots: [39915]
+    purpose: >-
+      Existing raw-to-EFIT reference chain: static -> diagnostics -> eddy ->
+      constraints -> EFIT on one plasma shot whose raw DAQ dump, frozen
+      pipeline config and stage manifests are packaged.  The anchor for every
+      array-by-array regression and for the vacuum-benchmark negative controls.
+    selection: the only shot whose whole chain up to EFIT ships with the repository
+    machine_era: vest-pre-43017-pf1906
+    evidence_types: [historical_regression, experimental_physical]
+    required_inputs:
+      - {name: raw_dump, path: vaft/data/samples/39915/source/vest_39915_daq_raw.json.gz,
+         sha256: ac94261a218fbd9f4a84f94fc6d0ccf5dcde99ef4df2b6a8b12f5def616bf07e, available_offline: true}
+      - {name: pipeline_config, path: vaft/data/samples/39915/source/pipeline-config.yaml,
+         sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a, available_offline: true}
+      - {name: canonical_product, path: vaft/data/samples/39915/source/pipeline-until-efit.json.gz,
+         sha256: 035ac79e667dac45dd0dc9de5fac5c5656a3097f443a8f3a4ccebdb7356205b2, available_offline: true}
+      - {name: diagnostics_manifest, path: vaft/data/samples/39915/source/diagnostics-manifest.json,
+         sha256: 71edb3996e6184438eabaef2bc7057352e17e44426802629c52a73bd1cff3d7f, available_offline: true}
+      - {name: efit_artifact_manifest, path: vaft/data/samples/39915/source/efit-artifact-manifest.json,
+         sha256: df15eb043638082081a49358ffaa26c8c5eeb6fa0e2b6e0ec0235772fb15ea55, available_offline: true}
+      - {name: packaged_omas, path: vaft/data/samples/39915/omas.json.gz,
+         sha256: 70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb, available_offline: true}
+    historical_revision: c9213921f625ce358f73ac89e9a63b4cdec5fdfe   # sample manifest pipeline.vaft_commit
+    notes: >-
+      The sample manifest's eddy_stage_sha256 (4fcd7fa3...) identifies the eddy
+      product of c9213921; a rebuild on current develop is not byte-identical
+      (code changed since), which is expected and is exactly why the
+      pre-migration baseline must be captured on develop itself.
+    requires_vestserver_raw: false
+    status: not_tested
+
+  - id: ref-41524-chain
+    shots: [41524]
+    purpose: >-
+      Second packaged raw-to-EFIT chain; also a vacuum-benchmark case whose
+      solenoid drive the legacy plasma-free detector cut short.
+    selection: packaged raw + chain; base magnetics window era (between the 41446-41451 transient and >= 41660 late revisions), a second shot on 39915's rules
+    machine_era: vest-pre-43017-pf1906
+    evidence_types: [historical_regression, experimental_physical]
+    required_inputs:
+      - {name: raw_dump, path: vaft/data/samples/41524/source/vest_41524_daq_raw.json.gz,
+         sha256: 8d3f9448b0ef351b70b469f303666467bac39c157afd00eddc6617dd8abfb91b, available_offline: true}
+      - {name: pipeline_config, path: vaft/data/samples/41524/source/pipeline-config.yaml,
+         sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a, available_offline: true}
+      - {name: canonical_product, path: vaft/data/samples/41524/source/pipeline-until-efit.json.gz,
+         sha256: f9e9b597ba3b7467cbaba4a999c1e01c6f0376eceda1a5761d863477e9e90f4d, available_offline: true}
+      - {name: packaged_omas, path: vaft/data/samples/41524/omas.json.gz,
+         sha256: d560035e42292cf120ee30845da8c332f94da87fbed4c80bd8dd4d7e44af8e33, available_offline: true}
+    historical_revision: c9213921f625ce358f73ac89e9a63b4cdec5fdfe
+    requires_vestserver_raw: false
+    status: not_tested
+
+  - id: ref-41672-chain
+    shots: [41672]
+    purpose: Packaged raw-to-EFIT chain in the late (>= 41660) magnetics window/baseline era.
+    selection: packaged raw + chain; first era boundary of the legacy probe baseline rule
+    machine_era: vest-pre-43017-pf1906
+    evidence_types: [historical_regression]
+    required_inputs:
+      - {name: raw_dump, path: vaft/data/samples/41672/source/vest_41672_daq_raw.json.gz,
+         sha256: 23183daf68a5fad3af5790cf25c2d93155dda8a6df43b4f14c34a20d80fdd7f4, available_offline: true}
+      - {name: pipeline_config, path: vaft/data/samples/41672/source/pipeline-config.yaml,
+         sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a, available_offline: true}
+      - {name: canonical_product, path: vaft/data/samples/41672/source/pipeline-until-efit.json.gz,
+         sha256: d1a5baf40ed5a588292287acfabd0b6976a421201a1ec93f93a60f7f9e1040ee, available_offline: true}
+      - {name: packaged_omas, path: vaft/data/samples/41672/omas.json.gz,
+         sha256: 3728e3b65ed3118e2b8746670ece4350d7253e036e491f3fc687240cbc19ce90, available_offline: true}
+    historical_revision: c9213921f625ce358f73ac89e9a63b4cdec5fdfe
+    requires_vestserver_raw: false
+    status: not_tested
+
+  - id: ref-42962-chain
+    shots: [42962]
+    purpose: Packaged raw-to-EFIT chain with its own (different) frozen pipeline config.
+    selection: packaged raw + chain; the only packaged chain whose config differs from 39915's
+    machine_era: vest-pre-43017-pf1906
+    evidence_types: [historical_regression]
+    required_inputs:
+      - {name: raw_dump, path: vaft/data/samples/42962/source/vest_42962_daq_raw.json.gz,
+         sha256: ea83d2b7c891f9a8a4145f28770f7a745e18265ac72ae64c7ee4f444340a2776, available_offline: true}
+      - {name: pipeline_config, path: vaft/data/samples/42962/source/pipeline-config.yaml,
+         sha256: 3983699599e7a13eb8d5e8cd89e4316b41d606e61ea30bf5527ecead25a38b27, available_offline: true}
+      - {name: canonical_product, path: vaft/data/samples/42962/source/pipeline-until-efit.json.gz,
+         sha256: 083f70a90ceacbd0be6cb46187280f40a2a4d1c9ed057762b25f31b8b8b31a70, available_offline: true}
+      - {name: packaged_omas, path: vaft/data/samples/42962/omas.json.gz,
+         sha256: 533de4695403c73952e4fc41c58860aaf0485e96fc6414adc975cc3de15450f9, available_offline: true}
+    historical_revision: f6e685ca852bc856b4d10a554e2b70a3e70d44e1   # sample manifest vaft_commit (2026-10-21 server run)
+    requires_vestserver_raw: false
+    status: not_tested
+
+  - id: wiring-39437-39438
+    shots: [39437, 39438]
+    purpose: >-
+      Equilibrium-magnetics wiring transition: the outboard R = 0.796 m column
+      swaps Z = +0.06 (field 170) and Z = -0.42 (field 225) overnight between
+      39437 and 39438 (vest.yaml equilibrium_magnetics.wiring, revision
+      to_shot 39437).  Tests that the effective sensor identity -- not the
+      field code -- follows the boundary.
+    selection: confirmed shot-era wiring change (verify_wiring.py over 250+ shots)
+    evidence_types: [historical_regression, experimental_physical]
+    required_inputs:
+      - {name: raw_dump_39437, available_offline: false, source: FileDB raw/39437/vest_39437_daq_raw.json.gz (vestserver)}
+      - {name: raw_dump_39438, available_offline: false, source: FileDB raw/39438/vest_39438_daq_raw.json.gz (vestserver)}
+      - {name: static_mapping, path: vaft/machine_mapping/vest.yaml, available_offline: true,
+         note: mapping-only checks (sensor id / r / z / field code / calibration per shot) run offline without raw}
+    requires_vestserver_raw: true
+    status: not_tested
+
+  - id: ip-fl10-46402-46403
+    shots: [46402, 46403]
+    purpose: >-
+      Plasma-current reference acquisition: from 46403 the Rogowski reference
+      subtraction becomes subtract_fl10_windowed (vest.yaml ip reference
+      revisions, to_shot 46402 / from_shot 46403).  Polarity, baseline and
+      units of Ip across the boundary.
+    selection: shot-era override boundary named in #2166 A2
+    evidence_types: [historical_regression, experimental_physical]
+    required_inputs:
+      - {name: raw_dump_46402, available_offline: false, source: FileDB raw/46402 (vestserver)}
+      - {name: raw_dump_46403, available_offline: false, source: FileDB raw/46403 (vestserver)}
+    requires_vestserver_raw: true
+    status: not_tested
+
+  - id: daq-46403-46404
+    shots: [46403, 46404]
+    purpose: >-
+      Equilibrium-magnetics DAQ transition: legacy slow-DAQ -> native_daq from
+      46404, one shot after the Ip FL10 era; the donor itself is inconsistent
+      for 46403 (vest.yaml comment).  Flux-loop baseline rule, sample rate and
+      timebase as acquired, not as configured.
+    selection: acquisition-era boundary; donor self-inconsistency at exactly 46403
+    evidence_types: [historical_regression, experimental_physical]
+    required_inputs:
+      - {name: raw_dump_46403, available_offline: false, source: FileDB raw/46403 (vestserver)}
+      - {name: raw_dump_46404, available_offline: false, source: FileDB raw/46404 (vestserver)}
+    requires_vestserver_raw: true
+    status: not_tested
+
+  - id: pf1-gain-45895-45896
+    shots: [45895, 45896]
+    purpose: >-
+      PF1 calibration boundary: gain -5e4 -> -1e4 from 45896 (issue #956),
+      the DAQ scale change of the 2025-06-17 -> 06-23 access.  45896-45928
+      are commissioning shots with PF1 idle, so an energised comparison needs
+      45929+ (e.g. 45960/45964/45965) beside 45895.
+    selection: calibration transition re-derived from raw against the inboard flux loop
+    evidence_types: [historical_regression, experimental_physical]
+    required_inputs:
+      - {name: raw_dump_45895, available_offline: false, source: FileDB raw/45895 (vestserver)}
+      - {name: raw_dump_45896, available_offline: false, source: FileDB raw/45896 (vestserver)}
+      - {name: raw_dump_energised_after, available_offline: false, source: 'FileDB raw/45929, 45960, 45964 or 45965 (vestserver)'}
+    requires_vestserver_raw: true
+    status: not_tested
+
+  - id: pf5-gain-48371-48372
+    shots: [48371, 48372]
+    purpose: PF5 calibration boundary (pf_active coil index 4 gain -1e4 -> -5e3 from 48372).
+    selection: calibration transition named in #2166 A2
+    evidence_types: [historical_regression, experimental_physical]
+    required_inputs:
+      - {name: raw_dump_48371, available_offline: false, source: FileDB raw/48371 (vestserver)}
+      - {name: raw_dump_48372, available_offline: false, source: FileDB raw/48372 (vestserver)}
+    requires_vestserver_raw: true
+    status: not_tested
+
+  - id: discrepancy-48224
+    shots: [48224]
+    purpose: >-
+      Previously identified magnetics/EFIT discrepancy, root cause unresolved.
+      Packaged: a kinetic-profile slice at 300 ms (Thomson, CES, core_profiles)
+      and the server EFIT magnetic/kinetic k-files; NO magnetics IDS and no
+      raw dump, so the magnetics side cannot be rebuilt offline.
+    selection: unresolved historical discrepancy (#2166 A1); also flux loop #6 dead / #15 clean-again era evidence in vest.yaml
+    evidence_types: [historical_regression, experimental_physical]
+    required_inputs:
+      - {name: packaged_omas, path: vaft/data/samples/48224/omas.json.gz,
+         sha256: 2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7, available_offline: true}
+      - {name: server_kfile, path: vaft/data/samples/48224/efit_magnetic_server/k048224.00300, available_offline: true}
+      - {name: raw_dump, available_offline: false, source: FileDB raw/48224 (vestserver)}
+    requires_vestserver_raw: true
+    status: not_tested
+
+  - id: vacuum-benchmark-plasma-free
+    shots: [39915, 41524]
+    purpose: >-
+      Independent magnetic/vacuum benchmark (vaft.validation.vacuum_benchmark,
+      workflow/vacuum_benchmark): measured plasma-free probe and flux-loop
+      response against the active-coil / passive-wall model driven by measured
+      PF currents alone.  Per-sensor residuals, not an array average.
+      39915 is the packaged pre-plasma case (the regression test's anchor) and
+      carries the negative controls of test_vacuum_benchmark_negative_controls.py;
+      41524 is the packaged case whose solenoid drive the legacy detector cut.
+    selection: >-
+      the packaged plasma-free intervals the existing benchmark tests already
+      use (41672 and 42962 are packaged too and are candidates, not yet run
+      through the benchmark).  Dedicated vacuum
+      (no-plasma) shots across machine eras are required for a qualification
+      (#190) but are not packaged; the campaign list is a CLI argument of
+      run_vacuum_benchmark.py, not a committed table.
+    evidence_types: [experimental_physical]
+    required_inputs:
+      - {name: packaged_omas_39915, path: vaft/data/samples/39915/omas.json.gz,
+         sha256: 70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb, available_offline: true}
+      - {name: packaged_imas_41524, path: vaft/data/samples/41524/imas.nc,
+         sha256: 9a27fba43962fe828a61386109cbabe749ca8718f1102303882cff1f5a5bf744, available_offline: true}
+      - {name: dedicated_vacuum_shots, available_offline: false,
+         source: 'vestserver FileDB eddy/diagnostics products of no-plasma shots, one or more per machine era (to be selected from the shot log, not by agreement)'}
+    requires_vestserver_raw: true   # the dedicated vacuum shots' products, not raw dumps
+    status: not_tested
+
+  - id: impa-archived
+    shots: [35325, 35376, 35385, 39204, 39923]
+    purpose: >-
+      IMPA sampling rate (25 kHz), orientation (2022-04-23 alignment block
+      35376-35385 gain sign, rigid 5 cm array fitting the TF 1/R profile) and
+      time alignment.  Archived IMPA raw extracts are packaged.
+    selection: the packaged IMPA extracts; 35376/35385 are the alignment-block shots vest.yaml cites
+    evidence_types: [historical_regression, experimental_physical]
+    required_inputs:
+      - {name: impa_35325, path: vaft/data/sample/legacy/shot_35325_impa.json.gz,
+         sha256: 0438243a11a6fa3be8291fcc017a794f78bb4f484bc9065afa5fc3dc8a58b5fe, available_offline: true}
+      - {name: impa_35376, path: vaft/data/sample/legacy/shot_35376_impa.json.gz,
+         sha256: a6f0fae1b4e8557743fea126eb86ff6beda952aeab88155c5699ddf2a2168348, available_offline: true}
+      - {name: impa_35385, path: vaft/data/sample/legacy/shot_35385_impa.json.gz,
+         sha256: b6e268f7e87ecce6ba2511d391c0a2befb0d07898fd5266fe091f657747447c4, available_offline: true}
+      - {name: impa_39204, path: vaft/data/sample/legacy/shot_39204_impa.json.gz,
+         sha256: 2979fb35df86bb62515a187522b90951bf90e3f6107384a3014fb51cdf22adef, available_offline: true}
+      - {name: impa_39923, path: vaft/data/sample/legacy/shot_39923_impa.json.gz,
+         sha256: e021088d9c5cc1f297f00ca121c07e167d6583cee0f90bcbdbf9aa7cfe3aa2eb, available_offline: true}
+    notes: >-
+      The packaged reference shots 39915/41524/41672 carry IMPA that the
+      calibration rejects; they are not IMPA validation cases.
+    requires_vestserver_raw: false
+    status: not_tested
+
+  - id: corrective-kinetic
+    shots: [48224, 47514, 47518, 46051, 39915]
+    purpose: >-
+      Pipeline-2 corrective data: Thomson (NeTe), CES / ion Doppler (IDS),
+      fitted profiles and the kinetic lineage onto an equilibrium.
+    selection: every corrective-data source packaged in the repository
+    evidence_types: [historical_regression, experimental_physical]
+    required_inputs:
+      - {name: thomson_48224, path: vaft/data/kineticEfit/NeTe_48224.mat,
+         sha256: c574c82de7d9e62fe737ab321c575fc03671d699952272e8c9a07c15dcd858c4, available_offline: true}
+      - {name: ids_48224, path: vaft/data/kineticEfit/IDS_48224.mat,
+         sha256: a1d9198b7025874824c6b5e6fa739833338de344b3c04540a68d58449471ca7b, available_offline: true}
+      - {name: kinetic_ods_48224, path: vaft/data/kineticEfit/ods_48224_300ms.json,
+         sha256: 10b4b6715a648c451c91a4e84870f663c920bf6af562ab33dad7852b9432347c, available_offline: true}
+      - {name: ces_47514, path: vaft/data/legacy/CES_47514.mat,
+         sha256: 0085e71fd4690bd7feaa9d87a881ecb27a4a52bc7505a3d45756158507086283, available_offline: true}
+      - {name: ids_47518, path: vaft/data/legacy/IDS_47518.mat,
+         sha256: 2a4d73841aa14f0c35f6bde7ac6c151c1a405f3510f07164b13733ee2177ba56, available_offline: true}
+      - {name: thomson_46051, path: vaft/data/legacy/46051_NeTe.mat,
+         sha256: e2dda6b48b2a93b967405f8d378eb3e193150c2e7eb4d149b2251aab094b6793, available_offline: true}
+      - {name: thomson_39915, path: vaft/data/legacy/NeTe_Shot39915_v9_rev.mat,
+         sha256: 539d39d681ef31bb06805640c939b9713f521e711a26d71d1416d4ac73a63440, available_offline: true}
+    requires_vestserver_raw: false
+    status: not_tested
+
+  - id: analytic-preprocessing
+    shots: []
+    purpose: >-
+      Closed-form references for resampling, anti-alias filtering, smoothing,
+      baselines, integration and clip repair (test/test_consolidation_numerics.py).
+      No shot data: synthetic signals with analytically known content.
+    selection: the resampling / baseline / integration / repair primitives B3 (#2162) canonicalizes
+    evidence_types: [analytic]
+    required_inputs: []
+    notes: >-
+      Not yet covered: the FIR paths that PR #2135 converts to zero-phase
+      application (vest_b_field_pol_probe_legacy, apply_fir_filter; their
+      analytic tests are written against develop after #2135), and
+      butterworth_*, fir_filter, detrend_moving_average and
+      vest_coil_current_noise_reduction.
+    requires_vestserver_raw: false
+    status: not_tested
