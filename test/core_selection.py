@@ -366,6 +366,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_plasma_current_quality.py",
     "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
+    # PF coil-current filter (#2162 B3.5): the named composition held to a frozen
+    # copy of _legacy_pf_filter, coefficients and phase. Synthetic, ~3 s.
+    "test_pf_current_filter.py",
     # Impurity composition (lane L, #1565): the mixture algebra against the
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
     # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
