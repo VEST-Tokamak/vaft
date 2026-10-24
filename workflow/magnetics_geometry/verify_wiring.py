@@ -41,10 +41,11 @@ import numpy as np
 
 from vaft.machine_mapping.magnetics import (
     _load_static_channels,
+    equilibrium_magnetics_processing_config,
     known_magnetics_faults,
     magnetics_wiring_for_shot,
 )
-from vaft.process.magnetics import vest_b_field_pol_probe_legacy, vest_magnetics_time_window
+from vaft.process.magnetics import vest_equilibrium_magnetics_detailed, vest_magnetics_time_window
 
 R_OUTBOARD = 0.796
 DISPUTED = {35: 0.06, 47: -0.42}
@@ -71,10 +72,17 @@ def processed(fields: dict[str, Any], code: int, calibration: float, shot: int, 
         return None, None
     raw = np.asarray(entry["data"], dtype=float)
     time = float(entry["t0"]) + float(entry["dt"]) * np.arange(raw.size)
+    channel = {"field_code": code, "calibration": calibration, "kind": "b_field_pol_probe"}
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        field = vest_b_field_pol_probe_legacy(time, raw, calibration, shot=shot, allow_zero_fallback=True)
-    return np.interp(grid, time, field), raw
+        result = vest_equilibrium_magnetics_detailed(
+            shot,
+            [channel],
+            lambda _shot, _field: (time, raw),
+            config=equilibrium_magnetics_processing_config(shot),
+            allow_zero_fallback=True,
+        )
+    return np.interp(grid, result.time, result.probes[0]), raw
 
 
 def outboard_column() -> dict[int, float]:
