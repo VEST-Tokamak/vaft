@@ -213,3 +213,15 @@ def test_barometry_does_not_store_an_alias_from_a_short_record(monkeypatch):
     data = np.asarray(ods["barometry.gauge.0.pressure.data"])
     assert data.size >= 80
     assert not np.isfinite(data).any()
+
+
+def test_cross_spectrum_refuses_a_record_too_short_to_anti_alias():
+    """Without the refusal the NaN record becomes coherence 0 everywhere."""
+    from vaft.process.fluctuation import cross_spectrum
+
+    fast = np.arange(SHORT) / FS_FAST
+    slow = np.arange(0.0, fast[-1], 1.0 / FS_SLOW)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        with pytest.raises(ValueError, match="did not cover every source sample"):
+            cross_spectrum(fast, np.sin(2 * np.pi * 2_000.0 * fast), slow, np.sin(2 * np.pi * 2_000.0 * slow))

@@ -12005,7 +12005,7 @@
    "call_sites": [
     {
      "call": "vaft.process.signal_processing.resample_to_time",
-     "snippet": "resample_to_time(source_time, values, grid, extrapolate='error')"
+     "snippet": "resample_to_time(source_time, values, grid, extrapolate='error', return_filter_mask=True)"
     }
    ],
    "callers": [
