@@ -38,6 +38,7 @@ __all__ = [
     "CocosSpec",
     "VAFT_INTERNAL_COCOS",
     "cocos_spec",
+    "psi_is_per_radian",
     "convention_for",
     "known_codes",
     "register_convention",
@@ -109,6 +110,21 @@ class CocosSpec:
             raise ValueError(
                 f"unknown quantity {quantity!r}; expected one of {sorted(relations)}"
             ) from None
+
+
+def psi_is_per_radian(index: int) -> bool:
+    """Whether COCOS ``index`` stores psi per radian (``e_Bp = 0``), without loading OMAS.
+
+    The storage family is fixed by the index itself -- 1 to 8 per radian, 11
+    to 18 the full flux (Sauter and Medvedev 2013, Table I) -- so metadata
+    checks can read it without :func:`cocos_spec`, which imports OMAS.  Agrees
+    with ``cocos_spec(index).psi_per_radian`` for every index.
+    """
+    if index not in COCOS_INDICES:
+        raise ValueError(
+            f"COCOS index {index!r} is not defined; expected one of {COCOS_INDICES}"
+        )
+    return index < 10
 
 
 def cocos_spec(index: int) -> CocosSpec:

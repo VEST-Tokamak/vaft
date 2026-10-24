@@ -81,6 +81,7 @@ __all__ = [
     "documentation_snapshot",
     "export_documentation_snapshot",
     "list_formulas",
+    "parameter_representation",
     "search",
     "show",
 ]
@@ -641,6 +642,29 @@ def describe(name: str) -> FormulaSpec:
         if alias:
             return specs[alias]
     raise KeyError(f"no formula named {name!r}; use vaft.formula.list_formulas() to list them")
+
+
+def parameter_representation(name: str, parameter: str, *, quantity: str | None = None):
+    """The declared :class:`~vaft.data.representation.Representation` of one formula parameter.
+
+    The unit is the parameter's own ``[unit]`` tag, exactly as documented.  The
+    quantity is ``quantity`` when given; otherwise the parameter name itself
+    when the canonical vocabulary resolves it (``I_p`` is a strict alias of
+    ``plasma_current``), and ``None`` -- undeclared -- when it does not.  A
+    ``Semantics`` section is not mapped onto parameters, because it declares
+    no positional correspondence.  Pair the result with
+    :func:`~vaft.data.representation.assess_compatibility` before calling the
+    formula; the formula itself is unchanged and checks nothing (#2163).
+    """
+    from vaft.data.representation import EvidenceLevel, Representation, canonical_quantity
+
+    spec = describe(name)
+    for item in spec.parameters:
+        if parameter in (n.strip() for n in item.name.split(",")):
+            term = quantity if quantity is not None else (parameter if canonical_quantity(parameter) else None)
+            return Representation(term, item.unit or None, evidence=EvidenceLevel.DECLARED,
+                                  note=f"{spec.qualname} parameter {parameter}")
+    raise KeyError(f"{spec.qualname} has no documented parameter {parameter!r}")
 
 
 def show(name: str, sections: list[str] | tuple[str, ...] | None = None) -> FormulaMarkdown:
