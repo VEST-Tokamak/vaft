@@ -1,0 +1,312 @@
+{
+ "created": "2026-10-24T17:15:11+00:00",
+ "producer": "workflow/pipeline_improvement/make_snapshot.py",
+ "tables": [
+  "/home/user1/runs/pipeline_improvement/tables/efit",
+  "/home/user1/runs/pipeline_improvement/tables/efit2",
+  "/home/user1/runs/pipeline_improvement/tables/vacuum",
+  "/home/user1/runs/pipeline_improvement/tables/vacuum_rerun"
+ ],
+ "files": {
+  "slices.csv.gz": {
+   "rows": 12905,
+   "sha256": "1dcadd3419e09203207fe4ce8e4ea80f514dfa6c523b9a796a5a4ac821afc053"
+  },
+  "fit.csv.gz": {
+   "rows": 12905,
+   "sha256": "78e7867766637f0f85e7a0eda48ee450e92653b5224d0ec194c3b63a05f3da16"
+  },
+  "virial.csv.gz": {
+   "rows": 12905,
+   "sha256": "2b6748d7cf7aa2e4d6be564b14593be6d3f0474e366d33562c87dbc17595d016"
+  },
+  "thomson.csv.gz": {
+   "rows": 1759,
+   "sha256": "80f6681d4f98bbbdf80c2bc2083f416e15974044d529f7de8a8d3cf2ac589975"
+  },
+  "thomson_channels.csv.gz": {
+   "rows": 774,
+   "sha256": "99cad3deece9220ac912c08d8ebdd49796473e78388e0746e09dcd51e418a91b"
+  },
+  "constraint_points.csv.gz": {
+   "rows": 50639,
+   "sha256": "3edf54618a7acb70a3a7e88cac282886526327ecd02e0056a207be2c01cf7911"
+  },
+  "vacuum_by_family.csv.gz": {
+   "rows": 40100,
+   "sha256": "9df8b62b67bb0b332a8be8bf2efd7f9b6087deb3925454f59ca4c4883d5d85f3"
+  },
+  "vacuum_status": {
+   "counts": {
+    "main / common_2303 / error": 269,
+    "main / common_2303 / evaluated": 128912,
+    "main / stored / error": 269,
+    "main / stored / evaluated": 128912,
+    "public / common_2303 / error": 274,
+    "public / common_2303 / evaluated": 149255,
+    "public / stored / error": 273,
+    "public / stored / evaluated": 149255
+   }
+  },
+  "stability_legacy.csv.gz": {
+   "rows": 24084,
+   "sha256": "b2af39e6c7823c444d5b98f6d07e246611ae0b217400cf417a7cd5e806aa2d33"
+  },
+  "stability_legacy_surfaces.csv.gz": {
+   "rows": 50956,
+   "sha256": "228d710a3a2e130942408a15472438f6d980524ec504bbe3542d168a44e0f680"
+  },
+  "stability_current_atlas_n.csv.gz": {
+   "rows": null,
+   "sha256": "0e1bae97682911b620907fb20279e996026b15f942c453d5711b6be42b3f83e8"
+  },
+  "stability_current_atlas_surfaces.csv.gz": {
+   "rows": null,
+   "sha256": "0b9868e20baad32638b207f8bc2f2174bfbc22bb4b73df353e906ab9d200b2c8"
+  },
+  "stability_current_schema.json": {
+   "rows": null,
+   "sha256": "050caccef77eb0b43185f3f865a830788dfbd52311dbd28089c9b12e91e88f73"
+  },
+  "stability_current_README.md": {
+   "rows": null,
+   "sha256": "6a50ce70d3f23bd270096160ab9e33a28055b23ded5dd51571a4a50dcb3b373a"
+  }
+ },
+ "runs": {
+  "/home/user1/runs/pipeline_improvement/tables/efit/manifest_0of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-21T03:47:52+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "fit",
+      "virial",
+      "thomson",
+      "stability"
+     ],
+     "shots": 368,
+     "shard": "0/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/efit/manifest_1of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-21T03:47:52+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "fit",
+      "virial",
+      "thomson",
+      "stability"
+     ],
+     "shots": 368,
+     "shard": "1/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/efit/manifest_2of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-21T03:47:52+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "fit",
+      "virial",
+      "thomson",
+      "stability"
+     ],
+     "shots": 368,
+     "shard": "2/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/efit/manifest_3of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-21T03:47:52+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "fit",
+      "virial",
+      "thomson",
+      "stability"
+     ],
+     "shots": 368,
+     "shard": "3/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/efit2/manifest_0of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-24T17:02:21+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "fit",
+      "thomson"
+     ],
+     "shots": 368,
+     "shard": "0/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/efit2/manifest_1of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-24T17:02:21+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "fit",
+      "thomson"
+     ],
+     "shots": 368,
+     "shard": "1/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/efit2/manifest_2of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-24T17:02:21+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "fit",
+      "thomson"
+     ],
+     "shots": 368,
+     "shard": "2/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/efit2/manifest_3of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-24T17:02:21+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "fit",
+      "thomson"
+     ],
+     "shots": 368,
+     "shard": "3/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/vacuum/manifest.json": {
+   "runs": [
+    {
+     "started": "2026-10-21T03:25:41+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "vacuum"
+     ],
+     "shots": 570,
+     "shard": "2/4"
+    },
+    {
+     "started": "2026-10-21T03:25:41+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "vacuum"
+     ],
+     "shots": 569,
+     "shard": "3/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/vacuum_rerun/manifest_0of2.json": {
+   "runs": [
+    {
+     "started": "2026-10-21T11:51:14+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "vacuum"
+     ],
+     "shots": 117,
+     "shard": "0/2"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/vacuum_rerun/manifest_1of2.json": {
+   "runs": [
+    {
+     "started": "2026-10-21T11:51:14+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "vacuum"
+     ],
+     "shots": 117,
+     "shard": "1/2"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/vest-backup/public",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  }
+ }
+}

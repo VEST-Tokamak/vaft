@@ -1,0 +1,597 @@
+"""Legacy archive against the current pipeline: distributions, matched pairs and a scorecard.
+
+These draw the tables ``workflow/pipeline_improvement/build_comparison_tables.py``
+writes, one row per side and slice with a ``side`` column (``"legacy"`` or
+``"current"``) and, for slices matched by time, a shared ``pair_id``. They
+follow the renderer contract of :mod:`vaft.plot` (``ax=None``, ``show=False``,
+return ``(Figure, Axes)``) and take the table, as :mod:`vaft.plot.population`
+and :mod:`vaft.plot.stability_atlas` do. No ODS, database or solver layer is
+imported.
+
+The two sides keep one colour each in every figure: legacy takes the second
+categorical slot and is drawn dashed, current takes the first. Each curve is
+named on the data, so identity never rests on colour alone.
+
+A metric's direction comes from
+:data:`vaft.validation.pipeline_comparison.METRICS`. ``"zero"`` metrics (log
+ratios) are drawn as ``|value|``, so that in every panel further left (or
+lower) is better.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Mapping, Sequence
+
+import numpy as np
+import pandas as pd
+
+from .population import AXIS_LABEL_SCALE, CATEGORICAL, TICK_LABEL_SCALE, _font
+from .presentation import presented, resolve_presentation
+
+__all__ = [
+    "pipeline_comparison_distribution",
+    "pipeline_comparison_measured_vs_reconstructed",
+    "pipeline_comparison_overview",
+    "pipeline_comparison_paired",
+    "pipeline_comparison_scorecard",
+    "pipeline_comparison_stability",
+    "pipeline_comparison_stability_overview",
+    "pipeline_comparison_virial",
+]
+
+SIDES = ("legacy", "current")
+SIDE_STYLE = {
+    "legacy": {"color": CATEGORICAL[1], "linestyle": "--", "marker": "s", "label": "legacy archive"},
+    "current": {"color": CATEGORICAL[0], "linestyle": "-", "marker": "o", "label": "current pipeline"},
+}
+INK = "#1a1a19"
+MUTED = "#7c7b73"
+GRID = "#e4e3dc"
+
+
+def _axes(ax, figsize):
+    import matplotlib.pyplot as plt
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
+    return fig, ax
+
+
+def _finish(fig, show: bool):
+    if show:
+        import matplotlib.pyplot as plt
+
+        plt.show()
+
+
+def _recessive(ax) -> None:
+    ax.grid(True, color=GRID, linewidth=0.8)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(MUTED)
+    ax.tick_params(colors=MUTED, labelcolor=INK, labelsize=_font("xtick.labelsize", TICK_LABEL_SCALE))
+    ax.xaxis.label.set_size(_font("axes.labelsize", AXIS_LABEL_SCALE))
+    ax.yaxis.label.set_size(_font("axes.labelsize", AXIS_LABEL_SCALE))
+
+
+def _oriented(values: np.ndarray, better: str | None) -> np.ndarray:
+    return np.abs(values) if better == "zero" else values
+
+
+def _values(table: pd.DataFrame, value: str, side: str, by: str, better: str | None, log: bool) -> np.ndarray:
+    column = pd.to_numeric(table.loc[table[by] == side, value], errors="coerce").to_numpy(dtype=float)
+    column = _oriented(column, better)
+    column = column[np.isfinite(column)]
+    return column[column > 0] if log else column
+
+
+def _thin_symlog_ticks(ax, linthresh: float, max_ticks: int = 9) -> None:
+    """Decade ticks on a symlog axis, every k-th decade so at most ``max_ticks`` show."""
+    from matplotlib.ticker import NullLocator
+
+    low, high = ax.get_xlim()
+    base = np.log10(linthresh)
+    top = [int(np.ceil(np.log10(v))) if v > linthresh else None for v in (abs(low), abs(high))]
+    neg = range(int(np.floor(base)), (top[0] or int(base)) + 1) if low < -linthresh else range(0)
+    pos = range(int(np.floor(base)), (top[1] or int(base)) + 1) if high > linthresh else range(0)
+    count = len(neg) + len(pos) + 1
+    step = max(1, int(np.ceil(count / max_ticks)))
+    ticks = [-(10.0 ** d) for d in list(neg)[::-1][::step]][::-1] + [0.0] + [10.0 ** d for d in list(pos)[::step]]
+    ax.set_xticks([t for t in ticks if low <= t <= high])
+    ax.xaxis.set_minor_locator(NullLocator())
+
+
+def pipeline_comparison_distribution(
+    table: pd.DataFrame,
+    value: str,
+    *,
+    by: str = "side",
+    sides: Sequence[str] = SIDES,
+    better: str | None = "lower",
+    log: bool = False,
+    linthresh: float | None = None,
+    xlabel: str | None = None,
+    ax=None,
+    show: bool = False,
+    figsize: tuple[float, float] = (6.0, 4.0),
+):
+    """Empirical CDF of one metric for each side, with each median marked and labelled.
+
+    ``log`` draws a log axis over the positive values; ``linthresh`` instead
+    draws a symmetric-log axis with that linear range, for a signed quantity
+    such as a stability energy whose sign is the result.
+
+    Every slice of a side counts, paired or not; :func:`pipeline_comparison_paired`
+    is the slice-by-slice view. The label at each median names the side, its
+    count and the median, so the figure reads without a legend.
+    """
+    fig, ax = _axes(ax, figsize)
+    curves = []
+    for k, side in enumerate(sides):
+        data = np.sort(_values(table, value, side, by, better, log))
+        style = SIDE_STYLE.get(side, {"color": CATEGORICAL[k % len(CATEGORICAL)], "linestyle": "-",
+                                      "label": side})
+        if not data.size:
+            continue
+        y = np.arange(1, data.size + 1) / data.size
+        ax.step(data, y, where="post", color=style["color"], linestyle=style["linestyle"], linewidth=2.0)
+        median = float(np.median(data))
+        ax.plot([median], [0.5], marker="o", markersize=8, color=style["color"],
+                markeredgecolor="white", markeredgewidth=2.0, zorder=3)
+        curves.append((median, data.size, style))
+    # Each side is named in a row above the axes, with a line sample, so no
+    # label can sit on a curve and identity is not colour alone.
+    from matplotlib.lines import Line2D
+
+    for k, (median, count, style) in enumerate(curves):
+        x0 = 0.0 + 0.5 * k
+        ax.add_line(Line2D((x0, x0 + 0.07), (1.075, 1.075), transform=ax.transAxes, color=style["color"],
+                           linestyle=style["linestyle"], linewidth=2.0, clip_on=False))
+        ax.text(x0 + 0.09, 1.04, f"{style['label']}\nn = {count}, median {median:.3g}", transform=ax.transAxes,
+                ha="left", va="bottom", color=INK, fontsize=_font("legend.fontsize", 1.0))
+    if linthresh is not None:
+        ax.set_xscale("symlog", linthresh=float(linthresh))
+        ax.axvline(0.0, color=MUTED, linewidth=1.0, linestyle=":")
+        _thin_symlog_ticks(ax, float(linthresh))
+    elif log:
+        ax.set_xscale("log")
+    ax.set_ylim(0.0, 1.02)
+    ax.set_ylabel("fraction of slices")
+    name = xlabel or value
+    ax.set_xlabel(f"|{name}|" if better == "zero" else name)
+    _recessive(ax)
+    _finish(fig, show)
+    return fig, ax
+
+
+def _pairs(table: pd.DataFrame, value: str, by: str, pair: str) -> pd.DataFrame:
+    rows = table.loc[table[pair].notna(), [pair, by, value]].copy()
+    rows[value] = pd.to_numeric(rows[value], errors="coerce")
+    wide = rows.pivot_table(index=pair, columns=by, values=value, aggfunc="first")
+    return wide.dropna()
+
+
+def pipeline_comparison_paired(
+    table: pd.DataFrame,
+    value: str,
+    *,
+    by: str = "side",
+    pair: str = "pair_id",
+    better: str | None = "lower",
+    log: bool = False,
+    label: str | None = None,
+    ax=None,
+    show: bool = False,
+    figsize: tuple[float, float] = (4.6, 4.6),
+):
+    """Legacy (x) against current (y) for every slice pair, with the line of no change.
+
+    Points under the diagonal improved when ``better`` is set. The fraction of
+    pairs on each side of it is written in the corner, not left to the eye.
+    """
+    fig, ax = _axes(ax, figsize)
+    wide = _pairs(table, value, by, pair)
+    if {"legacy", "current"} <= set(wide.columns):
+        x = _oriented(wide["legacy"].to_numpy(dtype=float), better)
+        y = _oriented(wide["current"].to_numpy(dtype=float), better)
+        keep = np.isfinite(x) & np.isfinite(y)
+        if log:
+            keep &= (x > 0) & (y > 0)
+        x, y = x[keep], y[keep]
+    else:
+        x = y = np.array([], dtype=float)
+    ax.scatter(x, y, s=22, color=SIDE_STYLE["current"]["color"], alpha=0.55, edgecolors="white",
+               linewidths=0.6, zorder=3)
+    if x.size:
+        low = float(min(x.min(), y.min()))
+        high = float(max(x.max(), y.max()))
+        if log:
+            low, high = low / 1.3, high * 1.3
+        else:
+            pad = 0.05 * (high - low or 1.0)
+            low, high = low - pad, high + pad
+        ax.plot([low, high], [low, high], color=MUTED, linewidth=1.2, linestyle=":", zorder=2)
+        ax.set_xlim(low, high)
+        ax.set_ylim(low, high)
+        if better is not None:
+            improved = float(np.mean(y < x))
+            ax.text(0.97, 0.04, f"current lower: {improved:.0%} of {x.size} pairs", transform=ax.transAxes,
+                    ha="right", va="bottom", color=INK, fontsize=_font("legend.fontsize", 1.05))
+    if log:
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+    name = label or value
+    shown = f"|{name}|" if better == "zero" else name
+    ax.set_xlabel(f"legacy  {shown}")
+    ax.set_ylabel(f"current  {shown}")
+    ax.set_aspect("equal", adjustable="box")
+    _recessive(ax)
+    _finish(fig, show)
+    return fig, ax
+
+
+#: Display of each constraint family in the comparison tables (SI values):
+#: title, unit and the factor from SI, as in :mod:`vaft.plot.equilibrium_quality`.
+FAMILY_DISPLAY = {
+    "probe": ("Poloidal probes", "mT", 1e3),
+    "loop": ("Flux loops", "mWb", 1e3),
+    "ip": ("Plasma current", "kA", 1e-3),
+    "dia": ("Diamagnetic flux", "mWb", 1e3),
+}
+#: Volume-integral and pair-13 virial columns of the virial table, per quantity.
+VIRIAL_QUANTITIES = {
+    "beta_p": ("beta_p_integral", "beta_p_pair_13", r"\beta_p", "Poloidal beta", None),
+    "li": ("li_volume", "li_pair_13", r"l_i", "Internal inductance", None),
+}
+COMPARISON_LABELS = {"legacy": "Legacy archive", "current": "Current pipeline"}
+
+
+def _side_points(points: pd.DataFrame, family: str, by: str) -> pd.DataFrame:
+    """Rows of one family in display units: per-channel points, or the single-channel columns of the fit table."""
+    _title, _unit, scale = FAMILY_DISPLAY[family]
+    if "family" in points:
+        data = points[points["family"] == family]
+        x, y = data["measured"], data["reconstructed"]
+    else:
+        data = points
+        x, y = data[f"{family}_measured"], data[f"{family}_reconstructed"]
+    return pd.DataFrame({by: data[by].to_numpy(),
+                         "x": pd.to_numeric(x, errors="coerce").to_numpy(float) * scale,
+                         "y": pd.to_numeric(y, errors="coerce").to_numpy(float) * scale})
+
+
+def _limits(limits):
+    values = np.asarray(limits, dtype=float)
+    if values.shape != (2,) or not np.isfinite(values).all() or values[0] >= values[1]:
+        raise ValueError("limits must be two finite increasing values")
+    return tuple(values)
+
+
+@presented(default_figsize=(5.2, 5.0))
+def pipeline_comparison_measured_vs_reconstructed(points: pd.DataFrame, *, family: str, by: str = "side",
+                                                  ax=None, show: bool = False, figsize=None,
+                                                  format: str | None = None, theme: str | None = None,
+                                                  limits=None):
+    """Measured (x) against reconstructed (y) for one constraint family, legacy and current, with ``y = x``.
+
+    The view of :func:`vaft.plot.equilibrium_quality.equilibrium_quality_measured_vs_reconstructed`
+    with the pipeline as the cohort. ``points`` is either the per-channel
+    ``constraint_points`` table (``family``, ``measured``, ``reconstructed``,
+    SI) or, for ``family="ip"`` / ``"dia"``, the per-slice fit table with
+    ``<family>_measured`` / ``<family>_reconstructed``. The legend gives each
+    side's point count and mean absolute error in the display unit; points
+    outside ``limits=(min, max)`` still count.
+    """
+    if family not in FAMILY_DISPLAY:
+        raise ValueError(f"unknown family {family!r}; known: {sorted(FAMILY_DISPLAY)}")
+    title, unit, _scale = FAMILY_DISPLAY[family]
+    limits = None if limits is None else _limits(limits)
+    fig, ax = _axes(ax, figsize or (5.2, 5.0))
+    data = _side_points(points, family, by)
+    finite = np.isfinite(data["x"]) & np.isfinite(data["y"])
+    import matplotlib.pyplot as plt
+
+    font_scale = plt.rcParams["font.size"] / 10.0
+    hidden = []
+    for layer, side in enumerate(SIDES, start=1):
+        use = (data[by] == side).to_numpy() & finite.to_numpy()
+        if not use.any():
+            continue
+        x, y = data["x"].to_numpy()[use], data["y"].to_numpy()[use]
+        if limits is not None:
+            outside = (x < limits[0]) | (x > limits[1]) | (y < limits[0]) | (y > limits[1])
+            hidden.append(f"{COMPARISON_LABELS[side].split()[0].lower()} {int(outside.sum()):,}")
+        style = SIDE_STYLE[side]
+        dense = use.sum() > 2000
+        ax.scatter(x, y, s=(3 if dense else 14) * font_scale ** 2, marker=style["marker"], color=style["color"],
+                   alpha=(0.15 if dense else 0.6), zorder=layer + 1, linewidths=0 if dense else 0.4,
+                   edgecolors=None if dense else "white", rasterized=dense,
+                   label=f"{COMPARISON_LABELS[side]} (n={int(use.sum()):,}, MAE {np.mean(np.abs(y - x)):.2f} {unit})")
+    if finite.any():
+        lo = float(np.nanmin(np.r_[data["x"][finite], data["y"][finite]]))
+        hi = float(np.nanmax(np.r_[data["x"][finite], data["y"][finite]]))
+        pad = 0.05 * (hi - lo or 1.0)
+        reference = limits if limits is not None else (lo - pad, hi + pad)
+        ax.plot(reference, reference, color=INK, lw=1.0, ls="--", label="y = x", zorder=5)
+        ax.set_xlim(reference)
+        ax.set_ylim(reference)
+    if hidden:
+        ax.text(0.97, 0.03, "not shown: " + ", ".join(hidden), transform=ax.transAxes, ha="right", va="bottom",
+                color=MUTED, fontsize=plt.rcParams["font.size"] * 0.75, zorder=6,
+                bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.8, "pad": 1.0})
+    ax.set_xlabel(f"measured [{unit}]")
+    ax.set_ylabel(f"reconstructed [{unit}]")
+    ax.set_title(title)
+    ax.set_aspect("equal", adjustable="box")
+    ax.legend(loc="upper left", frameon=False, markerscale=2.0)
+    _finish(fig, show)
+    return fig, ax
+
+
+@presented(default_figsize=(5.2, 5.0))
+def pipeline_comparison_virial(table: pd.DataFrame, *, quantity: str = "beta_p", by: str = "side", ax=None,
+                               show: bool = False, figsize=None, format: str | None = None,
+                               theme: str | None = None, limits=None, log: bool | None = None,
+                               band: float | None | str = "auto"):
+    """Volume-integral against pair-13 virial ``beta_p`` or ``l_i``, legacy and current, with ``y = x``.
+
+    The view of :func:`vaft.plot.kinetic_state.kinetic_state_virial_pair13_comparison`
+    with the pipeline as the cohort, on the virial table of the comparison
+    (one row per side and slice). ``band`` shades agreement within that
+    factor; ``"auto"`` draws none, so ``y = x`` is the only reference. ``log`` defaults to ``True`` for ``beta_p``, whose two pipelines
+    differ by an order of magnitude. Each legend entry counts the slices
+    outside the view (a non-positive value on a log axis among them), so no
+    slice is dropped silently.
+    """
+    if quantity not in VIRIAL_QUANTITIES:
+        raise ValueError(f"unknown quantity {quantity!r}; known: {sorted(VIRIAL_QUANTITIES)}")
+    volume, closure, symbol, title, default_band = VIRIAL_QUANTITIES[quantity]
+    band = default_band if band == "auto" else band
+    log = (quantity == "beta_p") if log is None else bool(log)
+    fig, ax = _axes(ax, figsize or (5.2, 5.0))
+    x_all = pd.to_numeric(table[closure], errors="coerce").to_numpy(float)
+    y_all = pd.to_numeric(table[volume], errors="coerce").to_numpy(float)
+    finite = np.isfinite(x_all) & np.isfinite(y_all)
+    usable = finite & ((x_all > 0) & (y_all > 0) if log else True)
+    if limits is None:
+        if not usable.any():
+            raise ValueError(f"no finite {quantity} pairs to draw")
+        lo = float(np.percentile(np.r_[x_all[usable], y_all[usable]], 0.5))
+        hi = float(np.percentile(np.r_[x_all[usable], y_all[usable]], 99.5))
+        limits = (lo / 1.5, hi * 1.5) if log else (lo - 0.05 * (hi - lo), hi + 0.05 * (hi - lo))
+    limits = _limits(limits)
+    if log and limits[0] <= 0:
+        raise ValueError("logarithmic limits must be positive")
+    import matplotlib.pyplot as plt
+
+    font_scale = plt.rcParams["font.size"] / 10.0
+    inside = finite & (x_all >= limits[0]) & (x_all <= limits[1]) & (y_all >= limits[0]) & (y_all <= limits[1])
+    hidden = []
+    for layer, side in enumerate(SIDES, start=1):
+        rows = (table[by] == side).to_numpy()
+        use = rows & inside
+        if not rows.any():
+            continue
+        style = SIDE_STYLE[side]
+        outside = int((rows & ~inside).sum())
+        hidden.append(f"{COMPARISON_LABELS[side].split()[0].lower()} {outside:,}")
+        note = f", {outside:,} not shown" if outside else ""
+        ax.scatter(x_all[use], y_all[use], s=6 * font_scale ** 2, marker=style["marker"], color=style["color"],
+                   alpha=0.35, linewidths=0, zorder=layer + 1, rasterized=True,
+                   label=f"{COMPARISON_LABELS[side]} (n={int(rows.sum()):,}{note})")
+    grid = np.geomspace(*limits, 100) if log else np.linspace(*limits, 100)
+    if band:
+        ax.fill_between(grid, grid / band, grid * band, color="gray", alpha=0.14, zorder=1,
+                        label=f"within a factor of {band:g}")
+    ax.plot(grid, grid, color=INK, ls="--", lw=1.0, label="y = x", zorder=5)
+    # Written on the axes as well as in the legend, so a grid that drops the
+    # legends still says how many slices fall outside the view.
+    # "Not shown" is outside the view or undefined (no virial value, or <= 0 on a log axis).
+    ax.text(0.97, 0.03, "not shown: " + ", ".join(hidden), transform=ax.transAxes, ha="right", va="bottom",
+            color=MUTED, fontsize=plt.rcParams["font.size"] * 0.75, zorder=6,
+            bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.8, "pad": 1.0})
+    if log:
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+    else:
+        from matplotlib.ticker import MaxNLocator
+
+        ax.xaxis.set_major_locator(MaxNLocator(5))
+        ax.yaxis.set_major_locator(MaxNLocator(5))
+    ax.set_xlim(limits)
+    ax.set_ylim(limits)
+    ax.set_xlabel(rf"virial closure ${symbol}^{{\mathrm{{vir}}}}$")
+    ax.set_ylabel(rf"volume integral ${symbol}^{{\mathrm{{int}}}}$")
+    ax.set_title(title)
+    ax.set_aspect("equal", adjustable="box")
+    ax.legend(loc="upper left", frameon=False, markerscale=1.5)
+    _finish(fig, show)
+    return fig, ax
+
+
+def _panel_letter(ax, letter: str) -> None:
+    import matplotlib.pyplot as plt
+
+    ax.text(-0.18, 1.04, letter, transform=ax.transAxes, ha="left", va="bottom", fontweight="bold",
+            fontsize=plt.rcParams["font.size"] * 1.2)
+
+
+def pipeline_comparison_overview(points: pd.DataFrame, virial: pd.DataFrame, *, show: bool = False,
+                                 figsize: tuple[float, float] = (9.8, 10.0), limits_by_panel=None,
+                                 panel_labels: bool = True):
+    """A presentation-size 2×2: probes and flux loops, then ``beta_p`` and ``l_i`` against the virial closure.
+
+    The layout of :func:`vaft.plot.equilibrium_quality.equilibrium_quality_diagnostic_grid`,
+    one shared legend under the panels; the single panels keep their counts
+    and errors. ``limits_by_panel`` maps ``"probe"``, ``"loop"``, ``"beta_p"``
+    or ``"li"`` to ``(min, max)``.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+
+    limits = dict(limits_by_panel or {})
+    unknown = set(limits) - {"probe", "loop", "beta_p", "li"}
+    if unknown:
+        raise ValueError(f"unknown panel in limits_by_panel: {sorted(unknown)}")
+    presentation = resolve_presentation("slide", None)
+    with presentation.context():
+        fig, axes = plt.subplots(2, 2, figsize=figsize)
+        for ax, family in zip(axes[0], ("probe", "loop")):
+            pipeline_comparison_measured_vs_reconstructed(points, family=family, ax=ax, limits=limits.get(family))
+        for ax, quantity in zip(axes[1], ("beta_p", "li")):
+            pipeline_comparison_virial(virial, quantity=quantity, ax=ax, limits=limits.get(quantity))
+        for letter, ax in zip("abcd", axes.ravel()):
+            legend = ax.get_legend()
+            if legend is not None:
+                legend.remove()
+            if panel_labels:
+                _panel_letter(ax, letter)
+        handles = [Line2D([], [], color=SIDE_STYLE[side]["color"], marker=SIDE_STYLE[side]["marker"],
+                          linestyle="none", markersize=10, label=COMPARISON_LABELS[side]) for side in SIDES]
+        handles.append(Line2D([], [], color=INK, linestyle="--", label="y = x"))
+        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.015), ncol=3, frameon=False)
+        fig.tight_layout(rect=(0.0, 0.08, 1.0, 1.0), pad=0.8, w_pad=0.8, h_pad=1.2)
+    if show:
+        plt.show()
+    return fig, axes
+
+
+#: Stability quantities: binning and ticks of :mod:`vaft.plot.stability_atlas`, the
+#: side of zero that is unstable, and the axis label.
+STABILITY_QUANTITIES = {
+    "w_t": ("ideal", False, r"DCON $W_t$", (-1e3, -1.0, 0.0, 1.0, 1e2)),
+    "delta_prime": ("resistive", True, r"RDCON $\Delta'_{\max}$", None),
+}
+
+
+def pipeline_comparison_stability(table: pd.DataFrame, *, quantity: str = "w_t", value: str = "value",
+                                  by: str = "side", normalize: bool = True, ax=None, show: bool = False,
+                                  figsize: tuple[float, float] = (5.2, 3.0)):
+    """Legacy and current populations of ``W_t`` or ``Delta'_max`` as step histograms on a symlog axis.
+
+    The panel of :func:`vaft.plot.stability_atlas.stability_atlas_population`,
+    with its bins, ticks and stable/unstable zones, and the pipeline as the
+    series. The count axis is linear. ``normalize`` divides each side by its
+    own number of slices, because the two populations differ in size by more
+    than an order of magnitude; the legend gives each count. A value past the
+    outermost bin is drawn in the edge bin, as the atlas figure does.
+    """
+    from .stability_atlas import _BINNING, _TICKS, _prepare, _symlog_bins, _zones
+
+    if quantity not in STABILITY_QUANTITIES:
+        raise ValueError(f"unknown quantity {quantity!r}; known: {sorted(STABILITY_QUANTITIES)}")
+    panel, unstable_right, xlabel, ticks = STABILITY_QUANTITIES[quantity]
+    fig, ax = _axes(ax, figsize)
+    lowest, highest, linthresh, per_decade = _BINNING[panel]
+    bins = _symlog_bins(lowest, highest, linthresh, per_decade)
+    # The atlas's ticks, thinned where a slide-size font would make them touch.
+    _prepare(ax, bins, linthresh, ticks or _TICKS[panel])
+    tallest = 0.0
+    summary = []
+    for side in SIDES:
+        values = pd.to_numeric(table.loc[table[by] == side, value], errors="coerce").to_numpy(float)
+        values = values[np.isfinite(values)]
+        if not values.size:
+            continue
+        values = np.clip(values, bins[0], bins[-1])
+        weights = np.full(values.size, 1.0 / values.size) if normalize else None
+        style = SIDE_STYLE[side]
+        unstable = float(np.mean(values > 0) if unstable_right else np.mean(values < 0))
+        counts, _, _ = ax.hist(values, bins=bins, weights=weights, histtype="step", lw=1.6,
+                               color=style["color"], linestyle=style["linestyle"],
+                               label=f"{COMPARISON_LABELS[side]} (n={values.size:,}, {unstable:.0%} unstable side)")
+        tallest = max(tallest, float(np.max(counts)))
+        summary.append(f"{COMPARISON_LABELS[side].split()[0].lower()} {unstable:.0%} (n={values.size:,})")
+    # The unstable-side share per pipeline, as the title, where no bar can hide it.
+    ax.set_title("unstable: " + " · ".join(summary), fontsize="small", loc="right")
+    # Headroom above the tallest bar for the zone names and the key.
+    ax.set_ylim(0, max(tallest, 1e-9) * 1.9)
+    ax.set_ylabel("fraction of slices" if normalize else "slices")
+    _zones(ax, unstable_right=unstable_right)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 0.86), frameon=True, framealpha=0.9, edgecolor="none",
+              fontsize="small", handlelength=2.4)
+    ax.set_xlabel(xlabel)
+    _finish(fig, show)
+    return fig, ax
+
+
+def pipeline_comparison_stability_overview(w_t: pd.DataFrame, delta_prime: pd.DataFrame, *,
+                                           normalize: bool = True, show: bool = False,
+                                           figsize: tuple[float, float] = (8.0, 7.4),
+                                           panel_labels: bool = True):
+    """``W_t`` over ``Delta'_max`` for one toroidal mode, legacy and current, stacked as the atlas figure is."""
+    import matplotlib.pyplot as plt
+
+    presentation = resolve_presentation("slide", None)
+    with presentation.context():
+        fig, axes = plt.subplots(2, 1, figsize=figsize)
+        from matplotlib.lines import Line2D
+
+        pipeline_comparison_stability(w_t, quantity="w_t", normalize=normalize, ax=axes[0])
+        pipeline_comparison_stability(delta_prime, quantity="delta_prime", normalize=normalize, ax=axes[1])
+        for letter, ax in zip("ab", axes):
+            ax.get_legend().remove()
+            ax.set_ylim(0, ax.get_ylim()[1] / 1.9 * 1.35)  # no in-panel key left to make room for
+            if panel_labels:
+                _panel_letter(ax, letter)
+        handles = [Line2D([], [], color=SIDE_STYLE[side]["color"], linestyle=SIDE_STYLE[side]["linestyle"],
+                          lw=1.6, label=COMPARISON_LABELS[side]) for side in SIDES]
+        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=2, frameon=False)
+        fig.tight_layout(rect=(0.0, 0.06, 1.0, 1.0), pad=0.8, h_pad=1.4)
+    if show:
+        plt.show()
+    return fig, axes
+
+
+def pipeline_comparison_scorecard(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    ax=None,
+    show: bool = False,
+    figsize: tuple[float, float] | None = None,
+):
+    """Median current/legacy ratio per metric on one log axis; left of 1 is better.
+
+    ``rows`` holds one mapping per metric with ``label``, ``legacy_median``,
+    ``current_median`` (both on the oriented scale) and, from a paired summary,
+    ``improved_fraction``, ``n_pairs`` and ``wilcoxon_p``. A metric with no
+    direction is skipped: its ratio has no "better" side. The annotation beside
+    each dot is the paired evidence, so the dot is never read alone.
+    """
+    usable = [r for r in rows if r.get("better") is not None
+              and np.isfinite(r.get("legacy_median", np.nan)) and np.isfinite(r.get("current_median", np.nan))
+              and r["legacy_median"] > 0 and r["current_median"] > 0]
+    if figsize is None:
+        figsize = (7.2, 0.55 * max(len(usable), 1) + 1.2)
+    fig, ax = _axes(ax, figsize)
+    ratios = [r["current_median"] / r["legacy_median"] for r in usable]
+    positions = np.arange(len(usable))[::-1]
+    for y, ratio, row in zip(positions, ratios, usable):
+        ax.plot([1.0, ratio], [y, y], color=GRID, linewidth=3.0, solid_capstyle="round", zorder=1)
+        ax.plot([ratio], [y], marker="o", markersize=9, color=SIDE_STYLE["current"]["color"],
+                markeredgecolor="white", markeredgewidth=2.0, zorder=3)
+        parts = [f"{ratio:.2g}x"]
+        if row.get("improved_fraction") is not None and row.get("n_pairs"):
+            parts.append(f"{row['improved_fraction']:.0%} of {row['n_pairs']} pairs improved")
+        p = row.get("wilcoxon_p")
+        if p is not None and np.isfinite(p):
+            parts.append("p < 1e-3" if p < 1e-3 else f"p = {p:.2g}")
+        ax.annotate("  ".join(parts), (max(ratio, 1.0), y), xytext=(10, 0), textcoords="offset points",
+                    va="center", color=INK, fontsize=_font("legend.fontsize", 1.05))
+    ax.axvline(1.0, color=MUTED, linewidth=1.2, linestyle=":")
+    ax.set_xscale("log")
+    ax.set_yticks(positions)
+    ax.set_yticklabels([r["label"] for r in usable])
+    if ratios:
+        low = min(min(ratios), 1.0) / 1.6
+        high = max(max(ratios), 1.0) * 60.0
+        ax.set_xlim(low, high)
+    ax.set_xlabel("current median / legacy median  (left of 1 is better)")
+    _recessive(ax)
+    ax.grid(False, axis="y")
+    _finish(fig, show)
+    return fig, ax
