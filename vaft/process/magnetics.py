@@ -80,7 +80,12 @@ from scipy.signal import coherence, csd, find_peaks, savgol_filter
 
 from vaft.compat import cumtrapz_compat
 from vaft.formula.statistics import rms
-from .signal_processing import apply_fir_filter, define_baseline, subtract_baseline
+from .signal_processing import (
+    _filtfilt_min_length,
+    apply_fir_filter,
+    define_baseline,
+    subtract_baseline,
+)
 
 # ``vaft.database`` is imported inside the one function that needs it, not
 # here: vaft.database.raw imports Matplotlib at module scope as an
@@ -954,6 +959,17 @@ def vest_equilibrium_magnetics_detailed(
             channel_name = str(channel.get("name", f"b_field_pol_probe_{field_code}"))
             source_time = np.asarray(source_time, dtype=float)
             source_data = np.asarray(source_data, dtype=float)
+            if allow_missing and source_data.size < _filtfilt_min_length(np.size(probe_lowpass)):
+                # A truncated record cannot be low-passed zero-phase; a causal
+                # fallback would delay it, so it is a missing channel instead.
+                warnings.warn(
+                    f"shot {int(shot)} {channel_name}: {source_data.size} samples are "
+                    "too few for the zero-phase probe low pass; treated as missing",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                data_probes.append(np.array([], dtype=float))
+                continue
             *_, processed_full, _ = b_field_pol_probe_field(
                 source_time,
                 source_data,

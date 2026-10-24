@@ -496,6 +496,35 @@ def test_vest_equilibrium_magnetics_detailed_channel_raises_and_fallback():
     assert res.probes[0].size > 0
 
 
+def test_a_probe_record_too_short_for_zero_phase_is_a_missing_channel():
+    """One truncated probe must not fail the shot when missing channels are allowed.
+
+    3 * 251 + 1 samples is the shortest record the zero-phase low pass takes;
+    a causal fallback would delay the probe by 0.5 ms, so the channel is
+    reported missing (an empty array) and the other channels are processed.
+    """
+    shot = 41445
+    long_time = np.linspace(0.0, 0.01, 1000)
+    short_time = np.linspace(0.0, 0.002, 500)
+    channels = [
+        {"field_code": 1, "calibration": 1.0, "kind": "b_field_pol_probe", "name": "Bpol_1"},
+        {"field_code": 2, "calibration": 1.0, "kind": "b_field_pol_probe", "name": "Bpol_2"},
+    ]
+    records = {1: (long_time, np.ones(1000)), 2: (short_time, np.ones(500))}
+    cfg = VestMagneticsProcessingConfig(window_override=(0, 200, 100))
+
+    with pytest.raises(ValueError, match="zero-phase"):
+        vest_equilibrium_magnetics_detailed(
+            shot, channels, lambda s, f: records[f], config=cfg
+        )
+    with pytest.warns(RuntimeWarning, match="Bpol_2: 500 samples"):
+        res = vest_equilibrium_magnetics_detailed(
+            shot, channels, lambda s, f: records[f], config=cfg, allow_missing=True
+        )
+    assert res.probes[0].size > 0
+    assert res.probes[1].size == 0
+
+
 def test_b_field_pol_probe_is_not_delayed_by_its_low_pass():
     """The probe low pass is zero-phase, as in the donor's ``filtfilt``.
 

@@ -771,8 +771,8 @@ def apply_fir_filter(taps, data, *, axis: int = -1, short_record: str = "raise")
 
     Convention
     ----------
-    The one place VAFT applies an FIR filter to a measured waveform.  It is
-    zero-phase: a causal ``lfilter`` delays every feature by the filter's group
+    The shared FIR application for measured waveforms (``anti_alias_filter``
+    runs its own ``filtfilt`` over finite segments).  It is zero-phase: a causal ``lfilter`` delays every feature by the filter's group
     delay, ``(len(taps) - 1) / 2`` samples, which is 0.5 ms for both VEST
     designs (251 taps at 250 kHz, 26 taps at 25 kHz).  Signals are compared and
     fitted against each other -- probes against PF coil currents in the vacuum
@@ -786,17 +786,18 @@ def apply_fir_filter(taps, data, *, axis: int = -1, short_record: str = "raise")
 
     Limitations
     -----------
-    ``short_record="causal"`` exists for tiny synthetic records that a test
-    fixture builds; the result is then delayed, which is why it is never the
-    default.  A real acquisition is far longer than the padding.
+    ``short_record="causal"`` falls back to ``lfilter``, delayed by the group
+    delay, which is why it is never the default.  PF, IMPA and Mirnov
+    preprocessing keep that fallback for short records, without a warning.
     """
     if short_record not in ("raise", "causal"):
         raise ValueError(f"short_record must be 'raise' or 'causal'; got {short_record!r}")
     taps = np.atleast_1d(np.asarray(taps, dtype=float))
     values = np.asarray(data, dtype=float)
     if taps.size == 1:
-        # A single tap is a gain with no phase; filtfilt cannot build its state.
-        return values * taps[0]
+        # A single tap is a gain with no phase; filtfilt cannot build its state
+        # but would apply it twice, forward and backward.
+        return values * taps[0] ** 2
     minimum = _filtfilt_min_length(taps.size)
     if values.shape[axis] >= minimum:
         return scipy_signal.filtfilt(taps, 1.0, values, axis=axis)

@@ -158,3 +158,11 @@ def test_apply_fir_filter_works_along_the_requested_axis():
     np.testing.assert_allclose(
         apply_fir_filter(taps, stack, axis=0)[:, 1], apply_fir_filter(taps, stack[:, 1])
     )
+
+
+def test_a_single_tap_is_applied_forward_and_backward_like_filtfilt():
+    from vaft.process.signal_processing import apply_fir_filter
+
+    data = np.linspace(-1.0, 1.0, 50)
+    assert np.allclose(apply_fir_filter(np.array([2.0]), data), 4.0 * data)
+    assert np.allclose(apply_fir_filter(np.array([1.0]), data), data)
