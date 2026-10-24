@@ -119,6 +119,9 @@
           field: 25
           flux_gain: 11.0
           effective_resistance_ohm: 2.8e-4
+          # Keys that exist only inside an era (the FL10 compensation runs
+          # only 46403-47116); any other revision key must be a base key.
+          era_only_keys: [fl10]
           revisions:
             - from_shot: 17455
               to_shot: 46402
@@ -420,6 +423,7 @@
           tolerance: 3.0e-4
       # `source: null` means no usable sensor for the shot; the mapper leaves
       # the diamagnetic flux out with `unavailable_reason` (#993).
+      era_only_keys: [unavailable_reason]
       revisions:
         - to_shot: 37504
           source: null
@@ -854,6 +858,8 @@
         known_faults:
           probes:
             - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+          # Flux-loop faults are recorded only for the eras that have them.
+          era_only_keys: [flux_loops]
           revisions:
             - to_shot: 36480
               probes:
@@ -1065,6 +1071,9 @@
         median_kernel: null
       ion:
         gas_species: H
+      # The bias voltage and tip geometry exist only per era: a shot in a
+      # documented gap has none and must fail (see above).
+      era_only_keys: [vd3, tip_length_mm, tip_radius_mm]
       revisions:
         - to_shot: 42137
           vd3: 38.0
@@ -1105,6 +1114,9 @@
         median_kernel: null
       ion:
         gas_species: H
+      # The bias voltage and tip geometry exist only per era: a shot in a
+      # documented gap has none and must fail (see above).
+      era_only_keys: [vd3, tip_length_mm, tip_radius_mm]
       revisions:
         - to_shot: 42137
           vd3: 43.5
@@ -1561,6 +1573,8 @@
         # Name, identifier and the 2.45 GHz magnetron frequency (MKS
         # TM066/SM1280) live in the module beside the power mapping.
         port: 5ML10
+        # The whole geometry is era-bound: a shot outside every era has none.
+        era_only_keys: [geometry_status, source, launch_plane, launching_position, direction, polarization, stations]
         revisions:
           - from_shot: 29500
             geometry_status: provisional
