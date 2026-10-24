@@ -58,7 +58,9 @@ def test_the_packaged_table_records_its_own_provenance(manifest):
     }
     # Every static asset it was projected from, by hash.
     assets = manifest["machine"]["static_inputs"]
-    assert set(assets) >= {"static_geometry", "pf_geometry", "magnetics_geometry"}
+    assert set(assets) >= {"static_geometry", "pf_geometry"}
+    # Tables built before #2158 hash the magnetics YAMLs; later ones hash the registry.
+    assert "magnetics_geometry" in assets or "magnetics_registry" in assets
     for name, record in assets.items():
         assert len(record["sha256"]) == 64, name
 

@@ -507,14 +507,40 @@ vfit_dataset_description(ods, shot=39915, run=0, machine="VEST", pulse_type="pul
 
 # Static assets and the channel table
 
-Machine mapping is only as good as its geometry tables. They live under `vaft/data/geometry/` and are resolved
-through `resolve_data_root()`:
+Machine mapping is only as good as its geometry tables.
+
+The 75 equilibrium magnetic sensors (64 B-pol probes, then 11 flux loops) are not a file under
+`vaft/data/geometry/`: since #2158 they are one registry in `vaft/machine_mapping/vest.yaml`,
+`0.diagnostics.equilibrium_magnetics.sensors`. Each record carries a stable physical `id` (independent of
+the DAQ field), `kind`, canonical `index` (= list position = ODS/EFUND/EFIT order), `name` (the DAQ label),
+`aliases` (labels the position carries under other eras' wiring), `r`, `z`, the 2409 `field_code` and
+`calibration` (applied as divide). The per-shot `wiring` and `known_faults` beside it name sensors by `id`.
+Read it through `vaft.machine_mapping.magnetics_registry`:
+
+```python
+from vaft.machine_mapping.magnetics_registry import (
+    registry_fingerprint,
+    resolve_equilibrium_magnetics_sensors,
+)
+
+sensors = resolve_equilibrium_magnetics_sensors(39437)   # None = the inventory (2409 base)
+sensors[35].id, sensors[35].field_code, sensors[35].name  # 'bpol_C_z+0.060', 170, 'MagneticFieldProbe_C2-04_Bz'
+registry_fingerprint()                                    # sha256 of the resolved records
+```
+
+The resolver validates 64/11 sensors, unique ids, indices and effective field codes, finite positions,
+non-zero calibration, and that wiring never moves a label onto a sensor that does not list it. The three
+YAMLs the registry replaced (`MD.yaml`, `VEST_MagneticsGeometry_Full_ver_2302.yaml`, `table.yaml`) are
+frozen, non-runtime fixtures in `test/data/legacy_magnetics/`; `test/test_magnetics_registry.py` checks the
+registry against them field by field. The static product manifest (and so the `! static input` header of a
+newly generated EFUND `mhdin.dat`) records the sensors as `magnetics_registry` with the registry fingerprint;
+EFUND table manifests made before #2158 keep the `magnetics_geometry` / `magnetics_calibration` file hashes as
+their historical identity, and the projected `rsi`/`zsi`/`xmp2`/`ymp2`/`amp2`/`smp2` and names are unchanged.
+The other geometry assets live under `vaft/data/geometry/` and are
+resolved through `resolve_data_root()`:
 
 | Asset | Used for |
 |---|---|
-| `VEST_MagneticsGeometry_Full_ver_2302.yaml` | probe / flux-loop positions, and the inboard–side–outboard grouping |
-| `MD.yaml` | magnetic-diagnostic channel list used by `vfit_md` |
-| `table.yaml` | field code → channel name lookup |
 | `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `..._ver_2507.mat` | PF coil elements (shot-dependent; 2507 from shot 45968) |
 | `VEST_static_geometry.json.gz`, `VEST_passive_wall_2409.npz` | passive wall: 950 loops, plus 15 from shot 43017 (wall 2409) |
 | `line_of_sight_endpoints.csv` | SXR lines of sight |
@@ -619,7 +645,8 @@ The contract to satisfy, in order:
    signals. Use `set_path` from `.utils` rather than assigning into the ODS directly — it keeps path handling
    uniform.
 3. Write the canonical `<ids_name>(ods, shot, tstart, tend, dt)` that calls both.
-4. Put geometry in `vaft/data/geometry/` as YAML or CSV. Do not hardcode positions in Python.
+4. Put geometry in `vaft/data/geometry/` as CSV (or, for the equilibrium magnetics, in the `vest.yaml` sensor
+   registry). Do not hardcode positions in Python.
 5. Register the public names in `_EXPORT_MAP` and `__all__` in
    [`__init__.py`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/machine_mapping/__init__.py) so they
    are reachable from the package root.

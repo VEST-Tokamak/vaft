@@ -363,6 +363,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_flux_loop_known_faults.py",
     "test_magnetic_decomposition.py",
     "test_magnetics_geometry_registry.py",
+    # The vest.yaml equilibrium magnetic sensor registry (#2158): schema,
+    # frozen-fixture equality and pre-#2158 output identity, ~30 s.
+    "test_magnetics_registry.py",
     "test_plasma_current_quality.py",
     "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
