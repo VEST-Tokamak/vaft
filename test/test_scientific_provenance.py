@@ -107,6 +107,34 @@ def test_a_wrong_factor_fails_the_invariant_check(sample, converted, field, fact
     assert evidence.status is S.FAIL
 
 
+@pytest.mark.parametrize("field, factor", [("psi", 7.0), ("pprime", 7.0), ("ffprime", 1 / 7)])
+def test_the_flux_grid_and_its_derivatives_are_checked_too(sample, converted, field, factor):
+    from vaft.validation.cocos import check_cocos_transform
+
+    broken = replace(converted, **{field: np.asarray(getattr(converted, field)) * factor})
+    assert check_cocos_transform(sample, broken).status is S.FAIL
+
+
+@pytest.mark.parametrize("change", [
+    {"ip": float("nan")}, {"bt0": float("nan")}, {"q": "nan"}, {"ip": 0.0},
+])
+def test_what_could_not_be_checked_is_never_a_pass(sample, converted, change):
+    from vaft.validation.cocos import check_cocos_transform
+
+    def spoil(e):
+        values = {k: (np.full_like(np.asarray(getattr(e, k), dtype=float), np.nan) if v == "nan" else v)
+                  for k, v in change.items()}
+        return replace(e, **values)
+
+    report = check_cocos_transform(spoil(sample), spoil(converted))
+    assert report.status is not S.PASS
+
+
+def test_a_check_named_without_its_report_is_refused():
+    with pytest.raises(ValueError, match="no report"):
+        transformation_evidence(cocos_transformation_record(1, 11, checks=(KEY,)))
+
+
 def test_an_undeclared_convention_cannot_be_checked(sample, converted):
     from vaft.validation.cocos import check_cocos_transform
 
@@ -143,13 +171,22 @@ def _verdict(stored_norm, conjugate_norm):
     return phase_convention_verdict(audit, criteria=GPEC_COIL_FIELD)
 
 
-@pytest.mark.parametrize("stored, conjugate, status", [
-    (1e-8, 1.0, S.PASS),
-    (1.0, 1e-8, S.FAIL),
-    (0.5, 0.6, S.INDETERMINATE),
+@pytest.mark.parametrize("stored, conjugate, declared, status", [
+    (1e-8, 1.0, "gpec", S.PASS),
+    (1.0, 1e-8, "gpec", S.FAIL),
+    # The sector decomposition uses the opposite kernel: the audit's "conjugate" confirms it.
+    (1.0, 1e-8, "sector", S.PASS),
+    (1e-8, 1.0, "sector", S.FAIL),
+    (0.5, 0.6, "gpec", S.INDETERMINATE),
+    (0.5, 0.6, "sector", S.INDETERMINATE),
+    (1e-8, 1.0, "undeclared", S.INDETERMINATE),
 ])
-def test_phase_verdicts_map_onto_t_without_promoting_indeterminate(stored, conjugate, status):
-    evidence = phase_verdict_evidence(_verdict(stored, conjugate))
+def test_phase_verdicts_map_onto_t_against_the_declared_kernel(stored, conjugate, declared, status):
+    from vaft.data.fourier import COIL_SECTOR_DECOMPOSITION, GPEC_HARMONIC, FourierConvention
+
+    conventions = {"gpec": GPEC_HARMONIC, "sector": COIL_SECTOR_DECOMPOSITION,
+                   "undeclared": FourierConvention("undeclared", None, 2.0)}
+    evidence = phase_verdict_evidence(_verdict(stored, conjugate), conventions[declared])
     assert (evidence.axis, evidence.status, evidence.cost) == ("transformation", status, "moderate")
 
 
@@ -157,6 +194,7 @@ def test_phase_verdicts_map_onto_t_without_promoting_indeterminate(stored, conju
 
 
 def _chain(sample, converted):
+    from vaft.data.fourier import GPEC_HARMONIC
     from vaft.machine_mapping.conventions import unresolved_orientation_assumptions
     from vaft.validation.applicability import evaluate_contract
     from vaft.validation.cocos import check_cocos_transform
@@ -184,7 +222,7 @@ def _chain(sample, converted):
     gpec = ScientificContext(
         "gpec", "vaft.code.gpec",
         applicability=(evaluate_contract(contract("ideal_single_fluid_mhd"), {}),),
-        evidence=(phase_verdict_evidence(_verdict(0.5, 0.6)),
+        evidence=(phase_verdict_evidence(_verdict(0.5, 0.6), GPEC_HARMONIC),
                   Evidence("numerical", "gpec.convergence", S.PASS)),
         upstream=(chease,),
     )
@@ -212,20 +250,42 @@ def test_axes_stay_separate_and_absent_axes_never_pass(sample, converted):
 
 
 def test_fitted_evidence_is_never_independent_validation_downstream(sample, converted):
+    from vaft.validation.context import ScientificContext
+
     _, _, gpec = _chain(sample, converted)
-    fitted = [e for e in gpec.all_evidence() if e.role == "used_for_inference"]
-    assert fitted and all(e.axis != "independent_validation" for e in fitted)
+    mislabelled = ScientificContext("thomson", evidence=(
+        Evidence("independent_validation", "independent_validation.thomson", S.PASS, role="used_for_inference"),
+    ), upstream=(gpec,))
+    fitted = [e for e in mislabelled.all_evidence() if e.role == "used_for_inference"]
+    assert len(fitted) == 2 and all(e.axis == "inference" for e in fitted)
+    assert "independent_validation" not in mislabelled.credibility()
+    independent = ScientificContext("thomson", evidence=(
+        Evidence("independent_validation", "independent_validation.thomson", S.PASS, role="independent_validation"),
+    ))
+    assert independent.credibility() == {"independent_validation": S.PASS}
 
 
 def test_the_chain_records_transformations_and_serializes(sample, converted):
     efit, _, gpec = _chain(sample, converted)
     assert [r.kind for r in gpec.all_transformations()] == ["cocos"]
-    payload = json.loads(json.dumps(gpec.as_dict()))
+    payload = json.loads(json.dumps(gpec.as_dict(), allow_nan=False))
     assert payload["schema_version"] == 1
     assert payload["upstream"][0]["transformations"][0]["provider"] == "vaft.process.equilibrium.convert_cocos"
     assert any("#288" in item for item in payload["unresolved_assumptions"])
     shared = type(gpec)("summary", upstream=(efit, efit))
     assert len(shared.chain()) == 2
+
+
+def test_records_serialize_as_strict_json():
+    record = cocos_transformation_record(1, 11, parameters={"eps": float("nan"), "k": np.float32(2.5)})
+    payload = json.loads(json.dumps(record.as_dict(), allow_nan=False))
+    assert payload["parameters"] == {"source_cocos": 1, "target_cocos": 11, "eps": None, "k": 2.5}
+
+
+def test_a_context_accepts_none_for_empty_fields():
+    from vaft.validation.context import ScientificContext
+
+    assert ScientificContext("x", evidence=None, upstream=None).credibility() == {}
 
 
 def test_numerical_convergence_is_not_applicability(sample, converted):

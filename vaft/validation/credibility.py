@@ -420,6 +420,8 @@ def transformation_evidence(record: Any, report: Any = None, *, key: str | None 
     """
     if not getattr(record, "executed", False):
         return ()
+    if report is None and record.checks:
+        raise ValueError(f"the record names checks {record.checks} but no report was given")
     key = key or (record.checks[0] if record.checks else f"transformation.{record.kind}")
     reasons = [f"{record.kind} transformation by {record.provider}"]
     reasons += [f"unresolved: {item}" for item in record.unresolved]
@@ -432,21 +434,35 @@ def transformation_evidence(record: Any, report: Any = None, *, key: str | None 
     return (Evidence("transformation", key, report.status, metrics, tuple(reasons)),)
 
 
-def phase_verdict_evidence(verdict: Any, *, key: str = "verification.harmonic_phase_convention",
+def phase_verdict_evidence(verdict: Any, declared: Any, *, key: str = "verification.harmonic_phase_convention",
                            cost: str = "moderate") -> Evidence:
     """A :class:`~vaft.validation.perturbation_phase.PhaseConventionVerdict` on the ``transformation`` axis.
 
-    The verdict says which reconstruction a stored harmonic belongs to; the
-    evidence says whether that is the one it was declared to be.  ``"stored"``
-    -- the declared kernel -- is ``pass``; ``"conjugate"`` is ``fail``, the
+    The audit (:func:`vaft.process.perturbation.toroidal_phase_audit`) measures
+    against one fixed kernel, ``Re(C e^{-i n phi})``: ``"stored"`` means the
+    file follows that kernel, ``"conjugate"`` that it follows the opposite one.
+    ``declared`` is the :class:`~vaft.data.fourier.FourierConvention` the file
+    claims, and its kernel sign decides which verdict confirms it.  A settled
+    verdict that matches is ``pass``; one that does not is ``fail`` -- the
     declaration is wrong; ``indeterminate`` stays ``indeterminate``, never a
-    pass.  The audit evaluates the field independently (Biot-Savart), so it is
-    ``moderate`` cost by default.
+    pass.  A declaration without a kernel sign cannot be confirmed and gives
+    ``indeterminate``.  The audit evaluates the field independently
+    (Biot-Savart), so it is ``moderate`` cost by default.
     """
+    from vaft.data.fourier import GPEC_HARMONIC
+
     status = ValidationStatus(verdict.status)
-    if status is ValidationStatus.PASS and verdict.convention == "conjugate":
-        status = ValidationStatus.FAIL
-        reason = "the audit settles the conjugate of the declared kernel: " + verdict.reason
-    else:
-        reason = verdict.reason
-    return Evidence("transformation", key, status, {"convention": verdict.convention}, (reason,), cost=cost)
+    reason = verdict.reason
+    sign = getattr(declared, "kernel_sign", None)
+    if status is ValidationStatus.PASS:
+        if sign is None:
+            status, reason = ValidationStatus.INDETERMINATE, "the declared convention has no kernel sign: " + reason
+        else:
+            expected = "stored" if sign == GPEC_HARMONIC.kernel_sign else "conjugate"
+            if verdict.convention != expected:
+                status = ValidationStatus.FAIL
+                reason = (f"the audit settles {verdict.convention!r}, but {declared.name!r} declares "
+                          f"{expected!r}: " + reason)
+    return Evidence("transformation", key, status,
+                    {"convention": verdict.convention, "declared": getattr(declared, "name", None)},
+                    (reason,), cost=cost)

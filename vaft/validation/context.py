@@ -66,7 +66,9 @@ class ScientificContext:
     def __post_init__(self):
         for name in ("transformations", "applicability", "evidence", "unresolved", "upstream"):
             value = getattr(self, name)
-            if isinstance(value, (str, bytes)) or not isinstance(value, (tuple, list)):
+            if value is None:
+                value = ()
+            elif isinstance(value, (str, bytes)) or not isinstance(value, (tuple, list)):
                 value = (value,)
             object.__setattr__(self, name, tuple(value))
 
@@ -101,12 +103,23 @@ class ScientificContext:
         An applicability evaluation becomes evidence through
         :func:`vaft.validation.applicability.as_evidence`; ``NOT_APPLICABLE``
         contributes none, because the contract does not concern the state.
+        Evidence used for the inference cannot be independent validation of
+        it: an ``independent_validation`` item whose role is
+        ``used_for_inference`` is moved to ``inference``, as
+        :func:`~vaft.validation.credibility.evidence_from_equilibrium_report`
+        does for a fitted check.
         """
+        from dataclasses import replace
+
         from vaft.validation.applicability import as_evidence
 
         items: list = []
         for context in self.chain():
-            items.extend(context.evidence)
+            for item in context.evidence:
+                if item.axis == "independent_validation" and item.role == "used_for_inference":
+                    item = replace(item, axis="inference",
+                                   reasons=(*item.reasons, "used for the inference, so not independent"))
+                items.append(item)
             for evaluation in context.applicability:
                 converted = as_evidence(evaluation)
                 if converted is not None:
@@ -152,6 +165,8 @@ def _plain(value: Any) -> Any:
         return {str(k): _plain(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
         return [_plain(v) for v in value]
+    if hasattr(value, "item") and callable(value.item) and getattr(value, "ndim", None) == 0:
+        value = value.item()  # a numpy scalar
     if isinstance(value, float) and not math.isfinite(value):
         return None
     if hasattr(value, "value") and type(value).__module__ != "builtins":

@@ -99,9 +99,9 @@ _SPECS = (
           "Sauter Eq. 23 relations; warn when an invariant's input is missing"),
     _spec("verification.harmonic_phase_convention", "",
           "vaft.validation.perturbation_phase.phase_convention_verdict",
-          "pass when a phase audit against an independent field evaluation settles the kernel and it "
-          "is the declared one; fail when it settles the conjugate; indeterminate when the audit "
-          "cannot separate the two"),
+          "pass or indeterminate: pass when a phase audit against an independent field evaluation "
+          "separates the stored kernel from its conjugate; credibility.phase_verdict_evidence then "
+          "fails a settled kernel that is not the declared one"),
     _spec("verification.convergence", "1",
           "vaft.omas.efit_quality.convergence_metrics",
           "fail when code.output_flag < 0, EFIT's own verdict rejects the slice, or the final "

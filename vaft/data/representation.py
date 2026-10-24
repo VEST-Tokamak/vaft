@@ -435,11 +435,26 @@ class TransformationRecord:
             "provider": self.provider,
             "source": rep(self.source),
             "target": rep(self.target),
-            "parameters": {str(k): v for k, v in self.parameters.items()},
+            "parameters": _json_safe(dict(self.parameters)),
             "executed": self.executed,
             "checks": list(self.checks),
             "unresolved": list(self.unresolved),
         }
+
+
+def _json_safe(value: Any) -> Any:
+    """Strict JSON: numpy scalars to Python, non-finite floats to ``None``."""
+    import math
+
+    if isinstance(value, Mapping):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if hasattr(value, "item") and callable(value.item) and getattr(value, "ndim", None) == 0:
+        value = value.item()
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return value
 
 
 def cocos_transformation_record(source_cocos: int, target_cocos: int, *, provider: str = COCOS_PROVIDER,

@@ -191,9 +191,14 @@ def check_cocos_transform(before: Any, after: Any) -> ValidationReport:
     1. Both conventions must carry an index.
     2. ``|I_p|``, ``|B_0|``, ``|q|``, ``|F|`` and the pressure are invariant
        in magnitude under any COCOS change.
-    3. ``|psi_boundary - psi_axis|`` scales by ``(2*pi)**(e_Bp,after - e_Bp,before)``.
+    3. ``|psi_boundary - psi_axis|`` and the grid ``|psi - psi_axis|`` scale by
+       ``k = (2*pi)**(e_Bp,after - e_Bp,before)``; ``|p'|`` and ``|FF'|`` by
+       ``1/k``.
     4. The converted equilibrium satisfies the Sauter Eq. 23 sign relations of
        its new index, as far as :func:`validate_cocos` can check them.
+
+    A missing or non-finite input is a warning, never a pass: the report then
+    reads ``warn`` because something was not checked.
 
     Convention
     ----------
@@ -205,8 +210,9 @@ def check_cocos_transform(before: Any, after: Any) -> ValidationReport:
     Limitations
     -----------
     The standing ``cocos_unverifiable`` warning of :func:`validate_cocos`
-    (``j_phi`` and ``phi_tor`` have no field) is not repeated here; only its
-    sign-relation findings are.
+    about ``j_phi`` and ``phi_tor``, which no ``EquilibriumData`` field can
+    carry, is not repeated here; every other finding of it is, including a
+    missing current or field sign that leaves no relation checkable.
 
     Provenance
     ----------
@@ -223,36 +229,48 @@ def check_cocos_transform(before: Any, after: Any) -> ValidationReport:
         raise ValueError("both equilibria must carry a COCOS index; a conversion that produced "
                          "an undeclared convention is not a conversion to check")
 
-    def magnitude(field: str) -> None:
-        a, b = getattr(before, field, None), getattr(after, field, None)
+    exponent = int(not psi_is_per_radian(target)) - int(not psi_is_per_radian(source))
+    flux_scale = (2.0 * np.pi) ** exponent
+
+    def unverifiable(field: str, why: str) -> None:
+        issues.append(ValidationIssue("warning", "cocos_transform_unverifiable", field,
+                                      f"{field} {why}, so it is not checked"))
+
+    def scaled(field: str, a, b, factor: float, label: str) -> None:
+        # |b| == factor * |a| elementwise; a missing or non-finite input is never a pass
         if a is None or b is None:
-            issues.append(ValidationIssue("warning", "cocos_transform_unverifiable", field,
-                                          f"{field} is missing, so its invariance is not checked"))
+            unverifiable(field, "is missing")
             return
         a, b = np.abs(np.asarray(a, dtype=float)), np.abs(np.asarray(b, dtype=float))
-        if a.shape != b.shape or not np.allclose(a, b, rtol=TRANSFORM_RTOL, atol=0.0, equal_nan=True):
+        if a.shape != b.shape:
             issues.append(ValidationIssue("error", f"cocos_transform_{field}", field,
-                                          f"|{field}| changed under COCOS {source} -> {target}"))
+                                          f"{field} changed shape under COCOS {source} -> {target}"))
+            return
+        if not (np.all(np.isfinite(a)) and np.all(np.isfinite(b))):
+            unverifiable(field, "holds non-finite values")
+            return
+        if not np.allclose(b, factor * a, rtol=TRANSFORM_RTOL, atol=0.0):
+            issues.append(ValidationIssue("error", f"cocos_transform_{field}", field,
+                                          f"{label} under COCOS {source} -> {target}"))
 
     for field in ("ip", "bt0", "q", "f", "pressure"):
-        magnitude(field)
+        scaled(field, getattr(before, field, None), getattr(after, field, None), 1.0, f"|{field}| changed")
 
-    spans = [getattr(e, "psi_boundary", None) - getattr(e, "psi_axis", None)
-             if getattr(e, "psi_boundary", None) is not None and getattr(e, "psi_axis", None) is not None
-             else None for e in (before, after)]
-    if None in spans or spans[0] == 0:
-        issues.append(ValidationIssue("warning", "cocos_transform_unverifiable", "psi",
-                                      "psi_axis or psi_boundary is missing, so the flux scale is not checked"))
-    else:
-        exponent = int(not psi_is_per_radian(target)) - int(not psi_is_per_radian(source))
-        expected = (2.0 * np.pi) ** exponent
-        ratio = abs(float(spans[1])) / abs(float(spans[0]))
-        if not np.isclose(ratio, expected, rtol=TRANSFORM_RTOL, atol=0.0):
-            issues.append(ValidationIssue("error", "cocos_transform_psi", "psi",
-                                          f"|dpsi| scaled by {ratio:.12g}, expected {expected:.12g} "
-                                          f"for COCOS {source} -> {target}"))
+    def flux_from_axis(e, field):
+        value, axis = getattr(e, field, None), getattr(e, "psi_axis", None)
+        return None if value is None or axis is None else np.asarray(value, dtype=float) - float(axis)
 
+    for field in ("psi_boundary", "psi"):
+        scaled(field, flux_from_axis(before, field), flux_from_axis(after, field), flux_scale,
+               f"the flux from the axis did not scale by {flux_scale:.12g}")
+    for field in ("pprime", "ffprime"):
+        scaled(field, getattr(before, field, None), getattr(after, field, None), 1.0 / flux_scale,
+               f"d/dpsi did not scale by {1.0 / flux_scale:.12g}")
+
+    standing = {"toroidal current density", "toroidal flux"}
     for issue in validate_cocos(after, target).issues:
-        if issue.code != "cocos_unverifiable":
-            issues.append(issue)
+        if issue.code == "cocos_unverifiable" and issue.message.startswith(f"COCOS {target} relations not checked"):
+            if set(issue.message.split(": ", 1)[-1].split(", ")) <= standing:
+                continue  # the two relations no EquilibriumData field can ever carry
+        issues.append(issue)
     return ValidationReport(tuple(issues))
