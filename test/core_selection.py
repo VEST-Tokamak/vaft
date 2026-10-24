@@ -366,6 +366,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_plasma_current_quality.py",
     "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
+    # Short-run anti-alias correction (#2162 B3.12): a run too short for the
+    # anti-alias filter is not decimated into an alias. Analytic tones, ~2 s.
+    "test_resample_short_run_alias.py",
     # Impurity composition (lane L, #1565): the mixture algebra against the
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
     # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
