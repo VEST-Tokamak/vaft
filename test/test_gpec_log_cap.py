@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import os
 import sys
 
 import pytest
@@ -36,7 +37,9 @@ def test_a_short_log_is_written_unchanged_and_the_status_passes_through():
         max_bytes=10_000, stall_lines=10, stall_pattern="corrector", sink=sink,
     )
     assert code == 3
-    assert sink.getvalue() == b"hello\n"
+    # The child's text-mode stdout ends the line with os.linesep (\r\n on
+    # Windows); the cap passes the bytes through untouched.
+    assert sink.getvalue() == f"hello{os.linesep}".encode()
 
 
 def test_a_stalled_program_is_stopped_and_says_so():

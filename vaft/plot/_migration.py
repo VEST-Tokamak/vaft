@@ -4,32 +4,42 @@ Issue #62 replaced the wildcard-exported ``vaft.plot`` surface with an explicit,
 registry-driven one.  This module holds the machine-readable migration table that
 drives three things:
 
-* the deprecation ``__getattr__`` in :mod:`vaft.plot`;
+* the ``__getattr__`` in :mod:`vaft.plot`, which answers a removed name with
+  an ``AttributeError`` that names its replacement;
 * the Markdown rendering from :func:`render_markdown_table`, exported as
   ``vaft.plot.migration_table``;
-* the regression tests that keep both in sync.
+* the regression tests that keep both in sync, and the documentation snippet
+  gate that rejects a superseded spelling.
 
 Every name that ``vaft.plot`` exported before the redesign appears in exactly one
-of the mappings below.
+of the mappings below.  The compatibility window closed in ``REMOVAL_RELEASE``
+(0.9.0): since then only ``LEGACY`` names still resolve from ``vaft.plot``.
 
 Classifications
 ---------------
 
 ``DEPRECATED``
-    A real renderer whose canonical replacement exists.  The old name keeps
-    working and warns until the removal release.  Renderers now take view models,
-    so a legacy call routed through ``vaft.omas.plot_<stem>`` is the direct
-    equivalent; the mapping records the canonical stem.
+    A real renderer whose canonical replacement exists.  The old name resolved
+    from ``vaft.plot`` with a ``DeprecationWarning`` from ``INTRODUCED_IN`` to
+    ``REMOVAL_RELEASE`` and is gone since; ``vaft.plot.<name>`` raises
+    ``AttributeError`` naming the canonical stem.  Renderers take view models,
+    so the direct equivalent of a legacy call is ``vaft.omas.plot_<stem>``.
+    The implementation modules (``vaft.plot.time`` and the others in
+    ``LEGACY_MODULES``) are still importable by their own path.
 
 ``RENAMED``
     A canonical renderer whose stem changed in the issue #251 subject-taxonomy
     redesign (``magnetics_time_ip`` -> ``plasma_current_time``).  The old stem
-    keeps working from ``vaft.plot`` and ``vaft.omas.plot_<stem>`` and warns
-    until ``RENAMED_REMOVAL_RELEASE``.
+    resolved from ``vaft.plot`` and ``vaft.omas.plot_<stem>`` with a
+    ``DeprecationWarning`` from ``RENAMED_IN`` to ``RENAMED_REMOVAL_RELEASE``
+    and is gone since; both spellings raise ``AttributeError`` naming the new
+    stem.
 
 ``RELOCATED``
-    Still supported, but it belongs to another namespace.  It keeps working from
-    ``vaft.plot`` and warns, pointing at its real home.
+    Never a plotting function: it belongs to another namespace and was visible
+    from ``vaft.plot`` only through wildcard imports.  The ``vaft.plot`` alias
+    warned until ``REMOVAL_RELEASE`` and is gone since; the ``AttributeError``
+    names the real home.
 
 ``LEGACY``
     Cross-shot statistics that have no canonical destination yet.  Still
@@ -38,8 +48,8 @@ Classifications
 
 ``REMOVED``
     Internal helpers and wildcard leakage that were never intended as API.  These
-    raise ``AttributeError`` immediately; the table records where the behavior
-    lives now so callers can adapt.
+    raised ``AttributeError`` from the start; the table records where the
+    behavior lives now so callers can adapt.
 """
 
 from __future__ import annotations
@@ -62,10 +72,10 @@ __all__ = [
     "legacy_surface",
 ]
 
-#: Release that introduced the deprecations, and the release that removes them.
+#: Release that introduced the deprecations, and the release that removed them.
 #: The removal was first promised for 0.7.0 and shipped past its date twice;
-#: ``test_plot_migration.py`` now refuses a release whose version has reached
-#: either removal release while the names still resolve.
+#: 0.9.0 deleted the names, and ``test_plot_migration.py`` holds every removal
+#: promise still in the tree to its date.
 INTRODUCED_IN = "0.5.0"
 REMOVAL_RELEASE = "0.9.0"
 
@@ -203,8 +213,9 @@ del _name, _coordinate, _canonical
 #: Old canonical stem -> new subject-centered canonical stem (issue #251).
 #: Unlike ``DEPRECATED`` (pre-redesign legacy names), these were canonical
 #: names between the issue #62 redesign and the issue #251 subject taxonomy.
-#: ``vaft.plot.<old>`` and ``vaft.omas.plot_<old>`` keep working with a
-#: ``DeprecationWarning`` until ``RENAMED_REMOVAL_RELEASE``.
+#: ``vaft.plot.<old>`` and ``vaft.omas.plot_<old>`` worked with a
+#: ``DeprecationWarning`` from ``RENAMED_IN`` until ``RENAMED_REMOVAL_RELEASE``
+#: deleted them.
 RENAMED_IN = "0.6.0"
 RENAMED_REMOVAL_RELEASE = "0.9.0"
 
@@ -324,13 +335,14 @@ def legacy_surface() -> frozenset[str]:
 
 COMPATIBILITY_NOTES = (
     f"Deprecated vaft.plot names were introduced in {INTRODUCED_IN} and are "
-    f"removed in {REMOVAL_RELEASE}."
+    f"gone since {REMOVAL_RELEASE}."
 )
 
 
-#: Legacy name -> the ``vaft.plot`` submodule that still implements it during the
-#: compatibility window.  ``vaft.plot.__getattr__`` uses this to resolve the old
-#: names without importing every legacy module at package import.
+#: Legacy name -> the ``vaft.plot`` submodule that implements it.  Only the
+#: ``LEGACY`` names still resolve from the package (``vaft.plot.__getattr__``
+#: imports their module on first use); for the rest this records where the
+#: old implementation lives, reachable only by its own module path.
 LEGACY_MODULES: dict[str, str] = {}
 
 for _module, _names in {
@@ -443,10 +455,13 @@ def render_markdown_table() -> str:
         "",
         "## Compatibility window",
         "",
-        f"Deprecations were introduced in **{INTRODUCED_IN}** and are removed in",
-        f"**{REMOVAL_RELEASE}**. Until then, every name in the *Deprecated* and",
-        "*Relocated* sections keeps working from `vaft.plot` and emits a",
-        "`DeprecationWarning` that names its replacement.",
+        f"Deprecations were introduced in **{INTRODUCED_IN}** and the names were",
+        f"removed in **{REMOVAL_RELEASE}**. In between, every name in the",
+        "*Legacy renderers* and *Relocated* sections kept working from `vaft.plot`",
+        "and emitted a `DeprecationWarning` that named its replacement. Since the",
+        "removal, `vaft.plot.<old name>` raises `AttributeError` with the same",
+        "guidance; the implementation modules (`vaft.plot.time`, `vaft.plot.onedim`,",
+        "...) are still importable by their own path.",
         "",
         "## How to read the replacements",
         "",
@@ -461,12 +476,13 @@ def render_markdown_table() -> str:
         "",
         "Use `vaft.plot.<canonical>` directly when you already hold a view model.",
         "",
-        "## Deprecated renderers",
+        "## Legacy renderers",
         "",
-        "These still work and warn. Several legacy names collapse onto one canonical",
-        "renderer: the 24 generated `equilibrium_<coordinate>_<quantity>` globals",
-        "become six `equilibrium_profile_*` renderers plus a `coordinate=` argument,",
-        "and the four top-view wrappers become `machine_geometry_topview`.",
+        f"Deprecated in {INTRODUCED_IN}, removed in {REMOVAL_RELEASE}. Several legacy",
+        "names collapse onto one canonical renderer: the 24 generated",
+        "`equilibrium_<coordinate>_<quantity>` globals become six",
+        "`equilibrium_profile_*` renderers plus a `coordinate=` argument, and the",
+        "four top-view wrappers become `machine_geometry_topview`.",
         "",
         "| Legacy name | Canonical `vaft.plot` name | Adapter |",
         "| --- | --- | --- |",
@@ -480,9 +496,9 @@ def render_markdown_table() -> str:
         "## Renamed canonical stems (issue #251)",
         "",
         "The issue #251 subject taxonomy renamed these canonical stems from",
-        "IDS-oriented to physical-subject-oriented names. The old stems keep",
-        f"working and warn from **{RENAMED_IN}** until **{RENAMED_REMOVAL_RELEASE}**,",
-        "from both `vaft.plot.<stem>` and `vaft.omas.plot_<stem>`.",
+        "IDS-oriented to physical-subject-oriented names. The old stems kept",
+        f"working with a warning from **{RENAMED_IN}** until **{RENAMED_REMOVAL_RELEASE}**",
+        "removed them from both `vaft.plot.<stem>` and `vaft.omas.plot_<stem>`.",
         "",
         "| Old canonical stem | New canonical stem |",
         "| --- | --- |",
@@ -495,8 +511,8 @@ def render_markdown_table() -> str:
         "## Relocated",
         "",
         "These were never plotting functions. They were visible from `vaft.plot`",
-        "only because of wildcard imports. They still resolve and warn, pointing at",
-        "the namespace that owns them.",
+        f"only because of wildcard imports; the alias was removed in {REMOVAL_RELEASE}.",
+        "Import them from the namespace that owns them.",
         "",
         "| Legacy `vaft.plot` name | Real home |",
         "| --- | --- |",
@@ -526,8 +542,9 @@ def render_markdown_table() -> str:
         "## Removed internal helpers",
         "",
         "These leaked out of implementation modules through wildcard imports and",
-        "were never intended as API. They raise `AttributeError` immediately. Where",
-        "the behavior survives, it is in the view models or the adapters.",
+        "were never intended as API. They raised `AttributeError` from the start of",
+        "the redesign, with no deprecation period. Where the behavior survives, it",
+        "is in the view models or the adapters.",
         "",
         "| Removed name | Why, and what to use |",
         "| --- | --- |",
@@ -541,7 +558,7 @@ def render_markdown_table() -> str:
         "",
         "These names were already spelled `<domain>_<view>_<quantity>` before the",
         "redesign and keep working without a warning. Their reverse-order twins",
-        "(`time_magnetics_ip` and friends) are in the *Deprecated* table above. Note",
+        "(`time_magnetics_ip` and friends) are in the *Legacy renderers* table above. Note",
         "that the signature changed: they now take a view model and default to",
         "`show=False`, so ODS callers should move to `vaft.omas.plot_<name>`.",
         "",

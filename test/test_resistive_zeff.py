@@ -330,12 +330,19 @@ def test_a_tabulated_conductivity_is_held_to_its_own_charge():
 # --- #1188: no hidden Spitzer inputs ----------------------------------------------------
 
 
-def test_omitting_the_spitzer_inputs_warns_and_names_the_issue():
+@pytest.mark.parametrize("kwargs, missing", [
+    ({}, "Z_eff, ln_Lambda"),
+    ({"Z_eff": 2.0}, "ln_Lambda"),
+    ({"ln_Lambda": 17.0}, "Z_eff"),
+])
+def test_omitting_the_spitzer_inputs_raises_and_names_them(kwargs, missing):
+    """#1188: the fallbacks Z_eff=2, ln_Lambda=17 warned from 0.7.0 and were removed in 0.9.0."""
     from vaft.formula.equilibrium import spitzer_resistivity_from_T_e_Z_eff_ln_Lambda
 
-    with pytest.warns(FutureWarning, match="#1188"):
-        implied = spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(100.0)
-    assert implied == pytest.approx(spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(100.0, 2.0, 17.0))
+    with pytest.raises(TypeError, match=rf"without {missing};.*#1188"):
+        spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(100.0, **kwargs)
+    assert spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(100.0, 2.0, 17.0) == pytest.approx(
+        5.2e-5 * 2.0 * 17.0 / 100.0**1.5, rel=0.05)
 
 
 def test_the_spitzer_coefficient_is_the_nrl_parallel_one():
@@ -346,14 +353,16 @@ def test_the_spitzer_coefficient_is_the_nrl_parallel_one():
     assert eta < 1.03e-4 / 1000.0**1.5 / 1.5  # far below the perpendicular value
 
 
-def test_the_ohmic_power_wrapper_warns_without_its_spitzer_inputs():
+def test_the_ohmic_power_wrapper_raises_without_its_spitzer_inputs():
     pytest.importorskip("omas")
     pytest.importorskip("skimage")
     from vaft.omas.process_wrapper import compute_ohmic_heating_power_from_core_profiles
     from vaft.omas.sample import sample_ods
 
-    with pytest.warns(FutureWarning, match="#1188"):
+    with pytest.raises(TypeError, match=r"without Z_eff, ln_Lambda;.*#1188"):
         compute_ohmic_heating_power_from_core_profiles(sample_ods(48224), time_slice=0)
+    with pytest.raises(TypeError, match=r"without ln_Lambda;"):
+        compute_ohmic_heating_power_from_core_profiles(sample_ods(48224), time_slice=0, Z_eff=2.0)
 
 
 def test_non_positive_samples_are_kept_and_counted_not_dropped():
@@ -373,18 +382,13 @@ def test_non_positive_samples_are_kept_and_counted_not_dropped():
     assert result.quality["n_samples"] == 4
 
 
-def test_the_parameters_variant_warns_at_the_callers_line():
-    import warnings
-
+def test_the_parameters_variant_raises_in_its_own_name():
     from vaft.process.equilibrium import resistive_layer_parameters
 
     psi = np.linspace(0.0, 1.0, 32)
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
+    with pytest.raises(TypeError, match=r"^resistive_layer_parameters called without z_eff, ln_lambda;"):
         resistive_layer_parameters(psi, 2.0 + 10.0 * psi**2, 1, t_e=100.0 * (1.1 - psi),
                                    n_e=np.full(32, 1e19))
-    deprecations = [w for w in caught if issubclass(w.category, FutureWarning)]
-    assert deprecations and deprecations[0].filename == __file__
 
 
 # --- prescribed Z_eff profiles in the forward model (#1566) ----------------------------

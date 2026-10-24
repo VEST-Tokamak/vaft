@@ -3804,33 +3804,28 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
         ods: OMAS data structure
         time_slice: Time slice index for core profile (None = use first available)
         Z_eff: Effective charge for the NRL parallel Spitzer resistivity.
-            Required in substance: omitting it is deprecated (#1188) and falls
-            back to 2.0 with a FutureWarning until 0.9.
+            Required: omitting it raises TypeError since 0.9.0 (#1188); the
+            hidden fallback of 2.0 was deprecated in 0.7.0.
         ln_Lambda: Coulomb logarithm; as Z_eff (former fallback 17.0).
     
     Returns:
         P_ohm: Ohmic heating power [W]
     
     Raises:
+        TypeError: If Z_eff or ln_Lambda is omitted
         KeyError: If required data is missing
         ValueError: If plasma volume is zero
     """
     from vaft.omas.update import update_equilibrium_profiles_1d_normalized_psi, update_equilibrium_profiles_2d_j_tor
 
     if Z_eff is None or ln_Lambda is None:
-        import warnings
-
         missing = [name for name, value in (("Z_eff", Z_eff), ("ln_Lambda", ln_Lambda))
                    if value is None]
-        warnings.warn(
+        raise TypeError(
             f"compute_ohmic_heating_power_from_core_profiles called without {', '.join(missing)}; "
-            "the hidden fallbacks Z_eff=2, ln_Lambda=17 are deprecated and will raise in 0.9 "
-            "(#1188). Pass them explicitly.",
-            FutureWarning,
-            stacklevel=2,
+            "Z_eff and ln_Lambda are physics inputs, not defaults -- the hidden fallbacks "
+            "Z_eff=2, ln_Lambda=17 were removed in 0.9.0 (#1188). Pass them explicitly."
         )
-        Z_eff = 2.0 if Z_eff is None else Z_eff
-        ln_Lambda = 17.0 if ln_Lambda is None else ln_Lambda
 
     # Find matching time indices between core_profiles and equilibrium
     cp_idx, equil_idx, time = find_matching_time_indices(ods, time_slice)
