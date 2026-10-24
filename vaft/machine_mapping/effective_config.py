@@ -16,8 +16,8 @@ Not every value is a tuneable analysis parameter. A dotted key path is
 classified by the most restrictive segment it contains:
 
 ``machine_fact``
-    sensor identity, signal sources and field codes, wiring, DAQ type and
-    mode, geometry. **Never** changed by an override; restating the
+    sensor identity, signal sources and field codes, wiring, DAQ type, mode
+    and sample rate, geometry, probe bias and tip dimensions. **Never** changed by an override; restating the
     effective value is inert.
 ``calibration``
     gains, polarity, calibration factors and circuit constants. Changed only
@@ -44,8 +44,8 @@ have the same fingerprint. The canonical form (:func:`canonical_json`):
 * numbers are compared by value: an integral finite float is written as an
   integer (``25000`` and ``25000.0`` are the same setting), other floats by
   Python's shortest round-trip ``repr``; booleans stay booleans;
-* non-finite floats are written as the strings ``"NaN"``, ``"Infinity"`` and
-  ``"-Infinity"``; anything else non-JSON is refused;
+* non-finite floats are written as ``{"$float": "NaN"}`` (``"Infinity"``,
+  ``"-Infinity"``), distinct from any string; anything else non-JSON is refused;
 * compact separators, UTF-8, no ASCII escaping.
 
 YAML comments, key order, quoting, flow versus block style and number
@@ -86,6 +86,7 @@ from .utils import (
 __all__ = [
     "EFFECTIVE_CONFIG_SCHEMA",
     "FieldClass",
+    "MAPPED_DIAGNOSTICS",
     "ResolvedVestConfiguration",
     "canonical_json",
     "classify_config_path",
@@ -118,7 +119,9 @@ MACHINE_FACT_SEGMENTS = frozenset(
         "daq_mode", "raw_unit", "wiring", "layout", "probe_overrides",
         "known_faults", "geometry", "port", "launching_position", "direction",
         "polarization", "stations", "first_shot", "sensors", "label", "labels",
-        "gauge", "fl10_field", "unavailable_reason",
+        "gauge", "fl10_field", "unavailable_reason", "sample_rate", "fs",
+        "first_operational_shot", "reference_radius", "vd3", "tip_length_mm",
+        "tip_radius_mm", "gas_species",
     }
 )
 #: Key segments that make a path a calibration (unless a machine fact).
@@ -179,9 +182,9 @@ def _canonical(value: Any, *, path: str) -> Any:
         return int(value)
     if isinstance(value, float):
         if math.isnan(value):
-            return "NaN"
+            return {"$float": "NaN"}
         if math.isinf(value):
-            return "Infinity" if value > 0 else "-Infinity"
+            return {"$float": "Infinity" if value > 0 else "-Infinity"}
         if value.is_integer():
             return int(value)
         return value
@@ -336,9 +339,15 @@ def _resolve_tree(
         applied.append(record)
         index = provenance["revision_index"]
         if index is not None:
-            for key in node["revisions"][index]:
-                if key not in REVISION_BOUND_KEYS:
-                    origins[(*path, key)] = record
+            revision = {
+                key: value
+                for key, value in node["revisions"][index].items()
+                if key not in REVISION_BOUND_KEYS
+            }
+            # Only the leaves the revision itself sets come from it; a sibling
+            # it leaves alone inside the same block is still the base's.
+            for leaf, _value in _leaves(revision):
+                origins[(*path, *leaf)] = record
         node = resolved
     return {
         key: _resolve_tree(
@@ -375,9 +384,10 @@ def _numeric(value: Any) -> float | None:
         return float(value)
     if isinstance(value, str):
         try:
-            return float(value)
+            number = float(value)
         except ValueError:
             return None
+        return number if math.isfinite(number) else None
     return None
 
 
@@ -396,10 +406,10 @@ def _kind(value: Any) -> str:
         return "null"
     if isinstance(value, (bool, np.bool_)):
         return "boolean"
-    if _numeric(value) is not None:
+    if isinstance(value, numbers.Real):
         return "number"
     if isinstance(value, str):
-        return "string"
+        return "numeric string" if _numeric(value) is not None else "string"
     if isinstance(value, Mapping):
         return "mapping"
     if isinstance(value, (list, tuple)):
@@ -415,7 +425,13 @@ def _validate_overrides(
     calibration_override_reason: str | None,
     path: tuple[Any, ...] = (),
     accepted: list[dict[str, Any]],
-) -> None:
+) -> dict[Any, Any]:
+    """Validate ``overrides`` against ``effective``; return only its real changes.
+
+    Inert restatements are dropped, so they can neither change a value's
+    spelling nor the fingerprint without being recorded.
+    """
+    changes: dict[Any, Any] = {}
     for key, value in overrides.items():
         here = (*path, key)
         dotted = _dotted(here)
@@ -427,7 +443,7 @@ def _validate_overrides(
             )
         current = effective[key]
         if isinstance(value, Mapping) and isinstance(current, Mapping):
-            _validate_overrides(
+            nested = _validate_overrides(
                 current,
                 value,
                 context=context,
@@ -435,9 +451,16 @@ def _validate_overrides(
                 path=here,
                 accepted=accepted,
             )
+            if nested:
+                changes[key] = nested
             continue
         current_kind, value_kind = _kind(current), _kind(value)
-        if current_kind != "null" and value_kind != "null" and current_kind != value_kind:
+        # A configured numeric string (PyYAML's "1.0e4") takes a number; any
+        # other change of kind -- a string for a number included -- is refused.
+        compatible = current_kind == value_kind or (
+            current_kind == "numeric string" and value_kind == "number"
+        )
+        if current_kind != "null" and value_kind != "null" and not compatible:
             raise VestConfigurationError(
                 f"{context}: override {dotted!r} is a {value_kind}, the configured value a {current_kind}"
             )
@@ -462,6 +485,8 @@ def _validate_overrides(
                 "value": json.loads(canonical_json(value)),
             }
         )
+        changes[key] = value
+    return changes
 
 
 def impa_shot_era(
@@ -569,10 +594,20 @@ def resolve_vest_processing_config(
         era_record = {"path": "calibration.shot_era_overrides", **era_provenance}
         applied.append(era_record)
         if era is not None:
-            for key in era:
-                if key in ("gain",):
-                    origins[("calibration", key)] = era_record
-                elif key in ("channels", "bz_channels"):
+            # Apply the era the way the mapper does, so `effective` -- and the
+            # fingerprint -- say which channels and which gain this shot uses.
+            if era.get("gain") is not None:
+                effective["calibration"]["gain"] = era["gain"]
+                origins[("calibration", "gain")] = era_record
+            for key in ("channels", "bz_channels"):
+                wired = era.get(key)
+                if wired:
+                    allowed = {int(field) for field in wired}
+                    effective[key] = {
+                        index: entry
+                        for index, entry in (effective.get(key) or {}).items()
+                        if int(entry["field"]) in allowed
+                    }
                     origins[(key,)] = era_record
     elif effective.get("calibration") is not None:
         validate_calibration(effective["calibration"])
@@ -587,14 +622,14 @@ def resolve_vest_processing_config(
             raise VestConfigurationError(
                 f"{context}: calibration_override_reason must be a non-empty string"
             )
-        _validate_overrides(
+        changes = _validate_overrides(
             effective,
             overrides,
             context=context,
             calibration_override_reason=calibration_override_reason,
             accepted=accepted,
         )
-        effective = _deep_merge(effective, overrides, context=context)
+        effective = _deep_merge(effective, changes, context=context)
         if diagnostic != "impa" and effective.get("calibration") is not None:
             validate_calibration(effective["calibration"])
 
@@ -636,6 +671,26 @@ def resolve_vest_processing_config(
     )
 
 
+#: The ``0.diagnostics`` blocks a stage mapper reads through
+#: ``resolve_vest_diagnostic`` -- what a manifest records by default. The
+#: ``langmuir_probe_mid``/``_upper`` blocks are left out: the Langmuir mapper
+#: reads the top-level ``langmuir_probes`` section (its own era table), so
+#: recording them would describe a configuration nothing applied.
+MAPPED_DIAGNOSTICS = (
+    "barometry_main",
+    "core_profiles",
+    "diamagnetic_flux",
+    "ech_6kw_forward",
+    "ech_6kw_reflected",
+    "equilibrium_magnetics",
+    "fluctuation_mirnov",
+    "pf_active",
+    "plasma_current",
+    "tf",
+    "toroidal_mirnov_reference",
+)
+
+
 def vest_configuration_record(
     shot: int,
     *,
@@ -645,11 +700,11 @@ def vest_configuration_record(
 ) -> dict[str, Any]:
     """The configuration identity a stage manifest records for ``shot`` (#2159).
 
-    Each named diagnostic (default: every ``0.diagnostics`` block) contributes
+    Each named diagnostic (default: :data:`MAPPED_DIAGNOSTICS`) contributes
     its effective configuration, fingerprint, applied revisions and accepted
-    overrides; a diagnostic that cannot be resolved for the shot -- a Langmuir
-    shot inside a documented era gap -- records the error instead of failing
-    the stage, exactly as its mapper reports it. ``extra`` adds
+    overrides; a diagnostic whose configuration does not resolve for the shot
+    records the :class:`VestConfigurationError` instead of failing the stage
+    -- its mapper reports the same failure in the channel status. ``extra`` adds
     already-resolved effective blocks (the magnetics processing dataclass, the
     time policies) as ``{name: effective}``; each is fingerprinted the same
     way. ``fingerprint`` identifies the whole record's effective values;
@@ -657,9 +712,7 @@ def vest_configuration_record(
     """
     numeric_shot = _shot_number(shot, name="shot", context="vest configuration record")
     if diagnostics is None:
-        document = _policy_document(info_file)
-        defaults = document.get("0") or document.get(0) or {}
-        diagnostics = sorted(map(str, (defaults.get("diagnostics") or {})))
+        diagnostics = MAPPED_DIAGNOSTICS
     entries: dict[str, Any] = {}
     for name in diagnostics:
         try:

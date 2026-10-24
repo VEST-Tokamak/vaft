@@ -72,6 +72,27 @@ def test_impa_effective_is_the_resolved_impa_block():
     assert resolve_vest_processing_config(39915, "impa").effective_dict() == resolve_impa_config(39915)
 
 
+def test_impa_effective_applies_the_era_the_mapper_applies():
+    era = resolve_vest_processing_config(35380, "impa")
+    assert sorted(int(entry["field"]) for entry in era.effective["channels"].values()) == sorted(
+        impa_expected_fields(35380)
+    )
+    assert len(era.effective["bz_channels"]) == 7
+    assert era.fingerprint != resolve_vest_processing_config(39915, "impa").fingerprint
+    assert era.provenance["keys"]["channels.0.field"]["origin"] == "revision"
+
+
+def test_only_the_leaves_a_revision_sets_are_attributed_to_it():
+    resolved = resolve_vest_processing_config(19283, "pf_active")
+    keys = resolved.provenance["keys"]
+    assert keys["processing.coil_field_codes.8"]["origin"] == "revision"
+    assert keys["processing.coil_field_codes.0"]["origin"] == "base"
+    assert keys["processing.baseline_samples"]["origin"] == "base"
+    assert next(k for k in keys if k.startswith("processing.filter.")) and all(
+        record["origin"] == "base" for k, record in keys.items() if k.startswith("processing.filter.")
+    )
+
+
 # --- boundary regressions --------------------------------------------------------------
 
 
@@ -169,7 +190,10 @@ def test_fingerprint_ignores_yaml_formatting(tmp_path):
 def test_canonical_json_rules():
     assert canonical_json({"b": 1.0, "a": [2, 2.5]}) == '{"a":[2,2.5],"b":1}'
     assert canonical_json({0: True}) == '{"0":true}'
-    assert canonical_json([math.nan, math.inf, -math.inf]) == '["NaN","Infinity","-Infinity"]'
+    assert canonical_json([math.nan, math.inf, -math.inf]) == (
+        '[{"$float":"NaN"},{"$float":"Infinity"},{"$float":"-Infinity"}]'
+    )
+    assert canonical_json([math.nan]) != canonical_json(["NaN"])
     assert canonical_json((1, 2)) == canonical_json([1, 2])
     with pytest.raises(VestConfigurationError, match="collide"):
         canonical_json({0: 1, "0": 2})
@@ -249,6 +273,22 @@ def test_calibration_overrides_need_a_recorded_reason():
     assert accepted.effective["calibration"]["factor"] == 1.0e-5
     assert accepted.provenance["overrides"]["calibration_override_reason"] == "bench re-calibration"
     assert accepted.provenance["keys"]["calibration.factor"]["overridden"] is True
+
+
+def test_an_inert_restatement_changes_nothing():
+    plain = resolve_vest_processing_config(39915, "tf")
+    cutoff = plain.effective["processing"]["cutoff_frequency"]
+    restated = resolve_vest_processing_config(
+        39915, "tf", overrides={"processing": {"cutoff_frequency": float(cutoff)}}
+    )
+    assert restated.fingerprint == plain.fingerprint
+    assert restated.provenance["overrides"]["accepted"] == ()
+
+
+@pytest.mark.parametrize("value", ["nan", "inf", "2500.0"])
+def test_a_string_is_not_accepted_for_a_number(value):
+    with pytest.raises(VestConfigurationError, match="string"):
+        resolve_vest_processing_config(39915, "tf", overrides={"processing": {"cutoff_frequency": value}})
 
 
 def test_numeric_strings_compare_by_value():
@@ -394,7 +434,13 @@ def test_processing_provenance_covers_tf_impa_and_time_policies():
     assert record["time_policies"]["plasma_timing"]["fingerprint"]
 
 
-def test_configuration_record_reports_an_era_gap_instead_of_failing(tmp_path):
+def test_the_default_record_covers_the_mapped_diagnostics_only():
+    record = vest_configuration_record(39915)
+    assert "langmuir_probe_mid" not in record["components"]
+    assert {"plasma_current", "pf_active", "tf", "equilibrium_magnetics"} <= set(record["components"])
+
+
+def test_configuration_record_reports_an_unresolvable_diagnostic(tmp_path):
     path = tmp_path / "vest.yaml"
     path.write_text(
         yaml.safe_dump(
@@ -402,9 +448,14 @@ def test_configuration_record_reports_an_era_gap_instead_of_failing(tmp_path):
         ),
         encoding="utf-8",
     )
-    record = vest_configuration_record(1, info_file=str(path), extra={"time_policies": {"x": 1}})
+    record = vest_configuration_record(
+        1, diagnostics=("ok", "bad"), info_file=str(path), extra={"time_policies": {"x": 1}}
+    )
     assert record["components"]["ok"]["fingerprint"] == configuration_fingerprint({"a": 1})
     assert "Unsupported VEST calibration type" in record["components"]["bad"]["error"]
     assert record["components"]["time_policies"]["effective"] == {"x": 1}
     assert record["source"]["path"] == str(path)
-    assert record["fingerprint"] == vest_configuration_record(1, info_file=str(path), extra={"time_policies": {"x": 1}})["fingerprint"]
+    again = vest_configuration_record(
+        1, diagnostics=("ok", "bad"), info_file=str(path), extra={"time_policies": {"x": 1}}
+    )
+    assert record["fingerprint"] == again["fingerprint"]

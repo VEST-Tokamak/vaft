@@ -695,11 +695,6 @@ MAGNETICS_MACHINE_FACT_FIELDS = ("daq_mode", "fast_sample_rate")
 MAGNETICS_CALIBRATION_FIELDS = ("calibration_mode", "flux_output_per_radian")
 #: Reserved key of an override block carrying the reason for a calibration override.
 CALIBRATION_OVERRIDE_REASON_KEY = "calibration_override_reason"
-#: Fields the vest.yaml era (``equilibrium_magnetics.processing.window``) sets.
-_MAGNETICS_ERA_FIELDS = (
-    "window_override", "flux_baseline_window", "flux_baseline_samples", "daq_mode",
-    "allow_zero_fallback",
-)
 
 
 @dataclass(frozen=True)
@@ -747,16 +742,18 @@ def resolve_magnetics_processing(
 
     shot = int(shot)
     era = equilibrium_magnetics_processing_config(shot)
+    equilibrium = resolve_vest_processing_config(shot, "equilibrium_magnetics")
     window_revision = next(
-        (
-            dict(record)
-            for record in resolve_vest_processing_config(shot, "equilibrium_magnetics").provenance[
-                "revisions"
-            ]
-            if record["path"] == "processing.window"
-        ),
+        (dict(record) for record in equilibrium.provenance["revisions"] if record["path"] == "processing.window"),
         None,
     )
+    # The dataclass fields the era window actually sets for this shot (a
+    # field the window leaves unset keeps the dataclass default).
+    window = equilibrium.effective["processing"]["window"]
+    era_set = {"window_override", "daq_mode"} | {
+        name for name in ("flux_baseline_window", "flux_baseline_samples", "allow_zero_fallback")
+        if window.get(name) is not None
+    }
     if overrides is not None and not isinstance(overrides, Mapping):
         raise VestConfigurationError(
             f"shot {shot}: the magnetics processing override must be a mapping, not {type(overrides).__name__}"
@@ -832,7 +829,7 @@ def resolve_magnetics_processing(
     for name in sorted(known):
         if name in changed:
             origin = "override"
-        elif name in _MAGNETICS_ERA_FIELDS:
+        elif name in era_set:
             origin = "vest.yaml"
         else:
             origin = "default"
