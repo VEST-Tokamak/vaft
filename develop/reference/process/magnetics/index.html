@@ -1,0 +1,2527 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: magnetics · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/develop/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/develop/reference/process/impa/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/process/electromagnetics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-contracts" data-path="/vaft/develop/reference/scientific-contracts/">
+                    
+                        <a href="/vaft/develop/reference/scientific-contracts/" onclick="pageScrollToTop(this)">Scientific contracts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-model-guide" data-path="/vaft/develop/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/develop/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.particle-motion" data-path="/vaft/develop/guide/particle-motion/">
+                    
+                        <a href="/vaft/develop/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-results" data-path="/vaft/develop/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.animation-reference" data-path="/vaft/develop/reference/animation/">
+                    
+                        <a href="/vaft/develop/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: magnetics</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>75b154e</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_magnetics">Process reference: magnetics</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.magnetics, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.magnetics</code>:
+<strong>16</strong> public functions. Each entry is what
+<code>vaft.process.describe("magnetics.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Three groups, with different provenance and different applicability.</p>
+
+<p><strong>Sensor geometry</strong> is pure arithmetic on a layout: where the array’s centre
+is and what poloidal angle each sensor sits at.</p>
+
+<p><strong>The legacy VEST equilibrium chain</strong> is the ported workflow that turns raw
+magnetic diagnostic records into the currents and fluxes an equilibrium
+reconstruction consumes.  Its functions are named <code class="language-plaintext highlighter-rouge">vest_*</code>, are
+VEST-specific, and carry shot-era acquisition policy: which samples the
+output window covers, and which samples the baseline is fitted over, both
+depend on the shot number.  Those policies live in <code class="language-plaintext highlighter-rouge">vest.yaml</code> and reach
+these functions through a configuration record.</p>
+
+<p><strong>Mode analysis</strong> conditions Mirnov coil signals and extracts a toroidal mode
+number, either from the cross-spectral phase of a pair or from a wrapped-phase
+fit across an array.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>V</td><td>coil terminal voltage</td><td class="ref-unit">V</td></tr>
+  <tr><td>Phi</td><td>poloidal flux through a loop</td><td class="ref-unit">Wb</td></tr>
+  <tr><td>B_p</td><td>poloidal field at a probe</td><td class="ref-unit">T</td></tr>
+  <tr><td>I_p</td><td>plasma current</td><td class="ref-unit">A</td></tr>
+  <tr><td>n</td><td>toroidal mode number</td><td class="ref-unit">-</td></tr>
+  <tr><td>f</td><td>frequency</td><td class="ref-unit">Hz</td></tr>
+  </tbody>
+</table></div>
+
+<p><strong>Integration carries Faraday’s minus sign, applied before the baseline is
+removed.</strong>  A flux loop’s flux is the negative time integral of its voltage,
+and a poloidal probe’s field likewise; the constant of integration is absorbed
+into the fitted baseline rather than chosen separately.  Flux is stored per
+radian, which the ODS mapper multiplies back by two pi.</p>
+
+<p><strong>The two generic integrating routines hedge their sign and the VEST ones
+state it.</strong>  <code class="language-plaintext highlighter-rouge">flux_loop_flux</code> and <code class="language-plaintext highlighter-rouge">b_field_pol_probe_field</code> say the minus
+applies “if that is the convention”, because they take whatever a caller hands
+them; the <code class="language-plaintext highlighter-rouge">vest_*</code> functions know their own diagnostics and assert it.  That
+difference is deliberate and is preserved rather than harmonized.</p>
+
+<p><strong>Plasma-current polarity is inferred from the data, not asserted.</strong>
+<code class="language-plaintext highlighter-rouge">rogowski_coil_ip</code> flips the sign when the negative excursion dominates,
+which is the one place in the module where a convention is decided by the
+signal rather than declared.</p>
+
+<p><strong>Toroidal mode numbers adhere to standard right-handed cylindrical coordinates.</strong>
+Coordinates (R, phi, Z) are oriented such that phi increases counter-clockwise
+when viewed from above. A positive toroidal mode number (n &gt; 0) denotes a
+perturbation propagating in the positive phi direction (co-current / toroidal
+direction). Across toroidally separated sensors, the signal phase varies as
+theta(phi) = theta_0 - n * phi (negative phase slope d(theta)/d(phi) = -n). For
+two coils separated by toroidal angle Delta_phi = phase_geometry &gt; 0, the
+cross-spectral phase of the downstream coil relative to the upstream coil is
+Delta_theta = -n * Delta_phi, so the mode number is n = -Delta_theta / Delta_phi.
+Both <code class="language-plaintext highlighter-rouge">toroidal_mode_analysis</code> and <code class="language-plaintext highlighter-rouge">toroidal_phase_fit_at_time</code>
+share this convention.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 16 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="b_field_pol_probe_field"><td><a href="#b_field_pol_probe_field"><code>b_field_pol_probe_field</code></a></td><td>Poloidal field from raw probe records, filtered before integration.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="flux_loop_flux"><td><a href="#flux_loop_flux"><code>flux_loop_flux</code></a></td><td>Poloidal flux from raw flux-loop records, with a two-sided baseline.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="magnetics_sensor_centre"><td><a href="#magnetics_sensor_centre"><code>magnetics_sensor_centre</code></a></td><td>Geometric centre of a magnetic sensor layout.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="magnetics_sensor_poloidal_angle"><td><a href="#magnetics_sensor_poloidal_angle"><code>magnetics_sensor_poloidal_angle</code></a></td><td>Poloidal angle of each sensor about the layout centre.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="mirnov_preprocess_signal"><td><a href="#mirnov_preprocess_signal"><code>mirnov_preprocess_signal</code></a></td><td>Condition a Mirnov coil signal for mode analysis.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="mirnov_spectrogram"><td><a href="#mirnov_spectrogram"><code>mirnov_spectrogram</code></a></td><td>Sliding-window amplitude spectrogram of a Mirnov signal.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="rogowski_coil_ip"><td><a href="#rogowski_coil_ip"><code>rogowski_coil_ip</code></a></td><td>Plasma current from a Rogowski coil, compensated by a flux-loop reference.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="toroidal_mode_analysis"><td><a href="#toroidal_mode_analysis"><code>toroidal_mode_analysis</code></a></td><td>Toroidal mode number from the cross-spectral phase of two coils.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="toroidal_phase_fit_at_time"><td><a href="#toroidal_phase_fit_at_time"><code>toroidal_phase_fit_at_time</code></a></td><td>Toroidal mode numbers from a wrapped-phase fit across an array, at one time.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="vest_equilibrium_magnetics_detailed"><td><a href="#vest_equilibrium_magnetics_detailed"><code>vest_equilibrium_magnetics_detailed</code></a></td><td>Process every magnetic channel of one VEST shot onto the output window.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="vest_equilibrium_magnetics_signals vest_md_signals"><td><a href="#vest_equilibrium_magnetics_signals"><code>vest_equilibrium_magnetics_signals</code></a></td><td>The processed magnetics of one VEST shot, as the three-array legacy view.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="vest_flux_loop_flux_from_voltage"><td><a href="#vest_flux_loop_flux_from_voltage"><code>vest_flux_loop_flux_from_voltage</code></a></td><td>Poloidal flux through a VEST flux loop, from its calibrated voltage.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="vest_flux_loop_legacy"><td><a href="#vest_flux_loop_legacy"><code>vest_flux_loop_legacy</code></a></td><td>Poloidal flux through a VEST flux loop, from its raw record.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="vest_flux_loop_voltage"><td><a href="#vest_flux_loop_voltage"><code>vest_flux_loop_voltage</code></a></td><td>Calibrated flux-loop terminal voltage, before integration.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="vest_magnetics_time_window"><td><a href="#vest_magnetics_time_window"><code>vest_magnetics_time_window</code></a></td><td>The output time window a VEST shot’s magnetics are resampled onto.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="vest_probe_lowpass_taps"><td><a href="#vest_probe_lowpass_taps"><code>vest_probe_lowpass_taps</code></a></td><td>FIR coefficients of the VEST B-pol probe anti-alias low pass.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="b_field_pol_probe_field" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#b_field_pol_probe_field"><code>b_field_pol_probe_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="b_field_pol_probe_field" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L1739-L1896" title="vaft/process/magnetics.py, lines 1739–1896 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>b_field_pol_probe_field(time, raw, gain, lowpass_param, baseline_onset=0.27, baseline_offset=0.28, baseline_type=&#39;linear&#39;, baseline_onset_window=500, baseline_offset_window=100, *, baseline_indices=None, allow_zero_fallback=False, shot=None, channel=None)</code></pre>
+
+    <p>Poloidal field from raw probe records, filtered before integration.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time base.</p>
+</td></tr>
+  <tr><td><code>raw</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Raw records, one column per probe.</p>
+</td></tr>
+  <tr><td><code>gain</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>Gain per probe.</p>
+</td></tr>
+  <tr><td><code>lowpass_param</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>FIR coefficients of the low pass applied before integration.</p>
+</td></tr>
+  <tr><td><code>baseline_onset</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Time at which the signals begin to deviate.</p>
+</td></tr>
+  <tr><td><code>baseline_offset</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Time by which they have returned.</p>
+</td></tr>
+  <tr><td><code>baseline_type</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Which model to fit as the baseline.</p>
+</td></tr>
+  <tr><td><code>baseline_onset_window</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Samples before the onset to include in the fit.</p>
+</td></tr>
+  <tr><td><code>baseline_offset_window</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Samples after the offset to include.</p>
+</td></tr>
+  <tr><td><code>baseline_indices</code></td><td class="ref-type">array_like of int, optional</td><td class="ref-unit">-</td><td><p>The baseline samples, given directly; replaces the onset/offset windows when supplied.</p>
+</td></tr>
+  <tr><td><code>allow_zero_fallback</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Whether a linear baseline with fewer than two finite samples falls back to zero with a warning instead of raising.</p>
+</td></tr>
+  <tr><td><code>shot</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Shot number, for error reporting only.</p>
+</td></tr>
+  <tr><td><code>channel</code></td><td class="ref-type">str or int, optional</td><td class="ref-unit">-</td><td><p>Channel identifier, for error reporting only.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of np.ndarray</td><td class="ref-unit">-</td><td><p>The gained record, the filtered record, its time integral, the field per probe in tesla and the fitted baseline, each shaped <code class="language-plaintext highlighter-rouge">(samples, probes)</code></p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><strong>Gain first, then filter.</strong>  Both are linear, so the order changes nothing
+but rounding. The leading minus is Faraday’s, applied as the caller’s system
+defines it rather than asserted; see this module’s conventions.</p>
+
+      <p>Filtering before integration matters: integrating first would accumulate the
+noise the filter is there to remove.  The filter is zero-phase
+(<code class="language-plaintext highlighter-rouge">vaft.process.signal_processing.apply_fir_filter</code>): a causal one
+delays the field by its group delay against the coil currents it is
+compared with – 0.5 ms for the VEST 251-tap design, which doubled the
+vacuum-model residual of every stored VEST probe until it was removed.</p>
+
+      <p>The linear baseline is fitted through the <em>finite</em> baseline samples only, and
+fewer than two raises <code class="language-plaintext highlighter-rouge">DegenerateBaselineWindowError</code> (issue #639)
+unless <code class="language-plaintext highlighter-rouge">allow_zero_fallback</code> is set.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Apply the per-probe gain.</li>
+        <li>Low-pass each column, zero-phase.</li>
+        <li>Integrate in time, carrying the minus sign.</li>
+        <li>Fit and subtract the baseline per column.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The onset, offset and window lengths are machine-specific VEST values. The
+VEST equilibrium chain (<code class="language-plaintext highlighter-rouge">vest_equilibrium_magnetics_detailed</code>) passes
+<code class="language-plaintext highlighter-rouge">baseline_indices</code> instead: the era’s leading samples from <code class="language-plaintext highlighter-rouge">vest.yaml</code>.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  Every machine number is an argument.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Assumes the record is quiet in the baseline window. A record shorter than
+<code class="language-plaintext highlighter-rouge">3 * len(lowpass_param) + 1</code> samples raises <code class="language-plaintext highlighter-rouge">ValueError</code>; there is no
+causal fallback, since that would bring the delay back. This is the routine
+the fluctuation module points at as the canonical path from pickup voltage
+to field, and a spectrum taken before this step is a derivative spectrum,
+not a field one.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>The legacy VEST probe chain, VFIT <code class="language-plaintext highlighter-rouge">Function/VEST_MagneticSignalProcessing.m</code>: <code class="language-plaintext highlighter-rouge">filtfilt</code> low pass, <code class="language-plaintext highlighter-rouge">-cumtrapz</code>, <code class="language-plaintext highlighter-rouge">polyfit</code> baseline over the leading samples; <code class="language-plaintext highlighter-rouge">vaft.process.fluctuation</code> for why the integration must precede a spectral index.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="flux_loop_flux" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#flux_loop_flux"><code>flux_loop_flux</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="flux_loop_flux" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L1899-L2004" title="vaft/process/magnetics.py, lines 1899–2004 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>flux_loop_flux(time, raw, gain, baseline_onset=0.27, baseline_offset=0.28, baseline_type=&#39;linear&#39;, baseline_onset_window=500, baseline_offset_window=100)</code></pre>
+
+    <p>Poloidal flux from raw flux-loop records, with a two-sided baseline.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time base.</p>
+</td></tr>
+  <tr><td><code>raw</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Raw records, one column per loop.</p>
+</td></tr>
+  <tr><td><code>gain</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>Gain per loop.</p>
+</td></tr>
+  <tr><td><code>baseline_onset</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Time at which the signals begin to deviate.</p>
+</td></tr>
+  <tr><td><code>baseline_offset</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Time by which they have returned.</p>
+</td></tr>
+  <tr><td><code>baseline_type</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Which model to fit as the baseline.</p>
+</td></tr>
+  <tr><td><code>baseline_onset_window</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Samples before the onset to include in the fit.</p>
+</td></tr>
+  <tr><td><code>baseline_offset_window</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Samples after the offset to include.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">Wb/rad</td><td><p>Flux through each loop, per radian.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><strong>Per radian</strong>, and the leading minus is Faraday’s – but this is the generic
+routine, so it applies the sign the caller’s system uses rather than asserting
+one. The VEST chain asserts it instead; see this module’s conventions for why
+the two differ deliberately.</p>
+
+      <p>The baseline is fitted on <strong>both sides</strong> of the discharge, before the onset
+and after the offset, which anchors a drifting integration at both ends rather
+than extrapolating from one.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Apply the per-loop gain.</li>
+        <li>Integrate in time and divide by two pi.</li>
+        <li>Fit a baseline over the quiet samples either side of the discharge and
+subtract it per loop.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The onset, offset and window lengths are machine-specific VEST values,
+mirroring the discharge timing of that machine. A caller on another machine
+passes its own.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  Every machine number is an argument.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Assumes the record is genuinely quiet either side of the window given. A
+discharge that has not returned to baseline by the offset biases the fit.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>The two-sided baseline convention of the legacy VEST workflow, kept here in a machine-independent form.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="magnetics_sensor_centre" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#magnetics_sensor_centre"><code>magnetics_sensor_centre</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="magnetics_sensor_centre" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L136-L202" title="vaft/process/magnetics.py, lines 136–202 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>magnetics_sensor_centre(r, z)</code></pre>
+
+    <details class="ref-code" data-source-code="magnetics_sensor_centre"><summary>Show source <span class="ref-note">vaft/process/magnetics.py, lines 136–202</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">magnetics_sensor_centre</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Geometric centre of a magnetic sensor layout.
+
+    Parameters
+    ----------
+    r : array_like
+        Major radius of each sensor [m].
+    z : array_like
+        Height of each sensor [m].
+
+    Returns
+    -------
+    tuple of float
+        The centre as major radius and height [m].
+
+    Convention
+    ----------
+    A layout counts as **two clusters** -- an inboard and an outboard array --
+    when the widest gap in major radius spans at least a set fraction of the
+    radial extent; a ring of sensors around the plasma has gaps far smaller than
+    that. The two cases need different centres: a ring</span><span class="sh">'</span><span class="s">s centre is the median of
+    its sensors, while two clusters take the midpoint between them, because the
+    median of a two-cluster layout lands inside whichever cluster has more
+    sensors rather than between them.
+
+    The median is used rather than the mean so that an unevenly populated ring
+    does not drag the centre toward its dense side.
+
+    Defaults
+    --------
+    The cluster gap fraction is a numerical convenience separating the two
+    layouts; a real ring and a real two-cluster array sit far either side of it.
+
+    Applicability
+    -------------
+    Machine-independent.  The VEST case is an example: an inboard array against a
+    wall array further out is the two-cluster geometry this distinguishes.
+
+    Limitations
+    -----------
+    Two cases only. Three or more clusters, or a layout that is neither, gets
+    whichever branch its widest gap selects.
+
+    Provenance
+    ----------
+    .. [1] Issue #486, which established this definition of the layout centre.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">vaft.plot.selection</span> <span class="kn">import</span> <span class="n">classify_regions</span><span class="p">,</span> <span class="n">radial_divider</span>
+
+    <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">ravel</span><span class="p">()</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">ravel</span><span class="p">()</span>
+    <span class="n">finite</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">finite</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">a sensor centre needs at least one finite (r, z) position</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">r</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="n">finite</span><span class="p">],</span> <span class="n">z</span><span class="p">[</span><span class="n">finite</span><span class="p">]</span>
+    <span class="n">r0</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
+    <span class="n">split</span> <span class="o">=</span> <span class="nf">radial_divider</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+    <span class="n">extent</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="nf">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">r</span><span class="p">.</span><span class="nf">min</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">split</span> <span class="ow">and</span> <span class="n">extent</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="n">regions</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">classify_regions</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">))</span>
+        <span class="n">inboard</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="n">regions</span> <span class="o">==</span> <span class="sh">"</span><span class="s">inboard</span><span class="sh">"</span><span class="p">]</span>
+        <span class="n">outboard</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="n">regions</span> <span class="o">==</span> <span class="sh">"</span><span class="s">outboard</span><span class="sh">"</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">inboard</span><span class="p">.</span><span class="n">size</span> <span class="ow">and</span> <span class="n">outboard</span><span class="p">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="n">gap</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">outboard</span><span class="p">.</span><span class="nf">min</span><span class="p">()</span> <span class="o">-</span> <span class="n">inboard</span><span class="p">.</span><span class="nf">max</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">gap</span> <span class="o">&gt;=</span> <span class="n">MAGNETICS_CLUSTER_GAP_FRACTION</span> <span class="o">*</span> <span class="n">extent</span><span class="p">:</span>
+                <span class="n">r0</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">median</span><span class="p">(</span><span class="n">inboard</span><span class="p">))</span> <span class="o">+</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">median</span><span class="p">(</span><span class="n">outboard</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">r0</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">median</span><span class="p">(</span><span class="n">z</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Geometric centre of a magnetic sensor layout.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Major radius of each sensor.</p>
+</td></tr>
+  <tr><td><code>z</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Height of each sensor.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of float</td><td class="ref-unit">m</td><td><p>The centre as major radius and height.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>A layout counts as <strong>two clusters</strong> – an inboard and an outboard array –
+when the widest gap in major radius spans at least a set fraction of the
+radial extent; a ring of sensors around the plasma has gaps far smaller than
+that. The two cases need different centres: a ring’s centre is the median of
+its sensors, while two clusters take the midpoint between them, because the
+median of a two-cluster layout lands inside whichever cluster has more
+sensors rather than between them.</p>
+
+      <p>The median is used rather than the mean so that an unevenly populated ring
+does not drag the centre toward its dense side.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The cluster gap fraction is a numerical convenience separating the two
+layouts; a real ring and a real two-cluster array sit far either side of it.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  The VEST case is an example: an inboard array against a
+wall array further out is the two-cluster geometry this distinguishes.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Two cases only. Three or more clusters, or a layout that is neither, gets
+whichever branch its widest gap selects.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #486, which established this definition of the layout centre.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="magnetics_sensor_poloidal_angle" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#magnetics_sensor_poloidal_angle"><code>magnetics_sensor_poloidal_angle</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="magnetics_sensor_poloidal_angle" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L205-L256" title="vaft/process/magnetics.py, lines 205–256 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>magnetics_sensor_poloidal_angle(r, z, centre=None)</code></pre>
+
+    <details class="ref-code" data-source-code="magnetics_sensor_poloidal_angle"><summary>Show source <span class="ref-note">vaft/process/magnetics.py, lines 205–256</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">magnetics_sensor_poloidal_angle</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">centre</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Poloidal angle of each sensor about the layout centre.
+
+    Parameters
+    ----------
+    r : array_like
+        Major radius of each sensor [m].
+    z : array_like
+        Height of each sensor [m].
+    centre : tuple of float, optional
+        The centre to measure about; computed from the layout when omitted [m].
+
+    Returns
+    -------
+    np.ndarray
+        Poloidal angle of each sensor, on the interval from zero to a full turn
+        [rad].
+
+    Convention
+    ----------
+    Measured from the layout centre, counter-clockwise from the outboard
+    midplane, and wrapped to a single positive turn rather than centred on zero.
+
+    **This is not the IMAS poloidal angle of a probe**, which describes the
+    orientation of the probe</span><span class="sh">'</span><span class="s">s sensitive axis rather than its position; on VEST
+    every vertical-field probe has the same IMAS angle wherever it sits. Confusing
+    the two puts every probe at the same place.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Inherits the two-case centre rule of :func:`magnetics_sensor_centre` when the
+    centre is not supplied, so a layout that fits neither case gets angles about a
+    centre that may not be where the caller expects.
+
+    Provenance
+    ----------
+    .. [1] The IMAS data dictionary</span><span class="sh">'</span><span class="s">s own poloidal-angle definition, which this
+       deliberately differs from.
+    </span><span class="sh">"""</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">centre</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">centre</span> <span class="o">=</span> <span class="nf">magnetics_sensor_centre</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+    <span class="n">r0</span><span class="p">,</span> <span class="n">z0</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">centre</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nf">float</span><span class="p">(</span><span class="n">centre</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">angle</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">mod</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">arctan2</span><span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">z0</span><span class="p">,</span> <span class="n">r</span> <span class="o">-</span> <span class="n">r0</span><span class="p">),</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">)</span>
+    <span class="c1"># A sensor on the outboard midplane a rounding error below Z = 0 wraps to
+</span>    <span class="c1"># 2*pi; it belongs at 0.
+</span>    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isclose</span><span class="p">(</span><span class="n">angle</span><span class="p">,</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">angle</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Poloidal angle of each sensor about the layout centre.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Major radius of each sensor.</p>
+</td></tr>
+  <tr><td><code>z</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Height of each sensor.</p>
+</td></tr>
+  <tr><td><code>centre</code></td><td class="ref-type">tuple of float, optional</td><td class="ref-unit">m</td><td><p>The centre to measure about; computed from the layout when omitted.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">rad</td><td><p>Poloidal angle of each sensor, on the interval from zero to a full turn</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Measured from the layout centre, counter-clockwise from the outboard
+midplane, and wrapped to a single positive turn rather than centred on zero.</p>
+
+      <p><strong>This is not the IMAS poloidal angle of a probe</strong>, which describes the
+orientation of the probe’s sensitive axis rather than its position; on VEST
+every vertical-field probe has the same IMAS angle wherever it sits. Confusing
+the two puts every probe at the same place.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Inherits the two-case centre rule of <code class="language-plaintext highlighter-rouge">magnetics_sensor_centre</code> when the
+centre is not supplied, so a layout that fits neither case gets angles about a
+centre that may not be where the caller expects.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>The IMAS data dictionary’s own poloidal-angle definition, which this deliberately differs from.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="mirnov_preprocess_signal" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mirnov_preprocess_signal"><code>mirnov_preprocess_signal</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="mirnov_preprocess_signal" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L1094-L1178" title="vaft/process/magnetics.py, lines 1094–1178 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>mirnov_preprocess_signal(data, *, sample_rate=250000.0, high_pass_cutoff=2000.0, low_pass_cutoff=90000.0, amplifier_gain=1.0, filter_order=None)</code></pre>
+
+    <p>Condition a Mirnov coil signal for mode analysis.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>data</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Raw coil record.</p>
+</td></tr>
+  <tr><td><code>sample_rate</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  <tr><td><code>high_pass_cutoff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Lower edge of the passband.</p>
+</td></tr>
+  <tr><td><code>low_pass_cutoff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Upper edge.</p>
+</td></tr>
+  <tr><td><code>amplifier_gain</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Gain divided out of the record.</p>
+</td></tr>
+  <tr><td><code>filter_order</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Filter order; derived from the sample rate when omitted.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">V</td><td><p>The conditioned record.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Band-passed rather than low-passed, because mode analysis wants neither the
+slow equilibrium evolution below the band nor the noise above it. <strong>The
+output is still a time derivative</strong>: nothing here integrates, so a spectral
+index taken from this is a derivative index, not a field one.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Remove the record’s mean.</li>
+        <li>Band-pass it with a windowed filter.</li>
+        <li>Divide out the amplifier gain.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The sample rate and the two band edges are acquisition-era values, the VEST
+Mirnov amplifier chain’s own. The order is derived from the sample rate, one
+tap per millisecond, and forced odd, which is a numerical convenience keeping
+the filter symmetric.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  The defaults are VEST’s chain; every one is an argument.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The derived order scales with the sample rate, so a very high rate gives a
+long filter and a correspondingly long transient at each end.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>The legacy <code class="language-plaintext highlighter-rouge">vest_osc</code> Mirnov preprocessing chain, whose stage order and band edges this reproduces.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="mirnov_spectrogram" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mirnov_spectrogram"><code>mirnov_spectrogram</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="mirnov_spectrogram" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L1190-L1285" title="vaft/process/magnetics.py, lines 1190–1285 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>mirnov_spectrogram(time, data, *, sample_rate=None, window_size=500, time_resolution=1, time_range=None)</code></pre>
+
+    <p>Sliding-window amplitude spectrogram of a Mirnov signal.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time base.</p>
+</td></tr>
+  <tr><td><code>data</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Conditioned coil record.</p>
+</td></tr>
+  <tr><td><code>sample_rate</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Sample rate; derived from the time base when omitted.</p>
+</td></tr>
+  <tr><td><code>window_size</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Window length in samples.</p>
+</td></tr>
+  <tr><td><code>time_resolution</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Step between windows, in samples.</p>
+</td></tr>
+  <tr><td><code>time_range</code></td><td class="ref-type">sequence of float, optional</td><td class="ref-unit">s</td><td><p>Analysis window as a start and end time.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">MirnovSpectrogramResult</td><td class="ref-unit">-</td><td><p>The time and frequency axes and the amplitude map.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><strong>Amplitude, not power</strong>: the transform is normalized so a sinusoid appears at
+its own amplitude, which is the single-sided convention that makes a mode’s
+size directly readable. That differs from the power spectral density in the
+fluctuation module, which is squared and per hertz.</p>
+
+      <p>The field names match that module’s own spectrogram result, so the plotting
+layer accepts either.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The window and step are validated-workflow defaults from the legacy Mirnov
+routine.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Fixed window, so the time and frequency resolution trade off once for the
+whole map. Expects a conditioned input; run
+<code class="language-plaintext highlighter-rouge">mirnov_preprocess_signal</code> first.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>The legacy <code class="language-plaintext highlighter-rouge">vest_mirnov</code> routine, whose window and normalization this reproduces.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="rogowski_coil_ip" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#rogowski_coil_ip"><code>rogowski_coil_ip</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="rogowski_coil_ip" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L1601-L1736" title="vaft/process/magnetics.py, lines 1601–1736 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>rogowski_coil_ip(time, rogowski_raw, flux_loop_raw, flux_loop_gain=11, effective_vessel_res=0.00058, baseline_onset=0.27, baseline_offset=0.28, baseline_type=&#39;linear&#39;, baseline_onset_window=500, baseline_offset_window=100, smooth_window=10)</code></pre>
+
+    <p>Plasma current from a Rogowski coil, compensated by a flux-loop reference.</p>
+
+    <p>A Rogowski coil encircles both the plasma and the vessel current, so its
+signal is not the plasma current alone. A flux loop supplies the reference
+that removes the vessel’s share.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time base.</p>
+</td></tr>
+  <tr><td><code>rogowski_raw</code></td><td class="ref-type">array_like</td><td class="ref-unit">A</td><td><p>Raw Rogowski record, already a current-like signal.</p>
+</td></tr>
+  <tr><td><code>flux_loop_raw</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Raw flux-loop record used as the vessel reference.</p>
+</td></tr>
+  <tr><td><code>flux_loop_gain</code></td><td class="ref-type">float, optional</td><td class="ref-unit">A/V</td><td><p>Scales the reference into current units.</p>
+</td></tr>
+  <tr><td><code>effective_vessel_res</code></td><td class="ref-type">float, optional</td><td class="ref-unit">ohm</td><td><p>Effective vessel resistance.  Accepted but <strong>not used</strong>.</p>
+</td></tr>
+  <tr><td><code>baseline_onset</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Time at which the signals begin to deviate.</p>
+</td></tr>
+  <tr><td><code>baseline_offset</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Time by which they have returned.</p>
+</td></tr>
+  <tr><td><code>baseline_type</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Which model to fit as the baseline.</p>
+</td></tr>
+  <tr><td><code>baseline_onset_window</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Samples before the onset to include in the fit.</p>
+</td></tr>
+  <tr><td><code>baseline_offset_window</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Samples after the offset to include.</p>
+</td></tr>
+  <tr><td><code>smooth_window</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Smoothing width applied to the reference, odd.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">A</td><td><p>The plasma current.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><strong>Polarity is inferred from the data, not asserted.</strong>  If the result’s
+negative peak exceeds its positive one the whole trace is flipped, on the
+assumption that a discharge is a single-signed excursion. This is the one
+place in the module where a sign convention is decided by the signal rather
+than declared, and it is wrong for any record whose largest excursion is not
+the plasma current.</p>
+
+      <p>No integration happens here: the Rogowski input is already current-like.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Fit a baseline over the quiet samples either side of the discharge and
+subtract it from both records.</li>
+        <li>Scale the flux-loop record into a current reference.</li>
+        <li>Smooth that reference.</li>
+        <li>Subtract it from the Rogowski record.</li>
+        <li>Flip the sign if the negative excursion dominates.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The gain and the two baseline times are machine-specific VEST values. The
+smoothing width and the two window lengths are numerical conveniences. The
+vessel resistance is <strong>hard-coded and unused</strong>: it is accepted for
+compatibility, the dimensional argument for it being a resistance rather than
+an inductance is recorded in issue #214, and no code path reads it.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  Every machine number is an argument, and the defaults
+are VEST’s.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The compensation is a scaled subtraction, not a circuit model, so it removes
+the vessel’s share only to the extent that share is proportional to the flux
+loop’s signal. The sign inference above can invert a correct trace. Assumes
+the record is quiet either side of the baseline window.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #214, which records the dimensional argument for the unused vessel resistance and the flux-loop compensation it belongs to.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="toroidal_mode_analysis" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#toroidal_mode_analysis"><code>toroidal_mode_analysis</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="toroidal_mode_analysis" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L1288-L1403" title="vaft/process/magnetics.py, lines 1288–1403 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>toroidal_mode_analysis(signal_a, signal_b, *, sample_rate=250000.0, phase_geometry=0.5235987755982988, peak_threshold=0.1, sensor_count=4, nperseg=None)</code></pre>
+
+    <p>Toroidal mode number from the cross-spectral phase of two coils.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>signal_a</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Conditioned record from the first coil.</p>
+</td></tr>
+  <tr><td><code>signal_b</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Conditioned record from the second.</p>
+</td></tr>
+  <tr><td><code>sample_rate</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Sample rate.</p>
+</td></tr>
+  <tr><td><code>phase_geometry</code></td><td class="ref-type">float, optional</td><td class="ref-unit">rad</td><td><p>Toroidal angle of the second coil minus the first coil, phi_b - phi_a.</p>
+</td></tr>
+  <tr><td><code>peak_threshold</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Fraction of the maximum a peak must reach to be reported.</p>
+</td></tr>
+  <tr><td><code>sensor_count</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Number of sensors averaged, which sets the coherence significance.</p>
+</td></tr>
+  <tr><td><code>nperseg</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Segment length of the cross-spectral estimate.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ToroidalModeResult</td><td class="ref-unit">-</td><td><p>The coherent peaks with their frequency, phase and mode number.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><strong>The mode number carries a minus sign</strong>: <code class="language-plaintext highlighter-rouge">n_raw = -phase / phase_geometry</code>.
+Under standard right-handed cylindrical coordinates (R, phi, Z) with phi
+counter-clockwise from above, a mode propagating in the co-current (+phi)
+direction has phase decreasing with increasing phi (theta(phi) = theta_0 -
+n * phi, so d(theta)/d(phi) = -n). A sensor at Delta_phi &gt; 0 lags the
+reference sensor by Delta_theta = -n * Delta_phi, so n = -Delta_theta /
+Delta_phi. This agrees with the model fitted by
+<code class="language-plaintext highlighter-rouge">toroidal_phase_fit_at_time</code>.</p>
+
+      <p>The coherence threshold is the 95 percent significance level for a
+magnitude-squared coherence averaged over the given number of sensors, so it
+tightens as more are averaged rather than being a fixed number.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Estimate the cross-spectral density and the coherence of the pair.</li>
+        <li>Keep frequencies whose coherence exceeds the significance level.</li>
+        <li>Find the peaks among them above the threshold.</li>
+        <li>Divide the negative of each peak’s phase by the toroidal separation to get its mode number.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The sample rate, the toroidal separation and the sensor count are
+machine-specific: they are the VEST array’s spacing and size. The peak
+threshold is hard-coded with no recorded derivation.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  The array geometry is an argument.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Two coils cannot resolve aliasing: a mode and one differing by a full turn
+over the separation give the same phase. Nothing here reports the degeneracy,
+unlike the soft X-ray equivalent, which returns every candidate.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>The magnitude-squared coherence significance level for an averaged estimate, which sets the threshold.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="toroidal_phase_fit_at_time" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#toroidal_phase_fit_at_time"><code>toroidal_phase_fit_at_time</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="toroidal_phase_fit_at_time" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L1433-L1599" title="vaft/process/magnetics.py, lines 1433–1599 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>toroidal_phase_fit_at_time(time, signals, toroidal_angle, *, center_time, sample_rate=None, window_size=500, frequencies=None, num_modes=2, candidate_n=(-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6), peak_threshold=0.1)</code></pre>
+
+    <p>Toroidal mode numbers from a wrapped-phase fit across an array, at one time.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time base.</p>
+</td></tr>
+  <tr><td><code>signals</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Conditioned records, one row per coil.</p>
+</td></tr>
+  <tr><td><code>toroidal_angle</code></td><td class="ref-type">array_like</td><td class="ref-unit">rad</td><td><p>Toroidal angle of each coil.</p>
+</td></tr>
+  <tr><td><code>center_time</code></td><td class="ref-type">float</td><td class="ref-unit">s</td><td><p>Centre of the analysis window.</p>
+</td></tr>
+  <tr><td><code>sample_rate</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Sample rate; derived from the time base when omitted.</p>
+</td></tr>
+  <tr><td><code>window_size</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Window length in samples.</p>
+</td></tr>
+  <tr><td><code>frequencies</code></td><td class="ref-type">array_like, optional</td><td class="ref-unit">Hz</td><td><p>Frequencies to fit; the strongest peaks when omitted.</p>
+</td></tr>
+  <tr><td><code>num_modes</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>How many mode lines to fit.</p>
+</td></tr>
+  <tr><td><code>candidate_n</code></td><td class="ref-type">sequence of int, optional</td><td class="ref-unit">-</td><td><p>Mode numbers to consider.</p>
+</td></tr>
+  <tr><td><code>peak_threshold</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Fraction of the maximum a peak must reach.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ToroidalPhaseFitResult</td><td class="ref-unit">-</td><td><p>The fitted mode number, intercept and residual for each mode line.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><strong>The model carries a minus sign</strong>: the fitted phase decreases with increasing
+toroidal angle for a positive mode number (<code class="language-plaintext highlighter-rouge">fitted = intercept - n * toroidal_angle</code>).
+Under standard right-handed cylindrical coordinates (R, phi, Z), this
+corresponds to a perturbation propagating in the positive phi (co-current)
+direction, in agreement with <code class="language-plaintext highlighter-rouge">toroidal_mode_analysis</code>.</p>
+
+      <p>Phases are wrapped to a single turn and the intercept is a circular mean, so
+the fit is insensitive to where the branch cut falls, which a plain average
+would not be.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Take the window centred on the requested time.</li>
+        <li>Choose the frequencies to fit, from the caller or from the strongest peaks.</li>
+        <li>For each, measure the phase at every coil.</li>
+        <li>Score each candidate mode number by its wrapped residual against the
+measured phases and keep the best.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The window length and the candidate range are validated-workflow defaults from
+the legacy array analysis. The peak threshold is hard-coded with no recorded
+derivation.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  The array’s angles are an argument.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Fits at one time only, so a mode whose number changes through the shot needs
+repeated calls. Resolving a mode number needs enough coils spread over enough
+angle; a small or clustered array leaves candidates degenerate, and the fit
+returns the best-scoring one without reporting that.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>The wrapped-phase array fit of the legacy VEST Mirnov analysis.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="vest_equilibrium_magnetics_detailed" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#vest_equilibrium_magnetics_detailed"><code>vest_equilibrium_magnetics_detailed</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="vest_equilibrium_magnetics_detailed" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L839-L1013" title="vaft/process/magnetics.py, lines 839–1013 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>vest_equilibrium_magnetics_detailed(shot, channels, loader, *, indices=None, config=None, allow_missing=False, allow_zero_fallback=None)</code></pre>
+
+    <p>Process every magnetic channel of one VEST shot onto the output window.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>shot</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Shot number, which selects the acquisition era.</p>
+</td></tr>
+  <tr><td><code>channels</code></td><td class="ref-type">sequence</td><td class="ref-unit">-</td><td><p>The channels to process, each naming its kind and calibration.</p>
+</td></tr>
+  <tr><td><code>loader</code></td><td class="ref-type">callable</td><td class="ref-unit">-</td><td><p>Returns the raw record and its time base for a channel.</p>
+</td></tr>
+  <tr><td><code>indices</code></td><td class="ref-type">sequence of int, optional</td><td class="ref-unit">-</td><td><p>Which channels to process; all of them when omitted.</p>
+</td></tr>
+  <tr><td><code>config</code></td><td class="ref-type">VestMagneticsProcessingConfig, optional</td><td class="ref-unit">-</td><td><p>Processing settings.</p>
+</td></tr>
+  <tr><td><code>allow_missing</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Whether a channel the loader cannot supply is tolerated.</p>
+</td></tr>
+  <tr><td><code>allow_zero_fallback</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Whether to fall back to zero baseline with a warning when a channel encounters a degenerate baseline window. Defaults to config.allow_zero_fallback.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">VestEquilibriumMagneticsResult</td><td class="ref-unit">-</td><td><p>The processed flux in weber per radian and field in tesla on the output window, the calibrated voltages at their native rate, and the window itself.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><strong>Index alignment is an invariant.</strong> An unavailable channel contributes an
+empty array rather than being dropped, so channel positions never shift and a
+caller can index the result by the same number it indexed the input by. That
+is why a missing channel is not simply skipped.</p>
+
+      <p>Voltages are kept at the native acquisition rate while fluxes and fields are
+resampled, because the resampling is what the equilibrium chain needs and the
+voltage is what a diagnostic comparison needs.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Resolve the shot’s output window from its era.</li>
+        <li>For each channel, load the raw record and dispatch on its kind, probe or
+flux loop, to the matching processing chain.</li>
+        <li>Resample the result onto the output window.</li>
+        <li>Keep the calibrated voltages at their native rate alongside.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>VEST-specific.  Orchestrates the VEST legacy chain, its channel kinds, its
+calibrations and its acquisition eras.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Inherits every limitation of the per-channel chains. Raises <code class="language-plaintext highlighter-rouge">DegenerateBaselineWindowError</code>
+if any channel has a degenerate baseline window (issue #639), unless
+<code class="language-plaintext highlighter-rouge">allow_zero_fallback=True</code> is opted into. With missing channels tolerated, an empty entry
+is indistinguishable from a genuinely zero record without checking its length.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>The legacy <code class="language-plaintext highlighter-rouge">vfit_equilibrium_magnetics</code> workflow this reproduces; <code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">magnetics</code> for the era policy.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="vest_equilibrium_magnetics_signals" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#vest_equilibrium_magnetics_signals"><code>vest_equilibrium_magnetics_signals</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="vest_equilibrium_magnetics_signals" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L1016-L1080" title="vaft/process/magnetics.py, lines 1016–1080 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>vest_equilibrium_magnetics_signals(shot, channels, loader, *, indices=None, config=None, allow_missing=False, allow_zero_fallback=None)</code></pre>
+
+    <details class="ref-code" data-source-code="vest_equilibrium_magnetics_signals"><summary>Show source <span class="ref-note">vaft/process/magnetics.py, lines 1016–1080</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">vest_equilibrium_magnetics_signals</span><span class="p">(</span>
+    <span class="n">shot</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">channels</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span>
+    <span class="n">loader</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">|</span> <span class="bp">None</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">indices</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">VestMagneticsProcessingConfig</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">allow_missing</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="bp">False</span><span class="p">,</span>
+    <span class="n">allow_zero_fallback</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+    <span class="sh">"""</span><span class="s">The processed magnetics of one VEST shot, as the three-array legacy view.
+
+    Parameters
+    ----------
+    shot : int
+        Shot number [-].
+    channels : sequence
+        The channels to process [-].
+    loader : callable
+        Returns the raw record and its time base for a channel [-].
+    indices : sequence of int, optional
+        Which channels to process [-].
+    config : VestMagneticsProcessingConfig, optional
+        Processing settings [-].
+    allow_missing : bool, optional
+        Whether an unavailable channel is tolerated [-].
+    allow_zero_fallback : bool, optional
+        Whether to fall back to zero baseline with a warning when a channel encounters
+        a degenerate baseline window. Defaults to config.allow_zero_fallback [-].
+
+    Returns
+    -------
+    tuple of np.ndarray
+        The output window in seconds, the fluxes in weber per radian and the
+        fields in tesla [-].
+
+    Convention
+    ----------
+    A backward-compatible view of :func:`vest_equilibrium_magnetics_detailed`,
+    returning the three arrays the older callers expect and discarding the native-
+    rate voltages. New code should call the detailed form, which keeps them.
+
+    Applicability
+    -------------
+    VEST-specific.  The same chain and eras as the function it wraps.
+
+    Limitations
+    -----------
+    Inherits everything from that function, and additionally discards the
+    native-rate voltages, which cannot then be recovered.
+
+    Provenance
+    ----------
+    .. [1] :func:`vest_equilibrium_magnetics_detailed`, which does the work.
+    </span><span class="sh">"""</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="nf">vest_equilibrium_magnetics_detailed</span><span class="p">(</span>
+        <span class="n">shot</span><span class="p">,</span>
+        <span class="n">channels</span><span class="p">,</span>
+        <span class="n">loader</span><span class="p">,</span>
+        <span class="n">indices</span><span class="o">=</span><span class="n">indices</span><span class="p">,</span>
+        <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+        <span class="n">allow_missing</span><span class="o">=</span><span class="n">allow_missing</span><span class="p">,</span>
+        <span class="n">allow_zero_fallback</span><span class="o">=</span><span class="n">allow_zero_fallback</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span><span class="p">.</span><span class="n">time</span><span class="p">,</span> <span class="n">result</span><span class="p">.</span><span class="n">flux_loops</span><span class="p">,</span> <span class="n">result</span><span class="p">.</span><span class="n">probes</span></code></pre></figure>
+
+</details>
+    <p class="ref-note">Also exported as <code>vest_md_signals</code>.</p>
+
+    <p>The processed magnetics of one VEST shot, as the three-array legacy view.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>shot</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Shot number.</p>
+</td></tr>
+  <tr><td><code>channels</code></td><td class="ref-type">sequence</td><td class="ref-unit">-</td><td><p>The channels to process.</p>
+</td></tr>
+  <tr><td><code>loader</code></td><td class="ref-type">callable</td><td class="ref-unit">-</td><td><p>Returns the raw record and its time base for a channel.</p>
+</td></tr>
+  <tr><td><code>indices</code></td><td class="ref-type">sequence of int, optional</td><td class="ref-unit">-</td><td><p>Which channels to process.</p>
+</td></tr>
+  <tr><td><code>config</code></td><td class="ref-type">VestMagneticsProcessingConfig, optional</td><td class="ref-unit">-</td><td><p>Processing settings.</p>
+</td></tr>
+  <tr><td><code>allow_missing</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Whether an unavailable channel is tolerated.</p>
+</td></tr>
+  <tr><td><code>allow_zero_fallback</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Whether to fall back to zero baseline with a warning when a channel encounters a degenerate baseline window. Defaults to config.allow_zero_fallback.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of np.ndarray</td><td class="ref-unit">-</td><td><p>The output window in seconds, the fluxes in weber per radian and the fields in tesla.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>A backward-compatible view of <code class="language-plaintext highlighter-rouge">vest_equilibrium_magnetics_detailed</code>,
+returning the three arrays the older callers expect and discarding the native-
+rate voltages. New code should call the detailed form, which keeps them.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>VEST-specific.  The same chain and eras as the function it wraps.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Inherits everything from that function, and additionally discards the
+native-rate voltages, which cannot then be recovered.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li><code class="language-plaintext highlighter-rouge">vest_equilibrium_magnetics_detailed</code>, which does the work.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="vest_flux_loop_flux_from_voltage" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#vest_flux_loop_flux_from_voltage"><code>vest_flux_loop_flux_from_voltage</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="vest_flux_loop_flux_from_voltage" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L608-L737" title="vaft/process/magnetics.py, lines 608–737 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>vest_flux_loop_flux_from_voltage(time, voltage, *, flux_loop_number, config=None, allow_zero_fallback=None, shot=None, channel=None)</code></pre>
+
+    <p>Poloidal flux through a VEST flux loop, from its calibrated voltage.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time base of the voltage record.</p>
+</td></tr>
+  <tr><td><code>voltage</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Calibrated terminal voltage.</p>
+</td></tr>
+  <tr><td><code>flux_loop_number</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Which loop, since some take their own baseline window.</p>
+</td></tr>
+  <tr><td><code>config</code></td><td class="ref-type">VestMagneticsProcessingConfig, optional</td><td class="ref-unit">-</td><td><p>Processing settings; the shipped defaults when omitted.</p>
+</td></tr>
+  <tr><td><code>allow_zero_fallback</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Whether to fall back to zero baseline with a warning when the baseline window is degenerate (fewer than 2 valid samples). Defaults to config.allow_zero_fallback.</p>
+</td></tr>
+  <tr><td><code>shot</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Shot number for diagnostic error reporting.</p>
+</td></tr>
+  <tr><td><code>channel</code></td><td class="ref-type">str or int, optional</td><td class="ref-unit">-</td><td><p>Channel identifier for diagnostic error reporting.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">Wb/rad</td><td><p>Flux through the loop, per radian.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><strong>Per radian</strong>, which is what the ODS mapper expects and multiplies back by
+two pi. The minus sign is Faraday’s and is applied before the baseline, so the
+constant of integration is absorbed into the fitted line rather than chosen.</p>
+
+      <p>The window and baseline indices are legacy acquisition-era policy, not a
+    signal-quality decision: which samples apply depends on the shot number,
+    and the eras are recorded in <code class="language-plaintext highlighter-rouge">vest.yaml</code> rather than inferred from the
+    data.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Integrate the voltage in time, carrying Faraday’s minus sign.</li>
+        <li>Divide by two pi to get flux per radian.</li>
+        <li>Fit a linear baseline over the era’s indices and subtract it.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>The baseline indices are acquisition-era values in a four-way ladder: an
+explicit sample count for the native-DAQ era, then a physical time window,
+then a per-loop exception for three specific loops, then the two-segment
+default. The native-DAQ and later slow-DAQ windows are legacy compatibility
+values reproducing the donor’s own indices.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>VEST-specific.  Carries VEST’s acquisition eras, its per-loop baseline
+exceptions, and its digitizer timebase.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Raises <code class="language-plaintext highlighter-rouge">DegenerateBaselineWindowError</code> when fewer than two valid baseline samples
+are available in the configured window (issue #639), unless <code class="language-plaintext highlighter-rouge">allow_zero_fallback=True</code>
+is explicitly specified. The per-loop exception is by loop number, so a rewiring that
+changes which loop is which invalidates it.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li><code class="language-plaintext highlighter-rouge">VEST_MagneticSignalProcessing2.m</code> for the native-DAQ era, whose leading-sample baseline indices are reproduced; and the slow-DAQ era’s own window, expressed in physical seconds here so it stays correct at any sample rate.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">magnetics</code> for the era table (issue #195).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="vest_flux_loop_legacy" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#vest_flux_loop_legacy"><code>vest_flux_loop_legacy</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="vest_flux_loop_legacy" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L740-L818" title="vaft/process/magnetics.py, lines 740–818 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>vest_flux_loop_legacy(time, raw, calibration, *, flux_loop_number, config=None, allow_zero_fallback=None, shot=None, channel=None)</code></pre>
+
+    <details class="ref-code" data-source-code="vest_flux_loop_legacy"><summary>Show source <span class="ref-note">vaft/process/magnetics.py, lines 740–818</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">vest_flux_loop_legacy</span><span class="p">(</span>
+    <span class="n">time</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">raw</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">calibration</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">flux_loop_number</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">VestMagneticsProcessingConfig</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">allow_zero_fallback</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">shot</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">channel</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Poloidal flux through a VEST flux loop, from its raw record.
+
+    Parameters
+    ----------
+    time : array_like
+        Time base [s].
+    raw : array_like
+        Raw digitizer record [V].
+    calibration : float
+        Calibration factor for the loop [-].
+    flux_loop_number : int
+        Which loop [-].
+    config : VestMagneticsProcessingConfig, optional
+        Processing settings [-].
+    allow_zero_fallback : bool, optional
+        Whether to fall back to zero baseline with a warning when the baseline window
+        is degenerate (fewer than 2 valid samples). Defaults to config.allow_zero_fallback [-].
+    shot : int, optional
+        Shot number for diagnostic error reporting [-].
+    channel : str or int, optional
+        Channel identifier for diagnostic error reporting [-].
+
+    Returns
+    -------
+    np.ndarray
+        Flux through the loop, per radian [Wb/rad].
+
+    Processing steps
+    ----------------
+    1. Calibrate the raw record into a terminal voltage.
+    2. Integrate, normalize per radian and subtract the era</span><span class="sh">'</span><span class="s">s baseline.
+
+    Convention
+    ----------
+    The composition of :func:`vest_flux_loop_voltage` and
+    :func:`vest_flux_loop_flux_from_voltage`, kept as a single call because the
+    donor workflow had one. Same per-radian output and same era policy as those.
+
+    Applicability
+    -------------
+    VEST-specific.  Inherits the calibration convention and the acquisition eras
+    of the two functions it composes.
+
+    Limitations
+    -----------
+    Inherits both. Raises `DegenerateBaselineWindowError` on degenerate baseline
+    windows (issue #639) unless `allow_zero_fallback=True`.
+
+    Provenance
+    ----------
+    .. [1] The legacy VEST magnetics workflow; see the two functions this
+       composes for the donor indices.
+    </span><span class="sh">"""</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">time</span><span class="p">.</span><span class="n">size</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">raw</span><span class="p">.</span><span class="n">size</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">VEST flux-loop processing requires at least two samples</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="n">voltage</span> <span class="o">=</span> <span class="nf">vest_flux_loop_voltage</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">calibration</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">vest_flux_loop_flux_from_voltage</span><span class="p">(</span>
+        <span class="n">time</span><span class="p">,</span>
+        <span class="n">voltage</span><span class="p">,</span>
+        <span class="n">flux_loop_number</span><span class="o">=</span><span class="n">flux_loop_number</span><span class="p">,</span>
+        <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+        <span class="n">allow_zero_fallback</span><span class="o">=</span><span class="n">allow_zero_fallback</span><span class="p">,</span>
+        <span class="n">shot</span><span class="o">=</span><span class="n">shot</span><span class="p">,</span>
+        <span class="n">channel</span><span class="o">=</span><span class="n">channel</span><span class="p">,</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Poloidal flux through a VEST flux loop, from its raw record.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time base.</p>
+</td></tr>
+  <tr><td><code>raw</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Raw digitizer record.</p>
+</td></tr>
+  <tr><td><code>calibration</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Calibration factor for the loop.</p>
+</td></tr>
+  <tr><td><code>flux_loop_number</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Which loop.</p>
+</td></tr>
+  <tr><td><code>config</code></td><td class="ref-type">VestMagneticsProcessingConfig, optional</td><td class="ref-unit">-</td><td><p>Processing settings.</p>
+</td></tr>
+  <tr><td><code>allow_zero_fallback</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Whether to fall back to zero baseline with a warning when the baseline window is degenerate (fewer than 2 valid samples). Defaults to config.allow_zero_fallback.</p>
+</td></tr>
+  <tr><td><code>shot</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Shot number for diagnostic error reporting.</p>
+</td></tr>
+  <tr><td><code>channel</code></td><td class="ref-type">str or int, optional</td><td class="ref-unit">-</td><td><p>Channel identifier for diagnostic error reporting.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">Wb/rad</td><td><p>Flux through the loop, per radian.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The composition of <code class="language-plaintext highlighter-rouge">vest_flux_loop_voltage</code> and
+<code class="language-plaintext highlighter-rouge">vest_flux_loop_flux_from_voltage</code>, kept as a single call because the
+donor workflow had one. Same per-radian output and same era policy as those.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Calibrate the raw record into a terminal voltage.</li>
+        <li>Integrate, normalize per radian and subtract the era’s baseline.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>VEST-specific.  Inherits the calibration convention and the acquisition eras
+of the two functions it composes.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Inherits both. Raises <code class="language-plaintext highlighter-rouge">DegenerateBaselineWindowError</code> on degenerate baseline
+windows (issue #639) unless <code class="language-plaintext highlighter-rouge">allow_zero_fallback=True</code>.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>The legacy VEST magnetics workflow; see the two functions this composes for the donor indices.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="vest_flux_loop_voltage" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#vest_flux_loop_voltage"><code>vest_flux_loop_voltage</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="vest_flux_loop_voltage" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L558-L605" title="vaft/process/magnetics.py, lines 558–605 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>vest_flux_loop_voltage(raw, calibration, *, config=None)</code></pre>
+
+    <details class="ref-code" data-source-code="vest_flux_loop_voltage"><summary>Show source <span class="ref-note">vaft/process/magnetics.py, lines 558–605</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">vest_flux_loop_voltage</span><span class="p">(</span>
+    <span class="n">raw</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">calibration</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">VestMagneticsProcessingConfig</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Calibrated flux-loop terminal voltage, before integration.
+
+    Parameters
+    ----------
+    raw : array_like
+        Raw digitizer record [V].
+    calibration : float
+        Calibration factor for the loop [-].
+    config : VestMagneticsProcessingConfig, optional
+        Processing settings; the shipped defaults when omitted [-].
+
+    Returns
+    -------
+    np.ndarray
+        The calibrated terminal voltage [V].
+
+    Convention
+    ----------
+    Calibration divides by default rather than multiplying, which is the donor</span><span class="sh">'</span><span class="s">s
+    convention and the opposite of what a gain usually means; the mode is
+    configurable and any other value is refused.
+
+    This is the single definition of a calibrated flux-loop voltage, shared by
+    :func:`vest_flux_loop_legacy` and the voltage the ODS mapper stores, so the
+    two cannot drift apart.
+
+    Applicability
+    -------------
+    VEST-specific.  The calibration convention is that of the VEST flux-loop
+    digitizer chain.
+
+    Limitations
+    -----------
+    Voltage only. Nothing is integrated and no baseline is removed here.
+
+    Provenance
+    ----------
+    .. [1] Issue #209, which established this as the single definition shared with
+       the ODS mapping.
+    </span><span class="sh">"""</span>
+    <span class="n">cfg</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">DEFAULT_VEST_MAGNETICS_PROCESSING</span>
+    <span class="k">return</span> <span class="nf">_calibrated_signal</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">calibration</span><span class="p">),</span> <span class="n">cfg</span><span class="p">.</span><span class="n">calibration_mode</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Calibrated flux-loop terminal voltage, before integration.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>raw</code></td><td class="ref-type">array_like</td><td class="ref-unit">V</td><td><p>Raw digitizer record.</p>
+</td></tr>
+  <tr><td><code>calibration</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Calibration factor for the loop.</p>
+</td></tr>
+  <tr><td><code>config</code></td><td class="ref-type">VestMagneticsProcessingConfig, optional</td><td class="ref-unit">-</td><td><p>Processing settings; the shipped defaults when omitted.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">V</td><td><p>The calibrated terminal voltage.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Calibration divides by default rather than multiplying, which is the donor’s
+convention and the opposite of what a gain usually means; the mode is
+configurable and any other value is refused.</p>
+
+      <p>This is the single definition of a calibrated flux-loop voltage, shared by
+<code class="language-plaintext highlighter-rouge">vest_flux_loop_legacy</code> and the voltage the ODS mapper stores, so the
+two cannot drift apart.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>VEST-specific.  The calibration convention is that of the VEST flux-loop
+digitizer chain.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Voltage only. Nothing is integrated and no baseline is removed here.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #209, which established this as the single definition shared with the ODS mapping.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="vest_magnetics_time_window" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#vest_magnetics_time_window"><code>vest_magnetics_time_window</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="vest_magnetics_time_window" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L461-L510" title="vaft/process/magnetics.py, lines 461–510 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>vest_magnetics_time_window(shot, config=None)</code></pre>
+
+    <details class="ref-code" data-source-code="vest_magnetics_time_window"><summary>Show source <span class="ref-note">vaft/process/magnetics.py, lines 461–510</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">vest_magnetics_time_window</span><span class="p">(</span><span class="n">shot</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">VestMagneticsProcessingConfig</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">The output time window a VEST shot</span><span class="sh">'</span><span class="s">s magnetics are resampled onto.
+
+    Parameters
+    ----------
+    shot : int
+        Shot number, which selects the acquisition era [-].
+    config : VestMagneticsProcessingConfig, optional
+        Processing settings; the shipped defaults when omitted [-].
+
+    Returns
+    -------
+    np.ndarray
+        The sample times of the output window [s].
+
+    Convention
+    ----------
+    A slice of the shot</span><span class="sh">'</span><span class="s">s own timebase, chosen by era rather than by inspecting
+    the record. The window and baseline indices are legacy acquisition-era policy, not a
+        signal-quality decision: which samples apply depends on the shot number,
+        and the eras are recorded in ``vest.yaml`` rather than inferred from the
+        data.
+
+    Defaults
+    --------
+    Every index is an acquisition-era value. Two eras exist: a transient block of
+    six shots and everything from a later shot onward share one window, and
+    earlier shots take another. A configured override from ``vest.yaml``
+    supersedes both; a directly constructed record keeps the historical thresholds
+    so old behaviour is reproducible.
+
+    Applicability
+    -------------
+    VEST-specific.  The windows are VEST acquisition policy, tied to that
+    machine</span><span class="sh">'</span><span class="s">s digitizer timebase and its shot-numbering eras.
+
+    Limitations
+    -----------
+    Selects by shot number alone. A shot whose acquisition differed from its era</span><span class="sh">'</span><span class="s">s
+    policy gets that era</span><span class="sh">'</span><span class="s">s window regardless.
+
+    Provenance
+    ----------
+    .. [1] ``vest.yaml`` ``magnetics.equilibrium_magnetics.processing.window``
+       (issue #195), which carries the era table and supersedes the hard-coded
+       thresholds.
+    </span><span class="sh">"""</span>
+    <span class="n">cfg</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">DEFAULT_VEST_MAGNETICS_PROCESSING</span>
+    <span class="n">index_start</span><span class="p">,</span> <span class="n">index_end</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">.</span><span class="nf">window_for_shot</span><span class="p">(</span><span class="nf">int</span><span class="p">(</span><span class="n">shot</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">cfg</span><span class="p">.</span><span class="nf">timebase</span><span class="p">()[</span><span class="n">index_start</span> <span class="p">:</span> <span class="n">index_end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span></code></pre></figure>
+
+</details>
+
+    <p>The output time window a VEST shot’s magnetics are resampled onto.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>shot</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Shot number, which selects the acquisition era.</p>
+</td></tr>
+  <tr><td><code>config</code></td><td class="ref-type">VestMagneticsProcessingConfig, optional</td><td class="ref-unit">-</td><td><p>Processing settings; the shipped defaults when omitted.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">s</td><td><p>The sample times of the output window.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>A slice of the shot’s own timebase, chosen by era rather than by inspecting
+the record. The window and baseline indices are legacy acquisition-era policy, not a
+    signal-quality decision: which samples apply depends on the shot number,
+    and the eras are recorded in <code class="language-plaintext highlighter-rouge">vest.yaml</code> rather than inferred from the
+    data.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>Every index is an acquisition-era value. Two eras exist: a transient block of
+six shots and everything from a later shot onward share one window, and
+earlier shots take another. A configured override from <code class="language-plaintext highlighter-rouge">vest.yaml</code>
+supersedes both; a directly constructed record keeps the historical thresholds
+so old behaviour is reproducible.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>VEST-specific.  The windows are VEST acquisition policy, tied to that
+machine’s digitizer timebase and its shot-numbering eras.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Selects by shot number alone. A shot whose acquisition differed from its era’s
+policy gets that era’s window regardless.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li><code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">magnetics.equilibrium_magnetics.processing.window</code> (issue #195), which carries the era table and supersedes the hard-coded thresholds.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="vest_probe_lowpass_taps" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#vest_probe_lowpass_taps"><code>vest_probe_lowpass_taps</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span></span>
+<a class="ref-source" data-source="vest_probe_lowpass_taps" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/process/magnetics.py#L522-L555" title="vaft/process/magnetics.py, lines 522–555 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>vest_probe_lowpass_taps(config=None)</code></pre>
+
+    <details class="ref-code" data-source-code="vest_probe_lowpass_taps"><summary>Show source <span class="ref-note">vaft/process/magnetics.py, lines 522–555</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">vest_probe_lowpass_taps</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">VestMagneticsProcessingConfig</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">FIR coefficients of the VEST B-pol probe anti-alias low pass.
+
+    Parameters
+    ----------
+    config : VestMagneticsProcessingConfig, optional
+        Processing settings; the shipped defaults when omitted [-].
+
+    Returns
+    -------
+    np.ndarray
+        ``lowpass_taps`` window-method coefficients at ``lowpass_cutoff`` on the
+        ``fast_sample_rate`` grid [-].
+
+    Defaults
+    --------
+    251 taps at 2.5 kHz on the 250 kHz grid are acquisition-era values tied to
+    the VEST fast grid: the donor</span><span class="sh">'</span><span class="s">s ``vest_filter(250e3, 2.5e3, 1)``, an
+    order-``round(fs * 1e-3)`` Hamming window design.
+
+    Applicability
+    -------------
+    VEST-specific.  The probe digitizer rate and the output window</span><span class="sh">'</span><span class="s">s Nyquist
+    frequency fix the design.
+
+    Provenance
+    ----------
+    .. [1] VFIT ``Function/vest_filter.m`` and
+       ``Function/VEST_MagneticSignalProcessing.m``.
+    </span><span class="sh">"""</span>
+    <span class="n">cfg</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">DEFAULT_VEST_MAGNETICS_PROCESSING</span>
+    <span class="k">return</span> <span class="n">signal</span><span class="p">.</span><span class="nf">firwin</span><span class="p">(</span>
+        <span class="n">cfg</span><span class="p">.</span><span class="n">lowpass_taps</span><span class="p">,</span> <span class="n">cfg</span><span class="p">.</span><span class="n">lowpass_cutoff</span><span class="p">,</span> <span class="n">pass_zero</span><span class="o">=</span><span class="sh">"</span><span class="s">lowpass</span><span class="sh">"</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="n">cfg</span><span class="p">.</span><span class="n">fast_sample_rate</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>FIR coefficients of the VEST B-pol probe anti-alias low pass.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>config</code></td><td class="ref-type">VestMagneticsProcessingConfig, optional</td><td class="ref-unit">-</td><td><p>Processing settings; the shipped defaults when omitted.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">lowpass_taps</code> window-method coefficients at <code class="language-plaintext highlighter-rouge">lowpass_cutoff</code> on the <code class="language-plaintext highlighter-rouge">fast_sample_rate</code> grid.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>251 taps at 2.5 kHz on the 250 kHz grid are acquisition-era values tied to
+the VEST fast grid: the donor’s <code class="language-plaintext highlighter-rouge">vest_filter(250e3, 2.5e3, 1)</code>, an
+order-<code class="language-plaintext highlighter-rouge">round(fs * 1e-3)</code> Hamming window design.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>VEST-specific.  The probe digitizer rate and the output window’s Nyquist
+frequency fix the design.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>VFIT <code class="language-plaintext highlighter-rouge">Function/vest_filter.m</code> and <code class="language-plaintext highlighter-rouge">Function/VEST_MagneticSignalProcessing.m</code>.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/impa/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: impa">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/process/electromagnetics/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: electromagnetics">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: electromagnetics",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_electromagnetics.md",
+            "ref": "_guide/Process_reference_electromagnetics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_magnetics.md",
+        "mtime": "2026-09-03 10:10:00 +0900",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-25 03:18:33 +0900"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/develop/assets/animations/loader.js"></script>
+<script src="/vaft/develop/assets/gitbook/adaptive.js"></script>
+</body>
+</html>

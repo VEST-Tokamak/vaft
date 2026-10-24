@@ -1,0 +1,997 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: regularized profiles · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/develop/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/develop/reference/process/particle_fields/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/formula/transport/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-contracts" data-path="/vaft/develop/reference/scientific-contracts/">
+                    
+                        <a href="/vaft/develop/reference/scientific-contracts/" onclick="pageScrollToTop(this)">Scientific contracts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-model-guide" data-path="/vaft/develop/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/develop/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.particle-motion" data-path="/vaft/develop/guide/particle-motion/">
+                    
+                        <a href="/vaft/develop/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-results" data-path="/vaft/develop/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.animation-reference" data-path="/vaft/develop/reference/animation/">
+                    
+                        <a href="/vaft/develop/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: regularized profiles</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>75b154e</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_regularized_profiles">Formula reference: regularized profiles</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated reference for the explicit vaft.formula.regularized_profiles API, outside the historical star namespace.</dd>
+    <dt>Prerequisites / inputs</dt><dd>A declared basis, physical scale and positivity domain.</dd>
+    <dt>Expected result</dt><dd>Exact representation, objective, units, limitations and source for regular profile evaluation and fitting.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.regularized_profiles</code>:
+<strong>3</strong> public functions. Each entry is what
+<code>vaft.formula.describe("regularized_profiles.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The coordinate is psi_N = rho_pol**2, never rho_tor.  Finite dF/dpsi_N
+therefore implies dP/drho_pol(0)=0, without constraining dF/dpsi_N(0).
+The legacy <code class="language-plaintext highlighter-rouge">utils.fit_profile</code> interface and all its modes are unchanged.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 3 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="evaluate_regularized_profile"><td><a href="#evaluate_regularized_profile"><code>evaluate_regularized_profile</code></a></td><td>Evaluate a positive regular flux profile or its flux derivative.
+</td></tr>
+  <tr data-ref-row="fit_regularized_profile"><td><a href="#fit_regularized_profile"><code>fit_regularized_profile</code></a></td><td>Fit independent samples with Huber residuals and quadratic curvature.
+</td></tr>
+  <tr data-ref-row="profile_basis"><td><a href="#profile_basis"><code>profile_basis</code></a></td><td>Evaluate the positive profile basis or its flux-coordinate derivatives.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="evaluate_regularized_profile" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#evaluate_regularized_profile"><code>evaluate_regularized_profile</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="evaluate_regularized_profile" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/formula/regularized_profiles.py#L119-L164" title="vaft/formula/regularized_profiles.py, lines 119–164 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>evaluate_regularized_profile(psi_n, parameters, config, *, derivative=0, allow_extrapolation=False)</code></pre>
+
+    <details class="ref-code" data-source-code="evaluate_regularized_profile"><summary>Show source <span class="ref-note">vaft/formula/regularized_profiles.py, lines 119–164</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">evaluate_regularized_profile</span><span class="p">(</span><span class="n">psi_n</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">derivative</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                                 <span class="n">allow_extrapolation</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Evaluate a positive regular flux profile or its flux derivative.
+
+    $$F(x)=s\sum_j B_j(x/d)\,[f+\log(1+\exp(\theta_j))]$$
+
+    Parameter order and basis [1]_ are shared with the offline fit. Finite
+    F</span><span class="sh">'</span><span class="s"> implies dF(rho_pol squared)/drho_pol=0 on axis without fixing F</span><span class="sh">'</span><span class="s">(0).
+
+    Parameters
+    ----------
+    psi_n : array_like
+        Finite normalized poloidal flux coordinates [-].
+    parameters : array_like
+        Finite unconstrained softplus parameters in basis order [-].
+    config : RegularizedProfileConfig
+        Basis, floor and domain declaration, with physical scale s [-].
+    derivative : int, optional
+        Flux derivative order, zero, one or two [-].
+    allow_extrapolation : bool, optional
+        Enable diagnostic evaluations outside the positivity domain [-].
+
+    Returns
+    -------
+    values : ndarray
+        Profile or derivative in the physical unit y of config.scale [y].
+
+    Limitations
+    -----------
+    Outside the declared domain the default is NaN. Explicit extrapolation
+    carries no positivity guarantee. Numerical overflow is not clipped.
+
+    References
+    ----------
+    .. [1] C. de Boor, A Practical Guide to Splines, revised edition (2001),
+       Chapters IX-X, B-spline representation and differentiation.
+    </span><span class="sh">"""</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">psi_n</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">theta</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">config</span><span class="p">.</span><span class="n">coefficient_count</span><span class="p">,)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">theta</span><span class="p">).</span><span class="nf">all</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">finite parameter vector of the declared size required</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">config</span><span class="p">.</span><span class="n">scale</span> <span class="o">*</span> <span class="p">(</span><span class="nf">profile_basis</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">derivative</span><span class="p">)</span> <span class="o">@</span>
+                          <span class="p">(</span><span class="n">config</span><span class="p">.</span><span class="n">floor</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="nf">logaddexp</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="n">theta</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">allow_extrapolation</span><span class="p">:</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">((</span><span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">x</span> <span class="o">&lt;=</span> <span class="n">config</span><span class="p">.</span><span class="n">domain_max</span><span class="p">),</span> <span class="n">out</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span></code></pre></figure>
+
+</details>
+
+    <p>Evaluate a positive regular flux profile or its flux derivative.</p>
+
+\[F(x)=s\sum_j B_j(x/d)\,[f+\log(1+\exp(\theta_j))]\]
+
+    <p>Parameter order and basis [1] are shared with the offline fit. Finite
+F’ implies dF(rho_pol squared)/drho_pol=0 on axis without fixing F’(0).</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>psi_n</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>Finite normalized poloidal flux coordinates.</p>
+</td></tr>
+  <tr><td><code>parameters</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>Finite unconstrained softplus parameters in basis order.</p>
+</td></tr>
+  <tr><td><code>config</code></td><td class="ref-type">RegularizedProfileConfig</td><td class="ref-unit">-</td><td><p>Basis, floor and domain declaration, with physical scale s.</p>
+</td></tr>
+  <tr><td><code>derivative</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Flux derivative order, zero, one or two.</p>
+</td></tr>
+  <tr><td><code>allow_extrapolation</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Enable diagnostic evaluations outside the positivity domain.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>values</code></td><td class="ref-type">ndarray</td><td class="ref-unit">y</td><td><p>Profile or derivative in the physical unit y of config.scale.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Limitations · References</summary>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Outside the declared domain the default is NaN. Explicit extrapolation
+carries no positivity guarantee. Numerical overflow is not clipped.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>C. de Boor, A Practical Guide to Splines, revised edition (2001), Chapters IX-X, B-spline representation and differentiation.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="fit_regularized_profile" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#fit_regularized_profile"><code>fit_regularized_profile</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="fit_regularized_profile" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/formula/regularized_profiles.py#L188-L305" title="vaft/formula/regularized_profiles.py, lines 188–305 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>fit_regularized_profile(psi_n, values, *, config=None)</code></pre>
+
+    <p>Fit independent samples with Huber residuals and quadratic curvature.</p>
+
+\[J=\frac{1}{N}\sum_i H_\delta((F(x_i)-y_i)/s)
++\frac{\lambda}{2}\int_0^1 [d^2(F/s)/du^2]^2\,du\]
+
+    <p>The Huber term [1] is quadratic within delta and linear outside it; the
+curvature term remains separately quadratic in u=psi_N/domain_max.
+Reuses VAFT’s legacy free-polynomial fit for initialization and SciPy’s
+least-squares kernel. No boundary anchor or post-fit clipping is applied.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>psi_n</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>One-dimensional finite samples within the declared flux domain.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td class="ref-type">array_like</td><td class="ref-unit">y</td><td><p>Independent quantity samples in the physical unit of config.scale.</p>
+</td></tr>
+  <tr><td><code>config</code></td><td class="ref-type">RegularizedProfileConfig or None, optional</td><td class="ref-unit">-</td><td><p>Serialized numerical objective, basis and convergence assumptions.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>fit</code></td><td class="ref-type">RegularizedProfileFit</td><td class="ref-unit">-</td><td><p>Parameters, status and diagnostics; completion is not accuracy proof.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Limitations · References</summary>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Sigma weighting is not implemented. Scale and robust weights are numerical
+assumptions, never diagnostic sigma. Invalid inputs are rejected, not
+dropped. Callers own independent masks, branch grouping and support.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>P. J. Huber, Robust Estimation of a Location Parameter, Annals of Mathematical Statistics 35 (1964), 73-101.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="profile_basis" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#profile_basis"><code>profile_basis</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="profile_basis" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/formula/regularized_profiles.py#L69-L116" title="vaft/formula/regularized_profiles.py, lines 69–116 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>profile_basis(psi_n, config, derivative=0)</code></pre>
+
+    <details class="ref-code" data-source-code="profile_basis"><summary>Show source <span class="ref-note">vaft/formula/regularized_profiles.py, lines 69–116</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">profile_basis</span><span class="p">(</span><span class="n">psi_n</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">derivative</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Evaluate the positive profile basis or its flux-coordinate derivatives.
+
+    $$B_j(u)={n\choose j}u^j(1-u)^{n-j},\qquad u=\psi_N/d$$
+
+    The spline alternative uses six clamped cubic B-splines [1]_. Ordering is
+    ascending Bernstein index or spline index; derivatives are in psi_N.
+
+    Parameters
+    ----------
+    psi_n : array_like
+        Finite normalized poloidal flux coordinates [-].
+    config : RegularizedProfileConfig
+        Basis, domain and knot declaration; scale is unused here [-].
+    derivative : int, optional
+        Derivative order, zero, one or two [-].
+
+    Returns
+    -------
+    basis : ndarray
+        Coordinates by ordered basis coefficients, with flux derivatives [-].
+
+    Limitations
+    -----------
+    Extrapolated basis values are mathematical evaluations only. Positive
+    partition-of-unity controls guarantee positivity only on the declared domain.
+
+    References
+    ----------
+    .. [1] C. de Boor, A Practical Guide to Splines, revised edition (2001),
+       Chapters IX-X, B-spline representation and differentiation.
+    </span><span class="sh">"""</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">psi_n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">x</span><span class="p">).</span><span class="nf">all</span><span class="p">()</span> <span class="ow">or</span> <span class="n">derivative</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">finite coordinates and derivative 0, 1 or 2 required</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">x</span> <span class="o">/</span> <span class="n">config</span><span class="p">.</span><span class="n">domain_max</span>
+    <span class="k">if</span> <span class="n">config</span><span class="p">.</span><span class="n">basis</span> <span class="o">==</span> <span class="sh">"</span><span class="s">bspline6</span><span class="sh">"</span><span class="p">:</span>
+        <span class="n">knots</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">+</span> <span class="nf">list</span><span class="p">(</span><span class="n">config</span><span class="p">.</span><span class="n">knot_fractions</span><span class="p">)</span> <span class="o">+</span> <span class="p">[</span><span class="mf">1.</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="nc">BSpline</span><span class="p">(</span><span class="n">knots</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="mi">6</span><span class="p">),</span> <span class="mi">3</span><span class="p">,</span> <span class="n">extrapolate</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nf">b</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">nu</span><span class="o">=</span><span class="n">derivative</span><span class="p">)</span> <span class="o">/</span> <span class="n">config</span><span class="p">.</span><span class="n">domain_max</span><span class="o">**</span><span class="n">derivative</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">config</span><span class="p">.</span><span class="n">coefficient_count</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="c1"># Polynomial coefficients give exact derivatives including both endpoints.
+</span>    <span class="kn">from</span> <span class="n">numpy.polynomial</span> <span class="kn">import</span> <span class="n">Polynomial</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="nf">comb</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="o">*</span> <span class="nc">Polynomial</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">])</span><span class="o">**</span><span class="n">j</span> <span class="o">*</span> <span class="nc">Polynomial</span><span class="p">([</span><span class="mf">1.</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.</span><span class="p">])</span><span class="o">**</span><span class="p">(</span><span class="n">n</span><span class="o">-</span><span class="n">j</span><span class="p">)</span>
+        <span class="n">cols</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="nf">deriv</span><span class="p">(</span><span class="n">derivative</span><span class="p">)(</span><span class="n">u</span><span class="p">)</span> <span class="o">/</span> <span class="n">config</span><span class="p">.</span><span class="n">domain_max</span><span class="o">**</span><span class="n">derivative</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">stack</span><span class="p">(</span><span class="n">cols</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Evaluate the positive profile basis or its flux-coordinate derivatives.</p>
+
+\[B_j(u)={n\choose j}u^j(1-u)^{n-j},\qquad u=\psi_N/d\]
+
+    <p>The spline alternative uses six clamped cubic B-splines [1]. Ordering is
+ascending Bernstein index or spline index; derivatives are in psi_N.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>psi_n</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>Finite normalized poloidal flux coordinates.</p>
+</td></tr>
+  <tr><td><code>config</code></td><td class="ref-type">RegularizedProfileConfig</td><td class="ref-unit">-</td><td><p>Basis, domain and knot declaration; scale is unused here.</p>
+</td></tr>
+  <tr><td><code>derivative</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Derivative order, zero, one or two.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>basis</code></td><td class="ref-type">ndarray</td><td class="ref-unit">-</td><td><p>Coordinates by ordered basis coefficients, with flux derivatives.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Limitations · References</summary>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Extrapolated basis values are mathematical evaluations only. Positive
+partition-of-unity controls guarantee positivity only on the declared domain.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>C. de Boor, A Practical Guide to Splines, revised edition (2001), Chapters IX-X, B-spline representation and differentiation.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/particle_fields/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: particle_fields">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/formula/transport/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: transport">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: transport",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_transport.md",
+            "ref": "_guide/Formula_reference_transport.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_regularized_profiles.md",
+        "mtime": "2026-10-15 09:00:00 +0900",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-25 03:18:33 +0900"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/develop/assets/animations/loader.js"></script>
+<script src="/vaft/develop/assets/gitbook/adaptive.js"></script>
+</body>
+</html>

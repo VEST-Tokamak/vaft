@@ -1,0 +1,18 @@
+{
+  "GPECHOME": {
+    "status": "ready",
+    "missing_or_not_executable": []
+  },
+  "CHEASEHOME": {
+    "status": "not configured",
+    "required": false
+  },
+  "EFITHOME": {
+    "status": "not configured",
+    "required": false
+  },
+  "TESHOME": {
+    "status": "not configured",
+    "required": false
+  }
+}

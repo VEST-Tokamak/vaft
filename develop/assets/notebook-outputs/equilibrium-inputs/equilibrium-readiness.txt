@@ -1,0 +1,11 @@
+{
+  "sample": "/Users/yun/git/vaft-issue60/vaft/data/efit/g039915.00319",
+  "prepared_files": [
+    "source.geqdsk",
+    "input.geqdsk",
+    "EXPEQ",
+    "chease_namelist"
+  ],
+  "chease_executable": "/Users/yun/git/chease/src-f90/chease",
+  "execution_mode": "external-binary"
+}

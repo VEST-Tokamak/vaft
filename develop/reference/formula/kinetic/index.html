@@ -1,0 +1,1595 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: kinetic · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/develop/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/develop/reference/formula/fast_ion/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/process/kinetic_closure/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-contracts" data-path="/vaft/develop/reference/scientific-contracts/">
+                    
+                        <a href="/vaft/develop/reference/scientific-contracts/" onclick="pageScrollToTop(this)">Scientific contracts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-model-guide" data-path="/vaft/develop/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/develop/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.particle-motion" data-path="/vaft/develop/guide/particle-motion/">
+                    
+                        <a href="/vaft/develop/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-results" data-path="/vaft/develop/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.animation-reference" data-path="/vaft/develop/reference/animation/">
+                    
+                        <a href="/vaft/develop/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: kinetic</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>75b154e</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_kinetic">Formula reference: kinetic</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.kinetic, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.kinetic</code>:
+<strong>7</strong> public functions. Each entry is what
+<code>vaft.formula.describe("kinetic.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The thermal half of the analytic kinetic closure (issue #1606).  The
+composition it needs – species densities from Z_eff and an impurity model,
+main-ion dilution – is <code class="language-plaintext highlighter-rouge">vaft.formula.impurity</code> (#1565); the per-species
+thermal pressure is <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.ion_pressure</code>; the
+Coulomb logarithm is the caller’s
+(<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.coulomb_logarithm_from_n_T</code>).  This module
+adds the collision times a thermal model of several ion species needs, and the
+Braginskii perpendicular heat diffusivities built on them (the classical
+transport baseline, #1435/#1899).</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>T_e</td><td>electron temperature</td><td class="ref-unit">eV</td></tr>
+  <tr><td>n_j, Z_j</td><td>density [m^-3] and charge of field-ion species j</td><td class="ref-unit">-</td></tr>
+  <tr><td>A_j</td><td>mass number of species j</td><td class="ref-unit">-</td></tr>
+  <tr><td>tau_e</td><td>Braginskii electron collision time</td><td class="ref-unit">s</td></tr>
+  <tr><td>tau_i</td><td>Braginskii ion collision time</td><td class="ref-unit">s</td></tr>
+  <tr><td>tau_eq</td><td>electron-ion energy-exchange (equilibration) time</td><td class="ref-unit">s</td></tr>
+  <tr><td>B</td><td>magnetic-field magnitude</td><td class="ref-unit">T</td></tr>
+  <tr><td>chi_perp</td><td>perpendicular heat diffusivity, q = n chi (-dT/dr)</td><td class="ref-unit">m^2/s</td></tr>
+  </tbody>
+</table></div>
+
+<p>Species on the last axis; temperatures in eV; everything else SI.  The
+electron-ion collision rate sums $n_j Z_j^2$ over the ions, which is
+$Z_\mathrm{eff} n_e$ for a quasi-neutral plasma.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="braginskii_gamma1_perp_from_Z"><td><a href="#braginskii_gamma1_perp_from_Z"><code>braginskii_gamma1_perp_from_Z</code></a></td><td>Braginskii’s electron perpendicular heat-conductivity coefficient $\gamma_1’(Z)$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="classical_electron_heat_diffusivity_from_T_e_B"><td><a href="#classical_electron_heat_diffusivity_from_T_e_B"><code>classical_electron_heat_diffusivity_from_T_e_B</code></a></td><td>Braginskii perpendicular electron heat diffusivity, strongly magnetised limit.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="classical_ion_heat_diffusivity_from_T_i_B"><td><a href="#classical_ion_heat_diffusivity_from_T_i_B"><code>classical_ion_heat_diffusivity_from_T_i_B</code></a></td><td>Braginskii perpendicular ion heat diffusivity, strongly magnetised limit.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="electron_collision_time_from_T_e_n_species"><td><a href="#electron_collision_time_from_T_e_n_species"><code>electron_collision_time_from_T_e_n_species</code></a></td><td>Braginskii electron collision time against a mixture of ion species.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="electron_ion_energy_exchange_time_from_T_e_n_species"><td><a href="#electron_ion_energy_exchange_time_from_T_e_n_species"><code>electron_ion_energy_exchange_time_from_T_e_n_species</code></a></td><td>Time in which electrons and a mixture of ion species exchange thermal energy.
+</td></tr>
+  <tr data-ref-row="ion_collision_time_from_T_i_n_species"><td><a href="#ion_collision_time_from_T_i_n_species"><code>ion_collision_time_from_T_i_n_species</code></a></td><td>Braginskii collision time of one ion species against a mixture of field ions.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ion_ion_coulomb_logarithm_from_n_T"><td><a href="#ion_ion_coulomb_logarithm_from_n_T"><code>ion_ion_coulomb_logarithm_from_n_T</code></a></td><td>Coulomb logarithm for collisions between ions of one species (NRL).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="braginskii_gamma1_perp_from_Z" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#braginskii_gamma1_perp_from_Z"><code>braginskii_gamma1_perp_from_Z</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="braginskii_gamma1_perp_from_Z" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/formula/kinetic.py#L315-L348" title="vaft/formula/kinetic.py, lines 315–348 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>braginskii_gamma1_perp_from_Z(Z)</code></pre>
+
+    <details class="ref-code" data-source-code="braginskii_gamma1_perp_from_Z"><summary>Show source <span class="ref-note">vaft/formula/kinetic.py, lines 315–348</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">braginskii_gamma1_perp_from_Z</span><span class="p">(</span><span class="n">Z</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Braginskii</span><span class="sh">'</span><span class="s">s electron perpendicular heat-conductivity coefficient $\gamma_1</span><span class="sh">'</span><span class="s">(Z)$.
+
+    $$\kappa_{\perp e} = \gamma_1</span><span class="sh">'</span><span class="s">(Z)\,\frac{n_e T_e}{m_e\Omega_e^2\tau_e}$$
+
+    Parameters
+    ----------
+    Z : float or array-like
+        Effective ion charge, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\gamma_1</span><span class="sh">'</span><span class="s">$ [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or non-positive Z.
+
+    Convention
+    ----------
+    Braginskii</span><span class="sh">'</span><span class="s">s Table 2: 4.66, 4.0, 3.7, 3.6 and 3.25 at Z = 1, 2, 3, 4 and infinity,
+    linear in Z between the tabulated charges. Above Z = 4 it is held at 3.6 (the
+    infinite-Z asymptote cannot be reached by a linear lookup); below Z = 1 at 4.66.
+
+    References
+    ----------
+    .. [1] S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205, Table 2.
+    </span><span class="sh">"""</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="sh">"</span><span class="s">Z</span><span class="sh">"</span><span class="p">)</span>
+    <span class="c1"># anti-alias: not a time series and not a downsample; a lookup in Braginskii's
+</span>    <span class="c1"># gamma_1'(Z) table.
+</span>    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">interp</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="o">*</span><span class="nf">zip</span><span class="p">(</span><span class="o">*</span><span class="n">_GAMMA1_PERP</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Braginskii’s electron perpendicular heat-conductivity coefficient $\gamma_1’(Z)$.</p>
+
+\[\kappa_{\perp e} = \gamma_1'(Z)\,\frac{n_e T_e}{m_e\Omega_e^2\tau_e}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>Z</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Effective ion charge, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\gamma_1’$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Braginskii’s Table 2: 4.66, 4.0, 3.7, 3.6 and 3.25 at Z = 1, 2, 3, 4 and infinity,
+linear in Z between the tabulated charges. Above Z = 4 it is held at 3.6 (the
+infinite-Z asymptote cannot be reached by a linear lookup); below Z = 1 at 4.66.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-finite or non-positive Z.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205, Table 2.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="classical_electron_heat_diffusivity_from_T_e_B" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#classical_electron_heat_diffusivity_from_T_e_B"><code>classical_electron_heat_diffusivity_from_T_e_B</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="classical_electron_heat_diffusivity_from_T_e_B" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/formula/kinetic.py#L351-L391" title="vaft/formula/kinetic.py, lines 351–391 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>classical_electron_heat_diffusivity_from_T_e_B(T_e, B, tau_e, Z_eff)</code></pre>
+
+    <details class="ref-code" data-source-code="classical_electron_heat_diffusivity_from_T_e_B"><summary>Show source <span class="ref-note">vaft/formula/kinetic.py, lines 351–391</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">classical_electron_heat_diffusivity_from_T_e_B</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">tau_e</span><span class="p">,</span> <span class="n">Z_eff</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Braginskii perpendicular electron heat diffusivity, strongly magnetised limit.
+
+    $$\chi_{\perp e} = \gamma_1</span><span class="sh">'</span><span class="s">(Z_\mathrm{eff})\,\frac{T_e}{m_e\,\Omega_e^2\,\tau_e},\qquad
+      \Omega_e = \frac{eB}{m_e}$$
+
+    Parameters
+    ----------
+    T_e : float or array-like
+        Electron temperature, positive [eV].
+    B : float or array-like
+        Magnetic-field magnitude, positive [T].
+    tau_e : float or array-like
+        Electron collision time, e.g.
+        :func:`electron_collision_time_from_T_e_n_species`, positive [s].
+    Z_eff : float or array-like
+        Effective charge for :func:`braginskii_gamma1_perp_from_Z`, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\chi_{\perp e}$, with $q_{\perp e} = n_e\chi_{\perp e}(-\mathrm{d}T_e/\mathrm{d}r)$ [m^2/s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or non-positive input.
+
+    Convention
+    ----------
+    The conductive heat flux only: no thermal-force or convective terms. It is a
+    physical diffusivity of the stated model, not the order-of-magnitude
+    $\nu\rho^2$ reference scale.
+
+    References
+    ----------
+    .. [1] S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205.
+    </span><span class="sh">"""</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">QE</span>
+    <span class="n">omega</span> <span class="o">=</span> <span class="n">QE</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="sh">"</span><span class="s">B</span><span class="sh">"</span><span class="p">)</span> <span class="o">/</span> <span class="n">ME</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="nf">braginskii_gamma1_perp_from_Z</span><span class="p">(</span><span class="n">Z_eff</span><span class="p">)</span> <span class="o">*</span> <span class="n">t</span> <span class="o">/</span> <span class="p">(</span><span class="n">ME</span> <span class="o">*</span> <span class="n">omega</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">tau_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">tau_e</span><span class="sh">"</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Braginskii perpendicular electron heat diffusivity, strongly magnetised limit.</p>
+
+\[\chi_{\perp e} = \gamma_1'(Z_\mathrm{eff})\,\frac{T_e}{m_e\,\Omega_e^2\,\tau_e},\qquad
+  \Omega_e = \frac{eB}{m_e}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_e</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">eV</td><td><p>Electron temperature, positive.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">T</td><td><p>Magnetic-field magnitude, positive.</p>
+</td></tr>
+  <tr><td><code>tau_e</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">s</td><td><p>Electron collision time, e.g. <code class="language-plaintext highlighter-rouge">electron_collision_time_from_T_e_n_species</code>, positive.</p>
+</td></tr>
+  <tr><td><code>Z_eff</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Effective charge for <code class="language-plaintext highlighter-rouge">braginskii_gamma1_perp_from_Z</code>, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^2/s</td><td><p>$\chi_{\perp e}$, with $q_{\perp e} = n_e\chi_{\perp e}(-\mathrm{d}T_e/\mathrm{d}r)$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The conductive heat flux only: no thermal-force or convective terms. It is a
+physical diffusivity of the stated model, not the order-of-magnitude
+$\nu\rho^2$ reference scale.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-finite or non-positive input.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="classical_ion_heat_diffusivity_from_T_i_B" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#classical_ion_heat_diffusivity_from_T_i_B"><code>classical_ion_heat_diffusivity_from_T_i_B</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="classical_ion_heat_diffusivity_from_T_i_B" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/formula/kinetic.py#L394-L434" title="vaft/formula/kinetic.py, lines 394–434 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>classical_ion_heat_diffusivity_from_T_i_B(T_i, B, tau_i, A_i, Z_i)</code></pre>
+
+    <details class="ref-code" data-source-code="classical_ion_heat_diffusivity_from_T_i_B"><summary>Show source <span class="ref-note">vaft/formula/kinetic.py, lines 394–434</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">classical_ion_heat_diffusivity_from_T_i_B</span><span class="p">(</span><span class="n">T_i</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">tau_i</span><span class="p">,</span> <span class="n">A_i</span><span class="p">,</span> <span class="n">Z_i</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Braginskii perpendicular ion heat diffusivity, strongly magnetised limit.
+
+    $$\chi_{\perp i} = 2\,\frac{T_i}{m_i\,\Omega_i^2\,\tau_i},\qquad \Omega_i = \frac{Z_ieB}{m_i}$$
+
+    Parameters
+    ----------
+    T_i : float or array-like
+        Ion temperature, positive [eV].
+    B : float or array-like
+        Magnetic-field magnitude, positive [T].
+    tau_i : float or array-like
+        Ion collision time, e.g. :func:`ion_collision_time_from_T_i_n_species`,
+        positive [s].
+    A_i : float or array-like
+        Ion mass in atomic mass units, positive [-].
+    Z_i : float or array-like
+        Ion charge, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\chi_{\perp i}$, with $q_{\perp i} = n_i\chi_{\perp i}(-\mathrm{d}T_i/\mathrm{d}r)$ [m^2/s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or non-positive input.
+
+    Convention
+    ----------
+    Braginskii</span><span class="sh">'</span><span class="s">s coefficient 2 for one ion species; conductive flux only.
+
+    References
+    ----------
+    .. [1] S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205.
+    </span><span class="sh">"""</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_i</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">QE</span>
+    <span class="n">mass</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">A_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">A_i</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">_AMU</span>
+    <span class="n">omega</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">Z_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">Z_i</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">QE</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="sh">"</span><span class="s">B</span><span class="sh">"</span><span class="p">)</span> <span class="o">/</span> <span class="n">mass</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">t</span> <span class="o">/</span> <span class="p">(</span><span class="n">mass</span> <span class="o">*</span> <span class="n">omega</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">tau_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">tau_i</span><span class="sh">"</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Braginskii perpendicular ion heat diffusivity, strongly magnetised limit.</p>
+
+\[\chi_{\perp i} = 2\,\frac{T_i}{m_i\,\Omega_i^2\,\tau_i},\qquad \Omega_i = \frac{Z_ieB}{m_i}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_i</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">eV</td><td><p>Ion temperature, positive.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">T</td><td><p>Magnetic-field magnitude, positive.</p>
+</td></tr>
+  <tr><td><code>tau_i</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">s</td><td><p>Ion collision time, e.g. <code class="language-plaintext highlighter-rouge">ion_collision_time_from_T_i_n_species</code>, positive.</p>
+</td></tr>
+  <tr><td><code>A_i</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Ion mass in atomic mass units, positive.</p>
+</td></tr>
+  <tr><td><code>Z_i</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Ion charge, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^2/s</td><td><p>$\chi_{\perp i}$, with $q_{\perp i} = n_i\chi_{\perp i}(-\mathrm{d}T_i/\mathrm{d}r)$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Braginskii’s coefficient 2 for one ion species; conductive flux only.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-finite or non-positive input.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="electron_collision_time_from_T_e_n_species" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#electron_collision_time_from_T_e_n_species"><code>electron_collision_time_from_T_e_n_species</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="electron_collision_time_from_T_e_n_species" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/formula/kinetic.py#L93-L144" title="vaft/formula/kinetic.py, lines 93–144 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>electron_collision_time_from_T_e_n_species(T_e, n_j, Z_j, ln_Lambda)</code></pre>
+
+    <details class="ref-code" data-source-code="electron_collision_time_from_T_e_n_species"><summary>Show source <span class="ref-note">vaft/formula/kinetic.py, lines 93–144</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">electron_collision_time_from_T_e_n_species</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">n_j</span><span class="p">,</span> <span class="n">Z_j</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Braginskii electron collision time against a mixture of ion species.
+
+    $$\tau_e = \frac{6\sqrt2\,\pi^{3/2}\,\varepsilon_0^2\,m_e^{1/2}\,(eT_e)^{3/2}}
+      {e^4\,\ln\Lambda\,\sum_j n_j Z_j^2}
+      \approx 1.09\times10^{16}\,\frac{T_e[\mathrm{keV}]^{3/2}}{\ln\Lambda\,\sum_j n_jZ_j^2}$$
+
+    Parameters
+    ----------
+    T_e : float or array-like
+        Electron temperature, positive [eV].
+    n_j : array-like
+        Density of each ion species, species on the last axis, non-negative [m^-3].
+    Z_j : array-like
+        Charge of each ion species, positive [-].
+    ln_Lambda : float or array-like
+        Electron Coulomb logarithm, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\tau_e$ [s].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, non-positive T_e, charges or ln_Lambda, no species
+        axis, or a mixture of zero total $\sum n_j Z_j^2$.
+
+    Convention
+    ----------
+    Braginskii</span><span class="sh">'</span><span class="s">s $\tau_e$, the time in his transport coefficients (and in the
+    Spitzer resistivity $\eta = m_e/(n_e e^2\tau_e)\cdot 0.51$ for $Z=1$); the
+    ion sum makes it the multi-species form, $\sum_j n_jZ_j^2 = Z_\mathrm{eff}n_e$.
+
+    References
+    ----------
+    .. [1] S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 2.15.
+
+    See Also
+    --------
+    electron_ion_energy_exchange_time_from_T_e_n_species
+    </span><span class="sh">"""</span>
+    <span class="n">te</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">QE</span>
+    <span class="n">lnl</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">ln_Lambda</span><span class="p">,</span> <span class="sh">"</span><span class="s">ln_Lambda</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">n</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="nf">_species</span><span class="p">(</span><span class="n">n_j</span><span class="p">,</span> <span class="n">Z_j</span><span class="p">)</span>
+    <span class="n">nz2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">z</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">nz2</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">the ion mixture has zero sum n_j Z_j^2</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">6.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="mf">2.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">**</span><span class="mf">1.5</span> <span class="o">*</span> <span class="n">EPS0</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">ME</span><span class="p">)</span> <span class="o">*</span> <span class="n">te</span><span class="o">**</span><span class="mf">1.5</span> <span class="o">/</span> <span class="p">(</span><span class="n">QE</span><span class="o">**</span><span class="mi">4</span> <span class="o">*</span> <span class="n">lnl</span> <span class="o">*</span> <span class="n">nz2</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Braginskii electron collision time against a mixture of ion species.</p>
+
+\[\tau_e = \frac{6\sqrt2\,\pi^{3/2}\,\varepsilon_0^2\,m_e^{1/2}\,(eT_e)^{3/2}}
+  {e^4\,\ln\Lambda\,\sum_j n_j Z_j^2}
+  \approx 1.09\times10^{16}\,\frac{T_e[\mathrm{keV}]^{3/2}}{\ln\Lambda\,\sum_j n_jZ_j^2}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_e</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">eV</td><td><p>Electron temperature, positive.</p>
+</td></tr>
+  <tr><td><code>n_j</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Density of each ion species, species on the last axis, non-negative.</p>
+</td></tr>
+  <tr><td><code>Z_j</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Charge of each ion species, positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Electron Coulomb logarithm, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>$\tau_e$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Braginskii’s $\tau_e$, the time in his transport coefficients (and in the
+Spitzer resistivity $\eta = m_e/(n_e e^2\tau_e)\cdot 0.51$ for $Z=1$); the
+ion sum makes it the multi-species form, $\sum_j n_jZ_j^2 = Z_\mathrm{eff}n_e$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, non-positive T_e, charges or ln_Lambda, no species axis, or a mixture of zero total $\sum n_j Z_j^2$.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>See Also · References</summary>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>electron_ion_energy_exchange_time_from_T_e_n_species</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 2.15.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="electron_ion_energy_exchange_time_from_T_e_n_species" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#electron_ion_energy_exchange_time_from_T_e_n_species"><code>electron_ion_energy_exchange_time_from_T_e_n_species</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="electron_ion_energy_exchange_time_from_T_e_n_species" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/formula/kinetic.py#L147-L207" title="vaft/formula/kinetic.py, lines 147–207 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>electron_ion_energy_exchange_time_from_T_e_n_species(T_e, n_j, Z_j, A_j, ln_Lambda)</code></pre>
+
+    <details class="ref-code" data-source-code="electron_ion_energy_exchange_time_from_T_e_n_species"><summary>Show source <span class="ref-note">vaft/formula/kinetic.py, lines 147–207</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">electron_ion_energy_exchange_time_from_T_e_n_species</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">n_j</span><span class="p">,</span> <span class="n">Z_j</span><span class="p">,</span> <span class="n">A_j</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Time in which electrons and a mixture of ion species exchange thermal energy.
+
+    $$\frac{dT_e}{dt}\Big|_{ei} = -\frac{T_e - T_i}{\tau_{eq}},\qquad
+      \frac{1}{\tau_{eq}} = \sum_j \frac{2\,m_e}{A_j m_u}\,\frac{1}{\tau_{e,j}},
+      \qquad \tau_{e,j} = \tau_e\big|_{\text{species } j \text{ alone}}$$
+
+    Parameters
+    ----------
+    T_e : float or array-like
+        Electron temperature, positive [eV].
+    n_j : array-like
+        Density of each ion species, species on the last axis, non-negative [m^-3].
+    Z_j : array-like
+        Charge of each ion species, positive [-].
+    A_j : array-like
+        Mass number of each ion species, positive [-].
+    ln_Lambda : float or array-like
+        Electron Coulomb logarithm, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\tau_{eq}$, the electron energy e-folding time against all ions [s].
+
+    Raises
+    ------
+    ValueError
+        As :func:`electron_collision_time_from_T_e_n_species`, or a
+        non-positive mass number.
+
+    Assumptions
+    -----------
+    $T_i/m_i \ll T_e/m_e$ (the electron thermal speed dominates the relative
+    speed), so the rate is evaluated at $T_e$ alone; each species exchanges
+    in proportion to $n_jZ_j^2/A_j$.
+
+    Physical interpretation
+    -----------------------
+    Heavy impurities raise $Z_\mathrm{eff}$ (shortening $\tau_e$) but carry
+    $1/A_j$, so at fixed $Z_\mathrm{eff}$ a carbon/oxygen mixture exchanges
+    less energy with electrons per unit $\sum n_jZ_j^2$ than hydrogen does.
+
+    References
+    ----------
+    .. [1] S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 2.15.
+
+    See Also
+    --------
+    electron_collision_time_from_T_e_n_species
+    </span><span class="sh">"""</span>
+    <span class="n">te</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">QE</span>
+    <span class="n">lnl</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">ln_Lambda</span><span class="p">,</span> <span class="sh">"</span><span class="s">ln_Lambda</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">n</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="nf">_species</span><span class="p">(</span><span class="n">n_j</span><span class="p">,</span> <span class="n">Z_j</span><span class="p">,</span> <span class="n">A_j</span><span class="p">)</span>
+    <span class="n">rate_sum</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">z</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">a</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">rate_sum</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">the ion mixture has zero sum n_j Z_j^2 / A_j</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">tau_unit</span> <span class="o">=</span> <span class="mf">6.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="mf">2.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">**</span><span class="mf">1.5</span> <span class="o">*</span> <span class="n">EPS0</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">ME</span><span class="p">)</span> <span class="o">*</span> <span class="n">te</span><span class="o">**</span><span class="mf">1.5</span> <span class="o">/</span> <span class="p">(</span><span class="n">QE</span><span class="o">**</span><span class="mi">4</span> <span class="o">*</span> <span class="n">lnl</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">tau_unit</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">ME</span> <span class="o">/</span> <span class="n">_AMU</span> <span class="o">*</span> <span class="n">rate_sum</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Time in which electrons and a mixture of ion species exchange thermal energy.</p>
+
+\[\frac{dT_e}{dt}\Big|_{ei} = -\frac{T_e - T_i}{\tau_{eq}},\qquad
+  \frac{1}{\tau_{eq}} = \sum_j \frac{2\,m_e}{A_j m_u}\,\frac{1}{\tau_{e,j}},
+  \qquad \tau_{e,j} = \tau_e\big|_{\text{species } j \text{ alone}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_e</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">eV</td><td><p>Electron temperature, positive.</p>
+</td></tr>
+  <tr><td><code>n_j</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Density of each ion species, species on the last axis, non-negative.</p>
+</td></tr>
+  <tr><td><code>Z_j</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Charge of each ion species, positive.</p>
+</td></tr>
+  <tr><td><code>A_j</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Mass number of each ion species, positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Electron Coulomb logarithm, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>$\tau_{eq}$, the electron energy e-folding time against all ions.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">electron_collision_time_from_T_e_n_species</code>, or a non-positive mass number.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · See Also · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Heavy impurities raise $Z_\mathrm{eff}$ (shortening $\tau_e$) but carry
+$1/A_j$, so at fixed $Z_\mathrm{eff}$ a carbon/oxygen mixture exchanges
+less energy with electrons per unit $\sum n_jZ_j^2$ than hydrogen does.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>$T_i/m_i \ll T_e/m_e$ (the electron thermal speed dominates the relative
+speed), so the rate is evaluated at $T_e$ alone; each species exchanges
+in proportion to $n_jZ_j^2/A_j$.</p>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>electron_collision_time_from_T_e_n_species</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 2.15.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="ion_collision_time_from_T_i_n_species" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ion_collision_time_from_T_i_n_species"><code>ion_collision_time_from_T_i_n_species</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="ion_collision_time_from_T_i_n_species" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/formula/kinetic.py#L210-L273" title="vaft/formula/kinetic.py, lines 210–273 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>ion_collision_time_from_T_i_n_species(T_i, A_i, Z_i, n_j, Z_j, ln_Lambda)</code></pre>
+
+    <details class="ref-code" data-source-code="ion_collision_time_from_T_i_n_species"><summary>Show source <span class="ref-note">vaft/formula/kinetic.py, lines 210–273</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ion_collision_time_from_T_i_n_species</span><span class="p">(</span><span class="n">T_i</span><span class="p">,</span> <span class="n">A_i</span><span class="p">,</span> <span class="n">Z_i</span><span class="p">,</span> <span class="n">n_j</span><span class="p">,</span> <span class="n">Z_j</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Braginskii collision time of one ion species against a mixture of field ions.
+
+    $$\tau_i = \frac{12\,\pi^{3/2}\,\varepsilon_0^2\,m_i^{1/2}\,(eT_i)^{3/2}}
+      {e^4\,\ln\Lambda\,Z_i^2\sum_j n_j Z_j^2}$$
+
+    Parameters
+    ----------
+    T_i : float or array-like
+        Temperature of the test ion species, positive [eV].
+    A_i : float or array-like
+        Its mass in atomic mass units, positive [-].
+    Z_i : float or array-like
+        Its charge, positive [-].
+    n_j : array-like
+        Density of each field-ion species, species on the last axis, non-negative [m^-3].
+    Z_j : array-like
+        Charge of each field-ion species, positive [-].
+    ln_Lambda : float or array-like
+        Ion-ion Coulomb logarithm, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\tau_i$ [s].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, non-positive T_i, A_i, Z_i, charges or ln_Lambda, no
+        species axis, or a mixture of zero total $\sum n_j Z_j^2$.
+
+    Convention
+    ----------
+    Braginskii</span><span class="sh">'</span><span class="s">s $\tau_i$, with $\tau_i/\tau_e = \sqrt{2 m_i/m_e}\,(T_i/T_e)^{3/2}$ at
+    equal density and $Z = 1$ (the 12 against $6\sqrt2$ of
+    :func:`electron_collision_time_from_T_e_n_species`). Unlike field ions enter in
+    the like-particle form, $Z_i^2\sum_j n_jZ_j^2$; for one species this is
+    $Z^4 n_i$, the NRL form. Mass bases differ: NRL and
+    :func:`vaft.formula.ordering.braginskii_ion_collision_time` take
+    $\mu = m_i/m_p$ with the rounded coefficient $2.09\times10^{13}$ (m$^{-3}$, eV),
+    whose exact value is $2.085\times10^{13}$ (0.24 % lower); this function takes the
+    mass in atomic mass units, for which the exact coefficient is $2.078\times10^{13}$.
+    Passing the same number as ``mass_number`` there and ``A_i`` here therefore gives
+    times that differ by about 0.6 %.
+
+    References
+    ----------
+    .. [1] S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205.
+    .. [2] J. D. Huba, *NRL Plasma Formulary*, Naval Research Laboratory (2019).
+
+    See Also
+    --------
+    electron_collision_time_from_T_e_n_species
+    </span><span class="sh">"""</span>
+    <span class="n">ti</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_i</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">QE</span>
+    <span class="n">mass</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">A_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">A_i</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">_AMU</span>
+    <span class="n">zi</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">Z_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">Z_i</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">lnl</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">ln_Lambda</span><span class="p">,</span> <span class="sh">"</span><span class="s">ln_Lambda</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">n</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="nf">_species</span><span class="p">(</span><span class="n">n_j</span><span class="p">,</span> <span class="n">Z_j</span><span class="p">)</span>
+    <span class="n">nz2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">z</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">nz2</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">the ion mixture has zero sum n_j Z_j^2</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">12.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">**</span><span class="mf">1.5</span> <span class="o">*</span> <span class="n">EPS0</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">mass</span><span class="p">)</span> <span class="o">*</span> <span class="n">ti</span><span class="o">**</span><span class="mf">1.5</span> <span class="o">/</span> <span class="p">(</span><span class="n">QE</span><span class="o">**</span><span class="mi">4</span> <span class="o">*</span> <span class="n">lnl</span> <span class="o">*</span> <span class="n">zi</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">nz2</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Braginskii collision time of one ion species against a mixture of field ions.</p>
+
+\[\tau_i = \frac{12\,\pi^{3/2}\,\varepsilon_0^2\,m_i^{1/2}\,(eT_i)^{3/2}}
+  {e^4\,\ln\Lambda\,Z_i^2\sum_j n_j Z_j^2}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_i</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">eV</td><td><p>Temperature of the test ion species, positive.</p>
+</td></tr>
+  <tr><td><code>A_i</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Its mass in atomic mass units, positive.</p>
+</td></tr>
+  <tr><td><code>Z_i</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Its charge, positive.</p>
+</td></tr>
+  <tr><td><code>n_j</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Density of each field-ion species, species on the last axis, non-negative.</p>
+</td></tr>
+  <tr><td><code>Z_j</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Charge of each field-ion species, positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Ion-ion Coulomb logarithm, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>$\tau_i$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Braginskii’s $\tau_i$, with $\tau_i/\tau_e = \sqrt{2 m_i/m_e}\,(T_i/T_e)^{3/2}$ at
+equal density and $Z = 1$ (the 12 against $6\sqrt2$ of
+<code class="language-plaintext highlighter-rouge">electron_collision_time_from_T_e_n_species</code>). Unlike field ions enter in
+the like-particle form, $Z_i^2\sum_j n_jZ_j^2$; for one species this is
+$Z^4 n_i$, the NRL form. Mass bases differ: NRL and
+<code class="language-plaintext highlighter-rouge">vaft.formula.ordering.braginskii_ion_collision_time</code> take
+$\mu = m_i/m_p$ with the rounded coefficient $2.09\times10^{13}$ (m$^{-3}$, eV),
+whose exact value is $2.085\times10^{13}$ (0.24 % lower); this function takes the
+mass in atomic mass units, for which the exact coefficient is $2.078\times10^{13}$.
+Passing the same number as <code class="language-plaintext highlighter-rouge">mass_number</code> there and <code class="language-plaintext highlighter-rouge">A_i</code> here therefore gives
+times that differ by about 0.6 %.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, non-positive T_i, A_i, Z_i, charges or ln_Lambda, no species axis, or a mixture of zero total $\sum n_j Z_j^2$.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>See Also · References</summary>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>electron_collision_time_from_T_e_n_species</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205.
+</li>
+  <li>J. D. Huba, <em>NRL Plasma Formulary</em>, Naval Research Laboratory (2019).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="ion_ion_coulomb_logarithm_from_n_T" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ion_ion_coulomb_logarithm_from_n_T"><code>ion_ion_coulomb_logarithm_from_n_T</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="ion_ion_coulomb_logarithm_from_n_T" href="https://github.com/VEST-Tokamak/vaft/blob/75b154e318e81e831afe74c4d4e1084b52f16acc/vaft/formula/kinetic.py#L276-L312" title="vaft/formula/kinetic.py, lines 276–312 at 75b154e">source</a>
+</header>
+    <pre class="ref-signature"><code>ion_ion_coulomb_logarithm_from_n_T(n_i, T_i, Z_i)</code></pre>
+
+    <details class="ref-code" data-source-code="ion_ion_coulomb_logarithm_from_n_T"><summary>Show source <span class="ref-note">vaft/formula/kinetic.py, lines 276–312</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ion_ion_coulomb_logarithm_from_n_T</span><span class="p">(</span><span class="n">n_i</span><span class="p">,</span> <span class="n">T_i</span><span class="p">,</span> <span class="n">Z_i</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Coulomb logarithm for collisions between ions of one species (NRL).
+
+    $$\ln\Lambda_{ii} = 23 - \ln\!\left[\frac{Z_i^2}{T_i}\left(\frac{2\,n_i Z_i^2}{T_i}\right)^{1/2}\right]$$
+
+    Parameters
+    ----------
+    n_i : float or array-like
+        Ion density, positive [m^-3].
+    T_i : float or array-like
+        Ion temperature, positive [eV].
+    Z_i : float or array-like
+        Ion charge, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\ln\Lambda_{ii}$ [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or non-positive input.
+
+    Convention
+    ----------
+    The NRL formulary</span><span class="sh">'</span><span class="s">s like-species ion-ion form, with $n_i$ in cm$^{-3}$ inside the
+    logarithm (converted here from m$^{-3}$) and $T_i$ in eV.
+
+    References
+    ----------
+    .. [1] J. D. Huba, *NRL Plasma Formulary*, Naval Research Laboratory (2019), p. 34.
+    </span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">n_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_i</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e-6</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_i</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">Z_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">Z_i</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">23.0</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">z</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">t</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">n</span> <span class="o">*</span> <span class="n">z</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">t</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Coulomb logarithm for collisions between ions of one species (NRL).</p>
+
+\[\ln\Lambda_{ii} = 23 - \ln\!\left[\frac{Z_i^2}{T_i}\left(\frac{2\,n_i Z_i^2}{T_i}\right)^{1/2}\right]\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_i</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><p>Ion density, positive.</p>
+</td></tr>
+  <tr><td><code>T_i</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">eV</td><td><p>Ion temperature, positive.</p>
+</td></tr>
+  <tr><td><code>Z_i</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Ion charge, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\ln\Lambda_{ii}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The NRL formulary’s like-species ion-ion form, with $n_i$ in cm$^{-3}$ inside the
+logarithm (converted here from m$^{-3}$) and $T_i$ in eV.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-finite or non-positive input.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. D. Huba, <em>NRL Plasma Formulary</em>, Naval Research Laboratory (2019), p. 34.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/formula/fast_ion/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: fast_ion">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/process/kinetic_closure/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: kinetic_closure">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: kinetic_closure",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_kinetic_closure.md",
+            "ref": "_guide/Process_reference_kinetic_closure.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_kinetic.md",
+        "mtime": "2026-10-05 12:00:00 +0900",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-25 03:18:33 +0900"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/develop/assets/animations/loader.js"></script>
+<script src="/vaft/develop/assets/gitbook/adaptive.js"></script>
+</body>
+</html>

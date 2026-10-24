@@ -1,0 +1,1561 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: camera_fluctuation · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/reference/formula/startup/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/process/line_of_sight/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.research-domains" data-path="/vaft/reference/research-domains/">
+                    
+                        <a href="/vaft/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-model-guide" data-path="/vaft/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.particle-motion" data-path="/vaft/guide/particle-motion/">
+                    
+                        <a href="/vaft/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.characteristic-scales" data-path="/vaft/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-results" data-path="/vaft/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.animation-reference" data-path="/vaft/reference/animation/">
+                    
+                        <a href="/vaft/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: camera_fluctuation</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_camera_fluctuation">Process reference: camera_fluctuation</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.camera_fluctuation, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.camera_fluctuation</code>:
+<strong>7</strong> public functions. Each entry is what
+<code>vaft.process.describe("camera_fluctuation.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/process/">All process categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Reproduces the image-processing chain published for VEST by E. C. Jung: temporal
+background removal, per-pixel short-time Fourier analysis at the MHD frequency the
+magnetics report, and the normalised band power that those papers use directly as
+the pixel intensity of the processed image.  Everything here is array in, array
+out – no ODS, no file I/O, no plotting – so the same operations serve any
+camera whose frames arrive as a time-ordered cube.</p>
+
+<p>This is the first image-cube consumer in <code class="language-plaintext highlighter-rouge">vaft.process</code>; every other module
+there works one channel at a time.  The one-dimensional definitions in
+<code class="language-plaintext highlighter-rouge">vaft.process.fluctuation</code> remain the reference: the transform, the closed
+band edges and the trapezoidal integration are the same, applied over an extra
+pair of pixel axes rather than redefined.</p>
+
+<p>The frame axis is first, matching how the camera mapping stores a sequence and
+how <code class="language-plaintext highlighter-rouge">vaft.plot.models.ImageSequence</code> consumes one.  Spectrogram magnitudes
+carry <code class="language-plaintext highlighter-rouge">(frequency, time)</code> first and the pixel axes last, so integrating the
+frequency axis away returns a cube in the original frame-first layout.</p>
+
+<p>Optical intensity is not density.  VEST visible emission is dominated by line
+radiation, so every quantity here is an emission fluctuation measure; nothing in
+this module may be renamed to suggest a calibrated density perturbation.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="mhd_band_power"><td><a href="#mhd_band_power"><code>mhd_band_power</code></a></td><td>Integrate each pixel’s spectrogram over a band around the MHD frequency.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="normalize_by_local_emission"><td><a href="#normalize_by_local_emission"><code>normalize_by_local_emission</code></a></td><td>Divide MHD-band power by each pixel’s local average emission.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="pixelwise_spectrogram"><td><a href="#pixelwise_spectrogram"><code>pixelwise_spectrogram</code></a></td><td>Treat every pixel as its own signal and take its short-time Fourier magnitude.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="poisson_window"><td><a href="#poisson_window"><code>poisson_window</code></a></td><td>The exponentially decreasing peak-shaped window the published analysis uses.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="subtract_temporal_background"><td><a href="#subtract_temporal_background"><code>subtract_temporal_background</code></a></td><td>Remove each pixel’s slowly varying emission by subtracting its local temporal mean.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="summed_region_signal"><td><a href="#summed_region_signal"><code>summed_region_signal</code></a></td><td>Sum the intensity inside one image region, giving a single time series.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="track_reference_frequency"><td><a href="#track_reference_frequency"><code>track_reference_frequency</code></a></td><td>Follow the dominant MHD frequency a magnetic probe reports, window by window.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="mhd_band_power" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mhd_band_power"><code>mhd_band_power</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="mhd_band_power" href="https://github.com/VEST-Tokamak/vaft/blob/5ae3116aea9e8537e20f23a73be7f612f058ebba/vaft/process/camera_fluctuation.py#L514-L606" title="vaft/process/camera_fluctuation.py, lines 514–606 at 5ae3116">source</a>
+</header>
+    <pre class="ref-signature"><code>mhd_band_power(spectrogram, *, centre_frequency, half_width=500.0)</code></pre>
+
+    <p>Integrate each pixel’s spectrogram over a band around the MHD frequency.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>spectrogram</code></td><td class="ref-type">PixelSpectrogram</td><td class="ref-unit">any</td><td><p>Per-pixel magnitude map.</p>
+</td></tr>
+  <tr><td><code>centre_frequency</code></td><td class="ref-type">float or array_like</td><td class="ref-unit">Hz</td><td><p>Band centre, one value or one per window.</p>
+</td></tr>
+  <tr><td><code>half_width</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Half the band width; the band is <code class="language-plaintext highlighter-rouge">centre +/- half_width</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">any</td><td><p>Band magnitude per window, frame-first as <code class="language-plaintext highlighter-rouge">(window, *pixel_shape)</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Band edges are <strong>closed</strong>, as in
+<code class="language-plaintext highlighter-rouge">vaft.process.fluctuation.compute_band_power</code>, but the reduction is a
+<strong>sum over bins, not an integral over hertz</strong>, and the two are not
+interchangeable: that function consumes a power spectral density, where
+integrating against frequency is what produces a power, while a short-time
+transform in <code class="language-plaintext highlighter-rouge">mode="magnitude"</code> yields an amplitude per bin, which has no
+per-hertz meaning to integrate.  A sum also degrades correctly at the
+published settings, where a 1 ms window resolves 1 kHz and the <code class="language-plaintext highlighter-rouge">+/- 0.5 kHz</code>
+band is exactly one bin wide – the single-bin case the legacy
+implementation takes directly.</p>
+
+      <p>A band containing no bin at all contributes zero.  A <code class="language-plaintext highlighter-rouge">nan</code> centre – what
+<code class="language-plaintext highlighter-rouge">track_reference_frequency</code> returns for a window it could not judge –
+yields <code class="language-plaintext highlighter-rouge">nan</code> for that window, not zero.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Select the frequency bins inside the band for each window.</li>
+        <li>Sum the magnitudes over them.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">MHD_BAND_HALF_WIDTH_HZ = 500</code> is a literature value; the published images
+are filtered over <code class="language-plaintext highlighter-rouge">6 +/- 0.5 kHz</code>.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Because this is a sum rather than a density integral, its magnitude depends
+on how many bins the band happens to hold: doubling the window length halves
+the bin width and changes the number summed. Compare images computed with the
+same window, not across windows.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>[Jung2022] section 4.1 and figure 3, which filter about the probe’s dominant frequency with a 0.5 kHz bandwidth.
+</li>
+  <li>[CameraFFT], which takes the single Fourier bin matched to the magnetic probe’s peak, with a three-bin mean left in the source as the alternative it did not use.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="normalize_by_local_emission" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#normalize_by_local_emission"><code>normalize_by_local_emission</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="normalize_by_local_emission" href="https://github.com/VEST-Tokamak/vaft/blob/5ae3116aea9e8537e20f23a73be7f612f058ebba/vaft/process/camera_fluctuation.py#L609-L713" title="vaft/process/camera_fluctuation.py, lines 609–713 at 5ae3116">source</a>
+</header>
+    <pre class="ref-signature"><code>normalize_by_local_emission(power, frames, *, frame_time, power_time, window_frames=10, floor=0.0)</code></pre>
+
+    <p>Divide MHD-band power by each pixel’s local average emission.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>power</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Band power per window, frame-first.</p>
+</td></tr>
+  <tr><td><code>frames</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>The image cube the power was computed from, frame axis first.</p>
+</td></tr>
+  <tr><td><code>frame_time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time of each frame.</p>
+</td></tr>
+  <tr><td><code>power_time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Time of each power window.</p>
+</td></tr>
+  <tr><td><code>window_frames</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Width of the local emission average, in frames.</p>
+</td></tr>
+  <tr><td><code>floor</code></td><td class="ref-type">float, optional</td><td class="ref-unit">any</td><td><p>Local means at or below this are treated as carrying no emission.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p>Normalised power, same shape as <code class="language-plaintext highlighter-rouge">power</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The local mean is centred on the analysed frame with the same shrinking-edge
+rule as <code class="language-plaintext highlighter-rouge">subtract_temporal_background</code>, and is taken from the
+<strong>unsubtracted</strong> frames: the divisor is the emission level, not the
+fluctuation.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Input semantics · Output semantics · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Take each pixel’s centred rolling mean emission over <code class="language-plaintext highlighter-rouge">window_frames</code>.</li>
+        <li>Sample that mean at the frame nearest each power window’s time.</li>
+        <li>Divide, leaving pixels whose local mean is at or below <code class="language-plaintext highlighter-rouge">floor</code> at zero.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Input semantics</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">power</code> and <code class="language-plaintext highlighter-rouge">frames</code> are on different time bases – one value per
+transform window against one per frame – so both bases are required rather
+than assumed alignable by index.</p>
+
+      <h4 class="ref-label no_toc">Output semantics</h4>
+
+      <p>The result is dimensionless: a fluctuation power relative to the emission
+that produced it, which is what makes frames of different brightness
+comparable.  It is not a density perturbation.</p>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">EMISSION_NORMALISATION_FRAMES_50KFPS = 10</code> is a literature value, the
+published ten images or 0.2 ms at 50 kFrames/s.  <code class="language-plaintext highlighter-rouge">floor = 0</code> is a
+hard-coded choice: only a non-positive local mean is refused, because any
+larger threshold is a judgement about what counts as dark that belongs to
+the caller and their camera.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Where the local mean is small but positive the ratio is large and noisy;
+this is inherent to the published normalisation, not an artefact of this
+implementation. A pixel refused by the floor is indistinguishable in the
+output from one with genuinely no fluctuation.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>[Jung2022] section 4.1: “the powers of the MHD frequency fluctuations divided by the averaged emission intensity (over ten images, 0.2 ms) are directly used as the intensities of each pixel of the final image”.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="pixelwise_spectrogram" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#pixelwise_spectrogram"><code>pixelwise_spectrogram</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="pixelwise_spectrogram" href="https://github.com/VEST-Tokamak/vaft/blob/5ae3116aea9e8537e20f23a73be7f612f058ebba/vaft/process/camera_fluctuation.py#L327-L446" title="vaft/process/camera_fluctuation.py, lines 327–446 at 5ae3116">source</a>
+</header>
+    <pre class="ref-signature"><code>pixelwise_spectrogram(frames, times, *, window_frames=50, overlap=0.5, decay_frames=None, detrend=&#39;constant&#39;)</code></pre>
+
+    <p>Treat every pixel as its own signal and take its short-time Fourier magnitude.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>frames</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Time-ordered image cube, frame axis first.</p>
+</td></tr>
+  <tr><td><code>times</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Uniformly sampled frame times.</p>
+</td></tr>
+  <tr><td><code>window_frames</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Short-time window length in frames.</p>
+</td></tr>
+  <tr><td><code>overlap</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Fractional overlap between successive windows.</p>
+</td></tr>
+  <tr><td><code>decay_frames</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">poisson_window</code>.</p>
+</td></tr>
+  <tr><td><code>detrend</code></td><td class="ref-type">str or bool, optional</td><td class="ref-unit">-</td><td><p>Per-window detrending, passed to the transform.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">PixelSpectrogram</td><td class="ref-unit">any</td><td><p>Frequency and time axes and the per-pixel magnitude map.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><strong>The time axis is returned in the caller’s own base</strong>, offset back from the
+transform’s window-relative one, exactly as
+<code class="language-plaintext highlighter-rouge">vaft.process.fluctuation.compute_spectrogram</code> does, so a feature can be
+read against the shot clock without correction.  Magnitudes are amplitudes,
+not densities, from the same <code class="language-plaintext highlighter-rouge">mode="magnitude"</code> transform that function uses.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Build the exponential peak-shaped window of <code class="language-plaintext highlighter-rouge">window_frames</code>.</li>
+        <li>Transform every pixel’s time series with that window.</li>
+        <li>Return the magnitudes with the frequency and time axes first.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">SPECTRAL_WINDOW_FRAMES_50KFPS = 50</code> is a literature value: 1 ms at
+50 kFrames/s.  The overlap is a numerical convenience.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Cost and memory scale with the pixel count times the window count; a
+208x208 sequence is comfortable, a 1024x1280 one is not, and nothing here
+tiles the image for the caller.  A record shorter than one window raises
+rather than returning an empty map, because for imaging that is a mistake
+rather than an edge case.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>[Jung2022] section 4.1, which treats each pixel of a sequence of images as an independent signal and transforms it.
+</li>
+  <li>[CameraFFT], the legacy implementation of that step, which used a rectangular window rather than the published one.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="poisson_window" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#poisson_window"><code>poisson_window</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="poisson_window" href="https://github.com/VEST-Tokamak/vaft/blob/5ae3116aea9e8537e20f23a73be7f612f058ebba/vaft/process/camera_fluctuation.py#L273-L324" title="vaft/process/camera_fluctuation.py, lines 273–324 at 5ae3116">source</a>
+</header>
+    <pre class="ref-signature"><code>poisson_window(window_frames, *, decay_frames=None)</code></pre>
+
+    <details class="ref-code" data-source-code="poisson_window"><summary>Show source <span class="ref-note">vaft/process/camera_fluctuation.py, lines 273–324</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">poisson_window</span><span class="p">(</span><span class="n">window_frames</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">decay_frames</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">The exponentially decreasing peak-shaped window the published analysis uses.
+
+    Parameters
+    ----------
+    window_frames : int
+        Window length in frames [-].
+    decay_frames : float, optional
+        Length over which the weight falls by ``1/e`` [-].
+
+    Returns
+    -------
+    np.ndarray
+        Window weights, peak in the middle [-].
+
+    Convention
+    ----------
+    Periodic rather than symmetric, which is what a short-time transform wants
+    and what :func:`scipy.signal.spectrogram` would build from a window name.
+
+    Defaults
+    --------
+    ``decay_frames = window_frames / 8`` is an assumed value.  The publications
+    name the window shape but not its rate, so this is a VAFT choice, recorded
+    rather than presented as published: it leaves the window edges at about 0.02
+    of the peak, tapering hard enough to suppress the transform</span><span class="sh">'</span><span class="s">s edge artefacts
+    without narrowing the effective window far below the stated 1 ms.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Because the rate is a choice, band powers from this window are not
+    numerically comparable with published values; the structure they show is.
+
+    Provenance
+    ----------
+    .. [1] [Jung2022]_ section 4.1: </span><span class="sh">"</span><span class="s">an exponential decreasing peak-shape time
+       window of 1 ms (50 images)</span><span class="sh">"</span><span class="s">.
+    .. [2] :func:`scipy.signal.windows.exponential`.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">scipy.signal</span> <span class="kn">import</span> <span class="n">windows</span>
+
+    <span class="n">length</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">window_frames</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">length</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">window_frames must be at least 2; got </span><span class="si">{</span><span class="n">window_frames</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">decay_frames</span><span class="p">)</span> <span class="k">if</span> <span class="n">decay_frames</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">length</span> <span class="o">/</span> <span class="mf">8.0</span>
+    <span class="k">if</span> <span class="n">tau</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">decay_frames must be positive; got </span><span class="si">{</span><span class="n">decay_frames</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">windows</span><span class="p">.</span><span class="nf">exponential</span><span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="n">tau</span><span class="p">,</span> <span class="n">sym</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>The exponentially decreasing peak-shaped window the published analysis uses.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>window_frames</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Window length in frames.</p>
+</td></tr>
+  <tr><td><code>decay_frames</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Length over which the weight falls by <code class="language-plaintext highlighter-rouge">1/e</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p>Window weights, peak in the middle.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Periodic rather than symmetric, which is what a short-time transform wants
+and what <code class="language-plaintext highlighter-rouge">scipy.signal.spectrogram</code> would build from a window name.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">decay_frames = window_frames / 8</code> is an assumed value.  The publications
+name the window shape but not its rate, so this is a VAFT choice, recorded
+rather than presented as published: it leaves the window edges at about 0.02
+of the peak, tapering hard enough to suppress the transform’s edge artefacts
+without narrowing the effective window far below the stated 1 ms.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Because the rate is a choice, band powers from this window are not
+numerically comparable with published values; the structure they show is.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>[Jung2022] section 4.1: “an exponential decreasing peak-shape time window of 1 ms (50 images)”.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">scipy.signal.windows.exponential</code>.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="subtract_temporal_background" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#subtract_temporal_background"><code>subtract_temporal_background</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="subtract_temporal_background" href="https://github.com/VEST-Tokamak/vaft/blob/5ae3116aea9e8537e20f23a73be7f612f058ebba/vaft/process/camera_fluctuation.py#L138-L213" title="vaft/process/camera_fluctuation.py, lines 138–213 at 5ae3116">source</a>
+</header>
+    <pre class="ref-signature"><code>subtract_temporal_background(frames, *, window_frames=15)</code></pre>
+
+    <details class="ref-code" data-source-code="subtract_temporal_background"><summary>Show source <span class="ref-note">vaft/process/camera_fluctuation.py, lines 138–213</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">subtract_temporal_background</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">window_frames</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">BACKGROUND_FRAMES_50KFPS</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Remove each pixel</span><span class="sh">'</span><span class="s">s slowly varying emission by subtracting its local temporal mean.
+
+    Parameters
+    ----------
+    frames : array_like
+        Time-ordered image cube, frame axis first [any].
+    window_frames : int, optional
+        Width of the local mean, in frames [-].
+
+    Returns
+    -------
+    np.ndarray
+        ``frames`` minus its local temporal mean, same shape, float [any].
+
+    Processing steps
+    ----------------
+    1. Take the centred rolling mean of every pixel over ``window_frames``.
+    2. Subtract it from the frame at the centre of that window.
+
+    Convention
+    ----------
+    The window is centred on the analysed frame and spans
+    ``[i - w//2, i + (w-1)//2]``, clipped to the record, so the first and last
+    frames average over a shrinking window rather than over zeros and the output
+    keeps the input</span><span class="sh">'</span><span class="s">s length.  For an odd window -- both published presets are
+    odd -- that span is symmetric; an even window takes one more frame from
+    before than after.
+
+    A window wider than the record is allowed and clips the same way, so every
+    frame is measured against the whole record.  Refusing it would make the
+    result depend on how many frames a caller happened to pass rather than on
+    the window it asked for: a fourteen-frame acquisition and a fourteen-frame
+    slice of a long one would come out differently.
+
+    Frame values and their order are otherwise untouched: this subtracts, it does
+    not filter, reorder or resample.
+
+    Defaults
+    --------
+    ``BACKGROUND_FRAMES_50KFPS = 15`` and ``BACKGROUND_FRAMES_2500FPS = 3`` are
+    literature values.  The 50 kFrames/s preset is the analysed frame plus seven
+    before and seven after, which is what reproduces the published filter
+    behaviour: measured at 50 kFrames/s this window passes 0.89 of a 3 kHz
+    component and 1.11 of a 6 kHz one, matching the statement that it removes
+    components below about 3 kHz while enhancing the several-kHz structures.  A
+    15-frame window is therefore not interchangeable with a 7-frame one, which
+    passes only 0.26 at 3 kHz and 0.81 at 6 kHz -- it would attenuate the MHD
+    band this analysis exists to see.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The subtraction is zero-phase but the shrinking edge windows bias the first
+    and last ``window_frames / 2`` frames toward the local level; a burst there is
+    partly removed along with the background.  A single very bright frame pulls
+    the mean toward itself and appears, inverted, in its neighbours.
+
+    Provenance
+    ----------
+    .. [1] [Jung2022]_ section 3.1: </span><span class="sh">"</span><span class="s">subtracts the average value of each pixel in
+       a series of seven images before and after the analysed image ... removes
+       slowly varying components (less than about 3 kHz)</span><span class="sh">"</span><span class="s">.
+    .. [2] [JungThesis]_, the background-removal figure.
+    </span><span class="sh">"""</span>
+    <span class="n">cube</span> <span class="o">=</span> <span class="nf">_as_cube</span><span class="p">(</span><span class="n">frames</span><span class="p">)</span>
+    <span class="n">window</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">window_frames</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">window</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sh">"</span><span class="s">window_frames must be at least 2; a one-frame mean is the frame </span><span class="sh">"</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">itself, so subtracting it yields exactly zero. Got </span><span class="si">{</span><span class="n">window_frames</span><span class="si">!r}</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">cube</span> <span class="o">-</span> <span class="nf">_rolling_mean</span><span class="p">(</span><span class="n">cube</span><span class="p">,</span> <span class="n">window</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Remove each pixel’s slowly varying emission by subtracting its local temporal mean.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>frames</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Time-ordered image cube, frame axis first.</p>
+</td></tr>
+  <tr><td><code>window_frames</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Width of the local mean, in frames.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">frames</code> minus its local temporal mean, same shape, float.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The window is centred on the analysed frame and spans
+<code class="language-plaintext highlighter-rouge">[i - w//2, i + (w-1)//2]</code>, clipped to the record, so the first and last
+frames average over a shrinking window rather than over zeros and the output
+keeps the input’s length.  For an odd window – both published presets are
+odd – that span is symmetric; an even window takes one more frame from
+before than after.</p>
+
+      <p>A window wider than the record is allowed and clips the same way, so every
+frame is measured against the whole record.  Refusing it would make the
+result depend on how many frames a caller happened to pass rather than on
+the window it asked for: a fourteen-frame acquisition and a fourteen-frame
+slice of a long one would come out differently.</p>
+
+      <p>Frame values and their order are otherwise untouched: this subtracts, it does
+not filter, reorder or resample.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Take the centred rolling mean of every pixel over <code class="language-plaintext highlighter-rouge">window_frames</code>.</li>
+        <li>Subtract it from the frame at the centre of that window.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">BACKGROUND_FRAMES_50KFPS = 15</code> and <code class="language-plaintext highlighter-rouge">BACKGROUND_FRAMES_2500FPS = 3</code> are
+literature values.  The 50 kFrames/s preset is the analysed frame plus seven
+before and seven after, which is what reproduces the published filter
+behaviour: measured at 50 kFrames/s this window passes 0.89 of a 3 kHz
+component and 1.11 of a 6 kHz one, matching the statement that it removes
+components below about 3 kHz while enhancing the several-kHz structures.  A
+15-frame window is therefore not interchangeable with a 7-frame one, which
+passes only 0.26 at 3 kHz and 0.81 at 6 kHz – it would attenuate the MHD
+band this analysis exists to see.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The subtraction is zero-phase but the shrinking edge windows bias the first
+and last <code class="language-plaintext highlighter-rouge">window_frames / 2</code> frames toward the local level; a burst there is
+partly removed along with the background.  A single very bright frame pulls
+the mean toward itself and appears, inverted, in its neighbours.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>[Jung2022] section 3.1: “subtracts the average value of each pixel in a series of seven images before and after the analysed image … removes slowly varying components (less than about 3 kHz)”.
+</li>
+  <li>[JungThesis], the background-removal figure.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="summed_region_signal" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#summed_region_signal"><code>summed_region_signal</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="summed_region_signal" href="https://github.com/VEST-Tokamak/vaft/blob/5ae3116aea9e8537e20f23a73be7f612f058ebba/vaft/process/camera_fluctuation.py#L216-L270" title="vaft/process/camera_fluctuation.py, lines 216–270 at 5ae3116">source</a>
+</header>
+    <pre class="ref-signature"><code>summed_region_signal(frames, *, region=None)</code></pre>
+
+    <details class="ref-code" data-source-code="summed_region_signal"><summary>Show source <span class="ref-note">vaft/process/camera_fluctuation.py, lines 216–270</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">summed_region_signal</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">region</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Sum the intensity inside one image region, giving a single time series.
+
+    Parameters
+    ----------
+    frames : array_like
+        Time-ordered image cube, frame axis first [any].
+    region : sequence of int, optional
+        Pixel box as ``(row_start, row_stop, column_start, column_stop)``, the
+        stops exclusive; ``None`` sums the whole frame [-].
+
+    Returns
+    -------
+    np.ndarray
+        One value per frame [any].
+
+    Convention
+    ----------
+    Bounds are half-open and in row-then-column order, the order an image array
+    is indexed with -- which is the opposite of the column-then-row order
+    :func:`vaft.process.camera_geometry.project_points` returns pixels in.  A
+    region is stated explicitly rather than inferred, because which part of the
+    image faces the low-field side depends on the camera pose.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A plain sum, not a mean: two regions of different size are not comparable in
+    magnitude. Nothing checks that the region holds plasma rather than wall.
+
+    Provenance
+    ----------
+    .. [1] [Jung2022]_ figure 3, the summed camera pixel intensity viewing the
+       low-field side whose spectrogram is compared with the magnetic probe</span><span class="sh">'</span><span class="s">s.
+    </span><span class="sh">"""</span>
+    <span class="n">cube</span> <span class="o">=</span> <span class="nf">_as_cube</span><span class="p">(</span><span class="n">frames</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">region</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cube</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="n">cube</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">).</span><span class="nf">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">region</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sh">"</span><span class="s">region must be (row_start, row_stop, column_start, column_stop); </span><span class="sh">"</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">got </span><span class="si">{</span><span class="n">region</span><span class="si">!r}</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="n">r0</span><span class="p">,</span> <span class="n">r1</span><span class="p">,</span> <span class="n">c0</span><span class="p">,</span> <span class="n">c1</span> <span class="o">=</span> <span class="p">(</span><span class="nf">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">region</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">r0</span> <span class="o">&gt;=</span> <span class="n">r1</span> <span class="ow">or</span> <span class="n">c0</span> <span class="o">&gt;=</span> <span class="n">c1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">region bounds must be increasing; got </span><span class="si">{</span><span class="n">region</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">window</span> <span class="o">=</span> <span class="n">cube</span><span class="p">[:,</span> <span class="n">r0</span><span class="p">:</span><span class="n">r1</span><span class="p">,</span> <span class="n">c0</span><span class="p">:</span><span class="n">c1</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">window</span><span class="p">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="sh">"</span><span class="s">region </span><span class="si">{</span><span class="n">region</span><span class="si">!r}</span><span class="s"> selects no pixels of a </span><span class="si">{</span><span class="n">cube</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="si">:</span><span class="p">]</span><span class="si">}</span><span class="s"> frame</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">window</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="n">window</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">).</span><span class="nf">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Sum the intensity inside one image region, giving a single time series.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>frames</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>Time-ordered image cube, frame axis first.</p>
+</td></tr>
+  <tr><td><code>region</code></td><td class="ref-type">sequence of int, optional</td><td class="ref-unit">-</td><td><p>Pixel box as <code class="language-plaintext highlighter-rouge">(row_start, row_stop, column_start, column_stop)</code>, the stops exclusive; <code class="language-plaintext highlighter-rouge">None</code> sums the whole frame.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">any</td><td><p>One value per frame.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Bounds are half-open and in row-then-column order, the order an image array
+is indexed with – which is the opposite of the column-then-row order
+<code class="language-plaintext highlighter-rouge">vaft.process.camera_geometry.project_points</code> returns pixels in.  A
+region is stated explicitly rather than inferred, because which part of the
+image faces the low-field side depends on the camera pose.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A plain sum, not a mean: two regions of different size are not comparable in
+magnitude. Nothing checks that the region holds plasma rather than wall.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>[Jung2022] figure 3, the summed camera pixel intensity viewing the low-field side whose spectrogram is compared with the magnetic probe’s.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="track_reference_frequency" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#track_reference_frequency"><code>track_reference_frequency</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="track_reference_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/5ae3116aea9e8537e20f23a73be7f612f058ebba/vaft/process/camera_fluctuation.py#L449-L511" title="vaft/process/camera_fluctuation.py, lines 449–511 at 5ae3116">source</a>
+</header>
+    <pre class="ref-signature"><code>track_reference_frequency(spectrogram, *, search_range=(3000.0, 15000.0))</code></pre>
+
+    <details class="ref-code" data-source-code="track_reference_frequency"><summary>Show source <span class="ref-note">vaft/process/camera_fluctuation.py, lines 449–511</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">track_reference_frequency</span><span class="p">(</span>
+    <span class="n">spectrogram</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">search_range</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">REFERENCE_SEARCH_RANGE_HZ</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Follow the dominant MHD frequency a magnetic probe reports, window by window.
+
+    Parameters
+    ----------
+    spectrogram : Any
+        Any object carrying ``time``, ``frequency`` and a ``(frequency, time)``
+        ``magnitude``, such as a magnetics spectrogram result [-].
+    search_range : sequence of float, optional
+        Lowest and highest frequency the peak may be found at [Hz].
+
+    Returns
+    -------
+    np.ndarray
+        One frequency per window, ``nan`` where no bin lies in range [Hz].
+
+    Convention
+    ----------
+    The frequency is tracked, not assumed.  The published filtering is </span><span class="sh">"</span><span class="s">centred
+    at the dominant MHD mode frequency measured by the magnetic probe</span><span class="sh">"</span><span class="s">, which
+    moves during a shot; a fixed 6 kHz is the value of one example, not the
+    method.
+
+    Defaults
+    --------
+    ``REFERENCE_SEARCH_RANGE_HZ = (3000, 15000)`` is a legacy compatibility
+    value.  The legacy code searched the first fifteen bins of a magnetics
+    transform whose resolution was 1 kHz and rejected anything below the fourth,
+    which is this range expressed in hertz rather than in bins, so it means the
+    same thing at any window length.  The lower edge matters: without it the
+    peak sits on the equilibrium field</span><span class="sh">'</span><span class="s">s own slow variation instead of the mode.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A single argmax per window, with no continuity requirement between windows,
+    so it can jump between two comparable modes from one window to the next. It
+    reports the strongest component in range whether or not one is really there;
+    a window with no mode still returns its loudest bin.
+    :func:`vaft.process.fluctuation.track_dominant_frequency`, which this calls,
+    offers a floor and a continuity limit for callers that want neither.
+
+    Provenance
+    ----------
+    .. [1] [CameraFFT]_: ``[~, idx_max] = max(P1_mir(1:15, iFT))`` with windows
+       whose ``idx_max`` falls below four discarded.
+    .. [2] [Jung2022]_ section 4.1, which specifies the magnetic probe as the
+       source of the centre frequency.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">vaft.process.fluctuation</span> <span class="kn">import</span> <span class="n">track_dominant_frequency</span>
+
+    <span class="c1"># The shared ridge tracker with no floor and no continuity requirement is
+</span>    <span class="c1"># exactly the legacy per-window argmax; only an empty window reports NaN.
+</span>    <span class="k">return</span> <span class="nf">track_dominant_frequency</span><span class="p">(</span>
+        <span class="n">spectrogram</span><span class="p">,</span> <span class="n">search_range</span><span class="o">=</span><span class="n">search_range</span><span class="p">,</span> <span class="n">floor_ratio</span><span class="o">=</span><span class="mf">0.0</span>
+    <span class="p">).</span><span class="n">frequency</span></code></pre></figure>
+
+</details>
+
+    <p>Follow the dominant MHD frequency a magnetic probe reports, window by window.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>spectrogram</code></td><td class="ref-type">Any</td><td class="ref-unit">-</td><td><p>Any object carrying <code class="language-plaintext highlighter-rouge">time</code>, <code class="language-plaintext highlighter-rouge">frequency</code> and a <code class="language-plaintext highlighter-rouge">(frequency, time)</code> <code class="language-plaintext highlighter-rouge">magnitude</code>, such as a magnetics spectrogram result.</p>
+</td></tr>
+  <tr><td><code>search_range</code></td><td class="ref-type">sequence of float, optional</td><td class="ref-unit">Hz</td><td><p>Lowest and highest frequency the peak may be found at.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">Hz</td><td><p>One frequency per window, <code class="language-plaintext highlighter-rouge">nan</code> where no bin lies in range.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The frequency is tracked, not assumed.  The published filtering is “centred
+at the dominant MHD mode frequency measured by the magnetic probe”, which
+moves during a shot; a fixed 6 kHz is the value of one example, not the
+method.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">REFERENCE_SEARCH_RANGE_HZ = (3000, 15000)</code> is a legacy compatibility
+value.  The legacy code searched the first fifteen bins of a magnetics
+transform whose resolution was 1 kHz and rejected anything below the fourth,
+which is this range expressed in hertz rather than in bins, so it means the
+same thing at any window length.  The lower edge matters: without it the
+peak sits on the equilibrium field’s own slow variation instead of the mode.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A single argmax per window, with no continuity requirement between windows,
+so it can jump between two comparable modes from one window to the next. It
+reports the strongest component in range whether or not one is really there;
+a window with no mode still returns its loudest bin.
+<code class="language-plaintext highlighter-rouge">vaft.process.fluctuation.track_dominant_frequency</code>, which this calls,
+offers a floor and a continuity limit for callers that want neither.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li></li>
+  <li>[Jung2022] section 4.1, which specifies the magnetic probe as the source of the centre frequency.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/formula/startup/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: startup">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/process/line_of_sight/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: line_of_sight">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: line_of_sight",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_line_of_sight.md",
+            "ref": "_guide/Process_reference_line_of_sight.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_camera_fluctuation.md",
+        "mtime": "2026-09-14 12:00:00 +0900",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-25 03:15:01 +0900"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/assets/animations/loader.js"></script>
+<script src="/vaft/assets/gitbook/adaptive.js"></script>
+</body>
+</html>
