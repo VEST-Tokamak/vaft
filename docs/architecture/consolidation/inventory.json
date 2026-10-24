@@ -4709,7 +4709,7 @@
    "source_file": "vaft/formula/vde.py"
   },
   {
-   "algorithm_semantics": "medfilt despike then resample_to_time.",
+   "algorithm_semantics": "medfilt despike then resample_to_time (a run too short to anti-alias is stored NaN since B3.12).",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -4748,7 +4748,7 @@
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
    "recommended_action": "keep.",
-   "related_issue": "",
+   "related_issue": "#2162",
    "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/barometry.py"
@@ -4966,7 +4966,7 @@
    "source_file": "vaft/machine_mapping/impa.py"
   },
   {
-   "algorithm_semantics": "resample_to_time with its anti-alias filter and return_filter_mask=True: target samples touched by a run too short to filter get validity -1 (#915).",
+   "algorithm_semantics": "resample_to_time with its anti-alias filter, return_filter_mask=True and unfiltered='keep': target samples touched by a run too short to filter keep their value and get validity -1 (#915).",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -4980,7 +4980,7 @@
     },
     {
      "call": "vaft.process.signal_processing.resample_to_time",
-     "snippet": "resample_to_time(result['time'], result[source_key], time, return_filter_mask=True)"
+     "snippet": "resample_to_time(result['time'], result[source_key], time, return_filter_mask=True, unfiltered='keep')"
     }
    ],
    "callers": [
@@ -15147,7 +15147,7 @@
    "source_file": "vaft/process/signal_processing.py"
   },
   {
-   "algorithm_semantics": "anti-alias (when downsampling) then linear np.interp per finite run; explicit extrapolation policy (#425/#626).",
+   "algorithm_semantics": "anti-alias (when downsampling) then linear np.interp per finite run; explicit extrapolation policy (#425/#626); unfiltered='nan' (default, B3.12) makes every target sample drawn from a run too short to filter NaN instead of a possibly aliased value, 'keep' leaves it for a mask-reading caller.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -15176,7 +15176,7 @@
    "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
-   "evidence": "",
+   "evidence": "test/test_resample_short_run_alias.py: 20 kHz tone and 1-100 kHz chirp on a 900-sample run (kept: folded at full amplitude; default: NaN); AST guard that only a mask-reading caller passes 'keep'; 4-shot capture leaf-identical.",
    "implementation": "vaft.process.signal_processing.resample_to_time",
    "operation": [
     "filter_application",
@@ -15189,8 +15189,8 @@
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
    "recommended_action": "keep as the resampling owner; direct np.interp in mappers stays where the source is already band-limited (documented per site).",
-   "related_issue": "#425",
-   "resolved_by": "",
+   "related_issue": "#425, #2162",
+   "resolved_by": "#2162 (B3.12)",
    "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
