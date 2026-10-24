@@ -26,9 +26,11 @@
 #
 # Baselines: `workflow/architecture_audit/capture_baseline.py` captures the
 # pre-migration array-by-array identity of the offline cases (39915, 41524,
-# 41672, 42962).  Pre-migration ODS baselines are deliberately NOT captured
-# yet: they must reflect develop after PR #2135 (zero-phase probe low-pass)
-# lands, or the baseline would pin a filter that is about to change.
+# 41672, 42962).  Captured on develop 75b154e31 (after PR #2135's zero-phase
+# probe low pass); the committed compact summary is
+# test/data/consolidation/baseline_75b154e31.json (per-array sha256 prefix +
+# stats; scalar leaves grouped by IMAS path).  A baseline is the reference a
+# later phase is diffed against -- it is not a pass.
 
 schema_version: 1
 issue: https://github.com/VEST-Tokamak/vaft/issues/2166
@@ -41,6 +43,7 @@ status_vocabulary: [not_tested, blocked, failed, passed]
 cases:
 
   - id: ref-39915-chain
+    baseline: {summary: test/data/consolidation/baseline_75b154e31.json, shot_key: '39915', code_sha: 75b154e31}
     shots: [39915]
     purpose: >-
       Existing raw-to-EFIT reference chain: static -> diagnostics -> eddy ->
@@ -73,6 +76,7 @@ cases:
     status: not_tested
 
   - id: ref-41524-chain
+    baseline: {summary: test/data/consolidation/baseline_75b154e31.json, shot_key: '41524', code_sha: 75b154e31}
     shots: [41524]
     purpose: >-
       Second packaged raw-to-EFIT chain; also a vacuum-benchmark case whose
@@ -94,6 +98,7 @@ cases:
     status: not_tested
 
   - id: ref-41672-chain
+    baseline: {summary: test/data/consolidation/baseline_75b154e31.json, shot_key: '41672', code_sha: 75b154e31}
     shots: [41672]
     purpose: Packaged raw-to-EFIT chain in the late (>= 41660) magnetics window/baseline era.
     selection: packaged raw + chain; first era boundary of the legacy probe baseline rule
@@ -113,6 +118,7 @@ cases:
     status: not_tested
 
   - id: ref-42962-chain
+    baseline: {summary: test/data/consolidation/baseline_75b154e31.json, shot_key: '42962', code_sha: 75b154e31}
     shots: [42962]
     purpose: Packaged raw-to-EFIT chain with its own (different) frozen pipeline config.
     selection: packaged raw + chain; the only packaged chain whose config differs from 39915's

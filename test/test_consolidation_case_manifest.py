@@ -104,3 +104,24 @@ def test_the_frozen_hashes_agree_with_the_sample_manifests(manifest):
             assert config["sha256"] == declared_config
         canonical = next(item for item in case["required_inputs"] if item["name"] == "canonical_product")
         assert canonical["sha256"] == sample["generation"]["canonical_sha256"]
+
+
+def test_the_committed_baseline_summary_covers_the_offline_chains(manifest):
+    import json
+
+    for case in manifest["cases"]:
+        baseline = case.get("baseline")
+        if not baseline:
+            continue
+        summary = json.loads((ROOT / baseline["summary"]).read_text(encoding="utf-8"))
+        assert summary["schema"] == "vaft.consolidation.baseline-summary/1"
+        assert summary["code_sha"] == baseline["code_sha"]
+        assert summary["captured_revision"]["dirty"] is False
+        shot = summary["shots"][baseline["shot_key"]]
+        assert {stage: entry["status"] for stage, entry in shot["stages"].items()} == {
+            "static": "captured", "diagnostics": "captured", "eddy": "captured", "constraints": "captured",
+        }
+        # The raw input the baseline was built from is the one this case froze.
+        raw = next(item for item in case["required_inputs"] if item["name"] == "raw_dump")
+        assert shot["inputs"]["raw_dump"]["sha256"] == raw["sha256"]
+        assert case["status"] == "not_tested", "a captured baseline is a reference, not a pass"
