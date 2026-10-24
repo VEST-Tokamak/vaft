@@ -29,6 +29,7 @@ from vaft.process.signal_processing import (
     detect_clipped_samples,
     repair_clipped_interval,
     smooth,
+    subtract_baseline,
 )
 
 from vaft.formula.statistics import median_absolute_deviation
@@ -987,13 +988,6 @@ def _set_current_signal(
     set_path(ods, f"{base_path}.current.validity", int(validity))
 
 
-def _polyfit_baseline(time_axis: np.ndarray, values: np.ndarray, indices: np.ndarray) -> np.ndarray:
-    valid = indices[(indices >= 0) & (indices < values.size)]
-    if valid.size < 2:
-        return np.zeros(values.size, dtype=float)
-    return np.polyval(np.polyfit(time_axis[valid], values[valid], 1), time_axis)
-
-
 def _plasma_processing_for_shot(shot: int) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Resolve nested plasma-current processing eras declared in vest.yaml."""
     config = resolve_vest_diagnostic(shot, "plasma_current")
@@ -1026,7 +1020,14 @@ def _plasma_current_baseline_indices(
 
 
 def _linear_baseline_subtract(time: np.ndarray, values: np.ndarray, x_base: np.ndarray) -> np.ndarray:
-    return values - np.polyval(np.polyfit(time[x_base], values[x_base], 1), time)
+    """Remove the plasma-current baseline with the canonical polyfit line.
+
+    ``nan_policy="propagate"`` keeps this chain's historical behaviour: a NaN
+    inside the window makes the whole corrected trace NaN rather than being
+    skipped, as the probe and flux-loop chains do (#2162).
+    """
+    corrected, _ = subtract_baseline(time, values, x_base, fitting_opt="polyfit", nan_policy="propagate")
+    return corrected
 
 
 def _apply_fl10_windowed_compensation(

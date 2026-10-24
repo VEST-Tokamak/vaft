@@ -192,3 +192,72 @@ def test_the_canonical_line_is_the_least_squares_line():
     indices = _WINDOWS["leading"]
     baseline = process_magnetics._linear_baseline(_TIME, line + pulse, indices)
     np.testing.assert_allclose(baseline, line, rtol=0.0, atol=1e-15)
+
+
+# ---------------------------------------------------------------------------
+# The canonical owner: subtract_baseline(fitting_opt="polyfit")
+# ---------------------------------------------------------------------------
+
+from vaft.process import signal_processing  # noqa: E402
+
+
+@pytest.mark.parametrize("window", sorted(_WINDOWS))
+def test_subtract_baseline_polyfit_is_the_frozen_guarded_line(window):
+    indices = _WINDOWS[window]
+    values = _with_nan(_DRIFTING, (indices[len(indices) // 2] % _TIME.size,))
+    expected = _frozen_process_linear_baseline(_TIME, values, indices)
+    corrected, baseline = signal_processing.subtract_baseline(
+        _TIME, values, indices, fitting_opt="polyfit"
+    )
+    np.testing.assert_array_equal(baseline, expected)
+    np.testing.assert_array_equal(corrected, values - expected)
+
+
+def test_subtract_baseline_polyfit_propagate_is_the_frozen_plasma_current_line():
+    indices = _WINDOWS["two_regions"]
+    corrected, _ = signal_processing.subtract_baseline(
+        _TIME, _DRIFTING, indices, fitting_opt="polyfit", nan_policy="propagate"
+    )
+    np.testing.assert_array_equal(corrected, _frozen_mm_linear_baseline_subtract(_TIME, _DRIFTING, indices))
+
+
+def test_subtract_baseline_polyfit_degenerate_window_raises_or_falls_back():
+    with pytest.raises(DegenerateBaselineWindowError, match=r"for shot 1, channel 'x': found 1 valid"):
+        signal_processing.subtract_baseline(
+            _TIME, _DRIFTING, np.array([3]), fitting_opt="polyfit", context="shot 1, channel 'x'"
+        )
+    with pytest.warns(UserWarning, match=r"\[ctx\]: 0 valid sample") as record:
+        corrected, baseline = signal_processing.subtract_baseline(
+            _TIME, _DRIFTING, np.array([], dtype=int), fitting_opt="polyfit",
+            allow_zero_fallback=True, context="ctx",
+        )
+    assert record[0].filename == __file__
+    np.testing.assert_array_equal(baseline, np.zeros_like(_DRIFTING))
+    np.testing.assert_array_equal(corrected, _DRIFTING)
+
+
+def test_subtract_baseline_rejects_an_unknown_nan_policy():
+    with pytest.raises(ValueError, match="nan_policy"):
+        signal_processing.subtract_baseline(
+            _TIME, _DRIFTING, _WINDOWS["leading"], fitting_opt="polyfit", nan_policy="drop"
+        )
+
+
+def test_subtract_baseline_linear_curve_fit_path_is_left_as_it_was():
+    """``"linear"`` (curve_fit) is not rerouted to polyfit: the two agree only
+    to round-off-plus-tolerance, and the diamagnetic chain's stored values were
+    built with curve_fit."""
+    from scipy.optimize import curve_fit
+
+    indices = _WINDOWS["two_regions"]
+    popt, _ = curve_fit(lambda x, a, b: a * x + b, _TIME[indices], _DRIFTING[indices])
+    _, baseline = signal_processing.subtract_baseline(_TIME, _DRIFTING, indices, fitting_opt="linear")
+    np.testing.assert_array_equal(baseline, popt[0] * _TIME + popt[1])
+
+
+def test_one_error_class_and_no_dead_helper():
+    assert process_magnetics.DegenerateBaselineWindowError is signal_processing.DegenerateBaselineWindowError
+    import vaft.process
+
+    assert vaft.process.DegenerateBaselineWindowError is signal_processing.DegenerateBaselineWindowError
+    assert not hasattr(mm_magnetics, "_polyfit_baseline")
