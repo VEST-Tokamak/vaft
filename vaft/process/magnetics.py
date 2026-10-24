@@ -309,6 +309,83 @@ class VestMagneticsProcessingConfig:
     daq_mode: str = "legacy"
     allow_zero_fallback: bool = False
 
+    def __post_init__(self) -> None:
+        """Refuse a configuration no filter or window can honour (#2159, audit gap G8).
+
+        Checked here, at construction (and so at every ``dataclasses.replace``),
+        rather than when ``firwin`` or an index fails deep inside a shot: the
+        rates must be positive and finite, the low-pass cutoff strictly below
+        the Nyquist frequency of ``fast_sample_rate``, the tap and sample
+        counts positive integers, and the windows ordered. ``daq_mode`` and its
+        baseline rules keep their own check where the chain is selected.
+        """
+        def number(name: str) -> float:
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, (int, float, np.integer, np.floating)):
+                raise ValueError(f"VestMagneticsProcessingConfig.{name} must be a number, not {value!r}")
+            if not np.isfinite(value):
+                raise ValueError(f"VestMagneticsProcessingConfig.{name} must be finite, not {value!r}")
+            return float(value)
+
+        def integer(name: str, *, minimum: int, value: object = None) -> int:
+            value = getattr(self, name) if value is None else value
+            if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or int(value) < minimum:
+                raise ValueError(
+                    f"VestMagneticsProcessingConfig.{name} must be an integer >= {minimum}, not {value!r}"
+                )
+            return int(value)
+
+        if number("time_end") <= number("time_start"):
+            raise ValueError("VestMagneticsProcessingConfig.time_end must exceed time_start")
+        integer("sample_count", minimum=2)
+        rate = number("fast_sample_rate")
+        if rate <= 0.0:
+            raise ValueError("VestMagneticsProcessingConfig.fast_sample_rate must be positive")
+        cutoff = number("lowpass_cutoff")
+        if not 0.0 < cutoff < 0.5 * rate:
+            raise ValueError(
+                f"VestMagneticsProcessingConfig.lowpass_cutoff {cutoff} Hz must lie in (0, {0.5 * rate}) Hz, "
+                f"the Nyquist band of fast_sample_rate {rate} Hz"
+            )
+        integer("lowpass_taps", minimum=1)
+        for name in (
+            "default_index_start", "default_index_end", "default_probe_baseline_end",
+            "late_index_start", "late_index_end", "late_probe_baseline_end",
+            "flux_baseline_first_start", "flux_baseline_first_end",
+            "flux_baseline_second_start", "flux_baseline_second_end",
+            "flux_baseline_late_start", "flux_baseline_late_end",
+            "late_shot_min", "transient_shot_min", "transient_shot_max",
+        ):
+            integer(name, minimum=0)
+        if self.calibration_mode not in {"divide", "multiply"}:
+            raise ValueError(
+                f"VestMagneticsProcessingConfig.calibration_mode must be 'divide' or 'multiply', "
+                f"not {self.calibration_mode!r}"
+            )
+        if self.window_override is not None:
+            window = tuple(self.window_override)
+            if len(window) != 3:
+                raise ValueError(
+                    "VestMagneticsProcessingConfig.window_override must be "
+                    "(index_start, index_end, probe_baseline_end)"
+                )
+            start, end, _baseline = (
+                integer("window_override", minimum=0, value=item) for item in window
+            )
+            if end < start:
+                raise ValueError("VestMagneticsProcessingConfig.window_override index_end precedes index_start")
+        if self.flux_baseline_window is not None:
+            window = tuple(self.flux_baseline_window)
+            if len(window) != 2 or not all(
+                isinstance(item, (int, float, np.integer, np.floating)) and not isinstance(item, bool)
+                and np.isfinite(item) for item in window
+            ) or not float(window[0]) < float(window[1]):
+                raise ValueError(
+                    "VestMagneticsProcessingConfig.flux_baseline_window must be two finite, increasing times"
+                )
+        if self.flux_baseline_samples is not None:
+            integer("flux_baseline_samples", minimum=1)
+
     def timebase(self) -> np.ndarray:
         return np.linspace(self.time_start, self.time_end, self.sample_count)
 

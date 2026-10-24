@@ -18,7 +18,18 @@ from .magnetics import (
     known_magnetics_faults,
     magnetics_wiring_for_shot,
 )
-from .utils import resolve_shot_revisions_with_provenance, resolve_vest_diagnostic
+from .effective_config import (
+    configuration_fingerprint,
+    impa_shot_era,
+    resolve_vest_processing_config,
+    vest_configuration_source,
+)
+from .utils import (
+    resolve_diagnostics_time_policies,
+    resolve_plasma_timing_policy,
+    resolve_shot_revisions_with_provenance,
+    resolve_vest_diagnostic,
+)
 
 __all__ = ["vest_processing_provenance"]
 
@@ -35,8 +46,10 @@ def _nested_provenance(
     )
 
 
-def _plasma_current_provenance(shot: int) -> dict[str, Any]:
-    config, top_level = resolve_vest_diagnostic(shot, "plasma_current", with_provenance=True)
+def _plasma_current_provenance(shot: int, info_file: str | None = None) -> dict[str, Any]:
+    config, top_level = resolve_vest_diagnostic(
+        shot, "plasma_current", info_file=info_file, with_provenance=True
+    )
     processing = config["processing"]
 
     reference, reference_prov = _nested_provenance(
@@ -78,8 +91,10 @@ def _plasma_current_provenance(shot: int) -> dict[str, Any]:
     }
 
 
-def _pf_active_provenance(shot: int) -> dict[str, Any]:
-    config, top_level = resolve_vest_diagnostic(shot, "pf_active", with_provenance=True)
+def _pf_active_provenance(shot: int, info_file: str | None = None) -> dict[str, Any]:
+    config, top_level = resolve_vest_diagnostic(
+        shot, "pf_active", info_file=info_file, with_provenance=True
+    )
     processing = config["processing"]
     repair = processing.get("saturation_repair") or {}
     return {
@@ -97,8 +112,8 @@ def _pf_active_provenance(shot: int) -> dict[str, Any]:
     }
 
 
-def _equilibrium_magnetics_provenance(shot: int) -> dict[str, Any]:
-    config = resolve_vest_diagnostic(shot, "equilibrium_magnetics")
+def _equilibrium_magnetics_provenance(shot: int, info_file: str | None = None) -> dict[str, Any]:
+    config = resolve_vest_diagnostic(shot, "equilibrium_magnetics", info_file=info_file)
     window, window_prov = _nested_provenance(
         config["processing"], "window", shot, context="equilibrium_magnetics window"
     )
@@ -127,6 +142,9 @@ def _equilibrium_magnetics_provenance(shot: int) -> dict[str, Any]:
             {"kind": kind, "index": index, "reason": reason}
             for (kind, index), reason in sorted(known_magnetics_faults(int(shot)).items())
         ],
+        # The wiring and fault resolvers read the packaged vest.yaml only; say
+        # so rather than let a campaign file appear to have supplied them.
+        "wiring_and_faults_source": "vaft/machine_mapping/vest.yaml",
     }
 
 
@@ -158,17 +176,79 @@ def _core_profiles_provenance(shot: int) -> dict[str, Any]:
     }
 
 
-def vest_processing_provenance(shot: int) -> dict[str, Any]:
+def _effective_summary(shot: int, diagnostic: str, info_file: str | None) -> dict[str, Any]:
+    """Fingerprint, applied revisions and effective values of one diagnostic."""
+    resolved = resolve_vest_processing_config(shot, diagnostic, info_file=info_file)
+    record = resolved.as_record()
+    return {
+        "fingerprint": record["fingerprint"],
+        "revisions": record["provenance"]["revisions"],
+        "effective": record["effective"],
+    }
+
+
+def _impa_provenance(shot: int, info_file: str | None) -> dict[str, Any]:
+    from .impa import _resolve_gain
+
+    resolved = resolve_vest_processing_config(shot, "impa", info_file=info_file)
+    calibration = resolved.effective_dict().get("calibration") or {}
+    era, era_provenance = impa_shot_era(calibration, shot)
+    return {
+        "gain": _resolve_gain(calibration, shot),
+        "era": {
+            "revision_index": era_provenance["revision_index"],
+            "revision_bounds": era_provenance["revision_bounds"],
+            "channels": None if era is None else era.get("channels"),
+            "bz_channels": None if era is None else era.get("bz_channels"),
+        },
+        "processing": dict(resolved.effective_dict().get("processing") or {}),
+        "fingerprint": resolved.fingerprint,
+    }
+
+
+def _time_policies_provenance(info_file: str | None) -> dict[str, Any]:
+    policies = resolve_diagnostics_time_policies(info_file=info_file)
+    timing = resolve_plasma_timing_policy(info_file=info_file)
+    effective = {
+        "default": policies.default.name if policies.default is not None else None,
+        "windows": {name: policy.as_dict() for name, policy in sorted(policies.windows.items())},
+        "components": {name: policy.name for name, policy in sorted(policies.items())},
+    }
+    return {
+        "diagnostics_time_policies": {**effective, "fingerprint": configuration_fingerprint(effective)},
+        "plasma_timing": {
+            **timing.as_dict(),
+            "fingerprint": configuration_fingerprint(timing.as_dict()),
+        },
+    }
+
+
+def vest_processing_provenance(shot: int, *, info_file: str | None = None) -> dict[str, Any]:
     """Return the effective processing era for *shot*, per diagnostic.
 
     Pure configuration resolution -- no raw data is loaded, so this is safe
     to call for reporting, manifests, or comparison metadata.
+
+    ``info_file`` selects the configuration file exactly as every resolver
+    does (``None``: the packaged vest.yaml; a missing explicit path raises).
+    The record names that file and its sha256 (``source``), and carries the
+    TF, IMPA and time-policy resolutions and per-diagnostic fingerprints
+    (#2159). The equilibrium-magnetics wiring and known faults are always the
+    packaged file's (``wiring_and_faults_source``).
     """
     numeric_shot = int(shot)
     return {
         "shot": numeric_shot,
-        "plasma_current": _plasma_current_provenance(numeric_shot),
-        "pf_active": _pf_active_provenance(numeric_shot),
-        "equilibrium_magnetics": _equilibrium_magnetics_provenance(numeric_shot),
+        "source": vest_configuration_source(info_file),
+        "plasma_current": _plasma_current_provenance(numeric_shot, info_file),
+        "pf_active": _pf_active_provenance(numeric_shot, info_file),
+        "equilibrium_magnetics": _equilibrium_magnetics_provenance(numeric_shot, info_file),
+        "tf": _effective_summary(numeric_shot, "tf", info_file),
+        "impa": _impa_provenance(numeric_shot, info_file),
+        "time_policies": _time_policies_provenance(info_file),
         "core_profiles": _core_profiles_provenance(numeric_shot),
+        "fingerprints": {
+            name: resolve_vest_processing_config(numeric_shot, name, info_file=info_file).fingerprint
+            for name in ("plasma_current", "pf_active", "equilibrium_magnetics", "tf", "impa")
+        },
     }
