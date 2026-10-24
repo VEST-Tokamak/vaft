@@ -775,8 +775,9 @@ def apply_fir_filter(taps, data, *, axis: int = -1, short_record: str = "raise")
     ----------
     The shared FIR application for measured waveforms (``anti_alias_filter``
     runs its own ``filtfilt`` over finite segments).  It is zero-phase: a causal ``lfilter`` delays every feature by the filter's group
-    delay, ``(len(taps) - 1) / 2`` samples, which is 0.5 ms for both VEST
-    designs (251 taps at 250 kHz, 26 taps at 25 kHz).  Signals are compared and
+    delay, ``(len(taps) - 1) / 2`` samples, which is 0.5 ms for the probe and
+    TF designs (251 taps at 250 kHz, 26 taps at 25 kHz) and 5 ms for the PF
+    design (251 taps at 25 kHz, :func:`pf_current_filter`).  Signals are compared and
     fitted against each other -- probes against PF coil currents in the vacuum
     benchmark and in EFIT -- so a delay in one of them is a systematic error, not
     a cosmetic one.  The legacy VEST workflow applies its ``vest_filter``
@@ -842,7 +843,7 @@ def pf_current_filter(
     Raises
     ------
     ValueError
-        ``numtaps`` is even, or the cutoff is outside the band (from
+        ``numtaps`` is even or below 3, or the cutoff is outside the band (from
         :func:`fir_filter_coefficients`).
 
     Processing steps
@@ -886,9 +887,10 @@ def pf_current_filter(
        workflow [VFIT]_ (``firwin`` + ``filtfilt`` + ``smooth``-like averaging).
     """
     taps_count = int(numtaps)
-    if taps_count % 2 == 0:
+    if taps_count % 2 == 0 or taps_count < 3:
         raise ValueError(
-            f"numtaps must be odd (fir_filter_coefficients would lengthen it); got {numtaps!r}"
+            "numtaps must be odd and at least 3 (fir_filter_coefficients would change it); "
+            f"got {numtaps!r}"
         )
     taps = fir_filter_coefficients(
         float(cutoff_hz), float(sample_rate), kind="lowpass", numtaps=taps_count, window="hamming"

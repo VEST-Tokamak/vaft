@@ -5,8 +5,10 @@
 vest.yaml), applied it forward-backward -- forward only on a record too short
 for ``filtfilt`` -- and then smoothed with a 10-sample
 ``scipy.ndimage.uniform_filter1d``.  The frozen copy below is that function
-verbatim from develop 75b154e31 (after #2135); the composition that replaces
-it is held to it bit for bit, and its phase behaviour is pinned against
+verbatim from develop 75b154e31 (after #2135) -- its coefficient design
+(``firwin``) and smoothing are independent of the new code, its filter
+application is the shared, unchanged ``apply_fir_filter``; the composition that
+replaces it is held to it bit for bit, and its phase behaviour is pinned against
 closed-form expectations rather than against either implementation.
 """
 
@@ -154,3 +156,11 @@ def test_short_record_takes_the_causal_fallback_with_its_group_delay():
     long_impulse = np.zeros(754)
     long_impulse[377] = 1.0
     assert int(np.argmax(_pf(long_impulse, smoothing_window=1))) == 377  # filtfilt: no shift
+
+
+@pytest.mark.parametrize("numtaps", [1, 2])
+def test_tap_counts_fir_filter_coefficients_would_change_are_refused(numtaps):
+    from vaft.process.signal_processing import pf_current_filter
+
+    with pytest.raises(ValueError, match="odd and at least 3"):
+        pf_current_filter(np.ones(100), sample_rate=25_000.0, cutoff_hz=2_500.0, numtaps=numtaps, smoothing_window=10)

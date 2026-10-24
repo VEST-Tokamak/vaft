@@ -1,6 +1,6 @@
 {
  "classification_counts": {
-  "canonical": 19,
+  "canonical": 20,
   "duplicate": 11,
   "intentional_specialization": 32,
   "legacy": 37,
@@ -6101,21 +6101,13 @@
    "source_file": "vaft/machine_mapping/pf_active.py"
   },
   {
-   "algorithm_semantics": "firwin(hamming 251) -> filtfilt, lfilter fallback below _filtfilt_min_length -> uniform_filter1d(10). Since #2135 (merged, 75b154e31) this is applied through vaft.process.signal_processing.apply_fir_filter(short_record='causal'): a refactor, the numerics are unchanged.",
+   "algorithm_semantics": "reads vest.yaml and calls signal_processing.pf_current_filter (was _legacy_pf_filter). Since #2135 (merged, 75b154e31) this is applied through vaft.process.signal_processing.apply_fir_filter(short_record='causal'): a refactor, the numerics are unchanged.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
     {
-     "call": "scipy.ndimage.uniform_filter1d",
-     "snippet": "ndimage.uniform_filter1d(filtered, size=min(int(filter_config['smoothing_window']), values.size))"
-    },
-    {
-     "call": "scipy.signal.firwin",
-     "snippet": "signal.firwin(int(filter_config['taps']), float(filter_config['cutoff_frequency']), pass_zero='lowpass', fs=float(filter_config['sample_rate']))"
-    },
-    {
-     "call": "vaft.process.signal_processing.apply_fir_filter",
-     "snippet": "apply_fir_filter(taps, values, short_record='causal')"
+     "call": "vaft.process.signal_processing.pf_current_filter",
+     "snippet": "pf_current_filter(values, sample_rate=float(filter_config['sample_rate']), cutoff_hz=float(filter_config['cutoff_frequency']), numtaps=int(filter_config['tap..."
     }
    ],
    "callers": [
@@ -6124,24 +6116,20 @@
    "classification": "intentional_specialization",
    "configuration_source": "vest.yaml 0.diagnostics.pf_active.processing.filter (251 taps, 2.5 kHz, fs 25 kHz, smoothing 10).",
    "curated": true,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.pf_active._legacy_pf_filter",
+   "evidence": "test/test_pf_current_filter.py: bit-identical to the frozen develop _legacy_pf_filter at 20000/754/753/200/5 samples; 4-shot capture leaf-identical.",
+   "implementation": "vaft.machine_mapping.pf_active._pf_filter",
    "operation": [
-    "filter_application",
-    "filter_design",
-    "smoothing"
+    "filter_application"
    ],
    "owning_layer": "machine_mapping",
    "primitives": [
-    "scipy.ndimage.uniform_filter1d",
-    "scipy.signal.firwin",
-    "vaft.process.signal_processing.apply_fir_filter"
+    "vaft.process.signal_processing.pf_current_filter"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "pipeline1 generate_diagnostics_ods (all PF circuits) and IMPA strict vfit_pf.",
-   "recommended_action": "B3: named pf_current_filter in vaft.process = fir_filter_coefficients(window='hamming', numtaps=251) + apply_fir_filter + uniform_filter1d; coefficient-equality and phase tests.",
+   "recommended_action": "keep (config adapter).",
    "related_issue": "#2162, #2135",
-   "resolved_by": "",
+   "resolved_by": "#2162 (B3.5)",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/pf_active.py"
   },
@@ -14773,12 +14761,12 @@
    ],
    "callers": [
     "vaft.machine_mapping.magnetics.vfit_plasma_current",
-    "vaft.machine_mapping.pf_active._legacy_pf_filter",
     "vaft.machine_mapping.tf.vfit_tf_current_detailed",
     "vaft.process.impa.impa_lowpass",
     "vaft.process.magnetics.b_field_pol_probe_field",
     "vaft.process.magnetics.mirnov_preprocess_signal",
-    "vaft.process.signal_processing.fir_filter"
+    "vaft.process.signal_processing.fir_filter",
+    "vaft.process.signal_processing.pf_current_filter"
    ],
    "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -15031,7 +15019,8 @@
     }
    ],
    "callers": [
-    "vaft.process.signal_processing.fir_filter"
+    "vaft.process.signal_processing.fir_filter",
+    "vaft.process.signal_processing.pf_current_filter"
    ],
    "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -15045,12 +15034,61 @@
    "primitives": [
     "scipy.signal.firwin"
    ],
-   "production_reachability": "not_statically_reached",
+   "production_reachability": "pipeline1",
    "production_reachability_note": "",
    "recommended_action": "keep; NOT a drop-in for the VEST Hamming designs (26 taps at 25 kHz there vs 25 here, #2135 row). Expose window/numtaps explicitly when B3 composes the PF filter.",
    "related_issue": "#2162",
    "resolved_by": "",
    "scientific_risk": "medium",
+   "source_file": "vaft/process/signal_processing.py"
+  },
+  {
+   "algorithm_semantics": "fir_filter_coefficients(lowpass, window='hamming', numtaps odd >= 3) -> apply_fir_filter(short_record='causal': zero-phase from 3*numtaps+1 samples, forward-only below, 125-sample / 5 ms delay) -> uniform_filter1d(min(window, len)) (half-sample lag for an even width).",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "<definition>",
+     "snippet": "def pf_current_filter"
+    },
+    {
+     "call": "scipy.ndimage.uniform_filter1d",
+     "snippet": "ndimage.uniform_filter1d(filtered, size=min(int(smoothing_window), data.size))"
+    },
+    {
+     "call": "vaft.process.signal_processing.apply_fir_filter",
+     "snippet": "apply_fir_filter(taps, data, short_record='causal')"
+    },
+    {
+     "call": "vaft.process.signal_processing.fir_filter_coefficients",
+     "snippet": "fir_filter_coefficients(float(cutoff_hz), float(sample_rate), kind='lowpass', numtaps=taps_count, window='hamming')"
+    }
+   ],
+   "callers": [
+    "vaft.machine_mapping.pf_active._pf_filter"
+   ],
+   "classification": "canonical",
+   "configuration_source": "caller arguments (vest.yaml values via pf_active._pf_filter).",
+   "curated": true,
+   "evidence": "",
+   "implementation": "vaft.process.signal_processing.pf_current_filter",
+   "operation": [
+    "filter_application",
+    "filter_design",
+    "smoothing"
+   ],
+   "owning_layer": "process",
+   "primitives": [
+    "scipy.ndimage.uniform_filter1d",
+    "vaft.process.signal_processing.apply_fir_filter",
+    "vaft.process.signal_processing.fir_filter_coefficients"
+   ],
+   "production_reachability": "pipeline1",
+   "production_reachability_note": "",
+   "recommended_action": "keep as the named PF composition.",
+   "related_issue": "#2162",
+   "resolved_by": "#2162 (B3.5)",
+   "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
   {
