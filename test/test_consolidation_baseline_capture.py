@@ -118,3 +118,58 @@ def test_only_shots_with_packaged_raw_are_accepted(capture, tmp_path):
         capture.capture_shot(48224, tmp_path)
     for shot in capture.SHOTS_WITH_RAW:
         assert (ROOT / "vaft/data/samples" / str(shot) / "source" / f"vest_{shot}_daq_raw.json.gz").is_file()
+
+
+def test_the_summary_keeps_arrays_groups_scalars_and_dedupes_static_copies(capture):
+    leaves = {
+        "pf_active.coil.0.current.data": capture.leaf_record(np.array([1.0, 2.0, 3.0])),
+        "pf_active.coil.0.name": capture.leaf_record("PF1"),
+        "equilibrium.time_slice.0.constraints.ip.measured": capture.leaf_record(np.float64(1.0e5)),
+        "equilibrium.time_slice.1.constraints.ip.measured": capture.leaf_record(np.float64(3.0e5)),
+    }
+    static = {"pf_active.coil.0.name": capture.leaf_record("PF1")}
+    summary = capture.summarize_stage(leaves, reference=static)
+    assert summary["leaf_count"] == 4 and summary["inherited_from_static"] == 1
+    sha, shape, n_finite, low, high, mean, rms = summary["arrays"]["pf_active.coil.0.current.data"]
+    assert sha == leaves["pf_active.coil.0.current.data"]["sha256"][:16]
+    assert shape == [3] and (n_finite, low, high, mean) == (3, 1.0, 3.0, 2.0)
+    group = summary["scalar_groups"]["equilibrium.time_slice.:.constraints.ip.measured"]
+    assert group[1:6] == [2, 2, 1.0e5, 3.0e5, 2.0e5]
+
+    # Any change to one element changes its group digest.
+    changed = dict(leaves)
+    changed["equilibrium.time_slice.1.constraints.ip.measured"] = capture.leaf_record(np.float64(3.0e5 + 1.0))
+    other = capture.summarize_stage(changed, reference=static)
+    assert other["scalar_groups"]["equilibrium.time_slice.:.constraints.ip.measured"][0] != group[0]
+
+
+def test_summarize_root_refuses_an_unverifiable_capture(capture, tmp_path):
+    import json
+
+    with pytest.raises(RuntimeError, match="no <shot>/baseline.json"):
+        capture.summarize_root(tmp_path, code_sha="HEAD")
+
+    def write(shot, commit, dirty):
+        leaves = {"pf_active.coil.0.current.data": capture.leaf_record(np.arange(3.0))}
+        record = {
+            "shot": shot, "machine_version": "era", "inputs": {}, "revision": {"commit": commit, "dirty": dirty},
+            "stages": {
+                "static": {"status": "captured", "product_sha256": "s", "leaves": leaves},
+                "eddy": {"status": "captured", "product_sha256": "e", "leaves": leaves},
+            },
+        }
+        (tmp_path / str(shot)).mkdir(exist_ok=True)
+        (tmp_path / str(shot) / "baseline.json").write_text(json.dumps(record))
+
+    write(1, "HEAD", True)
+    with pytest.raises(RuntimeError, match="dirty"):
+        capture.summarize_root(tmp_path, code_sha="HEAD")
+    write(1, "HEAD", False)
+    write(2, "HEAD~1", False)
+    with pytest.raises(RuntimeError, match="more than one revision"):
+        capture.summarize_root(tmp_path, code_sha="HEAD")
+    write(2, "HEAD", False)
+    summary = capture.summarize_root(tmp_path, code_sha="HEAD")
+    assert sorted(summary["shots"]) == ["1", "2"]
+    assert summary["shots"]["1"]["stages"]["eddy"]["inherited_from_static"] == 1
+    assert list(summary["static_by_era"]) == ["era"]

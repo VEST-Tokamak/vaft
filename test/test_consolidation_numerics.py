@@ -724,19 +724,18 @@ def test_the_hann_default_design_is_not_equivalent_to_the_vest_hamming_designs(n
     response.  Swapping one for the other is a processing change, not a refactor."""
     hamming = _hamming_lowpass(numtaps, cutoff, fs)
     hann = fir_filter_coefficients(cutoff, fs)
-    expected_hann_length = int(fs * 1e-3) + (1 - int(fs * 1e-3) % 2)
-    assert hann.size == expected_hann_length
-    if hann.size == hamming.size:
-        assert np.max(np.abs(hann - hamming)) > 1e-3 * np.max(np.abs(hamming))
-    else:
-        assert hann.size != hamming.size  # 25 (Hann, odd) vs 26 (Hamming, donor)
-    # Response, two-pass magnitude, scanned over the transition and stopband.
-    freqs = np.linspace(cutoff, min(10 * cutoff, 0.49 * fs), 400)
+    # Lengths: Hann int(fs * 1e-3) forced odd -- 251 at 250 kHz (same as the
+    # probe design), 25 at 25 kHz (one fewer than the donor's 26).
+    assert (hann.size, hamming.size) == {FAST_RATE: (251, 251), IMPA_RATE: (25, 26)}[fs]
+    # Two-pass magnitude over the passband (0 .. cutoff / 2, where 2 delta is
+    # the matching ripple bound) and the transition + stopband.
+    freqs = np.concatenate((np.linspace(0.0, 0.5 * cutoff, 100), np.linspace(cutoff, min(10 * cutoff, 0.49 * fs), 400)))
     gain_hamming = np.array([abs(_dtft(hamming, f, fs)) ** 2 for f in freqs])
     gain_hann = np.array([abs(_dtft(hann, f, fs)) ** 2 for f in freqs])
     # Equivalence would need the two to agree to within the Hamming design's
-    # own two-pass ripple (2 delta = 4.6e-3) everywhere; they do not.  (At
-    # authoring: 8.1e-3 near 2.95 kHz for 251 taps; 0.11 near 840 Hz for 26.)
+    # own two-pass ripple (2 delta = 4.6e-3) everywhere; they do not.  As a
+    # control for the criterion, Hamming 251 vs Hamming 249 taps differ by
+    # < 1e-3 (cold review), so it separates "same design" from "different".
     assert np.max(np.abs(gain_hamming - gain_hann)) > HAMMING_PASSBAND_DEVIATION_FILTFILT
 
 
@@ -820,10 +819,21 @@ def test_the_probe_low_pass_moves_no_feature_in_time():
     *_, field, _ = b_field_pol_probe_field(t, voltage, np.array([1.0]), vest_probe_lowpass_taps(),
                                            baseline_indices=baseline)
     field = field[:, 0]
-    # Passband ripple of two passes, plus the trapezoid error of integrating
-    # V: T h^2 max|V''| / 12 ~ 1e-9 here.
+    # A loose upper bound (two-pass ripple times the amplitude; the actual
+    # error is ~6e-6), still 30x below what a 0.5 ms shift of this pulse
+    # produces (~7.6e-3).  The sharp checks are the centroid and the peak.
     np.testing.assert_allclose(field, field_true, rtol=0, atol=HAMMING_PASSBAND_DEVIATION_FILTFILT * amplitude)
     centroid = lambda y: float(np.sum(t * y) / np.sum(y))  # noqa: E731
     # A causal filter moves the centroid by 0.5 ms; this bound is 1/1000 of a sample.
     assert centroid(field) == pytest.approx(centroid(field_true), abs=1e-3 / FAST_RATE)
     assert int(np.argmax(field)) == int(np.argmax(field_true))
+
+
+def test_the_probe_low_pass_refuses_a_record_too_short_for_zero_phase():
+    """No silent causal fallback in the probe path: that is the route back to the
+    0.5 ms delay #2135 removed."""
+    n = 3 * PROBE_TAPS  # one short of the 3N + 1 filtfilt needs
+    t = np.arange(n) / FAST_RATE
+    with pytest.raises(ValueError, match="zero-phase"):
+        b_field_pol_probe_field(t, np.zeros(n), np.array([1.0]), vest_probe_lowpass_taps(),
+                                baseline_indices=np.arange(100))

@@ -45,7 +45,12 @@ Usage::
         --output-root /path/to/scratch/baseline-pre-migration \\
         --shot 39915
 
-Do not point it at a production root; do not commit its output.
+Do not point it at a production root; do not commit its output.  The compact
+summary is the committable form::
+
+    python workflow/architecture_audit/capture_baseline.py summarize \\
+        /path/to/scratch/baseline-pre-migration --code-sha <sha> \\
+        --output test/data/consolidation/baseline_<sha>.json
 """
 
 from __future__ import annotations
@@ -434,8 +439,175 @@ def capture_shot(shot: int, root: Path, *, stages: Sequence[str] = STAGES, envir
     return record
 
 
+# ---------------------------------------------------------------------------
+# Compact, committable summary of a captured root
+# ---------------------------------------------------------------------------
+
+SUMMARY_SCHEMA = "vaft.consolidation.baseline-summary/1"
+#: Hex digits kept of each sha256 in the summary: 64 bits, ample to detect a
+#: change between two captures (this is a diff key, not a security digest).
+SUMMARY_DIGEST_HEX = 16
+_STAT_KEYS = ("n_finite", "min", "max", "mean", "rms")
+
+
+def _short(digest: str) -> str:
+    return digest[:SUMMARY_DIGEST_HEX]
+
+
+def _collapse(path: str) -> str:
+    """``a.3.b.12.c`` -> ``a.:.b.:.c``: the IMAS array a scalar leaf belongs to."""
+    return ".".join(":" if part.isdigit() else part for part in path.split("."))
+
+
+def _stats(record: Mapping[str, Any]) -> list[Any]:
+    return [record.get(key) for key in _STAT_KEYS]
+
+
+def summarize_stage(leaves: Mapping[str, Mapping[str, Any]], *, reference: Mapping[str, Mapping[str, Any]] | None = None) -> dict[str, Any]:
+    """Per-array records for one stage product.
+
+    * every leaf with more than one element: ``path -> [sha, shape, n_finite,
+      min, max, mean, rms]``;
+    * scalar and string leaves, grouped by their collapsed path (the IMAS array
+      they are elements of): ``collapsed -> [group sha, count, n_finite, min,
+      max, mean, rms]``, the group sha covering every member path and digest in
+      order, so any changed, added or removed element changes it;
+    * leaves identical (same path, same digest) to ``reference`` -- the static
+      product a later stage copied them from -- are counted, not repeated.
+    """
+    arrays: dict[str, list[Any]] = {}
+    groups: dict[str, list[tuple[str, Mapping[str, Any]]]] = {}
+    inherited = hashlib.sha256()
+    inherited_count = 0
+    for path in sorted(leaves):
+        record = leaves[path]
+        if reference is not None and reference.get(path, {}).get("sha256") == record["sha256"]:
+            # Which leaves are inherited is itself evidence: digest the paths,
+            # so inheriting Q instead of P changes the summary.
+            inherited.update(f"{path};".encode("utf-8"))
+            inherited_count += 1
+            continue
+        shape = record.get("shape")
+        if shape and int(np.prod(shape)) > 1:
+            arrays[path] = [_short(record["sha256"]), list(shape), *_stats(record)]
+        else:
+            groups.setdefault(_collapse(path), []).append((path, record))
+    grouped: dict[str, list[Any]] = {}
+    for name, members in sorted(groups.items()):
+        digest = hashlib.sha256()
+        values: list[float] = []
+        for path, record in members:
+            digest.update(f"{path}={record['sha256']};".encode("ascii"))
+            if record.get("kind") == "numeric" and record.get("n_finite"):
+                values.append(float(record["mean"]))  # a scalar's mean is its value
+        finite = np.asarray(values, dtype=float)
+        stats: list[Any] = [int(finite.size), None, None, None, None]
+        if finite.size:
+            stats = [int(finite.size), float(finite.min()), float(finite.max()),
+                     float(finite.mean()), float(np.sqrt(np.mean(finite * finite)))]
+        grouped[name] = [_short(digest.hexdigest()), len(members), *stats]
+    return {"leaf_count": len(leaves), "inherited_from_static": inherited_count,
+            "inherited_digest": _short(inherited.hexdigest()),
+            "arrays": arrays, "scalar_groups": grouped}
+
+
+#: The code whose behaviour a baseline records.  ``code_sha`` may name a
+#: different commit than the one captured (a branch carrying only tests and
+#: this script) only if these trees are identical between the two.
+CODE_TREES = ("vaft", "workflow/automatic_pipeline_1_routine_data_processing")
+
+
+def _same_code_trees(left: str, right: str) -> bool:
+    result = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "diff", "--quiet", left, right, "--", *CODE_TREES],
+        check=False,
+    )
+    if result.returncode not in (0, 1):
+        raise RuntimeError(f"git diff {left} {right} failed; cannot verify the code identity")
+    return result.returncode == 0
+
+
+def summarize_root(root: Path, *, code_sha: str) -> dict[str, Any]:
+    """Compact summary of every ``<root>/<shot>/baseline.json`` under ``root``.
+
+    The full per-leaf baselines stay in the isolated root; the summary records
+    their sha256 so a later phase can localize a mismatch from them.  Refuses a
+    root with no capture, captures from more than one revision or a dirty tree,
+    or a ``code_sha`` whose code trees differ from the captured commit's.
+    """
+    root = Path(root)
+    shots: dict[str, Any] = {}
+    static_by_era: dict[str, Any] = {}
+    revisions: set[tuple[str, bool]] = set()
+    baselines = sorted(root.glob("*/baseline.json"))
+    if not baselines:
+        raise RuntimeError(f"no <shot>/baseline.json under {root}")
+    for baseline_path in baselines:
+        record = json.loads(baseline_path.read_text(encoding="utf-8"))
+        stages = record["stages"]
+        static_leaves = stages.get("static", {}).get("leaves")
+        era = record["machine_version"]
+        if static_leaves is not None and era not in static_by_era:
+            static_by_era[era] = {
+                "product_sha256": stages["static"]["product_sha256"],
+                **summarize_stage(static_leaves),
+            }
+        elif static_leaves is not None:
+            first = static_by_era[era]
+            again = summarize_stage(static_leaves)
+            if (again["arrays"], again["scalar_groups"]) != (first["arrays"], first["scalar_groups"]):
+                raise RuntimeError(f"two different static products for era {era}: the capture is not deterministic")
+        entry: dict[str, Any] = {
+            "machine_version": era,
+            "inputs": record["inputs"],
+            "full_baseline_sha256": sha256_file(baseline_path),
+            "stages": {},
+        }
+        for stage, data in stages.items():
+            if stage == "static":
+                entry["stages"][stage] = {"status": data["status"], "product_sha256": data.get("product_sha256")}
+                continue
+            entry["stages"][stage] = {
+                "status": data["status"],
+                "product_sha256": data.get("product_sha256"),
+                **(summarize_stage(data["leaves"], reference=static_leaves) if "leaves" in data else {}),
+            }
+        shots[str(record["shot"])] = entry
+        revisions.add((record["revision"]["commit"], bool(record["revision"]["dirty"])))
+    if len(revisions) != 1:
+        raise RuntimeError(f"captures from more than one revision: {sorted(revisions)}")
+    ((commit, dirty),) = revisions
+    if dirty:
+        raise RuntimeError(f"captured from a dirty tree at {commit}; re-capture from a clean checkout")
+    if not _same_code_trees(code_sha, commit):
+        raise RuntimeError(f"{CODE_TREES} differ between --code-sha {code_sha} and the captured {commit}")
+    return {
+        "schema": SUMMARY_SCHEMA,
+        "code_sha": code_sha,
+        "captured_revision": {"commit": commit, "dirty": False},
+        "code_trees_identical_to_code_sha": list(CODE_TREES),
+        "digest_hex_digits": SUMMARY_DIGEST_HEX,
+        "array_record": ["sha256_prefix", "shape", *_STAT_KEYS],
+        "scalar_group_record": ["group_sha256_prefix", "count", *_STAT_KEYS],
+        "static_by_era": static_by_era,
+        "shots": shots,
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    if argv is None:
+        argv = sys.argv[1:]
+    if argv and argv[0] == "summarize":
+        summary_parser = argparse.ArgumentParser(prog="capture_baseline.py summarize")
+        summary_parser.add_argument("root", type=Path, help="A completed capture root.")
+        summary_parser.add_argument("--code-sha", required=True, help="The code revision the root was captured at.")
+        summary_parser.add_argument("--output", required=True, type=Path, help="Summary JSON to write.")
+        summary_args = summary_parser.parse_args(argv[1:])
+        summary = summarize_root(summary_args.root, code_sha=summary_args.code_sha)
+        summary_args.output.write_text(json.dumps(summary, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+        print(f"wrote {summary_args.output} ({summary_args.output.stat().st_size} bytes)")
+        return 0
     parser.add_argument("--output-root", required=True, type=Path, help="Fresh, isolated scratch directory.")
     parser.add_argument(
         "--shot", type=int, action="append", choices=SHOTS_WITH_RAW,
