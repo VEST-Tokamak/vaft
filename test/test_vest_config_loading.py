@@ -12,7 +12,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-from vaft.machine_mapping import utils
 from vaft.machine_mapping.utils import (
     ERA_ONLY_KEYS,
     VestConfigurationError,
@@ -180,7 +179,7 @@ def test_the_cache_follows_an_edit_of_the_file(tmp_path):
     _write(path, _diagnostic_document(gain=1.0))
     assert resolve_vest_diagnostic(1, "probe", info_file=str(path)) == {"gain": 1.0}
     stat = os.stat(path)
-    # Same size and the same mtime: only the content differs ...
+    # Same size, only the content and the mtime (by 1 us) differ ...
     _write(path, _diagnostic_document(gain=2.0))
     os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000))
     assert resolve_vest_diagnostic(1, "probe", info_file=str(path)) == {"gain": 2.0}
@@ -195,7 +194,7 @@ def test_the_cache_is_keyed_by_file(tmp_path):
     two = _write(tmp_path / "two.yaml", _diagnostic_document(gain=2.0))
     assert resolve_vest_diagnostic(1, "probe", info_file=one)["gain"] == 1.0
     assert resolve_vest_diagnostic(1, "probe", info_file=two)["gain"] == 2.0
-    assert utils._cached_document.cache_info().maxsize >= 2
+    assert resolve_vest_diagnostic(1, "probe", info_file=one)["gain"] == 1.0
 
 
 # --- G5: revision keys -----------------------------------------------------------------
@@ -290,6 +289,11 @@ def test_revision_bounds_must_be_non_negative_integers(bad):
         resolve_shot_revisions(_BASE, revisions, 10, context="w")
 
 
+def test_resolve_vest_diagnostic_does_not_truncate_a_fractional_shot():
+    with pytest.raises(VestConfigurationError, match="non-negative integer shot number"):
+        resolve_vest_diagnostic(41446.5, "plasma_current")
+
+
 def test_integral_shot_spellings_still_resolve():
     revisions = [{"from_shot": 10, "to_shot": 20.0, "index_start": 1}]
     for shot in (15, 15.0, "15"):
@@ -336,6 +340,24 @@ def test_every_packaged_diagnostic_resolves_at_the_boundary_shots():
     for shot in (39437, 39438, 45895, 45896, 46402, 46403, 46404, 48371, 48372):
         for name in diagnostics:
             assert ERA_ONLY_KEYS not in resolve_vest_diagnostic(shot, name)
+
+
+def _era_only_declarations(node, path=()):
+    if isinstance(node, dict):
+        if ERA_ONLY_KEYS in node:
+            yield path, node
+        for key, value in node.items():
+            yield from _era_only_declarations(value, (*path, key))
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            yield from _era_only_declarations(value, (*path, index))
+
+
+def test_an_unconsumed_declaration_only_travels_with_its_unresolved_revisions():
+    """A nested table keeps era_only_keys exactly as long as it keeps revisions."""
+    for name in ("plasma_current", "equilibrium_magnetics", "diamagnetic_flux", "langmuir_probe_mid"):
+        for path, node in _era_only_declarations(resolve_vest_diagnostic(46403, name)):
+            assert isinstance(node.get("revisions"), list), (name, path)
 
 
 def test_packaged_era_only_declarations():

@@ -108,7 +108,9 @@ def _policy_document(info_file: str | os.PathLike[str] | None) -> Dict[str, Any]
     parse is cached by ``(path, st_mtime_ns, st_size)`` and every caller gets
     its own deep copy: mutating the returned mapping -- or anything resolved
     from it -- can never change what a later call, for another shot, sees.
-    Rewriting the file changes its stat key and so re-parses it.
+    An edit that changes the file's mtime or size re-parses it; a same-size
+    rewrite inside the filesystem's mtime granularity (1-2 s on HFS+/exFAT,
+    nanoseconds on APFS/ext4) is not detected.
     """
     path = _resolve_info_file_path(info_file)
     stat = os.stat(path)
@@ -400,6 +402,11 @@ def resolve_shot_revisions_with_provenance(
       recursively, lists and explicit nulls replace, a mapping/non-mapping
       conflict raises.
 
+    Only the table being resolved consumes its declaration: a nested table
+    inside the resolved block keeps its own ``revisions`` *and*
+    ``era_only_keys`` until it is resolved in turn, so an unresolved nested
+    block is recognisable by both.
+
     The resolved mapping is a fresh deep copy: it shares nothing with
     ``base`` or ``revisions``.
     """
@@ -509,7 +516,7 @@ def resolve_vest_diagnostic(
         raise VestConfigurationError(f"VEST diagnostic {diagnostic!r} must be a mapping")
     base = {key: value for key, value in config.items() if key != "revisions"}
     resolved, provenance = resolve_shot_revisions_with_provenance(
-        base, config.get("revisions"), int(shot), context=f"VEST diagnostic {diagnostic!r}"
+        base, config.get("revisions"), shot, context=f"VEST diagnostic {diagnostic!r}"
     )
     calibration = resolved.get("calibration")
     if calibration is not None:
