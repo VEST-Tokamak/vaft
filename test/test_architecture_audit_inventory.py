@@ -224,3 +224,31 @@ def test_the_generator_refuses_an_entry_the_runtime_refuses(entry):
     # The runtime refuses it too, so the audit does not accept what production would not.
     with pytest.raises(VestConfigurationError):
         sensor_for_entry(entry, kind="b_field_pol_probe", context="test", index_scope="canonical")
+
+
+def test_the_migration_matrix_is_complete_and_points_at_real_files():
+    """#2164 §4: every row carries the fields, a known status, and an existing source file."""
+    import re
+
+    matrix = json.loads((OUTPUT / "migration_matrix.json").read_text(encoding="utf-8"))
+    required = {
+        "workflow", "rule_or_entrypoint", "source_file", "current_api", "replacement_api",
+        "effective_configuration_source", "input_product", "output_product", "scientific_semantics",
+        "compatibility_requirement", "required_regression_test", "migration_status",
+    }
+    statuses = set(matrix["migration_status_values"])
+    covered = {row["workflow"] for row in matrix["rows"]}
+    assert {"pipeline_1", "pipeline_2", "pipeline_3", "running_linear_stability", "vaft.cli"} <= covered
+    for row in matrix["rows"]:
+        name = f"{row['workflow']}:{row['rule_or_entrypoint']}"
+        assert required <= set(row), name
+        assert row["migration_status"] in statuses, name
+        assert row["classification"] in matrix["classification_values"], name
+        if row["migration_status"] in {"blocked", "provenance_pending"}:
+            assert row["blocked_on"], name
+        if row["migration_status"] in {"done", "in_review"}:
+            assert row["evidence"], name
+        if row["migration_status"] == "retired":
+            continue
+        for path in re.split(r"[;,]\s*", row["source_file"]):
+            assert list(ROOT.glob(path.strip())), f"{name}: {path}"
