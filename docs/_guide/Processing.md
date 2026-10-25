@@ -536,17 +536,23 @@ Per-channel entry points:
 
 <!-- docs-snippet: skip fragment (placeholder name time is never defined on the page) -->
 ```python
-from vaft.process.magnetics import vest_b_field_pol_probe_legacy, vest_flux_loop_legacy
+import numpy as np
+from vaft.process.magnetics import b_field_pol_probe_field, vest_flux_loop_legacy, vest_probe_lowpass_taps
 
-field = vest_b_field_pol_probe_legacy(time, raw, calibration, shot=39915, config=cfg)
+_, _, baseline_end = cfg.window_for_shot(39915)
+*_, field, _ = b_field_pol_probe_field(
+    time, raw, np.array([1.0 / calibration]), vest_probe_lowpass_taps(cfg),
+    baseline_indices=np.arange(baseline_end),
+)                                                   # field[:, 0] is the probe
 flux  = vest_flux_loop_legacy(time, raw, calibration, flux_loop_number=1, config=cfg)
 ```
 
 * `shot` and `flux_loop_number` are **keyword-only**.
 * `flux_loop_number` is **1-based**. The config field `flux_baseline_late_loop_numbers = (9, 10, 11)`
   is matched against that 1-based number and selects a different baseline window for those loops.
-* The probe path low-passes (251-tap `firwin` at 2.5 kHz); the flux-loop path **does not**, and divides
-  by $2\pi$ when `flux_output_per_radian` is true.
+* The probe path low-passes (251-tap `firwin` at 2.5 kHz) **zero-phase**, as the legacy `filtfilt`
+  does -- a causal filter delays the field 0.5 ms against the coil currents. The flux-loop path does
+  **not** low-pass, and divides by $2\pi$ when `flux_output_per_radian` is true.
 
 Batch processing over a channel table is `vest_md_signals(shot, channels, loader, indices=None,
 config=None)`, where `channels` is a sequence of dicts with keys `field_code`, `calibration` and `kind`

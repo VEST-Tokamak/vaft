@@ -10,11 +10,17 @@ test/data/vest_reference/** text=auto eol=lf
 test/data/island_sxr/** text=auto eol=lf
 # Real GPEC namelists read back by the DCON reader: keep LF so Windows parses them alike.
 test/data/gpec/** text=auto eol=lf
+# The retired magnetics YAMLs (#2158): frozen fixtures whose sha256 the sensor
+# registry's `source` block and test_magnetics_registry.py pin; keep the bytes.
+test/data/legacy_magnetics/** -text
 docs/assets/notebook-outputs/** text=auto eol=lf
 # This Atlas snapshot records source-file SHA-256 values, including CRLF CSVs.
 # Preserve the exact bytes on every platform and treat CRLF as a line ending.
 notebooks/data/verification_and_validation/** -text
 notebooks/data/verification_and_validation/v1/*.csv whitespace=cr-at-eol
+# ... and the sha256 of the two scripts that wrote it (snapshot_manifest.json).
+workflow/kinetic_state/export_virial_identity.py text eol=lf
+workflow/kinetic_state/capture_verification_snapshot.py text eol=lf
 vaft/data/samples/** text=auto eol=lf
 # The EFIT table's text inputs are pinned by efund_table_manifest.json, and
 # mhdin.dat's hash is quoted in its #649 note; a CRLF checkout hashed to
@@ -68,3 +74,16 @@ vaft/diagram/_scene.py text eol=lf
 vaft/formula/equilibrium.py text eol=lf
 vaft/formula/particle.py text eol=lf
 vaft/formula/stability.py text eol=lf
+# The particle-motion reference manifest (docs/assets/particle-motion) pins
+# these sources the same way; a CRLF checkout changed vaft/data/particle.py's
+# digest on the Windows gate (release 0.9.0).
+docs/assets/particle-motion/** text=auto eol=lf
+vaft/data/particle.py text eol=lf
+vaft/diagram/_guiding_center.py text eol=lf
+vaft/diagram/_particle_references.py text eol=lf
+vaft/diagram/_particle_states.py text eol=lf
+vaft/diagram/_ripple.py text eol=lf
+vaft/plot/particle.py text eol=lf
+vaft/process/particle.py text eol=lf
+vaft/process/particle_fields.py text eol=lf
+workflow/particle_motion/run.py text eol=lf

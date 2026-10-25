@@ -83,6 +83,10 @@ The [artifact manifest]({{ site.baseurl }}/assets/particle-motion/manifest.json)
 links all six families to animations and quantitative panels, and all but the
 tokamak and symmetry-breaking families to static SVGs.
 The mirror and invariants families share one experiment and so one panel image.
+The manifest also records the commit it was generated on and a SHA-256 of
+every scientific source its numbers depend on; the documentation catalog gate
+refuses a manifest whose sources have changed, and
+`python -m workflow.particle_motion.run --check` re-traces the six examples.
 Some manifest diagnostics are not meaningful for every family. `orbit_class` is
 `no_resolved_turn` for the cartesian and full-gc runs, which have no turning
 point to classify. `gc_P_phi_residual_max` is large for symmetry-breaking,

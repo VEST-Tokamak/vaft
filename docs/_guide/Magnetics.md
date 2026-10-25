@@ -118,9 +118,10 @@ Raw signals consumed, by DAQ field code:
 | 246 / 4 / 257 | Diamagnetic loop (the code is chosen by shot number) |
 | 207, 241, 209, 171 | The four toroidal Mirnov reference probes |
 
-Probe and flux-loop channels come from the packaged geometry tables
-(`vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml`, `MD.yaml`, `table.yaml`); `vest.yaml`
-revises them per shot only where the wiring changed (`equilibrium_magnetics.processing.wiring`:
+Probe and flux-loop channels come from the sensor registry in `vest.yaml`
+(`diagnostics.equilibrium_magnetics.sensors`, #2158; read by
+`vaft.machine_mapping.magnetics_registry`), which defines each of the 75 sensors once with a stable `id`;
+`vest.yaml` revises their field and calibration per shot only where the wiring changed (`equilibrium_magnetics.processing.wiring`:
 through shot 39437 the Z = +0.06 and Z = -0.42 outboard probes read fields 170 and 225, the reverse
 of the 2409 layout) and records channels known to be broken (`known_faults`: the Z = +0.06 probe up
 to 36480 and for 36822-36905, and probe C4-04 at Z = -0.34 on every shot, #977), which the magnetics
@@ -178,7 +179,7 @@ The two per-channel kernels are deliberately **not** symmetric:
 
 | Function | Chain |
 |---|---|
-| `vaft.process.vest_b_field_pol_probe_legacy(time, raw, calibration, *, shot, config=None)` | FIR low-pass (251 taps @ 2.5 kHz) → calibrate → **negated** cumulative-trapezoid integration → linear baseline subtraction |
+| `vaft.process.b_field_pol_probe_field(time, raw, gain, lowpass_param, *, baseline_indices=...)` | gain → **zero-phase** FIR low-pass (VEST: `vest_probe_lowpass_taps`, 251 taps @ 2.5 kHz) → **negated** cumulative-trapezoid integration → linear baseline subtraction. The VEST chain passes the era's leading samples as `baseline_indices`. |
 | `vaft.process.vest_flux_loop_legacy(time, raw, calibration, *, flux_loop_number, config=None)` | calibrate → **negated** integration → divide by $2\pi$ → linear baseline subtraction. **No low-pass.** |
 
 `shot` and `flux_loop_number` are keyword-only, and `flux_loop_number` is **1-based** — the first flux
@@ -259,9 +260,11 @@ vaft.omas.plot_plasma_current_time(odc, yunit='kA', label='shot')
 ```
 
 Plot names are built from the physical **subject**, not the IDS that stores it. The older IDS-shaped
-spellings (`magnetics_time_ip`, `time_magnetics_ip`) still resolve but emit a `DeprecationWarning`
-naming their replacement, and both are removed in 0.9.0.
-`vaft.plot.migration_table()` renders the current mapping from the code.
+spellings (`magnetics_time_ip`, `time_magnetics_ip`, and `vaft.omas.plot_magnetics_time_ip`) are
+removed as of 0.9.0 after their deprecation window: `vaft.plot.plasma_current_time` renders the view
+model and `vaft.omas.plot_plasma_current_time` renders from an ODS, and the old spellings raise an
+`AttributeError` that names them. `vaft.plot.migration_table()` renders the full old-to-new mapping
+from the code.
 
 ## Inboard $B_z$
 

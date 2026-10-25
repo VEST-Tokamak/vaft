@@ -2578,10 +2578,10 @@ A representative chain, in the order the magnetic probes use it: anti-alias low-
 | --- | --- | --- | --- | --- |
 | Raw digitizer record | measured | $V(t)\ \mathrm{per\ DAQ\ field}$ | `vaft.database.raw.load` |  |
 | DAQ field codes | machine geometry / static data (enters Raw digitizer record) | $(\mathrm{diagnostic},\ s) \rightarrow \mathrm{field\ codes}$ | `vaft.machine_mapping.raw_daq_sources.raw_sources` |  |
-| Anti-alias low-pass | derived | $\mathrm{FIR\ on\ the\ native\ fast\ grid}$ | `vaft.process.signal_processing.fir_filter` |  |
+| Anti-alias low-pass | derived | $\mathrm{FIR\ on\ the\ native\ fast\ grid}$ | `vaft.process.signal_processing.apply_fir_filter` |  |
 | Calibration | derived |  | `vaft.machine_mapping.utils.calibrate_vest_signal` |  |
 | Calibration revision | machine geometry / static data (enters Calibration) | $c,\ \mathrm{sign},\ \mathrm{baseline\ window}$ | `vaft.machine_mapping.utils.resolve_vest_diagnostic` |  |
-| Time integration | derived |  | `vaft.process.magnetics.vest_b_field_pol_probe_legacy` |  |
+| Time integration | derived |  | `vaft.process.magnetics.b_field_pol_probe_field` |  |
 | Baseline subtraction | derived | $\mathrm{linear\ fit\ over\ the\ era's\ leading\ samples}$ | `vaft.process.signal_processing.subtract_baseline` |  |
 | Resampling | derived | $t_k = t_{\mathrm{start}} + k\,\Delta t$ | `vaft.process.signal_processing.resample_to_time` |  |
 | Analysis time grid | model choice / convention (enters Resampling) | $t_{\mathrm{start}},\ t_{\mathrm{end}},\ \Delta t$ | `vaft.machine_mapping.utils.resolve_diagnostics_time_policies` |  |
@@ -2857,10 +2857,15 @@ implementation maturity, validation or provenance: a `computation` icon does not
 runs, a `standardized` icon does not mean a product passed validation.
 
 ```python
+from types import SimpleNamespace
+
 from vaft.diagram.pictograms import badge, corner, pictogram
 
+items = []  # a builder's scene items; the box is any object with x, y, width, height (cm)
+vv_box = SimpleNamespace(x=6.0, y=3.0, width=3.2, height=1.2)
 items += pictogram("database", (2.0, 3.0), 0.8, role="symbol:stage:database").items
 items += badge("validation", corner(vv_box), 0.62, role="symbol:node:vv").items
+print(len(items), items[0].role)
 ```
 
 - `pictogram(name, at, size=0.6, *, role, style=PICTOGRAM)` returns scene polylines centred on `at`,

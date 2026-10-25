@@ -245,3 +245,28 @@ def test_fl10_time_axis_is_not_double_shifted(tmp_path):
     )
     # Outside the window the reference must still contribute nothing.
     np.testing.assert_allclose(ip[~mask], 0.0, atol=1e-9)
+
+
+def test_the_reference_comparison_is_not_delayed_by_its_low_pass(monkeypatch):
+    """The ``ref != -1`` path low-passes zero-phase, as the donor's filtfilt.
+
+    The 26-tap design at 25 kHz delays a causal result by 12.5 samples
+    (0.5 ms); a 2 ms bump sits well inside the 2.5 kHz pass band, so its peak
+    must stay on its sample.
+    """
+    from vaft.machine_mapping import magnetics as mm
+
+    fs = 25_000.0
+    time = np.arange(25_000) / fs
+    center = 15_000
+    bump = np.exp(-0.5 * ((np.arange(time.size) - center) / 50.0) ** 2)
+    reference_shot, shot = 39914, 39915
+    monkeypatch.setattr(
+        mm,
+        "_safe_vest_load",
+        lambda s, field, raw_source=None: (time, bump if s == shot else np.zeros_like(bump)),
+    )
+
+    _, current = mm.vfit_plasma_current(shot, ref=reference_shot)
+
+    assert int(np.argmax(np.abs(current))) == pytest.approx(center, abs=1)

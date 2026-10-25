@@ -24,7 +24,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import yaml
 from omas import ODS
 
 import vaft
@@ -35,6 +34,7 @@ from vaft.machine_mapping.magnetics import (
     OUTBOARD_PROBE_MIN_R,
     SIDE_PROBE_MIN_ABS_Z,
 )
+from vaft.machine_mapping.magnetics_registry import resolve_equilibrium_magnetics_sensors
 from vaft.plot.machine_geometry import (
     MACHINE_GEOMETRY_FAMILIES,
     MachineGeometry,
@@ -43,7 +43,6 @@ from vaft.plot.machine_geometry import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-GEOMETRY = ROOT / "vaft" / "data" / "geometry" / "VEST_MagneticsGeometry_Full_ver_2302.yaml"
 IMPA_SAMPLE = str(ROOT / "vaft" / "data" / "sample" / "legacy" / "shot_{shot}_impa.json.gz")
 MAGNETICS = ("flux_loop", "b_field_pol_probe", "b_field_tor_probe")
 
@@ -55,7 +54,11 @@ def sample():
 
 @pytest.fixture(scope="module")
 def table():
-    return yaml.safe_load(GEOMETRY.read_text(encoding="utf-8"))["channels"]
+    # The vest.yaml sensor registry is the geometry table since #2158.
+    return [
+        {"kind": record.kind, "r": record.r, "z": record.z}
+        for record in resolve_equilibrium_magnetics_sensors()
+    ]
 
 
 def _family_phi(r: float, z: float) -> float:

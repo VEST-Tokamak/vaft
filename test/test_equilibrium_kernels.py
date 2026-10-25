@@ -12,6 +12,8 @@ is met, and its default ``abs=1e-12`` swamps anything smaller than that, so
 every comparison of a small number passes ``abs=0.0`` explicitly.
 """
 
+import warnings
+
 import numpy as np
 import pytest
 
@@ -992,7 +994,9 @@ def test_kadomtsev_constraint_matches_its_closed_form():
     # alpha_K = (1 + a_P)(mu_rho + 2 mu_beta - 4 mu_nu) - 2 a_P (#351).
     mu_rho, mu_beta, mu_nu, a_P = 0.4, 0.2, 0.1, 0.5
     expected = (1 + a_P) * (mu_rho + 2 * mu_beta - 4 * mu_nu) - 2 * a_P
-    with pytest.warns(FutureWarning, match="351"):
+    # The FutureWarning that announced the #351 change was dropped in 0.9.0.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
         got = verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P)
     assert got == pytest.approx(expected, rel=1e-12, abs=1e-12)
 
@@ -1000,15 +1004,13 @@ def test_kadomtsev_constraint_matches_its_closed_form():
 def test_kadomtsev_constraint_vanishes_for_a_pure_dimensionless_scaling():
     # Bohm, beta- and nu-free: B tau ~ rho*^-2.  Its T exponent is -1, which
     # a_P = -1/2 reproduces (a_P / (1 + a_P) = -1), so the residual is 0 ...
-    with pytest.warns(FutureWarning):
-        assert verify_kadomtsev_constraint(-2.0, 0.0, 0.0, -0.5) == pytest.approx(
-            0.0, abs=1e-12
-        )
+    assert verify_kadomtsev_constraint(-2.0, 0.0, 0.0, -0.5) == pytest.approx(
+        0.0, abs=1e-12
+    )
     # ... and a mismatched a_P shows up as a non-zero residual.
-    with pytest.warns(FutureWarning):
-        assert verify_kadomtsev_constraint(-2.0, 0.0, 0.0, 0.0) != pytest.approx(
-            0.0, abs=1e-6
-        )
+    assert verify_kadomtsev_constraint(-2.0, 0.0, 0.0, 0.0) != pytest.approx(
+        0.0, abs=1e-6
+    )
 
 
 # --------------------------------------------------------------------------

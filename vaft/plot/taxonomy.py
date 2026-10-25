@@ -201,8 +201,23 @@ QUANTITY_ALIASES: dict[str, str] = _build_quantity_aliases()
 #: name joins only when it means one quantity: ``pressure`` stays out, because
 #: plots and diagnostics use it for both plasma and neutral gas pressure, and
 #: ``estimated_q95`` (a scaling estimate) stays distinct from ``q95``.
+#:
+#: Same unit is not same quantity (#2163): the four electron densities below
+#: differ in where or how they are averaged, ``psi_n`` is not ``psi``,
+#: ``beta_n_volume`` (Menard's volume-averaged beta_N) is not the Troyon
+#: ``beta_n``, and the vacuum and plasma-response parts of a perturbed field
+#: are different fields.  None of them is an alias of another, and none of the
+#: densities is the subject ``electron_density``.
 _UNALIASED_QUANTITIES = (
     "b_t",
+    "beta_n_volume",
+    "edge_density",
+    "line_averaged_density",
+    "plasma_response_field",
+    "psi_n",
+    "separatrix_density",
+    "vacuum_perturbed_field",
+    "volume_averaged_density",
     "elongation",
     "energy_confinement_time",
     "estimated_q95",
@@ -240,8 +255,11 @@ def resolve_quantity(term: str) -> str:
 
 
 _FAMILIES = (
-    QuantityFamily("beta", ("beta_n", "beta_p", "beta_t")),
+    QuantityFamily("beta", ("beta_n", "beta_n_volume", "beta_p", "beta_t")),
     QuantityFamily("energy", ("w_mhd", "w_mag", "w_tot"), aliases=("w",)),
+    QuantityFamily("density_average", ("edge_density", "line_averaged_density", "separatrix_density",
+                                       "volume_averaged_density")),
+    QuantityFamily("perturbed_field", ("plasma_response_field", "vacuum_perturbed_field")),
 )
 
 #: Family name -> :class:`QuantityFamily`.  A family groups distinct

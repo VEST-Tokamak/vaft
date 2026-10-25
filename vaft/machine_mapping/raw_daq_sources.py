@@ -313,35 +313,28 @@ def diamagnetic_flux_raw_fields(shot: int) -> tuple[RawField, ...]:
 
 
 def _wiring_records(shot: int, kind: str, path: str) -> list[RawField]:
-    from .magnetics import (
-        _load_names_by_code,
-        equilibrium_magnetics_processing_config,
-        known_magnetics_faults,
-        magnetics_wiring_for_shot,
-    )
+    from .magnetics import equilibrium_magnetics_processing_config, known_magnetics_faults
+    from .magnetics_registry import resolve_equilibrium_magnetics_sensors
 
     operation = equilibrium_magnetics_processing_config(int(shot)).calibration_mode
     faults = known_magnetics_faults(int(shot))
-    names = _load_names_by_code()
     records = []
-    ordinal = 0
-    for channel in magnetics_wiring_for_shot(int(shot)).channels:
-        if channel["kind"] != kind:
+    for sensor in resolve_equilibrium_magnetics_sensors(int(shot)):
+        if sensor.kind != kind:
             continue
-        field = int(channel["field_code"])
+        # `name` is the DAQ label of the field the sensor reads for this shot.
         records.append(
             _record(
-                field,
-                names.get(field, f"{kind} {ordinal}"),
+                sensor.field_code,
+                sensor.name,
                 "signal",
-                channel=f"{path}[{ordinal}]",
+                channel=f"{path}[{sensor.kind_index}]",
                 daq_type="slow",
-                calibration={"operation": operation, "factor": float(channel["calibration"])},
+                calibration={"operation": operation, "factor": float(sensor.calibration)},
                 config="0.diagnostics.equilibrium_magnetics.processing.wiring",
-                known_fault=faults.get((kind, ordinal)),
+                known_fault=faults.get((kind, sensor.kind_index)),
             )
         )
-        ordinal += 1
     return records
 
 

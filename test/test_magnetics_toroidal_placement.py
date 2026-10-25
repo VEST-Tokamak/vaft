@@ -23,9 +23,9 @@ from vaft.machine_mapping.magnetics import (
     OUTBOARD_PROBE_MIN_R,
     SIDE_PROBE_MIN_ABS_Z,
     TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
-    _load_static_channels,
     vfit_magnetics_static,
 )
+from vaft.machine_mapping.magnetics_registry import resolve_equilibrium_magnetics_sensors
 from vaft.machine_mapping.registry import port_phi
 from vaft.machine_mapping.utils import get_path, path_exists
 
@@ -106,12 +106,12 @@ def test_the_outboard_family_shares_its_angle_with_the_530_reference():
 def test_every_equilibrium_probe_classifies_into_a_family():
     """No probe falls through to "no phi" in the packaged geometry."""
     unclassified = [
-        channel for channel in _load_static_channels()
-        if channel["kind"] == "b_field_pol_probe"
+        record.id for record in resolve_equilibrium_magnetics_sensors()
+        if record.kind == "b_field_pol_probe"
         and not (
-            abs(float(channel["z"])) > SIDE_PROBE_MIN_ABS_Z
-            or float(channel["r"]) < INBOARD_PROBE_MAX_R
-            or float(channel["r"]) > OUTBOARD_PROBE_MIN_R
+            abs(record.z) > SIDE_PROBE_MIN_ABS_Z
+            or record.r < INBOARD_PROBE_MAX_R
+            or record.r > OUTBOARD_PROBE_MIN_R
         )
     ]
     assert unclassified == []

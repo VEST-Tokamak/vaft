@@ -54,7 +54,10 @@ _ALLOWED_DATA_SUFFIXES = {
     # Code, not data: the public-database readers ship; the databases they
     # read are fetched at run time and never shipped (#1205).
     "public/": (".py",),
-    "geometry/": (".yaml", ".csv"),
+    # No YAML: the equilibrium magnetics YAMLs that lived here are retired into
+    # the vest.yaml sensor registry (#2158), and a distribution carrying one
+    # would ship a second, stale sensor inventory.
+    "geometry/": (".csv",),
     "gpec/": (".in", ".dat"),
     "legacy/": (".txt", ".yaml"),
     # ShotLog era schemas, read at run time by vaft.machine_mapping.pulse_schedule
@@ -83,7 +86,9 @@ REQUIRED_FILES = {
     "vaft/validation/studies/fixed_free_1608/__init__.py",
     "vaft/.hscfg.example",
     "vaft/machine_mapping/vest.yaml",
-    "vaft/data/geometry/MD.yaml",
+    # The equilibrium magnetic sensor registry reader (#2158); vest.yaml holds
+    # the sensors themselves.
+    "vaft/machine_mapping/magnetics_registry.py",
     "vaft/data/geometry/line_of_sight_endpoints.csv",
     "vaft/data/gpec/gpec.in",
     "vaft/data/legacy/diagnostic-trigger-settings.yaml",
@@ -121,6 +126,17 @@ REQUIRED_FILES = {
 } | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES} | {
     f"{_STUDIES}{name}" for name in _SHIPPED_STUDY_SCRIPTS
 }
+
+
+#: The split-file magnetics inventory retired into the vest.yaml sensor registry
+#: (#2158). Frozen copies live in test/data/legacy_magnetics, which never ships.
+RETIRED_MAGNETICS_FILES = frozenset(
+    {
+        "vaft/data/geometry/MD.yaml",
+        "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml",
+        "vaft/data/geometry/table.yaml",
+    }
+)
 
 
 def _distribution_names(path: Path) -> set[str]:
@@ -169,6 +185,12 @@ def _verify_distribution(path: Path) -> None:
     missing = sorted(REQUIRED_FILES - names)
     if missing:
         raise ValueError(f"{path.name}: missing required files: {', '.join(missing)}")
+
+    retired = sorted(names & RETIRED_MAGNETICS_FILES)
+    if retired:
+        raise ValueError(
+            f"{path.name}: ships retired magnetics inventory files (#2158): {', '.join(retired)}"
+        )
 
     forbidden_data = sorted(name for name in names if not _allowed_data_file(name))
     if forbidden_data:

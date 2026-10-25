@@ -49,9 +49,11 @@ DEFINITIONAL = frozenset({
     "describe_time_grid",
     "detrend_moving_average",
     "butterworth_lowpass",
+    "butterworth_highpass",
     "butterworth_bandpass",
     "fir_filter",
     "fir_filter_coefficients",
+    "apply_fir_filter",
     "is_signal_active",
     "signal_on_offset",
     "process_signal",
@@ -225,7 +227,6 @@ PIPELINE = frozenset({
     "rogowski_coil_ip",
     "toroidal_mode_analysis",
     "toroidal_phase_fit_at_time",
-    "vest_b_field_pol_probe_legacy",
     "vest_equilibrium_magnetics_detailed",
     "vest_flux_loop_flux_from_voltage",
     "vest_flux_loop_legacy",
@@ -378,6 +379,8 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # signal_processing (#2135): zero-phase, so no filtered waveform lags another
+    "apply_fir_filter",
     # gyrokinetics (#1820): |phi|^2 is a proxy, ky = 0 is zonal, positive lag = zonal
     # after turbulence, c1/c2 carry the intensity normalisation
     "zonal_turbulence_intensity",
@@ -549,7 +552,6 @@ CONVENTION_SENSITIVE = frozenset({
     "solve_eddy_currents",
     "toroidal_mode_analysis",
     "toroidal_phase_fit_at_time",
-    "vest_b_field_pol_probe_legacy",
     "vest_equilibrium_magnetics_detailed",
     "vest_equilibrium_magnetics_signals",
     "vest_flux_loop_flux_from_voltage",
@@ -692,7 +694,9 @@ CONVENTION_SENSITIVE = frozenset({
     "line_average_density",
     "smooth",
     "butterworth_lowpass",
+    "butterworth_highpass",
     "butterworth_bandpass",
+    "pf_current_filter",
     "fir_filter",
     "fir_filter_coefficients",
     "detrend_moving_average",
