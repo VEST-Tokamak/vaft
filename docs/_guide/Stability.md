@@ -366,18 +366,19 @@ It recovers the shot and time from the existing header when you do not pass them
 
 # Batch runs and the stability database
 
-Running one case at a time is only useful for debugging. Pipeline 1 does the real work; a pipeline-3 script tabulates the historical runs.
+Running one case at a time is only useful for debugging. Pipeline 1 does the real work, and a pipeline-3
+script tabulates the solver runs.
 
 **Sweeping shots and times** — pipeline 1 runs the codes after CHEASE: rule `run_gpec_module`, one job
 per (shot, stability product, $n$), with the modules and modes set in `gpec.modules` / `gpec.modes` of
 `workflow/automatic_pipeline_1_routine_data_processing/config.yaml`. `build_mhd_linear` then assembles
 the `mhd_linear` product and `build_gpec_ideal` the `gpec_ideal` product (see
-[Pipelines]({{ site.baseurl }}/guide/Pipelines/#linear-stability-and-gpec-runs)). The older
+[Pipelines]({{ '/workflows/automated-pipelines/' | relative_url }}#linear-stability-and-gpec-runs)). The older
 `workflow/running_linear_stability/` fan-out ($n = 1\ldots6$ DCON, $n = 1, 2$ RDCON/STRIDE) is retired.
 
-**Mining the historical results into a table** —
+**Mining the results into a table** —
 [`gen_stability_history.py`](https://github.com/VEST-Tokamak/vaft/blob/main/workflow/automatic_pipeline_3_data_summary/gen_stability_history.py)
-walks `{shot}/linear_stability/{time}/{dcon,rdcon,stride}/nn={n}/`, reads the NetCDF products and
+walks `{shot}/linear_stability/{time}/{dcon,rdcon,stride}/nn={n}/` (the shot_first layout), reads the NetCDF products and
 emits `stability_history.xlsx`, one row per (shot, time):
 
 | Column group | Content |

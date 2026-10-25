@@ -55,7 +55,8 @@ canonical layout's container (`OMAS_PRODUCT_SUFFIX`, `.json.gz` since #813).
 │                         _efit.json, _chease.json
 ├── efit/                 kfile/ gfile/ afile/ mfile/  + efit_status.txt
 ├── chease/               refined g-files (flat), work/, plots/{time}.png
-├── linear_stability/     {time}/{dcon,rdcon,stride}/nn={n}/  (historical: the retired fan-out)
+├── linear_stability/     {time}/{dcon,rdcon,stride,gpec}/nn={n}/ (solver runs),
+│                         {module}/n={n}/status.txt + run.json, gpec_ideal.json
 └── logs/
 ```
 
@@ -162,8 +163,9 @@ partial: refined_gfiles=8; failed=2
 | `build_mhd_linear` | `generate_mhd_linear_ods.py` | `vaft.omas.vest_upstream.build_mhd_linear_ods` |
 | `build_gpec_ideal` | `generate_gpec_ideal_ods.py` | `vaft.omas.vest_upstream.build_gpec_ideal_ods` |
 
-Two rules are named differently from their scripts: rule `run_chease` runs `run_chease_refinement.py`, and
-rule `run_gpec_module` runs `run_gpec_suite.py`.
+Four rules are named differently from their scripts: `run_chease` runs `run_chease_refinement.py`,
+`run_gpec_module` runs `run_gpec_suite.py`, `build_mhd_linear` runs `generate_mhd_linear_ods.py`, and
+`build_gpec_ideal` runs `generate_gpec_ideal_ods.py`.
 
 `generate_impa_ods` is the one optional branch. IMPA is an insertable,
 campaign-dependent diagnostic, so it is off by default (`impa.enable: false`),
@@ -267,7 +269,7 @@ and both bounds become mandatory.
 
 ### Failure semantics — a green run does not mean everything ran
 
-The runners deliberately disagree about what counts as failure, so **always read the `*_status.txt` files
+The runners deliberately disagree about what counts as failure, so **always read the status files
 rather than the exit code**:
 
 * `run_efit_reconstruction` and `generate_efit_ods` **exit 0 even when EFIT is absent or produced nothing**.
@@ -277,8 +279,8 @@ rather than the exit code**:
   `Fortran runtime error` and `Error termination` — EFIT is known to exit 0 on namelist errors, so the
   return code alone is not trustworthy.
 * `run_chease_refinement` exits **1** if CHEASE ran but refined zero g-files (though 0 if it was skipped
-  outright), and `run_gpec_suite.py` exits **0** with a `partial: ...` status when a
-  time slice failed (a failed slice is data; `build_mhd_linear` keeps the others).
+  outright), and `run_gpec_suite.py` always exits **0**: a failed slice makes the cell
+  status `partial: ...` (even if every slice failed), and `build_mhd_linear` keeps the slices produced.
 
 `run_chease_refinement.py` also writes `chease/chease_runs.json` and the per-time comparison plots in
 `chease/plots/`, neither of which is declared as a Snakemake output — `snakemake --delete-all-output` will
@@ -545,9 +547,15 @@ not a crash: the status reads `partial: ...` and `build_mhd_linear` keeps the sl
 The separate `workflow/running_linear_stability/` fan-out is **retired**. It launched DCON, RDCON and STRIDE
 directly, one job per (shot, time, code, n), through environment modules and an absolute path to a runner
 outside the repository. Pipeline 1's `run_gpec_module` / `build_mhd_linear` replace it (migration matrix,
-#2164). Its on-disk layout `{shot}/linear_stability/{time}/{code}/nn={n}/` survives only in historical
-outputs. Pipeline 3's `gen_stability_history.py` still reads that layout, so it summarizes those historical
-runs, not the pipeline-1 stage products.
+#2164). Its on-disk layout `{shot}/linear_stability/{time}/{code}/nn={n}/` is also what pipeline 1 still
+writes under `layout: shot_first`, because `run_gpec_suite_case` places each run at
+`<workdir>/<time>/<module>/nn=<n>/`. Pipeline 3's `gen_stability_history.py` reads that solver tree, so it
+covers shot_first runs, old and new. It reads neither the `layout: filedb` `gpec/...` cells nor the
+`mhd_linear`/`gpec_ideal` stage products. Its glob `*/linear_stability/*` also matches pipeline 1's
+`{module}/` cell directories and `gpec_ideal.json`, which give empty rows.
+
+For what these codes compute and how to read their output, see
+[Stability]({{ '/workflows/mhd-stability/' | relative_url }}).
 
 ---
 
