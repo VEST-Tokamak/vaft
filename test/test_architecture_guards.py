@@ -44,6 +44,9 @@ Active guards
     ``vaft.machine_mapping`` module dynamically, compares no shot number
     with an era literal and binds no shot-boundary name to one. ``np.interp``, ``scipy.signal`` and integration stay
     legal: the guard targets configuration reads, not numerics.
+(i) No digital filter is designed (``scipy.signal.firwin``, ``butter``, ...)
+    outside ``vaft.process``, apart from two allowlisted donor designs;
+    applying a filter stays legal everywhere.
 
 The register these guards serve is
 ``docs/architecture/consolidation/retirement_register.md``.
@@ -1440,7 +1443,7 @@ PROCESS_CONFIG_ALLOWLIST: dict[tuple[str, str, str], str] = {
             "the legacy hardcoded window ladder (late_shot_min 41660, transient_shot_min/max 41446/41451) "
             "that window_for_shot falls back to only when no window_override is set; every vest.yaml era sets "
             "one (checked over shots 30000-50000), so the ladder is a legacy default, not the policy in force "
-            "(debt, #2168: move or delete with the ladder)"
+            "(debt, #2206: move or delete with the ladder)"
         )
         for name in ("late_shot_min", "transient_shot_min", "transient_shot_max")
     },
@@ -1588,6 +1591,101 @@ def test_process_config_scanner_reports_synthetic_violations_and_keeps_numerics_
     ]
     with pytest.raises(AssertionError, match=r"vaft/process/bad\.py:11: in policy: shot >= 39438(.|\n)*pass it in"):
         check_against_allowlist(findings, {}, rule=PROCESS_CONFIG_RULE, expected=PROCESS_CONFIG_EXPECTED)
+
+
+# ---------------------------------------------------------------------------
+# (i) filters are designed in vaft.process
+# ---------------------------------------------------------------------------
+
+FILTER_DESIGN_RULE = (
+    "a digital filter is designed outside vaft.process (#2168 / migration_plan.md E: "
+    "machine_mapping must not design filters outside an allowlist)"
+)
+FILTER_DESIGN_EXPECTED = (
+    "design the filter with vaft.process.signal_processing (fir_filter_coefficients, pf_current_filter, "
+    "butterworth_highpass, ...) and pass the machine values from vest.yaml"
+)
+
+#: scipy.signal design functions; applying a filter (lfilter, filtfilt,
+#: sosfilt) is legal anywhere, and so is everything in vaft/process.
+FILTER_DESIGNERS = frozenset(
+    f"scipy.signal.{name}"
+    for name in (
+        "firwin", "firwin2", "firls", "remez", "kaiserord", "butter", "cheby1", "cheby2", "ellip",
+        "bessel", "iirfilter", "iirdesign", "iirnotch", "iirpeak", "savgol_coeffs",
+    )
+)
+
+#: (path, qualname, designer) -> why it is still allowed.
+FILTER_DESIGN_ALLOWLIST: dict[tuple[str, str, str], str] = {
+    ("vaft/machine_mapping/tf.py", "vfit_tf_current_detailed", "firwin"):
+        "TF current low pass: the donor's Hamming firwin(taps, cutoff, fs) with the vest.yaml tf.processing "
+        "values, applied through apply_fir_filter (#2135). Debt: route through fir_filter_coefficients("
+        "window='hamming') once a coefficient-equality test shows it unchanged (#2206)",
+    ("vaft/machine_mapping/magnetics.py", "vfit_plasma_current", "firwin"):
+        "Ip reference comparison low pass: the donor's Hamming firwin with the vest.yaml comparison values, "
+        "applied through apply_fir_filter (#2135). Same debt (#2206)",
+}
+
+
+def filter_design_findings(base: Path, roots: Iterable[str] = SCAN_ROOTS) -> list[Finding]:
+    findings: list[Finding] = []
+    for path in _python_sources(base, roots):
+        rel = _relative(path, base)
+        if rel.startswith("vaft/process/"):
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "signal" not in text:
+            continue
+        tree = ast.parse(text, filename=str(path))
+        bindings = _import_bindings(tree)
+        for qualname, node in _calls_with_scope(tree):
+            called = _qualified(node.func, bindings)
+            if called in FILTER_DESIGNERS:
+                short = called.rsplit(".", 1)[1]
+                findings.append(Finding((rel, qualname, short), f"{rel}:{node.lineno}", f"in {qualname}: {called}()"))
+    return findings
+
+
+def test_filters_are_designed_in_process():
+    check_against_allowlist(
+        filter_design_findings(REPO_ROOT),
+        FILTER_DESIGN_ALLOWLIST,
+        rule=FILTER_DESIGN_RULE,
+        expected=FILTER_DESIGN_EXPECTED,
+    )
+
+
+def test_filter_design_scanner_reports_synthetic_designs(tmp_path):
+    files = {
+        "vaft/machine_mapping/new.py": (
+            "import scipy.signal\n"
+            "from scipy import signal\n"
+            "from scipy.signal import butter as design, filtfilt\n"
+            "import numpy as np\n"
+            "def f(x, fs):\n"
+            "    a = signal.firwin(251, 2500.0, fs=fs)\n"
+            "    b, c = design(4, 0.1)\n"
+            "    d = scipy.signal.cheby1(4, 1, 0.2)\n"
+            "    return filtfilt(b, c, x), np.interp(x, x, x), signal.lfilter(a, 1.0, x)\n"
+        ),
+        "workflow/stage.py": "from scipy.signal import iirnotch\ndef g():\n    return iirnotch(50.0, 30.0, fs=1000.0)\n",
+        # vaft/process owns filter design.
+        "vaft/process/signal_processing.py": "from scipy import signal\ndef h():\n    return signal.firwin(11, 0.1)\n",
+    }
+    for relative, text in files.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    findings = filter_design_findings(tmp_path)
+    assert sorted((f.key, f.location) for f in findings) == [
+        (("vaft/machine_mapping/new.py", "f", "butter"), "vaft/machine_mapping/new.py:7"),
+        (("vaft/machine_mapping/new.py", "f", "cheby1"), "vaft/machine_mapping/new.py:8"),
+        (("vaft/machine_mapping/new.py", "f", "firwin"), "vaft/machine_mapping/new.py:6"),
+        (("workflow/stage.py", "g", "iirnotch"), "workflow/stage.py:3"),
+    ]
+    with pytest.raises(AssertionError, match=r"new\.py:6: in f: scipy\.signal\.firwin\(\)(.|\n)*fir_filter_coefficients"):
+        check_against_allowlist(findings, {}, rule=FILTER_DESIGN_RULE, expected=FILTER_DESIGN_EXPECTED)
 
 
 if __name__ == "__main__":  # pragma: no cover
