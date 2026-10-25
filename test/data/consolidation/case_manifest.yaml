@@ -1,9 +1,10 @@
 # Scientific regression portfolio for the VAFT consolidation (issue #2166, Scope A).
 #
 # One record per case.  A case is *requested evidence*, not a passed check:
-# every `status` below is `not_tested` until the test that consumes it has run
-# against the migrated code and its result is recorded here with the revision
-# it ran on.  Nothing in this file may say `passed` on the strength of
+# every `status` below stays `not_tested` until the test that consumes it has
+# run against the migrated code and its result is recorded here (`result:`)
+# with the revision it ran on; D2 of #2166 recorded the first runs on 2026-10-25.
+# Nothing in this file may say `passed` on the strength of
 # availability alone (#2166 A2: "a requested shot is not a passing validation
 # case until its required inputs are available and its tests have been
 # executed").  `test/test_consolidation_case_manifest.py` enforces that.
@@ -20,7 +21,8 @@
 #   requires_vestserver_raw
 #                    true when at least one required input exists only on the
 #                    VEST database / vestserver FileDB.  Those cases cannot be
-#                    run from a checkout; they were NOT accessed to build this.
+#                    run from a checkout; they were NOT accessed to author this file (D2 later ran
+#                    them on vestserver, see each case's `result:`).
 #   selection        why this case is in the portfolio (documented criterion,
 #                    #2166 A1), so the list is not chosen for agreement.
 #
@@ -153,7 +155,17 @@ cases:
       - {name: static_mapping, path: vaft/machine_mapping/vest.yaml, available_offline: true,
          note: mapping-only checks (sensor id / r / z / field code / calibration per shot) run offline without raw}
     requires_vestserver_raw: true
-    status: not_tested
+    status: passed
+    result:
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
+      report: 'docs/architecture/consolidation/qualification_report.md'
+      shots_run: [39417, 39436, 39437, 39438, 39439, 39446]
+      regression: 'equivalent -- every stage product byte-identical BEFORE vs AFTER on all six shots; manifests differ only by added provenance (metadata_only, #2159/#2164) and the static input record magnetics_calibration/geometry -> magnetics_registry (#2181)'
+      identity: 'migration fidelity -- registry, frozen legacy YAMLs (the registry donor) and produced ODS agree for all 75 sensors on both sides; raw-derived source code of probes 35/47 discriminates fields 225/170 on 39438/39439 only (pre-side runner-up correlation >= 0.99996, not discriminating); the raw polarity test is a processing self-check, not physical sign evidence'
+      physical: 'the experimental evidence that the wiring assignment is right is the era-wiring-swap control (applying the other era wiring degrades the vacuum fit on 39436, pre, x6.3/x14.3, and 39446, post, x1.7/x2.1); vacuum benchmark informative on 39417/39436 (pre) and 39446 (post); 39438/39439 carry <= 0.21 kA of PF drive and are not informative; 39437 is PF-excited (PF6 3.5 kA, PF9/10 1.0 kA) but not informative either (correlation median 0.38); every declared negative control, including the era-wiring swap 35<->47, is detected on 39436 and 39446 (on 39417 the sign flips and the H2-04 swap are detected, the move and the C3-04 half of the swap are missed, the era swap is not evaluable)'
+      caveat: 'the ODS name/identifier of probes 35/47 follows the field code''s DAQ label (C2-04_Bz <-> C4-05 swap across the boundary) while the registry id stays positional; unchanged by the consolidation'
+      evidence: 'vestserver:/home/user1/runs/consolidation-d2/identity/, vestserver:/home/user1/runs/consolidation-d2/compare/, vestserver:/home/user1/runs/consolidation-d2/vacuum2/'
 
   - id: ip-fl10-46402-46403
     shots: [46402, 46403]
@@ -168,7 +180,16 @@ cases:
       - {name: raw_dump_46402, available_offline: false, source: FileDB raw/46402 (vestserver)}
       - {name: raw_dump_46403, available_offline: false, source: FileDB raw/46403 (vestserver)}
     requires_vestserver_raw: true
-    status: not_tested
+    status: blocked
+    result:
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
+      report: 'docs/architecture/consolidation/qualification_report.md'
+      shots_run: [46396, 46397, 46398, 46399, 46400, 46401, 46402, 46403]
+      regression: 'equivalent on 46396-46402 (byte-identical products, k-files of 46400 identical)'
+      blocked_by: '46403 itself -- the diagnostics stage raises DegenerateBaselineWindowError (flux loop 1 baseline window [0.24, 0.26] s outside the 0.26-0.36 s record) identically at BEFORE and AFTER; production FileDB holds no diagnostics product for 46403 either'
+      physical: 'not_tested -- 46396-46410 carry <= 0.4 kA of PF drive except 46400 (PF2 1.4 kA), and only 46400 has a plasma window; no shot after the boundary in 46404-46410 has one, so Ip polarity/baseline/units across the FL10 boundary cannot be judged from this window'
+      evidence: 'vestserver:/home/user1/runs/consolidation-d2/compare/, vestserver:/home/user1/runs/consolidation-d2/captures/p1-before/46403/logs/diagnostics.log'
 
   - id: daq-46403-46404
     shots: [46403, 46404]
@@ -183,7 +204,17 @@ cases:
       - {name: raw_dump_46403, available_offline: false, source: FileDB raw/46403 (vestserver)}
       - {name: raw_dump_46404, available_offline: false, source: FileDB raw/46404 (vestserver)}
     requires_vestserver_raw: true
-    status: not_tested
+    status: blocked
+    result:
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
+      report: 'docs/architecture/consolidation/qualification_report.md'
+      shots_run: [46403, 46404, 46405, 46406, 46407, 46408, 46409, 46410]
+      regression: 'equivalent on 46404-46410 (byte-identical products; 46406 k-files identical)'
+      acquisition: 'AFTER''s acquisition check records the magnetics channels of every captured shot, 46402 and 46404 included, as consistent (observed 249,990 Hz from 43006 on, 250,000 Hz before, vs declared 250 kHz)'
+      identity: 'registry = legacy = ODS for 46404; raw polarity matches on 72/72 evaluated channels; probes 25 (H3-08), 45 (C4-04), 50 (U-06) read a constant -5 V raw record (dead) -- U-06 passes the diagnostics quality layer on 46404 (pre-existing, see report)'
+      blocked_by: '46403 diagnostics failure (see ip-fl10-46402-46403)'
+      evidence: 'vestserver:/home/user1/runs/consolidation-d2/identity/, vestserver:/home/user1/runs/consolidation-d2/compare/'
 
   - id: pf1-gain-45895-45896
     shots: [45895, 45896]
@@ -199,7 +230,15 @@ cases:
       - {name: raw_dump_45896, available_offline: false, source: FileDB raw/45896 (vestserver)}
       - {name: raw_dump_energised_after, available_offline: false, source: 'FileDB raw/45929, 45960, 45964 or 45965 (vestserver)'}
     requires_vestserver_raw: true
-    status: not_tested
+    status: passed
+    result:
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
+      report: 'docs/architecture/consolidation/qualification_report.md'
+      shots_run: [45891, 45895, 45896, 45919, 45964]
+      regression: 'equivalent (byte-identical products; 45891/45919/45964 k-files identical)'
+      physical: 'vacuum benchmark informative on both sides (scored normalized-residual medians 0.03-0.12, correlation medians >= 0.995), including PF1-energised 45964 (16.8 kA) after the gain change; the sign flips are detected on all five and the H2-04 half of the swap on the four where it is evaluable (not 45919); the 0.20 m move is missed on 45891/45964, one half of the era-wiring swap is missed on 45891/45964 and the era swap is not evaluable on 45896/45919; 45896 is weakly driven (PF1 10 A, PF9/10 77 A)'
+      evidence: 'vestserver:/home/user1/runs/consolidation-d2/vacuum2/, vestserver:/home/user1/runs/consolidation-d2/compare/'
 
   - id: pf5-gain-48371-48372
     shots: [48371, 48372]
@@ -210,7 +249,15 @@ cases:
       - {name: raw_dump_48371, available_offline: false, source: FileDB raw/48371 (vestserver)}
       - {name: raw_dump_48372, available_offline: false, source: FileDB raw/48372 (vestserver)}
     requires_vestserver_raw: true
-    status: not_tested
+    status: blocked
+    result:
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
+      report: 'docs/architecture/consolidation/qualification_report.md'
+      shots_run: [48366, 48367, 48368, 48369, 48370, 48371, 48372, 48373, 48374, 48375, 48376]
+      regression: 'equivalent (byte-identical products; 48372-48375 k-files identical)'
+      blocked_by: 'physical side not_tested (inconclusive evidence; no BEFORE/AFTER difference) -- 48366-48371 are PF5-only shots whose PF5 record carries multi-kA offsets at record start and end (48371 +2.88 kA at both ends) and whose vacuum model is uncorrelated with the probes (correlation median ~0); 48372/48373, the only shots here with multi-kA PF2 (3.5/4.8 kA), have side-probe residuals 7-11; only 48374/48376 are informative. The gain boundary is not confirmed or refuted by this window'
+      evidence: 'vestserver:/home/user1/runs/consolidation-d2/vacuum2/, vestserver:/home/user1/runs/consolidation-d2/compare/'
 
   - id: discrepancy-48224
     shots: [48224]
@@ -227,7 +274,15 @@ cases:
       - {name: server_kfile, path: vaft/data/samples/48224/efit_magnetic_server/k048224.00300, available_offline: true}
       - {name: raw_dump, available_offline: false, source: FileDB raw/48224 (vestserver)}
     requires_vestserver_raw: true
-    status: not_tested
+    status: blocked
+    result:
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
+      report: 'docs/architecture/consolidation/qualification_report.md'
+      regression: 'equivalent (byte-identical products, 18 k-files per preset identical)'
+      server_comparison: 'reference_inconclusive (today vs the archived server k-file differ; no BEFORE/AFTER difference) -- see the report; Ip 204.5 kA (VAFT) vs 143.2 kA (server PLASMA); the four flux loops the server fit used agree within 1.7%; the server EXPMP2 is a smooth symmetric template (27 distinct values for 64 probes), not a measurement record, and is weighted out (BITMPI 100), so the #2135 probe delay cannot have shaped the server fit and cannot be tested against it'
+      blocked_by: 'root cause not established (not asserted)'
+      evidence: 'vestserver:/home/user1/runs/consolidation-d2/48224/'
 
   - id: vacuum-benchmark-plasma-free
     shots: [39915, 41524]
@@ -255,7 +310,17 @@ cases:
       - {name: dedicated_vacuum_shots, available_offline: false,
          source: 'vestserver FileDB eddy/diagnostics products of no-plasma shots, one or more per machine era (to be selected from the shot log, not by agreement)'}
     requires_vestserver_raw: true   # the dedicated vacuum shots' products, not raw dumps
-    status: not_tested
+    status: blocked
+    result:
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
+      report: 'docs/architecture/consolidation/qualification_report.md'
+      shots_run: '48 cases plus 2 rejected (43026, 46403); the list is case_shots.vacuum-benchmark-plasma-free in docs/architecture/consolidation/qualification_results.json; 39915 rebuilt from its packaged raw; 41524 not run'
+      regression: 'per-sensor rows identical BEFORE vs AFTER on every case and every negative control'
+      physical: '17 cases informative (scored correlation median >= 0.95, normalized-residual median <= 0.2; a precondition defined after the first control run, see report 6.1), 8 of them plasma shots evaluated on their pre-plasma interval; only 2 (48374, 48376) in the current 45968+ era; no acceptance thresholds exist (#190)'
+      negative_controls: 'sign flips detected on every evaluable informative case (probe 15/15, flux loop 17/17); H2-04/C3-04 swap 27/32 sensor detections (C3-04 missed 5); era-wiring swap 19/24; the 0.20 m move of C3-04 only 9/17 at the declared 1.2x, and on 6 cases it also changes other probes'' rows (array-contradiction review)'
+      blocked_by: 'the declared 0.20 m move control misses its 1.2x threshold on 8 of 17 informative cases, and current-era sensitivity rests on 2 cases where C1-04 and the era-wiring swap are not evaluable, so physical qualification of the model is not shown. The consolidation changes no per-sensor row (regression part equivalent)'
+      evidence: 'vestserver:/home/user1/runs/consolidation-d2/vacuum2/'
 
   - id: impa-archived
     shots: [35325, 35376, 35385, 39204, 39923]
@@ -280,7 +345,14 @@ cases:
       The packaged reference shots 39915/41524/41672 carry IMPA that the
       calibration rejects; they are not IMPA validation cases.
     requires_vestserver_raw: false
-    status: not_tested
+    status: passed
+    result:
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
+      report: 'docs/architecture/consolidation/qualification_report.md'
+      regression: 'equivalent -- process_impa_shot on all five extracts gives identical numeric leaves and quality verdicts; AFTER adds 8 result.provenance.acquisition leaves (metadata_only, #2159); declared 25 kHz consistent with the acquired timebase on all five'
+      physical: 'alignment shots 35376/35385 stay certified (geometry and tf_coupling pass); 35325/39204/39923 stay rejected'
+      evidence: 'vestserver:/home/user1/runs/consolidation-d2/impa/'
 
   - id: corrective-kinetic
     shots: [48224, 47514, 47518, 46051, 39915]
