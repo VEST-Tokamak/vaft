@@ -1,5 +1,7 @@
 """Computation contracts, workflow execution and provenance diagrams (#2150): semantics and evidence, not pixels."""
 
+import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -22,6 +24,27 @@ def _diagrams():
 
 def _text(diagram) -> str:
     return " ".join(i.text for i in diagram.scene.items if isinstance(i, Label))
+
+
+def _defines(source: Path, symbol: str) -> bool:
+    """Whether ``source`` defines ``symbol``: a qualified Python name, else a line that starts with it."""
+    text = source.read_text(encoding="utf-8")
+    if source.suffix != ".py" or not re.fullmatch(r"[A-Za-z_][\w.]*", symbol):
+        return any(line.strip().startswith(symbol) for line in text.splitlines())
+    scope = ast.parse(text).body
+    for part in symbol.split("."):
+        found = None
+        for node in scope:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == part:
+                found = node
+            elif isinstance(node, ast.Assign) and any(getattr(t, "id", None) == part for t in node.targets):
+                found = node
+            elif isinstance(node, ast.AnnAssign) and getattr(node.target, "id", None) == part:
+                found = node
+        if found is None:
+            return False
+        scope = getattr(found, "body", [])
+    return True
 
 
 def _edges(diagram):
@@ -48,21 +71,33 @@ def test_every_recorded_edge_is_drawn_once_with_its_relation_style(name, diagram
 @pytest.mark.parametrize("name, diagram", list(_diagrams()))
 def test_statuses_are_known_and_planned_boxes_look_planned(name, diagram):
     status = diagram.model["status"]
-    assert set(diagram.model["nodes"]) <= set(status)
+    assert set(diagram.model["nodes"]) == set(status)
     assert set(status.values()) <= set(cc.STATUSES)
     for key in diagram.model["nodes"]:
-        outline = diagram.scene.role(f"node:{key}")[0]
-        assert (outline.style == "concept group") == (status[key] == "planned"), key
+        drawn = diagram.scene.role(f"node:{key}")
+        if drawn:  # a frame such as the workflow specification is recorded without a node box
+            assert (drawn[0].style == "concept group") == (status[key] == "planned"), key
+    # every edge joins recorded nodes
+    assert {n for a, b, _ in diagram.model["edges"] for n in (a, b)} <= set(diagram.model["nodes"])
 
 
 @pytest.mark.parametrize("name, diagram", list(_diagrams()))
 def test_every_cited_source_exists_and_defines_the_cited_symbol(name, diagram):
-    cited = [pair for pairs in diagram.model["evidence"].values() for pair in pairs]
-    assert cited, name
-    for path, symbol in cited:
-        source = ROOT / path
-        assert source.is_file(), path
-        assert symbol in source.read_text(encoding="utf-8"), f"{path}: {symbol!r}"
+    evidence, generic = diagram.model["evidence"], set(diagram.model["generic"])
+    for key in diagram.model["nodes"]:
+        # a node that stands for code cites it; only generic placeholders cite nothing
+        assert bool(evidence[key]) != (key in generic), key
+        for path, symbol in evidence[key]:
+            source = ROOT / path
+            assert source.is_file(), path
+            assert _defines(source, symbol), f"{path}: {symbol!r}"
+
+
+def test_the_evidence_check_resolves_names_rather_than_substrings():
+    config = ROOT / "vaft/code/efit/config.py"
+    assert _defines(config, "EFITScientificConfig.sha256")
+    assert not _defines(config, "EFITScientificConfig.no_such_hash")
+    assert not _defines(ROOT / "vaft/validation/credibility.py", "XES")
 
 
 @pytest.mark.parametrize("name, diagram", list(_diagrams()))
@@ -105,13 +140,16 @@ def test_a_specification_gives_runs_with_three_artifact_classes():
     assert edges[("specification", "orchestration")] == "configuration"
     for i in (1, 2):
         run = f"run:{i}"
-        assert edges[("orchestration", run)] == "data"
+        assert edges[("orchestration", run)] == "execution"
         # outputs, logs and provenance are different artifact classes, each its own node
         assert {b for a, b in edges if a == run} == {f"{run}:outputs", f"{run}:logs", f"{run}:provenance",
                                                      "specification"}
+        # only the outputs are scientific data; the log and the provenance record the run
+        assert edges[(run, f"{run}:outputs")] == "data"
+        assert edges[(run, f"{run}:logs")] == edges[(run, f"{run}:provenance")] == "part"
         # the run-to-definition link is not recorded today: drawn as a planned reference
         assert edges[(run, "specification")] == "provenance"
-    assert d.model["status"]["reference"] == "planned"
+    assert d.model["planned_edges"] == (("run:1", "specification"), ("run:2", "specification"))
     assert len(d.scene.role("reference")) == 2 and all("planned" in i.text for i in d.scene.role("reference"))
     # the specification exists: its outline is solid, not the dashed planned look
     assert "dashed" not in d.scene.role("specification")[0].style
@@ -121,8 +159,8 @@ def test_the_record_layers_stay_separate_and_state_their_status():
     d = vaft.diagram.computation_record_layers()
     edges = _edges(d)
     assert d.model["layers"] == ("identity", "execution", "assessment")
-    assert {d.model["status"][k] for k in d.model["layers"]} <= {"implemented", "partial"}
-    assert d.model["status"]["identity"] == "implemented" and d.model["status"]["execution"] == "partial"
+    # only EFIT hashes its configuration, and execution records are per adapter: both partial today
+    assert all(d.model["status"][k] == "partial" for k in d.model["layers"])
     for layer in d.model["layers"]:
         assert edges[("run", layer)] == "part" and edges[(layer, "result")] == "provenance"
         footer = d.scene.role(f"node:{layer}")[1].text
@@ -130,13 +168,23 @@ def test_the_record_layers_stay_separate_and_state_their_status():
     assert "\\#1019" in d.scene.role("node:execution")[1].text
     assert "not one score" in d.scene.role("node:assessment")[1].text
     assert "nondeterministic" in d.scene.role("node:execution")[1].text
+    # execution success is a precondition recorded with the execution, not an assessment axis
+    assert "execution success" in d.scene.role("node:execution")[1].text
+    assert "execution success" not in d.scene.role("node:assessment")[1].text
+    # the bent run arrows pass above the middle layer, never through it
+    top = 1.45 + 2.5
+    for key in ("identity", "assessment"):
+        (edge,) = d.scene.role(f"edge:run->{key}")
+        assert all(abs(x) >= 3.0 or y > top for x, y in edge.points[1:-1])
 
 
 def test_the_example_chain_reads_native_files_and_records_the_digest_links():
     d = vaft.diagram.imas_scientific_workflow_example()
     edges = _edges(d)
     assert d.model["stages"] == ("efit", "chease", "stability")
-    # CHEASE reads the native EFIT g-files and the stability codes the refined ones: never a published IDS
+    # EFIT reads k-files, CHEASE the native EFIT g-files, the stability codes the refined ones: never an IDS
+    assert edges[("inputs", "kfiles")] == edges[("kfiles", "efit")] == "data"
+    assert ("inputs", "efit") not in edges
     assert edges[("gfiles", "chease")] == edges[("refined_gfiles", "stability")] == "data"
     assert not [a for a, b in edges if a in d.model["published"]]
     for stage, native, published in zip(d.model["stages"], d.model["native"], d.model["published"]):
@@ -147,7 +195,14 @@ def test_the_example_chain_reads_native_files_and_records_the_digest_links():
     assert all(edges[(n, "digest_check")] == "provenance" for n in d.model["native"])
     assert d.model["status"]["digest_check"] == "partial"
     inputs = d.scene.role("node:inputs")[1].text
-    assert "magnetics" in inputs and "pf\\_passive" in inputs and "wall" not in inputs
+    assert "magnetics" in inputs and "pf\\_passive from the eddy stage" in inputs and "wall" not in inputs
+    # the Green table is recorded apart from the scientific SHA-256, and the hash covers the initialization
+    efit = d.scene.role("node:configuration:efit")[1].text
+    assert "initialization" in efit and "Green table recorded apart" in efit
+    # each published IDS cites the rule that builds it, not the solver rule
+    rules = {k: d.model["evidence"][k][0][1] for k in d.model["published"]}
+    assert rules == {"efit_ids": "rule generate_efit_ods:", "chease_ids": "rule generate_chease_ods:",
+                     "stability_ids": "rule build_mhd_linear:"}
     text = _text(d)
     assert "input\\_equilibrium\\_sha256" in text and "verify\\_chain" in text
     assert (ROOT / d.model["pipeline"] / "Snakefile").is_file()
