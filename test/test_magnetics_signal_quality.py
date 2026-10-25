@@ -991,6 +991,14 @@ def test_a_flat_record_off_the_rail_is_not_a_rail():
     assert "raw_rail" not in _reasons(quality)
 
 
+def test_a_kind_without_a_configured_rail_is_not_judged():
+    ods = _with_raw(_ods(probes={0: _clean()}), 0, np.full(N_RAW, -5.0))
+    config = MagneticsQualityConfig(raw_rail_voltage={})
+    quality = _only(ods, config=config)
+    assert "raw_rail" not in _reasons(quality)
+    assert "raw_rail_departure_quanta" not in quality.metrics
+
+
 def test_a_flux_loop_voltage_is_calibrated_and_never_judged_against_the_rail():
     ods = _ods(loops={0: _clean()})
     ods["magnetics.flux_loop.0.voltage.data"] = np.full(N_RAW, -5.0)
@@ -1002,7 +1010,7 @@ def test_a_flux_loop_voltage_is_calibrated_and_never_judged_against_the_rail():
 def test_the_rail_check_can_be_switched_off_and_needs_a_record_long_enough():
     ods = _with_raw(_ods(probes={0: _clean()}), 0, np.full(N_RAW, -5.0))
     assert "raw_rail" not in _reasons(_only(ods, config=MagneticsQualityConfig(raw_rail_tolerance_quanta=None)))
-    short = _with_raw(_ods(probes={0: _clean()}), 0, np.full(8, -5.0))
+    short = _with_raw(_ods(probes={0: _clean()}), 0, np.full(999, -5.0))
     assert "raw_rail" not in _reasons(_only(short))
 
 
@@ -1014,6 +1022,8 @@ def test_the_pure_rail_detector_agrees_with_its_definition():
     assert raw_rail_departure(np.array([np.nan, 5.0]), 5.0) == 0.0
     assert np.isnan(raw_rail_departure(np.array([np.nan]), 5.0))
     kwargs = dict(rail=5.0, quantum=QUANTUM, tolerance_quanta=2.0, min_samples=16)
+    mostly_missing = np.r_[np.full(16, -5.0), np.full(500, np.nan)]
+    assert at_raw_rail(mostly_missing, **kwargs)  # NaNs are not counted and do not break it
     assert at_raw_rail(np.full(16, -5.0), **kwargs)
     assert not at_raw_rail(np.full(15, -5.0), **kwargs)
     assert not at_raw_rail(np.r_[np.full(99, -5.0), -5.0 + 3 * QUANTUM], **kwargs)
@@ -1046,9 +1056,11 @@ def test_efit_drops_a_rail_stuck_probe_through_validity_alone():
 
 @pytest.mark.parametrize("shot", [40600, 41524, 41672, 42962, 45531])
 def test_on_the_packaged_shots_only_c4_04_sits_at_the_rail(shot):
-    """Real raw records: the one rail-stuck probe in the packaged samples is
-    C4-04, already condemned (#977), so the new criterion changes no verdict
-    there -- it adds its own reason to C4-04 and nothing else."""
+    """Real raw records: on these packaged shots the one rail-stuck probe is
+    C4-04 (on 39915 it is not at the rail), already condemned (#977, its
+    recorded fault), so no channel's validity changes.  Metrics do: C4-04 no
+    longer votes in the family and array reviews, which moves the other
+    probes' family ratios by up to ~12 % and their array fractions by <0.02."""
     import vaft
     import vaft.omas
 

@@ -275,6 +275,13 @@ class MagneticsQualityConfig:
     #: A record that leaves the rail by more than this carries information and
     #: is left to the other detectors.  ``None`` disables the check.
     raw_rail_tolerance_quanta: float | None = 2.0
+    #: Fewest finite raw samples a record needs before "never leaves the rail"
+    #: means anything.  The archived probe records hold 2,500 (25 kHz, early
+    #: campaigns) to 25,000 (250 kHz) samples over the routine analysis
+    #: window; 1,000 is below every one of them and far above a fragment.  Non-finite samples are not
+    #: counted and do not break the verdict -- they are condemned on the
+    #: processed side by their own detector.
+    raw_rail_min_samples: int = 1000
 
 
 
@@ -1258,7 +1265,7 @@ def _whole_record_reason(found: _Detections) -> str:
         parts.append(f"recorded as broken for this shot: {found.metrics['known_fault']}")
     if "raw_rail" in reasons:
         parts.append(
-            f"raw DAQ record sits at the {found.metrics['raw_rail_level']:+.4g} V rail for the "
+            f"raw DAQ record sits at the {found.metrics['raw_rail_level']:+.4f} V rail for the "
             "whole analysis window: no measurement"
         )
     if "implausible_magnitude" in reasons:
@@ -1292,6 +1299,10 @@ def _raw_rail_review(
     already does through the seed.  Independent of the vacuum model and of
     every other channel.  A channel the check applies to gets its farthest
     departure from the rail recorded, in converter steps, whatever the verdict.
+
+    Only channels with a processed waveform reach this review: the
+    phase-reference and fluctuation Mirnovs carry a raw voltage but no field,
+    so a rail-stuck record there is not assessed (they never enter EFIT).
     """
     rail = config.raw_rail_voltage.get(kind)
     quantum = config.raw_quantum.get(kind)
@@ -1309,7 +1320,7 @@ def _raw_rail_review(
     hard = found.hard
     if at_raw_rail(
         raw, rail=rail, quantum=quantum, tolerance_quanta=tolerance,
-        min_samples=config.min_constant_run,
+        min_samples=config.raw_rail_min_samples,
     ):
         level = float(np.median(raw[np.isfinite(raw)]))
         metrics["raw_rail_level"] = level
