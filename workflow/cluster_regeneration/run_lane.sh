@@ -85,10 +85,6 @@ for f in "$LANE"/chunks/shots.[0-9][0-9][0-9]; do
   # Memory: the Snakefile declares none, so cap it here. GPEC cells (DCON/RDCON `match` peaks
   # 12-25 GB) are booked at GPEC_MEM_MB, CHEASE at 4 GB; running jobs stay under the allocation - 8 GB.
   ALLOC_MB=${SLURM_MEM_PER_NODE:-65536}
-  # Peak-RSS sampler for the solver binaries (no Slurm RSS accounting); may include other lanes' on the node.
-  ( while :; do ps -u "$(id -u)" -o rss=,args= | grep -E "$REGEN_ROOT|$GPECHOME|$CHEASEHOME|$EFITHOME" \
-      | grep -vE "grep|ps -u" | awk -v t="$(date +%s)" '{print t, $1, $2, $3}' >> "$LANE/logs/$c.rss"; sleep 20; done ) &
-  SAMPLER=$!
   attempt=$LANE/logs/$c.attempt-$(date +%Y%m%d%H%M%S).log
   SM=(python -m snakemake --snakefile "$WF/Snakefile" --configfile "$cfg" --directory "$WORK")
   # A time-limit kill leaves the lock behind; we hold the lane lock, so no live Snakemake owns it.
@@ -97,7 +93,27 @@ for f in "$LANE"/chunks/shots.[0-9][0-9][0-9]; do
       --keep-going --rerun-incomplete --rerun-triggers mtime --printshellcmds --nocolor \
       --resources mem_mb=$(( ALLOC_MB - 8192 )) \
       --set-resources "run_gpec_module:mem_mb=${GPEC_MEM_MB:-24000}" "run_chease:mem_mb=4000" \
-      >> "$attempt" 2>&1
+      >> "$attempt" 2>&1 &
+  SM_PID=$!
+  # RSS sampler + runaway guard, over this lane's own process tree only (descendants of SM_PID;
+  # tdst has no Slurm RSS accounting). The stock RDCON on msing >= 25 cases grows to 60-210 GB
+  # before it aborts in gal.f anyway, which takes the whole allocation (and its Snakemake) with it.
+  # A solver above SOLVER_RSS_KILL_GB is stopped and logged; that case then fails like the crash.
+  ( descends() { local p=$1; while [ "$p" -gt 1 ]; do [ "$p" = "$SM_PID" ] && return 0
+      p=$(awk '{print $4}' "/proc/$p/stat" 2>/dev/null) || return 1; [ -n "$p" ] || return 1; done; return 1; }
+    while kill -0 "$SM_PID" 2>/dev/null; do
+      ps -u "$(id -u)" -o pid=,rss=,comm= | while read -r pid rss comm; do
+        descends "$pid" || continue
+        case "$comm" in dcon|rdcon|match|rmatch|stride|gpec|chease|efit.bin|efund.bin|ld-linux*) ;; *) continue ;; esac
+        echo "$(date +%s) $pid $rss $comm $(readlink "/proc/$pid/cwd" 2>/dev/null)" >> "$LANE/logs/$c.rss"
+        if [ "$rss" -gt $(( ${SOLVER_RSS_KILL_GB:-64} * 1048576 )) ]; then
+          kill -TERM "$pid" 2>/dev/null && log "$c: stopped $comm pid $pid at $(( rss / 1048576 )) GB RSS ($(readlink "/proc/$pid/cwd" 2>/dev/null))"
+        fi
+      done
+      sleep 20
+    done ) &
+  SAMPLER=$!
+  wait "$SM_PID"
   rc=$?
   kill "$SAMPLER" 2>/dev/null
   cp "$attempt" "$LANE/logs/$c.snakemake.log"      # the latest attempt is what harvest.py reads

@@ -22,8 +22,14 @@ FileDB and never contacts HSDS; moving and replicating are separate, separately 
   preflight with the same scripts the checkpoints run.
 - **Memory.** The Snakefile declares none. `run_lane.sh` caps the run at the allocation
   (`--resources mem_mb`) and books GPEC cells (`GPEC_MEM_MB`, default 24000: DCON/RDCON `match`
-  peaks at 12-25 GB; at 16000 a 64 GB pilot allocation lost its Snakemake process) and CHEASE (4000) with `--set-resources`; RSS of the solver binaries is
-  sampled into `<lane>/logs/<chunk>.rss`.
+  peaks at 12-25 GB) and CHEASE (4000) with `--set-resources`. The solver RSS of the lane's own
+  process tree is sampled into `<lane>/logs/<chunk>.rss`, and a solver above
+  `SOLVER_RSS_KILL_GB` (64) is stopped: the stock RDCON grows to 60-210 GB on msing >= 25 cases
+  before it aborts in `gal.f` anyway, and in the pilot such a case took a 64 GB allocation's
+  Snakemake down with it.
+- **Solver scratch.** DCON `euler.bin` and vacuum `vmat.bin` (~5 GB per MHD shot, 98 % of the
+  GPEC tree) are deleted after each finished chunk (`PRUNE_SOLVER_SCRATCH=1`), with size, sha256
+  and path kept in `<lane>/pruned.tsv`; no Snakemake output or stage product reads them.
 - **Floating-point parity.** `env.example.sh` sets `OPENBLAS_CORETYPE=Haswell` and disables numpy's
   AVX-512 loops (`REGEN_CPU_PARITY=0` to opt out), which made magnetics products bit-identical to
   an AVX2-only server running the same SHA; see "Cross-environment differences" below.
