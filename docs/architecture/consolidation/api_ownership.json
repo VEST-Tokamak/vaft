@@ -1,0 +1,450 @@
+{
+ "schema": "vaft.consolidation.api-ownership/1",
+ "issue": "#2162",
+ "umbrella": "#2147",
+ "base": "develop f7472664d (#2189: #2178, #2179, #2180, #2183)",
+ "migration_status_values": [
+  "migrated",
+  "retained",
+  "canonical_unchanged",
+  "pending_owner_approval",
+  "proposed"
+ ],
+ "previous_status_values": [
+  "removed",
+  "delegating_alias",
+  "retained_specialization",
+  "current"
+ ],
+ "validated_by": "test/test_api_ownership.py (APIs resolve, removed names are gone, callers equal the AST-resolved call sites, short_record per caller)",
+ "rows": [
+  {
+   "operation": "linear baseline (index-based degree-1 polyfit)",
+   "slice": "B3.1",
+   "pull_request": "#2178",
+   "canonical_api": "vaft.process.signal_processing.subtract_baseline",
+   "canonical_module": "vaft.process.signal_processing",
+   "required_options": "fitting_opt='polyfit'; nan_policy 'omit' (finite-only, probes/loops) or 'propagate' (Ip); allow_zero_fallback; context/window_desc for the #639 message",
+   "resolves": [
+    "vaft.process.signal_processing.subtract_baseline",
+    "vaft.process.signal_processing._polyfit_linear_baseline",
+    "vaft.process.magnetics._linear_baseline",
+    "vaft.machine_mapping.magnetics._linear_baseline_subtract"
+   ],
+   "previous_implementations": [
+    {
+     "name": "vaft.process.magnetics._linear_baseline",
+     "status": "delegating_alias",
+     "retirement": "E (#2168): callers use subtract_baseline(fitting_opt='polyfit')"
+    },
+    {
+     "name": "vaft.machine_mapping.magnetics._linear_baseline_subtract",
+     "status": "delegating_alias",
+     "retirement": "E (#2168)"
+    },
+    {
+     "name": "vaft.machine_mapping.magnetics._polyfit_baseline",
+     "status": "removed",
+     "retirement": "deleted in B3.1 (no caller)"
+    }
+   ],
+   "affected_callers": [
+    "vaft.machine_mapping.magnetics._linear_baseline_subtract",
+    "vaft.machine_mapping.magnetics.vfit_plasma_current",
+    "vaft.process.magnetics._linear_baseline",
+    "vaft.process.magnetics.b_field_pol_probe_field",
+    "vaft.process.magnetics.flux_loop_flux",
+    "vaft.process.magnetics.rogowski_coil_ip",
+    "vaft.process.magnetics.vest_flux_loop_flux_from_voltage",
+    "vaft.process.signal_processing.subtract_baseline"
+   ],
+   "numerical_equivalence": "bit_identical: both helpers held to frozen develop copies (values, error/warning text, stacklevel); 4-shot capture leaf-identical. The Ip identity holds for the in-range integer indices its caller produces.",
+   "preserved_specializations": [
+    "fitting_opt='linear' (curve_fit) is not rerouted: agrees with polyfit only to ~7.5e-13 relative (generic rogowski_coil_ip / flux_loop_flux)",
+    "flux-loop era baseline windows (process.magnetics.vest_flux_loop_flux_from_voltage)",
+    "diamagnetic two-point straight-line baseline (machine_mapping.magnetics.vest_diamagnetic_flux_detailed)"
+   ],
+   "configuration_dependencies": [
+    "vest.yaml equilibrium_magnetics.processing.window",
+    "vest.yaml plasma_current.processing.baseline"
+   ],
+   "regression_tests": [
+    "test/test_baseline_consolidation.py"
+   ],
+   "migration_status": "migrated"
+  },
+  {
+   "operation": "moving average (MATLAB smooth)",
+   "slice": "B3.2",
+   "pull_request": "#2179",
+   "canonical_api": "vaft.process.signal_processing.smooth",
+   "canonical_module": "vaft.process.signal_processing",
+   "required_options": "span (forced odd, shrinking window at the ends)",
+   "resolves": [
+    "vaft.process.signal_processing.smooth"
+   ],
+   "previous_implementations": [
+    {
+     "name": "vaft.code.efit.legacy.smooth",
+     "status": "retained_specialization",
+     "retirement": "E, together with its only caller vaft.code.efit.legacy.vest_Halpha_tstart_tend (deprecated H-alpha detector): it keeps a NaN local where the canonical cumulative sum carries it forward"
+    }
+   ],
+   "affected_callers": [
+    "vaft.machine_mapping.magnetics._apply_fl10_windowed_compensation",
+    "vaft.machine_mapping.tf.vfit_tf_current_detailed"
+   ],
+   "numerical_equivalence": "rtol ~1e-12 on finite data (summation order); differs on NaN, pinned by test",
+   "preserved_specializations": [
+    "TF excursion repair + smooth(50) (vfit_tf_current_detailed)",
+    "FL10 decimate chain + smooth (_apply_fl10_windowed_compensation)"
+   ],
+   "configuration_dependencies": [
+    "vest.yaml 0.diagnostics.tf.processing",
+    "vest.yaml plasma_current.processing.reference"
+   ],
+   "regression_tests": [
+    "test/test_preprocessing_duplicates.py"
+   ],
+   "migration_status": "retained"
+  },
+  {
+   "operation": "cumulative trapezoidal integration",
+   "slice": "B3.3",
+   "pull_request": "#2179",
+   "canonical_api": "vaft.compat.cumtrapz_compat",
+   "canonical_module": "vaft.compat",
+   "required_options": "x=time, initial=0.0, axis",
+   "resolves": [
+    "vaft.compat.cumtrapz_compat"
+   ],
+   "previous_implementations": [
+    {
+     "name": "scipy.integrate.cumulative_trapezoid (direct calls in vaft.machine_mapping.magnetics)",
+     "status": "removed",
+     "retirement": "replaced in B3.3"
+    }
+   ],
+   "affected_callers": [
+    "vaft.formula.equilibrium.toroidal_flux_from_q_psi",
+    "vaft.machine_mapping.magnetics.vest_diamagnetic_flux_detailed",
+    "vaft.machine_mapping.magnetics.vest_diamagnetic_rogowski_current",
+    "vaft.process.magnetics.b_field_pol_probe_field",
+    "vaft.process.magnetics.flux_loop_flux",
+    "vaft.process.magnetics.vest_flux_loop_flux_from_voltage"
+   ],
+   "numerical_equivalence": "bit_identical (same SciPy routine, same initial and axis)",
+   "preserved_specializations": [],
+   "configuration_dependencies": [],
+   "regression_tests": [
+    "test/test_preprocessing_duplicates.py"
+   ],
+   "migration_status": "migrated"
+  },
+  {
+   "operation": "FIR window-method design",
+   "slice": "B3.4",
+   "pull_request": "#2179",
+   "canonical_api": "vaft.process.signal_processing.fir_filter_coefficients",
+   "canonical_module": "vaft.process.signal_processing",
+   "required_options": "kind, numtaps (odd; None = fs*1e-3 forced odd, >= 3), window (default 'hann' -- pass 'hamming' to reproduce scipy.firwin's default)",
+   "resolves": [
+    "vaft.process.signal_processing.fir_filter_coefficients"
+   ],
+   "previous_implementations": [
+    {
+     "name": "vaft.process.magnetics._firwin_order",
+     "status": "removed",
+     "retirement": "replaced in B3.4 (coefficients identical at 25 k/250 k/1 M/2 MHz)"
+    }
+   ],
+   "affected_callers": [
+    "vaft.process.magnetics.mirnov_preprocess_signal",
+    "vaft.process.signal_processing.fir_filter",
+    "vaft.process.signal_processing.pf_current_filter"
+   ],
+   "numerical_equivalence": "bit_identical coefficients",
+   "preserved_specializations": [
+    "direct scipy.signal.firwin designs (default Hamming window), not migrated: machine_mapping.magnetics.vfit_plasma_current (Ip reference), machine_mapping.tf.vfit_tf_current_detailed, process.impa.impa_lowpass, process.magnetics.vest_probe_lowpass_taps; anti_alias_filter designs its own Kaiser-sized filter"
+   ],
+   "direct_firwin_callers": [
+    "vaft.machine_mapping.magnetics.vfit_plasma_current",
+    "vaft.machine_mapping.tf.vfit_tf_current_detailed",
+    "vaft.process.impa.impa_lowpass",
+    "vaft.process.magnetics.vest_probe_lowpass_taps",
+    "vaft.process.signal_processing.anti_alias_filter",
+    "vaft.process.signal_processing.fir_filter_coefficients"
+   ],
+   "configuration_dependencies": [
+    "vest.yaml probe / TF / plasma_current reference filter taps and cutoffs"
+   ],
+   "regression_tests": [
+    "test/test_preprocessing_duplicates.py",
+    "test/test_fir_filter.py"
+   ],
+   "migration_status": "migrated"
+  },
+  {
+   "operation": "FIR application (zero-phase filtfilt, short-record policy)",
+   "slice": "#2135 / B3.5",
+   "pull_request": "#2135",
+   "canonical_api": "vaft.process.signal_processing.apply_fir_filter",
+   "canonical_module": "vaft.process.signal_processing",
+   "required_options": "short_record: 'raise' (default) refuses a record shorter than 3*len(taps)+1; 'causal' falls back to a forward-only lfilter with a (len(taps)-1)/2-sample delay",
+   "resolves": [
+    "vaft.process.signal_processing.apply_fir_filter"
+   ],
+   "previous_implementations": [
+    {
+     "name": "causal scipy.signal.lfilter applications (probes, TF, Ip reference, PF fallback) before #2135",
+     "status": "removed",
+     "retirement": "#2135 (0.5 ms lag removed)"
+    }
+   ],
+   "affected_callers": [
+    "vaft.machine_mapping.magnetics.vfit_plasma_current",
+    "vaft.machine_mapping.tf.vfit_tf_current_detailed",
+    "vaft.process.impa.impa_lowpass",
+    "vaft.process.magnetics.b_field_pol_probe_field",
+    "vaft.process.magnetics.mirnov_preprocess_signal",
+    "vaft.process.signal_processing.fir_filter",
+    "vaft.process.signal_processing.pf_current_filter"
+   ],
+   "short_record_by_caller": {
+    "vaft.machine_mapping.magnetics.vfit_plasma_current": "raise",
+    "vaft.machine_mapping.tf.vfit_tf_current_detailed": "raise",
+    "vaft.process.magnetics.b_field_pol_probe_field": "raise",
+    "vaft.process.signal_processing.fir_filter": "raise",
+    "vaft.process.impa.impa_lowpass": "causal",
+    "vaft.process.magnetics.mirnov_preprocess_signal": "causal",
+    "vaft.process.signal_processing.pf_current_filter": "causal"
+   },
+   "numerical_equivalence": "scientific_correction in #2135 (causal -> zero-phase); unchanged since",
+   "preserved_specializations": [
+    "TF (vfit_tf_current_detailed): short_record='raise' -- a TF record under 3*26+1 = 79 samples raises, failing TF and IMPA via vfit_tf_current, where it was filtered causally before #2135",
+    "Ip reference low pass (vfit_plasma_current, ref != -1 only, no production caller): short_record='raise' -- a record under 3*len(taps)+1 samples raises",
+    "PF (pf_current_filter), IMPA, Mirnov: short_record='causal', forward-only below the filtfilt minimum (PF: 125 samples / 5 ms delay)"
+   ],
+   "configuration_dependencies": [
+    "vest.yaml filter taps per diagnostic"
+   ],
+   "regression_tests": [
+    "test/test_fir_filter.py",
+    "test/test_pf_current_filter.py"
+   ],
+   "migration_status": "migrated"
+  },
+  {
+   "operation": "PF coil-current filter composition",
+   "slice": "B3.5",
+   "pull_request": "#2180",
+   "canonical_api": "vaft.process.signal_processing.pf_current_filter",
+   "canonical_module": "vaft.process.signal_processing",
+   "required_options": "sample_rate, cutoff_hz, numtaps (odd, >= 3), smoothing_window -- all from vest.yaml",
+   "resolves": [
+    "vaft.process.signal_processing.pf_current_filter"
+   ],
+   "previous_implementations": [
+    {
+     "name": "vaft.machine_mapping.pf_active._legacy_pf_filter",
+     "status": "removed",
+     "retirement": "renamed to the config adapter _pf_filter in B3.5"
+    }
+   ],
+   "affected_callers": [
+    "vaft.machine_mapping.pf_active._pf_filter"
+   ],
+   "numerical_equivalence": "bit_identical to the frozen _legacy_pf_filter (20000/754/753/200/5 samples); 4-shot capture leaf-identical",
+   "preserved_specializations": [
+    "Hamming window (not fir_filter_coefficients' Hann default); uniform_filter1d smoothing after the FIR"
+   ],
+   "configuration_dependencies": [
+    "vest.yaml 0.diagnostics.pf_active.processing.filter"
+   ],
+   "regression_tests": [
+    "test/test_pf_current_filter.py"
+   ],
+   "migration_status": "migrated"
+  },
+  {
+   "operation": "Butterworth IIR filtering",
+   "slice": "B3.6",
+   "pull_request": "#2179",
+   "canonical_api": "vaft.process.signal_processing.butterworth_highpass",
+   "canonical_module": "vaft.process.signal_processing",
+   "required_options": "order, cutoff in (0, Nyquist), zero_phase",
+   "resolves": [
+    "vaft.process.signal_processing.butterworth_highpass",
+    "vaft.process.signal_processing.butterworth_lowpass",
+    "vaft.process.signal_processing.butterworth_bandpass"
+   ],
+   "previous_implementations": [
+    {
+     "name": "inline scipy butter + filtfilt in vaft.plot.backend.recipes._build_interferometer_spectrogram",
+     "status": "removed",
+     "retirement": "replaced in B3.6"
+    }
+   ],
+   "affected_callers": [
+    "vaft.plot.backend.recipes._build_interferometer_spectrogram",
+    "vaft.process.onset.zero_phase_lowpass",
+    "vaft.process.soft_x_rays.sxr_band_signals",
+    "vaft.process.soft_x_rays.sxr_electron_temperature",
+    "vaft.process.soft_x_rays.sxr_subtract_vacuum_reference"
+   ],
+   "numerical_equivalence": "bit_identical",
+   "preserved_specializations": [
+    "onset zero_phase_lowpass (order 4) for onset detection only"
+   ],
+   "configuration_dependencies": [],
+   "regression_tests": [
+    "test/test_preprocessing_duplicates.py"
+   ],
+   "migration_status": "migrated"
+  },
+  {
+   "operation": "resampling with anti-alias low pass",
+   "slice": "B3.12",
+   "pull_request": "#2182 (open, awaiting owner approval)",
+   "canonical_api": "vaft.process.signal_processing.resample_to_time",
+   "canonical_module": "vaft.process.signal_processing",
+   "required_options": "extrapolate, anti_alias ('auto' filters a rate cut), nan_policy, return_filter_mask",
+   "resolves": [
+    "vaft.process.signal_processing.resample_to_time",
+    "vaft.process.signal_processing.anti_alias_filter"
+   ],
+   "previous_implementations": [],
+   "affected_callers": [
+    "vaft.machine_mapping.barometry.vfit_barometry_dynamic",
+    "vaft.machine_mapping.ec_launchers._ec_power_on",
+    "vaft.machine_mapping.langmuir_probes.vfit_langmuir_probes_dynamic",
+    "vaft.machine_mapping.spectrometer_uv.vfit_filterscope",
+    "vaft.omas.process_wrapper._vacuum_currents",
+    "vaft.plot.mirnov._common_timebase",
+    "vaft.plot.mirnov._common_timebase_many",
+    "vaft.process.fluctuation.cross_spectral_matrix",
+    "vaft.process.fluctuation.cross_spectrogram",
+    "vaft.process.fluctuation.cross_spectrum",
+    "vaft.process.signal_processing.process_signal",
+    "vaft.process.signal_processing.resample_to_time"
+   ],
+   "numerical_equivalence": "on develop: a record or finite run shorter than 3*numtaps+1 is decimated UNFILTERED (may alias), flagged only by a RuntimeWarning and return_filter_mask; only Langmuir and the fluctuation cross_spectrogram/cross_spectral_matrix paths act on the mask. #2182 proposes NaN instead (scientific correction).",
+   "preserved_specializations": [
+    "bare np.interp in machine_mapping.magnetics._interpolate_signal (Ip, diamagnetic flux unfiltered; spectra check in Phase D)"
+   ],
+   "configuration_dependencies": [],
+   "regression_tests": [
+    "test/test_resample_anti_alias.py"
+   ],
+   "migration_status": "pending_owner_approval"
+  },
+  {
+   "operation": "box average at every sample",
+   "slice": "B3.10",
+   "pull_request": "#2183",
+   "canonical_api": "vaft.code.efit.legacy.box_average_series",
+   "canonical_module": "vaft.code.efit.legacy",
+   "required_options": "half_width finite and >= 0; time sorted; data finite",
+   "resolves": [
+    "vaft.code.efit.legacy.box_average_series",
+    "vaft.code.efit.legacy.box_average"
+   ],
+   "previous_implementations": [
+    {
+     "name": "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._box_averaged",
+     "status": "removed",
+     "retirement": "moved in B3.10"
+    }
+   ],
+   "affected_callers": [
+    "vaft.code.efit.legacy._window_pair",
+    "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._drop_vacuum_times",
+    "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._efit_not_applicable"
+   ],
+   "numerical_equivalence": "bit_identical to the frozen workflow helper; per-sample box_average to 1e-12 relative",
+   "preserved_specializations": [],
+   "configuration_dependencies": [],
+   "regression_tests": [
+    "test/test_box_average_series.py"
+   ],
+   "migration_status": "migrated"
+  },
+  {
+   "operation": "SXR constant-offset baseline",
+   "slice": "B3.11",
+   "pull_request": "proposed (architecture/2162-sxr-baselines)",
+   "canonical_api": "vaft.process.soft_x_rays.sxr_offset_baseline",
+   "canonical_module": "vaft.process.soft_x_rays",
+   "required_options": "selection (mask or slice), skip_nan, on_empty ('raise' | 'keep' | 'tail' with tail_samples)",
+   "resolves": [
+    "vaft.process.soft_x_rays.sxr_baseline_correction",
+    "vaft.plot.soft_x_rays._baseline_correct"
+   ],
+   "previous_implementations": [
+    {
+     "name": "vaft.machine_mapping.soft_x_rays.vfit_soft_x_rays_dynamic",
+     "status": "current",
+     "retirement": "index-range mean; delegates once B3.11 merges"
+    },
+    {
+     "name": "vaft.process.soft_x_rays.sxr_baseline_correction",
+     "status": "current",
+     "retirement": "quiet-tail mean with last-1000 fallback; delegates once B3.11 merges"
+    },
+    {
+     "name": "vaft.plot.soft_x_rays._baseline_correct",
+     "status": "current",
+     "retirement": "closed-range nanmean, no-op when empty; delegates once B3.11 merges"
+    }
+   ],
+   "affected_callers": [
+    "vaft.plot.soft_x_rays.plot_soft_x_ray_pattern",
+    "vaft.plot.soft_x_rays.plot_soft_x_ray_signal",
+    "vaft.plot.soft_x_rays.plot_soft_x_ray_spectrogram",
+    "vaft.process.soft_x_rays.sxr_band_signals",
+    "vaft.process.soft_x_rays.sxr_electron_temperature"
+   ],
+   "numerical_equivalence": "bit_identical per caller to frozen develop copies (B3.11 branch)",
+   "preserved_specializations": [
+    "the centred rolling Te trend in sxr_electron_temperature is not a detector offset and stays separate"
+   ],
+   "configuration_dependencies": [],
+   "regression_tests": [
+    "test/test_sxr_processing.py",
+    "test/test_soft_x_rays_mapping.py",
+    "test/test_soft_x_rays_plot.py"
+   ],
+   "migration_status": "proposed"
+  },
+  {
+   "operation": "clipped-interval repair",
+   "slice": "-",
+   "pull_request": "-",
+   "canonical_api": "vaft.process.signal_processing.repair_clipped_interval",
+   "canonical_module": "vaft.process.signal_processing",
+   "required_options": "clip_value, tolerance, return_mask",
+   "resolves": [
+    "vaft.process.signal_processing.repair_clipped_interval"
+   ],
+   "previous_implementations": [],
+   "affected_callers": [
+    "vaft.machine_mapping.magnetics.vest_diamagnetic_flux_detailed",
+    "vaft.machine_mapping.magnetics.vest_diamagnetic_rogowski_current",
+    "vaft.machine_mapping.pf_active._read_pf_circuits"
+   ],
+   "numerical_equivalence": "unchanged (already the single owner)",
+   "preserved_specializations": [
+    "TF repair_tf_excursions (machine_mapping.tf) is a TF-specific excursion repair, not a clip repair"
+   ],
+   "configuration_dependencies": [
+    "vest.yaml saturation limits / PF repair values"
+   ],
+   "regression_tests": [
+    "test/test_consolidation_numerics.py",
+    "test/test_diamagnetic_flux_saturation.py",
+    "test/test_pf_active_processing.py"
+   ],
+   "migration_status": "canonical_unchanged"
+  }
+ ]
+}

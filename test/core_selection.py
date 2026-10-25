@@ -375,6 +375,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_efit_not_applicable.py",
     # Box average at every sample, one owner (#2162 B3.10).
     "test_box_average_series.py",
+    # Canonical API ownership matrix is true of the code (#2162 12A, B3.9). AST, ~8 s.
+    "test_api_ownership.py",
     "test_flux_loop_known_faults.py",
     "test_magnetic_decomposition.py",
     "test_magnetics_geometry_registry.py",
