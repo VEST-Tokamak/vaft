@@ -1271,6 +1271,47 @@ def _load(root: Path, relative: Path) -> Any:
         return yaml.safe_load(handle)
 
 
+def _entry_canonical_index(
+    entry: dict[str, Any], kind: str, records: list[dict[str, Any]], *, index_scope: str
+) -> int:
+    """The canonical registry index a ``wiring``/``known_faults`` entry names.
+
+    The two forms the runtime accepts (``vaft.machine_mapping.magnetics_registry.
+    _entry_record``), with its rules restated so the audit does not import the
+    code it audits: ``{id: ...}`` (#2158), or the legacy ``{index, r, z}`` pinned
+    by position, where ``index`` is canonical for probes and counts within the
+    kind for flux loops (``index_scope="kind"``). A pin that misses its record
+    raises, as it does at runtime.
+    """
+    if ("id" in entry) == ("index" in entry):
+        raise ValueError(f"{entry!r}: name the sensor by id or by index, exactly one")
+    def pinned(record: dict[str, Any]) -> bool:
+        return all(
+            key not in entry or abs(float(record[key]) - float(entry[key])) <= 1e-9 for key in ("r", "z")
+        )
+
+    if "id" in entry:
+        matches = [i for i, r in enumerate(records) if str(r["id"]) == str(entry["id"])]
+        if len(matches) != 1 or str(records[matches[0]]["kind"]) != kind:
+            raise ValueError(f"{entry!r}: no {kind} with that id")
+        # An id entry's r/z are optional, but checked when given.
+        if not pinned(records[matches[0]]):
+            raise ValueError(f"{entry!r}: the r/z it states are not those of its id")
+        return matches[0]
+    if "r" not in entry or "z" not in entry:
+        raise ValueError(f"{entry!r}: a legacy index entry must pin r and z")
+    index = int(entry["index"])
+    if index_scope == "kind":
+        rows = [i for i, r in enumerate(records) if str(r["kind"]) == kind]
+        canonical = rows[index] if 0 <= index < len(rows) else None
+    else:
+        canonical = index if 0 <= index < len(records) else None
+    record = records[canonical] if canonical is not None else None
+    if record is None or str(record["kind"]) != kind or not pinned(record):
+        raise ValueError(f"{entry!r}: the pinned r/z is not the {kind} at that index")
+    return canonical
+
+
 def build_magnetics_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
     md = _load(root, GEOMETRY_DIR / MD_YAML)
     geometry = _load(root, GEOMETRY_DIR / GEOMETRY_YAML)
@@ -1280,19 +1321,23 @@ def build_magnetics_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
     processing = vest[0]["diagnostics"]["equilibrium_magnetics"]["processing"]
     wiring = processing["wiring"]
     faults = processing["known_faults"]
-    # Since #2158 wiring overrides and faults name a sensor by its registry id.
+    # Since #2158 wiring overrides and faults name a sensor by its registry id;
+    # the legacy {index, r, z} form the runtime still accepts is resolved too.
     records = vest[0]["diagnostics"]["equilibrium_magnetics"]["sensors"]["records"]
-    canonical_by_id = {str(r["id"]): int(r["index"]) for r in records}
-    kind_index_by_id = {}
+    if [int(r["index"]) for r in records] != list(range(len(records))):
+        raise ValueError("vest.yaml sensor records are not in canonical index order")
+    kind_index_by_canonical = {}
     _seen: dict[str, int] = defaultdict(int)
-    for r in records:
-        kind_index_by_id[str(r["id"])] = _seen[str(r["kind"])]
+    for canonical, r in enumerate(records):
+        kind_index_by_canonical[canonical] = _seen[str(r["kind"])]
         _seen[str(r["kind"])] += 1
 
     overrides_by_index: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for revision in wiring.get("revisions") or ():
         for entry in revision.get("probe_overrides") or ():
-            overrides_by_index[canonical_by_id[str(entry["id"])]].append(
+            overrides_by_index[
+                _entry_canonical_index(entry, "b_field_pol_probe", records, index_scope="canonical")
+            ].append(
                 {
                     "from_shot": revision.get("from_shot"),
                     "to_shot": revision.get("to_shot"),
@@ -1308,9 +1353,13 @@ def build_magnetics_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
         (rev, {"from_shot": rev.get("from_shot"), "to_shot": rev.get("to_shot")})
         for rev in faults.get("revisions") or ()
     ]:
-        for kind, key in (("b_field_pol_probe", "probes"), ("flux_loop", "flux_loops")):
+        for kind, key, scope in (
+            ("b_field_pol_probe", "probes", "canonical"),
+            ("flux_loop", "flux_loops", "kind"),
+        ):
             for entry in block.get(key) or ():
-                fault_windows[(kind, kind_index_by_id[str(entry["id"])])].append(
+                canonical = _entry_canonical_index(entry, kind, records, index_scope=scope)
+                fault_windows[(kind, kind_index_by_canonical[canonical])].append(
                     {
                         "from_shot": bounds.get("from_shot"),
                         "to_shot": bounds.get("to_shot"),

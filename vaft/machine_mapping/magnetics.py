@@ -249,6 +249,63 @@ def equilibrium_probe_count(source: Any) -> int:
     return min(present, defined) if defined else present
 
 
+def equilibrium_sensor_families(
+    source: Any, shot: int, *, probe_count: int
+) -> dict[str, np.ndarray]:
+    """The constraint families of the IDS's equilibrium sensors, placed by the registry.
+
+    Returns ascending zero-based IDS indexes under ``"inboard"``, ``"side"``,
+    ``"outboard"`` (B-pol probes, the first *probe_count* only) and
+    ``"inboard_flux"``, ``"outboard_flux"`` (flux loops). A channel's family
+    is decided by the shot's registry geometry (:func:`~vaft.machine_mapping.
+    magnetics_registry.resolve_equilibrium_magnetics_sensors`) of the sensor
+    its ``identifier`` names, with the boundaries above -- not by the position
+    the product happens to carry, nor by where in the array it sits (#2164).
+    A probe in several families is in each (the boundaries make them
+    disjoint on VEST). A channel the registry cannot name for *shot* raises,
+    because a family it cannot place it in would silently drop a constraint
+    or weight it as the wrong one.
+
+    Accepts a whole ODS or a ``magnetics`` sub-tree, like
+    :func:`equilibrium_probe_count`.
+    """
+    prefix = "magnetics." if "magnetics" in source else ""
+    records = resolve_equilibrium_magnetics_sensors(int(shot))
+    by_kind: dict[str, dict[str, SensorRecord]] = {}
+    for record in records:
+        by_kind.setdefault(record.kind, {})[record.name] = record
+
+    def placed(kind: str, count: int | None) -> list[tuple[int, SensorRecord]]:
+        node = f"{prefix}{kind}"
+        total = path_count(source, node)
+        names = by_kind.get(kind, {})
+        result = []
+        for index in range(total if count is None else min(int(count), total)):
+            identifier_path = f"{node}.{index}.identifier"
+            identifier = str(get_path(source, identifier_path)) if path_exists(source, identifier_path) else None
+            if identifier not in names:
+                raise ValueError(
+                    f"shot {int(shot)}: {node}[{index}] is {identifier!r}, which the "
+                    f"registry names no {kind} for; its constraint family is unknown"
+                )
+            result.append((index, names[identifier]))
+        return result
+
+    probes = placed(PROBE_KIND, probe_count)
+    loops = placed(FLUX_LOOP_KIND, None)
+
+    def indexes(rows: list[tuple[int, SensorRecord]], keep: Callable[[SensorRecord], bool]) -> np.ndarray:
+        return np.array([index for index, record in rows if keep(record)], dtype=int)
+
+    return {
+        "inboard": indexes(probes, lambda record: record.r < INBOARD_PROBE_MAX_R),
+        "side": indexes(probes, lambda record: abs(record.z) > SIDE_PROBE_MIN_ABS_Z),
+        "outboard": indexes(probes, lambda record: record.r > OUTBOARD_PROBE_MIN_R),
+        "inboard_flux": indexes(loops, lambda record: record.r < INBOARD_FLUX_LOOP_MAX_R),
+        "outboard_flux": indexes(loops, lambda record: record.r > OUTBOARD_FLUX_LOOP_MIN_R),
+    }
+
+
 def vest_equilibrium_magnetics_channel_definitions(
     shot: int | None = None,
 ) -> tuple[dict[str, Any], ...]:
@@ -1762,7 +1819,14 @@ def _populate_limiter_shunt_static(ods: object) -> None:
 
 
 def vfit_magnetics_static(ods: object, shot: int = 0) -> None:
-    """Populate static magnetics metadata from YAML geometry assets.
+    """Populate static magnetics metadata from the ``vest.yaml`` sensor registry.
+
+    Probe and flux-loop names, positions and order come from
+    :func:`~vaft.machine_mapping.magnetics_registry.resolve_equilibrium_magnetics_sensors`
+    (#2158); the phase-reference Mirnovs from the ``toroidal_mirnov_reference``
+    block, and the limiter shunts from :data:`LIMITER_SHUNT_CHANNELS`. The
+    fluctuation-Mirnov array is not part of this static set: the dynamic
+    mapper appends it for shots that have it.
 
     ``shot`` gates the hardware that did not exist for the whole campaign: the
     phase-reference Mirnov channels stop after

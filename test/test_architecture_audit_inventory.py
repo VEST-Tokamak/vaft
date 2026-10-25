@@ -107,16 +107,30 @@ def test_magnetics_inventory_matches_the_three_yamls_field_by_field(sensors):
     assert set(names) == {sensor["field_code"] for sensor in sensors}
 
 
+def _named_index(entry, records, *, kind="b_field_pol_probe", within_kind=False):
+    """The canonical index an override or fault entry names, in either form the runtime takes.
+
+    ``{id: ...}`` since #2158, or the legacy ``{index, r, z}`` pinned by
+    position (``index`` within the kind for flux-loop faults). Restated here,
+    not imported from the generator.
+    """
+    if "id" in entry:
+        return next(int(r["index"]) for r in records if r["id"] == entry["id"])
+    rows = [r for r in records if r["kind"] == kind] if within_kind else records
+    record = rows[int(entry["index"])]
+    assert record["kind"] == kind and (record["r"], record["z"]) == (entry["r"], entry["z"]), entry
+    return int(record["index"])
+
+
 def test_magnetics_inventory_carries_the_vest_yaml_wiring_revisions(sensors):
     vest = _load(ROOT / "vaft" / "machine_mapping" / "vest.yaml")
     magnetics = vest[0]["diagnostics"]["equilibrium_magnetics"]
     wiring = magnetics["processing"]["wiring"]
-    # Overrides name a sensor by registry id since #2158.
-    index_by_id = {r["id"]: int(r["index"]) for r in magnetics["sensors"]["records"]}
+    records = magnetics["sensors"]["records"]
     expected = {}
     for revision in wiring["revisions"]:
         for entry in revision["probe_overrides"]:
-            expected.setdefault(index_by_id[entry["id"]], []).append(
+            expected.setdefault(_named_index(entry, records), []).append(
                 (revision.get("from_shot"), revision.get("to_shot"), int(entry["field_code"]), float(entry["calibration"]),
                  float(entry["r"]), float(entry["z"]))
             )
@@ -144,3 +158,69 @@ def test_no_proposed_id_reuses_another_positions_label(sensors):
         if stem in stems:
             assert stems[stem] == sensor["canonical_index"], sensor["proposed_id"]
     assert sorted(s["canonical_index"] for s in sensors if s["id_basis"] == "position") == [35, 46, 47, 61, 62]
+
+
+def test_magnetics_inventory_carries_the_vest_yaml_known_faults(sensors):
+    vest = _load(ROOT / "vaft" / "machine_mapping" / "vest.yaml")
+    magnetics = vest[0]["diagnostics"]["equilibrium_magnetics"]
+    records = magnetics["sensors"]["records"]
+    faults = magnetics["processing"]["known_faults"]
+    expected = {}
+    for block in [faults, *(faults.get("revisions") or ())]:
+        for kind, key in (("b_field_pol_probe", "probes"), ("flux_loop", "flux_loops")):
+            for entry in block.get(key) or ():
+                index = _named_index(entry, records, kind=kind, within_kind=kind == "flux_loop")
+                expected.setdefault(index, []).append((block.get("from_shot"), block.get("to_shot"), entry["reason"]))
+    actual = {
+        sensor["canonical_index"]: [(f["from_shot"], f["to_shot"], f["reason"]) for f in sensor["known_faults"]]
+        for sensor in sensors
+        if sensor["known_faults"]
+    }
+    assert actual == expected
+
+
+@pytest.mark.parametrize(
+    ("entry", "kind", "scope", "expected"),
+    [
+        ({"id": "bpol_C4-04"}, "b_field_pol_probe", "canonical", None),
+        ({"id": "fl_12"}, "flux_loop", "kind", None),
+        # The legacy forms the runtime adapter takes (vaft.machine_mapping.magnetics_registry).
+        ({"index": 35, "r": None, "z": None}, "b_field_pol_probe", "canonical", 35),
+        ({"index": 7, "r": None, "z": None}, "flux_loop", "kind", 71),
+    ],
+)
+def test_the_generator_resolves_both_entry_forms_the_runtime_accepts(entry, kind, scope, expected):
+    vest = _load(ROOT / "vaft" / "machine_mapping" / "vest.yaml")
+    records = vest[0]["diagnostics"]["equilibrium_magnetics"]["sensors"]["records"]
+    if "index" in entry:
+        target = records[expected]
+        entry = {**entry, "r": target["r"], "z": target["z"]}
+    else:
+        expected = next(int(r["index"]) for r in records if r["id"] == entry["id"])
+    assert _generator()._entry_canonical_index(entry, kind, records, index_scope=scope) == expected
+    from vaft.machine_mapping.magnetics_registry import sensor_for_entry
+
+    assert sensor_for_entry(entry, kind=kind, context="test", index_scope=scope).index == expected
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        {"index": 35, "r": 0.0, "z": 0.0},  # pinned to a place the probe is not
+        {"index": 35},  # a legacy entry without its pin
+        {"index": 70, "r": 0.138, "z": 0.805},  # a flux loop's canonical index, as a probe
+        {"id": "fl_12"},  # a flux loop's id, as a probe
+        {"id": "bpol_C4-04", "index": 40},  # both forms at once
+    ],
+)
+def test_the_generator_refuses_an_entry_the_runtime_refuses(entry):
+    vest = _load(ROOT / "vaft" / "machine_mapping" / "vest.yaml")
+    records = vest[0]["diagnostics"]["equilibrium_magnetics"]["sensors"]["records"]
+    from vaft.machine_mapping.magnetics_registry import sensor_for_entry
+    from vaft.machine_mapping.utils import VestConfigurationError
+
+    with pytest.raises(ValueError):
+        _generator()._entry_canonical_index(entry, "b_field_pol_probe", records, index_scope="canonical")
+    # The runtime refuses it too, so the audit does not accept what production would not.
+    with pytest.raises(VestConfigurationError):
+        sensor_for_entry(entry, kind="b_field_pol_probe", context="test", index_scope="canonical")

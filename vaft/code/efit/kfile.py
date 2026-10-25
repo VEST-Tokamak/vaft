@@ -19,19 +19,15 @@ from omas import ODS, save_omas_json
 from vaft.ods_access import path_value
 
 from vaft.machine_mapping.magnetics import (
-    INBOARD_FLUX_LOOP_MAX_R,
-    INBOARD_PROBE_MAX_R,
-    OUTBOARD_FLUX_LOOP_MIN_R,
-    OUTBOARD_PROBE_MIN_R,
-    SIDE_PROBE_MIN_ABS_Z,
     equilibrium_probe_count,
+    equilibrium_sensor_families,
     vest_equilibrium_magnetics_channel_definitions,
 )
 
 from .legacy import (
     vfit_equilibrium_form_constraints,
 )
-from .recovery import ProbeFamilies, family_of, gaussian_probe_recovery, probe_families
+from .recovery import ProbeFamilies, family_of, gaussian_probe_recovery
 from vaft.validation.channel_decision import MISSING, RECOVERED, ChannelDecisions
 from vaft.validation.efit_channels import condemned_channels, decide_efit_channels
 from vaft.validation.magnetics import unusable_channels_at
@@ -575,10 +571,12 @@ def generate_constraints_ods(
         )
 
     ## (5) Poloidal magnetic probe
-    Index_inBz = np.where(MG["b_field_pol_probe.:.position.r"] < INBOARD_PROBE_MAX_R)
-    Index_sideBz = np.where(np.abs(MG["b_field_pol_probe.:.position.z"]) > SIDE_PROBE_MIN_ABS_Z)
-    Index_outBz = np.where(MG["b_field_pol_probe.:.position.r"] > OUTBOARD_PROBE_MIN_R)
+    # Families are the registry's, by each channel's identity for this shot
+    # (#2164): not the positions the product carries, nor array order.
     efit_bpol_probe_count = _efit_bpol_probe_count(MG)
+    sensor_families = equilibrium_sensor_families(
+        MG, int(shotnumber), probe_count=efit_bpol_probe_count
+    )
     # convert tuple to array
     valid_bpol_indices = np.array(
         [
@@ -589,9 +587,9 @@ def generate_constraints_ods(
         ],
         dtype=int,
     )
-    Index_inBz = np.intersect1d(Index_inBz[0], valid_bpol_indices)
-    Index_sideBz = np.intersect1d(Index_sideBz[0], valid_bpol_indices)
-    Index_outBz = np.intersect1d(Index_outBz[0], valid_bpol_indices)
+    Index_inBz = np.intersect1d(sensor_families["inboard"], valid_bpol_indices)
+    Index_sideBz = np.intersect1d(sensor_families["side"], valid_bpol_indices)
+    Index_outBz = np.intersect1d(sensor_families["outboard"], valid_bpol_indices)
 
     #    print('==!==')
     #    print(broken)
@@ -600,7 +598,11 @@ def generate_constraints_ods(
     #    print(Index_outBz)
     #    print('==!==')
 
-    families = probe_families(MG, count=efit_bpol_probe_count)
+    families = ProbeFamilies(
+        inboard=sensor_families["inboard"],
+        side=sensor_families["side"],
+        outboard=sensor_families["outboard"],
+    )
 
     for i in Index_inBz:
         MG[f"b_field_pol_probe.{i}.field.time"] = MG["time"]
@@ -620,8 +622,6 @@ def generate_constraints_ods(
         )
 
     ## (6) Flux loops
-    Index_inFlux = np.where(MG["flux_loop.:.position.0.r"] < INBOARD_FLUX_LOOP_MAX_R)
-    Index_OutFlux = np.where(MG["flux_loop.:.position.0.r"] > OUTBOARD_FLUX_LOOP_MIN_R)
     # Same missing-data guard as valid_bpol_indices above: a flux loop
     # without raw data has no `flux.data` to read, so it must be excluded
     # here too, before vfit_equilibrium_form_constraints's placeholder logic
@@ -643,8 +643,8 @@ def generate_constraints_ods(
             )
 
     # convert tuple to array
-    Index_inFlux = np.intersect1d(Index_inFlux[0].astype(int), valid_flux_indices)
-    Index_OutFlux = np.intersect1d(Index_OutFlux[0].astype(int), valid_flux_indices)
+    Index_inFlux = np.intersect1d(sensor_families["inboard_flux"], valid_flux_indices)
+    Index_OutFlux = np.intersect1d(sensor_families["outboard_flux"], valid_flux_indices)
 
     for i in Index_inFlux:
         MG[f"flux_loop.{i}.flux.time"] = MG["time"]

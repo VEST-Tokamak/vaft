@@ -93,8 +93,11 @@ def _decisions_for(ods, times, *, require_assessment: bool):
     return decide_efit_channels(ods, times, nbprobe=nbprobe)
 
 
-def _recovery_for(option: int, ods, count: int):
-    """The compatibility recovery backend selected by ``--gaussian-fit-option``."""
+def _recovery_for(option: int, ods, count: int, shot: int | None = None):
+    """The compatibility recovery backend selected by ``--gaussian-fit-option``.
+
+    With *shot*, the probe families are the registry's for that shot (#2164).
+    """
     if int(option) <= 0:
         return None
     from functools import partial
@@ -104,7 +107,7 @@ def _recovery_for(option: int, ods, count: int):
     return partial(
         gaussian_probe_recovery,
         mode=int(option),
-        families=probe_families(ods["magnetics"], count=count),
+        families=probe_families(ods["magnetics"], count=count, shot=shot),
         uncertainty="legacy",
     )
 
@@ -566,7 +569,7 @@ def main() -> int:
     _log_decisions(decisions)
     from vaft.validation.efit_channels import efit_probe_count
 
-    recovery = _recovery_for(args.gaussian_fit_option, ods, efit_probe_count(ods))
+    recovery = _recovery_for(args.gaussian_fit_option, ods, efit_probe_count(ods), shot=args.shot)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     LOGGER.info("Generating constraints for shot %s at %d time slices", args.shot, len(times))
