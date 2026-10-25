@@ -365,3 +365,81 @@ def test_a_shot_with_its_tf_needs_no_explanation(tmp_path):
     manifest = tmp_path / "m.json"
     manifest.write_text(json.dumps({"channel_status": {"tf": TF_RAW_ABSENT}}), encoding="utf-8")
     assert efit_constraint_inputs_absent_from_data(diagnostics, manifest) is None
+
+
+# --- #2195: a shot the timing finds no plasma in is not reconstructed --------------------------
+
+def _pickup_past_cutip(t):
+    """46406 in miniature: PF pickup a few kA deep, and one 2 ms swing to -20 kA.
+
+    The swing is wrong-signed and dark, so the timing finds no plasma; box
+    averaged it still lifts one or two constraint instants past CUTIP, which is
+    how 39417, 45919 and 46406 reached EFIT (#2166 D2).
+    """
+    y = pickup_only(t) - 5e3
+    swing = (t >= 0.3550) & (t < 0.3570)
+    y[swing] -= 15e3
+    return y
+
+
+def _no_plasma_shot():
+    from _plasma_timing_fixtures import light
+
+    t = grid()
+    ods = synthetic_ods(slow=light(t, amplitude=0.0), ip=_pickup_past_cutip(t), t=t)
+    ods["magnetics.ip.0.time"] = t
+    return ods
+
+
+def test_pickup_past_cutip_without_a_plasma_window_is_not_applicable(monkeypatch, tmp_path):
+    """#2195: the vacuum cut leaves the pickup instants; the missing window decides."""
+    ods = _no_plasma_shot()
+    times, window = CONSTRAINTS._select_times(ods, "auto", 0.001, None, None)
+    kept, vacuum = CONSTRAINTS._drop_vacuum_times(ods, times, average_window=0.0005)
+    assert window.fallback and kept.size >= 1 and vacuum  # what used to reach EFIT
+
+    code, output = _run_constraints(monkeypatch, tmp_path, ods)
+
+    assert code == 0
+    reason = constraints_not_applicable_reason(load_omas_json(str(output), consistency_check=False))
+    assert reason.startswith("no plasma window: neither the light nor the plasma current")
+    assert "ip_principal: no_onset" in reason
+    assert f"{kept.size} of {times.size} constraint instants reach CUTIP" in reason
+
+
+def test_a_plasma_window_is_never_judged_by_the_no_plasma_rule():
+    from _plasma_timing_fixtures import light
+
+    t = grid()
+    ods = synthetic_ods(slow=light(t), ip=current(t), t=t)
+    times, window = CONSTRAINTS._select_times(ods, "auto", 0.001, None, None)
+    assert not window.fallback
+    assert CONSTRAINTS._no_plasma_window_reason(ods, window, kept=times.size, cut=0) is None
+    # manual mode has no window to judge
+    assert CONSTRAINTS._no_plasma_window_reason(ods, None, kept=3, cut=0) is None
+
+
+def test_a_condemned_rogowski_keeps_the_fallback_rather_than_a_verdict():
+    """A dead plasma-current sensor under a real discharge is a fault to see (#1373)."""
+    ods = _no_plasma_shot()
+    times, window = CONSTRAINTS._select_times(ods, "auto", 0.001, None, None)
+    assert CONSTRAINTS._no_plasma_window_reason(ods, window, kept=2, cut=79) is not None
+    ods["magnetics.rogowski_coil.0.current.validity"] = -2
+    assert CONSTRAINTS._no_plasma_window_reason(ods, window, kept=2, cut=79) is None
+
+
+def test_an_unusable_current_keeps_the_fallback_rather_than_a_verdict():
+    """The timing could not judge the current (``ip_unusable``): no claim of no plasma."""
+    ods = _no_plasma_shot()
+    ods["magnetics.ip.0.data"] = np.where(grid() > 0.33, np.nan, ods["magnetics.ip.0.data"])
+    _, window = CONSTRAINTS._select_times(ods, "auto", 0.001, None, None)
+    assert window.fallback and "ip_unusable" in window.flags
+    assert CONSTRAINTS._no_plasma_window_reason(ods, window, kept=2, cut=79) is None
+
+
+def test_an_all_below_cutip_fallback_shot_keeps_its_205_verdict(monkeypatch, tmp_path):
+    """The new rule runs after the vacuum cut: the #205 wording is unchanged."""
+    code, output = _run_constraints(monkeypatch, tmp_path, _vacuum())
+    assert code == 0
+    reason = constraints_not_applicable_reason(load_omas_json(str(output), consistency_check=False))
+    assert reason.startswith("peak |Ip| ")

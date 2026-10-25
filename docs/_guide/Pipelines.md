@@ -255,9 +255,14 @@ obvious. The script takes the shared plasma-analysis range — `diagnostics_time
 in `vest.yaml`, 0.28–0.36 s — and intersects it with the plasma window `vaft.omas.plasma_timing` detects on
 the product: the slow H-alpha line found by label, else the validated fast line, else the plasma-current
 principal pulse (see [Plasma timing policy]({{ site.baseurl }}/guide/Machine_mapping/#plasma-timing-policy)).
-When no source shows a plasma the whole range is used and the run is flagged `analysis_range_fallback`,
-with the reason, in the stage log and in `equilibrium.ids_properties.comment`, which always names the
-window and its source. Start and end are clamped to `tstart`/`tend` when given and snapped to the `tstep`
+When no source shows a plasma the window falls back to the whole range, flagged `analysis_range_fallback`
+with the reason. If the plasma current itself was usable (not `ip_unusable`, its Rogowski not condemned),
+that is the verdict: the shot has no plasma, and the constraints product records "EFIT not applicable: no
+plasma window: ..." even when PF pickup lifts a few instants past `CUTIP` (#2195). The k-file, EFIT and
+EFIT-ODS steps then pass it on as `skipped: not applicable`, as for any vacuum shot; the diagnostics and
+eddy products, which the vacuum benchmark reads, are produced as before. Only a fallback over a current the
+timing could not judge still reconstructs the whole range, and `equilibrium.ids_properties.comment` names
+the window and its source. Start and end are clamped to `tstart`/`tend` when given and snapped to the `tstep`
 grid, and the end instant is included. With `timeset: manual` you get exactly `np.arange(tstart, tend, tstep)`
 and both bounds become mandatory.
 

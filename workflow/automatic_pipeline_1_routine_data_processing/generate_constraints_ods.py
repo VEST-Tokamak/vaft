@@ -167,7 +167,9 @@ def _constraint_window(ods, *, policy: PlasmaTimingPolicy | None = None) -> Cons
     window from ``vaft.omas.plasma_timing`` -- the slow H-alpha line, then the
     fast one, then the plasma current.  When no source shows a plasma the
     whole range is used and the choice is flagged ``analysis_range_fallback``
-    with the reason, so a vacuum shot's slices are visibly not plasma slices.
+    with the reason, so a vacuum shot's slices are visibly not plasma slices;
+    :func:`_no_plasma_window_reason` then decides whether that fallback is
+    the shot's "not applicable" verdict (#2195).
     """
     policy = policy or resolve_plasma_timing_policy()
     ip_time = resolve_signal_time(ods, "magnetics.ip.0")  # the node's own time, else magnetics.time
@@ -389,6 +391,49 @@ def _efit_not_applicable(
     )
 
 
+def _no_plasma_window_reason(
+    ods, window: ConstraintWindow | None, *, kept: int, cut: int
+) -> str | None:
+    """Why the equilibrium branch does not apply when the timing found no plasma (#2195).
+
+    :func:`vaft.omas.plasma_timing.plasma_timing` already decides whether a
+    shot has a plasma: ``found = False`` means no usable H-alpha line saw
+    light *and* the plasma current, judged usable, shows no discharge pulse
+    (``no_plasma_timing``; :func:`vaft.omas.shot_class.shot_class` then
+    reads ``Vacuum`` or ``BD failure``).  The constraint window used to fall
+    back to the whole analysis range regardless, and the vacuum cut then kept
+    whatever instants PF pickup pushed past ``CUTIP`` -- 39417, 45919 and
+    46406 each reached EFIT with one to three such instants (#2166 D2).  So a
+    fallback window is now the verdict itself, carried the #205 way: the
+    constraints product records "not applicable" and the k-file, EFIT and
+    EFIT-ODS steps pass it on as ``skipped: not applicable``.  The diagnostics
+    and eddy products, which the vacuum benchmark reads, are untouched.
+
+    It is asked after the vacuum cut, about the ``kept`` instants the cut
+    left (``cut`` were dropped): a fallback shot whose every instant is below
+    ``CUTIP`` already got the #205 verdict from :func:`_efit_not_applicable`,
+    and keeps that verdict and its wording.
+
+    The verdict is withheld, and the old fallback kept, when the current
+    itself could not be judged: the timing refused it (``ip_unusable``), or
+    the diagnostics stage condemned the plasma-current Rogowski (#1373).  A
+    dead sensor under a real discharge is a fault to see, not a vacuum shot
+    -- the same guard :func:`_efit_not_applicable` applies.  Manual mode has
+    no window and is never judged here.
+    """
+    if window is None or not window.fallback:
+        return None
+    if "ip_unusable" in window.flags:
+        return None
+    if is_condemned_channel(ods, "magnetics.rogowski_coil.0.current", min_validity=VALIDITY_SUSPECT):
+        return None
+    return (
+        f"no plasma window: neither the light nor the plasma current shows a discharge in the "
+        f"plasma-analysis range {window.start:.4f}-{window.end:.4f} s ({window.fallback_reason}); "
+        f"{kept} of {kept + cut} constraint instants reach CUTIP without one"
+    )
+
+
 def _window_comment(
     window: ConstraintWindow | None,
     times: np.ndarray,
@@ -533,6 +578,15 @@ def main() -> int:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         vaft.omas.save(not_applicable_constraints(reason), args.output)
         LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, reason)
+        return 0
+    no_plasma = _no_plasma_window_reason(ods, window, kept=times.size, cut=len(vacuum))
+    if no_plasma is not None:
+        # A result, not a failure (#2195): the timing found no plasma, so the
+        # instants pickup lifted past CUTIP are not equilibria to reconstruct.
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        vaft.omas.save(not_applicable_constraints(no_plasma), args.output)
+        LOGGER.info("plasma timing: %s", json.dumps(window.record, default=str))
+        LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, no_plasma)
         return 0
     if vacuum:
         LOGGER.info(
