@@ -26,6 +26,7 @@ from vaft.machine_mapping.barometry import barometry
 from vaft.machine_mapping.ec_launchers import ec_launchers
 from vaft.machine_mapping.dataset_description import dataset_description
 from vaft.machine_mapping.em_coupling import DEFAULT_VERSIONED_COUPLING, em_coupling
+from vaft.machine_mapping.effective_config import vest_configuration_record
 from vaft.machine_mapping.impa import (
     impa as impa_mapper,
     impa_expected_fields,
@@ -48,6 +49,7 @@ from vaft.machine_mapping.magnetics_registry import (
     REGISTRY_CONFIG_PATH as MAGNETICS_REGISTRY_CONFIG_PATH,
     registry_fingerprint as magnetics_registry_fingerprint,
     registry_source as magnetics_registry_source,
+    resolve_equilibrium_magnetics_sensors,
 )
 from vaft.machine_mapping.pf_active import (
     PF_COIL_COUNT,
@@ -69,6 +71,7 @@ from vaft.machine_mapping.wall import wall
 from vaft.machine_mapping.utils import (
     DiagnosticsTimePolicy,
     DiagnosticsTimePolicyTable,
+    VestConfigurationError,
     get_path,
     path_exists,
     resolve_diagnostics_time_policies,
@@ -76,6 +79,7 @@ from vaft.machine_mapping.utils import (
 from vaft.omas import save
 from vaft.validation.imas import is_condemned_channel
 from vaft.omas.process_wrapper import compute_eddy_currents
+from vaft.process.acquisition import AcquisitionInconsistencyError, summarize_sample_rate_checks
 from vaft.process.magnetics import VestMagneticsProcessingConfig
 
 
@@ -103,6 +107,11 @@ class VestMachineEra:
 #          ~12 minutes on 2025-06-30 and 45968 follows on 2025-07-07.
 # The PF boundary was 45958 before #956, with no recorded source, which split
 # off a ten-shot 45958-45966 era and a 45967 legacy boundary; both are gone.
+# Code-owned on purpose (#2159, audit gap G14): an era names the static
+# product's geometry assets and product identity (``machine_version``), which
+# stage products and HSDS sources are keyed by, so it changes with a code
+# release and its tests, not with a vest.yaml edit. The shot-era *processing*
+# policy stays in vest.yaml.
 VEST_MACHINE_ERAS = (
     VestMachineEra("vest-pre-43017-pf1906", None, 43016, "1906", 43016, "1512"),
     VestMachineEra("vest-43017-45967-pf1906", 43017, 45967, "1906", 43017, "2409"),
@@ -683,23 +692,106 @@ def _validate_diagnostics_time_coordinates(
     }
 
 
-def magnetics_processing_for_shot(
-    shot: int, overrides: Mapping[str, Any] | None
-) -> VestMagneticsProcessingConfig | None:
-    """The equilibrium-magnetics processing for *shot*: its era policy, with *overrides* on top.
+#: ``VestMagneticsProcessingConfig`` fields that state the acquisition (#2159):
+#: which DAQ chain recorded the shot and at what rate. An override may restate
+#: the era's value but never change it.
+MAGNETICS_MACHINE_FACT_FIELDS = ("daq_mode", "fast_sample_rate")
+#: Fields that change the calibration of every channel; changing one needs
+#: ``calibration_override_reason`` in the override block, which is recorded.
+MAGNETICS_CALIBRATION_FIELDS = ("calibration_mode", "flux_output_per_radian")
+#: Reserved key of an override block carrying the reason for a calibration override.
+CALIBRATION_OVERRIDE_REASON_KEY = "calibration_override_reason"
 
-    ``None`` without overrides, so the mapper resolves the era itself. An
-    override changes only the keys it names. It used to *replace* the era
-    policy: the routine workflow's ``vest.magnetics.processing`` block, which
-    restates the dataclass defaults, then ran every native-DAQ shot (46404 on)
-    through the slow-DAQ path, with the wrong fields and baselines, as soon as
-    the workflow configuration was actually loaded (#1541). The acquisition era
-    (``daq_mode``, the baseline rules, the output window) comes from
-    ``vest.yaml`` unless an override names it explicitly.
+
+@dataclass(frozen=True)
+class MagneticsProcessingResolution:
+    """The equilibrium-magnetics processing a shot actually runs with (#2159).
+
+    ``config`` is what the mapper receives (the era policy when ``overridden``
+    is false); ``effective`` its JSON form, ``fingerprint`` the canonical
+    SHA-256 of ``effective`` (see :mod:`vaft.machine_mapping.effective_config`),
+    and ``provenance`` where each field came from.
     """
-    if not overrides:
-        return None
-    era = equilibrium_magnetics_processing_config(int(shot))
+
+    config: VestMagneticsProcessingConfig
+    overridden: bool
+    effective: Mapping[str, Any]
+    fingerprint: str
+    provenance: Mapping[str, Any]
+
+
+def resolve_magnetics_processing(
+    shot: int, overrides: Mapping[str, Any] | None = None
+) -> MagneticsProcessingResolution:
+    """Resolve and validate the equilibrium-magnetics processing for *shot*.
+
+    The era policy comes from vest.yaml; ``overrides`` (the workflow's
+    ``vest.magnetics.processing`` block) changes only the keys it names, and
+    is validated first:
+
+    * an unknown key is a :class:`VestConfigurationError` naming the valid ones;
+    * a machine fact (``daq_mode``, ``fast_sample_rate``) may be restated but
+      not changed;
+    * a calibration field (``calibration_mode``, ``flux_output_per_radian``)
+      changes only with a non-empty ``calibration_override_reason``;
+    * a key the era decides (the legacy window ladder, the per-sample flux
+      baselines) set off its default would change nothing and is refused;
+    * the output-grid keys may not move the grid the era window indexes
+      unless ``window_override`` is named with them (#1541);
+    * the result must pass ``VestMagneticsProcessingConfig`` validation
+      (positive rates and taps, cutoff below Nyquist).
+    """
+    from vaft.machine_mapping.effective_config import (
+        configuration_fingerprint,
+        resolve_vest_processing_config,
+    )
+
+    shot = int(shot)
+    era = equilibrium_magnetics_processing_config(shot)
+    equilibrium = resolve_vest_processing_config(shot, "equilibrium_magnetics")
+    window_revision = next(
+        (dict(record) for record in equilibrium.provenance["revisions"] if record["path"] == "processing.window"),
+        None,
+    )
+    # The dataclass fields the era window actually sets for this shot (a
+    # field the window leaves unset keeps the dataclass default).
+    window = equilibrium.effective["processing"]["window"]
+    era_set = {"window_override", "daq_mode"} | {
+        name for name in ("flux_baseline_window", "flux_baseline_samples", "allow_zero_fallback")
+        if window.get(name) is not None
+    }
+    if overrides is not None and not isinstance(overrides, Mapping):
+        raise VestConfigurationError(
+            f"shot {shot}: the magnetics processing override must be a mapping, not {type(overrides).__name__}"
+        )
+    overrides = dict(overrides or {})
+    reason = overrides.pop(CALIBRATION_OVERRIDE_REASON_KEY, None)
+    if reason is not None and (not isinstance(reason, str) or not reason.strip()):
+        raise VestConfigurationError(
+            f"shot {shot}: {CALIBRATION_OVERRIDE_REASON_KEY} must be a non-empty string"
+        )
+    known = {f.name for f in fields(VestMagneticsProcessingConfig)}
+    unknown = sorted(set(overrides) - known)
+    if unknown:
+        raise VestConfigurationError(
+            f"shot {shot}: unknown magnetics processing key(s) {unknown}; valid keys are "
+            f"{sorted(known)} (plus {CALIBRATION_OVERRIDE_REASON_KEY!r})"
+        )
+    changed = sorted(
+        key for key in overrides if _as_tuple(overrides[key]) != _as_tuple(getattr(era, key))
+    )
+    facts = [key for key in changed if key in MAGNETICS_MACHINE_FACT_FIELDS]
+    if facts:
+        raise VestConfigurationError(
+            f"shot {shot}: {facts} state the shot's acquisition (vest.yaml era "
+            f"{dict((key, getattr(era, key)) for key in facts)}) and cannot be overridden"
+        )
+    calibrations = [key for key in changed if key in MAGNETICS_CALIBRATION_FIELDS]
+    if calibrations and reason is None:
+        raise VestConfigurationError(
+            f"shot {shot}: {calibrations} change the calibration of every channel; add "
+            f"{CALIBRATION_OVERRIDE_REASON_KEY!r} to the override block to accept that"
+        )
     shadowed = set(_WINDOW_RULE_KEYS) if era.window_override is not None else set()
     if era.flux_baseline_window is not None or era.flux_baseline_samples is not None:
         shadowed |= set(_FLUX_BASELINE_RULE_KEYS)
@@ -711,7 +803,7 @@ def magnetics_processing_for_shot(
         if _as_tuple(overrides[key]) != _as_tuple(defaults[key])
     )
     if dropped:
-        raise ValueError(
+        raise VestConfigurationError(
             f"shot {shot}: the vest.yaml era policy decides {dropped}, so this override would "
             "change nothing; set window_override / flux_baseline_window / flux_baseline_samples instead"
         )
@@ -728,12 +820,74 @@ def magnetics_processing_for_shot(
             if key in overrides and _as_tuple(overrides[key]) != _as_tuple(getattr(era, key))
         )
         if moved:
-            raise ValueError(
+            raise VestConfigurationError(
                 f"shot {shot}: {moved} would move the output grid that the vest.yaml era window "
                 f"{tuple(era.window_override)} indexes, shifting the analysis window and the probe "
                 "baseline; name window_override alongside them or leave them at the era's values"
             )
-    return replace(era, **dict(overrides))
+    try:
+        config = replace(era, **overrides) if overrides else era
+    except ValueError as error:
+        raise VestConfigurationError(f"shot {shot}: invalid magnetics processing override: {error}") from error
+
+    effective = json.loads(json.dumps(asdict(config)))
+    keys = {}
+    for name in sorted(known):
+        if name in changed:
+            origin = "override"
+        elif name in era_set:
+            origin = "vest.yaml"
+        else:
+            origin = "default"
+        keys[name] = {
+            "origin": origin,
+            "overridden": name in changed,
+            "revision": window_revision if origin == "vest.yaml" else None,
+        }
+    provenance = {
+        "era_window_revision": window_revision,
+        "overrides": {
+            "requested": json.loads(json.dumps(overrides)),
+            "changed": changed,
+            CALIBRATION_OVERRIDE_REASON_KEY: reason if calibrations else None,
+        },
+        "keys": keys,
+    }
+    return MagneticsProcessingResolution(
+        config=config,
+        overridden=bool(overrides),
+        effective=effective,
+        fingerprint=configuration_fingerprint(effective),
+        provenance=provenance,
+    )
+
+
+def _time_policy_effective(policies: DiagnosticsTimePolicyTable) -> dict[str, Any]:
+    """The applied time policies as plain data: every window, the default, each component's."""
+    return {
+        "default": policies.default.as_dict() if policies.default is not None else None,
+        "windows": {name: policy.as_dict() for name, policy in sorted(policies.windows.items())},
+        "components": {name: policy.name for name, policy in sorted(policies.items())},
+    }
+
+
+def magnetics_processing_for_shot(
+    shot: int, overrides: Mapping[str, Any] | None
+) -> VestMagneticsProcessingConfig | None:
+    """The equilibrium-magnetics processing for *shot*: its era policy, with *overrides* on top.
+
+    ``None`` without overrides, so the mapper resolves the era itself. An
+    override changes only the keys it names. It used to *replace* the era
+    policy: the routine workflow's ``vest.magnetics.processing`` block, which
+    restates the dataclass defaults, then ran every native-DAQ shot (46404 on)
+    through the slow-DAQ path, with the wrong fields and baselines, as soon as
+    the workflow configuration was actually loaded (#1541). The acquisition era
+    (``daq_mode``, the baseline rules, the output window) comes from
+    ``vest.yaml``; :func:`resolve_magnetics_processing` lists every guard.
+    """
+    if not overrides:
+        return None
+    return resolve_magnetics_processing(shot, overrides).config
 
 
 #: Keys only the legacy hardcoded window ladder reads; an era ``window_override`` shadows them.
@@ -753,6 +907,135 @@ _FLUX_BASELINE_RULE_KEYS = (
 
 def _as_tuple(value: Any) -> Any:
     return tuple(value) if isinstance(value, (list, tuple)) else value
+
+
+#: Why a magnetics field is in ``channel_status.magnetics.missing_channels``.
+MAGNETICS_CHANNEL_NOT_ARCHIVED = "not_archived"
+MAGNETICS_CHANNEL_UNUSABLE = "unusable_after_processing"
+
+
+def _empty_published_waveform(ods: ODS, base: str, data_node: str) -> bool:
+    """Whether the published channel at *base* carries no samples in *data_node*.
+
+    A channel the IDS does not hold at all is not "published empty" -- it is
+    not this check's business -- so ``False``. A node the mapper left without
+    its data leaf (a flux loop whose flux was not written) is empty. Probed
+    with :func:`path_exists` first: reading an absent OMAS path creates it.
+    """
+    if not path_exists(ods, f"{base}.identifier"):
+        return False
+    path = f"{base}.{data_node}"
+    if not path_exists(ods, path):
+        return True
+    return np.asarray(get_path(ods, path)).size == 0
+
+
+def _unusable_magnetics_channels(
+    ods: ODS, shot: int, archived_fields: set[int]
+) -> dict[int, str]:
+    """Archived magnetics fields whose published waveform is empty, ``{field: node}``.
+
+    The archive says a field was recorded; it does not say the mapper could
+    use it. Since #2135 an equilibrium probe whose record is too short for the
+    zero-phase low pass is published with an empty ``field`` (index alignment
+    is kept, so it is not dropped), and a record the loader cannot read is
+    published empty in every family. Each family is found by the identity the
+    mapper wrote it under, never by its position among the others:
+
+    * equilibrium probes and flux loops: the registry's ``kind_index`` for the
+      shot, the index the mapper writes them at; a probe's ``identifier`` is
+      checked against the registry name, since the two are written together;
+    * phase-reference and fluctuation Mirnovs, limiter shunts: their
+      ``identifier``. These are raw-voltage channels, so ``voltage.data`` is
+      their published waveform (a phase reference's ``field`` is empty by
+      design).
+
+    "Empty in the product" is the criterion, whatever emptied it: besides the
+    two causes above, a raw-voltage record with no sample inside the analysis
+    window it is cropped to, or a limiter shunt with none in its baseline
+    window, is reported too.
+
+    Read-only: nothing in *ods* is changed. A probe whose ``identifier`` is not
+    the registry name at its ``kind_index`` raises ``ValueError`` instead of
+    being reported: the static writer and this check resolve the same
+    registry, so a mismatch is a mapping fault, and a status built on it would
+    name the wrong channel.
+    """
+    from vaft.machine_mapping.utils import path_count
+
+    unusable: dict[int, str] = {}
+
+    def check(field: int, base: str, data_node: str) -> None:
+        if int(field) in archived_fields and _empty_published_waveform(ods, base, data_node):
+            unusable.setdefault(int(field), f"{base}.{data_node}")
+
+    for record in resolve_equilibrium_magnetics_sensors(int(shot)):
+        if record.kind == "b_field_pol_probe":
+            base = f"magnetics.b_field_pol_probe.{record.kind_index}"
+            identifier_path = f"{base}.identifier"
+            if path_exists(ods, identifier_path) and str(get_path(ods, identifier_path)) != record.name:
+                raise ValueError(
+                    f"shot {shot}: {base} is {get_path(ods, identifier_path)!r}, but the "
+                    f"registry places {record.name!r} (field {record.field_code}) there"
+                )
+            check(record.field_code, base, "field.data")
+        elif record.kind == "flux_loop":
+            check(record.field_code, f"magnetics.flux_loop.{record.kind_index}", "flux.data")
+
+    probe_by_identifier: dict[str, int] = {}
+    for index in range(path_count(ods, "magnetics.b_field_pol_probe")):
+        identifier_path = f"magnetics.b_field_pol_probe.{index}.identifier"
+        if path_exists(ods, identifier_path):
+            probe_by_identifier.setdefault(str(get_path(ods, identifier_path)), index)
+
+    voltage_channels = [
+        (int(channel["field_code"]), f"{channel['name']}:phase_reference")
+        for channel in toroidal_mirnov_reference_channels(int(shot))
+    ]
+    if int(shot) >= FLUCTUATION_MIRNOV_FIRST_SHOT:
+        voltage_channels += [
+            (int(channel["field"]), str(channel["identifier"]))
+            for channel in fluctuation_mirnov_channel_definitions(int(shot))
+        ]
+    for field, identifier in voltage_channels:
+        if identifier in probe_by_identifier:
+            check(field, f"magnetics.b_field_pol_probe.{probe_by_identifier[identifier]}", "voltage.data")
+
+    for index in range(path_count(ods, "magnetics.shunt")):
+        identifier_path = f"magnetics.shunt.{index}.identifier"
+        if not path_exists(ods, identifier_path):
+            continue
+        identifier = str(get_path(ods, identifier_path))
+        for channel in LIMITER_SHUNT_CHANNELS:
+            if channel["identifier"] == identifier:
+                check(int(channel["field_code"]), f"magnetics.shunt.{index}", "voltage.data")
+    return dict(sorted(unusable.items()))
+
+
+def _record_unusable_magnetics_channels(
+    status: dict[str, Any], ods: ODS, shot: int, archived_fields: set[int]
+) -> None:
+    """Fold the channels published empty into the magnetics status (#2164).
+
+    ``missing_channels`` was built from the archive alone, so a probe the
+    zero-phase low pass could not take (#2135) was published empty while the
+    component reported ``success``. After this, ``missing_channels`` lists
+    every field the product lacks, ``missing_channel_reasons`` says for each
+    whether it was never archived or archived but unusable, and
+    ``unusable_channels`` names the empty node. No waveform, validity or index
+    is touched (an identity mismatch raises; see
+    :func:`_unusable_magnetics_channels`).
+    """
+    not_archived = sorted(int(field) for field in status.get("missing_channels", []))
+    reasons = {field: MAGNETICS_CHANNEL_NOT_ARCHIVED for field in not_archived}
+    if status.get("status") != "unavailable" and "magnetics" in ods:
+        unusable = _unusable_magnetics_channels(ods, shot, archived_fields)
+        if unusable:
+            status["status"] = "partial"
+            status["missing_channels"] = sorted(set(not_archived) | set(unusable))
+            status["unusable_channels"] = {str(field): node for field, node in unusable.items()}
+            reasons.update({field: MAGNETICS_CHANNEL_UNUSABLE for field in unusable})
+    status["missing_channel_reasons"] = {str(field): reasons[field] for field in sorted(reasons)}
 
 
 def build_diagnostics_ods(
@@ -864,6 +1147,9 @@ def build_diagnostics_ods(
             # known setting (#152); that is the Langmuir component's gap,
             # not a reason to lose every other diagnostic (#989).
             LangmuirProbeEraGapError,
+            # A filter cutoff the acquired record cannot carry (#2159): that
+            # component cannot be processed, its siblings still can.
+            AcquisitionInconsistencyError,
         ) as error:
             # A fully saturated waveform is a property of the shot, not a fault
             # in the run: refusing to reconstruct one is correct, but it makes
@@ -1015,7 +1301,10 @@ def build_diagnostics_ods(
     tf_repaired = [{"component": "tf", **entry} for entry in tf_report.get("repaired", [])]
     if statuses["tf"]["status"] != "unavailable":
         statuses["tf"]["repaired"] = tf_repaired
-    processing = magnetics_processing_for_shot(shot, vest_magnetics_processing)
+    magnetics_resolution = resolve_magnetics_processing(shot, vest_magnetics_processing)
+    # Without an override the mapper resolves the era itself, as it always did;
+    # the resolution is the same config and is recorded in the manifest.
+    processing = magnetics_resolution.config if magnetics_resolution.overridden else None
     magnetics_channels = [
         int(channel["field_code"])
         for channel in vest_equilibrium_magnetics_channel_definitions(int(shot))
@@ -1037,6 +1326,8 @@ def build_diagnostics_ods(
     )
     magnetics_policy = policies["magnetics"]
     magnetics_left_out: dict[str, str] = {}
+    # Declared-versus-observed sample rate of every probe record (#2159).
+    magnetics_acquisition: dict[str, Any] = {}
     run_component(
         "magnetics",
         ("magnetics",),
@@ -1057,6 +1348,7 @@ def build_diagnostics_ods(
                 processing_config=processing,
                 raw_source=raw_path,
                 target_time=policy_grid("magnetics"),
+                acquisition_report=magnetics_acquisition,
             ) or {}),
         ),
         processing="VestMagneticsProcessingConfig",
@@ -1064,11 +1356,17 @@ def build_diagnostics_ods(
         missing_channels=missing_magnetics_channels,
     )
     grids["magnetics"] = policy_grid("magnetics")
+    if magnetics_acquisition:
+        # Report-only: a deviation is recorded, the processing is unchanged.
+        statuses["magnetics"]["acquisition"] = summarize_sample_rate_checks(magnetics_acquisition)
     if magnetics_left_out and statuses["magnetics"]["status"] != "unavailable":
         # The IDS was built without these signals (#993): a partial record,
         # with the reason each one is missing, not a silent success.
         statuses["magnetics"]["status"] = "partial"
         statuses["magnetics"]["signals_left_out"] = dict(magnetics_left_out)
+    # The archive-based list above misses fields that were recorded but came
+    # out of processing empty (#2135 short probe records, #2164).
+    _record_unusable_magnetics_channels(statuses["magnetics"], ods, shot, archived_fields)
 
     # A component whose raw signals were unavailable produced no coordinate,
     # so it must not appear in the realized-coverage record either.
@@ -1134,11 +1432,23 @@ def build_diagnostics_ods(
             "dt": float(analysis.dt),
             "run": int(run),
             "vest_magnetics_processing": vest_magnetics_processing or {},
-            # What the processing actually used: the era policy with the override on top.
-            "vest_magnetics_processing_effective": (
-                json.loads(json.dumps(asdict(processing))) if processing is not None else None
+            # What the processing actually used: the era policy with any override
+            # on top. Recorded on every shot, not only overridden ones (#2159).
+            "vest_magnetics_processing_effective": dict(magnetics_resolution.effective),
+            "vest_magnetics_processing_fingerprint": magnetics_resolution.fingerprint,
+            "vest_magnetics_processing_provenance": json.loads(
+                json.dumps(magnetics_resolution.provenance, default=str)
             ),
             "time_policies": time_policies or {},
+            # Effective vest.yaml configuration per diagnostic, its fingerprint,
+            # the vest.yaml sha256 and the vaft version (#2159, audit gap G12).
+            "vest_configuration": vest_configuration_record(
+                shot,
+                extra={
+                    "magnetics_processing": magnetics_resolution.effective,
+                    "time_policies": _time_policy_effective(policies),
+                },
+            ),
         },
         "time_grid": time_grid,
         "magnetics_quality": magnetics_quality,
@@ -1275,6 +1585,13 @@ def build_impa_ods(
             "run": int(run),
             "time_policies": time_policies or {},
             "expected_fields": expected_fields,
+            # The effective IMPA configuration (era-validated), its fingerprint,
+            # the vest.yaml sha256 and the vaft version (#2159).
+            "vest_configuration": vest_configuration_record(
+                shot,
+                diagnostics=("impa",),
+                extra={"time_policies": _time_policy_effective(policies)},
+            ),
         },
         "time_grid": {},
         "calibration": {},
@@ -1304,6 +1621,7 @@ def build_impa_ods(
         raw_db.RawSignalUnavailableError,
         FileNotFoundError,
         SignalRepairError,
+        AcquisitionInconsistencyError,
     ) as error:
         manifest["quality_summary"]["unavailable"] = ["impa"]
         manifest["reason"] = str(error)
@@ -1339,6 +1657,9 @@ def build_impa_ods(
         "calibration_window": status.get("provenance", {}).get("calibration_window"),
         "provenance": status.get("provenance", {}),
     }
+    # Declared IMPA sample rate against the channels' timebase (#2159, #432):
+    # report-only, the low pass is unchanged.
+    manifest["acquisition"] = status.get("provenance", {}).get("acquisition")
     manifest["channel_status"] = {
         "channels": status.get("channels", {}),
         "bz_channels": status.get("bz_channels", {}),
@@ -3013,12 +3334,9 @@ def build_resistive_zeff_ods(
     """
     import copy
 
-    from vaft.omas.resistive_zeff import compute_resistive_zeff_ods
     from vaft.ods_access import path_value
     from vaft.process.resistive_zeff import (
         Smoothing,
-        infer_resistive_zeff,
-        per_slice_resistive_zeff,
     )
 
     if model not in RESISTIVE_MODELS:

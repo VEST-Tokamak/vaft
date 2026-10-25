@@ -674,6 +674,63 @@ era = resolve_shot_revisions(
 era["daq_mode"]   # 'native_daq' from shot 46404; shot 46403 resolves 'legacy'
 ```
 
+## The effective configuration and its fingerprint
+
+`vaft.machine_mapping.effective_config.resolve_vest_processing_config(shot, diagnostic, overrides=..., info_file=...)`
+resolves one diagnostic in all its layers -- base values, every nested shot-era revision, and an explicit
+validated override -- and returns a frozen `ResolvedVestConfiguration`:
+
+- `effective`: what the processing reads (read-only; `effective_dict()` gives a mutable copy);
+- `provenance`: the source file and its sha256, every revision table applied (index and bounds), the
+  accepted overrides, and per key its class, origin (`base`, `revision` or `override`) and era;
+- `fingerprint`: SHA-256 of the canonical JSON of `effective` only -- sorted keys, numbers by value
+  (`25000` equals `25000.0`), no paths or timestamps -- so YAML comments and formatting never move it and
+  two shots of the same era share it;
+- `source_sha256`: the file's own digest, which changes with any edit.
+
+Override authority depends on the key's class. Machine facts (sources, field codes, wiring, DAQ type and
+mode, geometry) cannot be changed; calibrations (gains, polarity, factors, circuit constants) need an
+explicit `calibration_override_reason`, which is recorded; analysis windows and processing parameters may be
+overridden. Restating the effective value is always inert. An unknown key or a change of type raises
+`VestConfigurationError`.
+
+```python
+from vaft.machine_mapping.effective_config import resolve_vest_processing_config
+
+resolved = resolve_vest_processing_config(46404, "equilibrium_magnetics")
+resolved.effective["processing"]["window"]["daq_mode"]         # 'native_daq'
+resolved.provenance["keys"]["processing.window.daq_mode"]       # machine_fact, revision 3, from_shot 46404
+resolved.fingerprint                                            # same for every shot from 46404 on
+```
+
+The diagnostics and IMPA stage manifests record this under `configuration.vest_configuration` on every
+shot -- per diagnostic its effective values and fingerprint, plus the vest.yaml sha256 and the vaft version --
+and the equilibrium-magnetics processing actually used under `vest_magnetics_processing_effective`.
+`vaft.machine_mapping.provenance.vest_processing_provenance(shot, info_file=...)` is the shorter per-shot
+summary, now with TF, IMPA and the time policies. IMPA's calibration eras keep their `min_shot`/`max_shot`
+schema; `impa_shot_era` validates them like every other revision table (inclusive bounds, no overlap, an
+explicit `max_shot`).
+
+## Declared versus observed acquisition
+
+A configured sample rate is a claim, not a measurement. Wherever a filter is designed from one -- the IMPA
+low pass, the equilibrium probe low pass, the Ip reference comparison -- the record's own timestamps are
+checked with `vaft.process.acquisition.check_declared_sample_rate(time, declared, cutoff_hz=...)`:
+
+| Status | Meaning | Effect |
+|---|---|---|
+| `consistent` | observed rate within `rtol` of the declared one, regular sampling | none |
+| `deviation` | a different rate, or irregular sampling | recorded; processing unchanged |
+| `invalid` | unusable declaration, non-increasing timebase, or a cutoff at or above the *observed* Nyquist | recorded; only the cutoff case (`fatal`) stops the transformation, and the stage then leaves that one component out with the reason |
+| `not_verifiable` | fewer than two finite timestamps | recorded |
+
+The diagnostics manifest carries the probe summary under `channel_status.magnetics.acquisition` (counts per
+status, observed-rate range, and every channel that is not `consistent`); the IMPA manifest carries its check
+under `acquisition` (#432). `mirnov_preprocess_signal(..., report={})` records each band edge as `applied`,
+`skipped` (outside `(0, Nyquist)`, with the reason) or `not_requested`; without a `report` a skipped edge
+is a `RuntimeWarning`, never silent. The Ip reference comparison (`vfit_plasma_current(shot, ref, acquisition_report={})`)
+is checked the same way; the production stage does not use a reference shot.
+
 ---
 
 # Adding a new diagnostic

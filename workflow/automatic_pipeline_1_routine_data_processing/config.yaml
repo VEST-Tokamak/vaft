@@ -43,9 +43,10 @@ impa:
 # decides (the legacy window ladder and per-sample flux baselines) are refused
 # when set off their defaults, and so are `time_start`/`time_end`/`sample_count`
 # unless `window_override` is named with them: the era window is indices into
-# that grid. The filter and calibration keys (`fast_sample_rate`,
-# `lowpass_cutoff`, `lowpass_taps`, `calibration_mode`, `flux_output_per_radian`)
-# apply on every shot. See DEPLOYMENT.md, "What a run config may override".
+# that grid. `daq_mode` and `fast_sample_rate` state the acquisition and cannot
+# be changed; `calibration_mode` / `flux_output_per_radian` need a
+# `calibration_override_reason` (#2159). The filter keys (`lowpass_cutoff`,
+# `lowpass_taps`) apply on every shot. See DEPLOYMENT.md, "What a run config may override".
 vest: {}
 eddy:
   filament:
