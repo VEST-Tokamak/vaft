@@ -266,20 +266,36 @@ def equilibrium_sensor_families(
     because a family it cannot place it in would silently drop a constraint
     or weight it as the wrong one.
 
+    The key is the shot-era DAQ label, which a wiring revision can move
+    between positions (#956). Two guards cover what that could hide: two
+    channels with one label raise, and a channel whose carried position would
+    put it in a different family than the registry does warns -- the product
+    was mapped with another era's labels, or its geometry is stale -- and the
+    registry's family is used.
+
     Accepts a whole ODS or a ``magnetics`` sub-tree, like
     :func:`equilibrium_probe_count`.
     """
     prefix = "magnetics." if "magnetics" in source else ""
+
+    def probe_family(r: float, z: float) -> tuple[bool, bool, bool]:
+        return (r < INBOARD_PROBE_MAX_R, abs(z) > SIDE_PROBE_MIN_ABS_Z, r > OUTBOARD_PROBE_MIN_R)
+
+    def loop_family(r: float, _z: float) -> tuple[bool, bool]:
+        return (r < INBOARD_FLUX_LOOP_MAX_R, r > OUTBOARD_FLUX_LOOP_MIN_R)
     records = resolve_equilibrium_magnetics_sensors(int(shot))
     by_kind: dict[str, dict[str, SensorRecord]] = {}
     for record in records:
         by_kind.setdefault(record.kind, {})[record.name] = record
 
-    def placed(kind: str, count: int | None) -> list[tuple[int, SensorRecord]]:
+    def placed(
+        kind: str, count: int | None, position: str, family: Callable[[float, float], tuple[bool, ...]]
+    ) -> list[tuple[int, SensorRecord]]:
         node = f"{prefix}{kind}"
         total = path_count(source, node)
         names = by_kind.get(kind, {})
         result = []
+        seen: dict[str, int] = {}
         for index in range(total if count is None else min(int(count), total)):
             identifier_path = f"{node}.{index}.identifier"
             identifier = str(get_path(source, identifier_path)) if path_exists(source, identifier_path) else None
@@ -288,11 +304,29 @@ def equilibrium_sensor_families(
                     f"shot {int(shot)}: {node}[{index}] is {identifier!r}, which the "
                     f"registry names no {kind} for; its constraint family is unknown"
                 )
-            result.append((index, names[identifier]))
+            if identifier in seen:
+                raise ValueError(
+                    f"shot {int(shot)}: {node}[{seen[identifier]}] and [{index}] are both "
+                    f"{identifier!r}; one sensor cannot be two channels"
+                )
+            seen[identifier] = index
+            record = names[identifier]
+            r_path, z_path = f"{node}.{index}.{position}.r", f"{node}.{index}.{position}.z"
+            if path_exists(source, r_path) and path_exists(source, z_path):
+                carried = family(float(get_path(source, r_path)), float(get_path(source, z_path)))
+                if carried != family(record.r, record.z):
+                    warnings.warn(
+                        f"shot {int(shot)}: {node}[{index}] ({identifier}) carries a position in "
+                        "another constraint family than the registry places it in; using the "
+                        "registry's (mapped with another era's labels, or stale geometry?)",
+                        RuntimeWarning,
+                        stacklevel=3,
+                    )
+            result.append((index, record))
         return result
 
-    probes = placed(PROBE_KIND, probe_count)
-    loops = placed(FLUX_LOOP_KIND, None)
+    probes = placed(PROBE_KIND, probe_count, "position", probe_family)
+    loops = placed(FLUX_LOOP_KIND, None, "position.0", loop_family)
 
     def indexes(rows: list[tuple[int, SensorRecord]], keep: Callable[[SensorRecord], bool]) -> np.ndarray:
         return np.array([index for index, record in rows if keep(record)], dtype=int)

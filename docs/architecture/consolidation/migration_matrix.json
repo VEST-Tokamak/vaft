@@ -367,7 +367,7 @@
    "scientific_semantics": "solver-input conventions",
    "compatibility_requirement": "identical k-file text",
    "required_regression_test": "k-file text diff on the packaged shots",
-   "migration_status": "done",
+   "migration_status": "no_change_needed",
    "classification": "intentional_specialization_retained",
    "blocked_on": [],
    "evidence": "#2188: k-file text identical for presets default and routine",

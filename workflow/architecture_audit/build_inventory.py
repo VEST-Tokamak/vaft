@@ -1285,6 +1285,9 @@ def _entry_canonical_index(
     """
     if ("id" in entry) == ("index" in entry):
         raise ValueError(f"{entry!r}: name the sensor by id or by index, exactly one")
+    if ("r" in entry) != ("z" in entry):
+        raise ValueError(f"{entry!r}: give both r and z, or neither")
+
     def pinned(record: dict[str, Any]) -> bool:
         return all(
             key not in entry or abs(float(record[key]) - float(entry[key])) <= 1e-9 for key in ("r", "z")

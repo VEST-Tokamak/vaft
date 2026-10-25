@@ -130,9 +130,11 @@ def test_magnetics_inventory_carries_the_vest_yaml_wiring_revisions(sensors):
     expected = {}
     for revision in wiring["revisions"]:
         for entry in revision["probe_overrides"]:
-            expected.setdefault(_named_index(entry, records), []).append(
+            index = _named_index(entry, records)
+            # An id entry's r/z are optional; absent, the position is the record's.
+            expected.setdefault(index, []).append(
                 (revision.get("from_shot"), revision.get("to_shot"), int(entry["field_code"]), float(entry["calibration"]),
-                 float(entry["r"]), float(entry["z"]))
+                 float(entry.get("r", records[index]["r"])), float(entry.get("z", records[index]["z"])))
             )
     actual = {
         sensor["canonical_index"]: [
@@ -211,6 +213,7 @@ def test_the_generator_resolves_both_entry_forms_the_runtime_accepts(entry, kind
         {"index": 70, "r": 0.138, "z": 0.805},  # a flux loop's canonical index, as a probe
         {"id": "fl_12"},  # a flux loop's id, as a probe
         {"id": "bpol_C4-04", "index": 40},  # both forms at once
+        {"id": "bpol_C4-04", "r": 0.796},  # half a pin
     ],
 )
 def test_the_generator_refuses_an_entry_the_runtime_refuses(entry):

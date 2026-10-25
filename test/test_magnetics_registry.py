@@ -531,7 +531,8 @@ def test_registry_families_follow_identity_not_the_carried_position():
     before = equilibrium_sensor_families(ods, 41672, probe_count=64)
     inboard = int(before["inboard"][0])
     ods[f"magnetics.b_field_pol_probe.{inboard}.position.r"] = 0.9  # an outboard radius
-    after = equilibrium_sensor_families(ods, 41672, probe_count=64)
+    with pytest.warns(RuntimeWarning, match="another constraint family"):
+        after = equilibrium_sensor_families(ods, 41672, probe_count=64)
     for name in before:
         np.testing.assert_array_equal(after[name], before[name], err_msg=name)
     assert inboard in _positional_families(ods, 64)["outboard"]  # the old rule would have moved it
@@ -552,3 +553,36 @@ def test_registry_families_refuse_a_channel_the_registry_does_not_name():
     ods["magnetics.flux_loop.2.identifier"] = "Flux Loop - #99"
     with pytest.raises(ValueError, match="registry names no flux_loop"):
         equilibrium_sensor_families(ods, 41672, probe_count=64)
+
+
+def test_registry_families_refuse_one_label_on_two_channels():
+    from omas import ODS
+
+    from vaft.machine_mapping.magnetics import equilibrium_sensor_families, vfit_magnetics_static
+
+    ods = ODS(consistency_check=False)
+    vfit_magnetics_static(ods, 41672)
+    ods["magnetics.b_field_pol_probe.9.identifier"] = ods["magnetics.b_field_pol_probe.8.identifier"]
+    with pytest.raises(ValueError, match="cannot be two channels"):
+        equilibrium_sensor_families(ods, 41672, probe_count=64)
+
+
+def test_inventory_labels_on_a_pre_swap_shot_keep_their_families():
+    """The one wiring swap (pre-39438, #956) trades labels inside the outboard column."""
+    import warnings
+
+    import numpy as np
+    from omas import ODS
+
+    from vaft.machine_mapping.magnetics import equilibrium_sensor_families, vfit_magnetics_static
+
+    inventory = ODS(consistency_check=False)
+    vfit_magnetics_static(inventory)  # shot 0: the 2409 labels
+    era = ODS(consistency_check=False)
+    vfit_magnetics_static(era, 39437)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        crossed = equilibrium_sensor_families(inventory, 39437, probe_count=64)
+        native = equilibrium_sensor_families(era, 39437, probe_count=64)
+    for name in native:
+        np.testing.assert_array_equal(crossed[name], native[name], err_msg=name)
