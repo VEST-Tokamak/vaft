@@ -206,8 +206,16 @@ def _reference_ods(shot: int):
 @pytest.mark.parametrize("shot", sorted(REFERENCE_CONDEMNED))
 def test_the_array_margin_holds_on_the_reference_shots(shot):
     """Every probe the review condemns sits well above the fraction, every
-    survivor well below it (#977: 0.35 and up against 0.24 and down)."""
-    report = validate_magnetics_signals(_reference_ods(shot), known_faults={})
+    survivor well below it (#977: 0.35 and up against 0.24 and down).
+
+    The array review's own margin, so the raw-rail check (#2192) is off here:
+    it condemns C4-04 first on 41524/41672, whose raw record sits at the rail,
+    and a condemned probe is left out of the array.  The next test pins that.
+    """
+    report = validate_magnetics_signals(
+        _reference_ods(shot), known_faults={},
+        config=MagneticsQualityConfig(raw_rail_tolerance_quanta=None),
+    )
     fraction = MagneticsQualityConfig().array_contradiction_fraction
     probes = [q for q in report if q.kind == "b_field_pol_probe"]
     condemned = [q for q in probes if "array_contradiction" in {e.reason for e in q.events}]
@@ -220,3 +228,20 @@ def test_the_array_margin_holds_on_the_reference_shots(shot):
     assert {q.name for q in condemned} == REFERENCE_CONDEMNED[shot]
     assert min(q.metrics["array_contradiction_fraction"] for q in condemned) > 1.1 * fraction
     assert max(survivors) < 0.85 * fraction
+
+
+@pytest.mark.parametrize("shot", sorted(REFERENCE_CONDEMNED))
+def test_the_raw_rail_takes_c4_04_out_of_the_array_and_changes_no_other_verdict(shot):
+    """#2192 on the reference shots: where C4-04's raw record is at the rail it is
+    condemned as ``raw_rail`` before the array review and no longer votes; the
+    array review then condemns exactly the other probes it did before."""
+    ods = _reference_ods(shot)
+    on = validate_magnetics_signals(ods, known_faults={})
+    off = validate_magnetics_signals(
+        ods, known_faults={}, config=MagneticsQualityConfig(raw_rail_tolerance_quanta=None)
+    )
+    railed = {q.name for q in on if "raw_rail" in {e.reason for e in q.events}}
+    assert railed <= {"MagneticFieldProbe_C4-04"}
+    by_array = {q.name for q in on if "array_contradiction" in {e.reason for e in q.events}}
+    assert by_array | railed == REFERENCE_CONDEMNED[shot]
+    assert [q.validity for q in on] == [q.validity for q in off]
