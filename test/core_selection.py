@@ -375,6 +375,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_efit_not_applicable.py",
     # Box average at every sample, one owner (#2162 B3.10).
     "test_box_average_series.py",
+    # SXR constant-offset baselines, one owner (#2162 B3.11). Synthetic, ~3 s.
+    "test_sxr_baseline_owner.py",
     "test_flux_loop_known_faults.py",
     "test_magnetic_decomposition.py",
     "test_magnetics_geometry_registry.py",
