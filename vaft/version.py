@@ -14,8 +14,9 @@ __all__ = ["__version__"]
 #   vaft.plot legacy names were dated for 0.7.0; vaft.spectroscopy gave
 #   two). vaft.machine_mapping.magnetics.vfit_md and
 #   vest_md_channel_definitions, plain aliases until now, warn on every
-#   path, the direct `from vaft.machine_mapping.magnetics import ...`
-#   included; use vfit_equilibrium_magnetics and
+#   access through the module (the direct `from
+#   vaft.machine_mapping.magnetics import ...` included) and on the first
+#   through the package; use vfit_equilibrium_magnetics and
 #   vest_equilibrium_magnetics_channel_definitions. The signal_processing
 #   aliases (VEST_CoilCurrentNoiseReduction, vfit_signal_startend,
 #   vfit_signal_start_end, signal_onoffset) and
