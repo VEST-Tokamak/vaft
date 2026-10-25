@@ -2,7 +2,7 @@
  "schema": "vaft.consolidation.api-ownership/1",
  "issue": "#2162",
  "umbrella": "#2147",
- "base": "develop f7472664d (#2189: #2178, #2179, #2180, #2183)",
+ "base": "develop 45a09a984 (#2189: #2178, #2179, #2180, #2183; then #2182)",
  "migration_status_values": [
   "migrated",
   "retained",
@@ -372,10 +372,10 @@
   {
    "operation": "resampling with anti-alias low pass",
    "slice": "B3.12",
-   "pull_request": "#2182 (open, awaiting owner approval)",
+   "pull_request": "#2182",
    "canonical_api": "vaft.process.signal_processing.resample_to_time",
    "canonical_module": "vaft.process.signal_processing",
-   "required_options": "extrapolate, anti_alias ('auto' filters a rate cut), nan_policy, return_filter_mask",
+   "required_options": "extrapolate, anti_alias ('auto' filters a rate cut), nan_policy, return_filter_mask, unfiltered ('nan' default | 'keep' only together with return_filter_mask)",
    "resolves": [
     "vaft.process.signal_processing.resample_to_time",
     "vaft.process.signal_processing.anti_alias_filter"
@@ -394,7 +394,7 @@
     "vaft.process.fluctuation.cross_spectrum",
     "vaft.process.signal_processing.process_signal"
    ],
-   "numerical_equivalence": "on develop: a record or finite run shorter than 3*numtaps+1 is decimated UNFILTERED (may alias), flagged only by a RuntimeWarning and return_filter_mask; only Langmuir and the fluctuation cross_spectrogram/cross_spectral_matrix paths act on the mask. #2182 proposes NaN instead (scientific correction).",
+   "numerical_equivalence": "scientific_correction (#2182): a record or finite run shorter than 3*numtaps+1 that would be decimated unfiltered now yields NaN on the target samples it feeds (unfiltered='nan'); Langmuir passes 'keep' and flags those samples in validity; cross_spectrum and the process_wrapper vacuum currents refuse instead. Packaged 39915/41524/41672/42962 products unchanged.",
    "preserved_specializations": [
     "bare np.interp in machine_mapping.magnetics._interpolate_signal (Ip, diamagnetic flux unfiltered on their native grid; spectra check in Phase D)",
     "FL10 compensation: scipy.signal.decimate (Chebyshev IIR, zero-phase) + smooth + np.interp in machine_mapping.magnetics._apply_fl10_windowed_compensation",
@@ -402,9 +402,10 @@
    ],
    "configuration_dependencies": [],
    "regression_tests": [
-    "test/test_resample_anti_alias.py"
+    "test/test_resample_anti_alias.py",
+    "test/test_resample_short_run_alias.py"
    ],
-   "migration_status": "pending_owner_approval",
+   "migration_status": "migrated",
    "retained_direct_callers": {
     "scipy.signal.decimate": [
      "vaft.machine_mapping.magnetics._apply_fl10_windowed_compensation"
