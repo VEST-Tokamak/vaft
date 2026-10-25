@@ -9,7 +9,7 @@ disposition:
 | **validated** | evidence that behaviour is unchanged or correct; the evidence is named |
 | **retained** | kept on purpose, as a specialization, a separate contract or a compatibility adapter; the reason is given |
 | **deferred** | open work, named by its tracking issue |
-| **pending PR** | implemented in an open PR, not yet merged |
+| **pending owner sign-off** | implemented in an open PR whose rules wait for the owner (only #2209) |
 
 The sources are, all under `docs/architecture/consolidation/`:
 
@@ -21,10 +21,19 @@ The sources are, all under `docs/architecture/consolidation/`:
 
 Row-level retirement status is in `retirement_register.md`.
 
-**Merge order.** This document is written against develop 2d704a48e (after #2197) plus the two Phase E PRs
-that are still open: #2196 (guards, core selection) and #2199 (deprecation dates). Rows resting on
-them are marked **pending PR** below. Merge #2196 and #2199 before this PR. If either changes
-before it merges, update the rows that cite it.
+**State.** This document is written against develop f007743fa. All of these have merged:
+
+| PR | Content |
+|---|---|
+| #2196 | guards |
+| #2199 | deprecations |
+| #2210 | docs |
+| #2197 | B3.11 |
+| #2198 | B3.9 |
+| #2212 | #2192 raw-rail correction |
+| #2182 | B3.12 |
+
+The one item still waiting is #2209 (#2195, no-plasma shots), which is open and pending owner sign-off on its rules.
 
 ## Evidence base
 
@@ -33,7 +42,7 @@ before it merges, update the rows that cite it.
 | Phase D qualification, #2191 | BEFORE 75b154e31 (post-#2135) vs AFTER 52576480a (the #2189 head; `vaft/` and `workflow/` equal develop f7472664d). Vestserver raw data, 50 shots: every ODS leaf and all 364 k-files per state byte-identical; 266 records, 262 passed, 4 blocked (46403), 0 failed, 0 unexplained; every difference `metadata_only` | `qualification_report.md`, `qualification_results.json` |
 | Per-PR equivalence | each B/C PR's frozen-copy or capture comparison (bit-identical, exact or `metadata_only`) | the PR bodies and the tests they add |
 | #2182 (B3.12) | approved scientific correction: NaN where a short run could not be filtered, with analytic chirp and synthetic short-run tests. It is not in #2191's AFTER state (52576480a), so #2191 does not cover it (§10) | `test/test_resample_short_run_alias.py`, `test/test_consolidation_numerics.py` |
-| Guards | the architecture invariants, enforced on both develop gates | `test/test_architecture_guards.py` (#2170, #2181; guards (e)–(i) in #2196, open) |
+| Guards | the architecture invariants, enforced on both develop gates | `test/test_architecture_guards.py` (#2170, #2181, #2196) |
 
 #2191 cases cited below:
 
@@ -56,7 +65,7 @@ before it merges, update the rows that cite it.
 | config_audit.md G1–G17 | 17 (G16 has a retained and a deferred half; G4 a retained IMPA half) | 14 (G4, G9, G11, G17 in part) | — | 2 (G14; the G16 values) | 2 fully (G15; G16 sign, #2176) + remainders of G9, G11, G17 (#2204) | — |
 | magnetics_reconciliation.md Q1–Q7 | 7 | 2 (Q3; Q6 as documentation) | 2 (Q2; Q7 as behaviour) | — | 3 (Q1, Q4, Q5) + the Q6/Q7 checks (#2203) | — |
 | migration_plan.md §1 findings | 10 | 8 (1, 2, 3, 4 comments only, 5, 6, 7, 8); 9 and 10 in part | — | part of 9 (B3.2) | remainders of 1, 3, 4, 5, 6, 10 | — |
-| migration_plan.md §2 work packages (rows of §4, by first disposition) | 43 | 22 (several with a deferred remainder) | 5 | 2 (B3.2, B3.7) | 7 | 7 (B3.9 #2198; five E rows #2196/#2199; docs #2210) |
+| migration_plan.md §2 work packages (rows of §4, by first disposition) | 45 | 30 (several with a deferred remainder) | 5 | 2 (B3.2, B3.7) | 7 | 1 pending owner sign-off (§9.6, #2209) |
 | inventory.json triaged rows (70 curated + 18 asset consumers) | 88 | see §5 | | | | |
 | retirement_register.md rows | 35 | 17 `removed` | — | 9 (5 specializations or kept contracts: C6, C7, P4, P8, P14; 4 aliases dated for 0.11.0: L5, L6, P9, P10) | 9 with an owner (C5, L7 → #2205; P1, P3, P11, P12, P13, P15, P18 → #2206) | — (P5, P17 removed by #2197) |
 
@@ -84,10 +93,10 @@ Existing follow-ups used:
 |---|---|
 | #2175 | IMPA 26-tap band edge |
 | #2176 | field 171 sign |
-| #2192 | dead probes reach EFIT |
+| #2192 | dead probes reach EFIT (corrected by #2212; closes on main) |
 | #2193 | PF2/PF5 vacuum misfit |
 | #2194 | 46403 baseline window |
-| #2195 | no-plasma k-files |
+| #2195 | no-plasma k-files (#2209, pending owner sign-off) |
 | #2164 | C4 pipeline-2 provenance and the preflight |
 | #2166 | Phase D coverage limits |
 
@@ -95,13 +104,13 @@ Existing follow-ups used:
 
 | Gap | Finding (short) | Disposition | PR / evidence |
 |---|---|---|---|
-| G1 | explicit missing `info_file` silently falls back | **implemented**: `_resolve_info_file_path` raises `VestConfigurationError` (directories too) | #2177; `test_vest_config_loading.py`; guard (e), which calls every public `info_file` function in machine_mapping/omas/process with a missing path, is pending in #2196 |
+| G1 | explicit missing `info_file` silently falls back | **implemented**: `_resolve_info_file_path` raises `VestConfigurationError` (directories too) | #2177; `test_vest_config_loading.py`; guard (e) calls every public `info_file` function in machine_mapping/omas/process with a missing path (#2196) |
 | G2 | `_deep_merge` shallow; type mismatch wins silently | **implemented**: shares nothing with its inputs, mismatch raises with the dotted path | #2177 |
 | G3 | `_policy_document` returns the cached document by reference | **implemented**: deep copy, cache keyed by (path, mtime_ns, size) | #2177 |
 | G4 | two caching regimes | **implemented** for `resolve_vest_diagnostic` and the effective-config loader, which read through the mtime-keyed `_policy_document`. **Retained**: `impa._vest_config` stays deliberately uncached (its comment: small file, not hot, a cache would serve stale settings). Not a correctness defect, as the audit said | #2177, #2184 |
 | G5 | unknown revision keys merged silently | **implemented**: the shared revision validator rejects keys absent from the base, with an explicit `era_only_keys` mechanism for six tables | #2177; guard (f2) allowlists the one revision merge as validated |
 | G6 | IMPA `shot_era_overrides`: defaults 0, no overlap check, first match | **implemented** + **validated**: `impa_shot_era`, inclusive bounds, overlap and a missing `max_shot` refused; era identical to the old loop on shots 0–50000 | #2184; #2191 impa-archived passed |
-| G7 | unknown override key → bare `TypeError` | **implemented**: `VestConfigurationError`; `daq_mode`/`fast_sample_rate` machine facts; calibrations need `calibration_override_reason` | #2184; guard (f1) pending in #2196. Deployment note in #2184: old run configs carrying `daq_mode: legacy` now fail on a native-DAQ shot |
+| G7 | unknown override key → bare `TypeError` | **implemented**: `VestConfigurationError`; `daq_mode`/`fast_sample_rate` machine facts; calibrations need `calibration_override_reason` | #2184; guard (f1) (#2196). Deployment note in #2184: old run configs carrying `daq_mode: legacy` now fail on a native-DAQ shot |
 | G8 | `VestMagneticsProcessingConfig` unvalidated | **implemented**: `__post_init__` (rates, taps, cutoff < Nyquist) | #2184 |
 | G9 | declared sample rates never compared with the timebase | **implemented** at the IMPA low pass, the probe chain and the I_p-reference comparison (report-only); **deferred** for TF/PF `fs` | #2185; #2191: 343 acquisition keys, all consistent (not independent on archived IMPA, §7); TF/PF → #2204 |
 | G10 | `mirnov_preprocess_signal` silently skips an out-of-range pass | **implemented**: per-stage `report`, RuntimeWarning without one | #2185, combined with #2179 in #2189 |
@@ -149,7 +158,7 @@ Consumer map (§6), every entry migrated:
 | 6 | provenance gaps | as G11 (in part; eddy/constraints/pipeline 2 → #2164) and G12 | #2184, #2185, #2187; #2164, #2204 |
 | 7 | loader safety (G1–G3) | **implemented** | #2177 |
 | 8 | revision/IMPA/override/dataclass validation (G5–G8) | **implemented** | #2177, #2184 |
-| 9 | duplicate helpers | **implemented** B3.1, B3.3–B3.6, B3.8, B3.10 (§4); B3.2 and B3.7 **retained**; B3.11 **pending PR** | see §4 |
+| 9 | duplicate helpers | **implemented** B3.1, B3.3–B3.6, B3.8, B3.10 (§4); B3.2 **retained**; B3.7 retained then superseded by B3.11 (#2197) | see §4 |
 | 10 | stale second authorities | placeholder removed (#2181); `sql_table.txt` documented (#2181); `VEST_MACHINE_ERAS` documented (#2184); field 171 → #2176; PF shot blocks → #2205. New from #2184: the unread `0.diagnostics.langmuir_probe_mid/upper` blocks → #2204 | as listed |
 
 Findings recorded for their owners, outside the consolidation, are **not** consolidation work.
@@ -176,10 +185,10 @@ owner.
 | B3.3 integration | **implemented**, exact | #2179 |
 | B3.4 Mirnov design | **implemented**, coefficients identical | #2179 |
 | B3.5 PF filter | **implemented**, bit-identical (`pf_current_filter`) | #2180; #2191 pf1-gain-45895-45896 |
-| B3.6 plot-recipe Butterworth | **implemented** (`butterworth_highpass`) | #2179; guard (i) pending in #2196 |
+| B3.6 plot-recipe Butterworth | **implemented** (`butterworth_highpass`) | #2179; guard (i) (#2196) |
 | B3.7 plot SXR baseline | **retained** in #2179 (window semantics differ), then superseded by B3.11: the plot calls the one owner | #2179; #2197 |
 | B3.8 comments | **implemented** | #2179 |
-| B3.9 API ownership matrix | **pending PR** | #2198 (open) |
+| B3.9 API ownership matrix | **implemented**: `api_ownership.json`, validated against the code by `test/test_api_ownership.py`. Its owners agree with this register; for example, the FIR-design row lists the local `firwin` designs of P14 as preserved specializations, and `_calibrated_signal` as not migrated (P18) | #2198 |
 | B3.10 box average | **implemented**, equivalent | #2183; #2191: all 364 k-files per state identical (the 16 shots with constraint slices) |
 | B3.11 SXR baselines | **implemented** (one owner `sxr_offset_baseline`, bit-identical to frozen copies; merged after #2191, so its evidence is its own test) | #2197 |
 | B3.12 short-run anti-alias | **implemented** (approved scientific correction); the #2172 strict xfail became a positive test in this PR | #2182 |
@@ -193,24 +202,26 @@ owner.
 | D qualification | **validated** (no unexplained regression) | #2191 |
 | D: spectrum check (finding 4), Q6/Q7 checks | **deferred** | #2201, #2203 |
 | D: #2182's unverified production exposure (how often ec_launchers' out-of-range masking now yields NaN short runs), vacuum benchmark physical qualification, 41524/41672/42962 chains, corrective-kinetic, analytic-preprocessing, H2 fingerprint properties, cross-environment baseline tolerance (#2191 §4.3), benchmark sensitivity (§9.5), EFIT ≠ plasma (§9.7) | **deferred** to Phase D's remaining scope | #2166 (open) |
-| D findings outside the consolidation (§9.1, 9.3, 9.4, 9.6) | **deferred** to their own issues | #2192, #2193, #2194, #2195 |
+| D finding §9.1: dead (rail-stuck) probes pass QA and reach EFIT | **implemented** as an owner-approved correction (`approved_correction`): `vaft.validation.magnetics` condemns a B-probe whose raw record sits within 2 converter steps of ±5 V for the whole window. 2,391 production (shot, probe) pairs on 1,107 shots get weight 0. Stored products change only on regeneration (#2200). #2192 closes on main | #2212 |
+| D finding §9.6: no-plasma shots get k-files | **pending owner sign-off**: no-plasma shots are recorded as EFIT not applicable | #2209 (open); #2195 |
+| D findings §9.3, §9.4 | **deferred** to their own issues | #2193, #2194 |
 | D: TF-coupling shift after #2135; 48224 | **validated**: the shift is recorded in #2135. 48224 stays blocked, classified `reference_inconclusive`; #2191 §8 rules the #2135 delay out as the explanation | #2135, #2191 |
 | E guards: registry schema/uniqueness | **implemented** | #2181 |
 | E guards: no reader of the retired YAML (AST) | **implemented** | #2170 (a1/a2) |
 | E guards: no second sensor inventory (YAML) | **implemented** for YAML. **Retained** as YAML-only: a Python table of r/z records is not scanned, but the layer guard and (h) keep the generic layers free of machine tables | #2170 (c) |
-| E guards: resolver path and override safety | **pending PR** | #2196 (e), (f1), (f2) (open) |
-| E guards: layer contract incl. "machine_mapping designs no filters outside an allowlist" | **implemented** for the grimp layer guard (#2170); the filter-design guard (i), with two allowlisted donor designs, is pending in #2196 | #2170 (b), #2196 (i); designs → #2206 |
-| E guards: deprecated-API usage | **pending PR** | #2196 (g) |
-| E guards: vaft.process configuration reads (#2168 brief) | **pending PR** (one allowlisted legacy window ladder) | #2196 (h); ladder → #2206 |
+| E guards: resolver path and override safety | **implemented** | #2196 (e), (f1), (f2) |
+| E guards: layer contract incl. "machine_mapping designs no filters outside an allowlist" | **implemented**: the grimp layer guard (#2170) and the filter-design guard (i), with two allowlisted donor designs (#2196) | #2170 (b), #2196 (i); designs → #2206 |
+| E guards: deprecated-API usage | **implemented** | #2196 (g) |
+| E guards: vaft.process configuration reads (#2168 brief) | **implemented** (one allowlisted legacy window ladder) | #2196 (h); ladder → #2206 |
 | E retire `MM._polyfit_baseline` | **implemented** (removed) | #2178 |
-| E retire `VEST_CoilCurrentNoiseReduction`, `process_signal`, `signal_on_offset`, `vest_coil_current_noise_reduction` | **pending PR** for the deprecated aliases (dated vaft 0.11.0); the canonical-but-legacy names → **deferred** | #2199 (open); #2206, #2208 |
+| E retire `VEST_CoilCurrentNoiseReduction`, `process_signal`, `signal_on_offset`, `vest_coil_current_noise_reduction` | **implemented** for the deprecated aliases (dated vaft 0.11.0); the canonical-but-legacy names → **deferred** | #2199; #2206, #2208 |
 | E retire G15 blocks + dead getters | **deferred** (deprecation first) | #2205 |
 | E retire `correct_flux_loop` / `vest_signal_onoffsetpeak` | **deferred** | #2206 |
 | E `tdst_gate.sh` parity | **validated**: `tdst_gate.sh` runs `pip install -e ".[dev]"` and `pytest -m "core and not perf"`, the same as Package CI `core-test`, and the same `python -m build` + `test/verify_dist.py` as `package`. `test/test_core_selection.py` (`test_the_cluster_gate_runs_the_same_steps`) pins the parity. The workflows were not edited | `.github/scripts/tdst_gate.sh`, `.github/workflows/package-ci.yml` |
 | E `verify_dist.py` + wheel smoke | **validated**: the dist must contain `vaft/machine_mapping/vest.yaml` and `magnetics_registry.py` and must not contain the three retired YAMLs (`verify_dist.py` lists them); run by both gates | #2181; the #2196/#2199 gate runs |
 | E `test_architecture_audit_inventory.py` in core | **implemented** (after B1, as the plan required) | #2181 |
-| E `test_vest_yaml_boundaries.py` in core | **pending PR**: 33 s before #2177's parse cache, 1–2 s serial now (local and vestserver) | #2196 |
-| E guides describe the consolidated architecture (registry, no split files, pipeline-1 stability rules instead of the retired `running_linear_stability`) | **pending PR** for Pipelines.md, Stability.md and Magnetics.md; Machine_mapping.md and Processing.md were already updated in #2181 and #2199. The same PR adds the missing `acquisition` process reference page, without which the Docs build fails on every PR since #2185 | #2210 (open) |
+| E `test_vest_yaml_boundaries.py` in core | **implemented**: 33 s before #2177's parse cache, 1–2 s serial now (local and vestserver) | #2196 |
+| E guides describe the consolidated architecture (registry, no split files, pipeline-1 stability rules instead of the retired `running_linear_stability`) | **implemented** for Pipelines.md, Stability.md and Magnetics.md; Machine_mapping.md and Processing.md were already updated in #2181 and #2199. The same PR adds the missing `acquisition` process reference page, without which the Docs build had failed on every PR since #2185 | #2210 |
 
 §3 refinements 1–10 were each acted on as above, or were confirmations. §3.9's "not in the plan"
 items are G14, G15, Q6, Q7 and finding 4, plus:
@@ -221,7 +232,7 @@ items are G14, G15, Q6, Q7 and finding 4, plus:
 
 The one addition that has not been rechecked: §3.9 "diagnostics
 QA writes validity (it is not report-only)" is now visible in #2191 §9.1, where dead probes pass
-QA. It is tracked by #2192.
+QA. The rail-stuck case is corrected by #2212 (#2192); flat records away from the rail are out of #2212's scope.
 
 ## 5. inventory.json
 
@@ -285,8 +296,7 @@ rows (eight C4 provenance builders and the preflight) are #2164's remaining scop
 
 ## 7. Items that need an owner action, not code
 
-- **Merge #2196 and #2199 before this PR** (see Merge order above). #2210 (docs and the acquisition reference page) is independent; merge it first so the Docs check passes.
 - **Close #2158 by hand.** #2181 said "Closes #2158", but closing keywords only fire on the default branch.
-- **Merge the pending PR #2198 (B3.9).** #2197 (B3.11) merged while this audit was open (register P5/P17 `removed`). When #2198 merges, the canonical owners named in the register should be checked against `api_ownership.json`.
+- **Sign off (or amend) the #2209 rules** for no-plasma shots (#2195).
 - **Approve or decline the regeneration** of pre-#2135 products (#2200).
 - **Decide the identity questions** Q4/Q5 (#2202).
