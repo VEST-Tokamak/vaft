@@ -78,6 +78,7 @@ from vaft.machine_mapping.utils import (
 from vaft.omas import save
 from vaft.validation.imas import is_condemned_channel
 from vaft.omas.process_wrapper import compute_eddy_currents
+from vaft.process.acquisition import AcquisitionInconsistencyError, summarize_sample_rate_checks
 from vaft.process.magnetics import VestMagneticsProcessingConfig
 
 
@@ -1016,6 +1017,9 @@ def build_diagnostics_ods(
             # known setting (#152); that is the Langmuir component's gap,
             # not a reason to lose every other diagnostic (#989).
             LangmuirProbeEraGapError,
+            # A filter cutoff the acquired record cannot carry (#2159): that
+            # component cannot be processed, its siblings still can.
+            AcquisitionInconsistencyError,
         ) as error:
             # A fully saturated waveform is a property of the shot, not a fault
             # in the run: refusing to reconstruct one is correct, but it makes
@@ -1192,6 +1196,8 @@ def build_diagnostics_ods(
     )
     magnetics_policy = policies["magnetics"]
     magnetics_left_out: dict[str, str] = {}
+    # Declared-versus-observed sample rate of every probe record (#2159).
+    magnetics_acquisition: dict[str, Any] = {}
     run_component(
         "magnetics",
         ("magnetics",),
@@ -1212,6 +1218,7 @@ def build_diagnostics_ods(
                 processing_config=processing,
                 raw_source=raw_path,
                 target_time=policy_grid("magnetics"),
+                acquisition_report=magnetics_acquisition,
             ) or {}),
         ),
         processing="VestMagneticsProcessingConfig",
@@ -1219,6 +1226,9 @@ def build_diagnostics_ods(
         missing_channels=missing_magnetics_channels,
     )
     grids["magnetics"] = policy_grid("magnetics")
+    if magnetics_acquisition:
+        # Report-only: a deviation is recorded, the processing is unchanged.
+        statuses["magnetics"]["acquisition"] = summarize_sample_rate_checks(magnetics_acquisition)
     if magnetics_left_out and statuses["magnetics"]["status"] != "unavailable":
         # The IDS was built without these signals (#993): a partial record,
         # with the reason each one is missing, not a silent success.
@@ -1478,6 +1488,7 @@ def build_impa_ods(
         raw_db.RawSignalUnavailableError,
         FileNotFoundError,
         SignalRepairError,
+        AcquisitionInconsistencyError,
     ) as error:
         manifest["quality_summary"]["unavailable"] = ["impa"]
         manifest["reason"] = str(error)
@@ -1513,6 +1524,9 @@ def build_impa_ods(
         "calibration_window": status.get("provenance", {}).get("calibration_window"),
         "provenance": status.get("provenance", {}),
     }
+    # Declared IMPA sample rate against the channels' timebase (#2159, #432):
+    # report-only, the low pass is unchanged.
+    manifest["acquisition"] = status.get("provenance", {}).get("acquisition")
     manifest["channel_status"] = {
         "channels": status.get("channels", {}),
         "bz_channels": status.get("bz_channels", {}),

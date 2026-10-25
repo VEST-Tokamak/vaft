@@ -16,6 +16,7 @@ import numpy as np
 from scipy import integrate, signal
 
 from vaft.database import raw as raw_db
+from vaft.process.acquisition import AcquisitionInconsistencyError, check_declared_sample_rate
 from vaft.process.magnetics import (
     VestEquilibriumMagneticsResult,
     VestMagneticsProcessingConfig,
@@ -860,12 +861,14 @@ def _prepare_magnetics_context(
     processing_config: VestMagneticsProcessingConfig | None,
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
+    acquisition_report: dict | None = None,
 ) -> _MagneticsContext:
     result = vfit_equilibrium_magnetics_detailed(
         shot,
         processing_config=processing_config,
         raw_source=raw_source,
         allow_missing_channels=allow_missing_channels,
+        acquisition_report=acquisition_report,
     )
     source_time = np.asarray(result.time, dtype=float)
     return _MagneticsContext(
@@ -1093,12 +1096,15 @@ def vfit_plasma_current(
     ref: int = -1,
     *,
     raw_source: raw_db.RawSource | None = None,
+    acquisition_report: dict | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return the processed plasma-current waveform.
 
     Composition of :func:`vest_plasma_rogowski_current` with the shot-era
     baseline, FL10 compensation, and sign convention -- numerically unchanged
-    by the issue-#215 split.
+    by the issue-#215 split. With a reference shot (``ref``), the comparison
+    filter's declared rate is checked against the record and the result put
+    in ``acquisition_report`` (#2159).
     """
     config, reference_config, baseline_config, sign_config = _plasma_processing_for_shot(shot)
     plasma_field = int(config["source"]["field"])
@@ -1172,6 +1178,16 @@ def vfit_plasma_current(
         reference_values = np.interp(time, reference_time, reference_values)
 
     comparison = config["processing"]["reference_comparison"]
+    # The comparison filter is designed at the declared rate (#2159).
+    acquisition = check_declared_sample_rate(
+        time, comparison["sample_rate"], cutoff_hz=comparison["cutoff_frequency"]
+    )
+    if acquisition_report is not None:
+        acquisition_report["plasma_current_reference_comparison"] = acquisition
+    if acquisition.fatal:
+        raise AcquisitionInconsistencyError(
+            f"shot {shot}: Ip reference comparison filter cannot be applied: {acquisition.reason}"
+        )
     taps = signal.firwin(
         int(comparison["taps"]), float(comparison["cutoff_frequency"]),
         pass_zero="lowpass", fs=float(comparison["sample_rate"]),
@@ -1554,12 +1570,14 @@ def vfit_equilibrium_magnetics_detailed(
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
     allow_zero_fallback: bool | None = None,
+    acquisition_report: dict | None = None,
 ) -> VestEquilibriumMagneticsResult:
     """Process magnetics channels, keeping native flux-loop terminal voltages.
 
     Shot-era resolution is identical to `vfit_equilibrium_magnetics`: an
     explicit ``processing_config`` wins, otherwise the era policy comes from
-    ``vest.yaml`` (issue #195).
+    ``vest.yaml`` (issue #195). ``acquisition_report`` collects each probe's
+    declared-versus-observed sample-rate check (#2159).
     """
     require_supported_magnetics_geometry(int(shot))
     config = (
@@ -1575,6 +1593,7 @@ def vfit_equilibrium_magnetics_detailed(
         config=config,
         allow_missing=allow_missing_channels,
         allow_zero_fallback=allow_zero_fallback,
+        acquisition_report=acquisition_report,
     )
 
 
@@ -2432,8 +2451,12 @@ def vfit_magnetics_dynamic(
     *,
     raw_source: raw_db.RawSource | None = None,
     target_time: np.ndarray | None = None,
+    acquisition_report: dict | None = None,
 ) -> dict[str, str]:
     """Populate dynamic magnetics nodes from required raw waveforms.
+
+    ``acquisition_report`` collects each probe's declared-versus-observed
+    sample-rate check (#2159); it does not change what is mapped.
 
     Returns ``{signal: reason}`` for the signals left out because they could
     not be reconstructed -- today only ``"diamagnetic_flux"``. The diamagnetic
@@ -2451,6 +2474,7 @@ def vfit_magnetics_dynamic(
         processing_config,
         raw_source,
         allow_missing_channels=True,
+        acquisition_report=acquisition_report,
     )
     if target_time is not None:
         context = _MagneticsContext(

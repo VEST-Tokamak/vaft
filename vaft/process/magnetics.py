@@ -80,6 +80,7 @@ from scipy.signal import coherence, csd, find_peaks, savgol_filter
 
 from vaft.compat import cumtrapz_compat
 from vaft.formula.statistics import rms
+from vaft.process.acquisition import AcquisitionInconsistencyError, check_declared_sample_rate
 from .signal_processing import (
     _filtfilt_min_length,
     apply_fir_filter,
@@ -922,6 +923,7 @@ def vest_equilibrium_magnetics_detailed(
     config: VestMagneticsProcessingConfig | None = None,
     allow_missing: bool = False,
     allow_zero_fallback: bool | None = None,
+    acquisition_report: dict | None = None,
 ) -> VestEquilibriumMagneticsResult:
     """Process every magnetic channel of one VEST shot onto the output window.
 
@@ -942,6 +944,9 @@ def vest_equilibrium_magnetics_detailed(
     allow_zero_fallback : bool, optional
         Whether to fall back to zero baseline with a warning when a channel encounters
         a degenerate baseline window. Defaults to config.allow_zero_fallback [-].
+    acquisition_report : dict, optional
+        Filled with ``{probe name: SampleRateCheck}``: each probe record's timebase
+        against ``fast_sample_rate`` and the low-pass cutoff (#2159) [-].
 
     Returns
     -------
@@ -1047,6 +1052,19 @@ def vest_equilibrium_magnetics_detailed(
                 )
                 data_probes.append(np.array([], dtype=float))
                 continue
+            # The probe low pass is designed at the declared fast_sample_rate;
+            # compare it with this record's own timebase (#2159). Recorded,
+            # and fatal only when the cutoff exceeds the observed Nyquist.
+            acquisition = check_declared_sample_rate(
+                source_time, cfg.fast_sample_rate, cutoff_hz=cfg.lowpass_cutoff
+            )
+            if acquisition_report is not None:
+                acquisition_report[channel_name] = acquisition
+            if acquisition.fatal:
+                raise AcquisitionInconsistencyError(
+                    f"shot {int(shot)} {channel_name}: probe low pass cannot be applied: "
+                    f"{acquisition.reason}"
+                )
             *_, processed_full, _ = b_field_pol_probe_field(
                 source_time,
                 source_data,
@@ -1176,6 +1194,7 @@ def mirnov_preprocess_signal(
     low_pass_cutoff: float | None = 90_000.0,
     amplifier_gain: float = 1.0,
     filter_order: int | None = None,
+    report: dict | None = None,
 ) -> np.ndarray:
     """Condition a Mirnov coil signal for mode analysis.
 
@@ -1193,6 +1212,10 @@ def mirnov_preprocess_signal(
         Gain divided out of the record [-].
     filter_order : int, optional
         Filter order; derived from the sample rate when omitted [-].
+    report : dict, optional
+        Filled with ``high_pass``/``low_pass`` entries whose ``status`` is
+        ``applied``, ``skipped`` (cutoff outside ``(0, Nyquist)``, with the
+        reason), ``not_requested`` or ``not_applied`` (empty record) [-].
 
     Returns
     -------
@@ -1202,7 +1225,9 @@ def mirnov_preprocess_signal(
     Processing steps
     ----------------
     1. Remove the record's mean.
-    2. Band-pass it with a windowed filter.
+    2. Band-pass it with a windowed filter. A band edge outside
+       ``(0, Nyquist)`` is not applied; that is recorded in ``report`` or, with
+       no report, raised as a ``RuntimeWarning`` -- never silent (#2159).
     3. Divide out the amplifier gain.
 
     Convention
@@ -1235,6 +1260,9 @@ def mirnov_preprocess_signal(
     """
     values = np.asarray(data, dtype=float)
     if values.size == 0:
+        if report is not None:
+            for name in ("high_pass", "low_pass"):
+                report[name] = {"status": "not_applied", "reason": "empty record"}
         return values.copy()
     if amplifier_gain == 0:
         raise ValueError("amplifier_gain must be non-zero.")
@@ -1243,14 +1271,28 @@ def mirnov_preprocess_signal(
     order = int(filter_order) if filter_order is not None else _firwin_order(sample_rate)
     nyquist = 0.5 * float(sample_rate)
 
-    for cutoff, pass_zero in ((high_pass_cutoff, False), (low_pass_cutoff, True)):
+    for name, cutoff, pass_zero in (
+        ("high_pass", high_pass_cutoff, False),
+        ("low_pass", low_pass_cutoff, True),
+    ):
         if cutoff is None:
+            if report is not None:
+                report[name] = {"status": "not_requested", "cutoff_hz": None}
             continue
         cutoff = float(cutoff)
         if cutoff <= 0 or cutoff >= nyquist:
+            # Not applied -- the band edge lies outside (0, Nyquist). This used
+            # to be silent; the record now says so (#2159, audit gap G10).
+            reason = f"cutoff {cutoff:g} Hz outside (0, {nyquist:g}) Hz at {float(sample_rate):g} Hz"
+            if report is not None:
+                report[name] = {"status": "skipped", "cutoff_hz": cutoff, "reason": reason}
+            else:
+                warnings.warn(f"Mirnov {name.replace('_', ' ')} not applied: {reason}", RuntimeWarning, stacklevel=2)
             continue
         taps = signal.firwin(order, cutoff, fs=sample_rate, pass_zero=pass_zero, window="hann")
         processed = apply_fir_filter(taps, processed, short_record="causal")
+        if report is not None:
+            report[name] = {"status": "applied", "cutoff_hz": cutoff, "taps": int(order)}
 
     return processed / float(amplifier_gain)
 
