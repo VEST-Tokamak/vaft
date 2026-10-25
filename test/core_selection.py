@@ -378,6 +378,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_efit_not_applicable.py",
     # SXR constant-offset baselines, one owner (#2162 B3.11). Synthetic, ~3 s.
     "test_sxr_baseline_owner.py",
+    # Canonical API ownership matrix is true of the code (#2162 12A, B3.9). AST, ~8 s.
+    "test_api_ownership.py",
     # Box average at every sample, one owner (#2162 B3.10).
     "test_box_average_series.py",
     "test_flux_loop_known_faults.py",
