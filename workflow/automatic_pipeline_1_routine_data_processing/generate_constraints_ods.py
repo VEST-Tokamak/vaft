@@ -93,8 +93,11 @@ def _decisions_for(ods, times, *, require_assessment: bool):
     return decide_efit_channels(ods, times, nbprobe=nbprobe)
 
 
-def _recovery_for(option: int, ods, count: int):
-    """The compatibility recovery backend selected by ``--gaussian-fit-option``."""
+def _recovery_for(option: int, ods, count: int, shot: int | None = None):
+    """The compatibility recovery backend selected by ``--gaussian-fit-option``.
+
+    With *shot*, the probe families are the registry's for that shot (#2164).
+    """
     if int(option) <= 0:
         return None
     from functools import partial
@@ -104,7 +107,7 @@ def _recovery_for(option: int, ods, count: int):
     return partial(
         gaussian_probe_recovery,
         mode=int(option),
-        families=probe_families(ods["magnetics"], count=count),
+        families=probe_families(ods["magnetics"], count=count, shot=shot),
         uncertainty="legacy",
     )
 
@@ -292,14 +295,6 @@ def _drop_vacuum_times(
     return np.asarray(keep, dtype=float), dropped
 
 
-def _box_averaged(clock: np.ndarray, data: np.ndarray, half_width: float) -> np.ndarray:
-    """`box_average` at every sample: the current each constraint instant would see there."""
-    lo = np.searchsorted(clock, clock - half_width, side="left")
-    hi = np.searchsorted(clock, clock + half_width, side="right")
-    total = np.concatenate(([0.0], np.cumsum(data)))
-    return (total[hi] - total[lo]) / np.maximum(hi - lo, 1)
-
-
 def _efit_not_applicable(
     ods, error: NoPlasmaCurrentError, *, average_window: float = 0.0005
 ) -> str | None:
@@ -350,7 +345,10 @@ def _efit_not_applicable(
     if not finite.any():
         return None
     current, clock = current[finite], clock[finite]
-    averaged = _box_averaged(clock, current, float(average_window))
+    from vaft.code.efit.legacy import box_average_series
+
+    # The current each constraint instant would see there (#2162 B3.10).
+    averaged = box_average_series(clock, current, float(average_window))
 
     verdict = None
     try:
@@ -566,7 +564,7 @@ def main() -> int:
     _log_decisions(decisions)
     from vaft.validation.efit_channels import efit_probe_count
 
-    recovery = _recovery_for(args.gaussian_fit_option, ods, efit_probe_count(ods))
+    recovery = _recovery_for(args.gaussian_fit_option, ods, efit_probe_count(ods), shot=args.shot)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     LOGGER.info("Generating constraints for shot %s at %d time slices", args.shot, len(times))

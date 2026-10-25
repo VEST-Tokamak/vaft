@@ -111,6 +111,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_layout_contract.py",
     "test_line_abscissa.py",
     "test_machine_geometry_registry.py",
+    # Magnetics missing-channel reasons (#2164): two synthetic-dump diagnostics
+    # builds, no solver, ~15 s.
+    "test_magnetics_missing_channel_reasons.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
     "test_panels_suptitle_placement.py",
@@ -126,9 +129,13 @@ CORE_MODULES: tuple[str, ...] = (
     "test_raw_sources.py",
     "test_selection_validity.py",
     "test_spectrogram_methods.py",
-    # VEST configuration loading, merge and revision rules (#2159): tmp YAML
-    # and the packaged vest.yaml resolved at every era bound, ~3 s.
+    # VEST configuration loading, merge and revision rules, the effective
+    # configuration with its overrides and fingerprint, and declared-versus-
+    # observed sample-rate checks (#2159): tmp YAML, the packaged vest.yaml
+    # and synthetic records, no raw data, ~10 s.
+    "test_acquisition_checks.py",
     "test_vest_config_loading.py",
+    "test_vest_effective_config.py",
     # Predicted mode-frequency tracks and the Mirnov mode_overlay (#460):
     # analytic fixtures only, a few seconds.
     "test_mode_frequency_overlay.py",
@@ -366,6 +373,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_class_shot_checklist.py",
     "test_diagnostic_faults.py",
     "test_efit_not_applicable.py",
+    # Box average at every sample, one owner (#2162 B3.10).
+    "test_box_average_series.py",
     "test_flux_loop_known_faults.py",
     "test_magnetic_decomposition.py",
     "test_magnetics_geometry_registry.py",
@@ -375,6 +384,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_plasma_current_quality.py",
     "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
+    # PF coil-current filter (#2162 B3.5): the named composition held to a frozen
+    # copy of _legacy_pf_filter, coefficients and phase. Synthetic, ~3 s.
+    "test_pf_current_filter.py",
     # Impurity composition (lane L, #1565): the mixture algebra against the
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
     # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
@@ -445,6 +457,10 @@ CORE_MODULES: tuple[str, ...] = (
     # Ordering spaces and margins (#1627 §3): the space registry, the margin bands and both plots
     # on a synthetic population. Under 5 s.
     "test_plot_ordering_space.py",
+    # Small preprocessing duplicates (#2162 B3.2-B3.7): each canonical owner held
+    # to a frozen copy of the code it replaced, and the two kept with a reason.
+    # Synthetic records, ~5 s.
+    "test_preprocessing_duplicates.py",
     # Adapter-mode ordering contracts (#1823): formalism mapping, registry vs the GPEC resolver and CGYRO,
     # and the advisory check. Under 5 s.
     "test_validation_model_contracts.py",
@@ -458,6 +474,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Ordering summary layer (lane AP, #1627 §2 / #1629): each builder against
     # its textbook definition; missing inputs stay NaN. Pure NumPy, ~3 s.
     "test_ordering_state.py",
+    # Preprocessing consolidation (#2162): each canonical owner held to frozen
+    # copies of the helpers it replaced, on synthetic records. Pure NumPy, ~2 s.
+    "test_baseline_consolidation.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

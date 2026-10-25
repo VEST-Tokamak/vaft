@@ -102,7 +102,7 @@ def condition(ods, shot, times, work, repo, table_dir=None):
     recovery = partial(
         gaussian_probe_recovery,
         mode=1,
-        families=probe_families(ods["magnetics"], count=nbprobe),
+        families=probe_families(ods["magnetics"], count=nbprobe, shot=shot),
         uncertainty="legacy",
     )
     work.mkdir(parents=True, exist_ok=True)

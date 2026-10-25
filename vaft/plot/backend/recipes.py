@@ -2349,7 +2349,7 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     assuming the ~250 kHz Mirnov default, since interferometer MAT files can
     be sampled far faster.
     """
-    from scipy.signal import butter, filtfilt
+    from vaft.process.signal_processing import butterworth_highpass
 
     index = int(channel)
     signal_values = _array(ods, f"interferometer.channel.{index}.n_e_line.data")
@@ -2373,8 +2373,9 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     fluctuation = signal_values
     highpass_cutoff = float(options.get("highpass_cutoff", 200.0))
     if signal_values.size > 32 and 0.0 < highpass_cutoff < nyquist:
-        b, a = butter(4, highpass_cutoff / nyquist, btype="highpass")
-        fluctuation = filtfilt(b, a, signal_values)
+        fluctuation = butterworth_highpass(
+            signal_values, highpass_cutoff, sample_rate, order=4, zero_phase=True
+        )
 
     window_size = options.get("window_size") or options.get("nperseg")
     if window_size is None:
