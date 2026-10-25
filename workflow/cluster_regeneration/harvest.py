@@ -115,10 +115,21 @@ def main():
                 lp = real(lane, e["log"])
                 text = lp.read_text(errors="replace") if lp and lp.exists() else ""
                 errs.append({**e, "shot": shot_of(e["wild"]) or (int(re.search(r"/(\d+)/log/", e["log"] or "").group(1)) if re.search(r"/(\d+)/log/", e["log"] or "") else None), "class": classify(text), "lane": str(lane)})
+        # The lane-level checkpoint files hold only the last chunk's verdict; run_lane.sh keeps
+        # every chunk's copy beside its shot list.
         pre = F / "pipeline/preflight/metadata"
-        elig = set(json.loads((pre / "eligible_shots.json").read_text())["eligible_shots"]) if (pre / "eligible_shots.json").exists() else set()
-        excl = json.loads((pre / "excluded_shots.json").read_text()) if (pre / "excluded_shots.json").exists() else {}
-        impa = json.loads((pre / "impa_shots.json").read_text()).get("impa_shots", []) if (pre / "impa_shots.json").exists() else []
+        elig, impa, excl = set(), set(), {"excluded_shots": []}
+        verdicts = [{n: pre / f"{n}.json" for n in ("eligible_shots", "excluded_shots", "impa_shots")}]
+        for e in sorted((lane / "chunks").glob("shots.???.eligible_shots.json")):
+            verdicts.append({n: e.with_name(e.name.replace("eligible_shots", n))
+                             for n in ("eligible_shots", "excluded_shots", "impa_shots")})
+        for v in verdicts:
+            if v["eligible_shots"].exists():
+                elig |= set(json.loads(v["eligible_shots"].read_text())["eligible_shots"])
+            if v["excluded_shots"].exists():
+                excl["excluded_shots"] += json.loads(v["excluded_shots"].read_text()).get("excluded_shots", [])
+            if v["impa_shots"].exists():
+                impa |= set(json.loads(v["impa_shots"].read_text()).get("impa_shots", []))
         for f in sorted((lane / "chunks").glob("shots.???")):
             for s in map(int, f.read_text().split()):
                 d = {"eligible": s in elig, "impa_selected": s in impa}
@@ -142,10 +153,14 @@ def main():
                 d["gpec_cells"] = {f"{p.parts[-5]}/{p.parts[-3]}": head(p, 160)
                                    for p in F.glob(f"gpec/magnetic/chease/*/{s}/n=*/metadata/status.txt")}
                 kd, gd = F / f"efit/magnetic/{s}/kfile", F / f"efit/magnetic/{s}/gfile"
-                d["kfiles"] = len([x for x in kd.glob("k*")]) if kd.exists() else 0
-                d["gfiles"] = len([x for x in gd.glob("g*")]) if gd.exists() else 0
-                b = {"raw": du(F / f"raw/{s}"), "omas": sum(du(x) for x in F.glob(f"omas/*/{s}")) + sum(du(x) for x in F.glob(f"omas/efit/*/{s}")),
-                     "efit": du(F / f"efit/magnetic/{s}")}
+                d["kfiles"] = len(list(kd.glob("k[0-9]*"))) if kd.exists() else 0
+                d["gfiles"] = len(list(gd.glob("g[0-9]*"))) if gd.exists() else 0
+                b = {"raw": du(F / f"raw/{s}"),
+                     "omas": sum(du(x) for pattern in (f"omas/*/{s}", f"omas/*/magnetic/{s}", f"omas/*/magnetic/chease/*/{s}")
+                                 for x in F.glob(pattern)),
+                     "efit": du(F / f"efit/magnetic/{s}"),
+                     "chease": du(F / f"chease/magnetic/{s}"),
+                     "gpec": sum(du(x) for x in F.glob(f"gpec/magnetic/chease/*/{s}"))}
                 d["bytes"] = b
                 d["wall_s"] = shot_wall.get(s, {})
                 vol.update(b)

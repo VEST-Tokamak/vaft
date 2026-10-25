@@ -21,8 +21,8 @@ FileDB and never contacts HSDS; moving and replicating are separate, separately 
   joins the lanes by hard links (per-shot directories are disjoint) and rebuilds the run-wide
   preflight with the same scripts the checkpoints run.
 - **Memory.** The Snakefile declares none. `run_lane.sh` caps the run at the allocation
-  (`--resources mem_mb`) and books GPEC cells (`GPEC_MEM_MB`, default 16000: DCON/RDCON `match`
-  peaks at 12-25 GB) and CHEASE (4000) with `--set-resources`; RSS of the solver binaries is
+  (`--resources mem_mb`) and books GPEC cells (`GPEC_MEM_MB`, default 24000: DCON/RDCON `match`
+  peaks at 12-25 GB; at 16000 a 64 GB pilot allocation lost its Snakemake process) and CHEASE (4000) with `--set-resources`; RSS of the solver binaries is
   sampled into `<lane>/logs/<chunk>.rss`.
 - **Floating-point parity.** `env.example.sh` sets `OPENBLAS_CORETYPE=Haswell` and disables numpy's
   AVX-512 loops (`REGEN_CPU_PARITY=0` to opt out), which made magnetics products bit-identical to

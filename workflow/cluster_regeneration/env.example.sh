@@ -6,7 +6,10 @@ REGEN_SRC=$(readlink -f "$REGEN_ROOT/src")
 REGEN_ENV=$(readlink -f "$REGEN_ROOT/env")
 export REGEN_SRC REGEN_ENV
 export REGEN_SHA=$(cat "$REGEN_ROOT/PIN_SHA")
-unset PYTHONPATH PYTHONHOME PYTHONSTARTUP MPLBACKEND CONDA_PREFIX CONDA_DEFAULT_ENV CONDA_SHLVL OMAS_DEBUG_TOPIC
+unset PYTHONPATH PYTHONHOME PYTHONSTARTUP MPLBACKEND CONDA_PREFIX CONDA_DEFAULT_ENV CONDA_SHLVL OMAS_DEBUG_TOPIC LD_LIBRARY_PATH
+# sbatch exports the login environment: drop every VAFT_* / XDG_* setting from it (cache, lock and
+# source overrides) before setting the ones this run uses.
+for v in $(compgen -e | grep -E '^(VAFT_|XDG_)'); do unset "$v"; done
 export VIRTUAL_ENV=$REGEN_ENV PATH=$REGEN_ENV/bin:/usr/bin:/bin
 export PYTHONNOUSERSITE=1 MPLBACKEND=Agg
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1

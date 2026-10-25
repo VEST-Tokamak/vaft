@@ -23,7 +23,10 @@ for lane in "$@"; do
     key=${key#./}
     if [ -e "$OUT/$key" ]; then
       [ "${OWNER[$key]:-}" = "$L" ] && continue
-      echo "shot dir $key exists in two lanes (${OWNER[$key]:-earlier merge} and $L)" >&2; exit 2
+      # A rerun of the merge finds its own hard links: same inode for the shot's files.
+      first=$(cd "$L/$key" && find . -type f | head -n 1)
+      if [ -n "$first" ] && [ "$L/$key/$first" -ef "$OUT/$key/$first" ]; then OWNER[$key]=$L; continue; fi
+      echo "shot dir $key exists in two lanes (${OWNER[$key]:-an earlier merge} and $L)" >&2; exit 2
     fi
     mkdir -p "$OUT/$(dirname "$key")"
     cp -al "$L/$key" "$OUT/$key"; OWNER[$key]=$L
@@ -51,7 +54,7 @@ PY
 read -r REQ MINS <<< "$FIELDS"
 ls "$OUT/raw" | sort -n | sed 's#.*#/srv/vest.filedb/raw/&/vest_&_daq_raw.json.gz#' > "$OUT.rawlist"
 META=/srv/vest.filedb/pipeline/preflight/metadata
-ulimit -s unlimited 2>/dev/null || ulimit -s 1048576
+ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
 "$REGEN_ROOT/srvns" "$OUT" bash -c "mkdir -p $META && \
   python $WF/validate_raw_dumps.py --required-fields $REQ --min-samples $MINS \
     --eligible-output $META/eligible_shots.json --excluded-output $META/excluded_shots.json \$(cat $OUT.rawlist) && \

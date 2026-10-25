@@ -21,9 +21,13 @@ fi
   || { echo "run was started at $(cat "$RUN/PIN_SHA"), $ROOT is pinned at $(cat "$ROOT/PIN_SHA")" >&2; exit 2; }
 for lane in "$RUN"/lane*/; do
   lane=${lane%/}; name=r2147-$(basename "$RUN")-$(basename "$lane")
-  if [ -f "$lane/job" ] && [ -n "$(squeue -h -j "$(cat "$lane/job")" 2>/dev/null)" ]; then
-    echo "$name: job $(cat "$lane/job") still queued/running"; continue
+  if [ -f "$lane/job" ]; then
+    # A failing squeue must not read as "not running": resubmitting would start a second
+    # run_lane on the lane (run_lane.sh's flock would then exit it, but do not rely on that).
+    q=$(squeue -h -j "$(cat "$lane/job")" -o %T 2>&1) || { echo "$name: squeue failed ($q); not resubmitting" >&2; continue; }
+    [ -n "$q" ] && { echo "$name: job $(cat "$lane/job") is $q"; continue; }
   fi
+  [ -f "$lane/STOP" ] && { echo "$name: STOP file present; remove it to resume"; continue; }
   job=$(sbatch --parsable -A "${SLURM_ACCOUNT_NAME:?set SLURM_ACCOUNT_NAME, e.g. tdst}" -p "$PART" -c "$CORES" --mem="$MEM" -t "$TIME" -J "$name" \
         -o "$lane/slurm-%j.out" --wrap "bash $ROOT/run_lane.sh $lane $lane/shots.txt $CORES")
   echo "$job" > "$lane/job"; echo "$(date '+%F %T') $name $job" >> "$RUN/jobs.txt"
