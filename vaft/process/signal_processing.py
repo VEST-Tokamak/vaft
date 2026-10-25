@@ -10,7 +10,8 @@ what numbers, live in :mod:`vaft.machine_mapping` and ``vest.yaml``.
 Four kinds of operation:
 
 * **Filtering** -- :func:`smooth`, :func:`butterworth_lowpass`,
-  :func:`butterworth_bandpass`, :func:`detrend_moving_average`,
+  :func:`butterworth_highpass`, :func:`butterworth_bandpass`,
+  :func:`detrend_moving_average`,
   :func:`anti_alias_filter`, :func:`vest_coil_current_noise_reduction`.
 * **Baseline** -- :func:`define_baseline` selects the quiet samples,
   :func:`subtract_baseline` fits one of :func:`linear_baseline`,
@@ -77,6 +78,7 @@ __all__ = [
     "anti_alias_filter",
     "apply_fir_filter",
     "butterworth_bandpass",
+    "butterworth_highpass",
     "butterworth_lowpass",
     "describe_time_grid",
     "detect_active_window",
@@ -511,6 +513,69 @@ def butterworth_lowpass(data, cutoff: float, fs: float, order: int = 2,
             f"cutoff must lie in (0, {nyquist:g}) Hz for fs={fs:g}; got {cutoff!r}"
         )
     b, a = scipy_signal.butter(int(order), float(cutoff) / nyquist, btype="low")
+    if zero_phase:
+        return scipy_signal.filtfilt(b, a, values, axis=-1)
+    return scipy_signal.lfilter(b, a, values, axis=-1)
+
+
+def butterworth_highpass(data, cutoff: float, fs: float, order: int = 2,
+                         *, zero_phase: bool = True) -> np.ndarray:
+    """Butterworth high-pass filter along the last axis.
+
+    Parameters
+    ----------
+    data : array_like
+        The waveform or a stack of them; the time axis is the last [any].
+    cutoff : float
+        Cutoff frequency, strictly between 0 and the Nyquist frequency [Hz].
+    fs : float
+        Sample rate [Hz].
+    order : int, optional
+        Filter order [-].
+    zero_phase : bool, optional
+        ``True`` for forward-backward ``filtfilt``; ``False`` for a causal
+        ``lfilter`` [-].
+
+    Returns
+    -------
+    np.ndarray
+        The filtered waveform, same shape as ``data`` [any].
+
+    Raises
+    ------
+    ValueError
+        ``cutoff`` is not inside ``(0, fs / 2)``.
+
+    Defaults
+    --------
+    ``order = 2`` is a validated-workflow default shared with
+    :func:`butterworth_lowpass` and :func:`butterworth_bandpass`.
+    ``zero_phase = True`` follows :func:`butterworth_bandpass`: a high-passed
+    signal is a fluctuation fed to spectral analysis, where a frequency-
+    dependent IIR phase shift would distort it.
+
+    Convention
+    ----------
+    Zero-phase by default.  ``filtfilt`` applies the filter twice, so the
+    magnitude response is the square of the single-pass Butterworth response
+    (-6 dB rather than -3 dB at ``cutoff``) and the effective order doubles.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    As :func:`butterworth_lowpass`: a record too short for ``filtfilt`` raises
+    from SciPy.
+    """
+    values = np.asarray(data, dtype=float)
+    nyquist = 0.5 * float(fs)
+    if not 0.0 < float(cutoff) < nyquist:
+        raise ValueError(
+            f"cutoff must lie in (0, {nyquist:g}) Hz for fs={fs:g}; got {cutoff!r}"
+        )
+    b, a = scipy_signal.butter(int(order), float(cutoff) / nyquist, btype="highpass")
     if zero_phase:
         return scipy_signal.filtfilt(b, a, values, axis=-1)
     return scipy_signal.lfilter(b, a, values, axis=-1)

@@ -13,8 +13,9 @@ from functools import lru_cache
 from typing import Any
 
 import numpy as np
-from scipy import integrate, signal
+from scipy import signal
 
+from vaft.compat import cumtrapz_compat
 from vaft.database import raw as raw_db
 from vaft.process.acquisition import AcquisitionInconsistencyError, check_declared_sample_rate
 from vaft.process.magnetics import (
@@ -885,9 +886,17 @@ def _prepare_magnetics_context(
 def _interpolate_signal(target_time: np.ndarray, source_time: np.ndarray, values: np.ndarray) -> np.ndarray:
     if source_time.size <= 1 or values.size <= 1:
         raise ValueError("Cannot interpolate a signal with fewer than two samples")
-    # anti-alias: callers pass signals already low-passed at 2.5 kHz on the
-    # 250 kHz source grid by b_field_pol_probe_field, well below the
-    # 12.5 kHz Nyquist of the 25 kHz target.
+    # anti-alias: NOT guaranteed for every caller. The probes and flux loops
+    # arrive already on magnetics_time: vfit_equilibrium_magnetics_detailed
+    # resampled them there, and whatever filtering they had happened upstream
+    # (B-pol probes low-passed at 2.5 kHz zero-phase; flux loops integrated but
+    # never filtered -- see the comment at that np.interp in
+    # vaft/process/magnetics.py). Ip and the diamagnetic flux arrive on their
+    # native grid and reach this bare np.interp unfiltered (Ip on the default
+    # ref = -1 path; a reference shot adds an FIR low pass): integration
+    # attenuates high frequencies as 1/f but does not band-limit, so a source
+    # faster than the target can fold. Whether that matters is unverified
+    # (#2147 audit finding 4, Phase D #2166); no filter is added without it.
     return np.interp(target_time, source_time, values)
 
 
@@ -1374,7 +1383,7 @@ def vest_diamagnetic_rogowski_current(
         return_mask=True,
     )
     rogo_gain = -1 / float(processing["rogowski_shunt"])
-    integrated = integrate.cumulative_trapezoid(repaired, time, initial=0.0) * rogo_gain
+    integrated = cumtrapz_compat(repaired, x=time, initial=0.0) * rogo_gain
     return np.asarray(time, dtype=float), np.asarray(integrated, dtype=float)
 
 
@@ -1447,7 +1456,7 @@ def vest_diamagnetic_flux_detailed(
     cap_tf = float(tf_circuit["capacitance"])
     rogo_gain = -1 / float(processing["rogowski_shunt"])
 
-    integrated = integrate.cumulative_trapezoid(raw_values, temp_time, initial=0.0) * rogo_gain
+    integrated = cumtrapz_compat(raw_values, x=temp_time, initial=0.0) * rogo_gain
     start_index = int(np.argmin(np.abs(temp_time - plasma_start)))
     end_index = int(np.argmin(np.abs(temp_time - plasma_end)))
     # A window past the record is anchored at the record's end: said in the
@@ -1478,8 +1487,8 @@ def vest_diamagnetic_flux_detailed(
     )
     delta_i_tf = integrated - ref_signal
 
-    cum1 = integrate.cumulative_trapezoid(delta_i_tf, temp_time, initial=0.0)
-    cum2 = integrate.cumulative_trapezoid(cum1, temp_time, initial=0.0)
+    cum1 = cumtrapz_compat(delta_i_tf, x=temp_time, initial=0.0)
+    cum2 = cumtrapz_compat(cum1, x=temp_time, initial=0.0)
     dia_flux = ind_tf / turn_tf * delta_i_tf + res_tf / turn_tf * cum1 + 1 / cap_tf / turn_tf * cum2
 
     # The straight line through the flux at the window's two ends, written out:

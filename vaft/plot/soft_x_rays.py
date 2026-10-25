@@ -131,6 +131,12 @@ def _baseline_correct(
     signal: np.ndarray,
     baseline_range: tuple[float, float] | None,
 ) -> np.ndarray:
+    # Not vaft.process.soft_x_rays.sxr_baseline_correction (#2162): this is a
+    # display offset over a caller-chosen closed range [start, stop], NaN-skipping,
+    # and a no-op when the range holds no sample. The process function removes
+    # the mean of the quiet tail t >= baseline_start, with a last-1000-sample
+    # fallback, as the validated SXR viewer does. Different window semantics,
+    # so they stay separate.
     corrected = np.asarray(signal, dtype=float).copy()
     if baseline_range is None:
         return corrected
