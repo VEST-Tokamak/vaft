@@ -36,12 +36,11 @@ calibration, mappings and conventions, the processing and model configuration, a
 
 | Pipeline | Orchestration | Purpose |
 |---|---|---|
-| `automatic_pipeline_1_routine_data_processing` | Snakemake DAG (10 rules) + `Makefile` | Per shot: raw DAQ dump → diagnostics/eddy/constraints ODS → EFIT → CHEASE → GPEC suite |
+| `automatic_pipeline_1_routine_data_processing` | Snakemake DAG + `Makefile` | Per shot: raw DAQ dump → diagnostics/eddy/constraints ODS → EFIT → CHEASE → GPEC suite |
 | `automatic_pipeline_2_corrective_data_update` | Snakemake DAG (8 stages + one replication rule each) | Builds Thomson, CES, `core_profiles` and the two kinetic EFIT lineages from externally uploaded profile diagnostics |
 | `automatic_pipeline_3_data_summary` | partial Snakefile (2 rules) + manual scripts | Mines the file database into cross-shot `.xlsx` history sheets and plots |
-| `running_linear_stability` | Snakemake DAG (1 rule, fanned out) | Runs DCON / RDCON / STRIDE per (shot, time, n-mode) on refined equilibria |
 
-All four share one on-disk root, `base_dir` (`/srv/vest.filedb/public` in every shipped config), and
+All three share one on-disk root, `base_dir` (`/srv/vest.filedb/public` in every shipped config), and
 pipeline 1 writes under it in one of two layouts selected by the `layout:` config key.
 
 `layout: shot_first` (the default) is the legacy server hierarchy, kept so this pipeline stays
@@ -56,7 +55,8 @@ canonical layout's container (`OMAS_PRODUCT_SUFFIX`, `.json.gz` since #813).
 │                         _efit.json, _chease.json
 ├── efit/                 kfile/ gfile/ afile/ mfile/  + efit_status.txt
 ├── chease/               refined g-files (flat), work/, plots/{time}.png
-├── linear_stability/     {time}/{dcon,rdcon,stride}/nn={n}/
+├── linear_stability/     {time}/{dcon,rdcon,stride,gpec}/nn={n}/ (solver runs),
+│                         {module}/n={n}/status.txt + run.json, gpec_ideal.json
 └── logs/
 ```
 
@@ -123,7 +123,9 @@ flowchart TD
     F --> G["generate_efit_ods<br/>SHOT_efit.json"]
     F --> H["run_chease<br/>refined_gfiles_generated.txt + chease_status.txt"]
     H --> I["generate_chease_ods<br/>SHOT_chease.json"]
-    H --> J["run_gpec_suite<br/>gpec_suite_runs.json + gpec_suite_status.txt"]
+    H --> J["run_gpec_module<br/>per (product, n): manifest + status"]
+    J --> K["build_mhd_linear<br/>mhd_linear product"]
+    J --> L["build_gpec_ideal<br/>gpec_ideal product"]
 ```
 
 `generate_constraints_ods` takes **two** products, not one. Each stage stores only the IDS it owns,
@@ -135,8 +137,8 @@ onto `pf_passive.time`, so a mismatched pairing produces wall currents for the w
 rather than an error.
 
 Stages do **not** hand individual g-/k-files to each other as Snakemake outputs. Each stage writes a
-**manifest** — a text file with one absolute path per line — and the next stage reads it. `run_gpec_suite`
-instead emits a JSON payload. Alongside each manifest is a one-line status file, e.g.
+**manifest** — a text file with one absolute path per line — and the next stage reads it. `run_gpec_module`
+instead emits a JSON payload per cell. Alongside each manifest is a one-line status file, e.g.
 
 ```text
 completed: returncode=0; gfiles=12
@@ -157,9 +159,13 @@ partial: refined_gfiles=8; failed=2
 | `generate_efit_ods` | `generate_efit_ods.py` | `vaft.code.efit.collect_efit_outputs` |
 | `run_chease` | `run_chease_refinement.py` | `vaft.code.chease.find_chease_executable`, `prepare_chease_inputs`, `run_chease` |
 | `generate_chease_ods` | `generate_chease_ods.py` | `vaft.data.eqdsk.read_geqdsk` → `.to_omas(ods=ods, time_index=...)` |
-| `run_gpec_suite` | `run_gpec_suite.py` | `vaft.code.gpec.run_gpec_suite_case` with `GPECCaseInputs` / `GPECSuiteConfig` |
+| `run_gpec_module` | `run_gpec_suite.py` | `vaft.code.gpec.run_gpec_suite_case` with `GPECCaseInputs` / `GPECSuiteConfig`, one (product, n) cell |
+| `build_mhd_linear` | `generate_mhd_linear_ods.py` | `vaft.omas.vest_upstream.build_mhd_linear_ods` |
+| `build_gpec_ideal` | `generate_gpec_ideal_ods.py` | `vaft.omas.vest_upstream.build_gpec_ideal_ods` |
 
-Note the one rule whose name differs from its script: rule `run_chease` runs `run_chease_refinement.py`.
+Four rules are named differently from their scripts: `run_chease` runs `run_chease_refinement.py`,
+`run_gpec_module` runs `run_gpec_suite.py`, `build_mhd_linear` runs `generate_mhd_linear_ods.py`, and
+`build_gpec_ideal` runs `generate_gpec_ideal_ods.py`.
 
 `generate_impa_ods` is the one optional branch. IMPA is an insertable,
 campaign-dependent diagnostic, so it is off by default (`impa.enable: false`),
@@ -263,7 +269,7 @@ and both bounds become mandatory.
 
 ### Failure semantics — a green run does not mean everything ran
 
-The runners deliberately disagree about what counts as failure, so **always read the `*_status.txt` files
+The runners deliberately disagree about what counts as failure, so **always read the status files
 rather than the exit code**:
 
 * `run_efit_reconstruction` and `generate_efit_ods` **exit 0 even when EFIT is absent or produced nothing**.
@@ -273,7 +279,8 @@ rather than the exit code**:
   `Fortran runtime error` and `Error termination` — EFIT is known to exit 0 on namelist errors, so the
   return code alone is not trustworthy.
 * `run_chease_refinement` exits **1** if CHEASE ran but refined zero g-files (though 0 if it was skipped
-  outright), and `run_gpec_suite` exits **1** if any case failed.
+  outright), and `run_gpec_suite.py` always exits **0**: a failed slice makes the cell
+  status `partial: ...` (even if every slice failed), and `build_mhd_linear` keeps the slices produced.
 
 `run_chease_refinement.py` also writes `chease/chease_runs.json` and the per-time comparison plots in
 `chease/plots/`, neither of which is declared as a Snakemake output — `snakemake --delete-all-output` will
@@ -521,47 +528,34 @@ generators rebuild from scratch and overwrite.
 
 ---
 
-## `running_linear_stability`
+## Linear stability and GPEC runs
 
-Pipeline 1's `run_gpec_suite` rule runs the GPEC suite through the `vaft.code.gpec` API. This separate
-pipeline is the older, coarser alternative: a fan-out that launches DCON, RDCON and STRIDE directly, one
-Snakemake job per (shot, time, code, n-mode). For what these codes compute and how to read their output, see
-[Stability]({{ site.baseurl }}/guide/Stability/).
+The linear-stability codes run inside pipeline 1, after CHEASE, through the `vaft.code.gpec` API.
+`gpec.modules` in `config.yaml` selects the modules (`dcon`, `rdcon`, `stride`, `gpec`), and `gpec.modes`
+the toroidal mode numbers (default `[1, 2]`). Three rules do the work:
 
-```bash
-cd workflow/running_linear_stability
-./snakemake_worker.sh          # snakemake --cores 28
-```
+| Rule | Granularity | Output |
+|---|---|---|
+| `run_gpec_module` | one job per (shot, stability product, n) | `run_gpec_suite.py` → `vaft.code.gpec.run_gpec_suite_case`; a per-cell manifest and status. Ideal GPEC waits for the DCON cell of the same n |
+| `build_mhd_linear` | one job per (shot, product) | the `mhd_linear` stage product (`generate_mhd_linear_ods.py` → `vaft.omas.vest_upstream.build_mhd_linear_ods`) |
+| `build_gpec_ideal` | one job per shot | the `gpec_ideal` stage product (`generate_gpec_ideal_ods.py` → `build_gpec_ideal_ods`) |
 
-Targets are discovered by `find_plotted_gfiles.py`, which the `Snakefile` shells out to at parse time. It
-walks `{BASE_DIR}/{5-digit shot}/chease/plots/*.png`, takes each PNG stem as a 5-digit time, and emits the
-matching `chease/g{shot:06d}.{time}` — **the same PNG-as-index coupling as `gen_chease_history.py`**, so
-CHEASE comparison plots must exist or this pipeline finds nothing to do. You can run the discovery step alone:
+The job is per (shot, product, n), so a failed RDCON n=2 can be retried on its own. The FileDB layout files
+each cell under `gpec/{family}/{refinement}/{product}/{shot}/n={n}/`. A failed numerical time slice is data,
+not a crash: the status reads `partial: ...` and `build_mhd_linear` keeps the slices that were produced.
 
-```bash
-python find_plotted_gfiles.py --base-path /srv/vest.filedb/public
-```
+The separate `workflow/running_linear_stability/` fan-out is **retired**. It launched DCON, RDCON and STRIDE
+directly, one job per (shot, time, code, n), through environment modules and an absolute path to a runner
+outside the repository. Pipeline 1's `run_gpec_module` / `build_mhd_linear` replace it (migration matrix,
+#2164). Its on-disk layout `{shot}/linear_stability/{time}/{code}/nn={n}/` is also what pipeline 1 still
+writes under `layout: shot_first`, because `run_gpec_suite_case` places each run at
+`<workdir>/<time>/<module>/nn=<n>/`. Pipeline 3's `gen_stability_history.py` reads that solver tree, so it
+covers shot_first runs, old and new. It reads neither the `layout: filedb` `gpec/...` cells nor the
+`mhd_linear`/`gpec_ideal` stage products. Its glob `*/linear_stability/*` also matches pipeline 1's
+`{module}/` cell directories and `gpec_ideal.json`, which give empty rows.
 
-The single rule `run_stability_code_for_mode` fans out over $n = 1 \ldots 6$ for DCON and $n = 1, 2$ for RDCON
-and STRIDE, writing a `completed.txt` marker to
-`{BASE_DIR}/{shot}/linear_stability/{time}/{code}/nn={n}/` and a log to
-`{BASE_DIR}/{shot}/logs/linear_stability/{time}/{code}_nn{n}.log`. That directory layout is exactly what
-`gen_stability_history.py` in pipeline 3 later reads.
-
-Two caveats. The rule loads GPEC through environment modules (`module use /home/user1/GPEC/module; module load
-GPEC-dev`), and the runner it invokes is an **absolute path to a script outside this repository**
-(`RUN_PARALLEL_DCON_SCRIPT` at the top of the `Snakefile`). Both must be repointed for the pipeline to run
-anywhere else. `config.yaml` holds a single key, `BASE_DIR`.
-
-To wipe stability outputs and start over — inspect first, it is a recursive delete:
-
-```bash
-python cleanup_stability_outputs.py --base-path /srv/vest.filedb/public --dry-run
-python cleanup_stability_outputs.py --base-path /srv/vest.filedb/public
-```
-
-It removes `{shot}/linear_stability/` and `{shot}/logs/linear_stability/` for **every** shot under the base
-path.
+For what these codes compute and how to read their output, see
+[Stability]({{ '/workflows/mhd-stability/' | relative_url }}).
 
 ---
 
