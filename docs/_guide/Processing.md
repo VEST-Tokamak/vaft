@@ -564,9 +564,9 @@ channel table and raw-database loader are already wired up in `vaft.machine_mapp
 ```python
 import vaft
 from omas import ODS
-from vaft.machine_mapping.magnetics import magnetics
+from vaft.machine_mapping.magnetics import magnetics, vfit_equilibrium_magnetics
 
-time, flux_loops, probes = vaft.machine_mapping.vfit_md(39915)   # -> (time, list, list)
+time, flux_loops, probes = vfit_equilibrium_magnetics(39915)   # -> (time, list, list)
 
 ods = ODS()
 magnetics(ods, shot=44740, tstart=0.26, tend=0.34, dt=4e-5)

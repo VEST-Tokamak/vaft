@@ -68,8 +68,10 @@ vfit_tf_static(ods)                                  # tf.r0, ids_properties —
 vfit_tf_dynamic(ods, shot, tstart, tend, dt)         # tf.coil.0.current, tf.b_field_tor_vacuum_r
 ```
 
-All names are also re-exported lazily from the package root, so `vaft.machine_mapping.vfit_md(...)` works
-without importing the submodule. The explicit `from vaft.machine_mapping.<module> import <name>` form used
+Most names are also re-exported lazily from the package root, so `vaft.machine_mapping.vfit_plasma_current(...)` works
+without importing the submodule. The pre-rename aliases `vfit_md` and `vest_md_channel_definitions` (now
+`vfit_equilibrium_magnetics` and `vest_equilibrium_magnetics_channel_definitions` in `vaft.machine_mapping.magnetics`)
+warn on every path and are removed in vaft 0.11.0. The explicit `from vaft.machine_mapping.<module> import <name>` form used
 above is what the production pipeline uses, and it is unambiguous — prefer it in scripts.
 
 ---
@@ -179,9 +181,11 @@ Two lower-level helpers are worth knowing:
 
 <!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
-from vaft.machine_mapping.magnetics import detect_plasma_window, vfit_md, vfit_plasma_current, vest_diamagnetic_flux
+from vaft.machine_mapping.magnetics import (
+    detect_plasma_window, vest_diamagnetic_flux, vfit_equilibrium_magnetics, vfit_plasma_current,
+)
 
-time, flux_loops, probes = vfit_md(39915)          # -> (ndarray, list[ndarray], list[ndarray])
+time, flux_loops, probes = vfit_equilibrium_magnetics(39915)   # -> (ndarray, list[ndarray], list[ndarray])
 time, ip = vfit_plasma_current(39915)              # -> (ndarray, ndarray), amps
 window = detect_plasma_window(39915, time, ip)     # the plasma window, with its source
 time, dia = vest_diamagnetic_flux(39915, window.start, window.end)

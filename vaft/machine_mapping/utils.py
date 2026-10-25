@@ -1333,8 +1333,8 @@ def process_signal(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Deprecated wrapper for :func:`vaft.process.process_signal`."""
     warnings.warn(
-        "vaft.machine_mapping.utils.process_signal() is deprecated; use "
-        "vaft.process.process_signal().",
+        "vaft.machine_mapping.utils.process_signal() is deprecated and will be removed in "
+        "vaft 0.11.0; use vaft.process.process_signal().",
         DeprecationWarning,
         stacklevel=2,
     )

@@ -2812,9 +2812,27 @@ __all__ = [
 
 VEST_DiamagneticFlux = vest_diamagnetic_flux
 vfit_PlasmaCurrent = vfit_plasma_current
-# Pre-rename names: kept as plain aliases so a direct
-# `from vaft.machine_mapping.magnetics import ...` still works. The
-# deprecation warning for the package-level path lives in
-# vaft/machine_mapping/__init__.py's _LEGACY_REPLACEMENTS.
-vfit_md = vfit_equilibrium_magnetics
-vest_md_channel_definitions = vest_equilibrium_magnetics_channel_definitions
+#: Pre-rename names (retirement register rows L5, L6, #2168): deprecated
+#: aliases of the canonical functions, resolved by the module ``__getattr__``
+#: so that reading one -- ``from vaft.machine_mapping.magnetics import
+#: vfit_md`` included -- emits a DeprecationWarning. They are the same objects
+#: as the canonical names, with no behaviour of their own. The package-level
+#: path (``vaft.machine_mapping.vfit_md``) warns through
+#: vaft/machine_mapping/__init__.py's _LEGACY_REPLACEMENTS.
+DEPRECATED_ALIASES = {
+    "vfit_md": ("vfit_equilibrium_magnetics", "0.11.0"),
+    "vest_md_channel_definitions": ("vest_equilibrium_magnetics_channel_definitions", "0.11.0"),
+}
+
+
+def __getattr__(name: str):
+    if name in DEPRECATED_ALIASES:
+        replacement, removal = DEPRECATED_ALIASES[name]
+        warnings.warn(
+            f"vaft.machine_mapping.magnetics.{name} is deprecated and will be removed in vaft "
+            f"{removal}; use vaft.machine_mapping.magnetics.{replacement}",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return globals()[replacement]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

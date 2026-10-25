@@ -70,6 +70,10 @@ from scipy.interpolate import CubicSpline, UnivariateSpline
 from scipy.optimize import curve_fit
 
 
+#: The release that removes the deprecated aliases at the end of this module
+#: and ``vfit_signal_start_end`` (retirement register row P9, #2168).
+_ALIAS_REMOVAL = "0.11.0"
+
 __all__ = [
     "DegenerateBaselineWindowError",
     "ResamplingError",
@@ -102,7 +106,8 @@ __all__ = [
     "smooth",
     "subtract_baseline",
     "vest_coil_current_noise_reduction",
-    # Direct compatibility imports remain available for one deprecation cycle.
+    # Deprecated compatibility aliases: each warns and delegates; removed in
+    # the release named by _ALIAS_REMOVAL (retirement register row P9, #2168).
     "VEST_CoilCurrentNoiseReduction",
     "signal_onoffset",
     "vfit_signal_start_end",
@@ -1179,7 +1184,8 @@ def detect_active_window(time, signal, threshold: float = 0.01) -> tuple[float, 
 def vfit_signal_start_end(time, data, threshold: float = 0.01) -> tuple[float, float]:
     """Deprecated compatibility wrapper for :func:`detect_active_window`."""
     warnings.warn(
-        "vfit_signal_start_end() is deprecated; use detect_active_window().",
+        f"vfit_signal_start_end() is deprecated and will be removed in vaft {_ALIAS_REMOVAL}; "
+        "use detect_active_window().",
         DeprecationWarning,
         stacklevel=2,
     )
@@ -2370,8 +2376,8 @@ def signal_on_offset(time, data, smooth_window=5, threshold=0.01, verbose=False)
 def VEST_CoilCurrentNoiseReduction(data):  # noqa: N802
     """Deprecated compatibility wrapper for the snake-case function."""
     warnings.warn(
-        "VEST_CoilCurrentNoiseReduction() is deprecated; use "
-        "vest_coil_current_noise_reduction().",
+        "VEST_CoilCurrentNoiseReduction() is deprecated and will be removed in vaft "
+        f"{_ALIAS_REMOVAL}; use vest_coil_current_noise_reduction().",
         DeprecationWarning,
         stacklevel=2,
     )
@@ -2381,7 +2387,8 @@ def VEST_CoilCurrentNoiseReduction(data):  # noqa: N802
 def vfit_signal_startend(time, data, threshold: float = 0.01):
     """Deprecated compatibility wrapper for :func:`detect_active_window`."""
     warnings.warn(
-        "vfit_signal_startend() is deprecated; use detect_active_window().",
+        f"vfit_signal_startend() is deprecated and will be removed in vaft {_ALIAS_REMOVAL}; "
+        "use detect_active_window().",
         DeprecationWarning,
         stacklevel=2,
     )
@@ -2391,7 +2398,8 @@ def vfit_signal_startend(time, data, threshold: float = 0.01):
 def signal_onoffset(time, data, smooth_window=5, threshold=0.01, verbose=False):
     """Deprecated compatibility wrapper for :func:`signal_on_offset`."""
     warnings.warn(
-        "signal_onoffset() is deprecated; use signal_on_offset().",
+        f"signal_onoffset() is deprecated and will be removed in vaft {_ALIAS_REMOVAL}; "
+        "use signal_on_offset().",
         DeprecationWarning,
         stacklevel=2,
     )
