@@ -389,24 +389,22 @@ def test_a_chirp_keeps_its_in_band_part_and_loses_its_out_of_band_part():
     assert float(np.sqrt(np.mean(y[out_of_band] ** 2))) < 10 * HAMMING_STOPBAND_GAIN_FILTFILT
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "#2166 finding: a record shorter than 3*numtaps+1 is decimated with no "
-        "anti-alias filter (documented passthrough + RuntimeWarning + mask), so an "
-        "above-Nyquist tone folds in at full amplitude. The analytic requirement "
-        "'downsampling introduces no aliased content' does not hold for short records."
-    ),
-)
-def test_a_short_record_is_decimated_without_aliasing():
+def test_a_short_record_is_refused_as_nan_rather_than_aliased():
+    """A record shorter than 3*numtaps+1 cannot be anti-alias filtered.
+
+    It used to be decimated unfiltered, so an above-Nyquist tone folded in at
+    full amplitude (the #2166 finding, a strict xfail here until B3.12). Since
+    #2182 the samples that could not be filtered are NaN: no aliased value
+    reaches a result.
+    """
     source = _uniform_time(FAST_RATE, 0.0032)  # 800 samples < 3 * ~340 + 1
     target = source[::10]
     x = np.cos(2 * np.pi * 20_000.0 * source)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)
         y = resample_to_time(source, x, target)
-    amplitude, _ = _tone_amplitude_phase(target, y, 5_000.0)
-    assert amplitude < 0.1
+    assert y.shape == target.shape
+    assert np.isnan(y).all()
 
 
 def test_the_filter_mask_marks_a_short_record_as_not_band_limited():
