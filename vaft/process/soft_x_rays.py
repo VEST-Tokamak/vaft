@@ -141,8 +141,8 @@ def sxr_offset_baseline(
 
     Defaults
     --------
-    ``skip_nan = False`` and ``on_empty = "raise"`` are a numerical convenience,
-    the conservative choices: a NaN in the window, or no window at all, is visible rather than
+    Both defaults are a numerical convenience chosen to be conservative --
+    ``skip_nan = False`` and ``on_empty = "raise"``: a NaN in the window, or no window at all, is visible rather than
     silently absorbed.
 
     Applicability
@@ -162,6 +162,8 @@ def sxr_offset_baseline(
     """
     if on_empty not in ("raise", "keep", "tail"):
         raise ValueError(f"on_empty must be 'raise', 'keep' or 'tail'; got {on_empty!r}")
+    if on_empty == "tail" and (tail_samples is None or int(tail_samples) <= 0):
+        raise ValueError(f"on_empty='tail' needs a positive tail_samples; got {tail_samples!r}")
     values = np.asarray(data, dtype=float)
     picked = values[..., selection]
     if picked.shape[-1] == 0:
@@ -169,8 +171,6 @@ def sxr_offset_baseline(
             raise ValueError("the baseline selection selects no sample")
         if on_empty == "keep":
             return values.copy()
-        if tail_samples is None or int(tail_samples) <= 0:
-            raise ValueError(f"on_empty='tail' needs a positive tail_samples; got {tail_samples!r}")
         picked = values[..., -int(tail_samples):]
     mean = np.nanmean if skip_nan else np.mean
     return values - mean(picked, axis=-1, keepdims=True)

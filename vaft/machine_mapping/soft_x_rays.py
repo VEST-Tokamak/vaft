@@ -779,6 +779,7 @@ def vfit_soft_x_rays_dynamic(
         signal = values[:, source_column].astype(float, copy=True)
         if baseline_range is not None:
             start, stop = baseline_range
+            # Checked here, not by the owner, to keep this error text.
             if signal[slice(start, stop)].size == 0:
                 raise ValueError("baseline_range selects no SXR samples.")
             # An index range, NaN-propagating (#2162 B3.11: the shared owner).

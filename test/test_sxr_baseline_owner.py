@@ -198,6 +198,24 @@ def test_owner_refuses_unknown_options():
         _owner()(_traces(1), slice(0, 10), on_empty="zero")
     with pytest.raises(ValueError, match="tail_samples"):
         _owner()(_traces(1), slice(0, 0), on_empty="tail")
+    with pytest.raises(ValueError, match="tail_samples"):
+        _owner()(_traces(1), slice(0, 10), on_empty="tail")  # checked even when not needed
+
+
+def test_owner_negative_slice_on_a_matrix_and_an_all_nan_plot_window():
+    from vaft.plot.soft_x_rays import _baseline_correct
+
+    values = _traces()
+    np.testing.assert_array_equal(
+        _owner()(values, slice(-300, None)), values - values[:, -300:].mean(axis=1, keepdims=True)
+    )
+    signal = _traces(1)[0]
+    signal[:100] = np.nan
+    with pytest.warns(RuntimeWarning):
+        expected = _frozen_plot_offset(_TIME, signal, (0.0, _TIME[50]))
+    with pytest.warns(RuntimeWarning):
+        got = _baseline_correct(_TIME, signal, (0.0, _TIME[50]))
+    np.testing.assert_array_equal(got, expected)
 
 
 # ---------------------------------------------------------------------------
