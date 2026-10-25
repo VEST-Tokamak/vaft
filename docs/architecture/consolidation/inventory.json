@@ -1,8 +1,8 @@
 {
  "classification_counts": {
   "canonical": 23,
-  "duplicate": 2,
-  "intentional_specialization": 35,
+  "duplicate": 1,
+  "intentional_specialization": 37,
   "legacy": 26,
   "unverified": 382
  },
@@ -5837,33 +5837,39 @@
    "source_file": "vaft/machine_mapping/raw_daq_sources.py"
   },
   {
-   "algorithm_semantics": "np.mean baseline over an index range (baseline_range) per channel: a fourth SXR baseline variant beside process.soft_x_rays.sxr_baseline_correction, plot.soft_x_rays._baseline_correct and the rolling detrend.",
+   "algorithm_semantics": "index-range offset per channel: sxr_offset_baseline over signal[start:stop], NaN-propagating; an empty range raises.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
     {
      "call": "<definition>",
      "snippet": "def vfit_soft_x_rays_dynamic"
+    },
+    {
+     "call": "vaft.process.soft_x_rays.sxr_offset_baseline",
+     "snippet": "sxr_offset_baseline(signal, slice(start, stop))"
     }
    ],
    "callers": [
     "vaft.machine_mapping.soft_x_rays.soft_x_rays"
    ],
-   "classification": "duplicate",
+   "classification": "intentional_specialization",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
-   "evidence": "",
+   "evidence": "test/test_sxr_baseline_owner.py: bit-identical to the frozen develop copy, error text included.",
    "implementation": "vaft.machine_mapping.soft_x_rays.vfit_soft_x_rays_dynamic",
    "operation": [
     "baseline"
    ],
    "owning_layer": "machine_mapping",
-   "primitives": [],
+   "primitives": [
+    "vaft.process.soft_x_rays.sxr_offset_baseline"
+   ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "B3: one SXR baseline owner with explicit window semantics (index range, time range, tail with fallback).",
+   "recommended_action": "keep (the mapper's window rule over the shared owner). The rolling detrend in sxr_electron_temperature is a Te trend, not a detector offset, and stays separate.",
    "related_issue": "#2162",
-   "resolved_by": "",
+   "resolved_by": "#2162 (B3.11)",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/soft_x_rays.py"
   },
@@ -8407,13 +8413,17 @@
    "source_file": "vaft/plot/particle.py"
   },
   {
-   "algorithm_semantics": "subtract nanmean over a caller time range (no fallback): a display offset.",
+   "algorithm_semantics": "display offset: sxr_offset_baseline over a closed caller time range, NaN-skipping, no-op when empty.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
     {
      "call": "<definition>",
      "snippet": "def _baseline_correct"
+    },
+    {
+     "call": "vaft.process.soft_x_rays.sxr_offset_baseline",
+     "snippet": "sxr_offset_baseline(signal, _time_mask(time, baseline_range), skip_nan=True, on_empty='keep')"
     }
    ],
    "callers": [
@@ -8424,18 +8434,20 @@
    "classification": "intentional_specialization",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
-   "evidence": "semantics differ: arbitrary range mean vs tail window with fallback.",
+   "evidence": "test/test_sxr_baseline_owner.py: bit-identical to the frozen develop copy.",
    "implementation": "vaft.plot.soft_x_rays._baseline_correct",
    "operation": [
     "baseline"
    ],
    "owning_layer": "plot",
-   "primitives": [],
+   "primitives": [
+    "vaft.process.soft_x_rays.sxr_offset_baseline"
+   ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "kept in B3.7 with the reason at the definition (sxr_baseline_correction is a tail window with a last-1000-samples fallback, not a drop-in); B3.11 decides the single SXR baseline owner.",
+   "recommended_action": "keep (the plot's window rule over the shared owner).",
    "related_issue": "#2162",
-   "resolved_by": "",
+   "resolved_by": "#2162 (B3.11)",
    "scientific_risk": "low",
    "source_file": "vaft/plot/soft_x_rays.py"
   },
@@ -14983,34 +14995,40 @@
    "source_file": "vaft/process/soft_x_rays.py"
   },
   {
-   "algorithm_semantics": "SXR reference-window baseline subtraction.",
+   "algorithm_semantics": "quiet-tail offset: sxr_offset_baseline over time >= baseline_start, last-1000-sample fallback (VEST SXR viewer).",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
     {
      "call": "<definition>",
      "snippet": "def sxr_baseline_correction"
+    },
+    {
+     "call": "vaft.process.soft_x_rays.sxr_offset_baseline",
+     "snippet": "sxr_offset_baseline(values, time >= float(baseline_start), on_empty='tail', tail_samples=1000)"
     }
    ],
    "callers": [
     "vaft.process.soft_x_rays.sxr_band_signals",
     "vaft.process.soft_x_rays.sxr_electron_temperature"
    ],
-   "classification": "canonical",
+   "classification": "intentional_specialization",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
-   "evidence": "",
+   "evidence": "test/test_sxr_baseline_owner.py: bit-identical to the frozen develop copy (matrix and trace, NaN, fallback).",
    "implementation": "vaft.process.soft_x_rays.sxr_baseline_correction",
    "operation": [
     "baseline"
    ],
    "owning_layer": "process",
-   "primitives": [],
+   "primitives": [
+    "vaft.process.soft_x_rays.sxr_offset_baseline"
+   ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "keep; plot/soft_x_rays._baseline_correct delegates (B3).",
+   "recommended_action": "keep (the viewer's window rule over the shared owner).",
    "related_issue": "#2162",
-   "resolved_by": "",
+   "resolved_by": "#2162 (B3.11)",
    "scientific_risk": "low",
    "source_file": "vaft/process/soft_x_rays.py"
   },
@@ -15059,6 +15077,39 @@
    "related_issue": "",
    "resolved_by": "",
    "scientific_risk": "unassessed",
+   "source_file": "vaft/process/soft_x_rays.py"
+  },
+  {
+   "algorithm_semantics": "per-channel mean over a selection (bool mask or slice) along the last axis, subtracted; skip_nan and on_empty ('raise' | 'keep' | 'tail' with tail_samples) are explicit.",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "<definition>",
+     "snippet": "def sxr_offset_baseline"
+    }
+   ],
+   "callers": [
+    "vaft.machine_mapping.soft_x_rays.vfit_soft_x_rays_dynamic",
+    "vaft.plot.soft_x_rays._baseline_correct",
+    "vaft.process.soft_x_rays.sxr_baseline_correction"
+   ],
+   "classification": "canonical",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": true,
+   "evidence": "",
+   "implementation": "vaft.process.soft_x_rays.sxr_offset_baseline",
+   "operation": [
+    "baseline"
+   ],
+   "owning_layer": "process",
+   "primitives": [],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "keep as the single SXR constant-offset owner.",
+   "related_issue": "#2162",
+   "resolved_by": "#2162 (B3.11)",
+   "scientific_risk": "low",
    "source_file": "vaft/process/soft_x_rays.py"
   },
   {

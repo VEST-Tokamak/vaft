@@ -165,7 +165,6 @@ def test_plot_offset_is_the_frozen_nan_skipping_range_mean(baseline_range, nan_a
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(strict=True, raises=ImportError, reason="B3.11 owner lands in the next commit")
 def test_owner_removes_exactly_the_selection_mean_per_channel():
     values = _traces()
     selection = _TIME < 0.004
@@ -174,7 +173,6 @@ def test_owner_removes_exactly_the_selection_mean_per_channel():
     assert out.shape == values.shape
 
 
-@pytest.mark.xfail(strict=True, raises=ImportError, reason="B3.11 owner lands in the next commit")
 def test_owner_states_what_an_empty_selection_does():
     values = _traces(2)
     empty = np.zeros(_TIME.size, dtype=bool)
@@ -187,7 +185,6 @@ def test_owner_states_what_an_empty_selection_does():
     )
 
 
-@pytest.mark.xfail(strict=True, raises=ImportError, reason="B3.11 owner lands in the next commit")
 def test_owner_nan_policy():
     values = _traces(1, nan_at=((0, 10),))
     selection = slice(0, 100)
@@ -196,7 +193,6 @@ def test_owner_nan_policy():
     assert np.isnan(skipped[0, 10]) and np.isfinite(np.delete(skipped, 10, axis=1)).all()
 
 
-@pytest.mark.xfail(strict=True, raises=ImportError, reason="B3.11 owner lands in the next commit")
 def test_owner_refuses_unknown_options():
     with pytest.raises(ValueError, match="on_empty"):
         _owner()(_traces(1), slice(0, 10), on_empty="zero")

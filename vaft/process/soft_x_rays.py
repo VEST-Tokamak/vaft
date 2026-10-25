@@ -45,6 +45,7 @@ __all__ = [
     "sxr_baseline_correction",
     "sxr_cwt_spectrogram",
     "sxr_electron_temperature",
+    "sxr_offset_baseline",
     "sxr_subtract_vacuum_reference",
     "sxr_te_pairs_from_ods",
     "synthetic_island_soft_x_rays",
@@ -91,6 +92,88 @@ def _as_channel_matrix(data: Any) -> np.ndarray:
     if values.ndim != 2:
         raise ValueError(f"data must be (n_channels, n_samples); got shape {values.shape}")
     return values
+
+
+def sxr_offset_baseline(
+    data,
+    selection,
+    *,
+    skip_nan: bool = False,
+    on_empty: str = "raise",
+    tail_samples: int | None = None,
+) -> np.ndarray:
+    """Remove each channel's mean over a selection of its samples.
+
+    Parameters
+    ----------
+    data : array_like
+        One trace ``(n_samples,)`` or ``(n_channels, n_samples)`` [V].
+    selection : array_like of bool or slice
+        Which samples along the last axis make the baseline: a boolean mask or
+        a ``slice`` (an index range, half-open as in Python) [-].
+    skip_nan : bool, optional
+        Use ``np.nanmean`` instead of ``np.mean`` over the selection [-].
+    on_empty : {"raise", "keep", "tail"}, optional
+        What a selection holding no sample does: raise, return the data
+        unchanged, or take the mean of the last *tail_samples* instead [-].
+    tail_samples : int or None, optional
+        The fallback length for ``on_empty="tail"`` [-].
+
+    Returns
+    -------
+    np.ndarray
+        ``data`` (as float, same shape) minus its per-channel selection mean [V].
+
+    Raises
+    ------
+    ValueError
+        An empty selection under ``on_empty="raise"``, an unknown *on_empty*,
+        or ``on_empty="tail"`` without a positive *tail_samples*.
+
+    Convention
+    ----------
+    The one implementation of the SXR constant-offset baseline (#2162 B3.11).
+    The window rule, the NaN rule and the empty rule are all the caller's,
+    stated in the call: the mapper takes an index range that raises when empty,
+    :func:`sxr_baseline_correction` a quiet tail with a last-1000-sample
+    fallback, and the plots a NaN-skipping closed time range that is a no-op
+    when empty.  The mean is subtracted, not a fitted trend.
+
+    Defaults
+    --------
+    ``skip_nan = False`` and ``on_empty = "raise"`` are a numerical convenience,
+    the conservative choices: a NaN in the window, or no window at all, is visible rather than
+    silently absorbed.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A constant offset only; a drift through the record survives.  The selection
+    is assumed to hold no plasma signal.
+
+    Provenance
+    ----------
+    .. [1] Issue #2162, which made this the owner of the three SXR offset
+       variants, and the validated VEST SXR viewer whose tail convention
+       :func:`sxr_baseline_correction` keeps.
+    """
+    if on_empty not in ("raise", "keep", "tail"):
+        raise ValueError(f"on_empty must be 'raise', 'keep' or 'tail'; got {on_empty!r}")
+    values = np.asarray(data, dtype=float)
+    picked = values[..., selection]
+    if picked.shape[-1] == 0:
+        if on_empty == "raise":
+            raise ValueError("the baseline selection selects no sample")
+        if on_empty == "keep":
+            return values.copy()
+        if tail_samples is None or int(tail_samples) <= 0:
+            raise ValueError(f"on_empty='tail' needs a positive tail_samples; got {tail_samples!r}")
+        picked = values[..., -int(tail_samples):]
+    mean = np.nanmean if skip_nan else np.mean
+    return values - mean(picked, axis=-1, keepdims=True)
 
 
 def sxr_baseline_correction(time, data, baseline_start: float) -> np.ndarray:
@@ -148,12 +231,7 @@ def sxr_baseline_correction(time, data, baseline_start: float) -> np.ndarray:
         raise ValueError(
             f"time and data must share the sample axis; got {time.size} and {values.shape[1]}"
         )
-    mask = time >= float(baseline_start)
-    if np.any(mask):
-        baseline = values[:, mask].mean(axis=1, keepdims=True)
-    else:
-        baseline = values[:, -1000:].mean(axis=1, keepdims=True)
-    return values - baseline
+    return sxr_offset_baseline(values, time >= float(baseline_start), on_empty="tail", tail_samples=1000)
 
 
 def sxr_subtract_vacuum_reference(

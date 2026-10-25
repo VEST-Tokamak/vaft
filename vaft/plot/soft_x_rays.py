@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from vaft.ods_access import path_count, path_value
+from vaft.process.soft_x_rays import sxr_offset_baseline
 from scipy.signal import spectrogram as scipy_spectrogram
 
 _ARRAY_COLORS = {
@@ -131,19 +132,13 @@ def _baseline_correct(
     signal: np.ndarray,
     baseline_range: tuple[float, float] | None,
 ) -> np.ndarray:
-    # Not vaft.process.soft_x_rays.sxr_baseline_correction (#2162): this is a
-    # display offset over a caller-chosen closed range [start, stop], NaN-skipping,
-    # and a no-op when the range holds no sample. The process function removes
-    # the mean of the quiet tail t >= baseline_start, with a last-1000-sample
-    # fallback, as the validated SXR viewer does. Different window semantics,
-    # so they stay separate.
-    corrected = np.asarray(signal, dtype=float).copy()
+    # A display offset over a caller-chosen closed range [start, stop],
+    # NaN-skipping, and a no-op when the range holds no sample -- the window
+    # rule differs from sxr_baseline_correction's quiet tail, the operation is
+    # the same, so both go through sxr_offset_baseline (#2162 B3.11).
     if baseline_range is None:
-        return corrected
-    mask = _time_mask(time, baseline_range)
-    if np.any(mask):
-        corrected -= float(np.nanmean(corrected[mask]))
-    return corrected
+        return np.asarray(signal, dtype=float).copy()
+    return sxr_offset_baseline(signal, _time_mask(time, baseline_range), skip_nan=True, on_empty="keep")
 
 
 def _sample_rate_from_time(time: np.ndarray) -> float:
