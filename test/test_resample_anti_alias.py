@@ -277,13 +277,19 @@ class TestEdgeCases:
             )
         assert np.allclose(out, [0.5, 1.5])
 
-    def test_short_source_falls_back_to_plain_interpolation(self):
+    def test_short_source_is_not_decimated_into_an_alias(self):
+        # #2162 B3.12: a record too short to filter used to fall back to plain
+        # interpolation, which folds this 40 kHz tone into the band. It now
+        # comes back NaN; the old passthrough is still there by name.
         source_time = np.arange(0.0, 400e-6, 1.0 / FS_FAST)  # 100 samples
         signal = _tone(source_time, 40_000.0)
         target_time = np.arange(0.0, 400e-6, 1.0 / FS_SLOW)  # 10 samples
         with pytest.warns(RuntimeWarning, match="shorter than"):
             out = resample_to_time(source_time, signal, target_time)
-        assert np.array_equal(out, np.interp(target_time, source_time, signal))
+        assert np.isnan(out).all()
+        with pytest.warns(RuntimeWarning, match="shorter than"):
+            kept = resample_to_time(source_time, signal, target_time, unfiltered="keep")
+        assert np.array_equal(kept, np.interp(target_time, source_time, signal))
 
     def test_nan_gaps_stay_local_and_rejection_still_holds(self):
         source_time = _fast_grid()

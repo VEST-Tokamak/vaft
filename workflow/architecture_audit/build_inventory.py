@@ -300,10 +300,12 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("vaft/process/signal_processing.py", "vaft.process.signal_processing.resample_to_time"): {
         "classification": "canonical",
-        "algorithm_semantics": "anti-alias (when downsampling) then linear np.interp per finite run; explicit extrapolation policy (#425/#626).",
+        "algorithm_semantics": "anti-alias (when downsampling) then linear np.interp per finite run; explicit extrapolation policy (#425/#626); unfiltered='nan' (default, B3.12) makes every target sample drawn from a run too short to filter NaN instead of a possibly aliased value, 'keep' leaves it for a mask-reading caller.",
         "scientific_risk": "low",
         "recommended_action": "keep as the resampling owner; direct np.interp in mappers stays where the source is already band-limited (documented per site).",
-        "related_issue": "#425",
+        "related_issue": "#425, #2162",
+        "resolved_by": "#2162 (B3.12)",
+        "evidence": "test/test_resample_short_run_alias.py: 20 kHz tone and 1-100 kHz chirp on a 900-sample run (kept: folded at full amplitude; default: NaN); AST guard that only a mask-reading caller passes 'keep'; 4-shot capture leaf-identical.",
     },
     ("vaft/process/signal_processing.py", "vaft.process.signal_processing.subtract_baseline"): {
         "classification": "canonical",
@@ -464,14 +466,14 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("vaft/machine_mapping/barometry.py", "vaft.machine_mapping.barometry.vfit_barometry_dynamic"): {
         "classification": "intentional_specialization",
-        "algorithm_semantics": "medfilt despike then resample_to_time.",
+        "algorithm_semantics": "medfilt despike then resample_to_time (a run too short to anti-alias is stored NaN since B3.12).",
         "scientific_risk": "low",
         "recommended_action": "keep.",
-        "related_issue": "",
+        "related_issue": "#2162",
     },
     ("vaft/machine_mapping/langmuir_probes.py", "vaft.machine_mapping.langmuir_probes.vfit_langmuir_probes_dynamic"): {
         "classification": "intentional_specialization",
-        "algorithm_semantics": "resample_to_time with its anti-alias filter and return_filter_mask=True: target samples touched by a run too short to filter get validity -1 (#915).",
+        "algorithm_semantics": "resample_to_time with its anti-alias filter, return_filter_mask=True and unfiltered='keep': target samples touched by a run too short to filter keep their value and get validity -1 (#915).",
         "scientific_risk": "low",
         "recommended_action": "keep: resampling already delegates to resample_to_time (anti-alias inside).",
         "related_issue": "#2162",
