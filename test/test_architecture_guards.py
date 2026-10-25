@@ -1619,12 +1619,13 @@ FILTER_DESIGNERS = frozenset(
 #: (path, qualname, designer) -> why it is still allowed.
 FILTER_DESIGN_ALLOWLIST: dict[tuple[str, str, str], str] = {
     ("vaft/machine_mapping/tf.py", "vfit_tf_current_detailed", "firwin"):
-        "TF current low pass: the donor's Hamming firwin(taps, cutoff, fs) with the vest.yaml tf.processing "
-        "values, applied through apply_fir_filter (#2135). Debt: route through fir_filter_coefficients("
-        "window='hamming') once a coefficient-equality test shows it unchanged (#2206)",
+        "TF current low pass: the donor's Hamming firwin(26, cutoff, fs), an even-length (type II) design, with "
+        "the vest.yaml tf.processing values, applied through apply_fir_filter (#2135). fir_filter_coefficients "
+        "forces an odd length, so it cannot reproduce these taps; name it as a process-owned donor design or "
+        "give fir_filter_coefficients an even-length option (#2206)",
     ("vaft/machine_mapping/magnetics.py", "vfit_plasma_current", "firwin"):
         "Ip reference comparison low pass: the donor's Hamming firwin with the vest.yaml comparison values, "
-        "applied through apply_fir_filter (#2135). Same debt (#2206)",
+        "applied through apply_fir_filter (#2135); also 26 taps, same debt (#2206)",
 }
 
 
