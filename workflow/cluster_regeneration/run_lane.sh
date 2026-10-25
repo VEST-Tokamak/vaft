@@ -108,11 +108,26 @@ for f in "$LANE"/chunks/shots.[0-9][0-9][0-9]; do
   if [ "$rc" -ne 0 ]; then
     # Under --keep-going a failed shot exits 1 with "Error in rule"; that is a per-shot outcome.
     # A lock, a workflow/config error, a missing checkpoint verdict or a killed Snakemake is not.
+    # A Snakemake that ran to its end under --keep-going says "Exiting because a job execution
+    # failed"; one killed mid-run (the pilot lost one to memory) just stops.
     if ! grep -q "^Error in rule" "$attempt" \
+       || ! grep -q "Exiting because a job execution failed" "$attempt" \
        || grep -qE "LockException|Directory cannot be locked|WorkflowError|SyntaxError|MissingInputException|^Traceback" "$attempt" \
        || [ ! -f "$LANE/chunks/$c.eligible_shots.json" ]; then
       log "$c: Snakemake failed as a whole (rc=$rc); lane stopped, see $attempt"; exit 1
     fi
+  fi
+  # Solver scratch: DCON's euler.bin and the vacuum vmat.bin are 90 % of the pilot's volume
+  # (~5 GB per shot) and only feed later solves of the same chunk, all finished now. They are not
+  # Snakemake outputs and no stage product reads them; their sizes and hashes stay in pruned.tsv.
+  if [ "${PRUNE_SOLVER_SCRATCH:-1}" = 1 ] && [ -d "$FILEDB/gpec" ]; then
+    while read -r s; do
+      find "$FILEDB"/gpec/magnetic/chease/*/"$s"/n=*/work -type f \( -name euler.bin -o -name vmat.bin \) \
+        -printf "%s\t%p\n" 2>/dev/null | while IFS=$'\t' read -r size path; do
+          printf "%s\t%s\t%s\t%s\n" "$c" "$size" "$(sha256sum < "$path" | cut -d' ' -f1)" "${path#"$FILEDB"/}" >> "$LANE/pruned.tsv"
+          rm -f "$path"
+        done
+    done < "$LANE/chunks/$c.run"
   fi
   echo "$c" >> "$LANE/done_chunks.txt"
 done
