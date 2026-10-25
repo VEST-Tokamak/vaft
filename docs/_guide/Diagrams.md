@@ -1808,6 +1808,40 @@ The content is the data at the top of each section of `vaft.diagram._research_co
 `CREDIBILITY_*`, `MODALITY_*`, `REPRESENTATION_*`, `ECOSYSTEM_*`, `PRESENTATION_*`, `OWNERSHIP_*`), so a
 figure is changed by editing data.
 
+## Computation contracts, workflow execution and provenance
+
+How one computation, one workflow and one run are recorded (#2150). These figures sit one level below
+`scientific_workflow`, `scientific_provenance_chain`, `scientific_credibility` and `external_code_integration`,
+which stay the higher-level references. They share one grammar: a solid arrow carries scientific data, a dashed
+arrow configuration or metadata, a dotted arrow a provenance or evidence reference, and a dashed box is planned.
+Each edge's meaning is recorded in `Diagram.model["edges"]`, and each node records its implementation status and
+the source it was drawn from (`model["status"]`, `model["evidence"]`); a test checks that every cited file still
+defines the cited symbol.
+
+```python
+vaft.diagram.scientific_computation_contract()
+vaft.diagram.workflow_specification_and_run()
+vaft.diagram.computation_record_layers()
+vaft.diagram.imas_scientific_workflow_example()
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `scientific_computation_contract` | One computation's scientific inputs (IDS or ODS, or typed data such as arrays, GEQDSK and k-files) and outputs: a standardized IDS or ODS subset beside the native and typed results that keep the solver-specific science. The scientific configuration (assumptions, model and numerical choices, units and conventions: what changes the result) and the execution settings (executable, backend and resources, timeout: what does not) arrive separately; the configuration may travel as the IDS `code.parameters` string. The execution record is separate metadata, kept per adapter today. Not every Process or Code reads or writes IDS |
+| `workflow_specification_and_run` | One specification (identity and version, components and dependencies, I/O expectations, parameter definitions) instantiated by an orchestrator (Snakemake or Python) into many runs. Each run leaves scientific outputs, logs and structured provenance, three different artifact classes. No record yet links a run to a definition version, so that reference is drawn as planned |
+| `computation_record_layers` | What one run leaves behind, in three layers kept apart: scientific identity (input and content digests, code version, configuration, conventions; each digest states its scope), observed execution (backend, job ID, runtime and resources, exit status, logs; nondeterministic and kept out of the identity; uniform persistence planned in #1019) and scientific assessment (execution success, convergence, uncertainty, physical checks, advisory applicability, validation: separate axes, not one score) |
+| `imas_scientific_workflow_example` | The routine pipeline's EFIT → CHEASE → MHD-stability chain as implemented. EFIT reads magnetics, pf_active, pf_passive and the vacuum toroidal field (the diamagnetic flux when present; geometry through the Green table), writes native g-files and publishes an equilibrium IDS. CHEASE reads the native g-files, not the IDS; the stability codes read the refined g-files, and each IDS product is built from native files. The recorded digests (EFIT g-file SHA-256, CHEASE input/output SHA-256, stability `input_equilibrium_sha256`) feed `verify_chain`, a library check not yet wired into the pipeline. Each stage also leaves sidecar records that are not scientific IDS |
+
+The optional single-run qualification figure the issue proposed is not built:
+`scientific_credibility(organization="integrated")` already draws independent assessment axes ending in a
+profile rather than one score, and the assessment layer of `computation_record_layers` carries the single-run
+view.
+
+![Scientific computation contract]({{ '/assets/diagrams/scientific_computation_contract.svg' | relative_url }})
+![Workflow specification and runs]({{ '/assets/diagrams/workflow_specification_and_run.svg' | relative_url }})
+![Computation record layers]({{ '/assets/diagrams/computation_record_layers.svg' | relative_url }})
+![IMAS/VAFT scientific workflow example]({{ '/assets/diagrams/imas_scientific_workflow_example.svg' | relative_url }})
+
 ## The VEST data platform
 
 The VEST data platform as a database-centred scientific workflow (#1550), laid out as a cross about the
