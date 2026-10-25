@@ -3,7 +3,7 @@
 This register tracks every legacy implementation or configuration asset that the
 VEST configuration and preprocessing consolidation may retire. It is the Phase E
 (#2168 Scope A) inventory. **Every row now carries its final disposition** (conditional on #2196 and #2199 merging) after
-B1 (#2181), B2 (#2177, #2184, #2185), B3 (#2178, #2179, #2180, #2183, #2182), C
+B1 (#2181), B2 (#2177, #2184, #2185), B3 (#2178, #2179, #2180, #2183, #2182, #2197), C
 (#2187, #2188, integrated by #2189), the Phase D qualification (#2191) and the
 Phase E PRs (#2196 guards, #2199 deprecations; both still open when this was written,
 so rows resting on them say so). A row that is not closed names the PR or issue that owns what is left.
@@ -33,7 +33,6 @@ The mapping of every Phase A finding to its disposition is
 | `validation_pending` | Independent evidence insufficient | Defer retirement |
 | `scientific_correction_pending` | Behaviour change needs explicit scientific approval | Handle separately |
 | `removed` | Retired in the named PR with the recorded evidence (a closed row) | None |
-| `pending_pr` | The retirement is implemented in an open PR, named in the row | Merge that PR |
 
 Consumers were found by grepping `vaft/`, `workflow/`, `test/` and `docs/` on
 develop (7b1fcf192, re-checked at 75b154e31, f7472664d and aeec6d91a).
@@ -71,7 +70,7 @@ develop (7b1fcf192, re-checked at 75b154e31, f7472664d and aeec6d91a).
 | P2 | `machine_mapping/magnetics.py::_polyfit_baseline` | `subtract_baseline` | private | `removed` (dead code) | no caller (#2174) | #2178 |
 | P3 | `machine_mapping/magnetics.py::_linear_baseline_subtract` | `subtract_baseline(fitting_opt="polyfit", nan_policy="propagate")` | private | `qualified_for_removal`: delegates since B3.1 | as P1 | #2178; alias #2206 |
 | P4 | `code/efit/legacy.py::smooth` | `process.signal_processing.smooth` | **public** (`vaft.code.efit`) | `scientific_specialization` (kept in B3.2: its NaN locality differs); retires with its only caller, the deprecated H-alpha detector | #2179 | #2179; #2206 |
-| P5 | `plot/soft_x_rays.py::_baseline_correct` | `process.soft_x_rays.sxr_offset_baseline` | private | `pending_pr` (kept in B3.7; B3.11 routes the plot, the mapper and `sxr_baseline_correction` through one owner, bit-identical to frozen copies) | `test/test_sxr_baseline_owner.py` on the PR branch | #2197 (B3.11, open) |
+| P5 | `plot/soft_x_rays.py::_baseline_correct` | `process.soft_x_rays.sxr_offset_baseline` | private | `removed` as an independent implementation: the plot now calls the one owner (B3.11; it had been kept in B3.7 because the window semantics differ, and the owner takes them as explicit arguments) | #2197: bit-identical to frozen copies (`test/test_sxr_baseline_owner.py`); merged after #2191, so not in its AFTER state | #2197 |
 | P6 | `plot/backend/recipes.py::_build_interferometer_spectrogram` inline `butter`/`filtfilt` | `butterworth_highpass(zero_phase=True)` | private | `removed` | #2179; guard (i) pending in #2196 | #2179 |
 | P7 | `process/magnetics.py::_firwin_order` | `fir_filter_coefficients` | private | `removed` (coefficients identical at 25 k/250 k/1 M/2 MHz; an even `filter_order` now raises) | #2179 | #2179 |
 | P8 | `machine_mapping/pf_active.py::_legacy_pf_filter` (now `_pf_filter`) | `vaft.process.signal_processing.pf_current_filter` (Hamming `firwin(251)` + `uniform_filter1d(10)`), called by `_pf_filter` | private | `scientific_specialization`, now under process ownership | #2180 bit-identical (`test/test_pf_current_filter.py`); #2191 pf1-gain-45895-45896 passed | #2180 |
@@ -83,7 +82,7 @@ develop (7b1fcf192, re-checked at 75b154e31, f7472664d and aeec6d91a).
 | P14 | `machine_mapping/tf.py::vfit_tf_current_detailed` and `magnetics.py::vfit_plasma_current` local 26-tap Hamming `firwin` designs | a process-owned donor design (`fir_filter_coefficients` forces odd lengths) | private | `scientific_specialization` under machine_mapping, allowlisted in guard (i) as debt | applied through `apply_fir_filter` since #2135 | #2196; #2206 |
 | P15 | `process/magnetics.py` `VestMagneticsProcessingConfig` legacy window ladder (`late_shot_min` 41660, `transient_shot_min/max` 41446/41451) | vest.yaml era `window_override` (set by every era, checked over 30000-50000) | public dataclass fields | `qualified_for_removal` as policy (inert in production), allowlisted in guard (h) as debt | #2196 review sampled ~2,860 shots: none without `window_override` | #2206 |
 | P16 | `resample_to_time` decimating a short run unfiltered (an alias) | `resample_to_time` storing NaN where a short run could not be filtered (B3.12) | public behaviour | `removed` (approved scientific correction) | #2182: analytic chirp and synthetic short-run tests (`test/test_resample_short_run_alias.py`); not covered by #2191 (§10) | #2182 |
-| P17 | `machine_mapping/soft_x_rays.py::vfit_soft_x_rays_dynamic` own baseline windows (inventory: duplicate) | `sxr_offset_baseline` | public mapper | `pending_pr` | as P5 | #2197 (B3.11, open) |
+| P17 | `machine_mapping/soft_x_rays.py::vfit_soft_x_rays_dynamic` own baseline windows (inventory: duplicate) | `sxr_offset_baseline` | public mapper | `removed` as a duplicate: the mapper calls the owner (inventory row now an intentional specialization of its window choice) | as P5 | #2197 |
 | P18 | `process/magnetics.py::_calibrated_signal` (inventory: duplicate of `calibrate_vest_signal` for the linear case) | `calibrate_vest_signal` | private | `validation_pending` (the zero-calibration half is closed: the registry rejects zero/non-finite since #2181) | #2181 | #2206 |
 
 The canonical API ownership matrix that B3.9 adds (`api_ownership.json`) is in
