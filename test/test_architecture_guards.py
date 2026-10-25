@@ -28,9 +28,10 @@ Active guards
     list or a mapping) outside the allowlisted locations.
 
 (d) Canonical registry schema and uniqueness, through B1's own validator (#2158).
-(e) An explicit ``info_file`` that does not exist raises: every public
-    ``vaft.machine_mapping`` function with an ``info_file`` parameter is
-    discovered and called with a missing path (audit gap G1, #2159).
+(e) An explicit ``info_file`` that does not exist raises, naming the path:
+    every public function with an ``info_file`` parameter in
+    ``vaft.machine_mapping``, ``vaft.omas`` and ``vaft.process`` is discovered
+    and called with a missing path (audit gap G1, #2159).
 (f) Overrides go through the validated semantics: machine facts, unknown keys
     and calibrations without ``calibration_override_reason`` are refused by
     both public override entry points, and no code outside the validated
@@ -40,8 +41,8 @@ Active guards
     so ``vaft.code.efit.legacy``'s own, different ``vfit_signal_startend`` is
     not the alias.
 (h) ``vaft.process`` names no ``vest.yaml`` path, references no
-    ``vaft.machine_mapping`` module dynamically, and compares no shot number
-    with an era literal. ``np.interp``, ``scipy.signal`` and integration stay
+    ``vaft.machine_mapping`` module dynamically, compares no shot number
+    with an era literal and binds no shot-boundary name to one. ``np.interp``, ``scipy.signal`` and integration stay
     legal: the guard targets configuration reads, not numerics.
 
 The register these guards serve is
@@ -688,6 +689,18 @@ _RESOLVER_ARGUMENTS = {
     "context": lambda: "architecture guard",
 }
 
+#: Extra keyword arguments for one resolver, when the generic values above do
+#: not reach the configuration read (a resolver that needs a mode selected).
+_RESOLVER_OPTIONS = {
+    "vaft.process.impurity.resolve_impurity_composition": {"machine_preset": "vest", "shot": 39915},
+}
+
+#: Packages whose public ``info_file`` functions are discovered. The config
+#: file is read only in ``vaft.machine_mapping``; the other two pass
+#: ``info_file`` through to it, and are called so a pass-through that drops
+#: the path (and lets the resolver fall back) is caught too.
+_RESOLVER_PACKAGES = ("vaft.machine_mapping", "vaft.omas", "vaft.process")
+
 
 def public_info_file_resolvers(package: str = "vaft.machine_mapping") -> list[tuple[str, object]]:
     """``(qualname, callable)`` for every public function in ``package`` with an ``info_file`` parameter.
@@ -722,7 +735,12 @@ def public_info_file_resolvers(package: str = "vaft.machine_mapping") -> list[tu
 
 
 def missing_path_findings(resolvers, missing: str) -> list[Finding]:
-    """Resolvers that accept a missing explicit ``info_file`` without :class:`VestConfigurationError`."""
+    """Resolvers that accept a missing explicit ``info_file`` without the refusal naming that path.
+
+    The refusal must be a :class:`VestConfigurationError` whose message names
+    ``missing``: a resolver that ignores ``info_file`` and fails on something
+    else ("diagnostic 'tf' does not exist") is a finding, not a pass.
+    """
     import inspect
 
     from vaft.machine_mapping.utils import VestConfigurationError
@@ -742,11 +760,15 @@ def missing_path_findings(resolvers, missing: str) -> list[Finding]:
                     "add a representative value so the missing-path guard can call it"
                 )
             arguments[name] = _RESOLVER_ARGUMENTS[name]()
-        location = f"{inspect.getsourcefile(target)}:{inspect.getsourcelines(target)[1]}"
+        arguments.update(_RESOLVER_OPTIONS.get(qualname, {}))
+        try:
+            location = f"{inspect.getsourcefile(target)}:{inspect.getsourcelines(target)[1]}"
+        except (OSError, TypeError):
+            location = qualname
         try:
             resolver(**arguments)
         except VestConfigurationError as error:
-            if "does not exist" in str(error):
+            if missing in str(error) and "does not exist" in str(error):
                 continue
             detail = f"{qualname} raised VestConfigurationError for another reason: {error}"
         except Exception as error:  # noqa: BLE001 - the finding is the wrong exception
@@ -760,9 +782,9 @@ def missing_path_findings(resolvers, missing: str) -> list[Finding]:
 def test_explicit_missing_config_path_raises(tmp_path):
     """Every public machine_mapping resolver taking ``info_file`` refuses a missing explicit path (G1, #2177)."""
     from vaft.machine_mapping.effective_config import resolve_vest_processing_config
-    from vaft.machine_mapping.utils import _resolve_info_file_path
+    from vaft.machine_mapping.utils import VestConfigurationError, _resolve_info_file_path
 
-    resolvers = public_info_file_resolvers()
+    resolvers = [resolver for package in _RESOLVER_PACKAGES for resolver in public_info_file_resolvers(package)]
     # The discovery must see the resolvers B2 hardened; an empty or shrunken
     # list would make the guard pass vacuously.
     names = {qualname.rsplit(".", 1)[1] for qualname, _ in resolvers}
@@ -773,11 +795,26 @@ def test_explicit_missing_config_path_raises(tmp_path):
         "resolve_vest_diagnostic",
         "vest_processing_provenance",
         "vest_efit_coilset_policy",
+        "edge_q_estimate",
+        "resolve_impurity_composition",
     } <= names, sorted(names)
     missing = str(tmp_path / "campaign" / "vest.yaml")
     check_against_allowlist(
         missing_path_findings(resolvers, missing), {}, rule=MISSING_PATH_RULE, expected=MISSING_PATH_EXPECTED
     )
+    # The public getters that spell the path differently (`file`, or
+    # `options["info_file"]`) are outside the discovery; they are called here.
+    from vaft.machine_mapping.utils import get_diagnostic_info, get_static_info, raw_database_info
+
+    spelled_differently = [
+        ("raw_database_info", lambda: raw_database_info(missing, 39915, "pf_active")),
+        ("get_diagnostic_info", lambda: get_diagnostic_info("vest", "tf", {"info_file": missing})),
+        ("get_static_info", lambda: get_static_info("vest", "tf", {"info_file": missing})),
+    ]
+    for name, call in spelled_differently:
+        with pytest.raises(VestConfigurationError, match="does not exist") as refused:
+            call()
+        assert missing in str(refused.value), name
     # Control: the same explicit path, once it exists, is used as given -- the
     # refusal above is about the missing file, not about explicit paths.
     real = tmp_path / "campaign" / "vest.yaml"
@@ -804,12 +841,25 @@ def test_missing_path_guard_reports_a_silent_fallback(tmp_path):
     def refuses(shot, info_file=None):
         raise VestConfigurationError(f"VEST configuration file {info_file!r} does not exist")
 
+    def ignores_the_path(shot, info_file=None):
+        raise VestConfigurationError("diagnostic 'tf' does not exist")
+
     findings = missing_path_findings(
-        [("synthetic.falls_back", falls_back), ("synthetic.wrong_error", wrong_error), ("synthetic.refuses", refuses)],
+        [
+            ("synthetic.falls_back", falls_back),
+            ("synthetic.wrong_error", wrong_error),
+            ("synthetic.refuses", refuses),
+            ("synthetic.ignores_the_path", ignores_the_path),
+        ],
         str(tmp_path / "nope.yaml"),
     )
-    assert [f.key for f in findings] == [("synthetic.falls_back",), ("synthetic.wrong_error",)]
+    assert [f.key for f in findings] == [
+        ("synthetic.falls_back",),
+        ("synthetic.wrong_error",),
+        ("synthetic.ignores_the_path",),
+    ]
     assert "returned normally" in findings[0].detail and "FileNotFoundError" in findings[1].detail
+    assert "for another reason: diagnostic 'tf' does not exist" in findings[2].detail
     with pytest.raises(AssertionError, match=r"test_architecture_guards\.py:\d+: synthetic\.falls_back returned"):
         check_against_allowlist(findings, {}, rule=MISSING_PATH_RULE, expected=MISSING_PATH_EXPECTED)
 
@@ -846,27 +896,30 @@ UNSAFE_OVERRIDES = [
         id="generic-unknown-key",
     ),
     pytest.param(
-        "generic", 39915, "plasma_current", {"calibration": {"factor": 1.0e-5}}, "calibration_override_reason",
+        "generic", 39915, "plasma_current", {"calibration": {"factor": 1.0e-5}}, "is a calibration; overriding it needs",
         id="generic-calibration-without-reason",
     ),
     pytest.param(
-        "generic", 39915, "pf_active", {"processing": {"coil_gains": {0: 1.0}}}, "calibration_override_reason",
+        "generic", 39915, "pf_active", {"processing": {"coil_gains": {0: 1.0}}}, "is a calibration; overriding it needs",
         id="generic-coil-gain-without-reason",
     ),
     pytest.param("magnetics", 46404, None, {"daq_mode": "legacy"}, "cannot be overridden", id="magnetics-machine-fact"),
-    pytest.param("magnetics", 39915, None, {"lowpass_cutof": 1.0}, "unknown", id="magnetics-unknown-key"),
     pytest.param(
-        "magnetics", 39915, None, {"flux_output_per_radian": False}, "calibration_override_reason",
+        "magnetics", 39915, None, {"lowpass_cutof": 1.0}, "unknown magnetics processing key",
+        id="magnetics-unknown-key",
+    ),
+    pytest.param(
+        "magnetics", 39915, None, {"flux_output_per_radian": False}, "change the calibration of every channel",
         id="magnetics-calibration-without-reason",
     ),
 ]
 
 
-def _apply_override(entry: str, shot: int, diagnostic: str | None, override, **options):
+def _apply_override(entry: str, shot: int, diagnostic: str | None, override):
     if entry == "generic":
         from vaft.machine_mapping.effective_config import resolve_vest_processing_config
 
-        return resolve_vest_processing_config(shot, diagnostic, overrides=override, **options)
+        return resolve_vest_processing_config(shot, diagnostic, overrides=override)
     from vaft.omas.vest_upstream import resolve_magnetics_processing
 
     return resolve_magnetics_processing(shot, override)
@@ -912,41 +965,93 @@ OVERRIDE_SITE_EXPECTED = (
     "equilibrium magnetics processing to vaft.omas.vest_upstream.resolve_magnetics_processing"
 )
 
-#: Functions that apply override mappings; ``_deep_merge``/``replace`` are the
-#: two primitives, and an ``override``-named argument is what marks the call.
-_OVERRIDE_APPLIERS = frozenset({"_deep_merge", "replace"})
+#: The two primitives that apply an override mapping, resolved through the
+#: module's imports (so ``from ...utils import _deep_merge as merge`` is still
+#: ``_deep_merge``; ``str.replace`` is not ``dataclasses.replace``).
+_OVERRIDE_APPLIERS = ("_deep_merge", "dataclasses.replace")
 
-#: (path, enclosing function) -> why this override application is validated.
-OVERRIDE_SITE_ALLOWLIST: dict[tuple[str, str], str] = {
-    ("vaft/machine_mapping/utils.py", "resolve_shot_revisions_with_provenance"):
+#: (path, enclosing function, the override argument) -> why this application
+#: is validated. The validated merge in ``effective_config`` applies the
+#: already-validated ``changes``, not the raw override, and is not a site.
+OVERRIDE_SITE_ALLOWLIST: dict[tuple[str, str, str], str] = {
+    ("vaft/machine_mapping/utils.py", "resolve_shot_revisions_with_provenance", "override"):
         "applies a vest.yaml revision after the shared revision validator refused keys absent from the base (G5, #2177)",
-    ("vaft/machine_mapping/utils.py", "resolve_diagnostics_time_policies"):
+    ("vaft/machine_mapping/utils.py", "resolve_diagnostics_time_policies", "overrides"):
         "time-policy overrides are analysis windows by design (they may add windows or re-point components); "
         "every resolved window is validated (tend > tstart, dt > 0) before use",
-    ("vaft/omas/vest_upstream.py", "resolve_magnetics_processing"):
+    ("vaft/omas/vest_upstream.py", "resolve_magnetics_processing", "overrides"):
         "the equilibrium-magnetics override path: unknown keys, machine facts and unflagged calibrations are "
         "refused before replace(), the result passes VestMagneticsProcessingConfig.__post_init__ (#2184)",
 }
 
 
+def _import_bindings(tree: ast.AST) -> dict[str, str]:
+    """Local name -> fully qualified name, for every import in the module (relative ones kept relative)."""
+    bindings: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                bindings[alias.asname or alias.name.split(".")[0]] = alias.name if alias.asname else alias.name.split(".")[0]
+        elif isinstance(node, ast.ImportFrom):
+            source = "." * node.level + (node.module or "")
+            for alias in node.names:
+                bindings[alias.asname or alias.name] = f"{source}.{alias.name}" if source else alias.name
+    return bindings
+
+
+def _qualified(node: ast.AST, bindings: Mapping[str, str]) -> str | None:
+    if isinstance(node, ast.Name):
+        return bindings.get(node.id, node.id)
+    if isinstance(node, ast.Attribute):
+        base = _qualified(node.value, bindings)
+        return f"{base}.{node.attr}" if base else None
+    return None
+
+
+def _is_override_applier(qualified: str | None) -> bool:
+    if not qualified:
+        return False
+    return qualified == "_deep_merge" or qualified.endswith("._deep_merge") or qualified == "dataclasses.replace"
+
+
+def _override_markers(argument: ast.AST) -> list[str]:
+    """The override-named parts of an argument: names, attributes and string subscript keys."""
+    markers = []
+    for node in ast.walk(argument):
+        label = (
+            node.id if isinstance(node, ast.Name)
+            else node.attr if isinstance(node, ast.Attribute)
+            else node.slice.value if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant)
+            and isinstance(node.slice.value, str)
+            else None
+        )
+        if label and "override" in label.lower():
+            markers.append(label)
+    return markers
+
+
 def override_site_findings(base: Path, roots: Iterable[str] = SCAN_ROOTS) -> list[Finding]:
+    """Calls of ``_deep_merge``/``dataclasses.replace`` with an argument whose name contains ``override``."""
     findings: list[Finding] = []
     for path in _python_sources(base, roots):
         text = path.read_text(encoding="utf-8")
-        if "override" not in text or not any(f"{name}(" in text for name in _OVERRIDE_APPLIERS):
+        if "override" not in text.lower() or ("_deep_merge" not in text and "replace" not in text):
             continue
         rel = _relative(path, base)
-        for qualname, node in _calls_with_scope(ast.parse(text, filename=str(path))):
-            func = node.func
-            called = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
-            if called not in _OVERRIDE_APPLIERS:
+        tree = ast.parse(text, filename=str(path))
+        bindings = _import_bindings(tree)
+        for qualname, node in _calls_with_scope(tree):
+            if not _is_override_applier(_qualified(node.func, bindings)):
                 continue
-            arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
-            names = {n.id for argument in arguments for n in ast.walk(argument) if isinstance(n, ast.Name)}
-            if any("override" in name.lower() for name in names):
-                findings.append(
-                    Finding((rel, qualname), f"{rel}:{node.lineno}", f"in {qualname}: {ast.unparse(node)[:80]}")
-                )
+            for argument in [*node.args, *(keyword.value for keyword in node.keywords)]:
+                for marker in _override_markers(argument):
+                    findings.append(
+                        Finding(
+                            (rel, qualname, marker),
+                            f"{rel}:{node.lineno}",
+                            f"in {qualname}: {ast.unparse(node)[:80]}",
+                        )
+                    )
     return findings
 
 
@@ -977,21 +1082,24 @@ def test_overrides_are_applied_only_by_validated_owners():
 def test_override_site_scanner_reports_a_synthetic_bypass(tmp_path):
     (tmp_path / "workflow").mkdir()
     (tmp_path / "workflow" / "stage.py").write_text(
+        "import dataclasses\n"
         "from dataclasses import replace\n"
-        "from vaft.machine_mapping.utils import _deep_merge\n"
-        "def run(config, block, overrides, window):\n"
-        "    merged = _deep_merge(block, overrides['vest'])\n"
-        "    tuned = replace(config, **overrides)\n"
+        "from vaft.machine_mapping.utils import _deep_merge as merge\n"
+        "def run(config, block, overrides, window, options, label):\n"
+        "    merged = merge(block, overrides['vest'])\n"
+        "    tuned = replace(config, **options['override'])\n"
+        "    again = dataclasses.replace(config, window=self.window_override)\n"
         "    other = replace(config, window=window)  # no override: not an override site\n"
-        "    return merged, tuned, 'x'.replace('a', 'b')\n",
+        "    return merged, tuned, again, 'x'.replace('a', label + str(overrides))\n",
         encoding="utf-8",
     )
     findings = override_site_findings(tmp_path)
     assert [(f.key, f.location) for f in findings] == [
-        (("workflow/stage.py", "run"), "workflow/stage.py:4"),
-        (("workflow/stage.py", "run"), "workflow/stage.py:5"),
+        (("workflow/stage.py", "run", "overrides"), "workflow/stage.py:5"),
+        (("workflow/stage.py", "run", "override"), "workflow/stage.py:6"),
+        (("workflow/stage.py", "run", "window_override"), "workflow/stage.py:7"),
     ]
-    with pytest.raises(AssertionError, match=r"workflow/stage\.py:4: in run: _deep_merge\(block, overrides"):
+    with pytest.raises(AssertionError, match=r"workflow/stage\.py:5: in run: merge\(block, overrides"):
         check_against_allowlist(findings, {}, rule=OVERRIDE_SITE_RULE, expected=OVERRIDE_SITE_EXPECTED)
 
 
@@ -1045,11 +1153,13 @@ def _module_name(rel: str) -> str:
 class _DeprecatedUseCollector(ast.NodeVisitor):
     """Resolve imports, then report names and attribute chains that land on a deprecated alias.
 
-    Bindings are collected per module (an import anywhere in the file binds
-    its name for the attribute and name lookups); a function or class
-    defining a deprecated *name* locally shadows nothing here, because only
-    references that resolve through an import, or bare references inside the
-    owner module itself, are reported.
+    Bindings are module-wide and accumulate in source order: an import binds
+    its name for every later lookup in the file, a function-local import
+    included (a slight over-approximation; a use above its import is missed).
+    A function or class defining a deprecated *name* locally shadows nothing
+    here, because only references that resolve through an import, bare
+    references inside the owner module itself, and star imports from an owner
+    module are reported.
     """
 
     def __init__(self, module: str, is_package: bool) -> None:
@@ -1081,6 +1191,11 @@ class _DeprecatedUseCollector(ast.NodeVisitor):
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         source = self._absolute(node)
         for alias in node.names:
+            if alias.name == "*":
+                if source in _DEPRECATED_OWNERS:
+                    # Every deprecated name of the owner becomes a bare name here.
+                    self.uses.append((self.qualname, node.lineno, f"{source}.*"))
+                continue
             target = f"{source}.{alias.name}"
             self.bindings[alias.asname or alias.name] = target
             if target in DEPRECATED_APIS:
@@ -1138,26 +1253,44 @@ class _DeprecatedUseCollector(ast.NodeVisitor):
 
 
 _DEPRECATED_NEEDLES = tuple(sorted({name.rsplit(".", 1)[1] for name in DEPRECATED_APIS}))
+_DEPRECATED_OWNERS = frozenset(name.rsplit(".", 1)[0] for name in DEPRECATED_APIS)
+
+
+def _deprecated_detail(name: str) -> tuple[str, str]:
+    if name.endswith(".*"):
+        owner = name[:-2]
+        return "*", f"star-imports {owner}, which exports deprecated aliases; import the canonical names explicitly"
+    return name.rsplit(".", 1)[1], f"uses deprecated {name}; use {DEPRECATED_APIS[name]}"
 
 
 def deprecated_use_findings(base: Path, roots: Iterable[str] = SCAN_ROOTS) -> list[Finding]:
     findings: list[Finding] = []
     for path in _python_sources(base, roots):
         text = path.read_text(encoding="utf-8")
-        if not any(needle in text for needle in _DEPRECATED_NEEDLES):
+        if "import *" not in text and not any(needle in text for needle in _DEPRECATED_NEEDLES):
             continue
         rel = _relative(path, base)
         collector = _DeprecatedUseCollector(_module_name(rel), path.name == "__init__.py")
         collector.visit(ast.parse(text, filename=str(path)))
         for qualname, line, name in collector.uses:
-            short = name.rsplit(".", 1)[1]
-            findings.append(
-                Finding(
-                    (rel, qualname, short),
-                    f"{rel}:{line}",
-                    f"in {qualname}: uses deprecated {name}; use {DEPRECATED_APIS[name]}",
+            short, detail = _deprecated_detail(name)
+            findings.append(Finding((rel, qualname, short), f"{rel}:{line}", f"in {qualname}: {detail}"))
+    for path in _snakemake_sources(base, roots):
+        # Snakefiles cannot be parsed as Python; a NAME token spelling an alias
+        # is a use (a Snakefile defines no function of those names).
+        text = path.read_text(encoding="utf-8")
+        if not any(needle in text for needle in _DEPRECATED_NEEDLES):
+            continue
+        rel = _relative(path, base)
+        for token in tokenize.generate_tokens(io.StringIO(text).readline):
+            if token.type == tokenize.NAME and token.string in _DEPRECATED_NEEDLES:
+                findings.append(
+                    Finding(
+                        (rel, "<snakefile>", token.string),
+                        f"{rel}:{token.start[0]}",
+                        f"uses the deprecated alias {token.string}",
+                    )
                 )
-            )
     return findings
 
 
@@ -1202,6 +1335,12 @@ def test_deprecated_api_scanner_reports_synthetic_uses_and_ignores_the_efit_spec
             "def helper(t, y):\n    return signal_onoffset(t, y)\n"
         ),
         "vaft/process/fine.py": "from .signal_processing import detect_active_window, process_signal\n",
+        "workflow/star.py": "from vaft.process.signal_processing import *\nfrom vaft.formula import *\n",
+        "workflow/pipeline/Snakefile": (
+            "from vaft.machine_mapping import vfit_md\n"
+            "rule probes:\n    run:\n        vfit_md(39915)\n"
+            "rule names:\n    shell: 'echo vest_md_channel_definitions'\n"
+        ),
     }
     for relative, text in files.items():
         path = tmp_path / relative
@@ -1212,10 +1351,13 @@ def test_deprecated_api_scanner_reports_synthetic_uses_and_ignores_the_efit_spec
         (("vaft/machine_mapping/stage.py", "<module>", "process_signal"), "vaft/machine_mapping/stage.py:1"),
         (("vaft/machine_mapping/stage.py", "f", "vest_md_channel_definitions"), "vaft/machine_mapping/stage.py:4"),
         (("vaft/process/signal_processing.py", "helper", "signal_onoffset"), "vaft/process/signal_processing.py:6"),
+        (("workflow/pipeline/Snakefile", "<snakefile>", "vfit_md"), "workflow/pipeline/Snakefile:1"),
+        (("workflow/pipeline/Snakefile", "<snakefile>", "vfit_md"), "workflow/pipeline/Snakefile:4"),
         (("workflow/stage.py", "<module>", "signal_onoffset"), "workflow/stage.py:1"),
         (("workflow/stage.py", "run", "VEST_CoilCurrentNoiseReduction"), "workflow/stage.py:6"),
         (("workflow/stage.py", "run", "vest_md_channel_definitions"), "workflow/stage.py:7"),
         (("workflow/stage.py", "run", "vfit_md"), "workflow/stage.py:5"),
+        (("workflow/star.py", "<module>", "*"), "workflow/star.py:1"),
     ]
     with pytest.raises(
         AssertionError,
@@ -1237,33 +1379,63 @@ PROCESS_CONFIG_EXPECTED = (
     "resolve the value in vaft.machine_mapping (vest.yaml, shot-era revisions) and pass it in as an argument"
 )
 
-#: An executable string that *is* a path to vest.yaml (not prose mentioning
-#: it): the whole literal ends in the file name.
-_VEST_YAML_PATH = re.compile(r"(?:^|[/\\])vest\.ya?ml$", re.IGNORECASE)
+#: An executable string that *is* a path to vest.yaml (no whitespace, so not
+#: prose mentioning it): the whole literal ends in the file name.
+_VEST_YAML_PATH = re.compile(r"^\S*(?:^|[/\\])vest\.ya?ml$", re.IGNORECASE)
 #: A literal that is exactly a machine_mapping module or the packaged
 #: geometry data -- what importlib.import_module / importlib.resources.files
 #: would be handed. The static imports are the layer guard's (b) business.
 _MACHINE_MODULE = re.compile(r"^(?:vaft\.machine_mapping|vaft\.data\.geometry)(?:\.\w+)*$")
-#: Names that hold a shot number.
-_SHOT_NAME = re.compile(r"^(?:shot|shot_?number|shotnumber|shot_no|nshot|pulse(?:_number)?)$", re.IGNORECASE)
+#: Names that hold a shot number, in a comparison.
+_SHOT_NAME = re.compile(r"^(?:shots?|shot_?number|shotnumber|shot_no|shot_id|nshot|pulse(?:_number)?)$", re.IGNORECASE)
+#: Names that hold a shot *boundary* when bound to a literal (``late_shot_min``,
+#: ``first_shot``): a constant or default carrying a machine era.
+_SHOT_BOUNDARY_NAME = re.compile(r"(?:^|_)shots?(?:_|$)|^pulse(?:_number)?$", re.IGNORECASE)
 #: The smallest literal that can be a VEST shot boundary (a ``shot < 0`` or
 #: ``shot is None`` validation is not an era).
 _SHOT_ERA_MINIMUM = 1000
 
-#: (path, qualname, kind) -> justification. Empty today.
-PROCESS_CONFIG_ALLOWLIST: dict[tuple[str, str, str], str] = {}
+#: (path, qualname, kind) -> justification.
+PROCESS_CONFIG_ALLOWLIST: dict[tuple[str, str, str], str] = {
+    ("vaft/process/magnetics.py", "VestMagneticsProcessingConfig", "shot era constant"):
+        "the legacy hardcoded window ladder (late_shot_min 41660, transient_shot_min/max 41446/41451) that "
+        "window_for_shot falls back to only when no window_override is set; every vest.yaml era sets one "
+        "(checked over shots 30000-50000), so the ladder is a legacy default, not the policy in force "
+        "(debt, #2168: move or delete with the ladder)",
+}
 
 
 def _name_of(node: ast.AST) -> str | None:
+    """The name a comparison operand reads: a name, an attribute, a string subscript key, or int()/float() of one."""
     if isinstance(node, ast.Name):
         return node.id
     if isinstance(node, ast.Attribute):
         return node.attr
+    if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
+        return node.slice.value.rsplit(".", 1)[-1]
+    if isinstance(node, ast.Call) and _name_of(node.func) in {"int", "float", "int64", "asarray"} and node.args:
+        return _name_of(node.args[0])
     return None
+
+
+def _era_literals(node: ast.AST) -> list[float]:
+    """Numeric literals of shot-era magnitude in ``node`` (a constant, or a tuple/list/set of them)."""
+    values = node.elts if isinstance(node, (ast.Tuple, ast.List, ast.Set)) else [node]
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        values = [node.operand]
+    return [
+        v.value for v in values
+        if isinstance(v, ast.Constant) and isinstance(v.value, (int, float))
+        and not isinstance(v.value, bool) and abs(v.value) >= _SHOT_ERA_MINIMUM
+    ]
 
 
 def process_config_findings(base: Path, roots: Iterable[str] = ("vaft/process",)) -> list[Finding]:
     findings: list[Finding] = []
+
+    def add(rel, qualname, kind, node, detail):
+        findings.append(Finding((rel, qualname, kind), f"{rel}:{node.lineno}", f"in {qualname}: {detail}"))
+
     for path in _python_sources(base, roots):
         rel = _relative(path, base)
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -1276,22 +1448,27 @@ def process_config_findings(base: Path, roots: Iterable[str] = ("vaft/process",)
             if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings:
                 value = node.value.strip()
                 if _VEST_YAML_PATH.search(value):
-                    findings.append(Finding((rel, qualname, "vest.yaml path"), f"{rel}:{node.lineno}", f"in {qualname}: names the file {value!r}"))
+                    add(rel, qualname, "vest.yaml path", node, f"names the file {value!r}")
                 elif _MACHINE_MODULE.match(value):
-                    findings.append(Finding((rel, qualname, "machine module"), f"{rel}:{node.lineno}", f"in {qualname}: dynamic reference to {value!r}"))
+                    add(rel, qualname, "machine module", node, f"dynamic reference to {value!r}")
             elif isinstance(node, ast.Compare):
                 operands = [node.left, *node.comparators]
-                if not any(_SHOT_NAME.match(_name_of(o) or "") for o in operands):
-                    continue
-                eras = [
-                    o.value for o in operands
-                    if isinstance(o, ast.Constant) and isinstance(o.value, (int, float))
-                    and not isinstance(o.value, bool) and abs(o.value) >= _SHOT_ERA_MINIMUM
-                ]
-                if eras:
-                    findings.append(
-                        Finding((rel, qualname, "shot era"), f"{rel}:{node.lineno}", f"in {qualname}: {ast.unparse(node)}")
-                    )
+                if any(_SHOT_NAME.match(_name_of(o) or "") for o in operands) and any(
+                    _era_literals(o) for o in operands
+                ):
+                    add(rel, qualname, "shot era", node, ast.unparse(node))
+            elif isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                names = [_name_of(t) or "" for t in targets]
+                if any(_SHOT_BOUNDARY_NAME.search(n) for n in names) and _era_literals(node.value):
+                    add(rel, qualname, "shot era constant", node, ast.unparse(node))
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                positional = [*node.args.posonlyargs, *node.args.args]
+                pairs = list(zip(positional[len(positional) - len(node.args.defaults):], node.args.defaults))
+                pairs += [(a, d) for a, d in zip(node.args.kwonlyargs, node.args.kw_defaults) if d is not None]
+                for argument, default in pairs:
+                    if _SHOT_BOUNDARY_NAME.search(argument.arg) and _era_literals(default):
+                        add(rel, qualname, "shot era constant", default, f"default {argument.arg}={ast.unparse(default)}")
     return findings
 
 
@@ -1319,38 +1496,47 @@ def test_process_config_scanner_reports_synthetic_violations_and_keeps_numerics_
     package.mkdir(parents=True)
     (package / "bad.py").write_text(
         textwrap.dedent(
-            '''
+            '''\
             """Docstring citing vaft/machine_mapping/vest.yaml is documentation."""
             import importlib
+            from dataclasses import dataclass
             from importlib import resources
             import numpy as np
             from scipy import integrate, signal
 
-            def policy(shot):
+            def policy(shot, ods, first_shot=39438):
                 root = resources.files("vaft.machine_mapping") / "vest.yaml"
                 module = importlib.import_module("vaft.machine_mapping.magnetics")
-                if shot >= 39438:
+                if shot >= 39438 or int(shot) in (46403, 46404):
                     return root, module
-                return 46404 < shot
+                return ods["dataset_description.data_entry.pulse"] > 40000
 
-            def fine(t, y, shot, fs):
+            @dataclass
+            class Ladder:
+                late_shot_min: int = 41660
+                sample_count: int = 25000
+
+            def fine(t, y, shot, fs, first_shot):
                 taps = signal.firwin(251, 0.1)
                 grid = np.interp(t, t, y)
                 total = integrate.trapezoid(y, t)
-                if shot < 0 or shot is None:
-                    raise ValueError("vest.yaml configures no policy for this shot")
+                if shot < 0 or shot is None or shot >= first_shot:
+                    raise ValueError("see vaft/machine_mapping/vest.yaml: no policy for this shot")
                 return taps, grid, total, fs >= 25000
             '''
         ),
         encoding="utf-8",
     )
     findings = process_config_findings(tmp_path)
-    assert sorted((f.key, f.location) for f in findings) == [
-        (("vaft/process/bad.py", "policy", "machine module"), "vaft/process/bad.py:10"),
-        (("vaft/process/bad.py", "policy", "machine module"), "vaft/process/bad.py:9"),
-        (("vaft/process/bad.py", "policy", "shot era"), "vaft/process/bad.py:11"),
-        (("vaft/process/bad.py", "policy", "shot era"), "vaft/process/bad.py:13"),
-        (("vaft/process/bad.py", "policy", "vest.yaml path"), "vaft/process/bad.py:9"),
+    assert sorted((f.key[1:], f.location) for f in findings) == [
+        (("Ladder", "shot era constant"), "vaft/process/bad.py:17"),
+        (("policy", "machine module"), "vaft/process/bad.py:10"),
+        (("policy", "machine module"), "vaft/process/bad.py:9"),
+        (("policy", "shot era"), "vaft/process/bad.py:11"),  # shot >= 39438
+        (("policy", "shot era"), "vaft/process/bad.py:11"),  # int(shot) in (46403, 46404)
+        (("policy", "shot era"), "vaft/process/bad.py:13"),  # ods[...pulse] > 40000
+        (("policy", "shot era constant"), "vaft/process/bad.py:8"),
+        (("policy", "vest.yaml path"), "vaft/process/bad.py:9"),
     ]
     with pytest.raises(AssertionError, match=r"vaft/process/bad\.py:11: in policy: shot >= 39438(.|\n)*pass it in"):
         check_against_allowlist(findings, {}, rule=PROCESS_CONFIG_RULE, expected=PROCESS_CONFIG_EXPECTED)
