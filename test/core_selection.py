@@ -132,10 +132,13 @@ CORE_MODULES: tuple[str, ...] = (
     # VEST configuration loading, merge and revision rules, the effective
     # configuration with its overrides and fingerprint, and declared-versus-
     # observed sample-rate checks (#2159): tmp YAML, the packaged vest.yaml
-    # and synthetic records, no raw data, ~10 s.
+    # and synthetic records, no raw data, ~10 s. The revision-overlap and
+    # shot-boundary checks across every vest.yaml diagnostic joined in #2168:
+    # 33 s before B2's parse cache, ~1-2 s serial after it.
     "test_acquisition_checks.py",
     "test_vest_config_loading.py",
     "test_vest_effective_config.py",
+    "test_vest_yaml_boundaries.py",
     # Predicted mode-frequency tracks and the Mirnov mode_overlay (#460):
     # analytic fixtures only, a few seconds.
     "test_mode_frequency_overlay.py",
@@ -496,12 +499,8 @@ CORE_MODULES: tuple[str, ...] = (
 #                                  half of the same contract is
 #                                  test_plot_backend_boundaries.py, which is
 #                                  here.
-#   test_vest_yaml_boundaries.py   despite the name, revision-overlap checks
-#                                  across shot ranges -- shot-data validation,
-#                                  not an architectural boundary, and 18% of
-#                                  the gate. It belongs to the full suite.
 #
-# Both still run on the main gate and on the push to develop.
+# It still runs on the main gate and on the push to develop.
 
 
 def core_paths() -> tuple[Path, ...]:
