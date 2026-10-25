@@ -48,6 +48,7 @@ from vaft.machine_mapping.magnetics_registry import (
     REGISTRY_CONFIG_PATH as MAGNETICS_REGISTRY_CONFIG_PATH,
     registry_fingerprint as magnetics_registry_fingerprint,
     registry_source as magnetics_registry_source,
+    resolve_equilibrium_magnetics_sensors,
 )
 from vaft.machine_mapping.pf_active import (
     PF_COIL_COUNT,
@@ -755,6 +756,125 @@ def _as_tuple(value: Any) -> Any:
     return tuple(value) if isinstance(value, (list, tuple)) else value
 
 
+#: Why a magnetics field is in ``channel_status.magnetics.missing_channels``.
+MAGNETICS_CHANNEL_NOT_ARCHIVED = "not_archived"
+MAGNETICS_CHANNEL_UNUSABLE = "unusable_after_processing"
+
+
+def _empty_published_waveform(ods: ODS, base: str, data_node: str) -> bool:
+    """Whether the published channel at *base* carries no samples in *data_node*.
+
+    A channel the IDS does not hold at all is not "published empty" -- it is
+    not this check's business -- so ``False``. A node the mapper left without
+    its data leaf (a flux loop whose flux was not written) is empty. Probed
+    with :func:`path_exists` first: reading an absent OMAS path creates it.
+    """
+    if not path_exists(ods, f"{base}.identifier"):
+        return False
+    path = f"{base}.{data_node}"
+    if not path_exists(ods, path):
+        return True
+    return np.asarray(get_path(ods, path)).size == 0
+
+
+def _unusable_magnetics_channels(
+    ods: ODS, shot: int, archived_fields: set[int]
+) -> dict[int, str]:
+    """Archived magnetics fields whose published waveform is empty, ``{field: node}``.
+
+    The archive says a field was recorded; it does not say the mapper could
+    use it. Since #2135 an equilibrium probe whose record is too short for the
+    zero-phase low pass is published with an empty ``field`` (index alignment
+    is kept, so it is not dropped), and a record the loader cannot read is
+    published empty in every family. Each family is found by the identity the
+    mapper wrote it under, never by its position among the others:
+
+    * equilibrium probes and flux loops: the registry's ``kind_index`` for the
+      shot, the index the mapper writes them at; a probe's ``identifier`` is
+      checked against the registry name, since the two are written together;
+    * phase-reference and fluctuation Mirnovs, limiter shunts: their
+      ``identifier``. These are raw-voltage channels, so ``voltage.data`` is
+      their published waveform (a phase reference's ``field`` is empty by
+      design).
+
+    Read-only: nothing in *ods* is changed.
+    """
+    from vaft.machine_mapping.utils import path_count
+
+    unusable: dict[int, str] = {}
+
+    def check(field: int, base: str, data_node: str) -> None:
+        if int(field) in archived_fields and _empty_published_waveform(ods, base, data_node):
+            unusable.setdefault(int(field), f"{base}.{data_node}")
+
+    for record in resolve_equilibrium_magnetics_sensors(int(shot)):
+        if record.kind == "b_field_pol_probe":
+            base = f"magnetics.b_field_pol_probe.{record.kind_index}"
+            identifier_path = f"{base}.identifier"
+            if path_exists(ods, identifier_path) and str(get_path(ods, identifier_path)) != record.name:
+                raise ValueError(
+                    f"shot {shot}: {base} is {get_path(ods, identifier_path)!r}, but the "
+                    f"registry places {record.name!r} (field {record.field_code}) there"
+                )
+            check(record.field_code, base, "field.data")
+        elif record.kind == "flux_loop":
+            check(record.field_code, f"magnetics.flux_loop.{record.kind_index}", "flux.data")
+
+    probe_by_identifier: dict[str, int] = {}
+    for index in range(path_count(ods, "magnetics.b_field_pol_probe")):
+        identifier_path = f"magnetics.b_field_pol_probe.{index}.identifier"
+        if path_exists(ods, identifier_path):
+            probe_by_identifier.setdefault(str(get_path(ods, identifier_path)), index)
+
+    voltage_channels = [
+        (int(channel["field_code"]), f"{channel['name']}:phase_reference")
+        for channel in toroidal_mirnov_reference_channels(int(shot))
+    ]
+    if int(shot) >= FLUCTUATION_MIRNOV_FIRST_SHOT:
+        voltage_channels += [
+            (int(channel["field"]), str(channel["identifier"]))
+            for channel in fluctuation_mirnov_channel_definitions(int(shot))
+        ]
+    for field, identifier in voltage_channels:
+        if identifier in probe_by_identifier:
+            check(field, f"magnetics.b_field_pol_probe.{probe_by_identifier[identifier]}", "voltage.data")
+
+    for index in range(path_count(ods, "magnetics.shunt")):
+        identifier_path = f"magnetics.shunt.{index}.identifier"
+        if not path_exists(ods, identifier_path):
+            continue
+        identifier = str(get_path(ods, identifier_path))
+        for channel in LIMITER_SHUNT_CHANNELS:
+            if channel["identifier"] == identifier:
+                check(int(channel["field_code"]), f"magnetics.shunt.{index}", "voltage.data")
+    return dict(sorted(unusable.items()))
+
+
+def _record_unusable_magnetics_channels(
+    status: dict[str, Any], ods: ODS, shot: int, archived_fields: set[int]
+) -> None:
+    """Fold the channels published empty into the magnetics status (#2164).
+
+    ``missing_channels`` was built from the archive alone, so a probe the
+    zero-phase low pass could not take (#2135) was published empty while the
+    component reported ``success``. After this, ``missing_channels`` lists
+    every field the product lacks, ``missing_channel_reasons`` says for each
+    whether it was never archived or archived but unusable, and
+    ``unusable_channels`` names the empty node. Report-only: no waveform,
+    validity or index is touched.
+    """
+    not_archived = sorted(int(field) for field in status.get("missing_channels", []))
+    reasons = {field: MAGNETICS_CHANNEL_NOT_ARCHIVED for field in not_archived}
+    if status.get("status") != "unavailable" and "magnetics" in ods:
+        unusable = _unusable_magnetics_channels(ods, shot, archived_fields)
+        if unusable:
+            status["status"] = "partial"
+            status["missing_channels"] = sorted(set(not_archived) | set(unusable))
+            status["unusable_channels"] = {str(field): node for field, node in unusable.items()}
+            reasons.update({field: MAGNETICS_CHANNEL_UNUSABLE for field in unusable})
+    status["missing_channel_reasons"] = {str(field): reasons[field] for field in sorted(reasons)}
+
+
 def build_diagnostics_ods(
     *,
     shot: int,
@@ -1069,6 +1189,9 @@ def build_diagnostics_ods(
         # with the reason each one is missing, not a silent success.
         statuses["magnetics"]["status"] = "partial"
         statuses["magnetics"]["signals_left_out"] = dict(magnetics_left_out)
+    # The archive-based list above misses fields that were recorded but came
+    # out of processing empty (#2135 short probe records, #2164).
+    _record_unusable_magnetics_channels(statuses["magnetics"], ods, shot, archived_fields)
 
     # A component whose raw signals were unavailable produced no coordinate,
     # so it must not appear in the realized-coverage record either.
