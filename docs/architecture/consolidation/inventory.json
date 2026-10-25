@@ -1,9 +1,9 @@
 {
  "classification_counts": {
-  "canonical": 23,
+  "canonical": 39,
   "duplicate": 2,
-  "intentional_specialization": 35,
-  "legacy": 26,
+  "intentional_specialization": 37,
+  "legacy": 8,
   "unverified": 382
  },
  "entry_modules": {
@@ -638,7 +638,7 @@
    "callers": [
     "vaft.code.efit.kfile.generate_constraints_ods"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": false,
    "evidence": "",
@@ -652,10 +652,10 @@
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/code/efit/kfile.py"
   },
   {
@@ -728,7 +728,7 @@
    "production_reachability_note": "pipeline1 generate_constraints_ods; probe/loop grouping by INBOARD_PROBE_MAX_R etc. at kfile.py ~578-624.",
    "recommended_action": "C2: grouping from the registry 'family' instead of r/z thresholds.",
    "related_issue": "#2164",
-   "resolved_by": "",
+   "resolved_by": "#2164 (C2, #2188: equilibrium_sensor_families; 194/194 k-files byte-identical)",
    "scientific_risk": "medium",
    "source_file": "vaft/code/efit/kfile.py"
   },
@@ -2764,7 +2764,7 @@
     }
    ],
    "callers": [],
-   "classification": "legacy",
+   "classification": "intentional_specialization",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": false,
    "evidence": "",
@@ -2776,10 +2776,10 @@
    "primitives": [],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "keep: sql_table.txt is the raw-database field-name table (a separate contract); #2181 checks it against all 75 registry labels.",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181, documented as a separate contract)",
+   "scientific_risk": "low",
    "source_file": "vaft/database/raw.py"
   },
   {
@@ -2797,7 +2797,7 @@
    "callers": [
     "vaft.machine_mapping.utils.load_raw_data"
    ],
-   "classification": "legacy",
+   "classification": "intentional_specialization",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": false,
    "evidence": "",
@@ -2809,10 +2809,10 @@
    "primitives": [],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "keep: sql_table.txt is the raw-database field-name table (a separate contract); #2181 checks it against all 75 registry labels.",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181, documented as a separate contract)",
+   "scientific_risk": "low",
    "source_file": "vaft/database/raw.py"
   },
   {
@@ -4918,7 +4918,7 @@
    "callers": [
     "vaft.machine_mapping.efund_geometry._probes"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": false,
    "evidence": "",
@@ -4932,10 +4932,10 @@
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/efund_geometry.py"
   },
   {
@@ -5212,7 +5212,7 @@
     "vaft.validation.efit_channels.efit_probe_count",
     "vaft.validation.magnetics._efit_probe_count"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": false,
    "evidence": "",
@@ -5226,10 +5226,10 @@
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
@@ -5260,7 +5260,7 @@
     "workflow.magnetics_geometry.verify_wiring.score_shot",
     "workflow.magnetics_geometry.verify_wiring.z006_health"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "vest.yaml via _equilibrium_magnetics_revision",
    "curated": false,
    "evidence": "",
@@ -5276,10 +5276,10 @@
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
@@ -5303,7 +5303,7 @@
     "vaft.omas.vest_upstream._unusable_magnetics_channels",
     "vaft.omas.vest_upstream.build_diagnostics_ods"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": false,
    "evidence": "",
@@ -5317,10 +5317,10 @@
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
@@ -5466,7 +5466,7 @@
     "vaft.machine_mapping.magnetics._prepare_magnetics_context",
     "vaft.machine_mapping.magnetics.vfit_equilibrium_magnetics"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "vest.yaml via equilibrium_magnetics_processing_config, magnetics_wiring_for_shot",
    "curated": false,
    "evidence": "",
@@ -5480,10 +5480,10 @@
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
@@ -5779,7 +5779,7 @@
    "callers": [
     "vaft.machine_mapping.provenance.vest_processing_provenance"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "vest.yaml via known_magnetics_faults, magnetics_wiring_for_shot, resolve_vest_diagnostic",
    "curated": false,
    "evidence": "",
@@ -5794,10 +5794,10 @@
    ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/provenance.py"
   },
   {
@@ -5816,7 +5816,7 @@
     "vaft.machine_mapping.raw_daq_sources.b_field_pol_probe_raw_fields",
     "vaft.machine_mapping.raw_daq_sources.flux_loop_raw_fields"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "vest.yaml via equilibrium_magnetics_processing_config, known_magnetics_faults",
    "curated": false,
    "evidence": "",
@@ -5830,10 +5830,10 @@
    ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/raw_daq_sources.py"
   },
   {
@@ -6089,7 +6089,7 @@
    "callers": [
     "vaft.machine_mapping.utils.apply_default_constraint_uncertainties"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": false,
    "evidence": "",
@@ -6103,10 +6103,10 @@
    ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/utils.py"
   },
   {
@@ -7760,7 +7760,7 @@
     "vaft.cli.vest_upstream.main",
     "workflow.automatic_pipeline_1_routine_data_processing.generate_diagnostics_ods.main"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "vest.yaml via known_magnetics_faults, resolve_diagnostics_time_policies",
    "curated": false,
    "evidence": "",
@@ -7775,10 +7775,10 @@
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/omas/vest_upstream.py"
   },
   {
@@ -15393,7 +15393,7 @@
     "workflow.efit_numerics.seed_basin.prepare_shot",
     "workflow.magnetics_quality.scan_magnetics_quality.scan_shot"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": false,
    "evidence": "",
@@ -15407,10 +15407,10 @@
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/validation/efit_channels.py"
   },
   {
@@ -15631,7 +15631,7 @@
    "callers": [
     "vaft.validation.flux_loop_assessment.flux_loop_evidence"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": false,
    "evidence": "",
@@ -15645,10 +15645,10 @@
    ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/validation/flux_loop_assessment.py"
   },
   {
@@ -15788,7 +15788,7 @@
    "callers": [
     "vaft.validation.magnetics.magnetics_quality_metrics"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": false,
    "evidence": "",
@@ -15802,10 +15802,10 @@
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/validation/magnetics.py"
   },
   {
@@ -15856,7 +15856,7 @@
    "callers": [
     "vaft.validation.magnetics.validate_magnetics_signals"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "vest.yaml via known_magnetics_faults",
    "curated": false,
    "evidence": "",
@@ -15870,10 +15870,10 @@
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "vaft/validation/magnetics.py"
   },
   {
@@ -16769,7 +16769,7 @@
    "callers": [
     "workflow.magnetics_geometry.verify_wiring.main"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "vest.yaml via known_magnetics_faults, magnetics_wiring_for_shot",
    "curated": false,
    "evidence": "",
@@ -16784,10 +16784,10 @@
    ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "workflow/magnetics_geometry/verify_wiring.py"
   },
   {
@@ -16805,7 +16805,7 @@
    "callers": [
     "workflow.magnetics_geometry.verify_wiring.score_shot"
    ],
-   "classification": "legacy",
+   "classification": "canonical",
    "configuration_source": "vest.yaml via known_magnetics_faults",
    "curated": false,
    "evidence": "",
@@ -16819,10 +16819,10 @@
    ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+   "recommended_action": "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches).",
    "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2158 (#2181)",
+   "scientific_risk": "low",
    "source_file": "workflow/magnetics_geometry/verify_wiring.py"
   },
   {
