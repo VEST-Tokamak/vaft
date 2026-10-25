@@ -179,30 +179,88 @@ def _references():
     return refs
 
 
-@lru_cache(maxsize=None)
-def _object_of(dotted: str):
+# Identity keys are computed in a child process: resolving every referenced
+# name imports modules (study scripts, the MCP server) whose import has side
+# effects -- MPLBACKEND, rcParams -- that must not leak into this test worker.
+_KEY_SCRIPT = r"""
+import importlib, json, sys
+MISSING = object()
+def resolve(q):
+    parts = q.split(".")
+    for cut in range(len(parts) - 1, 0, -1):
+        name = ".".join(parts[:cut])
+        try:
+            obj = importlib.import_module(name)
+        except Exception:
+            continue
+        for attr in parts[cut:]:
+            obj = getattr(obj, attr, MISSING)
+            if obj is MISSING:
+                return None
+        return obj
+    return None
+out = {}
+for q in json.load(sys.stdin):
     try:
-        return _resolve(dotted)
-    except (AssertionError, ImportError, Exception):  # a dynamic or local name: not an API reference
-        return _MISSING
+        obj = resolve(q)
+    except Exception:
+        obj = None
+    if obj is None or isinstance(obj, (int, float, str, bytes, bool, tuple, list, dict)):
+        out[q] = None
+        continue
+    module = getattr(obj, "__module__", None)
+    qual = getattr(obj, "__qualname__", None) or getattr(obj, "__name__", None)
+    out[q] = f"{module}.{qual}#{id(obj)}" if module and qual else f"id#{id(obj)}"
+print(json.dumps(out))
+"""
+
+
+def _interesting_names():
+    names = {"smooth", "apply_fir_filter", "firwin"}
+    for row in ROWS:
+        targets = list(row["resolves"]) + [row["canonical_api"]]
+        targets += list(row.get("retained_direct_callers", {}))
+        targets += [p["check"]["primitive"] for p in row["previous_implementations"] if "check" in p]
+        names |= {t.rsplit(".", 1)[-1] for t in targets}
+    return names
+
+
+@lru_cache(maxsize=None)
+def _identity_keys():
+    import subprocess
+    import sys
+
+    names = _interesting_names()
+    dotted = sorted({t for _c, t, _n, _k in _references() if t.rsplit(".", 1)[-1] in names})
+    for row in ROWS:
+        dotted += list(row["resolves"]) + list(row.get("retained_direct_callers", {}))
+        dotted += [p["check"]["primitive"] for p in row["previous_implementations"] if "check" in p]
+    dotted += ["vaft.code.efit.legacy.smooth", "vaft.process.signal_processing.smooth"]
+    result = subprocess.run(
+        [sys.executable, "-P", "-c", _KEY_SCRIPT],
+        input=json.dumps(sorted(set(dotted))), capture_output=True, text=True, cwd=ROOT, check=True,
+        env={**__import__("os").environ, "PYTHONPATH": str(ROOT), "MPLBACKEND": "Agg"},
+    )
+    return json.loads(result.stdout.strip().splitlines()[-1])
+
+
+def _key(dotted):
+    key = _identity_keys().get(dotted)
+    if key is None and dotted.rsplit(".", 1)[-1] not in _interesting_names():
+        raise AssertionError(f"{dotted}: add its name to the matrix before asking for its callers")
+    return key
 
 
 def _referencing(targets):
-    wanted = [_resolve(t) for t in targets]
-    wanted = [w for w in wanted if w is not _MISSING]
-    callers = set()
-    for caller, target, _node, _is_call in _references():
-        obj = _object_of(target)
-        if obj is not _MISSING and any(obj is w for w in wanted):
-            callers.add(caller)
-    return callers
+    wanted = {_key(t) for t in targets} - {None}
+    return {caller for caller, target, _n, _k in _references() if _identity_keys().get(target) in wanted}
 
 
 def _calls_to(target):
-    wanted = _resolve(target)
+    wanted = _key(target)
     out = {}
     for caller, dotted, node, is_call in _references():
-        if _object_of(dotted) is wanted:
+        if _identity_keys().get(dotted) == wanted:
             out.setdefault(caller, []).append((node, is_call))
     return out
 
@@ -431,6 +489,16 @@ def test_resolver_sees_a_non_call_reference():
 
 def test_a_reexport_resolves_to_the_same_object():
     assert _resolve("vaft.process.smooth") is _resolve("vaft.process.signal_processing.smooth")
+
+
+def test_resolving_the_scan_leaves_this_process_alone():
+    import os
+
+    import matplotlib
+
+    before = (os.environ.get("MPLBACKEND"), matplotlib.rcParams._get_backend_or_none())
+    _identity_keys()
+    assert (os.environ.get("MPLBACKEND"), matplotlib.rcParams._get_backend_or_none()) == before
 
 
 def test_callers_are_resolved_through_imports_not_by_bare_name():
