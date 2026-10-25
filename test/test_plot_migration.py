@@ -344,9 +344,10 @@ def _release_tuple(text):
     return parts + (0,) * (3 - len(parts))
 
 
-#: "removed in 0.9.0", "will raise in 0.9", "raises in 0.10.0": a two-part
-#: release reads as X.Y.0 (the #1188 fallbacks hid behind "raise in 0.9").
-_PROMISE = __import__("re").compile(r"(?:[Rr]emoved|[Rr]aises?) in (\d+\.\d+(?:\.\d+)?)")
+#: "removed in 0.9.0", "will raise in 0.9", "raises in 0.10.0", "removed in
+#: vaft 0.11.0": a two-part release reads as X.Y.0 (the #1188 fallbacks hid
+#: behind "raise in 0.9").
+_PROMISE = __import__("re").compile(r"(?:[Rr]emoved|[Rr]aises?) in (?:vaft )?(\d+\.\d+(?:\.\d+)?)")
 
 
 def _documented_removal_releases():
@@ -384,6 +385,7 @@ def test_no_removal_promise_has_reached_the_current_version():
 
     assert _PROMISE.search("x is removed in 1.2.3"), "the promise pattern is broken"
     assert _PROMISE.search("x will raise in 1.2").group(1) == "1.2"
+    assert _PROMISE.search("x will be removed in vaft 1.2.3").group(1) == "1.2.3"
     current = _release_tuple(vaft.__version__.split("+")[0].split("rc")[0].split(".dev")[0])
     overdue = {where: release for where, release in _documented_removal_releases().items()
                if _release_tuple(release) <= current}
