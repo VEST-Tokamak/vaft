@@ -111,6 +111,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_layout_contract.py",
     "test_line_abscissa.py",
     "test_machine_geometry_registry.py",
+    # Magnetics missing-channel reasons (#2164): two synthetic-dump diagnostics
+    # builds, no solver, ~15 s.
+    "test_magnetics_missing_channel_reasons.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
     "test_panels_suptitle_placement.py",
