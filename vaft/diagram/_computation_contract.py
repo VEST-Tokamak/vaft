@@ -59,6 +59,7 @@ class Graph:
         self.evidence: Dict[str, Tuple[Tuple[str, str], ...]] = {}
         self.keys: List[str] = []
         self.generic: List[str] = []
+        self.planned: List[Tuple[str, str]] = []
 
     def node(self, key: str, x: float, y: float, width: float, height: float, title: str,
              lines: Sequence[str] = (), *, status: str = "implemented", note: str = "", footer: str = "",
@@ -96,14 +97,24 @@ class Graph:
             self.generic.append(key)
 
     def link(self, src: str, dst: str, relation: str, *, via: Sequence[Tuple[float, float]] = (),
-             start: Optional[Tuple[float, float]] = None, end: Optional[Tuple[float, float]] = None) -> None:
+             start: Optional[Tuple[float, float]] = None, end: Optional[Tuple[float, float]] = None,
+             planned: bool = False) -> None:
         """One recorded edge, drawn once: centre to centre, between given points, or as one bent polyline."""
         if relation not in RELATIONS:
             raise ValueError(f"relation must be one of {tuple(RELATIONS)}, not {relation!r}")
         if src not in self.status or dst not in self.status:
             raise ValueError(f"edge {src}->{dst} names a node the model does not record")
         style, role = RELATIONS[relation], f"edge:{src}->{dst}"
-        if start is None and end is None and not via:
+        if planned:  # a planned edge is drawn fainter as well as listed in model["planned_edges"]
+            style += ",black!35"
+            self.planned.append((src, dst))
+        if (start is None) != (end is None):
+            raise ValueError(f"edge {src}->{dst}: give both start and end, or neither")
+        if via and start is None:
+            raise ValueError(f"edge {src}->{dst}: a bent edge needs start and end points")
+        if start is None and not via:
+            if src not in self.nodes or dst not in self.nodes:
+                raise ValueError(f"edge {src}->{dst}: a node without a box needs explicit start and end points")
             self.items.append(connector(self.nodes[src], self.nodes[dst], style=style, role=role))
         elif via:
             self.items.append(Polyline.of([start, *via, end], style, role=role))
@@ -129,7 +140,8 @@ class Graph:
     def diagram(self, name: str, **model) -> Diagram:
         return Diagram(name, Scene(tuple(self.items)),
                        model={"nodes": tuple(self.keys), "edges": tuple(self.edges), "status": dict(self.status),
-                              "evidence": dict(self.evidence), "generic": tuple(self.generic), **model})
+                              "evidence": dict(self.evidence), "generic": tuple(self.generic),
+                              "planned_edges": tuple(self.planned), **model})
 
 
 def scientific_computation_contract(*, labels: bool = True) -> Diagram:
@@ -141,8 +153,9 @@ def scientific_computation_contract(*, labels: bool = True) -> Diagram:
     (physical assumptions, model and numerical choices, units and
     conventions -- everything that changes the result; EFIT hashes it into
     its scientific identity) and the execution settings (executable,
-    backend and resources, timeout, work directory -- kept out of that
-    identity; the code version is recorded with the run instead). The
+    backend and resources, timeout, work directory -- kept out of the
+    configuration hash; the code version is recorded beside it, as part of
+    the run's scientific identity). The
     computation returns a standardized output (IDS or ODS, the subset
     comparable across codes) beside its native and typed results (solver
     files, parsed result objects), which keep the solver-specific science.
@@ -160,7 +173,7 @@ def scientific_computation_contract(*, labels: bool = True) -> Diagram:
            note="changes the result", evidence=(("vaft/code/efit/config.py", "EFITScientificConfig"),))
     g.node("execution_settings", 3.7, 4.7, 6.8, 1.9, "Execution settings",
            ("executable · backend and resources", "timeout · work directory"),
-           note="kept out of the scientific identity", evidence=(("vaft/code/base.py", "CodeConfig"),
+           note="kept out of the configuration hash", evidence=(("vaft/code/base.py", "CodeConfig"),
                                                                  ("vaft/code/execution.py", "ExecutionRequest")))
     g.node("computation", 0.0, 1.2, 6.0, 1.6, "Scientific computation", ("a Process function or a Code adapter",),
            style="concept strong", evidence=(("vaft/code/base.py", "CodeRunner"),))
@@ -186,7 +199,7 @@ def scientific_computation_contract(*, labels: bool = True) -> Diagram:
     if labels:
         g.label((0.0, -3.9), "Not every Process or Code reads or writes IDS; the standardized output keeps a "
                 "comparable subset beside the solver-specific science", anchor="north", style="note", role="note")
-    return g.diagram("scientific_computation_contract", relations=RELATIONS)
+    return g.diagram("scientific_computation_contract", relations=dict(RELATIONS))
 
 
 #: the three record layers: (key, title, contents, what keeps it apart, status, status note, evidence)
@@ -194,14 +207,14 @@ RECORD_LAYERS: Tuple[Tuple[str, str, Tuple[str, ...], str, str, str, Tuple[Tuple
     ("identity", "Scientific identity",
      ("input digests", "code and model version", "scientific configuration", "conventions", "content digests"),
      "each digest states what enters it", "partial",
-     "configuration hash for EFIT only; input and output digests per stage",
+     "configuration hashes in some adapters; input and output digests per stage",
      (("vaft/code/efit/config.py", "EFITScientificConfig.sha256"),
       ("vaft/database/replication.py", "ReplicationRecord.product_sha256"))),
     ("execution", "Observed execution",
      ("backend", "job ID", "runtime and resources", "exit status (execution success)", "stdout / stderr logs"),
      "nondeterministic: kept out of the identity", "partial",
      "recorded per adapter; uniform persistence planned (#1019)",
-     (("vaft/code/execution.py", "ExecutionResult"), ("vaft/database/worker/state.py", "CREATE TABLE IF NOT EXISTS runs"))),
+     (("vaft/code/execution.py", "ExecutionResult"), ("vaft/database/worker/state.py", "WorkerState.finish_run"))),
     ("assessment", "Scientific assessment",
      ("numerical convergence", "uncertainty", "physical checks", "applicability (advisory)", "validation"),
      "separate axes, not one score", "partial",
@@ -217,7 +230,8 @@ def computation_record_layers(*, labels: bool = True) -> Diagram:
     ``"identity"``
         the scientific identity: input digests, code and model version,
         scientific configuration, conventions and content digests -- partial:
-        only EFIT hashes its configuration; stages record input and output
+        some adapters hash their configuration (EFIT, GACODE, TokaMaker,
+        MITIM), others do not, and pipeline stages record input and output
         digests. Each
         digest declares its scope -- EFIT's scientific SHA-256 covers the
         scientific configuration, not the execution block, the input data or
@@ -235,9 +249,10 @@ def computation_record_layers(*, labels: bool = True) -> Diagram:
         separate axes rather than one score. Execution success is a
         precondition recorded with the execution, not an assessment axis.
 
-    Execution success, provenance completeness, numerical convergence,
-    validation and model applicability are not conflated: each is its own
-    entry. All three layers point to the traceable result.
+    Execution success (with the execution), numerical convergence,
+    validation and model applicability (in the assessment) are separate
+    entries, and the note adds that provenance completeness is not
+    scientific correctness. All three layers point to the traceable result.
     """
     labels = _check_labels(labels)
     g = Graph()
@@ -262,4 +277,5 @@ def computation_record_layers(*, labels: bool = True) -> Diagram:
     if labels:
         g.label((0.0, -4.1), "Execution success $\\neq$ numerical convergence $\\neq$ physical validity; "
                 "provenance completeness $\\neq$ scientific correctness", anchor="north", style="note", role="note")
-    return g.diagram("computation_record_layers", layers=tuple(k for k, *_ in RECORD_LAYERS), relations=RELATIONS)
+    return g.diagram("computation_record_layers", layers=tuple(k for k, *_ in RECORD_LAYERS),
+                     relations=dict(RELATIONS))
