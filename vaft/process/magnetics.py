@@ -82,7 +82,9 @@ from vaft.compat import cumtrapz_compat
 from vaft.formula.statistics import rms
 from vaft.process.acquisition import AcquisitionInconsistencyError, check_declared_sample_rate
 from .signal_processing import (
+    DegenerateBaselineWindowError,
     _filtfilt_min_length,
+    _polyfit_linear_baseline,
     apply_fir_filter,
     define_baseline,
     subtract_baseline,
@@ -259,10 +261,6 @@ def magnetics_sensor_poloidal_angle(r, z, centre=None):
 
 class UnsupportedMagneticsDaqModeError(NotImplementedError):
     """Raised for a magnetics acquisition era with no ported processing path."""
-
-
-class DegenerateBaselineWindowError(ValueError):
-    """Raised when a baseline window contains fewer than two valid samples."""
 
 
 @dataclass(frozen=True)
@@ -468,45 +466,24 @@ def _linear_baseline(
     channel: str | int | None = None,
     window_desc: str | None = None,
 ) -> np.ndarray:
-    indices = np.asarray(indices, dtype=int)
-    in_bounds = indices[(indices >= 0) & (indices < values.size)]
-    valid = in_bounds[np.isfinite(values[in_bounds]) & np.isfinite(time_axis[in_bounds])]
-    if valid.size < 2:
-        context_parts = []
-        if shot is not None:
-            context_parts.append(f"shot {shot}")
-        if channel is not None:
-            context_parts.append(f"channel {channel!r}")
-        context_str = f" [{', '.join(context_parts)}]" if context_parts else ""
-
-        if allow_zero_fallback:
-            warnings.warn(
-                f"Degenerate baseline window{context_str}: {valid.size} valid sample(s) available "
-                f"(requires >= 2). Falling back to zero baseline because allow_zero_fallback=True.",
-                UserWarning,
-                stacklevel=2,
-            )
-            return np.zeros(values.size, dtype=float)
-
-        prefix = f"for {', '.join(context_parts)}: " if context_parts else ""
-        time_span = (
-            f"[{time_axis[0]:.6g}, {time_axis[-1]:.6g}] s"
-            if time_axis.size > 0
-            else "[]"
-        )
-        req_desc = f" ({window_desc})" if window_desc else ""
-        if indices.size > 0:
-            index_range = f"[{indices.min()}, {indices.max()}] (count: {indices.size})"
-        else:
-            index_range = "[] (empty)"
-
-        raise DegenerateBaselineWindowError(
-            f"Degenerate baseline window {prefix}found {valid.size} valid sample(s) (requires >= 2). "
-            f"Requested indices{req_desc}: {index_range}. "
-            f"Signal sample count: {values.size}, time span: {time_span}."
-        )
-
-    return np.polyval(np.polyfit(time_axis[valid], values[valid], 1), time_axis)
+    """The probe/flux-loop linear baseline: the canonical ``"polyfit"`` line of
+    :func:`~vaft.process.signal_processing.subtract_baseline` with the #639
+    guards, called with this module's shot/channel context (#2162)."""
+    context_parts = []
+    if shot is not None:
+        context_parts.append(f"shot {shot}")
+    if channel is not None:
+        context_parts.append(f"channel {channel!r}")
+    return _polyfit_linear_baseline(
+        time_axis,
+        values,
+        indices,
+        nan_policy="omit",
+        allow_zero_fallback=allow_zero_fallback,
+        context=", ".join(context_parts) or None,
+        window_desc=window_desc,
+        stacklevel=2,
+    )
 
 
 def _validate_daq_mode(cfg: VestMagneticsProcessingConfig) -> None:

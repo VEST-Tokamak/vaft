@@ -69,6 +69,7 @@ from scipy.optimize import curve_fit
 
 
 __all__ = [
+    "DegenerateBaselineWindowError",
     "ResamplingError",
     "SignalOrientation",
     "SignalRepairError",
@@ -103,6 +104,10 @@ __all__ = [
     "vfit_signal_start_end",
     "vfit_signal_startend",
 ]
+
+
+class DegenerateBaselineWindowError(ValueError):
+    """Raised when a baseline window contains fewer than two valid samples."""
 
 
 class SignalRepairError(ValueError):
@@ -1912,7 +1917,71 @@ def exp_baseline(x, a, b, c):
     """
     return a * np.exp(b * x) + c
 
-def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
+def _polyfit_linear_baseline(
+    time,
+    signal,
+    baseline_indices,
+    *,
+    nan_policy: str,
+    allow_zero_fallback: bool,
+    context: str | None,
+    window_desc: str | None,
+    stacklevel: int,
+) -> np.ndarray:
+    """The guarded index-based ``np.polyfit`` line; see :func:`subtract_baseline`.
+
+    ``stacklevel`` is the caller's, so the zero-fallback warning names whoever
+    asked for the baseline rather than this helper.
+    """
+    if nan_policy not in ("omit", "propagate"):
+        raise ValueError(f"nan_policy must be 'omit' or 'propagate'; got {nan_policy!r}")
+    indices = np.asarray(baseline_indices)
+    if indices.dtype == bool:
+        # A boolean mask selects samples; cast to int it would select 0 and 1.
+        indices = np.flatnonzero(indices)
+    indices = indices.astype(int, copy=False)
+    in_bounds = indices[(indices >= 0) & (indices < signal.size)]
+    if nan_policy == "omit":
+        valid = in_bounds[np.isfinite(signal[in_bounds]) & np.isfinite(time[in_bounds])]
+    else:
+        valid = in_bounds
+    if valid.size < 2:
+        context_str = f" [{context}]" if context else ""
+        if allow_zero_fallback:
+            warnings.warn(
+                f"Degenerate baseline window{context_str}: {valid.size} valid sample(s) available "
+                f"(requires >= 2). Falling back to zero baseline because allow_zero_fallback=True.",
+                UserWarning,
+                stacklevel=stacklevel + 1,
+            )
+            return np.zeros(signal.size, dtype=float)
+
+        prefix = f"for {context}: " if context else ""
+        time_span = f"[{time[0]:.6g}, {time[-1]:.6g}] s" if time.size > 0 else "[]"
+        req_desc = f" ({window_desc})" if window_desc else ""
+        if indices.size > 0:
+            index_range = f"[{indices.min()}, {indices.max()}] (count: {indices.size})"
+        else:
+            index_range = "[] (empty)"
+        raise DegenerateBaselineWindowError(
+            f"Degenerate baseline window {prefix}found {valid.size} valid sample(s) (requires >= 2). "
+            f"Requested indices{req_desc}: {index_range}. "
+            f"Signal sample count: {signal.size}, time span: {time_span}."
+        )
+    return np.polyval(np.polyfit(time[valid], signal[valid], 1), time)
+
+
+def subtract_baseline(
+    time,
+    signal,
+    baseline_indices,
+    fitting_opt='linear',
+    *,
+    nan_policy: str = "omit",
+    allow_zero_fallback: bool = False,
+    context: str | None = None,
+    window_desc: str | None = None,
+):
     """Fit a baseline through the selected samples and subtract it everywhere.
 
     Parameters
@@ -1924,8 +1993,20 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     baseline_indices : np.ndarray
         Indices of the samples the baseline is fitted through, normally from
         :func:`define_baseline` [-].
-    fitting_opt : {"linear", "quadratic", "spline", "exp"}, optional
+    fitting_opt : {"linear", "polyfit", "quadratic", "spline", "exp"}, optional
         The baseline model [-].
+    nan_policy : {"omit", "propagate"}, optional
+        ``"polyfit"`` only: drop non-finite baseline samples (and samples at a
+        non-finite time) before fitting, or keep them, so that one NaN makes
+        the whole baseline NaN [-].
+    allow_zero_fallback : bool, optional
+        ``"polyfit"`` only: with fewer than two valid samples, warn and remove
+        a zero baseline instead of raising [-].
+    context : str or None, optional
+        ``"polyfit"`` only: what the signal is, e.g. ``"shot 39915, channel
+        'flux_loop_3'"``, quoted in the degenerate-window error or warning [-].
+    window_desc : str or None, optional
+        ``"polyfit"`` only: how the window was chosen, quoted in the error [-].
 
     Returns
     -------
@@ -1937,14 +2018,21 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     Raises
     ------
     ValueError
-        Unknown ``fitting_opt``.
+        Unknown ``fitting_opt`` or ``nan_policy``.
+    DegenerateBaselineWindowError
+        ``"polyfit"``: fewer than two valid baseline samples and
+        ``allow_zero_fallback`` is false (issue #639).
 
     Processing steps
     ----------------
-    1. Take ``time`` and ``signal`` at ``baseline_indices``.
-    2. Fit the chosen model through them: ``scipy.optimize.curve_fit`` for
-       the parametric models, ``scipy.interpolate.UnivariateSpline(s=0)`` --
-       an interpolating spline -- for ``"spline"``.
+    1. Take ``time`` and ``signal`` at ``baseline_indices``; for ``"polyfit"``
+       drop indices outside the record and, under ``nan_policy="omit"``,
+       non-finite samples.
+    2. Fit the chosen model through them: ``np.polyfit`` (degree 1, a closed
+       least-squares solve) for ``"polyfit"``, ``scipy.optimize.curve_fit``
+       for the other parametric models,
+       ``scipy.interpolate.UnivariateSpline(s=0)`` -- an interpolating spline
+       -- for ``"spline"``.
     3. Evaluate the model on the full ``time`` axis and subtract.
 
     Output semantics
@@ -1957,7 +2045,9 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     ``fitting_opt = "linear"`` is a legacy compatibility value: the donor
     workflow removed a linear drift, which is the right model for an
     integrator's offset.  The exponential fit uses ``maxfev = 10000``, a
-    numerical convenience.
+    numerical convenience.  ``nan_policy = "omit"`` and
+    ``allow_zero_fallback = False`` are the #639 policy of the magnetics
+    chains: a gap in the window is skipped, an empty window is an error.
 
     Assumptions
     -----------
@@ -1974,15 +2064,44 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     ``"spline"`` interpolates the baseline samples exactly, so noise in them
     is reproduced in the baseline; with the onset and offset regions far
     apart it is a straight line between them in practice.  ``"exp"`` can fail
-    to converge and raises from SciPy.  Nothing checks that
-    ``baseline_indices`` is non-empty.
+    to converge and raises from SciPy.  Only ``"polyfit"`` checks that
+    ``baseline_indices`` leaves at least two usable samples; the other models
+    fail from SciPy instead.
+
+    ``"linear"`` and ``"polyfit"`` fit the same straight line by two methods
+    and are kept apart on purpose.  ``curve_fit`` reaches the least-squares
+    line iteratively and stops at its tolerance, so it differs from the
+    closed-form ``np.polyfit`` solution in the last digits (about 1e-12
+    relative on a 1e-3-scale integrated signal); the stored products of each
+    caller were built with one or the other, and merging them would move
+    those values.  ``"polyfit"`` is the canonical line of the probe,
+    flux-loop and plasma-current chains (#2162); ``"linear"`` remains that of
+    the generic :func:`~vaft.process.magnetics.rogowski_coil_ip` and
+    :func:`~vaft.process.magnetics.flux_loop_flux`, which called it before.
 
     Provenance
     ----------
     .. [1] The legacy VEST EFIT magnetics chain [VFIT]_, where an integrated
        probe signal's drift is removed by a fit through the pre- and
        post-discharge windows.
+    .. [2] Issue #639, the degenerate-window guard, and #2162, which made this
+       the one implementation of the index-based polyfit line.
     """
+    if nan_policy not in ("omit", "propagate"):
+        raise ValueError(f"nan_policy must be 'omit' or 'propagate'; got {nan_policy!r}")
+    if fitting_opt == 'polyfit':
+        fitted_baseline = _polyfit_linear_baseline(
+            time,
+            signal,
+            baseline_indices,
+            nan_policy=nan_policy,
+            allow_zero_fallback=allow_zero_fallback,
+            context=context,
+            window_desc=window_desc,
+            stacklevel=2,
+        )
+        return signal - fitted_baseline, fitted_baseline
+
     x_baseline = time[baseline_indices]
     y_baseline = signal[baseline_indices]
 
@@ -1999,7 +2118,9 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
         popt, _ = curve_fit(exp_baseline, x_baseline, y_baseline, maxfev=10000)
         fitted_baseline = exp_baseline(time, *popt)
     else:
-        raise ValueError("Unsupported fitting option. Choose from 'linear', 'quadratic', 'spline', 'exp'.")
+        raise ValueError(
+            "Unsupported fitting option. Choose from 'linear', 'polyfit', 'quadratic', 'spline', 'exp'."
+        )
 
     corrected_signal = signal - fitted_baseline
     return corrected_signal, fitted_baseline
