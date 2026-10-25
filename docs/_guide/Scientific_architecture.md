@@ -25,6 +25,16 @@ already defined, implemented or tracked elsewhere, and each section links to the
 When this page and an owning page disagree, the owning page wins, and the disagreement is a
 documentation bug.
 
+## Methodological foundations
+
+The scientific justification for VAFT's design is documented separately in
+[Design principles and methodological foundations]({{ '/reference/design-principles/' | relative_url }}).
+That guide distinguishes FAIR data and software, provenance, trustworthy repository
+practice, semantic interoperability, born-readable research results, integrated
+modelling and fusion-specific scientific credibility. It maps each concern to
+implemented mechanisms and explicitly records unverified conformance or
+publication-integration claims. It does not redefine the layer ownership below.
+
 ## Three views of one system
 
 VAFT has three architecture views. Each answers a different question, and they must not be read
