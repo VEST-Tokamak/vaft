@@ -35,6 +35,17 @@ from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 
+__all__ = [
+    "METRICS",
+    "PAIR_TOLERANCE_S",
+    "SlicePair",
+    "SlicePairing",
+    "metric_direction",
+    "pair_slices",
+    "paired_summary",
+    "population_summary",
+]
+
 #: Default pairing tolerance [s]: half an EFIT slice spacing of 1 ms.
 PAIR_TOLERANCE_S = 5.0e-4
 
