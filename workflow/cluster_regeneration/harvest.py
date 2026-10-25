@@ -21,7 +21,12 @@ ERR = re.compile(r"^Error in rule (\w+):")
 
 
 def parse_log(path):
-    jobs, errors = {}, []
+    """Finished jobs (rule, wildcards, wall) and rule errors of one Snakemake log.
+
+    Job ids restart in every run appended to the same file, so a job is captured when it
+    finishes rather than looked up by id at the end.
+    """
+    running, errors, finished = {}, [], []
     now = cur = None
     lines = path.read_text(errors="replace").splitlines()
     i = 0
@@ -33,20 +38,20 @@ def parse_log(path):
         elif (m := START.match(line)):
             cur = {"rule": m.group(1), "start": now, "wild": ""}
         elif cur is not None and (m := JOBID.match(line)):
-            jobs[int(m.group(1))] = cur
+            running[int(m.group(1))] = cur
         elif cur is not None and (m := WILD.match(line)):
             cur["wild"] = m.group(1)
         elif (m := FIN.match(line)):
-            j = jobs.get(int(m.group(1)))
+            j = running.pop(int(m.group(1)), None)
             if j and j["start"] and now:
-                j["wall"] = (now - j["start"]).total_seconds()
+                finished.append({**j, "wall": (now - j["start"]).total_seconds()})
         elif (m := ERR.match(line)):
             block = "\n".join(lines[i:i + 12])
             w = re.search(r"wildcards: (.*)", block)
             lg = re.search(r"log: (\S+)", block)
             errors.append({"rule": m.group(1), "wild": w.group(1) if w else "", "log": lg.group(1) if lg else None})
         i += 1
-    return jobs, errors
+    return finished, errors
 
 
 def shot_of(wild):
@@ -103,14 +108,19 @@ def main():
     shot_wall = collections.defaultdict(dict)
     for lane in a.lanes:
         F = lane / "filedb"
+        # Wall time from every attempt (each finished job appears in the attempt that ran it);
+        # errors from the latest attempt per chunk (<chunk>.snakemake.log) only.
+        for log in sorted((lane / "logs").glob("*.attempt-*.log")) or sorted((lane / "logs").glob("*.snakemake.log")):
+            finished, _ = parse_log(log)
+            for j in finished:
+                product = re.search(r"product=([\w-]+)", j["wild"] or "")
+                rule = j["rule"] + (f":{product.group(1)}" if product else "")
+                rule_wall[rule].append(j["wall"])
+                sh = shot_of(j["wild"])
+                if sh is not None:
+                    shot_wall[sh][rule] = shot_wall[sh].get(rule, 0) + j["wall"]
         for log in sorted((lane / "logs").glob("*.snakemake.log")):
-            jobs, errors = parse_log(log)
-            for j in jobs.values():
-                if "wall" in j:
-                    rule_wall[j["rule"]].append(j["wall"])
-                    sh = shot_of(j["wild"])
-                    if sh is not None:
-                        shot_wall[sh][j["rule"]] = shot_wall[sh].get(j["rule"], 0) + j["wall"]
+            _, errors = parse_log(log)
             for e in errors:
                 lp = real(lane, e["log"])
                 text = lp.read_text(errors="replace") if lp and lp.exists() else ""
