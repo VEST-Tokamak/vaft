@@ -1094,7 +1094,17 @@ def _vacuum_currents(ods: ODS, indices) -> ndarray:
                 f"does not cover the requested instant(s) {wanted.min():.6g}..{wanted.max():.6g} s on "
                 f"pf_active.time ({coil_time[0]:.6g}..{coil_time[-1]:.6g} s, {coil_time.size} samples)"
             )
-        loops = [resample_to_time(loop_time, current, coil_time) for current in loops]
+        resampled = [resample_to_time(loop_time, current, coil_time) for current in loops]
+        for index, (current, projected) in enumerate(zip(loops, resampled)):
+            # resample_to_time returns NaN where a record too short to
+            # anti-alias would otherwise have been decimated into an alias
+            # (#2162 B3.12): say so instead of handing EFIT a NaN column.
+            if np.isfinite(current).all() and not np.isfinite(projected[take]).all():
+                raise ValueError(
+                    f"pf_passive loop {index}: {loop_time.size} samples are too few to anti-alias "
+                    f"onto pf_active.time ({coil_time.size} samples); the resampled current is NaN"
+                )
+        loops = resampled
     columns += [current[take] for current in loops]
     return np.column_stack(columns)
 
