@@ -18,6 +18,7 @@ from .magnetics import (
     known_magnetics_faults,
     magnetics_wiring_for_shot,
 )
+from .magnetics_registry import REGISTRY_CONFIG_PATH, registry_fingerprint
 from .utils import resolve_shot_revisions_with_provenance, resolve_vest_diagnostic
 
 __all__ = ["vest_processing_provenance"]
@@ -127,6 +128,12 @@ def _equilibrium_magnetics_provenance(shot: int) -> dict[str, Any]:
             {"kind": kind, "index": index, "reason": reason}
             for (kind, index), reason in sorted(known_magnetics_faults(int(shot)).items())
         ],
+        # The effective sensor definitions this shot resolved to (#2158):
+        # where they live and the fingerprint of the resolved records.
+        "sensor_registry": {
+            "source": REGISTRY_CONFIG_PATH,
+            "fingerprint": registry_fingerprint(int(shot)),
+        },
     }
 
 

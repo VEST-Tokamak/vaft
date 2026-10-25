@@ -24,9 +24,9 @@
    "name": "MagneticFieldProbe_H1-01_Bz",
    "proposed_id": "bpol_H1-01",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -49,9 +49,9 @@
    "name": "MagneticFieldProbe_H1-02_Bz",
    "proposed_id": "bpol_H1-02",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -74,9 +74,9 @@
    "name": "MagneticFieldProbe_H1-03_Bz",
    "proposed_id": "bpol_H1-03",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -99,9 +99,9 @@
    "name": "MagneticFieldProbe_H1-04_Bz",
    "proposed_id": "bpol_H1-04",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -124,9 +124,9 @@
    "name": "MagneticFieldProbe_H1-05_Bz",
    "proposed_id": "bpol_H1-05",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -149,9 +149,9 @@
    "name": "MagneticFieldProbe_H1-06_Bz",
    "proposed_id": "bpol_H1-06",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -174,9 +174,9 @@
    "name": "MagneticFieldProbe_H1-07_Bz",
    "proposed_id": "bpol_H1-07",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -199,9 +199,9 @@
    "name": "MagneticFieldProbe_H1-08_Bz",
    "proposed_id": "bpol_H1-08",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -224,9 +224,9 @@
    "name": "MagneticFieldProbe_H1-09_Bz",
    "proposed_id": "bpol_H1-09",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -249,9 +249,9 @@
    "name": "MagneticFieldProbe_H2-01_Bz",
    "proposed_id": "bpol_H2-01",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -274,9 +274,9 @@
    "name": "MagneticFieldProbe_H2-02_Bz",
    "proposed_id": "bpol_H2-02",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -299,9 +299,9 @@
    "name": "MagneticFieldProbe_H2-03_Bz",
    "proposed_id": "bpol_H2-03",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -324,9 +324,9 @@
    "name": "MagneticFieldProbe_H2-04_Bz",
    "proposed_id": "bpol_H2-04",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -349,9 +349,9 @@
    "name": "MagneticFieldProbe_H2-05_Bz",
    "proposed_id": "bpol_H2-05",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -374,9 +374,9 @@
    "name": "MagneticFieldProbe_H2-06_Bz",
    "proposed_id": "bpol_H2-06",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -399,9 +399,9 @@
    "name": "MagneticFieldProbe_H2-07_Bz",
    "proposed_id": "bpol_H2-07",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -424,9 +424,9 @@
    "name": "MagneticFieldProbe_H2-08_Bz",
    "proposed_id": "bpol_H2-08",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -449,9 +449,9 @@
    "name": "MagneticFieldProbe_H2-09_Bz",
    "proposed_id": "bpol_H2-09",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -474,9 +474,9 @@
    "name": "MagneticFieldProbe_H3-01_Bz",
    "proposed_id": "bpol_H3-01",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -499,9 +499,9 @@
    "name": "MagneticFieldProbe_H3-02_Bz",
    "proposed_id": "bpol_H3-02",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -524,9 +524,9 @@
    "name": "MagneticFieldProbe_H3-03_Bz",
    "proposed_id": "bpol_H3-03",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -549,9 +549,9 @@
    "name": "MagneticFieldProbe_H3-04_Bz",
    "proposed_id": "bpol_H3-04",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -574,9 +574,9 @@
    "name": "MagneticFieldProbe_H3-05_Bz",
    "proposed_id": "bpol_H3-05",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -599,9 +599,9 @@
    "name": "MagneticFieldProbe_H3-06_Bz",
    "proposed_id": "bpol_H3-06",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -624,9 +624,9 @@
    "name": "MagneticFieldProbe_H3-07_Bz",
    "proposed_id": "bpol_H3-07",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -649,9 +649,9 @@
    "name": "MagneticFieldProbe_H3-08_Bz",
    "proposed_id": "bpol_H3-08",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -674,9 +674,9 @@
    "name": "MagneticFieldProbe_H3-09_Bz",
    "proposed_id": "bpol_H3-09",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.089,
    "wiring_revisions": [],
@@ -699,9 +699,9 @@
    "name": "MagneticFieldProbe_C1-06_Bz",
    "proposed_id": "bpol_C1-06",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -724,9 +724,9 @@
    "name": "MagneticFieldProbe_C1-05_Bz",
    "proposed_id": "bpol_C1-05",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -749,9 +749,9 @@
    "name": "MagneticFieldProbe_C1-04_Bz",
    "proposed_id": "bpol_C1-04",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -774,9 +774,9 @@
    "name": "MagneticFieldProbe_C1-03_Bz",
    "proposed_id": "bpol_C1-03",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -799,9 +799,9 @@
    "name": "MagneticFieldProbe_C1-02_Bz",
    "proposed_id": "bpol_C1-02",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -824,9 +824,9 @@
    "name": "MagneticFieldProbe_C1-01_Bz",
    "proposed_id": "bpol_C1-01",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -849,9 +849,9 @@
    "name": "MagneticFieldProbe_C2-01_Bz",
    "proposed_id": "bpol_C2-01",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -874,9 +874,9 @@
    "name": "MagneticFieldProbe_C2-03_Bz",
    "proposed_id": "bpol_C2-03",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -944,9 +944,9 @@
    "name": "MagneticFieldProbe_C4-05",
    "proposed_id": "bpol_C_z+0.060",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [
@@ -978,9 +978,9 @@
    "name": "MagneticFieldProbe_C2-05_Bz",
    "proposed_id": "bpol_C2-05",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -1003,9 +1003,9 @@
    "name": "MagneticFieldProbe_C3-01_Bz",
    "proposed_id": "bpol_C3-01",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -1028,9 +1028,9 @@
    "name": "MagneticFieldProbe_C3-02_Bz",
    "proposed_id": "bpol_C3-02",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -1053,9 +1053,9 @@
    "name": "MagneticFieldProbe_C3-03_Bz",
    "proposed_id": "bpol_C3-03",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -1078,9 +1078,9 @@
    "name": "MagneticFieldProbe_C3-04_Bz",
    "proposed_id": "bpol_C3-04",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -1103,9 +1103,9 @@
    "name": "MagneticFieldProbe_C3-05_Bz",
    "proposed_id": "bpol_C3-05",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -1128,9 +1128,9 @@
    "name": "MagneticFieldProbe_C4-01_Bz",
    "proposed_id": "bpol_C4-01",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -1153,9 +1153,9 @@
    "name": "MagneticFieldProbe_C4-02_Bz",
    "proposed_id": "bpol_C4-02",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -1178,9 +1178,9 @@
    "name": "MagneticFieldProbe_C4-03",
    "proposed_id": "bpol_C4-03",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -1294,9 +1294,9 @@
    "name": "MagneticFieldProbe_C4-04",
    "proposed_id": "bpol_C4-04",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -1319,9 +1319,9 @@
    "name": "MagneticFieldProbe_C4-06",
    "proposed_id": "bpol_C_z-0.380",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [],
@@ -1346,9 +1346,9 @@
    "name": "MagneticFieldProbe_C2-04_Bz",
    "proposed_id": "bpol_C_z-0.420",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.796,
    "wiring_revisions": [
@@ -1380,9 +1380,9 @@
    "name": "MagneticFieldProbe_U-08_Bz",
    "proposed_id": "bpol_U-08",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1405,9 +1405,9 @@
    "name": "MagneticFieldProbe_U-07_Bz",
    "proposed_id": "bpol_U-07",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1430,9 +1430,9 @@
    "name": "MagneticFieldProbe_U-06_Bz",
    "proposed_id": "bpol_U-06",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1455,9 +1455,9 @@
    "name": "MagneticFieldProbe_U-05_Bz",
    "proposed_id": "bpol_U-05",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1480,9 +1480,9 @@
    "name": "MagneticFieldProbe_U-04_Bz",
    "proposed_id": "bpol_U-04",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1505,9 +1505,9 @@
    "name": "MagneticFieldProbe_U-03_Bz",
    "proposed_id": "bpol_U-03",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1530,9 +1530,9 @@
    "name": "MagneticFieldProbe_U-02_Bz",
    "proposed_id": "bpol_U-02",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1555,9 +1555,9 @@
    "name": "MagneticFieldProbe_U-01_Bz",
    "proposed_id": "bpol_U-01",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1580,9 +1580,9 @@
    "name": "MagneticFieldProbe_L-01_Bz",
    "proposed_id": "bpol_L-01",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1605,9 +1605,9 @@
    "name": "MagneticFieldProbe_L-02_Bz",
    "proposed_id": "bpol_L-02",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1630,9 +1630,9 @@
    "name": "MagneticFieldProbe_L-03_Bz",
    "proposed_id": "bpol_L-03",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1655,9 +1655,9 @@
    "name": "MagneticFieldProbe_L-04_Bz",
    "proposed_id": "bpol_L-04",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1680,9 +1680,9 @@
    "name": "MagneticFieldProbe_L-05_Bz",
    "proposed_id": "bpol_L-05",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1705,9 +1705,9 @@
    "name": "MagneticFieldProbe_L-07_Bz",
    "proposed_id": "bpol_L_z-1.0328",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1730,9 +1730,9 @@
    "name": "MagneticFieldProbe_L-06_Bz",
    "proposed_id": "bpol_L_z-1.0728",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1755,9 +1755,9 @@
    "name": "MagneticFieldProbe_L-08_Bz",
    "proposed_id": "bpol_L-08",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.1377,
    "wiring_revisions": [],
@@ -1780,9 +1780,9 @@
    "name": "Flux Loop - #3",
    "proposed_id": "fl_03",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.592,
    "wiring_revisions": [],
@@ -1805,9 +1805,9 @@
    "name": "Flux Loop - #4",
    "proposed_id": "fl_04",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.792,
    "wiring_revisions": [],
@@ -1830,9 +1830,9 @@
    "name": "Flux Loop - #5",
    "proposed_id": "fl_05",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.792,
    "wiring_revisions": [],
@@ -1880,9 +1880,9 @@
    "name": "Flux Loop - #6",
    "proposed_id": "fl_06",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.592,
    "wiring_revisions": [],
@@ -1905,9 +1905,9 @@
    "name": "Flux Loop - #9",
    "proposed_id": "fl_09",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.138,
    "wiring_revisions": [],
@@ -1930,9 +1930,9 @@
    "name": "Flux Loop - #10",
    "proposed_id": "fl_10",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.091,
    "wiring_revisions": [],
@@ -1955,9 +1955,9 @@
    "name": "Flux Loop - #11",
    "proposed_id": "fl_11",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.138,
    "wiring_revisions": [],
@@ -1999,9 +1999,9 @@
    "name": "Flux Loop - #12",
    "proposed_id": "fl_12",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.13,
    "wiring_revisions": [],
@@ -2037,9 +2037,9 @@
    "name": "Flux Loop - #13",
    "proposed_id": "fl_13",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.106,
    "wiring_revisions": [],
@@ -2087,9 +2087,9 @@
    "name": "Flux Loop - #14",
    "proposed_id": "fl_14",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.13,
    "wiring_revisions": [],
@@ -2137,9 +2137,9 @@
    "name": "Flux Loop - #15",
    "proposed_id": "fl_15",
    "provenance": {
-    "calibration": "vaft/data/geometry/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "geometry": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
-    "name": "vaft/data/geometry/table.yaml (source: table.dat)"
+    "calibration": "test/data/legacy_magnetics/MD.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "geometry": "test/data/legacy_magnetics/VEST_MagneticsGeometry_Full_ver_2302.yaml (source: VEST_MagneticsGeometry_Full_ver_2409.mat)",
+    "name": "test/data/legacy_magnetics/table.yaml (source: table.dat)"
    },
    "r": 0.106,
    "wiring_revisions": [],

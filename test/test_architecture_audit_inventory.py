@@ -25,7 +25,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "workflow" / "architecture_audit" / "build_inventory.py"
 OUTPUT = ROOT / "docs" / "architecture" / "consolidation"
-GEOMETRY = ROOT / "vaft" / "data" / "geometry"
+#: The three retired magnetics YAMLs, kept as a fixture since #2158.
+GEOMETRY = ROOT / "test" / "data" / "legacy_magnetics"
 
 
 def _generator():
@@ -108,11 +109,14 @@ def test_magnetics_inventory_matches_the_three_yamls_field_by_field(sensors):
 
 def test_magnetics_inventory_carries_the_vest_yaml_wiring_revisions(sensors):
     vest = _load(ROOT / "vaft" / "machine_mapping" / "vest.yaml")
-    wiring = vest[0]["diagnostics"]["equilibrium_magnetics"]["processing"]["wiring"]
+    magnetics = vest[0]["diagnostics"]["equilibrium_magnetics"]
+    wiring = magnetics["processing"]["wiring"]
+    # Overrides name a sensor by registry id since #2158.
+    index_by_id = {r["id"]: int(r["index"]) for r in magnetics["sensors"]["records"]}
     expected = {}
     for revision in wiring["revisions"]:
         for entry in revision["probe_overrides"]:
-            expected.setdefault(int(entry["index"]), []).append(
+            expected.setdefault(index_by_id[entry["id"]], []).append(
                 (revision.get("from_shot"), revision.get("to_shot"), int(entry["field_code"]), float(entry["calibration"]),
                  float(entry["r"]), float(entry["z"]))
             )

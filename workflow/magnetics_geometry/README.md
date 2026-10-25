@@ -2,12 +2,13 @@
 
 `vaft/machine_mapping/vest.yaml` records, under
 `diagnostics.equilibrium_magnetics.processing`, two per-shot facts about the
-equilibrium probes that the packaged geometry files cannot:
+equilibrium probes that the sensor registry (`equilibrium_magnetics.sensors`,
+#2158) does not:
 
 - `wiring` -- which raw field and calibration sign feed each probe position.
   Through shot 39437 (2023-05-29) the outboard probes at Z = +0.06 and
   Z = -0.42 read fields 170 and 225 (negative); from 39438 (2023-05-30) the
-  reverse, which is the 2409 layout `MD.yaml` carries.
+  reverse, which is the 2409 layout the sensor registry carries.
 - `known_faults` -- positions whose acquisition was broken. The Z = +0.06
   probe (field 170) carried a DC offset and a gain unrelated to its
   neighbours up to 36480, and sat at the DAQ rail for 36822-36905; the

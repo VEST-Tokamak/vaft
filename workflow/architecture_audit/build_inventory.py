@@ -2,7 +2,9 @@
 """Regenerate the Phase A preprocessing and magnetics inventories (issue #2148).
 
 Read-only with respect to the package: it parses source files with :mod:`ast`
-and reads the packaged YAML assets; it never imports ``vaft``.
+and reads the three retired magnetics YAML assets (kept as the test fixture
+``test/data/legacy_magnetics`` since #2158) and ``vest.yaml``; it never imports
+``vaft``.
 
 Two products, both deterministic (sorted keys, sorted rows, repository-relative
 paths, no timestamps):
@@ -59,7 +61,9 @@ SCAN_ROOTS = ("vaft", "workflow")
 EXCLUDED_PREFIXES = ("workflow/architecture_audit/",)
 SCHEMA_VERSION = 1
 
-GEOMETRY_DIR = Path("vaft/data/geometry")
+#: The three assets left the package for the vest.yaml sensor registry (#2158);
+#: the audit keeps joining them from their test-fixture home.
+GEOMETRY_DIR = Path("test/data/legacy_magnetics")
 MD_YAML = "MD.yaml"
 GEOMETRY_YAML = "VEST_MagneticsGeometry_Full_ver_2302.yaml"
 TABLE_YAML = "table.yaml"
@@ -180,11 +184,10 @@ CONFIG_RESOLVERS = {
 }
 
 #: Loader APIs over the external magnetics YAMLs; calling one makes the caller
-#: a consumer for the migration map.
+#: a consumer for the migration map. Since #2158 the private loaders are gone
+#: and these public APIs read the vest.yaml registry instead; the asset each
+#: one replaced is kept so the map still says which YAML a consumer used to read.
 MAGNETICS_LOADERS = {
-    "vaft.machine_mapping.magnetics._load_equilibrium_magnetics_channels": (MD_YAML,),
-    "vaft.machine_mapping.magnetics._load_static_channels": (GEOMETRY_YAML,),
-    "vaft.machine_mapping.magnetics._load_names_by_code": (TABLE_YAML,),
     "vaft.machine_mapping.magnetics.vest_equilibrium_magnetics_channel_definitions": (MD_YAML,),
     "vaft.machine_mapping.magnetics.vest_md_channel_definitions": (MD_YAML,),
     "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot": (MD_YAML,),
@@ -404,39 +407,6 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "recommended_action": "keep the FL10 decimate chain as a named specialization; baselines delegate (B3).",
         "related_issue": "#2135, #2162",
         "resolved_by": "#2135 (Ip-reference low pass only)",
-    },
-    ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._load_equilibrium_magnetics_channels"): {
-        "classification": "legacy",
-        "configuration_source": "vaft/data/geometry/MD.yaml (positional list).",
-        "algorithm_semantics": "loads the ordered MD.yaml channel list (field_code, kind, calibration).",
-        "scientific_risk": "high",
-        "recommended_action": "B1: replace with resolve_equilibrium_magnetics_sensors over vest.yaml; delete MD.yaml in the same PR.",
-        "related_issue": "#2158",
-    },
-    ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._load_static_channels"): {
-        "classification": "legacy",
-        "configuration_source": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (positional list; declares ver_2409.mat as source).",
-        "algorithm_semantics": "loads the ordered geometry list (field_code, kind, r, z); joined to MD.yaml by list position.",
-        "scientific_risk": "high",
-        "recommended_action": "B1: registry resolver; delete the YAML in the same PR.",
-        "related_issue": "#2158",
-    },
-    ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._load_names_by_code"): {
-        "classification": "legacy",
-        "configuration_source": "vaft/data/geometry/table.yaml (field_code -> DAQ label).",
-        "algorithm_semantics": "field-code -> name map; ODS probe names follow the shot's wiring, so a position's name changes at 39438 (indices 35, 47).",
-        "scientific_risk": "medium",
-        "recommended_action": "B1: names/aliases move into the registry records; decide whether the ODS name is the physical id or the DAQ label (open question in magnetics_reconciliation.md).",
-        "related_issue": "#2158",
-    },
-    ("vaft/machine_mapping/utils.py", "vaft.machine_mapping.utils._load_magnetics_channel_groups"): {
-        "classification": "duplicate",
-        "configuration_source": "opens VEST_MagneticsGeometry_Full_ver_2302.yaml directly; restates thresholds 0.09 / 0.8 / 0.795 / 0.15 / 0.5 as literals.",
-        "algorithm_semantics": "groups probe/loop indices into inboard/side/outboard by r/z for the default constraint uncertainties.",
-        "scientific_risk": "medium",
-        "production_reachability_note": "only through apply_magnetics_uncertainties <- apply_default_constraint_uncertainties, whose only callers are test/contracts/test_models_uncertainty.py.",
-        "recommended_action": "B1: use the registry and the magnetics.py threshold constants (INBOARD_PROBE_MAX_R etc.); low urgency, no production caller.",
-        "related_issue": "#2158",
     },
     # ---- other machine_mapping chains ---------------------------------------
     ("vaft/machine_mapping/pf_active.py", "vaft.machine_mapping.pf_active._legacy_pf_filter"): {
@@ -1310,11 +1280,19 @@ def build_magnetics_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
     processing = vest[0]["diagnostics"]["equilibrium_magnetics"]["processing"]
     wiring = processing["wiring"]
     faults = processing["known_faults"]
+    # Since #2158 wiring overrides and faults name a sensor by its registry id.
+    records = vest[0]["diagnostics"]["equilibrium_magnetics"]["sensors"]["records"]
+    canonical_by_id = {str(r["id"]): int(r["index"]) for r in records}
+    kind_index_by_id = {}
+    _seen: dict[str, int] = defaultdict(int)
+    for r in records:
+        kind_index_by_id[str(r["id"])] = _seen[str(r["kind"])]
+        _seen[str(r["kind"])] += 1
 
     overrides_by_index: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for revision in wiring.get("revisions") or ():
         for entry in revision.get("probe_overrides") or ():
-            overrides_by_index[int(entry["index"])].append(
+            overrides_by_index[canonical_by_id[str(entry["id"])]].append(
                 {
                     "from_shot": revision.get("from_shot"),
                     "to_shot": revision.get("to_shot"),
@@ -1332,7 +1310,7 @@ def build_magnetics_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
     ]:
         for kind, key in (("b_field_pol_probe", "probes"), ("flux_loop", "flux_loops")):
             for entry in block.get(key) or ():
-                fault_windows[(kind, int(entry["index"]))].append(
+                fault_windows[(kind, kind_index_by_id[str(entry["id"])])].append(
                     {
                         "from_shot": bounds.get("from_shot"),
                         "to_shot": bounds.get("to_shot"),
@@ -1375,9 +1353,9 @@ def build_magnetics_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
                 "known_faults": fault_windows.get(key, []),
                 "family": _family(kind, float(geo["r"]), float(geo["z"])),
                 "provenance": {
-                    "calibration": f"vaft/data/geometry/{MD_YAML} (source: {md.get('source')})",
-                    "geometry": f"vaft/data/geometry/{GEOMETRY_YAML} (source: {geometry.get('source')})",
-                    "name": f"vaft/data/geometry/{TABLE_YAML} (source: {table.get('source')})",
+                    "calibration": f"{GEOMETRY_DIR.as_posix()}/{MD_YAML} (source: {md.get('source')})",
+                    "geometry": f"{GEOMETRY_DIR.as_posix()}/{GEOMETRY_YAML} (source: {geometry.get('source')})",
+                    "name": f"{GEOMETRY_DIR.as_posix()}/{TABLE_YAML} (source: {table.get('source')})",
                 },
             }
         )
