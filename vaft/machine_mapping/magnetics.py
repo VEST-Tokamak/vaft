@@ -977,7 +977,7 @@ def _prepare_magnetics_context(
 def _interpolate_signal(target_time: np.ndarray, source_time: np.ndarray, values: np.ndarray) -> np.ndarray:
     if source_time.size <= 1 or values.size <= 1:
         raise ValueError("Cannot interpolate a signal with fewer than two samples")
-    # anti-alias: NOT guaranteed for every caller. The probes and flux loops
+    # Not anti-aliased for every caller. The probes and flux loops
     # arrive already on magnetics_time: vfit_equilibrium_magnetics_detailed
     # resampled them there, and whatever filtering they had happened upstream
     # (B-pol probes low-passed at 2.5 kHz zero-phase; flux loops integrated but
@@ -988,6 +988,7 @@ def _interpolate_signal(target_time: np.ndarray, source_time: np.ndarray, values
     # attenuates high frequencies as 1/f but does not band-limit, so a source
     # faster than the target can fold. Whether that matters is unverified
     # (#2147 audit finding 4, Phase D #2166); no filter is added without it.
+    # anti-alias: same-grid for probes/loops; unverified for Ip/diamagnetic (above).
     return np.interp(target_time, source_time, values)
 
 

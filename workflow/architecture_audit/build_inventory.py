@@ -383,11 +383,11 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     ("vaft/process/magnetics.py", "vaft.process.magnetics.mirnov_preprocess_signal"): {
         "classification": "intentional_specialization",
         "production_reachability_note": "not called by Pipeline 1 (fluctuation Mirnov voltages are published raw); research callers only.",
-        "algorithm_semantics": "mean removal -> fir_filter_coefficients(window='hann', numtaps=filter_order or fs*1e-3 forced odd) high/low pass -> apply_fir_filter(short_record='causal') (since #2135; same length rule as before) -> / amplifier gain; cutoff <= 0 or >= Nyquist is SILENTLY skipped; an even explicit filter_order raises.",
+        "algorithm_semantics": "mean removal -> fir_filter_coefficients(window='hann', numtaps=filter_order or fs*1e-3 forced odd) high/low pass -> apply_fir_filter(short_record='causal') (since #2135; same length rule as before) -> / amplifier gain; a cutoff <= 0 or >= Nyquist skips its stage and is recorded in the report (or warned without one, #2159); an even explicit filter_order raises.",
         "scientific_risk": "medium",
-        "recommended_action": "B2: the Nyquist skip becomes an explicit status.",
+        "recommended_action": "none; the Nyquist skip is an explicit status since #2159.",
         "related_issue": "#2159, #2162",
-        "resolved_by": "#2162 (B3.4: _firwin_order -> fir_filter_coefficients, coefficients identical at 25 k/250 k/1 M/2 MHz)",
+        "resolved_by": "#2159 (explicit skip status); #2162 (B3.4: _firwin_order -> fir_filter_coefficients, coefficients identical at 25 k/250 k/1 M/2 MHz)",
     },
     ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics.vest_plasma_rogowski_current"): {
         "classification": "canonical",
@@ -480,11 +480,12 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     ("vaft/process/impa.py", "vaft.process.impa.impa_lowpass"): {
         "classification": "intentional_specialization",
         "production_reachability_note": "pipeline1 generate_impa_ods (opt-in, impa.enable false in config.yaml).",
-        "configuration_source": "vest.yaml impa.processing.signal_lowpass_hz (250 Hz) and sample_rate (default 25 kHz, NEVER compared with the acquired time vector).",
+        "configuration_source": "vest.yaml impa.processing.signal_lowpass_hz (250 Hz) and sample_rate (default 25 kHz; compared with the acquired time vector by check_declared_sample_rate since #2159, report-only).",
         "algorithm_semantics": "firwin(_FIR_TAPS) -> filtfilt, lfilter fallback. " + _PR2135,
         "scientific_risk": "medium",
-        "recommended_action": "B2: check_declared_sample_rate status at the IMPA low pass (report-only, #432).",
-        "related_issue": "#432, #2159",
+        "recommended_action": "none for the rate check (done, #2159); the 26-tap design's effective band edge is #2175.",
+        "related_issue": "#432, #2159, #2175",
+        "resolved_by": "#2159 (declared-vs-observed sample-rate status)",
     },
     ("vaft/process/soft_x_rays.py", "vaft.process.soft_x_rays.sxr_baseline_correction"): {
         "classification": "canonical",
