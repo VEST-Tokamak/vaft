@@ -56,7 +56,7 @@ before it merges, update the rows that cite it.
 | config_audit.md G1–G17 | 17 (G16 has a retained and a deferred half; G4 a retained IMPA half) | 14 (G4, G9, G11, G17 in part) | — | 2 (G14; the G16 values) | 2 fully (G15; G16 sign, #2176) + remainders of G9, G11, G17 (#2204) | — |
 | magnetics_reconciliation.md Q1–Q7 | 7 | 2 (Q3; Q6 as documentation) | 2 (Q2; Q7 as behaviour) | — | 3 (Q1, Q4, Q5) + the Q6/Q7 checks (#2203) | — |
 | migration_plan.md §1 findings | 10 | 8 (1, 2, 3, 4 comments only, 5, 6, 7, 8); 9 and 10 in part | — | parts of 9 (B3.2, B3.7) | remainders of 1, 3, 4, 5, 6, 10 | part of 9 (B3.11) |
-| migration_plan.md §2 work packages (rows of §4, by first disposition) | 42 | 21 (several with a deferred remainder) | 5 | 2 (B3.2, B3.7) | 7 | 7 (B3.9 #2198, B3.11 #2197; five E rows #2196/#2199) |
+| migration_plan.md §2 work packages (rows of §4, by first disposition) | 43 | 21 (several with a deferred remainder) | 5 | 2 (B3.2, B3.7) | 7 | 8 (B3.9 #2198, B3.11 #2197; five E rows #2196/#2199; docs #2210) |
 | inventory.json triaged rows (70 curated + 18 asset consumers) | 88 | see §5 | | | | |
 | retirement_register.md rows | 35 | 15 `removed` | — | 9 (5 specializations or kept contracts: C6, C7, P4, P8, P14; 4 aliases dated for 0.11.0: L5, L6, P9, P10) | 9 with an owner (C5, L7 → #2205; P1, P3, P11, P12, P13, P15, P18 → #2206) | 2 `pending_pr` (P5, P17 → #2197) |
 
@@ -176,11 +176,11 @@ owner.
 | B3.3 integration | **implemented**, exact | #2179 |
 | B3.4 Mirnov design | **implemented**, coefficients identical | #2179 |
 | B3.5 PF filter | **implemented**, bit-identical (`pf_current_filter`) | #2180; #2191 pf1-gain-45895-45896 |
-| B3.6 plot-recipe Butterworth | **implemented** (`butterworth_highpass`) | #2179; guard (i) |
+| B3.6 plot-recipe Butterworth | **implemented** (`butterworth_highpass`) | #2179; guard (i) pending in #2196 |
 | B3.7 plot SXR baseline | **retained** in #2179 (window semantics differ), superseded by B3.11 | #2179; #2197 |
 | B3.8 comments | **implemented** | #2179 |
 | B3.9 API ownership matrix | **pending PR** | #2198 (open) |
-| B3.10 box average | **implemented**, equivalent | #2183; #2191: all 364 k-files per state identical (49 shots past static) |
+| B3.10 box average | **implemented**, equivalent | #2183; #2191: all 364 k-files per state identical (the 16 shots with constraint slices) |
 | B3.11 SXR baselines | **pending PR** (one owner `sxr_offset_baseline`, bit-identical to frozen copies) | #2197 (open) |
 | B3.12 short-run anti-alias | **implemented** (approved scientific correction); the #2172 strict xfail became a positive test in this PR | #2182 |
 | C1 channel status, manifests, fingerprints | **implemented** (`_record_unusable_magnetics_channels`, approved_correction/`metadata_only`; manifest records) | #2187, #2184, #2181 |
@@ -198,7 +198,7 @@ owner.
 | E guards: registry schema/uniqueness | **implemented** | #2181 |
 | E guards: no reader of the retired YAML (AST) | **implemented** | #2170 (a1/a2) |
 | E guards: no second sensor inventory (YAML) | **implemented** for YAML. **Retained** as YAML-only: a Python table of r/z records is not scanned, but the layer guard and (h) keep the generic layers free of machine tables | #2170 (c) |
-| E guards: resolver path and override safety | **pending PR** | #2196 (e), (f1), (f2) (open; merge gate passed on d904b333d) |
+| E guards: resolver path and override safety | **pending PR** | #2196 (e), (f1), (f2) (open) |
 | E guards: layer contract incl. "machine_mapping designs no filters outside an allowlist" | **implemented** for the grimp layer guard (#2170); the filter-design guard (i), with two allowlisted donor designs, is pending in #2196 | #2170 (b), #2196 (i); designs → #2206 |
 | E guards: deprecated-API usage | **pending PR** | #2196 (g) |
 | E guards: vaft.process configuration reads (#2168 brief) | **pending PR** (one allowlisted legacy window ladder) | #2196 (h); ladder → #2206 |
@@ -210,13 +210,16 @@ owner.
 | E `verify_dist.py` + wheel smoke | **validated**: the dist must contain `vaft/machine_mapping/vest.yaml` and `magnetics_registry.py` and must not contain the three retired YAMLs (`verify_dist.py` lists them); run by both gates | #2181; the #2196/#2199 gate runs |
 | E `test_architecture_audit_inventory.py` in core | **implemented** (after B1, as the plan required) | #2181 |
 | E `test_vest_yaml_boundaries.py` in core | **pending PR**: 33 s before #2177's parse cache, 1–2 s serial now (local and vestserver) | #2196 |
+| E guides describe the consolidated architecture (registry, no split files, pipeline-1 stability rules instead of the retired `running_linear_stability`) | **pending PR** for Pipelines.md, Stability.md and Magnetics.md; Machine_mapping.md and Processing.md were already updated in #2181 and #2199. The same PR adds the missing `acquisition` process reference page, without which the Docs build fails on every PR since #2185 | #2210 (open) |
 
 §3 refinements 1–10 were each acted on as above, or were confirmations. §3.9's "not in the plan"
 items are G14, G15, Q6, Q7 and finding 4, plus:
 
 - the workflow-local `_box_averaged` and the fourth SXR variant (B3.10, B3.11);
 - the direct YAML reader in `test_magnetics_geometry_registry.py`, now clean (#2181);
-- the `MagneticsWiring` docstring (finding 3). The one addition that has not been rechecked: §3.9 "diagnostics
+- the `MagneticsWiring` docstring (finding 3).
+
+The one addition that has not been rechecked: §3.9 "diagnostics
 QA writes validity (it is not report-only)" is now visible in #2191 §9.1, where dead probes pass
 QA. It is tracked by #2192.
 
@@ -282,7 +285,7 @@ rows (eight C4 provenance builders and the preflight) are #2164's remaining scop
 
 ## 7. Items that need an owner action, not code
 
-- **Merge #2196 and #2199 before this PR** (see Merge order above).
+- **Merge #2196 and #2199 before this PR** (see Merge order above). #2210 (docs and the acquisition reference page) is independent; merge it first so the Docs check passes.
 - **Close #2158 by hand.** #2181 said "Closes #2158", but closing keywords only fire on the default branch.
 - **Merge the pending PRs.** #2197 (B3.11) and #2198 (B3.9) are open. When they merge, register rows P5/P17 become `removed`, and the canonical owners named in the register should be checked against `api_ownership.json`.
 - **Approve or decline the regeneration** of pre-#2135 products (#2200).
