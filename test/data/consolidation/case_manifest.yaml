@@ -157,7 +157,7 @@ cases:
     requires_vestserver_raw: true
     status: passed
     result:
-      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head; merged as develop f7472664d with identical vaft/ and workflow/ trees
       run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
       report: 'docs/architecture/consolidation/qualification_report.md'
       shots_run: [39417, 39436, 39437, 39438, 39439, 39446]
@@ -182,7 +182,7 @@ cases:
     requires_vestserver_raw: true
     status: blocked
     result:
-      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head; merged as develop f7472664d with identical vaft/ and workflow/ trees
       run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
       report: 'docs/architecture/consolidation/qualification_report.md'
       shots_run: [46396, 46397, 46398, 46399, 46400, 46401, 46402, 46403]
@@ -206,7 +206,7 @@ cases:
     requires_vestserver_raw: true
     status: blocked
     result:
-      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head; merged as develop f7472664d with identical vaft/ and workflow/ trees
       run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
       report: 'docs/architecture/consolidation/qualification_report.md'
       shots_run: [46403, 46404, 46405, 46406, 46407, 46408, 46409, 46410]
@@ -232,7 +232,7 @@ cases:
     requires_vestserver_raw: true
     status: passed
     result:
-      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head; merged as develop f7472664d with identical vaft/ and workflow/ trees
       run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
       report: 'docs/architecture/consolidation/qualification_report.md'
       shots_run: [45891, 45895, 45896, 45919, 45964]
@@ -251,7 +251,7 @@ cases:
     requires_vestserver_raw: true
     status: blocked
     result:
-      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head; merged as develop f7472664d with identical vaft/ and workflow/ trees
       run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
       report: 'docs/architecture/consolidation/qualification_report.md'
       shots_run: [48366, 48367, 48368, 48369, 48370, 48371, 48372, 48373, 48374, 48375, 48376]
@@ -276,7 +276,7 @@ cases:
     requires_vestserver_raw: true
     status: blocked
     result:
-      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head; merged as develop f7472664d with identical vaft/ and workflow/ trees
       run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
       report: 'docs/architecture/consolidation/qualification_report.md'
       regression: 'equivalent (byte-identical products, 18 k-files per preset identical)'
@@ -312,13 +312,13 @@ cases:
     requires_vestserver_raw: true   # the dedicated vacuum shots' products, not raw dumps
     status: blocked
     result:
-      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head; merged as develop f7472664d with identical vaft/ and workflow/ trees
       run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
       report: 'docs/architecture/consolidation/qualification_report.md'
       shots_run: '48 cases plus 2 rejected (43026, 46403); the list is case_shots.vacuum-benchmark-plasma-free in docs/architecture/consolidation/qualification_results.json; 39915 rebuilt from its packaged raw; 41524 not run'
       regression: 'per-sensor rows identical BEFORE vs AFTER on every case and every negative control'
       physical: '17 cases informative (scored correlation median >= 0.95, normalized-residual median <= 0.2; a precondition defined after the first control run, see report 6.1), 8 of them plasma shots evaluated on their pre-plasma interval; only 2 (48374, 48376) in the current 45968+ era; no acceptance thresholds exist (#190)'
-      negative_controls: 'sign flips detected on every evaluable informative case (probe 15/15, flux loop 17/17); H2-04/C3-04 swap 27/32 sensor detections (C3-04 missed 5); era-wiring swap 19/24; the 0.20 m move of C3-04 only 9/17 at the declared 1.2x, and on 6 cases it also changes other probes'' rows (array-contradiction review)'
+      negative_controls: 'sign flips detected on every evaluable informative case (probe 15/15, flux loop 17/17); H2-04/C3-04 swap 27/32 sensor detections (C3-04 missed 5); era-wiring swap 19/24; the 0.20 m move of C3-04 only 9/17 at the declared 1.2x, ; on 6 cases 1-2 other probes'' metrics change by <= 2.4e-13 relative (round-off), and on 48374/48376 the move newly flags C4-01 in the array-contradiction review (a genuine case-level coupling)'
       blocked_by: 'the declared 0.20 m move control misses its 1.2x threshold on 8 of 17 informative cases, and current-era sensitivity rests on 2 cases where C1-04 and the era-wiring swap are not evaluable, so physical qualification of the model is not shown. The consolidation changes no per-sensor row (regression part equivalent)'
       evidence: 'vestserver:/home/user1/runs/consolidation-d2/vacuum2/'
 
@@ -347,7 +347,7 @@ cases:
     requires_vestserver_raw: false
     status: passed
     result:
-      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head, not merged at run time
+      revision: {before: 75b154e318e81e831afe74c4d4e1084b52f16acc, after: 52576480adc1248d74991ee547a93b02986fc535}   # after = PR #2189 head; merged as develop f7472664d with identical vaft/ and workflow/ trees
       run: '2026-10-25 on vestserver (python 3.14.7, numpy 2.5.3, scipy 1.18.1, omas 0.94.2), D2 of #2166'
       report: 'docs/architecture/consolidation/qualification_report.md'
       regression: 'equivalent -- process_impa_shot on all five extracts gives identical numeric leaves and quality verdicts; AFTER adds 8 result.provenance.acquisition leaves (metadata_only, #2159); declared 25 kHz consistent with the acquired timebase on all five'

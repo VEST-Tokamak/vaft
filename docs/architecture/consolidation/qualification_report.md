@@ -33,6 +33,10 @@ Several pre-existing scientific findings came up along the way (§9); they need 
 | BEFORE | `75b154e318e81e831afe74c4d4e1084b52f16acc` | develop after #2135 (zero-phase FIR), before #2177/#2181/#2189 |
 | AFTER | `52576480adc1248d74991ee547a93b02986fc535` | PR #2189 head (open, not merged at run time). It contains develop `0ae3b2bfe` (#2177 strict config, #2181 registry) plus B2 #2159, B3 #2162 and C #2164 |
 
+#2189 was merged after the runs as develop `f7472664d087316c1927a5a250735f48e4e3a89f`.
+`git diff 52576480a f7472664d -- vaft workflow` is empty, so every AFTER result here also
+stands for develop `f7472664d`.
+
 - **Worktrees.** `~/work/d2-before` and `~/work/d2-after` were created from private refs
   (`refs/consol/d2-*`). The import shims strip the editable finder, and the parent and every
   child launched with the stage environment assert `vaft.__file__` inside the worktree.
@@ -272,7 +276,7 @@ In the 45968+ era, the inboard probes fit worse than in the earlier eras (0.12�
 | sign flip, probe C1-04 (≥ 2×, r negated) | **15/15** evaluable (×9.8–30) | not evaluated on 48374/48376 |
 | swap H2-04 ↔ C3-04 (≥ 2× each) | 27/32 sensor detections. H2-04 on every evaluable case (×4.5–42; not evaluable on 45919); C3-04 missed on 39417, 43685, 45964 (×1.8–1.9), 48374 (×0.11), 48376 (×0.45) | |
 | era-wiring swap probes 35 ↔ 47, i.e. the other side of 39437/39438 (≥ 1.2× each) | 19/24 evaluable sensor detections. Both channels on 39436 (pre-era: ×6.3/×14.3), 39446, 41445, 43006, 43016, 43639, 45895. The Z −0.42 channel is missed on 39915, 43685, 43689, 45891, 45964. Not evaluable on 39417, 45896, 45919, 48374, 48376 | |
-| move C3-04 by 0.20 m inward (≥ 1.2×) | **9/17**. Missed (×0.58–1.11) on 39417, 43016, 43639, 43685, 45891, 45964, 48374, 48376 | On 6 cases (39436, 39437, 39446, 41445, 48374, 48376) the move also changes other probes' rows (L-03…L-07), through the array-contradiction neighbour review |
+| move C3-04 by 0.20 m inward (≥ 1.2×) | **9/17**. Missed (×0.58–1.11) on 39417, 43016, 43639, 43685, 45891, 45964, 48374, 48376 | On 6 cases (39436, 39437, 39446, 41445, 48374, 48376) the metrics of 1–2 other probes (L-03…L-07) change by ≤ 2.4e-13 relative. That is floating-point round-off and is deterministic on rerun. On 48374 and 48376 the move also newly flags C4-01 in the case-level array-contradiction review, which is a genuine cross-sensor effect (§9.5) |
 
 Every control result is identical at BEFORE and AFTER. Evidence type: these controls are a
 **self-consistency** check of the benchmark's sensitivity on real plasma-free data (#2166 D3).
@@ -370,9 +374,17 @@ structural. The root cause is **not asserted**.
    46403 that `vest.yaml` notes.
 5. **Benchmark sensitivity.**
    - The 0.20 m move control is not a reliable detector.
-   - Moving one probe changes other probes' rows through the array-contradiction review, so
-     per-sensor attribution leaks. The committed 39915 test asserts that it does not on 39915,
-     and it does not there.
+   - Moving C3-04 changes the last bits (≤ 2.4e-13 relative) of 1–2 other probes' metrics,
+     L-03…L-07, on vestserver (py3.14, numpy 2.5.3). The same happens on the packaged 39915, so
+     `test_no_other_sensor_moves[move]` failed there under exact equality, while it passes on the
+     py3.12 Mac env. This is round-off: the base case reruns bit-identically, and the change is
+     twelve orders of magnitude below the smallest declared control effect. This PR gives that
+     test a 1e-12 relative tolerance on floats; status, reasons and positions stay exact.
+   - A genuine cross-sensor effect: on 48374 and 48376 the moved C3-04 makes the
+     array-contradiction review newly flag C4-01. The neighbour review uses positions, so a
+     position error in one probe can change another probe's case-level flag. Per-sensor rows
+     are not affected beyond round-off. This is a finding, not a test problem; the 39915 test's
+     flagged-set check still holds exactly there.
    - The C3-04 half of the H2-04/C3-04 swap is missed in every era: on 39417 (pre-43017), 43685
      and 45964 (×1.8–1.9), and on 48374 and 48376 (×0.11 and ×0.45).
 6. **No-plasma shots still get k-files.** On 39417, 45919 and 46406 the constraints stage found
