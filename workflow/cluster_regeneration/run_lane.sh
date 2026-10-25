@@ -128,7 +128,8 @@ for f in "$LANE"/chunks/shots.[0-9][0-9][0-9]; do
     # failed"; one killed mid-run (the pilot lost one to memory) just stops.
     if ! grep -q "^Error in rule" "$attempt" \
        || ! grep -q "Exiting because a job execution failed" "$attempt" \
-       || grep -qE "LockException|Directory cannot be locked|WorkflowError|SyntaxError|MissingInputException|^Traceback" "$attempt" \
+       || grep -qE "LockException|Directory cannot be locked|SyntaxError|MissingInputException|^Traceback" "$attempt" \
+       || grep -A1 "^WorkflowError" "$attempt" | grep -vqE "^WorkflowError:?$|^At least one job did not complete successfully|^--$" \
        || [ ! -f "$LANE/chunks/$c.eligible_shots.json" ]; then
       log "$c: Snakemake failed as a whole (rc=$rc); lane stopped, see $attempt"; exit 1
     fi
