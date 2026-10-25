@@ -185,7 +185,7 @@
    "migration_status": "done",
    "classification": "diagnostic_specific_composition_refactoring",
    "blocked_on": [],
-   "evidence": "#2187: 0 changed ODS leaves on the 4 packaged shots; manifest gains missing_channel_reasons only; DAG identical (merged via #2189); #2191 byte-identical products on 50 shots",
+   "evidence": "#2187: 0 changed ODS leaves on the 4 packaged shots; manifest gains missing_channel_reasons only; DAG identical (merged via #2189); #2191 byte-identical products (49 shots past static)",
    "notes": ""
   },
   {
@@ -203,7 +203,7 @@
    "migration_status": "done",
    "classification": "direct_canonical_api_replacement",
    "blocked_on": [],
-   "evidence": "#2178 (one baseline owner, bit-identical) and #2179 (small duplicates) (merged via #2189); #2191 byte-identical on 50 shots",
+   "evidence": "#2178 (one baseline owner, bit-identical) and #2179 (small duplicates) (merged via #2189); #2191 byte-identical (49 shots past static)",
    "notes": ""
   },
   {
@@ -293,7 +293,7 @@
    "migration_status": "done",
    "classification": "direct_canonical_api_replacement",
    "blocked_on": [],
-   "evidence": "#2188: 0 changed constraints leaves; 194 k-files identical (presets default + routine) on the 4 packaged shots; DAG identical (merged via #2189); #2191 byte-identical products on 50 shots",
+   "evidence": "#2188: 0 changed constraints leaves; 194 k-files identical (presets default + routine) on the 4 packaged shots; DAG identical (merged via #2189); #2191 byte-identical products (49 shots past static)",
    "notes": ""
   },
   {
@@ -617,7 +617,7 @@
    "migration_status": "done",
    "classification": "direct_canonical_api_replacement",
    "blocked_on": [],
-   "evidence": "#2188 (merged via #2189); #2191 byte-identical products on 50 shots",
+   "evidence": "#2188 (merged via #2189)",
    "notes": ""
   },
   {
@@ -635,7 +635,7 @@
    "migration_status": "done",
    "classification": "direct_canonical_api_replacement",
    "blocked_on": [],
-   "evidence": "#2188 (merged via #2189); #2191 byte-identical products on 50 shots",
+   "evidence": "#2188 (merged via #2189)",
    "notes": "Plots still classify by the positions the ODS carries: they take hand-built ODSs without a shot."
   },
   {
@@ -653,7 +653,7 @@
    "migration_status": "done",
    "classification": "thin_compatibility_adapter_migration",
    "blocked_on": [],
-   "evidence": "#2188 (merged via #2189); #2191 byte-identical products on 50 shots",
+   "evidence": "#2188 (merged via #2189)",
    "notes": ""
   },
   {
