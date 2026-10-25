@@ -150,6 +150,7 @@ PRIMITIVES.update(
         "vaft.process.signal_processing.butterworth_lowpass": "filter_application",
         "vaft.process.signal_processing.butterworth_bandpass": "filter_application",
         "vaft.process.signal_processing.butterworth_highpass": "filter_application",
+        "vaft.process.signal_processing.pf_current_filter": "filter_application",
         "vaft.process.signal_processing.anti_alias_filter": "filter_application",
         "vaft.process.signal_processing.resample_to_time": "resampling",
         "vaft.process.signal_processing.detrend_moving_average": "baseline",
@@ -422,14 +423,25 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "resolved_by": "#2135 (Ip-reference low pass only)",
     },
     # ---- other machine_mapping chains ---------------------------------------
-    ("vaft/machine_mapping/pf_active.py", "vaft.machine_mapping.pf_active._legacy_pf_filter"): {
+    ("vaft/machine_mapping/pf_active.py", "vaft.machine_mapping.pf_active._pf_filter"): {
         "classification": "intentional_specialization",
         "production_reachability_note": "pipeline1 generate_diagnostics_ods (all PF circuits) and IMPA strict vfit_pf.",
         "configuration_source": "vest.yaml 0.diagnostics.pf_active.processing.filter (251 taps, 2.5 kHz, fs 25 kHz, smoothing 10).",
-        "algorithm_semantics": "firwin(hamming 251) -> filtfilt, lfilter fallback below _filtfilt_min_length -> uniform_filter1d(10). " + _PR2135,
+        "algorithm_semantics": "reads vest.yaml and calls signal_processing.pf_current_filter (was _legacy_pf_filter). " + _PR2135,
         "scientific_risk": "medium",
-        "recommended_action": "B3: named pf_current_filter in vaft.process = fir_filter_coefficients(window='hamming', numtaps=251) + apply_fir_filter + uniform_filter1d; coefficient-equality and phase tests.",
+        "recommended_action": "keep (config adapter).",
         "related_issue": "#2162, #2135",
+        "resolved_by": "#2162 (B3.5)",
+        "evidence": "test/test_pf_current_filter.py: bit-identical to the frozen develop _legacy_pf_filter at 20000/754/753/200/5 samples; 4-shot capture leaf-identical.",
+    },
+    ("vaft/process/signal_processing.py", "vaft.process.signal_processing.pf_current_filter"): {
+        "classification": "canonical",
+        "configuration_source": "caller arguments (vest.yaml values via pf_active._pf_filter).",
+        "algorithm_semantics": "fir_filter_coefficients(lowpass, window='hamming', numtaps odd >= 3) -> apply_fir_filter(short_record='causal': zero-phase from 3*numtaps+1 samples, forward-only below, 125-sample / 5 ms delay) -> uniform_filter1d(min(window, len)) (half-sample lag for an even width).",
+        "scientific_risk": "low",
+        "recommended_action": "keep as the named PF composition.",
+        "related_issue": "#2162",
+        "resolved_by": "#2162 (B3.5)",
     },
     ("vaft/machine_mapping/tf.py", "vaft.machine_mapping.tf.vfit_tf_current_detailed"): {
         "classification": "intentional_specialization",

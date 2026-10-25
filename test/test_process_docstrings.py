@@ -696,6 +696,7 @@ CONVENTION_SENSITIVE = frozenset({
     "butterworth_lowpass",
     "butterworth_highpass",
     "butterworth_bandpass",
+    "pf_current_filter",
     "fir_filter",
     "fir_filter_coefficients",
     "detrend_moving_average",

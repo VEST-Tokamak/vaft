@@ -65,6 +65,7 @@ import dataclasses
 
 import numpy as np
 import scipy.signal as scipy_signal
+from scipy import ndimage
 from scipy.interpolate import CubicSpline, UnivariateSpline
 from scipy.optimize import curve_fit
 
@@ -92,6 +93,7 @@ __all__ = [
     "is_signal_active",
     "line_average_density",
     "linear_baseline",
+    "pf_current_filter",
     "process_signal",
     "quadratic_baseline",
     "repair_clipped_interval",
@@ -843,8 +845,9 @@ def apply_fir_filter(taps, data, *, axis: int = -1, short_record: str = "raise")
     ----------
     The shared FIR application for measured waveforms (``anti_alias_filter``
     runs its own ``filtfilt`` over finite segments).  It is zero-phase: a causal ``lfilter`` delays every feature by the filter's group
-    delay, ``(len(taps) - 1) / 2`` samples, which is 0.5 ms for both VEST
-    designs (251 taps at 250 kHz, 26 taps at 25 kHz).  Signals are compared and
+    delay, ``(len(taps) - 1) / 2`` samples, which is 0.5 ms for the probe and
+    TF designs (251 taps at 250 kHz, 26 taps at 25 kHz) and 5 ms for the PF
+    design (251 taps at 25 kHz, :func:`pf_current_filter`).  Signals are compared and
     fitted against each other -- probes against PF coil currents in the vacuum
     benchmark and in EFIT -- so a delay in one of them is a systematic error, not
     a cosmetic one.  The legacy VEST workflow applies its ``vest_filter``
@@ -877,6 +880,94 @@ def apply_fir_filter(taps, data, *, axis: int = -1, short_record: str = "raise")
         f"zero-phase FIR filtering needs at least {minimum} samples for "
         f"{taps.size} taps; got {values.shape[axis]}"
     )
+
+
+def pf_current_filter(
+    values,
+    *,
+    sample_rate: float,
+    cutoff_hz: float,
+    numtaps: int,
+    smoothing_window: int,
+) -> np.ndarray:
+    """Low-pass and smooth a PF coil-current record: the VEST PF composition.
+
+    Parameters
+    ----------
+    values : array_like
+        Baseline-subtracted coil-current record, one-dimensional [any].
+    sample_rate : float
+        Rate the FIR is designed for [Hz].
+    cutoff_hz : float
+        FIR cutoff, inside ``(0, sample_rate / 2)`` [Hz].
+    numtaps : int
+        FIR length; must be odd [-].
+    smoothing_window : int
+        Moving-average width, clipped to the record length [samples].
+
+    Returns
+    -------
+    np.ndarray
+        The filtered record, same length as ``values`` [any].
+
+    Raises
+    ------
+    ValueError
+        ``numtaps`` is even or below 3, or the cutoff is outside the band (from
+        :func:`fir_filter_coefficients`).
+
+    Processing steps
+    ----------------
+    1. Design a Hamming-window FIR low-pass with
+       :func:`fir_filter_coefficients` (``window="hamming"`` -- **not** that
+       function's Hann default -- and ``numtaps`` exactly as given).
+    2. Apply it with :func:`apply_fir_filter` (``short_record="causal"``):
+       zero-phase ``filtfilt`` when the record has at least
+       ``3 * numtaps + 1`` samples, a forward-only ``lfilter`` otherwise.
+    3. Smooth with ``scipy.ndimage.uniform_filter1d`` of width
+       ``min(smoothing_window, len(values))`` (``mode="reflect"``).
+
+    Convention
+    ----------
+    Step 2 is zero-phase on a full record.  On a short record it is causal and
+    delays every feature by ``(numtaps - 1) / 2`` samples -- 5 ms for 251 taps
+    at 25 kHz -- silently, as the historical chain did.  Step 3 with an even
+    width averages samples ``[i - w/2, i + w/2 - 1]``, so it lags by half a
+    sample (20 us for ``w = 10`` at 25 kHz); an odd width is centred.  The
+    order -- FIR first, moving average second -- is the historical one and is
+    kept.
+
+    Applicability
+    -------------
+    Machine-independent.  Every number is the caller's; on VEST the
+    values come from ``vest.yaml`` ``0.diagnostics.pf_active.processing.filter``
+    (25 kHz, 2.5 kHz, 251 taps, 10 samples) via
+    :mod:`vaft.machine_mapping.pf_active`.
+
+    Limitations
+    -----------
+    The FIR is designed at the declared ``sample_rate``, not at the rate the
+    record was actually acquired at; a mismatch moves the cutoff in proportion.
+    The causal fallback is not reported to the caller.
+
+    Provenance
+    ----------
+    .. [1] ``vaft.machine_mapping.pf_active._legacy_pf_filter``, which this
+       replaces bit for bit (#2162), itself the PF filtering of the legacy VEST
+       workflow [VFIT]_ (``firwin`` + ``filtfilt`` + ``smooth``-like averaging).
+    """
+    taps_count = int(numtaps)
+    if taps_count % 2 == 0 or taps_count < 3:
+        raise ValueError(
+            "numtaps must be odd and at least 3 (fir_filter_coefficients would change it); "
+            f"got {numtaps!r}"
+        )
+    taps = fir_filter_coefficients(
+        float(cutoff_hz), float(sample_rate), kind="lowpass", numtaps=taps_count, window="hamming"
+    )
+    data = np.asarray(values, dtype=float)
+    filtered = apply_fir_filter(taps, data, short_record="causal")
+    return ndimage.uniform_filter1d(filtered, size=min(int(smoothing_window), data.size))
 
 
 def detrend_moving_average(data, window_samples: int) -> np.ndarray:
