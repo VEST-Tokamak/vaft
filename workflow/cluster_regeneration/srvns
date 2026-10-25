@@ -1,0 +1,18 @@
+#!/bin/bash
+# srvns <real FileDB dir> <command...>
+# Run <command> with /srv/vest.filedb bound to <real FileDB dir>, as our own uid, in a private
+# mount namespace (unprivileged user namespaces; nothing outside this process tree sees it).
+# Every path a product embeds (manifests, k-file TABLE_DIR/INPUT_DIR, code.parameters) then reads
+# /srv/vest.filedb/... exactly as on vestserver, so the products can be moved there unchanged.
+set -euo pipefail
+REAL=$(readlink -f "${1:?usage: srvns <real filedb dir> <cmd...>}"); shift
+[ -d "$REAL" ] || { echo "srvns: $REAL is not a directory" >&2; exit 2; }
+U=$(id -u) G=$(id -g)
+exec unshare --user --map-root-user --mount bash -c '
+  set -e
+  mount -t tmpfs -o size=1m,mode=755 regen2147 /srv
+  mkdir /srv/vest.filedb
+  mount --bind "$1" /srv/vest.filedb
+  U=$2 G=$3; shift 3
+  exec unshare --user --map-user="$U" --map-group="$G" "$@"
+' srvns "$REAL" "$U" "$G" "$@"
