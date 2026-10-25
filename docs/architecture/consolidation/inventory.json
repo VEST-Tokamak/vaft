@@ -1,9 +1,9 @@
 {
  "classification_counts": {
-  "canonical": 19,
-  "duplicate": 10,
-  "intentional_specialization": 32,
-  "legacy": 24,
+  "canonical": 23,
+  "duplicate": 2,
+  "intentional_specialization": 35,
+  "legacy": 26,
   "unverified": 382
  },
  "entry_modules": {
@@ -945,6 +945,44 @@
    "source_file": "vaft/code/efit/legacy.py"
   },
   {
+   "algorithm_semantics": "cumsum-difference box average at every sample over [t-h, t+h] (searchsorted left/right): legacy.box_average evaluated at every sample; moved from the workflow's _box_averaged (B3.10).",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "<definition>",
+     "snippet": "def box_average_series"
+    },
+    {
+     "call": "numpy.cumsum",
+     "snippet": "np.cumsum(values)"
+    }
+   ],
+   "callers": [
+    "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._efit_not_applicable"
+   ],
+   "classification": "intentional_specialization",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": true,
+   "evidence": "test/test_box_average_series.py: bit-identical to the frozen workflow helper; per-sample box_average to 1e-12 relative.",
+   "implementation": "vaft.code.efit.legacy.box_average_series",
+   "operation": [
+    "cumulative_sum",
+    "smoothing"
+   ],
+   "owning_layer": "code",
+   "primitives": [
+    "numpy.cumsum"
+   ],
+   "production_reachability": "pipeline1",
+   "production_reachability_note": "pipeline1 generate_constraints_ods (EFIT applicability: the box-averaged Ip at every sample).",
+   "recommended_action": "keep beside box_average (vectorised form of the same contract).",
+   "related_issue": "#2162, #2164",
+   "resolved_by": "#2162 (B3.10)",
+   "scientific_risk": "low",
+   "source_file": "vaft/code/efit/legacy.py"
+  },
+  {
    "algorithm_semantics": "calls numpy.interp (not curated)",
    "assets": [],
    "audit_scope": "preprocessing",
@@ -1011,7 +1049,7 @@
    "source_file": "vaft/code/efit/legacy.py"
   },
   {
-   "algorithm_semantics": "MATLAB smooth(span) re-implemented with explicit loops; agrees with signal_processing.smooth to ~1e-13 relative (cumsum vs loop rounding: 2-3e-8 absolute on 1e5-scale data), but does not clip a span longer than the record as the canonical one does.",
+   "algorithm_semantics": "MATLAB smooth(span) re-implemented with explicit loops; agrees with signal_processing.smooth to ~1e-12 on finite data, but keeps a NaN local where the cumulative-sum version carries it into every later sample, and does not clip a span longer than the record.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -1023,10 +1061,10 @@
    "callers": [
     "vaft.code.efit.legacy.vest_Halpha_tstart_tend"
    ],
-   "classification": "duplicate",
+   "classification": "legacy",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
-   "evidence": "",
+   "evidence": "test/test_preprocessing_duplicates.py pins the NaN difference.",
    "implementation": "vaft.code.efit.legacy.smooth",
    "operation": [
     "smoothing"
@@ -1035,7 +1073,7 @@
    "primitives": [],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "B3: import vaft.process.signal_processing.smooth; equivalence test at rtol 1e-12 and a check that no caller passes span > record length.",
+   "recommended_action": "kept in B3.2 (not delegated, the NaN behaviour differs); retire together with its only caller, the deprecated H-alpha detector (E).",
    "related_issue": "#2162",
    "resolved_by": "",
    "scientific_risk": "low",
@@ -2254,6 +2292,8 @@
    ],
    "callers": [
     "vaft.formula.equilibrium.toroidal_flux_from_q_psi",
+    "vaft.machine_mapping.magnetics.vest_diamagnetic_flux_detailed",
+    "vaft.machine_mapping.magnetics.vest_diamagnetic_rogowski_current",
     "vaft.process.magnetics.b_field_pol_probe_field",
     "vaft.process.magnetics.flux_loop_flux",
     "vaft.process.magnetics.vest_flux_loop_flux_from_voltage"
@@ -5082,7 +5122,7 @@
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
-   "algorithm_semantics": "np.interp onto the policy grid for flux loops (:1928), probes (:2175), Ip (_map_ip :2230) and diamagnetic flux (:2466); the comment says every caller passes a signal low-passed by the probe chain, which holds only for the probes.",
+   "algorithm_semantics": "np.interp onto the policy grid for flux loops and probes (already on magnetics_time), Ip (_map_ip) and diamagnetic flux (native grid, unfiltered); the comment now says so (B3.8).",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -5111,14 +5151,14 @@
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B3: correct the comment; D: check the spectra of the unfiltered callers (loops, Ip, diamagnetic flux) above the target Nyquist before deciding on resample_to_time.",
+   "recommended_action": "D: check the spectra of the unfiltered callers (loops upstream, Ip, diamagnetic flux) above the target Nyquist before deciding on resample_to_time.",
    "related_issue": "#2162, #425",
-   "resolved_by": "",
+   "resolved_by": "#2162 (B3.8 comment only)",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
-   "algorithm_semantics": "np.polyfit deg 1 over x_base indices then subtract (production Ip baseline).",
+   "algorithm_semantics": "delegates to signal_processing._polyfit_linear_baseline with nan_policy='propagate' (a NaN in the window keeps Ip all-NaN, as before) (production Ip baseline).",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -5127,67 +5167,30 @@
      "snippet": "def _linear_baseline_subtract"
     },
     {
-     "call": "numpy.polyfit",
-     "snippet": "np.polyfit(time[x_base], values[x_base], 1)"
+     "call": "vaft.process.signal_processing.subtract_baseline",
+     "snippet": "subtract_baseline(time, values, x_base, fitting_opt='polyfit', nan_policy='propagate')"
     }
    ],
    "callers": [
     "vaft.machine_mapping.magnetics.vfit_plasma_current"
    ],
-   "classification": "duplicate",
+   "classification": "legacy",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
    "evidence": "",
    "implementation": "vaft.machine_mapping.magnetics._linear_baseline_subtract",
    "operation": [
-    "baseline",
-    "polynomial_fit"
+    "baseline"
    ],
    "owning_layer": "machine_mapping",
    "primitives": [
-    "numpy.polyfit"
+    "vaft.process.signal_processing.subtract_baseline"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B3: delegate to subtract_baseline(method='polyfit').",
+   "recommended_action": "E: retire the private alias. MM._polyfit_baseline (dead) was deleted in B3.1.",
    "related_issue": "#2162",
-   "resolved_by": "",
-   "scientific_risk": "medium",
-   "source_file": "vaft/machine_mapping/magnetics.py"
-  },
-  {
-   "algorithm_semantics": "np.polyfit deg 1 over given indices, no finite mask, no degenerate check.",
-   "assets": [],
-   "audit_scope": "preprocessing",
-   "call_sites": [
-    {
-     "call": "<definition>",
-     "snippet": "def _polyfit_baseline"
-    },
-    {
-     "call": "numpy.polyfit",
-     "snippet": "np.polyfit(time_axis[valid], values[valid], 1)"
-    }
-   ],
-   "callers": [],
-   "classification": "legacy",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": true,
-   "evidence": "grep: the only references are its definition.",
-   "implementation": "vaft.machine_mapping.magnetics._polyfit_baseline",
-   "operation": [
-    "baseline",
-    "polynomial_fit"
-   ],
-   "owning_layer": "machine_mapping",
-   "primitives": [
-    "numpy.polyfit"
-   ],
-   "production_reachability": "not_statically_reached",
-   "production_reachability_note": "no caller anywhere in vaft/, workflow/ or test/ (dead code).",
-   "recommended_action": "E: delete (nothing to delegate); the plan's 'delegate' step is moot.",
-   "related_issue": "#2162, #2168",
-   "resolved_by": "",
+   "resolved_by": "#2162 (B3.1)",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5321,7 +5324,7 @@
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
-   "algorithm_semantics": "repair_clipped_interval -> cumulative_trapezoid -> gap-bridged reference by np.interp -> two more cumulative_trapezoid passes -> two-point straight-line baseline written by hand -> x1000.",
+   "algorithm_semantics": "repair_clipped_interval -> cumtrapz_compat -> gap-bridged reference by np.interp -> two more cumtrapz_compat passes -> two-point straight-line baseline written by hand -> x1000.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -5330,16 +5333,16 @@
      "snippet": "np.interp(temp_time, np.concatenate((temp_time[:start_index + 1], temp_time[end_index:])), np.concatenate((integrated[:start_index + 1], integrated[end_index..."
     },
     {
-     "call": "scipy.integrate.cumulative_trapezoid",
-     "snippet": "integrate.cumulative_trapezoid(cum1, temp_time, initial=0.0)"
+     "call": "vaft.compat.cumtrapz_compat",
+     "snippet": "cumtrapz_compat(cum1, x=temp_time, initial=0.0)"
     },
     {
-     "call": "scipy.integrate.cumulative_trapezoid",
-     "snippet": "integrate.cumulative_trapezoid(delta_i_tf, temp_time, initial=0.0)"
+     "call": "vaft.compat.cumtrapz_compat",
+     "snippet": "cumtrapz_compat(delta_i_tf, x=temp_time, initial=0.0)"
     },
     {
-     "call": "scipy.integrate.cumulative_trapezoid",
-     "snippet": "integrate.cumulative_trapezoid(raw_values, temp_time, initial=0.0)"
+     "call": "vaft.compat.cumtrapz_compat",
+     "snippet": "cumtrapz_compat(raw_values, x=temp_time, initial=0.0)"
     },
     {
      "call": "vaft.process.signal_processing.repair_clipped_interval",
@@ -5363,25 +5366,25 @@
    "owning_layer": "machine_mapping",
    "primitives": [
     "numpy.interp",
-    "scipy.integrate.cumulative_trapezoid",
+    "vaft.compat.cumtrapz_compat",
     "vaft.process.signal_processing.repair_clipped_interval"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "pipeline1 generate_diagnostics_ods (diamagnetic flux).",
-   "recommended_action": "B3: cumulative_trapezoid -> cumtrapz_compat; keep the two-point baseline (documented semantics differ from a least-squares fit).",
+   "recommended_action": "keep the two-point baseline (documented semantics differ from a least-squares fit).",
    "related_issue": "#2162",
-   "resolved_by": "",
+   "resolved_by": "#2162 (B3.3: cumulative_trapezoid -> cumtrapz_compat)",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
   {
-   "algorithm_semantics": "repair_clipped_interval then scipy cumulative_trapezoid * (-1/shunt).",
+   "algorithm_semantics": "repair_clipped_interval then cumtrapz_compat * (-1/shunt).",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
     {
-     "call": "scipy.integrate.cumulative_trapezoid",
-     "snippet": "integrate.cumulative_trapezoid(repaired, time, initial=0.0)"
+     "call": "vaft.compat.cumtrapz_compat",
+     "snippet": "cumtrapz_compat(repaired, x=time, initial=0.0)"
     },
     {
      "call": "vaft.process.signal_processing.repair_clipped_interval",
@@ -5391,7 +5394,7 @@
    "callers": [
     "vaft.machine_mapping.magnetics._map_rogowski_coils"
    ],
-   "classification": "duplicate",
+   "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
    "evidence": "",
@@ -5402,14 +5405,14 @@
    ],
    "owning_layer": "machine_mapping",
    "primitives": [
-    "scipy.integrate.cumulative_trapezoid",
+    "vaft.compat.cumtrapz_compat",
     "vaft.process.signal_processing.repair_clipped_interval"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B3: cumulative_trapezoid -> vaft.compat.cumtrapz_compat (numerically identical, one owner).",
+   "recommended_action": "keep.",
    "related_issue": "#2162",
-   "resolved_by": "",
+   "resolved_by": "#2162 (B3.3)",
    "scientific_risk": "low",
    "source_file": "vaft/machine_mapping/magnetics.py"
   },
@@ -5656,21 +5659,13 @@
    "source_file": "vaft/machine_mapping/pf_active.py"
   },
   {
-   "algorithm_semantics": "firwin(hamming 251) -> filtfilt, lfilter fallback below _filtfilt_min_length -> uniform_filter1d(10). Since #2135 (merged, 75b154e31) this is applied through vaft.process.signal_processing.apply_fir_filter(short_record='causal'): a refactor, the numerics are unchanged.",
+   "algorithm_semantics": "reads vest.yaml and calls signal_processing.pf_current_filter (was _legacy_pf_filter). Since #2135 (merged, 75b154e31) this is applied through vaft.process.signal_processing.apply_fir_filter(short_record='causal'): a refactor, the numerics are unchanged.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
     {
-     "call": "scipy.ndimage.uniform_filter1d",
-     "snippet": "ndimage.uniform_filter1d(filtered, size=min(int(filter_config['smoothing_window']), values.size))"
-    },
-    {
-     "call": "scipy.signal.firwin",
-     "snippet": "signal.firwin(int(filter_config['taps']), float(filter_config['cutoff_frequency']), pass_zero='lowpass', fs=float(filter_config['sample_rate']))"
-    },
-    {
-     "call": "vaft.process.signal_processing.apply_fir_filter",
-     "snippet": "apply_fir_filter(taps, values, short_record='causal')"
+     "call": "vaft.process.signal_processing.pf_current_filter",
+     "snippet": "pf_current_filter(values, sample_rate=float(filter_config['sample_rate']), cutoff_hz=float(filter_config['cutoff_frequency']), numtaps=int(filter_config['tap..."
     }
    ],
    "callers": [
@@ -5679,24 +5674,20 @@
    "classification": "intentional_specialization",
    "configuration_source": "vest.yaml 0.diagnostics.pf_active.processing.filter (251 taps, 2.5 kHz, fs 25 kHz, smoothing 10).",
    "curated": true,
-   "evidence": "",
-   "implementation": "vaft.machine_mapping.pf_active._legacy_pf_filter",
+   "evidence": "test/test_pf_current_filter.py: bit-identical to the frozen develop _legacy_pf_filter at 20000/754/753/200/5 samples; 4-shot capture leaf-identical.",
+   "implementation": "vaft.machine_mapping.pf_active._pf_filter",
    "operation": [
-    "filter_application",
-    "filter_design",
-    "smoothing"
+    "filter_application"
    ],
    "owning_layer": "machine_mapping",
    "primitives": [
-    "scipy.ndimage.uniform_filter1d",
-    "scipy.signal.firwin",
-    "vaft.process.signal_processing.apply_fir_filter"
+    "vaft.process.signal_processing.pf_current_filter"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "pipeline1 generate_diagnostics_ods (all PF circuits) and IMPA strict vfit_pf.",
-   "recommended_action": "B3: named pf_current_filter in vaft.process = fir_filter_coefficients(window='hamming', numtaps=251) + apply_fir_filter + uniform_filter1d; coefficient-equality and phase tests.",
+   "recommended_action": "keep (config adapter).",
    "related_issue": "#2162, #2135",
-   "resolved_by": "",
+   "resolved_by": "#2162 (B3.5)",
    "scientific_risk": "medium",
    "source_file": "vaft/machine_mapping/pf_active.py"
   },
@@ -7862,41 +7853,35 @@
    "source_file": "vaft/plot/backend/recipes.py"
   },
   {
-   "algorithm_semantics": "butter(4, highpass 200 Hz) + filtfilt, sample rate inferred from median dt.",
+   "algorithm_semantics": "butterworth_highpass(order 4, 200 Hz, zero_phase=True), sample rate inferred from median dt.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
     {
-     "call": "scipy.signal.butter",
-     "snippet": "butter(4, highpass_cutoff / nyquist, btype='highpass')"
-    },
-    {
-     "call": "scipy.signal.filtfilt",
-     "snippet": "filtfilt(b, a, signal_values)"
+     "call": "vaft.process.signal_processing.butterworth_highpass",
+     "snippet": "butterworth_highpass(signal_values, highpass_cutoff, sample_rate, order=4, zero_phase=True)"
     }
    ],
    "callers": [
     "vaft.plot.backend.recipes.<module>"
    ],
-   "classification": "duplicate",
+   "classification": "intentional_specialization",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
    "evidence": "",
    "implementation": "vaft.plot.backend.recipes._build_interferometer_spectrogram",
    "operation": [
-    "filter_application",
-    "filter_design"
+    "filter_application"
    ],
    "owning_layer": "plot",
    "primitives": [
-    "scipy.signal.butter",
-    "scipy.signal.filtfilt"
+    "vaft.process.signal_processing.butterworth_highpass"
    ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "B3: butterworth_highpass(zero_phase=True) in signal_processing (add if missing).",
+   "recommended_action": "keep (display recipe; the filter is the canonical one).",
    "related_issue": "#2162",
-   "resolved_by": "",
+   "resolved_by": "#2162 (B3.6)",
    "scientific_risk": "low",
    "source_file": "vaft/plot/backend/recipes.py"
   },
@@ -8422,7 +8407,7 @@
    "source_file": "vaft/plot/particle.py"
   },
   {
-   "algorithm_semantics": "subtract nanmean over a caller time range (no fallback).",
+   "algorithm_semantics": "subtract nanmean over a caller time range (no fallback): a display offset.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -8436,7 +8421,7 @@
     "vaft.plot.soft_x_rays.plot_soft_x_ray_signal",
     "vaft.plot.soft_x_rays.plot_soft_x_ray_spectrogram"
    ],
-   "classification": "duplicate",
+   "classification": "intentional_specialization",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
    "evidence": "semantics differ: arbitrary range mean vs tail window with fallback.",
@@ -8448,7 +8433,7 @@
    "primitives": [],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
-   "recommended_action": "B3: delegate to process.soft_x_rays.sxr_baseline_correction only where the window semantics match (that one uses a tail window from baseline_start with a last-1000-samples fallback) -- not a drop-in.",
+   "recommended_action": "kept in B3.7 with the reason at the definition (sxr_baseline_correction is a tail window with a last-1000-samples fallback, not a drop-in); B3.11 decides the single SXR baseline owner.",
    "related_issue": "#2162",
    "resolved_by": "",
    "scientific_risk": "low",
@@ -12461,38 +12446,7 @@
    "source_file": "vaft/process/magnetics.py"
   },
   {
-   "algorithm_semantics": "int(fs*1e-3) forced odd: the same length rule as fir_filter_coefficients(numtaps=None), which also floors at 3.",
-   "assets": [],
-   "audit_scope": "preprocessing",
-   "call_sites": [
-    {
-     "call": "<definition>",
-     "snippet": "def _firwin_order"
-    }
-   ],
-   "callers": [
-    "vaft.process.magnetics.mirnov_preprocess_signal"
-   ],
-   "classification": "duplicate",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": true,
-   "evidence": "Phase A check: firwin(_firwin_order(fs), fc, window='hann') == fir_filter_coefficients(fc, fs) exactly (max |diff| 0.0) at fs = 25 kHz, 250 kHz, 1 MHz, 2 MHz (low pass).",
-   "implementation": "vaft.process.magnetics._firwin_order",
-   "operation": [
-    "filter_design"
-   ],
-   "owning_layer": "process",
-   "primitives": [],
-   "production_reachability": "not_statically_reached",
-   "production_reachability_note": "",
-   "recommended_action": "B3: replace by fir_filter_coefficients(cutoff, fs, kind=...) -- coefficients identical; pin with an equality test.",
-   "related_issue": "#2162",
-   "resolved_by": "",
-   "scientific_risk": "low",
-   "source_file": "vaft/process/magnetics.py"
-  },
-  {
-   "algorithm_semantics": "np.polyfit deg 1 over finite in-bounds indices; <2 valid -> DegenerateBaselineWindowError or zero with warning (#639).",
+   "algorithm_semantics": "delegates to signal_processing._polyfit_linear_baseline (nan_policy='omit'); keeps the caller-facing stacklevel.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -12501,33 +12455,32 @@
      "snippet": "def _linear_baseline"
     },
     {
-     "call": "numpy.polyfit",
-     "snippet": "np.polyfit(time_axis[valid], values[valid], 1)"
+     "call": "vaft.process.signal_processing._polyfit_linear_baseline",
+     "snippet": "_polyfit_linear_baseline(time_axis, values, indices, nan_policy='omit', allow_zero_fallback=allow_zero_fallback, context=', '.join(context_parts) or None, wi..."
     }
    ],
    "callers": [
     "vaft.process.magnetics.b_field_pol_probe_field",
     "vaft.process.magnetics.vest_flux_loop_flux_from_voltage"
    ],
-   "classification": "duplicate",
+   "classification": "legacy",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
-   "evidence": "curve_fit linear and polyfit deg 1 are both least squares on the same samples, but subtract_baseline has no finite-only mask and no degenerate check: not interchangeable without the guards.",
+   "evidence": "bit-identical to the frozen develop copy (values, error and warning text, stacklevel).",
    "implementation": "vaft.process.magnetics._linear_baseline",
    "operation": [
-    "baseline",
-    "polynomial_fit"
+    "baseline"
    ],
    "owning_layer": "process",
    "primitives": [
-    "numpy.polyfit"
+    "vaft.process.signal_processing._polyfit_linear_baseline"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B3: absorb into signal_processing.subtract_baseline(method='polyfit') with identical guards; keep a private alias until E.",
+   "recommended_action": "E: retire the private alias; callers use subtract_baseline(fitting_opt='polyfit').",
    "related_issue": "#2162, #639",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2162 (B3.1)",
+   "scientific_risk": "low",
    "source_file": "vaft/process/magnetics.py"
   },
   {
@@ -12628,17 +12581,17 @@
    "source_file": "vaft/process/magnetics.py"
   },
   {
-   "algorithm_semantics": "mean removal -> firwin(hann, _firwin_order(fs)) high/low pass -> apply_fir_filter(short_record='causal') (since #2135; same length rule as before) -> / amplifier gain; cutoff <= 0 or >= Nyquist is SILENTLY skipped.",
+   "algorithm_semantics": "mean removal -> fir_filter_coefficients(window='hann', numtaps=filter_order or fs*1e-3 forced odd) high/low pass -> apply_fir_filter(short_record='causal') (since #2135; same length rule as before) -> / amplifier gain; cutoff <= 0 or >= Nyquist is SILENTLY skipped; an even explicit filter_order raises.",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
     {
-     "call": "scipy.signal.firwin",
-     "snippet": "signal.firwin(order, cutoff, fs=sample_rate, pass_zero=pass_zero, window='hann')"
-    },
-    {
      "call": "vaft.process.signal_processing.apply_fir_filter",
      "snippet": "apply_fir_filter(taps, processed, short_record='causal')"
+    },
+    {
+     "call": "vaft.process.signal_processing.fir_filter_coefficients",
+     "snippet": "fir_filter_coefficients(cutoff, sample_rate, kind=kind, numtaps=filter_order, window='hann')"
     }
    ],
    "callers": [
@@ -12656,14 +12609,14 @@
    ],
    "owning_layer": "process",
    "primitives": [
-    "scipy.signal.firwin",
-    "vaft.process.signal_processing.apply_fir_filter"
+    "vaft.process.signal_processing.apply_fir_filter",
+    "vaft.process.signal_processing.fir_filter_coefficients"
    ],
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "not called by Pipeline 1 (fluctuation Mirnov voltages are published raw); research callers only.",
-   "recommended_action": "B2: the Nyquist skip becomes an explicit status; B3: _firwin_order -> fir_filter_coefficients (coefficients verified identical, see _firwin_order row).",
+   "recommended_action": "B2: the Nyquist skip becomes an explicit status.",
    "related_issue": "#2159, #2162",
-   "resolved_by": "",
+   "resolved_by": "#2162 (B3.4: _firwin_order -> fir_filter_coefficients, coefficients identical at 25 k/250 k/1 M/2 MHz)",
    "scientific_risk": "medium",
    "source_file": "vaft/process/magnetics.py"
   },
@@ -14172,6 +14125,45 @@
    "source_file": "vaft/process/signal_processing.py"
   },
   {
+   "algorithm_semantics": "the fitting_opt='polyfit' kernel of subtract_baseline: index guard, nan_policy, #639 degenerate error/fallback.",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "<definition>",
+     "snippet": "def _polyfit_linear_baseline"
+    },
+    {
+     "call": "numpy.polyfit",
+     "snippet": "np.polyfit(time[valid], signal[valid], 1)"
+    }
+   ],
+   "callers": [
+    "vaft.process.magnetics._linear_baseline",
+    "vaft.process.signal_processing.subtract_baseline"
+   ],
+   "classification": "canonical",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": true,
+   "evidence": "",
+   "implementation": "vaft.process.signal_processing._polyfit_linear_baseline",
+   "operation": [
+    "baseline",
+    "polynomial_fit"
+   ],
+   "owning_layer": "process",
+   "primitives": [
+    "numpy.polyfit"
+   ],
+   "production_reachability": "pipeline1",
+   "production_reachability_note": "",
+   "recommended_action": "keep (private kernel; process.magnetics._linear_baseline and MM._linear_baseline_subtract call it).",
+   "related_issue": "#2162, #639",
+   "resolved_by": "#2162 (B3.1)",
+   "scientific_risk": "low",
+   "source_file": "vaft/process/signal_processing.py"
+  },
+  {
    "algorithm_semantics": "Kaiser-sized FIR anti-alias before downsampling, zero-phase per finite run, filtfilt length rule _filtfilt_min_length (#893).",
    "assets": [],
    "audit_scope": "preprocessing",
@@ -14238,12 +14230,12 @@
    ],
    "callers": [
     "vaft.machine_mapping.magnetics.vfit_plasma_current",
-    "vaft.machine_mapping.pf_active._legacy_pf_filter",
     "vaft.machine_mapping.tf.vfit_tf_current_detailed",
     "vaft.process.impa.impa_lowpass",
     "vaft.process.magnetics.b_field_pol_probe_field",
     "vaft.process.magnetics.mirnov_preprocess_signal",
-    "vaft.process.signal_processing.fir_filter"
+    "vaft.process.signal_processing.fir_filter",
+    "vaft.process.signal_processing.pf_current_filter"
    ],
    "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -14311,6 +14303,54 @@
    "recommended_action": "keep.",
    "related_issue": "#2162",
    "resolved_by": "",
+   "scientific_risk": "low",
+   "source_file": "vaft/process/signal_processing.py"
+  },
+  {
+   "algorithm_semantics": "scipy butter(order, highpass) + filtfilt (zero_phase=True) or lfilter; cutoff must lie in (0, Nyquist).",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "<definition>",
+     "snippet": "def butterworth_highpass"
+    },
+    {
+     "call": "scipy.signal.butter",
+     "snippet": "scipy_signal.butter(int(order), float(cutoff) / nyquist, btype='highpass')"
+    },
+    {
+     "call": "scipy.signal.filtfilt",
+     "snippet": "scipy_signal.filtfilt(b, a, values, axis=-1)"
+    },
+    {
+     "call": "scipy.signal.lfilter",
+     "snippet": "scipy_signal.lfilter(b, a, values, axis=-1)"
+    }
+   ],
+   "callers": [
+    "vaft.plot.backend.recipes._build_interferometer_spectrogram"
+   ],
+   "classification": "canonical",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": true,
+   "evidence": "",
+   "implementation": "vaft.process.signal_processing.butterworth_highpass",
+   "operation": [
+    "filter_application",
+    "filter_design"
+   ],
+   "owning_layer": "process",
+   "primitives": [
+    "scipy.signal.butter",
+    "scipy.signal.filtfilt",
+    "scipy.signal.lfilter"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "keep beside butterworth_lowpass/bandpass.",
+   "related_issue": "#2162",
+   "resolved_by": "#2162 (B3.6)",
    "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
@@ -14496,7 +14536,9 @@
     }
    ],
    "callers": [
-    "vaft.process.signal_processing.fir_filter"
+    "vaft.process.magnetics.mirnov_preprocess_signal",
+    "vaft.process.signal_processing.fir_filter",
+    "vaft.process.signal_processing.pf_current_filter"
    ],
    "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -14510,12 +14552,61 @@
    "primitives": [
     "scipy.signal.firwin"
    ],
-   "production_reachability": "not_statically_reached",
+   "production_reachability": "pipeline1",
    "production_reachability_note": "",
    "recommended_action": "keep; NOT a drop-in for the VEST Hamming designs (26 taps at 25 kHz there vs 25 here, #2135 row). Expose window/numtaps explicitly when B3 composes the PF filter.",
    "related_issue": "#2162",
    "resolved_by": "",
    "scientific_risk": "medium",
+   "source_file": "vaft/process/signal_processing.py"
+  },
+  {
+   "algorithm_semantics": "fir_filter_coefficients(lowpass, window='hamming', numtaps odd >= 3) -> apply_fir_filter(short_record='causal': zero-phase from 3*numtaps+1 samples, forward-only below, 125-sample / 5 ms delay) -> uniform_filter1d(min(window, len)) (half-sample lag for an even width).",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "<definition>",
+     "snippet": "def pf_current_filter"
+    },
+    {
+     "call": "scipy.ndimage.uniform_filter1d",
+     "snippet": "ndimage.uniform_filter1d(filtered, size=min(int(smoothing_window), data.size))"
+    },
+    {
+     "call": "vaft.process.signal_processing.apply_fir_filter",
+     "snippet": "apply_fir_filter(taps, data, short_record='causal')"
+    },
+    {
+     "call": "vaft.process.signal_processing.fir_filter_coefficients",
+     "snippet": "fir_filter_coefficients(float(cutoff_hz), float(sample_rate), kind='lowpass', numtaps=taps_count, window='hamming')"
+    }
+   ],
+   "callers": [
+    "vaft.machine_mapping.pf_active._pf_filter"
+   ],
+   "classification": "canonical",
+   "configuration_source": "caller arguments (vest.yaml values via pf_active._pf_filter).",
+   "curated": true,
+   "evidence": "",
+   "implementation": "vaft.process.signal_processing.pf_current_filter",
+   "operation": [
+    "filter_application",
+    "filter_design",
+    "smoothing"
+   ],
+   "owning_layer": "process",
+   "primitives": [
+    "scipy.ndimage.uniform_filter1d",
+    "vaft.process.signal_processing.apply_fir_filter",
+    "vaft.process.signal_processing.fir_filter_coefficients"
+   ],
+   "production_reachability": "pipeline1",
+   "production_reachability_note": "",
+   "recommended_action": "keep as the named PF composition.",
+   "related_issue": "#2162",
+   "resolved_by": "#2162 (B3.5)",
+   "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
   {
@@ -14733,7 +14824,7 @@
    "source_file": "vaft/process/signal_processing.py"
   },
   {
-   "algorithm_semantics": "curve_fit of linear/quadratic/exp model or exact spline through baseline_indices; no finite-only filtering, no degenerate-window check.",
+   "algorithm_semantics": "fitting_opt='polyfit' (B3.1): np.polyfit deg 1 over in-bounds indices, finite-only by default (nan_policy='omit') or NaN-propagating, <2 valid -> DegenerateBaselineWindowError or zero with warning (#639). Other options: curve_fit of linear/quadratic/exp model or exact spline, no finite-only filtering, no degenerate check; 'linear' is NOT routed to polyfit (agrees only to ~7.5e-13 relative).",
    "assets": [],
    "audit_scope": "preprocessing",
    "call_sites": [
@@ -14756,9 +14847,14 @@
     {
      "call": "scipy.optimize.curve_fit",
      "snippet": "curve_fit(quadratic_baseline, x_baseline, y_baseline)"
+    },
+    {
+     "call": "vaft.process.signal_processing._polyfit_linear_baseline",
+     "snippet": "_polyfit_linear_baseline(time, signal, baseline_indices, nan_policy=nan_policy, allow_zero_fallback=allow_zero_fallback, context=context, window_desc=window_..."
     }
    ],
    "callers": [
+    "vaft.machine_mapping.magnetics._linear_baseline_subtract",
     "vaft.process.magnetics.b_field_pol_probe_field",
     "vaft.process.magnetics.flux_loop_flux",
     "vaft.process.magnetics.rogowski_coil_ip"
@@ -14766,7 +14862,7 @@
    "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": true,
-   "evidence": "",
+   "evidence": "test/test_baseline_consolidation.py: bit-identical to frozen develop copies of _linear_baseline and _linear_baseline_subtract; 4-shot capture (39915/41524/41672/42962) leaf-identical.",
    "implementation": "vaft.process.signal_processing.subtract_baseline",
    "operation": [
     "baseline",
@@ -14776,14 +14872,15 @@
    "owning_layer": "process",
    "primitives": [
     "scipy.interpolate.UnivariateSpline",
-    "scipy.optimize.curve_fit"
+    "scipy.optimize.curve_fit",
+    "vaft.process.signal_processing._polyfit_linear_baseline"
    ],
    "production_reachability": "pipeline1",
    "production_reachability_note": "",
-   "recommended_action": "B3: become the single linear-baseline owner with a method='polyfit' path that absorbs process.magnetics._linear_baseline guards (finite-only, #639 DegenerateBaselineWindowError); equivalence to 1e-12.",
+   "recommended_action": "keep as the single linear-baseline owner.",
    "related_issue": "#2162, #639",
-   "resolved_by": "",
-   "scientific_risk": "medium",
+   "resolved_by": "#2162 (B3.1)",
+   "scientific_risk": "low",
    "source_file": "vaft/process/signal_processing.py"
   },
   {
@@ -15924,39 +16021,6 @@
    "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/validation/studies/nice_issue_666/synthetic_equilibria/run_tokamaker.py"
-  },
-  {
-   "algorithm_semantics": "cumsum-difference box average at every sample over [t-h, t+h] (searchsorted left/right): legacy.box_average evaluated at every sample.",
-   "assets": [],
-   "audit_scope": "preprocessing",
-   "call_sites": [
-    {
-     "call": "numpy.cumsum",
-     "snippet": "np.cumsum(data)"
-    }
-   ],
-   "callers": [
-    "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._efit_not_applicable"
-   ],
-   "classification": "duplicate",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": true,
-   "evidence": "",
-   "implementation": "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._box_averaged",
-   "operation": [
-    "cumulative_sum"
-   ],
-   "owning_layer": "workflow_production",
-   "primitives": [
-    "numpy.cumsum"
-   ],
-   "production_reachability": "pipeline1",
-   "production_reachability_note": "pipeline1 generate_constraints_ods (vacuum-time drop).",
-   "recommended_action": "B3/C2: move next to legacy.box_average as a vectorised form with an equivalence test; workflow-local numerics otherwise.",
-   "related_issue": "#2162, #2164",
-   "resolved_by": "",
-   "scientific_risk": "low",
-   "source_file": "workflow/automatic_pipeline_1_routine_data_processing/generate_constraints_ods.py"
   },
   {
    "algorithm_semantics": "calls numpy.interp (not curated)",
