@@ -797,7 +797,16 @@ def _unusable_magnetics_channels(
       their published waveform (a phase reference's ``field`` is empty by
       design).
 
-    Read-only: nothing in *ods* is changed.
+    "Empty in the product" is the criterion, whatever emptied it: besides the
+    two causes above, a raw-voltage record with no sample inside the analysis
+    window it is cropped to, or a limiter shunt with none in its baseline
+    window, is reported too.
+
+    Read-only: nothing in *ods* is changed. A probe whose ``identifier`` is not
+    the registry name at its ``kind_index`` raises ``ValueError`` instead of
+    being reported: the static writer and this check resolve the same
+    registry, so a mismatch is a mapping fault, and a status built on it would
+    name the wrong channel.
     """
     from vaft.machine_mapping.utils import path_count
 
@@ -860,8 +869,9 @@ def _record_unusable_magnetics_channels(
     component reported ``success``. After this, ``missing_channels`` lists
     every field the product lacks, ``missing_channel_reasons`` says for each
     whether it was never archived or archived but unusable, and
-    ``unusable_channels`` names the empty node. Report-only: no waveform,
-    validity or index is touched.
+    ``unusable_channels`` names the empty node. No waveform, validity or index
+    is touched (an identity mismatch raises; see
+    :func:`_unusable_magnetics_channels`).
     """
     not_archived = sorted(int(field) for field in status.get("missing_channels", []))
     reasons = {field: MAGNETICS_CHANNEL_NOT_ARCHIVED for field in not_archived}

@@ -178,3 +178,94 @@ def test_an_unavailable_component_keeps_its_archive_reasons():
     assert status["status"] == "unavailable"
     assert status["missing_channels"] == [218, 216]
     assert status["missing_channel_reasons"] == {"216": "not_archived", "218": "not_archived"}
+
+
+# --------------------------------------------------------------------------
+# Every family, on a hand-built IDS: which node each field is looked up by
+# --------------------------------------------------------------------------
+
+
+def _filled_static(shot: int):
+    """The shot's static magnetics with every waveform node holding two samples."""
+    from omas import ODS
+
+    from vaft.machine_mapping.magnetics import (
+        FLUCTUATION_MIRNOV_FIRST_SHOT,
+        _populate_fluctuation_mirnov_static,
+        vfit_magnetics_static,
+    )
+
+    ods = ODS(consistency_check=False)
+    vfit_magnetics_static(ods, shot)
+    if shot >= FLUCTUATION_MIRNOV_FIRST_SHOT:
+        _populate_fluctuation_mirnov_static(ods, shot)
+    two = np.array([1.0, 2.0])
+    for index in range(len(ods["magnetics.b_field_pol_probe"])):
+        ods[f"magnetics.b_field_pol_probe.{index}.field.data"] = two
+        ods[f"magnetics.b_field_pol_probe.{index}.voltage.data"] = two
+    for index in range(len(ods["magnetics.flux_loop"])):
+        ods[f"magnetics.flux_loop.{index}.flux.data"] = two
+    for index in range(len(ods["magnetics.shunt"])):
+        ods[f"magnetics.shunt.{index}.voltage.data"] = two
+    return ods
+
+
+def _probe_index(ods, identifier: str) -> int:
+    for index in range(len(ods["magnetics.b_field_pol_probe"])):
+        if ods[f"magnetics.b_field_pol_probe.{index}.identifier"] == identifier:
+            return index
+    raise LookupError(identifier)
+
+
+def test_each_family_is_checked_on_its_own_published_node():
+    """Flux loop by flux, phase reference and fluctuation Mirnov by voltage."""
+    from vaft.machine_mapping.magnetics import (
+        fluctuation_mirnov_channel_definitions,
+        toroidal_mirnov_reference_channels,
+    )
+    from vaft.omas.vest_upstream import _unusable_magnetics_channels
+
+    # A phase reference is still operational at 35000; the fluctuation array starts at 44156.
+    early = _filled_static(35000)
+    reference = toroidal_mirnov_reference_channels(35000)[0]
+    reference_index = _probe_index(early, f"{reference['name']}:phase_reference")
+    flux_loop = [r for r in resolve_equilibrium_magnetics_sensors(35000) if r.kind == "flux_loop"][4]
+    early[f"magnetics.b_field_pol_probe.{reference_index}.voltage.data"] = np.array([])
+    # The phase reference's empty `field` is by design and must not count.
+    early[f"magnetics.b_field_pol_probe.{reference_index}.field.data"] = np.array([])
+    del early[f"magnetics.flux_loop.{flux_loop.kind_index}.flux"]
+    archived = {reference["field_code"], flux_loop.field_code}
+
+    assert _unusable_magnetics_channels(early, 35000, archived) == {
+        flux_loop.field_code: f"magnetics.flux_loop.{flux_loop.kind_index}.flux.data",
+        reference["field_code"]: f"magnetics.b_field_pol_probe.{reference_index}.voltage.data",
+    }
+    # Not archived is never "unusable", however empty the node.
+    assert _unusable_magnetics_channels(early, 35000, set()) == {}
+
+    late = _filled_static(46000)
+    fluctuation = fluctuation_mirnov_channel_definitions(46000)[7]
+    fluctuation_index = _probe_index(late, fluctuation["identifier"])
+    late[f"magnetics.b_field_pol_probe.{fluctuation_index}.voltage.data"] = np.array([])
+    assert _unusable_magnetics_channels(late, 46000, {int(fluctuation["field"])}) == {
+        int(fluctuation["field"]): f"magnetics.b_field_pol_probe.{fluctuation_index}.voltage.data",
+    }
+
+
+@pytest.mark.parametrize("shot", [30000, 39436, 39437, 39438, 43016, 46000, 48224])
+def test_the_identity_check_holds_across_wiring_eras(shot):
+    """The probe identifier guard must agree with the static writer in every era (#956)."""
+    from vaft.omas.vest_upstream import _unusable_magnetics_channels
+
+    ods = _filled_static(shot)
+    codes = {record.field_code for record in resolve_equilibrium_magnetics_sensors(shot)}
+    assert _unusable_magnetics_channels(ods, shot, codes) == {}
+
+
+def test_a_probe_out_of_place_is_refused_not_misreported():
+    from vaft.omas.vest_upstream import _unusable_magnetics_channels
+
+    ods = _filled_static(43016)
+    ods["magnetics.b_field_pol_probe.3.identifier"] = "not-the-registry-name"
+    with pytest.raises(ValueError, match="registry places"):
+        _unusable_magnetics_channels(ods, 43016, set())
