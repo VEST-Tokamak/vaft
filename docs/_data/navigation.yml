@@ -41,6 +41,9 @@ sections:
       - id: scientific-architecture
         title: Scientific architecture
         url: /reference/scientific-architecture/
+      - id: design-principles
+        title: Design principles and foundations
+        url: /reference/design-principles/
       - id: research-domains
         title: Research domains
         url: /reference/research-domains/
