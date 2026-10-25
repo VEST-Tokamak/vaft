@@ -382,29 +382,82 @@ def _pickup_past_cutip(t):
     return y
 
 
-def _no_plasma_shot():
+def _shot(ip, *, dark_light=True):
     from _plasma_timing_fixtures import light
 
     t = grid()
-    ods = synthetic_ods(slow=light(t, amplitude=0.0), ip=_pickup_past_cutip(t), t=t)
+    kwargs = {"slow": light(t, amplitude=0.0)} if dark_light else {}
+    ods = synthetic_ods(ip=ip(t), t=t, **kwargs)
     ods["magnetics.ip.0.time"] = t
     return ods
 
 
-def test_pickup_past_cutip_without_a_plasma_window_is_not_applicable(monkeypatch, tmp_path):
-    """#2195: the vacuum cut leaves the pickup instants; the missing window decides."""
-    ods = _no_plasma_shot()
+def _judge(ods):
+    """The constraint step's own path: window, vacuum cut, then the #2195 verdict."""
     times, window = CONSTRAINTS._select_times(ods, "auto", 0.001, None, None)
     kept, vacuum = CONSTRAINTS._drop_vacuum_times(ods, times, average_window=0.0005)
-    assert window.fallback and kept.size >= 1 and vacuum  # what used to reach EFIT
+    return window, kept, CONSTRAINTS._no_plasma_window_reason(ods, window, kept, cut=len(vacuum))
+
+
+def test_pickup_past_cutip_under_a_dark_line_is_not_applicable(monkeypatch, tmp_path):
+    """45919/46406: the light was usable and dark, the current showed no pulse."""
+    ods = _shot(_pickup_past_cutip)
+    window, kept, _reason = _judge(ods)
+    assert window.fallback and kept.size >= 1  # what used to reach EFIT
 
     code, output = _run_constraints(monkeypatch, tmp_path, ods)
 
     assert code == 0
     reason = constraints_not_applicable_reason(load_omas_json(str(output), consistency_check=False))
-    assert reason.startswith("no plasma window: neither the light nor the plasma current")
+    assert reason.startswith("no plasma window in the plasma-analysis range")
+    assert "a usable H-alpha line stayed dark" in reason
     assert "ip_principal: no_onset" in reason
-    assert f"{kept.size} of {times.size} constraint instants reach CUTIP" in reason
+    assert f"the vacuum cut kept {kept.size} of 81 constraint instants" in reason
+
+
+def _pickup_spike(t):
+    """39417 in miniature: a 1 ms coil-firing spike to -22 kA on a quiet Rogowski.
+
+    Its own noise seed: on a few realizations the detector accepts the
+    sign-flipped spike as a pulse, and the verdict is then (safely) withheld.
+    """
+    y = 150.0 * np.random.default_rng(39417).standard_normal(t.size)
+    y[(t >= 0.3045) & (t < 0.3055)] -= 22e3
+    return y
+
+
+def test_wrong_signed_pickup_without_any_light_is_not_applicable():
+    """39417: no H-alpha line at all; the current alone shows pickup, not a discharge."""
+    window, kept, reason = _judge(_shot(_pickup_spike, dark_light=False))
+    assert window.fallback and kept.size >= 1
+    assert reason is not None and "no H-alpha line could be judged" in reason
+    assert "every kept instant is wrong-signed" in reason
+
+
+def test_without_light_a_positive_current_past_cutip_keeps_the_fallback():
+    """cold review (A)/(B): a real discharge the pulse detector refused, with no
+    light to say otherwise -- positive instants past CUTIP may be a plasma."""
+    def ip(t):  # own noise seed: whether the detector refuses this pulse depends on it
+        y = current(t, peak=25e3, rise=2e-3, noise=0.0) + 150.0 * np.random.default_rng(2195).standard_normal(t.size)
+        swing = (t >= 0.2900) & (t < 0.2915)
+        y[swing] -= 12e3
+        return y
+
+    window, kept, reason = _judge(_shot(ip, dark_light=False))
+    assert window.fallback and kept.size > 3
+    assert reason is None
+    window, kept, reason = _judge(_shot(lambda t: current(t, onset=0.30, offset=0.3018, peak=40e3, rise=5e-4),
+                                        dark_light=False))
+    assert window.fallback and "principal_run_impulsive" in window.fallback_reason
+    assert reason is None
+
+
+def test_without_light_a_reverse_discharge_keeps_the_fallback():
+    """cold review (C)/(D): -60 kA with no judged light is a possible sign fault
+    (#275); the sign-flipped current shows a pulse, so no verdict."""
+    window, kept, reason = _judge(_shot(lambda t: -current(t, peak=60e3), dark_light=False))
+    assert window.fallback and kept.size > 3
+    assert reason is None
 
 
 def test_a_plasma_window_is_never_judged_by_the_no_plasma_rule():
@@ -414,27 +467,52 @@ def test_a_plasma_window_is_never_judged_by_the_no_plasma_rule():
     ods = synthetic_ods(slow=light(t), ip=current(t), t=t)
     times, window = CONSTRAINTS._select_times(ods, "auto", 0.001, None, None)
     assert not window.fallback
-    assert CONSTRAINTS._no_plasma_window_reason(ods, window, kept=times.size, cut=0) is None
+    assert CONSTRAINTS._no_plasma_window_reason(ods, window, times, cut=0) is None
     # manual mode has no window to judge
-    assert CONSTRAINTS._no_plasma_window_reason(ods, None, kept=3, cut=0) is None
+    assert CONSTRAINTS._no_plasma_window_reason(ods, None, times, cut=0) is None
 
 
 def test_a_condemned_rogowski_keeps_the_fallback_rather_than_a_verdict():
     """A dead plasma-current sensor under a real discharge is a fault to see (#1373)."""
-    ods = _no_plasma_shot()
-    times, window = CONSTRAINTS._select_times(ods, "auto", 0.001, None, None)
-    assert CONSTRAINTS._no_plasma_window_reason(ods, window, kept=2, cut=79) is not None
+    ods = _shot(_pickup_past_cutip)
+    window, kept, reason = _judge(ods)
+    assert reason is not None
     ods["magnetics.rogowski_coil.0.current.validity"] = -2
-    assert CONSTRAINTS._no_plasma_window_reason(ods, window, kept=2, cut=79) is None
+    assert CONSTRAINTS._no_plasma_window_reason(ods, window, kept, cut=81 - kept.size) is None
+
+
+@pytest.mark.parametrize("flag", sorted(CONSTRAINTS._UNJUDGED_CURRENT_FLAGS))
+def test_a_current_the_detector_could_not_judge_keeps_the_fallback(flag):
+    ods = _shot(_pickup_past_cutip)
+    window, kept, reason = _judge(ods)
+    assert reason is not None
+    unjudged = window._replace(flags=window.flags + (flag,))
+    assert CONSTRAINTS._no_plasma_window_reason(ods, unjudged, kept, cut=81 - kept.size) is None
 
 
 def test_an_unusable_current_keeps_the_fallback_rather_than_a_verdict():
     """The timing could not judge the current (``ip_unusable``): no claim of no plasma."""
-    ods = _no_plasma_shot()
+    ods = _shot(_pickup_past_cutip)
     ods["magnetics.ip.0.data"] = np.where(grid() > 0.33, np.nan, ods["magnetics.ip.0.data"])
     _, window = CONSTRAINTS._select_times(ods, "auto", 0.001, None, None)
     assert window.fallback and "ip_unusable" in window.flags
-    assert CONSTRAINTS._no_plasma_window_reason(ods, window, kept=2, cut=79) is None
+    assert CONSTRAINTS._no_plasma_window_reason(ods, window, np.array([0.356]), cut=80) is None
+
+
+def test_manual_mode_is_never_judged_by_the_no_plasma_rule(monkeypatch, tmp_path):
+    """main() in manual mode reconstructs what it was asked to, as before."""
+    calls = []
+    monkeypatch.setattr(CONSTRAINTS, "build_constraints", lambda *a, **k: calls.append(a))
+    ods = _shot(_pickup_past_cutip)
+    monkeypatch.setattr(CONSTRAINTS, "compose_stage_products", lambda **_: (ods, {}))
+    output = tmp_path / "constraints" / "46406_constraints.json"
+    monkeypatch.setattr(sys, "argv", [
+        "generate_constraints_ods.py", "--shot", "46406", "--eddy-ods", "e", "--diagnostics-ods", "d",
+        "--output", str(output), "--timeset", "manual", "--tstart", "0.35", "--tend", "0.36",
+    ])
+    with pytest.raises(FileNotFoundError):  # build_constraints is stubbed, so no product appears
+        CONSTRAINTS.main()
+    assert calls, "manual mode reached the constraint builder"
 
 
 def test_an_all_below_cutip_fallback_shot_keeps_its_205_verdict(monkeypatch, tmp_path):
