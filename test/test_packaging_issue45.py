@@ -80,6 +80,8 @@ def test_runtime_configuration_is_declared_as_package_data():
     assert "data/samples/40600/omas.json.gz" not in package_data
     assert not any(entry.startswith("data/kineticEfit") for entry in package_data)
     assert "data/geometry/VEST_static_geometry.json.gz" in package_data
+    # Retired into the vest.yaml sensor registry (#2158).
+    assert "data/geometry/*.yaml" not in package_data
     assert not (ROOT / "vaft" / ".hscfg").exists()
     setup_py = (ROOT / "setup.py").read_text(encoding="utf-8")
     assert "wheel_samples" in setup_py
@@ -108,7 +110,9 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     )
     assert "include vaft/data/geometry/VEST_em_coupling_pf_versions.npz" in manifest
     assert "include vaft/data/geometry/VEST_passive_wall_2409.npz" in manifest
-    assert "include vaft/data/geometry/*.yaml" in manifest
+    # The equilibrium magnetics YAMLs left vaft/data/geometry for the vest.yaml
+    # sensor registry (#2158); nothing else there is YAML, so nothing ships one.
+    assert "include vaft/data/geometry/*.yaml" not in manifest
     assert "include vaft/data/geometry/*.csv" in manifest
     assert "include vaft/data/gpec/*.in" in manifest
     assert "include vaft/data/gpec/*.dat" in manifest
@@ -131,8 +135,12 @@ def test_vest_yaml_has_canonical_top_level_diagnostic_structure():
     )
     defaults = content[0]
 
+    # The placeholder 0.magnetics block (one fictitious loop) was removed with
+    # the sensor registry (#2158); the 75 sensors live under diagnostics.
+    assert "magnetics" not in defaults
+    sensors = defaults["diagnostics"]["equilibrium_magnetics"]["sensors"]["records"]
+    assert len(sensors) == 75
     assert {
-        "magnetics",
         "pf_active",
         "tf",
         "barometry",

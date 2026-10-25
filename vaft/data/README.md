@@ -11,7 +11,7 @@ kinetic-EFIT data, and legacy diagnostic and digitizer samples.
 
 | Directory | Files | Purpose |
 | --- | --- | --- |
-| `geometry/` | `Coil_info.mat`, `MD.yaml`, `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `VEST_DiscretizedCoilGeometry_Full_ver_2507.mat`, `VEST_em_coupling_pf_versions.npz`, `VEST_passive_wall_2409.npz`, `VEST_static_geometry.json.gz`, `VEST_MagneticsGeometry_Full_ver_2302.yaml`, `line_of_sight_endpoints.csv`, `table.yaml` | VEST magnetic, PF, electromagnetic-coupling, wall/passive, and soft X-ray geometry metadata |
+| `geometry/` | `Coil_info.mat`, `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `VEST_DiscretizedCoilGeometry_Full_ver_2507.mat`, `VEST_em_coupling_pf_versions.npz`, `VEST_passive_wall_2409.npz`, `VEST_static_geometry.json.gz`, `line_of_sight_endpoints.csv` | VEST PF, electromagnetic-coupling, wall/passive, and soft X-ray geometry metadata (the equilibrium magnetic sensors are in the `vest.yaml` registry, #2158) |
 | `efit/` | `g039020.031180`, `g039915.00317`, `g039915.00319`, `g040330.00320`, `g040330.00321`, `g040330.00323`, `a039915.00319`, EFIT table files | GEQDSK/AEQDSK samples and EFIT reference tables |
 | `samples/39915/` | `manifest.yaml`, `omas.json.gz`, `imas.nc` | One compact logical reference dataset in paired OMAS and native IMAS representations; only `manifest.yaml` and `omas.json.gz` ship in the wheel and sdist, `imas.nc` is repository-only (0.8.0) |
 | `samples/39915/source/` | frozen raw input, configuration, stage manifests, canonical ODS | Repository-only regeneration inputs through the EFIT stage |
@@ -115,12 +115,18 @@ compared (agreement 0.05-0.9 %), not copied.
 `workflow/em_coupling/import_wall_2409.py --verify` rebuilds and checks it;
 `pf_passive(ods, shot=...)` and `em_coupling(ods, shot=...)` append the
 additions from 43017 on.
-`VEST_MagneticsGeometry_Full_ver_2302.yaml` retains its historical filename
-for API compatibility, while its source metadata, channel order, and
-calibration values reflect the production 2409 magnetic geometry. It fixes
-probe *positions* only: which raw field feeds a position is per shot, from
-`equilibrium_magnetics.processing.wiring` in `vaft/machine_mapping/vest.yaml`
-(shots up to 39437 swap fields 170 and 225 at Z = +0.06 / -0.42, issue #956).
+The equilibrium magnetic sensors (probe and flux-loop positions, DAQ fields,
+calibration, labels) are no longer files here. Since #2158 they are one
+registry in `vaft/machine_mapping/vest.yaml`
+(`diagnostics.equilibrium_magnetics.sensors`), and the three YAMLs it replaced
+-- `MD.yaml`, `VEST_MagneticsGeometry_Full_ver_2302.yaml` (whose content
+declares `ver_2409.mat` despite its filename) and `table.yaml` -- are kept
+byte-identical as frozen, non-runtime fixtures in `test/data/legacy_magnetics/`.
+Which raw field feeds a position is per shot, from
+`equilibrium_magnetics.processing.wiring` (shots up to 39437 swap fields 170
+and 225 at Z = +0.06 / -0.42, issue #956). EFUND table manifests made before
+#2158 still name those files by sha256: that is their historical identity and
+is not rewritten.
 
 `gpec/vest_UP.dat`, `gpec/vest_MID.dat`, and `gpec/vest_LOW.dat` are the
 canonical VEST non-axisymmetric 3D coil geometries in GPEC coil format. Each

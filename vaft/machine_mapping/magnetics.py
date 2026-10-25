@@ -10,14 +10,14 @@ import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
 import numpy as np
-import yaml
-from scipy import integrate, signal
+from scipy import signal
 
+from vaft.compat import cumtrapz_compat
 from vaft.database import raw as raw_db
+from vaft.process.acquisition import AcquisitionInconsistencyError, check_declared_sample_rate
 from vaft.process.magnetics import (
     VestEquilibriumMagneticsResult,
     VestMagneticsProcessingConfig,
@@ -29,6 +29,7 @@ from vaft.process.signal_processing import (
     detect_clipped_samples,
     repair_clipped_interval,
     smooth,
+    subtract_baseline,
 )
 
 from vaft.formula.statistics import median_absolute_deviation
@@ -37,6 +38,15 @@ from .conventions import (
     VEST_PORT_CLOCK_DEGREES,
     clock_angle_to_toroidal_angle,
     port_toroidal_angle,
+)
+from .magnetics_registry import (
+    FLUX_LOOP_KIND,
+    PROBE_KIND,
+    SensorRecord,
+    _thaw,
+    resolve_equilibrium_magnetics_registry,
+    resolve_equilibrium_magnetics_sensors,
+    sensor_for_entry,
 )
 from .utils import (
     AGREEMENT_CONSISTENT,
@@ -51,7 +61,6 @@ from .utils import (
     path_count,
     path_exists,
     crop_to_span,
-    resolve_data_root,
     resolve_plasma_timing_policy,
     resolve_shot_revisions,
     resolve_shot_revisions_with_provenance,
@@ -202,14 +211,17 @@ def _safe_vest_load(
     return _safe_vest_load_cached(int(shot), int(field), source_key)
 
 
-def _geometry_root() -> Path:
-    return resolve_data_root() / "geometry"
+def _channel_definition(record: SensorRecord) -> dict[str, Any]:
+    """The ``{field_code, kind, calibration}`` row the channel consumers take.
 
-
-@lru_cache(maxsize=1)
-def _load_equilibrium_magnetics_channels() -> list[dict[str, Any]]:
-    with open(_geometry_root() / "MD.yaml", "r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle)["channels"]
+    The key order and value types are the ones these rows have always had, so
+    the public structures built from them are unchanged by #2158.
+    """
+    return {
+        "field_code": int(record.field_code),
+        "kind": str(record.kind),
+        "calibration": float(record.calibration),
+    }
 
 
 def equilibrium_probe_count(source: Any) -> int:
@@ -240,18 +252,110 @@ def equilibrium_probe_count(source: Any) -> int:
     return min(present, defined) if defined else present
 
 
+def equilibrium_sensor_families(
+    source: Any, shot: int, *, probe_count: int
+) -> dict[str, np.ndarray]:
+    """The constraint families of the IDS's equilibrium sensors, placed by the registry.
+
+    Returns ascending zero-based IDS indexes under ``"inboard"``, ``"side"``,
+    ``"outboard"`` (B-pol probes, the first *probe_count* only) and
+    ``"inboard_flux"``, ``"outboard_flux"`` (flux loops). A channel's family
+    is decided by the shot's registry geometry (:func:`~vaft.machine_mapping.
+    magnetics_registry.resolve_equilibrium_magnetics_sensors`) of the sensor
+    its ``identifier`` names, with the boundaries above -- not by the position
+    the product happens to carry, nor by where in the array it sits (#2164).
+    A probe in several families is in each (the boundaries make them
+    disjoint on VEST). A channel the registry cannot name for *shot* raises,
+    because a family it cannot place it in would silently drop a constraint
+    or weight it as the wrong one.
+
+    The key is the shot-era DAQ label, which a wiring revision can move
+    between positions (#956). Two guards cover what that could hide: two
+    channels with one label raise, and a channel whose carried position would
+    put it in a different family than the registry does warns -- the product
+    was mapped with another era's labels, or its geometry is stale -- and the
+    registry's family is used.
+
+    Accepts a whole ODS or a ``magnetics`` sub-tree, like
+    :func:`equilibrium_probe_count`.
+    """
+    prefix = "magnetics." if "magnetics" in source else ""
+
+    def probe_family(r: float, z: float) -> tuple[bool, bool, bool]:
+        return (r < INBOARD_PROBE_MAX_R, abs(z) > SIDE_PROBE_MIN_ABS_Z, r > OUTBOARD_PROBE_MIN_R)
+
+    def loop_family(r: float, _z: float) -> tuple[bool, bool]:
+        return (r < INBOARD_FLUX_LOOP_MAX_R, r > OUTBOARD_FLUX_LOOP_MIN_R)
+    records = resolve_equilibrium_magnetics_sensors(int(shot))
+    by_kind: dict[str, dict[str, SensorRecord]] = {}
+    for record in records:
+        by_kind.setdefault(record.kind, {})[record.name] = record
+
+    def placed(
+        kind: str, count: int | None, position: str, family: Callable[[float, float], tuple[bool, ...]]
+    ) -> list[tuple[int, SensorRecord]]:
+        node = f"{prefix}{kind}"
+        total = path_count(source, node)
+        names = by_kind.get(kind, {})
+        result = []
+        seen: dict[str, int] = {}
+        for index in range(total if count is None else min(int(count), total)):
+            identifier_path = f"{node}.{index}.identifier"
+            identifier = str(get_path(source, identifier_path)) if path_exists(source, identifier_path) else None
+            if identifier not in names:
+                raise ValueError(
+                    f"shot {int(shot)}: {node}[{index}] is {identifier!r}, which the "
+                    f"registry names no {kind} for; its constraint family is unknown"
+                )
+            if identifier in seen:
+                raise ValueError(
+                    f"shot {int(shot)}: {node}[{seen[identifier]}] and [{index}] are both "
+                    f"{identifier!r}; one sensor cannot be two channels"
+                )
+            seen[identifier] = index
+            record = names[identifier]
+            r_path, z_path = f"{node}.{index}.{position}.r", f"{node}.{index}.{position}.z"
+            if path_exists(source, r_path) and path_exists(source, z_path):
+                carried = family(float(get_path(source, r_path)), float(get_path(source, z_path)))
+                if carried != family(record.r, record.z):
+                    warnings.warn(
+                        f"shot {int(shot)}: {node}[{index}] ({identifier}) carries a position in "
+                        "another constraint family than the registry places it in; using the "
+                        "registry's (mapped with another era's labels, or stale geometry?)",
+                        RuntimeWarning,
+                        stacklevel=3,
+                    )
+            result.append((index, record))
+        return result
+
+    probes = placed(PROBE_KIND, probe_count, "position", probe_family)
+    loops = placed(FLUX_LOOP_KIND, None, "position.0", loop_family)
+
+    def indexes(rows: list[tuple[int, SensorRecord]], keep: Callable[[SensorRecord], bool]) -> np.ndarray:
+        return np.array([index for index, record in rows if keep(record)], dtype=int)
+
+    return {
+        "inboard": indexes(probes, lambda record: record.r < INBOARD_PROBE_MAX_R),
+        "side": indexes(probes, lambda record: abs(record.z) > SIDE_PROBE_MIN_ABS_Z),
+        "outboard": indexes(probes, lambda record: record.r > OUTBOARD_PROBE_MIN_R),
+        "inboard_flux": indexes(loops, lambda record: record.r < INBOARD_FLUX_LOOP_MAX_R),
+        "outboard_flux": indexes(loops, lambda record: record.r > OUTBOARD_FLUX_LOOP_MIN_R),
+    }
+
+
 def vest_equilibrium_magnetics_channel_definitions(
     shot: int | None = None,
 ) -> tuple[dict[str, Any], ...]:
     """Return ordered VEST equilibrium-magnetics channel metadata for provenance/preflight.
 
     With *shot*, the fields and calibrations are that shot's wiring
-    (:func:`magnetics_wiring_for_shot`); without, the shipped 2409 layout.
-    Kinds and order are the same either way.
+    (:func:`magnetics_wiring_for_shot`); without, the 2409 base the
+    ``vest.yaml`` sensor registry lists. Kinds and order are the same either
+    way. Built from :func:`~vaft.machine_mapping.magnetics_registry.
+    resolve_equilibrium_magnetics_sensors` (#2158).
     """
-    if shot is None:
-        return tuple(dict(channel) for channel in _load_equilibrium_magnetics_channels())
-    return tuple(dict(channel) for channel in magnetics_wiring_for_shot(int(shot)).channels)
+    records = resolve_equilibrium_magnetics_sensors(None if shot is None else int(shot))
+    return tuple(_channel_definition(record) for record in records)
 
 
 #: Every outboard fluctuation-Mirnov identifier, parsed strictly rather than by
@@ -570,8 +674,8 @@ TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT: dict[int, int] = {
 #: is recorded.  The 64 equilibrium probes and the 11 flux loops are mapped for
 #: every shot, which is not a claim that every one of them existed throughout.
 #:
-#: No source states when they did.  `MD.yaml` and the geometry file carry no
-#: shot field; ``vest.yaml`` carries shot ``revisions`` for *processing* eras
+#: No source states when they did.  The sensor registry carries no
+#: existence-by-shot field; ``vest.yaml`` carries shot ``revisions`` for *processing* eras
 #: (baseline windows, FL10 compensation) but none for channel existence; and
 #: the VEST magnetics logs give per-channel DAQ wiring and positions without
 #: dates, their only shot note being the one behind
@@ -655,17 +759,12 @@ def toroidal_array_for_shot(shot: int) -> dict[str, Any]:
 def _equilibrium_probe_field_codes(shot: int = 0) -> frozenset[int]:
     """The raw fields the 64 equilibrium probes read for ``shot``.
 
-    ``shot=0`` is the inventory: the geometry file's own labels.  A discharge
+    ``shot=0`` is the inventory: the registry's own 2409 fields.  A discharge
     reads its era's wiring (issue #956), which can move a field between
     positions -- so the set is resolved per shot rather than assumed.
     """
-    static = _load_static_channels()
-    source = magnetics_wiring_for_shot(int(shot)).channels if shot else static
-    return frozenset(
-        int(source[index]["field_code"])
-        for index, channel in enumerate(static)
-        if channel["kind"] == "b_field_pol_probe"
-    )
+    records = resolve_equilibrium_magnetics_sensors(int(shot) if shot else None)
+    return frozenset(record.field_code for record in records if record.kind == PROBE_KIND)
 
 
 def toroidal_mirnov_reference_channels(shot: int = 0) -> tuple[dict[str, Any], ...]:
@@ -735,9 +834,11 @@ def require_supported_magnetics_geometry(shot: int | None) -> None:
 class MagneticsWiring:
     """Which raw field and calibration feed each equilibrium probe for a shot.
 
-    ``channels`` is MD.yaml with the shot's ``probe_overrides`` applied, in the
-    same order, so entry ``i`` still joins geometry entry ``i``. The probe
-    positions and names do not move; only their signal source does.
+    ``channels`` is the ``vest.yaml`` sensor registry (#2158) with the shot's
+    ``probe_overrides`` applied, in canonical order: entry ``i`` is sensor
+    ``i``. The probe *positions* do not move; their signal source does, and so
+    does the DAQ label the ODS ``name``/``identifier`` carries, because a label
+    names the field a position reads (#2148 audit section 2).
     """
 
     layout: str
@@ -760,105 +861,57 @@ def _equilibrium_magnetics_revision(shot: int, name: str) -> tuple[dict[str, Any
 def _pinned_channel_index(entry: Mapping[str, Any], kind: str, *, context: str) -> int:
     """The IDS index of the *kind* channel *entry* names, checked against its position.
 
-    ``index`` counts within *kind* (``flux_loop[3]`` is the fourth loop), the
-    way the IDS and the validation layer address channels; ``r`` and ``z`` pin
-    it, so an entry cannot silently move to another sensor when the geometry
-    asset is reordered.
+    ``{id: ...}`` names the sensor (#2158). The legacy ``{index, r, z}`` form
+    is the validated adapter: ``index`` counts within *kind*
+    (``flux_loop[3]`` is the fourth loop), the way the IDS and the validation
+    layer address channels, and ``r``/``z`` pin it, so an entry cannot silently
+    move to another sensor.
     """
-    index = int(entry["index"])
-    rows = [row for row in _load_static_channels() if row["kind"] == kind]
-    if not 0 <= index < len(rows):
-        raise VestConfigurationError(f"{context}: {kind} index {index} is out of range")
-    row = rows[index]
-    claimed = (float(entry["r"]), float(entry["z"]))
-    actual = (float(row["r"]), float(row["z"]))
-    if not all(math.isclose(a, b, abs_tol=1e-9) for a, b in zip(actual, claimed)):
-        raise VestConfigurationError(
-            f"{context}: {kind} index {index} is at r={actual[0]}, z={actual[1]}, "
-            f"not at r={claimed[0]}, z={claimed[1]} as the entry names"
-        )
-    return index
+    return sensor_for_entry(entry, kind=kind, context=context, index_scope="kind").kind_index
 
 
 def _pinned_probe_index(entry: Mapping[str, Any], *, context: str) -> int:
-    """The probe index *entry* names, checked against the position it claims."""
-    index = int(entry["index"])
-    geometry = _load_static_channels()
-    if not 0 <= index < len(geometry):
-        raise VestConfigurationError(f"{context}: probe index {index} is out of range")
-    row = geometry[index]
-    claimed = (float(entry["r"]), float(entry["z"]))
-    actual = (float(row["r"]), float(row["z"]))
-    if row["kind"] != "b_field_pol_probe" or not all(
-        math.isclose(a, b, abs_tol=1e-9) for a, b in zip(actual, claimed)
-    ):
-        raise VestConfigurationError(
-            f"{context}: index {index} is a {row['kind']} at r={actual[0]}, z={actual[1]}, "
-            f"not the probe at r={claimed[0]}, z={claimed[1]} the entry names"
-        )
-    return index
+    """The probe index *entry* names (by ``id``, or a legacy ``index`` pinned by r/z)."""
+    return sensor_for_entry(entry, kind=PROBE_KIND, context=context, index_scope="canonical").index
 
 
 def magnetics_wiring_for_shot(shot: int) -> MagneticsWiring:
-    """Resolve the shot's probe wiring from vest.yaml (issue #956)."""
-    resolved, provenance = _equilibrium_magnetics_revision(shot, "wiring")
-    channels = [dict(channel) for channel in _load_equilibrium_magnetics_channels()]
-    overrides = []
-    for entry in resolved.get("probe_overrides") or ():
-        index = _pinned_probe_index(entry, context="equilibrium_magnetics wiring")
-        channels[index]["field_code"] = int(entry["field_code"])
-        channels[index]["calibration"] = float(entry["calibration"])
-        overrides.append(
-            {
-                "index": index,
-                "r": float(entry["r"]),
-                "z": float(entry["z"]),
-                "field_code": int(entry["field_code"]),
-                "calibration": float(entry["calibration"]),
-            }
-        )
-    codes = [int(channel["field_code"]) for channel in channels]
-    if len(set(codes)) != len(codes):
-        raise VestConfigurationError(
-            f"equilibrium_magnetics wiring for shot {int(shot)} feeds one raw field "
-            "to two positions"
-        )
+    """Resolve the shot's probe wiring from vest.yaml (issues #956, #2158).
+
+    A view of :func:`~vaft.machine_mapping.magnetics_registry.
+    resolve_equilibrium_magnetics_registry`; the registry validates that no
+    raw field feeds two positions and that a rewired position only ever reads
+    a label it lists as its name or alias.
+    """
+    registry = resolve_equilibrium_magnetics_registry(int(shot))
     return MagneticsWiring(
-        layout=str(resolved["layout"]),
-        channels=tuple(channels),
-        overrides=tuple(overrides),
-        provenance=provenance,
+        layout=registry.layout,
+        channels=tuple(_channel_definition(record) for record in registry.records),
+        overrides=tuple(dict(entry) for entry in registry.overrides),
+        provenance=_thaw(registry.wiring_provenance),
     )
 
 
 def known_magnetics_faults(shot: int) -> dict[tuple[str, int], str]:
     """``{(kind, index): reason}`` for channels vest.yaml records as broken on *shot*.
 
-    ``probes`` and ``flux_loops`` are separate lists because their indices count
-    within their own IDS array.
+    Entries name the sensor by ``id`` (#2158); the returned key is still the
+    ``(kind, index within that kind's IDS array)`` the validation layer
+    addresses channels by. ``probes`` and ``flux_loops`` are separate lists.
     """
     resolved, _provenance = _equilibrium_magnetics_revision(shot, "known_faults")
     context = "equilibrium_magnetics known_faults"
+    # Probes precede every flux loop, so a probe's canonical index (what a
+    # legacy probe entry's `index` counts) is also its kind index.
     faults = {
-        ("b_field_pol_probe", _pinned_probe_index(entry, context=context)): str(entry["reason"])
+        (PROBE_KIND, _pinned_probe_index(entry, context=context)): str(entry["reason"])
         for entry in resolved.get("probes") or ()
     }
     for entry in resolved.get("flux_loops") or ():
-        faults[("flux_loop", _pinned_channel_index(entry, "flux_loop", context=context))] = str(entry["reason"])
+        faults[(FLUX_LOOP_KIND, _pinned_channel_index(entry, FLUX_LOOP_KIND, context=context))] = str(
+            entry["reason"]
+        )
     return faults
-
-
-@lru_cache(maxsize=1)
-def _load_static_channels() -> list[dict[str, Any]]:
-    with open(_geometry_root() / "VEST_MagneticsGeometry_Full_ver_2302.yaml", "r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle)["channels"]
-
-
-@lru_cache(maxsize=1)
-def _load_names_by_code() -> dict[int, str]:
-    with open(_geometry_root() / "table.yaml", "r", encoding="utf-8") as handle:
-        entries = yaml.safe_load(handle)["entries"]
-    return {int(entry["field_code"]): str(entry["name"]) for entry in entries}
 
 
 def _fallback_window(tstart: float, tend: float, dt: float) -> np.ndarray:
@@ -901,12 +954,14 @@ def _prepare_magnetics_context(
     processing_config: VestMagneticsProcessingConfig | None,
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
+    acquisition_report: dict | None = None,
 ) -> _MagneticsContext:
     result = vfit_equilibrium_magnetics_detailed(
         shot,
         processing_config=processing_config,
         raw_source=raw_source,
         allow_missing_channels=allow_missing_channels,
+        acquisition_report=acquisition_report,
     )
     source_time = np.asarray(result.time, dtype=float)
     return _MagneticsContext(
@@ -922,9 +977,18 @@ def _prepare_magnetics_context(
 def _interpolate_signal(target_time: np.ndarray, source_time: np.ndarray, values: np.ndarray) -> np.ndarray:
     if source_time.size <= 1 or values.size <= 1:
         raise ValueError("Cannot interpolate a signal with fewer than two samples")
-    # anti-alias: callers pass signals already low-passed at 2.5 kHz on the
-    # 250 kHz source grid by b_field_pol_probe_field, well below the
-    # 12.5 kHz Nyquist of the 25 kHz target.
+    # Not anti-aliased for every caller. The probes and flux loops
+    # arrive already on magnetics_time: vfit_equilibrium_magnetics_detailed
+    # resampled them there, and whatever filtering they had happened upstream
+    # (B-pol probes low-passed at 2.5 kHz zero-phase; flux loops integrated but
+    # never filtered -- see the comment at that np.interp in
+    # vaft/process/magnetics.py). Ip and the diamagnetic flux arrive on their
+    # native grid and reach this bare np.interp unfiltered (Ip on the default
+    # ref = -1 path; a reference shot adds an FIR low pass): integration
+    # attenuates high frequencies as 1/f but does not band-limit, so a source
+    # faster than the target can fold. Whether that matters is unverified
+    # (#2147 audit finding 4, Phase D #2166); no filter is added without it.
+    # anti-alias: same-grid for probes/loops; unverified for Ip/diamagnetic (above).
     return np.interp(target_time, source_time, values)
 
 
@@ -987,13 +1051,6 @@ def _set_current_signal(
     set_path(ods, f"{base_path}.current.validity", int(validity))
 
 
-def _polyfit_baseline(time_axis: np.ndarray, values: np.ndarray, indices: np.ndarray) -> np.ndarray:
-    valid = indices[(indices >= 0) & (indices < values.size)]
-    if valid.size < 2:
-        return np.zeros(values.size, dtype=float)
-    return np.polyval(np.polyfit(time_axis[valid], values[valid], 1), time_axis)
-
-
 def _plasma_processing_for_shot(shot: int) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
     """Resolve nested plasma-current processing eras declared in vest.yaml."""
     config = resolve_vest_diagnostic(shot, "plasma_current")
@@ -1026,7 +1083,14 @@ def _plasma_current_baseline_indices(
 
 
 def _linear_baseline_subtract(time: np.ndarray, values: np.ndarray, x_base: np.ndarray) -> np.ndarray:
-    return values - np.polyval(np.polyfit(time[x_base], values[x_base], 1), time)
+    """Remove the plasma-current baseline with the canonical polyfit line.
+
+    ``nan_policy="propagate"`` keeps this chain's historical behaviour: a NaN
+    inside the window makes the whole corrected trace NaN rather than being
+    skipped, as the probe and flux-loop chains do (#2162).
+    """
+    corrected, _ = subtract_baseline(time, values, x_base, fitting_opt="polyfit", nan_policy="propagate")
+    return corrected
 
 
 def _apply_fl10_windowed_compensation(
@@ -1134,12 +1198,15 @@ def vfit_plasma_current(
     ref: int = -1,
     *,
     raw_source: raw_db.RawSource | None = None,
+    acquisition_report: dict | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return the processed plasma-current waveform.
 
     Composition of :func:`vest_plasma_rogowski_current` with the shot-era
     baseline, FL10 compensation, and sign convention -- numerically unchanged
-    by the issue-#215 split.
+    by the issue-#215 split. With a reference shot (``ref``), the comparison
+    filter's declared rate is checked against the record and the result put
+    in ``acquisition_report`` (#2159).
     """
     config, reference_config, baseline_config, sign_config = _plasma_processing_for_shot(shot)
     plasma_field = int(config["source"]["field"])
@@ -1213,6 +1280,16 @@ def vfit_plasma_current(
         reference_values = np.interp(time, reference_time, reference_values)
 
     comparison = config["processing"]["reference_comparison"]
+    # The comparison filter is designed at the declared rate (#2159).
+    acquisition = check_declared_sample_rate(
+        time, comparison["sample_rate"], cutoff_hz=comparison["cutoff_frequency"]
+    )
+    if acquisition_report is not None:
+        acquisition_report["plasma_current_reference_comparison"] = acquisition
+    if acquisition.fatal:
+        raise AcquisitionInconsistencyError(
+            f"shot {shot}: Ip reference comparison filter cannot be applied: {acquisition.reason}"
+        )
     taps = signal.firwin(
         int(comparison["taps"]), float(comparison["cutoff_frequency"]),
         pass_zero="lowpass", fs=float(comparison["sample_rate"]),
@@ -1398,7 +1475,7 @@ def vest_diamagnetic_rogowski_current(
         return_mask=True,
     )
     rogo_gain = -1 / float(processing["rogowski_shunt"])
-    integrated = integrate.cumulative_trapezoid(repaired, time, initial=0.0) * rogo_gain
+    integrated = cumtrapz_compat(repaired, x=time, initial=0.0) * rogo_gain
     return np.asarray(time, dtype=float), np.asarray(integrated, dtype=float)
 
 
@@ -1471,7 +1548,7 @@ def vest_diamagnetic_flux_detailed(
     cap_tf = float(tf_circuit["capacitance"])
     rogo_gain = -1 / float(processing["rogowski_shunt"])
 
-    integrated = integrate.cumulative_trapezoid(raw_values, temp_time, initial=0.0) * rogo_gain
+    integrated = cumtrapz_compat(raw_values, x=temp_time, initial=0.0) * rogo_gain
     start_index = int(np.argmin(np.abs(temp_time - plasma_start)))
     end_index = int(np.argmin(np.abs(temp_time - plasma_end)))
     # A window past the record is anchored at the record's end: said in the
@@ -1502,8 +1579,8 @@ def vest_diamagnetic_flux_detailed(
     )
     delta_i_tf = integrated - ref_signal
 
-    cum1 = integrate.cumulative_trapezoid(delta_i_tf, temp_time, initial=0.0)
-    cum2 = integrate.cumulative_trapezoid(cum1, temp_time, initial=0.0)
+    cum1 = cumtrapz_compat(delta_i_tf, x=temp_time, initial=0.0)
+    cum2 = cumtrapz_compat(cum1, x=temp_time, initial=0.0)
     dia_flux = ind_tf / turn_tf * delta_i_tf + res_tf / turn_tf * cum1 + 1 / cap_tf / turn_tf * cum2
 
     # The straight line through the flux at the window's two ends, written out:
@@ -1595,12 +1672,14 @@ def vfit_equilibrium_magnetics_detailed(
     raw_source: raw_db.RawSource | None = None,
     allow_missing_channels: bool = False,
     allow_zero_fallback: bool | None = None,
+    acquisition_report: dict | None = None,
 ) -> VestEquilibriumMagneticsResult:
     """Process magnetics channels, keeping native flux-loop terminal voltages.
 
     Shot-era resolution is identical to `vfit_equilibrium_magnetics`: an
     explicit ``processing_config`` wins, otherwise the era policy comes from
-    ``vest.yaml`` (issue #195).
+    ``vest.yaml`` (issue #195). ``acquisition_report`` collects each probe's
+    declared-versus-observed sample-rate check (#2159).
     """
     require_supported_magnetics_geometry(int(shot))
     config = (
@@ -1616,6 +1695,7 @@ def vfit_equilibrium_magnetics_detailed(
         config=config,
         allow_missing=allow_missing_channels,
         allow_zero_fallback=allow_zero_fallback,
+        acquisition_report=acquisition_report,
     )
 
 
@@ -1664,21 +1744,14 @@ def _set_magnetics_time(ods: object, target_time: np.ndarray) -> None:
 
 
 def _populate_flux_loop_static(ods: object) -> None:
-    names = _load_names_by_code()
-    geometry = _load_static_channels()
-    flux_loop_index = 0
-    for channel in geometry:
-        if channel["kind"] != "flux_loop":
+    for record in resolve_equilibrium_magnetics_sensors(None):
+        if record.kind != FLUX_LOOP_KIND:
             continue
-        field_code = int(channel["field_code"])
-        name = names[field_code]
-        r_pos = float(channel["r"])
-        z_pos = float(channel["z"])
-        set_path(ods, f"magnetics.flux_loop.{flux_loop_index}.name", name)
-        set_path(ods, f"magnetics.flux_loop.{flux_loop_index}.identifier", name)
-        set_path(ods, f"magnetics.flux_loop.{flux_loop_index}.position.0.r", r_pos)
-        set_path(ods, f"magnetics.flux_loop.{flux_loop_index}.position.0.z", z_pos)
-        flux_loop_index += 1
+        path = f"magnetics.flux_loop.{record.kind_index}"
+        set_path(ods, f"{path}.name", record.name)
+        set_path(ods, f"{path}.identifier", record.name)
+        set_path(ods, f"{path}.position.0.r", record.r)
+        set_path(ods, f"{path}.position.0.z", record.z)
 
 
 def _equilibrium_probe_phi(r: float, z: float, name: str) -> float | None:
@@ -1711,21 +1784,19 @@ def _equilibrium_probe_phi(r: float, z: float, name: str) -> float | None:
 
 
 def _populate_probe_static(ods: object, shot: int = 0) -> None:
-    names = _load_names_by_code()
-    # Names come from table.yaml by raw field, so they label the DAQ channel a
-    # position reads. For a discharge that is the shot's wiring (#956); the
-    # era inventory (shot 0) keeps the 2409 labels its geometry file carries.
-    wiring = magnetics_wiring_for_shot(int(shot)).channels if shot else None
+    # A record's name is the DAQ label of the raw field it reads, so it labels
+    # the channel a position reads. For a discharge that is the shot's wiring
+    # (#956); the era inventory (shot 0) keeps the 2409 labels the registry
+    # lists.
     probe_index = 0
-    for index, channel in enumerate(_load_static_channels()):
-        if channel["kind"] != "b_field_pol_probe":
+    for record in resolve_equilibrium_magnetics_sensors(int(shot) if shot else None):
+        if record.kind != PROBE_KIND:
             continue
-        field_code = int((wiring[index] if wiring is not None else channel)["field_code"])
-        name = names[field_code]
+        name = record.name
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.name", name)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.identifier", name)
-        r = float(channel["r"])
-        z = float(channel["z"])
+        r = record.r
+        z = record.z
         phi = _equilibrium_probe_phi(r, z, name)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.r", r)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.z", z)
@@ -1812,7 +1883,14 @@ def _populate_limiter_shunt_static(ods: object) -> None:
 
 
 def vfit_magnetics_static(ods: object, shot: int = 0) -> None:
-    """Populate static magnetics metadata from YAML geometry assets.
+    """Populate static magnetics metadata from the ``vest.yaml`` sensor registry.
+
+    Probe and flux-loop names, positions and order come from
+    :func:`~vaft.machine_mapping.magnetics_registry.resolve_equilibrium_magnetics_sensors`
+    (#2158); the phase-reference Mirnovs from the ``toroidal_mirnov_reference``
+    block, and the limiter shunts from :data:`LIMITER_SHUNT_CHANNELS`. The
+    fluctuation-Mirnov array is not part of this static set: the dynamic
+    mapper appends it for shots that have it.
 
     ``shot`` gates the hardware that did not exist for the whole campaign: the
     phase-reference Mirnov channels stop after
@@ -1840,12 +1918,10 @@ def vfit_mirnov_raw_dynamic(
     ``tstart <= time < tend`` without interpolation or downsampling.
     """
     probe_index = 0
-    wiring = magnetics_wiring_for_shot(int(shot)).channels
-    for index, channel in enumerate(_load_static_channels()):
-        if channel["kind"] != "b_field_pol_probe":
+    for record in resolve_equilibrium_magnetics_sensors(int(shot)):
+        if record.kind != PROBE_KIND:
             continue
-        field_code = int(wiring[index]["field_code"])
-        time, data, validity = _raw_time_data_with_validity(shot, field_code, raw_source)
+        time, data, validity = _raw_time_data_with_validity(shot, record.field_code, raw_source)
         if validity == 0:
             time, data = _crop_native_window(time, data, tstart=tstart, tend=tend)
         _set_voltage_signal(ods, f"magnetics.b_field_pol_probe.{probe_index}", time, data, validity)
@@ -2484,8 +2560,12 @@ def vfit_magnetics_dynamic(
     *,
     raw_source: raw_db.RawSource | None = None,
     target_time: np.ndarray | None = None,
+    acquisition_report: dict | None = None,
 ) -> dict[str, str]:
     """Populate dynamic magnetics nodes from required raw waveforms.
+
+    ``acquisition_report`` collects each probe's declared-versus-observed
+    sample-rate check (#2159); it does not change what is mapped.
 
     Returns ``{signal: reason}`` for the signals left out because they could
     not be reconstructed -- today only ``"diamagnetic_flux"``. The diamagnetic
@@ -2503,6 +2583,7 @@ def vfit_magnetics_dynamic(
         processing_config,
         raw_source,
         allow_missing_channels=True,
+        acquisition_report=acquisition_report,
     )
     if target_time is not None:
         context = _MagneticsContext(

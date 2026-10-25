@@ -2,7 +2,9 @@
 """Regenerate the Phase A preprocessing and magnetics inventories (issue #2148).
 
 Read-only with respect to the package: it parses source files with :mod:`ast`
-and reads the packaged YAML assets; it never imports ``vaft``.
+and reads the three retired magnetics YAML assets (kept as the test fixture
+``test/data/legacy_magnetics`` since #2158) and ``vest.yaml``; it never imports
+``vaft``.
 
 Two products, both deterministic (sorted keys, sorted rows, repository-relative
 paths, no timestamps):
@@ -59,7 +61,9 @@ SCAN_ROOTS = ("vaft", "workflow")
 EXCLUDED_PREFIXES = ("workflow/architecture_audit/",)
 SCHEMA_VERSION = 1
 
-GEOMETRY_DIR = Path("vaft/data/geometry")
+#: The three assets left the package for the vest.yaml sensor registry (#2158);
+#: the audit keeps joining them from their test-fixture home.
+GEOMETRY_DIR = Path("test/data/legacy_magnetics")
 MD_YAML = "MD.yaml"
 GEOMETRY_YAML = "VEST_MagneticsGeometry_Full_ver_2302.yaml"
 TABLE_YAML = "table.yaml"
@@ -145,17 +149,19 @@ PRIMITIVES.update(
         "vaft.process.signal_processing.apply_fir_filter": "filter_application",
         "vaft.process.signal_processing.butterworth_lowpass": "filter_application",
         "vaft.process.signal_processing.butterworth_bandpass": "filter_application",
+        "vaft.process.signal_processing.butterworth_highpass": "filter_application",
+        "vaft.process.signal_processing.pf_current_filter": "filter_application",
         "vaft.process.signal_processing.anti_alias_filter": "filter_application",
         "vaft.process.signal_processing.resample_to_time": "resampling",
         "vaft.process.signal_processing.detrend_moving_average": "baseline",
         "vaft.process.signal_processing.subtract_baseline": "baseline",
+        "vaft.process.signal_processing._polyfit_linear_baseline": "baseline",
         "vaft.process.signal_processing.define_baseline": "baseline",
         "vaft.process.signal_processing.repair_clipped_interval": "signal_repair",
         "vaft.process.signal_processing.vest_coil_current_noise_reduction": "smoothing",
         "vaft.process.signal_processing.process_signal": "filter_application",
         "vaft.process.magnetics._linear_baseline": "baseline",
         "vaft.process.magnetics._calibrated_signal": "calibration",
-        "vaft.machine_mapping.magnetics._polyfit_baseline": "baseline",
         "vaft.machine_mapping.magnetics._linear_baseline_subtract": "baseline",
         "vaft.machine_mapping.utils.calibrate_vest_signal": "calibration",
         "vaft.code.efit.legacy.smooth": "smoothing",
@@ -180,11 +186,10 @@ CONFIG_RESOLVERS = {
 }
 
 #: Loader APIs over the external magnetics YAMLs; calling one makes the caller
-#: a consumer for the migration map.
+#: a consumer for the migration map. Since #2158 the private loaders are gone
+#: and these public APIs read the vest.yaml registry instead; the asset each
+#: one replaced is kept so the map still says which YAML a consumer used to read.
 MAGNETICS_LOADERS = {
-    "vaft.machine_mapping.magnetics._load_equilibrium_magnetics_channels": (MD_YAML,),
-    "vaft.machine_mapping.magnetics._load_static_channels": (GEOMETRY_YAML,),
-    "vaft.machine_mapping.magnetics._load_names_by_code": (TABLE_YAML,),
     "vaft.machine_mapping.magnetics.vest_equilibrium_magnetics_channel_definitions": (MD_YAML,),
     "vaft.machine_mapping.magnetics.vest_md_channel_definitions": (MD_YAML,),
     "vaft.machine_mapping.magnetics.magnetics_wiring_for_shot": (MD_YAML,),
@@ -204,8 +209,8 @@ DEFINITION_OPERATIONS = {
     "vaft.plot.soft_x_rays._baseline_correct": "baseline",
     "vaft.machine_mapping.pf_active._baseline_mean": "baseline",
     "vaft.machine_mapping.magnetics._baseline_correct_limiter_voltage": "baseline",
-    "vaft.process.magnetics._firwin_order": "filter_design",
     "vaft.code.efit.legacy.box_average": "smoothing",
+    "vaft.code.efit.legacy.box_average_series": "smoothing",
     "vaft.machine_mapping.soft_x_rays.vfit_soft_x_rays_dynamic": "baseline",
 }
 
@@ -233,6 +238,14 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "scientific_risk": "low",
         "recommended_action": "keep as the single moving-average owner; legacy.smooth delegates (B3).",
         "related_issue": "#2162",
+    },
+    ("vaft/process/signal_processing.py", "vaft.process.signal_processing.butterworth_highpass"): {
+        "classification": "canonical",
+        "algorithm_semantics": "scipy butter(order, highpass) + filtfilt (zero_phase=True) or lfilter; cutoff must lie in (0, Nyquist).",
+        "scientific_risk": "low",
+        "recommended_action": "keep beside butterworth_lowpass/bandpass.",
+        "related_issue": "#2162",
+        "resolved_by": "#2162 (B3.6)",
     },
     ("vaft/process/signal_processing.py", "vaft.process.signal_processing.fir_filter_coefficients"): {
         "classification": "canonical",
@@ -296,10 +309,20 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("vaft/process/signal_processing.py", "vaft.process.signal_processing.subtract_baseline"): {
         "classification": "canonical",
-        "algorithm_semantics": "curve_fit of linear/quadratic/exp model or exact spline through baseline_indices; no finite-only filtering, no degenerate-window check.",
-        "scientific_risk": "medium",
-        "recommended_action": "B3: become the single linear-baseline owner with a method='polyfit' path that absorbs process.magnetics._linear_baseline guards (finite-only, #639 DegenerateBaselineWindowError); equivalence to 1e-12.",
+        "algorithm_semantics": "fitting_opt='polyfit' (B3.1): np.polyfit deg 1 over in-bounds indices, finite-only by default (nan_policy='omit') or NaN-propagating, <2 valid -> DegenerateBaselineWindowError or zero with warning (#639). Other options: curve_fit of linear/quadratic/exp model or exact spline, no finite-only filtering, no degenerate check; 'linear' is NOT routed to polyfit (agrees only to ~7.5e-13 relative).",
+        "scientific_risk": "low",
+        "recommended_action": "keep as the single linear-baseline owner.",
         "related_issue": "#2162, #639",
+        "resolved_by": "#2162 (B3.1)",
+        "evidence": "test/test_baseline_consolidation.py: bit-identical to frozen develop copies of _linear_baseline and _linear_baseline_subtract; 4-shot capture (39915/41524/41672/42962) leaf-identical.",
+    },
+    ("vaft/process/signal_processing.py", "vaft.process.signal_processing._polyfit_linear_baseline"): {
+        "classification": "canonical",
+        "algorithm_semantics": "the fitting_opt='polyfit' kernel of subtract_baseline: index guard, nan_policy, #639 degenerate error/fallback.",
+        "scientific_risk": "low",
+        "recommended_action": "keep (private kernel; process.magnetics._linear_baseline and MM._linear_baseline_subtract call it).",
+        "related_issue": "#2162, #639",
+        "resolved_by": "#2162 (B3.1)",
     },
     ("vaft/process/signal_processing.py", "vaft.process.signal_processing.detrend_moving_average"): {
         "classification": "canonical",
@@ -341,12 +364,13 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "evidence": "#2147 comment: on 39915 main = public(t - 0.50 ms) on all 63 probes before #2135; vacuum residual improves on 38030/39915/41660/44136/45001.",
     },
     ("vaft/process/magnetics.py", "vaft.process.magnetics._linear_baseline"): {
-        "classification": "duplicate",
-        "algorithm_semantics": "np.polyfit deg 1 over finite in-bounds indices; <2 valid -> DegenerateBaselineWindowError or zero with warning (#639).",
-        "scientific_risk": "medium",
-        "recommended_action": "B3: absorb into signal_processing.subtract_baseline(method='polyfit') with identical guards; keep a private alias until E.",
+        "classification": "legacy",
+        "algorithm_semantics": "delegates to signal_processing._polyfit_linear_baseline (nan_policy='omit'); keeps the caller-facing stacklevel.",
+        "scientific_risk": "low",
+        "recommended_action": "E: retire the private alias; callers use subtract_baseline(fitting_opt='polyfit').",
         "related_issue": "#2162, #639",
-        "evidence": "curve_fit linear and polyfit deg 1 are both least squares on the same samples, but subtract_baseline has no finite-only mask and no degenerate check: not interchangeable without the guards.",
+        "resolved_by": "#2162 (B3.1)",
+        "evidence": "bit-identical to the frozen develop copy (values, error and warning text, stacklevel).",
     },
     ("vaft/process/magnetics.py", "vaft.process.magnetics.vest_flux_loop_flux_from_voltage"): {
         "classification": "intentional_specialization",
@@ -361,10 +385,11 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     ("vaft/process/magnetics.py", "vaft.process.magnetics.mirnov_preprocess_signal"): {
         "classification": "intentional_specialization",
         "production_reachability_note": "not called by Pipeline 1 (fluctuation Mirnov voltages are published raw); research callers only.",
-        "algorithm_semantics": "mean removal -> firwin(hann, _firwin_order(fs)) high/low pass -> apply_fir_filter(short_record='causal') (since #2135; same length rule as before) -> / amplifier gain; cutoff <= 0 or >= Nyquist is SILENTLY skipped.",
+        "algorithm_semantics": "mean removal -> fir_filter_coefficients(window='hann', numtaps=filter_order or fs*1e-3 forced odd) high/low pass -> apply_fir_filter(short_record='causal') (since #2135; same length rule as before) -> / amplifier gain; a cutoff <= 0 or >= Nyquist skips its stage and is recorded in the report (or warned without one, #2159); an even explicit filter_order raises.",
         "scientific_risk": "medium",
-        "recommended_action": "B2: the Nyquist skip becomes an explicit status; B3: _firwin_order -> fir_filter_coefficients (coefficients verified identical, see _firwin_order row).",
+        "recommended_action": "none; the Nyquist skip is an explicit status since #2159.",
         "related_issue": "#2159, #2162",
+        "resolved_by": "#2159 (explicit skip status); #2162 (B3.4: _firwin_order -> fir_filter_coefficients, coefficients identical at 25 k/250 k/1 M/2 MHz)",
     },
     ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics.vest_plasma_rogowski_current"): {
         "classification": "canonical",
@@ -374,28 +399,21 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "related_issue": "",
     },
     ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics.vest_diamagnetic_rogowski_current"): {
-        "classification": "duplicate",
-        "algorithm_semantics": "repair_clipped_interval then scipy cumulative_trapezoid * (-1/shunt).",
+        "classification": "canonical",
+        "algorithm_semantics": "repair_clipped_interval then cumtrapz_compat * (-1/shunt).",
         "scientific_risk": "low",
-        "recommended_action": "B3: cumulative_trapezoid -> vaft.compat.cumtrapz_compat (numerically identical, one owner).",
+        "recommended_action": "keep.",
         "related_issue": "#2162",
+        "resolved_by": "#2162 (B3.3)",
     },
     # ---- machine_mapping magnetics ------------------------------------------
-    ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._polyfit_baseline"): {
-        "classification": "legacy",
-        "production_reachability_note": "no caller anywhere in vaft/, workflow/ or test/ (dead code).",
-        "algorithm_semantics": "np.polyfit deg 1 over given indices, no finite mask, no degenerate check.",
-        "scientific_risk": "low",
-        "recommended_action": "E: delete (nothing to delegate); the plan's 'delegate' step is moot.",
-        "related_issue": "#2162, #2168",
-        "evidence": "grep: the only references are its definition.",
-    },
     ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._linear_baseline_subtract"): {
-        "classification": "duplicate",
-        "algorithm_semantics": "np.polyfit deg 1 over x_base indices then subtract (production Ip baseline).",
-        "scientific_risk": "medium",
-        "recommended_action": "B3: delegate to subtract_baseline(method='polyfit').",
+        "classification": "legacy",
+        "algorithm_semantics": "delegates to signal_processing._polyfit_linear_baseline with nan_policy='propagate' (a NaN in the window keeps Ip all-NaN, as before) (production Ip baseline).",
+        "scientific_risk": "low",
+        "recommended_action": "E: retire the private alias. MM._polyfit_baseline (dead) was deleted in B3.1.",
         "related_issue": "#2162",
+        "resolved_by": "#2162 (B3.1)",
     },
     ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics.vfit_plasma_current"): {
         "classification": "intentional_specialization",
@@ -407,48 +425,26 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "related_issue": "#2135, #2162",
         "resolved_by": "#2135 (Ip-reference low pass only)",
     },
-    ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._load_equilibrium_magnetics_channels"): {
-        "classification": "legacy",
-        "configuration_source": "vaft/data/geometry/MD.yaml (positional list).",
-        "algorithm_semantics": "loads the ordered MD.yaml channel list (field_code, kind, calibration).",
-        "scientific_risk": "high",
-        "recommended_action": "B1: replace with resolve_equilibrium_magnetics_sensors over vest.yaml; delete MD.yaml in the same PR.",
-        "related_issue": "#2158",
-    },
-    ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._load_static_channels"): {
-        "classification": "legacy",
-        "configuration_source": "vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml (positional list; declares ver_2409.mat as source).",
-        "algorithm_semantics": "loads the ordered geometry list (field_code, kind, r, z); joined to MD.yaml by list position.",
-        "scientific_risk": "high",
-        "recommended_action": "B1: registry resolver; delete the YAML in the same PR.",
-        "related_issue": "#2158",
-    },
-    ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._load_names_by_code"): {
-        "classification": "legacy",
-        "configuration_source": "vaft/data/geometry/table.yaml (field_code -> DAQ label).",
-        "algorithm_semantics": "field-code -> name map; ODS probe names follow the shot's wiring, so a position's name changes at 39438 (indices 35, 47).",
-        "scientific_risk": "medium",
-        "recommended_action": "B1: names/aliases move into the registry records; decide whether the ODS name is the physical id or the DAQ label (open question in magnetics_reconciliation.md).",
-        "related_issue": "#2158",
-    },
-    ("vaft/machine_mapping/utils.py", "vaft.machine_mapping.utils._load_magnetics_channel_groups"): {
-        "classification": "duplicate",
-        "configuration_source": "opens VEST_MagneticsGeometry_Full_ver_2302.yaml directly; restates thresholds 0.09 / 0.8 / 0.795 / 0.15 / 0.5 as literals.",
-        "algorithm_semantics": "groups probe/loop indices into inboard/side/outboard by r/z for the default constraint uncertainties.",
-        "scientific_risk": "medium",
-        "production_reachability_note": "only through apply_magnetics_uncertainties <- apply_default_constraint_uncertainties, whose only callers are test/contracts/test_models_uncertainty.py.",
-        "recommended_action": "B1: use the registry and the magnetics.py threshold constants (INBOARD_PROBE_MAX_R etc.); low urgency, no production caller.",
-        "related_issue": "#2158",
-    },
     # ---- other machine_mapping chains ---------------------------------------
-    ("vaft/machine_mapping/pf_active.py", "vaft.machine_mapping.pf_active._legacy_pf_filter"): {
+    ("vaft/machine_mapping/pf_active.py", "vaft.machine_mapping.pf_active._pf_filter"): {
         "classification": "intentional_specialization",
         "production_reachability_note": "pipeline1 generate_diagnostics_ods (all PF circuits) and IMPA strict vfit_pf.",
         "configuration_source": "vest.yaml 0.diagnostics.pf_active.processing.filter (251 taps, 2.5 kHz, fs 25 kHz, smoothing 10).",
-        "algorithm_semantics": "firwin(hamming 251) -> filtfilt, lfilter fallback below _filtfilt_min_length -> uniform_filter1d(10). " + _PR2135,
+        "algorithm_semantics": "reads vest.yaml and calls signal_processing.pf_current_filter (was _legacy_pf_filter). " + _PR2135,
         "scientific_risk": "medium",
-        "recommended_action": "B3: named pf_current_filter in vaft.process = fir_filter_coefficients(window='hamming', numtaps=251) + apply_fir_filter + uniform_filter1d; coefficient-equality and phase tests.",
+        "recommended_action": "keep (config adapter).",
         "related_issue": "#2162, #2135",
+        "resolved_by": "#2162 (B3.5)",
+        "evidence": "test/test_pf_current_filter.py: bit-identical to the frozen develop _legacy_pf_filter at 20000/754/753/200/5 samples; 4-shot capture leaf-identical.",
+    },
+    ("vaft/process/signal_processing.py", "vaft.process.signal_processing.pf_current_filter"): {
+        "classification": "canonical",
+        "configuration_source": "caller arguments (vest.yaml values via pf_active._pf_filter).",
+        "algorithm_semantics": "fir_filter_coefficients(lowpass, window='hamming', numtaps odd >= 3) -> apply_fir_filter(short_record='causal': zero-phase from 3*numtaps+1 samples, forward-only below, 125-sample / 5 ms delay) -> uniform_filter1d(min(window, len)) (half-sample lag for an even width).",
+        "scientific_risk": "low",
+        "recommended_action": "keep as the named PF composition.",
+        "related_issue": "#2162",
+        "resolved_by": "#2162 (B3.5)",
     },
     ("vaft/machine_mapping/tf.py", "vaft.machine_mapping.tf.vfit_tf_current_detailed"): {
         "classification": "intentional_specialization",
@@ -486,11 +482,12 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     ("vaft/process/impa.py", "vaft.process.impa.impa_lowpass"): {
         "classification": "intentional_specialization",
         "production_reachability_note": "pipeline1 generate_impa_ods (opt-in, impa.enable false in config.yaml).",
-        "configuration_source": "vest.yaml impa.processing.signal_lowpass_hz (250 Hz) and sample_rate (default 25 kHz, NEVER compared with the acquired time vector).",
+        "configuration_source": "vest.yaml impa.processing.signal_lowpass_hz (250 Hz) and sample_rate (default 25 kHz; compared with the acquired time vector by check_declared_sample_rate since #2159, report-only).",
         "algorithm_semantics": "firwin(_FIR_TAPS) -> filtfilt, lfilter fallback. " + _PR2135,
         "scientific_risk": "medium",
-        "recommended_action": "B2: check_declared_sample_rate status at the IMPA low pass (report-only, #432).",
-        "related_issue": "#432, #2159",
+        "recommended_action": "none for the rate check (done, #2159); the 26-tap design's effective band edge is #2175.",
+        "related_issue": "#432, #2159, #2175",
+        "resolved_by": "#2159 (declared-vs-observed sample-rate status)",
     },
     ("vaft/process/soft_x_rays.py", "vaft.process.soft_x_rays.sxr_baseline_correction"): {
         "classification": "canonical",
@@ -501,11 +498,12 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     },
     # ---- code / plot duplicates ---------------------------------------------
     ("vaft/code/efit/legacy.py", "vaft.code.efit.legacy.smooth"): {
-        "classification": "duplicate",
-        "algorithm_semantics": "MATLAB smooth(span) re-implemented with explicit loops; agrees with signal_processing.smooth to ~1e-13 relative (cumsum vs loop rounding: 2-3e-8 absolute on 1e5-scale data), but does not clip a span longer than the record as the canonical one does.",
+        "classification": "legacy",
+        "algorithm_semantics": "MATLAB smooth(span) re-implemented with explicit loops; agrees with signal_processing.smooth to ~1e-12 on finite data, but keeps a NaN local where the cumulative-sum version carries it into every later sample, and does not clip a span longer than the record.",
         "scientific_risk": "low",
-        "recommended_action": "B3: import vaft.process.signal_processing.smooth; equivalence test at rtol 1e-12 and a check that no caller passes span > record length.",
+        "recommended_action": "kept in B3.2 (not delegated, the NaN behaviour differs); retire together with its only caller, the deprecated H-alpha detector (E).",
         "related_issue": "#2162",
+        "evidence": "test/test_preprocessing_duplicates.py pins the NaN difference.",
     },
 }
 
@@ -525,17 +523,19 @@ CURATED.update(
             "classification": "intentional_specialization",
             "production_reachability_note": "pipeline1 generate_diagnostics_ods (diamagnetic flux).",
             "configuration_source": "vest.yaml 0.diagnostics.diamagnetic_flux (TF circuit L/R/C, shunt, saturation limits) + plasma window from vest.yaml plasma_timing.",
-            "algorithm_semantics": "repair_clipped_interval -> cumulative_trapezoid -> gap-bridged reference by np.interp -> two more cumulative_trapezoid passes -> two-point straight-line baseline written by hand -> x1000.",
+            "algorithm_semantics": "repair_clipped_interval -> cumtrapz_compat -> gap-bridged reference by np.interp -> two more cumtrapz_compat passes -> two-point straight-line baseline written by hand -> x1000.",
             "scientific_risk": "medium",
-            "recommended_action": "B3: cumulative_trapezoid -> cumtrapz_compat; keep the two-point baseline (documented semantics differ from a least-squares fit).",
+            "recommended_action": "keep the two-point baseline (documented semantics differ from a least-squares fit).",
             "related_issue": "#2162",
+            "resolved_by": "#2162 (B3.3: cumulative_trapezoid -> cumtrapz_compat)",
         },
         ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._interpolate_signal"): {
             "classification": "intentional_specialization",
-            "algorithm_semantics": "np.interp onto the policy grid for flux loops (:1928), probes (:2175), Ip (_map_ip :2230) and diamagnetic flux (:2466); the comment says every caller passes a signal low-passed by the probe chain, which holds only for the probes.",
+            "algorithm_semantics": "np.interp onto the policy grid for flux loops and probes (already on magnetics_time), Ip (_map_ip) and diamagnetic flux (native grid, unfiltered); the comment now says so (B3.8).",
             "scientific_risk": "medium",
-            "recommended_action": "B3: correct the comment; D: check the spectra of the unfiltered callers (loops, Ip, diamagnetic flux) above the target Nyquist before deciding on resample_to_time.",
+            "recommended_action": "D: check the spectra of the unfiltered callers (loops upstream, Ip, diamagnetic flux) above the target Nyquist before deciding on resample_to_time.",
             "related_issue": "#2162, #425",
+            "resolved_by": "#2162 (B3.8 comment only)",
         },
         ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._baseline_correct_limiter_voltage"): {
             "classification": "intentional_specialization",
@@ -573,14 +573,6 @@ CURATED.update(
             "scientific_risk": "low",
             "recommended_action": "keep as the machine-independent loop chain; the VEST chain stays a specialization.",
             "related_issue": "",
-        },
-        ("vaft/process/magnetics.py", "vaft.process.magnetics._firwin_order"): {
-            "classification": "duplicate",
-            "algorithm_semantics": "int(fs*1e-3) forced odd: the same length rule as fir_filter_coefficients(numtaps=None), which also floors at 3.",
-            "scientific_risk": "low",
-            "recommended_action": "B3: replace by fir_filter_coefficients(cutoff, fs, kind=...) -- coefficients identical; pin with an equality test.",
-            "related_issue": "#2162",
-            "evidence": "Phase A check: firwin(_firwin_order(fs), fc, window='hann') == fir_filter_coefficients(fc, fs) exactly (max |diff| 0.0) at fs = 25 kHz, 250 kHz, 1 MHz, 2 MHz (low pass).",
         },
         ("vaft/process/onset.py", "vaft.process.onset.zero_phase_lowpass"): {
             "classification": "intentional_specialization",
@@ -650,17 +642,18 @@ CURATED.update(
             "related_issue": "#2164",
         },
         ("vaft/plot/backend/recipes.py", "vaft.plot.backend.recipes._build_interferometer_spectrogram"): {
-            "classification": "duplicate",
-            "algorithm_semantics": "butter(4, highpass 200 Hz) + filtfilt, sample rate inferred from median dt.",
+            "classification": "intentional_specialization",
+            "algorithm_semantics": "butterworth_highpass(order 4, 200 Hz, zero_phase=True), sample rate inferred from median dt.",
             "scientific_risk": "low",
-            "recommended_action": "B3: butterworth_highpass(zero_phase=True) in signal_processing (add if missing).",
+            "recommended_action": "keep (display recipe; the filter is the canonical one).",
             "related_issue": "#2162",
+            "resolved_by": "#2162 (B3.6)",
         },
         ("vaft/plot/soft_x_rays.py", "vaft.plot.soft_x_rays._baseline_correct"): {
-            "classification": "duplicate",
-            "algorithm_semantics": "subtract nanmean over a caller time range (no fallback).",
+            "classification": "intentional_specialization",
+            "algorithm_semantics": "subtract nanmean over a caller time range (no fallback): a display offset.",
             "scientific_risk": "low",
-            "recommended_action": "B3: delegate to process.soft_x_rays.sxr_baseline_correction only where the window semantics match (that one uses a tail window from baseline_start with a last-1000-samples fallback) -- not a drop-in.",
+            "recommended_action": "kept in B3.7 with the reason at the definition (sxr_baseline_correction is a tail window with a last-1000-samples fallback, not a drop-in); B3.11 decides the single SXR baseline owner.",
             "related_issue": "#2162",
             "evidence": "semantics differ: arbitrary range mean vs tail window with fallback.",
         },
@@ -773,13 +766,15 @@ CURATED.update(
             "recommended_action": "keep.",
             "related_issue": "",
         },
-        ("workflow/automatic_pipeline_1_routine_data_processing/generate_constraints_ods.py", "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._box_averaged"): {
-            "classification": "duplicate",
-            "production_reachability_note": "pipeline1 generate_constraints_ods (vacuum-time drop).",
-            "algorithm_semantics": "cumsum-difference box average at every sample over [t-h, t+h] (searchsorted left/right): legacy.box_average evaluated at every sample.",
+        ("vaft/code/efit/legacy.py", "vaft.code.efit.legacy.box_average_series"): {
+            "classification": "intentional_specialization",
+            "production_reachability_note": "pipeline1 generate_constraints_ods (EFIT applicability: the box-averaged Ip at every sample).",
+            "algorithm_semantics": "cumsum-difference box average at every sample over [t-h, t+h] (searchsorted left/right): legacy.box_average evaluated at every sample; moved from the workflow's _box_averaged (B3.10).",
             "scientific_risk": "low",
-            "recommended_action": "B3/C2: move next to legacy.box_average as a vectorised form with an equivalence test; workflow-local numerics otherwise.",
+            "recommended_action": "keep beside box_average (vectorised form of the same contract).",
             "related_issue": "#2162, #2164",
+            "resolved_by": "#2162 (B3.10)",
+            "evidence": "test/test_box_average_series.py: bit-identical to the frozen workflow helper; per-sample box_average to 1e-12 relative.",
         },
         ("vaft/machine_mapping/soft_x_rays.py", "vaft.machine_mapping.soft_x_rays.vfit_soft_x_rays_dynamic"): {
             "classification": "duplicate",
@@ -1303,6 +1298,50 @@ def _load(root: Path, relative: Path) -> Any:
         return yaml.safe_load(handle)
 
 
+def _entry_canonical_index(
+    entry: dict[str, Any], kind: str, records: list[dict[str, Any]], *, index_scope: str
+) -> int:
+    """The canonical registry index a ``wiring``/``known_faults`` entry names.
+
+    The two forms the runtime accepts (``vaft.machine_mapping.magnetics_registry.
+    _entry_record``), with its rules restated so the audit does not import the
+    code it audits: ``{id: ...}`` (#2158), or the legacy ``{index, r, z}`` pinned
+    by position, where ``index`` is canonical for probes and counts within the
+    kind for flux loops (``index_scope="kind"``). A pin that misses its record
+    raises, as it does at runtime.
+    """
+    if ("id" in entry) == ("index" in entry):
+        raise ValueError(f"{entry!r}: name the sensor by id or by index, exactly one")
+    if ("r" in entry) != ("z" in entry):
+        raise ValueError(f"{entry!r}: give both r and z, or neither")
+
+    def pinned(record: dict[str, Any]) -> bool:
+        return all(
+            key not in entry or abs(float(record[key]) - float(entry[key])) <= 1e-9 for key in ("r", "z")
+        )
+
+    if "id" in entry:
+        matches = [i for i, r in enumerate(records) if str(r["id"]) == str(entry["id"])]
+        if len(matches) != 1 or str(records[matches[0]]["kind"]) != kind:
+            raise ValueError(f"{entry!r}: no {kind} with that id")
+        # An id entry's r/z are optional, but checked when given.
+        if not pinned(records[matches[0]]):
+            raise ValueError(f"{entry!r}: the r/z it states are not those of its id")
+        return matches[0]
+    if "r" not in entry or "z" not in entry:
+        raise ValueError(f"{entry!r}: a legacy index entry must pin r and z")
+    index = int(entry["index"])
+    if index_scope == "kind":
+        rows = [i for i, r in enumerate(records) if str(r["kind"]) == kind]
+        canonical = rows[index] if 0 <= index < len(rows) else None
+    else:
+        canonical = index if 0 <= index < len(records) else None
+    record = records[canonical] if canonical is not None else None
+    if record is None or str(record["kind"]) != kind or not pinned(record):
+        raise ValueError(f"{entry!r}: the pinned r/z is not the {kind} at that index")
+    return canonical
+
+
 def build_magnetics_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
     md = _load(root, GEOMETRY_DIR / MD_YAML)
     geometry = _load(root, GEOMETRY_DIR / GEOMETRY_YAML)
@@ -1312,11 +1351,23 @@ def build_magnetics_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
     processing = vest[0]["diagnostics"]["equilibrium_magnetics"]["processing"]
     wiring = processing["wiring"]
     faults = processing["known_faults"]
+    # Since #2158 wiring overrides and faults name a sensor by its registry id;
+    # the legacy {index, r, z} form the runtime still accepts is resolved too.
+    records = vest[0]["diagnostics"]["equilibrium_magnetics"]["sensors"]["records"]
+    if [int(r["index"]) for r in records] != list(range(len(records))):
+        raise ValueError("vest.yaml sensor records are not in canonical index order")
+    kind_index_by_canonical = {}
+    _seen: dict[str, int] = defaultdict(int)
+    for canonical, r in enumerate(records):
+        kind_index_by_canonical[canonical] = _seen[str(r["kind"])]
+        _seen[str(r["kind"])] += 1
 
     overrides_by_index: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for revision in wiring.get("revisions") or ():
         for entry in revision.get("probe_overrides") or ():
-            overrides_by_index[int(entry["index"])].append(
+            overrides_by_index[
+                _entry_canonical_index(entry, "b_field_pol_probe", records, index_scope="canonical")
+            ].append(
                 {
                     "from_shot": revision.get("from_shot"),
                     "to_shot": revision.get("to_shot"),
@@ -1332,9 +1383,13 @@ def build_magnetics_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
         (rev, {"from_shot": rev.get("from_shot"), "to_shot": rev.get("to_shot")})
         for rev in faults.get("revisions") or ()
     ]:
-        for kind, key in (("b_field_pol_probe", "probes"), ("flux_loop", "flux_loops")):
+        for kind, key, scope in (
+            ("b_field_pol_probe", "probes", "canonical"),
+            ("flux_loop", "flux_loops", "kind"),
+        ):
             for entry in block.get(key) or ():
-                fault_windows[(kind, int(entry["index"]))].append(
+                canonical = _entry_canonical_index(entry, kind, records, index_scope=scope)
+                fault_windows[(kind, kind_index_by_canonical[canonical])].append(
                     {
                         "from_shot": bounds.get("from_shot"),
                         "to_shot": bounds.get("to_shot"),
@@ -1377,9 +1432,9 @@ def build_magnetics_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
                 "known_faults": fault_windows.get(key, []),
                 "family": _family(kind, float(geo["r"]), float(geo["z"])),
                 "provenance": {
-                    "calibration": f"vaft/data/geometry/{MD_YAML} (source: {md.get('source')})",
-                    "geometry": f"vaft/data/geometry/{GEOMETRY_YAML} (source: {geometry.get('source')})",
-                    "name": f"vaft/data/geometry/{TABLE_YAML} (source: {table.get('source')})",
+                    "calibration": f"{GEOMETRY_DIR.as_posix()}/{MD_YAML} (source: {md.get('source')})",
+                    "geometry": f"{GEOMETRY_DIR.as_posix()}/{GEOMETRY_YAML} (source: {geometry.get('source')})",
+                    "name": f"{GEOMETRY_DIR.as_posix()}/{TABLE_YAML} (source: {table.get('source')})",
                 },
             }
         )

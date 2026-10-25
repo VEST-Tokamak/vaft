@@ -507,14 +507,40 @@ vfit_dataset_description(ods, shot=39915, run=0, machine="VEST", pulse_type="pul
 
 # Static assets and the channel table
 
-Machine mapping is only as good as its geometry tables. They live under `vaft/data/geometry/` and are resolved
-through `resolve_data_root()`:
+Machine mapping is only as good as its geometry tables.
+
+The 75 equilibrium magnetic sensors (64 B-pol probes, then 11 flux loops) are not a file under
+`vaft/data/geometry/`: since #2158 they are one registry in `vaft/machine_mapping/vest.yaml`,
+`0.diagnostics.equilibrium_magnetics.sensors`. Each record carries a stable physical `id` (independent of
+the DAQ field), `kind`, canonical `index` (= list position = ODS/EFUND/EFIT order), `name` (the DAQ label),
+`aliases` (labels the position carries under other eras' wiring), `r`, `z`, the 2409 `field_code` and
+`calibration` (applied as divide). The per-shot `wiring` and `known_faults` beside it name sensors by `id`.
+Read it through `vaft.machine_mapping.magnetics_registry`:
+
+```python
+from vaft.machine_mapping.magnetics_registry import (
+    registry_fingerprint,
+    resolve_equilibrium_magnetics_sensors,
+)
+
+sensors = resolve_equilibrium_magnetics_sensors(39437)   # None = the inventory (2409 base)
+sensors[35].id, sensors[35].field_code, sensors[35].name  # 'bpol_C_z+0.060', 170, 'MagneticFieldProbe_C2-04_Bz'
+registry_fingerprint()                                    # sha256 of the resolved records
+```
+
+The resolver validates 64/11 sensors, unique ids, indices and effective field codes, finite positions,
+non-zero calibration, and that wiring never moves a label onto a sensor that does not list it. The three
+YAMLs the registry replaced (`MD.yaml`, `VEST_MagneticsGeometry_Full_ver_2302.yaml`, `table.yaml`) are
+frozen, non-runtime fixtures in `test/data/legacy_magnetics/`; `test/test_magnetics_registry.py` checks the
+registry against them field by field. The static product manifest (and so the `! static input` header of a
+newly generated EFUND `mhdin.dat`) records the sensors as `magnetics_registry` with the registry fingerprint;
+EFUND table manifests made before #2158 keep the `magnetics_geometry` / `magnetics_calibration` file hashes as
+their historical identity, and the projected `rsi`/`zsi`/`xmp2`/`ymp2`/`amp2`/`smp2` and names are unchanged.
+The other geometry assets live under `vaft/data/geometry/` and are
+resolved through `resolve_data_root()`:
 
 | Asset | Used for |
 |---|---|
-| `VEST_MagneticsGeometry_Full_ver_2302.yaml` | probe / flux-loop positions, and the inboard–side–outboard grouping |
-| `MD.yaml` | magnetic-diagnostic channel list used by `vfit_md` |
-| `table.yaml` | field code → channel name lookup |
 | `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `..._ver_2507.mat` | PF coil elements (shot-dependent; 2507 from shot 45968) |
 | `VEST_static_geometry.json.gz`, `VEST_passive_wall_2409.npz` | passive wall: 950 loops, plus 15 from shot 43017 (wall 2409) |
 | `line_of_sight_endpoints.csv` | SXR lines of sight |
@@ -610,6 +636,103 @@ Database access itself is documented in
 
 ---
 
+# Configuration loading and shot-era revisions
+
+Every resolver that reads `vest.yaml` takes an optional `info_file` (#2159):
+
+- omitted (`None`): the packaged `vaft/machine_mapping/vest.yaml`;
+- an existing path, absolute or relative to the working directory: that file; a bare packaged name such as
+  `"vest.yaml"` also resolves to the packaged file;
+- anything else raises `VestConfigurationError`. A mistyped campaign configuration never falls back to the
+  production file. A file that is not valid YAML, or whose top level is not a mapping, raises the same error
+  naming the file.
+
+The parsed file is cached per `(path, mtime, size)`, so an edit is seen on the next call, and every caller gets
+its own deep copy: mutating a resolved block cannot change what the next shot resolves.
+
+A `revisions` list holds the shot eras of the block it sits in (`from_shot`/`to_shot`, inclusive; a missing
+bound is open-ended; at least one bound; non-negative integer shots). The rules, enforced by
+`resolve_shot_revisions`:
+
+- no two revisions may overlap, and exactly one revision applies over the base -- revisions never chain;
+- a revision may set only keys its base defines. A key that exists only inside eras (the FL10 compensation of
+  46403--47116, a Langmuir tip geometry whose gaps must fail) is declared in the base's `era_only_keys` list,
+  which the resolver consumes; a misspelt key is an error for every shot, not a silent no-op;
+- the revision is merged over the base: nested mappings recursively, lists and explicit `null` replace the base
+  value whole (a `null` is a value, not an omitted key), and a mapping against a non-mapping is an error.
+
+For example the native-DAQ era of the equilibrium magnetics:
+
+```python
+from vaft.machine_mapping.utils import resolve_shot_revisions, resolve_vest_diagnostic
+
+window = resolve_vest_diagnostic(46404, "equilibrium_magnetics")["processing"]["window"]
+era = resolve_shot_revisions(
+    {k: v for k, v in window.items() if k != "revisions"}, window["revisions"], 46404,
+    context="equilibrium_magnetics window",
+)
+era["daq_mode"]   # 'native_daq' from shot 46404; shot 46403 resolves 'legacy'
+```
+
+## The effective configuration and its fingerprint
+
+`vaft.machine_mapping.effective_config.resolve_vest_processing_config(shot, diagnostic, overrides=..., info_file=...)`
+resolves one diagnostic in all its layers -- base values, every nested shot-era revision, and an explicit
+validated override -- and returns a frozen `ResolvedVestConfiguration`:
+
+- `effective`: what the processing reads (read-only; `effective_dict()` gives a mutable copy);
+- `provenance`: the source file and its sha256, every revision table applied (index and bounds), the
+  accepted overrides, and per key its class, origin (`base`, `revision` or `override`) and era;
+- `fingerprint`: SHA-256 of the canonical JSON of `effective` only -- sorted keys, numbers by value
+  (`25000` equals `25000.0`), no paths or timestamps -- so YAML comments and formatting never move it and
+  two shots of the same era share it;
+- `source_sha256`: the file's own digest, which changes with any edit.
+
+Override authority depends on the key's class. Machine facts (sources, field codes, wiring, DAQ type and
+mode, geometry) cannot be changed; calibrations (gains, polarity, factors, circuit constants) need an
+explicit `calibration_override_reason`, which is recorded; analysis windows and processing parameters may be
+overridden. Restating the effective value is always inert. An unknown key or a change of type raises
+`VestConfigurationError`.
+
+```python
+from vaft.machine_mapping.effective_config import resolve_vest_processing_config
+
+resolved = resolve_vest_processing_config(46404, "equilibrium_magnetics")
+resolved.effective["processing"]["window"]["daq_mode"]         # 'native_daq'
+resolved.provenance["keys"]["processing.window.daq_mode"]       # machine_fact, revision 3, from_shot 46404
+resolved.fingerprint                                            # same for every shot from 46404 on
+```
+
+The diagnostics and IMPA stage manifests record this under `configuration.vest_configuration` on every
+shot -- per diagnostic its effective values and fingerprint, plus the vest.yaml sha256 and the vaft version --
+and the equilibrium-magnetics processing actually used under `vest_magnetics_processing_effective`.
+`vaft.machine_mapping.provenance.vest_processing_provenance(shot, info_file=...)` is the shorter per-shot
+summary, now with TF, IMPA and the time policies. IMPA's calibration eras keep their `min_shot`/`max_shot`
+schema; `impa_shot_era` validates them like every other revision table (inclusive bounds, no overlap, an
+explicit `max_shot`).
+
+## Declared versus observed acquisition
+
+A configured sample rate is a claim, not a measurement. Wherever a filter is designed from one -- the IMPA
+low pass, the equilibrium probe low pass, the Ip reference comparison -- the record's own timestamps are
+checked with `vaft.process.acquisition.check_declared_sample_rate(time, declared, cutoff_hz=...)`:
+
+| Status | Meaning | Effect |
+|---|---|---|
+| `consistent` | observed rate within `rtol` of the declared one, regular sampling | none |
+| `deviation` | a different rate, or irregular sampling | recorded; processing unchanged |
+| `invalid` | unusable declaration, non-increasing timebase, or a cutoff at or above the *observed* Nyquist | recorded; only the cutoff case (`fatal`) stops the transformation, and the stage then leaves that one component out with the reason |
+| `not_verifiable` | fewer than two finite timestamps | recorded |
+
+The diagnostics manifest carries the probe summary under `channel_status.magnetics.acquisition` (counts per
+status, observed-rate range, and every channel that is not `consistent`); the IMPA manifest carries its check
+under `acquisition` (#432). `mirnov_preprocess_signal(..., report={})` records each band edge as `applied`,
+`skipped` (outside `(0, Nyquist)`, with the reason) or `not_requested`; without a `report` a skipped edge
+is a `RuntimeWarning`, never silent. The Ip reference comparison (`vfit_plasma_current(shot, ref, acquisition_report={})`)
+is checked the same way; the production stage does not use a reference shot.
+
+---
+
 # Adding a new diagnostic
 
 The contract to satisfy, in order:
@@ -619,7 +742,8 @@ The contract to satisfy, in order:
    signals. Use `set_path` from `.utils` rather than assigning into the ODS directly — it keeps path handling
    uniform.
 3. Write the canonical `<ids_name>(ods, shot, tstart, tend, dt)` that calls both.
-4. Put geometry in `vaft/data/geometry/` as YAML or CSV. Do not hardcode positions in Python.
+4. Put geometry in `vaft/data/geometry/` as CSV (or, for the equilibrium magnetics, in the `vest.yaml` sensor
+   registry). Do not hardcode positions in Python.
 5. Register the public names in `_EXPORT_MAP` and `__all__` in
    [`__init__.py`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/machine_mapping/__init__.py) so they
    are reachable from the package root.

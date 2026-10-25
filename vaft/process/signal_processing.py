@@ -10,7 +10,8 @@ what numbers, live in :mod:`vaft.machine_mapping` and ``vest.yaml``.
 Four kinds of operation:
 
 * **Filtering** -- :func:`smooth`, :func:`butterworth_lowpass`,
-  :func:`butterworth_bandpass`, :func:`detrend_moving_average`,
+  :func:`butterworth_highpass`, :func:`butterworth_bandpass`,
+  :func:`detrend_moving_average`,
   :func:`anti_alias_filter`, :func:`vest_coil_current_noise_reduction`.
 * **Baseline** -- :func:`define_baseline` selects the quiet samples,
   :func:`subtract_baseline` fits one of :func:`linear_baseline`,
@@ -64,11 +65,13 @@ import dataclasses
 
 import numpy as np
 import scipy.signal as scipy_signal
+from scipy import ndimage
 from scipy.interpolate import CubicSpline, UnivariateSpline
 from scipy.optimize import curve_fit
 
 
 __all__ = [
+    "DegenerateBaselineWindowError",
     "ResamplingError",
     "SignalOrientation",
     "SignalRepairError",
@@ -76,6 +79,7 @@ __all__ = [
     "anti_alias_filter",
     "apply_fir_filter",
     "butterworth_bandpass",
+    "butterworth_highpass",
     "butterworth_lowpass",
     "describe_time_grid",
     "detect_active_window",
@@ -89,6 +93,7 @@ __all__ = [
     "is_signal_active",
     "line_average_density",
     "linear_baseline",
+    "pf_current_filter",
     "process_signal",
     "quadratic_baseline",
     "repair_clipped_interval",
@@ -103,6 +108,10 @@ __all__ = [
     "vfit_signal_start_end",
     "vfit_signal_startend",
 ]
+
+
+class DegenerateBaselineWindowError(ValueError):
+    """Raised when a baseline window contains fewer than two valid samples."""
 
 
 class SignalRepairError(ValueError):
@@ -511,6 +520,69 @@ def butterworth_lowpass(data, cutoff: float, fs: float, order: int = 2,
     return scipy_signal.lfilter(b, a, values, axis=-1)
 
 
+def butterworth_highpass(data, cutoff: float, fs: float, order: int = 2,
+                         *, zero_phase: bool = True) -> np.ndarray:
+    """Butterworth high-pass filter along the last axis.
+
+    Parameters
+    ----------
+    data : array_like
+        The waveform or a stack of them; the time axis is the last [any].
+    cutoff : float
+        Cutoff frequency, strictly between 0 and the Nyquist frequency [Hz].
+    fs : float
+        Sample rate [Hz].
+    order : int, optional
+        Filter order [-].
+    zero_phase : bool, optional
+        ``True`` for forward-backward ``filtfilt``; ``False`` for a causal
+        ``lfilter`` [-].
+
+    Returns
+    -------
+    np.ndarray
+        The filtered waveform, same shape as ``data`` [any].
+
+    Raises
+    ------
+    ValueError
+        ``cutoff`` is not inside ``(0, fs / 2)``.
+
+    Defaults
+    --------
+    ``order = 2`` is a validated-workflow default shared with
+    :func:`butterworth_lowpass` and :func:`butterworth_bandpass`.
+    ``zero_phase = True`` follows :func:`butterworth_bandpass`: a high-passed
+    signal is a fluctuation fed to spectral analysis, where a frequency-
+    dependent IIR phase shift would distort it.
+
+    Convention
+    ----------
+    Zero-phase by default.  ``filtfilt`` applies the filter twice, so the
+    magnitude response is the square of the single-pass Butterworth response
+    (-6 dB rather than -3 dB at ``cutoff``) and the effective order doubles.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    As :func:`butterworth_lowpass`: a record too short for ``filtfilt`` raises
+    from SciPy.
+    """
+    values = np.asarray(data, dtype=float)
+    nyquist = 0.5 * float(fs)
+    if not 0.0 < float(cutoff) < nyquist:
+        raise ValueError(
+            f"cutoff must lie in (0, {nyquist:g}) Hz for fs={fs:g}; got {cutoff!r}"
+        )
+    b, a = scipy_signal.butter(int(order), float(cutoff) / nyquist, btype="highpass")
+    if zero_phase:
+        return scipy_signal.filtfilt(b, a, values, axis=-1)
+    return scipy_signal.lfilter(b, a, values, axis=-1)
+
+
 def butterworth_bandpass(data, low: float, high: float, fs: float, order: int = 2,
                          *, zero_phase: bool = True) -> np.ndarray:
     """Butterworth band-pass filter along the last axis.
@@ -773,8 +845,9 @@ def apply_fir_filter(taps, data, *, axis: int = -1, short_record: str = "raise")
     ----------
     The shared FIR application for measured waveforms (``anti_alias_filter``
     runs its own ``filtfilt`` over finite segments).  It is zero-phase: a causal ``lfilter`` delays every feature by the filter's group
-    delay, ``(len(taps) - 1) / 2`` samples, which is 0.5 ms for both VEST
-    designs (251 taps at 250 kHz, 26 taps at 25 kHz).  Signals are compared and
+    delay, ``(len(taps) - 1) / 2`` samples, which is 0.5 ms for the probe and
+    TF designs (251 taps at 250 kHz, 26 taps at 25 kHz) and 5 ms for the PF
+    design (251 taps at 25 kHz, :func:`pf_current_filter`).  Signals are compared and
     fitted against each other -- probes against PF coil currents in the vacuum
     benchmark and in EFIT -- so a delay in one of them is a systematic error, not
     a cosmetic one.  The legacy VEST workflow applies its ``vest_filter``
@@ -807,6 +880,94 @@ def apply_fir_filter(taps, data, *, axis: int = -1, short_record: str = "raise")
         f"zero-phase FIR filtering needs at least {minimum} samples for "
         f"{taps.size} taps; got {values.shape[axis]}"
     )
+
+
+def pf_current_filter(
+    values,
+    *,
+    sample_rate: float,
+    cutoff_hz: float,
+    numtaps: int,
+    smoothing_window: int,
+) -> np.ndarray:
+    """Low-pass and smooth a PF coil-current record: the VEST PF composition.
+
+    Parameters
+    ----------
+    values : array_like
+        Baseline-subtracted coil-current record, one-dimensional [any].
+    sample_rate : float
+        Rate the FIR is designed for [Hz].
+    cutoff_hz : float
+        FIR cutoff, inside ``(0, sample_rate / 2)`` [Hz].
+    numtaps : int
+        FIR length; must be odd [-].
+    smoothing_window : int
+        Moving-average width, clipped to the record length [samples].
+
+    Returns
+    -------
+    np.ndarray
+        The filtered record, same length as ``values`` [any].
+
+    Raises
+    ------
+    ValueError
+        ``numtaps`` is even or below 3, or the cutoff is outside the band (from
+        :func:`fir_filter_coefficients`).
+
+    Processing steps
+    ----------------
+    1. Design a Hamming-window FIR low-pass with
+       :func:`fir_filter_coefficients` (``window="hamming"`` -- **not** that
+       function's Hann default -- and ``numtaps`` exactly as given).
+    2. Apply it with :func:`apply_fir_filter` (``short_record="causal"``):
+       zero-phase ``filtfilt`` when the record has at least
+       ``3 * numtaps + 1`` samples, a forward-only ``lfilter`` otherwise.
+    3. Smooth with ``scipy.ndimage.uniform_filter1d`` of width
+       ``min(smoothing_window, len(values))`` (``mode="reflect"``).
+
+    Convention
+    ----------
+    Step 2 is zero-phase on a full record.  On a short record it is causal and
+    delays every feature by ``(numtaps - 1) / 2`` samples -- 5 ms for 251 taps
+    at 25 kHz -- silently, as the historical chain did.  Step 3 with an even
+    width averages samples ``[i - w/2, i + w/2 - 1]``, so it lags by half a
+    sample (20 us for ``w = 10`` at 25 kHz); an odd width is centred.  The
+    order -- FIR first, moving average second -- is the historical one and is
+    kept.
+
+    Applicability
+    -------------
+    Machine-independent.  Every number is the caller's; on VEST the
+    values come from ``vest.yaml`` ``0.diagnostics.pf_active.processing.filter``
+    (25 kHz, 2.5 kHz, 251 taps, 10 samples) via
+    :mod:`vaft.machine_mapping.pf_active`.
+
+    Limitations
+    -----------
+    The FIR is designed at the declared ``sample_rate``, not at the rate the
+    record was actually acquired at; a mismatch moves the cutoff in proportion.
+    The causal fallback is not reported to the caller.
+
+    Provenance
+    ----------
+    .. [1] ``vaft.machine_mapping.pf_active._legacy_pf_filter``, which this
+       replaces bit for bit (#2162), itself the PF filtering of the legacy VEST
+       workflow [VFIT]_ (``firwin`` + ``filtfilt`` + ``smooth``-like averaging).
+    """
+    taps_count = int(numtaps)
+    if taps_count % 2 == 0 or taps_count < 3:
+        raise ValueError(
+            "numtaps must be odd and at least 3 (fir_filter_coefficients would change it); "
+            f"got {numtaps!r}"
+        )
+    taps = fir_filter_coefficients(
+        float(cutoff_hz), float(sample_rate), kind="lowpass", numtaps=taps_count, window="hamming"
+    )
+    data = np.asarray(values, dtype=float)
+    filtered = apply_fir_filter(taps, data, short_record="causal")
+    return ndimage.uniform_filter1d(filtered, size=min(int(smoothing_window), data.size))
 
 
 def detrend_moving_average(data, window_samples: int) -> np.ndarray:
@@ -1939,7 +2100,71 @@ def exp_baseline(x, a, b, c):
     """
     return a * np.exp(b * x) + c
 
-def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
+def _polyfit_linear_baseline(
+    time,
+    signal,
+    baseline_indices,
+    *,
+    nan_policy: str,
+    allow_zero_fallback: bool,
+    context: str | None,
+    window_desc: str | None,
+    stacklevel: int,
+) -> np.ndarray:
+    """The guarded index-based ``np.polyfit`` line; see :func:`subtract_baseline`.
+
+    ``stacklevel`` is the caller's, so the zero-fallback warning names whoever
+    asked for the baseline rather than this helper.
+    """
+    if nan_policy not in ("omit", "propagate"):
+        raise ValueError(f"nan_policy must be 'omit' or 'propagate'; got {nan_policy!r}")
+    indices = np.asarray(baseline_indices)
+    if indices.dtype == bool:
+        # A boolean mask selects samples; cast to int it would select 0 and 1.
+        indices = np.flatnonzero(indices)
+    indices = indices.astype(int, copy=False)
+    in_bounds = indices[(indices >= 0) & (indices < signal.size)]
+    if nan_policy == "omit":
+        valid = in_bounds[np.isfinite(signal[in_bounds]) & np.isfinite(time[in_bounds])]
+    else:
+        valid = in_bounds
+    if valid.size < 2:
+        context_str = f" [{context}]" if context else ""
+        if allow_zero_fallback:
+            warnings.warn(
+                f"Degenerate baseline window{context_str}: {valid.size} valid sample(s) available "
+                f"(requires >= 2). Falling back to zero baseline because allow_zero_fallback=True.",
+                UserWarning,
+                stacklevel=stacklevel + 1,
+            )
+            return np.zeros(signal.size, dtype=float)
+
+        prefix = f"for {context}: " if context else ""
+        time_span = f"[{time[0]:.6g}, {time[-1]:.6g}] s" if time.size > 0 else "[]"
+        req_desc = f" ({window_desc})" if window_desc else ""
+        if indices.size > 0:
+            index_range = f"[{indices.min()}, {indices.max()}] (count: {indices.size})"
+        else:
+            index_range = "[] (empty)"
+        raise DegenerateBaselineWindowError(
+            f"Degenerate baseline window {prefix}found {valid.size} valid sample(s) (requires >= 2). "
+            f"Requested indices{req_desc}: {index_range}. "
+            f"Signal sample count: {signal.size}, time span: {time_span}."
+        )
+    return np.polyval(np.polyfit(time[valid], signal[valid], 1), time)
+
+
+def subtract_baseline(
+    time,
+    signal,
+    baseline_indices,
+    fitting_opt='linear',
+    *,
+    nan_policy: str = "omit",
+    allow_zero_fallback: bool = False,
+    context: str | None = None,
+    window_desc: str | None = None,
+):
     """Fit a baseline through the selected samples and subtract it everywhere.
 
     Parameters
@@ -1951,8 +2176,20 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     baseline_indices : np.ndarray
         Indices of the samples the baseline is fitted through, normally from
         :func:`define_baseline` [-].
-    fitting_opt : {"linear", "quadratic", "spline", "exp"}, optional
+    fitting_opt : {"linear", "polyfit", "quadratic", "spline", "exp"}, optional
         The baseline model [-].
+    nan_policy : {"omit", "propagate"}, optional
+        ``"polyfit"`` only: drop non-finite baseline samples (and samples at a
+        non-finite time) before fitting, or keep them, so that one NaN makes
+        the whole baseline NaN [-].
+    allow_zero_fallback : bool, optional
+        ``"polyfit"`` only: with fewer than two valid samples, warn and remove
+        a zero baseline instead of raising [-].
+    context : str or None, optional
+        ``"polyfit"`` only: what the signal is, e.g. ``"shot 39915, channel
+        'flux_loop_3'"``, quoted in the degenerate-window error or warning [-].
+    window_desc : str or None, optional
+        ``"polyfit"`` only: how the window was chosen, quoted in the error [-].
 
     Returns
     -------
@@ -1964,14 +2201,21 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     Raises
     ------
     ValueError
-        Unknown ``fitting_opt``.
+        Unknown ``fitting_opt`` or ``nan_policy``.
+    DegenerateBaselineWindowError
+        ``"polyfit"``: fewer than two valid baseline samples and
+        ``allow_zero_fallback`` is false (issue #639).
 
     Processing steps
     ----------------
-    1. Take ``time`` and ``signal`` at ``baseline_indices``.
-    2. Fit the chosen model through them: ``scipy.optimize.curve_fit`` for
-       the parametric models, ``scipy.interpolate.UnivariateSpline(s=0)`` --
-       an interpolating spline -- for ``"spline"``.
+    1. Take ``time`` and ``signal`` at ``baseline_indices``; for ``"polyfit"``
+       drop indices outside the record and, under ``nan_policy="omit"``,
+       non-finite samples.
+    2. Fit the chosen model through them: ``np.polyfit`` (degree 1, a closed
+       least-squares solve) for ``"polyfit"``, ``scipy.optimize.curve_fit``
+       for the other parametric models,
+       ``scipy.interpolate.UnivariateSpline(s=0)`` -- an interpolating spline
+       -- for ``"spline"``.
     3. Evaluate the model on the full ``time`` axis and subtract.
 
     Output semantics
@@ -1984,7 +2228,9 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     ``fitting_opt = "linear"`` is a legacy compatibility value: the donor
     workflow removed a linear drift, which is the right model for an
     integrator's offset.  The exponential fit uses ``maxfev = 10000``, a
-    numerical convenience.
+    numerical convenience.  ``nan_policy = "omit"`` and
+    ``allow_zero_fallback = False`` are the #639 policy of the magnetics
+    chains: a gap in the window is skipped, an empty window is an error.
 
     Assumptions
     -----------
@@ -2001,15 +2247,44 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
     ``"spline"`` interpolates the baseline samples exactly, so noise in them
     is reproduced in the baseline; with the onset and offset regions far
     apart it is a straight line between them in practice.  ``"exp"`` can fail
-    to converge and raises from SciPy.  Nothing checks that
-    ``baseline_indices`` is non-empty.
+    to converge and raises from SciPy.  Only ``"polyfit"`` checks that
+    ``baseline_indices`` leaves at least two usable samples; the other models
+    fail from SciPy instead.
+
+    ``"linear"`` and ``"polyfit"`` fit the same straight line by two methods
+    and are kept apart on purpose.  ``curve_fit`` reaches the least-squares
+    line iteratively and stops at its tolerance, so it differs from the
+    closed-form ``np.polyfit`` solution in the last digits (about 1e-12
+    relative on a 1e-3-scale integrated signal); the stored products of each
+    caller were built with one or the other, and merging them would move
+    those values.  ``"polyfit"`` is the canonical line of the probe,
+    flux-loop and plasma-current chains (#2162); ``"linear"`` remains that of
+    the generic :func:`~vaft.process.magnetics.rogowski_coil_ip` and
+    :func:`~vaft.process.magnetics.flux_loop_flux`, which called it before.
 
     Provenance
     ----------
     .. [1] The legacy VEST EFIT magnetics chain [VFIT]_, where an integrated
        probe signal's drift is removed by a fit through the pre- and
        post-discharge windows.
+    .. [2] Issue #639, the degenerate-window guard, and #2162, which made this
+       the one implementation of the index-based polyfit line.
     """
+    if nan_policy not in ("omit", "propagate"):
+        raise ValueError(f"nan_policy must be 'omit' or 'propagate'; got {nan_policy!r}")
+    if fitting_opt == 'polyfit':
+        fitted_baseline = _polyfit_linear_baseline(
+            time,
+            signal,
+            baseline_indices,
+            nan_policy=nan_policy,
+            allow_zero_fallback=allow_zero_fallback,
+            context=context,
+            window_desc=window_desc,
+            stacklevel=2,
+        )
+        return signal - fitted_baseline, fitted_baseline
+
     x_baseline = time[baseline_indices]
     y_baseline = signal[baseline_indices]
 
@@ -2026,7 +2301,9 @@ def subtract_baseline(time, signal, baseline_indices, fitting_opt='linear'):
         popt, _ = curve_fit(exp_baseline, x_baseline, y_baseline, maxfev=10000)
         fitted_baseline = exp_baseline(time, *popt)
     else:
-        raise ValueError("Unsupported fitting option. Choose from 'linear', 'quadratic', 'spline', 'exp'.")
+        raise ValueError(
+            "Unsupported fitting option. Choose from 'linear', 'polyfit', 'quadratic', 'spline', 'exp'."
+        )
 
     corrected_signal = signal - fitted_baseline
     return corrected_signal, fitted_baseline
