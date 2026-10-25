@@ -46,7 +46,12 @@ def parse_log(path):
             if j and j["start"] and now:
                 finished.append({**j, "wall": (now - j["start"]).total_seconds()})
         elif (m := ERR.match(line)):
-            block = "\n".join(lines[i:i + 12])
+            block_lines = []
+            for row in lines[i + 1:i + 14]:
+                if not row.strip() or TS.match(row) or ERR.match(row):
+                    break
+                block_lines.append(row)
+            block = "\n".join(block_lines)
             w = re.search(r"wildcards: (.*)", block)
             lg = re.search(r"log: (\S+)", block)
             errors.append({"rule": m.group(1), "wild": w.group(1) if w else "", "log": lg.group(1) if lg else None})
@@ -110,7 +115,11 @@ def main():
         F = lane / "filedb"
         # Wall time from every attempt (each finished job appears in the attempt that ran it);
         # errors from the latest attempt per chunk (<chunk>.snakemake.log) only.
-        for log in sorted((lane / "logs").glob("*.attempt-*.log")) or sorted((lane / "logs").glob("*.snakemake.log")):
+        logs = lane / "logs"
+        with_attempts = {p.name.split(".attempt-")[0] for p in logs.glob("*.attempt-*.log")}
+        timing_logs = sorted(logs.glob("*.attempt-*.log")) + [
+            p for p in sorted(logs.glob("*.snakemake.log")) if p.name.split(".snakemake.log")[0] not in with_attempts]
+        for log in timing_logs:
             finished, _ = parse_log(log)
             for j in finished:
                 product = re.search(r"product=([\w-]+)", j["wild"] or "")

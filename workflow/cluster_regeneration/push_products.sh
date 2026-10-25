@@ -21,10 +21,11 @@ echo "$SRC -> $DST" > "$WORK/target"
 $VEST "test -d '$DST'" || { echo "create $DST on vestserver first" >&2; exit 2; }
 # Unit = one top-level product directory per shot (raw dumps are NOT pushed: vestserver has them).
 # The unit list is written once: chunk names (and their .ok markers) must keep meaning the same units.
-[ -s "$WORK/units.txt" ] || $TDST "cd '$SRC' && { find . -path ./pipeline -prune -o -path ./raw -prune -o -type d -regextype posix-extended \
+[ -s "$WORK/units.txt" ] || { $TDST "cd '$SRC' && { find . -path ./pipeline -prune -o -path ./raw -prune -o -type d -regextype posix-extended \
         -regex '.*/[0-9]+' -print -prune | sed 's#^./##'; echo omas/static; echo pipeline/efit_tables; \
-        echo pipeline/preflight; ls -d raw/[0-9]*/plot 2>/dev/null; } | sort" > "$WORK/units.txt" || exit 3
-ls "$WORK"/unit.[0-9][0-9][0-9][0-9] >/dev/null 2>&1 || split -l "${CHUNK:-2000}" -d -a 4 "$WORK/units.txt" "$WORK/unit."
+        echo pipeline/preflight; ls -d raw/[0-9]*/plot 2>/dev/null; } | sort" > "$WORK/units.txt.tmp" \
+  && mv "$WORK/units.txt.tmp" "$WORK/units.txt" || exit 3; }
+ls "$WORK"/unit.[0-9][0-9][0-9][0-9] >/dev/null 2>&1 || split -l "${CHUNK:-2000}" -d -a 4 "$WORK/units.txt" "$WORK/unit." || exit 3
 for f in "$WORK"/unit.[0-9][0-9][0-9][0-9]; do
   c=$(basename "$f"); [ -f "$WORK/$c.ok" ] && continue
   list=$(tr '\n' ' ' < "$f")

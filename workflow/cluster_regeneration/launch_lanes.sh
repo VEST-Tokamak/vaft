@@ -10,7 +10,11 @@ ROOT=${REGEN_ROOT:-$HOME/regen2147}
 MEM=${MEM:-128G}; TIME=${TIME:-2-00:00:00}; PART=${PART:-g1}
 mkdir -p "$RUN"
 if [ ! -f "$RUN/shots_all.txt" ]; then
-  ls "$ROOT/raw" | grep -E '^[0-9]+$' | sort -n > "$RUN/shots_all.txt"
+  # The shot list is frozen here, so the raw copy must be complete and verified first:
+  # copy_raw.sh leaves <scratch>/missing_or_different.lst; pass it as RAW_VERIFIED.
+  [ -f "${RAW_VERIFIED:-}" ] && [ ! -s "${RAW_VERIFIED:-}" ] \
+    || { echo "set RAW_VERIFIED=<copy_raw scratch>/missing_or_different.lst (must exist and be empty)" >&2; exit 2; }
+  ls "$ROOT/raw" | grep -E '^[0-9]+$' | sort -n > "$RUN/shots_all.txt.tmp" && mv "$RUN/shots_all.txt.tmp" "$RUN/shots_all.txt"
   for i in $(seq 0 $((LANES - 1))); do
     mkdir -p "$RUN/lane$i"
     awk -v n="$LANES" -v i="$i" '(NR - 1) % n == i' "$RUN/shots_all.txt" > "$RUN/lane$i/shots.txt"
@@ -22,14 +26,20 @@ fi
 for lane in "$RUN"/lane*/; do
   lane=${lane%/}; name=r2147-$(basename "$RUN")-$(basename "$lane")
   if [ -f "$lane/job" ]; then
-    # A failing squeue must not read as "not running": resubmitting would start a second
-    # run_lane on the lane (run_lane.sh's flock would then exit it, but do not rely on that).
-    q=$(squeue -h -j "$(cat "$lane/job")" -o %T 2>&1) || { echo "$name: squeue failed ($q); not resubmitting" >&2; continue; }
-    [ -n "$q" ] && { echo "$name: job $(cat "$lane/job") is $q"; continue; }
+    # Only an active state counts as running. A job that left slurmctld (MinJobAge) makes squeue
+    # exit 1 with "Invalid job id"; that is "not running". Any other squeue failure must not read
+    # as "not running" (run_lane.sh's flock would stop a second runner, but do not rely on it).
+    id=$(cat "$lane/job"); rc=0
+    q=$(squeue -h -j "$id" -t PD,R,CF,CG,S -o %T 2>&1) || rc=$?
+    if [ "$rc" -ne 0 ] && ! grep -q "Invalid job id" <<< "$q"; then
+      echo "$name: squeue failed ($q); not resubmitting" >&2; continue
+    fi
+    [ "$rc" -eq 0 ] && [ -n "$q" ] && { echo "$name: job $id is $q"; continue; }
   fi
   [ -f "$lane/STOP" ] && { echo "$name: STOP file present; remove it to resume"; continue; }
   job=$(sbatch --parsable -A "${SLURM_ACCOUNT_NAME:?set SLURM_ACCOUNT_NAME, e.g. tdst}" -p "$PART" -c "$CORES" --mem="$MEM" -t "$TIME" -J "$name" \
-        -o "$lane/slurm-%j.out" --wrap "bash $ROOT/run_lane.sh $lane $lane/shots.txt $CORES")
+        -o "$lane/slurm-%j.out" --wrap "bash $ROOT/run_lane.sh $lane $lane/shots.txt $CORES") \
+    || { echo "$name: sbatch failed" >&2; continue; }
   echo "$job" > "$lane/job"; echo "$(date '+%F %T') $name $job" >> "$RUN/jobs.txt"
   echo "$name: submitted $job"
 done

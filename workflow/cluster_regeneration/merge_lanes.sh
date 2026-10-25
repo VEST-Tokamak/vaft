@@ -24,8 +24,20 @@ for lane in "$@"; do
     if [ -e "$OUT/$key" ]; then
       [ "${OWNER[$key]:-}" = "$L" ] && continue
       # A rerun of the merge finds its own hard links: same inode for the shot's files.
-      first=$(cd "$L/$key" && find . -type f | head -n 1)
-      if [ -n "$first" ] && [ "$L/$key/$first" -ef "$OUT/$key/$first" ]; then OWNER[$key]=$L; continue; fi
+      # A rerun of the merge finds its own hard links (same inode): link what is new since, and
+      # refuse only a same-named file with different content (a shot in two lanes).
+      first=$(cd "$L/$key" && find . -type f -print -quit)
+      if [ -z "$first" ] || [ "$L/$key/$first" -ef "$OUT/$key/$first" ]; then
+        while IFS= read -r -d '' rel; do
+          if [ -e "$OUT/$key/$rel" ]; then
+            [ "$L/$key/$rel" -ef "$OUT/$key/$rel" ] || cmp -s "$L/$key/$rel" "$OUT/$key/$rel" \
+              || { echo "$key/$rel differs between the merge and $L" >&2; exit 2; }
+          else
+            mkdir -p "$(dirname "$OUT/$key/$rel")"; ln "$L/$key/$rel" "$OUT/$key/$rel"
+          fi
+        done < <(cd "$L/$key" && find . -type f -printf '%P\0')
+        OWNER[$key]=$L; continue
+      fi
       echo "shot dir $key exists in two lanes (${OWNER[$key]:-an earlier merge} and $L)" >&2; exit 2
     fi
     mkdir -p "$OUT/$(dirname "$key")"

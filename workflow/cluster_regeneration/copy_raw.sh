@@ -20,8 +20,9 @@ CHUNK=${CHUNK:-500}
 # dir with NEW_SINCE=<last copied shot> and a new RUN_TAG.
 if [ ! -s "$1/shotdirs.txt" ]; then
   $VEST "ls /srv/vest.filedb/raw" | grep -E '^[0-9]+$' | sort -n \
-    | awk -v n="${NEW_SINCE:-0}" '$1 > n' > "$1/shotdirs.txt" || exit 3
-  split -l "$CHUNK" -d -a 3 "$1/shotdirs.txt" "$1/chunk."
+    | awk -v n="${NEW_SINCE:-0}" '$1 > n' > "$1/shotdirs.txt.tmp" || exit 3
+  split -l "$CHUNK" -d -a 3 "$1/shotdirs.txt.tmp" "$1/chunk." || exit 3
+  mv "$1/shotdirs.txt.tmp" "$1/shotdirs.txt"
 fi
 T0=$(date +%s)
 for f in "$1"/chunk.[0-9][0-9][0-9]; do

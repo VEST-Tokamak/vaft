@@ -29,7 +29,12 @@ FileDB and never contacts HSDS; moving and replicating are separate, separately 
   Snakemake down with it.
 - **Solver scratch.** DCON `euler.bin` and vacuum `vmat.bin` (~5 GB per MHD shot, 98 % of the
   GPEC tree) are deleted after each finished chunk (`PRUNE_SOLVER_SCRATCH=1`), with size, mtime
-  and path kept in `<lane>/pruned.tsv`; no Snakemake output or stage product reads them.
+  and path kept in `<lane>/pruned.tsv`; no Snakemake output or stage product reads them. A later
+  rerun of an ideal-GPEC cell alone then needs its DCON cell rerun first (euler.bin).
+- **Raw.** A shot without its dump and manifest is left out of its chunk (the raw rule would
+  otherwise reach for VEST SQL) and keeps the chunk open (`ALLOW_MISSING_RAW=1` closes it).
+  `launch_lanes.sh` freezes the shot list only with `RAW_VERIFIED=<copy_raw scratch>/missing_or_different.lst`
+  present and empty.
 - **Floating-point parity.** `env.example.sh` sets `OPENBLAS_CORETYPE=Haswell` and disables numpy's
   AVX-512 loops (`REGEN_CPU_PARITY=0` to opt out), which made magnetics products bit-identical to
   an AVX2-only server running the same SHA; see "Cross-environment differences" below.
@@ -61,7 +66,7 @@ cp workflow/cluster_regeneration/{setup_env.sh,srvns,run_lane.sh,launch_lanes.sh
 cp workflow/cluster_regeneration/env.example.sh $REGEN_ROOT/env.sh   # adapt EFITHOME/CHEASEHOME/GPECHOME
 PIN=<develop sha> bash $REGEN_ROOT/setup_env.sh
 bash copy_raw.sh <scratch dir>                  # on the workstation
-SLURM_ACCOUNT_NAME=<account> bash $REGEN_ROOT/launch_lanes.sh $REGEN_ROOT/full 4 32
+RAW_VERIFIED=<scratch>/missing_or_different.lst SLURM_ACCOUNT_NAME=<account> bash $REGEN_ROOT/launch_lanes.sh $REGEN_ROOT/full 4 32
 #   monitor: tail $REGEN_ROOT/full/lane*/lane.log ; python harvest.py $REGEN_ROOT/full/lane* --out s.json
 #   resume: run launch_lanes.sh again (same run dir); stop: touch <lane>/STOP or scancel <its job id>
 sbatch ... --wrap "bash $REGEN_ROOT/merge_lanes.sh $REGEN_ROOT/full/merged $REGEN_ROOT/full/lane*"
