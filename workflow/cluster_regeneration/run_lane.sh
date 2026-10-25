@@ -173,10 +173,19 @@ for f in "$LANE"/chunks/shots.[0-9][0-9][0-9]; do
   # Snakemake outputs and no stage product reads them, but a later rerun of an ideal-GPEC cell
   # alone needs its DCON cell rerun first (euler.bin). Size, mtime and path stay in pruned.tsv
   # (PRUNE_HASH=1 adds sha256: ~10 s per MHD shot of serial reading, so off by default).
-  if [ "${PRUNE_SOLVER_SCRATCH:-1}" = 1 ] && [ -d "$FILEDB/gpec" ]; then
+  # PRUNE_SOLVER_SCRATCH=2 also drops the rest of the solver work trees (GPEC netCDF/native JSON/
+  # contour files, CHEASE run dirs; ~1.2 GB per MHD shot with ideal GPEC, ~0.5 GB without) once
+  # the chunk's stage products (omas/mhd_linear, omas/gpec_ideal, omas/chease) are built; logs,
+  # run.json and status files stay. Reruns of a stability cell then start from its solver again.
+  if [ "${PRUNE_SOLVER_SCRATCH:-1}" != 0 ]; then
     while read -r s; do
-      find "$FILEDB"/gpec/magnetic/chease/*/"$s"/n=*/work -type f \( -name euler.bin -o -name vmat.bin \) \
-        -printf "%s\t%TY-%Tm-%Td %TH:%TM\t%p\n" 2>/dev/null | while IFS=$'\t' read -r size mtime path; do
+      if [ "${PRUNE_SOLVER_SCRATCH:-1}" = 2 ]; then
+        find "$FILEDB"/gpec/magnetic/chease/*/"$s"/n=*/work "$FILEDB/chease/magnetic/$s/output/work" \
+          -type f ! -name '*.log' -printf "%s\t%TY-%Tm-%Td %TH:%TM\t%p\n" 2>/dev/null
+      else
+        find "$FILEDB"/gpec/magnetic/chease/*/"$s"/n=*/work -type f \( -name euler.bin -o -name vmat.bin \) \
+          -printf "%s\t%TY-%Tm-%Td %TH:%TM\t%p\n" 2>/dev/null
+      fi | while IFS=$'\t' read -r size mtime path; do
           sha=-; [ "${PRUNE_HASH:-0}" = 1 ] && sha=$(sha256sum < "$path" | cut -d' ' -f1)
           printf "%s\t%s\t%s\t%s\t%s\n" "$c" "$size" "$mtime" "$sha" "${path#"$FILEDB"/}" >> "$LANE/pruned.tsv"
           rm -f "$path"

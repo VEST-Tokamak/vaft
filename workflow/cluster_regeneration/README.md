@@ -31,6 +31,10 @@ FileDB and never contacts HSDS; moving and replicating are separate, separately 
   GPEC tree) are deleted after each finished chunk (`PRUNE_SOLVER_SCRATCH=1`), with size, mtime
   and path kept in `<lane>/pruned.tsv`; no Snakemake output or stage product reads them. A later
   rerun of an ideal-GPEC cell alone then needs its DCON cell rerun first (euler.bin).
+  `PRUNE_SOLVER_SCRATCH=2` drops the rest of the GPEC and CHEASE work trees too (ideal-GPEC
+  profile netCDF, DCON native JSON, contour files, CHEASE run dirs: ~1.2 GB per MHD shot with
+  ideal GPEC, ~0.5 GB without) once the chunk's stage products are built; logs, `run.json`,
+  status files and the refined g-files stay.
 - **Raw.** A shot without its dump and manifest is left out of its chunk (the raw rule would
   otherwise reach for VEST SQL) and keeps the chunk open (`ALLOW_MISSING_RAW=1` closes it).
   `launch_lanes.sh` freezes the shot list only with `RAW_VERIFIED=<copy_raw scratch>/missing_or_different.lst`
