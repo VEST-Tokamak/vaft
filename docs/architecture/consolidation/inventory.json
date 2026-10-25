@@ -5297,6 +5297,7 @@
     "vaft.machine_mapping.magnetics.toroidal_array_for_shot",
     "vaft.machine_mapping.magnetics.vfit_mirnov_raw_dynamic",
     "vaft.machine_mapping.raw_daq_sources.b_field_pol_probe_raw_fields",
+    "vaft.omas.vest_upstream._unusable_magnetics_channels",
     "vaft.omas.vest_upstream.build_diagnostics_ods"
    ],
    "classification": "legacy",
