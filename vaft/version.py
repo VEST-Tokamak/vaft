@@ -9,9 +9,10 @@ __all__ = ["__version__"]
 # ────────────────────────────────────────────────────────
 # unreleased
 # - (develop since v0.9.0; one line per merged change, newest first)
-# - Deprecated aliases now name their removal release, vaft 0.11.0 (one
-#   released minor after the first release that announces it, as
-#   vaft.spectroscopy did). vaft.machine_mapping.magnetics.vfit_md and
+# - Deprecated aliases now name their removal release, vaft 0.11.0: the
+#   minor after the release that first dates the removal (as the 0.6.0
+#   vaft.plot legacy names were dated for 0.7.0; vaft.spectroscopy gave
+#   two). vaft.machine_mapping.magnetics.vfit_md and
 #   vest_md_channel_definitions, plain aliases until now, warn on every
 #   path, the direct `from vaft.machine_mapping.magnetics import ...`
 #   included; use vfit_equilibrium_magnetics and

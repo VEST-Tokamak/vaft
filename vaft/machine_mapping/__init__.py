@@ -40,7 +40,8 @@ _LEGACY_REPLACEMENTS = {
     "vfit_md": "magnetics.vfit_equilibrium_magnetics",
 }
 
-#: Legacy names with a scheduled removal: the warning says when.
+#: Legacy names with a scheduled removal: the warning says when (both are
+#: removed in vaft 0.11.0).
 _LEGACY_REMOVALS = {
     "vfit_md": "0.11.0",
     "vest_md_channel_definitions": "0.11.0",

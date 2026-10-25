@@ -71,7 +71,8 @@ vfit_tf_dynamic(ods, shot, tstart, tend, dt)         # tf.coil.0.current, tf.b_f
 Most names are also re-exported lazily from the package root, so `vaft.machine_mapping.vfit_plasma_current(...)` works
 without importing the submodule. The pre-rename aliases `vfit_md` and `vest_md_channel_definitions` (now
 `vfit_equilibrium_magnetics` and `vest_equilibrium_magnetics_channel_definitions` in `vaft.machine_mapping.magnetics`)
-warn on every path and are removed in vaft 0.11.0. The explicit `from vaft.machine_mapping.<module> import <name>` form used
+warn on every access through `vaft.machine_mapping.magnetics` and on the first access through the package; they
+are removed in vaft 0.11.0. The explicit `from vaft.machine_mapping.<module> import <name>` form used
 above is what the production pipeline uses, and it is unambiguous — prefer it in scripts.
 
 ---

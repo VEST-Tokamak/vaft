@@ -2819,15 +2819,16 @@ vfit_PlasmaCurrent = vfit_plasma_current
 #: as the canonical names, with no behaviour of their own. The package-level
 #: path (``vaft.machine_mapping.vfit_md``) warns through
 #: vaft/machine_mapping/__init__.py's _LEGACY_REPLACEMENTS.
-DEPRECATED_ALIASES = {
+#: Both are removed in vaft 0.11.0.
+_DEPRECATED_ALIASES = {
     "vfit_md": ("vfit_equilibrium_magnetics", "0.11.0"),
     "vest_md_channel_definitions": ("vest_equilibrium_magnetics_channel_definitions", "0.11.0"),
 }
 
 
 def __getattr__(name: str):
-    if name in DEPRECATED_ALIASES:
-        replacement, removal = DEPRECATED_ALIASES[name]
+    if name in _DEPRECATED_ALIASES:
+        replacement, removal = _DEPRECATED_ALIASES[name]
         warnings.warn(
             f"vaft.machine_mapping.magnetics.{name} is deprecated and will be removed in vaft "
             f"{removal}; use vaft.machine_mapping.magnetics.{replacement}",

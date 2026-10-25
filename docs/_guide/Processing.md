@@ -208,12 +208,12 @@ corrected, baseline = vaft.process.subtract_baseline(t, ip, idx, fitting_opt='li
 
 ```python
 onset, offset = vaft.process.signal_on_offset(t, ip, smooth_window=5, threshold=0.01)
-t0, t1        = vaft.process.vfit_signal_start_end(t, ip, threshold=0.01)
+t0, t1        = vaft.process.detect_active_window(t, ip, threshold=0.01)
 alive         = vaft.process.is_signal_active(ip)          # -> bool
 ```
 
 `signal_on_offset` applies a Savitzky–Golay smooth (polyorder 3) and returns the contiguous
-above-threshold window **containing the global maximum**; `vfit_signal_start_end` does the same without
+above-threshold window **containing the global maximum**; `detect_active_window` does the same without
 the smoothing stage. `is_signal_active` is a scale-free "is this channel alive?" test: the variance and
 the mean |Δx| are each divided by the trace's mean absolute level (the first is the squared coefficient
 of variation) and compared with `var_ratio_thresh=1e-2` and `change_ratio_thresh=1e-2`; a trace is
@@ -239,13 +239,15 @@ t_dur = vaft.omas.find_pulse_duration(ods)
 
 ## Deprecated aliases
 
-Still live, still exported, but do not use them in new code:
+Still live, still exported, but do not use them in new code. Each warns; the signal-processing ones are
+removed in vaft 0.11.0:
 
 | Alias | Canonical name |
 | --- | --- |
 | `VEST_CoilCurrentNoiseReduction` | `vest_coil_current_noise_reduction` |
-| `vfit_signal_startend` | `vfit_signal_start_end` |
+| `vfit_signal_startend`, `vfit_signal_start_end` | `detect_active_window` |
 | `signal_onoffset` | `signal_on_offset` |
+| `vaft.machine_mapping.utils.process_signal` | `vaft.process.process_signal` |
 | `psi_to_RZ` | `psi_to_rz` |
 
 ---

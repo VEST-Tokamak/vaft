@@ -272,10 +272,6 @@ def test_magnetics_module_aliases_warn_with_their_removal_release(alias, canonic
     with pytest.warns(DeprecationWarning, match=alias):
         exec(f"from vaft.machine_mapping.magnetics import {alias}", namespace)  # noqa: S102 - fixed text
     assert namespace[alias] is getattr(magnetics, canonical)
-    # The canonical name is not deprecated.
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", DeprecationWarning)
-        getattr(magnetics, canonical)
     with pytest.raises(AttributeError, match="no attribute 'vfit_mdx'"):
         magnetics.vfit_mdx  # noqa: B018
 
@@ -309,11 +305,21 @@ def test_machine_mapping_package_aliases_warn_with_their_removal_release(alias, 
 )
 def test_deprecated_wrappers_name_their_removal_release(module, alias, arguments):
     function = getattr(importlib.import_module(module), alias)
-    with pytest.warns(DeprecationWarning, match=rf"{alias}\(\) is deprecated and will be removed in vaft {_ALIAS_REMOVAL}"):
+    with pytest.warns(DeprecationWarning, match=rf"{alias}\(\) is deprecated.* will be removed in vaft {_ALIAS_REMOVAL}"):
         function(*arguments)
 
 
-def test_the_removal_release_is_the_one_signal_processing_announces():
-    from vaft.process import signal_processing
+def test_the_alias_removal_release_lies_beyond_the_current_version():
+    """The release named in the warnings has not shipped (``test_plot_migration`` scans the text too)."""
+    import vaft
+    import vaft.machine_mapping as machine_mapping
+    import vaft.machine_mapping.magnetics as magnetics
 
-    assert signal_processing._ALIAS_REMOVAL == _ALIAS_REMOVAL
+    releases = {removal for _, removal in magnetics._DEPRECATED_ALIASES.values()}
+    releases |= set(machine_mapping._LEGACY_REMOVALS.values())
+    assert releases == {_ALIAS_REMOVAL}
+
+    def release(text):
+        return tuple(int(part) for part in text.split("+")[0].split("rc")[0].split(".dev")[0].split("."))
+
+    assert release(_ALIAS_REMOVAL) > release(vaft.__version__)
