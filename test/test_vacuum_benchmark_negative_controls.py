@@ -92,9 +92,19 @@ CONTROLS = {
 }
 
 
+#: Relative tolerance for an "unchanged" float metric of an unperturbed sensor.  Moving one probe
+#: changes the last bits of a few other probes' metrics on some platforms (vestserver py3.14 /
+#: numpy 2.5.3: L-03/L-04 differ by <= 2.4e-13 relative; bit-identical on the py3.12 Mac env).
+#: That is floating-point round-off, not attribution: the smallest declared control effect is a
+#: 1.2x change, twelve orders of magnitude larger.  Status, reasons and positions stay exact.
+UNCHANGED_RTOL = 1e-12
+
+
 def _same(left, right) -> bool:
-    if isinstance(left, float) and isinstance(right, float) and np.isnan(left) and np.isnan(right):
-        return True
+    if isinstance(left, float) and isinstance(right, float):
+        if np.isnan(left) and np.isnan(right):
+            return True
+        return bool(np.isclose(left, right, rtol=UNCHANGED_RTOL, atol=0.0))
     if isinstance(left, (list, tuple)) and isinstance(right, (list, tuple)):
         return len(left) == len(right) and all(_same(a, b) for a, b in zip(left, right))
     return left == right

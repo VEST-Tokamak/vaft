@@ -2,7 +2,7 @@
  "schema": "vaft.consolidation.api-ownership/1",
  "issue": "#2162",
  "umbrella": "#2147",
- "base": "develop 45a09a984 (#2189: #2178, #2179, #2180, #2183; then #2182)",
+ "base": "develop after #2189 (#2178, #2179, #2180, #2183), #2182 and #2197",
  "migration_status_values": [
   "migrated",
   "retained",
@@ -452,49 +452,52 @@
   {
    "operation": "SXR constant-offset baseline",
    "slice": "B3.11",
-   "pull_request": "proposed (architecture/2162-sxr-baselines)",
+   "pull_request": "#2197",
    "canonical_api": "vaft.process.soft_x_rays.sxr_offset_baseline",
    "canonical_module": "vaft.process.soft_x_rays",
    "required_options": "selection (mask or slice), skip_nan, on_empty ('raise' | 'keep' | 'tail' with tail_samples)",
    "resolves": [
+    "vaft.process.soft_x_rays.sxr_offset_baseline",
     "vaft.process.soft_x_rays.sxr_baseline_correction",
     "vaft.plot.soft_x_rays._baseline_correct"
    ],
    "previous_implementations": [
     {
      "name": "vaft.machine_mapping.soft_x_rays.vfit_soft_x_rays_dynamic",
-     "status": "current",
-     "retirement": "index-range mean; delegates once B3.11 merges"
+     "status": "retained_specialization",
+     "retirement": "keeps its window rule (index range, NaN-propagating, raises when empty) and delegates the arithmetic to sxr_offset_baseline"
     },
     {
      "name": "vaft.process.soft_x_rays.sxr_baseline_correction",
-     "status": "current",
-     "retirement": "quiet-tail mean with last-1000 fallback; delegates once B3.11 merges"
+     "status": "retained_specialization",
+     "retirement": "keeps the VEST SXR viewer's quiet-tail rule with the last-1000-sample fallback over sxr_offset_baseline"
     },
     {
      "name": "vaft.plot.soft_x_rays._baseline_correct",
-     "status": "current",
-     "retirement": "closed-range nanmean, no-op when empty; delegates once B3.11 merges"
+     "status": "retained_specialization",
+     "retirement": "keeps the display rule (closed time range, NaN-skipping, no-op when empty) over sxr_offset_baseline"
     }
    ],
    "affected_callers": [
+    "vaft.machine_mapping.soft_x_rays.vfit_soft_x_rays_dynamic",
     "vaft.plot.soft_x_rays.plot_soft_x_ray_pattern",
     "vaft.plot.soft_x_rays.plot_soft_x_ray_signal",
     "vaft.plot.soft_x_rays.plot_soft_x_ray_spectrogram",
     "vaft.process.soft_x_rays.sxr_band_signals",
     "vaft.process.soft_x_rays.sxr_electron_temperature"
    ],
-   "numerical_equivalence": "claimed on the B3.11 branch (not verifiable here): bit_identical per caller to frozen develop copies",
+   "numerical_equivalence": "bit_identical: each of the three callers is held to its frozen develop f7472664d copy (index ranges incl. None/negative/past-the-end, tail starts incl. the fallback, matrix and trace, NaN in the window, empty/closed/outside time ranges, an all-NaN plot window, the exact error text); the packaged shots carry no soft_x_rays IDS, so no capture applies",
    "preserved_specializations": [
     "the centred rolling Te trend in sxr_electron_temperature is not a detector offset and stays separate"
    ],
    "configuration_dependencies": [],
    "regression_tests": [
+    "test/test_sxr_baseline_owner.py",
     "test/test_sxr_processing.py",
     "test/test_soft_x_rays_mapping.py",
     "test/test_soft_x_rays_plot.py"
    ],
-   "migration_status": "proposed"
+   "migration_status": "migrated"
   },
   {
    "operation": "clipped-interval repair",
