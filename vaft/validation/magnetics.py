@@ -34,6 +34,11 @@ split by how categorical their evidence is:
 * a flatlined record, or an interior run of bit-identical samples.  A noisy
   analog channel does not produce a dozen consecutive identical values; a dead
   one, a railed integrator and a dropout all do.
+* a B-probe whose *raw* DAQ record (its stored voltage) sits at the
+  digitizer's rail for the whole analysis window (#2192).  Processing hides
+  it -- integration and baseline removal turn a constant -5 V into a field of
+  ~1e-11 T that still dithers in its last bits -- so it is judged on the raw
+  record, against the converter's own full scale and step, with no model.
 * a record whose amplitude exceeds what the machine can physically produce
   at a sensor (``MagneticsQualityConfig.max_plausible_amplitude``), or that a
   healthy geometric family contradicts by more than
@@ -123,11 +128,13 @@ __all__ = [
     "array_contradiction_fractions_of",
     "array_contradiction_scores",
     "array_departure_ratios",
+    "at_raw_rail",
     "attribute_array_contradictions",
     "population_peak_outliers",
     "population_peak_ratios",
     "magnetics_quality_metrics",
     "project_validity",
+    "raw_rail_departure",
     "unusable_channels_at",
     "validate_magnetics_signals",
 ]
@@ -245,6 +252,30 @@ class MagneticsQualityConfig:
     #: millitesla of texture a contradiction.
     array_amplitude_floor: float = 0.01
 
+    #: Full-scale input of the digitizer each kind's stored ``voltage`` record
+    #: comes from, in volts: the rail a dead or overdriven channel sits at
+    #: (#2192).  Only kinds whose ``voltage`` *is* the raw DAQ record belong
+    #: here -- a B-probe's is (``vfit_mirnov_raw_dynamic`` stores it uncalibrated),
+    #: a flux loop's is already calibrated, so a volt there is not the
+    #: converter's.  VEST's probe digitizers take +/-5 V: a whole-window rail
+    #: reads -5.0000 V or +4.9998 V on every one of 32,557 archived shots.
+    raw_rail_voltage: Mapping[str, float] = dataclass_field(
+        default_factory=lambda: {"b_field_pol_probe": 5.0}
+    )
+    #: One converter step of that record, in volts: 10 V over 2**16 codes.
+    #: Measured, not assumed: the smallest difference between distinct
+    #: samples is 0.1526 mV on every surveyed probe record.
+    raw_quantum: Mapping[str, float] = dataclass_field(
+        default_factory=lambda: {"b_field_pol_probe": 10.0 / 2**16}
+    )
+    #: How far, in converter steps, the farthest sample of the analysis
+    #: window may sit from a rail for the record to read "at the rail": the
+    #: positive end code sits one step inside +5 V, and the archive stores
+    #: values rounded to 0.1 mV, so a rail-stuck record lands within 1.3 steps.
+    #: A record that leaves the rail by more than this carries information and
+    #: is left to the other detectors.  ``None`` disables the check.
+    raw_rail_tolerance_quanta: float | None = 2.0
+
 
 
 @dataclass(frozen=True)
@@ -332,6 +363,49 @@ def constant_runs(data: np.ndarray, min_samples: int) -> list[tuple[int, int]]:
         for start, stop in _runs(same)
         if stop + 1 - start >= min_samples
     ]
+
+
+def raw_rail_departure(data: np.ndarray, rail: float) -> float:
+    """How far the finite samples stray from the nearer rail ``+/-rail``, at most, in volts.
+
+    The largest distance of any sample from ``-rail`` or from ``+rail``,
+    whichever is the smaller -- so a record pinned at either end of the
+    converter's range reads a few microvolts, and one that leaves the rail at
+    any instant reads the size of that excursion.  ``nan`` without a finite
+    sample (#2192).
+    """
+    values = np.asarray(data, dtype=float).reshape(-1)
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        return float("nan")
+    rail = abs(float(rail))
+    return float(min(np.max(np.abs(values + rail)), np.max(np.abs(values - rail))))
+
+
+def at_raw_rail(
+    data: np.ndarray,
+    *,
+    rail: float,
+    quantum: float,
+    tolerance_quanta: float,
+    min_samples: int,
+) -> bool:
+    """Whether a raw DAQ record sits at a rail for every sample of its window (#2192).
+
+    The converter's end code is what an open input, a dead amplifier or an
+    overdriven channel reads, and a record that never leaves it carries no
+    measurement at all.  Processing does not show it: integration and
+    baseline removal turn a constant into a field of ~1e-11 T that still
+    dithers in its last bits, so the processed-signal detectors pass it.  A
+    genuinely quiet probe sits near *zero* volts, and a signal that rails
+    only partway leaves the rail, so neither is caught here; ``min_samples``
+    keeps a record too short to say anything off the detector.
+    """
+    values = np.asarray(data, dtype=float).reshape(-1)
+    if int(np.isfinite(values).sum()) < int(min_samples):
+        return False
+    departure = raw_rail_departure(values, rail)
+    return bool(np.isfinite(departure) and departure <= float(tolerance_quanta) * float(quantum))
 
 
 def _filled(data: np.ndarray) -> np.ndarray:
@@ -1182,6 +1256,11 @@ def _whole_record_reason(found: _Detections) -> str:
     parts: list[str] = []
     if "known_fault" in reasons:
         parts.append(f"recorded as broken for this shot: {found.metrics['known_fault']}")
+    if "raw_rail" in reasons:
+        parts.append(
+            f"raw DAQ record sits at the {found.metrics['raw_rail_level']:+.4g} V rail for the "
+            "whole analysis window: no measurement"
+        )
     if "implausible_magnitude" in reasons:
         parts.append(
             f"amplitude {found.metrics['amplitude']:.3g} exceeds the physical ceiling; "
@@ -1201,6 +1280,41 @@ def _whole_record_reason(found: _Detections) -> str:
     if not is_usable(ValidityRecord(found.seed, None, None)):
         parts.append("seeded from an invalid raw voltage")
     return "; ".join(parts)
+
+
+def _raw_rail_review(
+    source: Any, kind: str, index: int, found: _Detections, config: MagneticsQualityConfig
+) -> _Detections:
+    """Condemn a channel whose raw DAQ record never leaves a rail (#2192).
+
+    Read, not rewritten: the stored ``voltage`` record is assessed and the
+    verdict lands on the processed channel, as the raw voltage's own validity
+    already does through the seed.  Independent of the vacuum model and of
+    every other channel.  A channel the check applies to gets its farthest
+    departure from the rail recorded, in converter steps, whatever the verdict.
+    """
+    rail = config.raw_rail_voltage.get(kind)
+    quantum = config.raw_quantum.get(kind)
+    tolerance = config.raw_rail_tolerance_quanta
+    if rail is None or quantum is None or tolerance is None:
+        return found
+    raw = lookup(source, f"magnetics.{kind}.{index}.voltage.data")
+    if raw is None:
+        return found
+    raw = np.asarray(raw, dtype=float).reshape(-1)
+    if raw.size == 0:
+        return found
+    departure = raw_rail_departure(raw, rail)
+    metrics = {**found.metrics, "raw_rail_departure_quanta": departure / float(quantum)}
+    hard = found.hard
+    if at_raw_rail(
+        raw, rail=rail, quantum=quantum, tolerance_quanta=tolerance,
+        min_samples=config.min_constant_run,
+    ):
+        level = float(np.median(raw[np.isfinite(raw)]))
+        metrics["raw_rail_level"] = level
+        hard = hard + (((0, found.data.size), "raw_rail"),)
+    return replace(found, hard=hard, metrics=metrics)
 
 
 def recorded_faults_for(source: Any) -> dict[tuple[str, int], str]:
@@ -1277,6 +1391,7 @@ def validate_magnetics_signals(
             voltage = read_validity(source, f"magnetics.{kind}.{index}.voltage")
             seed = VALIDITY_VALID if voltage is None else min(VALIDITY_VALID, int(voltage))
             found = _detect(*waveform, config=settings, seed=seed, kind=kind)
+            found = _raw_rail_review(source, kind, index, found, settings)
             fault = (known_faults or {}).get((kind, index))
             if fault is not None:
                 found = replace(
