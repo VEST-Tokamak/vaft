@@ -85,9 +85,19 @@ develop (7b1fcf192, re-checked at 75b154e31, f7472664d and aeec6d91a).
 | P17 | `machine_mapping/soft_x_rays.py::vfit_soft_x_rays_dynamic` own baseline windows (inventory: duplicate) | `sxr_offset_baseline` | public mapper | `removed` as a duplicate: the mapper calls the owner (inventory row now an intentional specialization of its window choice) | as P5 | #2197 |
 | P18 | `process/magnetics.py::_calibrated_signal` (inventory: duplicate of `calibrate_vest_signal` for the linear case) | `calibrate_vest_signal` | private | `validation_pending` (the zero-calibration half is closed: the registry rejects zero/non-finite since #2181) | #2181 | #2206 |
 
-The canonical API ownership matrix of B3.9 (`api_ownership.json`, #2198) agrees with the owners named
-here. For example, it lists the local `firwin` designs (P14) as preserved specializations, `smooth` as
+The canonical API ownership matrix of B3.9 (`api_ownership.json`, #2198) agrees with the canonical owners
+named here. For example, it lists the local `firwin` designs (P14) as preserved specializations, `smooth` as
 retained (P4), and `_calibrated_signal` as not migrated (P18).
+
+Its status vocabulary differs where this register judges the legacy row and the JSON judges the surviving
+function:
+
+- **P5/P17:** removed here; `retained_specialization` there, for the window rule that now delegates to
+  `sxr_offset_baseline`.
+- **P8:** `scientific_specialization` here; `removed` there, for the renamed `_legacy_pf_filter`.
+
+Its B3.2/B3.6 notes that `process_signal` and `vest_coil_current_noise_reduction` "retire in E" mean the
+deferred P13 decision (#2206). Neither function is deprecated.
 
 ## Tests that encode the old arrangement
 

@@ -60,7 +60,7 @@ The one item still waiting is #2209 (#2195, no-plasma shots), which is open and 
 
 ## Summary
 
-| Source | Items | Implemented | Validated only | Retained | Deferred | Pending PR |
+| Source | Items | Implemented | Validated only | Retained | Deferred | Pending owner sign-off |
 |---|---|---|---|---|---|---|
 | config_audit.md G1–G17 | 17 (G16 has a retained and a deferred half; G4 a retained IMPA half) | 14 (G4, G9, G11, G17 in part) | — | 2 (G14; the G16 values) | 2 fully (G15; G16 sign, #2176) + remainders of G9, G11, G17 (#2204) | — |
 | magnetics_reconciliation.md Q1–Q7 | 7 | 2 (Q3; Q6 as documentation) | 2 (Q2; Q7 as behaviour) | — | 3 (Q1, Q4, Q5) + the Q6/Q7 checks (#2203) | — |
@@ -93,7 +93,7 @@ Existing follow-ups used:
 |---|---|
 | #2175 | IMPA 26-tap band edge |
 | #2176 | field 171 sign |
-| #2192 | dead probes reach EFIT (corrected by #2212; closes on main) |
+| #2192 | dead probes reach EFIT (corrected by #2212; close by hand once on main) |
 | #2193 | PF2/PF5 vacuum misfit |
 | #2194 | 46403 baseline window |
 | #2195 | no-plasma k-files (#2209, pending owner sign-off) |
@@ -188,7 +188,7 @@ owner.
 | B3.6 plot-recipe Butterworth | **implemented** (`butterworth_highpass`) | #2179; guard (i) (#2196) |
 | B3.7 plot SXR baseline | **retained** in #2179 (window semantics differ), then superseded by B3.11: the plot calls the one owner | #2179; #2197 |
 | B3.8 comments | **implemented** | #2179 |
-| B3.9 API ownership matrix | **implemented**: `api_ownership.json`, validated against the code by `test/test_api_ownership.py`. Its owners agree with this register; for example, the FIR-design row lists the local `firwin` designs of P14 as preserved specializations, and `_calibrated_signal` as not migrated (P18) | #2198 |
+| B3.9 API ownership matrix | **implemented**: `api_ownership.json`, validated against the code by `test/test_api_ownership.py`. It agrees with the canonical owners named in the register (P4, P14 and P18, for example). Its status vocabulary differs where the register judges the legacy row and the JSON judges the surviving function: P5/P17 and P8; see the register note. Its "retire in E" notes on `process_signal` and `vest_coil_current_noise_reduction` mean the deferred P13 decision (#2206); neither function is deprecated | #2198 |
 | B3.10 box average | **implemented**, equivalent | #2183; #2191: all 364 k-files per state identical (the 16 shots with constraint slices) |
 | B3.11 SXR baselines | **implemented** (one owner `sxr_offset_baseline`, bit-identical to frozen copies; merged after #2191, so its evidence is its own test) | #2197 |
 | B3.12 short-run anti-alias | **implemented** (approved scientific correction); the #2172 strict xfail became a positive test in this PR | #2182 |
@@ -202,8 +202,8 @@ owner.
 | D qualification | **validated** (no unexplained regression) | #2191 |
 | D: spectrum check (finding 4), Q6/Q7 checks | **deferred** | #2201, #2203 |
 | D: #2182's unverified production exposure (how often ec_launchers' out-of-range masking now yields NaN short runs), vacuum benchmark physical qualification, 41524/41672/42962 chains, corrective-kinetic, analytic-preprocessing, H2 fingerprint properties, cross-environment baseline tolerance (#2191 §4.3), benchmark sensitivity (§9.5), EFIT ≠ plasma (§9.7) | **deferred** to Phase D's remaining scope | #2166 (open) |
-| D finding §9.1: dead (rail-stuck) probes pass QA and reach EFIT | **implemented** as an owner-approved correction (`approved_correction`): `vaft.validation.magnetics` condemns a B-probe whose raw record sits within 2 converter steps of ±5 V for the whole window. 2,391 production (shot, probe) pairs on 1,107 shots get weight 0. Stored products change only on regeneration (#2200). #2192 closes on main | #2212 |
-| D finding §9.6: no-plasma shots get k-files | **pending owner sign-off**: no-plasma shots are recorded as EFIT not applicable | #2209 (open); #2195 |
+| D finding §9.1: dead (rail-stuck) probes pass QA and reach EFIT | **implemented** as an owner-approved correction (`approved_correction`): `vaft.validation.magnetics` condemns a B-probe whose raw record sits within 2 converter steps of ±5 V for the whole window. 2,391 production (shot, probe) pairs on 1,107 shots newly get weight 0 (of 4,181 rail-stuck pairs on k-file shots). Stored products change only when the owner-approved regeneration runs (#2200, or the full pipeline regeneration). #2192 stays open: close it by hand once the fix reaches main, as for #2158 | #2212 |
+| D finding §9.6: no-plasma shots get k-files | **pending owner sign-off**: fallback-window shots with positive no-plasma evidence are recorded as EFIT not applicable, and the verdict is withheld otherwise (519 production shots, 16,061 k-files; six with sustained \|I_p\| > 50 kA flagged for an owner glance) | #2209 (open); #2195 |
 | D findings §9.3, §9.4 | **deferred** to their own issues | #2193, #2194 |
 | D: TF-coupling shift after #2135; 48224 | **validated**: the shift is recorded in #2135. 48224 stays blocked, classified `reference_inconclusive`; #2191 §8 rules the #2135 delay out as the explanation | #2135, #2191 |
 | E guards: registry schema/uniqueness | **implemented** | #2181 |
@@ -296,6 +296,7 @@ rows (eight C4 provenance builders and the preflight) are #2164's remaining scop
 
 ## 7. Items that need an owner action, not code
 
+- **Close #2192 by hand** once #2212 reaches main, and #2195 after #2209, for the same reason as #2158.
 - **Close #2158 by hand.** #2181 said "Closes #2158", but closing keywords only fire on the default branch.
 - **Sign off (or amend) the #2209 rules** for no-plasma shots (#2195).
 - **Approve or decline the regeneration** of pre-#2135 products (#2200).
