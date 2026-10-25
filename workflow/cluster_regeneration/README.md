@@ -28,7 +28,7 @@ FileDB and never contacts HSDS; moving and replicating are separate, separately 
   before it aborts in `gal.f` anyway, and in the pilot such a case took a 64 GB allocation's
   Snakemake down with it.
 - **Solver scratch.** DCON `euler.bin` and vacuum `vmat.bin` (~5 GB per MHD shot, 98 % of the
-  GPEC tree) are deleted after each finished chunk (`PRUNE_SOLVER_SCRATCH=1`), with size, sha256
+  GPEC tree) are deleted after each finished chunk (`PRUNE_SOLVER_SCRATCH=1`), with size, mtime
   and path kept in `<lane>/pruned.tsv`; no Snakemake output or stage product reads them.
 - **Floating-point parity.** `env.example.sh` sets `OPENBLAS_CORETYPE=Haswell` and disables numpy's
   AVX-512 loops (`REGEN_CPU_PARITY=0` to opt out), which made magnetics products bit-identical to

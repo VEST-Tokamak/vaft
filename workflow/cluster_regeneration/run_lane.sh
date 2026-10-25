@@ -136,12 +136,14 @@ for f in "$LANE"/chunks/shots.[0-9][0-9][0-9]; do
   fi
   # Solver scratch: DCON's euler.bin and the vacuum vmat.bin are 90 % of the pilot's volume
   # (~5 GB per shot) and only feed later solves of the same chunk, all finished now. They are not
-  # Snakemake outputs and no stage product reads them; their sizes and hashes stay in pruned.tsv.
+  # Snakemake outputs and no stage product reads them; size, mtime and path stay in pruned.tsv
+  # (PRUNE_HASH=1 adds sha256: ~10 s per MHD shot of serial reading, so off by default).
   if [ "${PRUNE_SOLVER_SCRATCH:-1}" = 1 ] && [ -d "$FILEDB/gpec" ]; then
     while read -r s; do
       find "$FILEDB"/gpec/magnetic/chease/*/"$s"/n=*/work -type f \( -name euler.bin -o -name vmat.bin \) \
-        -printf "%s\t%p\n" 2>/dev/null | while IFS=$'\t' read -r size path; do
-          printf "%s\t%s\t%s\t%s\n" "$c" "$size" "$(sha256sum < "$path" | cut -d' ' -f1)" "${path#"$FILEDB"/}" >> "$LANE/pruned.tsv"
+        -printf "%s\t%TY-%Tm-%Td %TH:%TM\t%p\n" 2>/dev/null | while IFS=$'\t' read -r size mtime path; do
+          sha=-; [ "${PRUNE_HASH:-0}" = 1 ] && sha=$(sha256sum < "$path" | cut -d' ' -f1)
+          printf "%s\t%s\t%s\t%s\t%s\n" "$c" "$size" "$mtime" "$sha" "${path#"$FILEDB"/}" >> "$LANE/pruned.tsv"
           rm -f "$path"
         done
     done < "$LANE/chunks/$c.run"
