@@ -22,7 +22,6 @@ from vaft.database import raw as raw_db
 from vaft.database.sources import STAGE_REPLICATION
 from vaft.process.signal_processing import SignalRepairError
 from vaft.database._local import load_ods
-from vaft.data.resources import data_path
 from vaft.machine_mapping.barometry import barometry
 from vaft.machine_mapping.ec_launchers import ec_launchers
 from vaft.machine_mapping.dataset_description import dataset_description
@@ -45,6 +44,11 @@ from vaft.machine_mapping.magnetics import (
     vest_equilibrium_magnetics_channel_definitions,
     vfit_magnetics_dynamic,
     vfit_magnetics_static,
+)
+from vaft.machine_mapping.magnetics_registry import (
+    REGISTRY_CONFIG_PATH as MAGNETICS_REGISTRY_CONFIG_PATH,
+    registry_fingerprint as magnetics_registry_fingerprint,
+    registry_source as magnetics_registry_source,
 )
 from vaft.machine_mapping.pf_active import (
     PF_COIL_COUNT,
@@ -282,17 +286,17 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
             # The static product carries probe positions only. Which raw field
             # feeds each position is per shot (vest.yaml `wiring`, issue #956)
             # and recorded in the diagnostics provenance.
-            "magnetics_geometry": {
-                "name": "VEST_MagneticsGeometry_Full_ver_2302.yaml",
-                "source_version": "2409",
-                "sha256": sha256_file(
-                    data_path("geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml")
-                ),
-            },
-            "magnetics_calibration": {
-                "name": "MD.yaml",
-                "source_version": "2409",
-                "sha256": sha256_file(data_path("geometry/MD.yaml")),
+            #
+            # Since #2158 the sensors come from the vest.yaml registry, so the
+            # record is the registry fingerprint (sha256 of the resolved
+            # inventory records), not a file hash. It replaces the two
+            # file-hash records `magnetics_geometry` / `magnetics_calibration`
+            # that products and EFUND table manifests made before #2158 carry;
+            # those historical identities are left as they are.
+            "magnetics_registry": {
+                "name": f"vest.yaml:{MAGNETICS_REGISTRY_CONFIG_PATH}",
+                "source_version": str(magnetics_registry_source()["wiring_layout"]),
+                "sha256": magnetics_registry_fingerprint(),
             },
         },
         "channel_status": {

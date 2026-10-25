@@ -107,7 +107,7 @@ _MODULES: dict[str, object] = {}
 
 # Explicit opt-in APIs are documented without extending the historical star
 # namespace. Only the catalog and explicit submodule callers load them.
-_CATALOG_ONLY_SUBMODULES = {"regularized_profiles": ".regularized_profiles"}
+_CATALOG_ONLY_SUBMODULES = {"regularized_profiles": ".regularized_profiles", "units": ".units"}
 
 
 def _submodule(key: str):

@@ -24,6 +24,7 @@ from .effective_config import (
     resolve_vest_processing_config,
     vest_configuration_source,
 )
+from .magnetics_registry import REGISTRY_CONFIG_PATH, registry_fingerprint
 from .utils import (
     resolve_diagnostics_time_policies,
     resolve_plasma_timing_policy,
@@ -145,6 +146,12 @@ def _equilibrium_magnetics_provenance(shot: int, info_file: str | None = None) -
         # The wiring and fault resolvers read the packaged vest.yaml only; say
         # so rather than let a campaign file appear to have supplied them.
         "wiring_and_faults_source": "vaft/machine_mapping/vest.yaml",
+        # The effective sensor definitions this shot resolved to (#2158):
+        # where they live and the fingerprint of the resolved records.
+        "sensor_registry": {
+            "source": REGISTRY_CONFIG_PATH,
+            "fingerprint": registry_fingerprint(int(shot)),
+        },
     }
 
 

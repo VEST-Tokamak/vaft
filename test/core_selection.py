@@ -76,6 +76,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Layer boundaries. Source-level architecture checks -- no solves, no I/O.
     "contracts/test_machine_mapping_boundaries.py",
     "test_api_layer_boundaries.py",
+    "test_architecture_guards.py",
+    # Phase A audit inventories regenerate from the tree and must match (#2174; ~11 s).
+    "test_architecture_audit_inventory.py",
     "test_code_parameters_writers.py",
     "test_no_bare_downsample.py",
     "test_no_pyplot_outside_plot.py",
@@ -368,6 +371,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_flux_loop_known_faults.py",
     "test_magnetic_decomposition.py",
     "test_magnetics_geometry_registry.py",
+    # The vest.yaml equilibrium magnetic sensor registry (#2158): schema,
+    # frozen-fixture equality and pre-#2158 output identity, ~30 s.
+    "test_magnetics_registry.py",
     "test_plasma_current_quality.py",
     "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
@@ -405,6 +411,12 @@ CORE_MODULES: tuple[str, ...] = (
     # the ordering-margin evaluation on synthetic states, plus two clean-interpreter
     # import checks that keep both off the default processing path. Under 10 s.
     "test_validation_credibility.py",
+    # Scientific contract interoperability (#2163): unit scale factors, declared
+    # Fourier conventions and the identity/unit/COCOS/Fourier compatibility
+    # assessment, Cases A, B, C and E of #2160. Metadata and NumPy; under 5 s.
+    "test_data_fourier_convention.py",
+    "test_formula_units.py",
+    "test_scientific_compatibility.py",
     # Sensitivity contract (lane AP, #1642): finite differences against the
     # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map; per-formula
     # propagation and analytic Jacobians of the pilot formulas (#1874). ~3 s.

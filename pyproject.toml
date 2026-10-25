@@ -229,7 +229,6 @@ vaft = [
   "data/geometry/VEST_em_coupling_pf_versions.npz",
   "data/geometry/VEST_passive_wall_2409.npz",
   "data/geometry/VEST_static_geometry.json.gz",
-  "data/geometry/*.yaml",
   "data/geometry/*.csv",
   "data/geometry/camera_visible/*.json",
   "data/gpec/*.in",

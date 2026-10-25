@@ -1542,41 +1542,44 @@ def _annotate_series(
     set_path(ods, f"{base_path}.data_error_upper", _scaled_uncertainty(get_path(ods, data_path), relative_error))
 
 
-@lru_cache(maxsize=1)
 def _load_magnetics_channel_groups() -> dict[str, list[int]]:
-    geometry_path = resolve_data_root() / "geometry" / "VEST_MagneticsGeometry_Full_ver_2302.yaml"
-    with open(geometry_path, "r", encoding="utf-8") as handle:
-        channels = yaml.safe_load(handle)["channels"]
+    """Constraint groups of the registry sensors, by IDS index within each kind.
 
-    groups = {
+    Positions come from the ``vest.yaml`` sensor registry (#2158) and the
+    family boundaries are the mapper's own constants, so neither is restated
+    here. A fresh dict is returned each call.
+    """
+    # Imported here: vaft.machine_mapping.magnetics imports this module.
+    from .magnetics import (
+        INBOARD_FLUX_LOOP_MAX_R,
+        INBOARD_PROBE_MAX_R,
+        OUTBOARD_FLUX_LOOP_MIN_R,
+        OUTBOARD_PROBE_MIN_R,
+        SIDE_PROBE_MIN_ABS_Z,
+    )
+    from .magnetics_registry import FLUX_LOOP_KIND, resolve_equilibrium_magnetics_sensors
+
+    groups: dict[str, list[int]] = {
         "magnetics_bpol_inboard": [],
         "magnetics_bpol_side": [],
         "magnetics_bpol_outboard": [],
         "magnetics_flux_loop_inboard": [],
         "magnetics_flux_loop_outboard": [],
     }
-
-    flux_index = 0
-    probe_index = 0
-    for channel in channels:
-        radial = float(channel["r"])
-        vertical = float(channel["z"])
-        if channel["kind"] == "flux_loop":
-            if radial < 0.15:
-                groups["magnetics_flux_loop_inboard"].append(flux_index)
-            elif radial > 0.5:
-                groups["magnetics_flux_loop_outboard"].append(flux_index)
-            flux_index += 1
+    for sensor in resolve_equilibrium_magnetics_sensors(None):
+        radial, vertical = sensor.r, sensor.z
+        if sensor.kind == FLUX_LOOP_KIND:
+            if radial < INBOARD_FLUX_LOOP_MAX_R:
+                groups["magnetics_flux_loop_inboard"].append(sensor.kind_index)
+            elif radial > OUTBOARD_FLUX_LOOP_MIN_R:
+                groups["magnetics_flux_loop_outboard"].append(sensor.kind_index)
             continue
-
-        if radial < 0.09:
-            groups["magnetics_bpol_inboard"].append(probe_index)
-        elif abs(vertical) > 0.8:
-            groups["magnetics_bpol_side"].append(probe_index)
-        elif radial > 0.795:
-            groups["magnetics_bpol_outboard"].append(probe_index)
-        probe_index += 1
-
+        if radial < INBOARD_PROBE_MAX_R:
+            groups["magnetics_bpol_inboard"].append(sensor.kind_index)
+        elif abs(vertical) > SIDE_PROBE_MIN_ABS_Z:
+            groups["magnetics_bpol_side"].append(sensor.kind_index)
+        elif radial > OUTBOARD_PROBE_MIN_R:
+            groups["magnetics_bpol_outboard"].append(sensor.kind_index)
     return groups
 
 
