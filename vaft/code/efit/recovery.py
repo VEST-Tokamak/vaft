@@ -36,6 +36,7 @@ from vaft.machine_mapping.magnetics import (
     INBOARD_PROBE_MAX_R,
     OUTBOARD_PROBE_MIN_R,
     SIDE_PROBE_MIN_ABS_Z,
+    equilibrium_sensor_families,
 )
 from vaft.validation.channel_decision import (
     MISSING,
@@ -103,8 +104,21 @@ class ProbeFamilies(NamedTuple):
     outboard: np.ndarray
 
 
-def probe_families(magnetics: Any, *, count: int) -> ProbeFamilies:
-    """The legacy family membership, from probe positions, clamped to count."""
+def probe_families(magnetics: Any, *, count: int, shot: int | None = None) -> ProbeFamilies:
+    """The probe family membership of the first *count* probes.
+
+    With *shot*, each probe is placed by the registry sensor its
+    ``identifier`` names for that shot
+    (:func:`~vaft.machine_mapping.magnetics.equilibrium_sensor_families`,
+    #2164), and a probe the registry cannot name raises. Without it, by the
+    positions the IDS carries -- the legacy rule, kept for hand-built IDSs
+    that have no identifiers; on a mapped product both give the same sets.
+    """
+    if shot is not None:
+        placed = equilibrium_sensor_families(magnetics, int(shot), probe_count=count)
+        return ProbeFamilies(
+            inboard=placed["inboard"], side=placed["side"], outboard=placed["outboard"]
+        )
     r = np.asarray(magnetics["b_field_pol_probe.:.position.r"], dtype=float).reshape(-1)
     z = np.asarray(magnetics["b_field_pol_probe.:.position.z"], dtype=float).reshape(-1)
     limit = min(int(count), r.size, z.size)
