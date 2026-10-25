@@ -400,7 +400,11 @@ _UNJUDGED_CURRENT_FLAGS = frozenset({
 
 
 def _current_flags(window: ConstraintWindow) -> set[str]:
-    """The timing's flags plus the plasma-current detector's own onset flags."""
+    """Every timing flag plus the plasma-current detector's own window and onset flags.
+
+    The timing's flags include the light's crop flags too, so a degenerate
+    H-alpha baseline also withholds the verdict -- the safe side.
+    """
     flags = set(window.flags)
     ip = (window.record or {}).get("ip") or {}
     flags.update(((ip.get("onset") or {}).get("flags")) or ())
@@ -428,7 +432,9 @@ def _reverse_current_pulse(ods, window: ConstraintWindow) -> bool:
         mirror["magnetics.ip.0.time"] = np.asarray(clock, dtype=float)
         mirror["magnetics.ip.0.data"] = -np.asarray(current, dtype=float)
         return bool(ip_window(mirror, span=span).found)
-    except Exception:
+    except Exception as exc:  # cannot judge: withhold the verdict, but say why
+        LOGGER.warning("sign-flipped current could not be judged (%s: %s); no no-plasma verdict",
+                       type(exc).__name__, exc)
         return True
 
 
@@ -464,9 +470,14 @@ def _no_plasma_window_reason(
     showing one is not yet evidence of its absence, so the verdict is drawn
     only where the evidence is positive:
 
-    * a usable H-alpha line answered for the light and stayed dark (45919,
-      46406): two independent sources, the light and a judged current, agree
-      that no discharge happened; or
+    * a usable H-alpha line answered for the light and its detector accepted
+      no window (45919, 46406: no light above the noise beyond the excursions
+      the onset rules reject), while the judged current shows no pulse either:
+      two independent detectors agree that no discharge happened.  Their
+      refusals are trusted as they stand -- a sub-millisecond flash under an
+      impulsive current is refused by both, and a wrong-signed current of any
+      size under that light is pickup, the dark-window reading
+      :func:`_efit_not_applicable` already applies (#205); or
     * no light could be judged (39417 has no H-alpha line) and the current
       alone shows it: every kept instant is wrong-signed (VEST stores Ip
       positive-going) and the sign-flipped current shows no pulse either, so
@@ -497,7 +508,7 @@ def _no_plasma_window_reason(
     kept = int(np.asarray(kept_times).size)
     record = window.record or {}
     if record.get("optical") is not None:
-        evidence = "a usable H-alpha line stayed dark and the plasma current shows no discharge pulse"
+        evidence = "a usable H-alpha line shows no discharge window and the plasma current shows no discharge pulse"
     else:
         currents = _kept_currents(ods, kept_times, average_window=average_window)
         if not currents.size or not np.all(currents < 0.0) or _reverse_current_pulse(ods, window):

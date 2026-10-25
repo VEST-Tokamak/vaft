@@ -256,15 +256,16 @@ in `vest.yaml`, 0.28–0.36 s — and intersects it with the plasma window `vaft
 the product: the slow H-alpha line found by label, else the validated fast line, else the plasma-current
 principal pulse (see [Plasma timing policy]({{ site.baseurl }}/guide/Machine_mapping/#plasma-timing-policy)).
 When no source shows a plasma the window falls back to the whole range, flagged `analysis_range_fallback`
-with the reason. A fallback is the shot's "EFIT not applicable: no plasma window ..." verdict (#2195), even
-when PF pickup lifts a few instants past `CUTIP`, only where the evidence is positive: a usable H-alpha line
-stayed dark while the judged plasma current showed no pulse, or, with no usable light, every instant the
-vacuum cut kept is wrong-signed and the sign-flipped current shows no pulse either. A current the timing
-could not judge (`ip_unusable`, a degenerate detector reference, a condemned Rogowski) never yields the
-verdict. The k-file, EFIT and EFIT-ODS steps pass the verdict on as `skipped: not applicable`, as for any
-vacuum shot; the diagnostics and eddy products, which the vacuum benchmark reads, are produced as before.
-Every other fallback still reconstructs the whole range. On every reconstructed run
-`equilibrium.ids_properties.comment` names the window and its source. Start and end are clamped to `tstart`/`tend` when given and snapped to the `tstep`
+with the reason. A fallback becomes the shot's "EFIT not applicable: no plasma window ..." verdict (#2195),
+even when PF pickup lifts a few instants past `CUTIP`, only where the evidence is positive: a usable H-alpha
+line accepted no discharge window while the judged plasma current showed no pulse (a wrong-signed current
+under that light is pickup, as in #205), or, with no usable light, every instant the vacuum cut kept is
+wrong-signed and the sign-flipped current shows no pulse either. A current the timing could not judge
+(`ip_unusable`, a degenerate detector reference, a condemned Rogowski) never yields the verdict. The k-file,
+EFIT and EFIT-ODS steps pass it on as `skipped: not applicable`, as for any vacuum shot; the diagnostics and
+eddy products, which the vacuum benchmark reads, are produced as before. Every other fallback still
+reconstructs the whole range, and on every reconstructed run `equilibrium.ids_properties.comment` names the
+window and its source. Start and end are clamped to `tstart`/`tend` when given and snapped to the `tstep`
 grid, and the end instant is included. With `timeset: manual` you get exactly `np.arange(tstart, tend, tstep)`
 and both bounds become mandatory.
 

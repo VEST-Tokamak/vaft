@@ -410,7 +410,7 @@ def test_pickup_past_cutip_under_a_dark_line_is_not_applicable(monkeypatch, tmp_
     assert code == 0
     reason = constraints_not_applicable_reason(load_omas_json(str(output), consistency_check=False))
     assert reason.startswith("no plasma window in the plasma-analysis range")
-    assert "a usable H-alpha line stayed dark" in reason
+    assert "a usable H-alpha line shows no discharge window" in reason
     assert "ip_principal: no_onset" in reason
     assert f"the vacuum cut kept {kept.size} of 81 constraint instants" in reason
 
@@ -515,9 +515,24 @@ def test_manual_mode_is_never_judged_by_the_no_plasma_rule(monkeypatch, tmp_path
     assert calls, "manual mode reached the constraint builder"
 
 
-def test_an_all_below_cutip_fallback_shot_keeps_its_205_verdict(monkeypatch, tmp_path):
-    """The new rule runs after the vacuum cut: the #205 wording is unchanged."""
-    code, output = _run_constraints(monkeypatch, tmp_path, _vacuum())
-    assert code == 0
-    reason = constraints_not_applicable_reason(load_omas_json(str(output), consistency_check=False))
-    assert reason.startswith("peak |Ip| ")
+def test_under_a_dark_line_a_reverse_current_is_pickup_by_design():
+    """Pinned design: with usable dark light, a wrong-signed current is pickup
+    whatever its size -- the dark-window reading of #205 -- so it gets the verdict."""
+    window, kept, reason = _judge(_shot(lambda t: -current(t, peak=60e3)))
+    assert window.fallback and kept.size > 3
+    assert reason is not None and "shows no discharge window" in reason
+
+
+def test_a_degenerate_flag_on_the_current_detector_record_withholds_the_verdict():
+    """The detector's own onset flags are read from the window record, not only the timing flags."""
+    import copy
+
+    ods = _shot(_pickup_past_cutip)
+    window, kept, reason = _judge(ods)
+    assert reason is not None
+    record = copy.deepcopy(window.record)
+    record["ip"]["onset"]["flags"] = list(record["ip"]["onset"]["flags"]) + ["reference_too_short"]
+    assert CONSTRAINTS._no_plasma_window_reason(
+        ods, window._replace(record=record), kept, cut=81 - kept.size
+    ) is None
+
