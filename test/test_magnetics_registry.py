@@ -449,3 +449,106 @@ def test_the_raw_db_name_table_agrees_with_every_registry_label(inventory):
     for record in inventory:
         assert record.name in names.get(record.field_code, set()), record.id
     assert names[25] == {"Flux Loop - #10", "Arc Current"}
+
+
+# ---------------------------------------------------------------------------
+# Constraint families by sensor identity (#2164)
+# ---------------------------------------------------------------------------
+
+
+def _positional_families(ods, count):
+    """The rule the k-file builder used before #2164: the product's own positions."""
+    import numpy as np
+
+    from vaft.machine_mapping.magnetics import (
+        INBOARD_FLUX_LOOP_MAX_R,
+        INBOARD_PROBE_MAX_R,
+        OUTBOARD_FLUX_LOOP_MIN_R,
+        OUTBOARD_PROBE_MIN_R,
+        SIDE_PROBE_MIN_ABS_Z,
+    )
+
+    r = np.asarray(ods["magnetics.b_field_pol_probe.:.position.r"], dtype=float)[:count]
+    z = np.asarray(ods["magnetics.b_field_pol_probe.:.position.z"], dtype=float)[:count]
+    loop_r = np.asarray(ods["magnetics.flux_loop.:.position.0.r"], dtype=float)
+    return {
+        "inboard": np.flatnonzero(r < INBOARD_PROBE_MAX_R),
+        "side": np.flatnonzero(np.abs(z) > SIDE_PROBE_MIN_ABS_Z),
+        "outboard": np.flatnonzero(r > OUTBOARD_PROBE_MIN_R),
+        "inboard_flux": np.flatnonzero(loop_r < INBOARD_FLUX_LOOP_MAX_R),
+        "outboard_flux": np.flatnonzero(loop_r > OUTBOARD_FLUX_LOOP_MIN_R),
+    }
+
+
+@pytest.mark.parametrize("shot", [39915, 41524, 41672, 42962])
+def test_registry_families_equal_the_positional_ones_on_every_packaged_product(shot):
+    import numpy as np
+
+    from vaft.database._local import load_ods
+    from vaft.machine_mapping.magnetics import equilibrium_probe_count, equilibrium_sensor_families
+
+    ods, _ = load_ods(ROOT / "vaft" / "data" / "samples" / str(shot) / "source" / "pipeline-until-efit.json.gz")
+    count = equilibrium_probe_count(ods)
+    placed = equilibrium_sensor_families(ods, shot, probe_count=count)
+    expected = _positional_families(ods, count)
+    assert set(placed) == set(expected)
+    for name in expected:
+        np.testing.assert_array_equal(placed[name], expected[name], err_msg=name)
+    # Sub-tree and whole ODS give one answer.
+    np.testing.assert_array_equal(
+        equilibrium_sensor_families(ods["magnetics"], shot, probe_count=count)["side"], placed["side"]
+    )
+
+
+@pytest.mark.parametrize("shot", [30000, 39437, 39438, 43016, 46000, 48224])
+def test_registry_families_hold_for_a_freshly_mapped_static_in_every_wiring_era(shot):
+    import numpy as np
+    from omas import ODS
+
+    from vaft.machine_mapping.magnetics import (
+        equilibrium_probe_count,
+        equilibrium_sensor_families,
+        vfit_magnetics_static,
+    )
+
+    ods = ODS(consistency_check=False)
+    vfit_magnetics_static(ods, shot)
+    count = equilibrium_probe_count(ods)
+    placed = equilibrium_sensor_families(ods, shot, probe_count=count)
+    for name, indexes in _positional_families(ods, count).items():
+        np.testing.assert_array_equal(placed[name], indexes, err_msg=name)
+
+
+def test_registry_families_follow_identity_not_the_carried_position():
+    """Negative control: a product carrying a wrong position keeps the sensor's family."""
+    import numpy as np
+    from omas import ODS
+
+    from vaft.machine_mapping.magnetics import equilibrium_sensor_families, vfit_magnetics_static
+
+    ods = ODS(consistency_check=False)
+    vfit_magnetics_static(ods, 41672)
+    before = equilibrium_sensor_families(ods, 41672, probe_count=64)
+    inboard = int(before["inboard"][0])
+    ods[f"magnetics.b_field_pol_probe.{inboard}.position.r"] = 0.9  # an outboard radius
+    after = equilibrium_sensor_families(ods, 41672, probe_count=64)
+    for name in before:
+        np.testing.assert_array_equal(after[name], before[name], err_msg=name)
+    assert inboard in _positional_families(ods, 64)["outboard"]  # the old rule would have moved it
+
+
+def test_registry_families_refuse_a_channel_the_registry_does_not_name():
+    from omas import ODS
+
+    from vaft.machine_mapping.magnetics import equilibrium_sensor_families, vfit_magnetics_static
+
+    ods = ODS(consistency_check=False)
+    vfit_magnetics_static(ods, 41672)
+    ods["magnetics.b_field_pol_probe.7.identifier"] = "not-a-sensor"
+    with pytest.raises(ValueError, match="registry names no b_field_pol_probe"):
+        equilibrium_sensor_families(ods, 41672, probe_count=64)
+    ods = ODS(consistency_check=False)
+    vfit_magnetics_static(ods, 41672)
+    ods["magnetics.flux_loop.2.identifier"] = "Flux Loop - #99"
+    with pytest.raises(ValueError, match="registry names no flux_loop"):
+        equilibrium_sensor_families(ods, 41672, probe_count=64)
