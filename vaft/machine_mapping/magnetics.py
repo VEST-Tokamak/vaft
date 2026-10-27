@@ -2576,7 +2576,7 @@ def vfit_magnetics_dynamic(
     Returns ``{signal: reason}`` for the signals left out because they could
     not be reconstructed -- today only ``"diamagnetic_flux"``. The diamagnetic
     loop is one channel with its own acquisition history (vest.yaml
-    diamagnetic_flux.revisions): when it
+    ``diamagnetic_flux.revisions``): when it
     carries nothing usable (pinned at the ADC rail for the whole record, or
     not archived) its node is simply not written, rather than the probes,
     flux loops and Ip going down with it. Nothing is fabricated; the caller
