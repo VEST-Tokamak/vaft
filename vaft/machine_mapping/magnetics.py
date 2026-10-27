@@ -1319,8 +1319,8 @@ def diamagnetic_field_for_shot(shot: int) -> int | None:
     """The raw field carrying the diamagnetic (TF Rogowski) signal, or ``None``.
 
     ``None`` when `vest.yaml` records no usable sensor for the shot -- none
-    installed yet, or a known fault period (Open: #993, the channel history
-    behind the 33910-42664 pinned period is unconfirmed).
+    installed yet, or a known fault period (the channel history was re-derived
+    from the raw archive; record: #993).
     """
     source = _diamagnetic_config(shot).get("source")
     if not source or source.get("field") is None:
@@ -2575,7 +2575,8 @@ def vfit_magnetics_dynamic(
 
     Returns ``{signal: reason}`` for the signals left out because they could
     not be reconstructed -- today only ``"diamagnetic_flux"``. The diamagnetic
-    loop is one channel with its own acquisition history (Open: #993): when it
+    loop is one channel with its own acquisition history (vest.yaml
+    diamagnetic_flux.revisions): when it
     carries nothing usable (pinned at the ADC rail for the whole record, or
     not archived) its node is simply not written, rather than the probes,
     flux loops and Ip going down with it. Nothing is fabricated; the caller

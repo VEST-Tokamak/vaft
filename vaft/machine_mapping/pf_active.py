@@ -120,9 +120,9 @@ def coil_field_code_by_index(shot: int) -> dict[int, int]:
     codes = resolve_vest_diagnostic(shot, "pf_active")["processing"].get("coil_field_codes") or {}
     by_index = {int(coil_index): int(code) for coil_index, code in codes.items()}
     # A raw field is one signal. On the shots where the diamagnetic TF
-    # Rogowski was recorded on field 4, PF2's channel carried the Rogowski,
-    # not a coil current, so no circuit reads the diamagnetic field. Open: #993
-    # (the diamagnetic channel history on 33910-42664 is still suspect).
+    # Rogowski was recorded on field 4 (vest.yaml diamagnetic_flux.revisions),
+    # PF2's channel carried the Rogowski, not a coil current, so no circuit
+    # reads the diamagnetic field.
     diamagnetic = resolve_vest_diagnostic(shot, "diamagnetic_flux").get("source") or {}
     if diamagnetic.get("field") is not None:
         by_index = {

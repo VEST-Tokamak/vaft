@@ -37,7 +37,7 @@ _LEGACY_REPLACEMENTS = {
     "vfit_tf_bt_r": None,
     "vfit_tf_current": None,
     "vest_md_channel_definitions": "vest_equilibrium_magnetics_channel_definitions",
-    # Pre-rename aliases with a removal milestone (removed in vaft 0.11.0, see
+    # Pre-rename aliases with a removal milestone (scheduled for removal in vaft 0.11.0, see
     # _LEGACY_REMOVALS below; retirement register L5/L6, #2168).
     "vfit_md": "magnetics.vfit_equilibrium_magnetics",
 }

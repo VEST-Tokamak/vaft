@@ -2014,7 +2014,6 @@ diagnostics_time_policies:
     # and outlasts the analysis window, so it follows the full-discharge policy.
     ec_power: full_discharge
 
-# Plasma-timing policy: where the plasma window is searched for
 # EFIT coilset policy: what EFIT is told VEST's PF circuits are.
 # Which of the ten circuits its Green table describes, how each is split into
 # current groups, and which groups are wired in series.
