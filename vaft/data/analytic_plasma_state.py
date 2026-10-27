@@ -1,4 +1,4 @@
-"""Records for analytic confinement-regime plasma states (#1045).
+"""Records for analytic confinement-regime plasma states.
 
 An analytic plasma state is a set of prescribed kinetic profiles -- electron
 density, electron and ion temperature -- on the normalized poloidal flux

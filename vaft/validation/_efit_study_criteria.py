@@ -1,4 +1,4 @@
-"""What makes a scanned EFIT setting good, per slice (#891).
+"""What makes a scanned EFIT setting good, per slice.
 
 The study's policy module.  It ships with the package so that
 :mod:`vaft.validation.equilibrium_quality` can judge slices from a wheel
@@ -8,8 +8,9 @@ the study's path for the study's scripts.  Private: the public surface is the
 
 Two separate questions are answered, and never folded into one:
 
-* **fit quality** (``good``) -- the four criteria agreed on #891 after the
-  diamagnetic sign was corrected (#1196), behind a physical-admissibility
+* **fit quality** (``good``) -- the four criteria of the EFIT
+  sigma-calibration study (provenance: #891), evaluated with the diamagnetic
+  flux in its paramagnetic-positive sign convention, behind a physical-admissibility
   veto: is this a converged reconstruction that fits its own measurements?
 * **physical consistency** (``physically_consistent``) -- does it agree with
   pressure it never used (Thomson)?  A slice can be a numerically sound fit
@@ -32,7 +33,7 @@ The fit-quality criteria:
 * **virial** -- the reconstruction's own beta_p (pressure volume integral)
   against the RT-free ``pair_13`` virial closure.  The closure is inverted
   only where its denominator is not near singular; elsewhere the slice is
-  *indeterminate* rather than scored (#649: the other closures are
+  *indeterminate* rather than scored (the other closures are
   ill-conditioned at VEST's aspect ratio).
 * **grad_shafranov** -- the relative Grad-Shafranov residual of the g-file.
 

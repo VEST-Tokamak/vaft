@@ -45,7 +45,8 @@ What the file says, and what it does not
   high density branch scalings") and missing otherwise -- a row outside the
   selection is not thereby low-density.
 * The file has no triangularity (``delta`` missing) and no threshold
-  prediction; VAFT has no L-H scaling yet (#670, #1066), so
+  prediction; the reader does not compute one (VAFT's Martin 2008 entry,
+  ``martin_2008_lh`` in :mod:`vaft.formula.boundaries`, is not applied here), so
   ``p_lh_scaling_W`` is missing and so is the margin.
 * All records are single null with the X-point at the bottom and the ion
   grad-B drift toward it (``CONFIG``, ``IGRADB = 1``).

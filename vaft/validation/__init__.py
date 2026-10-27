@@ -1,4 +1,4 @@
-"""VAFT's scientific assessment layer (issue #253).
+"""VAFT's scientific assessment layer.
 
 ``vaft.validation`` evaluates the credibility of data and computational results;
 it does not generate them.  The calculations stay with their domain providers --
@@ -18,19 +18,19 @@ Layout::
     model.py          the status vocabulary and taxonomy
     registry.py       stable per-check metadata: category, unit, provider, tolerance
     imas.py           native IMAS/OMAS validity and status fields
-    equilibrium.py    the unified equilibrium report (#72), the reference implementation
-    cocos.py          COCOS sign-relation consistency, Sauter Eq. 23 (moved from vaft.process, #337)
-    magnetics.py      magnetics signal quality (#189)
-    impa.py           IMPA shot grading as source validity (#339)
-    vacuum_benchmark.py  vacuum-model benchmark against measured magnetics (#190)
-    wall_reduction.py the reduced-wall order study: full vs reduced, both vs data (#494)
+    equilibrium.py    the unified equilibrium report, the reference implementation
+    cocos.py          COCOS sign-relation consistency, Sauter Eq. 23 (formerly in vaft.process)
+    magnetics.py      magnetics signal quality
+    impa.py           IMPA shot grading as source validity
+    vacuum_benchmark.py  vacuum-model benchmark against measured magnetics
+    wall_reduction.py the reduced-wall order study: full vs reduced, both vs data
     stage_evidence.py per-stage preconditions and metrics, composed from domain providers
-    kinetic_state.py  Thomson against EFIT pressure per slice, the atlas state key (#1430, #1454)
-    kinetic_population.py  the atlas population: input contract, pressure/virial evidence, summaries (#1835)
-    credibility.py    the six credibility axes (E/T/I/A/N/V) evidence is placed on (#1639)
-    applicability.py  ordering assumptions: continuous margins and contract status (#1639, #1628)
-    orderings.py      the ordering contracts of the reduced models and their quantities (#1627)
-    sensitivity.py    Jacobian provenance, derivative and linear-vs-sampled UQ comparisons (#1642)
+    kinetic_state.py  Thomson against EFIT pressure per slice, the atlas state key
+    kinetic_population.py  the atlas population: input contract, pressure/virial evidence, summaries
+    credibility.py    the six credibility axes (E/T/I/A/N/V) evidence is placed on
+    applicability.py  ordering assumptions: continuous margins and contract status
+    orderings.py      the ordering contracts of the reduced models and their quantities
+    sensitivity.py    Jacobian provenance, derivative and linear-vs-sampled UQ comparisons
 
 The dependency direction runs one way: :mod:`vaft.database.production_qa`
 consumes ``stage_evidence`` to decide which figures a stage owes and how to
@@ -61,8 +61,8 @@ _EVIDENCE_EXPORTS = (
 )
 
 #: The stage-QA *artifact* contract -- which figures a stage owes, their names,
-#: the renderer, the manifest.  That is a database-layer question and moved to
-#: :mod:`vaft.database.production_qa` (issue #338).  Reaching it through this
+#: the renderer, the manifest.  That is a database-layer question and lives in
+#: :mod:`vaft.database.production_qa`.  Reaching it through this
 #: package still works, and warns, so the workflow and any external caller are
 #: told where it went rather than broken.
 _ARTIFACT_EXPORTS = (
@@ -76,11 +76,11 @@ _ARTIFACT_EXPORTS = (
     "validation_plots",
 )
 
-#: The initial public API (#253 §14): the equilibrium report, reachable as
+#: The top-level entry point: the equilibrium report, reachable as
 #: ``vaft.validation.validate_equilibrium``.  Lazy, like everything else here.
 _EQUILIBRIUM_EXPORTS = ("validate_equilibrium",)
 
-#: The regime classifier (#76): which cohort a reconstructed slice belongs to.
+#: The regime classifier: which cohort a reconstructed slice belongs to.
 #: Its own module, because it answers a different question from
 #: ``validate_equilibrium`` -- not "is this reconstruction sound" but "what was
 #: the plasma doing", which is what makes a soundness result interpretable.
@@ -91,7 +91,7 @@ _REGIME_EXPORTS = (
     "classify_equilibrium_regimes",
 )
 
-#: The join (#76): a regime label beside how EFIT ended that slice. Separate
+#: The join: a regime label beside how EFIT ended that slice. Separate
 #: from the classifier because it needs an EFIT run's log, which the
 #: classifier deliberately does not.
 _COHORT_EXPORTS = (
@@ -102,7 +102,7 @@ _COHORT_EXPORTS = (
     "summarize_by_cohort",
 )
 
-#: Equilibrium-quality cohorts (#1644): why a slice is good, admissible or
+#: Equilibrium-quality cohorts: why a slice is good, admissible or
 #: unreconstructible, composed from the study criteria, the EFIT evidence and
 #: the generic report -- a review surface, not another status model.
 _QUALITY_EXPORTS = (

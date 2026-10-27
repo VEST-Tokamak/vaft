@@ -1,4 +1,4 @@
-"""PR08 global MHD states as one canonical row-oriented table (#1736).
+"""PR08 global MHD states as one canonical row-oriented table.
 
 The ITPA PR08 profile database (:mod:`.itpa_profile`) also carries, in each
 discharge's ``_0d.dat`` file, the global equilibrium quantities of a few time
@@ -7,7 +7,7 @@ with columns named by the quantity identities of :mod:`vaft.formula.boundaries`
 (``edge_safety_factor_95``, ``internal_inductance_li3``, ``normalized_beta``,
 ...) and their units in ``table.attrs["units"]``, so the population can be drawn
 by :func:`vaft.plot.operational_space.operational_space_population` beside the
-full-equilibrium states of :func:`vaft.omas.equilibrium_state_table` (#1620).
+full-equilibrium states of :func:`vaft.omas.equilibrium_state_table`.
 It does not touch :func:`~.itpa_profile.pr08_to_omas`: the ODS mapping and this
 table read the same files for different purposes.
 

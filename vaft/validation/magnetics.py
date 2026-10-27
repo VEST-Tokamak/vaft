@@ -1,4 +1,4 @@
-"""Magnetics signal-quality validation (issue #189).
+"""Magnetics signal-quality validation.
 
 One question, asked before any physics: **is this magnetic waveform itself
 usable, and over which part of the discharge?**
@@ -25,7 +25,7 @@ per-sample and is projected into ``validity_timed``, with the scalar
 What the detectors are allowed to conclude
 ------------------------------------------
 Thresholds that have not been justified across a representative VEST
-population must not become hard gates (#189, non-goals).  So the detectors
+population must not become hard gates.  So the detectors
 split by how categorical their evidence is:
 
 **Hard** -- ``-2``, invalid, excluded by a default consumer:
@@ -35,7 +35,7 @@ split by how categorical their evidence is:
   analog channel does not produce a dozen consecutive identical values; a dead
   one, a railed integrator and a dropout all do.
 * a B-probe whose *raw* DAQ record (its stored voltage) sits at the
-  digitizer's rail for the whole analysis window (#2192).  Processing hides
+  digitizer's rail for the whole analysis window.  Processing hides
   it -- integration and baseline removal turn a constant -5 V into a field of
   ~1e-11 T that still dithers in its last bits -- so it is judged on the raw
   record, against the converter's own full scale and step, with no model.
@@ -50,7 +50,7 @@ split by how categorical their evidence is:
 * a B-probe that contradicts its own array -- the probes sharing its radius,
   ordered by height -- by more than the array's own amplitude for more than
   ``array_contradiction_fraction`` of its assessable record, attributed by
-  leave-one-out (#977).  Also a threshold, justified the same way.
+  leave-one-out.  Also a threshold, justified the same way.
 
 **Soft** -- ``1``, valid but flagged, never excluded by a default consumer:
 
@@ -65,7 +65,8 @@ amplitude, while the probes EFIT kept fitting although they read a field
 nothing else in their array reads (C4-04 on every shot; C1-01, C3-02, C4-02
 on 41524; the lower inboard H3 set on 41672) depart by more than the whole
 amplitude.  That is sensor against sensor, the same class as the family
-review, and not a model disagreement (#253 §10 is untouched).  The
+review, and not a model disagreement, so it may still write the datum's
+own validity.  The
 scale is the array's amplitude rather than the spread of the other probes'
 departures, because several broken probes in one array widen that spread
 until none of them stands out -- which is how three of 41524's outboard
@@ -236,7 +237,7 @@ class MagneticsQualityConfig:
     #: Fraction of its assessable samples a probe must contradict its array
     #: for, attributed by leave-one-out, to be condemned for the whole record.
     #: Measured over the whole assessable record of the three reference shots
-    #: (#977): every attributed probe sits at 0.35 or above (C4-04 0.58-0.99;
+    #: (39915, 41524, 41672): every attributed probe sits at 0.35 or above (C4-04 0.58-0.99;
     #: C4-02, C1-01, C3-02 0.63-0.81 on 41524; the lower inboard H3 set
     #: 0.35-0.64 on 41672) and every survivor at 0.24 or below;
     #: ``test_the_array_margin_holds_on_the_reference_shots`` keeps that gap.
@@ -254,7 +255,7 @@ class MagneticsQualityConfig:
 
     #: Full-scale input of the digitizer each kind's stored ``voltage`` record
     #: comes from, in volts: the rail a dead or overdriven channel sits at
-    #: (#2192).  Only kinds whose ``voltage`` *is* the raw DAQ record belong
+    #: Only kinds whose ``voltage`` *is* the raw DAQ record belong
     #: here -- a B-probe's is (``vfit_mirnov_raw_dynamic`` stores it uncalibrated),
     #: a flux loop's is already calibrated, so a volt there is not the
     #: converter's.  VEST's probe digitizers take +/-5 V: a whole-window rail
@@ -305,7 +306,7 @@ class ChannelQuality:
 
     Identity is by domain (``kind``, ``index``, ``quantity``), not by IDS path:
     where that projects is :func:`channel_node`'s business, so a Data Dictionary
-    change lands in one function rather than in every result (#253 §9).
+    change lands in one function rather than in every result.
     """
 
     kind: str
@@ -328,7 +329,7 @@ class ChannelQuality:
         A channel carrying no processed waveform has nothing to say about it.
         Writing ``-2`` there would assert the datum is invalid when the truth is
         that it does not exist -- and ``not_available`` must stay distinct from
-        ``fail`` (#253).
+        ``fail``.
         """
         return self.status is not ValidationStatus.NOT_AVAILABLE
 
@@ -379,7 +380,7 @@ def raw_rail_departure(data: np.ndarray, rail: float) -> float:
     whichever is the smaller -- so a record pinned at either end of the
     converter's range reads a few microvolts, and one that leaves the rail at
     any instant reads the size of that excursion.  ``nan`` without a finite
-    sample (#2192).
+    sample.
     """
     values = np.asarray(data, dtype=float).reshape(-1)
     values = values[np.isfinite(values)]
@@ -397,7 +398,7 @@ def at_raw_rail(
     tolerance_quanta: float,
     min_samples: int,
 ) -> bool:
-    """Whether a raw DAQ record sits at a rail for every sample of its window (#2192).
+    """Whether a raw DAQ record sits at a rail for every sample of its window.
 
     The converter's end code is what an open input, a dead amplifier or an
     overdriven channel reads, and a record that never leaves it carries no
@@ -707,9 +708,9 @@ def _detect(
     # window where the signal *should* be flat, and VAFT has no shot-independent
     # quiet window: VEST's magnetics record starts with the PF coils already
     # ramping, so a leading window that trends is indistinguishable from the
-    # machine doing its job.  #189 asks for baseline drift as a metric, which
-    # this is; turning it into a verdict needs a validated pre-excitation
-    # window (see #57's vacuum-shot classification) that does not exist yet.
+    # machine doing its job.  So baseline drift is reported as a metric;
+    # turning it into a verdict needs a validated pre-excitation window,
+    # which does not exist yet.
     leading = _leading_slice(data.size, config.baseline_fraction)
     leading_time, leading_data = time[leading], data[leading]
     noise = _sample_noise(data[finite]) if finite.any() else float("nan")
@@ -764,9 +765,8 @@ def _coherent_jump_times(
     A single waveform cannot distinguish an instrumentation step from plasma
     breakdown -- both step to a new level and stay there.  What separates them
     is that breakdown happens on every channel at once.  Coherent candidates
-    are therefore dropped rather than reported, which is the "channel/family
-    outlier check where defensible" #189 asks for, applied in the only
-    direction that is defensible here.
+    are therefore dropped rather than reported: a channel/family outlier
+    check, applied in the only direction that is defensible here.
     """
     candidates: list[tuple[Any, float]] = [
         (key, float(found.time[min(sample, found.time.size - 1)]))
@@ -878,7 +878,8 @@ def _status(codes: np.ndarray, events: Sequence[QualityEvent]) -> ValidationStat
 
     ``FAIL`` says some sample is unusable, not that the channel must be
     discarded -- ``validity_timed`` and ``valid_fraction`` carry how much, and
-    what to do about it is the consumer's policy, not this layer's (#253 §7).
+    what to do about it is the consumer's policy, not this layer's: validation
+    evidence is not production acceptance.
     """
     if not usable_mask(ValidityRecord(None, codes, None)).all():
         return ValidationStatus.FAIL
@@ -964,7 +965,8 @@ def array_departure_ratios(
     the other probes' departures, this scale is one a faulty probe cannot
     inflate: when several probes of one array are broken, their departures
     and their neighbours' widen the witness spread until none of them stands
-    out, which is what hid three of 41524's outboard faults (#977).
+    out, which is what hid three of 41524's outboard faults (C1-01, C3-02,
+    C4-02).
     """
     Y = np.asarray(waveforms, dtype=float)
     residual, _used = _neighbour_departures(heights, Y)
@@ -1086,8 +1088,8 @@ def attribute_array_contradictions(
     ``scale`` is :func:`array_contradiction_fractions_of`'s.  Returns, in
     order, ``{"index", "fraction", "contradicting"}``: the row in
     ``waveforms``, its fraction before removal, and the mask of its
-    contradicting samples.  The vacuum benchmark (#190) and the signal-quality
-    review (#977) both call this, so the two cannot come to mean different
+    contradicting samples.  The vacuum benchmark and the signal-quality
+    review both call this, so the two cannot come to mean different
     things by "contradicts its array".
     """
     Y = np.asarray(waveforms, dtype=float)
@@ -1141,7 +1143,7 @@ def _judgeable(found: _Detections) -> np.ndarray:
 def _array_review(
     source: Any, detections: dict[tuple[str, int], _Detections], config: MagneticsQualityConfig
 ) -> None:
-    """The third cross-channel pass: condemn a B-probe its own array contradicts (#977).
+    """The third cross-channel pass: condemn a B-probe its own array contradicts.
 
     Probes sharing a radius (to the millimetre) form an array ordered by
     height.  Channels already condemned outright -- dead, held, a recorded
@@ -1292,7 +1294,7 @@ def _whole_record_reason(found: _Detections) -> str:
 def _raw_rail_review(
     source: Any, kind: str, index: int, found: _Detections, config: MagneticsQualityConfig
 ) -> _Detections:
-    """Condemn a channel whose raw DAQ record never leaves a rail (#2192).
+    """Condemn a channel whose raw DAQ record never leaves a rail.
 
     Read, not rewritten: the stored ``voltage`` record is assessed and the
     verdict lands on the processed channel, as the raw voltage's own validity
@@ -1450,7 +1452,10 @@ def project_validity(
     """Write a report's per-sample assessment into the native validity nodes.
 
     Only the datum's own assessment reaches the IDS -- this is signal quality
-    writing signal validity, which is the one direction #253 §10 permits.
+    writing signal validity.  That is the one direction allowed: when the
+    subject is the datum itself, its assessment reuses the native IMAS
+    ``validity``/``validity_timed``, while a cross-diagnostic or model
+    disagreement never modifies the source's validity.
     Metrics, events and thresholds stay in the report; the IDS carries the
     standardized part downstream consumers need.
 
@@ -1477,7 +1482,7 @@ def unusable_channels_at(
     """Which channels a consumer must not use at each instant in ``times``.
 
     Reads the validity already projected into the IDS -- it does not re-run the
-    detectors.  That is the point of #189: basic sensor health is decided once,
+    detectors.  Basic sensor health is decided once,
     at the diagnostics stage, and every downstream module consults the answer
     instead of inventing its own.
 
@@ -1568,7 +1573,7 @@ def magnetics_quality_metrics(
     *,
     config: MagneticsQualityConfig | None = None,
 ) -> dict[str, Any]:
-    """The diagnostics-stage magnetics block for a stage manifest (#189 req 4).
+    """The diagnostics-stage magnetics block for a stage manifest.
 
     Quantitative, so a regression is visible without opening a figure, and
     report-only: nothing here is a threshold the pipeline gates on.
@@ -1640,7 +1645,7 @@ def magnetics_quality_metrics(
         "schema_version": 1,
         "configuration": asdict(settings),
         # EFIT's probe count the families were split at; None when the source
-        # could not say, and then probes beyond it are not separated (#1331).
+        # could not say, and then probes beyond it are not separated.
         "efit_probe_count": nbprobe,
         "summary": summary,
         "families": families,

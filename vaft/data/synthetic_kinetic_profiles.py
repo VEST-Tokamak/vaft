@@ -1,4 +1,4 @@
-"""Records for synthetic kinetic profiles generated from a magnetic equilibrium (#122).
+"""Records for synthetic kinetic profiles generated from a magnetic equilibrium.
 
 An equilibrium fixes ``p(psi)`` but not how it splits into densities and
 temperatures.  These records keep the four kinds of input the generator in
@@ -7,14 +7,14 @@ temperatures.  These records keep the four kinds of input the generator in
 the result keeps what was assumed apart from what was derived, together with
 every residual the construction was checked against.
 
-The fidelity ladder the records implement (issue #122, Levels 0-3):
+The fidelity ladder the records implement (Levels 0-3):
 
 * **Level 0** -- :class:`SqrtPressureSplit`: ``n_e`` and ``T_e`` share the
   shape ``sqrt(p_eq/p_eq(0))``, the legacy
   :func:`vaft.process.profile.core_profiles_from_eq` closure.
 * **Level 1** -- a :class:`ProfileSpec` whose shape is an
-  :class:`~vaft.data.analytic_plasma_state.AnalyticProfile` (the #1045/#552
-  kernels) or a :class:`TabulatedProfile`, used as given.
+  :class:`~vaft.data.analytic_plasma_state.AnalyticProfile` (a
+  generalized-parabolic ``psi_N`` core plus pedestal/ITB barrier steps) or a :class:`TabulatedProfile`, used as given.
 * **Level 2** -- the same shapes normalized by a :class:`ScalarTarget`
   (axis, separatrix, line- or volume-averaged value, Greenwald fraction), a
   peaking factor, a ``T_i/T_e`` ratio or an electron pressure fraction.
@@ -298,7 +298,8 @@ class ProfileSpec:
     """One kinetic channel: a shape, and optionally what normalizes it.
 
     ``shape`` is an :class:`~vaft.data.analytic_plasma_state.AnalyticProfile`
-    (Level 1, the #1045 composition of #552 kernels, in ``psi_norm``), a
+    (Level 1, a generalized-parabolic core plus barrier steps, in
+    ``psi_norm``), a
     :class:`TabulatedProfile` (Level 1) or a :class:`GradientProfile`
     (Level 3).  ``target`` scales the amplitude (Level 2).  ``peaking_factor``
     -- ``f(axis)/<f>_V`` -- is met by solving the core peaking exponent
@@ -477,8 +478,8 @@ class SqrtPressureSplit:
 class SyntheticKineticSpec:
     """Everything the generator is told, separate from the equilibrium it is applied to.
 
-    The same spec can be applied to successive equilibria (the #123
-    iteration) and gives a deterministic result for each.
+    The same spec can be applied to successive equilibria (the self-consistent
+    equilibrium / kinetic-profile iteration) and gives a deterministic result for each.
 
     ``pressure_constraint`` is one of :data:`PRESSURE_CONSTRAINTS` and
     ``closure`` one of :data:`PRESSURE_CLOSURES` for it:
@@ -830,7 +831,7 @@ class SyntheticKineticProfiles:
 
 
 def _species_for_state(state: AnalyticPlasmaState) -> str | None:
-    """The impurity symbol whose nuclear charge equals a #1045 state's impurity charge."""
+    """The impurity symbol whose nuclear charge equals an analytic plasma state's impurity charge."""
     if state.z_eff == 1.0:
         return None
     for symbol, (z, _) in ION_SPECIES.items():

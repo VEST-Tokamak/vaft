@@ -1,9 +1,9 @@
-"""The credibility taxonomy: which question a piece of evidence answers (issue #1639).
+"""The credibility taxonomy: which question a piece of evidence answers.
 
 A scientific result is trusted for six different reasons, and they fail
 independently.  A reconstruction can fit every probe and still be unidentified;
 a solve can converge and still violate an ordering its model assumed; a datum
-can be valid and still be extrapolated.  #1639 names the six questions:
+can be valid and still be extrapolated.  The six questions are:
 
 ==========================  =====================================================
 axis                        question
@@ -18,27 +18,27 @@ axis                        question
 ==========================  =====================================================
 
 This module is the vocabulary and nothing more.  It is deliberately not a
-result schema (#1639 §2): a process returns its own result, the assessment
+result schema: a process returns its own result, the assessment
 functions in the domain modules return their own plain dicts, and
 :class:`Evidence` exists only so that evidence from different domains can be
 laid side by side on these axes without anyone inventing a seventh vocabulary.
 
-Rules carried over from #253 and #337
--------------------------------------
+Rules
+-----
 * **A metric is not a verdict, and a verdict is not policy.**  ``Evidence``
   carries both the metric and the status an assessment gave it; whether a
-  result may be *used* stays with the workflow (#1639 §6, §17).
-* **Missing evidence is not failure** (#1639 §18).  An axis with no evidence is
+  result may be *used* stays with the workflow.
+* **Missing evidence is not failure**.  An axis with no evidence is
   absent from :func:`compose`; an axis whose evidence was never produced is
   ``not_available``.  Neither is a pass and neither is a fail.
 * **The axes are never collapsed.**  :func:`compose` returns one status *per
   axis*; there is no overall credibility score, because "fit = pass,
   independent validation = not available" and "independent validation = fail"
-  are different scientific statements (#1639 §18).
-* **Precondition is not credibility** (#337, #1639 §5).  "Can this algorithm run
+  are different scientific statements.
+* **Precondition is not credibility**.  "Can this algorithm run
   on this input?" belongs to the process and may stop it; nothing here stops
   anything.
-* **Cost is declared, never paid implicitly** (#1639 §8, §14).  Each piece of
+* **Cost is declared, never paid implicitly**.  Each piece of
   evidence names its cost class so a profile can ask for cheap evidence only.
   Importing this module loads only the status vocabulary; :func:`compose`
   loads :mod:`vaft.validation.equilibrium` on first call, for
@@ -46,7 +46,7 @@ Rules carried over from #253 and #337
 
 Evidence roles
 --------------
-Agreement with fitted data is not independent validation (#1639 §4 V).  The
+Agreement with fitted data is not independent validation.  The
 :data:`EVIDENCE_ROLES` say which part a datum played, and the adapters below
 move a check off the ``independent_validation`` axis when the quantity it
 compares against was fitted.  For an equilibrium report that is inferred
@@ -55,16 +55,16 @@ records a fitted flux (``fit_role == "fitted"``, i.e. the constraint's fit
 weight was non-zero -- VAFT's EFIT fits it by default,
 ``EFITConfig.use_diamagnetic_flux``), every check that compares against it
 -- :data:`DIAMAGNETIC_CHECKS` -- is inference, not validation.  The grade
-status is not the test: an ungraded fit (no statistical uncertainty model,
-#891) is still a fit.
+status is not the test: an ungraded fit (no statistical uncertainty model)
+is still a fit.
 
-Pilots
-------
-:func:`evidence_from_equilibrium_report` (Pilot A, #892) and
-:func:`evidence_from_efit_criteria` (Pilot A, the #891/#1331 study criteria v2)
-project existing verdicts onto the axes; the virial checks they carry are
-Pilot B.  :mod:`vaft.validation.applicability` is Pilot D.  The moment-order
-convergence of Pilot C needs no machinery beyond
+Adapters
+--------
+:func:`evidence_from_equilibrium_report` (the equilibrium report) and
+:func:`evidence_from_efit_criteria` (the EFIT study criteria v2; provenance:
+#891, #1331) project existing verdicts onto the axes, including the virial
+checks they carry.  :mod:`vaft.validation.applicability` supplies the
+applicability axis.  Moment-order convergence needs no machinery beyond
 :func:`vaft.validation.applicability.successive_discrepancy`.
 """
 
@@ -91,7 +91,7 @@ __all__ = [
     "evidence_from_equilibrium_report",
 ]
 
-#: The six credibility axes of #1639 §4, in E, T, I, A, N, V order.
+#: The six credibility axes, in E, T, I, A, N, V order.
 AXES = (
     "source_evidence",
     "transformation",
@@ -101,12 +101,12 @@ AXES = (
     "independent_validation",
 )
 
-#: What a piece of evidence costs to produce (#1639 §14).  ``cheap`` is free
+#: What a piece of evidence costs to produce.  ``cheap`` is free
 #: from existing results; ``moderate`` needs local computation but no solver
 #: rerun; ``expensive`` (ensembles, Monte Carlo, continuation) is opt-in only.
 COST_CLASSES = ("cheap", "moderate", "expensive")
 
-#: The part a datum played in the result it bears on (#1639 §4 V).
+#: The part a datum played in the result it bears on.
 EVIDENCE_ROLES = (
     "used_for_inference",
     "independent_validation",
@@ -122,7 +122,7 @@ EVIDENCE_ROLES = (
 #:
 #: ``diagnostic_fit`` is ``inference`` and *not* ``identifiability``: a fit
 #: residual says the inference reproduced its constraints, which is necessary
-#: for, and never proof of, a determined state (#1639 §4 I).
+#: for, and never proof of, a determined state.
 #: ``physical_validity`` defaults to ``numerical``: a converged solve that
 #: violates its own governing identities was not computed reliably.
 CATEGORY_AXES: Mapping[str, str] = MappingProxyType({
@@ -137,7 +137,7 @@ CATEGORY_AXES: Mapping[str, str] = MappingProxyType({
 #: from their category's default, with the reason in the comment.
 CHECK_AXES: Mapping[str, str] = MappingProxyType({
     # Leave-one-identity-out: each closure is scored on the identity it did not
-    # use -- the "infer with A+B, test with C" pattern of #1639 §10.
+    # use -- the "infer with A+B, test with C" pattern.
     "physical_validity.virial_pair_consistency": "independent_validation",
     # Whether a closure can be inverted here is conditioning of the inverse
     # problem, not a property of the equilibrium (registry: "never fail").
@@ -164,7 +164,7 @@ DIAMAGNETIC_CHECKS = (
     "independent_validation.virial_measured_mu_i",
 )
 
-#: The #891/#1331 study criteria (``workflow/efit_uncertainty_calibration/
+#: The EFIT study criteria (``workflow/efit_uncertainty_calibration/
 #: criteria.py``, version 2) on the axes -- the complete mapping, since these
 #: verdicts have no validation category.  ``admissible`` is the veto that a
 #: slice is a reconstruction at all; ``measurement`` is fit quality; ``virial``
@@ -186,7 +186,7 @@ CRITERIA_AXES: Mapping[str, str] = MappingProxyType({
 class Evidence:
     """One assessment's conclusion, placed on one credibility axis.
 
-    Thin on purpose (#1639 §3): invariant method metadata -- units, tolerance,
+    Thin on purpose: invariant method metadata -- units, tolerance,
     provider, reference -- stays in the registry and the docs, and ``key``
     names where to find it.  ``metrics`` holds the run-specific numbers the
     status was derived from, so the continuous quantity is never lost behind
@@ -297,7 +297,7 @@ def evidence_from_equilibrium_report(
     *,
     used_for_inference: Iterable[str] = (),
 ) -> tuple[Evidence, ...]:
-    """Pilot A: :func:`vaft.validation.validate_equilibrium` on the credibility axes.
+    """:func:`vaft.validation.validate_equilibrium` on the credibility axes.
 
     Parameters
     ----------
@@ -360,13 +360,13 @@ def evidence_from_efit_criteria(
     *,
     used_for_inference: Iterable[str] = (),
 ) -> tuple[Evidence, ...]:
-    """Pilot A: the #891/#1331 study criteria (version 2) on the credibility axes.
+    """The EFIT study criteria (version 2) on the credibility axes.
 
     Takes the plain dict that ``criteria.evaluate(record)`` returns, so the
     validation layer depends on its *shape* and never imports ``workflow/``.
     Each verdict becomes one :class:`Evidence` keyed ``"efit_criteria.<name>"``;
     ``good`` and ``physically_consistent`` are *not* re-derived -- they are the
-    workflow's policy over these verdicts (#1639 §6).  Criteria v2 keeps
+    workflow's policy over these verdicts.  Criteria v2 keeps
     Thomson out of ``good``; here it is the only verdict on the V axis, so
     ``compose`` reports it apart from fit quality and internal consistency.
 

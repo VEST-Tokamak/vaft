@@ -1,4 +1,4 @@
-"""Classify a settled shot before any work is scheduled for it (issue #58).
+"""Classify a settled shot before any work is scheduled for it.
 
 The classifier is the worker's only authority on *which stages apply* to a
 shot.  It sees what SQL recorded and answers with a label, a reason, and the
@@ -10,11 +10,11 @@ stages worth requesting:
   the raw dump is archived and nothing downstream is attempted.
 - ``()`` -- nothing to run; the shot is recorded as excluded.
 
-The four-way physics classification of #57 (``daq_missing``, ``vacuum_only``,
-``breakdown_or_burnthrough_failed``, ``success``) needs signals the raw
-inventory alone cannot give.  It plugs in here through ``classifier:`` in the
-worker configuration; until then :class:`RawFieldClassifier` decides only what
-the inventory can decide.
+The four-way physics classification (``daq_missing``, ``vacuum_only``,
+``breakdown_or_burnthrough_failed``, ``success``; :mod:`vaft.omas.shot_class`)
+needs signals the raw inventory alone cannot give.  A classifier that uses it
+plugs in here through ``classifier:`` in the worker configuration; the default
+:class:`RawFieldClassifier` decides only what the inventory can decide.
 """
 
 from __future__ import annotations

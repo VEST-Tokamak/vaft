@@ -11,7 +11,7 @@ kinetic-EFIT data, and legacy diagnostic and digitizer samples.
 
 | Directory | Files | Purpose |
 | --- | --- | --- |
-| `geometry/` | `Coil_info.mat`, `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `VEST_DiscretizedCoilGeometry_Full_ver_2507.mat`, `VEST_em_coupling_pf_versions.npz`, `VEST_passive_wall_2409.npz`, `VEST_static_geometry.json.gz`, `line_of_sight_endpoints.csv` | VEST PF, electromagnetic-coupling, wall/passive, and soft X-ray geometry metadata (the equilibrium magnetic sensors are in the `vest.yaml` registry, #2158) |
+| `geometry/` | `Coil_info.mat`, `VEST_DiscretizedCoilGeometry_Full_ver_1906.mat`, `VEST_DiscretizedCoilGeometry_Full_ver_2507.mat`, `VEST_em_coupling_pf_versions.npz`, `VEST_passive_wall_2409.npz`, `VEST_static_geometry.json.gz`, `line_of_sight_endpoints.csv` | VEST PF, electromagnetic-coupling, wall/passive, and soft X-ray geometry metadata (the equilibrium magnetic sensors are in the `vest.yaml` registry) |
 | `efit/` | `g039020.031180`, `g039915.00317`, `g039915.00319`, `g040330.00320`, `g040330.00321`, `g040330.00323`, `a039915.00319`, EFIT table files | GEQDSK/AEQDSK samples and EFIT reference tables |
 | `samples/39915/` | `manifest.yaml`, `omas.json.gz`, `imas.nc` | One compact logical reference dataset in paired OMAS and native IMAS representations; only `manifest.yaml` and `omas.json.gz` ship in the wheel and sdist, `imas.nc` is repository-only (0.8.0) |
 | `samples/39915/source/` | frozen raw input, configuration, stage manifests, canonical ODS | Repository-only regeneration inputs through the EFIT stage |
@@ -19,7 +19,7 @@ kinetic-EFIT data, and legacy diagnostic and digitizer samples.
 | `samples/41524/source/` | frozen SQL raw input, configuration, stage manifests, canonical ODS | Repository-only regeneration inputs for the 41524 pipeline run through EFIT |
 | `samples/41672/` | `manifest.yaml`, `imas.nc` | Complete repository-only native IMAS example composed from the current pipeline through EFIT |
 | `samples/41672/source/` | frozen SQL raw input, configuration, stage manifests, canonical ODS | Repository-only regeneration inputs for the 41672 pipeline run through EFIT |
-| `samples/42962/` | `manifest.yaml`, `omas.json.gz`, `imas.nc` | Complete repository-only example from a fresh pipeline run through the `statistical_891` EFIT (2026-10-21), the second offline shot of VEST-Tokamak/vfit#119's R1 set; the manifest carries each slice's #1644 label |
+| `samples/42962/` | `manifest.yaml`, `omas.json.gz`, `imas.nc` | Complete repository-only example from a fresh pipeline run through the `statistical_891` EFIT (2026-10-21), the second offline shot of VEST-Tokamak/vfit#119's R1 set; the manifest carries each slice's equilibrium-quality cohort label |
 | `samples/42962/source/` | frozen raw input, effective configuration, stage manifests, canonical ODS | Repository-only regeneration inputs; `compose_until_efit_sample.py` builds the canonical ODS from the static, diagnostics, eddy and EFIT products |
 | `samples/48224/` | `manifest.yaml`, `omas.json.gz`, `efit_magnetic_server/`, `equilibria/` | Repository-only kinetic slice (300 ms): the `kineticEfit/` ODS gzipped byte for byte; the server's magnetic EFIT k/g/m/a files; compact magnetic-only and kinetic EFIT equilibria with their constraints (`vaft.omas.sample_equilibria(48224)`) |
 | `kineticEfit/` | `g048224.00300`, `g048224.00300.kinetic_efit`, `g048224.00300.chease`, `NeTe_48224.mat`, `IDS_48224.mat`, `ods_48224_300ms.json` | Paired kinetic-EFIT sample for shot 48224 @ 300 ms (equilibrium + Thomson + ion Doppler) and the stored kinetic-profile ODS |
@@ -53,13 +53,14 @@ Repository-only samples such as `efit/g039915.00319` and
 
 ### What `efit/` holds
 
-The directory mixes four kinds of file, and issue #194 needs them told apart:
+The directory mixes four kinds of file, and generating versioned Green tables
+from the canonical geometry needs them told apart:
 
 | Kind | Files | Status |
 | --- | --- | --- |
 | Legacy Green table (generated, provenance unrecorded) | `ec129129.ddd`, `ep129129.ddd`, `rv129129.ddd`, `rfcoil.ddd`, `brzgfc.dat`, `mhdout.dat` | The table the routine pipeline reconstructs with. 16 F-coil groups (PF1 as eight axial segments, PF5/6/9/10 upper and lower, one rectangle each), 950 vessel segments, 11 flux loops, 64 probes, 129×129 on R 0.05–1.2 m, Z ±1.5 m. Which EFUND build produced it, and when, is not recoverable; `vaft.code.efit.efund.table_identity()` reports it as `unrecorded` and identifies it by the hash of its `mhdin.dat`. `brzgfc.dat` is not read by EFIT. |
 | EFUND input | `mhdin.dat` | An NSTX-derived header with `device='VEST'`. It lists `islpfc` under `&in5`, which the current EFUND rejects (the variable belongs to `&in3`), so this file cannot be fed to the current EFUND as it stands; `vaft.code.efit.efund.write_mhdin` writes the canonical equivalent. |
-| EFIT inputs that are not Green tables | `lim.dat`, `dprobe.dat`, `rfcoil.txt` | `lim.dat` is the limiter outline EFIT reads from `TABLE_DIR`; it must equal the wall outline in `VEST_static_geometry.json.gz`, whose radial faces are at R = 0.105 m and 0.761 m so that no EFIT grid column sits on either (#965, guarded by `test/test_limiter_grid_clearance.py`). The packaged samples under `samples/` and database replicas built before #965 still carry the old 0.104–0.760 m wall, because their equilibria were reconstructed against it; apply `vaft.machine_mapping.wall.wall(ods)` before handing one to a solver. `dprobe.dat` is not read by this EFIT. `rfcoil.txt` is a text rendering kept for reference. |
+| EFIT inputs that are not Green tables | `lim.dat`, `dprobe.dat`, `rfcoil.txt` | `lim.dat` is the limiter outline EFIT reads from `TABLE_DIR`; it must equal the wall outline in `VEST_static_geometry.json.gz`, whose radial faces are at R = 0.105 m and 0.761 m so that no EFIT grid column sits on either (guarded by `test/test_limiter_grid_clearance.py`). The packaged samples under `samples/` and database replicas built before the faces moved there still carry the old 0.104–0.760 m wall, because their equilibria were reconstructed against it; apply `vaft.machine_mapping.wall.wall(ods)` before handing one to a solver. `dprobe.dat` is not read by this EFIT. `rfcoil.txt` is a text rendering kept for reference. |
 | Reference outputs and stubs | `a039915.00319`, `g039915.*`, `g039020.*`, `g040330.*`, `efund_run_command.sh` | Stored pipeline reconstructions used by tests and the table A/B; the shell stub is superseded by `vaft.code.efit.efund`. |
 
 A freshly generated table carries an `efund_table_manifest.json`; see
@@ -82,7 +83,7 @@ regenerated from frozen current-pipeline products by
 `generate_pipeline_imas_sample.py`; each retains its successful EFIT slices
 and records unavailable optional channels and unsuccessful EFIT times in its
 manifest. Their `em_coupling` is re-mapped at generation from the current
-packaged asset (`generation.em_coupling` in the manifest, issue #373) rather
+packaged asset (`generation.em_coupling` in the manifest) rather
 than carried from the frozen product, whose matrix predates the repair below. Both native samples normalize DD-only metadata and use +Bz probe
 direction metadata. The old format-grouped JSON files and unrelated IMAS
 NetCDF sample are intentionally not recreated.
@@ -97,7 +98,7 @@ SHA-256 checksums for the geometry-dependent coupling assets are
 `71c10a410b4bb180d5366f1bb7191a1a14e9277142af2cd20246af181f5b6830`
 (2507). The 1909 matrix is the coupling counterpart of VAFT's 1906 PF
 geometry; the differing suffixes are retained from the source asset names.
-The `mutual_passive_passive` block was repaired on 2026-09-06 (issue #373):
+The `mutual_passive_passive` block was repaired on 2026-09-06:
 the legacy kernel applied the SUS316LN permeability factor 1.04 from the
 first conductor only, so the SUS–tungsten cross block violated reciprocity by
 1.27e-3; it now carries the SUS-side value throughout and is symmetric to
@@ -107,7 +108,7 @@ commit, source and geometry digests, the factor, the convention) says so, and
 `VEST_passive_wall_2409.npz` holds the fifteen SUS316LN conductors (20 x 6 mm
 at Z = -1.164 m, named `W12`) that the passive wall gained at shot 43017, and
 their coupling rows against the 950 base loops, each other and both PF
-geometries (issue #956). Only their geometry comes from VFIT
+geometries. Only their geometry comes from VFIT
 (`VEST_WallLimiterGeometry_ver_2409`); every coupling entry is computed with
 the filament Green function, self-term and passive-active routine that
 reproduce the 950-loop asset above to 1e-13, and VFIT's own matrices are
@@ -116,7 +117,7 @@ compared (agreement 0.05-0.9 %), not copied.
 `pf_passive(ods, shot=...)` and `em_coupling(ods, shot=...)` append the
 additions from 43017 on.
 The equilibrium magnetic sensors (probe and flux-loop positions, DAQ fields,
-calibration, labels) are no longer files here. Since #2158 they are one
+calibration, labels) are no longer files here. They are one
 registry in `vaft/machine_mapping/vest.yaml`
 (`diagnostics.equilibrium_magnetics.sensors`), and the three YAMLs it replaced
 -- `MD.yaml`, `VEST_MagneticsGeometry_Full_ver_2302.yaml` (whose content
@@ -124,8 +125,8 @@ declares `ver_2409.mat` despite its filename) and `table.yaml` -- are kept
 byte-identical as frozen, non-runtime fixtures in `test/data/legacy_magnetics/`.
 Which raw field feeds a position is per shot, from
 `equilibrium_magnetics.processing.wiring` (shots up to 39437 swap fields 170
-and 225 at Z = +0.06 / -0.42, issue #956). EFUND table manifests made before
-#2158 still name those files by sha256: that is their historical identity and
+and 225 at Z = +0.06 / -0.42). EFUND table manifests made before the
+registry replaced those files still name those files by sha256: that is their historical identity and
 is not rewritten.
 
 `gpec/vest_UP.dat`, `gpec/vest_MID.dat`, and `gpec/vest_LOW.dat` are the
@@ -158,19 +159,17 @@ representative profiles offline without the `.mat` inputs
 absent).
 
 The committed file was produced by an earlier version of the recipe that read
-the g-file through `omfit_classes`, which VAFT no longer depends on (issue
-#192). The native recipe below is deterministic and produces the same
+the g-file through `omfit_classes`, which VAFT no longer depends on. The native recipe below is deterministic and produces the same
 `core_profiles` content, but **not** the same file: OMFIT supplied its
 flux-surface solve's derived equilibrium quantities
 (`profiles_1d.gm1`..`gm9`, `dvolume_dpsi`, `b_field_average`, `area`,
 `elongation`, `global_quantities.beta_pol`/`li_3`, the X-point locations, and
-~550 other leaves). Since issue #236 the native `to_omas` also writes `psi`
-in Wb as the IMAS DD requires (the earlier Wb/rad discrepancy this paragraph
-used to document is fixed); `from_omas` tells legacy Wb/rad artifacts apart
+~550 other leaves). The native `to_omas` writes `psi` in Wb as the IMAS DD
+requires; `from_omas` tells legacy Wb/rad artifacts apart
 from DD-conformant ones via the `dphi/dpsi` vs `q` slope, so both this OMFIT
 sample and older native ODS files read back correctly. The packaged shot
 samples under `samples/` and `wheel_samples/` are regenerated through
-`vaft.omas.equilibrium_psi_to_weber` (issue #478): 39915 now stores psi in
+`vaft.omas.equilibrium_psi_to_weber`: 39915 now stores psi in
 Wb and declares COCOS 11 on `equilibrium.code.parameters.cocos`, which every
 reader (`ods_psi_to_wb_per_radian_factor`, `as_equilibrium`) honours before
 probing the data. 41524 and 41672 (repository-only `imas.nc`) still hold the
@@ -222,8 +221,8 @@ downsampled (1/100) postprocessed line-integrated-density samples for shot
 `legacy/langmuir_probe_positions.csv` is the VEST shot-log table of measured
 mid/upper triple-Langmuir-probe radial positions (`shot`, `mid TP
 position[m]`, `upper TP position[m]`); `vaft.machine_mapping.langmuir_probes`
-loads it by default to populate `langmuir_probes.embedded.{0,1}.position.r`
-for issue #152. `legacy/langmuir_probes_42699.json.gz` is a repository-only
+loads it by default to populate `langmuir_probes.embedded.{0,1}.position.r`.
+`legacy/langmuir_probes_42699.json.gz` is a repository-only
 sample `langmuir_probes` IDS built from that pipeline against shot 42699's
 real SQL-backed raw signals (both mid and upper assemblies present, plasma
 pulse near t=0.35-0.46 s).
@@ -231,7 +230,7 @@ pulse near t=0.35-0.46 s).
 `legacy/diagnostic-trigger-settings.yaml` is the effective diagnostic trigger
 table by shot, on the DAQ clock (ms), that `vaft.machine_mapping.soft_x_rays`
 reads for time alignment. It is generated from the VEST ShotLog by
-`python -m vaft.cli shotlog triggers --output ...` (#995); regenerate it
+`python -m vaft.cli shotlog triggers --output ...`; regenerate it
 rather than editing it. `shotlog/schemas/*.yaml` are the ShotLog template
 schemas `vaft.machine_mapping.pulse_schedule` detects and extracts with.
 

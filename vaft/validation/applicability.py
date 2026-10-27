@@ -1,4 +1,4 @@
-"""Approximation applicability: whether a model's orderings hold for a state (#1639 A, #1628).
+"""Approximation applicability: whether a model's orderings hold for a state (credibility axis A).
 
 A reduced model is derived under orderings -- ``S >> 1``, ``d_i/a << 1``,
 ``rho_i/L_T << 1``, ``tau_evol/tau_A >> 1`` -- and a result computed with it is
@@ -12,15 +12,16 @@ margin and a status, how missing inputs are reported, and how per-assumption
 results compose into one contract result.  It owns no physics:
 
 * the ordering quantities themselves (``S``, ``d_i/L``, ``Kn``, ...) are defined
-  and computed by the formula/process layers (#1627);
+  and computed by the formula/process layers;
 * which assumptions a given model makes -- the contracts -- are declared beside
-  the model they describe (#1627 for the ordering families, #1628 for formulas,
-  codes and workflows) as :class:`ApproximationContract` objects;
-* plotting the result is :mod:`vaft.plot` (#1664).
+  the model they describe (the ordering families in
+  :mod:`vaft.validation.orderings`, formulas, codes and workflows in
+  :mod:`vaft.validation.model_contracts`) as :class:`ApproximationContract` objects;
+* plotting the result is :mod:`vaft.plot`.
 
 Margins first, labels second
 ----------------------------
-The primary output is the continuous **ordering margin** (#1627):
+The primary output is the continuous **ordering margin**:
 
 $$m_x = -\\log_{10} x \\quad (x \\ll 1), \\qquad m_y = \\log_{10} y \\quad (y \\gg 1)$$
 
@@ -30,12 +31,12 @@ default threshold is ``1``: the point where the expansion parameter is of order
 unity and the ordering, by its own definition, no longer separates the scales.
 That is the only cutoff this module will apply on its own.  Any other threshold
 must carry its source in :attr:`OrderingAssumption.threshold_source`; none is
-invented here (#1639 §12).
+invented here.
 
 Status vocabulary
 -----------------
-:data:`APPLICABILITY_STATUSES` is the vocabulary Lane V's renderer uses for an
-operational-space boundary (#1664), kept identical so a contract result and a
+:data:`APPLICABILITY_STATUSES` is the vocabulary :mod:`vaft.plot.operational_space`
+uses for an operational-space boundary, kept identical so a contract result and a
 drawn boundary say the same thing in the same words:
 
 ``SUPPORTED``
@@ -86,15 +87,15 @@ __all__ = [
     "summarize_population",
 ]
 
-#: Identical to ``vaft.plot.operational_space.APPLICABILITY_STATUSES`` (#1664);
-#: a test asserts it once that tuple exists on the branch under test.  Kept here rather than imported because the validation
+#: Identical to ``vaft.plot.operational_space.APPLICABILITY_STATUSES``, which a
+#: test asserts.  Kept here rather than imported because the validation
 #: core must not import the plotting layer.
 APPLICABILITY_STATUSES = ("SUPPORTED", "OUTSIDE", "UNASSESSED", "NOT_APPLICABLE")
 
 #: Which side of the threshold an ordering requires.
 ORDERINGS = ("small", "large")
 
-#: Where a quantity is defined (#1627 "Summary layer").  A global ``d_i/a`` and
+#: Where a quantity is defined.  A global ``d_i/a`` and
 #: a layer-local ``d_i/delta`` are different quantities, so the scope is part
 #: of the assumption, not a comment on it.
 SCOPES = ("global", "local", "profile", "edge", "time_history", "event", "mode")
@@ -165,7 +166,7 @@ class ApproximationContract:
 
     The assumptions are kept separate on purpose: ideal single-fluid MHD needs
     ``S >> 1`` *and* ``d_i/L << 1`` *and* ``rho_i/L << 1`` *and*
-    ``tau_evol/tau_A >> 1``, and these test different things (#1627).  A
+    ``tau_evol/tau_A >> 1``, and these test different things.  A
     contract never reduces them to one condition.
 
     ``applies_to`` optionally restricts the contract to states whose named
@@ -386,7 +387,7 @@ def evaluate_population(contract: ApproximationContract, table: Any, *,
     The result keeps the input index and the ``keep`` columns, then
     ``status``, ``limiting``, and per assumption ``<quantity>``,
     ``<quantity>_margin`` and ``<quantity>_status`` -- the individual checks are
-    never hidden behind the aggregate (#1629 §8).  No row is dropped for a
+    never hidden behind the aggregate.  No row is dropped for a
     missing quantity.
     """
     import pandas as pd
@@ -410,7 +411,7 @@ def evaluate_population(contract: ApproximationContract, table: Any, *,
 def summarize_population(evaluated: Any, contract: ApproximationContract) -> dict[str, Any]:
     """Population-level applicability of one contract from :func:`evaluate_population` output.
 
-    The aggregation #1629 §9 reports, kept here so a notebook does not invent
+    The population summary, kept here so a notebook does not invent
     its own:
 
     ``n``
@@ -478,10 +479,10 @@ def successive_discrepancy(values: Iterable[Any], *, reference: Any = None) -> l
     """Relative change of an observable along a model or representation hierarchy.
 
     For ``Q_0, Q_1, ..., Q_n`` from successively fuller models (or moment
-    orders, #1639 s11) this returns ``|Q_{k+1} - Q_k| / |Q_ref|`` for each
+    orders) this returns ``|Q_{k+1} - Q_k| / |Q_ref|`` for each
     step, with ``Q_ref`` the last (fullest) value unless ``reference`` is
     given.  Paired with the ordering margin it is the strongest applicability
-    evidence #1639 s12 names: the ordering parameter *and* the convergence it
+    evidence there is: the ordering parameter *and* the convergence it
     predicts.  A step involving a non-finite value, or a zero reference, is
     ``nan``.
     """

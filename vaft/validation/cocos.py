@@ -2,7 +2,7 @@
 
 Whether an equilibrium's signs are consistent with the COCOS index it claims is
 a verification question -- *representation consistency* -- so it lives in the
-validation layer (#253, #337).  The measurements it compares are made in
+validation layer.  The measurements it compares are made in
 :mod:`vaft.process.cocos` (:func:`~vaft.process.cocos.cocos_consistency_signs`,
 which also documents the six relations), and the per-convention expected signs
 come from :meth:`vaft.data.cocos.CocosSpec.expected_sign`.  Nothing here

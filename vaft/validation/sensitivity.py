@@ -1,4 +1,4 @@
-"""Sensitivity, linearization and uncertainty evidence, interpreted (issue #1642).
+"""Sensitivity, linearization and uncertainty evidence, interpreted.
 
 The domain that owns an operation owns its derivatives: EFIT's native response
 matrix lives in :mod:`vaft.code.efit.linearization`, a process's Jacobian beside
@@ -8,8 +8,8 @@ This module is the third part: what a derivative *is* (its provenance), and
 what comparing two of them, or a linear propagation with a sampled one, says
 about credibility.
 
-Distinctions kept apart (#1642 "Core distinctions")
----------------------------------------------------
+Distinctions kept apart
+-----------------------
 * **Provenance** (:data:`PROVENANCES`): a solver's ``native`` response, a
   ``finite_difference`` estimate around it, an ``autodiff`` one, an
   ``analytic`` one.  They are different evidence; agreement between two is
@@ -21,9 +21,9 @@ Distinctions kept apart (#1642 "Core distinctions")
 * **Perturbation** (:data:`PERTURBATIONS`): a ``physical`` perturbation moves
   the plasma or the measurement; a ``numerical`` one moves a resolution or a
   tolerance.  Physical sensitivity and numerical convergence never share a
-  column (#1642 s18).
+  column.
 * **Local versus sampled**: :func:`compare_linear_to_monte_carlo` is the
-  escalation test of #1642 s16 -- where they disagree the local Jacobian has
+  escalation test from a local linear estimate to sampling -- where they disagree the local Jacobian has
   stopped describing the uncertainty, which is itself evidence.
 
 Every comparison returns metrics and, *only when the caller supplies a
@@ -196,7 +196,7 @@ def compare_linear_to_monte_carlo(
     outputs: Sequence[str] | None = None,
     tolerance: tuple[float, float] | None = None,
 ) -> dict[str, Any]:
-    """The linear ``J Sigma J^T`` against a sampled covariance (#1642 s16).
+    """The linear ``J Sigma J^T`` against a sampled covariance.
 
     ``sampled`` is the dict :func:`vaft.formula.sensitivity.monte_carlo_propagation`
     returns.  The metric is the largest ``|ln(sigma_linear / sigma_sampled)|``
@@ -266,16 +266,17 @@ def as_evidence(result: Mapping[str, Any], *, key: str, axis: str | None = None,
 def scan_evidence(report: Mapping[str, Any], *, key: str = "efit_sensitivity.model_form") -> Any:
     """A targeted-scan ensemble report as model-form evidence on the inference axis.
 
-    Reads the dict that ``sensitivity_report.report()`` of the #579 EFIT study
-    (#1663) produces -- per-slice ``slices[*].model_form`` (spread over the
+    Reads the dict that ``sensitivity_report.report()`` of the EFIT
+    uncertainty-calibration study
+    (``workflow/efit_uncertainty_calibration/sensitivity_report.py``) produces -- per-slice ``slices[*].model_form`` (spread over the
     ``good`` members) and ``model_form_admissible`` (over the admissible ones),
     each ``{quantity: {"relative_half_iqr": ...}}``, plus ``marginal`` per-axis
     effects -- without importing ``workflow/``.
 
-    A weight/basis grid is a *targeted parameter scan* (#1642 s15), not a
+    A weight/basis grid is a *targeted parameter scan*, not a
     Jacobian: it bounds how far the reconstructed quantities move across
-    admissible model choices, which is inference evidence (#1639 s4 I: prior
-    and regularization dependence).  The result is ungraded
+    admissible model choices, which is inference evidence (prior and
+    regularization dependence).  The result is ungraded
     (``indeterminate``) and ``expensive`` by construction; ``not_available``
     when no slice carries a finite spread.
 

@@ -38,7 +38,7 @@ run here.
 **The NBI geometry in `mdescr_VEST_190307.dat` is a model, not as-built.** It
 is the source of the `nbi` block in `vaft/machine_mapping/vest.yaml`, which is
 marked `mapping_status: partial` for exactly this reason; reconciliation
-against the real hardware is issue #265.
+against the real hardware is still to be done (Open: #265).
 
 **The profiles are a modelling input, not a measurement.** Beam energy and
 launched power come from `profiles`, which is why they are mapped from a run

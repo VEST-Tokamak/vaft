@@ -382,7 +382,7 @@ class HSDSODS(omas.ODS):
         here -- fetched earlier, or *written by the caller* -- has to short it
         out. Without this the ODS is silently read-only for every leaf the store
         happens to hold: an assignment appears to succeed and the next read
-        hands back the stored value again (issue #329).
+        hands back the stored value again.
 
         ``keys(dynamic=0)`` is what keeps this local; the dynamic form would ask
         the store and defeat the purpose.

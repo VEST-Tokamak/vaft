@@ -66,7 +66,7 @@ class MEQDSK:
         """Whether the diamagnetic row was written off *because there was no measurement*.
 
         A shot whose diamagnetic loop carried nothing gets ``DFLUX=0``,
-        ``SIGDLC=0``, ``FWTDLC=0`` in its k-file (#993), and EFIT copies the
+        ``SIGDLC=0``, ``FWTDLC=0`` in its k-file, and EFIT copies the
         zero into ``diamag``. Mapped back as ``measured`` it would publish a
         diamagnetic flux of exactly 0 Wb that was never measured. A real
         measurement is never exactly zero with a zero sigma, so all three at
@@ -242,8 +242,7 @@ class MEQDSK:
         # Grad-Shafranov equation, although the IMAS field it lands in is named
         # for one. A converged-looking increment says the iteration stalled,
         # not that force balance holds; the equation's own residual is
-        # `vaft.process.equilibrium.grad_shafranov_residual` on the g-file
-        # (#924).
+        # `vaft.process.equilibrium.grad_shafranov_residual` on the g-file.
         cerror = self._at("cerror", time_index_efit)
         if cerror is not None:
             errors = np.asarray(cerror, dtype=float).reshape(-1)

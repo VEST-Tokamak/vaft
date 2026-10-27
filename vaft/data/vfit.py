@@ -621,10 +621,10 @@ class VFITResult:
             raise ValueError("VFIT PsiN and q profiles must have the same length")
         psi = psi_axis + psin * (psi_boundary - psi_axis)
         eqt["profiles_1d.psi"] = psi
-        # This adapter wrote sqrt(psi_N) into rho_tor_norm unconditionally, with
-        # q already in hand -- the worse half of issue #276. It now derives the
-        # real coordinate through the same routine the g-file path uses, and
-        # writes the poloidal quantity the DD defines when it cannot.
+        # With q in hand, derive the real toroidal-flux coordinate through the
+        # same routine the g-file path uses instead of writing sqrt(psi_N) into
+        # rho_tor_norm, and write the poloidal quantity the DD defines when it
+        # cannot.
         rho_tor_terms = rho_tor_profile(q, psi)
         if rho_tor_terms is None:
             eqt["profiles_1d.psi_norm"] = np.clip(psin, 0.0, 1.0)

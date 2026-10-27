@@ -473,7 +473,7 @@ def _load_from_shot_waveform_3(
 #: Shot at which the *time convention* changes, for archives that carry nothing
 #: but a shot number to identify themselves.  This is **not** a table-selection
 #: boundary: `shotDataWaveform_2` is in use more than five thousand shots past
-#: it, and the two tables overlap (issue #761).  Live table selection goes
+#: it, and the two tables overlap.  Live table selection goes
 #: through :func:`waveform_generation_for_shot`, which asks the database.
 V2_LAST_SHOT = 42190
 FAST_SPAN_S = 0.1
@@ -503,7 +503,7 @@ def _generation_from_counts(count_v2: int, count_v3: int) -> Optional[int]:
     Whichever table actually holds the shot wins.  When both do -- 19 shots
     between 42647 and 42853 -- the fuller one wins: the other side carries a
     two-to-four field stub, and reading it produced a product with 2 of a
-    shot's 127 fields while reporting success (issue #761).
+    shot's 127 fields while reporting success.
     """
     if count_v2 <= 0 and count_v3 <= 0:
         return None
@@ -527,10 +527,10 @@ def waveform_generation_for_shot(conn: Any, shot: int) -> Optional[int]:
     Resolved from the tables rather than from a shot-number boundary, because
     the boundary does not match them: `_2` spans 29350-47588 and `_3` spans
     42647-48864, so a range rule either misses 598 shots outright or silently
-    reads a stub for 19 more (issue #761).
+    reads a stub for 19 more.
 
     A read error propagates.  Reporting it as "no data" would be the same
-    mistake as #446, where a busy server was recorded as a missing namespace:
+    mistake as recording a busy HSDS server as a missing namespace:
     both callers retry on :class:`MysqlError`, and a swallowed error would skip
     that and hand back a shot that merely looks empty.
     """
@@ -561,7 +561,7 @@ def upgrade_archive_timebase(payload: dict) -> dict:
     the live database.  Entries already carrying ``t0``/``dt``, or too short
     or unlabeled to infer, are left untouched, so the upgrade is idempotent.
 
-    **A label does not pin down a rate, and nothing here can (#770).** On this
+    **A label does not pin down a rate, and nothing here can.** On this
     machine ``fast`` covers 250 kHz, 500 kHz and 2 MHz -- the classifier splits
     on 5 us, so all three land in it -- and the v2 branch below assigns the
     nominal 250 kHz regardless.  The sample count cannot rescue it: a 250 kHz
@@ -656,10 +656,10 @@ def _require_consistent_cadence(
 def _parse_sample_archive(json_path: str, mtime_ns: int, size: int) -> dict:
     """One archived raw dump, parsed once.
 
-    Callers ask for a handful of field codes at a time, so a build that needs
-    every magnetics channel used to re-read and re-decode the whole file once
-    per field -- 114 full parses of a 13 MB archive for a single magnetics
-    build, 96.5 s of which ~95 s was redundant (issue #444).  The memoisation
+    Callers ask for a handful of field codes at a time, so without this cache a
+    build that needs every magnetics channel re-reads and re-decodes the whole
+    file once per field -- measured at 114 full parses of a 13 MB archive for a
+    single magnetics build, 96.5 s of which ~95 s was redundant.  The memoisation
     one level up (`_safe_vest_load_cached`) is keyed on the field, so it never
     collapsed those reads.
 
@@ -926,7 +926,7 @@ def vest_check_table(mydb: Any, shot: int) -> int:
     """Return the waveform table generation used by a shot.
 
     Asks the database when a connection is available; the shot-number ranges
-    are only a last resort, and they are wrong for 617 shots (issue #761).
+    are only a last resort, and they are wrong for 617 shots.
     """
     if mydb is not None:
         generation = waveform_generation_for_shot(mydb, shot)
@@ -1067,7 +1067,7 @@ def plot(
 
     This function loads and labels the data; rendering is delegated to
     :func:`vaft.plot.render_line_series`, so no Matplotlib code lives in the
-    database namespace (issue #63).
+    database namespace.
 
     :param shots: int or list of int
     :param fields: int or list of int
@@ -1391,7 +1391,7 @@ def get_all_field_codes_for_shot(shot: int, max_retries: int = 3):
 
     Which waveform table holds the shot is resolved from the tables, not from a
     shot-number range: the ranges overlap and `shotDataWaveform_2` runs well
-    past the nominal boundary (issue #761). A shot in neither table returns an
+    past the nominal boundary. A shot in neither table returns an
     empty list.
     """
     global DB_POOL
@@ -1544,7 +1544,7 @@ def dump_all_raw_signals_for_shot(
         shot_data["pulse_datetime"] = pulse_datetime
 
     # Collect one panel model per field when plotting is requested; rendering
-    # happens once at the end through vaft.plot (issue #63).
+    # happens once at the end through vaft.plot.
     panel_models: list = []
     flagged_fields: dict[str, str] = {}
 
