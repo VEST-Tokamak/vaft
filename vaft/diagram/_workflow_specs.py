@@ -418,22 +418,35 @@ _SPECS = (
     WorkflowSpec(
         key="neo_neoclassical", title="Neoclassical transport: closed-form fits and drift-kinetic solution",
         family="transport", status="implemented",
-        summary="The same resolved local state through the Sauter and Redl fits and the drift-kinetic solver NEO, "
-                "so the two can be compared at one state.",
+        summary="One equilibrium and profile set, read directly by the Sauter and Redl fits and, through the "
+                "resolved local state, by the drift-kinetic solver NEO. Only NEO's result is written to IMAS; the "
+                "fits are returned for comparison.",
         nodes=(
-            N("state", "Resolved local state", "derived", api=_STATE, symbols=r"T_s,\ n_s,\ q,\ \epsilon,\ f_t"),
-            N("fits", "Sauter / Redl fits", "derived", api="vaft.formula.neoclassical.redl_bootstrap_current",
+            N("source", "Equilibrium and profiles", "reconstructed",
+              ids="{equilibrium.time_slice[:], equilibrium.vacuum_toroidal_field, core_profiles.profiles_1d[:]}",
+              symbols=r"\psi,\ q,\ F,\ B_0;\ n_e,\ T_e,\ T_i"),
+            N("state", "Resolved local state", "derived", api=_STATE,
+              symbols=r"T_s,\ n_s,\ Z_s,\ q,\ \kappa,\ \delta"),
+            N("fits", "Sauter / Redl fits", "derived", api="vaft.omas.neoclassical.compute_bootstrap_current",
               equation="vaft.formula.neoclassical.sauter_bootstrap_current"),
             N("case", "NEO input", "code_input", api="vaft.code.gacode.neo.prepare_neo_case"),
             N("neo", "NEO drift-kinetic solve", "solver", api="vaft.code.gacode.neo.run_neo"),
             N("native", "Fluxes, bootstrap current", "native_result", api="vaft.code.gacode.neo.collect_neo_outputs",
               symbols=r"\Gamma_s,\ Q_s,\ \langle j_{\mathrm{bs}}B\rangle"),
-            N("transport", "Neoclassical transport", "standardized", ids="core_transport.model[:].profiles_1d[:]",
-              symbols=r"\Gamma_s,\ Q_s,\ j_{\mathrm{bs}}"),
+            N("transport", "Neoclassical transport", "standardized",
+              ids="core_transport.model[:].profiles_1d[:]; core_profiles.profiles_1d[:].j_bootstrap",
+              symbols=r"\Gamma_s,\ Q_s\ (\mathrm{core\_transport});\ j_{\mathrm{bs}}\ (\mathrm{core\_profiles})"),
         ),
-        rows=(("state",), ("fits", "case"), (None, "neo"), (None, "native"), ("transport",)),
-        edges=(("state", "fits", ""), ("state", "case", ""), ("case", "neo", ""), ("neo", "native", ""),
-               ("native", "transport", ""), ("fits", "transport", "compared at the same state")),
+        rows=(("source", "state"), ("fits", "case"), (None, "neo"), (None, "native"), ("transport",)),
+        # the fits are evaluated by compute_bootstrap_current(ods, ...), not from the resolved state, and returned
+        edges=(("source", "state", ""), ("source", "fits", ""), ("state", "case", ""), ("case", "neo", ""),
+               ("neo", "native", ""), ("native", "transport", "")),
+        todos=("The Sauter / Redl fits have no IMAS writer: they are returned, and "
+               "vaft.validation.neoclassical.bootstrap_models compares them with the stored "
+               "core_profiles j_bootstrap (see the Sauter / Redl against NEO diagram).",
+               "The two routes do not see identical inputs: the fits need a stored ion temperature and assume "
+               "n_i = n_e unless an impurity is given, while the resolved state can fill T_i from the Ti/Te "
+               "policy and defaults to Z_eff = 2 with carbon."),
     ),
     WorkflowSpec(
         key="tglf_cgyro_local_transport", title="Local turbulent transport: quasilinear and gyrokinetic",
@@ -676,11 +689,15 @@ _SPECS = (
     WorkflowSpec(
         key="transport_hierarchy", title="Transport hierarchy: classical, neoclassical, turbulent",
         family="transport", status="implemented",
-        summary="One resolved local state and five independently computed routes; none feeds another. "
+        summary="Five independently computed routes from one equilibrium and profile set; none feeds another. "
+                "Four read the resolved local state; the Sauter / Redl closures read the IMAS data directly. "
                 "'Always available' means the route needs no external code, not that its physics applies "
                 "everywhere. Each route with a writer lands in its own core_transport.model entry, found by its "
                 "identifier.index and code name -- the array position k is assigned at write time.",
         nodes=(
+            N("source", "Equilibrium and profiles", "reconstructed",
+              ids="{equilibrium.time_slice[:], core_profiles.profiles_1d[:]}",
+              symbols=r"\psi,\ q,\ F;\ n_e,\ T_e,\ T_i\ (\mathrm{one\ time\ slice})"),
             N("state", "Resolved local state", "derived", api="vaft.process.transport_state.resolve_transport_state",
               symbols=r"T_s,\ n_s,\ a/L_{T,n},\ q,\ \hat s,\ \hat\nu"),
             N("classical", "Classical: Braginskii", "derived", api="vaft.process.transport_state.classical_heat_fluxes",
@@ -717,10 +734,12 @@ _SPECS = (
               ids="core_transport.model[k] (identifier.index 6, code CGYRO)",
               symbols=r"\langle\Gamma_s\rangle_t,\ \langle Q_s\rangle_t\ \mathrm{over}\ (t_0, t_1)"),
         ),
-        rows=(("state",), ("classical", "neo_fit", "neo_code", "turb_ql", "turb_gk"),
-              ("ct_classical", None, "ct_neo", "ct_tglf", "ct_cgyro")),
-        edges=(("state", "classical", ""), ("state", "neo_fit", ""), ("state", "neo_code", ""),
-               ("state", "turb_ql", ""), ("state", "turb_gk", ""), ("classical", "ct_classical", ""),
+        rows=(("source", None, "state", None, None), ("neo_fit", "classical", "neo_code", "turb_ql", "turb_gk"),
+              (None, "ct_classical", "ct_neo", "ct_tglf", "ct_cgyro")),
+        # compute_bootstrap_current takes the ODS, not the resolved state
+        edges=(("source", "state", ""), ("source", "neo_fit", ""), ("state", "classical", ""),
+               ("state", "neo_code", ""), ("state", "turb_ql", ""), ("state", "turb_gk", ""),
+               ("classical", "ct_classical", ""),
                ("neo_code", "ct_neo", ""), ("turb_ql", "ct_tglf", ""), ("turb_gk", "ct_cgyro", "")),
         side=(("window", "ct_cgyro"),),
         todos=("The closed-form Sauter/Redl results have no core_transport writer (and carry no particle or heat "
@@ -733,7 +752,9 @@ _SPECS = (
                "A nonlinear CGYRO run writes no fluxes without a saturation window: choosing it is the caller's "
                "judgement.",
                "The TGLF-NN surrogate (vaft.code.gacode.tglf.surrogate) refuses VEST inputs as out of domain and "
-               "has no IMAS writer."),
+               "has no IMAS writer.",
+               "NEO's bootstrap current and conductivity go to core_profiles (core_profiles_from_neo), which this "
+               "figure does not draw."),
     ),
     WorkflowSpec(
         key="neoclassical_model_comparison", title="Sauter / Redl against NEO at one state",
