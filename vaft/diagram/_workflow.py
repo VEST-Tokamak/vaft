@@ -298,6 +298,33 @@ def _elbow(start: Box, end: Box, *, vertical_first: bool, gap: float = 0.08):
     ey = end.y + 0.5 * end.height + gap if start.y > end.y else end.y - 0.5 * end.height - gap
     return [(sx, start.y), (end.x, start.y), (end.x, ey)]
 
+
+def kind_legend(kinds, left: float, right: float, y: float) -> Tuple[List, float]:
+    """Legend items for ``kinds`` centred between ``left`` and ``right`` from ``y`` down, and the next free ``y``.
+
+    Each entry is the kind's swatch, carrying its pictogram (#2114), and its label; lines wrap at the
+    figure's width so a many-kind legend never widens the figure.
+    """
+    items: List = []
+    widths = {k: 1.1 + 0.2 * len(KIND_LABEL[k]) for k in kinds}  # swatch (holding its pictogram) + label
+    lines: List[List[str]] = [[]]
+    for kind in kinds:
+        if lines[-1] and sum(widths[k] for k in lines[-1]) + widths[kind] > max(right - left, 12.0):
+            lines.append([])
+        lines[-1].append(kind)
+    for line in lines:
+        x = 0.5 * (left + right) - 0.5 * sum(widths[k] for k in line)
+        for kind in line:
+            items += [Polyline.of([(x, y - 0.24), (x + 0.62, y - 0.24), (x + 0.62, y + 0.24), (x, y + 0.24)],
+                                  f"{kind_style(kind)},rounded corners=1pt", role=f"legend:{kind}", closed=True),
+                      Label((x + 0.74, y), escape_latex(KIND_LABEL[kind]), "concept annotation", anchor="west",
+                            role=f"legend:{kind}")]
+            items += pictogram(KIND_SYMBOL[kind], (x + 0.31, y), 0.36, role=f"symbol:legend:{kind}").items
+            x += widths[kind]
+        y -= 0.62  # the swatches are 0.48 cm tall
+    return items, y
+
+
 def _render_workflow(spec: WorkflowSpec, *, labels: bool = True, references: bool = False) -> Diagram:
     """The workflow as a figure: rows top to bottom, assumptions from the side, equations in their node.
 
@@ -404,28 +431,10 @@ def _render_workflow(spec: WorkflowSpec, *, labels: bool = True, references: boo
                            anchor="south", role="title"))
         # legend: the kinds this figure uses, in reading order
         used = [k for k in KINDS if any(n.kind == k for n in spec.nodes)]
-        # wrapped to the figure's width so a many-kind legend never widens the figure
         left = min(b.x - 0.5 * b.width for b in boxes.values())
         right = max(b.x + 0.5 * b.width for b in boxes.values())
-        widths = {k: 1.1 + 0.2 * len(KIND_LABEL[k]) for k in used}  # swatch (holding its pictogram) + label
-        lines: List[List[str]] = [[]]
-        for kind in used:
-            if lines[-1] and sum(widths[k] for k in lines[-1]) + widths[kind] > max(right - left, 12.0):
-                lines.append([])
-            lines[-1].append(kind)
-        ly = bottom - 0.9
-        for line in lines:
-            x = 0.5 * (left + right) - 0.5 * sum(widths[k] for k in line)
-            for kind in line:
-                # the kind's swatch, wide enough to carry its pictogram inside (#2114)
-                items += [Polyline.of([(x, ly - 0.24), (x + 0.62, ly - 0.24), (x + 0.62, ly + 0.24),
-                                       (x, ly + 0.24)],
-                                      f"{kind_style(kind)},rounded corners=1pt", role=f"legend:{kind}", closed=True),
-                          Label((x + 0.74, ly), escape_latex(KIND_LABEL[kind]), "concept annotation", anchor="west",
-                                role=f"legend:{kind}")]
-                items += pictogram(KIND_SYMBOL[kind], (x + 0.31, ly), 0.36, role=f"symbol:legend:{kind}").items
-                x += widths[kind]
-            ly -= 0.62  # the swatches are 0.48 cm tall
+        legend, ly = kind_legend(used, left, right, bottom - 0.9)
+        items += legend
         # the cited works, numbered as the nodes tag them
         for ref, n in numbers.items():
             items.append(Label((left, ly - 0.1), escape_latex(f"[{n}] {ref.replace('*', '')}"), "concept annotation",
