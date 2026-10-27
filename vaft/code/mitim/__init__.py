@@ -6,7 +6,8 @@ never imports ``mitim_tools``. Importing this package needs neither MITIM nor
 GACODE. It provides the availability probe, the per-run MITIM configuration,
 the driver runner, a NEO smoke capability, MITIM-vs-VAFT TGLF local-input and
 NEO flux comparisons, MITIM TGLF runs, and the PORTALS synthetic closed loop
-with a manufactured source. Open: #1588 (flux-matched transport on measured profiles).
+with a manufactured source. Open: #1588 (flux-matched transport on measured
+profiles).
 """
 
 from .availability import STATUSES, MITIMAvailability, mitim_availability

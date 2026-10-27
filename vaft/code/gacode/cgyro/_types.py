@@ -43,7 +43,8 @@ FIELD_MODELS: Mapping[str, int] = {
 }
 
 #: The TGLF configuration each CGYRO field model is compared against, in the transport
-#: atlas's TGLF field-model naming (``vaft.database.sources.TGLF_FIELD_MODELS``): ``USE_BPER`` is A_parallel, ``USE_BPAR`` is delta B_parallel.
+#: atlas's TGLF field-model naming (``vaft.database.sources.TGLF_FIELD_MODELS``):
+#: ``USE_BPER`` is A_parallel, ``USE_BPAR`` is delta B_parallel.
 TGLF_FIELD_MODEL: Mapping[str, str] = {
     "es": "es",
     "em-aperp": "em-bper",

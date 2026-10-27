@@ -6,7 +6,7 @@
 
 ``NeoOutputs`` is the whole run, in NEO's own units and on NEO's grid.  It is
 deliberately *not* an IDS: which quantities have a defensible IMAS home is
-decided, and projected, in :mod:; this
+decided, and projected, in :mod:`vaft.machine_mapping.neoclassical`; this
 container stays NEO's native output.
 
 The VAFT-native analytic counterpart is :mod:`vaft.formula.neoclassical`, kept
