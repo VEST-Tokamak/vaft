@@ -67,7 +67,8 @@ inference (#1601): ``parameter_inference_overview`` and
 ``fault_anomaly_detection``, ``shot_classification`` and ``event_detection``; derived physics (#1901):
 ``vacuum_field_proxies``, ``derived_mhd_parameters``, ``synthetic_diagnostics``,
 ``coordinate_cocos_conversions`` and ``power_balance_confinement``; equilibrium, MHD and transport
-joined through shared state representations: ``cross_domain_scientific_workflows``; the spatial
+joined through shared state representations: ``cross_domain_scientific_architecture`` (conceptual)
+and ``cross_domain_scientific_workflows`` (technical); the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
 ``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
@@ -316,6 +317,7 @@ __all__ = [
     "synthetic_diagnostics",
     "coordinate_cocos_conversions",
     "power_balance_confinement",
+    "cross_domain_scientific_architecture",
     "cross_domain_scientific_workflows",
     "tokamak_top_view",
     "cocos_orientation",
@@ -556,6 +558,7 @@ _LOCATIONS = {
     "synthetic_diagnostics": "._workflow_specs",
     "coordinate_cocos_conversions": "._workflow_specs",
     "power_balance_confinement": "._workflow_specs",
+    "cross_domain_scientific_architecture": "._cross_domain_concept",
     "cross_domain_scientific_workflows": "._cross_domain",
     "tokamak_top_view": "._spatial",
     "cocos_orientation": "._spatial",

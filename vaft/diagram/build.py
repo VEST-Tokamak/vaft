@@ -291,6 +291,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "coordinate_cocos_conversions.svg": ("coordinate_cocos_conversions", {}),
     "power_balance_confinement.svg": ("power_balance_confinement", {}),
     # equilibrium, MHD and transport joined through shared state representations
+    "cross_domain_scientific_architecture.svg": ("cross_domain_scientific_architecture", {}),
     "cross_domain_scientific_workflows.svg": ("cross_domain_scientific_workflows", {}),
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),

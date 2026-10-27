@@ -2026,6 +2026,7 @@ vaft.diagram.derived_mhd_parameters()
 vaft.diagram.synthetic_diagnostics()
 vaft.diagram.coordinate_cocos_conversions()
 vaft.diagram.power_balance_confinement()
+vaft.diagram.cross_domain_scientific_architecture()
 vaft.diagram.cross_domain_scientific_workflows()
 ```
 
@@ -2067,8 +2068,32 @@ to exist.
 
 ### Cross-domain integration: equilibrium, MHD and transport
 
-One figure across the spine: where each workflow figure draws the steps inside one coupling, this one draws the
-relations between domains. Shared measurements, assumptions and machine configuration feed three alternative
+Two figures at two levels of abstraction, drawn from the same sources. The conceptual one is for a manuscript;
+the technical one substantiates it solver by solver. Every card of the conceptual figure names the technical
+elements it summarizes (`vaft.diagram._cross_domain_concept`), and a test holds the two to each other: each
+technical input, method and result is summarized exactly once, under the same name, and alternatives and data
+flows agree.
+
+**Conceptual: the scientific architecture.** Shared scientific state and context -- measurements and machine
+configuration as data, physical assumptions and conventions as explicit knowledge -- feed scientific operations,
+each named by its method and the physical model it rests on. The three alternative equilibrium routes share one
+dash-dot enclosure; CHEASE refines a reconstruction. Their results become one equilibrium representation whose
+entries keep their own plasma states, and that representation is reused by MHD and transport operations whose own
+input requirements still apply. Results are IMAS-compatible representations, listed per domain, or native results.
+
+```python
+vaft.diagram.cross_domain_scientific_architecture()
+```
+
+![Equilibrium, MHD and transport: the scientific architecture]({{ '/assets/diagrams/cross_domain_scientific_architecture.svg' | relative_url }})
+
+It simplifies on purpose: solver-specific inputs are folded into the four context cards, the resolved transport
+state and its `state_identity` are left to the technical figure, and results are grouped by domain rather than
+by solver. Its arrows are implemented interfaces, not validated end-to-end workflows.
+
+**Technical: solvers, inputs and outputs.** Each method sits with the inputs it reads beside it; an input read by
+two methods (coil currents and machine geometry for TokaMaker and EFIT, the kinetic profiles for Sauter/Redl and
+the resolver) is drawn once. Shared measurements, assumptions and machine configuration feed three alternative
 equilibrium routes (analytic Grad-Shafranov, a TokaMaker free-boundary model, EFIT reconstruction) and the
 CHEASE refinement of a reconstruction, which all write the IMAS `equilibrium` representation. MHD stability and
 response (DCON, GPEC, RDCON) and transport (classical, two neoclassical and two turbulent models) are
@@ -2082,15 +2107,21 @@ vaft.diagram.cross_domain_scientific_workflows()
 
 ![Cross-domain integration: equilibrium, MHD and transport]({{ '/assets/diagrams/cross_domain_scientific_workflows.svg' | relative_url }})
 
-The four connections are drawn apart, also in grayscale: a quantity *consumed by* a calculation (solid, filled
-head); an *alternative method* for a related quantity (dash-dot, no head: the three equilibrium routes,
+The four relations are drawn apart, also in grayscale: a quantity *consumed by* a calculation is a solid arrow;
+*alternative methods* for a related quantity share a dash-dot enclosure (the three equilibrium routes,
 Sauter/Redl and NEO, TGLF and CGYRO, but never DCON, GPEC and RDCON, which compute different things); a result
-*mapped to an IMAS IDS* (open head); a result *kept in native form* (dashed). What the figure deliberately does
-not claim:
+*mapped to an IMAS IDS* sits under the operation that wrote it in the solid IMAS band, and a result *kept in
+native form* in the dashed native band, so no arrow is needed for either. Every flow arrow is short: none crosses
+another or passes through a box, which a test checks. The figure is laid out for a landscape page (about
+240 mm wide); the conceptual figure fits the 180 mm column. What the technical figure deliberately does not
+claim:
 
 - **A shared representation is not a shared state.** The four `equilibrium` entries hold an analytic, a modelled,
   a reconstructed and a refined equilibrium. Only a reconstructed entry, magnetic or kinetic, carries the
   experimental state the transport resolver keys on (`TransportStateKey`: shot, EFIT time, EFIT lineage).
+- **Some restrictions are enforced, others are conventions.** The transport resolver refuses anything but a
+  reconstructed slice of good or admissible quality (`TransportStateKey`, `efit_quality`); CHEASE accepts any
+  GEQDSK or ODS equilibrium, and refining a reconstruction is how the coupling uses it, not a check.
 - **MHD analyses are complementary, not independent.** GPEC reads DCON's ideal eigenfunctions (`euler.bin`,
   checked as a prerequisite in `vaft.code.gpec`), so that edge is drawn; RDCON runs on its own.
 - **One state identity keys runs; it does not merge results.** NEO, classical, TGLF and CGYRO read
@@ -2113,21 +2144,20 @@ not claim:
 
 | Element | Domain | Kind | Method | Drawn from | API | IDS leaf | Note |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Measurements | context | measured |  | `magnetic_efit.magnetics`, `magnetic_efit.pf`, `tglf_cgyro_local_transport.cp` |  |  |  |
-| Assumptions and closures | context | model assumption / prior |  | `plasma_parameter_inference.ti_ratio`, `plasma_parameter_inference.zeff`, `tglf_cgyro_local_transport.rotation`, `tokamaker_coupling.profiles` | `vaft.machine_mapping.core_profiles.vest_core_profiles_policy` |  | recorded with the result (code.parameters, provenance), not as measurements |
-| Machine configuration | context | machine geometry / static data |  | `magnetic_efit.geometry`, `tokamaker_coupling.geometry`, `gpec_plasma_response.coil_geometry` | `vaft.machine_mapping.coils_non_axisymmetric.coils_non_axisymmetric` |  |  |
 | Shape, profile class | equilibrium | model assumption / prior |  | `analytic_mhd_equilibrium.shape` |  |  |  |
-| Coil currents | equilibrium | measured |  | `tokamaker_coupling.coils`, `tokamaker_coupling.targets` |  |  |  |
+| Targets | equilibrium | measured |  | `tokamaker_coupling.targets` |  |  |  |
 | Profile shape | equilibrium | model assumption / prior |  | `tokamaker_coupling.profiles` |  |  |  |
-| Machine | equilibrium | machine geometry / static data |  | `tokamaker_coupling.geometry` |  |  |  |
-| Magnetics | equilibrium | measured |  | `magnetic_efit.magnetics`, `magnetic_efit.pf` |  |  |  |
+| Coil currents | equilibrium | measured |  | `tokamaker_coupling.coils`, `magnetic_efit.pf` |  |  |  |
+| Machine | equilibrium | machine geometry / static data |  | `tokamaker_coupling.geometry`, `magnetic_efit.geometry` |  |  |  |
+| Magnetics | equilibrium | measured |  | `magnetic_efit.magnetics` |  |  |  |
 | Kinetic profiles | equilibrium | measured |  | `kinetic_efit.ts` |  |  | kinetic EFIT only: Thomson pressure points constrain the reconstruction |
-| Machine | equilibrium | machine geometry / static data |  | `magnetic_efit.geometry` |  |  |  |
+| Vessel currents | equilibrium | derived |  | `magnetic_efit.eddy` | `vaft.process.electromagnetics.solve_eddy_currents` |  | modelled from the coil currents and magnetics, then fitted alongside them |
+| Profile basis | equilibrium | model choice / convention |  | `magnetic_efit.basis` |  |  | the polynomial terms the reconstruction is allowed |
 | COCOS | equilibrium | model choice / convention |  | `chease_coupling.cocos_in` |  |  |  |
 | Analytic Grad-Shafranov | equilibrium | solver / model | Solov'ev, Cerfon-Freidberg, Guazzotto-Freidberg | `analytic_mhd_equilibrium.solovev`, `analytic_mhd_equilibrium.gf` | `vaft.process.solve_solovev_constraints`, `vaft.process.solve_guazzotto_freidberg` |  |  |
 | Free-boundary model | equilibrium | solver / model | TokaMaker | `tokamaker_coupling.solve` | `vaft.code.tokamaker.run_tokamaker` |  |  |
 | Reconstruction | equilibrium | solver / model | EFIT | `magnetic_efit.efit`, `kinetic_efit.efit` | `vaft.code.efit.run_efit`, `vaft.code.efit.run_kinetic_efit` |  |  |
-| Fixed-boundary refinement | equilibrium | solver / model | CHEASE | `chease_coupling.chease` | `vaft.code.chease.run_chease` |  |  |
+| Fixed-boundary refinement | equilibrium | solver / model | CHEASE | `chease_coupling.chease` | `vaft.code.chease.run_chease` |  | accepts any GEQDSK or ODS equilibrium; the coupling applies it to a reconstruction (by convention, not enforced, unlike the transport resolver) |
 | analytic | equilibrium | standardized IMAS |  | `analytic_mhd_equilibrium.equilibrium` | `vaft.data.eqdsk.to_omas` | `equilibrium.time_slice.:.profiles_2d.:.psi` | reaches IMAS through EquilibriumData -> GEQDSK -> to_omas; the Solov'ev fit is not written |
 | free-boundary model | equilibrium | standardized IMAS |  | `tokamaker_coupling.equilibrium` |  | `equilibrium.time_slice.:.profiles_2d.:.psi` | a modelled state: measured coil currents with assumed profile shapes |
 | reconstructed | equilibrium | standardized IMAS |  | `magnetic_efit.equilibrium` | `vaft.code.efit.gfile_to_omas` | `equilibrium.time_slice.:.profiles_2d.:.psi` | the experimental state; the transport resolver keys on its time and lineage |
@@ -2145,8 +2175,8 @@ not claim:
 | Energy split | mhd | native result |  | `dcon_rdcon_stability.dw` | `vaft.code.gpec.read_dcon_output` |  |  |
 | Matching data | mhd | native result |  | `dcon_rdcon_stability.dprime` | `vaft.code.gpec.read_pest3_matching_output` |  |  |
 | Resonant response | mhd | native result |  | `gpec_plasma_response.resonant` | `vaft.code.gpec.read_gpec_netcdf` |  |  |
-| Kinetic profiles | transport | measured |  | `tglf_cgyro_local_transport.cp` |  |  |  |
 | Equilibrium | transport | reconstructed |  | `neoclassical_model_comparison.state` |  |  |  |
+| Closures | transport | model assumption / prior |  | `plasma_parameter_inference.zeff`, `plasma_parameter_inference.ti_ratio` | `vaft.machine_mapping.core_profiles.vest_core_profiles_policy` |  | a T_i stored in the ODS (measured or a recorded ratio) and Z_eff from the ODS or the caller |
 | Kinetic profiles | transport | measured |  | `tglf_cgyro_local_transport.cp` |  |  |  |
 | Closures | transport | model assumption / prior |  | `plasma_parameter_inference.ti_ratio`, `plasma_parameter_inference.zeff`, `tglf_cgyro_local_transport.rotation` | `vaft.machine_mapping.core_profiles.vest_core_profiles_policy` |  |  |
 | Resolved local state | transport | derived |  | `transport_hierarchy.state` | `vaft.process.transport_state.resolve_transport_state`, `vaft.process.transport_state.ResolvedTransportState.identity` |  |  |
@@ -2163,20 +2193,19 @@ not claim:
 
 | From | To | Connection |
 | --- | --- | --- |
-| `context` | `equilibrium` | consumed by (data flow) |
-| `context` | `mhd` | consumed by (data flow) |
-| `context` | `transport` | consumed by (data flow) |
 | `an_shape` | `analytic` | consumed by (data flow) |
-| `tm_coils` | `tokamaker` | consumed by (data flow) |
+| `tm_targets` | `tokamaker` | consumed by (data flow) |
 | `tm_profiles` | `tokamaker` | consumed by (data flow) |
-| `tm_machine` | `tokamaker` | consumed by (data flow) |
+| `eq_coils` | `tokamaker` | consumed by (data flow) |
+| `eq_coils` | `efit` | consumed by (data flow) |
+| `eq_machine` | `tokamaker` | consumed by (data flow) |
+| `eq_machine` | `efit` | consumed by (data flow) |
 | `ef_magnetics` | `efit` | consumed by (data flow) |
 | `ef_kinetic` | `efit` | consumed by (data flow) |
-| `ef_machine` | `efit` | consumed by (data flow) |
+| `ef_eddy` | `efit` | consumed by (data flow) |
+| `ef_basis` | `efit` | consumed by (data flow) |
 | `ch_cocos` | `chease` | consumed by (data flow) |
 | `eq_reconstructed` | `chease` | consumed by (data flow) |
-| `analytic` | `tokamaker` | alternative method, related quantity |
-| `tokamaker` | `efit` | alternative method, related quantity |
 | `analytic` | `eq_analytic` | mapped to an IMAS IDS |
 | `tokamaker` | `eq_model` | mapped to an IMAS IDS |
 | `efit` | `eq_reconstructed` | mapped to an IMAS IDS |
@@ -2194,21 +2223,23 @@ not claim:
 | `dcon` | `dcon_native` | kept in native form |
 | `rdcon` | `rdcon_native` | kept in native form |
 | `gpec` | `gpec_native` | kept in native form |
-| `sr_profiles` | `sauter_redl` | consumed by (data flow) |
 | `sr_geometry` | `sauter_redl` | consumed by (data flow) |
+| `sr_closures` | `sauter_redl` | consumed by (data flow) |
+| `tr_profiles` | `sauter_redl` | consumed by (data flow) |
 | `tr_profiles` | `state` | consumed by (data flow) |
 | `tr_closures` | `state` | consumed by (data flow) |
 | `state` | `neo` | consumed by (data flow) |
 | `state` | `classical` | consumed by (data flow) |
 | `state` | `tglf` | consumed by (data flow) |
 | `state` | `cgyro` | consumed by (data flow) |
-| `sauter_redl` | `neo` | alternative method, related quantity |
-| `tglf` | `cgyro` | alternative method, related quantity |
 | `sauter_redl` | `sr_native` | kept in native form |
 | `neo` | `ct_neo` | mapped to an IMAS IDS |
 | `classical` | `ct_classical` | mapped to an IMAS IDS |
 | `tglf` | `ct_tglf` | mapped to an IMAS IDS |
 | `cgyro` | `gk_cgyro` | mapped to an IMAS IDS |
+| `analytic`, `tokamaker`, `efit` | | alternative methods, related quantity |
+| `sauter_redl`, `neo` | | alternative methods, related quantity |
+| `tglf`, `cgyro` | | alternative methods, related quantity |
 
 ### Plasma parameter inference: ion temperature and species
 
