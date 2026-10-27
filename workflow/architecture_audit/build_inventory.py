@@ -651,6 +651,7 @@ CURATED.update(
             "scientific_risk": "medium",
             "recommended_action": "C2: grouping from the registry 'family' instead of r/z thresholds.",
             "related_issue": "#2164",
+            "resolved_by": "#2164 (C2, #2188: equilibrium_sensor_families; 194/194 k-files byte-identical)",
         },
         ("vaft/plot/backend/recipes.py", "vaft.plot.backend.recipes._build_interferometer_spectrogram"): {
             "classification": "intentional_specialization",
@@ -824,11 +825,29 @@ LAYER_DEFAULTS: dict[str, dict[str, str]] = {
     },
 }
 
-#: Uncurated readers of the external magnetics YAMLs (or of their loaders).
+#: Uncurated callers of a public magnetics adapter that used to read the split
+#: YAMLs (MAGNETICS_LOADERS). Since #2181 every such adapter reads the
+#: vest.yaml registry, so the caller already consumes the canonical source.
 ASSET_CONSUMER_DEFAULTS = {
-    "classification": "legacy",
-    "scientific_risk": "medium",
-    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+    "classification": "canonical",
+    "scientific_risk": "low",
+    "recommended_action": (
+        "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs "
+        "identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches)."
+    ),
+    "resolved_by": "#2158 (#2181)",
+}
+
+#: Readers of sql_table.txt, the raw-database name table: a separate contract,
+#: not a second sensor inventory (magnetics_reconciliation.md Q6).
+SQL_TABLE_DEFAULTS = {
+    "classification": "intentional_specialization",
+    "scientific_risk": "low",
+    "recommended_action": (
+        "keep: sql_table.txt is the raw-database field-name table (a separate contract); #2181 checks "
+        "it against all 75 registry labels."
+    ),
+    "resolved_by": "#2158 (#2181, documented as a separate contract)",
 }
 
 #: Uncurated, statically unreached numerics outside machine_mapping: geometry,
@@ -1204,7 +1223,7 @@ def build_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
         curated = CURATED.get(key, {})
         asset_only = row["operation"] <= {"magnetics_asset_consumer", "magnetics_asset_read"}
         if asset_only:
-            defaults = ASSET_CONSUMER_DEFAULTS
+            defaults = SQL_TABLE_DEFAULTS if row["assets"] <= {SQL_TABLE} else ASSET_CONSUMER_DEFAULTS
             scope = "magnetics_asset_consumer"
         else:
             defaults = LAYER_DEFAULTS.get(layer, {})
@@ -1239,7 +1258,7 @@ def build_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
             ),
             "related_issue": curated.get("related_issue", ""),
             "evidence": curated.get("evidence", ""),
-            "resolved_by": curated.get("resolved_by", ""),
+            "resolved_by": curated.get("resolved_by", defaults.get("resolved_by", "")),
             "curated": bool(curated),
             "audit_scope": scope,
         }
