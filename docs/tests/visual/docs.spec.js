@@ -35,14 +35,34 @@ test('homepage hero keeps the approved message and readable theme logo', async (
   await expect(page.locator('.vaft-hero-logo-dark')).toBeVisible();
 });
 
-test('sidebar renders two flat first-class sections', async ({ page }) => {
+test('sidebar renders eight flat thematic sections', async ({ page }) => {
   await page.goto('workflows/start-here/');
   const labels = page.locator('.nav-section-label');
-  await expect(labels).toHaveCount(2);
-  await expect(labels.nth(0)).toHaveText('Research workflows');
-  await expect(labels.nth(1)).toHaveText('Library and data reference');
-  await expect(page.locator('.book-summary li.chapter[data-level^="nav.v1."]')).toHaveCount(15);
+  await expect(labels).toHaveText([
+    'Getting started',
+    'Research workflows',
+    'Framework and scientific architecture',
+    'Plasma physics and models',
+    'VEST and IMAS data',
+    'APIs and visualization',
+    'Software and integrations',
+    'Resources and support',
+  ]);
+  const chapters = page.locator('.book-summary li.chapter[data-level^="nav.v1."]');
+  await expect(chapters).toHaveCount(51);
   await expect(page.locator('.book-summary li.chapter ul')).toHaveCount(0);
+  // Active-page highlighting follows the entry into its new section.
+  const active = page.locator('.book-summary li.chapter.active[data-level^="nav.v1."]');
+  await expect(active).toHaveCount(1);
+  await expect(active).toHaveAttribute('data-level', 'nav.v1.getting-started.start-here');
+  await expect(active).toContainText('Start here');
+});
+
+test('active highlighting works in a reassigned reference section', async ({ page }) => {
+  await page.goto('reference/vest-diagnostics/');
+  const active = page.locator('.book-summary li.chapter.active[data-level^="nav.v1."]');
+  await expect(active).toHaveCount(1);
+  await expect(active).toHaveAttribute('data-level', 'nav.v1.vest-imas-data.vest-diagnostics');
 });
 
 test('canonical guides expose overview and related-resource contracts', async ({ page }) => {
