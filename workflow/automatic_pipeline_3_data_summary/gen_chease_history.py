@@ -190,9 +190,11 @@ def extract_chease_data(chease_set):
         except Exception:
             magnetic_axis_z = np.nan
         # beta_pol/beta_tor/beta_normal/li_3 came from OMFIT's flux-surface
-        # solve; the native EQDSK conversion does not reconstruct them yet
-        # (issue #238), so these four are NaN for every shot.  The warning at
-        # the end of generate_chease_history_excel says so.
+        # solve.  The native EQDSK conversion (GEQDSK.to_omas) does not set
+        # them, and this script does not run
+        # vaft.omas.update.update_equilibrium_global_quantities_beta_li, so
+        # these four are NaN for every shot.  The warning at the end of
+        # generate_chease_history_excel says so.
         try:
             beta_poloidal = equilibrium['global_quantities']['beta_pol']
         except Exception:

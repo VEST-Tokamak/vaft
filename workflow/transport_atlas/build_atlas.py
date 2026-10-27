@@ -1,8 +1,9 @@
-"""Build the (shot, t, rho) transport atlas from stored TGLF and NEO records (issue #1427).
+"""Build the (shot, t, rho) transport atlas from stored TGLF and NEO records.
 
 Reads what ``run_tglf.py`` and ``run_neo.py`` wrote and runs no solver. ``--tglf`` is
 one configuration's tree (``tglf-sat<n>-<field>/``): an atlas never mixes TGLF
-configurations, and the configuration is a column, not an implied default (#1482). Writes to
+configurations, and the configuration is a column, not an implied default: which SAT rule
+and field model suit VEST is an open validation question. Writes to
 ``--out``:
 
     atlas.csv              one row per (shot, time_efit_s, efit_lineage, r_over_a)
@@ -27,7 +28,7 @@ Spectral conventions (TGLF native units):
   already carries its ky weight, so the sums are TGLF's own ky integral. This is a
   spectral moment, not an argmax: on a log ky grid, an argmax of weighted
   contributions would depend on the grid.
-* Classical columns are the Braginskii perpendicular baseline (#1435), evaluated from
+* Classical columns are the Braginskii perpendicular baseline, evaluated from
   the same TGLF local input. They join the partition as a third component, and only
   where the run recorded them.
 * ``f_em = |Q_mag| / (|Q_phi| + |Q_mag|)``, where Q_phi and Q_mag are the signed
@@ -366,14 +367,15 @@ def build_rows(tglf_root: Path, neo_root: Optional[Path] = None) -> list[dict[st
                 row["chi_i_classical_m2_s"] = classical.get("chi_i_m2_s")
             if ns is not None and ns.get("ti_supported") is False:
                 # NEO solved this surface on the policy-filled part of an inferred Ti
-                # profile; its values are kept but never partitioned (#1426 support).
+                # profile (outside the inferred-Ti support); its values are kept but never
+                # partitioned.
                 row["partition_status"] = "ti_not_inferred_here"
             elif si is not None and ns is not None and charges is not None:
                 try:
                     part = transport_partition(ns, si, turbulent_charges=charges, classical=classical)
                 except ValueError as error:
                     # Two ions sharing one charge, or a species without one: the
-                    # partition of this row is refused, not the atlas (#1501).
+                    # partition of this row is refused, not the atlas.
                     part = {"status": "unavailable", "reason": f"partition_refused: {error}"}
                 row["partition_status"] = part["status"] if part["status"] == "available" else part["reason"]
                 if part["status"] == "available":
@@ -384,7 +386,7 @@ def build_rows(tglf_root: Path, neo_root: Optional[Path] = None) -> list[dict[st
                     row["qe_model_W_m2"] = ch.get("electron_energy", {}).get("model")
                     row["f_classical_qe"] = ch.get("electron_energy", {}).get("f_classical")
                     # Ions: NEO and TGLF over every ion species, classical for the main
-                    # ion only (its impurity heat flux is not modelled, #1435).
+                    # ion only (its impurity heat flux is not modelled).
                     total = ch.get("ion_energy_total")
                     qi_cl = _f(row.get("qi_classical_W_m2"))
                     if total is not None:

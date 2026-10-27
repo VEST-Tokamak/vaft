@@ -1,4 +1,4 @@
-"""T_i/T_e of the three-closure ``inferred_profile`` mode against time, over every slice of a shot (#1842).
+"""T_i/T_e of the three-closure ``inferred_profile`` mode against time, over every slice of a shot.
 
 For each ``core_profiles`` slice: ``kinetic_state_stages(ion_temperature="inferred_profile")`` (Romero-closed
 composition, T_i/T_e(rho) by BIC) and the ``T_i = T_e`` variant.  Draws the ratio (axis and volume-weighted

@@ -145,7 +145,7 @@ def main() -> int:
     gfiles = _read_manifest(args.gfile_manifest)
     output_dir = args.output.parent
     work_root = output_dir / "work"
-    # Issue #139: comparison figures belong in the canonical `chease/{shot}/plot/`
+    # Comparison figures belong in the canonical `chease/{shot}/plot/`
     # artifact, not in an ad hoc subdirectory of `output/`.
     plots_dir = Path(args.plot_dir) if args.plot_dir.strip() else output_dir / "plots"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -213,7 +213,7 @@ def main() -> int:
                 "workdir": str(run_workdir),
                 "returncode": result.returncode,
                 # What CHEASE was run with. The solver mesh sets the local force
-                # balance of the result (#885), so products made with different
+                # balance of the result, so products made with different
                 # settings must be told apart from the product alone.
                 "solver": {
                     "nideal": config.resolved_nideal,
@@ -263,7 +263,7 @@ def main() -> int:
         status_text = f"failed: refined_gfiles=0; failed={len(failed)}"
     _write_outputs(args.output, args.status, tuple(refined), status_text)
     # A run in which every slice was a solver verdict -- non-convergence or a
-    # timeout, which run_chease returns as `returncode=None` (#1299) -- is a
+    # timeout, which run_chease returns as `returncode=None` -- is a
     # recorded result: the outputs stay, `generate_chease_ods` writes a
     # `no_output` manifest, and the worker reads the shot as partial. A
     # non-zero exit would make Snakemake remove the outputs, and the worker

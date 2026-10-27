@@ -1,4 +1,4 @@
-"""Linear CGYRO sensitivity to the impurity composition (Lane L, #1569; Lane Y path #1484).
+"""Linear CGYRO sensitivity to the impurity composition (Lane L, on Lane Y's CGYRO path).
 
 The same three compositions as ``run_tglf_composition.py`` (``c6_zeff2``,
 ``co_stripped``, ``co_openadas``), on one or two of Lane Y's states and surfaces,

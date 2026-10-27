@@ -8,7 +8,7 @@ Two layouts are supported through the ``layout`` config key:
     this pipeline directly diffable against it.
 
 ``filedb``
-    The canonical OMAS-first grammar from issue #77, resolved through
+    The canonical OMAS-first grammar, resolved through
     :class:`vaft.database.filedb.FileDB` so no path is reconstructed by hand.
 
 Only the Snakefile imports this module; the stage scripts receive explicit
@@ -52,8 +52,7 @@ def expand_config_environment(value):
     the variable when it is set and non-empty, the default otherwise.  This
     is what lets a shipped config name the production root as a default while
     a host that sets ``VAFT_FILEDB_DIR`` is honoured -- both pipelines read
-    their config through this one function (cold review 0.7.0 data F12,
-    #1888; PR #1926 review F2).
+    their config through this one function.
     """
     if isinstance(value, dict):
         return {key: expand_config_environment(item) for key, item in value.items()}
@@ -201,7 +200,7 @@ def stage_scope(value) -> frozenset[str] | None:
     outside it is never scheduled and never judged, so a vacuum shot run with
     ``[raw, diagnostics, eddy]`` does not fail at a constraint stage it was
     never asked for. This is scope, decided before a run; a stage that runs and
-    declines a shot is #205's skip semantics, not this.
+    declines a shot records that in its own manifest instead.
 
     ``raw`` is always included. A stage whose upstream is left out is refused
     rather than silently pulling that upstream in unjudged.
@@ -223,7 +222,7 @@ def stage_scope(value) -> frozenset[str] | None:
 
 
 class ScientificReference(NamedTuple):
-    """A product a rule consults without Snakemake scheduling it (#1647).
+    """A product a rule consults without Snakemake scheduling it.
 
     Pipeline 2 passes pipeline 1's EFIT products as ``params``, not ``input``,
     so that a shot pipeline 1 never reconstructed is *recorded* by the stage
@@ -305,7 +304,7 @@ def scientific_reference(paths: "PipelinePaths", rule: str, param: str):
     return lambda wildcards: method(wildcards.shot)
 
 
-#: Keys a run must state itself when it passes its own config file (#1530).
+#: Keys a run must state itself when it passes its own config file.
 RUN_CONFIG_REQUIRED_KEYS = ("base_dir", "shots")
 
 
@@ -326,7 +325,7 @@ def require_run_config_keys(workflow, keys=RUN_CONFIG_REQUIRED_KEYS) -> None:
     """Refuse a run config file that leaves *where* and *which shots* to the defaults.
 
     The Snakefile loads its own ``config.yaml`` and merges any command-line
-    ``--configfile`` over it (#1530). That makes a run config that omits
+    ``--configfile`` over it. That makes a run config that omits
     ``base_dir`` fall back to the workflow's -- the production FileDB on a host
     exporting ``VAFT_FILEDB_DIR`` -- and one that omits ``shots`` process the
     example shot. Both used to fail; they must not turn into silent writes.
@@ -420,11 +419,11 @@ _LOG_OWNER = {
     "build_mhd_linear": ("omas", "mhd_linear"),
     "build_gpec_ideal": ("omas", "gpec_ideal"),
     # Ingested by pipeline 2 rather than produced here, but they own OMAS
-    # stages, so a log written for one has to resolve like any other (#599).
+    # stages, so a log written for one has to resolve like any other.
     "ingest_soft_x_rays": ("omas", "soft_x_rays"),
     "ingest_camera_visible": ("omas", "camera_visible"),
     "ingest_camera_visible_fluctuation": ("omas", "camera_visible_fluctuation"),
-    # Same arrangement for the Thomson lineage (#130): built by the corrective
+    # Same arrangement for the Thomson lineage: built by the corrective
     # pipeline, but their logs belong to the stage that owns the product.
     "generate_thomson_ods": ("omas", "thomson"),
     "generate_ces_ods": ("omas", "ces"),
@@ -432,7 +431,7 @@ _LOG_OWNER = {
     "generate_composition_ods": ("omas", "composition"),
     "generate_ti_inferred_ods": ("omas", "ti_inferred"),
     "generate_resistive_zeff_ods": ("omas", "resistive_zeff"),
-    # The corrective stages' validation figures (#1842): one rule per stage.
+    # The corrective stages' validation figures: one rule per stage.
     **{
         f"plot_{stage}": ("omas", stage)
         for stage in (
@@ -487,7 +486,7 @@ def select_efit_table(
 
     With ``era_tables`` off, or a base table that states no era or no grid,
     every shot gets the base table and the constraint stage's era check
-    (#805) refuses the mismatches, as before.
+    refuses the mismatches.
     """
     # Falsy, not just None: the Snakefile defines the table rule only for a
     # base table that names an era and a suffix, and asking for a table no
@@ -556,7 +555,7 @@ class PipelinePaths:
         rather than something silently dropped.
 
         `turbulent_transport` is the exception: its product is a TGLF
-        configuration (`tglf-sat<n>-<field>`, #1900), not a stability product,
+        configuration (`tglf-sat<n>-<field>`), not a stability product,
         and it takes no refinement, so it is passed through for the FileDB
         grammar to validate rather than through `stability_product`.
         """
@@ -641,11 +640,11 @@ class PipelinePaths:
         return str(self._filedb.omas_manifest("diagnostics", shot=shot, **self._lineage("diagnostics")))
 
     def impa_ods(self, shot) -> str:
-        """The optional IMPA product (issue #305).
+        """The optional IMPA product.
 
         A stage of the FileDB grammar like any other; its name matching the
         HSDS source it is published into is a coincidence, not a mapping -- no
-        FileDB directory is named after a publication lineage (issue #77).
+        FileDB directory is named after a publication lineage.
         """
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "omas") / f"{shot}_impa.json")
@@ -669,7 +668,7 @@ class PipelinePaths:
     def constraints_ods(self, shot) -> str:
         if self.layout == SHOT_FIRST:
             return str(self._shot_dir(shot, "omas") / f"{shot}_constraints.json")
-        # Issue #77 places EFIT constraints under `omas/efit/{shot}/work`.
+        # EFIT constraints live under `omas/efit/{shot}/work`.
         return str(self._omas("efit", shot, "work") / "constraints.json")
 
     def efit_ods(self, shot) -> str:
@@ -689,7 +688,7 @@ class PipelinePaths:
     # These stages are canonical-layout only. The shot-first tree is a
     # read-only record of what the legacy pipeline produced, and it never
     # produced any of them, so there is no legacy path to return -- inventing
-    # one would name a file that has never existed (issues #89, #138).
+    # one would name a file that has never existed.
     # ----------------------------------------------------------------- #
     def _canonical_only(self, stage: str) -> None:
         if self.layout == SHOT_FIRST:
@@ -930,7 +929,7 @@ class PipelinePaths:
         )
 
     # -- validation plots ---------------------------------------------------
-    # Validation plots are a canonical FileDB artifact class (issue #139) and
+    # Validation plots are a canonical FileDB artifact class and
     # have no legacy shot-first equivalent, so they are only resolvable under
     # the `filedb` layout -- as with `gpec_workdir`, asking for one in the
     # legacy layout is a configuration error rather than a silent fallback.
@@ -1060,7 +1059,7 @@ class PipelinePaths:
         return str(self._filedb.pipeline("preflight", artifact="metadata") / "eligible_shots.json")
 
     def impa_selection(self) -> str:
-        """Which eligible shots the optional IMPA branch attempts (issue #305)."""
+        """Which eligible shots the optional IMPA branch attempts."""
         if self.layout == SHOT_FIRST:
             return str(PurePosixPath(self.base_dir) / "preflight" / "impa_shots.json")
         return str(self._filedb.pipeline("preflight", artifact="metadata") / "impa_shots.json")
@@ -1075,7 +1074,7 @@ class PipelinePaths:
         """Where a stage records whether its product reached HSDS.
 
         Only the canonical layout has a home for it: the record describes a
-        canonical product, and a shot-first tree is not one (issues #89, #138).
+        canonical product, and a shot-first tree is not one.
         """
         if self.layout == SHOT_FIRST:
             raise ValueError(

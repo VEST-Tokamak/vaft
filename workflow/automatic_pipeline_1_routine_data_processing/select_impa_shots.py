@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Select the shots whose IMPA product is worth producing (issue #305).
+"""Select the shots whose IMPA product is worth producing.
 
 The `impa` HSDS source is sparse and explicit: it holds only the shots for which
 an IMPA product was intentionally produced, so a shot missing from it means "no

@@ -1,8 +1,10 @@
-# EFIT native constraint-identifiability study (#664)
+# EFIT native constraint-identifiability study
 
 This workflow uses EFIT's exported response matrix to determine which VEST
 constraint families add independent information. It does not scan profile
-forms and it does not alter routine EFIT defaults.
+forms and it does not alter routine EFIT defaults. Its frozen inputs are the
+baseline k-files of the constraint-information study
+(`workflow/efit_constraint_information`), referred to below as that study.
 
 The five mandatory slices are:
 
@@ -18,7 +20,7 @@ The five mandatory slices are:
 
 The clean control was built from EFIT commit `4d10ed5` in Release mode with
 GNU Fortran 15.2 and NetCDF enabled. It passed 44/44 CTests. For the five
-reference slices, its archived-#663 a-file content after the run-date line and
+reference slices, its archived constraint-information-study a-file content after the run-date line and
 its m-files agree, and printed physics/outcomes are unchanged. The archived
 a-files are not byte-identical because their first run-date line differs. The
 separate same-date comparison between the clean control and the instrumented
@@ -57,7 +59,7 @@ controls; a changed `FWTDLC` or direction still restores the physical state
 but cannot reuse a stale objective history.
 
 Generate a pending, content-addressed plan after collecting the five frozen
-#663 k-files:
+constraint-information-study k-files:
 
 ```bash
 PYTHONPATH=$PWD python workflow/efit_identifiability/identifiability_study.py plan \
@@ -74,7 +76,8 @@ The build record is required to contain `source_base_revision=4d10ed5`,
 `source_dirty=false`, `build_type`, compiler identity, `cmake_options`,
 `install_manifest_sha256`, nested control/instrumented CTest counts with no
 additional failures, and the five-slice control comparison. The comparison
-records printed-precision/outcome agreement with archived #663 and a separate
+records printed-precision/outcome agreement with the archived
+constraint-information study and a separate
 bit-identical g-/a-/m-file comparison between the same-date control and
 diagnostics-disabled instrumented build. The executable identity and hash are
 added by the workflow; table and k-file hashes are embedded separately in
@@ -126,7 +129,7 @@ adding exactly one target equality and leaving orthogonal parameters free. The
 nonzero chain remains blocked unless the zero target reproduces the baseline
 within ten times repeat noise.
 
-Old #663 results normally have a different executable hash. Reproduce the
+Old constraint-information-study results normally have a different executable hash. Reproduce the
 needed ablation and strength endpoints with the instrumented executable, then
 finalize the evidence matrix:
 
@@ -139,7 +142,7 @@ PYTHONPATH=$PWD python workflow/efit_identifiability/identifiability_study.py \
 
 `merge-663-evidence --input PATH` is available when an earlier result really
 does match the executable, tables, scientific hash, and all five baseline
-k-files. A mismatch is never silently mixed into the #664 result.
+k-files. A mismatch is never silently mixed into the identifiability result.
 
 The workflow writes one atomic `case_manifest.json` per run, including failed
 and refinement cases. It never bridges a failure. Branch jumps are localized

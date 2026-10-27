@@ -1,4 +1,7 @@
-"""Lane D confinement regression and identifiability (#548 sections 3, 4, 6; layers B and C).
+"""Lane D confinement regression and identifiability (layers B and C).
+
+Layer B is the primary VEST fit on the predictors VEST scans, layer C its
+density sensitivity; both report identifiability and model stability.
 
 Reads the Tier A confinement table that ``build_table.py`` wrote and fits
 
@@ -8,20 +11,20 @@ Reads the Tier A confinement table that ``build_table.py`` wrote and fits
 with errors clustered by shot, a shot bootstrap, leave-one-shot-out refits,
 influence and a Huber fit. Every fit is repeated on the sensitivity selection.
 Only predictors VEST actually scans are primary (I_p, B_T, P_net); R, epsilon and
-kappa stay descriptive (#548 section 3). Fit B and fit A_ts use the same Thomson
+kappa stay descriptive: VEST does not scan machine size. Fit B and fit A_ts use the same Thomson
 subset, so the change in aB, aP and the condition number is due to n_e alone,
 not to a different sample.
 
-Not done here: the "W formulation" of section 6. Under least squares, regressing
+Not done here: the "W formulation" (regressing ln W). Under least squares, regressing
 ln W = ln tau + ln P on the same predictors returns the tau fit with aP shifted by
 exactly 1, so it cannot reveal the tau = W/P error coupling; that needs an
-errors-in-variables (ODR) fit, a follow-up on the Lane D log (#1490). Bootstrap and
+errors-in-variables (ODR) fit, which ``closures.py`` runs. Bootstrap and
 leave-one-shot-out refits are least squares, so they are reported only for the
 least-squares fits.
 
 Selections are decided from the table's evidence columns with
 vaft.process.confinement.confinement_slice_decision, so they can be changed
-without rebuilding the table (decision of 2026-10-02 on #1490):
+without rebuilding the table (decided 2026-10-02; record: Lane D log #1490):
 
     primary      |dIp/dt|/Ip * tau_E <= 0.20, |dW/dt|/P_OH <= 1.0, |Ip| >= 30 kA
     sensitivity  0.05 and 0.5

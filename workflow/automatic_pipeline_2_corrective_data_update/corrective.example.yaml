@@ -1,4 +1,4 @@
-# Corrective-pipeline worker (issue #1842) -- example server configuration.
+# Corrective-pipeline worker -- example server configuration.
 #
 # Copy it OUTSIDE the repository (e.g. /srv/vaft/corrective.yaml), edit, and run
 #   vaft corrective-worker run --config /srv/vaft/corrective.yaml
@@ -60,7 +60,7 @@ env:
 # (<Z_eff> = 2 and T_i = T_e, both stated as assumptions, reach main). The opt-in
 # stages ti_inferred and resistive_zeff are built only when named here: the
 # pressure partition gives T_i/T_e ~ 2 and the resistive Z_eff is identifiable on
-# few shots (#1842 Tier A evaluation).
+# few shots (Tier A evaluation record, #1842).
 # A list narrows rule all, the replication rules and the worker's verdict to those
 # stages; a stage needs its upstream (core_profiles needs thomson and ces,
 # composition needs core_profiles, ti_inferred needs composition, resistive_zeff

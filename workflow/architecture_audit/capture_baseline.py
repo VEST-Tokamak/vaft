@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Capture frozen, array-by-array baselines of the offline stage chain (issue #2166).
+"""Capture frozen, array-by-array baselines of the offline stage chain.
 
-The consolidation (#2147) moves configuration, magnetics mapping and
+The preprocessing consolidation moves configuration, magnetics mapping and
 preprocessing into canonical modules.  Its numerical-equivalence evidence is a
 comparison against what the *current* implementation produces from the same
 frozen inputs -- so that "current" has to be recorded, per array, before the

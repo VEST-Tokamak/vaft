@@ -1,6 +1,8 @@
-# EFIT profile-model uncertainty (#579)
+# EFIT profile-model uncertainty
 
-The first pass is measured and recorded below; its table is
+This study qualifies how much of a full-discharge, magnetics-only VEST
+reconstruction depends on the assumed profile model (Open: #579 tracks the
+wider qualification). The first pass is measured and recorded below; its table is
 `test/data/efit_profile_model_study.json`. A new run writes to the requested
 output directory and is not version-controlled with the workflow.
 
@@ -65,8 +67,11 @@ Interpretation limits are explicit:
   normally while silently omitting every m-file — so every chi-square in the
   report comes out empty and nothing else looks wrong. The run refuses at the
   first model rather than reporting a scan that answers nothing;
-- absolute pressure and `beta_p` are not qualified while #386/#659 remain open;
-- q comparisons exclude approximately `psi_N < 0.05` because of #317;
+- absolute pressure and `beta_p` are not qualified: the reconstructed pressure
+  sits far below force balance (Open: #386) and the diamagnetic row is
+  linearised about vacuum F (Open: #659);
+- q comparisons exclude approximately `psi_N < 0.05`, where EFIT's q near the
+  axis is outlier-prone;
 - a model that produces fewer equilibria is not compared on its easier subset
   without also reporting the changed outcome population;
 - the fit comparison uses EFIT's flux-loop plus magnetic-probe chi-square from
@@ -81,7 +86,8 @@ Interpretation limits are explicit:
 - the model-induced spread is reported over the times **every** model produced
   an equilibrium. A sigma over whatever happened to reconstruct at each slice
   is a sigma over a different ensemble at every slice, which is the selection
-  effect that made `NXITER = 3` look like an improvement in #171. The
+  effect that made `NXITER = 3` look like an improvement in the termination
+  scan (`workflow/efit_numerics/termination_scan.py`). The
   all-available figures are kept in the JSON and are not the headline, and the
   model that empties the common population is named rather than dropped;
 - the chi-square is not reduced by the fitted coefficient count. EFIT does not
@@ -92,6 +98,11 @@ Interpretation limits are explicit:
 ---
 
 # What the first pass found
+
+This section is the recorded result of the first pass, kept as a study record.
+It was run under the legacy routine constraints (`uncertainty_mode =
+"legacy_weight"`), the production default until 2026-10-01; the default since
+then is the statistical setting.
 
 Nine models over 39915, 41524 and 41672 — 77 plasma slices, one axis at a time,
 everything outside the profile block frozen and hashed. The table is
@@ -149,8 +160,8 @@ badly fitted and weighted out of the objective at the same time, and no number
 EFIT reports shows either: the misfit is divided into invisibility by the
 uncertainty, and the uncertainty itself is only in the k-file.
 
-This is #663's premise, now measured rather than asserted. It is also the
-missing half of #171's result: `MXITER` from 25 to 200 left the chi-square
+This is the constraint-information study's premise, now measured rather than
+asserted. It is also the missing half of the termination scan's result: `MXITER` from 25 to 200 left the chi-square
 identical because the chi-square is not measuring the fit.
 
 **Everything below therefore reads the magnetic chi-square as a relative
@@ -189,14 +200,14 @@ and moves the boundary by a millimetre; `p23_zero` adds an FF′ coefficient and
 moves it by two centimetres; `p33_zero` adds both and is indistinguishable from
 `p23_zero` on every column. At β_p ≈ 0.007 the `R p′` term barely reaches
 `j_φ`, so P′ order is free and inert — which is a statement about VEST's
-pressure (#386) as much as about the basis.
+pressure as much as about the basis.
 
 **And `KFFCUR` has not converged by three.** The fourth point was added for
 exactly this question: `(2,4)` moves the boundary 32 mm where `(2,3)` moved it
 20 mm, doubles the edge current where `(2,3)` raised it by half, and fits
 monotonically worse. There is no plateau in the range VEST can support.
 
-That is exactly the **model-dependent regime** #579 named: the magnetic fit
+That is exactly the **model-dependent regime** the study set out to detect: the magnetic fit
 stays similar while area, volume and `li` keep changing — the quantities are
 not determined by this reconstruction at this complexity. The **robust
 plateau** it hoped for does not exist on the FF′ axis, and the **pathological
@@ -221,8 +232,9 @@ is in the derived profile, not in the fitted coefficients, so a check that read
 only `pprime`/`ffprime` monotonicity would have called every model clean.
 
 **Runtime.** `(2,3)` costs 10% more than `(2,2)`, `(2,4)` 38%, the free edge
-52%. Measured serially, and this study has no parallel mode on purpose: #171
-recorded a recommendation drawn from scheduling noise in a run that used one.
+52%. Measured serially, and this study has no parallel mode on purpose: the
+termination scan recorded a recommendation drawn from scheduling noise in a run
+that used one.
 
 ## Q3 — does the right order change with the discharge phase?
 
@@ -265,8 +277,8 @@ VEST from magnetics, not of a discharge.
 
 `q95` is the exception at 5-6%, and it is the one quantity the magnetics do
 pin. `li` at 31% and `beta_p` at 60-70% are not measurements in this
-configuration; `beta_p` was already unqualified under #386/#659 and this is a
-second, independent reason.
+configuration; `beta_p` was already unqualified (see the interpretation limits
+above) and this is a second, independent reason.
 
 The population is honest: the strict and all-available figures differ by under
 a percentage point (17.2% against 16.4% on 41672), so the selection effect the
@@ -277,7 +289,8 @@ with the leave-one-out counts, because it had to be checked rather than assumed.
 
 `PCURBD = FCURBD = 0` takes collapsed slices from **22 to 10** — twelve of them
 become real equilibria (`collapsed → flagged`) across the three discharges. The
-seed (#588), the domain and the grid (#459) each left that block untouched;
+seed-sensitivity study and the domain and grid scans each left that block
+untouched;
 this is the first lever that does not.
 
 It is not a free win and should not be read as one. The same change costs six
@@ -286,8 +299,9 @@ the equilibria it produces sit **68 mm** from the baseline boundary with 32%
 more area and an edge current 8.7× higher. Whether those are better
 reconstructions is not answerable from the magnetic residual, for the reason in
 the first section. What the result does say is that the hard zero-edge
-assumption is implicated in the null solutions, which is a lead for #459's
-remaining block that nothing else has produced.
+assumption is implicated in the null solutions, which is a lead for the
+computational-domain and grid qualification (Open: #459) that nothing else has
+produced.
 
 `FWTBP = 1` on top of the free edge cancels most of it — 20 collapsed instead
 of 10 — while raising the condition number to 1e12. On the zero-edge baseline
@@ -299,13 +313,14 @@ cost in conditioning. There is no case for it here.
 - **Not which model VEST should use.** The comparison that would decide it —
   which model fits the magnetics best — is available only as a relative
   quantity, on channels weighted out of EFIT's objective by ~2e4 each. The
-  ranking would be of a residual the solver is not minimizing. That decision
-  waits on #663.
+  ranking would be of a residual the solver is not minimizing. At the first
+  pass that decision waited on the constraint-information study
+  (`workflow/efit_constraint_information`), which has since run.
 - **Not that `(2,2)` is wrong.** It is the point the other eight are measured
   against, and nothing here dislodges it. `(3,2)` is indistinguishable from it
   and `(1,1)` is clearly worse — 9 fewer equilibria, 7 more collapses.
 - **Not a pressure result.** Every model carries essentially no pressure
-  (#386/#659); the 60-70% spread on `beta_p` is spread in a quantity that is
+  (see the interpretation limits above); the 60-70% spread on `beta_p` is spread in a quantity that is
   near zero in all nine.
 - **Not build-independent in its absolute counts.** The baseline model on
   41672 produced 32 of its 41 requested slices under a Linux build of EFIT and
@@ -313,16 +328,20 @@ cost in conditioning. There is no case for it here.
   one slice of difference. Every comparison here is within one build; an
   absolute count quoted across builds is not safe.
 - **Not an answer about `KPPFNC`/`KFFFNC`.** Both are held at 0, the polynomial
-  basis, exactly as #579 scoped. That `KFFCUR` has not converged by four is an
+  basis, exactly as the study was scoped. That `KFFCUR` has not converged by four is an
   argument for asking the basis question, not for raising the polynomial order
   further.
 
 ## Handover
 
-- **#663** — which constraint families carry information. This study measured
+As recorded at the first pass (history):
+
+- **Constraint information** (`workflow/efit_constraint_information`,
+  run since) — which constraint families carry information. This study measured
   its premise: the magnetics contribute 1.5e-9 of the objective because each
   channel is handed an uncertainty four orders above its signal. The
   `legacy_weight` path and `BITMPI = weight/VBIT*1e4` are where to start.
-- **#459** — the free edge moves the collapse block that seed, domain and grid
-  did not. Twelve slices.
-- **#386/#659** — P′ order is inert because there is no pressure to represent.
+- **Domain and grid qualification** (Open: #459) — the free edge moves the
+  collapse block that seed, domain and grid did not. Twelve slices.
+- **Pressure deficit and diamagnetic linearisation** (Open: #386, #659) — P′
+  order is inert because there is no pressure to represent.

@@ -154,7 +154,7 @@ def main() -> int:
     results = []
     ordering = []
     for gfile in gfiles:
-        # Advisory ordering state of this case (#1987): never raises, an empty
+        # Advisory ordering state of this case: never raises, an empty
         # state and the recorded error when the g-file cannot supply it.
         state, provenance = ordering_state_for_case(gfile, z_eff=args.z_eff)
         ordering.append(provenance)
@@ -196,7 +196,7 @@ def main() -> int:
     # A stable equilibrium is a successful, and arguably the desirable, outcome.
     # It is counted apart from `completed` so that "this shot produced no
     # unstable mode" stays visible instead of reading as a run that failed to
-    # produce anything (issue #423).
+    # produce anything.
     stable = [record for record in records if record.status == "stable"]
     skipped = [record for record in records if record.status == "skipped"]
     failed = [record for record in records if record.status == "failed"]

@@ -1,7 +1,7 @@
-"""Build the resistive Z_eff atlas (#1214 Phase G) on the Lane K Tier A states.
+"""Build the resistive Z_eff atlas on the Lane K Tier A states.
 
 Reads, never writes, the campaign FileDB and the Lane K state atlas
-(contract #1454); writes ``zeff.csv`` (one row per window), ``slices.csv``
+(state key contract ``vaft.validation.kinetic_state.CONTRACT_VERSION``); writes ``zeff.csv`` (one row per window), ``slices.csv``
 (one row per Lane K key in a window), ``sensitivity.csv``, their JSON Schemas
 and ``MANIFEST.json`` into one versioned directory.
 
@@ -10,13 +10,13 @@ Windows
 A window is the longest run of consecutive EFIT slices of one shot whose
 ``magnetics`` rows are graded ``good`` or ``admissible``; Romero's balance
 differentiates in time, so a window needs three slices.  It is classified by
-the median ``dln I_p/dt`` (#1214 Sec. 6, relaxed in #1514): a small
+the median ``dln I_p/dt`` (a relaxed flat-top criterion): a small
 ``|V_I|/|V_B|`` is not a flat top, because ``L_i dI_p/dt`` and
 ``(I_p/2) dL_i/dt`` cancel in the current decay.
 
 * ``flattop`` -- ``|dln I_p/dt|`` below ``--stationary-rate``.  ``L_i`` may
-  still evolve: no Thomson-equipped VEST window has a steady ``L_i``
-  (#1514), and Romero's balance carries ``(I_p/2) dL_i/dt`` explicitly
+  still evolve: no Thomson-equipped VEST window has a steady ``L_i``,
+  and Romero's balance carries ``(I_p/2) dL_i/dt`` explicitly
   rather than assuming it away.  ``li_evolving`` says whether it did.
 * ``ramp_up`` / ``decay`` -- by the sign of ``dI_p/dt``.
 
@@ -28,7 +28,7 @@ The rates come from the Rogowski ``I_p`` (magnetics, smoothed over 1 ms),
 falling back to the EFIT ``I_p`` when the shot has no diagnostics product.
 
 A window that cannot be inferred is still a row, with
-``status = not_identifiable`` and the reason (#1214 Sec. 10):
+``status = not_identifiable`` and the reason:
 
 * fewer than three graded slices in a row;
 * no slice in the window has electron profiles at its own time;
@@ -38,7 +38,8 @@ A window that cannot be inferred is still a row, with
 
 The electron profiles are Lane K's ``core_profiles/<shot>.json.gz`` fits,
 matched to EFIT slices by time.  No bootstrap current is subtracted
-(``bootstrap = none``, the #1214 Sec. 8 reference): it needs T_i, which every
+(``bootstrap = none``, the documented reference approximation for a
+predominantly Ohmic discharge): it needs T_i, which every
 Tier A row only has as an assumption.  Nothing is written to any
 ``core_profiles.zeff``.
 
@@ -235,8 +236,8 @@ def _graded_runs(times: list[float], product_times: np.ndarray) -> list[list[flo
     return [[float(product_times[k]) for k, _ in run] for run in runs]
 
 
-#: The inboard midplane flux loop Lane D uses for V_loop (#548), by its
-#: vest.yaml registry id: its name and position are the registry's (#2164).
+#: The inboard midplane flux loop Lane D uses for V_loop, by its
+#: vest.yaml registry id: its name and position are the registry's.
 FLUX_LOOP_ID = "fl_10"
 
 

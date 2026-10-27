@@ -1,6 +1,6 @@
 # Kinetic state (lane K)
 
-## Verification snapshot capture (#1835)
+## Verification snapshot capture
 
 On a host with the Atlas and its original FileDB, run:
 
@@ -25,9 +25,9 @@ and distance to singularity for pair-13, pair-23, historical Lao li and full
 by `vaft.validation.kinetic_population`, with conditioning marked unavailable.
 These are descriptive quantities and introduce no acceptance threshold.
 
-These scripts build the conference atlas's kinetic-state tables from the #1331 Tier A EFIT campaign.
+These scripts build the conference atlas's kinetic-state tables from the Tier A shots of the EFIT campaign (`workflow/efit_campaign`).
 
-The state key contract is defined in #1454: rows are keyed by `(shot, time_efit_s, efit_lineage)` and every row carries `efit_quality`. The slice-level calculations live in `vaft.validation.kinetic_state`. The Thomson comparison is the sampler that `criteria.py`'s Thomson verdict grades, `vaft.validation.equilibrium.thomson_pressure_samples`.
+The state key contract (version `vaft.validation.kinetic_state.CONTRACT_VERSION`): rows are keyed by `(shot, time_efit_s, efit_lineage)` and every row carries `efit_quality`. The slice-level calculations live in `vaft.validation.kinetic_state`. The Thomson comparison is the sampler that `criteria.py`'s Thomson verdict grades, `vaft.validation.equilibrium.thomson_pressure_samples`.
 
 | script | reads | writes |
 |---|---|---|
@@ -62,7 +62,7 @@ python3 workflow/kinetic_state/summarize.py --atlas ~/runs/campaign/atlas/v1 \
   - The ceiling follows from `p = p_e (1 + f_i T_i/T_e)` with no fast ions, `T_i ≤ T_e` and `f_i = n_i,tot/n_e ≤ 1`.
   - Version 1 used `[1, 3]` and gated `good` rows on it, so atlases built before 2026-10-02 differ.
 
-## Inferred T_i (#1426)
+## Inferred T_i
 
 `build_ti.py` runs after `build_state.py` and reads its tables:
 
@@ -88,7 +88,7 @@ It writes four things:
 - Grid points the Thomson channels do not bracket are flagged `outside_ts_span`.
 - Grid rows are written only when the `core_profiles` grid is the state's own equilibrium slice: the grid is placed by its own flux label (`grid.rho_pol_norm` or `grid.psi`) and its `rho_tor_norm` must agree with the slice's `rho_tor(psi_N)` within `GRID_RHO_TOLERANCE` (0.02). A `sqrt(psi_N)` proxy under `rho_tor_norm`, another equilibrium's coordinate, or a grid with no flux label is refused and `ti_state.csv` carries the reason; the channel rows are unaffected.
 
-**σ(p_EFIT)** is the spread over the shot's other good or admissible magnetics slices within 1 ms, at the same ψ_N. Its floor is 17 % (#874).
+**σ(p_EFIT)** is the spread over the shot's other good or admissible magnetics slices within 1 ms, at the same ψ_N. Its floor is 17 %, the KPPCUR model-form uncertainty on the pressure-weighted area found by the EFIT profile-model study (`workflow/efit_profile_models`).
 
 ## Matched single-state inference archives
 
@@ -110,15 +110,15 @@ pressure sum `p_e+p_i=p_eq` is a closure identity. Thomson measurements used
 as fit input are shown with errors but do not independently validate their
 own fit. The notebooks do not write poster assets.
 
-The composite view is the public plot `vaft.omas.plot_kinetic_overview_state`
-([#1837](https://github.com/VEST-Tokamak/vaft/issues/1837)), which reads stored
+The composite view is the public plot `vaft.omas.plot_kinetic_overview_state`,
+which reads stored
 IMAS paths only. [`archive_to_ods.py`](archive_to_ods.py) turns a snapshot into
 such an ODS through VAFT's own writers where they exist: the C/O composition goes
 through `populate_radial_impurity_profiles` (fed the archived charge states), `T_i`
 through `infer_ti_pressure_partition`, and each quantity carries the
 `*_fit.parameters` provenance record the plot reads its evidence role from, with
 the equilibrium lineage/occurrence on the ion-temperature record and the `Z_eff`
-target on the `zeff` record (the contract as amended on #1837). The writer fills
+target on the `zeff` record (the contract the plot reads). The writer fills
 the one point whose charge states are undefined, where the notebooks leave NaN;
 the converter checks the written values against the notebook algebra at every
 defined point. The snapshots keep the Thomson mapping but not the 2-D flux map, so

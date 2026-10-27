@@ -72,8 +72,9 @@ def find_chease_files(base_path=None):
     print(f"\nTotal CHEASE file sets found: {len(chease_files)}")
     return chease_files
 
-# Quantities OMFIT's flux-surface solve used to supply and the native EQDSK
-# conversion does not reconstruct yet (issue #238).  Reporting them as NaN with
+# Quantities OMFIT's flux-surface solve used to supply.  The native EQDSK
+# conversion (GEQDSK.to_omas) does not set them, and this script does not run
+# vaft.omas.update.update_equilibrium_global_quantities_beta_li.  Reporting them as NaN with
 # one warning keeps the rest of the row -- reading an unset ODS leaf raises, and
 # the broad except below would otherwise drop every g-file and leave an empty
 # spreadsheet.

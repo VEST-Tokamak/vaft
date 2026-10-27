@@ -1,4 +1,4 @@
-"""Audit the reference-sample portfolio against the canonical FileDB state (#1712).
+"""Audit the reference-sample portfolio against the canonical FileDB state.
 
 The audit has two halves, because the server's production checkout is not the
 VAFT version under review:
@@ -20,13 +20,13 @@ VAFT version under review:
     (``vaft/data/samples/*``), the stage registry
     (:data:`vaft.database.sources.STAGE_REPLICATION`) and the diagnostic
     registry (``vest.yaml``), merges the server scan, and assigns every
-    ``shot x source x IDS x occurrence`` row one of the coverage states #1712
-    defines.  It writes a YAML coverage table and a Markdown summary.
+    ``shot x source x IDS x occurrence`` row one of the coverage states in
+    :data:`STATES`.  It writes a YAML coverage table and a Markdown summary.
 
 The coverage state is a statement about the *server product*; the packaged
 sample is reported beside it but never upgrades a row, because a packaged
 artifact passing says nothing about the canonical state (it is exactly the
-trap #1712 exists to close).
+trap this audit exists to close).
 """
 
 from __future__ import annotations
@@ -83,7 +83,8 @@ UPSTREAM_ORDER = (
 #: product, so they never have a per-shot stage of their own.
 MACHINE_IDS = ("dataset_description", "wall", "em_coupling")
 
-#: Coverage vocabulary, verbatim from #1712.
+#: Coverage vocabulary, verbatim from the reference-dataset refresh
+#: specification (issue #1712).
 STATES = (
     "available",
     "not-applicable",

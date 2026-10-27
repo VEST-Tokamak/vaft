@@ -1,4 +1,4 @@
-"""Infer T_i from the pressure partition on the atlas states (#1426).
+"""Infer T_i from the pressure partition on the atlas states.
 
 Reads ``state.csv`` / ``profiles.csv`` written by ``build_state.py`` and the
 campaign FileDB; writes, into the same atlas directory:
@@ -18,8 +18,9 @@ campaign FileDB; writes, into the same atlas directory:
 * ``schema/ti_*.schema.json`` and ``ti_summary.json``.
 
 Only ``magnetics`` rows are inferred from.  ``electron_kinetic`` rows are
-recorded as refused, because their pressure was fitted with Ti = Te assumed
-(#1426 section 6).  The Ti = Te policy itself (#1414) is untouched: this is an
+recorded as refused, because their pressure was fitted with Ti = Te assumed,
+so partitioning it would return that assumption.  The Ti = Te policy for
+Thomson-only slices is untouched: this is an
 additional lineage, ``ti_lineage = pressure_partition_inferred``.
 
 sigma(p_EFIT) is the spread of the pressure over the shot's other good or
@@ -350,7 +351,7 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
                 ods[f"{ion}.element.0.a"] = species["a"]
                 ods[f"{ion}.density_thermal"] = species["density_per_electron"] * s["n_e"]
                 ods[f"{ion}.temperature"] = s["t_i"]
-        # through vaft.omas.save, which picks the encoder from the suffix (#813)
+        # through vaft.omas.save, which picks the encoder from the suffix
         save(ods, atlas / "core_profiles" / f"{shot}.json.gz")
 
     eligible = [s for s in states if s["eligible"] == "true" and s.get("channels")]

@@ -1,4 +1,4 @@
-"""Controlled EFIT A/B: the same constraints, the same binary, two Green tables (issue #194).
+"""Controlled EFIT A/B: the same constraints, the same binary, two Green tables.
 
     PYTHONPATH=$PWD EFITHOME=~/git/efit/vaft-install python workflow/efit_tables/ab_efit_table.py \\
         --eddy-ods /scratch/39915_eddy_noeq.json --shot 39915 \\
@@ -71,7 +71,7 @@ def _table_dir(path: Path) -> str:
 def iterations_from_log(text: str) -> list[dict[str, Any]]:
     """Per-slice iteration count, last chi2 and last increment from EFIT's terminal log.
 
-    A view of :func:`vaft.code.efit.parse_iteration_history` (#1038), in time
+    A view of :func:`vaft.code.efit.parse_iteration_history`, in time
     order. The counter restarting at 1 delimits the slices, and a ``bound``
     error naming a time no slice has yet opens one -- a slice that collapsed
     before its first Picard step is a block with ``iterations_n == 0``, not an

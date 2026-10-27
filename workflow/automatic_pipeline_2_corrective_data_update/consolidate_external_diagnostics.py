@@ -608,8 +608,8 @@ def _apply_member_renames(target: Path, renames: Mapping[str, str]) -> dict[str,
 def write_fluctuation_index(root: Path, operations: Sequence[Operation]) -> Path | None:
     """Write the index of camera shots reserved for the fluctuation routine.
 
-    Issue #161 needs to know which shots are available at fluctuation-grade
-    frame rates without re-deriving it from 200 GB of headers, and needs the
+    The fluctuation analysis needs to know which shots are available at
+    fluctuation-grade frame rates without re-deriving it from 200 GB of headers, and needs the
     guarantee that routine ingest never consumed them.
     """
     reserved = [op for op in operations if op.diagnostic == "camera_visible_fluctuation"]

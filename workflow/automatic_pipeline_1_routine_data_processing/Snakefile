@@ -15,13 +15,13 @@ from pathlib import Path
 # working directory: a bare "config.yaml" resolves against `--directory`, so a
 # run launched with `--directory <run dir> --configfile <run dir>/config.yaml`
 # re-read its own partial config and never loaded this one -- every unset key
-# fell back to a code default (efit.run false, no eddy filament, #1530).
+# fell back to a code default (efit.run false, no eddy filament).
 # Command-line `--configfile` files are deep-merged over these.
 configfile: str(Path(workflow.basedir) / "config.yaml")
 
 
 # The expander is shared with pipeline 2 so both read `${VAR}` / `${VAR:-default}`
-# the same way (cold review 0.7.0 data F12, #1888).
+# the same way.
 sys.path.insert(0, str(Path(workflow.basedir)))
 from paths import expand_config_environment
 
@@ -71,7 +71,7 @@ if EFIT_PRESET:
 # Per-era Green tables. `efit.table_dir` is the base table, and a shot of its
 # own era uses it exactly as configured. A shot of another era gets a table the
 # pipeline builds once per era (rule generate_efit_table) with the base table's
-# grid and flags, so only the machine geometry differs (#805). `era_tables:
+# grid and flags, so only the machine geometry differs. `era_tables:
 # false` keeps the base table for every shot, which the constraint stage then
 # refuses for other eras.
 from vaft.code.efit.efund import read_table_manifest as _read_table_manifest
@@ -132,7 +132,7 @@ MACHINE_VERSIONS = sorted({machine_era_for_shot(int(shot)).name for shot in SHOT
 
 
 # --------------------------------------------------------------------------- #
-# Validation plots (issue #139)
+# Validation plots
 # --------------------------------------------------------------------------- #
 # `plot/` is a canonical FileDB artifact class with no legacy shot-first
 # equivalent, so validation plots exist only under the `filedb` layout. The
@@ -142,7 +142,7 @@ MACHINE_VERSIONS = sorted({machine_era_for_shot(int(shot)).name for shot in SHOT
 # declare as a static Snakemake output.  Non-empty-only stages retain their
 # figure paths as direct outputs.
 # --------------------------------------------------------------------------- #
-# HSDS replication (issue #94)
+# HSDS replication
 # --------------------------------------------------------------------------- #
 # Each stage replicates the IDS subtree it owns into the named source the
 # registry gives it, so a shot appears in `main` with whatever it actually
@@ -171,7 +171,7 @@ if HSDS_CONFIG.get("replicate", False) and PATHS.layout != FILEDB:
     )
 # An optional stage is not part of the baseline target set: its shots are a
 # sparse subset chosen by its own checkpoint, and a shot that never produced it
-# must not read as a missing baseline output (issue #305). Which stages are
+# must not read as a missing baseline output. Which stages are
 # optional is the registry's answer, not this file's. Only the routine stages:
 # the corrective ones (Thomson lineage, soft X-ray, camera, ...) have their own
 # producers and no rule here, so asking for their records -- which the IMPA
@@ -185,13 +185,13 @@ OPTIONAL_REPLICATED_STAGES = tuple(
 )
 
 
-# `mhd_linear` is one stage product per stability product (#787), so it is
+# `mhd_linear` is one stage product per stability product, so it is
 # replicated -- and records that it was -- once per product, which is what
 # `replicate_mhd_linear_to_hsds` writes. Every other stage has one per shot.
 PER_PRODUCT_REPLICATED_STAGES = {"mhd_linear": GPEC_STABILITY_MODULES}
 
 
-#: Which per-shot stages `rule all` requests (#58). Absent: all of them. A
+#: Which per-shot stages `rule all` requests (the worker's `stages`). Absent: all of them. A
 #: stage outside the scope is never scheduled, so its products, plots and
 #: replication records are not asked for either.
 STAGE_SCOPE = stage_scope(config.get("stages"))
@@ -258,7 +258,7 @@ def validation_plot_products(shots):
                 for name in stage_plot_filenames(stage, required_only=True):
                     outputs.append(PATHS.stage_plot(shot, stage, name))
             outputs.append(PATHS.stage_plot_manifest(shot, stage))
-        # `mhd_linear` is one stage product per stability product (#787), so its
+        # `mhd_linear` is one stage product per stability product, so its
         # plot manifest is one per product too -- the one `plot_mhd_linear` writes.
         if in_scope("mhd_linear"):
             for module in GPEC_STABILITY_MODULES:
@@ -439,7 +439,7 @@ rule all:
 # and IMPA-selection checkpoints taken as passed: what the DAG looks like for a
 # shot that is eligible (and, with impa.enable, archives IMPA). A dry run cannot
 # see past a checkpoint, so this is how the documentation's lineage graph
-# (vaft._pipeline_graph, #1647) asks Snakemake for the whole topology. Never the
+# (vaft._pipeline_graph) asks Snakemake for the whole topology. Never the
 # default target, and never run: it skips the gate production relies on. Defined
 # only under `documentation_graph: true`, so a production parse never resolves
 # every product of every configured shot for a target it will not ask for.
@@ -530,7 +530,7 @@ checkpoint preflight_raw_dumps:
         """
 
 ############################################################
-# Optional IMPA selection (issue #305)
+# Optional IMPA selection
 ############################################################
 # The `impa` source is sparse and explicit, so the branch runs only where the
 # array was recording. Nothing requests this while `impa.enable` is false, so a
@@ -715,7 +715,7 @@ rule generate_constraints_ods:
         """
 
 ############################################################
-# Per-era EFIT Green table (#805)
+# Per-era EFIT Green table
 ############################################################
 if EFIT_ERA_TABLES and EFIT_BASE_ERA and EFIT_TABLE_SUFFIX:
     rule generate_efit_table:
@@ -1122,7 +1122,7 @@ if REPLICATION_ENABLED:
 
     # An optional stage: a product that is not eligible -- absent, rejected, or
     # failed -- is recorded as skipped and the rule still succeeds, so the
-    # branch cannot change the exit state of the baseline run (issue #305).
+    # branch cannot change the exit state of the baseline run.
     rule replicate_impa_to_hsds:
         input:
             ods=PATHS.shot_pattern("impa_ods"),
@@ -1228,7 +1228,7 @@ rule run_chease:
         timeout=CHEASE_CONFIG.get("timeout", ""),
         target_psin=CHEASE_CONFIG.get("target_psin", 0.993),
         relax=CHEASE_CONFIG.get("relax", 0.5),
-        # Deprecated raw NIDEAL for a non-upstream CHEASE build (#516); the
+        # Deprecated raw NIDEAL for a non-upstream CHEASE build; the
         # adapter selects it from its GEQDSK output contract otherwise.
         mesh_args=" ".join(
             f"--{key} {int(CHEASE_CONFIG[key])}" for key in ("ns", "nt") if CHEASE_CONFIG.get(key) is not None

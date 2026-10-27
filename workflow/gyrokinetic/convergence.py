@@ -1,4 +1,4 @@
-"""Resolution convergence table from several ``run_linear.py`` trees (#1354).
+"""Resolution convergence table from several ``run_linear.py`` trees.
 
 Run ``run_linear.py`` once at the production resolution (``--base``) and once per varied
 setting (``--variant``), each into its own ``--out`` on the same state, surface, field

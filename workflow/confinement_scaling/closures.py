@@ -1,4 +1,8 @@
-"""Lane D: errors in variables, Kadomtsev completion and closures (#548 sections 6-9; layers D-F).
+"""Lane D: errors in variables, Kadomtsev completion and closures (layers D-F).
+
+Layers D-F of the confinement study: Connor-Kadomtsev completion, the
+dimensionless interpretation and the physics-closure comparison, with NSTX as an
+explicit comparison.
 
 Reads the Tier A confinement table and, on each selection of ``fit.py``:
 
@@ -68,7 +72,7 @@ SIGMA_REF = (0.20, 0.20)
 ODR_POWER = {"p_ohm": "p_ohm_W", "p_net": "p_loss_W"}
 NSTX = {
     # Buxton et al., PPCF 61 (2019) 035006: gyro-Bohm-completed NSTX scaling, as
-    # quoted in #548 Sec. 9 (exponents not re-checked against the paper here).
+    # quoted in the confinement study plan (#548, Sec. 9) (exponents not re-checked against the paper here).
     "NSTX Buxton2019 (gyro-Bohm completed)": {"i_p": 0.54, "b_t": 0.91, "p_net": -0.38, "n_e": -0.05},
 }
 
@@ -243,14 +247,14 @@ def odr_scan(name, frame, n_boot):
 
 #: Intrinsic scatter added in quadrature to the per-row EFIT model-form spread, as
 #: a lower and a central assumption: the spread is one part of the equation error
-#: of ln W, not all of it (#579, #548).
+#: of ln W, not all of it.
 SIGMA_LOG_INTRINSIC = (0.0, 0.10)
 #: Measurement error of ln P_OH in the model-spread ODR: the reference of the scan.
 SIGMA_LOG_P_REF = SIGMA_REF[0]
 
 
 def join_model_spread(frame: pd.DataFrame, spread: pd.DataFrame) -> pd.DataFrame:
-    """Attach the #579 per-state EFIT model-form spread of W, matched by (shot, time) to 1e-4 s."""
+    """Attach the per-state EFIT model-form spread (model_spread.py) of W, matched by (shot, time) to 1e-4 s."""
     keep = ["shot", "w_mhd_J_admissible_sigma_log", "w_mhd_J_admissible_median", "admissible_bimodal",
             "w_mhd_J_viable_sigma_log", "w_mhd_J_viable_n"]
     # The table is magnetics-lineage; another lineage's spread is not attached.
@@ -267,8 +271,8 @@ def join_model_spread(frame: pd.DataFrame, spread: pd.DataFrame) -> pd.DataFrame
 def odr_model_spread(name: str, frame: pd.DataFrame) -> list:
     """ODR of W on (I_p, B_T, P_OH) with the EFIT model-form spread as the per-row W error.
 
-    Per-row sigma_W = sqrt(sigma_EFIT^2 + sigma_int^2) on the rows the #579
-    ensemble covers, with and without the bimodal rows (two solution branches,
+    Per-row sigma_W = sqrt(sigma_EFIT^2 + sigma_int^2) on the rows the EFIT
+    profile-model ensemble covers, with and without the bimodal rows (two solution branches,
     one sigma is wrong there), and with the tight 'viable' spread where it
     exists; every case also reports the scan's constant sigma_W = 0.2 on the same
     rows, so a difference is the weighting's and not a change of rows.

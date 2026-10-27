@@ -1,4 +1,4 @@
-"""Reference maps of the transport atlas (issue #1427): a thin CLI over vaft.plot.
+"""Reference maps of the transport atlas: a thin CLI over vaft.plot.
 
 The renderers are :func:`vaft.plot.transport_atlas.transport_atlas_scatter` and
 :func:`vaft.plot.transport_atlas.transport_atlas_mode_branch`. This script reads
@@ -7,10 +7,10 @@ The renderers are :func:`vaft.plot.transport_atlas.transport_atlas_scatter` and
 Axes are named "x, y" below.
 
 * ``drive_space``: x = a/L_ne, y = a/L_Te, coloured by f_e; the same plane as
-  ``mode_branch``. #1427 names (a/L_Ti, a/L_Te), but under the #1414 Ti = Te policy
+  ``mode_branch``. The natural ion drive plane is (a/L_Ti, a/L_Te), but under the Ti = Te policy
   a/L_Ti *is* a/L_Te and that map collapses onto the diagonal. ``ion_drive_space``
   (x = a/L_Ti, y = a/L_Te) is drawn only from rows whose Ti is not a ratio of Te.
-* ``response_space``: x = Q_i/Q_GB, y = Q_e/Q_GB (#1427), coloured by the ion-scale
+* ``response_space``: x = Q_i/Q_GB, y = Q_e/Q_GB, coloured by the ion-scale
   gamma_max.
 * ``mode_branch``: x = a/L_ne, y = a/L_Te, coloured by the direction of the growing
   ion-scale mode.
