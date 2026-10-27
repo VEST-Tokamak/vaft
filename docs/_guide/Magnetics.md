@@ -99,7 +99,7 @@ the cheap way to get probe geometry:
 <!-- docs-snippet: skip needs-raw-source (machine_mapping mapper reads the raw MySQL database) -->
 ```python
 from vaft.machine_mapping.magnetics import (
-    vfit_magnetics_static,    # names, positions, angles from the geometry YAML
+    vfit_magnetics_static,    # names, positions, angles from the vest.yaml sensor registry
     vfit_magnetics_dynamic,   # time, field, flux, ip, diamagnetic_flux, raw Mirnov voltage
     vfit_mirnov_raw_dynamic,  # raw voltages only, at the native DAQ rate
 )

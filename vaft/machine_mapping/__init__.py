@@ -29,7 +29,6 @@ _LEGACY_REPLACEMENTS = {
     "vfit_thomson_scattering_static": None,
     # These remain supported VEST source-policy functions while their canonical
     # physical-data replacements are designed in later #103 phases.
-    "vfit_md": None,
     "vfit_PlasmaCurrent": None,
     "vfit_plasma_current": None,
     "vfit_pf": None,
@@ -37,6 +36,15 @@ _LEGACY_REPLACEMENTS = {
     "vfit_tf_bt_r": None,
     "vfit_tf_current": None,
     "vest_md_channel_definitions": "vest_equilibrium_magnetics_channel_definitions",
+    # Pre-rename aliases with a removal milestone (retirement register L5/L6, #2168).
+    "vfit_md": "magnetics.vfit_equilibrium_magnetics",
+}
+
+#: Legacy names with a scheduled removal: the warning says when (both are
+#: removed in vaft 0.11.0).
+_LEGACY_REMOVALS = {
+    "vfit_md": "0.11.0",
+    "vest_md_channel_definitions": "0.11.0",
 }
 
 __all__ = [
@@ -332,6 +340,8 @@ def __getattr__(name: str):
             if replacement is not None
             else " import it from its diagnostic module while migration is in progress."
         )
+        if name in _LEGACY_REMOVALS:
+            guidance += f" It will be removed in vaft {_LEGACY_REMOVALS[name]}."
         warnings.warn(
             f"vaft.machine_mapping.{name} is a legacy compatibility API;{guidance}",
             DeprecationWarning,

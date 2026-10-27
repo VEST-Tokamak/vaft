@@ -590,6 +590,7 @@ CONVENTION_SENSITIVE = frozenset({
     "sxr_baseline_correction",
     "sxr_cwt_spectrogram",
     "sxr_electron_temperature",
+    "sxr_offset_baseline",
     "sxr_subtract_vacuum_reference",
     "sxr_te_pairs_from_ods",
     "toroidal_ring",

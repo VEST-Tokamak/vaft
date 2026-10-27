@@ -2,7 +2,7 @@
  "schema": "vaft.consolidation.migration-matrix/1",
  "issue": 2164,
  "umbrella": 2147,
- "base": "develop 0ae3b2bfe (after #2135, #2177, #2181)",
+ "base": "develop 0ae3b2bfe (after #2135, #2177, #2181); statuses refreshed by the #2168 closure audit on develop aeec6d91a (after #2189, #2182, #2191)",
  "fields": [
   "workflow",
   "rule_or_entrypoint",
@@ -74,13 +74,11 @@
    "scientific_semantics": "eligible vs excluded shots; missing raw acquisition vs invalid signal",
    "compatibility_requirement": "same eligible/excluded sets for every frozen dump; checkpoint unchanged",
    "required_regression_test": "preflight eligibility on frozen dumps; DAG dry run past the checkpoint",
-   "migration_status": "blocked",
+   "migration_status": "not_started",
    "classification": "configuration_resolution_integration",
-   "blocked_on": [
-    2185
-   ],
+   "blocked_on": [],
    "evidence": "",
-   "notes": "The required-field list is shot-independent workflow configuration; whether it moves onto vest.yaml channel expectations depends on the acquisition checks of #2185."
+   "notes": "The required-field list is shot-independent workflow configuration; whether it moves onto vest.yaml channel expectations depends on the acquisition checks of #2185. #2185 merged (2026-10-25) but the preflight still uses the workflow-local required_fields; open under #2164."
   },
   {
    "workflow": "pipeline_1",
@@ -112,13 +110,10 @@
    "scientific_semantics": "sparse optional branch; absence never invalidates baseline products",
    "compatibility_requirement": "same selected shots",
    "required_regression_test": "IMPA selection on frozen dumps",
-   "migration_status": "blocked",
+   "migration_status": "done",
    "classification": "configuration_resolution_integration",
-   "blocked_on": [
-    2184,
-    2185
-   ],
-   "evidence": "",
+   "blocked_on": [],
+   "evidence": "#2184: build_impa_ods records the era-validated IMPA configuration (vest_configuration_record) (merged via #2189); #2191 impa-archived passed",
    "notes": ""
   },
   {
@@ -133,13 +128,10 @@
    "scientific_semantics": "IMPA channel validity and rate consistency (#432)",
    "compatibility_requirement": "same mapped signals and validity",
    "required_regression_test": "IMPA mapping on frozen dumps",
-   "migration_status": "blocked",
+   "migration_status": "done",
    "classification": "configuration_resolution_integration",
-   "blocked_on": [
-    2184,
-    2185
-   ],
-   "evidence": "",
+   "blocked_on": [],
+   "evidence": "#2184 effective IMPA configuration + fingerprint in the manifest, #2185 check_declared_sample_rate at the IMPA low pass (merged via #2189); #2191 impa-archived passed (rate check not independent on archived extracts, #2191 §7)",
    "notes": ""
   },
   {
@@ -154,12 +146,10 @@
    "scientific_semantics": "era window/baseline policy; a requested override is never silently ignored",
    "compatibility_requirement": "no override = era policy, bit-identical magnetics",
    "required_regression_test": "capture_baseline.py leaf compare on packaged 39915/41524/41672/42962",
-   "migration_status": "blocked",
+   "migration_status": "done",
    "classification": "configuration_resolution_integration",
-   "blocked_on": [
-    2184
-   ],
-   "evidence": "",
+   "blocked_on": [],
+   "evidence": "#2184: build_diagnostics_ods resolves the override through resolve_magnetics_processing (validated, fingerprinted, provenance in the manifest) (merged via #2189); #2191 metadata_only on 49 shots",
    "notes": ""
   },
   {
@@ -174,13 +164,11 @@
    "scientific_semantics": "acquisition validation recorded distinctly from missing data",
    "compatibility_requirement": "processing unchanged; report only",
    "required_regression_test": "acquisition-check tests on synthetic timebases",
-   "migration_status": "blocked",
+   "migration_status": "done",
    "classification": "configuration_resolution_integration",
-   "blocked_on": [
-    2185
-   ],
-   "evidence": "",
-   "notes": ""
+   "blocked_on": [],
+   "evidence": "#2185: magnetics probe chain and Ip-reference comparison check the declared rate; acquisition keys in the manifest (merged via #2189); #2191: 343 acquisition keys, all consistent",
+   "notes": "TF/PF declared rates are not checked yet (#2204)."
   },
   {
    "workflow": "pipeline_1",
@@ -194,10 +182,10 @@
    "scientific_semantics": "missing-data semantics after #2135 (too-short probe record published empty)",
    "compatibility_requirement": "no ODS leaf changes; status partial when a field is unusable",
    "required_regression_test": "test_magnetics_missing_channel_reasons.py; capture_baseline.py leaf compare on packaged 39915/41524/41672/42962",
-   "migration_status": "in_review",
+   "migration_status": "done",
    "classification": "diagnostic_specific_composition_refactoring",
    "blocked_on": [],
-   "evidence": "#2187: 0 changed ODS leaves on the 4 packaged shots; manifest gains missing_channel_reasons only; DAG identical",
+   "evidence": "#2187: 0 changed ODS leaves on the 4 packaged shots; manifest gains missing_channel_reasons only; DAG identical (merged via #2189); #2191 byte-identical products (49 shots past static)",
    "notes": ""
   },
   {
@@ -212,13 +200,10 @@
    "scientific_semantics": "filter phase/amplitude, baseline windows, flux-loop rules",
    "compatibility_requirement": "numerically equivalent within the B3 tolerances",
    "required_regression_test": "capture_baseline.py leaf compare on packaged 39915/41524/41672/42962",
-   "migration_status": "blocked",
+   "migration_status": "done",
    "classification": "direct_canonical_api_replacement",
-   "blocked_on": [
-    2178,
-    2179
-   ],
-   "evidence": "",
+   "blocked_on": [],
+   "evidence": "#2178 (one baseline owner, bit-identical) and #2179 (small duplicates) (merged via #2189); #2191 byte-identical (49 shots past static)",
    "notes": ""
   },
   {
@@ -233,12 +218,10 @@
    "scientific_semantics": "PF current filter response and unacquired-circuit status",
    "compatibility_requirement": "bit-identical PF currents",
    "required_regression_test": "capture_baseline.py leaf compare on packaged 39915/41524/41672/42962",
-   "migration_status": "blocked",
+   "migration_status": "done",
    "classification": "direct_canonical_api_replacement",
-   "blocked_on": [
-    2180
-   ],
-   "evidence": "",
+   "blocked_on": [],
+   "evidence": "#2180 pf_current_filter, bit-identical (test/test_pf_current_filter.py) (merged via #2189); #2191 pf1-gain-45895-45896 passed",
    "notes": ""
   },
   {
@@ -253,12 +236,10 @@
    "scientific_semantics": "anti-alias semantics; full-discharge policies kept per component",
    "compatibility_requirement": "independent component time policies; no global axis",
    "required_regression_test": "test_resample_short_run_alias.py; per-caller flags",
-   "migration_status": "blocked",
+   "migration_status": "done",
    "classification": "direct_canonical_api_replacement",
-   "blocked_on": [
-    2182
-   ],
-   "evidence": "",
+   "blocked_on": [],
+   "evidence": "#2182 (approved scientific correction, merged 2026-10-25): NaN where a short run could not be filtered; test/test_resample_short_run_alias.py. Not covered by #2191 (§10)",
    "notes": ""
   },
   {
@@ -291,13 +272,11 @@
    "scientific_semantics": "EM coupling with the same shot-era geometry; time grid and sign conventions",
    "compatibility_requirement": "bit-identical passive currents",
    "required_regression_test": "capture_baseline.py leaf compare on packaged 39915/41524/41672/42962",
-   "migration_status": "provenance_pending",
+   "migration_status": "not_started",
    "classification": "thin_compatibility_adapter_migration",
-   "blocked_on": [
-    2184
-   ],
+   "blocked_on": [],
    "evidence": "eddy leaves unchanged in the C-a/C-b captures",
-   "notes": ""
+   "notes": "#2184 merged, but this builder does not write the vest_configuration record yet (C4); open under #2164."
   },
   {
    "workflow": "pipeline_1",
@@ -311,10 +290,10 @@
    "scientific_semantics": "constraint selection, family uncertainties, Gaussian probe recovery",
    "compatibility_requirement": "identical constraint vectors and k-files",
    "required_regression_test": "capture_baseline.py leaf compare on packaged 39915/41524/41672/42962 (constraints) + k-file text diff; test_magnetics_registry.py",
-   "migration_status": "in_review",
+   "migration_status": "done",
    "classification": "direct_canonical_api_replacement",
    "blocked_on": [],
-   "evidence": "#2188: 0 changed constraints leaves; 194 k-files identical (presets default + routine) on the 4 packaged shots; DAG identical",
+   "evidence": "#2188: 0 changed constraints leaves; 194 k-files identical (presets default + routine) on the 4 packaged shots; DAG identical (merged via #2189); #2191 byte-identical products (49 shots past static)",
    "notes": ""
   },
   {
@@ -329,12 +308,10 @@
    "scientific_semantics": "box-average window semantics",
    "compatibility_requirement": "1e-12 against per-sample box_average",
    "required_regression_test": "test_box_average_series.py",
-   "migration_status": "blocked",
+   "migration_status": "done",
    "classification": "direct_canonical_api_replacement",
-   "blocked_on": [
-    2183
-   ],
-   "evidence": "",
+   "blocked_on": [],
+   "evidence": "#2183 box average at every sample, equivalent (merged via #2189); #2191: 364 k-files per state byte-identical",
    "notes": ""
   },
   {
@@ -349,10 +326,10 @@
    "scientific_semantics": "EFUND/EFIT geometry and table identity",
    "compatibility_requirement": "mhdin.dat projection unchanged",
    "required_regression_test": "EFUND input identity (C3)",
-   "migration_status": "not_started",
+   "migration_status": "done",
    "classification": "intentional_specialization_retained",
    "blocked_on": [],
-   "evidence": "",
+   "evidence": "#2181: EFUND namelist text and rsi/zsi/xmp2 arrays 0 differences over 3 eras, header lines metadata_only; no EFUND/EFIT run in #2191 (inputs identical)",
    "notes": "C3: prove the EFUND input projection is unchanged by the registry."
   },
   {
@@ -475,13 +452,11 @@
    "scientific_semantics": "Thomson calibration, units, upload absence",
    "compatibility_requirement": "lineage and missing-data statuses unchanged; Pipeline 1 products stay scientific references, not inputs",
    "required_regression_test": "test_pipeline2_workflow.py DAG + stage tests",
-   "migration_status": "provenance_pending",
+   "migration_status": "not_started",
    "classification": "configuration_resolution_integration",
-   "blocked_on": [
-    2184
-   ],
+   "blocked_on": [],
    "evidence": "",
-   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only."
+   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only. #2184 merged, but this builder does not write the vest_configuration record yet (C4); open under #2164."
   },
   {
    "workflow": "pipeline_2",
@@ -495,13 +470,11 @@
    "scientific_semantics": "CES calibration and upload absence",
    "compatibility_requirement": "lineage and missing-data statuses unchanged; Pipeline 1 products stay scientific references, not inputs",
    "required_regression_test": "test_pipeline2_workflow.py DAG + stage tests",
-   "migration_status": "provenance_pending",
+   "migration_status": "not_started",
    "classification": "configuration_resolution_integration",
-   "blocked_on": [
-    2184
-   ],
+   "blocked_on": [],
    "evidence": "",
-   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only."
+   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only. #2184 merged, but this builder does not write the vest_configuration record yet (C4); open under #2164."
   },
   {
    "workflow": "pipeline_2",
@@ -515,13 +488,11 @@
    "scientific_semantics": "profile coordinates, uncertainty, equilibrium alignment",
    "compatibility_requirement": "lineage and missing-data statuses unchanged; Pipeline 1 products stay scientific references, not inputs",
    "required_regression_test": "test_pipeline2_workflow.py DAG + stage tests",
-   "migration_status": "provenance_pending",
+   "migration_status": "not_started",
    "classification": "configuration_resolution_integration",
-   "blocked_on": [
-    2184
-   ],
+   "blocked_on": [],
    "evidence": "",
-   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only."
+   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only. #2184 merged, but this builder does not write the vest_configuration record yet (C4); open under #2164."
   },
   {
    "workflow": "pipeline_2",
@@ -535,13 +506,11 @@
    "scientific_semantics": "species, ionization, dilution assumptions",
    "compatibility_requirement": "lineage and missing-data statuses unchanged; Pipeline 1 products stay scientific references, not inputs",
    "required_regression_test": "test_pipeline2_workflow.py DAG + stage tests",
-   "migration_status": "provenance_pending",
+   "migration_status": "not_started",
    "classification": "configuration_resolution_integration",
-   "blocked_on": [
-    2184
-   ],
+   "blocked_on": [],
    "evidence": "",
-   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only."
+   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only. #2184 merged, but this builder does not write the vest_configuration record yet (C4); open under #2164."
   },
   {
    "workflow": "pipeline_2",
@@ -555,13 +524,11 @@
    "scientific_semantics": "measured vs assumed vs inferred T_i",
    "compatibility_requirement": "lineage and missing-data statuses unchanged; Pipeline 1 products stay scientific references, not inputs",
    "required_regression_test": "test_pipeline2_workflow.py DAG + stage tests",
-   "migration_status": "provenance_pending",
+   "migration_status": "not_started",
    "classification": "configuration_resolution_integration",
-   "blocked_on": [
-    2184
-   ],
+   "blocked_on": [],
    "evidence": "",
-   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only."
+   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only. #2184 merged, but this builder does not write the vest_configuration record yet (C4); open under #2164."
   },
   {
    "workflow": "pipeline_2",
@@ -575,13 +542,11 @@
    "scientific_semantics": "resistive Z_eff model and its inputs",
    "compatibility_requirement": "lineage and missing-data statuses unchanged; Pipeline 1 products stay scientific references, not inputs",
    "required_regression_test": "test_pipeline2_workflow.py DAG + stage tests",
-   "migration_status": "provenance_pending",
+   "migration_status": "not_started",
    "classification": "configuration_resolution_integration",
-   "blocked_on": [
-    2184
-   ],
+   "blocked_on": [],
    "evidence": "",
-   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only."
+   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only. #2184 merged, but this builder does not write the vest_configuration record yet (C4); open under #2164."
   },
   {
    "workflow": "pipeline_2",
@@ -595,13 +560,11 @@
    "scientific_semantics": "separate magnetic/electron/kinetic EFIT lineages",
    "compatibility_requirement": "lineage and missing-data statuses unchanged; Pipeline 1 products stay scientific references, not inputs",
    "required_regression_test": "test_pipeline2_workflow.py DAG + stage tests",
-   "migration_status": "provenance_pending",
+   "migration_status": "not_started",
    "classification": "configuration_resolution_integration",
-   "blocked_on": [
-    2184
-   ],
+   "blocked_on": [],
    "evidence": "",
-   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only."
+   "notes": "Phase A found no preprocessing duplicate in pipeline 2 (migration_plan.md C4): provenance only. #2184 merged, but this builder does not write the vest_configuration record yet (C4); open under #2164."
   },
   {
    "workflow": "pipeline_3",
@@ -651,10 +614,10 @@
    "scientific_semantics": "V_loop source flux loop",
    "compatibility_requirement": "same loop, same strings",
    "required_regression_test": "registry lookup returns 'Flux Loop - #10' at R = 0.091 m",
-   "migration_status": "in_review",
+   "migration_status": "done",
    "classification": "direct_canonical_api_replacement",
    "blocked_on": [],
-   "evidence": "#2188",
+   "evidence": "#2188 (merged via #2189)",
    "notes": ""
   },
   {
@@ -669,10 +632,10 @@
    "scientific_semantics": "side-probe selection",
    "compatibility_requirement": "same value (0.8)",
    "required_regression_test": "none needed (constant equality)",
-   "migration_status": "in_review",
+   "migration_status": "done",
    "classification": "direct_canonical_api_replacement",
    "blocked_on": [],
-   "evidence": "#2188",
+   "evidence": "#2188 (merged via #2189)",
    "notes": "Plots still classify by the positions the ODS carries: they take hand-built ODSs without a shot."
   },
   {
@@ -687,10 +650,10 @@
    "scientific_semantics": "audit only",
    "compatibility_requirement": "inventory byte-identical",
    "required_regression_test": "test_architecture_audit_inventory.py",
-   "migration_status": "in_review",
+   "migration_status": "done",
    "classification": "thin_compatibility_adapter_migration",
    "blocked_on": [],
-   "evidence": "#2188",
+   "evidence": "#2188 (merged via #2189)",
    "notes": ""
   },
   {
@@ -705,12 +668,10 @@
    "scientific_semantics": "as pipeline 1 rows",
    "compatibility_requirement": "documented CLI flags unchanged",
    "required_regression_test": "CLI smoke on frozen inputs",
-   "migration_status": "blocked",
+   "migration_status": "done",
    "classification": "configuration_resolution_integration",
-   "blocked_on": [
-    2184
-   ],
-   "evidence": "",
+   "blocked_on": [],
+   "evidence": "#2184: the CLI passes --vest-magnetics-processing-json to build_diagnostics_ods, which resolves it through resolve_magnetics_processing",
    "notes": ""
   },
   {
