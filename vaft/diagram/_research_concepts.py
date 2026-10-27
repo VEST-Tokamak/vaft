@@ -634,7 +634,7 @@ MODALITY_CORRESPONDENCE: Tuple[Tuple[str, str, str, str, str], ...] = (
 MODALITY_SYMPTOM_TAGS: Dict[str, Tuple[str, ...]] = {
     "gui": ("duplicated", "interface"), "notebook": ("monolithic", "knowledge", "unversioned"),
     "matlab": ("duplicated", "language", "machine"), "hpc": ("language", "environment"), "agent": ("human_only",)}
-#: research interfaces, siblings over the same public APIs: (key, name, what it is for, agent-oriented)
+#: research interfaces, siblings over the same public APIs: (key, name, what it is for, agent-facing)
 MODALITY_INTERFACES: Tuple[Tuple[str, str, str, bool], ...] = (
     ("python", "Python", "composition", False), ("jupyter", "Jupyter", "exploration", False),
     ("cli", "CLI", "automation", False), ("gui", "GUI", "interactive work", False),
@@ -684,7 +684,7 @@ def research_modality_architecture(organization: str = "integrated", *, labels: 
         the problem -- the coupling of scientific semantics to one of them is;
     ``"integrated"``
         sibling research interfaces -- Python, Jupyter, CLI, GUI,
-        documentation (human-oriented) and MCP for AI agents -- over the same
+        documentation (human-facing) and MCP for AI agents -- over the same
         public scientific APIs, above one modular scientific core of separate
         responsibilities (formula, process, database, validation, code, plot,
         diagram, machine mapping). Below the core, two different axes:
@@ -755,12 +755,12 @@ def research_modality_architecture(organization: str = "integrated", *, labels: 
             interface_boxes.append(b)
             items += list(b.items)
         humans = ixs[:-1]
-        for xa, xb, text, role in ((humans[0] - 0.5 * iw, humans[-1] + 0.5 * iw, "human-oriented", "audience:human"),
-                                   (ixs[-1] - 0.5 * iw, ixs[-1] + 0.5 * iw, "agent-oriented", "audience:agent")):
+        for xa, xb, text, role in ((humans[0] - 0.5 * iw, humans[-1] + 0.5 * iw, "human-facing", "audience:human"),
+                                   (ixs[-1] - 0.5 * iw, ixs[-1] + 0.5 * iw, "agent-facing", "audience:agent")):
             items += [Polyline.of([(xa, iy + 0.72), (xa, iy + 0.85), (xb, iy + 0.85), (xb, iy + 0.72)], "concept tick",
                                   role=role),
                       Label((0.5 * (xa + xb), iy + 0.9), text, "concept annotation", anchor="south", role=role)]
-        api = box(cx, api_y, span, 0.75, "\\textbf{Public scientific APIs} $\\cdot$ one contract for every interface",
+        api = box(cx, api_y, span, 0.75, "\\textbf{Public scientific APIs} $\\cdot$ shared scientific contracts behind every interface",
                   style="concept state", role="node:api", latex=True)
         items += list(api.items)
         _tag(items, tags, api, "interfaces", cited(MODALITY_RESPONSE_TAGS["interfaces"]))

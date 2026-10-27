@@ -837,8 +837,8 @@
     },
     "research_modality_architecture.svg": {
       "call": "vaft.diagram.research_modality_architecture()",
-      "source_sha256": "ec2d0b60ca10bbf47aca00ca1ae125dc3e257ef98e34a8d242ad4025c277aa74",
-      "svg_sha256": "aed759b4fa761e2878bb77b212ca1700f38f421788360335792f6d9a53767285"
+      "source_sha256": "2977979db5b35454445c10802714f65c81d7dfa29743c3f75eb4414140620169",
+      "svg_sha256": "611f2a0c9fd46197fe428425ffd8960503bd9e6eabd106eb0498b44dfa6658d1"
     },
     "research_modality_architecture_fragmented.svg": {
       "call": "vaft.diagram.research_modality_architecture(organization='fragmented')",
