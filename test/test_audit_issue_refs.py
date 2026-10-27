@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -36,6 +37,13 @@ def refs(audit, line, path="vaft/example.py"):
         ("GH-77 tracks it", [(77, "gh", "")]),
         ("https://github.com/VEST-Tokamak/vaft/pull/2140", [(2140, "url-pr", "")]),
         ("https://github.com/VEST-Tokamak/vaft/issues/66#issuecomment-1", [(66, "url-issue", "")]),
+        ("github.com/VEST-Tokamak/vaft/pull/12", [(12, "url-pr", "")]),
+        ("the two fixes (#780/#1112)", [(780, "bare", ""), (1112, "bare", "")]),
+        ("merged as PR#1592", [(1592, "pr", "")]),
+        ("see VEST-Tokamak/vaft#1292", [(1292, "autolink", "")]),
+        ("follow-up items #1201 and next steps #1300", [(1201, "bare", ""), (1300, "bare", "")]),
+        ("`domain_grid.py` runs #459's 2x2", [(459, "bare", "")]),
+        ("EFIT #924 and CHEASE #66", [(924, "bare", ""), (66, "bare", "")]),
     ],
 )
 def test_references_are_found(audit, line, expected):
@@ -54,6 +62,9 @@ def test_references_are_found(audit, line, expected):
         "\\raisebox{#2}{#1}",                 # TeX macro arguments
         "the reduced-wall contract (vfit #8)",
         "value = data[3]  #",
+        "see OMAS issue #123",
+        "upstream gafusion/gacode#88",
+        "https://example.org/docs/#123",
     ],
 )
 def test_non_references_are_excluded(audit, line):
@@ -76,6 +87,50 @@ def test_generated_and_data_files_are_excluded(audit):
     assert audit.exclusion_for("test/data/fixture.txt")
     assert not audit.exclusion_for("vaft/plot/display.py")
     assert not audit.exclusion_for("notebooks/analysis.ipynb")
+
+
+def test_history_files_are_named_not_prefixed(audit):
+    assert audit.is_history_file("CHANGELOG.md") and audit.is_history_file("docs/HISTORY.rst")
+    assert not audit.is_history_file("vaft/plot/history.py")
+
+
+@pytest.fixture
+def repository(tmp_path, monkeypatch):
+    def git(*args):
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+
+    git("init", "-q")
+    (tmp_path / ".github").mkdir()
+    monkeypatch.chdir(tmp_path)
+    return tmp_path, git
+
+
+def _write_and_scan(audit, root, git, text, **kwargs):
+    (root / "a.py").write_text(text, encoding="utf-8")
+    git("add", "a.py")
+    found, _, _ = audit.scan(root, [])
+    for ref in found:
+        audit.categorize(ref)
+    audit.apply_baseline(found, audit.load_baseline(root))
+    return audit.write_baseline(root, found, [], **kwargs), audit.load_baseline(root)
+
+
+def test_writing_the_baseline_never_approves_a_new_reference(audit, repository):
+    """Removing a reference shrinks the baseline; adding one is not recorded unless retained."""
+    root, git = repository
+    _, baseline = _write_and_scan(audit, root, git, "# (#1215) (#1215)\n", accept_new=True)
+    assert baseline == {"a.py": {"1215": 2}}
+    (recorded, unrecorded), baseline = _write_and_scan(
+        audit, root, git, "# (#1215) (#1215) (#1215) (#2206)\n")
+    assert baseline == {"a.py": {"1215": 2}} and (recorded, unrecorded) == (2, 2)
+    _, baseline = _write_and_scan(audit, root, git, "# (#1215)\n")
+    assert baseline == {"a.py": {"1215": 1}}
+    _, baseline = _write_and_scan(audit, root, git, "# (#1215) Open: #2206\n",
+                                  retain=["a.py:2206:open-limitation:no fix yet"])
+    assert baseline["a.py"]["2206"] == {"count": 1, "status": "retained",
+                                        "category": "open-limitation", "reason": "no fix yet"}
+    with pytest.raises(SystemExit, match="needs a reason"):
+        _write_and_scan(audit, root, git, "# (#1215)\n", retain=["a.py:1215:compat:"])
 
 
 def test_baseline_counts_per_path_and_number(audit):

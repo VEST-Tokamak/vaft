@@ -72,21 +72,23 @@ EXCLUDED_PATHS = (
 )
 HISTORY_NAMES = ("CHANGELOG", "CHANGES", "RELEASE_NOTES", "HISTORY", "NEWS")
 
-URL = re.compile(r"https?://github\.com/([\w.-]+/[\w.-]+)/(issues|pull)/(\d+)")
+URL = re.compile(r"(?:https?://)?(?:www\.)?github\.com/([\w.-]+/[\w.-]+)/(issues|pull)/(\d+)")
 GH = re.compile(r"(?<![\w-])GH-(\d+)\b")
 WORDED = re.compile(
     r"\b(PRs?|[Pp]ull [Rr]equests?|[Ii]ssues?|[Tt]ickets?)\s+#(\d+)\b"
 )
 # A bare `#123`: not part of a word, an HTML entity (`&#123;`), a URL fragment
 # or a second `#`; ranges such as `#418-#421` are two references.
-BARE = re.compile(r"(?<![\w&#/=?%.\\$])#(\d{1,5})(?![\w.]*\w)")
+BARE = re.compile(r"(?<![\w&#=?%.\\$])#(\d{1,5})(?![\w.]*\w)")
+# GitHub's autolink forms: `PR#1592`, `VEST-Tokamak/vaft#1292`.
+AUTOLINK = re.compile(r"(?<![\w/.-])(?:(PRs?)|([\w.-]+/[\w.-]+))#(\d+)\b")
 ADJOINING_WORDED = re.compile(r"(?:,\s*|\s+and\s+|\s*[-/]\s*)#(\d+)\b")
 
 NUMBERED_ITEM = re.compile(
-    r"(?i)\b(probes?|loops?|coils?|channels?|sensors?|items?|steps?|No\.|numbers?|"
+    r"(?i)\b(probes?|loops?|coils?|channels?|sensors?|No\.|"
     r"fl|bp|gauges?|cameras?|ports?|turns?|figures?|figs?\.?|tables?|eqs?\.?|"
-    r"shots?|discharges?|pulses?|runs?|slices?|rank(?:ed)?|options?|"
-    r"lanes?|row|column|col|cell|frames?|harmonics?|modes?|sectors?)\s*[-\u2013]?\s*$"
+    r"shots?|discharges?|pulses?|slices?|"
+    r"row|column|col|cell|frames?|harmonics?|sectors?)\s*[-\u2013]?\s*$"
 )
 # `fill='#000'`, `color: #333;`, `"#123456"`: a colour value, not prose.
 HEX_CONTEXT = re.compile(r"(?i)(fill|stroke|colou?r|background|border)[\w-]*\s*[:=]\s*[\"']?$")
@@ -96,7 +98,7 @@ HEX_END = re.compile(r"[\"';)]")
 QUOTED_HEX = re.compile(r"[\"']#(\d{6}|(\d)\2\2)[\"']")
 # `loops #3, #4 and #6`, `#9-#11`: the later numbers share the first one's noun.
 LIST_TAIL = re.compile(r"(?:#\d+\s*(?:[-\u2013,/]|and|or)\s*)+$")
-OTHER_PROJECT = re.compile(r"(?i)\b(vfit|omas|imas|efit|gpec|chease|numpy|scipy|matplotlib|h5pyd|hsds)\s*$")
+OTHER_PROJECT = re.compile(r"(?i)\b(vfit|omas|imas|numpy|scipy|matplotlib|h5pyd|hsds)\s*(issues?|PRs?)?\s*$")
 HEX_SUFFIXES = {".css", ".scss", ".sass", ".svg", ".less"}
 
 CATEGORY_RULES = (
@@ -165,7 +167,8 @@ def exclusion_for(path: str) -> str:
 
 
 def is_history_file(path: str) -> bool:
-    return Path(path).stem.upper().startswith(HISTORY_NAMES)
+    name = Path(path).name
+    return Path(path).suffix in {"", ".md", ".rst", ".txt"} and name.split(".")[0].upper() in HISTORY_NAMES
 
 
 def text_lines(root: Path, path: str):
@@ -200,6 +203,8 @@ def false_positive(path: str, line: str, start: int, number: int) -> str:
         return "zero is not a ticket number"
     if number > MAX_TICKET_NUMBER:
         return "beyond the ticket range (shot number)"
+    if line[:start].endswith("/") and not re.search(r"#\d+\s*/$", line[:start]):
+        return "URL path, not a reference"
     if number < 20:
         # Flux loops #1-#15, TeX macro arguments, list numbering. VAFT's first
         # tickets are cited worded ("issue #8") or by URL, which still count.
@@ -237,12 +242,29 @@ def scan_line(path: str, lineno: int, cell: str, line: str) -> list[Reference]:
             ref.status, ref.reason = "excluded", f"another repository ({repo})"
         found.append(ref)
         claimed.update(range(m.start(), m.end()))
+    for m in AUTOLINK.finditer(line):
+        hash_at = m.start(3) - 1
+        if m.group(2) and m.group(2).lower() != REPOSITORY.lower():
+            ref = Reference(path, lineno, int(m.group(3)), "autolink", line.strip()[:240], cell)
+            ref.status, ref.reason = "excluded", f"another repository ({m.group(2)})"
+            found.append(ref)
+            claimed.add(hash_at)
+            continue
+        add(int(m.group(3)), "pr" if m.group(1) else "autolink", hash_at)
     for m in GH.finditer(line):
         add(int(m.group(1)), "gh", m.start())
     for m in WORDED.finditer(line):
         word = m.group(1).lower()
         kind = "pr" if word.startswith(("pr", "pull")) else "issue"
         hash_at = m.start(2) - 1
+        if hash_at in claimed:
+            continue
+        if OTHER_PROJECT.search(line[:m.start()][-20:] + m.group(1)):
+            ref = Reference(path, lineno, int(m.group(2)), kind, line.strip()[:240], cell)
+            ref.status, ref.reason = "excluded", "another project's ticket"
+            found.append(ref)
+            claimed.add(hash_at)
+            continue
         add(int(m.group(2)), kind, hash_at)
         # `issues #330, #529` / `PR #12 and #13`: the followers share the kind.
         tail_at = m.end()
@@ -313,7 +335,7 @@ def apply_baseline(refs: list[Reference], baseline: dict) -> None:
 
 def resolve_titles(refs: list[Reference], cache_path: Path) -> None:
     """Fill title/url from GitHub via `gh` (optional; cached between runs)."""
-    cache = json.loads(cache_path.read_text()) if cache_path.exists() else {}
+    cache = json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.exists() else {}
     for number in sorted({r.number for r in refs if r.status != "excluded"}):
         key = str(number)
         if key not in cache:
@@ -324,7 +346,7 @@ def resolve_titles(refs: list[Reference], cache_path: Path) -> None:
             )
             cache[key] = json.loads(out.stdout) if out.returncode == 0 else None
     cache_path.parent.mkdir(parents=True, exist_ok=True)
-    cache_path.write_text(json.dumps(cache, indent=1, sort_keys=True))
+    cache_path.write_text(json.dumps(cache, indent=1, sort_keys=True), encoding="utf-8")
     for ref in refs:
         info = cache.get(str(ref.number))
         if ref.status != "excluded" and info:
@@ -347,14 +369,18 @@ def scan(root: Path, pathspecs: list[str]) -> tuple[list[Reference], int, int]:
     return refs, len(files), scanned
 
 
-def write_baseline(root: Path, refs: list[Reference], pathspecs: list[str], status: str,
-                   retain: list[str] = ()) -> int:
-    """Replace the baseline entries of the scanned files with what they hold now.
+def write_baseline(root: Path, refs: list[Reference], pathspecs: list[str],
+                   retain: list[str] = (), accept_new: bool = False) -> tuple[int, int]:
+    """Rewrite the baseline entries of the scanned files from what they hold now.
 
     Entries for files outside the scan are kept untouched, so an area PR only
-    rewrites its own part of the file. A reason already recorded for a (path,
-    number) survives; new pairs get ``status``. Each ``retain`` item,
-    ``PATH:NUMBER:CATEGORY:REASON``, marks one pair as kept on purpose.
+    rewrites its own part of the file. A recorded pair keeps its status and
+    reason, and its count can only go down: removing a reference shrinks it,
+    adding one does not approve it. A pair the baseline does not know is
+    recorded only when it is retained -- each ``retain`` item,
+    ``PATH:NUMBER:CATEGORY:REASON``, marks one pair as kept on purpose, with
+    the file's current count -- or, for the initial inventory, ``accept_new``.
+    Returns (references recorded, new references left unrecorded).
     """
     retained = {}
     for item in retain:
@@ -368,23 +394,26 @@ def write_baseline(root: Path, refs: list[Reference], pathspecs: list[str], stat
     kept = {p: v for p, v in current.items()
             if scanned is not None and p not in scanned and (root / p).exists()}
     counts: Counter = Counter()
-    categories: dict = {}
     for ref in refs:
-        if ref.status == "excluded":
-            continue
-        counts[(ref.path, str(ref.number))] += 1
-        categories.setdefault((ref.path, str(ref.number)), ref.category)
+        if ref.status != "excluded":
+            counts[(ref.path, str(ref.number))] += 1
+    recorded = unrecorded = 0
     for (p, number), count in sorted(counts.items()):
-        old = current.get(p, {}).get(number, {})
-        old = {"status": "legacy"} if isinstance(old, int) else old
-        old = retained.pop((p, number), old)
-        if old.get("status", status) == "legacy":
-            entry = count  # a legacy pair is just its count
+        old = current.get(p, {}).get(number)
+        if isinstance(old, int):
+            old = {"count": old, "status": "legacy"}
+        if (p, number) in retained:
+            entry = {"count": count, **retained.pop((p, number))}
+        elif old is not None:
+            entry = {**old, "count": min(count, old["count"])}
+        elif accept_new:
+            entry = {"count": count, "status": "legacy"}
         else:
-            entry = {"count": count, "status": "retained",
-                     "category": old.get("category", categories[(p, number)]),
-                     "reason": old.get("reason", "")}
-        kept.setdefault(p, {})[number] = entry
+            unrecorded += count
+            continue
+        unrecorded += count - entry["count"]
+        recorded += entry["count"]
+        kept.setdefault(p, {})[number] = entry["count"] if entry["status"] == "legacy" else entry
     if retained:
         raise SystemExit(f"--retain names references the scan did not find: {sorted(retained)}")
     about = ("Issue/PR references known to .github/scripts/audit_issue_refs.py, per path and "
@@ -398,8 +427,8 @@ def write_baseline(root: Path, refs: list[Reference], pathspecs: list[str], stat
     ]
     text = ('{\n "schema": 1,\n "about": ' + json.dumps(about) + ',\n "references": {\n'
             + ",\n".join(rows) + "\n }\n}\n")
-    path.write_text(text, encoding="utf-8")
-    return sum(counts.values())
+    path.write_text(text, encoding="utf-8", newline="\n")
+    return recorded, unrecorded
 
 
 def summary(refs: list[Reference], total_files: int, scanned: int, commit: str) -> str:
@@ -448,8 +477,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="record the scanned files' references in the baseline")
     parser.add_argument("--retain", action="append", default=[], metavar="PATH:NUMBER:CATEGORY:REASON",
                         help="with --write-baseline: keep this reference on purpose (repeatable)")
-    parser.add_argument("--baseline-status", choices=("legacy", "retained"), default="legacy",
-                        help="status given to pairs the baseline did not know (default legacy)")
+    parser.add_argument("--accept-new", action="store_true",
+                        help="with --write-baseline: record unknown references as legacy "
+                             "(the initial inventory only; a new reference should be rewritten "
+                             "or retained with a reason)")
     args = parser.parse_args(argv)
 
     root = repository_root()
@@ -460,8 +491,9 @@ def main(argv: list[str] | None = None) -> int:
     commit = head_commit(root)
 
     if args.write_baseline:
-        count = write_baseline(root, refs, args.paths, args.baseline_status, args.retain)
-        print(f"Baseline: {count} references recorded for {args.paths or 'the whole tree'}.")
+        recorded, unrecorded = write_baseline(root, refs, args.paths, args.retain, args.accept_new)
+        print(f"Baseline: {recorded} references recorded for {args.paths or 'the whole tree'}; "
+              f"{unrecorded} new reference(s) left out (rewrite them, or --retain with a reason).")
         return 0
     if args.resolve:
         cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "vaft-issue-refs.json"
@@ -486,9 +518,11 @@ def main(argv: list[str] | None = None) -> int:
         text = summary(refs, total_files, scanned, commit) + "\n"
 
     if args.output:
-        Path(args.output).write_text(text, encoding="utf-8")
+        Path(args.output).write_text(text, encoding="utf-8", newline="\n")
     else:
-        sys.stdout.write(text)
+        # Contexts carry em dashes and Korean; a cp1252 console must not crash on them.
+        sys.stdout.buffer.write(text.encode("utf-8"))
+        sys.stdout.flush()
     if args.new and (step_summary := os.environ.get("GITHUB_STEP_SUMMARY")):
         with open(step_summary, "a", encoding="utf-8") as handle:
             handle.write(f"### Issue/PR references\n\n{len(report)} new reference(s) "
