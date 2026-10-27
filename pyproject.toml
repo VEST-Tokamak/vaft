@@ -44,7 +44,7 @@ dependencies = [
   # which this server returns without attributes, so every HDF5 attribute reads
   # back empty without an error (hsget'd IMAS files lose HDF5_BACKEND_VERSION).
   # Moving to 1.x waits for a server upgrade (Open: #1271, 1.0.0 drops HDF5
-# attributes against the VEST HSDS server).
+  # attributes against the VEST HSDS server).
   "h5pyd==0.24.0",
   "ipykernel>=6.29.4",
   "ipython",

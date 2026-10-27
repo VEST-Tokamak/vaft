@@ -249,8 +249,9 @@ jobs:
         # state in the check that gates every merge.
         #
         # pytest-xdist stays in [dev] for local iteration; it is not the
-        # canonical mode. A future optimization must show the same reproducibility
-        # of fixture state, not only a wall-clock saving.
+        # canonical mode. A future optimization must show identical pass/skip
+        # outcomes against the serial run and no dependence on execution order or
+        # worker assignment, not only a wall-clock saving.
         #
         # Running serially is also what makes the `perf` budgets meaningful:
         # they assert wall-clock ratios, and it was four xdist workers on a

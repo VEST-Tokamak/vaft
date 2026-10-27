@@ -1021,8 +1021,8 @@ there.
 
 If you build `rtes` from source, apply `install/tes/tes_limiter_and_powell.patch`
 first. It adds or changes about twenty lines, with one line of TES source
-around each change as an anchor, and fixes three upstream problems that
-kept TokaMaker/TES from representing the VEST inboard-limited state:
+around each change as an anchor, and fixes three upstream problems found
+while making TES represent the VEST inboard-limited state:
 
 - **Limiting-point check.** `TES/find_psiab.cpp` writes `if(j=max_index)`, an
   assignment, in the check that walks inward from a limiting-point candidate.
