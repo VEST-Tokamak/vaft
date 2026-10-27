@@ -34,7 +34,7 @@ from ...base import CodeResult
 MAX_SPECIES = 11
 
 #: The field model, named for what it includes. ``N_FIELD`` counts fields, so the names
-#: are the contract and the integer is CGYRO's encoding of it (#1354: the field model is
+#: are the contract and the integer is CGYRO's encoding of it (the field model is
 #: recorded explicitly, separately from the equilibrium beta that drives it).
 FIELD_MODELS: Mapping[str, int] = {
     "es": 1,                # phi only
@@ -42,8 +42,8 @@ FIELD_MODELS: Mapping[str, int] = {
     "em-aperp-bpar": 3,     # phi + A_parallel + delta B_parallel
 }
 
-#: The TGLF configuration each CGYRO field model is compared against, in Lane T's
-#: naming (#1482): ``USE_BPER`` is A_parallel, ``USE_BPAR`` is delta B_parallel.
+#: The TGLF configuration each CGYRO field model is compared against, in the TGLF
+#: adapter's field-model naming: ``USE_BPER`` is A_parallel, ``USE_BPAR`` is delta B_parallel.
 TGLF_FIELD_MODEL: Mapping[str, str] = {
     "es": "es",
     "em-aperp": "em-bper",
@@ -147,19 +147,19 @@ class CGYROConfig(GACODEConfig):
 
 def plasma_formalism(config: Optional[CGYROConfig] = None, *,
                      parameters: Optional[Mapping[str, Any]] = None):
-    """The solver-neutral #1727 record of a CGYRO run (:class:`vaft.code.formalism.PlasmaFormalism`).
+    """The solver-neutral formalism record of a CGYRO run (:class:`vaft.code.formalism.PlasmaFormalism`).
 
     Local delta-f gyrokinetics on a closed flux surface, linear or nonlinear, with the
     field model coarsened to electrostatic / electromagnetic.  What is CGYRO's own --
     the ``em-aperp`` / ``em-aperp-bpar`` split, the continuum representation, the
     geometry and electron models, the collision operator, the (zeroed) rotation --
-    stays in ``extensions``, from which :func:`formalism` rebuilds the #1353 record, so
+    stays in ``extensions``, from which :func:`formalism` rebuilds the gyrokinetic record, so
     the two cannot disagree.
 
     ``parameters`` are the ``KEY=VALUE`` pairs the run was written with
     (:func:`vaft.code.gacode.cgyro.inputs.cgyro_parameters`). ``AE_FLAG``,
     ``EQUILIBRIUM_MODEL``, ``GLOBAL_FLAG``, the collision model and the rotation inputs
-    are read from them (#1735): an ``extra_parameters`` override that switches to
+    are read from them: an ``extra_parameters`` override that switches to
     adiabatic electrons or s-alpha geometry changes the record instead of contradicting
     it. Without ``parameters`` the keys the configuration itself writes are used.
     """
@@ -209,16 +209,16 @@ def formalism(
     config: Optional[CGYROConfig] = None, *, solver_version: Optional[str] = None,
     parameters: Optional[Mapping[str, Any]] = None,
 ) -> dict[str, Any]:
-    """The #1353 formalism record of a CGYRO run.
+    """The gyrokinetic formalism record of a CGYRO run.
 
     Fixed by the solver except for the field model, the regime and what the written
     input says about electrons, geometry and the radial domain. ``spatial_domain`` is
     ``local`` -- never a bare ``global`` flag: CGYRO's global-spectral mode
     (``GLOBAL_FLAG=1``) is recorded as unknown, not as GENE-global or GTC.
 
-    Every value is read from :func:`plasma_formalism`, the solver-neutral record
-    (#1727), so the two records of one run cannot disagree; the keys are unchanged
-    from #1353.
+    Every value is read from :func:`plasma_formalism`, the solver-neutral record,
+    so the two records of one run cannot disagree; the keys are kept stable for
+    existing consumers.
     """
     record = plasma_formalism(config, parameters=parameters)
     extensions = record.extensions
@@ -240,7 +240,7 @@ def formalism(
 class CGYROResult(CodeResult):
     """A CGYRO run: exit status, files, native output, and two separate verdicts.
 
-    #1354 keeps "the program ran" apart from "the physics is usable":
+    "The program ran" is kept apart from "the physics is usable":
 
     ``executed``
         Exit 0 and CGYRO wrote its normal ``EXIT:`` line with no ``ERROR:`` line.

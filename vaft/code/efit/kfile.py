@@ -81,7 +81,7 @@ def build_efit_coil_currents(destination, source, *, coilset=None, window=None) 
     for index in range(len(source["coil"])):
         name = str(source[f"coil.{index}.name"])
         by_name[name] = index
-        # Published as NaN when its channel was empty (#1568).
+        # Published as NaN when its channel was empty.
         data_path = f"coil.{index}.current.data"
         if data_path in source and not np.all(np.isfinite(np.asarray(source[data_path], dtype=float))):
             unacquired.append(name)
@@ -132,7 +132,7 @@ def _condemned_channels(ods, nbprobe: int) -> set[int]:
     Kept for callers and tests; the rule lives in
     :func:`vaft.validation.efit_channels.condemned_channels` and the
     constraint builder no longer consults it directly -- it consumes a
-    :class:`~vaft.validation.channel_decision.ChannelDecisions` (issue #296).
+    :class:`~vaft.validation.channel_decision.ChannelDecisions`.
     """
     return condemned_channels(ods, nbprobe=nbprobe)
 
@@ -140,12 +140,12 @@ def _condemned_channels(ods, nbprobe: int) -> set[int]:
 def apply_validity_exclusions(ods, EQ, *, min_validity: int = 0) -> dict[tuple[str, int], list[int]]:
     """Zero the weight of every channel unusable at a given reconstruction time.
 
-    Signal quality is time-resolved (issue #189): an integrator that rails at
+    Signal quality is time-resolved: an integrator that rails at
     0.31 s leaves every earlier slice perfectly constrained, so the exclusion
     is per (slice, channel) rather than per channel.
 
     This reuses the "weight = 0 means excluded from the fit" contract the
-    legacy ``broken`` list and the missing-channel placeholder (#145) already
+    legacy ``broken`` list and the missing-channel placeholder already
     rely on, rather than introducing a second exclusion mechanism.  It must run
     *after* the weighting loop, which reassigns every family's nominal weight
     unconditionally and would otherwise overwrite this.
@@ -194,7 +194,8 @@ def diamagnetic_anchored_slices(times, method_name, *, average_window: float) ->
     ``[t - w, t + w]`` reaches the start or the end therefore averages values
     that are zero, or unbaselined, by construction rather than by
     measurement -- and with a relative error model its sigma goes to zero
-    with it (42914, 45663, #1799). Those slices are fitted without the row.
+    with it (shots 42914 and 45663, for example). Those slices are fitted
+    without the row.
 
     Returns ``[]`` when the product does not record its window. A window
     that ran past the Rogowski record ("window clipped to the Rogowski
@@ -221,7 +222,8 @@ FLUX_WEIGHT_INDEX = {"inboard": 6, "outboard": 7}
 
 
 #: Constraint inputs EFIT cannot be run without: BTOR (from the TF coil
-#: current) and the plasma current. Diamagnetic flux is optional (#993).
+#: current) and the plasma current. Diamagnetic flux is optional: a shot whose
+#: diamagnetic loop carried nothing usable is fitted without that row.
 REQUIRED_CONSTRAINT_INPUTS = {
     "tf.b_field_tor_vacuum_r.data": "vacuum toroidal field R*B_t (TF coil current)",
     "magnetics.ip.0.data": "plasma current",
@@ -233,7 +235,7 @@ class MissingConstraintInputError(ValueError):
 
     Raised before anything is read: OMAS answers a read of a missing path with
     an empty ODS rather than an error, which surfaced as ``float * ODS``
-    deep in the arithmetic (42675, #1799).
+    deep in the arithmetic (shot 42675).
     """
 
     def __init__(self, missing: dict[str, str]):
@@ -256,8 +258,8 @@ class ConstraintErrors:
     in a call site said so.
 
     The probe and flux-loop fields still name VEST's three probe families and
-    two flux-loop families. That is the next thing to move (#708); a named
-    field at least says which family it is.
+    two flux-loop families, so this class is VEST-specific; a named field at
+    least says which family it is.
     """
 
     pf_current: float
@@ -337,10 +339,10 @@ def apply_channel_decisions(
     families: ProbeFamilies,
     flux_families: tuple,
 ) -> dict:
-    """Translate channel decisions into constraint weights and values (issue #296).
+    """Translate channel decisions into constraint weights and values.
 
     Per slice and submitted channel whose constraint already exists: a
-    ``missing`` decision is skipped (the #145 placeholder stands); every
+    ``missing`` decision is skipped (the missing-channel placeholder stands); every
     other state writes ``weight = nominal * weight_factor``, where the
     nominal weight is the family's entry of ``weighting``, which may be a
     :class:`ConstraintWeights` or the legacy positional list; a ``recovered``
@@ -412,7 +414,8 @@ def _has_matching_signal(magnetics, path: str) -> bool:
 
 
 #: Half-width [s] of the box average each constraint is taken over.  The
-#: legacy value; qualifying it against the cadence is issue #468.
+#: legacy value. Open: #468 (not yet qualified against the reconstruction
+#: cadence).
 DEFAULT_AVERAGE_WINDOW = 0.0005
 
 
@@ -439,7 +442,7 @@ def generate_constraints_ods(
 ) -> ChannelDecisions:
     """Generate the constraints ODS, ``save_dir/{shotnumber}_constraints.json``.
 
-    Channel selection is not decided here (issue #296).  Pass ``decisions``
+    Channel selection is not decided here.  Pass ``decisions``
     from :func:`vaft.validation.efit_channels.decide_efit_channels` and,
     optionally, a ``recovery`` backend ``callable(EQ, decisions) ->
     decisions`` such as :func:`vaft.code.efit.recovery.gaussian_probe_recovery`;
@@ -448,10 +451,10 @@ def generate_constraints_ods(
     :func:`apply_channel_decisions`.
 
     ``average_window`` is the half-width of the box average each constraint
-    value is taken over, ``[t_i - w, t_i + w]`` (issue #433).  The two
+    value is taken over, ``[t_i - w, t_i + w]``.  The two
     controls are independent: this one says what a slice measures, the
     decisions say which channels are believed, and the reconstruction
-    cadence is a third (issue #468).
+    cadence is a third.
 
     ``broken`` (one-based combined indexes) and ``fit`` (0 none, 1 rejected
     probes, 2 every probe) are the legacy way of saying the same thing and
@@ -461,7 +464,7 @@ def generate_constraints_ods(
 
     ``FFCUR``/``PPCUR`` are deprecated and ignored.  The profile basis is
     the k-file configuration's (:class:`EFITScientificConfig`), and the
-    constraints product no longer records one it does not choose (#869).
+    constraints product records none, since it does not choose one.
     """
 
     if FFCUR is not None or PPCUR is not None:
@@ -477,7 +480,7 @@ def generate_constraints_ods(
     # valid for the era it was built from. The caller resolves which era this
     # discharge belongs to -- that is a fact about the machine, not about EFIT
     # -- and the table states its own; disagreement is refused here rather
-    # than reconstructed against the wrong coils (#805).
+    # than reconstructed against the wrong coils.
     if expected_table_era is not None:
         declared = table_machine_era(efit_table_dir)
         if declared is not None and declared != expected_table_era:
@@ -509,7 +512,7 @@ def generate_constraints_ods(
     ]
     # For later need to develop option to add other constraints (e.g. internal magnetic probe, thomson scattering, etc.)
     # A shot whose diamagnetic loop carried nothing usable has no
-    # diamagnetic_flux node (#993); it is fitted without that row rather than
+    # diamagnetic_flux node; it is fitted without that row rather than
     # failing, and the k-file writer switches the row off.
     if "magnetics.diamagnetic_flux.0.data" not in ods:
         constraints.remove("diamagnetic_flux")
@@ -571,8 +574,8 @@ def generate_constraints_ods(
         )
 
     ## (5) Poloidal magnetic probe
-    # Families are the registry's, by each channel's identity for this shot
-    # (#2164): not the positions the product carries, nor array order.
+    # Families are the registry's, by each channel's identity for this
+    # shot: not the positions the product carries, nor array order.
     efit_bpol_probe_count = _efit_bpol_probe_count(MG)
     sensor_families = equilibrium_sensor_families(
         MG, int(shotnumber), probe_count=efit_bpol_probe_count
@@ -661,7 +664,7 @@ def generate_constraints_ods(
     # Convert diagnostics ODS to equilibrium constraints ODS
 
     # The constraint-averaging half-window is a control of its own, distinct
-    # from the reconstruction cadence (issues #433, #468).
+    # from the reconstruction cadence.
     default_average = float(average_window)
 
     EQ = ods["equilibrium"]
@@ -689,10 +692,10 @@ def generate_constraints_ods(
     nbprobe = efit_bpol_probe_count
     PM = ods["equilibrium.code.parameters"]
 
-    # The diamagnetic flux keeps its sign (issue #385).  EFIT reads DFLUX as a
+    # The diamagnetic flux keeps its sign.  EFIT reads DFLUX as a
     # signed quantity and fits it against cdflux = integral (B_t - B_tv) dA, so
     # a paramagnetic plasma in VEST's positive toroidal field is a *positive*
-    # flux, and the stored measurement is signed the same way (#1196).  The
+    # flux, and the stored measurement is signed the same way.  The
     # donor code compared magnitudes with a magnitude-only reconstruction,
     # which is not what EFIT does.
     for i in range(len(EQ["time"])):
@@ -772,8 +775,8 @@ def generate_constraints_ods(
         # The profile model (KPPCUR, KFFCUR, KPPFNC, KFFFNC, PCURBD, FCURBD,
         # FWTBP) and the passive-structure flags (IVESEL, IFITVS) are NOT
         # written here either: they are the k-file configuration's choice,
-        # made later and possibly differently, and this tree recorded a fixed
-        # (2,2) hard-edge model whatever was written (#869). The k-file
+        # made later and possibly differently, so a value stored here could
+        # describe a k-file that was not written. The k-file
         # writer records the values it writes, and the EFIT product carries
         # the submitted namelist itself (`time_slice.*.in1`).
         # The seed ellipse, the reference radius and the plasma-current floor
@@ -845,7 +848,7 @@ def generate_kfile(
     Generate k-files under ``save_dir/kfile`` for the requested shot.
 
     Without ``config`` the k-file is written from the default configuration,
-    the #891 working setting (preset ``statistical_891``).  A positional
+    the working setting (preset ``statistical_891``).  A positional
     ``npprime``/``nffprime`` is the deprecated spelling of a basis override:
     it swaps only KPPCUR/KFFCUR on that default, exactly as
     ``EFITConfig(npprime=..., nffprime=...)`` does, and warns once.  The
@@ -878,7 +881,7 @@ def generate_kfile(
                 "argument or make the values equal"
             )
     elif config is None:
-        # The default: the #891 working setting (statistical_891).
+        # The default: the working setting (statistical_891).
         scientific = EFITScientificConfig()
         if npprime is not None or nffprime is not None:
             # The positional basis means the same thing as EFITConfig's
@@ -903,11 +906,11 @@ def generate_kfile(
     constraint_config = scientific.constraints
 
     # What the k-file states is recorded on the caller's ODS, not on the copy
-    # the sigma floor works on, so the record survives the floor (#869).
+    # the sigma floor works on, so the record survives the floor.
     recorded_parameters = ods["equilibrium.code.parameters"]
 
     # The sigma floor is part of the configuration, so it is applied here, on a
-    # copy, for every caller -- the routine configuration's is 0 (#891).
+    # copy, for every caller -- the routine configuration's is 0.
     if constraint_config.sigma_floor:
         from .presets import apply_sigma_floor
 
@@ -927,7 +930,7 @@ def generate_kfile(
     # (default 10) and takes the larger of that and a relative floor --
     # SERROR*|m| for probes, Ip and PF currents, ERRSIL*|m| (default 3 %) for
     # flux loops.  Unless all three are pinned, the sigma EFIT fits against is
-    # ten times the one submitted, or a floor nobody chose (#891).  Legacy
+    # ten times the one submitted, or a floor nobody chose.  Legacy
     # weighting depends on VBIT = 10 through its `weight / vbit` formula and is
     # left exactly as it was.
     statistical = constraint_config.uncertainty_mode == "standard_deviation"
@@ -970,7 +973,7 @@ def generate_kfile(
         """The FWT written for one row.
 
         Under standard_deviation the ODS weight only includes or excludes the
-        row; how strongly it constrains is the sigma's job alone (#891).  The
+        row; how strongly it constrains is the sigma's job alone.  The
         objective scale stays an explicit study control.  Legacy weighting is
         unchanged: the weight is a strength there.
         """
@@ -989,7 +992,7 @@ def generate_kfile(
         ``uncertainty_scales`` divides here rather than multiplying ``FWT*``
         because EFIT processes a statistical row as ``FWT/sigma``: narrowing
         the sigma is the only way to raise a row's weight without writing an
-        ``FWT*`` outside the range the code was exercised with (#386).
+        ``FWT*`` outside the range the code was exercised with.
         """
         scale = float(constraint_config.uncertainty_scales[group])
         if constraint_config.uncertainty_mode == "legacy_weight":
@@ -1159,7 +1162,7 @@ def generate_kfile(
         flux_scale = (
             1000.0 if constraint_config.diamagnetic_flux_input_units == "Wb" else 1.0
         )
-        # No measurement at all (#993: the loop carried nothing usable): the
+        # No measurement at all (the loop carried nothing usable): the
         # row is written switched off, with a zero value and sigma EFIT never
         # reads while FWTDLC is 0.
         measured_dia = "diamagnetic_flux.measured" in CSTR
@@ -1170,7 +1173,7 @@ def generate_kfile(
                 RuntimeWarning,
                 stacklevel=2,
             )
-        # "imas" writes the stored, signed value: EFIT's convention (#385).
+        # "imas" writes the stored, signed value: EFIT's convention.
         VAL = float(CSTR["diamagnetic_flux.measured"]) * flux_scale if measured_dia else 0.0
         if constraint_config.diamagnetic_flux_sign == "absolute":
             VAL = abs(VAL)
@@ -1331,7 +1334,7 @@ def generate_kfile(
         f.write(f" FCURBD = {profile.fcurbd}\n")
         f.write(f" FWTBP = {profile.fwtbp}\n")
         # The attached-current model is written only when on: ICUTFP = 0 is
-        # EFIT's own default, so a k-file without it is the one it always was (#672).
+        # EFIT's own default, so a k-file without it is the one it always was.
         if profile.icutfp:
             f.write(f" ICUTFP = {profile.icutfp}\n")
             if profile.alphafp is not None:
@@ -1348,7 +1351,7 @@ def generate_kfile(
         }
         ivesel, ifitvs = passive_flags[constraint_config.passive_structure_mode]
         f.write(f" IFITVS = {ifitvs}\n")
-        # The settings a VEST fit actually terminates on (issue #171). Nothing
+        # The settings a VEST fit actually terminates on. Nothing
         # is written unless the configuration sets it, so the routine k-file is
         # unchanged and EFIT's own defaults still apply -- ERRMIN 1e-2, two
         # orders looser than the ERROR written below, and SAICON 80, which the
@@ -1396,7 +1399,7 @@ def generate_kfile(
         f.write(f" ISHOT = {shotnumber}\n")
         # EFIT reads the slice time as ITIME [ms] + ITIMEU [us] and names its
         # outputs with both, so a sub-millisecond slice needs ITIMEU or it
-        # collides with its millisecond neighbour and is mislabelled (#468).
+        # collides with its millisecond neighbour and is mislabelled.
         # Whole-millisecond slices write exactly what they always did.
         f.write(f" ITIME = {slice_us // 1000}\n")
         if slice_us % 1000:

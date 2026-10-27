@@ -204,7 +204,7 @@ def _run(
 
 
 def _stopped_generator(workdir: Path, completed: ExecutionResult) -> NUBEAMResult:
-    """A stopped generator is the case's result, not an exception (#1016)."""
+    """A stopped generator is the case's result, not an exception."""
     return _stopped(
         workdir,
         completed,
@@ -218,7 +218,7 @@ def _stopped(
     logs: tuple[Path, ...],
     earlier_s: float = 0.0,
 ) -> NUBEAMResult:
-    """The result of a run a time limit stopped (#1016): nothing is collected.
+    """The result of a run a time limit stopped: nothing is collected.
 
     ``earlier_s`` is the wall time of the stages that finished before it.
     """

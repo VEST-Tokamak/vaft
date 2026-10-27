@@ -1,7 +1,7 @@
 """Find a TGLF-NN model artifact without vendoring one, and without the network.
 
-Issue #553 section 5 forbids committing model weights to VAFT, and section 10 requires
-``import vaft`` to stay offline-safe.  Both are satisfied the same way: VAFT stores no
+Model weights are never committed to VAFT, and ``import vaft`` must stay
+offline-safe (no network access, no automatic clone or install).  Both are satisfied the same way: VAFT stores no
 weights and resolves them from wherever the user already has them, reporting every
 place it looked when it finds nothing.
 
@@ -44,7 +44,7 @@ from ._types import (
 #: Root of a TurbulentTransport.jl checkout, in VAFT's ``<CODE>HOME`` convention.
 MODELS_HOME_ENV = "TURBULENTTRANSPORTHOME"
 
-#: Accepted for the spelling issue #553 section 6 sketched.
+#: Accepted as an alternative spelling of :data:`MODELS_HOME_ENV`.
 MODELS_COMPATIBILITY_ENVS = ("TURBULENTTRANSPORT_ROOT",)
 
 #: Files that must sit beside an ONNX ensemble for it to be usable.
@@ -114,8 +114,8 @@ def parse_model_name(name: str) -> dict:
 def _julia_model_roots(env: Optional[Mapping[str, str]] = None) -> list[Path]:
     """``models`` directories of every TurbulentTransport.jl copy in the Julia depot.
 
-    Read, never installed: finding an existing checkout is not the automatic clone
-    issue #553 section 10 forbids.  More than one is returned so the caller can refuse
+    Read, never installed: finding an existing checkout is not an automatic clone,
+    which VAFT never does.  More than one is returned so the caller can refuse
     the ambiguity rather than silently pick a version.
 
     Takes *env* rather than reading the process environment directly, so a caller that

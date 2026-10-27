@@ -1,4 +1,4 @@
-"""Is a usable MITIM installation configured? (#1588 section 3).
+"""Is a usable MITIM installation configured?
 
 The probe runs *in the MITIM interpreter*, as a subprocess, so asking the
 question never imports MITIM into VAFT. It reports one status out of an ordered

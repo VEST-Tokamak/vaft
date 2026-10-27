@@ -5,7 +5,7 @@ assumes is part of that configuration (``constraints.sigma_floor``), applied by
 :func:`vaft.code.efit.generate_kfile` for every caller.
 
 ``statistical_891`` -- the default since 2026-10-01
-    The working setting of the #891 weight study: statistical sigma
+    The working setting of the EFIT weight study (#891): statistical sigma
     calibrated self-consistently on the reference shots (probe x3.62, loop
     x2.15 over the stored sigma, a 2 % floor on both), the diamagnetic flux
     fitted at x16, Ip sigma 20 % (x4 of 5 %), profile basis KPPCUR = 2,
@@ -43,7 +43,7 @@ PRESET_RECORD = "efit_preset.json"
 #: stops on ERRMIN and a chi-square stall, and chi-square is judged afterwards.
 PSI_ONLY_SAICON = 1.0e10
 
-#: (515 - 1) // NXITER with NXITER = 1: EFIT's iteration arrays hold 515 (#171).
+#: (515 - 1) // NXITER with NXITER = 1: EFIT's iteration arrays hold 515.
 PSI_ONLY_MAX_ITERATIONS = 514
 
 
@@ -95,7 +95,7 @@ def apply_sigma_floor(ods, fraction: float, families: Iterable[str] = FLOOR_FAMI
     Per slice and per family, over the channels with a positive weight.
     Mutates ``ods`` and returns, per slice and family, the floor and how many
     channels it raised; ``fraction == 0`` changes nothing.  The same rule as
-    the #891 calibration driver, which the ``statistical_891`` sigma assumes.
+    the weight study's calibration driver, which the ``statistical_891`` sigma assumes.
     """
     changes: list[dict[str, Any]] = []
     if not fraction:

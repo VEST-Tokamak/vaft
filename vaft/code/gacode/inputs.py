@@ -15,7 +15,7 @@ is the conversion, and three decisions it refuses to make silently:
 
 **The radial coordinate.**  GACODE's ``rho`` is ``sqrt(Phi/Phi_boundary)``.
 Several packaged VAFT equilibria store ``sqrt(psi_N)`` under the name
-``rho_tor_norm`` (issues #276, #420), and the two agree only for a flat-q
+``rho_tor_norm``, and the two agree only for a flat-q
 cylinder.  The grid is checked with :func:`vaft.data._derived.is_rho_pol_proxy`,
 re-derived from ``q`` and ``psi`` when it is a proxy, and the conversion is
 refused when it cannot be re-derived.  A GACODE file written on
@@ -239,7 +239,7 @@ def _resolve_profile_rho(
 
     The same ``sqrt(psi_N)`` proxy :func:`_resolve_rho` guards against on the
     equilibrium is stored under ``core_profiles...grid.rho_tor_norm`` by every
-    writer that copied the equilibrium's array verbatim (issues #276, #420, #574).
+    writer that copied the equilibrium's array verbatim.
     Interpolating it against the re-derived equilibrium coordinate puts each
     kinetic point at the wrong radius, so a detected proxy is carried through
     ``psi_N`` onto the equilibrium's own ``psi_N -> rho`` table instead.
@@ -563,7 +563,7 @@ def prepare_gacode_profile(
         Note what this alone does *not* do: it fills a column NEO ignores. NEO builds
         its collision operator from the species list, so a file with ``z_eff = 2`` and
         one hydrogenic ion describes a plasma at ``Z_eff = 1`` to every solver that
-        reads it (issue #803). Pass ``impurity`` to make the two agree.
+        reads it. Pass ``impurity`` to make the two agree.
     impurity
         Model the requested ``z_eff`` as a named impurity -- ``"C"``, ``"O"``, ``"N"``
         or ``"He"`` -- rather than as a column. The impurity and the main ion are
@@ -879,8 +879,8 @@ def prepare_gacode_profile(
     effective_charge = _array(ods, f"{profile_prefix}.zeff")
     if impurity is not None:
         # The species list is what NEO reads, so once it realizes a charge the column
-        # must agree with it or the file contradicts itself -- which is the defect
-        # #803 is about, and it would come back here for any state carrying a zeff.
+        # must agree with it or the file contradicts itself -- a Z_eff column NEO never
+        # used -- and that would come back here for any state carrying a zeff.
         stacked = np.vstack(densities)
         z_eff_profile = (
             np.sum(stacked * np.asarray(charges)[:, None] ** 2, axis=0)
@@ -905,7 +905,7 @@ def prepare_gacode_profile(
                 )
     elif effective_charge is not None:
         z_eff_profile = _interpolate(profile_rho, effective_charge, rho)
-        # The record beside the column says how it is known (#1565): a zeff the
+        # The record beside the column says how it is known: a zeff the
         # composition writer derived or assumed is not a measurement.  Unlabelled
         # keeps the reading it always had.
         from vaft.ods_access import path_value
@@ -923,8 +923,8 @@ def prepare_gacode_profile(
         }
         if len(charges) > 1:
             # Several species: NEO, TGLF and CGYRO read the list, so a column a
-            # composition writer derived or assumed must agree with it -- the #803
-            # contradiction, without impurity=.  A measured (or unlabelled) column
+            # composition writer derived or assumed must agree with it -- the same
+            # column-vs-species-list contradiction, without impurity=.  A measured (or unlabelled) column
             # is independent of the list and is only compared, never refused.
             stacked = np.vstack(densities)
             species_profile = np.sum(stacked * np.asarray(charges)[:, None] ** 2, axis=0) / (ne / DENSITY_SCALE)
@@ -963,7 +963,7 @@ def prepare_gacode_profile(
 
     current = _scalar(ods, f"{global_prefix}.ip")
     # b0 is sampled on the equilibrium time base, and VEST's drifts by up to a
-    # factor of two within a shot (#325), so it is read at the converted slice
+    # factor of two within a shot, so it is read at the converted slice
     # rather than at index 0.
     field = _array(ods, "equilibrium.vacuum_toroidal_field.b0")
     b0 = None

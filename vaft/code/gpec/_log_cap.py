@@ -3,14 +3,14 @@
 ``python -I .../vaft/code/gpec/_log_cap.py --max-bytes N --stall-lines K
 --stall-pattern REGEX [--ignore-case] -- program [args...]`` runs *program* with its stdout
 and stderr merged and writes them to this process's stdout -- which the
-execution backend points at the run's log -- with two limits (#1929):
+execution backend points at the run's log -- with two limits:
 
 * **Size.**  The first ``N/2`` bytes are written as they arrive; after that the
   last ``N/2`` bytes are held in memory and written when the program ends,
   behind one line saying how much was left out.  A PENTRC whose energy LSODE
   stalls writes the same line millions of times -- 1.8 GB before a one-hour
-  timeout in the #1887 scan -- and none of the middle of that says anything
-  the head and the tail do not.
+  timeout in the PENTRC NTV coil-response scan of #1887 -- and none of the
+  middle of that says anything the head and the tail do not.
 * **Stall.**  When ``K`` lines have matched ``REGEX`` the program is stopped
   and this process exits :data:`STALL_EXIT_CODE` after a final
   :data:`STALL_MARKER` line, so the caller can say *stalled* rather than

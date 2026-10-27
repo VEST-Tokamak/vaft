@@ -30,7 +30,7 @@ def min_gauss_fit4(coef, x, y):
 def _signal_matches_time(container, path, time) -> bool:
     """Whether ``path`` holds a waveform the length of ``time``.
 
-    Probed through the shared non-mutating accessor (issue #118): asking about
+    Probed through the shared non-mutating accessor: asking about
     a channel with no raw data must not leave a placeholder behind, which is
     what corrupted a constraints ODS here in the first place.
     """
@@ -52,7 +52,7 @@ def annotate_constraint_equilibrium(EQ, times):
     """Stamp the constraint equilibrium's identity without erasing its provenance.
 
     A caller may already have written where the constraint times came from
-    (the plasma window and its source, issue #409) into
+    (the plasma window and its source) into
     ``ids_properties.comment``; that line is kept and the identity appended.
     """
     existing = EQ["ids_properties.comment"] if "ids_properties.comment" in EQ else ""
@@ -68,7 +68,7 @@ def box_average(time, data, center: float, half_width: float, *, what: str = "si
     """The mean of the samples inside ``[center - half_width, center + half_width]``.
 
     A true box average: every sample the window contains counts once, none
-    is interpolated onto a grid of its own (issue #433).  The window is
+    is interpolated onto a grid of its own.  The window is
     closed on both ends.  A window that contains no sample is an error named
     after the constraint -- averaging an interpolated fiction there would
     hide that the diagnostics grid does not cover the reconstruction time.
@@ -147,7 +147,7 @@ def vfit_equilibrium_form_constraints(
     nbt = len(times)
     # Each constraint is the box average of the diagnostic samples inside
     # [t_i - average, t_i + average]: every sample once, equal weights, no
-    # interpolation grid of its own (issue #433).
+    # interpolation grid of its own.
     times = [float(t) for t in times]
 
     if "pf_current" in constraints:
@@ -377,7 +377,7 @@ def vfit_signal_startend(time, data):
 
 def smooth(array, span):
     # Kept on purpose rather than replaced by vaft.process.signal_processing.smooth
-    # (#2162). On finite data the two agree to summation-order round-off (a
+    # On finite data the two agree to summation-order round-off (a
     # per-window sum here, a difference of cumulative sums there: ~1e-12
     # relative). They are not equivalent on a record with a gap: this loop
     # blanks only the windows that contain a NaN, while the cumulative-sum
@@ -769,7 +769,7 @@ def vest_Halpha_tstart_tend(ods):
 
     Superseded by :func:`vaft.omas.plasma_timing.plasma_timing`, which finds
     the H-alpha line by label, validates it and returns the window with its
-    provenance inside the configured ``plasma_analysis`` range (issue #409).
+    provenance inside the configured ``plasma_analysis`` range.
     """
     warnings.warn(
         "vest_Halpha_tstart_tend() is deprecated and will be removed in the next release; use "
@@ -810,8 +810,7 @@ def set_discharge_index(ods):
     Deprecated: the EFIT constraint script now takes the configured
     ``plasma_analysis`` range (``resolve_plasma_timing_policy().window``)
     intersected with the window ``vaft.omas.plasma_timing.plasma_timing``
-    detects, and flags the range fallback instead of a silent 'vacuum' status
-    (issue #409).
+    detects, and flags the range fallback instead of a silent 'vacuum' status.
     """
     warnings.warn(
         "set_discharge_index() is deprecated and will be removed in the next release; use the plasma_analysis window from "

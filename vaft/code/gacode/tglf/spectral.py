@@ -1,4 +1,4 @@
-"""Quasilinear flux decomposition of one TGLF run, validated against TGLF's own output (#1900).
+"""Quasilinear flux decomposition of one TGLF run, validated against TGLF's own output.
 
 TGLF's saturated flux for species ``s``, field ``f``, ky point ``k``, mode ``m`` and
 quantity ``q`` is, in ``get_multiscale_spectrum`` (``tglf_multiscale_spectrum.f90``,
@@ -34,7 +34,7 @@ factors. It returns the factors only when the rebuild matches TGLF within
 :data:`RECONSTRUCTION_RTOL`. A decomposition that does not reproduce the solver's own
 flux is not used, and the status reports why. Before ``QLA`` was included, SAT3
 rebuilds came out at 0.67-0.83 of the native flux. With it, 240 runs (SAT0-3, ES and
-EM) reproduce to <= 1.5e-15 (#1900).
+EM) reproduce to <= 1.5e-15 (validation record: #1900).
 """
 
 from __future__ import annotations

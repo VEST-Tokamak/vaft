@@ -1,4 +1,4 @@
-"""Fixed-boundary equilibrium scans over CHEASE inputs (issue #66).
+"""Fixed-boundary equilibrium scans over CHEASE inputs.
 
 ``scan_tes`` and ``scan_tokamaker`` vary a field of their solver's config.  That
 shape does not fit CHEASE: :class:`~vaft.code.chease.CHEASEConfig` holds
@@ -79,7 +79,7 @@ class EquilibriumVariation:
     ``boundary`` replaces the source boundary with an explicit closed
     :class:`~vaft.data.equilibrium.Contour` -- evaluated from any shape model,
     Miller, :class:`~vaft.data.equilibrium.FourierSurface` or none -- which is
-    what CHEASE's ``EXPEQ`` consumes anyway (#942).  The Miller knobs are one
+    what CHEASE's ``EXPEQ`` consumes anyway.  The Miller knobs are one
     way of generating such a contour; the two do not combine.  The adapter's
     default boundary smoothing re-samples the boundary as a radius over the
     polar angle about ``((R_max + R_min)/2, Z at R_max)``, as CHEASE holds it,
@@ -179,7 +179,7 @@ class CHEASEScanCase:
     #: written to ``scan_boundary.json`` in :attr:`workdir`.
     target_psin: Optional[float] = None
     #: The boundary written to ``RBBBS`` and solved on -- the primary shape
-    #: record of the case, whichever model generated it (#942).  ``None`` in a
+    #: record of the case, whichever model generated it.  ``None`` in a
     #: scan without shape variation, where the adapter traces the ``EXPEQ``
     #: boundary itself.
     boundary: Optional[Contour] = None
@@ -192,7 +192,7 @@ class CHEASEScanCase:
         """Whether CHEASE actually solved this case.
 
         ``run_chease`` subprocesses with ``check=False``, so a non-zero exit
-        -- and, since #1016, a timeout (``result.runtime_status`` is
+        -- and a timeout (``result.runtime_status`` is
         ``"timeout"``, :attr:`error` names the limit) -- comes back as a
         :class:`CHEASEResult` rather than an exception -- and
         the most likely failure, a mesh that will not converge, exits 1 and
@@ -359,14 +359,14 @@ def scan_chease(
 
     ``config`` supplies the numerical settings; the production settings are
     ``nw=513, target_psin=0.993, relax=0.5``, and CHEASE's ``NIDEAL`` comes
-    from the adapter's GEQDSK output contract (#516).
+    from the adapter's GEQDSK output contract.
 
     A scan that varies the shape solves every case -- its control included --
     with ``target_psin=1``, whatever ``config`` says.  Below 1 the adapter
     traces the ``EXPEQ`` boundary from ``PSIRZ``, which a shape variation does
     not touch, so the solve would see the unperturbed shape while the refined
     g-file, whose ``RBBBS`` is restored from the input, reported the requested
-    one (#887).  At 1 the ``EXPEQ`` boundary is ``RBBBS`` itself, i.e. the Miller
+    one.  At 1 the ``EXPEQ`` boundary is ``RBBBS`` itself, i.e. the Miller
     boundary.  The consequence is that a shape scan's control solves on the
     Miller representation of the LCFS rather than on the ``target_psin``
     contour, so it is not the same equilibrium as a plain
@@ -377,7 +377,7 @@ def scan_chease(
     scan continues, because a variation CHEASE cannot solve is usually the
     interesting part of a scan rather than a reason to abandon it.
 
-    **Concurrency (#1018).** Every case is submitted through the backend
+    **Concurrency.** Every case is submitted through the backend
     before any is collected, so a backend that runs in the background --
     ``LocalBackend(max_concurrent=N)``, a ``SlurmBackend`` batch job -- solves
     the cases in parallel; the default eager ``LocalBackend`` solves each one
