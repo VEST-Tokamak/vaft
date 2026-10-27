@@ -12,7 +12,9 @@ constant-density flute limit of ``radiative_thermal_instability_growth_rate``
 on its $k_\\parallel = 0$ axis.
 
 The MARFE is prescribed, not solved: no reaction-diffusion problem, no
-cooling curve, no density-limit formula (density-limit families are not yet in VAFT; open: #1068).
+cooling curve, no density-limit formula (the Greenwald and Hugill limits live in
+``vaft.formula.boundaries``; separating global, edge and disruptive density
+limits is open: #1068).
 """
 
 from __future__ import annotations

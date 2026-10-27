@@ -47,8 +47,8 @@ VEST sample)::
 
 References
 ----------
-.. [1] Open: #1067 (data model), #1068 (density-limit family), #1066
-       (transition and access boundaries).
+.. [1] Related open work: #1067 (data model), #1068 (density-limit family),
+       #1066 (transition and access boundaries).
 """
 
 from __future__ import annotations

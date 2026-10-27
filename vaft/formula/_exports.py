@@ -1,10 +1,10 @@
 """How a formula submodule decides what it publishes.
 
 A hand-written ``__all__`` is a second list to keep in step with the code, and
-it does not stay in step: a branch holding a stale copy once dropped seven
-functions that `develop` had added to ``equilibrium`` and ``utils`` while a branch held a stale copy, which
-dropped them out of ``vaft.formula``'s resolvable surface while the catalog
-still listed them.
+it does not stay in step: a branch holding a stale copy once lost seven
+functions that `develop` had added to ``equilibrium`` and ``utils``, dropping
+them out of ``vaft.formula``'s resolvable surface while the catalog still
+listed them.
 
 Deriving the list removes that failure mode for the case it actually happens
 in -- someone adds a function -- while keeping the one thing the hand-written

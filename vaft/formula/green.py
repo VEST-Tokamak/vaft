@@ -284,8 +284,9 @@ def greens_function_3d(R: np.ndarray,
 
     That $\Delta\varphi = 0$ reduction is the one property worth relying on.
     Away from it the expression decays with toroidal separation in a way that
-    has no recorded derivation, so it should not be read as a field. It needs either a derivation or a replacement, and it has no
-    production caller today.
+    has no recorded derivation, so it should not be read as a field. It needs
+    either a derivation or a replacement (no issue tracks this yet), and it has
+    no production caller today.
 
     References
     ----------
