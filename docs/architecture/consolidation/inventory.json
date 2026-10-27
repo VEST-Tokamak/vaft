@@ -924,7 +924,8 @@
    ],
    "callers": [
     "vaft.code.efit.legacy._window_pair",
-    "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._drop_vacuum_times"
+    "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._drop_vacuum_times",
+    "workflow.automatic_pipeline_1_routine_data_processing.generate_constraints_ods._kept_currents"
    ],
    "classification": "intentional_specialization",
    "configuration_source": "caller arguments / module literals (not curated)",
