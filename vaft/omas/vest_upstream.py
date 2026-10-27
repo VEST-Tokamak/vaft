@@ -3896,9 +3896,9 @@ def build_kinetic_efit_ods(
 
             # The ODS psi is weber (IMAS DD); from_equilibrium writes it per radian,
             # as a g-file stores it, so SIMAG/SIBRY are the solution's flux over
-            # 2*pi and `geq.to_omas()` gives back the solution's own weber. That matters:
-            # `core_profiles` takes `grid.psi` from `geq.to_omas()`, so a missing 2*pi
-            # there would make it 2*pi too large. psi_N in `_psin_of_r` and the profile
+            # 2*pi and `geq.to_omas()` gives back the solution's own weber, so
+            # `core_profiles.grid.psi`, taken from `geq.to_omas()`, is in the solution's
+            # own weber. psi_N in `_psin_of_r` and the profile
             # mapper is normalized and does not depend on this.
             try:
                 geq = from_equilibrium(as_equilibrium(solution, time_index=time_index))

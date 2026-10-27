@@ -800,7 +800,8 @@ def compute_voltage_consumption(
         ts = ods['equilibrium.time_slice'][i]
         t[k] = float(ts['time']) if 'time' in ts else float(i)
         # loop_voltage_from_total_flux multiplies by 2*pi, i.e. it expects
-        # psi in Wb/rad; convert from the ODS storage convention (Wb).
+        # psi in Wb/rad; convert from the ODS storage convention (Wb per the
+        # IMAS DD, or Wb/rad on legacy artifacts, where the factor is 1).
         _psi_factor = ods_psi_to_wb_per_radian_factor(ods, i)
         psi_boundary[k] = float(ts['global_quantities.psi_boundary']) * _psi_factor
         Ip[k] = float(ts['global_quantities.ip'])
