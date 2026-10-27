@@ -1,4 +1,4 @@
-"""Project TGLF's turbulent fluxes into IMAS ``core_transport`` (issue #553 section 14).
+"""Project TGLF's turbulent fluxes into IMAS ``core_transport``.
 
 The counterpart of :mod:`vaft.machine_mapping.neoclassical`, and it inherits that
 module's rule: a quantity reaches an IDS only when the correspondence survives an audit
@@ -326,7 +326,8 @@ def _core_transport_from_tglf(
     )
 
     _set_time_array(ods, "core_transport.time", time_index, float(time))
-    # An IDS the classical mapper (#1654) made heterogeneous stays so: every slice
+    # An IDS the classical mapper made heterogeneous (its slice indices are per
+    # entry, not a shared core_transport.time) stays so: every slice
     # here also carries its own profiles_1d time, so 0 remains true.
     if ods.get("core_transport.ids_properties.homogeneous_time", None) != 0:
         ods["core_transport.ids_properties.homogeneous_time"] = 1

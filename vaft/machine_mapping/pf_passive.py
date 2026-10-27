@@ -19,7 +19,7 @@ DEFAULT_STATIC_GEOMETRY = data_path("geometry/VEST_static_geometry.json.gz")
 # Kept as an import-level compatibility name for callers that referenced it.
 DEFAULT_REFERENCE_ODS = DEFAULT_STATIC_GEOMETRY
 #: The fifteen conductors wall 2409 adds, with their coupling rows
-#: (`workflow/em_coupling/import_wall_2409.py`, issue #956).
+#: (`workflow/em_coupling/import_wall_2409.py`).
 DEFAULT_WALL_2409_ADDITIONS = data_path("geometry/VEST_passive_wall_2409.npz")
 #: First shot on wall 2409: 43016 is 2024-07-05 and 43017 is 2024-07-15, the
 #: access in which the fifteen SUS316LN elements at Z = -1.164 m went in.

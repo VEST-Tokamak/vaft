@@ -1,8 +1,8 @@
-"""Project the classical (Braginskii) heat-flux baseline into IMAS ``core_transport`` (#1654).
+"""Project the classical (Braginskii) heat-flux baseline into IMAS ``core_transport``.
 
 The counterpart of :mod:`vaft.machine_mapping.turbulence` and
 :mod:`vaft.machine_mapping.neoclassical`, for the per-surface records that
-:func:`vaft.process.transport_state.classical_heat_fluxes` produces (#1435).
+:func:`vaft.process.transport_state.classical_heat_fluxes` produces.
 
 **What is a flux and what is not.** A record carries three kinds of quantity, and
 only the first is projected as a flux:
@@ -15,8 +15,10 @@ only the first is projected as a flux:
 - *Diagnostics*: collision times, Coulomb logarithms, ``gamma1_perp`` and ``|B|``. They
   stay in the native record; none has a definitional ``core_transport`` home.
 
-The order-of-magnitude ``nu rho^2`` reference scale (#780/#1112) is not produced by
-#1435 and is never written here. The record's particle flux is ``None``: the model
+The order-of-magnitude ``nu rho^2`` reference scale
+(:func:`vaft.formula.transport.classical_diffusivity_from_nu_rho`) is not produced by
+``classical_heat_fluxes`` and is never written here. The record's particle flux
+is ``None``: the model
 does not evaluate it. ``particles.flux`` is therefore left unset, which is "not
 evaluated", not zero.
 
@@ -173,7 +175,8 @@ def core_transport_from_classical(
         time is refused.
     state_identity, efit_lineage
         The resolved state's identity (required; without one nothing is written) and
-        EFIT lineage (lane K's State key contract v1, #1454). They are recorded so that
+        EFIT lineage (the ``shot``/``time_s``/``efit_lineage`` atlas state key of
+        :mod:`vaft.omas.equilibrium_state`). They are recorded so that
         rows from different states or lineages are never merged.
 
     Returns
@@ -192,7 +195,7 @@ def core_transport_from_classical(
                        "time could not be told apart)")
         return {"model": None, "profile_index": None, "written": written, "skipped": skipped}
     for record in records:
-        if hasattr(record, "as_record"):   # a ClassicalHeatFluxes (#1899) or its mapping
+        if hasattr(record, "as_record"):   # a ClassicalHeatFluxes or its mapping
             record = record.as_record()
         r = record.get("r_over_a")
         q_e = record.get("electron_energy_flux_W_m2")

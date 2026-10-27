@@ -22,8 +22,8 @@ PF_HEIGHT_BY_COIL_2507 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.0616, 0.0324, 0.0648
 #: First shot on the rebuilt PF6/PF7 (VFIT DiscretizedCoilGeometry ver_2507).
 #: Shots 45950-45967 run every ~12 minutes on 2025-06-30 and 45968 follows on
 #: 2025-07-07, so the coils could only have been rebuilt in that week-long
-#: access; VFIT's own selection is ``shot > 45967``. The 45958 used before
-#: #956 had no recorded source.
+#: access; VFIT's own selection is ``shot > 45967``. An earlier boundary of
+#: 45958 had no recorded source and is not used.
 PF_GEOMETRY_2507_FIRST_SHOT = 45968
 
 
@@ -115,13 +115,14 @@ def coil_field_code_by_index(shot: int) -> dict[int, int]:
     Configuration, not a checked-in asset: this used to be `Coil_info.mat`,
     whose five entries made "which coils can be read" a property of a binary
     file, so a discharge that energised PF2 was zero-filled with nothing able
-    to say otherwise (#708).
+    to say otherwise.
     """
     codes = resolve_vest_diagnostic(shot, "pf_active")["processing"].get("coil_field_codes") or {}
     by_index = {int(coil_index): int(code) for coil_index, code in codes.items()}
     # A raw field is one signal. On the shots where the diamagnetic TF
     # Rogowski was recorded on field 4, PF2's channel carried the Rogowski,
-    # not a coil current (#993), so no circuit reads the diamagnetic field.
+    # not a coil current, so no circuit reads the diamagnetic field. Open: #993
+    # (the diamagnetic channel history on 33910-42664 is still suspect).
     diamagnetic = resolve_vest_diagnostic(shot, "diamagnetic_flux").get("source") or {}
     if diamagnetic.get("field") is not None:
         by_index = {
@@ -135,8 +136,8 @@ def _optional_coils(shot: int) -> frozenset[int]:
 
     For these an empty channel is a statement about the discharge -- the coil
     was not energised -- rather than a data defect. For every other declared
-    circuit a missing waveform is an error, which is what keeps #44's
-    zero-fill guarantee intact.
+    circuit a missing waveform is an error, which keeps the guarantee that an
+    acquired coil is never zero-filled.
     """
     processing = resolve_vest_diagnostic(shot, "pf_active")["processing"]
     return frozenset(int(index) for index in (processing.get("optional_coils") or ()))
@@ -144,7 +145,7 @@ def _optional_coils(shot: int) -> frozenset[int]:
 
 def _pf_filter(values: np.ndarray, processing: dict) -> np.ndarray:
     """:func:`~vaft.process.signal_processing.pf_current_filter` with this
-    shot's vest.yaml ``filter`` values (#2162; was ``_legacy_pf_filter``)."""
+    shot's vest.yaml ``filter`` values."""
     filter_config = processing["filter"]
     return pf_current_filter(
         values,
@@ -164,8 +165,8 @@ def vfit_pf(
     """Every PF circuit's current; raises if a required circuit was not acquired.
 
     The strict reader, for every caller that computes with the currents: a
-    required circuit is never zero-filled (#44). The diagnostics stage, which
-    only publishes them, uses :func:`vfit_pf_acquired` instead (#1568).
+    required circuit is never zero-filled. The diagnostics stage, which
+    only publishes them, uses :func:`vfit_pf_acquired` instead.
     """
     reference_time, pf_data, _ = _read_pf_circuits(shot, raw_source=raw_source, strict=True)
     return reference_time, pf_data
@@ -209,8 +210,8 @@ def _read_pf_circuits(
     # Read each declared channel once. A channel belonging to a circuit listed
     # in `optional_coils` may legitimately be empty -- that says the discharge
     # did not energise the coil. Every other declared channel is required, and
-    # a missing waveform there still raises: zero-filling an acquired coil is
-    # the #44 defect, and adding a sometimes-used circuit must not weaken the
+    # a missing waveform there still raises: a zero-filled acquired coil would
+    # pass for a real zero current, and adding a sometimes-used circuit must not weaken the
     # guarantee for the ones that are always driven.
     optional_codes = {
         coil_codes[index] for index in _optional_coils(shot) if index in coil_codes
@@ -319,7 +320,7 @@ def vfit_pf_active_static(
         # N turns in series, each of cross-section A_pack/N, so
         #     R = N * rho * (2*pi*r) / (A_pack / N) = N^2 * rho * 2*pi*r / A_pack.
         #
-        # Before issue #117 the N^2 factor was missing, which computes the
+        # Without the N^2 factor the expression computes the
         # resistance of a *single* turn occupying the entire winding pack --
         # 1.4e-7 Ohm for PF1's 632 turns, some five orders of magnitude below a
         # physical terminal resistance. The same single-turn expression is left
@@ -370,14 +371,15 @@ def vfit_pf_active_dynamic(
         # so this projection is band-limited.
         current = np.interp(time_axis, waveform_time, pf_data[coil_index])
         set_path(ods, f"pf_active.coil.{coil_index}.current.time", time_axis)
-        # An unrecorded required circuit (#1568) is published as NaN, the only
+        # An unrecorded required circuit (e.g. PF5 on 48644-48760, PF6 on
+        # 48534-48537) is published as NaN, the only
         # marker that survives IMAS/HSDS: `pf_active.coil.current` has no
         # validity node in the DD, so a flag would be dropped on replication.
         set_path(ods, f"pf_active.coil.{coil_index}.current.data", current)
 
 
 class UnacquiredPFCircuitError(raw_db.RawSignalUnavailableError):
-    """A PF circuit the computation needs was not recorded for this shot (#1568).
+    """A PF circuit the computation needs was not recorded for this shot.
 
     Its own type so a caller can tell this -- a property of the shot's data,
     which no rerun changes -- from every other unavailable input.
@@ -388,7 +390,7 @@ def unacquired_pf_coils(ods: object) -> list[str]:
     """Names (or ``coil.<i>``) of the PF circuits whose current is not all finite.
 
     The diagnostics stage publishes a required circuit whose channel was empty
-    as NaN (#1568). NaN is the marker rather than a flag because it is the one
+    as NaN. NaN is the marker rather than a flag because it is the one
     that survives the IMAS/HSDS round trip, and because it is what would
     actually corrupt a computation that used it.
     """
@@ -409,8 +411,8 @@ def require_acquired_pf_currents(ods: object, shot: int | None, consumer: str) -
     """Refuse to compute with PF currents when a circuit was not acquired.
 
     A missing drive current makes every induced or fitted current wrong, and a
-    zero would hide that (#44). The diagnostics product keeps such a coil as
-    NaN instead of dropping the IDS (#1568), so each consumer of the currents
+    zero would hide that. The diagnostics product keeps such a coil as
+    NaN instead of dropping the IDS, so each consumer of the currents
     checks here and fails naming the coil. ``shot`` is ``None`` for a caller
     that has no shot to name (a code adapter given an ODS); it then raises
     ``ValueError`` rather than :class:`~vaft.database.raw.RawSignalUnavailableError`.

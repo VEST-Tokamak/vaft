@@ -85,9 +85,9 @@ IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE = math.pi / 2
 #: The port the array is inserted through: ``11M12``, which the port-status
 #: document lists as "Triple probe + internal magnetic probe array".  The IMAS
 #: toroidal angle is derived from it rather than stored, so it cannot drift
-#: from the port table -- see issue #718.  Until then every IMPA channel was
-#: written at ``phi = 0.0``, which is not a placeholder a reader can recognise:
-#: 0.0 is 12 o'clock, a real and different place on the machine.
+#: from the port table.  ``phi = 0.0`` would not be a placeholder a reader
+#: could recognise: 0.0 is 12 o'clock, a real and different place on the
+#: machine.
 IMPA_PORT = "11M12"
 
 
@@ -110,7 +110,7 @@ def resolve_impa_config(shot: int, info_file: str | None = None) -> dict[str, An
 
     The base lives at the top level of the machine mapping rather than under
     ``magnetics``: IMPA is not part of the baseline magnetics description but an
-    insertable diagnostic with its own stage and HSDS source (issue #305).  A
+    insertable diagnostic with its own stage and HSDS source.  A
     shot-keyed block may still override it, which is the same merge this always
     did, one level up.
     """
@@ -240,8 +240,8 @@ def _resample(reference_time: np.ndarray, time: np.ndarray, values: np.ndarray) 
         return values
     # anti-alias: channel alignment onto the first-loaded channel's grid, which
     # is the same DAQ rate; the allclose guard above makes the common case a
-    # no-op.  See issue #425 for the open question of whether IMPA's configured
-    # sample_rate matches its channels.
+    # no-op.  Open: #432 (whether IMPA's configured sample_rate, defaulted to
+    # 25 kHz, matches its channels).
     return np.interp(reference_time, time, values)
 
 
@@ -608,7 +608,7 @@ def impa(
             # this angle from. A poloidal one's normal is vertical, so its
             # horizontal projection is the zero vector and the angle does not
             # exist -- writing 0.0 there declared a radial (B_R) sensor, which
-            # is the error this constant's own docstring warns about (#725).
+            # is the error this constant's own docstring warns about.
             set_path(ods, f"{prefix}.toroidal_angle", IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE)
         set_path(ods, f"{prefix}.type.index", HALL_PROBE_TYPE_INDEX)
         set_path(ods, f"{prefix}.type.name", "hall")
@@ -747,7 +747,7 @@ def impa(
 
     status: dict[str, Any] = {
         "shot": int(shot),
-        # The manifest's spelling of the verdict (#305 reads "invalid").
+        # The manifest's spelling of the verdict: valid, warning or invalid.
         "status": manifest_label(result.quality.status),
         "orientation": orientation,
         "ids_node": node,

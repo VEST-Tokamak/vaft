@@ -1,4 +1,4 @@
-"""Versioned effective-resistance calibration of the VEST passive wall (#308).
+"""Versioned effective-resistance calibration of the VEST passive wall.
 
 ``pf_passive.loop[:].resistance`` in the shipped static geometry is not a
 material property. Nine of the eleven wall regions carry the nominal hoop
@@ -176,9 +176,10 @@ RESISTIVITY_MARKER = "resistivity=nominal_material"
 def _declares_nominal_resistivity(ods: Any) -> bool:
     """Whether the product says its ``resistivity`` is the material value.
 
-    Products from before #388 carry the field too, holding an inherited vector
-    that is *not* the material value, so presence alone cannot be trusted; the
-    asset written by #388 declares the meaning in ``pf_passive.code.parameters``.
+    Older products carry the field too, holding an inherited vector that is
+    *not* the material value, so presence alone cannot be trusted; an asset
+    whose resistivity is the material value declares it in
+    ``pf_passive.code.parameters``.
     """
     if "pf_passive.code.parameters" not in ods:
         return False
@@ -191,8 +192,7 @@ def nominal_resistance(ods: Any) -> np.ndarray:
     This is the value nine of eleven regions already carry; for the two fitted
     regions it is what the band factors multiply. ``rho`` is the loop's own
     ``resistivity`` when the product declares it to be the material value
-    (:data:`RESISTIVITY_MARKER` in ``pf_passive.code.parameters``, written by
-    #388); otherwise :data:`NOMINAL_RESISTIVITY`, because older products carry
+    (:data:`RESISTIVITY_MARKER` in ``pf_passive.code.parameters``); otherwise :data:`NOMINAL_RESISTIVITY`, because older products carry
     the field with an inherited vector that is not the material value. The
     operation order is the one that reproduces the shipped asset bitwise.
     """

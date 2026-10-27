@@ -28,7 +28,8 @@ _LEGACY_REPLACEMENTS = {
     "vfit_thomson_scattering_dynamic": None,
     "vfit_thomson_scattering_static": None,
     # These remain supported VEST source-policy functions while their canonical
-    # physical-data replacements are designed in later #103 phases.
+    # physical-data replacements are still to be
+    # designed.
     "vfit_PlasmaCurrent": None,
     "vfit_plasma_current": None,
     "vfit_pf": None,
@@ -36,7 +37,8 @@ _LEGACY_REPLACEMENTS = {
     "vfit_tf_bt_r": None,
     "vfit_tf_current": None,
     "vest_md_channel_definitions": "vest_equilibrium_magnetics_channel_definitions",
-    # Pre-rename aliases with a removal milestone (retirement register L5/L6, #2168).
+    # Pre-rename aliases with a removal milestone (removed in vaft 0.11.0, see
+    # _LEGACY_REMOVALS below; retirement register L5/L6, #2168).
     "vfit_md": "magnetics.vfit_equilibrium_magnetics",
 }
 
