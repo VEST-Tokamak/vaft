@@ -5,9 +5,9 @@
                                           solver-native source of truth
 
 ``NeoOutputs`` is the whole run, in NEO's own units and on NEO's grid.  It is
-deliberately *not* an IDS: which quantities have a defensible IMAS home has
-not been audited, and until it is, a mapping would be name-matching rather
-than physics.
+deliberately *not* an IDS: which quantities have a defensible IMAS home is
+decided, and projected, in :mod:; this
+container stays NEO's native output.
 
 The VAFT-native analytic counterpart is :mod:`vaft.formula.neoclassical`, kept
 a separate computational identity on purpose: Sauter and Redl answer a related

@@ -5,7 +5,7 @@ documents, the IDS-populating layer reads this container rather than re-parsing
 solver output itself, and the container stays a faithful transcript of what NEO
 produced -- in NEO's units, on NEO's grid, with NEO's sign conventions.  The
 audit that decides which of these quantities has a defensible IMAS home is
-deliberately not done here.
+deliberately not done here (it is done in :mod:).
 
 **Column layouts are taken from NEO's writers, not from `pygacode`.**
 `pygacode/neo/data.py`'s `read_theory` is stale with respect to

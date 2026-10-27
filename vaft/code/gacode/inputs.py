@@ -879,8 +879,9 @@ def prepare_gacode_profile(
     effective_charge = _array(ods, f"{profile_prefix}.zeff")
     if impurity is not None:
         # The species list is what NEO reads, so once it realizes a charge the column
-        # must agree with it or the file contradicts itself -- a Z_eff column NEO never
-        # used -- and that would come back here for any state carrying a zeff.
+        # must agree with it or the file contradicts itself (a Z_eff column that disagrees
+        # with the species NEO actually reads), and that would recur here for any state
+        # carrying a zeff.
         stacked = np.vstack(densities)
         z_eff_profile = (
             np.sum(stacked * np.asarray(charges)[:, None] ** 2, axis=0)

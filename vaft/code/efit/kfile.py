@@ -776,15 +776,15 @@ def generate_constraints_ods(
         # FWTBP) and the passive-structure flags (IVESEL, IFITVS) are NOT
         # written here either: they are the k-file configuration's choice,
         # made later and possibly differently, so a value stored here could
-        # describe a k-file that was not written. The k-file
+        # disagree with the k-file actually written. The k-file
         # writer records the values it writes, and the EFIT product carries
         # the submitted namelist itself (`time_slice.*.in1`).
         # The seed ellipse, the reference radius and the plasma-current floor
         # are NOT written here. They were, as five VEST numbers, and the writer
         # took them from `EFITScientificConfig` regardless -- so they never
         # reached a k-file and simply sat in the stored parameters
-        # contradicting the live values. `CUTIP` said 50000 A where the
-        # configuration says 5000.
+        # contradicting the live values (`CUTIP` said 50000 A where the
+        # configuration then said 5000 A).
 
         # Add wall eddy current to the k-file
         Iwall = []

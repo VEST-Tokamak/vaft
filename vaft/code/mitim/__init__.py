@@ -4,9 +4,9 @@ MITIM (https://github.com/pabloprf/MITIM-fusion) is an optional external code
 that runs in its own isolated interpreter (``install/install_mitim.sh``); VAFT
 never imports ``mitim_tools``. Importing this package needs neither MITIM nor
 GACODE. It provides the availability probe, the per-run MITIM configuration,
-the driver runner, a NEO smoke capability, the MITIM-vs-VAFT TGLF/NEO input and
-flux comparison, and the PORTALS synthetic closed loop with a manufactured
-source. Open: #1588 (flux-matched transport on measured profiles).
+the driver runner, a NEO smoke capability, MITIM-vs-VAFT TGLF local-input and
+NEO flux comparisons, MITIM TGLF runs, and the PORTALS synthetic closed loop
+with a manufactured source. Open: #1588 (flux-matched transport on measured profiles).
 """
 
 from .availability import STATUSES, MITIMAvailability, mitim_availability

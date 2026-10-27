@@ -376,7 +376,7 @@ def vfit_signal_startend(time, data):
 
 
 def smooth(array, span):
-    # Kept on purpose rather than replaced by vaft.process.signal_processing.smooth
+    # Kept on purpose rather than replaced by vaft.process.signal_processing.smooth.
     # On finite data the two agree to summation-order round-off (a
     # per-window sum here, a difference of cumulative sums there: ~1e-12
     # relative). They are not equivalent on a record with a gap: this loop
