@@ -81,8 +81,8 @@ caller-supplied code or shell commands. Results never carry credentials: help pa
 HSDS is configured, not with what, and the server also scrubs the values of `HS_PASSWORD` and
 `HS_API_KEY` and replaces the home directory with `~` in every result and error message.
 Tool inputs name scientific things: a plot, a formula or
-a shot. They never name a data representation. During the DD migration (#1127, #1132, #1135),
-the loading code can change behind the same tool schema.
+a shot. They never name a data representation, so while the loading code moves to the DD data model
+(Open: #1127, #1132, #1135) it can change behind the same tool schema.
 
 ## Datasets
 
@@ -111,13 +111,13 @@ the lane that owns it, the schema that describes its columns, and the rules for 
 
 | Table | Lane | One row is |
 | --- | --- | --- |
-| `state`, `kinetic_profiles` | K (#1454) | an equilibrium state (shot, time_efit_s, efit_lineage), or one Thomson channel of it |
-| `transport`, `transport_summary` | T (#1453) | a state and r/a (one TGLF configuration), or one state |
+| `state`, `kinetic_profiles` | K (kinetic state) | an equilibrium state (shot, time_efit_s, efit_lineage), or one Thomson channel of it |
+| `transport`, `transport_summary` | T (transport) | a state and r/a (one TGLF configuration), or one state |
 | `transport_sensitivity`, `transport_sensitivity_pairs` | T | a surface and a TGLF configuration, or the spread over configurations |
-| `stability`, `stability_surfaces` | N (#1448) | a state and toroidal mode number, or one rational surface for one solver |
-| `zeff_windows`, `zeff_slices` | Z (#1486) | a discharge window, or a state |
-| `confinement` | D (#1490) | a magnetics state |
-| `op_space_base` | V (#1456) | a state's operating-space coordinates |
+| `stability`, `stability_surfaces` | N (stability) | a state and toroidal mode number, or one rational surface for one solver |
+| `zeff_windows`, `zeff_slices` | Z (resistive Z_eff) | a discharge window, or a state |
+| `confinement` | D (confinement scaling) | a magnetics state |
+| `op_space_base` | V (operating-space maps) | a state's operating-space coordinates |
 
 `describe_atlas_table` returns each column's unit and definition from the lane's own schema, the
 row key, the lane's rules and caveats, its README, and provenance: the file's sha256 and the build

@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-// The generated interactive graphs (#1646). These drive the real snapshot the
+// The generated interactive graphs. These drive the real snapshot the
 // build generated, so they name modules that exist in every VAFT tree rather
 // than counts that change with each commit.
 
@@ -124,7 +124,7 @@ test('without JavaScript the page still explains itself', async ({ browser }) =>
   await context.close();
 });
 
-// The pipeline lineage explorer (#1647).
+// The pipeline lineage explorer.
 
 async function openPipelines(page, hash = '') {
   await page.goto(`reference/pipeline-graph/${hash}`);
@@ -182,7 +182,7 @@ test('selecting a stage shows what it owns and where it is published, offline', 
   expect(remote.filter((url) => /hsds|:5101/.test(url))).toEqual([]);
 });
 
-// The scientific ontology explorer (#1702).
+// The scientific ontology explorer.
 
 async function openOntology(page, hash = '') {
   await page.goto(`reference/ontology/${hash}`);

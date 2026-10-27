@@ -14,13 +14,11 @@ guide:
 
 # Reduced-wall order study
 
-The wall eigenmode basis ([Wall eigenmodes](/reference/wall-modes/),
-[#473](https://github.com/VEST-Tokamak/vaft/issues/473)) can represent the
+The wall eigenmode basis ([Wall eigenmodes](/reference/wall-modes/), `vaft.process.wall_modes`) can represent the
 vessel current in any number of modes. This page is about *how many, and
 which* — the representation order `M_repr = (M_1, …, M_G)` that
 [VEST-Tokamak/vfit#10](https://github.com/VEST-Tokamak/vfit/issues/10) asks
-for, implemented in `vaft.validation.wall_reduction`
-([#494](https://github.com/VEST-Tokamak/vaft/issues/494)).
+for, implemented in `vaft.validation.wall_reduction`.
 
 Three layers, kept apart on purpose:
 
@@ -134,8 +132,7 @@ result = wr.experimental_comparison(ods, {"tau_19": wm.select_slowest(system["ba
                                                         system["M_mat"], system["L_mat"], 3)})
 ```
 
-This runs the [#190](https://github.com/VEST-Tokamak/vaft/issues/190)
-plasma-free benchmark for the full PF-only wall and for each reduced wall
+This runs the plasma-free eddy-current benchmark for the full PF-only wall and for each reduced wall
 over the same window, and reports two blocks per model: `measurement`
 (residual against the data) and `reduction` (distance from the full model
 at the same channels). On shot 39915 the full wall improves the coil-only

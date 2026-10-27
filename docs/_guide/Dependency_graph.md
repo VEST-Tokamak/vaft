@@ -27,7 +27,7 @@ What the graph deliberately does **not** say:
   functions and `TYPE_CHECKING` blocks are included, because Grimp reads statements, not execution.
 - No edge is a verdict. A cross-layer import or an import cycle is a fact to inspect, and many are
   legitimate; which boundaries VAFT intends is the conceptual question of
-  [Computational layers]({{ site.baseurl }}/reference/computational-layers/) and of scientific ownership (#1645).
+  [Computational layers]({{ site.baseurl }}/reference/computational-layers/) and of scientific ownership, drawn by `vaft.diagram.scientific_ownership_architecture()`.
   [Scientific architecture]({{ site.baseurl }}/reference/scientific-architecture/) says how this observed view
   relates to the normative one and to production lineage.
 - External scientific codes (EFIT, CHEASE, GPEC, ...) are executables VAFT invokes, not Python

@@ -9,7 +9,7 @@ guide:
   architecture: A Panel application over the same loading, discovery and plotting APIs a notebook uses.
   prerequisites: VAFT installed; a browser on the machine you sit at.
   expected: The plot browser at http://localhost:5006, locally or through a forwarded port.
-  status: Experimental reference application (#1086); workspaces follow the GUI roadmap (#1359).
+  status: Experimental reference application; the further domain workspaces are not built yet.
 related:
   api: [omas, database, plot]
   data_sources: [sample-ods, hsds-public]
@@ -93,7 +93,9 @@ GUI:
 - **Playback.** A plot with a slice or time control -- equilibrium slices, camera frames -- gets a
   player beneath it: play, pause, step, loop, and the frame interval. Each frame is the plot
   redrawn on the server with every other control as chosen, so a frame that cannot be drawn is
-  reported and skipped. Writing the sequence to a video file is not part of the GUI yet (#1049/#1050).
+  reported and skipped. **Export** also writes the sequence as an MP4, WebM or GIF movie (MP4 and
+  WebM need PyAV, `pip install vaft[video]`), at most 600 frames; a longer one takes every n-th state or
+  is written in Python with `plot_*(..., animation=True).save()`. The frame times download alongside it.
 - **Figure.** Width and height in pixels, axis limits and log scales; empty fields stay automatic.
 - **Export.** Downloads the current plot as PNG, SVG or PDF at the chosen DPI. The file is the
   Matplotlib rendering with the controls and figure settings on screen, whichever renderer is shown.
@@ -147,7 +149,7 @@ The **Database** workspace contains:
 
 ### Adding a workspace
 
-Workspaces are registered rather than built in, and the later domain workspaces (#1359) plug
+Workspaces are registered rather than built in, and the later domain workspaces plug
 in the same way:
 
 ```python
@@ -310,9 +312,9 @@ Every browser tab is its own session on the server.
 
 - **Isolation.** A session has its own shell, workspaces, loaded data, selection, time slice and
   uploads. What one reader opens or changes is never visible to another. Sessions share
-  code, the list of workspaces and the server process's settings. (**Test connection** used
-  to lower the process-wide logging level; since #1936 it only quietens the `h5pyd` and
-  `urllib3` loggers, and only when they were not configured.)
+  code, the list of workspaces and the server process's settings. (**Test connection** does not
+  change the process-wide logging level; it only quietens the `h5pyd` and `urllib3` loggers, and
+  only when they were not configured.)
 - **Clean-up.** When a tab is closed, the server discards its session once Bokeh's
   unused-session lifetime has passed: 15 s, checked every 17 s, so within about half a minute.
   Discarding a session closes its shell, which releases its figures, loaded data and uploaded
@@ -320,7 +322,7 @@ Every browser tab is its own session on the server.
 - **Not limited yet.**
   - A tab left open keeps its session, and its data, until it is closed.
   - There is no idle timeout, per-session memory cap or concurrency limit.
-  - These limits will be set from measurements on the hosted test instance (#1862, #1863), not
+  - These limits will be set from measurements on the hosted test instance (Open: #1862, #1863), not
     guessed in advance.
 - **Shared data account.** With `--auth hsds`, sign-in only decides who may open the page. Every
   session reads data with the service's own HSDS credentials, so the GUI does not apply each
@@ -393,6 +395,6 @@ unauthenticated reads, so its default ACL is what anonymous clients of HSDS itse
 
 ## What comes next
 
-The browser application is Track A of the GUI roadmap (#1359). A fuller plot explorer follows,
+The browser application is Track A of the GUI roadmap (Open: #1359). A fuller plot explorer follows,
 then workspaces for routine diagnostics, equilibrium,
 fluctuations and stability, operational space, start-up and pipeline monitoring.

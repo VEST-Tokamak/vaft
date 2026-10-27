@@ -6,7 +6,7 @@ category: guide
 layout: post
 permalink: /reference/plasma-models/
 guide:
-  architecture: "What physical model each VAFT backend mode represents, from an audit of upstream sources and primary literature (issue #1725, under #1723)."
+  architecture: "What physical model each VAFT backend mode represents, from an audit of upstream sources and primary literature."
   prerequisites: The Computational layers page, for where a computation lives in VAFT; this page says what physics it represents.
   expected: Which equations a mode solves, which ordering it assumes, what "kinetic" means in each VAFT name, and which classifications are still open.
 ---
@@ -14,13 +14,13 @@ guide:
 Two pages answer different questions. [Computational layers]({{ '/reference/computational-layers/' | relative_url }}) says
 *where* a computation belongs in VAFT (Formula, Process, Code). This page says *what physical model* the computation represents.
 
-**New here?** Start with [Plasma models: a guide]({{ '/reference/plasma-model-guide/' | relative_url }}) (#1739). It explains the model families and places every VAFT mode, with
+**New here?** Start with [Plasma models: a guide]({{ '/reference/plasma-model-guide/' | relative_url }}). It explains the model families and places every VAFT mode, with
 generated tables; this page holds the evidence behind each classification.
 
-**What this page is.** It is the Phase A audit of #1723, under issue #1725: a reviewed scientific classification.
+**What this page is.** It is the audit behind VAFT's plasma-model taxonomy: a reviewed scientific classification of each backend mode, from upstream sources and primary literature.
 
-**What it is not.** It is not an API: no enum and no model class is introduced here. Phase B (#1727) will encode only the
-distinctions that survive this audit.
+**What it is not.** It is not an API: no enum and no model class is introduced here. The shared record of §11,
+`vaft.code.formalism.PlasmaFormalism`, encodes only the distinctions that survive this audit.
 
 **How confidence is marked.** Every classification carries a confidence:
 
@@ -91,7 +91,7 @@ for example, a fluid model solves no kinetic equation. The record of §10 writes
 
 **Reduced MHD.**
 - An expansion in $\epsilon=a/R$, $\beta$ and $k_\parallel/k_\perp$; Strauss, Phys. Fluids **19**, 134 (1976).
-- It is an ordering applied to a fluid model, not a different fluid model. Low aspect ratio weakens its premise (#1627).
+- It is an ordering applied to a fluid model, not a different fluid model. Low aspect ratio weakens its premise: $\epsilon=a/R$ is no longer small.
 
 ### 2.2 Drift kinetics
 
@@ -300,7 +300,7 @@ References: Park, Boozer & Menard, Phys. Rev. Lett. **102**, 065002 (2009); Loga
   Phys. Plasmas **16**, 112503 (2009).
 - Its existing record, `vaft.code.gacode.cgyro.formalism()`, maps onto the axes in §1 as below.
 
-| CGYRO field | values today | broad axis (#1723) | gyrokinetic-specific (#1353) | implementation detail |
+| CGYRO field | values today | broad axis (§1) | gyrokinetic-specific | implementation detail |
 | --- | --- | --- | --- | --- |
 | `distribution_formulation` | `delta_f` | yes | — | — |
 | `spatial_domain` | `local` | yes | the global-spectral variant | — |
@@ -396,8 +396,8 @@ profiles.
 ## 7. Orderings and scales
 
 **Purpose of this section.** It is a compact map from scales to the classifications above. The full reference for
-characteristic scales and orderings is [Characteristic scales and orderings]({{ '/reference/characteristic-scales/' | relative_url }}) (#1724). The ordering parameters themselves are #1627. The ordering contracts
-each mode of §3–§5 and §12 consumes are `vaft.validation.model_contracts.ADAPTER_MODES` (#1823), drawn under the
+characteristic scales and orderings is [Characteristic scales and orderings]({{ '/reference/characteristic-scales/' | relative_url }}). The ordering parameters themselves are computed by `vaft.formula.ordering`. The ordering contracts
+each mode of §3–§5 and §12 consumes are `vaft.validation.model_contracts.ADAPTER_MODES`, drawn under the
 contract map in [Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }}).
 
 **Frequencies.** For thermal **ions** they are typically ordered as
@@ -497,7 +497,7 @@ axis is "N/A".
 - the orbit-representation question;
 - NUBEAM's guiding centre + FLR sampling, which fits neither guiding centre nor full orbit.
 
-## 10. Recommended minimal vocabulary for Phase B (#1727)
+## 10. Recommended minimal vocabulary for the shared record
 
 Proposed, not implemented.
 
@@ -531,15 +531,15 @@ the model, so it stays separate.
 whose physics is not documented.
 
 **Backend gaps this audit found, for Phase C:**
-- **GPEC (#1734), resolved.** Every GPEC-suite run now records its formalism from the prepared `dcon.in` /
+- **GPEC, resolved.** Every GPEC-suite run now records its formalism from the prepared `dcon.in` /
   `pentrc.in` / `gpec.in` (see "GPEC suite" in §11), so a kinetic run is distinguishable from an ideal one.
-- **GACODE (#1735), resolved.**
+- **GACODE, resolved.**
   - CGYRO reads `AE_FLAG`, `EQUILIBRIUM_MODEL`, `GLOBAL_FLAG`, the collision model and the rotation inputs from the
     written input.
   - NEO records its geometry the way NEO reads it, so `equilibrium_model=0` with `profile_model=1` is recorded as
     s-α (see "GACODE suite" in §11).
 
-## 11. The implemented record (#1727)
+## 11. The implemented record
 
 Phase B encodes the vocabulary of §10 as `vaft.code.formalism.PlasmaFormalism`. It is an immutable record with
 controlled values and is not a model class:
@@ -580,9 +580,9 @@ cgyro.plasma_formalism(config).as_dict()   # versioned, JSON-ready
   stays in `extensions`.
 - `SCHEMA_VERSION` changes with any field or vocabulary change, and `from_dict` reads only its own version.
 
-**IMAS.** The record is not mapped to an IMAS field. No standard location for it has been identified (#1727 §12), so
+**IMAS.** The record is not mapped to an IMAS field. No standard location for it has been identified in the IMAS Data Dictionary, so
 VAFT run provenance stays authoritative. CGYRO runs store the record as `provenance["plasma_formalism"]`, beside
-the #1353 `provenance["formalism"]` that the `gyrokinetics_local` mapping already writes.
+the gyrokinetic-specific `provenance["formalism"]` that the `gyrokinetics_local` mapping already writes.
 
 | theory concept (§2) | field | example backend mode |
 | --- | --- | --- |
@@ -596,17 +596,17 @@ the #1353 `provenance["formalism"]` that the `gyrokinetics_local` mapping alread
 
 **CGYRO is the reference integration.**
 - `cgyro.plasma_formalism(config)` builds the shared record.
-- The existing #1353 record, `cgyro.formalism()`, is now read from it, with unchanged keys and values. The two cannot
+- The existing gyrokinetic-specific record, `cgyro.formalism()`, is now read from it, with unchanged keys and values. The two cannot
   disagree.
 - CGYRO's own detail stays in `extensions`: the `em-aperp` / `em-aperp-bpar` split, the continuum representation,
   Miller geometry and gyrokinetic electrons.
 
 **Deferred to Phase C.**
-- **GPEC suite (#1734):** done -- see below.
-- **GACODE (#1735):** done -- see below.
+- **GPEC suite:** done -- see below.
+- **GACODE:** done -- see below.
 - **NUBEAM and ASCOT5:** no Phase C issue yet.
 
-**GACODE suite (#1735).** Every NEO, TGLF and CGYRO run, and every TGLF-NN prediction, stores its record as
+**GACODE suite.** Every NEO, TGLF and CGYRO run, and every TGLF-NN prediction, stores its record as
 `provenance["plasma_formalism"]`. The record is derived from the `KEY=VALUE` input the run was written with
 (`vaft.code.gacode._formalism`), with upstream defaults for absent keys. A shared input format does not imply shared
 governing physics:
@@ -647,12 +647,12 @@ GACODE suite
     2 MXH, recorded as VAFT's historical `miller`), `GLOBAL_FLAG` (1 gives `spatial_domain="unknown"`, never a
     bare global), the collision model and the rotation. The rotation is `"none"` when `GAMMA_E`, `GAMMA_P` and
     `MACH` are all zero, and `unknown` with `PROFILE_MODEL=2`, which takes them from `input.gacode`.
-  - The #1353 `formalism()` is still derived from this record.
+  - The gyrokinetic-specific `formalism()` is still derived from this record.
 - **Not covered.** The classical (Braginskii) result in `vaft.process.transport_state` has no record yet: the
-  vocabulary has no operation for classical collisional transport, and adding one is a `SCHEMA_VERSION` change for
-  #1727, not part of this phase.
+  vocabulary has no operation for classical collisional transport, and adding one is a `SCHEMA_VERSION` change of
+  the record, not part of this phase.
 
-**GPEC suite (#1734).** `vaft.code.gpec` resolves a record for every DCON, RDCON, STRIDE, ideal-GPEC and PENTRC run
+**GPEC suite.** `vaft.code.gpec` resolves a record for every DCON, RDCON, STRIDE, ideal-GPEC and PENTRC run
 from the namelists the cell was prepared with (upstream defaults where a key is absent), stores it on
 `GPECModuleRun.plasma_formalism` (the versioned `as_dict()`, so run manifests carry it) and inside each `mhd_linear`
 fragment as `<plasma_formalism>`, read back by `extract_dcon_stability` / `extract_rdcon_stability`. The physics
@@ -682,7 +682,7 @@ complete, recorded in those runs' extensions. No named kinetic limit (Kruskal-Ob
 
 ## 12. Equilibrium codes
 
-Added with #1823, so that every adapter whose results feed the ordering contracts has a classified mode.
+This section exists so that every adapter whose results feed the ordering contracts has a classified mode.
 
 | mode | operation | bulk | fluid model | topology | regime | ordering contract | confidence |
 | --- | --- | --- | --- | --- | --- | --- | --- |

@@ -1,8 +1,8 @@
 # Positive regular flux profiles (opt-in)
 
 `vaft.formula.regularized_profiles` adds a machine-independent offline fitter.
-`fit_profile` and its legacy tuple remain unchanged. The NeurIPS consumer issue
-is [#269](https://github.com/HongSik-Yun-Fusion/vaft-NeurIPSequilibrium/issues/269).
+`fit_profile` and its legacy tuple remain unchanged. Its first consumer is the
+external vaft-NeurIPSequilibrium study.
 
 ## Exact representation and objective
 
