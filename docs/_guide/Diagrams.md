@@ -2318,18 +2318,24 @@ Follow-up TODOs (implementation or IMAS mapping):
 
 ### Neoclassical transport: closed-form fits and drift-kinetic solution
 
-The same resolved local state through the Sauter and Redl fits and the drift-kinetic solver NEO, so the two can be compared at one state.
+One equilibrium and profile set, read directly by the Sauter and Redl fits and, through the resolved local state, by the drift-kinetic solver NEO. Only NEO's result is written to IMAS; the fits are returned for comparison.
 
 ![Neoclassical transport: closed-form fits and drift-kinetic solution]({{ '/assets/diagrams/neo_neoclassical.svg' | relative_url }})
 
 | Node | Kind | Variables | API | IDS |
 | --- | --- | --- | --- | --- |
-| Resolved local state | derived | $T_s,\ n_s,\ q,\ \epsilon,\ f_t$ | `vaft.process.transport_state.resolve_transport_state` |  |
-| Sauter / Redl fits | derived |  | `vaft.formula.neoclassical.redl_bootstrap_current` |  |
+| Equilibrium and profiles | reconstructed | $\psi,\ q,\ F,\ B_0;\ n_e,\ T_e,\ T_i$ |  | `{equilibrium.time_slice[:], equilibrium.vacuum_toroidal_field, core_profiles.profiles_1d[:]}` |
+| Resolved local state | derived | $T_s,\ n_s,\ Z_s,\ q,\ \kappa,\ \delta$ | `vaft.process.transport_state.resolve_transport_state` |  |
+| Sauter / Redl fits | derived |  | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
 | NEO input | code input |  | `vaft.code.gacode.neo.prepare_neo_case` |  |
 | NEO drift-kinetic solve | solver / model |  | `vaft.code.gacode.neo.run_neo` |  |
 | Fluxes, bootstrap current | native result | $\Gamma_s,\ Q_s,\ \langle j_{\mathrm{bs}}B\rangle$ | `vaft.code.gacode.neo.collect_neo_outputs` |  |
-| Neoclassical transport | standardized IMAS | $\Gamma_s,\ Q_s,\ j_{\mathrm{bs}}$ |  | `core_transport.model[:].profiles_1d[:]` |
+| Neoclassical transport | standardized IMAS | $\Gamma_s,\ Q_s\ (\mathrm{core\_transport});\ j_{\mathrm{bs}}\ (\mathrm{core\_profiles})$ |  | `core_transport.model[:].profiles_1d[:]; core_profiles.profiles_1d[:].j_bootstrap` |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- The Sauter / Redl fits have no IMAS writer: they are returned, and vaft.validation.neoclassical.bootstrap_models compares them with the stored core_profiles j_bootstrap (see the Sauter / Redl against NEO diagram).
+- The two routes do not see identical inputs: the fits need a stored ion temperature and assume n_i = n_e unless an impurity is given, while the resolved state can fill T_i from the Ti/Te policy and defaults to Z_eff = 2 with carbon.
 
 ### Local turbulent transport: quasilinear and gyrokinetic
 
@@ -2476,12 +2482,13 @@ Follow-up TODOs (implementation or IMAS mapping):
 
 ### Transport hierarchy: classical, neoclassical, turbulent
 
-One resolved local state and five independently computed routes; none feeds another. 'Always available' means the route needs no external code, not that its physics applies everywhere. Each route with a writer lands in its own core_transport.model entry, found by its identifier.index and code name -- the array position k is assigned at write time.
+Five independently computed routes from one equilibrium and profile set; none feeds another. Four read the resolved local state; the Sauter / Redl closures read the IMAS data directly. 'Always available' means the route needs no external code, not that its physics applies everywhere. Each route with a writer lands in its own core_transport.model entry, found by its identifier.index and code name -- the array position k is assigned at write time.
 
 ![Transport hierarchy: classical, neoclassical, turbulent]({{ '/assets/diagrams/transport_hierarchy.svg' | relative_url }})
 
 | Node | Kind | Variables | API | IDS |
 | --- | --- | --- | --- | --- |
+| Equilibrium and profiles | reconstructed | $\psi,\ q,\ F;\ n_e,\ T_e,\ T_i\ (\mathrm{one\ time\ slice})$ |  | `{equilibrium.time_slice[:], core_profiles.profiles_1d[:]}` |
 | Resolved local state | derived | $T_s,\ n_s,\ a/L_{T,n},\ q,\ \hat s,\ \hat\nu$ | `vaft.process.transport_state.resolve_transport_state` |  |
 | Classical: Braginskii | derived | $\mathrm{perpendicular\ conductive}\ q_{\perp,e},\ q_{\perp,i}, \mathrm{strongly\ magnetized}:\ \kappa_\perp \propto nT/(m\Omega^2\tau), \mathrm{software:\ always\ available}$ | `vaft.process.transport_state.classical_heat_fluxes` |  |
 | Neoclassical closures: Sauter / Redl | derived | $j_{\mathrm{bs}};\ \sigma_\parallel\ \mathrm{from\ a\ separate\ conductivity\ call};\ \mathrm{no}\ \Gamma_s,\ Q_s, \mathrm{software:\ always\ available}$ | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
@@ -2511,6 +2518,7 @@ Follow-up TODOs (implementation or IMAS mapping):
 - core_transport.model[k]: k is the array position the writer finds or appends (matching identifier.index and code.name); it is not the identifier.index.
 - A nonlinear CGYRO run writes no fluxes without a saturation window: choosing it is the caller's judgement.
 - The TGLF-NN surrogate (vaft.code.gacode.tglf.surrogate) refuses VEST inputs as out of domain and has no IMAS writer.
+- NEO's bootstrap current and conductivity go to core_profiles (core_profiles_from_neo), which this figure does not draw.
 
 ### Sauter / Redl against NEO at one state
 
