@@ -129,6 +129,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
                                               "fixed_vs_free_boundary_equilibrium",
                                               "limiter_and_diverted_topologies", "equilibrium_problem_taxonomy",
                                               "poloidal_flux_source_decomposition")},
+    # separatrix q asymptotics on traced Solov'ev field lines, and the refinement they call for (#2152)
+    "separatrix_q_asymptotics.svg": ("separatrix_q_asymptotics", {}),
+    "xpoint_refinement_hierarchy.svg": ("xpoint_refinement_hierarchy", {}),
     # cylindrical geometry: profiles, mode shapes, matching
     **{f"{name}.svg": (name, {}) for name in ("current_to_q_profile", "cylindrical_rational_surfaces",
                                               "cylindrical_mode_morphology", "internal_external_kink",

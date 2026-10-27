@@ -48,7 +48,7 @@ References
        Ch. 9 and 11.
 """
 
-from typing import Tuple
+from typing import NamedTuple, Tuple
 
 import numpy as np
 
@@ -71,6 +71,11 @@ __all__ = [
     "harris_sheet_field",
     "harris_sheet_current_density",
     "x_point_flux",
+    "xpoint_saddle_expansion",
+    "xpoint_field_scale",
+    "xpoint_log_q_coefficient",
+    "xpoint_resolution_length",
+    "flux_position_error",
 ]
 
 
@@ -1028,6 +1033,327 @@ def x_point_flux(x, y, B_prime):
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
     return 0.5 * B_prime * (x * x - y * y)
+
+
+class XPointSaddle(NamedTuple):
+    """Principal curvatures of the flux about a non-degenerate X-point."""
+
+    kappa_u: float
+    kappa_v: float
+    angle_u: float
+    det_hessian: float
+
+
+def xpoint_saddle_expansion(d2psi_dR2, d2psi_dZ2, d2psi_dRdZ, *, degenerate_rtol=1e-6):
+    r"""Principal-axis saddle form of the poloidal flux about an X-point.
+
+    $$\psi - \psi_X \simeq \tfrac12\left(\kappa_u u^2 - \kappa_v v^2\right),\qquad
+      \det H_\psi = -\kappa_u\kappa_v < 0$$
+
+    Parameters
+    ----------
+    d2psi_dR2 : float
+        $\partial^2\psi/\partial R^2$ at the X-point [flux m$^{-2}$].
+    d2psi_dZ2 : float
+        $\partial^2\psi/\partial Z^2$ at the X-point [flux m$^{-2}$].
+    d2psi_dRdZ : float
+        $\partial^2\psi/\partial R\,\partial Z$ at the X-point [flux m$^{-2}$].
+    degenerate_rtol : float, optional
+        $|\det H|$ below this fraction of the largest squared eigenvalue is a
+        degenerate null [-].
+
+    Returns
+    -------
+    XPointSaddle
+        ``kappa_u`` and ``kappa_v``, both positive [flux m$^{-2}$]; ``angle_u``,
+        the angle of the $u$ axis from $\hat R$ towards $\hat Z$ [rad];
+        ``det_hessian`` [flux$^2$ m$^{-4}$].
+
+    Raises
+    ------
+    ValueError
+        A non-finite entry; a Hessian that is not a saddle ($\det H \ge 0$: an
+        O-point or no null); or a degenerate null, $|\det H|$ within
+        ``degenerate_rtol`` of zero, for which the quadratic saddle -- and so
+        every logarithmic asymptotic built on it -- does not apply.
+
+    Convention
+    ----------
+    Any flux normalization: the curvatures carry the units of $\psi$ per
+    square metre, so per-radian and full-weber flux differ by $2\pi$ here and
+    in :func:`xpoint_log_q_coefficient`. $u$ is the eigen-direction of the
+    positive eigenvalue ($\psi$ rises along it), $v$ of the negative one. This
+    is the general axisymmetric saddle; :func:`x_point_flux` is the special
+    current-free slab case $\kappa_u = \kappa_v$.
+
+    Physical interpretation
+    -----------------------
+    The two separatrix branches cross along $u/v = \pm\sqrt{\kappa_v/\kappa_u}$;
+    a current at the null makes $\kappa_u \neq \kappa_v$ and the crossing
+    non-orthogonal.
+
+    Assumptions
+    -----------
+    Second-order Taylor expansion about a point where $\nabla\psi = 0$.
+
+    Limitations
+    -----------
+    Snowflake and other higher-order nulls are rejected rather than
+    approximated.
+
+    References
+    ----------
+    .. [1] W. D. D'haeseleer et al., *Flux Coordinates and Magnetic Field
+           Structure*, Springer (1991).
+    """
+    h = np.array([[float(d2psi_dR2), float(d2psi_dRdZ)], [float(d2psi_dRdZ), float(d2psi_dZ2)]])
+    if not np.all(np.isfinite(h)):
+        raise ValueError("the flux Hessian must be finite")
+    eigenvalues, vectors = np.linalg.eigh(h)
+    det = float(eigenvalues[0] * eigenvalues[1])
+    scale = float(np.max(np.abs(eigenvalues)) ** 2)
+    if scale == 0.0 or abs(det) <= float(degenerate_rtol) * scale:
+        raise ValueError("degenerate null: det H_psi is within degenerate_rtol of zero, so the non-degenerate "
+                         "saddle expansion does not apply")
+    if det > 0.0:
+        raise ValueError("det H_psi > 0: an O-point (extremum), not an X-point")
+    u = vectors[:, 1]
+    return XPointSaddle(float(eigenvalues[1]), float(-eigenvalues[0]), float(np.arctan2(u[1], u[0])), det)
+
+
+def xpoint_field_scale(u, v, kappa_u, kappa_v, R_X):
+    r"""Poloidal field near a non-degenerate X-point, linear in the distance.
+
+    $$B_p \simeq \frac{\sqrt{\kappa_u^2u^2 + \kappa_v^2v^2}}{R_X}$$
+
+    Parameters
+    ----------
+    u : float or np.ndarray
+        Offset along the positive principal axis [m].
+    v : float or np.ndarray
+        Offset along the negative principal axis [m].
+    kappa_u : float
+        Positive principal curvature of the per-radian flux [Wb rad$^{-1}$ m$^{-2}$].
+    kappa_v : float
+        Magnitude of the negative principal curvature [Wb rad$^{-1}$ m$^{-2}$].
+    R_X : float
+        Major radius of the X-point, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $|B_p|$ [T].
+
+    Raises
+    ------
+    ValueError
+        A non-positive curvature or radius.
+
+    Convention
+    ----------
+    $\mathbf B_p = \nabla\psi\times\hat{\boldsymbol\phi}/R$ with $\psi$ per
+    radian (COCOS 1-8); a full-weber flux divides by $2\pi$ first.
+
+    Physical interpretation
+    -----------------------
+    $B_p$ falls to zero linearly at the null along any generic approach, the
+    origin of the logarithmic $q$ divergence.
+
+    Assumptions
+    -----------
+    The saddle expansion of :func:`xpoint_saddle_expansion`, $R \approx R_X$.
+
+    Limitations
+    -----------
+    Only within the region where the quadratic form holds.
+
+    References
+    ----------
+    .. [1] Gradient of the saddle form of :func:`xpoint_saddle_expansion`.
+    """
+    kappa_u, kappa_v, R_X = _positive(kappa_u, "kappa_u"), _positive(kappa_v, "kappa_v"), _positive(R_X, "R_X")
+    u = np.asarray(u, dtype=float)
+    v = np.asarray(v, dtype=float)
+    return np.hypot(kappa_u * u, kappa_v * v) / R_X
+
+
+def xpoint_log_q_coefficient(F_X, R_X, det_hessian, *, psi_per_radian=True):
+    r"""Coefficient of the logarithmic safety-factor divergence from X-point geometry.
+
+    $$A = \sum_X \frac{|F_X|}{2\pi\,R_X\sqrt{|\det H_\psi|_X}}\qquad(\psi\ \text{per radian})$$
+
+    Parameters
+    ----------
+    F_X : float or array_like
+        $F = RB_\phi$ at each contributing X-point [T m].
+    R_X : float or array_like
+        Major radius of each X-point, positive [m].
+    det_hessian : float or array_like
+        $\det H_\psi$ at each X-point, negative [flux$^2$ m$^{-4}$].
+    psi_per_radian : bool, optional
+        True (default) when the Hessian is of the per-radian flux (COCOS
+        1-8); False for full weber (COCOS 11-18), where it is $2\pi$ times
+        larger [-].
+
+    Returns
+    -------
+    float
+        $A$ of :func:`vaft.formula.equilibrium.separatrix_q_asymptotic` [-].
+
+    Raises
+    ------
+    ValueError
+        Mismatched shapes, a non-positive radius, or a non-negative
+        determinant (not a saddle).
+
+    Convention
+    ----------
+    $q = (F/2\pi)\oint d\ell_p/(R\,|\nabla\psi|)$ per radian. A closed surface
+    just inside the separatrix passes each X-point on that separatrix along
+    one hyperbola branch; there
+    $\oint d\ell/|\nabla\psi| \simeq \ln(1/|\psi - \psi_X|)/\sqrt{|\det H_\psi|}$
+    plus a regular part, and $|\psi - \psi_X| = \delta\,|\psi_X - \psi_\mathrm{axis}|$.
+    Sum only the X-points on the separatrix approached (both nulls of a
+    balanced double null; not a secondary null on another flux surface). In
+    full weber the coefficient is $|F_X|/(R_X\sqrt{|\det H_\psi|})$.
+
+    Physical interpretation
+    -----------------------
+    A stronger toroidal field or a flatter saddle (small curvatures) gives a
+    steeper edge $q$ and denser rational surfaces near the separatrix.
+
+    Assumptions
+    -----------
+    Non-degenerate saddle, leading order in $\delta$; $F$ and $R$ taken at the
+    X-point. Checked against the analytic Solov'ev single- and double-null
+    equilibria of ``vaft.process.equilibrium``: the traced edge $q$ reaches
+    this slope to four digits by $\delta = 10^{-4}$.
+
+    Limitations
+    -----------
+    Gives the slope only; the offset $B$ depends on the whole surface and is
+    fitted. Not for degenerate nulls (see :func:`xpoint_saddle_expansion`).
+
+    References
+    ----------
+    .. [1] Saddle-point integration of the safety-factor contour integral;
+           the logarithm as in A. D. Turnbull et al., J. Plasma Phys. (2016),
+           doi:10.1017/S0022377816000568.
+    """
+    F_X, R_X, det = (np.atleast_1d(np.asarray(v, dtype=float)) for v in (F_X, R_X, det_hessian))
+    try:
+        F_X, R_X, det = np.broadcast_arrays(F_X, R_X, det)
+    except ValueError as exc:
+        raise ValueError("F_X, R_X and det_hessian must have matching shapes") from exc
+    if np.any(~np.isfinite(R_X)) or np.any(R_X <= 0.0):
+        raise ValueError("R_X must be positive and finite")
+    if np.any(~np.isfinite(det)) or np.any(det >= 0.0):
+        raise ValueError("det_hessian must be negative (a saddle) at every X-point")
+    per_x = np.abs(F_X) / (R_X * np.sqrt(np.abs(det)))
+    return float(np.sum(per_x / (2.0 * np.pi) if psi_per_radian else per_x))
+
+
+def xpoint_resolution_length(delta_psi, kappa):
+    r"""Distance from an X-point at which a flux offset is resolved by the saddle.
+
+    $$\ell_X \sim \sqrt{\frac{2|\Delta\psi|}{\kappa_\mathrm{eff}}}$$
+
+    Parameters
+    ----------
+    delta_psi : float or np.ndarray
+        Flux offset from $\psi_X$ [flux].
+    kappa : float
+        Principal curvature along the direction considered, positive
+        [flux m$^{-2}$].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\ell_X$ [m].
+
+    Raises
+    ------
+    ValueError
+        ``kappa`` not positive.
+
+    Convention
+    ----------
+    Same flux normalization in ``delta_psi`` and ``kappa``.
+
+    Physical interpretation
+    -----------------------
+    A surface $\Delta\psi$ from the separatrix passes the X-point at about
+    $\ell_X$; a mesh coarser than that cannot place it. A geometric
+    resolvability estimate, not a universal grid prescription.
+
+    Assumptions
+    -----------
+    The quadratic saddle along one principal direction.
+
+    Limitations
+    -----------
+    Order of magnitude; the actual contour error depends on the
+    interpolation.
+
+    References
+    ----------
+    .. [1] Inversion of the saddle form of :func:`xpoint_saddle_expansion`.
+    """
+    kappa = _positive(kappa, "kappa")
+    return np.sqrt(2.0 * np.abs(np.asarray(delta_psi, dtype=float)) / kappa)
+
+
+def flux_position_error(delta_psi, grad_psi):
+    r"""Contour displacement produced by a flux error, to linear order.
+
+    $$|\Delta\ell| \simeq \frac{|\Delta\psi|}{|\nabla\psi|}$$
+
+    Parameters
+    ----------
+    delta_psi : float or np.ndarray
+        Flux error [flux].
+    grad_psi : float or np.ndarray
+        Local $|\nabla\psi|$ [flux m$^{-1}$].
+
+    Returns
+    -------
+    float or np.ndarray
+        $|\Delta\ell|$; ``inf`` where $|\nabla\psi| = 0$ [m].
+
+    Raises
+    ------
+    ValueError
+        A negative or non-finite gradient magnitude.
+
+    Convention
+    ----------
+    Same flux normalization in both inputs.
+
+    Physical interpretation
+    -----------------------
+    The conditioning of contour placement: well-posed where the field is
+    strong, ill-conditioned as $|\nabla\psi| \to 0$ near an X-point, where
+    the linear estimate fails and :func:`xpoint_resolution_length` (the
+    quadratic one) takes over.
+
+    Assumptions
+    -----------
+    Linear error propagation, valid away from the null.
+
+    Limitations
+    -----------
+    Diverges, rather than saturating, at the null itself.
+
+    References
+    ----------
+    .. [1] First-order Taylor expansion of $\psi$ normal to its contour.
+    """
+    grad = np.asarray(grad_psi, dtype=float)
+    if np.any(~np.isfinite(grad)) or np.any(grad < 0.0):
+        raise ValueError("grad_psi must be a non-negative, finite magnitude")
+    err = np.abs(np.asarray(delta_psi, dtype=float))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.where(grad > 0.0, err / np.where(grad > 0.0, grad, 1.0), np.inf)
 
 
 def _positive(value, name: str) -> float:

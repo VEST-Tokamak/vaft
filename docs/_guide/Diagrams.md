@@ -928,6 +928,39 @@ vaft.diagram.poloidal_flux_source_decomposition()
 | `equilibrium_problem_taxonomy` | Forward/inverse and fixed/free are separate axes. CHEASE is forward and fixed, TokaMaker forward and free, EFIT inverse and free. Free boundary and inverse are not synonyms |
 | `poloidal_flux_source_decomposition` | $\psi_\mathrm{plasma} + \psi_\mathrm{coil} = \psi_\mathrm{total}$. Only the sum has the X-point and the LCFS. $\psi_\mathrm{passive}$ (eddy currents) is a further term, not drawn |
 
+### Separatrix q asymptotics and X-point refinement
+
+Why a diverted edge is numerically different from a limited one (#2152). A limited plasma keeps
+$B_p \neq 0$ on its boundary, so $q \to q_a < \infty$. A non-degenerate X-point ($\nabla\psi = 0$,
+$\det H_\psi < 0$) makes $B_p$ vanish linearly, and just inside the separatrix
+$|q| \simeq A\ln(1/\delta) + B$ with $\delta = 1 - \psi_N$. The coefficient comes from the saddle alone,
+
+$$A = \sum_X \frac{|F_X|}{2\pi R_X\sqrt{|\det H_\psi|}}\qquad(\psi\ \text{per radian}),$$
+
+summed over the X-points on the separatrix approached (`vaft.formula.geometry.xpoint_log_q_coefficient`).
+The figure checks it rather than assuming it. Its $q$ is traced along exact field lines of the analytic
+Solov'ev single-null equilibrium (`solovev_example`) to $\delta = 10^{-8}$. The traced slope matches the
+Hessian value to four digits, and a balanced double null gives twice one X-point's term. Rational surfaces
+then crowd the separatrix: $\delta_{m/n} \simeq e^{B/A}e^{-|m|/(|n|A)}$, evenly spaced by $1/(|n|A)$ in
+$\ln(1/\delta)$ (`separatrix_rational_offset`, `separatrix_rational_spacing`).
+
+```python
+vaft.diagram.separatrix_q_asymptotics()
+vaft.diagram.xpoint_refinement_hierarchy()
+```
+
+![separatrix q asymptotics]({{ '/assets/diagrams/separatrix_q_asymptotics.svg' | relative_url }})
+
+![X-point refinement]({{ '/assets/diagrams/xpoint_refinement_hierarchy.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `separatrix_q_asymptotics` | A limited and a lower single-null Solov'ev equilibrium with the same shape, current and field. (A) topology; (B) $q(\psi_N)$, finite $q_a$ against an edge that turns up; (C) $q$ against $\ln[1/(1-\psi_N)]$, where diverted is a straight line of the X-point slope $A$ with the asymptote dashed, beside the packaged `psihigh` and the $\delta$ at which a 129-point grid stops resolving surfaces near the X-point (`xpoint_resolution_length` equal to the spacing); (D) $q = m/n$ for $n = 1, 2, 3$, found on the traced profile by `rational_surfaces` (dots) and predicted (ticks). The two resonances nearest the core lie outside the logarithmic regime and are labelled so |
+| `xpoint_refinement_hierarchy` | The four consequences of the X-point ($B_p \to 0$; $q \sim A\ln(1/\delta)$ with $dq/d\psi_N \sim A/\delta$; accumulating rational surfaces; an ill-conditioned coordinate map) and the three numerical responses. CHEASE refines the boundary and mesh (`target_psin`, `ns`/`nt`) and so changes the equilibrium. DCON/GPEC bound their domain (`psihigh` for the coordinates; `qhigh`, `sas_flag`/`dmlim` and the `psiedge` scan for the stability integral, none a fixed cutoff). A coordinate treatment integrates the asymptotic form or adapts the grid. Each ends in validation. These are conditioning descriptors, not one stiffness parameter, and no setting is prescribed |
+
+The workflow that applies these to CHEASE and DCON runs belongs to #2151 and #1802. A process-level
+descriptor that fits $A$ and $B$ to a computed profile and reports unresolved states is a follow-up.
+
 ## Equilibrium-aware phenomena: kink displacement and sawtooth
 
 This layer sits between the reference diagrams and result plotting. The geometry comes from an

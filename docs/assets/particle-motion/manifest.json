@@ -25,7 +25,7 @@
     },
     {
       "path": "vaft/formula/equilibrium.py",
-      "sha256": "7cf401ece844faca9dae29b6664d9def4814b1aaa656910695327ef7e6c5f593"
+      "sha256": "41c89c88d01ad79369d1eb7ad950c7c00f31b0eb179cf02388cdd7bf4238cd76"
     },
     {
       "path": "vaft/formula/particle.py",
