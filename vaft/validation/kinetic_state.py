@@ -495,8 +495,8 @@ def pressure_sigma(pressure: np.ndarray, neighbours: Sequence[np.ndarray] = (), 
     shot at the *same* normalized flux (the caller picks them by time, within
     1 ms).  The spread is the sample standard deviation over all of them; the
     result is ``max(spread, floor * pressure)`` pointwise.  ``floor`` defaults
-    to 0.17, the KPPCUR model-form uncertainty on the pressure-weighted area
-    (provenance: #874).  Returns ``(sigma, basis)`` with ``basis`` either
+    to 0.17, borrowed from the ~17 % profile-model spread of the EFIT plasma
+    area (provenance: #874); no pressure uncertainty has been measured.  Returns ``(sigma, basis)`` with ``basis`` either
     ``"ensemble(n=k)"`` when the spread exceeds the floor anywhere, or
     ``"floor"``.  A neighbour value that is not finite is left out of the
     spread at that point, and a point with fewer than two finite values keeps
