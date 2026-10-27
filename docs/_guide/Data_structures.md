@@ -735,8 +735,9 @@ vaft.omas.find_bt(ods)                 # mean toroidal field over the plasma win
 **The unit is the one main discharge.** Both detectors keep only the segment holding their own
 maximum (`principal_only` in the `plasma_timing` policy), so a window is one run and its extent is a
 duration. The alternative — the *envelope* of every accepted segment, which the light rule once
-returned — reports one long window that is mostly gap for a record of scattered flashes, and opens it
-at the first flash, which the plasma current said was the discharge in only 11 of 35 shots. A record whose brightest feature is a spike the segment tests refused now yields
+returned — reports, for a record of scattered flashes, one long window that is mostly gap, and opens it
+at the first flash, which the plasma current confirmed as the discharge in only 11 of 35 fragmented-light
+shots (`test/test_onset_corpus.py`). A record whose brightest feature is a spike the segment tests refused now yields
 no light window at all rather than a window built from lesser bursts.
 
 `plasma_timing(ods).duty_cycle` is how much of a window is above threshold; the shot overview carries

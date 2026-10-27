@@ -380,12 +380,13 @@ tracks an item; "unowned" means no issue other than the framework umbrella (#120
   * There is no public real-space or diagnostic-space projection of a complex GPEC perturbation.
 * Conventions:
   * A default-constructed record falls back to Wb/rad (Open: #603).
-  * A bare-contour Miller fit carries no convention by design; only `fit_miller_sequence` attaches one.
 * Discovery. No API lists the available coordinates, projections and representations with their
   required source data (unowned).
 
-Two audit findings no longer apply:
+Three audit findings no longer apply:
 
+* Nested Miller fits carry the equilibrium's angle convention (`fit_miller_sequence` attaches it);
+  a bare-contour fit is convention-free by design.
 * The kinetic plot recipes label $\sqrt{\psi_N}$ as such, not as $\psi_N$.
 * `make_equilibrium_field_interpolator` reads the flux convention from the record instead of
   assuming Wb/rad when no COCOS is given.

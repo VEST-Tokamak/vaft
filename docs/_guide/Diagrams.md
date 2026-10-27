@@ -153,8 +153,8 @@ projection's quantities in its units: a `q95` column never carries a $q_\psi$ or
 boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fraction_power`,
 `li_qa_wesson`, `li_qa_cheng`, `beta_n_li1` (Strait's $\beta_N = 4\,l_i(1)$ envelope), and the beta-normalisation views `volume_beta_in`,
 `beta_n_normalizations` (with a $y = x$ guide), `aspect_ratio_beta_n`, `aspect_ratio_volume_beta_n`;
-`list_projections()` gives the full set. Not yet available: a population-level recipe over many shots with
-binned statistics (Open: #944), and a Thomson-based Greenwald and Hugill analysis of measured VEST shots
+`list_projections()` gives the full set. Not yet available: ECDF or binned statistics over a population of
+shots, with limit overlays (Open: #944), and a Thomson-based Greenwald and Hugill analysis of measured VEST shots
 (Open: #636).
 
 ### Dimensionless similarity spaces

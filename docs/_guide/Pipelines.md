@@ -380,8 +380,8 @@ and `f = n_i,tot / n_e` the composed product's diluted ion density
   and would return that assumption. For the same reason `ti_inferred` is a leaf: the kinetic EFIT stages read
   `composition`, never this product.
 * **`sigma(p_EFIT)`** is the spread over the usable neighbouring slices within `ti_inference.window_s`, floored at
-  `ti_inference.floor` of the pressure (0.17, the relative one-sigma model-form uncertainty of the magnetic-EFIT
-  pressure found by varying the EFIT profile model on reference shots 39915, 41524 and 41672); `n_e` and `T_e` take the Thomson channels' median relative error.
+  `ti_inference.floor` of the pressure (0.17, borrowed as a relative one-sigma floor on the magnetic-EFIT
+  pressure from the ~17 % profile-model spread of the EFIT plasma area on reference shots 39915, 41524 and 41672); `n_e` and `T_e` take the Thomson channels' median relative error.
 * **Skipped, and named, rather than guessed:** a slice with a measured `T_i`, with no composition (the ion density is
   half the formula), with no equilibrium within the tolerance, or with no significant point.
 * On the archived 40326 / 322 ms case the stage reproduces the notebook's `T_i` to 1e-14 wherever both are valid, and

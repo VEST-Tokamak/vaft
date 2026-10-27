@@ -97,7 +97,8 @@ GUI:
   WebM need PyAV, `pip install vaft[video]`), at most 600 frames; a longer one takes every n-th state or
   is written in Python with `plot_*(..., animation=True).save()`. The frame times download alongside it.
 - **Figure.** Width and height in pixels, axis limits and log scales; empty fields stay automatic.
-- **Export.** Downloads the current plot as PNG, SVG or PDF at the chosen DPI. The file is the
+- **Export.** Downloads the current plot as PNG, SVG or PDF at the chosen DPI (and, for a plot with a
+  sequence, a movie; see Playback). The file is the
   Matplotlib rendering with the controls and figure settings on screen, whichever renderer is shown.
 
 Loading a source computes its plot catalog, which takes a few seconds the first time.
