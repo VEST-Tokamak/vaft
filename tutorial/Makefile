@@ -1,5 +1,5 @@
-# Every session's slides are one Quarto source rendering to three outputs
-# (issue #322). Nothing rendered is committed: the decks are build products,
+# Every session's slides are one Quarto source rendering to three outputs.
+# Nothing rendered is committed: the decks are build products,
 # produced on demand and by CI. See presentations/README.md.
 PRESENTATIONS_DIR := presentations
 QUARTO ?= quarto

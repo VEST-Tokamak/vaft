@@ -230,7 +230,7 @@ $$\delta\mathbf B_{\mathrm{total}} = \delta\mathbf B_{\mathrm{vacuum}} + \delta\
 
 - linear, about the axisymmetric equilibrium; $\delta B/B_0$ of order a percent here
 - screening and amplification; resonant **and** non-resonant response
-- packaged chain today: the **vacuum** resonant field per surface (#1243)
+- packaged chain today: the **vacuum** resonant field per surface (Open: #1243, total response)
 - vacuum islands overlap easily at VEST's crowded edge
 
 ::: {.notes}
@@ -280,7 +280,7 @@ Session 06 leaves the single discharge for the operational space.
 - DCON and RDCON can disagree
 - six sectors: $n$ modulo six, in currents and field
 - relative phase shifts the drive between even and odd $m$, hence surfaces; linearity makes the scan cheap
-- vacuum field $\neq$ field in the plasma (#1243); offline stability sample (#1231)
+- vacuum field $\neq$ field in the plasma (Open: #1243); no offline stability sample yet (Open: #1231)
 - model excitation $\neq$ hardware scenario
 
 ::: {.notes}
@@ -288,5 +288,5 @@ Session 06 leaves the single discharge for the operational space.
 
 NARRATE:
 Method depth lives in the DCON and RDCON notebooks and the GPEC reference
-notebook (#1237).
+notebook, perturbed_equilibrium_and_3d_response_with_gpec.ipynb.
 :::

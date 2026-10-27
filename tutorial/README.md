@@ -14,9 +14,7 @@ answers a question a VEST researcher actually has, and the framework is
 introduced as it becomes needed rather than up front.
 
 This directory holds the course contract, the session notebooks, and their slide
-decks. Detailed teaching material is completed one session at a time; the
-structure was proposed in
-[issue #185](https://github.com/VEST-Tokamak/vaft/issues/185).
+decks. Detailed teaching material is completed one session at a time.
 
 ## Audience and prerequisites
 
@@ -126,8 +124,8 @@ course.
 
 ## Analysis tasks
 
-Exercises state their scientific intent in words before any code, as an **Analysis task**
-(issue #254). A task is a compact specification, not a conversational prompt, and it makes clear:
+Exercises state their scientific intent in words before any code, as an **Analysis task**.
+A task is a compact specification, not a conversational prompt, and it makes clear:
 
 | element | example |
 | --- | --- |
@@ -143,7 +141,7 @@ for example "only inboard loops are drawn", "$t = 0$ is the H-alpha onset", "the
 asked for". Implementations are judged by those semantics, not by matching code or pixels.
 
 The convention introduces no LLM or agent dependency; it is a human-readable specification. The same
-corpus of tasks is the empirical input for a later agent/MCP interface (#188), which must reach the
+corpus of tasks is the empirical input for a later agent/MCP interface, which must reach the
 same public VAFT APIs a student uses. A task that is simple to state but needs substantial
 notebook-local code to implement is evidence of a missing VAFT API, not a reason to add
 tutorial-only logic.
@@ -178,8 +176,8 @@ is designed for the analysis sessions. Its headings are pinned separately in
   version VAFT reads through OMAS, checked against the package rather than
   restated in prose.
 - **The plotting concepts are taught, not assumed.** Session 01 explains the
-  `{subject}_{view}[_{quantity}]` naming grammar (issue #251) and the scientific
-  display policy (issue #256) -- why an axis reads `kA` when the ODS stores
+  `{subject}_{view}[_{quantity}]` naming grammar and the scientific
+  display policy -- why an axis reads `kA` when the ODS stores
   amperes, and what `yunit=` does. One cell exists purely to demonstrate those
   concepts and is exempt from the one-pattern rule.
 - **No tutorial machinery.** No exercise framework, no mode switching, no output
@@ -213,8 +211,7 @@ notes as facing pages.
    `-- PDF  -> Beamer      archival and printable
 ```
 
-That is the end state [issue #322](https://github.com/VEST-Tokamak/vaft/issues/322)
-proposed. It was piloted on session 01 and adopted for the rest of the course
+That is the design. It was piloted on session 01 and adopted for the rest of the course
 once the pilot had been reviewed: both backends render from one source, the
 shared theme in `presentations/_extensions/vaft/vaftslides/` gives every deck the
 same identity, and speaker notes authored once in `::: {.notes}` reach the
