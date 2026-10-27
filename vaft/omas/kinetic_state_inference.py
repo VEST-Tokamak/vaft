@@ -1,4 +1,4 @@
-"""The kinetic state inferred in named, inspectable stages: Romero first, ``T_i = T_e``, ``n_C = n_O`` (issue #1842).
+"""The kinetic state inferred in named, inspectable stages: Romero first, ``T_i = T_e``, ``n_C = n_O``.
 
 The inference behind the ``kinetic_overview_state`` figure uses only the
 equilibrium (``p_eq`` and the geometry) and Thomson scattering (``n_e``, ``T_e``),
@@ -359,7 +359,7 @@ def kinetic_state_stages(
     omitted with ``T_i`` assumed).  The inferred ``ion_temperature`` modes partition
     ``T_i`` out of that equilibrium's pressure, so they require it to be stated and
     accept only ``"magnetics"``: an electron-kinetic EFIT was fitted with an assumed
-    ``T_i/T_e`` and would return it (#1426).  Nothing in an ODS records the lineage,
+    ``T_i/T_e`` and would return it.  Nothing in an ODS records the lineage,
     so it cannot be read here -- the caller must know where it loaded it from.
 
     ``elemental_weights`` is the fixed elemental ratio (default ``C : O = 1 : 1``);

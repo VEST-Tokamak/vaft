@@ -1004,7 +1004,7 @@ def ods_from_toplevels(toplevels, *, imas_version=None, skip_uncertainties=False
     The same walk :func:`load_omas_imas` performs per IDS, for toplevels the
     caller already holds -- no backend, no file.  ``code.parameters`` XML
     becomes a parameter tree as it does on load.  This is what the plotting
-    adapters use for the code-backed plots that need an ODS (issue #63).
+    adapters use for the code-backed plots that need an ODS.
     """
     ods = ODS(imas_version=imas_version, consistency_check=False)
     for ds, native in toplevels.items():

@@ -99,15 +99,16 @@ class VestMachineEra:
 
 
 # One era per machine access that changed a conductor the static product
-# carries (issue #956). Each boundary is the first shot after a multi-day gap
+# carries. Each boundary is the first shot after a multi-day gap
 # in the raw `pulse_datetime`, which is when the vessel could be opened:
 #   43017  passive wall 1512 -> 2409 (+15 SUS316LN elements at Z = -1.164 m);
 #          43016 is 2024-07-05, 43017 is 2024-07-15.
 #   45968  PF6/PF7 rebuilt, coil geometry 1906 -> 2507; 45950-45967 run every
 #          ~12 minutes on 2025-06-30 and 45968 follows on 2025-07-07.
-# The PF boundary was 45958 before #956, with no recorded source, which split
-# off a ten-shot 45958-45966 era and a 45967 legacy boundary; both are gone.
-# Code-owned on purpose (#2159, audit gap G14): an era names the static
+# Earlier releases put the PF boundary at 45958, with no recorded source, which
+# split off a ten-shot 45958-45966 era and a 45967 legacy boundary; neither
+# exists any more.
+# Code-owned on purpose: an era names the static
 # product's geometry assets and product identity (``machine_version``), which
 # stage products and HSDS sources are keyed by, so it changes with a code
 # release and its tests, not with a vest.yaml edit. The shot-era *processing*
@@ -148,10 +149,9 @@ def _disabled_pf_coils(shot: int) -> list[str]:
     """Circuits with no acquisition channel at all, as of this shot's era.
 
     Read from `vest.yaml`'s `pf_active.processing.coil_field_codes`, which is
-    where the channel map lives since #708. It used to come from the
-    five-entry `Coil_info.mat`, which reported PF2 as permanently disabled --
-    when in fact PF2 is acquired on field 4, and was simply unused by the
-    shots anyone had looked at.
+    where the channel map lives. The legacy five-entry `Coil_info.mat`
+    reported PF2 as permanently disabled; in fact PF2 is acquired on field 4,
+    and was simply unused by the shots anyone had looked at.
 
     "Disabled" here means *no channel is known*, which is a statement about
     the machine. It is not the same as *this discharge left the coil cold*,
@@ -230,7 +230,8 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
         f"VEST static wall; machine era {era.name}"
     )
     # Prefix the era; keep the mapper's reciprocity/provenance clause so a
-    # product says which coupling asset it carries (issues #347/#373).
+    # product says which coupling asset (and which reciprocity treatment of
+    # mutual_passive_passive) it carries.
     mapper_comment = str(ods["em_coupling.ids_properties.comment"])
     _, _, reciprocity = mapper_comment.partition("; mutual_passive_passive ")
     ods["em_coupling.ids_properties.comment"] = (
@@ -286,14 +287,14 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
                 else {}
             ),
             # The static product carries probe positions only. Which raw field
-            # feeds each position is per shot (vest.yaml `wiring`, issue #956)
+            # feeds each position is per shot (vest.yaml `wiring`)
             # and recorded in the diagnostics provenance.
             #
-            # Since #2158 the sensors come from the vest.yaml registry, so the
-            # record is the registry fingerprint (sha256 of the resolved
-            # inventory records), not a file hash. It replaces the two
-            # file-hash records `magnetics_geometry` / `magnetics_calibration`
-            # that products and EFUND table manifests made before #2158 carry;
+            # The sensors come from the vest.yaml registry, so the record is
+            # the registry fingerprint (sha256 of the resolved inventory
+            # records), not a file hash. It replaces the two file-hash records
+            # `magnetics_geometry` / `magnetics_calibration` that products and
+            # EFUND table manifests made before the registry existed carry;
             # those historical identities are left as they are.
             "magnetics_registry": {
                 "name": f"vest.yaml:{MAGNETICS_REGISTRY_CONFIG_PATH}",
@@ -331,7 +332,7 @@ def _canonical_diagnostics_time(tstart: float, tend: float, dt: float) -> np.nda
     acquisition timebases are handled explicitly by their mapper and are not
     selected by overloading a non-positive ``dt`` value.
 
-    Since issue #244 the product carries more than one such grid -- the short
+    The product carries more than one such grid -- the short
     plasma-analysis window and the full-discharge window -- so this builds *a*
     grid, not *the* grid.
     """
@@ -349,7 +350,7 @@ def _canonical_diagnostics_time(tstart: float, tend: float, dt: float) -> np.nda
 
 
 def _policy_time(policy: DiagnosticsTimePolicy) -> np.ndarray:
-    """Build the processed grid for one time policy (issue #244).
+    """Build the processed grid for one time policy.
 
     Every policy uses the same half-open convention, so the analysis window and
     the full-discharge window differ only in their numbers.
@@ -455,7 +456,7 @@ def _validate_diagnostics_time_coordinates(
     Each component is checked against *its own* time policy's grid.  A single
     ODS-wide time axis is not required and must not be imposed: TF and
     barometry carry the full discharge history while equilibrium magnetics
-    carries the short analysis window, and both are valid at once (issue #244).
+    carries the short analysis window, and both are valid at once.
     """
     present_ids = set(ods.keys())
     magnetics_policy = policies.get("magnetics") or policies.default
@@ -583,7 +584,7 @@ def _validate_diagnostics_time_coordinates(
                         "sampling_rate": 1.0 / native_dt if native_dt else None,
                     }
                 )
-        # Flux-loop terminal voltage (issue #209) is stored at the native
+        # Flux-loop terminal voltage is stored at the native
         # acquisition rate, cropped to the analysis window, and is therefore
         # validated as a native coordinate rather than against the canonical
         # processed grid used by flux_loop[*].flux above.
@@ -659,8 +660,8 @@ def _validate_diagnostics_time_coordinates(
         raise ValueError("Canonical diagnostics time does not realize the configured dt")
     return {
         # The unprefixed keys describe the default (plasma-analysis) window,
-        # which is what this manifest section meant before issue #244 added
-        # per-component policies below.
+        # which is what this manifest section meant before per-component
+        # policies (below) were added.
         "requested_start": float(default_policy.tstart),
         "requested_end": float(default_policy.tend),
         "requested_dt": float(default_policy.dt),
@@ -680,7 +681,7 @@ def _validate_diagnostics_time_coordinates(
         "native_time_paths": native_paths,
         # Quantity-specific: `native_mirnov` stays probe-only so consumers that
         # index it keep reading Mirnov sampling, while flux-loop terminal
-        # voltage (issue #209) reports under its own key.
+        # voltage reports under its own key.
         "native_mirnov": native_time_metadata,
         "native_flux_loop_voltage": native_flux_loop_metadata,
         "default_policy": default_policy.name,
@@ -692,7 +693,7 @@ def _validate_diagnostics_time_coordinates(
     }
 
 
-#: ``VestMagneticsProcessingConfig`` fields that state the acquisition (#2159):
+#: ``VestMagneticsProcessingConfig`` fields that state the acquisition:
 #: which DAQ chain recorded the shot and at what rate. An override may restate
 #: the era's value but never change it.
 MAGNETICS_MACHINE_FACT_FIELDS = ("daq_mode", "fast_sample_rate")
@@ -705,7 +706,7 @@ CALIBRATION_OVERRIDE_REASON_KEY = "calibration_override_reason"
 
 @dataclass(frozen=True)
 class MagneticsProcessingResolution:
-    """The equilibrium-magnetics processing a shot actually runs with (#2159).
+    """The equilibrium-magnetics processing a shot actually runs with.
 
     ``config`` is what the mapper receives (the era policy when ``overridden``
     is false); ``effective`` its JSON form, ``fingerprint`` the canonical
@@ -737,7 +738,8 @@ def resolve_magnetics_processing(
     * a key the era decides (the legacy window ladder, the per-sample flux
       baselines) set off its default would change nothing and is refused;
     * the output-grid keys may not move the grid the era window indexes
-      unless ``window_override`` is named with them (#1541);
+      unless ``window_override`` is named with them, because a restated grid
+      would shift the analysis window and probe baseline the era indexes;
     * the result must pass ``VestMagneticsProcessingConfig`` validation
       (positive rates and taps, cutoff below Nyquist).
     """
@@ -877,11 +879,11 @@ def magnetics_processing_for_shot(
     """The equilibrium-magnetics processing for *shot*: its era policy, with *overrides* on top.
 
     ``None`` without overrides, so the mapper resolves the era itself. An
-    override changes only the keys it names. It used to *replace* the era
-    policy: the routine workflow's ``vest.magnetics.processing`` block, which
-    restates the dataclass defaults, then ran every native-DAQ shot (46404 on)
-    through the slow-DAQ path, with the wrong fields and baselines, as soon as
-    the workflow configuration was actually loaded (#1541). The acquisition era
+    override changes only the keys it names; it never *replaces* the era
+    policy. Replacing it would let the routine workflow's
+    ``vest.magnetics.processing`` block, which restates the dataclass defaults,
+    run every native-DAQ shot (46404 on) through the slow-DAQ path, with the
+    wrong fields and baselines. The acquisition era
     (``daq_mode``, the baseline rules, the output window) comes from
     ``vest.yaml``; :func:`resolve_magnetics_processing` lists every guard.
     """
@@ -936,7 +938,7 @@ def _unusable_magnetics_channels(
     """Archived magnetics fields whose published waveform is empty, ``{field: node}``.
 
     The archive says a field was recorded; it does not say the mapper could
-    use it. Since #2135 an equilibrium probe whose record is too short for the
+    use it. An equilibrium probe whose record is too short for the
     zero-phase low pass is published with an empty ``field`` (index alignment
     is kept, so it is not dropped), and a record the loader cannot read is
     published empty in every family. Each family is found by the identity the
@@ -1015,11 +1017,12 @@ def _unusable_magnetics_channels(
 def _record_unusable_magnetics_channels(
     status: dict[str, Any], ods: ODS, shot: int, archived_fields: set[int]
 ) -> None:
-    """Fold the channels published empty into the magnetics status (#2164).
+    """Fold the channels published empty into the magnetics status.
 
     ``missing_channels`` was built from the archive alone, so a probe the
-    zero-phase low pass could not take (#2135) was published empty while the
-    component reported ``success``. After this, ``missing_channels`` lists
+    zero-phase low pass could not take is published empty, and without this
+    step the component would report ``success``. After this,
+    ``missing_channels`` lists
     every field the product lacks, ``missing_channel_reasons`` says for each
     whether it was never archived or archived but unusable, and
     ``unusable_channels`` names the empty node. No waveform, validity or index
@@ -1056,9 +1059,9 @@ def build_diagnostics_ods(
     the equilibrium magnetics need; left unset, that window comes from the
     configured policy document so `vest.yaml` stays the single source of truth
     for it.  Components whose physics spans the whole discharge -- TF,
-    barometry, and EC power (``ec_launchers``, issue #165) -- follow their own
+    barometry, and EC power (``ec_launchers``) -- follow their own
     configured window instead, so the product carries more than one temporal
-    coverage (issue #244).  ``time_policies`` overrides the whole policy document.
+    coverage.  ``time_policies`` overrides the whole policy document.
     """
     raw_path = Path(raw_source)
     static_path = Path(static_ods)
@@ -1113,9 +1116,9 @@ def build_diagnostics_ods(
         extrapolating, so the realized axis -- not the requested one -- is what
         validation and the manifest must describe.
 
-        The `ods.keys()` pre-guard this used to need is gone: `path_exists` no
-        longer materializes what it probes, so asking about a path under an
-        absent IDS is safe on its own (issue #118).
+        No `ods.keys()` pre-guard is needed: `path_exists` does not
+        materialize what it probes, so asking about a path under an absent IDS
+        is safe on its own.
 
         ``component`` names the time policy and ``ids_name`` the status entry
         `run_component` wrote; they differ for EC power (``ec_power`` policy,
@@ -1144,10 +1147,10 @@ def build_diagnostics_ods(
             FileNotFoundError,
             SignalRepairError,
             # A shot between two documented Langmuir bias/tip eras has no
-            # known setting (#152); that is the Langmuir component's gap,
-            # not a reason to lose every other diagnostic (#989).
+            # known setting; that is the Langmuir component's gap,
+            # not a reason to lose every other diagnostic.
             LangmuirProbeEraGapError,
-            # A filter cutoff the acquired record cannot carry (#2159): that
+            # A filter cutoff the acquired record cannot carry: that
             # component cannot be processed, its siblings still can.
             AcquisitionInconsistencyError,
         ) as error:
@@ -1191,7 +1194,7 @@ def build_diagnostics_ods(
     )
     unacquired_pf = unacquired_pf_coils(ods)
     if unacquired_pf and statuses["pf_active"]["status"] != "unavailable":
-        # Published without the circuits whose channel was empty (#1568):
+        # Published without the circuits whose channel was empty:
         # they carry NaN, and eddy/EFIT refuse the shot.
         statuses["pf_active"]["status"] = "partial"
         statuses["pf_active"]["unacquired_channels"] = unacquired_pf
@@ -1230,7 +1233,7 @@ def build_diagnostics_ods(
         ),
     )
     record_realized_grid("barometry", "barometry", "barometry.gauge.0.pressure.time")
-    # EC power (issue #165) is full-discharge for the same reason: the ECH
+    # EC power is full-discharge for the same reason: the ECH
     # pulse precedes breakdown and outlasts the analysis window.  The component
     # is `ec_power` in the policy table and `ec_launchers` as an IDS.
     ec_power_policy = policies["ec_power"]
@@ -1252,7 +1255,7 @@ def build_diagnostics_ods(
     )
     langmuir_policy = policies["langmuir_probes"]
     # Filled by the mapper; statuses keeps this same dict, so the counts reach
-    # the manifest without opening the ODS (#915).
+    # the manifest without opening the ODS.
     langmuir_unfiltered: dict[str, Any] = {}
     run_component(
         "langmuir_probes",
@@ -1278,7 +1281,7 @@ def build_diagnostics_ods(
     grids["langmuir_probes"] = policy_grid("langmuir_probes")
     tf_policy = policies["tf"]
     # Filled by the mapper: the TF-current acquisition excursions it replaced
-    # (#1543), so the manifest's `repaired` says what `tf.coil.0.current` no
+    # so the manifest's `repaired` says what `tf.coil.0.current` no
     # longer measures rather than a literal empty list.
     tf_report: dict[str, Any] = {}
     run_component(
@@ -1326,7 +1329,7 @@ def build_diagnostics_ods(
     )
     magnetics_policy = policies["magnetics"]
     magnetics_left_out: dict[str, str] = {}
-    # Declared-versus-observed sample rate of every probe record (#2159).
+    # Declared-versus-observed sample rate of every probe record.
     magnetics_acquisition: dict[str, Any] = {}
     run_component(
         "magnetics",
@@ -1360,12 +1363,13 @@ def build_diagnostics_ods(
         # Report-only: a deviation is recorded, the processing is unchanged.
         statuses["magnetics"]["acquisition"] = summarize_sample_rate_checks(magnetics_acquisition)
     if magnetics_left_out and statuses["magnetics"]["status"] != "unavailable":
-        # The IDS was built without these signals (#993): a partial record,
+        # The IDS was built without these signals: a partial record,
         # with the reason each one is missing, not a silent success.
         statuses["magnetics"]["status"] = "partial"
         statuses["magnetics"]["signals_left_out"] = dict(magnetics_left_out)
     # The archive-based list above misses fields that were recorded but came
-    # out of processing empty (#2135 short probe records, #2164).
+    # out of processing empty (probe records too short for the zero-phase
+    # low pass, unreadable records).
     _record_unusable_magnetics_channels(statuses["magnetics"], ods, shot, archived_fields)
 
     # A component whose raw signals were unavailable produced no coordinate,
@@ -1378,11 +1382,11 @@ def build_diagnostics_ods(
     }
     time_grid = _validate_diagnostics_time_coordinates(ods, grids, policies=policies)
 
-    # Magnetics signal quality (issue #189), projected into the native IDS
+    # Magnetics signal quality, projected into the native IDS
     # validity nodes so every downstream stage reads one answer instead of
     # rediscovering sensor health.  It runs here rather than in the mapper
     # because mapping is a transformation layer and this is an assessment of
-    # what it produced (#253 §2).  Report-only: nothing is dropped or
+    # what it produced.  Report-only: nothing is dropped or
     # rewritten, and a channel with no waveform is left untouched rather than
     # asserted invalid.
     magnetics_quality: dict[str, Any] = {}
@@ -1394,7 +1398,7 @@ def build_diagnostics_ods(
         )
 
         # Channels recorded as broken for this shot (vest.yaml
-        # `known_faults`, issue #956) are condemned by the same pass, so
+        # `known_faults`) are condemned by the same pass, so
         # EFIT and every other reader see them through validity alone.
         quality_report = validate_magnetics_signals(
             ods, known_faults=known_magnetics_faults(int(shot))
@@ -1426,14 +1430,14 @@ def build_diagnostics_ods(
         },
         "configuration": {
             # These stay the plasma-analysis window; per-component coverage is
-            # reported under `time_grid` (issue #244).
+            # reported under `time_grid`.
             "tstart": float(analysis.tstart),
             "tend": float(analysis.tend),
             "dt": float(analysis.dt),
             "run": int(run),
             "vest_magnetics_processing": vest_magnetics_processing or {},
             # What the processing actually used: the era policy with any override
-            # on top. Recorded on every shot, not only overridden ones (#2159).
+            # on top. Recorded on every shot, not only overridden ones.
             "vest_magnetics_processing_effective": dict(magnetics_resolution.effective),
             "vest_magnetics_processing_fingerprint": magnetics_resolution.fingerprint,
             "vest_magnetics_processing_provenance": json.loads(
@@ -1441,7 +1445,7 @@ def build_diagnostics_ods(
             ),
             "time_policies": time_policies or {},
             # Effective vest.yaml configuration per diagnostic, its fingerprint,
-            # the vest.yaml sha256 and the vaft version (#2159, audit gap G12).
+            # the vest.yaml sha256 and the vaft version.
             "vest_configuration": vest_configuration_record(
                 shot,
                 extra={
@@ -1499,7 +1503,7 @@ def _impa_configuration_sha256(config: Mapping[str, Any]) -> str:
 
     The IMPA product is published into its own source with no static product
     beside it, so the wiring and geometry priors it was built from have to be
-    identifiable from the product itself (issue #305).
+    identifiable from the product itself.
     """
     payload = json.dumps(config, sort_keys=True, default=str).encode()
     return hashlib.sha256(payload).hexdigest()
@@ -1515,11 +1519,12 @@ def build_impa_ods(
     run: int = 1,
     time_policies: Mapping[str, Any] | None = None,
 ) -> tuple[ODS, dict[str, Any]]:
-    """Build the standalone IMPA product for one shot (issue #305).
+    """Build the standalone IMPA product for one shot.
 
     IMPA is an insertable, campaign-dependent diagnostic: raw fields may exist
     while the array is withdrawn, its geometry is self-calibrated per shot, and
-    its Bz sensors are still being qualified (#154, #304).  Those are poor
+    its Bz sensors are still being qualified (Open: #154 Bz/Br transfer
+    function, #304 radial-geometry semantics).  Those are poor
     invariants for the baseline `magnetics` product, so the array gets its own
     stage and its own HSDS source instead of being appended to the diagnostics
     one.
@@ -1586,7 +1591,7 @@ def build_impa_ods(
             "time_policies": time_policies or {},
             "expected_fields": expected_fields,
             # The effective IMPA configuration (era-validated), its fingerprint,
-            # the vest.yaml sha256 and the vaft version (#2159).
+            # the vest.yaml sha256 and the vaft version.
             "vest_configuration": vest_configuration_record(
                 shot,
                 diagnostics=("impa",),
@@ -1657,8 +1662,9 @@ def build_impa_ods(
         "calibration_window": status.get("provenance", {}).get("calibration_window"),
         "provenance": status.get("provenance", {}),
     }
-    # Declared IMPA sample rate against the channels' timebase (#2159, #432):
-    # report-only, the low pass is unchanged.
+    # Declared IMPA sample rate against the channels' timebase: report-only,
+    # the low pass is unchanged (Open: #432, the anti-alias filter is still
+    # designed against a defaulted sample rate).
     manifest["acquisition"] = status.get("provenance", {}).get("acquisition")
     manifest["channel_status"] = {
         "channels": status.get("channels", {}),
@@ -1668,7 +1674,7 @@ def build_impa_ods(
 
     # A rejected self-calibration is a real quality outcome, and the product it
     # produced is kept locally with the verdict on it -- but it is not published
-    # (issue #305): `rejected` is not a replicable status, so the IMPA source
+    # because `rejected` is not a replicable status, so the IMPA source
     # never presents an unqualified geometry as a measurement.
     if calibration_status == "invalid":
         manifest["status"] = "rejected"
@@ -1688,7 +1694,7 @@ EDDY_INPUT_UNAVAILABLE = "skipped: required input unavailable"
 def eddy_no_output_product(
     *, shot: int, diagnostics_ods: str | Path, static_ods: str | Path, reason: str
 ) -> tuple[ODS, dict[str, Any]]:
-    """The eddy product for a shot with an unrecorded PF circuit (#1568).
+    """The eddy product for a shot with an unrecorded PF circuit.
 
     :func:`build_eddy_ods` refuses such a shot, and that stays an error for a
     direct caller. The routine stage records it instead: a product with no
@@ -1739,7 +1745,7 @@ def eddy_inputs_absent_from_data(diagnostics_ods: str | Path, diagnostics_manife
     lacks (``pf_active``, ``magnetics``) is recorded in the diagnostics
     manifest's ``channel_status`` as ``unavailable`` because the raw store
     returned no waveform for it: a truncated raw
-    dump, a shot without PF acquisition (#1799). That is a property of the
+    dump, a shot without PF acquisition. That is a property of the
     shot, recorded as the stage's result. Anything else -- a component missing
     without such a record, or unavailable for another reason -- stays an error,
     because it can be a configuration fault.
@@ -1754,7 +1760,7 @@ def efit_constraint_inputs_absent_from_data(
 
     The same rule as :func:`eddy_inputs_absent_from_data`, for the inputs only
     the diagnostics product supplies to the constraints: the TF coil current
-    (BTOR). A shot whose raw dump has no TF waveform (42675, #1799) gets a
+    (BTOR). A shot whose raw dump has no TF waveform (e.g. 42675) gets a
     ``not applicable`` result; a TF missing for any other reason stays an error.
     """
     return _inputs_absent_from_data(diagnostics_ods, diagnostics_manifest, _EFIT_CONSTRAINT_INPUT_COMPONENTS)
@@ -1842,7 +1848,7 @@ def build_eddy_ods(
             signal_name="eddy-current constraints",
         )
 
-    # A coil kept as not-acquired (#1568) would drive the vessel with NaN.
+    # A coil kept as not-acquired would drive the vessel with NaN.
     require_acquired_pf_currents(diagnostics, int(shot), "the eddy-current solve")
 
     ods = diagnostics
@@ -2777,7 +2783,7 @@ def build_composition_ods(
 
     composed, assumed_ti, skipped = 0, 0, []
     # The machine policy's ratio sigma travels with the assumption, so a reader that
-    # weights the pressure (the spline EFIT encoding, #1414) sees its uncertainty.
+    # weights the pressure (the spline EFIT encoding) sees its uncertainty.
     from vaft.machine_mapping.core_profiles import vest_core_profiles_policy
 
     assumed_ti_sigma = float(vest_core_profiles_policy(shot).ti_te_ratio_sigma)
@@ -2877,8 +2883,9 @@ def build_composition_ods(
     return ods, manifest
 
 
-#: Relative one-sigma model-form uncertainty of the EFIT pressure (#874), and the
-#: window of neighbouring slices whose spread can exceed it (#1426).
+#: Relative one-sigma model-form uncertainty of the EFIT pressure (provenance:
+#: the nine-profile-model study of PR #874, sigma(area) ~17 %), and the window of
+#: neighbouring slices whose spread can exceed it.
 TI_INFERENCE_FLOOR = 0.17
 TI_INFERENCE_WINDOW_S = 1e-3
 
@@ -3154,7 +3161,7 @@ def build_ti_inferred_ods(
     return ods, manifest
 
 
-#: The conductivity models Lane Z's estimator offers (#1214); ``redl`` is the neoclassical one.
+#: The conductivity models the resistive-Z_eff estimator offers; ``redl`` is the neoclassical one.
 RESISTIVE_MODELS = ("redl", "sauter", "spitzer_nrl")
 
 
@@ -3308,8 +3315,8 @@ def build_resistive_zeff_ods(
     makes the model resistance match the observed one.  Nothing of that physics
     is re-implemented here.
 
-    What is stored is the **window estimate**: one scalar for the whole window
-    (#1214 Sec. 9), written at every usable kinetic slice and NaN elsewhere.
+    What is stored is the **window estimate**: one scalar for the whole window,
+    written at every usable kinetic slice and NaN elsewhere.
     The per-slice solutions are a diagnostic -- each carries the full noise of a
     differentiated ``V_R`` -- and go to the manifest, labelled so, not into the
     IDS.  A fit that sits on a bound (``bound_hit``) or is not identifiable is
@@ -3665,7 +3672,7 @@ def choose_profile_time(
     the aligned ones, a slice whose magnetic equilibrium the collection judged
     ``usable`` wins -- when Thomson and EFIT share a millisecond grid every
     profile time is aligned, and the first of them was 39915 @ 312 ms, a
-    negative-pressure slice the kinetic fit could not converge from (#1331).
+    negative-pressure slice the kinetic fit could not converge from.
     Falls back to the best-aligned slice when no aligned one is usable or the
     product records no verdicts; the returned reason says which happened.
     """
@@ -3805,8 +3812,9 @@ def build_kinetic_efit_ods(
     # product: `code.parameters` holds the IN1 namelist (TABLE_DIR/INPUT_DIR)
     # and `time_slice.*.constraints` the measurements already folded in from
     # magnetics. The efit *output* product cannot stand in for it -- its
-    # `code.parameters` records collection provenance instead, and on products
-    # written before #642 it is a flat string rather than a tree.
+    # `code.parameters` records collection provenance instead, and on older
+    # products (before the COCOS index survived replication) it is a flat
+    # string rather than a tree.
     constraints, _ = load_ods(Path(constraints_product))
     if "equilibrium" not in constraints:
         return unavailable("the constraints product carries no equilibrium")
@@ -3865,7 +3873,7 @@ def build_kinetic_efit_ods(
             manifest["attempts"] = attempts
 
     try:
-        # Candidates in order until one converges (#1331): a slice whose
+        # Candidates in order until one converges: a slice whose
         # magnetic fit is usable can still lose its boundary once the pressure
         # constraint is added (39915 @ 315 ms), while its neighbour converges.
         for time_ms in candidates:
@@ -3886,12 +3894,12 @@ def build_kinetic_efit_ods(
                     f"{equilibrium_tolerance_ms:.1f} ms tolerance"
                 )
 
-            # The ODS psi is weber (#278/#281); from_equilibrium writes it per radian,
-            # as a g-file stores it (#1292), so SIMAG/SIBRY are the solution's flux over
+            # The ODS psi is weber (IMAS DD); from_equilibrium writes it per radian,
+            # as a g-file stores it, so SIMAG/SIBRY are the solution's flux over
             # 2*pi and `geq.to_omas()` gives back the solution's own weber. That matters:
-            # `core_profiles` takes `grid.psi` from `geq.to_omas()`, which before #1292
-            # came out 2*pi too large. psi_N in `_psin_of_r` and the profile mapper is
-            # normalized and was never affected.
+            # `core_profiles` takes `grid.psi` from `geq.to_omas()`, so a missing 2*pi
+            # there would make it 2*pi too large. psi_N in `_psin_of_r` and the profile
+            # mapper is normalized and does not depend on this.
             try:
                 geq = from_equilibrium(as_equilibrium(solution, time_index=time_index))
             except Exception as error:  # noqa: BLE001 - an unusable equilibrium is not a crash
@@ -3959,7 +3967,7 @@ def build_kinetic_efit_ods(
             to_omas(read_geqdsk_file(result.gfile), ods=out)
             # The g-file carries no record of how the constraints were weighted;
             # the preset (or its absence) does.  Serialized, as `code.parameters`
-            # is a STR_0D that a nested tree does not survive (#380/#642).
+            # is a STR_0D that a nested tree does not survive replication.
             out["equilibrium.code.parameters"] = kinetic_efit_parameters(
                 stage, efit_preset, manifest.get("dilution")
             )
@@ -3997,7 +4005,7 @@ def build_neoclassical_ods(
     lineage: str = "kinetic",
     run: int = 1,
 ) -> tuple[ODS, dict[str, Any]]:
-    """Build the ``neoclassical`` stage product from one NEO run (#550 phase 8).
+    """Build the ``neoclassical`` stage product from one NEO run.
 
     ``state`` is the qualified kinetic state the run was made from and
     ``run_directory`` the directory NEO wrote into. The product holds what NEO
@@ -4008,7 +4016,7 @@ def build_neoclassical_ods(
 
     The state is qualified before anything is mapped. A state that does not qualify
     raises, because a product built from an input the rule rejects would be exactly
-    the unqualified promotion #550 defers: the rule has to gate the write, not merely
+    an unqualified promotion: the rule has to gate the write, not merely
     describe it afterwards.
 
     ``lineage`` is the caller's statement of which reconstruction the state came from,
@@ -4150,8 +4158,7 @@ def _vacuum_field_at(ods: ODS, index: Any) -> float | None:
     if field.size == 0:
         return None
     # A single stored value applies to every slice; otherwise index it. Never
-    # position 0 for a later slice -- that error has been made twice already
-    # in this chain (PR #696).
+    # position 0 for a later slice: that pairs one slice's value with another.
     if field.size == 1:
         return float(field[0])
     position = int(index or 0)
@@ -4184,8 +4191,7 @@ def write_neoclassical_product(
 ) -> Path:
     """Write the stage product, its manifest, and NEO's own result beside them.
 
-    #527's principle: the solver-native result is preserved alongside the queryable
-    one. The standardized product is what the database and every query read; the
+    The solver-native result is preserved alongside the queryable one. The standardized product is what the database and every query read; the
     native JSON is there for the question the mapping did not anticipate -- NEO's own
     normalisation, its Sauter and Redl columns, the surfaces it actually solved --
     and is never the query contract, which is why it sits beside the product rather
@@ -4202,7 +4208,7 @@ def write_neoclassical_product(
 
 
 # --------------------------------------------------------------------------- #
-# turbulent_transport: one TGLF configuration on one state (#1900)
+# turbulent_transport: one TGLF configuration on one state
 # --------------------------------------------------------------------------- #
 
 
@@ -4441,7 +4447,7 @@ def build_turbulent_transport_ods(
     run: int = 1,
     rtol: float = 1e-6,
 ) -> tuple[ODS, dict[str, Any], dict[str, Any]]:
-    """Build the ``turbulent_transport`` stage product from routine TGLF trees (#1900).
+    """Build the ``turbulent_transport`` stage product from routine TGLF trees.
 
     ``state_directories`` are ``<config>/<shot>/<lineage>/<time_ms>/`` trees written
     by ``workflow/transport_atlas/run_tglf.py``: one ``state.json`` and one
@@ -4460,7 +4466,8 @@ def build_turbulent_transport_ods(
     The product owns ``core_transport`` only. Every IDS it owns carries
     ``ids_properties.name`` set to
     :func:`vaft.database.sources.turbulent_transport_occurrence_name`, the name the
-    occurrence will carry under #1128/#1129, so the payload is self-describing now
+    occurrence will carry once IDS occurrences are self-describing (Open:
+    #1128/#1129), so the payload is self-describing now
     and its migration out of the transitional source renames nothing. The identity
     of the upstream state -- ``state_identity``, the per-surface run identities, the
     TGLF parameters and the GACODE revision -- is recorded in
@@ -4472,7 +4479,7 @@ def build_turbulent_transport_ods(
     Coexistence holds across configurations and lineages. Alternative Ti
     assumptions of one state share the product's path and source, so they are
     refused at write time (:func:`write_turbulent_transport_product`), not stored
-    side by side, until #1128/#1129.
+    side by side (Open: #1128/#1129, no occurrence model to name them yet).
 
     Returns ``(ods, manifest, native)``; ``native`` is TGLF's own per-surface
     result for :func:`write_turbulent_transport_product` to keep beside the
@@ -4608,7 +4615,7 @@ def build_turbulent_transport_ods(
         "states": provenance_states,
     }
     # One JSON string: it survives the stage product and the Access Layer verbatim,
-    # where a nested block would not (#561).
+    # where a nested block would not.
     ods[f"core_transport.model.{model}.code.parameters"] = json.dumps(
         _jsonable(parameters), sort_keys=True
     )
@@ -4695,7 +4702,7 @@ def write_turbulent_transport_product(
 ) -> Path:
     """Write the stage product, its manifest, and TGLF's own results beside them.
 
-    As for NEO (#527): the standardized ``core_transport`` is the query contract,
+    As for NEO: the standardized ``core_transport`` is the query contract,
     and the native per-surface outputs -- spectra, saturation parameters -- sit
     beside it for the question the mapping did not anticipate.
 
@@ -4704,8 +4711,8 @@ def write_turbulent_transport_product(
     product already there whose states differ from this one's (by time and
     ``state_identity``) is therefore refused rather than replaced: coexistence
     holds across configurations and lineages, but alternative Ti assumptions of
-    one state are refused, not stored side by side, until the #1128/#1129
-    occurrence model can name them. Rewriting the same states is allowed.
+    one state are refused, not stored side by side, until an occurrence model
+    can name them (Open: #1128/#1129). Rewriting the same states is allowed.
 
     Returns the path the native result was written to.
     """

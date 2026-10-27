@@ -5,14 +5,14 @@ through one object: a `CodeParameters`, which it serializes to XML on the way
 to an entry and parses back on the way in.  Anything else under that path --
 a plain ODS branch, which is what a JSON or HDF5 stage product restores -- is
 not converted, and the Access Layer discards it with no exception and no entry
-in the list of paths it wrote (issue #380).
+in the list of paths it wrote.
 
 So two things have to happen, and they are mirror images:
 
 `promote_in_place`
     On **load**, turn a flat, leaf-only branch back into a `CodeParameters`,
     so a declaration written by a mapper and carried through a product still
-    reaches an entry (issue #478).
+    reaches an entry.
 
 `as_entry_payload`
     On **save**, replace a block that cannot be represented as a parameters
@@ -21,8 +21,8 @@ So two things have to happen, and they are mirror images:
 The second exists because the first is all-or-nothing on a block, and a real
 equilibrium product mixes the two kinds of content in one field: the declared
 COCOS index is a flat leaf, and the EFIT per-slice parser cache is a nested
-branch beside it.  Before this, the cache took the declaration down with it
-and a replicated equilibrium arrived declaring nothing (issue #642).
+branch beside it.  Without this, the cache would take the declaration down
+with it and a replicated equilibrium would arrive declaring nothing.
 
 What may not be written is measured rather than assumed.  A nested block does
 not survive as itself: the XML encoder has no array representation, so every
@@ -97,8 +97,8 @@ def promote_in_place(ods) -> None:
 
     A JSON or HDF5 load with consistency checks off keeps the block as a plain
     ODS branch, and OMAS serializes only `CodeParameters` to the XML string the
-    leaf holds -- so the block silently vanished on the way to an IMAS entry,
-    taking the declared COCOS index with it (issue #478).
+    leaf holds -- so without promotion the block would silently vanish on the
+    way to an IMAS entry, taking the declared COCOS index with it.
 
     A nested block is left as it was: it is a local parser cache, and
     :func:`as_entry_payload` is what decides what of it an entry sees.

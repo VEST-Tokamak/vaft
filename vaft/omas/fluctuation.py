@@ -1,4 +1,4 @@
-"""ODS-level helpers for fluctuation and transient analysis (issue #1005).
+"""ODS-level helpers for fluctuation and transient analysis.
 
 Two questions a fluctuation study asks of a discharge before any spectrum is
 computed, answered from what the ODS actually stores:

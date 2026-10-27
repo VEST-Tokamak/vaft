@@ -5,8 +5,8 @@ Low-level OMAS--IMAS conversion machinery intentionally stays private in
 
 Plotting adapters (``plot_<canonical-stem>``, ``available_plots``,
 ``normalize_entries``, ``IDSEntry``) and their ``dd_<stem>``/``extract_<stem>``
-twins (umbrella #434) live in ``.plotting`` / ``.access`` and are resolved
-lazily, so importing ``vaft.imas`` does not pull in Matplotlib (issue #63).
+twins live in ``.plotting`` / ``.access`` and are resolved lazily, so
+importing ``vaft.imas`` does not pull in Matplotlib.
 """
 
 from pathlib import Path

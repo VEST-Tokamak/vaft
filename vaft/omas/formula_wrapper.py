@@ -40,7 +40,7 @@ from vaft.formula.equilibrium import (
 from vaft.formula.constants import _SCALING_COEFS
 
 # The names defined here.  What this module imports (``omas``, NumPy, other
-# VAFT modules) is not re-exported through it (#1382).
+# VAFT modules) is not re-exported through it.
 __all__ = [
     "compute_bremsstrahlung_power",
     "compute_confiment_time_paramters",
@@ -603,10 +603,10 @@ def compute_tau_E_exp(ods, time_slice: int, Z_eff: float = 2.0) -> float:
     float
         Experimental confinement time [s]
 
-    Definition (legacy, #1905)
-    --------------------------
+    Definition (legacy)
+    -------------------
     This is the *modelled* power budget: heating is the Spitzer
-    $\\int \\eta J^2 dV$ of the core profiles (Z_eff = 2, ln Lambda = 17, #1188),
+    $\\int \\eta J^2 dV$ of the core profiles (Z_eff = 2, ln Lambda = 17),
     the radiation is modelled (line + bremsstrahlung + synchrotron) and always
     subtracted, and W = (3/2) <p> V with p = 2 n_e T_e (T_i = T_e). The
     experimental Ohmic confinement time of VAFT -- P_OH = I_p V_res from the
@@ -752,8 +752,8 @@ def compute_voltage_consumption(
     - ``V_loop`` is the boundary loop voltage: the rate of change of the flux
       *at* the boundary, which is what an inboard flux loop measures.  It is
       not ``d(ψ_boundary - ψ_axis)/dt``, the change of the flux inside the
-      plasma, which this used to compute (#652): the two agreed to 12 % on
-      39915 by coincidence and differ nine-fold on 41672.
+      plasma: the two agree to 12 % on 39915 by coincidence and differ
+      nine-fold on 41672.
     - Sign: ``+2π dψ_b/dt`` in the stored COCOS (see
       :func:`vaft.formula.equilibrium.loop_voltage_from_total_flux`), so on
       IMAS COCOS-11 data with positive current a driving voltage is positive.
@@ -763,10 +763,10 @@ def compute_voltage_consumption(
     - ``W_mag`` is the poloidal-field energy inside the plasma,
       ``mu0 R0 li_3 I_p^2 / 4``, with ``li_3`` from
       :func:`vaft.omas.update.update_equilibrium_global_quantities_beta_li`
-      on a copy; a slice it cannot derive gives ``nan`` there.  It used to be
+      on a copy; a slice it cannot derive gives ``nan`` there.  It is not
       `vaft.omas.process_wrapper.compute_magnetic_energy`, which includes the
       vacuum toroidal field and so is 60 times too large and moves with the
-      plasma volume (#652).
+      plasma volume.
     - ``time_slice``: ``None`` for every slice, an ``int`` for one (arrays of
       length 1), or a sequence of indices -- the flux-closure window -- which
       keeps a degenerate slice outside it from being read at all.
@@ -800,7 +800,7 @@ def compute_voltage_consumption(
         ts = ods['equilibrium.time_slice'][i]
         t[k] = float(ts['time']) if 'time' in ts else float(i)
         # loop_voltage_from_total_flux multiplies by 2*pi, i.e. it expects
-        # psi in Wb/rad; convert from the ODS storage convention (issue #236).
+        # psi in Wb/rad; convert from the ODS storage convention (Wb).
         _psi_factor = ods_psi_to_wb_per_radian_factor(ods, i)
         psi_boundary[k] = float(ts['global_quantities.psi_boundary']) * _psi_factor
         Ip[k] = float(ts['global_quantities.ip'])
@@ -1237,7 +1237,7 @@ def compute_power_balance(
     - P_heat = P_ohm_diss + P_aux = P_ohm_diss
     - P_loss = P_heat - dW/dt - P_rad
 
-    This is the *modelled* budget (#1905): Spitzer heating, modelled radiation
+    This is the *modelled* budget: Spitzer heating, modelled radiation
     always subtracted, W from core profiles with T_i = T_e, and dW/dt set to 0
     for a single slice. ``P_ohm_flux`` is returned for comparison but does not
     enter ``P_loss``. The experimental Ohmic confinement chain is
@@ -1254,7 +1254,7 @@ def compute_power_balance(
     - With ``impurity_fractions=None`` the VEST policy is resolved for the ODS's
       shot from ``vest.yaml`` (``diagnostics.core_profiles.impurity_model``; C
       and O at n_imp/n_e = 1/86 each, derived from the C6+:O8+ = 1:1,
-      Z_eff = 2 preset of #1565, status ``assumed``) through
+      Z_eff = 2 impurity preset, status ``assumed``) through
       :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`;
       an ODS with no shot number gets no assumption and zero line radiation
       with a warning. ``line_radiation_species=None`` follows the same policy.
@@ -1326,10 +1326,11 @@ def compute_power_balance(
             missing_cp_match_slices.append(i)
             continue
         try:
-            # The former hidden Spitzer fallbacks, stated rather than implied
-            # (#1188). Deliberately not this function's Z_eff argument: that
-            # would move P_ohm_diss for callers who set it for line radiation;
-            # the inconsistency is noted on #1188 for the #548 owner.
+            # The former hidden Spitzer fallbacks, stated rather than implied.
+            # Deliberately not this function's Z_eff argument: that would move
+            # P_ohm_diss for callers who set it for line radiation (Open: #1188,
+            # #548 -- the two Z_eff values are inconsistent until the
+            # confinement scaling is rebuilt).
             P_ohm_diss[k] = float(compute_ohmic_heating_power_from_core_profiles(
                 ods, time_slice=int(cp_idx), Z_eff=2.0, ln_Lambda=17.0,
             ))
@@ -1374,7 +1375,7 @@ def compute_power_balance(
     p_vol_avg = compute_volume_averaged_pressure(ods, time_slice=None, option='core_profiles')
     
     # Calculate W_th = p_vol_average * 3/2 * volume for each time slice, the
-    # same stored energy compute_tau_E_exp divides by P_loss (issue #1282).
+    # same stored energy compute_tau_E_exp divides by P_loss.
     W_th = np.zeros(len(idxs), dtype=float)
     volume_series = np.zeros(len(idxs), dtype=float)
     for k, i in enumerate(idxs):
@@ -1526,7 +1527,7 @@ def compute_confiment_time_paramters(
         modelled budget of :func:`compute_power_balance` (see
         :func:`compute_tau_E_exp`); the scalings take that P_loss too, and the
         H factor is the plain ratio with no energy- or power-basis check
-        (the basis-aware one is :func:`vaft.data.public.h_factor`, #1713).
+        (the basis-aware one is :func:`vaft.data.public.h_factor`).
 
     Notes
     -----

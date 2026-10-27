@@ -1,4 +1,4 @@
-"""ODS adapters for the resistive effective charge (issue #1214).
+"""ODS adapters for the resistive effective charge.
 
 Two readers turn an ODS into the plain containers of
 :mod:`vaft.process.resistive_zeff`:
@@ -8,7 +8,8 @@ Two readers turn an ODS into the plain containers of
   flux unit only the terminal fallback of
   :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor` decided, and one on
   which that detector and :func:`vaft.process.equilibrium.as_equilibrium`
-  disagree -- a silent 2 pi is the defect #652 and #1214 Sec. 4 guard.
+  disagree -- a silent 2 pi error in the flux would scale the loop voltage,
+  and so the inferred resistance, by 2 pi.
 * :func:`flux_surface_state_ods` -- one equilibrium slice and the
   ``core_profiles`` slice at the same time, with ``<J.B>`` from the
   Grad-Shafranov profiles and ``<B^2>`` from the traced geometry.
