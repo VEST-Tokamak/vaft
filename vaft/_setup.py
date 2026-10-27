@@ -1,4 +1,4 @@
-"""Explicit runtime preparation: ``vaft.setup()`` (#1203).
+"""Explicit runtime preparation: ``vaft.setup()``.
 
 ``vaft.setup()`` changes non-scientific runtime conveniences -- today, which
 Matplotlib backend a notebook draws with -- and only when called.  Importing

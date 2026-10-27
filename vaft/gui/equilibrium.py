@@ -1,4 +1,4 @@
-"""The Equilibrium workspace (#1352): inspect, constraints, time, quality.
+"""The Equilibrium workspace: inspect, constraints, time, quality.
 
 Inspection-first, after Tutorial 03: one selected time slice, shared by every
 plot the reader opens, seen four ways --
@@ -9,7 +9,7 @@ plot the reader opens, seen four ways --
 * **Time evolution** -- global quantities across the discharge;
 * **Quality** -- the fit-quality plots and table, and the verdicts of
   :func:`vaft.validation.equilibrium.validate_equilibrium` for the slice,
-  shown as the validation layer states them (#892 will refine the axes).
+  shown as the validation layer states them.
 
 The plots are the equilibrium records of plot discovery; a mode is only a
 presentation rule over a record's ``view`` and ``quantity``

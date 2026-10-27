@@ -243,7 +243,7 @@ def _load_defaults() -> dict[str, object]:
 
 
 def _cache_cap_default() -> Default:
-    """The HSDS cache cap and the setting it came from (#1759); reads no network."""
+    """The HSDS cache cap and the setting it came from; reads no network."""
     hsds_cache = importlib.import_module("vaft.database.hsds_cache")
     try:
         limit = hsds_cache.resolve_cache_max()

@@ -1,4 +1,4 @@
-"""Reproduce the figure on screen: Python, CLI, or Python with Pylustrator (#1421).
+"""Reproduce the figure on screen: Python, CLI, or Python with Pylustrator.
 
 The text always comes from one :class:`vaft.plot.PlotRequest` -- the same
 object the export draws -- so the copied code, the copied command and the

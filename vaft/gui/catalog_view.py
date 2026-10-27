@@ -1,4 +1,4 @@
-"""How the plot explorer presents a discovery catalog (#1172).
+"""How the plot explorer presents a discovery catalog.
 
 Discovery decides what a plot *is* and whether it can be drawn here
 (:class:`vaft.plot.PlotCapability`: identity, controls, availability and its

@@ -1,4 +1,4 @@
-"""The composition editor: several plots arranged into one figure (#1467, phase 5).
+"""The composition editor: several plots arranged into one figure.
 
 The editor holds no figure of its own: it edits a
 :class:`vaft.plot.FigureComposition` -- a preset or custom grid, one plot per

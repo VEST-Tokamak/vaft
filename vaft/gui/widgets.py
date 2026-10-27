@@ -73,7 +73,7 @@ def panel_controls(
     widgets are moved back and ``on_error`` receives the exception.  Without
     ``on_error`` it propagates.  ``scope`` returns a context manager entered
     around every change, so the redraw it triggers draws under it (the
-    reader's figure options, #1421).  The returned objects are what to lay out: a
+    reader's figure options).  The returned objects are what to lay out: a
     ``multi`` control is its check boxes inside a titled, scrolling column.
     """
     pn = require_panel()
@@ -225,7 +225,7 @@ PLAY_INTERVAL_MS = 700
 
 
 def _player(pn: Any, control: Any, current: Any) -> tuple[Any, Callable[[int], Any], Callable[[Any], int | None]]:
-    """A play/step/loop control over a slice or time control (#1359 video, step 1).
+    """A play/step/loop control over a slice or time control.
 
     It walks the same control the reader can set by hand -- the stored
     equilibrium slices, a camera's frames -- so playback is the plot drawn

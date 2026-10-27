@@ -1,4 +1,4 @@
-"""The ``Semantics`` docstring section shared by formulas and processes (#1702).
+"""The ``Semantics`` docstring section shared by formulas and processes.
 
 A ``Semantics`` section names, in the controlled vocabulary, the scientific
 quantities a function takes and computes, so the generated ontology can

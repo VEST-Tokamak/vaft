@@ -1,4 +1,4 @@
-"""The campaign atlas tables the MCP tools may read, and how to read each (#188 Phase 2).
+"""The campaign atlas tables the MCP tools may read, and how to read each.
 
 Each lane writes its table, a schema and a README under one atlas directory
 (``VAFT_ATLAS_DIR`` on the server, ``~/runs/campaign/atlas`` on vestserver).
@@ -9,7 +9,8 @@ lane's rules and caveats, and rows filtered by value.
 
 Nothing here computes a physics quantity, joins two tables or aggregates rows
 beyond a count; the lane products are returned as written, after only the
-spelling normalisation the State key contract v1 (#1454) defines.  Rules that
+spelling normalisation the State key contract v1 defines (:data:`LINEAGE_SPELLINGS`,
+:data:`COLUMN_SPELLINGS`; the key itself is :data:`STATE_KEY`).  Rules that
 the lanes state as "never combine" become required filters: a stability query
 names one toroidal mode number, a sensitivity query one TGLF configuration.
 """
@@ -23,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-#: Pre-contract spellings, normalised on read (State key contract v1, #1454).
+#: Pre-contract spellings, normalised on read (State key contract v1).
 LINEAGE_SPELLINGS = {"magnetics-only": "magnetics", "electron-kinetic": "electron_kinetic"}
 COLUMN_SPELLINGS = {"efit_label": "efit_quality"}
 

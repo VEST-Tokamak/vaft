@@ -3,7 +3,7 @@
 Atomic identity (elements, isotopes, charge states, species notation) moved to
 :mod:`vaft.data.atomic` and spectral-line identity (the ``processed_line.label``
 codec, ``emission=`` terms, line matching) to :mod:`vaft.data.spectroscopy`
-(#1711): they are representation-neutral data semantics, not a top-level
+because they are representation-neutral data semantics, not a top-level
 domain.  Importing this module warns and re-exports the old names with their
 old behaviour; ``Species`` is :class:`vaft.data.atomic.AtomicSpecies` and
 ``LineIdentity`` is :class:`vaft.data.spectroscopy.SpectralLineIdentity`.

@@ -1,7 +1,7 @@
 """The implemented production pipelines as lineage graphs, for the documentation site.
 
 ``python -m vaft._pipeline_graph --output docs/_data/pipeline_graph.yml`` writes
-what ``/reference/pipeline-graph/`` renders (issue #1647).  It describes what the
+what ``/reference/pipeline-graph/`` renders.  It describes what the
 canonical Snakemake pipelines *do* -- which rule runs after which, which file
 each produces and consumes, what each stage publishes where -- and answers it
 from the owners of each fact rather than from a drawing:
