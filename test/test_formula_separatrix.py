@@ -64,6 +64,7 @@ def test_the_saddle_expansion_recovers_a_rotated_saddle(kappa_u, kappa_v, angle)
     assert (s.kappa_u, s.kappa_v) == pytest.approx((kappa_u, kappa_v), rel=1e-12)
     assert s.det_hessian == pytest.approx(-kappa_u * kappa_v, rel=1e-12)
     # the u axis is the rising direction, up to its sign
+    assert -np.pi / 2 < s.angle_u <= np.pi / 2  # independent of the eigenvector sign LAPACK returns
     u = np.array([np.cos(s.angle_u), np.sin(s.angle_u)])
     assert abs(u @ np.array([np.cos(angle), np.sin(angle)])) == pytest.approx(1.0, abs=1e-12)
 
@@ -128,6 +129,8 @@ def test_the_log_coefficient_sums_x_points_and_converts_flux_families():
         geo.xpoint_log_q_coefficient([F, F, F], [R, R], det)
     with pytest.raises(ValueError, match="R_X"):
         geo.xpoint_log_q_coefficient(F, -R, det)
+    with pytest.raises(ValueError, match="F_X"):
+        geo.xpoint_log_q_coefficient(np.nan, R, det)
 
 
 def test_resolution_length_and_flux_position_error():

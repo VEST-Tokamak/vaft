@@ -1066,7 +1066,8 @@ def xpoint_saddle_expansion(d2psi_dR2, d2psi_dZ2, d2psi_dRdZ, *, degenerate_rtol
     -------
     XPointSaddle
         ``kappa_u`` and ``kappa_v``, both positive [flux m$^{-2}$]; ``angle_u``,
-        the angle of the $u$ axis from $\hat R$ towards $\hat Z$ [rad];
+        the angle of the $u$ axis from $\hat R$ towards $\hat Z$, in
+        $(-\pi/2, \pi/2]$ [rad];
         ``det_hessian`` [flux$^2$ m$^{-4}$].
 
     Raises
@@ -1099,7 +1100,10 @@ def xpoint_saddle_expansion(d2psi_dR2, d2psi_dZ2, d2psi_dRdZ, *, degenerate_rtol
     Limitations
     -----------
     Snowflake and other higher-order nulls are rejected rather than
-    approximated.
+    approximated. The test is the eigenvalue ratio
+    $\min|\lambda|/\max|\lambda|$ against ``degenerate_rtol``: a near-snowflake
+    above it is accepted, but its logarithmic regime then starts only at a
+    very small $\delta$.
 
     References
     ----------
@@ -1112,12 +1116,14 @@ def xpoint_saddle_expansion(d2psi_dR2, d2psi_dZ2, d2psi_dRdZ, *, degenerate_rtol
     eigenvalues, vectors = np.linalg.eigh(h)
     det = float(eigenvalues[0] * eigenvalues[1])
     scale = float(np.max(np.abs(eigenvalues)) ** 2)
-    if scale == 0.0 or abs(det) <= float(degenerate_rtol) * scale:
+    if scale == 0.0 or abs(det) <= float(degenerate_rtol) * scale:  # |det|/max(lambda)^2 = min/max eigenvalue ratio
         raise ValueError("degenerate null: det H_psi is within degenerate_rtol of zero, so the non-degenerate "
                          "saddle expansion does not apply")
     if det > 0.0:
         raise ValueError("det H_psi > 0: an O-point (extremum), not an X-point")
     u = vectors[:, 1]
+    if u[0] < 0.0 or (u[0] == 0.0 and u[1] < 0.0):  # the eigenvector's sign is LAPACK's: fix it
+        u = -u
     return XPointSaddle(float(eigenvalues[1]), float(-eigenvalues[0]), float(np.arctan2(u[1], u[0])), det)
 
 
@@ -1226,8 +1232,9 @@ def xpoint_log_q_coefficient(F_X, R_X, det_hessian, *, psi_per_radian=True):
     -----------
     Non-degenerate saddle, leading order in $\delta$; $F$ and $R$ taken at the
     X-point. Checked against the analytic Solov'ev single- and double-null
-    equilibria of ``vaft.process.equilibrium``: the traced edge $q$ reaches
-    this slope to four digits by $\delta = 10^{-4}$.
+    equilibria of ``vaft.process.equilibrium``: the slope of the traced edge
+    $q$ matches this to $3\times10^{-5}$ by $\delta = 10^{-5}$ and to a few
+    $10^{-6}$ below $10^{-6}$.
 
     Limitations
     -----------
@@ -1245,6 +1252,8 @@ def xpoint_log_q_coefficient(F_X, R_X, det_hessian, *, psi_per_radian=True):
         F_X, R_X, det = np.broadcast_arrays(F_X, R_X, det)
     except ValueError as exc:
         raise ValueError("F_X, R_X and det_hessian must have matching shapes") from exc
+    if np.any(~np.isfinite(F_X)):
+        raise ValueError("F_X must be finite")
     if np.any(~np.isfinite(R_X)) or np.any(R_X <= 0.0):
         raise ValueError("R_X must be positive and finite")
     if np.any(~np.isfinite(det)) or np.any(det >= 0.0):

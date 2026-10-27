@@ -21,6 +21,7 @@ profile by ``vaft.process.equilibrium.rational_surfaces``.
 
 from __future__ import annotations
 
+import copy
 from functools import lru_cache
 from typing import Dict, List, Tuple
 
@@ -113,7 +114,9 @@ def traced_q(topology: str, psi_n: float) -> float:
         return abs(s[3]) - 2.0 * np.pi
 
     turn.terminal, turn.direction = True, 1
-    sol = solve_ivp(rhs, (0.0, 1e12), [x_start, ay, 0.0, 0.0], events=turn, rtol=1e-10, atol=1e-14)
+    # DOP853 at rtol 1e-12: a looser contour drifts ~1e-11 in normalized flux, a percent of delta at 1e-8
+    sol = solve_ivp(rhs, (0.0, 1e12), [x_start, ay, 0.0, 0.0], method="DOP853", events=turn, rtol=1e-12,
+                    atol=1e-15)
     if not sol.t_events[0].size:
         raise RuntimeError(f"the field line at psi_N = {psi_n} did not close")
     integral = float(sol.y_events[0][0][2])
@@ -161,12 +164,13 @@ def separatrix_model() -> Dict:
     # where a 129-point grid stops resolving surfaces near the X-point: l_X(delta) = grid spacing
     eq = diverted["eq"]
     h = float(np.diff(eq.r)[0])
-    saddle = diverted["x_points"][0]["saddle"]
-    kappa = min(saddle.kappa_u, saddle.kappa_v)
+    # a core-side surface (psi below psi_X) passes the X-point along v, so kappa_v sets its distance
+    kappa = diverted["x_points"][0]["saddle"].kappa_v
     span = abs(diverted["psi_axis"] * diverted["psi0"])  # |psi_X - psi_axis|, per radian
     out["grid_spacing"] = h
     out["delta_grid"] = float(kappa * h * h / (2.0 * span))
-    assert abs(float(xpoint_resolution_length(out["delta_grid"] * span, kappa)) - h) < 1e-12 * h
+    if not np.isclose(float(xpoint_resolution_length(out["delta_grid"] * span, kappa)), h, rtol=1e-12):
+        raise RuntimeError("the grid limit does not invert xpoint_resolution_length")
     out["x_log"] = x_log
     return out
 
@@ -240,7 +244,9 @@ def separatrix_q_asymptotics(*, labels: bool = True) -> Diagram:
        becomes a straight line whose slope is
        ``xpoint_log_q_coefficient`` of the X-point Hessian (not fitted;
        the fitted slope agrees), with ``separatrix_q_asymptotic`` dashed. The
-       ``psihigh`` of the packaged DCON/GPEC ``equil.in`` and the point where a 129-point grid stops
+       ``psihigh`` of the packaged DCON/GPEC ``equil.in`` (normalized to the
+       boundary of the file DCON reads, so through CHEASE's ``target_psin``
+       the actual edge is further in) and the point where a 129-point grid stops
        resolving surfaces near the X-point (``xpoint_resolution_length``
        equal to the grid spacing) are marked;
     D. the resonances $|q| = m/n$ for $n = 1, 2, 3$: found on the traced
@@ -317,8 +323,8 @@ def separatrix_q_asymptotics(*, labels: bool = True) -> Diagram:
         q_lim = float(data["q_delta"]["limited"][-1])
         items.append(Label(_at(chart_c, (x_log[-1], q_lim - 0.12), oc), "limited", "small label",
                            anchor="north east", role="curve:limited"))
-        items.append(Label(_at(chart_c, (x_dcon - 0.2, q_top - 0.1), oc), "DCON/GPEC\\\\$\\psi_\\mathrm{high}$",
-                           "small label,align=right", anchor="north east", role="dcon"))
+        items.append(Label(_at(chart_c, (x_dcon - 0.2, q_top - 0.1), oc), "$\\psi_\\mathrm{high}$",
+                           "small label", anchor="north east", role="dcon"))
         items.append(Label(_at(chart_c, (x_grid + 0.2, q_top - 0.1), oc), "129-point grid\\\\stops resolving",
                            "small label,align=left", anchor="north west", role="grid"))
 
@@ -349,13 +355,15 @@ def separatrix_q_asymptotics(*, labels: bool = True) -> Diagram:
                                "logarithmic regime", "small label,align=left", anchor="north west", role="early"))
         items.append(Label((col - 0.5, row - 1.2),
                            f"Analytic Solov'ev reference (same shape, current and field), $q$ traced on exact field "
-                           f"lines to $1-\\psi_N = 10^{{-8}}$. Fitted slope {data['fitted_slope']:.3f}, X-point "
-                           f"$A$ {A:.3f}; $A$ is specific to this equilibrium",
+                           f"lines to $1-\\psi_N = 10^{{-8}}$. Fitted slope {data['fitted_slope']:.4f}, X-point "
+                           f"$A$ {A:.4f}; $A$ is specific to this equilibrium.\\\\$\\psi_\\mathrm{{high}}$: the "
+                           f"packaged DCON/GPEC equil.in, normalized to the boundary of the file it reads -- through "
+                           f"CHEASE (target $\\psi_N$ 0.993) the edge sits further in",
                            "note", anchor="north", role="note"))
     return Diagram("separatrix_q_asymptotics", Scene(tuple(items)),
                    model={"A": A, "B": B, "fitted_slope": data["fitted_slope"],
                           "delta_grid": data["delta_grid"], "grid_spacing": data["grid_spacing"],
-                          "dcon_psihigh": DCON_PSIHIGH, "rational": data["rational"],
+                          "dcon_psihigh": DCON_PSIHIGH, "rational": copy.deepcopy(data["rational"]),
                           "q_edge_limited": float(data["q_delta"]["limited"][-1]),
                           "topologies": TOPOLOGIES})
 

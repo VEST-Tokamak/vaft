@@ -15,7 +15,7 @@ from vaft.formula.geometry import xpoint_resolution_length
 ROOT = Path(vaft.__file__).resolve().parents[1]
 
 
-def _slope(topology, d1=1e-5, d2=1e-7):
+def _slope(topology, d1=1e-6, d2=1e-8):
     q1, q2 = sep.traced_q(topology, 1.0 - d1), sep.traced_q(topology, 1.0 - d2)
     return (q2 - q1) / np.log(d1 / d2)
 
@@ -32,7 +32,7 @@ def test_the_traced_q_diverges_with_the_x_point_coefficient(topology, n_x):
     model = sep._equilibrium(topology)
     assert len(model["x_points"]) == n_x
     # every X-point on the separatrix contributes; the traced slope is their sum, not fitted into it
-    assert _slope(topology) == pytest.approx(model["A"], rel=2e-3)
+    assert _slope(topology) == pytest.approx(model["A"], rel=2e-5)
 
 
 def test_the_limited_q_stays_finite():
@@ -44,20 +44,32 @@ def test_the_limited_q_stays_finite():
 def test_the_figure_model_agrees_with_the_formulas():
     d = vaft.diagram.separatrix_q_asymptotics()
     m = d.model
-    assert m["fitted_slope"] == pytest.approx(m["A"], rel=5e-3)
+    assert m["fitted_slope"] == pytest.approx(m["A"], rel=2e-5)
     # rational surfaces deep in the logarithmic regime: found and predicted agree in ln(1/delta)
     for entry in m["rational"].values():
         for xn, xp in zip(entry["numeric"], entry["predicted"]):
             if xn > 5.0:
                 assert xn == pytest.approx(xp, abs=0.05)
-    # the grid limit is where the X-point resolution length equals the grid spacing
+    # the grid limit: on the analytic flux, the surface at delta_grid passes the X-point one grid spacing away
+    from scipy.optimize import brentq
     eq = sep._equilibrium("single_null")
-    saddle = eq["x_points"][0]["saddle"]
-    span = abs(eq["psi_axis"] * eq["psi0"])
-    ell = xpoint_resolution_length(m["delta_grid"] * span, min(saddle.kappa_u, saddle.kappa_v))
-    assert ell == pytest.approx(m["grid_spacing"], rel=1e-12)
+    x_point = eq["x_points"][0]
+    saddle, r0 = x_point["saddle"], eq["r0"]
+    v_dir = np.array([-np.sin(saddle.angle_u), np.cos(saddle.angle_u)])  # the falling (core-side) direction
+    level = eq["psi_axis"] * m["delta_grid"]
+    along = lambda s: float(sep._eval(eq, "terms", *((np.array([x_point["R"], x_point["Z"]]) + s * v_dir) / r0)))
+    s_lo, s_hi = (0.0, 3 * m["grid_spacing"]) if along(m["grid_spacing"]) < 0 else (0.0, -3 * m["grid_spacing"])
+    distance = abs(brentq(lambda s: along(s) - level, s_lo, s_hi, xtol=1e-14))
+    assert distance == pytest.approx(m["grid_spacing"], rel=0.05)  # the quadratic saddle, a few percent off
+    assert xpoint_resolution_length(abs(level * eq["psi0"]), saddle.kappa_v) == pytest.approx(m["grid_spacing"])
     text = " ".join(i.text for i in d.scene.items if isinstance(i, Label))
     assert f"{m['A']:.3f}" in text and "Hessian" in text
+
+
+def test_the_figure_model_is_a_copy_not_the_cache():
+    first = vaft.diagram.separatrix_q_asymptotics()
+    first.model["rational"][1]["m"].append(99)
+    assert 99 not in vaft.diagram.separatrix_q_asymptotics().model["rational"][1]["m"]
 
 
 def test_the_marked_psihigh_is_the_packaged_one():
