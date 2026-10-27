@@ -6,8 +6,8 @@ the navigation between workspaces, the status line and the error surface --
 and nothing scientific: a workspace draws and loads through the public VAFT
 APIs itself.
 
-Workspaces are registered, not hard-coded, so a later workspace (a domain
-workspace, say) plugs in with one call::
+Workspaces are registered, not hard-coded, so a further workspace (another
+domain workspace beside Diagnostics and Equilibrium, say) plugs in with one call::
 
     from vaft.gui.shell import register_workspace
 

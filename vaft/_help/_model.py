@@ -14,7 +14,7 @@ from dataclasses import asdict, dataclass, field
 
 __all__ = ["DEFAULT_KINDS", "Default", "HelpPage", "Section", "Topic"]
 
-#: The four kinds of default help keeps apart, in display order.
+#: The four kinds of default that help keeps apart, in display order.
 #: ``scientific`` entries are listed so a reader can see that the choice is
 #: *not* a convenience default: VAFT takes it explicitly or from the data.
 DEFAULT_KINDS = {

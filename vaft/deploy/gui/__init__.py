@@ -12,6 +12,8 @@ Package data, listed in ``pyproject.toml`` and ``MANIFEST.in`` and required by
 ``vaft-gui-proxy.conf``
     the websocket proxy snippet the site includes, for ``/etc/nginx/snippets/``
 
+The deployment and its access boundaries are not yet validated (Open: #1862).
+
 An isolated **test instance** next to a production one -- own user,
 venv, port 5016 and ``/gui-test/`` prefix, loopback only:
 
