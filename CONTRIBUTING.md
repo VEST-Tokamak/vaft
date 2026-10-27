@@ -26,8 +26,8 @@ The two branches answer different questions, and they are gated accordingly.
 
 Full cross-platform validation is essential for VAFT — Windows is a first-class
 supported platform, and the Windows leg has caught defects that were invisible
-elsewhere. What changed in #515 is *when* the full platform claim is proven, not
-whether it is. It is release qualification, not a toll on every intermediate
+elsewhere. The split between the gates decides *when* the full platform claim is
+proven, not whether it is. It is release qualification, not a toll on every intermediate
 feature PR, which is what a ~34-minute gate on every merge into `develop` had
 become. Measured on the run that introduced the split: `test (Linux)` 27.8 min
 and `test (Windows)` 34.1 min, against `core-test` at 3m46s and `package` at
@@ -237,7 +237,7 @@ quantity subject or a registered alias); the generated ontology at
 `/reference/ontology/` fails on any other term, so add a missing quantity to the
 taxonomy on purpose rather than spelling one into a docstring. Leave it off
 generic helpers, and off functions a `Reduction` relation or a diagnostic
-mapping already connects (#1702).
+mapping already connects.
 
 A formula whose uncertainty propagation is worth stating may add an
 `Uncertainty propagation` section: the input order, the analytic Jacobian or
@@ -247,7 +247,7 @@ Attach a domain-owned Jacobian with
 returns the same function object; `derivative` and `domain` receive every
 argument of the call by name, so give them `**_`. Such a formula must have the section; the catalog flags
 it otherwise. `vaft.formula.sensitivity.propagate_formula_uncertainty` is the
-opt-in way to use either (#1874).
+opt-in way to use either.
 
 ## Processing docstrings
 
@@ -264,9 +264,9 @@ quantities described under formula docstrings above.
 validated-workflow default, numerical convenience, ...); `Provenance` takes
 the same `.. [1] text` form as `References` but cites a MATLAB file, a
 `vest.yaml` key or an issue as readily as a paper.
-`test/test_process_docstrings.py` enforces it, and its `PENDING` list names the
-submodules not yet converted (#418-#421): a module leaves that list only when
-every function in it conforms, and the catalog's own `conforming` flag is what
+`test/test_process_docstrings.py` enforces it, and its `PENDING` list names any
+submodule not yet converted (empty today: every module conforms); a module leaves
+that list only when every function in it conforms, and the catalog's own `conforming` flag is what
 the site reads to decide which categories get a reference page.
 
 Machine policy does not live in `vaft/process`. A number that is true of VEST
@@ -278,7 +278,7 @@ fraction, which radial coordinate profiles are fitted in -- belongs in
 `vest_core_profiles_policy(shot)`), and is handed to the generic routine by
 the pipeline that calls it. `test/test_vest_core_profiles_policy.py` pins
 that `vaft.process.profile` and `vaft.process.atomic` hold no such number
-and never import the machine layer (issue #420).
+and never import the machine layer.
 
 `vaft.process.describe(name)`, `vaft.process.search(text)` and
 `vaft.process.list_processes(category=...)` read the docstrings on demand and
@@ -357,7 +357,7 @@ architecture document at once.
 | --- | --- | --- |
 | `README.md` / `README.ko.md` | Landing page: what VAFT is, what you can do with it, how to start, where to go next | Reference material, extended history, API detail |
 | `tutorial/` | Taught course, offline-first, one session at a time | Research procedures, narrow techniques |
-| `notebooks/` + `notebooks/README.md` | Research workflows — to be indexed by scientific question (#330; grouped by pipeline stage until then) | Teaching scaffolding |
+| `notebooks/` + `notebooks/README.md` | Research workflows — to be indexed by scientific question (grouped by pipeline stage until then) | Teaching scaffolding |
 | `docs/` -> [the site](https://vest-tokamak.github.io/vaft/) | Long-form workflows, API reference, machine and research archive | Anything that must ship with the source |
 | `THIRD_PARTY_NOTICES.md` | Licence reproduction — a distribution obligation, so it ships with the source | Prose about dependencies |
 
@@ -382,7 +382,7 @@ Three rules:
 2. **Do not present planned capability as shipped.** Semantic knowledge graphs,
    machine-actionable provenance, digital-twin integration and autonomous
    research agents are long-term direction. Label them, or the test fails.
-3. **Use the shared vocabulary** (issues #330, #529): *scientific framework*
+3. **Use the shared vocabulary**: *scientific framework*
    rather than only "Python library" — the word the READMEs, the site and the
    repository's About text all use; *VEST reference implementation* without implying
    VAFT is VEST-only; *validated / analysis-ready data*; *traceable and
@@ -402,8 +402,8 @@ python notebooks/_clean_outputs.py notebooks/*.ipynb
 ## Issue studies
 
 A per-issue study -- the scripts that were run and the notes that were written
-while an issue was investigated -- goes under `vaft/validation/studies/<name>/`
-(#1756), as a regular package with an `__init__.py`, so its scripts run from an
+while an issue was investigated -- goes under `vaft/validation/studies/<name>/`,
+as a regular package with an `__init__.py`, so its scripts run from an
 installed tree as `python -m vaft.validation.studies.<name>.<script>` rather
 than as a `PYTHONPATH=.` path run (which imports whichever `vaft` is first on
 the path). `vaft.validation` never imports the studies, and the API catalog

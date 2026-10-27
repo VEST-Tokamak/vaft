@@ -60,7 +60,7 @@ The original OMFIT classes software is distributed under the following license.
 
 ### Lucide icons
 
-The general-purpose pictograms of `vaft.diagram.pictograms` (#2101) are drawn
+The general-purpose pictograms of `vaft.diagram.pictograms` are drawn
 from SVG icon sources vendored verbatim in `vaft/diagram/_lucide.py`, copied
 from the npm package `lucide-static` 1.52.0. Some of those icons derive
 from the Feather project, under the MIT terms included in the license below.
