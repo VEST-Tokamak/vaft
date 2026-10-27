@@ -44,6 +44,7 @@ def refs(audit, line, path="vaft/example.py"):
         ("follow-up items #1201 and next steps #1300", [(1201, "bare", ""), (1300, "bare", "")]),
         ("`domain_grid.py` runs #459's 2x2", [(459, "bare", "")]),
         ("EFIT #924 and CHEASE #66", [(924, "bare", ""), (66, "bare", "")]),
+        (r'_note("Levels 2-4 of \\#1047 fill it")', [(1047, "bare", "")]),
     ],
 )
 def test_references_are_found(audit, line, expected):

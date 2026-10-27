@@ -78,8 +78,9 @@ WORDED = re.compile(
     r"\b(PRs?|[Pp]ull [Rr]equests?|[Ii]ssues?|[Tt]ickets?)\s+#(\d+)\b"
 )
 # A bare `#123`: not part of a word, an HTML entity (`&#123;`), a URL fragment
-# or a second `#`; ranges such as `#418-#421` are two references.
-BARE = re.compile(r"(?<![\w&#=?%.\\$])#(\d{1,5})(?![\w.]*\w)")
+# or a second `#`; ranges such as `#418-#421` are two references. A TeX-escaped
+# `\#1047` is a literal hash in rendered text, so it counts too.
+BARE = re.compile(r"(?<![\w&#=?%.$])#(\d{1,5})(?![\w.]*\w)")
 # GitHub's autolink forms: `PR#1592`, `VEST-Tokamak/vaft#1292`.
 AUTOLINK = re.compile(r"(?<![\w/.-])(?:(PRs?)|([\w.-]+/[\w.-]+))#(\d+)\b")
 ADJOINING_WORDED = re.compile(r"(?:,\s*|\s+and\s+|\s*[-/]\s*)#(\d+)\b")
@@ -405,7 +406,7 @@ def write_baseline(root: Path, refs: list[Reference], pathspecs: list[str],
         if (p, number) in retained:
             entry = {"count": count, **retained.pop((p, number))}
         elif old is not None:
-            entry = {**old, "count": min(count, old["count"])}
+            entry = {**old, "count": count if accept_new else min(count, old["count"])}
         elif accept_new:
             entry = {"count": count, "status": "legacy"}
         else:
