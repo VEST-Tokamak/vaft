@@ -86,7 +86,8 @@ def _mark_if_invalid(axis: Any, panel_model: Any, style: dict) -> None:
 
     With per-panel legends off in a subplots layout, the grey dashed trace
     alone can be missed; the panel background and a corner note keep the
-    display policy's "never silently hidden" promise (issue #256, #260).
+    display policy's promise that an invalid channel is "never silently
+    hidden" (see :func:`vaft.plot.style.draw_series`).
     """
     if not isinstance(panel_model, LineSeries) or style.get("validity", "show") != "show":
         return
@@ -113,7 +114,7 @@ def _panel_drawer(model: Any):
         (GeometryLayers, render_geometry_layers),
         (Spectrogram, render_spectrogram),
         (TextPanel, _draw_text_panel),
-        # Single-axes kinds a composed figure may place in a cell (#1467).
+        # Single-axes kinds a composed figure may place in a cell.
         (PowerSpectrum, render_power_spectrum),
         (Image2D, render_image_2d),
     ):
@@ -130,7 +131,7 @@ def _draw_text_panel(
     axis.set_axis_off()
     # Clipped to its own cell: a text block that overran it would inflate
     # the figure's tight bounding box and shrink every other axes to make
-    # room (issue #711); a cut last line is the lesser harm, and the grid
+    # room; a cut last line is the lesser harm, and the grid
     # policy asks for the height the lines need in the first place.
     axis.text(
         0.02, 0.98, "\n".join(model.lines), transform=axis.transAxes,
@@ -164,8 +165,8 @@ def render_panels(
     in order.  Those axes are the caller's to configure, so ``model.share_x``
     and the tight layout apply only to a figure this renderer creates itself.
     ``row_heights`` are relative heights for the grid's rows -- one per row
-    -- which a presentation format supplies from what the members asked
-    (issue #711); ``None`` divides the canvas equally, as always.
+    -- which a presentation format supplies from what the members asked;
+    ``None`` divides the canvas equally.
     """
     if not isinstance(model, Panels):
         raise TypeError(
@@ -176,7 +177,7 @@ def render_panels(
     if ax is not None:
         # Caller-supplied axes are authoritative and *are* the grid: exactly one
         # axes per panel, filled in order, whatever grid this model would have
-        # chosen for itself (issue #260 section 8).  Nothing is truncated,
+        # chosen for itself.  Nothing is truncated,
         # recycled or created.
         supplied = np.asarray(ax, dtype=object)
         if supplied.ndim == 0:
@@ -208,9 +209,9 @@ def render_panels(
         # A field map's colorbar gets a cell of its own beside the map, the
         # arrangement the slice navigator uses: a colorbar taken out of an
         # equal-aspect axes shrinks the map instead, and the taller the row
-        # the smaller the map came out (issue #711).
+        # the smaller the map comes out.
         if model.links:
-            # A composed figure (#1467): every colorbar gets a cell of its own,
+            # A composed figure (linked panels): every colorbar gets a cell of its own,
             # and a panel x-linked with one keeps the same width, so the time
             # axes of a stack line up.
             flat, colorbar_cells = _aligned_grid_axes(figure, gridspec, model)
@@ -289,8 +290,8 @@ def render_panels(
 
             title.set_gid(TITLE_OVER_AXES_GID)
     # A figure the caller owns keeps the caller's layout: tight_layout is
-    # applied only to a figure this renderer created (issue #260 section 8;
-    # a figure that redraws its panels must not be re-laid-out each time).
+    # applied only to a figure this renderer created (a figure that redraws
+    # its panels must not be re-laid-out each time).
     # `show` is held back until the suptitle has been placed.
     figure, grid = finalize(figure, grid, show=False, tight_layout=ax is None)
     if shared_legend:
@@ -333,7 +334,7 @@ def _link_anchor(flat: Any, members: Sequence[int], axis_name: str) -> int:
 
 
 def _link_axes(flat: Any, model: Panels) -> None:
-    """Make each link's panels zoom and pan together (issue #1467).
+    """Make each link's panels zoom and pan together.
 
     A panel that fixed its own limits (``time_range=``, ``x_limits=``) sets
     the linked range, whatever its place in the link; otherwise the view is
@@ -978,9 +979,9 @@ def kinetic_overview_profiles(
 
 
 #: Below this canvas width [in] a legend beside each panel leaves the panels no
-#: room, so the legends go inside them (issue #1837).
+#: room, so the legends go inside them.
 _KINETIC_STATE_OUTSIDE_LEGEND_MIN_WIDTH_IN = 6.0
-#: ``layout="stages"`` without a format: inches per stage column (#1957).
+#: ``layout="stages"`` without a format: inches per stage column.
 _KINETIC_STAGE_COLUMN_IN = 1.9
 #: The narrowest canvas ``layout="stages"`` is drawn on [in]; a narrower one is refused.
 _KINETIC_STAGES_MIN_WIDTH_IN = 8.0
@@ -1027,7 +1028,7 @@ def _kinetic_stage_legend_pt(axis: Any) -> float:
 def kinetic_overview_state(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
-    """One matched kinetic state: pressure, density, temperature and Z_eff panels (issue #1837).
+    """One matched kinetic state: pressure, density, temperature and Z_eff panels.
 
     Interpretation
     --------------
@@ -1421,7 +1422,7 @@ def magnetics_overview_vacuum_benchmark(
 def equilibrium_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
-    """Static summary of one representative equilibrium slice (issue #261).
+    """Static summary of one representative equilibrium slice.
 
     Interpretation
     --------------
@@ -1707,8 +1708,8 @@ def equilibrium_overview_verification(
         model,
         ax=ax,
         show=show,
-        # The format sizes it like any composite; only the legacy spelling
-        # keeps the 13 x 10 canvas this figure had before (issue #712).
+        # The format sizes it like any composite; only format="legacy" keeps
+        # the fixed 13 x 10 in canvas.
         figsize=style.pop("figsize", (13.0, 10.0) if style.get("format") == "legacy" else None),
         **style,
     )

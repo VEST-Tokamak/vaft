@@ -1409,7 +1409,7 @@ def confinement_time_histogram(df: pd.DataFrame,
     Plot histograms for confinement_time parameter sets in an m x n grid layout.
 
     Moved here from ``vaft.process.statistical_analysis`` so that processing
-    stays free of Matplotlib (issue #63).  Cross-shot statistics have no
+    stays free of Matplotlib.  Cross-shot statistics have no
     canonical view model yet, so this stays a legacy renderer.
     """
     

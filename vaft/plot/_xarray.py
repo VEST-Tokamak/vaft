@@ -1,4 +1,4 @@
-"""The view models as :class:`xarray.Dataset` objects (umbrella #434).
+"""The view models as :class:`xarray.Dataset` objects.
 
 Each ``ViewModel.to_xarray()`` delegates here.  The rule is *lossless and
 plain*: every array of the model comes back as a variable or coordinate,
@@ -295,7 +295,7 @@ def spectrogram_dataset(model: Any, **extra: Any) -> "xr.Dataset":
     )
     tracks = tuple(getattr(model, "tracks", ()) or ())
     if tracks:
-        # The overlaid tracks (issue #460), padded to one sample axis.
+        # The overlaid predicted frequency tracks (the ``mode_overlay=`` lines), padded to one sample axis.
         ds = ds.assign_coords({
             "track_label": ("track", np.array([t.label for t in tracks], dtype=object)),
             "track_length": ("track", np.array([t.time.size for t in tracks], dtype=int)),
@@ -367,7 +367,7 @@ def panels_datatree(model: Any, **extra: Any) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# non-graphical views (issue #1180)
+# non-graphical views (tables and text summaries)
 # ---------------------------------------------------------------------------
 
 

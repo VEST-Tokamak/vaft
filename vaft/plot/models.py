@@ -135,7 +135,7 @@ class Series(ViewModel):
     position: tuple[float, float] | None = None
     #: What this trace is relative to its channel: ``""`` for the measurement
     #: itself, ``"reconstruction"`` for an equilibrium's prediction of it,
-    #: ``"constraint"`` for the value the solver was given (issue #261).  A
+    #: ``"constraint"`` for the value the solver was given.  A
     #: role shares its channel's panel and is named beside it in the legend.
     role: str = ""
     #: The channel's index in its diagnostic array, when the trace is one
@@ -201,7 +201,7 @@ class Series(ViewModel):
         stored per-sample mask is authoritative when present and condemns the
         trace only when it leaves no usable sample; the scalar alone condemns
         it when no mask is stored; a trace nothing has assessed is drawn.  The
-        rule is :func:`vaft.validation.validity.is_condemned` (#424).
+        rule is :func:`vaft.validation.validity.is_condemned`.
         """
         return is_condemned(record_from_mask(self.validity, self.valid_mask))
 
@@ -278,7 +278,7 @@ class ReferenceLine(ViewModel):
     ``style`` overrides the renderer's dotted grey default.  With ``x_end``
     the marker is the shaded interval ``[x, x_end]`` instead of a line -- the
     radial span a diagnostic measured, beyond which a fitted profile is
-    extrapolated (issue #1837).
+    extrapolated.
     """
 
     x: float
@@ -305,15 +305,15 @@ class Profile1D(ViewModel):
     x_limits: tuple[float, float] | None = None
     #: Resolved display policy (unit/scale/notation); see :class:`LineSeries`.
     display: "DisplaySpec | None" = None
-    #: Vertical markers in the abscissa's coordinate (issue #479).
+    #: Vertical markers in the abscissa's coordinate.
     reference_lines: tuple["ReferenceLine", ...] = ()
     #: How a derived profile was formed, as plain JSON-serialisable values: a
     #: profile gradient carries the resolved record of
-    #: :func:`vaft.process.profile_gradients.profile_gradient` here (issue
-    #: #551).  ``to_xarray`` writes it to the ``metadata`` attribute.
+    #: :func:`vaft.process.profile_gradients.profile_gradient` here.
+    #: ``to_xarray`` writes it to the ``metadata`` attribute.
     metadata: Mapping[str, Any] = field(default_factory=dict)
     #: Fixed y range in display units; ``None`` autoscales.  A sequence of
-    #: cuts of one figure keeps the full figure's range (issue #1957).
+    #: cuts of one figure keeps the full figure's range.
     y_limits: tuple[float, float] | None = None
 
     def __post_init__(self) -> None:
@@ -388,7 +388,7 @@ class Field2D(ViewModel):
     region: np.ndarray | None = None
     #: How a derived annotation of the map was formed, as plain
     #: JSON-serialisable values: the rational-surface overlay records the
-    #: resolved surfaces and the slice they came from here (issue #506).
+    #: resolved surfaces and the slice they came from here.
     #: ``to_xarray`` writes it to the ``metadata`` attribute.
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -479,7 +479,7 @@ class GeometryLayer(ViewModel):
     entry: str = ""
     #: What the layer belongs to when that matters beyond drawing it:
     #: ``"equilibrium"`` marks the plasma's own outline and axis, which move
-    #: between shots and times and therefore never size a canvas (issue #689);
+    #: between shots and times and therefore never size a canvas;
     #: empty for the machine -- wall, coils, sensors -- which does.
     role: str = ""
 
@@ -569,8 +569,9 @@ class Geometry3DLayer(ViewModel):
     This model is the *lightweight* 3-D contract: points and polylines --
     filaments, rings, diagnostic positions, sight lines, trajectories.
     Surfaces, structured or unstructured grids and fields on them are not
-    layers; they belong to the scientific mesh representation (#909, #1100),
-    and are not to be faked by stacking polylines into a surface.
+    layers; they belong to a scientific mesh representation, which VAFT does
+    not have yet (Open: #909, #1100), and are not to be faked by stacking
+    polylines into a surface.
     """
 
     x: np.ndarray
@@ -779,7 +780,7 @@ class ImageSequence(ViewModel):
 
 @dataclass(frozen=True)
 class SpectrogramTrack:
-    """A frequency-versus-time line drawn over a spectrogram (issue #460).
+    """A frequency-versus-time line drawn over a spectrogram.
 
     ``frequency`` is NaN where the line is undefined, so the renderer leaves a
     gap there instead of joining the valid stretches across it.
@@ -816,12 +817,12 @@ class Spectrogram(ViewModel):
     title: str = ""
     max_frequency: float | None = None
     cmap: str = "hot_r"
-    #: A tracked spectral ridge drawn over the map (issue #1005): one frequency
+    #: A tracked spectral ridge drawn over the map: one frequency
     #: per ``ridge_time``, NaN where no ridge was found.  ``None`` draws none.
     ridge_time: np.ndarray | None = None
     ridge_frequency: np.ndarray | None = None
     ridge_label: str = ""
-    #: Predicted frequency tracks drawn over the map (issue #460), e.g. the
+    #: Predicted frequency tracks drawn over the map, e.g. the
     #: ``mode_overlay=`` lines; ``tracks_title`` heads their legend and names
     #: the model that drew them.
     tracks: tuple[SpectrogramTrack, ...] = ()
@@ -1018,7 +1019,7 @@ class TextPanel(ViewModel):
     """A panel of text lines -- global quantities beside a figure's plots.
 
     Used inside :class:`Panels` for the values a slice summary states rather
-    than draws (issue #261 section 11).  Each line is already formatted by the
+    than draws.  Each line is already formatted by the
     builder, unit included, so the renderer only places the text.
     """
 
@@ -1073,7 +1074,7 @@ class Panels(ViewModel):
     share_legend: bool = False
     #: Axis links between panels, as ``(axis, slots)`` with ``axis`` ``"x"`` or
     #: ``"y"`` and ``slots`` the panel indices that zoom and pan together
-    #: (issue #1467).  Unlike ``share_x``, which ties a whole regular grid, a
+    #: (composed figures).  Unlike ``share_x``, which ties a whole regular grid, a
     #: link names exactly the panels that share a coordinate -- the stacked
     #: time traces of a composed figure, not the R-Z map beside them.
     links: tuple[tuple[str, tuple[int, ...]], ...] = ()
@@ -1158,7 +1159,7 @@ class Panels(ViewModel):
 
 
 # ---------------------------------------------------------------------------
-# Non-graphical views: tables and text summaries (issue #1180)
+# Non-graphical views: tables and text summaries
 # ---------------------------------------------------------------------------
 
 #: The classification a table cell or a summary item may carry.  A status is
@@ -1168,7 +1169,7 @@ class Panels(ViewModel):
 #: are the two undecided verdicts of :class:`vaft.validation.ValidationStatus`
 #: (evidence produced but not deciding; evidence never produced), so a
 #: validation verdict is carried as itself rather than folded into a pass or
-#: an ``info`` (roadmap #1242 C2).
+#: an ``info``.
 STATUSES = ("", "pass", "warn", "fail", "info", "indeterminate", "not_available")
 
 #: What a :class:`TableColumn` holds: ``text`` (a label or a word, shown as
@@ -1398,7 +1399,7 @@ class TextSection:
 
 @dataclass(frozen=True)
 class TextSummary(ViewModel):
-    """A standalone text summary in named sections (issue #1180).
+    """A standalone text summary in named sections.
 
     Distinct from :class:`TextPanel`, which is text placed inside a figure:
     a summary is the whole presentation, printed in a terminal, shown in a

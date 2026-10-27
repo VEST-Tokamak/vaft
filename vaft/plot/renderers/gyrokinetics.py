@@ -1,4 +1,4 @@
-"""Registered gyrokinetic renderers: the standardized layer of #1591.
+"""Registered gyrokinetic renderers: the standardized, IMAS-normalised layer.
 
 These draw the IMAS-normalised view models built from ``gyrokinetics_local`` (one
 local flux-tube calculation) and from ``core_transport`` (radial turbulent fluxes).

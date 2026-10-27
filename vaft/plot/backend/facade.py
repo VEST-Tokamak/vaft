@@ -1,6 +1,6 @@
 """The ``dd_<stem>`` and ``extract_<stem>`` twins of every ``plot_<stem>`` adapter.
 
-A canonical plot answers three questions (umbrella #434): what Data Dictionary
+A canonical plot answers three questions: what Data Dictionary
 paths it reads (``dd_*``, no data touched), what data lies behind the figure
 (``extract_*``, the view model, undrawn) and the figure itself (``plot_*``).
 All three are generated here from one registry pass, so the surfaces cover one
@@ -139,12 +139,11 @@ def install_facades(
     because its prose says something the registry description does not -- keeps
     its own body.
 
-    That asymmetry is the point. Before this, ``plot_*`` was the one verb the
-    registry did not produce, so registering a plot created two of the three
-    and silently not the third; the drift then surfaced as a failure of
-    ``test_the_three_verbs_cover_the_same_plots`` on a push rather than on the
-    PR, because that test is outside the ``core`` selection (issue #815, and
-    #810 which is how it was found).
+    That asymmetry is the point. Were ``plot_*`` not produced by the registry,
+    registering a plot would create two of the three verbs and silently not
+    the third, and the drift would surface only as a failure of
+    ``test_the_three_verbs_cover_the_same_plots`` -- on a push rather than on
+    the PR, because that test is outside the ``core`` selection.
 
     ``normalize`` is the namespace's own entry normaliser
     (``vaft.omas.entries.normalize_entries`` or ``vaft.imas.entries.normalize_entries``);

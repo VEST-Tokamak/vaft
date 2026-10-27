@@ -1,4 +1,4 @@
-"""Ordering spaces and ordering margins of a population of plasma states (#1627 §3).
+"""Ordering spaces and ordering margins of a population of plasma states.
 
 Two plots read the asymptotic orderings of :mod:`vaft.validation.orderings`
 for a table of states -- one row per state, slice or flux-surface point, with

@@ -114,7 +114,7 @@ DEPRECATED: dict[str, str] = {
     # The legacy figure split V_loop into V_ind and V_res = V_loop - V_ind;
     # summary_time_voltage_consumption (I_p + flux-loop voltage) has no such
     # split, the Romero balance does -- without a given R_p, as the implied
-    # resistive part (#1590).
+    # resistive part.
     "time_voltage_consumption": "summary_time_romero_balance",
     "time_virial_equilibrium_quantities": "equilibrium_time_virial",
     "time_electromagnetics_current": "current_overview",

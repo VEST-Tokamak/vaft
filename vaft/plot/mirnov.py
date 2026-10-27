@@ -21,11 +21,11 @@ from vaft.process.magnetics import (
     toroidal_mode_analysis,
 )
 
-#: Two phase-reference channels that are distinct acquisitions.  The second
-#: entry used to be ``MagneticFieldProbe_C2-05_Bz:phase_reference`` -- field
-#: 171, which the equilibrium probes already read, so it is no longer published
-#: as a phase reference (issues #724, #825).  Like every phase reference these
-#: exist only up to shot 35520.
+#: Two phase-reference channels that are distinct acquisitions.
+#: ``MagneticFieldProbe_C2-05_Bz`` (DAQ field 171) is not a candidate: the
+#: equilibrium probes already read that field, so it is not published as a
+#: phase reference.  Like every phase reference these exist only up to shot
+#: 35520.
 _DEFAULT_TOROIDAL_REFERENCE_PAIR = (
     "OutMirnov_530_Bz:phase_reference",
     "OutMirnov_730_Bz:phase_reference",
@@ -48,10 +48,9 @@ def _as_array(value: Any) -> np.ndarray:
 def _channel_count(ods: Any, probe_group: str) -> int:
     """How many channels the group holds, 0 when the ODS carries none.
 
-    The 0 is what this has always returned for an absent group -- the previous
-    ``except`` was unreachable, because reading a missing path yielded an empty
-    placeholder whose ``len`` is 0 rather than an error. What is new is that
-    asking no longer creates the group (issue #118).
+    The count goes through ``path_count``, so asking never creates the group
+    in the ODS (a plain ``ods[...]`` read of a missing path would materialize
+    an empty placeholder whose ``len`` is 0).
     """
     return path_count(ods, f"magnetics.{probe_group}")
 
@@ -59,10 +58,10 @@ def _channel_count(ods: Any, probe_group: str) -> int:
 def _channel_label(ods: Any, probe_group: str, index: int) -> str:
     """The channel's own name, falling back to a positional label.
 
-    The fallback used to be unreachable: reading a missing ``name`` returned an
-    empty placeholder rather than raising, and ``str()`` of one is the IDS path
-    -- so an unnamed channel was labelled ``magnetics.b_field_pol_probe.0.name``
-    in the legend it appeared in (issue #118).
+    Fields are read with ``path_value``, which returns ``None`` when one is
+    missing.  A plain ``ods[...]`` read would instead return an empty
+    placeholder whose ``str()`` is the IDS path, and an unnamed channel would
+    be labelled ``magnetics.b_field_pol_probe.0.name`` in the legend.
     """
     for field in ("name", "identifier"):
         value = path_value(ods, f"magnetics.{probe_group}.{index}.{field}")
@@ -312,11 +311,11 @@ def _channel_toroidal_angle(ods: Any, probe_group: str, channel: int) -> float:
     """Where a probe sits toroidally, from ``position.phi``.
 
     ``toroidal_angle`` is not consulted.  It is a sensor *orientation* in the
-    DD, not a position, and reading it first is what let the mapper's old habit
-    of writing a position there go unnoticed (issue #725).  Keeping it as a
-    fallback would be worse than dropping it: an ODS written before that fix
-    carries a position in it, in the pre-#718 frame, so the same code path
-    would silently mean different things depending on the file's age.
+    DD, not a position.  Older mappers wrote a probe position into it, in a
+    toroidal frame that predates the current port-clock-to-IMAS-phi convention
+    (:func:`vaft.machine_mapping.conventions.port_toroidal_angle`), so a
+    fallback to it would silently mean different things depending on the
+    file's age.
     """
     stored = path_value(ods, f"magnetics.{probe_group}.{channel}.position.phi")
     if stored is not None:

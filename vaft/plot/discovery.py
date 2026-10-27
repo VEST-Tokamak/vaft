@@ -1,9 +1,9 @@
-"""Semantic discovery of what can be plotted (issue #262).
+"""Semantic discovery of what can be plotted.
 
-:func:`vaft.plot.available_plots` used to return a flat tuple of registry rows
--- ``name``, ``domain``, ``required_paths`` -- which answers "which renderers
-are registered?" but not "what can I look at, and how?".  This module keeps
-the structure and layers a semantic view on top of it.
+Flat registry rows -- ``name``, ``domain``, ``required_paths`` -- answer
+"which renderers are registered?" but not "what can I look at, and how?".
+:func:`vaft.plot.available_plots` keeps that row structure and layers a
+semantic view on top of it.
 
 Two objects do the work:
 
@@ -14,7 +14,7 @@ Two objects do the work:
     channel information, availability.  The developer-facing registry fields
     (``ids``, ``required_paths``, the view model) are kept but move out of the
     default rendering.  A record still answers ``record["name"]`` so every
-    caller that iterated the old rows keeps working unchanged.
+    caller that iterates flat rows keeps working unchanged.
 
 :class:`PlotCatalog`
     a sequence of records that prints as a tree grouped by subject, view and
@@ -26,8 +26,9 @@ imports OMAS.  Instance-level facts -- whether an ODS actually holds the data,
 how many channels are usable, which regions exist -- are filled in by
 :mod:`vaft.omas.discovery`, which reuses the same extraction helpers the
 adapters run so discovery cannot disagree with rendering.  Discovery only
-*reports* the policies decided in issues #251 (taxonomy), #256 (display),
-#259 (selection) and #260 (layout); it decides nothing of its own.
+*reports* the policies of the taxonomy (:mod:`vaft.plot.taxonomy`), the
+display policy (:mod:`vaft.plot.display`), channel selection
+(:mod:`vaft.plot.selection`) and layout; it decides nothing of its own.
 """
 
 from __future__ import annotations
@@ -49,7 +50,7 @@ __all__ = [
     "normalise_query",
 ]
 
-#: Registry fields kept for developers; hidden from the default tree (#262 §17).
+#: Registry fields kept for developers; hidden from the default tree.
 DEVELOPER_KEYS = (
     "name",
     "domain",
@@ -68,7 +69,7 @@ _WORD_BREAK = re.compile(r"[\s\-/]+")
 class PlotCapability:
     """One canonical plot and everything discovery knows about it."""
 
-    # -- identity (issue #251) ------------------------------------------------
+    # -- identity: subject / view / [quantity] -------------------------------
     name: str
     subject: str
     view: str
@@ -85,10 +86,10 @@ class PlotCapability:
     description: str
     # -- capabilities declared by the recipe (filled by vaft.omas.discovery) --
     #: Display unit the plot uses by default, the alternatives it accepts and
-    #: the notation, from the display policy (#256).  Empty when the quantity
+    #: the notation, from the display policy.  Empty when the quantity
     #: has no conversion table.
     display: Mapping[str, Any] = field(default_factory=dict)
-    #: Layouts this plot's builder accepts (#260).  ``grouped`` appears only
+    #: Layouts this plot's builder accepts.  ``grouped`` appears only
     #: when the family has a radial split, which needs an ODS to know.
     layouts: tuple[str, ...] = ()
     #: Analysis methods a transformed view implements (spectra, spectrograms).
@@ -97,9 +98,8 @@ class PlotCapability:
     overview_members: tuple[str, ...] = ()
     #: Sibling plots that overlay something onto this one (camera views).
     overlays: tuple[str, ...] = ()
-    #: A reconstruction's prediction that can be overlaid on this measurement
-    #: (issue #261 section 9): ``{"overlay": "equilibrium"}`` when supported,
-    #: plus ``"available"`` once an ODS says whether it holds finite values.
+    #: A reconstruction's prediction that can be overlaid on this measurement:
+    #: ``{"overlay": "equilibrium"}`` when supported, plus ``"available"`` once an ODS says whether it holds finite values.
     synthetic: Mapping[str, Any] = field(default_factory=dict)
     # -- instance-level (only with an ODS) ------------------------------------
     #: ``None`` without an ODS; otherwise whether the input can draw it, by the
@@ -110,69 +110,71 @@ class PlotCapability:
     reason: str = ""
     #: Per-entry availability for multi-shot input, keyed by entry label.
     entries: Mapping[str, bool] = field(default_factory=dict)
-    #: Channel facts for multi-channel plots, from the selection policy (#259).
+    #: Channel facts for multi-channel plots, from the selection policy.
     channels: Mapping[str, Any] = field(default_factory=dict)
-    #: Uncertainty / validity metadata present beside the signal (#256).
+    #: Uncertainty / validity metadata present beside the signal.
     uncertainty: Mapping[str, Any] = field(default_factory=dict)
     validity: Mapping[str, Any] = field(default_factory=dict)
-    #: Display sign policy of a line plot (#307): ``default`` and ``options``.
+    #: Display sign policy of a line plot: ``default`` and ``options``.
     orientation: Mapping[str, Any] = field(default_factory=dict)
-    #: The rendering libraries that can draw this plot (#491).
+    #: The rendering libraries that can draw this plot.
     backends: tuple[str, ...] = ("matplotlib",)
-    # -- reserved for issue #261; empty and unprinted until it lands ----------
+    # -- cross-source comparison, interaction and projection ------------------
+    #: Cross-source comparison facts; no recipe declares any, so it is empty
+    #: and unprinted.
     sources: Mapping[str, Any] = field(default_factory=dict)
     interaction: tuple[str, ...] = ()
     #: Public function behind an interaction mode that is not itself a plot.
     interaction_entry_points: Mapping[str, str] = field(default_factory=dict)
     projection: Mapping[str, Any] = field(default_factory=dict)
     #: The stored equilibrium slices a slice-indexed plot can draw (instance
-    #: level, issue #480): ``total``, ``usable``, ``times``, ``selected``,
+    #: level): ``total``, ``usable``, ``times``, ``selected``,
     #: ``container``, and the sequence facts ``kind="stored"``,
-    #: ``option="time_slice"``, ``coordinate``, ``unit`` (issue #1380).
+    #: ``option="time_slice"``, ``coordinate``, ``unit``.
     slices: Mapping[str, Any] = field(default_factory=dict)
-    #: The quantities a 2-D map can draw (issue #483): ``default``,
+    #: The quantities a 2-D map can draw: ``default``,
     #: ``options`` (what this input can supply) and ``declared``.
     fields: Mapping[str, Any] = field(default_factory=dict)
-    #: How a time-frequency map is computed (issue #484): ``default`` and
+    #: How a time-frequency map is computed: ``default`` and
     #: ``methods``, each naming the options that method reads.
     analysis: Mapping[str, Any] = field(default_factory=dict)
-    #: How a computed view reads its input (issue #439): ``backend`` is
+    #: How a computed view reads its input: ``backend`` is
     #: ``"neutral"`` (native reads through the accessor, any data model) or
     #: ``"omas"`` (an OMAS ODS is required; ``reason`` names the helper), and
     #: ``reads`` the declared input templates.  Empty for a path-driven or
     #: composite plot.
     computation: Mapping[str, Any] = field(default_factory=dict)
-    #: What a line plot can be drawn against (issue #481): ``default``,
+    #: What a line plot can be drawn against: ``default``,
     #: ``options`` (what this input can supply) and ``declared``.
     abscissa: Mapping[str, Any] = field(default_factory=dict)
-    #: The dense time base a plot samples (issues #486, #1380): ``start``,
+    #: The dense time base a plot samples: ``start``,
     #: ``stop`` in seconds and ``count``; ``kind`` (``"samples"`` or
     #: ``"frames"``), ``coordinate``, ``unit``; and, when one index names one
     #: instant for the whole plot, ``option`` (``time_index``/``frame_index``)
     #: and ``selected``.  ``shared=False`` says the channels sample no common
     #: grid, so ``time=`` is the only selector.
     times: Mapping[str, Any] = field(default_factory=dict)
-    #: The radial coordinates a 1-D profile can be drawn against (issue #479):
+    #: The radial coordinates a 1-D profile can be drawn against:
     #: ``default``, ``options`` (what this input can resolve) and ``declared``
     #: (what the recipe offers regardless of input).
     coordinates: Mapping[str, Any] = field(default_factory=dict)
-    #: Other choice options a computed view declares (issue #551), by option
+    #: Other choice options a computed view declares, by option
     #: name: ``{"default": ..., "options": (...)}``, e.g. the
     #: ``gradient_coordinate``, ``reference_length`` and ``convention`` of a
     #: profile gradient view.
     choices: Mapping[str, Any] = field(default_factory=dict)
-    #: Optional overlays drawn on request (issue #506), by name: ``options``
+    #: Optional overlays drawn on request, by name: ``options``
     #: (the keywords that ask for it) and ``reads`` (the extra DD inputs), e.g.
     #: the ``rational_q=``/``resonances=`` surfaces of an equilibrium view.
     annotations: Mapping[str, Any] = field(default_factory=dict)
     #: The controls ``plot_*(..., interactive=True)`` offers for this input
-    #: (instance level, issue #480), in offer order.
+    #: (instance level), in offer order.
     controls: tuple[str, ...] = ()
-    #: A composite's panels by name (issue #482): ``options`` (declared),
+    #: A composite's panels by name: ``options`` (declared),
     #: ``available`` (what this input can draw), ``default`` (what is drawn
     #: with no ``members=``) and ``labels`` (name -> identity).
     members: Mapping[str, Any] = field(default_factory=dict)
-    #: A categorical sequence the plot declares (issue #1957): states that are
+    #: A categorical sequence the plot declares: states that are
     #: not times, such as the inference stages of the kinetic state --
     #: ``option``, ``states``, ``labels``, ``label``, ``selected`` (``None``
     #: when the static call draws no state of it), ``coordinate``, ``unit``.
@@ -214,14 +216,14 @@ class PlotCapability:
 
     @property
     def sequence(self) -> dict[str, Any]:
-        """How a reader moves through this plot's scientific states, or ``{}`` (issue #1380).
+        """How a reader moves through this plot's scientific states, or ``{}``.
 
         One shape whatever the storage -- the dense samples of a time base,
         a camera's frames, a few stored reconstructions:
 
         ``kind``
             ``"samples"``, ``"frames"``, ``"stored"`` or ``"categorical"``
-            (states that are not times, with ``labels``; issue #1957).
+            (states that are not times, with ``labels``).
         ``option``
             The keyword that picks one state: ``time_index``,
             ``frame_index`` or ``time_slice``.  It keeps its storage
@@ -257,7 +259,7 @@ class PlotCapability:
             categorical = self.categorical or {}
             if not categorical:
                 return {}
-            # Categorical states (#1957): ``labels`` names each one, and
+            # Categorical states: ``labels`` names each one, and
             # ``selected`` is ``None`` where the static call draws none of them.
             states = tuple(int(v) for v in categorical["states"])
             return {
@@ -290,7 +292,7 @@ class PlotCapability:
         return _subject_heading(self.subject, self.aliases)
 
 
-#: Keys of the flat rows returned before #262, in their historical order.
+#: Keys of the flat registry rows, in their fixed order.
 _LEGACY_ROW_KEYS = (
     "name",
     "domain",
@@ -353,7 +355,7 @@ def _overlays_for(spec: PlotSpec) -> tuple[str, ...]:
 
 
 # ---------------------------------------------------------------------------
-# Query resolution -- strict aliases only (#262 §3, §20, §21)
+# Query resolution -- strict aliases only
 # ---------------------------------------------------------------------------
 
 
@@ -391,7 +393,7 @@ def match_query(term: str) -> QueryMatch:
     not ``diamagnetic_flux``).  Descriptions are never searched, so
     related-but-distinct concepts do not match: ``Rogowski coil`` is not a
     ``plasma_current`` alias and ``line_radiation`` is not a
-    ``spectrometer_uv`` alias (issue #262).  An unknown query matches nothing.
+    ``spectrometer_uv`` alias.  An unknown query matches nothing.
     """
     query = normalise_query(term)
     if not query:
@@ -445,8 +447,8 @@ def _by_quantities(quantities: set[str]) -> QueryMatch:
 class PlotCatalog(Sequence[PlotCapability]):
     """A sequence of :class:`PlotCapability` that prints as a semantic tree.
 
-    Indexing, iteration and ``len`` behave like the tuple of rows that
-    :func:`vaft.plot.available_plots` returned before issue #262, and each
+    Indexing, iteration and ``len`` behave like a tuple of flat registry
+    rows, and each
     element still supports ``row["name"]``; the tree is what ``print`` and the
     REPL show.  ``source`` names the input the catalog was evaluated against
     (``"#39915"``), or is empty for the registry alone.

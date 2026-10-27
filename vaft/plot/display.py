@@ -1,11 +1,11 @@
-"""VAFT scientific display policy (issue #256).
+"""VAFT scientific display policy.
 
 IMAS owns canonical storage units; this module owns how those values are
 *displayed*: which unit conversions exist per physical quantity, which display
 unit a subject prefers, how scaled axes (``n_e [10^18 m^-3]``) and scientific
 notation are chosen, and the canonical title / channel-label grammar.
 
-Three separate concepts (issue #256):
+Three separate concepts, never derived from one another:
 
 ``unit``
     the axis bracket text, e.g. ``kA`` or ``10^18 m^-3``;
@@ -68,7 +68,7 @@ __all__ = [
 PSI_STYLES = ("surfaces", "normalized", "filled")
 
 #: The radial coordinates a 1-D equilibrium profile can be drawn against
-#: (issue #479).  ``sqrt_phi_norm`` equals ``rho_tor_norm`` by definition
+#: (``coordinate=``).  ``sqrt_phi_norm`` equals ``rho_tor_norm`` by definition
 #: (both are the square root of the normalised toroidal flux) and differs
 #: only in its source: the stored ``profiles_1d.phi`` when there is one.
 #: ``r_major`` runs from the inboard to the outboard midplane crossing of
@@ -90,7 +90,7 @@ COORDINATE_LABELS = {
 
 
 #: Axis labels of every coordinate of
-#: :data:`vaft.process.profile_gradients.RADIAL_COORDINATES` (issue #551), the
+#: :data:`vaft.process.profile_gradients.RADIAL_COORDINATES`, the
 #: abscissae a profile gradient view can be placed on.
 RADIAL_COORDINATE_LABELS = {
     "psi_norm": COORDINATE_LABELS["psi_norm"],
@@ -120,7 +120,7 @@ _GRADIENT_SUBJECTS = {"T_e": "T_e", "n_e": "n_e", "T_i": "T_i"}
 
 
 def gradient_label(metadata: Mapping[str, Any]) -> tuple[str, str]:
-    """``(label, unit)`` of a profile gradient, read from its resolved record (issue #551).
+    """``(label, unit)`` of a profile gradient, read from its resolved record.
 
     The notation follows the record, never the request: ``a/L_{T_i}`` for
     ``a_minor``, ``R_0/L_{T_i}`` for ``R_major_axis``, ``R/L_{T_i}`` for the
@@ -152,8 +152,9 @@ NOTATIONS = ("auto", "plain", "scientific", "scaled_axis", "percent")
 _TWO_PI = 2.0 * math.pi
 
 #: The two poloidal-flux storage families, spelled as canonical unit tokens
-#: (issue #478).  A backend resolves which one an equilibrium stores; the
-#: display policy only converts between them.
+#: (the IMAS DD stores psi in Wb; legacy equilibria store it per radian,
+#: Wb/rad = Wb / 2 pi).  A backend resolves which one an equilibrium stores;
+#: the display policy only converts between them.
 FLUX_CONVENTIONS = ("Wb", "Wb/rad")
 
 #: Display units that exist only for a subject: the per-radian flux units
@@ -254,7 +255,7 @@ _QUANTITIES = (
     ),
     QuantityDisplay("velocity", "m/s", {"m/s": 1.0, "km/s": 1e-3}, "km/s"),
     QuantityDisplay("time", "s", {"s": 1.0, "ms": 1e3, "us": 1e6}, "s"),
-    # A dimensional profile gradient, -d ln f/dr (issue #551).
+    # A dimensional profile gradient, -d ln f/dr.
     QuantityDisplay("inverse_length", "m^-1", {"m^-1": 1.0}, "m^-1"),
 )
 
@@ -269,7 +270,8 @@ for _q in _QUANTITIES:
 del _q
 
 #: (subject, quantity) -> preferred display unit where it differs from the
-#: quantity-wide default (issue #256: subject+quantity level preference).
+#: quantity-wide default: a preference is set per (subject, quantity), not
+#: per quantity alone, so a vacuum field reads in G and a TF field in T.
 SUBJECT_UNIT_DEFAULTS: dict[tuple[str, str], str] = {
     ("tf_coil", "magnetic_field"): "T",
     ("barometry", "pressure"): "Torr",
@@ -289,7 +291,7 @@ SUBJECT_NOTATION_DEFAULTS: dict[tuple[str, str], str] = {
 #: is why a beta family plot cannot put all three on one shared axis.  The
 #: scale applies to what is drawn only; the stored value is never changed.
 DIMENSIONLESS_DISPLAY: dict[tuple[str, str], tuple[str, float, str]] = {
-    # The beta family (issue #947): one canonical value per quantity, as the
+    # The beta family: one canonical value per quantity, as the
     # IMAS DD and vaft.formula store it, and only the display differs.  beta_t
     # is a fraction read as a percentage; beta_p is a plain ratio; beta_N
     # keeps its conventional Troyon value -- the 100 and the MA are part of
@@ -301,7 +303,7 @@ DIMENSIONLESS_DISPLAY: dict[tuple[str, str], tuple[str, float, str]] = {
     # A ratio of a field gradient to the field; the stable window 0 < n < 1.5
     # is quoted in these units and no other, so there is nothing to convert.
     ("vacuum", "decay_index"): ("", 1.0, "auto"),
-    # A normalized gradient such as a/L_T (issue #551): a ratio of lengths,
+    # A normalized gradient such as a/L_T: a ratio of lengths,
     # with nothing to convert.
     ("electron_temperature", "gradient"): ("", 1.0, "auto"),
     ("electron_density", "gradient"): ("", 1.0, "auto"),
@@ -470,7 +472,7 @@ def figure_title(
     time_s: float | None = None,
     coordinates: bool = False,
 ) -> str:
-    """Canonical figure title: ``<Heading> [<unit>] #<shot>`` (issue #256).
+    """Canonical figure title: ``<Heading> [<unit>] #<shot>``.
 
     ``heading`` is used verbatim — humanize a subject with
     :func:`subject_display_name` first, so quantity tokens such as ``beta_p``

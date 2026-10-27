@@ -15,8 +15,7 @@ translated to whichever the caller needs (:func:`to_omas`,
 :func:`resolve` answers what the Data Dictionary itself says about the leaf --
 units, coordinates, documentation -- without any data loaded, and
 :func:`dd_paths` derives the paths a canonical plot declares from its recipe,
-so ``vaft.omas.dd_<stem>()`` and ``vaft.imas.dd_<stem>()`` share one answer
-(umbrella #434).
+so ``vaft.omas.dd_<stem>()`` and ``vaft.imas.dd_<stem>()`` share one answer.
 
 Grammar: segments joined by ``/``; an array-of-structures segment carries its
 index in parentheses -- ``(:)`` for the enumerated index a recipe expands, an
@@ -30,7 +29,7 @@ A computed view (``CallableRecipe``) declares what its builder and helpers
 read (``reads``, role ``input``, ``attrs["declared_by"] == "recipe"``) beside
 what its registry spec gates availability on (``required_paths`` /
 ``optional_paths``, ``attrs["declared_by"] == "spec"``); ``attrs["backend"]``
-says whether the builder reads natively or needs an OMAS ODS (issue #439).
+says whether the builder reads natively or needs an OMAS ODS.
 """
 
 from __future__ import annotations
@@ -67,7 +66,7 @@ ROLES = (
     "data",          # the quantity drawn
     "fallback",      # an alternative spelling of the quantity, tried when the first holds nothing
     "coordinate",    # the abscissa or grid the quantity is read against
-    "abscissa",      # a sibling quantity the plot may be drawn against (issue #481)
+    "abscissa",      # a sibling quantity the plot may be drawn against
     "label",         # where a channel's name is read
     "weight",        # a per-channel multiplier (turns)
     "divisor",       # a scalar the quantity is divided by
@@ -76,7 +75,7 @@ ROLES = (
     "boundary",      # the boundary outline drawn over a field
     "required",      # declared by the registry spec, without a finer role
     "optional",      # declared optional by the registry spec
-    "input",         # read by a computed view's builder or its helpers (issue #439)
+    "input",         # read by a computed view's builder or its helpers
 )
 
 _NAME = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -522,7 +521,7 @@ def dd_paths(name: str) -> tuple[DDPath, ...]:
         add(recipe.z_path, "coordinate", attrs={"axis": "z"})
         for template in recipe.boundary_paths:
             add(template, "boundary")
-        # The other quantities the map can draw (field=, issue #483): a stored
+        # The other quantities the map can draw (field=): a stored
         # or derived 2-D leaf beside the declared one, or a 1-D profile mapped
         # onto the grid where it is drawn.
         slice_prefix, _, _ = recipe.value_path.partition(".profiles_2d")

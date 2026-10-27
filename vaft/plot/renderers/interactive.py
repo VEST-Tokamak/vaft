@@ -1,4 +1,4 @@
-"""Slice-navigation figure: histories above, a slice summary below (issue #261).
+"""Slice-navigation figure: histories above, a slice summary below.
 
 The scientific contract -- one selected slice shared by every panel -- lives
 in :class:`vaft.plot.navigation.SliceNavigator`.  This renderer owns the
@@ -292,7 +292,7 @@ def _ipywidgets_slider(figure: Any, navigator: SliceNavigator, *, live: bool) ->
 
 
 # ---------------------------------------------------------------------------
-# Controls for one plot (issue #480)
+# Controls for one plot
 # ---------------------------------------------------------------------------
 
 class Interactive:

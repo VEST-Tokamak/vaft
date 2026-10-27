@@ -1,4 +1,4 @@
-"""The private PyAV video encoder behind ``Animation.save`` (issue #1050).
+"""The private PyAV video encoder behind ``Animation.save``.
 
 It knows how to encode frames and nothing about what they mean: frames
 arrive already rendered, on the scientific renderer's colour scale, with the

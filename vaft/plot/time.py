@@ -12,7 +12,8 @@ from vaft.machine_mapping.magnetics import SIDE_PROBE_MIN_ABS_Z
 from vaft.formula.constants import PA_PER_TORR
 from vaft.formula.equilibrium import thermal_energy_from_p_V
 
-# `ods[path]` materializes a missing path rather than raising (issue #118).
+# `ods[path]` materializes a missing path rather than raising; path_value
+# returns None instead.
 from vaft.ods_access import path_value as _value
 from vaft.omas import odc_or_ods_check
 from vaft.plot.utils import extract_labels_from_odc
@@ -647,7 +648,7 @@ def _determine_magnetics_indices(odc, indices_param, ods_path_prefix, find_funcs
 
 # (ods_path_prefix, indices_param) -> (nrows, ncols) for m x n grid
 # Superseded: the canonical plots size their grids from the resolved selection
-# (vaft.omas._plot_recipes._layout_columns, issue #260).  This table serves only
+# (vaft.plot.backend.recipes._layout_columns).  This table serves only
 # the deprecated entry points in this module and gains no new entries; it goes
 # with them in 0.8.0.
 MAGNETICS_PLOT_LAYOUT = {
@@ -887,8 +888,8 @@ def time_magnetics_flux_loop_voltage(ods_or_odc, indices='all', label='shot', xu
     Plot flux loop voltage time series.
 
     Prefers the measured terminal voltage stored in
-    `magnetics.flux_loop[i].voltage` at its native acquisition rate (issue
-    #209). For ODSs mapped before that node existed, falls back to
+    `magnetics.flux_loop[i].voltage` at its native acquisition rate.
+    For ODSs mapped before that node existed, falls back to
     `-d(flux)/dt`, which differs from the measured voltage by the linear
     baseline the flux processing removed.
     """
@@ -1217,7 +1218,7 @@ def time_spectrometer_uv_intensity(odc_or_ods, indices='all', label='shot', xuni
     name it offered pointed at a line that does not exist.
 
     ``xlim`` is accepted and ignored: the canonical plot resolves its own
-    limits from the data (issue #256).
+    limits from the data.
 
     Deprecated: use ``vaft.omas.plot_spectrometer_uv_time_intensity`` with
     ``emission=``, which is what this now calls.

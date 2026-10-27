@@ -168,7 +168,7 @@ _SENSOR_POSITIONS = {
     ),
 )
 def mirnov_spatial_phase(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
-    """Toroidal phase per fluctuation band at one time (issue #485)."""
+    """Toroidal phase per fluctuation band at one time."""
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -184,7 +184,7 @@ def mirnov_spatial_phase(model: Profile1D, *, ax: Axes | None = None, show: bool
     optional_paths=_SENSOR_POSITIONS["flux_loop"] + ("magnetics.flux_loop.{i}.flux.time", "magnetics.time"),
 )
 def flux_loop_spatial_flux(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
-    """Flux-loop flux against sensor position at one time (issue #486).
+    """Flux-loop flux against sensor position at one time.
 
     Interpretation
     --------------
@@ -225,7 +225,7 @@ def flux_loop_spatial_flux(model: Profile1D, *, ax: Axes | None = None, show: bo
     optional_paths=_SENSOR_POSITIONS["b_field_probe"] + ("magnetics.b_field_pol_probe.{i}.field.time", "magnetics.time"),
 )
 def b_field_probe_spatial_field(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
-    """B-probe poloidal field against sensor position at one time (issue #486).
+    """B-probe poloidal field against sensor position at one time.
 
     Interpretation
     --------------
@@ -562,7 +562,7 @@ def ion_temperature_profile(
 
 
 #: What a profile gradient view needs from the equilibrium it is mapped
-#: through (issue #551): the flux map and the axis the midplane radii come from.
+#: through: the flux map and the axis the midplane radii come from.
 _GRADIENT_EQUILIBRIUM_PATHS = (
     "equilibrium.time_slice.{i}.profiles_1d.psi",
     "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
