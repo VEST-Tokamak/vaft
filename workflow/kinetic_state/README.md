@@ -88,7 +88,7 @@ It writes four things:
 - Grid points the Thomson channels do not bracket are flagged `outside_ts_span`.
 - Grid rows are written only when the `core_profiles` grid is the state's own equilibrium slice: the grid is placed by its own flux label (`grid.rho_pol_norm` or `grid.psi`) and its `rho_tor_norm` must agree with the slice's `rho_tor(psi_N)` within `GRID_RHO_TOLERANCE` (0.02). A `sqrt(psi_N)` proxy under `rho_tor_norm`, another equilibrium's coordinate, or a grid with no flux label is refused and `ti_state.csv` carries the reason; the channel rows are unaffected.
 
-**σ(p_EFIT)** is the spread over the shot's other good or admissible magnetics slices within 1 ms, at the same ψ_N. Its floor is 17 %, the KPPCUR model-form uncertainty on the pressure-weighted area found by the EFIT profile-model study (`workflow/efit_profile_models`).
+**σ(p_EFIT)** is the spread over the shot's other good or admissible magnetics slices within 1 ms, at the same ψ_N. Its floor is 17 %, borrowed from the ~17 % profile-model spread of the EFIT plasma area (`workflow/efit_profile_models`); no pressure uncertainty has been measured.
 
 ## Matched single-state inference archives
 

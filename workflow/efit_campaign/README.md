@@ -1,6 +1,6 @@
 # EFIT campaign shot selection
 
-The `statistical_891` EFIT working setting (constraint uncertainty as the only continuous fit scale, channel weights restricted to inclusion; the EFIT default since 2026-10-01) is run over shots chosen for three reasons:
+The `statistical_891` EFIT working setting (the calibrated statistical setting: probe sigma x3.62, flux loop x2.15, 2 % floor, diamagnetic flux fitted at x16, (2,1) basis, psi-only exit; the EFIT default since 2026-10-01) is run over shots chosen for three reasons:
 - **importance**: record-class Ip or a long pulse;
 - **magnetics quality**: like 39915's;
 - **Thomson coverage**: needed for the kinetic lineage.

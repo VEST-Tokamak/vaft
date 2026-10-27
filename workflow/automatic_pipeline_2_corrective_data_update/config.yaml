@@ -51,8 +51,9 @@ composition:
 # (<Z_eff> = 2 and T_i = T_e): the pressure partition's T_i/T_e is ~2 and the
 # resistive Z_eff is identifiable on few shots (Tier A evaluation record, #1842).
 ti_inference:
-  # Relative one-sigma model-form uncertainty of the magnetic EFIT pressure
-  # (the spread across EFIT profile models, record #874), and the window [s] of neighbouring slices whose spread can exceed it.
+  # Relative one-sigma floor on the magnetic EFIT pressure, borrowed from the ~17 %
+  # profile-model spread of the EFIT plasma area (record #874; not a measured pressure
+  # uncertainty), and the window [s] of neighbouring slices whose spread can exceed it.
   floor: 0.17
   window_s: 0.001
 
