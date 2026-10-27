@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "generator": "workflow/particle_motion/run.py",
-  "generated_commit": "7d88478d0d786ddf6f7f4a8cfb659836a2d914e1",
+  "generated_commit": "ab09302d4e95fb28496f8897cfbf8468cebf4699",
   "sources": [
     {
       "path": "vaft/data/particle.py",
