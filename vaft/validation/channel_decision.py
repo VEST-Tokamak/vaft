@@ -7,8 +7,8 @@ acceptance policy and any recovery backend (a physics-constrained GP
 backend is Open: #297) -- and the adapter that writes constraints only
 translates it.  The adapter does not re-derive the decision from unrelated
 inputs (a caller list, the projected validity, a Gaussian fit of its own),
-and the product expresses more than "enabled / disabled / missing" through
-two numbers.
+and the product records one of the states below rather than only
+"enabled / disabled / missing" encoded in two numbers.
 
 A :class:`ChannelDecision` says, for one channel on the consumer's time grid:
 

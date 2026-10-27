@@ -11,10 +11,12 @@ stages worth requesting:
 - ``()`` -- nothing to run; the shot is recorded as excluded.
 
 The four-way physics classification (``daq_missing``, ``vacuum_only``,
-``breakdown_or_burnthrough_failed``, ``success``; :mod:`vaft.omas.shot_class`)
-needs signals the raw inventory alone cannot give.  A classifier that uses it
-plugs in here through ``classifier:`` in the worker configuration; the default
-:class:`RawFieldClassifier` decides only what the inventory can decide.
+``breakdown_or_burnthrough_failed``, ``success``) needs signals the raw
+inventory alone cannot give, and no classifier implements it yet; one would
+plug in here through ``classifier:`` in the worker configuration.
+:mod:`vaft.omas.shot_class` (Plasma / BD failure / Vacuum) is recorded for
+reference only.  The default :class:`RawFieldClassifier` decides only what the
+inventory can decide.
 """
 
 from __future__ import annotations

@@ -13,10 +13,11 @@ results compose into one contract result.  It owns no physics:
 
 * the ordering quantities themselves (``S``, ``d_i/L``, ``Kn``, ...) are defined
   and computed by the formula/process layers;
-* which assumptions a given model makes -- the contracts -- are declared beside
-  the model they describe (the ordering families in
-  :mod:`vaft.validation.orderings`, formulas, codes and workflows in
-  :mod:`vaft.validation.model_contracts`) as :class:`ApproximationContract` objects;
+* which assumptions a given model makes -- the contracts -- are declared as
+  :class:`ApproximationContract` objects: the ordering families in
+  :mod:`vaft.validation.orderings`; which of them a code adapter's formalism
+  consumes is mapped in :mod:`vaft.validation.model_contracts`; contracts for
+  formulas and workflows are not declared yet (Open: #1628);
 * plotting the result is :mod:`vaft.plot`.
 
 Margins first, labels second

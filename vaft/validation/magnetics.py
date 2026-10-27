@@ -254,7 +254,7 @@ class MagneticsQualityConfig:
     array_amplitude_floor: float = 0.01
 
     #: Full-scale input of the digitizer each kind's stored ``voltage`` record
-    #: comes from, in volts: the rail a dead or overdriven channel sits at
+    #: comes from, in volts: the rail a dead or overdriven channel sits at.
     #: Only kinds whose ``voltage`` *is* the raw DAQ record belong
     #: here -- a B-probe's is (``vfit_mirnov_raw_dynamic`` stores it uncalibrated),
     #: a flux loop's is already calibrated, so a volt there is not the
