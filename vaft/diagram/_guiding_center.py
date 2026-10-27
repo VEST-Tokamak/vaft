@@ -1,4 +1,4 @@
-"""Guiding-centre invariants and toroidal symmetry (#1092).
+"""Guiding-centre invariants and toroidal symmetry.
 
 The global view of the orbit physics whose local view is ``curvature_drift``
 and ``toroidal_drift``:
@@ -314,7 +314,7 @@ def toroidal_symmetry_breaking(*, labels: bool = True, trajectory=None, time=Non
     away from resonance $P_\phi$ oscillates with no net change, at
     $\Delta\omega_\mathrm{BH} = 0$ it drifts linearly. The drift of one orbit
     is not NTV; torque and transport need the kinetic response of the whole
-    distribution (#1111).
+    distribution (the NTV regimes are ``ntv_collisionality``).
     """
     if trajectory is not None or time is not None or animation or fps is not None or duration is not None or dpi is not None or not frame_label:
         from ._particle_states import particle_states

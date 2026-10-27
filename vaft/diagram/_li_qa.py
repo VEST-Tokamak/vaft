@@ -1,4 +1,4 @@
-"""Internal inductance against edge q: the empirical and the theoretical l_i-q diagrams (#1422).
+"""Internal inductance against edge q: the empirical and the theoretical l_i-q diagrams.
 
 Two literature pictures share the look of this plane and nothing else:
 
@@ -105,7 +105,7 @@ def li_qa(*, reference: str = "wesson_1989", labels: bool = True) -> Diagram:
         # last-bit floating-point differences, which flipped one printed coordinate (5.029 vs 5.0291)
         chart.curves[boundary.branch] = np.round(xy, 9)
     if reference == "cheng_1987":
-        # the theoretical permissible domain, filled between the two bounds over the range Fig. 4 draws (#1603)
+        # the theoretical permissible domain, filled between the two bounds over the range Fig. 4 draws
         lower, upper = chart.curves["lower"], chart.curves["upper"]
         top = np.interp(lower[:, 0], upper[:, 0], upper[:, 1], left=np.nan, right=np.nan)
         keep = np.isfinite(top)

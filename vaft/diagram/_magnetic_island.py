@@ -697,10 +697,10 @@ def magnetic_island(
     labels : bool
         Title, leaders and explanatory notes.
     time, rotation_frequency : array of float [s], float [Hz], optional
-        A rigid rotation (issue #1053): with ``animation=True``, the island at
+        A rigid rotation: with ``animation=True``, the island at
         each time of ``time``, its phase advancing as
         $\phi_0(t) = \phi_0 + 2\pi f\,(t - t_0)$ from ``phase`` at the first
-        time.  ``f`` is a frequency in Hz -- the rotation of #886
+        time.  ``f`` is a frequency in Hz -- the island phantom's rotation
         (:class:`vaft.process.magnetic_island.MagneticIslandSpec`) takes the angular
         frequency $\omega = 2\pi f$ in rad/s.  A positive ``f`` moves the
         O-points towards $+\theta^*$ on a section, and towards $-\phi$
@@ -708,7 +708,7 @@ def magnetic_island(
         every state comes from the same model; the drawing is never rotated
         as a picture.
     animation : bool
-        ``True`` draws a trajectory instead of one state (issue #1049): either
+        ``True`` draws a trajectory instead of one state: either
         ``phase`` as an array (a helical-phase scan, driver ``phase`` [rad])
         or ``time`` with ``rotation_frequency`` (driver ``time`` [s]).  Exactly
         one trajectory; an array never animates by itself.
@@ -771,7 +771,7 @@ def _animate(
     shape: dict, *, phase: Any, time: Any, rotation_frequency: Any,
     fps: Any, duration: Any, dpi: Any, frame_label: bool,
 ) -> Any:
-    r"""``magnetic_island(..., animation=True)``: one model, a trajectory of its phase (issue #1053).
+    r"""``magnetic_island(..., animation=True)``: one model, a trajectory of its phase.
 
     Each state is the static diagram at that phase -- the same
     :class:`IslandModel`, the same O/X topology and width -- so the
@@ -832,7 +832,7 @@ def _animate(
 
 
 def _check_trajectory(name: str, values: np.ndarray) -> None:
-    """One trajectory: at least two finite states (issue #1049)."""
+    """One trajectory: at least two finite states."""
     if values.size == 0:
         raise ValueError(f"magnetic_island: the {name} trajectory is empty")
     if not np.all(np.isfinite(values)):

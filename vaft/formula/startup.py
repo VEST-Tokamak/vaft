@@ -10,10 +10,10 @@ It then follows the discharge past the avalanche with reduced models only:
 the closed-box burn-through inventory and the radiation-ionisation barrier,
 the Ejiri mirror-orbit confinement factor, the circular self-field, vertical
 field and flux-closure margin, resistivity and the lumped plasma circuit
-(Hirshman inductance, the boundary loop-voltage split, #782), and the ECR
+(Hirshman inductance, the boundary loop-voltage split), and the ECR
 layer.  Two boundaries are deliberate:
 
-* **Not the transformer.**  Romero's transformer identities are #781 in
+* **Not the transformer.**  Romero's transformer identities are in
   :mod:`vaft.formula.transformer`, and the closed-flux volt-second budget is
   :func:`vaft.process.equilibrium.romero_flux_balance`; nothing here budgets
   flux after closure.
@@ -55,7 +55,7 @@ where $k_B$ is the natural constant, and it is not a plasma species.
 :func:`vaft.formula.equilibrium.loop_voltage_from_total_flux` is
 $+2\pi\,\mathrm{d}\psi_b/\mathrm{d}t$ on a per-radian flux, while
 :func:`vaft.formula.equilibrium.toroidal_electric_field` is
-$-\dot\psi/2\pi R$ on a full-weber flux, tracked in #354.  An avalanche does
+$-\dot\psi/2\pi R$ on a full-weber flux.  An avalanche does
 not care which way the field points, so nothing here propagates that
 disagreement: every function below takes $|E_\parallel|$.
 
@@ -748,7 +748,7 @@ def breakdown_margin(E_parallel, E_breakdown):
     ----------
     $E_\parallel$ is used as a **magnitude**.  The two flux-to-voltage kernels
     in :mod:`vaft.formula.equilibrium` disagree on sign as well as on flux
-    normalisation, tracked in #354, so a signed field arriving here cannot be
+    normalisation, so a signed field arriving here cannot be
     trusted to carry the meaning its sign implies.  An avalanche runs in
     whichever direction the field points, so the absolute value is the physics
     rather than a patch over the disagreement.  It does mean this function
@@ -826,7 +826,7 @@ def lloyd_figure_of_merit(E_phi, B_phi, B_p):
     Convention
     ----------
     All three inputs are used as **magnitudes**: the sign of $E_\phi$ depends
-    on the flux kernel (tracked in #354) and the signs of $B_\phi$ and $B_p$ on
+    on the flux kernel and the signs of $B_\phi$ and $B_p$ on
     COCOS and coil polarity, none of which changes whether an avalanche can
     form.  A null ($B_p = 0$) has no finite figure and is returned as ``nan``
     rather than ``inf``, so a map of it keeps a finite colour range.
@@ -2106,12 +2106,12 @@ def boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j(
     positive $V_B$ sustains a positive $I_p$, the same sense as the
     ``V_loop_V`` of
     :func:`plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p`.  VAFT's
-    two flux-to-voltage kernels disagree on both points (#354), so a $V_B$
+    two flux-to-voltage kernels disagree on both points, so a $V_B$
     from a flux map must be brought to this convention before it is compared
     with the sum of these terms.
 
-    $V_B$ is the sum of the four; they are returned apart because #782 asks
-    for the ramp, the shape change and the drive to be inspectable rather than
+    $V_B$ is the sum of the four; they are returned apart so that the
+    ramp, the shape change and the drive stay inspectable rather than being
     folded into one inductive voltage.  The drive and geometry terms are zero
     when no coils are given.  $M_{pj}$ multiplies the *circuit* current, so a
     multi-turn coil's turns belong in $M_{pj}$.

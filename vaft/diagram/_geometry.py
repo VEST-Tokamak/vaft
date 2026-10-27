@@ -1,4 +1,4 @@
-"""Geometric approximations: which geometry, which ordering, and how modes map (#1062).
+"""Geometric approximations: which geometry, which ordering, and how modes map.
 
 ``geometry_ordering_map``
     slab, cylindrical and toroidal geometry on one axis, local / large aspect

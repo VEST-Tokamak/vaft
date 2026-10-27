@@ -6,7 +6,7 @@ That is what the virial relations give, and this module holds them: the
 integral combinations, the closures that solve them in pairs, and the
 diamagnetic parameter the third relation needs.
 
-Split out of :mod:`vaft.formula.equilibrium` (#711), where they were 32 of its
+Split out of :mod:`vaft.formula.equilibrium`, where they were 32 of its
 110 functions and a third of its length while coupling to nothing else in it.
 Every name remains importable from that module.
 
@@ -28,7 +28,7 @@ diamagnetic plasma -- and every closure here takes it. The flux form, produced
 by :func:`virial_muihat_from_Bt_R0_dphi`, is what an EFIT-style diamagnetic
 flux gives; :func:`virial_beta_pd_from_S_mu_rt` is the one consumer written for
 it. Feeding a closure the wrong one shifts the result by ``2*mu_i`` with
-nothing in the number to show it (#546).
+nothing in the number to show it.
 
 A closure whose denominator approaches zero returns NaN rather than a large
 finite number, at the threshold :data:`VIRIAL_SINGULAR_EPS`.
@@ -222,7 +222,7 @@ def virial_stability_criterion(W_mag: float,
 
     The threshold 0.5 has no recorded derivation or source. The scalar virial
     theorem constrains equilibrium, not stability, so a margin against it is
-    not a stability verdict (#366). The ratio itself is the second return of
+    not a stability verdict. The ratio itself is the second return of
     :func:`virial_theorem`. This shim returns the same numbers as before and
     emits a ``DeprecationWarning``.
 
@@ -590,7 +590,7 @@ def virial_beta_p_lao_from_S_mu_rt(
     $E_1$ and $E_2$ alone. A plus sign belongs to the other combination,
     $E_1+E_2$, which eliminates $\mu_i$ in favour of $l_i$ and is what
     :func:`virial_beta_p_from_S_li` evaluates at $R_T/R_0 = 1$. The two are not
-    interchangeable, and confusing them is what this function did until #546.
+    interchangeable, and confusing them is what earlier versions of this function did.
 
     Validity
     --------

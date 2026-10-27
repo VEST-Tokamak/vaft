@@ -20,7 +20,7 @@ other field helpers with ``cocos=13`` ($k = -1/2\pi$, the factor
 ``psi_per_radian=False`` gives
 :func:`vaft.formula.equilibrium.poloidal_field_factor`).  Their default is
 $2\pi$ too large, and ``cocos=11`` has the right size but the opposite
-sign: IMAS flux grows *away* from a positive current (#354).
+sign: IMAS flux grows *away* from a positive current.
 """
 
 import warnings
@@ -60,8 +60,8 @@ def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:
     via :func:`vaft.compat.trapz_compat`); this copy is the one
     ``vaft.formula.trapz_integral`` resolves to, and it is kept because
     ``test_formula_lazy_namespace`` pins that shadowing. The reason it was
-    written -- that importing ``utils`` dragged in scikit-learn -- is gone
-    since #426.
+    written -- that importing ``utils`` dragged in scikit-learn -- is gone: scikit-learn is
+    imported only inside the one fitting branch that needs it.
     """
     return float(trapz_compat(y, x=x))
 
@@ -101,7 +101,7 @@ def calculate_distance(r1: Union[np.ndarray, float], r2: Union[np.ndarray, float
 #: reaches ``vaft.formula.__all__``. Green's functions for axisymmetric ring sources, and coil inductances.
 #: Declared so the package stops re-exporting this module's own imports --
 #: ``np``, ``warnings``, ``Union``, ``curve_fit`` -- as though they were
-#: formulas (#368).
+#: formulas.
 __all__ = [
     "GREEN_EXACT_MODES",
     "calculate_distance",
@@ -284,8 +284,7 @@ def greens_function_3d(R: np.ndarray,
 
     That $\Delta\varphi = 0$ reduction is the one property worth relying on.
     Away from it the expression decays with toroidal separation in a way that
-    has no recorded derivation, so it should not be read as a field. Tracked in
-    #356: it needs either a derivation or a replacement, and it has no
+    has no recorded derivation, so it should not be read as a field. It needs either a derivation or a replacement, and it has no
     production caller today.
 
     References
@@ -422,9 +421,9 @@ def elliptic_integral(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src:
 
     Limitations
     -----------
-    $\ln(1/m_1)$ diverges at a coincident observer and source and a warning is
-    emitted with a bare ``print`` rather than ``warnings.warn`` (tracked in
-    #356); :func:`greens_function_exact` uses scipy's exact integrals instead.
+    $\ln(1/m_1)$ diverges at a coincident observer and source; there a
+    ``RuntimeWarning`` is emitted and ``nan`` returned.
+    :func:`greens_function_exact` uses scipy's exact integrals instead.
 
     References
     ----------
@@ -562,10 +561,10 @@ def green_br_bz(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float
 
     Limitations
     -----------
-    Divides by $(r - r_0)^2 + (z - z_0)^2$ and by $r_{obs}$ without guards, so
-    a coincident point or an on-axis observer gives ``inf``/``nan`` (the
-    callers' shifted-evaluation scheme avoids exact coincidence).  Tracked in
-    #356.
+    A coincident observer and source returns ``nan`` with a
+    ``RuntimeWarning``, as :func:`green_br_bz_exact` does; an on-axis observer
+    ($r_{obs} = 0$) gets $B_r = 0$ and the closed-form on-axis $B_z$ of a loop.
+    The callers' shifted-evaluation scheme avoids exact coincidence.
 
     References
     ----------
@@ -635,7 +634,7 @@ def green_br_bz(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float
 # ------------------------------------------------------------------
 # Exact Green's functions (scipy elliptic integrals) and coil inductances
 #
-# Additive API (see issue #219): the approximate `elliptic_integral` /
+# Additive API: the approximate `elliptic_integral` /
 # `green_r` / `green_br_bz` above are kept unchanged for backward
 # compatibility; the functions below use scipy's exact K/E and support
 # full NumPy broadcasting over observation and source coordinates.
@@ -843,7 +842,7 @@ def green_psi_exact(r_obs, z_obs, r_src, z_src) -> np.ndarray:
     :func:`green_r`.  The per-radian flux of an EFIT g-file or of
     :func:`vaft.formula.equilibrium.poloidal_field_factor` with ``cocos=None``
     is this divided by $2\pi$; mixing the two silently mis-scales fields by
-    $2\pi$.  Tracked in #354.
+    $2\pi$.
 
     References
     ----------
@@ -1161,7 +1160,7 @@ def green_r(r_obs: np.ndarray, z_obs: np.ndarray, r_src: float, z_src: float) ->
     ----------
     Full weber ($\psi = \mu_0 G$, identical to :func:`green_psi_exact` up to
     the elliptic-integral approximation); divide by $2\pi$ before combining
-    with the per-radian equilibrium helpers.  Tracked in #354.
+    with the per-radian equilibrium helpers.
 
     Limitations
     -----------

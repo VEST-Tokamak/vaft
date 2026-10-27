@@ -98,7 +98,8 @@ _IMPORT_ORDER = (
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in
 #: ``_SUBMODULES``: joining that map would put ``catalog`` into ``__all__`` and
-#: make the star import load it, which is exactly what issue #248 forbids.
+#: make the star import load it, and importing ``vaft.formula`` must never
+#: load the optional discovery layer.
 _CATALOG_NAMES = frozenset(
     {"catalog", "FormulaSpec", "describe", "search", "list_formulas", "categories", "show"}
 )

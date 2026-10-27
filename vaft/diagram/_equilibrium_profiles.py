@@ -1,4 +1,4 @@
-"""Current-profile and safety-factor topology: shapes, l_i, q landmarks, rational surfaces (#1604).
+"""Current-profile and safety-factor topology: shapes, l_i, q landmarks, rational surfaces.
 
 ``current_profile_shapes``
     peaked, broad and hollow current at the same $I_p$:

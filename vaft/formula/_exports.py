@@ -1,15 +1,15 @@
 """How a formula submodule decides what it publishes.
 
 A hand-written ``__all__`` is a second list to keep in step with the code, and
-it does not stay in step: #711 found seven functions that `develop` had added
-to ``equilibrium`` and ``utils`` while a branch held a stale copy, which
+it does not stay in step: a branch holding a stale copy once dropped seven
+functions that `develop` had added to ``equilibrium`` and ``utils`` while a branch held a stale copy, which
 dropped them out of ``vaft.formula``'s resolvable surface while the catalog
 still listed them.
 
 Deriving the list removes that failure mode for the case it actually happens
 in -- someone adds a function -- while keeping the one thing the hand-written
 list was for: not re-exporting a module's own imports, so ``np``, ``Union``
-and ``curve_fit`` stay out of ``vaft.formula.__all__`` (#368).
+and ``curve_fit`` stay out of ``vaft.formula.__all__``.
 
 Constants stay explicit.  A float carries no ``__module__``, so nothing can
 tell ``MU0`` defined here from ``MU0`` imported from ``.constants``; naming
@@ -52,8 +52,9 @@ def public_names(namespace: Mapping[str, Any], *, constants: Iterable[str] = ())
 
     Provenance
     ----------
-    .. [1] Issue #368 for excluding a module's own imports, and #711 for the
-       stale-list failure this removes.
+    .. [1] Excluding a module's own imports keeps ``np``, ``Union`` and
+       ``curve_fit`` out of ``vaft.formula.__all__``; deriving the list removes
+       the stale-list failure described in the module docstring.
     """
     module = namespace["__name__"]
     missing = [name for name in constants if name not in namespace]

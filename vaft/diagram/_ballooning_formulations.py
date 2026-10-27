@@ -1,4 +1,4 @@
-"""Reduced and full-geometry high-$n$ ballooning formulations side by side (#1637).
+"""Reduced and full-geometry high-$n$ ballooning formulations side by side.
 
 ``ballooning_formulation_hierarchy``
     the general local ballooning equation; the chain of approximations that

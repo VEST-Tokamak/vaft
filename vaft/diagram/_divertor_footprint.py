@@ -1,4 +1,4 @@
-"""Divertor heat-flux footprint: an Eich target profile mapped onto a diverted equilibrium (#1209).
+"""Divertor heat-flux footprint: an Eich target profile mapped onto a diverted equilibrium.
 
 The geometry comes from the equilibrium: the X-point, the separatrix legs,
 the strike point on a horizontal target, and the total flux expansion from

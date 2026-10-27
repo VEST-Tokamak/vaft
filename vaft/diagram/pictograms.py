@@ -1,4 +1,4 @@
-"""Semantic vector pictograms (#2101).
+"""Semantic vector pictograms.
 
 A pictogram is a small stroke drawing that names a *kind of thing* -- a database, a solver, a
 researcher -- so a concept diagram reads at a glance. It is a presentation component, not a
@@ -544,7 +544,7 @@ def corner(box, size: float = 0.62, *, dip: float = 0.15) -> Point:
 
 
 def pictogram_catalog(*, labels: bool = True):
-    """Every registered pictogram with its display name and identifier: the symbol gallery (#2101).
+    """Every registered pictogram with its display name and identifier: the symbol gallery.
 
     ``labels=False`` draws the symbols alone.
     """

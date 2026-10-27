@@ -25,7 +25,7 @@ QE                       : elementary charge                         [C]
 ME                       : electron mass                             [kg]
 MI_P                     : proton mass                               [kg]
 E_ALPHA                  : D-T alpha particle birth energy, 3.5 MeV  [J]
-SIGMA_V_COEF             : prefactor of the rough D-T reactivity fit 1.1e-24 T_keV^2, deprecated (#360)  [m^3/s/keV^2]
+SIGMA_V_COEF             : prefactor of the rough D-T reactivity fit 1.1e-24 T_keV^2, deprecated  [m^3/s/keV^2]
 SPITZER_RESISTIVITY_COEF : prefactor of eta = 5.2e-5 Z_eff ln(Lambda) / T_eV^1.5  [Ohm m eV^1.5]
 COLLISIONALITY_COEF      : prefactor of the IPB98 nu_star = 6.921e-18 n_19 R / (T_keV^2 B_t) form  [-]
 
@@ -42,7 +42,7 @@ import numpy as np
 # Electromagnetic constants
 
 #: The physical constants this module publishes. Declared so ``np`` does not
-#: reach ``vaft.formula.__all__`` as though it were one of them (#368).
+#: reach ``vaft.formula.__all__`` as though it were one of them.
 __all__ = [
     "AMU",
     "COLLISIONALITY_COEF",
@@ -73,7 +73,7 @@ AMU = 1.66053906660e-27     # [kg] - Atomic mass unit (CODATA 2018)
 
 # Fusion related constants
 E_ALPHA = 3.5e6 * QE        # [J] - Alpha particle energy
-SIGMA_V_COEF = 1.1e-24      # [m³ s⁻¹ keV⁻²] - D-T <sigma v> / T_keV² (deprecated fit, #360)
+SIGMA_V_COEF = 1.1e-24      # [m³ s⁻¹ keV⁻²] - D-T <sigma v> / T_keV² (deprecated fit)
 
 # Transport coefficients
 SPITZER_RESISTIVITY_COEF = 5.2e-5  # [Ω·m] - Spitzer resistivity coefficient
@@ -82,7 +82,7 @@ COLLISIONALITY_COEF = 6.921e-18    # [-] - Collisionality coefficient
 # Fundamental constants the bremsstrahlung prefactor is built from. They lived
 # as lower-case module-level names inside equilibrium.py, where they duplicated
 # QE/ME/EPS0 above and leaked into `vaft.formula.__all__` -- `vaft.formula.e`
-# was the elementary charge (#368).
+# was the elementary charge.
 C_LIGHT = 299792458.0       # [m s⁻¹] - Speed of light in vacuum
 H_PLANCK = 6.62607015e-34   # [J s] - Planck constant
 K_BOLTZMANN = 1.380649e-23  # [J K⁻¹] - Boltzmann constant
@@ -405,7 +405,7 @@ _SCALING_COEFS = {
 }
 
 # -----------------------------------------------------------------------------
-# Energy and power basis of every confinement scaling (issue #1713)
+# Energy and power basis of every confinement scaling
 #
 # A published scaling predicts one specific confinement time: the *thermal*
 # tau_E,th = W_th / P (thermal stored energy only) or the *global* tau_E =
