@@ -16693,11 +16693,10 @@ _GRADIENT_GRIDS = (
 
 #: How far a stored ``grid.rho_tor_norm`` may sit from the map's own
 #: q-integrated ``rho_tor_norm`` on the same surfaces and still be read as the
-#: toroidal-flux radius.  The map's integral phi = int q dpsi is sensitive to
-#: q near the magnetic axis, where the packaged kineticEfit 48224 reference is
-#: unreliable within psi_N < 0.05; that puts it 0.037 from the EFIT-stored grid
-#: of that sample, while the sqrt(psi_N) proxy of older files is 0.11 or more
-#: away.
+#: toroidal-flux radius.  The map's integral phi = int q dpsi inherits the
+#: packaged kineticEfit 48224 sample's outlier q[0] (8.07, about 4x its
+#: neighbours), which puts it 0.037 from that sample's EFIT-stored grid near the
+#: axis; the sqrt(psi_N) proxy of older files is 0.11 or more away.
 RHO_TOR_GRID_TOLERANCE = 0.05
 
 #: The view's own defaults: drawn against rho_tor_norm, differentiated along

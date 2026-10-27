@@ -23,8 +23,8 @@ from vaft.process.magnetics import (
 
 #: Two phase-reference channels that are distinct acquisitions.
 #: ``MagneticFieldProbe_C2-05_Bz`` (DAQ field 171) is not a candidate: the
-#: equilibrium probes already read that field, so it is not published as a
-#: phase reference.  Like every phase reference these exist only up to shot
+#: equilibrium probes already read that field, so it is no longer published as
+#: a phase reference (replicas mapped earlier still carry it).  Like every phase reference these exist only up to shot
 #: 35520.
 _DEFAULT_TOROIDAL_REFERENCE_PAIR = (
     "OutMirnov_530_Bz:phase_reference",

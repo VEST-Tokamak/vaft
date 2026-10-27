@@ -76,8 +76,9 @@ class ControlSpec:
     #: passed; ``theme="none"`` is the absence of a theme.
     absent: Any = None
     #: ``True`` where the ``"none"`` choice of a builder option is itself a
-    #: value to pass -- ``reference_length="none"`` selects the dimensional
-    #: gradient ``-d ln f/dr`` -- rather than the absence of the option.
+    #: value to pass -- ``reference_length="none"`` selects the unnormalized
+    #: gradient ``-d ln f/dx`` along ``gradient_coordinate`` -- rather than the
+    #: absence of the option.
     keeps_none: bool = False
 
     def __post_init__(self) -> None:

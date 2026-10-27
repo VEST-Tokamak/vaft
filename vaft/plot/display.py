@@ -5,7 +5,7 @@ IMAS owns canonical storage units; this module owns how those values are
 unit a subject prefers, how scaled axes (``n_e [10^18 m^-3]``) and scientific
 notation are chosen, and the canonical title / channel-label grammar.
 
-Three separate concepts, never derived from one another:
+Three separate concepts (a unit fixes its scale; notation is chosen independently):
 
 ``unit``
     the axis bracket text, e.g. ``kA`` or ``10^18 m^-3``;
