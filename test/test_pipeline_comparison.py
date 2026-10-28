@@ -278,3 +278,31 @@ def test_stability_overview_keys_pipeline_and_mode_once():
     assert [ax.get_title() for ax in axes] == ["Ideal MHD stability (DCON)", "Resistive MHD stability (RDCON)"]
     assert not any("n=" in t or "n =" in t for t in texts)
     plt.close(fig)
+
+
+def test_thomson_channels_coloured_by_pipeline_with_band_and_references():
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    from vaft.plot.pipeline_comparison import SIDE_STYLE, pipeline_comparison_thomson
+
+    channels = pd.DataFrame({
+        "side": ["legacy", "legacy", "current", "current", "current"],
+        "pair_id": ["1:0", "1:0", "1:0", "1:0", None],
+        "p_e": [100.0, 200.0, 100.0, 200.0, 300.0],
+        "p_recon": [20.0, 30.0, 180.0, -5.0, 500.0],
+    })
+    fig, ax = pipeline_comparison_thomson(channels, format="legacy")
+    offsets = {c.get_label(): c.get_offsets() for c in ax.collections if c.get_label() in ("Legacy archive", "Current pipeline")}
+    assert len(offsets["Legacy archive"]) == 2
+    assert len(offsets["Current pipeline"]) == 1  # the -5 Pa channel is counted, the unpaired one dropped
+    colors = {c.get_label(): tuple(c.get_facecolor()[0][:3]) for c in ax.collections if c.get_label() in offsets}
+    assert colors["Legacy archive"] != colors["Current pipeline"]
+    labels = [t.get_text() for t in ax.get_legend().get_texts()]
+    assert r"$p_{EFIT}=2p_e$" in labels and r"$p_{EFIT}=p_e$" in labels
+    assert any("not shown: legacy 0, current 1" in t.get_text() for t in ax.texts)
+    assert ax.get_xscale() == "log" and ax.get_title() == "Matched Thomson channels"
+    plt.close(fig)
+    fig, ax = pipeline_comparison_thomson(channels, paired_only=False, format="legacy")
+    assert len([c for c in ax.collections if c.get_label() == "Current pipeline"][0].get_offsets()) == 2
+    plt.close(fig)

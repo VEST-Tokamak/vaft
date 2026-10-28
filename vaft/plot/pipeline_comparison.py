@@ -36,6 +36,7 @@ __all__ = [
     "pipeline_comparison_scorecard",
     "pipeline_comparison_stability",
     "pipeline_comparison_stability_overview",
+    "pipeline_comparison_thomson",
     "pipeline_comparison_virial",
 ]
 
@@ -569,6 +570,65 @@ def pipeline_comparison_stability_overview(w_t: pd.DataFrame, delta_prime: pd.Da
     if show:
         plt.show()
     return fig, axes
+
+
+@presented(default_figsize=(6.3, 5.5))
+def pipeline_comparison_thomson(channels: pd.DataFrame, *, by: str = "side", paired_only: bool = True,
+                                ax=None, show: bool = False, figsize=None, format: str | None = None,
+                                theme: str | None = None, limits=None):
+    """EFIT pressure at each matched Thomson channel against ``2 p_e``, legacy and current.
+
+    The view of :func:`vaft.plot.kinetic_state.kinetic_state_pressure_comparison`
+    with the pipeline as the colour: the band ``p_e <= p_EFIT <= 2 p_e``
+    (``x/2 <= y <= x`` for ``x = 2 p_e``), ``p_EFIT = 2 p_e`` dashed and
+    ``p_EFIT = p_e`` dotted, on log axes. ``channels`` is the comparison's
+    ``thomson_channels`` table (``side``, ``pair_id``, ``p_e``, ``p_recon`` in
+    Pa). ``paired_only`` keeps the slices matched by time on both sides. A
+    channel with a non-positive pressure has no place on a log axis; it is
+    counted on the panel, not dropped silently. The figure grades no point.
+    """
+    import matplotlib.pyplot as plt
+
+    data = channels[channels["pair_id"].notna()] if paired_only else channels
+    x_all = 2.0 * pd.to_numeric(data["p_e"], errors="coerce").to_numpy(float)
+    y_all = pd.to_numeric(data["p_recon"], errors="coerce").to_numpy(float)
+    positive = np.isfinite(x_all) & np.isfinite(y_all) & (x_all > 0) & (y_all > 0)
+    if not positive.any():
+        raise ValueError("Thomson comparison needs positive finite matched-channel pressures")
+    if limits is None:
+        values = np.r_[x_all[positive], y_all[positive]]
+        limits = (float(values.min()) / 1.3, float(values.max()) * 1.3)
+    limits = _limits(limits)
+    if limits[0] <= 0:
+        raise ValueError("logarithmic limits must be positive")
+    fig, ax = _axes(ax, figsize or (6.3, 5.5))
+    font_scale = plt.rcParams["font.size"] / 10.0
+    hidden = []
+    for layer, side in enumerate(SIDES, start=1):
+        rows = (data[by] == side).to_numpy()
+        if not rows.any():
+            continue
+        inside = positive & (x_all >= limits[0]) & (x_all <= limits[1]) & (y_all >= limits[0]) & (y_all <= limits[1])
+        use = rows & inside
+        hidden.append(f"{COMPARISON_LABELS[side].split()[0].lower()} {int((rows & ~inside).sum()):,}")
+        style = SIDE_STYLE[side]
+        ax.scatter(x_all[use], y_all[use], s=19 * font_scale ** 2, marker=style["marker"], color=style["color"],
+                   alpha=0.62, linewidths=0, zorder=layer + 1, label=COMPARISON_LABELS[side])
+    grid = np.geomspace(*limits, 100)
+    ax.fill_between(grid, grid / 2, grid, color="gray", alpha=0.14, zorder=1, label=r"$p_e \leq p_{EFIT} \leq 2p_e$")
+    ax.plot(grid, grid / 2, color="0.4", ls=":", lw=1.2 * font_scale, label=r"$p_{EFIT}=p_e$", zorder=4)
+    ax.plot(grid, grid, color=INK, ls="--", lw=1.2 * font_scale, label=r"$p_{EFIT}=2p_e$", zorder=4)
+    if any(not h.endswith(" 0") for h in hidden):
+        ax.text(0.97, 0.03, "not shown: " + ", ".join(hidden), transform=ax.transAxes, ha="right", va="bottom",
+                color=MUTED, fontsize=plt.rcParams["font.size"] * 0.75, zorder=6,
+                bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.8, "pad": 1.0})
+    ax.set(xscale="log", yscale="log", xlim=limits, ylim=limits,
+           xlabel=r"$2p_e$ from Thomson [Pa]", ylabel=r"$p_{EFIT}$ at TS channel [Pa]",
+           title="Matched Thomson channels")
+    ax.set_aspect("equal", adjustable="box")
+    ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(1.02, 1.0))
+    _finish(fig, show)
+    return fig, ax
 
 
 def pipeline_comparison_scorecard(
