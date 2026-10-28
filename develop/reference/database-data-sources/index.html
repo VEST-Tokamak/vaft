@@ -1,0 +1,1780 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Database and data sources · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/develop/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/develop/guide/Quick_start_guide/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/imas-concepts/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="getting-started">Getting started</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="architecture">Framework and scientific architecture</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-contracts" data-path="/vaft/develop/reference/scientific-contracts/">
+                    
+                        <a href="/vaft/develop/reference/scientific-contracts/" onclick="pageScrollToTop(this)">Scientific contracts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="plasma-physics">Plasma physics and models</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.plasma-model-guide" data-path="/vaft/develop/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/develop/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.particle-motion" data-path="/vaft/develop/guide/particle-motion/">
+                    
+                        <a href="/vaft/develop/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.gyrokinetic-results" data-path="/vaft/develop/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="vest-imas-data">VEST and IMAS data</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.vest-imas-data.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="apis-visualization">APIs and visualization</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.animation-reference" data-path="/vaft/develop/reference/animation/">
+                    
+                        <a href="/vaft/develop/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="software-integrations">Software and integrations</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="resources">Resources and support</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Database and data sources</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>19835e9</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Database">Database and data sources</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>I/O boundary for HSDS, FileDB/local IMAS images, packaged data, and raw SQL signals.</dd>
+    <dt>Prerequisites / inputs</dt><dd>Packaged data for offline use or h5pyd configuration for public HSDS reads.</dd>
+    <dt>Expected result</dt><dd>An eager or lazy ODS, native IDS, local file result, or raw waveform without implicit writes.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.database</code> is the I/O layer of VAFT. It has <strong>two independent back-ends</strong>, and knowing which one
+you are talking to explains almost every argument on this page:</p>
+
+<h2 id="cross-shot-parameter-history">Cross-shot parameter history</h2>
+
+<p>Canonical summary tables include <code class="language-plaintext highlighter-rouge">shot</code> and <code class="language-plaintext highlighter-rouge">pulse_time_begin</code>, followed by
+the preset’s quantities. The acquisition timestamp comes from
+<code class="language-plaintext highlighter-rouge">dataset_description.pulse_time_begin</code>; older shots may have no timestamp.</p>
+
+<!-- docs-snippet: skip needs-database (summarises a shot range from a VEST database source) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">summary</span><span class="p">((</span><span class="mi">38000</span><span class="p">,</span> <span class="mi">46000</span><span class="p">),</span> <span class="n">preset</span><span class="o">=</span><span class="sh">"</span><span class="s">shot_overview</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">plot_parameter_history</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="sh">"</span><span class="s">max_ip_kA</span><span class="sh">"</span><span class="p">,</span> <span class="n">secondary_x</span><span class="o">=</span><span class="sh">"</span><span class="s">date</span><span class="sh">"</span>
+<span class="p">)</span>
+
+<span class="c1"># Show elapsed calendar time geometrically, with shot labels above it.
+</span><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">plot</span><span class="p">.</span><span class="nf">plot_parameter_history</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="sh">"</span><span class="s">max_ip_kA</span><span class="sh">"</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="sh">"</span><span class="s">date</span><span class="sh">"</span><span class="p">,</span> <span class="n">secondary_x</span><span class="o">=</span><span class="sh">"</span><span class="s">shot</span><span class="sh">"</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<p>Shot number and acquisition time are different campaign coordinates. The
+secondary axis labels recorded observations; it does not assume a globally
+linear transformation between shot and date. Date-primary plots omit rows
+without acquisition timestamps. Summaries with several rows per shot retain
+every row; select the desired time slices in the DataFrame before plotting.</p>
+
+<p>The same tables can be built offline from in-memory ODS, for example the packaged samples:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">samples</span> <span class="o">=</span> <span class="p">{</span><span class="n">shot</span><span class="p">:</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">(</span><span class="n">shot</span><span class="p">)</span> <span class="k">for</span> <span class="n">shot</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="mi">41672</span><span class="p">)}</span>
+<span class="n">slices</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">summary</span><span class="p">(</span><span class="n">odss</span><span class="o">=</span><span class="n">samples</span><span class="p">,</span> <span class="n">preset</span><span class="o">=</span><span class="sh">"</span><span class="s">equilibrium_global</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">slices</span><span class="p">.</span><span class="n">attrs</span><span class="p">[</span><span class="sh">"</span><span class="s">skipped</span><span class="sh">"</span><span class="p">]</span>        <span class="c1"># [{"shot": ..., "reason": ...}] for shots the preset could not run on
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">summary(odss=...)</code> (also <code class="language-plaintext highlighter-rouge">vaft.database.summary_from_ods</code>) runs the same extractor, shot-level
+columns, column order and sort as the database path, so a shot gives the same table either way. It
+takes a <code class="language-plaintext highlighter-rouge">{shot: ods}</code> mapping or ODS objects that record <code class="language-plaintext highlighter-rouge">dataset_description.data_entry.pulse</code>.
+Each extractor sees a private copy of only the IDS the preset reads, exactly as the database path’s
+<code class="language-plaintext highlighter-rouge">open(..., paths=...)</code> view does, so the caller’s ODS is not modified and an IDS outside the preset
+does not change the result. A preset IDS the ODS lacks is absent offline; on the database path it
+fails only when first read, so an extractor that tolerates the missing IDS gives the same row either
+way. <code class="language-plaintext highlighter-rouge">source</code> (default
+<code class="language-plaintext highlighter-rouge">"local"</code>) only labels the <code class="language-plaintext highlighter-rouge">source</code>/<code class="language-plaintext highlighter-rouge">equilibrium_source</code> columns. Both paths list the shots they
+skipped, with the reason, in <code class="language-plaintext highlighter-rouge">attrs["skipped"]</code>.</p>
+
+<h2 id="transport-summary-hierarchy">Transport summary hierarchy</h2>
+
+<p><code class="language-plaintext highlighter-rouge">equilibrium_global</code> and <code class="language-plaintext highlighter-rouge">core_profiles</code> describe their respective time
+slices. <code class="language-plaintext highlighter-rouge">neoclassical</code> summarizes bootstrap current from canonical
+<code class="language-plaintext highlighter-rouge">core_profiles</code>, one row per slice. Each row also carries the NEO <code class="language-plaintext highlighter-rouge">core_transport</code>
+slice that corresponds to it (#1655):</p>
+
+<ul>
+  <li><strong>Status column.</strong> <code class="language-plaintext highlighter-rouge">transport_match_status</code> names the result.</li>
+  <li>
+    <table>
+      <tbody>
+        <tr>
+          <td><strong>When the descriptors fill.</strong> The flux descriptors (<code class="language-plaintext highlighter-rouge">q_e</code>/<code class="language-plaintext highlighter-rouge">q_i</code>/<code class="language-plaintext highlighter-rouge">gamma_e</code> point counts, finite <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> coverage,</td>
+          <td>peak</td>
+          <td>, <code class="language-plaintext highlighter-rouge">transport_rho_grid_*</code>) are filled only when the status is <code class="language-plaintext highlighter-rouge">matched</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+  </li>
+  <li><strong>When a row is <code class="language-plaintext highlighter-rouge">matched</code>.</strong> All of these must hold:
+    <ul>
+      <li>exactly one <code class="language-plaintext highlighter-rouge">core_transport</code> model is neoclassical (identifier 5);</li>
+      <li>exactly one of its slices lies within 1 us of the bootstrap slice’s own time;</li>
+      <li>both IDSs name NEO as producer, with the same revision when both record one.</li>
+    </ul>
+  </li>
+  <li><strong>Failure statuses.</strong> <code class="language-plaintext highlighter-rouge">bootstrap_time_unknown</code>, <code class="language-plaintext highlighter-rouge">no_neoclassical_model</code>, <code class="language-plaintext highlighter-rouge">ambiguous_models</code>, <code class="language-plaintext highlighter-rouge">no_slice_at_time</code>, <code class="language-plaintext highlighter-rouge">ambiguous_slices</code>, <code class="language-plaintext highlighter-rouge">producer_mismatch</code> and <code class="language-plaintext highlighter-rouge">no_flux_grid</code>.</li>
+  <li><strong>No fallbacks.</strong> The first model and the nearest time are never chosen.</li>
+  <li><strong>Unmatched rows.</strong> They keep their bootstrap columns.</li>
+  <li><strong>State identity.</strong> The NEO mappers store no resolved-state identity in either IDS (only the stage manifest carries <code class="language-plaintext highlighter-rouge">state_sha256</code>), so the state is matched through time and producer.</li>
+  <li><strong>Missing versus zero.</strong> Unmatched rows leave every flux descriptor missing (NaN), point counts included; a 0 count means a matched slice without that channel.</li>
+  <li><strong>Source.</strong> The <code class="language-plaintext highlighter-rouge">source</code> column records the occurrence. The preset key stays <code class="language-plaintext highlighter-rouge">(shot, cp_index)</code>, as before, so an upsert of tables from two sources into one file still replaces by <code class="language-plaintext highlighter-rouge">(shot, cp_index)</code>. Keep one file per source, or pass <code class="language-plaintext highlighter-rouge">key_columns</code> with <code class="language-plaintext highlighter-rouge">source</code> to <code class="language-plaintext highlighter-rouge">export_summary</code>.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">turbulent_transport</code> summarizes anomalous models already
+stored in canonical <code class="language-plaintext highlighter-rouge">core_transport</code>: one row per shot, model entry, and time
+slice. It reads no TGLF or CGYRO native output and does not combine models.</p>
+
+<!-- docs-snippet: skip needs-database (summarises a shot range from a VEST database source) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">transport</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">summary</span><span class="p">((</span><span class="mi">39915</span><span class="p">,</span> <span class="mi">39916</span><span class="p">),</span> <span class="n">preset</span><span class="o">=</span><span class="sh">"</span><span class="s">turbulent_transport</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">transport</span><span class="p">[[</span><span class="sh">"</span><span class="s">shot</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">time_s</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">source</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">model_index</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">rho_grid_min</span><span class="sh">"</span><span class="p">,</span>
+           <span class="sh">"</span><span class="s">rho_grid_max</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">q_e_peak_abs_W_m2</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">q_i_peak_abs_W_m2</span><span class="sh">"</span><span class="p">]]</span>
+</code></pre></div></div>
+
+<p>The peak columns are maxima of the <em>absolute</em> mapped SI flux over finite
+<code class="language-plaintext highlighter-rouge">rho_tor_norm</code> grid points, not full radial profiles. <code class="language-plaintext highlighter-rouge">rho_grid_min/max</code>
+describe the stored grid; <code class="language-plaintext highlighter-rouge">rho_q_e_min/max</code>, <code class="language-plaintext highlighter-rouge">rho_q_i_min/max</code>, and
+<code class="language-plaintext highlighter-rouge">rho_gamma_e_min/max</code> describe the finite coverage of each reported flux
+channel. Each channel also has a point count. <code class="language-plaintext highlighter-rouge">q_i</code> sums all recorded ion species
+at each point only when every ion flux is present. <code class="language-plaintext highlighter-rouge">parameters_text_sha256</code>
+identifies exact stored <code class="language-plaintext highlighter-rouge">model.code.parameters</code> text, when present; it is not a
+configuration-equivalence key because the text can include state-specific
+provenance. <code class="language-plaintext highlighter-rouge">configuration_status=not_standardized</code> makes that limit explicit.
+The current TGLF mapper reuses its anomalous model slot and does not persist
+SAT/field settings there, so comparisons across settings need the upstream
+run record until that mapping contract is extended.
+<code class="language-plaintext highlighter-rouge">classical_transport</code> summarizes the classical (Braginskii) baseline of #1435
+once <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.classical.core_transport_from_classical</code> has written it
+to <code class="language-plaintext highlighter-rouge">core_transport</code> (#1654). The data dictionary has no classical identifier, so
+the entry uses the private index <code class="language-plaintext highlighter-rouge">-1</code> with the name <code class="language-plaintext highlighter-rouge">classical</code>, and both are
+required. One entry holds one formulation and one EFIT lineage, and every time
+slice names its resolved <code class="language-plaintext highlighter-rouge">state_identity</code> in <code class="language-plaintext highlighter-rouge">code.parameters</code>. Rows therefore
+never mix states, lineages or formulations. The mapper refuses a write without a
+<code class="language-plaintext highlighter-rouge">state_identity</code>, and a second, different state at a time already written.
+<code class="language-plaintext highlighter-rouge">configuration_status</code> is <code class="language-plaintext highlighter-rouge">state_unrecorded</code> or <code class="language-plaintext highlighter-rouge">unrecorded</code> when the record is
+missing. The classical mapper marks <code class="language-plaintext highlighter-rouge">core_transport</code> heterogeneous
+(<code class="language-plaintext highlighter-rouge">homogeneous_time = 0</code>), because its slice indices are per entry; the NEO, TGLF
+and gyrokinetics mappers keep that 0, since each of their slices also carries its
+own time.</p>
+
+<p>What each source field means, and where it goes:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th><code class="language-plaintext highlighter-rouge">classical_heat_fluxes</code> field</th>
+      <th>Meaning</th>
+      <th><code class="language-plaintext highlighter-rouge">core_transport</code> leaf</th>
+      <th>Summary column</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">electron_energy_flux_W_m2</code></td>
+      <td>Perpendicular conductive heat flux of the stated model, <code class="language-plaintext highlighter-rouge">q = -kappa dT/dr</code>, positive down the gradient</td>
+      <td><code class="language-plaintext highlighter-rouge">electrons.energy.flux</code> on <code class="language-plaintext highlighter-rouge">grid_flux</code></td>
+      <td><code class="language-plaintext highlighter-rouge">q_e_peak_abs_W_m2</code>, <code class="language-plaintext highlighter-rouge">q_e_points</code>, <code class="language-plaintext highlighter-rouge">rho_q_e_min/max</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ion_energy_flux_W_m2</code> (<code class="language-plaintext highlighter-rouge">z=&lt;charge&gt;</code>)</td>
+      <td>The same flux for the main ion only</td>
+      <td><code class="language-plaintext highlighter-rouge">ion.0.energy.flux</code>, <code class="language-plaintext highlighter-rouge">ion.0.z_ion</code></td>
+      <td><code class="language-plaintext highlighter-rouge">q_i_peak_abs_W_m2</code>, <code class="language-plaintext highlighter-rouge">q_i_points</code>, <code class="language-plaintext highlighter-rouge">rho_q_i_min/max</code>, <code class="language-plaintext highlighter-rouge">main_ion_z</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">chi_e_m2_s</code>, <code class="language-plaintext highlighter-rouge">chi_i_m2_s</code></td>
+      <td>The model’s diffusivity, with <code class="language-plaintext highlighter-rouge">q = n chi (-dT/dr)</code>: a coefficient, not a flux</td>
+      <td><code class="language-plaintext highlighter-rouge">energy.d</code> on <code class="language-plaintext highlighter-rouge">grid_d</code></td>
+      <td><code class="language-plaintext highlighter-rouge">chi_e_max_m2_s</code>, <code class="language-plaintext highlighter-rouge">chi_i_max_m2_s</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">electron_particle_flux_m2_s</code> (<code class="language-plaintext highlighter-rouge">None</code>)</td>
+      <td>Not evaluated by the model</td>
+      <td>not written</td>
+      <td><code class="language-plaintext highlighter-rouge">particle_flux_status = not_evaluated</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tau_e_s</code>, <code class="language-plaintext highlighter-rouge">tau_i_s</code>, <code class="language-plaintext highlighter-rouge">coulomb_logarithm*</code>, <code class="language-plaintext highlighter-rouge">gamma1_perp</code>, <code class="language-plaintext highlighter-rouge">b_tesla</code></td>
+      <td>Diagnostics of the evaluation</td>
+      <td>not written (no definitional home)</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">model</code> (<code class="language-plaintext highlighter-rouge">CLASSICAL_MODEL</code>)</td>
+      <td>Formulation text</td>
+      <td><code class="language-plaintext highlighter-rouge">code.parameters</code></td>
+      <td><code class="language-plaintext highlighter-rouge">formulation_sha256</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Some quantities never appear at all:</p>
+<ul>
+  <li><strong>Reference scale.</strong> The order-of-magnitude <code class="language-plaintext highlighter-rouge">nu rho^2</code> reference scale (#780/#1112) is not a product of #1435 and is never written or summarized.</li>
+  <li><strong>Undefined surfaces.</strong> A surface below 10 eV, where the electron Coulomb logarithm is undefined, is dropped and named rather than filled.</li>
+  <li><strong>Missing versus zero.</strong> Missing data shows as zero points and NaN peaks. A stored zero is a physical zero.</li>
+</ul>
+
+<p>Example from the packaged 48224 sample (magnetics state at 0.300 s, r/a 0.3–0.8):</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rho_tor_norm          0.259   0.346   0.433   0.522   0.614   0.711
+electrons.energy.flux -42.1   -25.7    -7.5     3.4     5.7     3.4   W/m^2
+ion.0.energy.flux     181.5    97.5    12.9   -17.6    -7.6     3.1   W/m^2
+electrons.energy.d    0.080   0.065   0.050   0.037   0.025   0.016   m^2/s
+ion.0.energy.d        2.86    2.57    2.11    1.54    0.99    0.56    m^2/s
+summary row: q_e_peak_abs_W_m2 42.1, q_i_peak_abs_W_m2 181.5,
+             chi_e_max_m2_s 0.080, chi_i_max_m2_s 2.86, particle_flux_status not_evaluated
+</code></pre></div></div>
+
+<p>The negative inner electron flux is real: VEST’s hollow <code class="language-plaintext highlighter-rouge">T_e</code> makes the inner
+gradient point outward, and the peak columns report magnitudes.
+<code class="language-plaintext highlighter-rouge">power_balance</code> likewise awaits the stored-energy and loss-power definitions
+tracked in issues #1282 and #548.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Back-end</th>
+      <th>Module</th>
+      <th>What a shot looks like</th>
+      <th>What you get back</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>HSDS</strong> — remote IMAS HDF5 store</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database.ods</code>, <code class="language-plaintext highlighter-rouge">vaft.database.ids</code>, <code class="language-plaintext highlighter-rouge">vaft.database.utils</code></td>
+      <td>a <em>folder</em> <code class="language-plaintext highlighter-rouge">hdf5://{directory}/{shot}/</code> holding <code class="language-plaintext highlighter-rouge">master.h5</code> plus one <code class="language-plaintext highlighter-rouge">&lt;ids_name&gt;.h5</code> per IDS</td>
+      <td>an OMAS <code class="language-plaintext highlighter-rouge">ODS</code>, or a native IMAS <code class="language-plaintext highlighter-rouge">IDSToplevel</code></td>
+    </tr>
+    <tr>
+      <td><strong>Raw DAQ</strong> — VEST MySQL database</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database.raw</code></td>
+      <td>rows in <code class="language-plaintext highlighter-rouge">shotDataWaveform_*</code> addressed by integer <em>field code</em></td>
+      <td><code class="language-plaintext highlighter-rouge">(time, data)</code> NumPy arrays</td>
+    </tr>
+  </tbody>
+</table>
+
+<pre><code class="language-mermaid">flowchart LR
+    HSDS[(VEST HSDS&lt;br/&gt;IMAS HDF5 images)]
+    SQL[(VEST MySQL&lt;br/&gt;raw DAQ waveforms)]
+    subgraph db["vaft.database"]
+        ods["ods.load_ods / ods.save_ods"]
+        ids["ids.load / ids.save"]
+        raw["raw.load_raw"]
+    end
+    HSDS --&gt;|hsget| ods
+    HSDS --&gt;|hsget| ids
+    SQL --&gt;|mysql-connector| raw
+    ods --&gt; ODS["omas.ODS"]
+    ids --&gt; IDS["imas IDSToplevel"]
+    raw --&gt; ARR["(time, data) ndarrays"]
+</code></pre>
+
+<p>The IMAS/ODS data model itself is described in
+<a href="/vaft/develop/guide/Data_structures/">Data structures</a>; this page is about <em>getting</em> the data.</p>
+
+<h2 id="the-flat-namespace">The flat namespace</h2>
+
+<p><code class="language-plaintext highlighter-rouge">vaft/__init__.py</code> and <code class="language-plaintext highlighter-rouge">vaft/database/__init__.py</code> are both lazy. <code class="language-plaintext highlighter-rouge">import vaft</code> is enough — you never
+need <code class="language-plaintext highlighter-rouge">import vaft.database</code>. The database package also resolves unknown attributes by scanning its
+submodules in the order <code class="language-plaintext highlighter-rouge">ods</code>, <code class="language-plaintext highlighter-rouge">ids</code>, <code class="language-plaintext highlighter-rouge">raw</code>, <code class="language-plaintext highlighter-rouge">utils</code>, so helpers defined in <code class="language-plaintext highlighter-rouge">raw.py</code> or <code class="language-plaintext highlighter-rouge">utils.py</code>
+are reachable flat:</p>
+
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">is_connect</span><span class="p">()</span>          <span class="c1"># defined in database/utils.py
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">exist_shot</span><span class="p">(</span><span class="sh">'</span><span class="s">public</span><span class="sh">'</span><span class="p">)</span>  <span class="c1"># defined in database/utils.py
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load_raw</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="mi">102</span><span class="p">)</span>  <span class="c1"># defined in database/raw.py
+</span></code></pre></div></div>
+
+<p>The supported high-level remote API is <code class="language-plaintext highlighter-rouge">load</code>, <code class="language-plaintext highlighter-rouge">open</code>, and <code class="language-plaintext highlighter-rouge">save</code>. The <code class="language-plaintext highlighter-rouge">raw</code>, <code class="language-plaintext highlighter-rouge">filedb</code>, <code class="language-plaintext highlighter-rouge">ods</code>,
+<code class="language-plaintext highlighter-rouge">ids</code>, and <code class="language-plaintext highlighter-rouge">utils</code> modules remain available for specialized and compatibility workflows.</p>
+
+<h2 id="connecting-to-hsds">Connecting to HSDS</h2>
+
+<p><code class="language-plaintext highlighter-rouge">h5pyd</code> is a declared VAFT dependency on <code class="language-plaintext highlighter-rouge">develop</code>; a normal <code class="language-plaintext highlighter-rouge">pip install .</code> installs the compatible
+client and its command-line tools. Do not install a separately pinned <code class="language-plaintext highlighter-rouge">--no-deps</code> copy.</p>
+
+<p>Then write your credentials with <code class="language-plaintext highlighter-rouge">vaft hsds configure</code>:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vaft hsds configure
+</code></pre></div></div>
+
+<blockquote>
+  <p>Do not use the upstream <code class="language-plaintext highlighter-rouge">hsconfigure</code> for this: it reads the password as visible text and
+prints an already-stored password as the prompt default. <code class="language-plaintext highlighter-rouge">vaft hsds configure</code> writes the same
+h5pyd <code class="language-plaintext highlighter-rouge">~/.hscfg</code> with hidden input and mode <code class="language-plaintext highlighter-rouge">0600</code> (on Windows file modes are not enforced; the
+file inherits your user-profile permissions). Never commit a <code class="language-plaintext highlighter-rouge">.hscfg</code>.</p>
+</blockquote>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Server endpoint</td>
+      <td><code class="language-plaintext highlighter-rouge">http://147.46.36.244:5101</code></td>
+    </tr>
+    <tr>
+      <td>Username / Password</td>
+      <td><code class="language-plaintext highlighter-rouge">reader</code> / <code class="language-plaintext highlighter-rouge">test</code> (read-only public account)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>This writes <code class="language-plaintext highlighter-rouge">~/.hscfg</code> with mode <code class="language-plaintext highlighter-rouge">0600</code>; <code class="language-plaintext highlighter-rouge">h5pyd</code> reads a <code class="language-plaintext highlighter-rouge">.hscfg</code> in the working directory instead
+when one exists, and <code class="language-plaintext highlighter-rouge">HS_ENDPOINT</code>/<code class="language-plaintext highlighter-rouge">HS_USERNAME</code>/<code class="language-plaintext highlighter-rouge">HS_PASSWORD</code>/<code class="language-plaintext highlighter-rouge">HS_API_KEY</code> override either file.
+<code class="language-plaintext highlighter-rouge">python install/check_vaft_environment.py</code> warns when a <code class="language-plaintext highlighter-rouge">.hscfg</code> is readable by other users. Never
+commit that file.
+Check the connection from Python:</p>
+
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">is_connect</span><span class="p">()</span>   <span class="c1"># True when the HSDS server reports state == "READY"
+</span></code></pre></div></div>
+
+<p>Local OMAS and IMAS operations do not require HSDS at all; use <code class="language-plaintext highlighter-rouge">vaft.omas.load/save</code> or
+<code class="language-plaintext highlighter-rouge">vaft.imas.load/save</code> for those paths. See <a href="/vaft/develop/workflows/start-here/">Start here</a> for
+the full environment setup.</p>
+
+<h2 id="listing-shots">Listing shots</h2>
+
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">exist_shot</span><span class="p">()</span>                       <span class="c1"># numeric shot folders in /public/, newest first
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">exist_shot</span><span class="p">(</span><span class="sh">'</span><span class="s">public</span><span class="sh">'</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">)</span>   <span class="c1"># True / False
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">exist_shot</span><span class="p">(</span><span class="sh">'</span><span class="s">public</span><span class="sh">'</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>       <span class="c1"># ascending
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">exist_shot</span><span class="p">(</span><span class="n">data_filter</span><span class="o">=</span><span class="sh">'</span><span class="s">ts</span><span class="sh">'</span><span class="p">)</span>       <span class="c1"># DataFrame of processed Thomson-scattering shots
+</span></code></pre></div></div>
+
+<p>Full signature:</p>
+
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">exist_shot</span><span class="p">(</span><span class="n">username</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">data_filter</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">sort</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div></div>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">username</code> defaults to <code class="language-plaintext highlighter-rouge">'public'</code>. Any other folder name returns that folder’s raw listing.</li>
+  <li><code class="language-plaintext highlighter-rouge">sort</code> is <code class="language-plaintext highlighter-rouge">1</code> (ascending), <code class="language-plaintext highlighter-rouge">-1</code> (descending, the default) or <code class="language-plaintext highlighter-rouge">0</code> (unsorted).</li>
+  <li><code class="language-plaintext highlighter-rouge">data_filter='ts'</code> (also <code class="language-plaintext highlighter-rouge">'thomson_scattering'</code>) ignores <code class="language-plaintext highlighter-rouge">username</code>/<code class="language-plaintext highlighter-rouge">shot</code> and returns a
+<code class="language-plaintext highlighter-rouge">pandas.DataFrame</code> with columns <code class="language-plaintext highlighter-rouge">Index, Shot Number, Last Processed, Status</code>, read from the
+processed-shots registry <code class="language-plaintext highlighter-rouge">processed_shots.h5</code> of the named source (its URI is
+<code class="language-plaintext highlighter-rouge">vaft.database.utils.processed_registry_uri(source)</code>). It returns <code class="language-plaintext highlighter-rouge">None</code> when nothing has been processed.</li>
+  <li>Shot folders come back as <strong>strings</strong>, not ints. A connection failure prints <code class="language-plaintext highlighter-rouge">Connection error</code>
+and returns <code class="language-plaintext highlighter-rouge">[]</code> / <code class="language-plaintext highlighter-rouge">False</code>.</li>
+</ul>
+
+<h2 id="eager-and-lazy-hsds-access">Eager and lazy HSDS access</h2>
+
+<h3 id="source-namespaces-and-data-products">Source namespaces and data products</h3>
+
+<p>Each remote operation names one analysis lineage with <code class="language-plaintext highlighter-rouge">source</code>. The default <code class="language-plaintext highlighter-rouge">main</code>
+holds VAFT-native results; <code class="language-plaintext highlighter-rouge">public</code> is the readable, legacy lineage and is never
+written by VAFT. Other established sources include <code class="language-plaintext highlighter-rouge">chease-mhd-stability</code>
+(CHEASE refinement and linear MHD), <code class="language-plaintext highlighter-rouge">vfit-element</code>, <code class="language-plaintext highlighter-rouge">vfit-gse</code>,
+<code class="language-plaintext highlighter-rouge">electron-efit</code>, <code class="language-plaintext highlighter-rouge">kinetic-efit</code>, and the sparse <code class="language-plaintext highlighter-rouge">impa</code> diagnostic source.
+A missing shot in <code class="language-plaintext highlighter-rouge">impa</code> means no IMPA product was published for that shot; it
+does not say whether the shot exists in <code class="language-plaintext highlighter-rouge">main</code>. Reads never silently union
+sources. Use <code class="language-plaintext highlighter-rouge">vaft.database.compose(shot)</code> when analysis needs products from
+<code class="language-plaintext highlighter-rouge">main</code> and <code class="language-plaintext highlighter-rouge">impa</code> together while retaining each channel’s origin.
+<code class="language-plaintext highlighter-rouge">python -m vaft.cli summary sources</code> lists the catalog; custom namespaces must
+be declared in <code class="language-plaintext highlighter-rouge">VAFT_HSDS_EXTRA_SOURCES</code>.</p>
+
+<h3 id="transitional-tglf-configuration-sources">Transitional TGLF configuration sources</h3>
+
+<p>TGLF results depend on the saturation rule (SAT0–SAT3) and the field model
+(<code class="language-plaintext highlighter-rouge">es</code>, <code class="language-plaintext highlighter-rouge">em-bper</code>, <code class="language-plaintext highlighter-rouge">em-bper-bpar</code>), and no configuration is the default
+(<a href="https://github.com/VEST-Tokamak/vaft/issues/1482">#1482</a>). Each
+configuration is therefore stored as its own sparse source beneath the
+reconstruction its state was mapped on, so alternative configurations of one
+state coexist instead of overwriting one another
+(<a href="https://github.com/VEST-Tokamak/vaft/issues/1900">#1900</a>). The
+<code class="language-plaintext highlighter-rouge">turbulent_transport</code> stage owns <code class="language-plaintext highlighter-rouge">core_transport</code> only. Its FileDB product is
+<code class="language-plaintext highlighter-rouge">omas/turbulent_transport/{family}/tglf-sat&lt;n&gt;-&lt;field&gt;/{shot}/</code>, and
+<code class="language-plaintext highlighter-rouge">replication_for_stage("turbulent_transport", family=..., product="tglf-sat3-em-bper")</code>
+names its destination. There is no default configuration: a call without
+<code class="language-plaintext highlighter-rouge">product</code> is refused.</p>
+
+<p>These sources are <strong>transitional</strong>. In the self-describing occurrence model of
+<a href="https://github.com/VEST-Tokamak/vaft/issues/1128">#1128</a> and
+<a href="https://github.com/VEST-Tokamak/vaft/issues/1129">#1129</a>, each one becomes a
+named <code class="language-plaintext highlighter-rouge">core_transport</code> occurrence. The builder already writes the future name
+into <code class="language-plaintext highlighter-rouge">ids_properties.name</code>, so migration renames nothing:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Transitional source</th>
+      <th>IDS</th>
+      <th>Future <code class="language-plaintext highlighter-rouge">ids_properties.name</code></th>
+      <th>Occurrence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">main/tglf-sat&lt;n&gt;-&lt;field&gt;</code></td>
+      <td><code class="language-plaintext highlighter-rouge">core_transport</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tglf-sat&lt;n&gt;-&lt;field&gt;-from-magnetic-efit</code></td>
+      <td>allocated by the #1129 VEST catalog (not assigned yet)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">electron-efit/tglf-sat&lt;n&gt;-&lt;field&gt;</code></td>
+      <td><code class="language-plaintext highlighter-rouge">core_transport</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tglf-sat&lt;n&gt;-&lt;field&gt;-from-electron-efit</code></td>
+      <td>allocated by the #1129 VEST catalog (not assigned yet)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">kinetic-efit/tglf-sat&lt;n&gt;-&lt;field&gt;</code></td>
+      <td><code class="language-plaintext highlighter-rouge">core_transport</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tglf-sat&lt;n&gt;-&lt;field&gt;-from-kinetic-efit</code></td>
+      <td>allocated by the #1129 VEST catalog (not assigned yet)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For example, SAT3 with <code class="language-plaintext highlighter-rouge">em-bper</code> on a magnetic-EFIT state is stored in
+<code class="language-plaintext highlighter-rouge">main/tglf-sat3-em-bper</code> and named <code class="language-plaintext highlighter-rouge">tglf-sat3-em-bper-from-magnetic-efit</code>.
+The routine driver’s lineage <code class="language-plaintext highlighter-rouge">magnetics</code> maps to the magnetic family and
+<code class="language-plaintext highlighter-rouge">electron_kinetic</code> to the electron family. The kinetic family has no TGLF
+states yet, but its sources are catalogued. The full list of 36 rows is
+<code class="language-plaintext highlighter-rouge">vaft.database.sources.turbulent_transport_migration()</code>. The upstream state’s
+identity (state identity, run identities, TGLF parameters, GACODE revision)
+travels in <code class="language-plaintext highlighter-rouge">core_transport.model[:].code.parameters</code> and in the stage manifest.</p>
+
+<p>Coexistence holds across configurations and lineages. Alternative Ti
+assumptions of one state (a different <code class="language-plaintext highlighter-rouge">--ti-te-ratio</code>, <code class="language-plaintext highlighter-rouge">--use-inferred-ti</code> or
+<code class="language-plaintext highlighter-rouge">--rho-max</code> gives a different state identity on the same path) are refused, not
+stored side by side, until #1128/#1129: writing a product whose state
+identities differ from the stored one raises, and rewriting the same states is
+allowed.</p>
+
+<p>Eager <code class="language-plaintext highlighter-rouge">load()</code> stages a complete shot when <code class="language-plaintext highlighter-rouge">paths</code> is absent. With
+<code class="language-plaintext highlighter-rouge">paths=["equilibrium"]</code>, it stages only that IDS and <code class="language-plaintext highlighter-rouge">dataset_description</code>,
+normally using a validated local domain cache. Byte-exact per-IDS images avoid
+repeated <code class="language-plaintext highlighter-rouge">hsget</code> requests when available; <code class="language-plaintext highlighter-rouge">transport="canonical"</code> bypasses
+them and <code class="language-plaintext highlighter-rouge">transport="h5image"</code> requires them. Direct lazy <code class="language-plaintext highlighter-rouge">open()</code> reads
+selected leaves from the canonical IDS domain and currently supports occurrence</p>
+<ol>
+  <li>Native lazy IMAS also requires the exact stored Data Dictionary version.</li>
+</ol>
+
+<h3 id="the-local-hsds-cache">The local HSDS cache</h3>
+
+<p><code class="language-plaintext highlighter-rouge">cache="auto"</code> (the default) keeps every validated domain it downloads in a persistent local cache,
+<code class="language-plaintext highlighter-rouge">~/.cache/vaft/hsds</code>, or <code class="language-plaintext highlighter-rouge">$VAFT_CACHE_DIR/hsds</code> when that is set. The cache is disposable: every entry is checked against the server’s revision before use and is
+fetched again when missing, so it is never the source of truth. <code class="language-plaintext highlighter-rouge">cache="off"</code> always downloads;
+<code class="language-plaintext highlighter-rouge">cache=&lt;path&gt;</code> uses another base directory.</p>
+
+<p>The cache is capped at <strong>1 GiB</strong> by default. After every write the least-recently-used domains
+are evicted until it fits, and a single domain larger than the cap is read without being cached.
+The cap is taken from the first of:</p>
+
+<ol>
+  <li>the <code class="language-plaintext highlighter-rouge">cache_max</code> argument of <code class="language-plaintext highlighter-rouge">load()</code> or <code class="language-plaintext highlighter-rouge">export()</code>;</li>
+  <li>the <code class="language-plaintext highlighter-rouge">VAFT_HSDS_CACHE_MAX</code> environment variable;</li>
+  <li><code class="language-plaintext highlighter-rouge">cache_max</code> in the <code class="language-plaintext highlighter-rouge">[hsds]</code> table of <code class="language-plaintext highlighter-rouge">~/.config/vaft/config.toml</code> (or under
+<code class="language-plaintext highlighter-rouge">$XDG_CONFIG_HOME</code>), which <code class="language-plaintext highlighter-rouge">vaft cache set-limit</code> writes (it refuses a file layout it cannot
+edit safely; on Python 3.10 without <code class="language-plaintext highlighter-rouge">tomli</code> that is anything beyond plain tables and
+<code class="language-plaintext highlighter-rouge">key = value</code> lines);</li>
+  <li>the 1 GiB default.</li>
+</ol>
+
+<p>Sizes are bytes or binary multiples (<code class="language-plaintext highlighter-rouge">500M</code>, <code class="language-plaintext highlighter-rouge">20G</code>; <code class="language-plaintext highlighter-rouge">1G</code> is 1024³ bytes). <code class="language-plaintext highlighter-rouge">0</code> disables caching,
+and <code class="language-plaintext highlighter-rouge">none</code> or <code class="language-plaintext highlighter-rouge">unlimited</code> removes the cap. A server or pipeline can keep a large cache on its own
+volume (<code class="language-plaintext highlighter-rouge">VAFT_CACHE_DIR</code>), and one-shot reads can pass <code class="language-plaintext highlighter-rouge">cache_max=0</code>.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vaft cache info                 <span class="c"># location, used size, cap and which setting it came from</span>
+vaft cache list <span class="nt">--shot</span> 39915    <span class="c"># cached domains, least recently used first</span>
+vaft cache prune                <span class="c"># evict down to the cap now (or --max 500M, --older-than 30d)</span>
+vaft cache clear <span class="nt">--shot</span> 39915   <span class="c"># remove one shot's domains; the whole cache needs --yes</span>
+vaft cache set-limit 5G         <span class="c"># persist the cap in the user config file</span>
+</code></pre></div></div>
+
+<p>The same operations are available from Python in <code class="language-plaintext highlighter-rouge">vaft.database.hsds_cache</code> (<code class="language-plaintext highlighter-rouge">info</code>, <code class="language-plaintext highlighter-rouge">entries</code>,
+<code class="language-plaintext highlighter-rouge">prune</code>, <code class="language-plaintext highlighter-rouge">clear</code>, <code class="language-plaintext highlighter-rouge">set_cache_max</code>).</p>
+
+<ul>
+  <li><strong>What can be removed.</strong> Only domains VAFT wrote: a file in an <code class="language-plaintext highlighter-rouge">&lt;endpoint hash&gt;/&lt;source&gt;/&lt;shot&gt;/</code>
+directory that the directory’s <code class="language-plaintext highlighter-rouge">manifest.json</code> lists. A <code class="language-plaintext highlighter-rouge">cache=&lt;path&gt;</code> base other than the default
+must also carry the <code class="language-plaintext highlighter-rouge">.vaft-hsds-cache</code> marker, which the first <code class="language-plaintext highlighter-rouge">load()</code> using it writes. Other
+files under the cache directory, and data given by <code class="language-plaintext highlighter-rouge">path=</code>/<code class="language-plaintext highlighter-rouge">local_dir=</code>, are never touched.</li>
+  <li><strong>Recency.</strong> It is the file modification time, which VAFT sets on every hit and write, so
+<code class="language-plaintext highlighter-rouge">noatime</code> mounts do not matter.</li>
+  <li><strong>Concurrency.</strong> Copies into and out of the cache, manifest updates and every eviction are
+serialized by a lock file in the cache directory. That lock is POSIX-only: on Windows two processes sharing a capped
+cache are not serialized.</li>
+  <li><strong>Failures.</strong> The cache is best-effort. A failed cache write or eviction is logged and the load
+still returns its data. An unreadable <code class="language-plaintext highlighter-rouge">VAFT_HSDS_CACHE_MAX</code> or config file is logged and the
+default cap applies.</li>
+</ul>
+
+<p>Canonical IMAS images remain authoritative after a save. The default
+<code class="language-plaintext highlighter-rouge">derived_cache="auto"</code> also creates per-IDS images; the historical full-ODS
+cache is readable but is published only on explicit request. The explicit
+options are <code class="language-plaintext highlighter-rouge">"none"</code>, <code class="language-plaintext highlighter-rouge">"imas-images"</code>, <code class="language-plaintext highlighter-rouge">"omas"</code>, and <code class="language-plaintext highlighter-rouge">"both"</code>.</p>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.database.load</code> materializes data before returning it. The default representation is an
+<strong>OMAS ODS</strong>:</p>
+
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="sh">"</span><span class="s">magnetics</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">time</span> <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.time</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">ip</span> <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">'</span><span class="s">magnetics.ip.0.data</span><span class="sh">'</span><span class="p">]</span>
+</code></pre></div></div>
+
+<p>The current high-level signature is:</p>
+
+<!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">load</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">omas</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+     <span class="n">occurrence</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">imas_version</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">,</span>
+     <span class="n">cache_max</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">source=None</code> resolves to the default source, <code class="language-plaintext highlighter-rouge">main</code>; pass <code class="language-plaintext highlighter-rouge">source="public"</code> for the legacy public
+lineage the worked examples on this site read.</p>
+
+<p>Set <code class="language-plaintext highlighter-rouge">representation="imas"</code> for native IDS objects. OMAS <code class="language-plaintext highlighter-rouge">paths</code> may point at an IDS root or leaf;
+native IMAS requests accept top-level IDS names only.</p>
+
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Several shots at once -&gt; list of ODS
+</span><span class="n">ods_list</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">([</span><span class="mi">39915</span><span class="p">,</span> <span class="mi">39916</span><span class="p">,</span> <span class="mi">39917</span><span class="p">],</span> <span class="n">paths</span><span class="o">=</span><span class="sh">"</span><span class="s">magnetics</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="c1"># Native IDS materialization
+</span><span class="n">equilibrium</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span>
+    <span class="mi">39915</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="sh">"</span><span class="s">imas</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span>
+<span class="p">)</span>
+
+<span class="c1"># Lazy, read-only access: data is fetched only when a path is touched
+</span><span class="k">with</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">paths</span><span class="o">=</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">remote</span><span class="p">:</span>
+    <span class="n">times</span> <span class="o">=</span> <span class="n">remote</span><span class="p">[</span><span class="sh">"</span><span class="s">equilibrium.time</span><span class="sh">"</span><span class="p">]</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">open()</code> returns a context-managed lazy OMAS or native-IMAS adapter and never exposes a write
+operation. Lazy native IMAS access does not convert Data Dictionary versions; use eager <code class="language-plaintext highlighter-rouge">load()</code>
+when conversion is required.</p>
+
+<h2 id="local-omas-imas-and-filedb-paths">Local OMAS, IMAS, and FileDB paths</h2>
+
+<p>Local artifact I/O belongs to the representation modules:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="sh">"</span><span class="s">shot.json.gz</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">restored</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="sh">"</span><span class="s">shot.json.gz</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="c1"># A native IMAS HDF5 entry is a directory (master.h5 plus one image per IDS)
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">imas</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="sh">"</span><span class="s">imas-entry</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">restored</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">imas</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="sh">"</span><span class="s">imas-entry</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.database.filedb.FileDB</code> resolves canonical, OMAS-first archive locations without writing:</p>
+
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.database.filedb</span> <span class="kn">import</span> <span class="n">FileDB</span>
+
+<span class="n">db</span> <span class="o">=</span> <span class="n">FileDB</span><span class="p">.</span><span class="nf">from_config</span><span class="p">({</span><span class="sh">"</span><span class="s">filedb</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">root</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">/srv/vest.filedb</span><span class="sh">"</span><span class="p">}})</span>
+<span class="n">path</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">path</span><span class="p">(</span><span class="sh">"</span><span class="s">omas</span><span class="sh">"</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="mi">39915</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Set <code class="language-plaintext highlighter-rouge">VAFT_FILEDB_DIR</code> when the configuration uses that environment reference. The audit helpers are
+read-only and propose legacy-to-canonical mappings without moving data.</p>
+
+<h2 id="exporting-a-shot-as-local-files">Exporting a shot as local files</h2>
+
+<p>A shot on HSDS is a folder (<code class="language-plaintext highlighter-rouge">master.h5</code> plus one image per IDS), so <code class="language-plaintext highlighter-rouge">hsget</code> cannot fetch it whole.
+<code class="language-plaintext highlighter-rouge">vaft export</code> stages the shot once and writes every requested format from that one copy:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vaft <span class="nb">export</span> <span class="nt">--shot</span> 41672 <span class="nt">--source</span> public <span class="nt">--backend</span> imas-nc omas-json geqdsk
+</code></pre></div></div>
+
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">export</span><span class="p">(</span><span class="mi">41672</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">imas-nc</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">omas-json</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">geqdsk</span><span class="sh">"</span><span class="p">])</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>backend</th>
+      <th>written as</th>
+      <th>format</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">imas-hdf5</code></td>
+      <td><code class="language-plaintext highlighter-rouge">imas_&lt;shot&gt;_hdf5/</code></td>
+      <td>native IMAS HDF5 Data Entry, copied as stored</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">imas-nc</code></td>
+      <td><code class="language-plaintext highlighter-rouge">imas_&lt;shot&gt;.nc</code></td>
+      <td>IMAS netCDF convention (IMAS-Python)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">omas-json</code></td>
+      <td><code class="language-plaintext highlighter-rouge">omas_&lt;shot&gt;.json</code></td>
+      <td>OMAS JSON</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">omas-hdf5</code></td>
+      <td><code class="language-plaintext highlighter-rouge">omas_&lt;shot&gt;.h5</code></td>
+      <td>OMAS single-file HDF5, not an IMAS Data Entry</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">omas-nc</code></td>
+      <td><code class="language-plaintext highlighter-rouge">omas_&lt;shot&gt;.nc</code></td>
+      <td>OMAS flat netCDF, not the IMAS convention</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">geqdsk</code></td>
+      <td><code class="language-plaintext highlighter-rouge">geqdsk_&lt;shot&gt;/</code></td>
+      <td>one g-file per equilibrium time slice</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Artifacts go directly under <code class="language-plaintext highlighter-rouge">--output</code> (default: the current directory). Existing ones are refused
+unless <code class="language-plaintext highlighter-rouge">--overwrite</code> is given, and a backend that fails leaves nothing behind. The converted backends
+read occurrence 0 and refuse a shot that stores other occurrences; <code class="language-plaintext highlighter-rouge">imas-hdf5</code> keeps them all.
+Export reads the DD version the IDS were stored with (the newest one when stages wrote different
+minor versions) and never converts across a major version: a shot mixing DD 3 and DD 4 IDS is
+refused, and <code class="language-plaintext highlighter-rouge">geqdsk</code> needs a DD 3 shot, because DD 4 flips the psi sign convention (COCOS 17).
+Both netCDF backends need the <code class="language-plaintext highlighter-rouge">netCDF4</code> package.</p>
+
+<h2 id="saving-to-hsds">Saving to HSDS</h2>
+
+<p>Which production stage publishes which IDS to which source, generated from <code class="language-plaintext highlighter-rouge">STAGE_REPLICATION</code>,
+is shown in the HSDS publication view of the
+<a href="/vaft/develop/reference/pipeline-graph/">pipeline lineage explorer</a>.</p>
+
+<!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">save</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">occurrence</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+     <span class="n">imas_version</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">derived_cache</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Remote writes are admin-restricted; ordinary documentation and analysis are read-only.
+</span><span class="n">uri</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">39915</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">my-authorized-namespace</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">source</code> must be a bare HSDS namespace, never an <code class="language-plaintext highlighter-rouge">hdf5://</code> URI. It defaults to <code class="language-plaintext highlighter-rouge">None</code>, which resolves
+to <code class="language-plaintext highlighter-rouge">main</code>; the legacy <code class="language-plaintext highlighter-rouge">public</code> source is read-only, so <code class="language-plaintext highlighter-rouge">save(..., source="public")</code> raises
+<code class="language-plaintext highlighter-rouge">ReadOnlySourceError</code>. <code class="language-plaintext highlighter-rouge">target=</code> and <code class="language-plaintext highlighter-rouge">directory=</code> are deprecated aliases for <code class="language-plaintext highlighter-rouge">source=</code> and warn. VAFT infers OMAS versus native IMAS
+from the supplied object and rejects a conflicting explicit <code class="language-plaintext highlighter-rouge">representation</code>.</p>
+
+<p>A write <strong>adds</strong> to the shot rather than replacing it. A shot’s <code class="language-plaintext highlighter-rouge">master.h5</code> links every IDS file stored
+beside it, and a reader resolves the shot through those links. Each write therefore replaces the
+master with the stored one plus its own IDS. It re-reads the stored master immediately before
+replacing it, and holds a per-shot lock while it does (issue #913). Two writes of one shot on the same
+host can no longer drop each other’s links, and different shots never wait for each other. The lock
+lives in <code class="language-plaintext highlighter-rouge">$VAFT_HSDS_LOCK_DIR</code> (default <code class="language-plaintext highlighter-rouge">/tmp/vaft-hsds-locks</code>); if this account cannot create files
+there, the writer locks in a per-user directory under the temp root and warns once. It does not
+reach writers on other hosts or tools that bypass VAFT. <code class="language-plaintext highlighter-rouge">vaft maintenance audit-masters --shots FIRST-LAST [--apply]</code> finds,
+and relinks, files a master does not name.</p>
+
+<h2 id="native-imas-ids-objects">Native IMAS IDS objects</h2>
+
+<p>When you want an <code class="language-plaintext highlighter-rouge">IDSToplevel</code> from <code class="language-plaintext highlighter-rouge">imas</code> rather than an OMAS ODS, use the IDS pair. These live on the
+<code class="language-plaintext highlighter-rouge">vaft.database.ids</code> submodule; there is no <code class="language-plaintext highlighter-rouge">vaft.database.load_ids</code> / <code class="language-plaintext highlighter-rouge">save_ids</code> at package level.</p>
+
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">eq</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">ids</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span><span class="p">,</span> <span class="n">dd_version</span><span class="o">=</span><span class="sh">"</span><span class="s">3.41.0</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="c1"># A list of IDS names returns a dict {name: ids}
+</span><span class="n">idss</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">ids</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="p">[</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">pf_active</span><span class="sh">"</span><span class="p">])</span>
+</code></pre></div></div>
+
+<p>For a whole shot as native IMAS rather than one IDS, <code class="language-plaintext highlighter-rouge">vaft.database.load</code> takes
+<code class="language-plaintext highlighter-rouge">representation="imas"</code>.</p>
+
+<!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ids</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">ids_name</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">occurrence</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">dd_version</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">local_dir</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+         <span class="n">cache</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">ids</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">shot</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">dd_version</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">derived_cache</span><span class="o">=</span><span class="sh">"</span><span class="s">auto</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">ids.load</code> downloads <code class="language-plaintext highlighter-rouge">master.h5</code> <strong>and</strong> every <code class="language-plaintext highlighter-rouge">.h5</code> it externally links — IMAS-Core refuses to open a
+data entry with a missing link, even when you ask for a single IDS — then opens the staging directory
+with <code class="language-plaintext highlighter-rouge">imas.DBEntry("imas:hdf5?path=…", "r")</code> and returns <code class="language-plaintext highlighter-rouge">dbentry.get(ids_name, occurrence)</code>.</p>
+
+<p>Saving a native IDS goes through <code class="language-plaintext highlighter-rouge">ids.save</code>, <strong>not</strong> <code class="language-plaintext highlighter-rouge">vaft.database.save</code>:</p>
+
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">uri</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="n">ids</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">eq</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dd_version</span><span class="o">=</span><span class="sh">"</span><span class="s">3.41.0</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># -&gt; "hdf5://{username}/2/equilibrium.h5"
+</span></code></pre></div></div>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">vaft.database.save</code> / <code class="language-plaintext highlighter-rouge">save_ods</code> handle <strong>ODS only</strong> and have no <code class="language-plaintext highlighter-rouge">dd_version</code> parameter; passing one
+raises <code class="language-plaintext highlighter-rouge">TypeError</code>. Use <code class="language-plaintext highlighter-rouge">vaft.database.ids.save</code> for IDS objects.</li>
+  <li><code class="language-plaintext highlighter-rouge">ids.save</code> publishes into a named HSDS <code class="language-plaintext highlighter-rouge">source</code>, defaulting to <code class="language-plaintext highlighter-rouge">main</code>; the read-only legacy <code class="language-plaintext highlighter-rouge">public</code>
+source is refused. <code class="language-plaintext highlighter-rouge">directory</code> is a deprecated alias for <code class="language-plaintext highlighter-rouge">source</code>. Both <code class="language-plaintext highlighter-rouge">{ids_name}.h5</code> and the
+regenerated <code class="language-plaintext highlighter-rouge">master.h5</code> are uploaded, and the IDS file name comes from the IDS metadata name.</li>
+  <li>A native IDS carries no <code class="language-plaintext highlighter-rouge">dataset_description</code>, so unlike <code class="language-plaintext highlighter-rouge">save_ods</code> this path records no source
+provenance inside the payload.</li>
+</ul>
+
+<h3 id="which-load-is-which">Which <code class="language-plaintext highlighter-rouge">load</code> is which</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Call</th>
+      <th>Result</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database.load(39915)</code></td>
+      <td>OMAS <code class="language-plaintext highlighter-rouge">ODS</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database.load(39915, "public_omas")</code></td>
+      <td>OMAS <code class="language-plaintext highlighter-rouge">ODS</code> from the <code class="language-plaintext highlighter-rouge">public_omas</code> folder</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database.load(2, representation="imas")</code></td>
+      <td>the shot as native IMAS</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database.ids.load(2, "equilibrium")</code></td>
+      <td>one native IMAS IDS</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database.raw.load(39915, 102)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">(time, data)</code> from the <strong>raw SQL</strong> database</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.database.raw.load</code> is a legacy alias for <code class="language-plaintext highlighter-rouge">raw.vest_load</code> living inside <code class="language-plaintext highlighter-rouge">raw.py</code>. It is a
+different function from the package-level <code class="language-plaintext highlighter-rouge">vaft.database.load</code>; never write
+<code class="language-plaintext highlighter-rouge">vaft.database.load(shot, field)</code> expecting a waveform.</p>
+
+<h2 id="raw-daq-signals-mysql">Raw DAQ signals (MySQL)</h2>
+
+<p>Raw signals are addressed by an integer <strong>field code</strong> and returned as <code class="language-plaintext highlighter-rouge">(time, data)</code> NumPy arrays,
+with time in seconds.</p>
+
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.database</span> <span class="kn">import</span> <span class="n">raw</span>
+
+<span class="n">raw</span><span class="p">.</span><span class="nf">setup_raw_db</span><span class="p">()</span>   <span class="c1"># interactive: prompts for hostname / username / password
+</span><span class="n">raw</span><span class="p">.</span><span class="nf">init_pool</span><span class="p">()</span>      <span class="c1"># build the MySQL connection pool
+</span>
+<span class="n">time</span><span class="p">,</span> <span class="n">ip</span> <span class="o">=</span> <span class="n">raw</span><span class="p">.</span><span class="nf">load_raw</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="mi">102</span><span class="p">)</span>      <span class="c1"># field 102 = Plasma Current
+</span></code></pre></div></div>
+
+<p><img src="/vaft/develop/assets/images/magnetics/plasma_current.png" alt="Plasma current of shot #39915" /></p>
+
+<p>Credentials are stored in <code class="language-plaintext highlighter-rouge">~/.vest/database_raw_info.yaml</code> with the password Fernet-encrypted using
+<code class="language-plaintext highlighter-rouge">~/.vest/encryption_key.key</code>. <code class="language-plaintext highlighter-rouge">setup_raw_db()</code> uses <code class="language-plaintext highlighter-rouge">input()</code> prompts, so do not trigger it from an
+unattended notebook — <code class="language-plaintext highlighter-rouge">init_pool()</code> and <code class="language-plaintext highlighter-rouge">configuration()</code> will call it if the YAML is missing.
+<code class="language-plaintext highlighter-rouge">load_raw</code> initialises the pool automatically when it has not been built yet.</p>
+
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">load_raw</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">daq_type</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">sample_opt</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+</code></pre></div></div>
+
+<ul>
+  <li>A single <code class="language-plaintext highlighter-rouge">int</code> field returns a <strong>1-D</strong> data array; a <code class="language-plaintext highlighter-rouge">list</code> of fields returns a <strong>2-D</strong> array of
+shape <code class="language-plaintext highlighter-rouge">(N, n_fields)</code>, column-stacked and truncated to the shortest field.</li>
+  <li><code class="language-plaintext highlighter-rouge">load_raw</code> never raises — it logs and returns <code class="language-plaintext highlighter-rouge">None</code> on any failure. Always check the result.</li>
+</ul>
+
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">loaded</span> <span class="o">=</span> <span class="n">raw</span><span class="p">.</span><span class="nf">load_raw</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="p">[</span><span class="mi">102</span><span class="p">,</span> <span class="mi">101</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="k">if</span> <span class="n">loaded</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="nc">RuntimeError</span><span class="p">(</span><span class="sh">"</span><span class="s">raw load failed</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">time</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">loaded</span>
+<span class="n">ip</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>     <span class="c1"># column order follows the requested field list
+</span></code></pre></div></div>
+
+<h3 id="finding-field-codes-and-shots">Finding field codes and shots</h3>
+
+<!-- docs-snippet: skip fragment (placeholder name raw is never defined on the page) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw</span><span class="p">.</span><span class="nf">name</span><span class="p">(</span><span class="mi">102</span><span class="p">)</span>                             <span class="c1"># -&gt; (field name, remark) from the shotDataField table
+</span><span class="n">raw</span><span class="p">.</span><span class="nf">vest_load_by_name</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="sh">"</span><span class="s">Plasma Current</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># load by human name (alias: raw.vest_loadn)
+</span><span class="n">raw</span><span class="p">.</span><span class="nf">get_all_field_codes_for_shot</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>   <span class="c1"># every field code recorded for the shot
+</span><span class="n">raw</span><span class="p">.</span><span class="nf">last_shot</span><span class="p">()</span>                           <span class="c1"># highest shot number in the database
+</span><span class="n">raw</span><span class="p">.</span><span class="nf">date_from_shot</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>                 <span class="c1"># ('YYYY-MM-DD', datetime)
+</span><span class="n">raw</span><span class="p">.</span><span class="nf">shots_from_date</span><span class="p">(</span><span class="sh">'</span><span class="s">2023-06-01</span><span class="sh">'</span><span class="p">)</span>         <span class="c1"># [shot, shot, ...]
+</span><span class="n">raw</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="mi">39915</span><span class="p">,</span> <span class="p">[</span><span class="mi">102</span><span class="p">,</span> <span class="mi">101</span><span class="p">])</span>               <span class="c1"># matplotlib quick-look
+</span></code></pre></div></div>
+
+<p>All of these need <code class="language-plaintext highlighter-rouge">init_pool()</code> first; they print an error and return <code class="language-plaintext highlighter-rouge">None</code> / <code class="language-plaintext highlighter-rouge">[]</code> otherwise.
+<code class="language-plaintext highlighter-rouge">vest_load_by_name</code> resolves names through the packaged lookup table
+<code class="language-plaintext highlighter-rouge">vaft/data/legacy/sql_table.txt</code> (a JSON mapping such as <code class="language-plaintext highlighter-rouge">{"TF Current": 1, "Plasma Current": 102, …}</code>),
+also exposed as <code class="language-plaintext highlighter-rouge">raw.SQL_TABLE_PATH</code>:</p>
+
+<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
+<span class="kn">from</span> <span class="n">vaft.database</span> <span class="kn">import</span> <span class="n">raw</span>
+
+<span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="n">raw</span><span class="p">.</span><span class="n">SQL_TABLE_PATH</span><span class="p">,</span> <span class="sh">"</span><span class="s">r</span><span class="sh">"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="sh">"</span><span class="s">utf-8</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">signal_to_field</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">get_all_field_codes_for_shot</code> omits <code class="language-plaintext highlighter-rouge">raw.EXCLUDED_FIELD_CODES = {110, 111, 112, 113}</code> (processed
+triple-probe signals, which sit on a different time base).</p>
+
+<h3 id="shot-range-and-timing-rules">Shot-range and timing rules</h3>
+
+<p>Which waveform table a shot lives in depends on its number, and <code class="language-plaintext highlighter-rouge">load_raw</code> returns <code class="language-plaintext highlighter-rouge">None</code> outside
+these ranges:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Shot range</th>
+      <th>Table</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">29349 &lt; shot &lt;= 42190</code></td>
+      <td><code class="language-plaintext highlighter-rouge">shotDataWaveform_2</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">shot &gt; 42190</code></td>
+      <td><code class="language-plaintext highlighter-rouge">shotDataWaveform_3</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Sampling intervals are <code class="language-plaintext highlighter-rouge">raw.FAST_DT = 4e-6</code> s and <code class="language-plaintext highlighter-rouge">raw.SLOW_DT = 4e-5</code> s, classified against
+<code class="language-plaintext highlighter-rouge">raw.SLOW_DT_THRESHOLD = 5e-6</code> s. A DAQ trigger-delay correction is added to traces that start at the
+digitiser origin: 0.24 s for <code class="language-plaintext highlighter-rouge">shot &lt; 41446</code>, 0.26 s for shots 41446–41451, 0.24 s for 41452–41659, and
+0.26 s from 41660 on.</p>
+
+<h3 id="processing-new-shots-automatically">Processing new shots automatically</h3>
+
+<p>The Thomson lineage (pipeline 2) has its own worker, <code class="language-plaintext highlighter-rouge">vaft corrective-worker run</code>, which watches the upload
+directory instead of the SQL table; it is described in the Pipelines guide and in
+<code class="language-plaintext highlighter-rouge">workflow/automatic_pipeline_2_corrective_data_update/DEPLOYMENT.md</code>. The rest of this section is the routine worker.</p>
+
+<p>On the VEST server, <code class="language-plaintext highlighter-rouge">vaft pipeline-worker run</code> polls the SQL <code class="language-plaintext highlighter-rouge">shot</code> table and runs the routine
+Snakemake pipeline on each new shot as soon as its upload has finished (issue #58). The upload
+counts as finished when either condition holds:</p>
+
+<ul>
+  <li>the shot’s field inventory contains every field the previous shot had, and nothing new has
+arrived for 30 s;</li>
+  <li>no field has been uploaded for <code class="language-plaintext highlighter-rouge">quiet_seconds</code>.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">raw.shot_upload_status(shot)</code> gives the inventory and the quiet time. Processed shots are re-checked
+for fields that arrive late (<code class="language-plaintext highlighter-rouge">raw.field_codes_by_shot</code>) and reprocessed if any do. Its configuration is server-only; the workflow directory holds
+<code class="language-plaintext highlighter-rouge">worker.example.yaml</code> as a template, and <code class="language-plaintext highlighter-rouge">DEPLOYMENT.md</code> there describes how to run it as a service.</p>
+
+<p>The worker keeps its state in a SQLite file. Monitoring code reads that file without writing to it:</p>
+
+<!-- docs-snippet: skip needs-database (reads a server's worker state file) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.database.worker</span> <span class="kn">import</span> <span class="n">read_worker_state</span>
+
+<span class="k">with</span> <span class="nf">read_worker_state</span><span class="p">(</span><span class="sh">"</span><span class="s">/srv/vaft/pipeline/worker/worker.sqlite</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">state</span><span class="p">:</span>
+    <span class="n">state</span><span class="p">.</span><span class="nf">counts</span><span class="p">()</span>               <span class="c1"># {"completed": 812, "partial": 97, "excluded": 40, ...}
+</span>    <span class="n">state</span><span class="p">.</span><span class="nf">shot</span><span class="p">(</span><span class="mi">48950</span><span class="p">)</span>            <span class="c1"># state, classification, reason, attempts, last run
+</span>    <span class="n">state</span><span class="p">.</span><span class="nf">stage_status</span><span class="p">(</span><span class="mi">48950</span><span class="p">)</span>    <span class="c1"># each declared product's manifest status / replication state
+</span></code></pre></div></div>
+
+<h2 id="working-offline">Working offline</h2>
+
+<p><code class="language-plaintext highlighter-rouge">load_raw</code> can read gzipped-JSON dumps instead of MySQL, which is how the test suite and the
+processing pipelines run without database access. Two environment variables control it:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Variable</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VAFT_RAW_SAMPLE_PATH</code></td>
+      <td>Path <strong>template</strong> for the archive; <code class="language-plaintext highlighter-rouge">{shot}</code> is substituted, e.g. <code class="language-plaintext highlighter-rouge">vaft/data/legacy/shot_{shot}.json.gz</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VAFT_RAW_OFFLINE_ONLY</code></td>
+      <td><code class="language-plaintext highlighter-rouge">1</code>/<code class="language-plaintext highlighter-rouge">true</code>/<code class="language-plaintext highlighter-rouge">yes</code>/<code class="language-plaintext highlighter-rouge">on</code> forbids any live SQL access; <code class="language-plaintext highlighter-rouge">load_raw</code> returns <code class="language-plaintext highlighter-rouge">None</code> when no archive exists</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Resolution order inside <code class="language-plaintext highlighter-rouge">load_raw</code> is: an explicit <code class="language-plaintext highlighter-rouge">sample_opt</code> string → <code class="language-plaintext highlighter-rouge">VAFT_RAW_SAMPLE_PATH</code> →
+(unless offline-only) the MySQL pool. <code class="language-plaintext highlighter-rouge">raw.raw_offline_only()</code> reports the current mode, and
+<code class="language-plaintext highlighter-rouge">raw.sql_loading_available()</code> reports whether the MySQL driver imported at all.</p>
+
+<!-- docs-snippet: skip needs-raw-source (reads raw DAQ signals) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<span class="kn">from</span> <span class="n">vaft.database</span> <span class="kn">import</span> <span class="n">raw</span>
+
+<span class="n">SAMPLE_PATH</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">data_path</span><span class="p">(</span><span class="sh">"</span><span class="s">legacy/shot_44740.json.gz</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># packaged archive
+</span>
+<span class="n">loaded</span> <span class="o">=</span> <span class="n">raw</span><span class="p">.</span><span class="nf">load_raw</span><span class="p">(</span><span class="mi">44740</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="n">sample_opt</span><span class="o">=</span><span class="nf">str</span><span class="p">(</span><span class="n">SAMPLE_PATH</span><span class="p">))</span>
+<span class="n">time</span><span class="p">,</span> <span class="n">plasma_current</span> <span class="o">=</span> <span class="n">loaded</span>
+</code></pre></div></div>
+
+<p>Produce your own archive for a shot with:</p>
+
+<!-- docs-snippet: skip fragment (placeholder name raw is never defined on the page) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">raw</span><span class="p">.</span><span class="nf">init_pool</span><span class="p">()</span>
+<span class="n">raw</span><span class="p">.</span><span class="nf">dump_all_raw_signals_for_shot</span><span class="p">(</span><span class="n">shot</span><span class="o">=</span><span class="mi">44740</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="sh">"</span><span class="s">vest_raw_44740.json.gz</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<!-- docs-snippet: skip fragment (placeholder name dump_all_raw_signals_for_shot is never defined on the page) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">dump_all_raw_signals_for_shot</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                              <span class="n">daq_type</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">slow_dt_threshold</span><span class="o">=</span><span class="mf">5e-6</span><span class="p">,</span> <span class="n">plot_opt</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>It writes <code class="language-plaintext highlighter-rouge">{"shot": n, "fields": {code: {"type": "fast" | "slow", "data": [...]}}}</code> as gzipped JSON,
+defaulting to <code class="language-plaintext highlighter-rouge">./vest_raw_{shot}.json.gz</code> (a <code class="language-plaintext highlighter-rouge">.gz</code> suffix is appended if you omit it) and returning a
+bool. <code class="language-plaintext highlighter-rouge">plot_opt=True</code> also saves an overview figure. <code class="language-plaintext highlighter-rouge">raw.compare_db_and_dumped_raw_signals_for_shot</code>
+overlays the database and dumped traces for QA.</p>
+
+<p>The pipeline scripts use exactly this pattern —
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/workflow/automatic_pipeline_1_routine_data_processing/generate_raw_db_dump.py"><code class="language-plaintext highlighter-rouge">generate_raw_db_dump.py</code></a>
+creates the archive, and
+<a href="https://github.com/VEST-Tokamak/vaft/blob/main/workflow/automatic_pipeline_1_routine_data_processing/generate_diagnostics_ods.py"><code class="language-plaintext highlighter-rouge">generate_diagnostics_ods.py</code></a>
+sets <code class="language-plaintext highlighter-rouge">VAFT_RAW_SAMPLE_PATH</code> and <code class="language-plaintext highlighter-rouge">VAFT_RAW_OFFLINE_ONLY</code> before building the diagnostics ODS.</p>
+
+<h2 id="where-to-go-next">Where to go next</h2>
+
+<ul>
+  <li><a href="/vaft/develop/guide/Data_structures/">Data structures</a> — what is inside the ODS you just loaded.</li>
+  <li><a href="/vaft/develop/guide/Processing/">Signal processing and EM modeling</a> — turning raw signals into physics quantities.</li>
+  <li><a href="/vaft/develop/guide/examples/">Examples</a> — the notebook tour.</li>
+</ul>
+
+<p><strong>Notebooks</strong></p>
+
+<ul>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/database_initialization_and_load.ipynb"><code class="language-plaintext highlighter-rouge">database_initialization_and_load.ipynb</code></a> — connect, list, load and save shots.</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/vest_raw_signal_sql_database.ipynb"><code class="language-plaintext highlighter-rouge">vest_raw_signal_sql_database.ipynb</code></a> — raw SQL signals and the offline archive path.</li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/vest_experimental_data_list.ipynb"><code class="language-plaintext highlighter-rouge">vest_experimental_data_list.ipynb</code></a> — surveying what exists in the database.</li>
+</ul>
+
+<p><strong>Source</strong></p>
+
+<ul>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/database/ods.py"><code class="language-plaintext highlighter-rouge">vaft/database/ods.py</code></a></li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/database/ids.py"><code class="language-plaintext highlighter-rouge">vaft/database/ids.py</code></a></li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/database/raw.py"><code class="language-plaintext highlighter-rouge">vaft/database/raw.py</code></a></li>
+  <li><a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/database/utils.py"><code class="language-plaintext highlighter-rouge">vaft/database/utils.py</code></a></li>
+</ul>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    <div class="related-resource-group" data-resource-kind="notebooks">
+      <h3>Notebooks</h3>
+      <ul>
+        
+          
+          <li data-resource-id="database-initialization">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb">Database initialization and load</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+          
+          <li data-resource-id="data-conversion">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/read_and_convert_data_structure.ipynb">Read and convert data structures</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="database"><a href="/vaft/develop/reference/api/database/"><code>vaft.database</code></a></li>
+        
+          
+          <li data-resource-id="omas"><a href="/vaft/develop/reference/api/omas/"><code>vaft.omas</code></a></li>
+        
+          
+          <li data-resource-id="imas"><a href="/vaft/develop/reference/api/imas/"><code>vaft.imas</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
+        
+          
+          <li data-resource-id="raw-daq"><strong>VEST raw DAQ and archived raw dumps</strong><br><span>Native diagnostic signals used by machine mapping.</span></li>
+        
+          
+          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="outputs">
+      <h3>Verified outputs</h3>
+      <ul>
+        
+          
+          <li data-resource-id="hsds-39915"><a href="/vaft/develop/reference/notebooks/#output-title-hsds-39915">Public HSDS shot 39915 metadata</a></li>
+        
+          
+          <li data-resource-id="imas-roundtrip"><a href="/vaft/develop/reference/notebooks/#output-title-imas-roundtrip">OMAS and IMAS-path round trip</a></li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+    <script>
+    function prepare_mermaid_blocks() {
+        document.querySelectorAll('.language-mermaid').forEach(function (mermaidBlock) {
+            var pre = mermaidBlock.closest('pre');
+            if (!pre) {
+                return;
+            }
+
+            pre.classList.add('mermaid-diagram');
+
+            // The Copy plugin can run before Mermaid on an initial load or a
+            // GitBook AJAX page change. Restore diagrams to standalone blocks.
+            var wrapper = pre.closest('.code-block-wrapper');
+            if (!wrapper || !wrapper.parentNode) {
+                return;
+            }
+
+            var highlight = pre.closest('.highlight');
+            var diagram = highlight && wrapper.contains(highlight) ? highlight : pre;
+            wrapper.parentNode.insertBefore(diagram, wrapper);
+            wrapper.remove();
+        });
+    }
+
+    function render_mermaid() {
+        prepare_mermaid_blocks();
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: "default",
+        });
+        Promise.resolve(
+            window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'))
+        ).then(prepare_mermaid_blocks);
+    }
+
+    function initialize_mermaid() {
+        if (document.readyState === "loading") {
+            // Loading hasn't finished yet
+            document.addEventListener("DOMContentLoaded", render_mermaid);
+        } else {
+            // `DOMContentLoaded` has already fired
+            render_mermaid();
+        }
+    }
+
+    if (window.mermaid_script && window.mermaid) {
+        initialize_mermaid();
+    } else {
+        window.mermaid_script = document.createElement("script");
+        mermaid_script.onload = initialize_mermaid;
+        document.head.appendChild(mermaid_script);
+        mermaid_script.defer = true;
+        mermaid_script.id = 'mermaid-script';
+        mermaid_script.src = 'https://unpkg.com/mermaid@10.4.0/dist/mermaid.min.js';
+    }
+</script>
+
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/guide/Quick_start_guide/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Quick start guide">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" class="navigation navigation-next navigation-unique" aria-label="Next page: Fusion data structure and IMAS concepts">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#cross-shot-parameter-history" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cross-shot parameter history</a></li><li class="page-toc-item page-toc-level-2"><a href="#transport-summary-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Transport summary hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-flat-namespace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The flat namespace</a></li><li class="page-toc-item page-toc-level-2"><a href="#connecting-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Connecting to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#listing-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Listing shots</a></li><li class="page-toc-item page-toc-level-2"><a href="#eager-and-lazy-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Eager and lazy HSDS access</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#source-namespaces-and-data-products" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Source namespaces and data products</a></li><li class="page-toc-item page-toc-level-3"><a href="#transitional-tglf-configuration-sources" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Transitional TGLF configuration sources</a></li><li class="page-toc-item page-toc-level-3"><a href="#the-local-hsds-cache" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The local HSDS cache</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#local-omas-imas-and-filedb-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local OMAS, IMAS, and FileDB paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#exporting-a-shot-as-local-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting a shot as local files</a></li><li class="page-toc-item page-toc-level-2"><a href="#saving-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Saving to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#native-imas-ids-objects" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Native IMAS IDS objects</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#which-load-is-which" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Which load is which</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-signals-mysql" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ signals (MySQL)</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#finding-field-codes-and-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Finding field codes and shots</a></li><li class="page-toc-item page-toc-level-3"><a href="#shot-range-and-timing-rules" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot-range and timing rules</a></li><li class="page-toc-item page-toc-level-3"><a href="#processing-new-shots-automatically" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Processing new shots automatically</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#working-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Working offline</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-to-go-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where to go next</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Fusion data structure and IMAS concepts",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Data_structures.md",
+            "ref": "_guide/Data_structures.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Database.md",
+        "mtime": "2026-07-01 09:20:00 +0900",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-28 16:13:10 +0900"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/develop/assets/animations/loader.js"></script>
+<script src="/vaft/develop/assets/gitbook/adaptive.js"></script>
+</body>
+</html>

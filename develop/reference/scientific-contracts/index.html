@@ -1,0 +1,1464 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Scientific contracts · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/develop/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/develop/reference/formula/units/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/process/acquisition/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="getting-started">Getting started</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="architecture">Framework and scientific architecture</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.architecture.scientific-contracts" data-path="/vaft/develop/reference/scientific-contracts/">
+                    
+                        <a href="/vaft/develop/reference/scientific-contracts/" onclick="pageScrollToTop(this)">Scientific contracts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="plasma-physics">Plasma physics and models</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.plasma-model-guide" data-path="/vaft/develop/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/develop/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.particle-motion" data-path="/vaft/develop/guide/particle-motion/">
+                    
+                        <a href="/vaft/develop/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.gyrokinetic-results" data-path="/vaft/develop/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="vest-imas-data">VEST and IMAS data</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="apis-visualization">APIs and visualization</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.animation-reference" data-path="/vaft/develop/reference/animation/">
+                    
+                        <a href="/vaft/develop/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="software-integrations">Software and integrations</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="resources">Resources and support</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Scientific contracts</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>19835e9</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Scientific_contracts">Scientific contracts</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Where VAFT's scientific contracts are defined: quantity identity, units, COCOS and machine polarity, Fourier conventions, applicability, validation evidence and provenance. Records who owns each, how it is enforced, and the gaps the interoperability work of #2160 closes (audit of #2161).</dd>
+    <dt>Prerequisites / inputs</dt><dd>The Scientific architecture and Credibility and applicability pages.</dd>
+    <dt>Expected result</dt><dd>Which module is authoritative for a definition, a transformation and a verdict; which conventions are machine-readable and which are prose only; and why VAFT extends its existing taxonomy instead of adding a quantity registry.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>VAFT already defines most of its scientific contracts. They live in the modules that own the
+science, though, and nothing connects them. This page is the audit behind the Scientific Contracts
+initiative (#2160, Phase A #2161). It inventories the contracts, names an owner for each one, traces
+five representative paths end to end, and records the minimal work Phase B (#2163) has to do.</p>
+
+<p>It audits <code class="language-plaintext highlighter-rouge">develop</code> at <code class="language-plaintext highlighter-rouge">7b1fcf192</code>. Symbols are cited by name so that line drift does not break the
+references. When this page and an owning module disagree, the module wins, and the disagreement is a
+documentation bug.</p>
+
+<h2 id="four-questions-kept-apart">Four questions kept apart</h2>
+
+<p>The audit keeps four questions separate because the code already does, and merging them was the
+main risk the initiative identified:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Question</th>
+      <th>Answered by</th>
+      <th>Never answered by</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Do two values mean the same physical thing?</td>
+      <td>quantity identity: <code class="language-plaintext highlighter-rouge">vaft.plot.taxonomy</code>, <code class="language-plaintext highlighter-rouge">vaft.formula.boundaries</code></td>
+      <td>matching units or dimensions</td>
+    </tr>
+    <tr>
+      <td>Is this representation the one it claims to be?</td>
+      <td>convention checks: <code class="language-plaintext highlighter-rouge">vaft.validation.cocos</code>, <code class="language-plaintext highlighter-rouge">vaft.validation.perturbation_phase</code></td>
+      <td>a declaration alone</td>
+    </tr>
+    <tr>
+      <td>Do the model’s assumptions hold here?</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.applicability</code> with <code class="language-plaintext highlighter-rouge">vaft.validation.orderings</code></td>
+      <td>solver convergence</td>
+    </tr>
+    <tr>
+      <td>Is the result supported by evidence?</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.credibility</code>, six axes (E/T/I/A/N/V)</td>
+      <td>any single score</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="inventory-and-coverage">Inventory and coverage</h2>
+
+<p>Coverage labels describe the <em>software</em> (existing, partial, missing, unresolved). They are not
+physical applicability verdicts. Enforcement is one of: <strong>doc</strong> (prose only), <strong>structural</strong> (checked
+when docs or catalogs are generated), <strong>runtime</strong> (checked when called) or <strong>independent</strong> (checked
+against data the result did not use).</p>
+
+<h3 id="units-dimensions-and-normalization">Units, dimensions and normalization</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>Owner</th>
+      <th>Implementation</th>
+      <th>Representation</th>
+      <th>Enforcement</th>
+      <th>Coverage</th>
+      <th>Gap</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Units of formula and process parameters and returns</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula</code>, <code class="language-plaintext highlighter-rouge">vaft.process</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft._docstring._UNIT_TAG</code>, <code class="language-plaintext highlighter-rouge">ParamDoc.unit</code>, <code class="language-plaintext highlighter-rouge">ReturnDoc.unit</code></td>
+      <td>free-text <code class="language-plaintext highlighter-rouge">[unit]</code> tag</td>
+      <td>structural: tag present (<code class="language-plaintext highlighter-rouge">test_every_parameter_and_return_carries_a_unit_tag</code>)</td>
+      <td>partial</td>
+      <td>Tags are never parsed, so <code class="language-plaintext highlighter-rouge">[MA]</code>, <code class="language-plaintext highlighter-rouge">[1e19 m^-3]</code> and <code class="language-plaintext highlighter-rouge">[varies]</code> are equally opaque. <strong>Definition not machine-readable.</strong></td>
+    </tr>
+    <tr>
+      <td>Dimensionless reductions</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula._taxonomy</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Reduction</code>, <code class="language-plaintext highlighter-rouge">formula.catalog._reduction</code></td>
+      <td>frozen dataclass of vocabulary strings + <code class="language-plaintext highlighter-rouge">[-]</code> return</td>
+      <td>structural</td>
+      <td>existing</td>
+      <td>Only check that relates a declared kind to a unit.</td>
+    </tr>
+    <tr>
+      <td>Physical dimensions for scaling laws</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.dimensional</code></td>
+      <td><code class="language-plaintext highlighter-rouge">BASE_DIMENSIONS</code>, <code class="language-plaintext highlighter-rouge">PHYSICAL_DIMENSIONS</code>, <code class="language-plaintext highlighter-rouge">dimensionless_groups</code></td>
+      <td>exponent tuples keyed by local symbols</td>
+      <td>runtime (algebra)</td>
+      <td>existing</td>
+      <td>No unit strings and no scale factors, and not linked to taxonomy names.</td>
+    </tr>
+    <tr>
+      <td>Engineering-unit scaling (A↔MA, W↔MW, fraction↔%, m⁻³↔10¹⁹ m⁻³)</td>
+      <td>none</td>
+      <td>hand-written at each call site (<code class="language-plaintext highlighter-rouge">_synthetic_kinetic_profiles</code> <code class="language-plaintext highlighter-rouge">/1e6</code>, <code class="language-plaintext highlighter-rouge">plot.history</code> column sniffing, <code class="language-plaintext highlighter-rouge">pr08_mhd_state._Direct</code>, <code class="language-plaintext highlighter-rouge">gacode.inputs.DENSITY_SCALE</code>, <code class="language-plaintext highlighter-rouge">efit.kfile</code> <code class="language-plaintext highlighter-rouge">unit_scale</code>)</td>
+      <td>inline literals</td>
+      <td>none</td>
+      <td>missing</td>
+      <td><strong>Missing interoperability infrastructure.</strong> Each call site carries its own conversion.</td>
+    </tr>
+    <tr>
+      <td>Unit of a boundary quantity</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.boundaries</code></td>
+      <td><code class="language-plaintext highlighter-rouge">BoundaryQuantity.unit</code>, <code class="language-plaintext highlighter-rouge">same_quantity</code></td>
+      <td>string, compared literally</td>
+      <td>runtime (window edges must match)</td>
+      <td>partial</td>
+      <td><code class="language-plaintext highlighter-rouge">line_average_density [1e19 m^-3]</code> and <code class="language-plaintext highlighter-rouge">[1e20 m^-3]</code> count as different quantities when they are one quantity in two units.</td>
+    </tr>
+    <tr>
+      <td>Poloidal flux Wb vs Wb/rad</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data.cocos</code> (exponent), <code class="language-plaintext highlighter-rouge">vaft.data.eqdsk</code> (detection)</td>
+      <td><code class="language-plaintext highlighter-rouge">CocosSpec.psi_per_radian</code>, <code class="language-plaintext highlighter-rouge">ods_psi_to_wb_per_radian_factor</code>, <code class="language-plaintext highlighter-rouge">flux_exponent_tier</code></td>
+      <td>COCOS index + probes</td>
+      <td>runtime</td>
+      <td>existing</td>
+      <td>Convention-dependent, so not a unit conversion. The terminal <code class="language-plaintext highlighter-rouge">1/(2π)</code> default in <code class="language-plaintext highlighter-rouge">ods_psi_to_wb_per_radian_factor</code> is a documented default, not a detection, and the detected tier is not persisted.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="quantity-identity">Quantity identity</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>Owner</th>
+      <th>Implementation</th>
+      <th>Enforcement</th>
+      <th>Coverage</th>
+      <th>Gap</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Canonical quantity names, strict aliases</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.plot.taxonomy</code></td>
+      <td><code class="language-plaintext highlighter-rouge">_QUANTITY_ALIAS_PAIRS</code>, <code class="language-plaintext highlighter-rouge">_UNALIASED_QUANTITIES</code>, <code class="language-plaintext highlighter-rouge">resolve_quantity</code></td>
+      <td>structural (<code class="language-plaintext highlighter-rouge">test_quantity_aliases_resolve_deterministically</code>, <code class="language-plaintext highlighter-rouge">test_every_strict_alias_resolves_to_exactly_one_canonical_concept</code>)</td>
+      <td>existing</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Families are not synonyms</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.plot.taxonomy</code></td>
+      <td><code class="language-plaintext highlighter-rouge">QuantityFamily</code> (<code class="language-plaintext highlighter-rouge">beta = beta_n, beta_p, beta_t</code>)</td>
+      <td>structural (<code class="language-plaintext highlighter-rouge">test_family_membership_is_not_synonymy</code>)</td>
+      <td>existing</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Formula outputs to concepts</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula._taxonomy</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Quantity(concept=…)</code></td>
+      <td>structural</td>
+      <td>existing</td>
+      <td>Records representation (0-D/1-D/2-D), not unit.</td>
+    </tr>
+    <tr>
+      <td>Consumed and produced quantities</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft._semantics</code> (shape), <code class="language-plaintext highlighter-rouge">vaft._ontology_graph</code> (resolution)</td>
+      <td><code class="language-plaintext highlighter-rouge">Semantics</code>, <code class="language-plaintext highlighter-rouge">parse_semantics</code></td>
+      <td>structural: unknown term fails generation</td>
+      <td>partial</td>
+      <td>Used by 9 docstrings. A term carries no unit, so <code class="language-plaintext highlighter-rouge">plasma_current</code> means A in <code class="language-plaintext highlighter-rouge">beta_normal_from_beta_volume</code> and MA in <code class="language-plaintext highlighter-rouge">greenwald_density</code>.</td>
+    </tr>
+    <tr>
+      <td>Same-name-different-meaning (density, li, q, P)</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.boundaries</code></td>
+      <td><code class="language-plaintext highlighter-rouge">BoundaryQuantity.name</code>, <code class="language-plaintext highlighter-rouge">same_quantity</code></td>
+      <td>runtime</td>
+      <td>existing</td>
+      <td>Distinctions such as <code class="language-plaintext highlighter-rouge">line_average_density</code> vs <code class="language-plaintext highlighter-rouge">edge_density</code>, or li(1)/li(3), exist <strong>only here</strong>, and the names never refer to the taxonomy (<code class="language-plaintext highlighter-rouge">normalized_beta</code> vs <code class="language-plaintext highlighter-rouge">beta_n</code>, <code class="language-plaintext highlighter-rouge">toroidal_field</code> vs <code class="language-plaintext highlighter-rouge">b_t</code>, <code class="language-plaintext highlighter-rouge">edge_safety_factor_95</code> vs <code class="language-plaintext highlighter-rouge">q95</code>). <strong>Duplicate/ambiguous ownership.</strong></td>
+    </tr>
+    <tr>
+      <td>Density averaging (line, volume, separatrix, edge)</td>
+      <td>none in the taxonomy</td>
+      <td><code class="language-plaintext highlighter-rouge">electron_density</code> is one subject (<code class="language-plaintext highlighter-rouge">ne</code>, <code class="language-plaintext highlighter-rouge">n_e</code>)</td>
+      <td>none</td>
+      <td>missing</td>
+      <td><code class="language-plaintext highlighter-rouge">process.langmuir</code> produces a local probe density under the same concept as a line-averaged one. <strong>Missing scientific definition.</strong></td>
+    </tr>
+    <tr>
+      <td>Vacuum vs plasma-response field</td>
+      <td>none</td>
+      <td><code class="language-plaintext highlighter-rouge">vacuum</code> is a <em>model</em> subject, <code class="language-plaintext highlighter-rouge">b_t</code> is unqualified</td>
+      <td>none</td>
+      <td>missing</td>
+      <td><strong>Missing scientific definition.</strong></td>
+    </tr>
+    <tr>
+      <td>ψ vs ψ_N</td>
+      <td>none</td>
+      <td><code class="language-plaintext highlighter-rouge">psi</code> only</td>
+      <td>none</td>
+      <td>missing</td>
+      <td><strong>Missing scientific definition.</strong></td>
+    </tr>
+    <tr>
+      <td>Unknown terms</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft._ontology_graph</code></td>
+      <td><code class="language-plaintext highlighter-rouge">resolve_term</code>, <code class="language-plaintext highlighter-rouge">graph.miss</code>, <code class="language-plaintext highlighter-rouge">snapshot["unresolved"]</code></td>
+      <td>structural (<code class="language-plaintext highlighter-rouge">test_unknown_terms_are_audited_never_canonicalized</code>)</td>
+      <td>existing</td>
+      <td>none</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Decision: no new Quantity Registry.</strong> The taxonomy already provides canonical identity, strict
+aliases, families and an audit of unknown terms. What is missing is a handful of canonical
+distinctions plus a link from <code class="language-plaintext highlighter-rouge">BoundaryQuantity</code> to the taxonomy. Phase B adds those to the existing
+vocabulary.</p>
+
+<h3 id="coordinates-orientation-and-cocos">Coordinates, orientation and COCOS</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>Owner</th>
+      <th>Implementation</th>
+      <th>Representation</th>
+      <th>Enforcement</th>
+      <th>Coverage</th>
+      <th>Gap</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>COCOS definitions</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data.cocos</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CocosSpec</code> (from <code class="language-plaintext highlighter-rouge">omas.define_cocos</code>), <code class="language-plaintext highlighter-rouge">expected_sign</code>, <code class="language-plaintext highlighter-rouge">bp_factor</code></td>
+      <td>frozen dataclass</td>
+      <td>runtime</td>
+      <td>existing</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>External-code conventions</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data.cocos</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CodeConvention</code>, <code class="language-plaintext highlighter-rouge">register_convention</code>, <code class="language-plaintext highlighter-rouge">convention_for</code></td>
+      <td>registry: chease 2, flare 3, gacode 2, vfit 1 (<code class="language-plaintext highlighter-rouge">confirmed=False</code>), imas/omas 11, geqdsk/efit/tes/gpec per file</td>
+      <td>structural</td>
+      <td>partial</td>
+      <td>No <code class="language-plaintext highlighter-rouge">dcon</code> entry. Evidence is a <code class="language-plaintext highlighter-rouge">confirmed</code> boolean.</td>
+    </tr>
+    <tr>
+      <td>Convention evidence for one equilibrium</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data.equilibrium</code></td>
+      <td><code class="language-plaintext highlighter-rouge">EquilibriumConvention</code> (<code class="language-plaintext highlighter-rouge">cocos</code>, <code class="language-plaintext highlighter-rouge">identified</code>, <code class="language-plaintext highlighter-rouge">contradicted</code>, <code class="language-plaintext highlighter-rouge">ambiguous</code>, <code class="language-plaintext highlighter-rouge">source</code>, <code class="language-plaintext highlighter-rouge">uncarried</code>)</td>
+      <td>dataclass + free-text <code class="language-plaintext highlighter-rouge">source</code></td>
+      <td>runtime</td>
+      <td>partial</td>
+      <td>Declared, inferred, contradicted and unresolved are spread across fields and free text. There is no evidence-level vocabulary.</td>
+    </tr>
+    <tr>
+      <td>Identification from data</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.cocos</code></td>
+      <td><code class="language-plaintext highlighter-rouge">identify_convention</code>, <code class="language-plaintext highlighter-rouge">identify_flux_exponent</code>, <code class="language-plaintext highlighter-rouge">identify_flux_exponent_from_q</code></td>
+      <td>narrowing to candidates; abstains</td>
+      <td>runtime (self-consistency: Ampère, contour q)</td>
+      <td>existing</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Consistency check</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.cocos</code></td>
+      <td><code class="language-plaintext highlighter-rouge">validate_cocos</code> → <code class="language-plaintext highlighter-rouge">ValidationReport</code></td>
+      <td>issue codes</td>
+      <td>runtime</td>
+      <td>partial</td>
+      <td><code class="language-plaintext highlighter-rouge">j_phi</code> and <code class="language-plaintext highlighter-rouge">phi_tor</code> are always unverifiable.</td>
+    </tr>
+    <tr>
+      <td>Transformation</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process</code> (<code class="language-plaintext highlighter-rouge">convert_cocos</code>), <code class="language-plaintext highlighter-rouge">vaft.omas.general</code> (<code class="language-plaintext highlighter-rouge">equilibrium_psi_to_weber</code>, <code class="language-plaintext highlighter-rouge">_transform_cocos_leaves</code>)</td>
+      <td>omas <code class="language-plaintext highlighter-rouge">cocos_transform</code> factors</td>
+      <td>functions</td>
+      <td>runtime</td>
+      <td>partial</td>
+      <td><code class="language-plaintext highlighter-rouge">convert_cocos</code> calls itself “the only COCOS transform”, but CHEASE, FLARE, GACODE and VFIT each carry their own path. Records are ad hoc: a CHEASE <code class="language-plaintext highlighter-rouge">chease_cocos_transform.json</code> manifest, the free-text <code class="language-plaintext highlighter-rouge">convention.source</code> set by <code class="language-plaintext highlighter-rouge">convert_cocos</code>, GACODE <code class="language-plaintext highlighter-rouge">provenance["cocos"]</code>, a TokaMaker sidecar field. There is no shared record shape. <strong>Lost evidence/provenance.</strong></td>
+    </tr>
+    <tr>
+      <td>Machine-native polarity (VEST)</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.conventions</code></td>
+      <td><code class="language-plaintext highlighter-rouge">DischargeSignContract</code>, <code class="language-plaintext highlighter-rouge">SignTransformation(confirmed=False)</code>, <code class="language-plaintext highlighter-rouge">equilibrium_orientation_is_resolved()</code></td>
+      <td>dataclass + boolean</td>
+      <td>doc + structural</td>
+      <td>unresolved</td>
+      <td>Owned by <strong>#288</strong>. A COCOS relabel cannot repair it. <strong>Missing scientific evidence, not a software defect.</strong></td>
+    </tr>
+    <tr>
+      <td>External-code boundary</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code.*</code></td>
+      <td>CHEASE forces signs (<code class="language-plaintext highlighter-rouge">_desired_signs_for_cocos</code>, <code class="language-plaintext highlighter-rouge">CHEASE_ORIENTATION</code>), FLARE refuses ambiguity (<code class="language-plaintext highlighter-rouge">FlareEquilibriumScales</code>)</td>
+      <td>per adapter</td>
+      <td>runtime</td>
+      <td>partial</td>
+      <td>GPEC/DCON (<code class="language-plaintext highlighter-rouge">copy_gfile_for_gpec</code>), EFIT and TES never check COCOS. <strong>Incomplete transformation boundary</strong>, a follow-up outside #2163.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="fourier-complex-harmonics-and-phase">Fourier, complex harmonics and phase</h3>
+
+<p>The kernels already in the package differ, which is legitimate because each matches the code it
+talks to. Until this audit they were recorded only in prose.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Function</th>
+      <th>Kernel or synthesis, with normalization</th>
+      <th>Reconstruction</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.coils_non_axisymmetric.toroidal_mode_decomposition</code></td>
+      <td><code class="language-plaintext highlighter-rouge">C_n = (1/K) Σ_k v_k e^{-inφ_k}</code></td>
+      <td><code class="language-plaintext highlighter-rouge">v = 2 Re(C_n e^{+inφ})</code>; <code class="language-plaintext highlighter-rouge">A cos(nφ+δ)</code> gives <code class="language-plaintext highlighter-rouge">(A/2) e^{+iδ}</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.perturbation.toroidal_phase_audit</code> (GPEC, FLARE)</td>
+      <td><code class="language-plaintext highlighter-rouge">C = 2 mean_φ(B e^{+inφ})</code></td>
+      <td><code class="language-plaintext highlighter-rouge">B = Re(C e^{-inφ})</code>; the conjugate of the row above, times two</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.stability.helical_harmonic</code></td>
+      <td>synthesis only: <code class="language-plaintext highlighter-rouge">Re[b̂ e^{i(mθ − nφ)}]</code></td>
+      <td><code class="language-plaintext highlighter-rouge">b̂ = 2 conj(C_n)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.perturbation.composite_drive_at_q</code></td>
+      <td>synthesis only: <code class="language-plaintext highlighter-rouge">Σ Re(z_n e^{inu})</code>, <code class="language-plaintext highlighter-rouge">u = qθ − ζ</code>, not doubled</td>
+      <td><code class="language-plaintext highlighter-rouge">peak</code>, <code class="language-plaintext highlighter-rouge">quadrature</code> and <code class="language-plaintext highlighter-rouge">linear_bound</code> are gauge invariant; <code class="language-plaintext highlighter-rouge">peak_angle</code> is not</td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>Owner</th>
+      <th>Representation</th>
+      <th>Enforcement</th>
+      <th>Coverage</th>
+      <th>Gap</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Kernel sign, normalization, sidedness</td>
+      <td>the function above</td>
+      <td>docstring prose</td>
+      <td>doc</td>
+      <td>partial</td>
+      <td><strong>Definition not machine-readable.</strong> No descriptor can be compared.</td>
+    </tr>
+    <tr>
+      <td>Toroidal angle orientation</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.conventions</code> (<code class="language-plaintext highlighter-rouge">VEST_PORT_CLOCK_TO_PHI_SIGN</code>), IMAS counter-clockwise</td>
+      <td>constant + prose</td>
+      <td>structural</td>
+      <td>existing</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>GPEC helicity rule (real space vs spectral output)</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.conventions.VEST_GPEC_COIL_DIRECTIONS</code></td>
+      <td>prose</td>
+      <td>doc</td>
+      <td>unresolved</td>
+      <td>The VEST coil-word conflict is open.</td>
+    </tr>
+    <tr>
+      <td>Phase-convention audit</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.perturbation.ToroidalPhaseAudit</code>, <code class="language-plaintext highlighter-rouge">vaft.code.gpec._phase_audit.audit_coil_field_phase</code></td>
+      <td>dataclass with gauge-invariant <code class="language-plaintext highlighter-rouge">separation_ratio</code></td>
+      <td>independent (Biot–Savart reference)</td>
+      <td>existing</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Phase verdict</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.perturbation_phase.phase_convention_verdict</code></td>
+      <td><code class="language-plaintext highlighter-rouge">PhaseConventionVerdict</code>: <code class="language-plaintext highlighter-rouge">PASS</code> or <code class="language-plaintext highlighter-rouge">INDETERMINATE</code>, never <code class="language-plaintext highlighter-rouge">FAIL</code></td>
+      <td>runtime</td>
+      <td>partial</td>
+      <td><strong>Missing integration</strong>: no production caller.</td>
+    </tr>
+    <tr>
+      <td>Phase origin <code class="language-plaintext highlighter-rouge">φ0 = arg Φ_res − π/2</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.stability.helical_phase</code></td>
+      <td>prose; measured at helicity −1 only</td>
+      <td>doc</td>
+      <td>partial</td>
+      <td>Recorded, not verified for both helicities.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="applicability-validation-and-provenance">Applicability, validation and provenance</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>Owner</th>
+      <th>Implementation</th>
+      <th>Coverage</th>
+      <th>Gap</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Validation statuses</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.model</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ValidationStatus</code>: <code class="language-plaintext highlighter-rouge">PASS</code>, <code class="language-plaintext highlighter-rouge">WARN</code>, <code class="language-plaintext highlighter-rouge">FAIL</code>, <code class="language-plaintext highlighter-rouge">INDETERMINATE</code>, <code class="language-plaintext highlighter-rouge">NOT_AVAILABLE</code></td>
+      <td>existing</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Named checks</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.registry</code></td>
+      <td><code class="language-plaintext highlighter-rouge">CheckSpec</code>, <code class="language-plaintext highlighter-rouge">CHECKS</code> (22, all equilibrium)</td>
+      <td>partial</td>
+      <td>No transformation check exists.</td>
+    </tr>
+    <tr>
+      <td>Credibility axes</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.credibility</code></td>
+      <td><code class="language-plaintext highlighter-rouge">AXES</code>, <code class="language-plaintext highlighter-rouge">Evidence</code>, <code class="language-plaintext highlighter-rouge">EVIDENCE_ROLES</code>, <code class="language-plaintext highlighter-rouge">compose</code></td>
+      <td>existing</td>
+      <td><strong>The <code class="language-plaintext highlighter-rouge">transformation</code> (T) axis has no producer.</strong> No category or check maps to it.</td>
+    </tr>
+    <tr>
+      <td>Approximation contracts</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.applicability</code>, <code class="language-plaintext highlighter-rouge">vaft.validation.orderings</code> (#1627, #1628)</td>
+      <td><code class="language-plaintext highlighter-rouge">ApproximationContract</code>, <code class="language-plaintext highlighter-rouge">evaluate_contract</code>, <code class="language-plaintext highlighter-rouge">as_evidence</code>, 15 <code class="language-plaintext highlighter-rouge">CONTRACTS</code></td>
+      <td>existing</td>
+      <td>none for this initiative</td>
+    </tr>
+    <tr>
+      <td>Adapter-to-contract map</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.model_contracts</code> (#1823)</td>
+      <td><code class="language-plaintext highlighter-rouge">ADAPTER_MODES</code>, <code class="language-plaintext highlighter-rouge">ordering_provenance</code>, <code class="language-plaintext highlighter-rouge">safe_ordering_provenance</code></td>
+      <td>partial</td>
+      <td>Recorded by EFIT, GPEC, PENTRC and CGYRO. Not by CHEASE.</td>
+    </tr>
+    <tr>
+      <td>Data validity</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.validity</code>, <code class="language-plaintext highlighter-rouge">vaft.validation.imas</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ValidityRecord</code>, <code class="language-plaintext highlighter-rouge">write_validity</code> (own assessment only)</td>
+      <td>existing</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Digest lineage</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database.provenance</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ChainLink</code>, <code class="language-plaintext highlighter-rouge">verify_chain</code>, <code class="language-plaintext highlighter-rouge">NOT_RECORDED</code></td>
+      <td>existing</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Scientific transformation history</td>
+      <td>none</td>
+      <td>GACODE per-field <code class="language-plaintext highlighter-rouge">{kind, source/reason}</code> and <code class="language-plaintext highlighter-rouge">provenance["cocos"]</code>; free-form notes elsewhere</td>
+      <td>partial</td>
+      <td>Per-field shapes exist in three places (GACODE inputs <code class="language-plaintext highlighter-rouge">{kind, source/reason}</code>, <code class="language-plaintext highlighter-rouge">pr08_mhd_state</code> <code class="language-plaintext highlighter-rouge">source_unit</code>/<code class="language-plaintext highlighter-rouge">transformation</code>, <code class="language-plaintext highlighter-rouge">gacode.output_audit</code> <code class="language-plaintext highlighter-rouge">native_units</code>/<code class="language-plaintext highlighter-rouge">transformation</code>) but share no schema. <strong>Lost evidence/provenance</strong>: no common record and no link from <code class="language-plaintext highlighter-rouge">Evidence</code> to what was transformed.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="ownership">Ownership</h2>
+
+<p>An owner is named separately for the <strong>definition</strong>, the <strong>transformation</strong> and the <strong>verdict</strong>,
+because these are different responsibilities.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concern</th>
+      <th>Definition</th>
+      <th>Transformation</th>
+      <th>Verdict</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Canonical quantity identity</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.plot.taxonomy</code> (extended, not duplicated)</td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft._ontology_graph</code> audit (structural)</td>
+    </tr>
+    <tr>
+      <td>Boundary-specific identity</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.boundaries</code>, linked to the taxonomy</td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">same_quantity</code></td>
+    </tr>
+    <tr>
+      <td>Physical dimensions</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.dimensional</code></td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>Unit scale factors</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula</code> (new <code class="language-plaintext highlighter-rouge">units</code> module, Phase B)</td>
+      <td>explicit conversion call</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>COCOS</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data.cocos</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process</code> <code class="language-plaintext highlighter-rouge">convert_cocos</code>, <code class="language-plaintext highlighter-rouge">vaft.omas.general</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.cocos</code></td>
+    </tr>
+    <tr>
+      <td>Machine polarity</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.conventions</code></td>
+      <td><code class="language-plaintext highlighter-rouge">SignTransformation</code> (unconfirmed)</td>
+      <td><strong>#288</strong></td>
+    </tr>
+    <tr>
+      <td>Fourier conventions</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data</code> (new <code class="language-plaintext highlighter-rouge">fourier</code> descriptor, Phase B), next to <code class="language-plaintext highlighter-rouge">vaft.data.cocos</code></td>
+      <td>explicit harmonic conversion</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.perturbation_phase</code></td>
+    </tr>
+    <tr>
+      <td>Representation and compatibility</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data</code> (new <code class="language-plaintext highlighter-rouge">representation</code> module, Phase B)</td>
+      <td>references the providers above</td>
+      <td>— (compatibility is not a verdict)</td>
+    </tr>
+    <tr>
+      <td>Applicability</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.orderings</code> (#1627)</td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.applicability</code> (#1628)</td>
+    </tr>
+    <tr>
+      <td>Evidence and credibility</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.credibility</code></td>
+      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">compose</code> per axis, no total</td>
+    </tr>
+    <tr>
+      <td>Generated views</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.catalog</code>, <code class="language-plaintext highlighter-rouge">vaft.process.catalog</code>, <code class="language-plaintext highlighter-rouge">vaft._ontology_graph</code></td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Out of scope</strong>, with owners recorded: the unresolved VEST polarity (#288); collisionality and
+gyroradius definition consolidation (#353); expansion of applicability contracts (#1627, #1628);
+consolidating the COCOS transform paths, and COCOS checks at the GPEC, EFIT and TES boundaries
+(follow-ups to be filed after Phase B).</p>
+
+<h2 id="five-traces">Five traces</h2>
+
+<p>Each step is marked <strong>reliable</strong> (machine-checked), <strong>implicit</strong> (correct, but resting on caller
+knowledge or prose), <strong>verifiable</strong> (an independent check exists and can be run), or <strong>gap</strong> (Phase B
+work).</p>
+
+<h3 id="a-cocos-through-an-equilibrium-chain">A. COCOS through an equilibrium chain</h3>
+
+<ol>
+  <li>A g-file or ODS enters. <code class="language-plaintext highlighter-rouge">equilibrium_psi_to_weber</code> reads the declared COCOS, or probes Wb against
+Wb/rad through <code class="language-plaintext highlighter-rouge">flux_exponent_tier</code> (slope, Ampère, contour q), and <strong>refuses</strong> when no tier
+decides. <strong>Verifiable.</strong> The separate reader-side <code class="language-plaintext highlighter-rouge">ods_psi_to_wb_per_radian_factor</code> runs the same
+probes but ends in a stated default of 1/(2π), which is <strong>implicit</strong>.</li>
+  <li><code class="language-plaintext highlighter-rouge">_resolve_convention</code> builds <code class="language-plaintext highlighter-rouge">EquilibriumConvention</code>: identification always runs and the
+declaration wins, with <code class="language-plaintext highlighter-rouge">contradicted</code> set when they disagree. <strong>Reliable</strong>, but the evidence level
+lives in booleans and the <code class="language-plaintext highlighter-rouge">source</code> string. <strong>Gap</strong>: no shared evidence vocabulary.</li>
+  <li><code class="language-plaintext highlighter-rouge">convert_cocos</code> applies omas factors to ψ, F, q, p′, FF′, I_p and B0, and refuses an ambiguous
+source. <strong>Reliable.</strong> What it keeps is a free-text <code class="language-plaintext highlighter-rouge">source</code> (“converted from COCOS N”) plus the
+carried <code class="language-plaintext highlighter-rouge">identified</code> candidates, not a structured record. <strong>Gap</strong> for Phase C.</li>
+  <li>CHEASE input forces signs to COCOS 2 with <code class="language-plaintext highlighter-rouge">CHEASE_ORIENTATION</code>. <strong>Reliable</strong> (byte parity test).</li>
+  <li>The GPEC g-file copy (<code class="language-plaintext highlighter-rouge">copy_gfile_for_gpec</code>) passes the file through without a COCOS check.
+<strong>Gap</strong>, filed as a follow-up and kept out of this initiative.</li>
+  <li>VEST machine polarity (<code class="language-plaintext highlighter-rouge">IP_SIGN_VEST_TO_IMAS.confirmed=False</code>) never enters steps 1–5.
+<strong>Unresolved, owned by #288.</strong> Correct COCOS handling of the stored data does not confirm it.</li>
+</ol>
+
+<h3 id="b-greenwald-density-in-engineering-units">B. Greenwald density in engineering units</h3>
+
+<ol>
+  <li><code class="language-plaintext highlighter-rouge">greenwald_density(I_p, a)</code> takes <code class="language-plaintext highlighter-rouge">I_p [MA]</code> and returns <code class="language-plaintext highlighter-rouge">[1e19 m^-3]</code>. Its Convention section
+notes that the literature quotes 10²⁰. <strong>Implicit</strong>: the unit is a docstring tag.</li>
+  <li>Callers convert by hand: <code class="language-plaintext highlighter-rouge">_synthetic_kinetic_profiles</code> writes <code class="language-plaintext highlighter-rouge">1e19 * greenwald_density(abs(ip)/1e6, …)</code>,
+and <code class="language-plaintext highlighter-rouge">plot.history</code> sniffs column names (<code class="language-plaintext highlighter-rouge">Ip_MA</code>, <code class="language-plaintext highlighter-rouge">ne_19m3</code>). <strong>Implicit.</strong></li>
+  <li><code class="language-plaintext highlighter-rouge">greenwald_fraction(n_e, n_G)</code> expects a line-averaged density in the same unit, stated only in
+prose. <strong>Implicit.</strong></li>
+  <li>Nothing can detect a caller passing amperes. The result would be 10⁶ too large, finite and
+silent. <strong>Gap</strong>: no parsed unit, no opt-in assessment.</li>
+  <li>Normalized beta follows the same pattern three times: <code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code> (% and MA),
+<code class="language-plaintext highlighter-rouge">beta_normal_from_beta_tor</code> (fraction and A, converted inside), <code class="language-plaintext highlighter-rouge">beta_normal_from_beta_volume</code>
+(Menard ⟨β_N⟩, a different beta in the same unit). <strong>Gap</strong>: the taxonomy has a single <code class="language-plaintext highlighter-rouge">beta_n</code>.</li>
+</ol>
+
+<h3 id="c-complex-toroidal-response">C. Complex toroidal response</h3>
+
+<ol>
+  <li>Sector currents <code class="language-plaintext highlighter-rouge">I_k = A cos(nφ_k + δ)</code> come from <code class="language-plaintext highlighter-rouge">phased_sector_currents</code>. <strong>Reliable.</strong></li>
+  <li><code class="language-plaintext highlighter-rouge">toroidal_mode_decomposition</code> gives <code class="language-plaintext highlighter-rouge">C_n = (A/2) e^{+iδ}</code> with kernel <code class="language-plaintext highlighter-rouge">e^{-inφ}</code> and <code class="language-plaintext highlighter-rouge">1/K</code>.
+<strong>Reliable</strong> (<code class="language-plaintext highlighter-rouge">test_cosine_pattern_gives_half_amplitude_and_positive_phase</code>), but the convention is
+prose. <strong>Gap.</strong></li>
+  <li>GPEC writes fields under <code class="language-plaintext highlighter-rouge">Re(C e^{-inφ})</code>. <code class="language-plaintext highlighter-rouge">toroidal_phase_audit</code> compares the stored coefficient
+and its conjugate against a Biot–Savart reference. <strong>Verifiable</strong>, with a gauge-invariant
+separation ratio.</li>
+  <li><code class="language-plaintext highlighter-rouge">phase_convention_verdict</code> returns <code class="language-plaintext highlighter-rouge">PASS</code> or <code class="language-plaintext highlighter-rouge">INDETERMINATE</code>. <strong>Reliable</strong> when called, but nothing
+calls it. <strong>Gap</strong> for Phase C.</li>
+  <li>The VEST coil-direction words are an open conflict (<code class="language-plaintext highlighter-rouge">VEST_GPEC_COIL_DIRECTIONS</code>). <strong>Unresolved.</strong></li>
+</ol>
+
+<h3 id="d-model-applicability">D. Model applicability</h3>
+
+<ol>
+  <li>A state (dict, DataFrame row or object) holds ordering quantities named as in
+<code class="language-plaintext highlighter-rouge">ORDERING_QUANTITIES</code>. <strong>Reliable.</strong></li>
+  <li><code class="language-plaintext highlighter-rouge">evaluate_contract(CONTRACTS["gyrokinetic_delta_f"], state)</code> returns per-assumption margins
+(<code class="language-plaintext highlighter-rouge">log10</code> of threshold over value) and <code class="language-plaintext highlighter-rouge">SUPPORTED</code>, <code class="language-plaintext highlighter-rouge">OUTSIDE</code>, <code class="language-plaintext highlighter-rouge">UNASSESSED</code> or <code class="language-plaintext highlighter-rouge">NOT_APPLICABLE</code>.
+A missing input gives <code class="language-plaintext highlighter-rouge">UNASSESSED</code>, never <code class="language-plaintext highlighter-rouge">SUPPORTED</code>. <strong>Reliable.</strong></li>
+  <li><code class="language-plaintext highlighter-rouge">as_evidence</code> places the result on the A axis. <code class="language-plaintext highlighter-rouge">compose</code> keeps it apart from N. <strong>Reliable.</strong></li>
+  <li>Adapters record <code class="language-plaintext highlighter-rouge">ordering_provenance</code> in run provenance as advisory data. This is explicit and
+never automatic. <strong>Reliable.</strong> No gap for this initiative beyond attaching the evaluation to a
+result context (Phase C).</li>
+</ol>
+
+<h3 id="e-two-densities-with-the-same-unit">E. Two densities with the same unit</h3>
+
+<ol>
+  <li><code class="language-plaintext highlighter-rouge">formula.boundaries</code> separates <code class="language-plaintext highlighter-rouge">line_average_density</code> from <code class="language-plaintext highlighter-rouge">edge_density</code>, whose definition says
+it is “not the line-averaged or separatrix density”. <strong>Reliable</strong> inside boundaries. No separatrix
+density is defined anywhere as a quantity of its own.</li>
+  <li>The taxonomy has only the subject <code class="language-plaintext highlighter-rouge">electron_density</code> (<code class="language-plaintext highlighter-rouge">ne</code>, <code class="language-plaintext highlighter-rouge">n_e</code>); it is not a canonical quantity. Both densities would resolve to that subject.
+<strong>Gap.</strong></li>
+  <li>The ontology never ingests boundaries, so the distinction is invisible there. <strong>Gap</strong> for Phase D.</li>
+  <li>Nothing anywhere treats these as interchangeable, but nothing would stop it. <strong>Gap</strong>: no
+compatibility check that refuses it.</li>
+</ol>
+
+<h2 id="phase-b-specification">Phase B specification</h2>
+
+<p>Each item names its gap, owner, behaviour, tests and constraints. Everything is opt-in: no formula
+signature, return type or import cost changes.</p>
+
+<ol>
+  <li><strong>Unit scale</strong> (<code class="language-plaintext highlighter-rouge">vaft.formula.units</code>, new).
+    <ul>
+      <li>Gap: unparsed unit tags and about 15 hand-written conversions.</li>
+      <li>Behaviour: <code class="language-plaintext highlighter-rouge">parse_unit</code> covers only the tags the audit found in use (A, kA, MA, W, kW, MW, T, G,
+J, eV, keV, m, m⁻³, 10¹⁹ m⁻³, 10²⁰ m⁻³, s, ms, Wb, <code class="language-plaintext highlighter-rouge">-</code>, %). <code class="language-plaintext highlighter-rouge">conversion_factor</code> refuses a
+dimension mismatch and refuses Wb/rad, pointing to the COCOS provider instead. An unknown tag
+raises; nothing is guessed.</li>
+      <li>Tests: the scale factors; refusals; an unknown tag; no numpy-free import cost.</li>
+    </ul>
+  </li>
+  <li><strong>Identity distinctions</strong> (<code class="language-plaintext highlighter-rouge">vaft.plot.taxonomy</code>, <code class="language-plaintext highlighter-rouge">vaft.formula.boundaries</code>).
+    <ul>
+      <li>Gap: density averaging, ψ vs ψ_N, vacuum vs response field; two disjoint identity vocabularies.</li>
+      <li>Behaviour: add canonical quantities for those distinctions without merging aliases. Add an
+optional <code class="language-plaintext highlighter-rouge">BoundaryQuantity.concept</code> resolved through <code class="language-plaintext highlighter-rouge">resolve_quantity</code>. <code class="language-plaintext highlighter-rouge">same_quantity</code>
+keeps its meaning. A separate predicate reports when the same quantity is held in two
+convertible units.</li>
+      <li>Tests: no alias collisions; every boundary concept resolves; the 10¹⁹ and 10²⁰ line densities are
+convertible but <code class="language-plaintext highlighter-rouge">same_quantity</code> is still false.</li>
+    </ul>
+  </li>
+  <li><strong>Fourier descriptor</strong> (<code class="language-plaintext highlighter-rouge">vaft.data.fourier</code>, new).
+    <ul>
+      <li>Gap: kernels are prose only.</li>
+      <li>Behaviour: a frozen <code class="language-plaintext highlighter-rouge">FourierConvention</code> (kernel sign, normalization, sidedness, angle orientation,
+phase origin) with named constants for the four kernels above, each citing its function. An
+explicit coefficient conversion is allowed only for coefficients of a real field with every
+field declared. A differing phase origin or orientation is never bridged.</li>
+      <li>Tests: the sector-current → decomposition → GPEC-convention round trip reproduces the
+<code class="language-plaintext highlighter-rouge">toroidal_phase_audit</code> coefficient and the real-space field; missing metadata raises.</li>
+    </ul>
+  </li>
+  <li><strong>Representation and compatibility</strong> (<code class="language-plaintext highlighter-rouge">vaft.data.representation</code>, new).
+    <ul>
+      <li>Gap: no common way to ask whether two representations can be combined.</li>
+      <li>Behaviour: a <code class="language-plaintext highlighter-rouge">Representation</code> (quantity, unit, optional COCOS and Fourier convention, evidence
+level: declared, inferred, verified or unresolved) and <code class="language-plaintext highlighter-rouge">assess_compatibility</code> with outcomes
+<code class="language-plaintext highlighter-rouge">COMPATIBLE</code>, <code class="language-plaintext highlighter-rouge">REQUIRES_TRANSFORM</code>, <code class="language-plaintext highlighter-rouge">INCOMPATIBLE</code> and <code class="language-plaintext highlighter-rouge">UNRESOLVED</code>, structured reasons, and a
+reference to the transformation provider. These outcomes are not validation statuses.
+Assessment never touches arrays; executing a transform is a separate call.
+<code class="language-plaintext highlighter-rouge">EquilibriumConvention</code> maps to a representation, with <code class="language-plaintext highlighter-rouge">contradicted</code> or <code class="language-plaintext highlighter-rouge">ambiguous</code> giving
+<code class="language-plaintext highlighter-rouge">UNRESOLVED</code>.</li>
+      <li>Tests: Cases A, B, C and E; a family match is <code class="language-plaintext highlighter-rouge">INCOMPATIBLE</code>; missing units or COCOS give
+<code class="language-plaintext highlighter-rouge">UNRESOLVED</code>; inputs are not mutated.</li>
+    </ul>
+  </li>
+  <li><strong>Opt-in boundary</strong> (<code class="language-plaintext highlighter-rouge">vaft.formula.catalog</code>).
+    <ul>
+      <li>Behaviour: derive a parameter’s <code class="language-plaintext highlighter-rouge">Representation</code> from its existing unit tag and <code class="language-plaintext highlighter-rouge">Semantics</code>
+term, so a caller can assess before calling <code class="language-plaintext highlighter-rouge">greenwald_density</code> or a β_N function.</li>
+      <li>Tests: the Greenwald <code class="language-plaintext highlighter-rouge">I_p</code> parameter is MA; a value in A is <code class="language-plaintext highlighter-rouge">REQUIRES_TRANSFORM</code> with factor
+10⁻⁶; a value with no unit is <code class="language-plaintext highlighter-rouge">UNRESOLVED</code>.</li>
+    </ul>
+  </li>
+</ol>
+
+<p>Phase C (#2165) then adds a transformation record, the first producers of <code class="language-plaintext highlighter-rouge">transformation</code> (T)
+evidence, and an opt-in result context. Phase D (#2167) exposes all of it through the generated
+catalogs and ontology.</p>
+
+<h2 id="related-reference">Related reference</h2>
+
+<ul>
+  <li><a href="/vaft/develop/reference/scientific-architecture/">Scientific architecture</a></li>
+  <li><a href="/vaft/develop/reference/credibility-applicability/">Credibility and applicability</a></li>
+  <li><a href="/vaft/develop/reference/asymptotic-orderings/">Asymptotic orderings</a></li>
+  <li><a href="/vaft/develop/reference/ontology/">Scientific ontology</a></li>
+</ul>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+          
+          <li data-resource-id="validation"><a href="/vaft/develop/reference/api/validation/"><code>vaft.validation</code></a></li>
+        
+          
+          <li data-resource-id="mapping"><a href="/vaft/develop/reference/api/machine-mapping/"><code>vaft.machine_mapping</code></a></li>
+        
+          
+          <li data-resource-id="code"><a href="/vaft/develop/reference/api/code/"><code>vaft.code</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/formula/units/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: units">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/process/acquisition/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: acquisition">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#four-questions-kept-apart" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Four questions kept apart</a></li><li class="page-toc-item page-toc-level-2"><a href="#inventory-and-coverage" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Inventory and coverage</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#units-dimensions-and-normalization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Units, dimensions and normalization</a></li><li class="page-toc-item page-toc-level-3"><a href="#quantity-identity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Quantity identity</a></li><li class="page-toc-item page-toc-level-3"><a href="#coordinates-orientation-and-cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coordinates, orientation and COCOS</a></li><li class="page-toc-item page-toc-level-3"><a href="#fourier-complex-harmonics-and-phase" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fourier, complex harmonics and phase</a></li><li class="page-toc-item page-toc-level-3"><a href="#applicability-validation-and-provenance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Applicability, validation and provenance</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#ownership" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ownership</a></li><li class="page-toc-item page-toc-level-2"><a href="#five-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Five traces</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#a-cocos-through-an-equilibrium-chain" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">A. COCOS through an equilibrium chain</a></li><li class="page-toc-item page-toc-level-3"><a href="#b-greenwald-density-in-engineering-units" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">B. Greenwald density in engineering units</a></li><li class="page-toc-item page-toc-level-3"><a href="#c-complex-toroidal-response" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">C. Complex toroidal response</a></li><li class="page-toc-item page-toc-level-3"><a href="#d-model-applicability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">D. Model applicability</a></li><li class="page-toc-item page-toc-level-3"><a href="#e-two-densities-with-the-same-unit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">E. Two densities with the same unit</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#phase-b-specification" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Phase B specification</a></li><li class="page-toc-item page-toc-level-2"><a href="#related-reference" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Related reference</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: acquisition",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_acquisition.md",
+            "ref": "_guide/Process_reference_acquisition.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Scientific_contracts.md",
+        "mtime": "2026-10-25 09:00:00 +0900",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-28 16:13:10 +0900"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/develop/assets/animations/loader.js"></script>
+<script src="/vaft/develop/assets/gitbook/adaptive.js"></script>
+</body>
+</html>

@@ -1,0 +1,1860 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: transport · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/reference/formula/regularized_profiles/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/vest-diagnostics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="getting-started">Getting started</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="architecture">Framework and scientific architecture</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.research-domains" data-path="/vaft/reference/research-domains/">
+                    
+                        <a href="/vaft/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="plasma-physics">Plasma physics and models</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.plasma-model-guide" data-path="/vaft/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.particle-motion" data-path="/vaft/guide/particle-motion/">
+                    
+                        <a href="/vaft/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.characteristic-scales" data-path="/vaft/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.gyrokinetic-results" data-path="/vaft/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="vest-imas-data">VEST and IMAS data</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="apis-visualization">APIs and visualization</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.animation-reference" data-path="/vaft/reference/animation/">
+                    
+                        <a href="/vaft/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="software-integrations">Software and integrations</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="resources">Resources and support</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: transport</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_transport">Formula reference: transport</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.transport, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.transport</code>:
+<strong>9</strong> public functions. Each entry is what
+<code>vaft.formula.describe("transport.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Definitions only (issue #1112). A diffusivity here is either the definition of
+one – from a mean-square displacement or a velocity autocorrelation – or a
+reference <em>scale</em> against which a measured or simulated transport coefficient
+is compared; none is a prediction of the anomalous transport of a plasma.
+Constitutive fluxes go forward, from coefficients to a flux: a flux alone does
+not determine a unique pair $(D, V)$, and nothing here inverts one. The
+complete Braginskii heat diffusivities are
+<code class="language-plaintext highlighter-rouge">vaft.formula.kinetic.classical_electron_heat_diffusivity_from_T_e_B</code>
+and its ion counterpart; the gyroradius, sound speed and $\rho_*$ have their
+own owners in <code class="language-plaintext highlighter-rouge">vaft.formula.ordering</code>, <code class="language-plaintext highlighter-rouge">vaft.formula.sol</code> and
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium</code> (<code class="language-plaintext highlighter-rouge">rho_star_from_M_T_B_R_epsilon</code>),
+and are inputs here.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>D</td><td>particle diffusivity</td><td class="ref-unit">m^2/s</td></tr>
+  <tr><td>V</td><td>convection (pinch) velocity</td><td class="ref-unit">m/s</td></tr>
+  <tr><td>chi</td><td>heat diffusivity</td><td class="ref-unit">m^2/s</td></tr>
+  <tr><td>n</td><td>density</td><td class="ref-unit">m^-3</td></tr>
+  <tr><td>T</td><td>temperature</td><td class="ref-unit">eV</td></tr>
+  <tr><td>nu</td><td>collision frequency</td><td class="ref-unit">1/s</td></tr>
+  <tr><td>rho</td><td>gyroradius (the step of a classical random walk)</td><td class="ref-unit">m</td></tr>
+  <tr><td>rho_s</td><td>ion-sound gyroradius</td><td class="ref-unit">m</td></tr>
+  <tr><td>c_s</td><td>ion sound speed</td><td class="ref-unit">m/s</td></tr>
+  <tr><td>L_ref</td><td>normalising length of the gyro-Bohm scale</td><td class="ref-unit">m</td></tr>
+  <tr><td>Gamma</td><td>particle flux</td><td class="ref-unit">m^-2 s^-1</td></tr>
+  <tr><td>q, Q</td><td>heat (energy) flux</td><td class="ref-unit">W/m^2</td></tr>
+  </tbody>
+</table></div>
+
+\[\Gamma = -D\,\partial_r n + nV, \qquad q = -n\chi\,\partial_r T\]
+
+<p>$r$ is the radial coordinate the gradient is taken along, in metres, and an
+outward flux is positive; a positive $V$ is outward convection, so an inward
+pinch has $V &lt; 0$. Converting a gradient in a flux label ($\rho$,
+$\psi_N$) to metres is the caller’s job (#551 / #563). Temperatures are in
+eV; a flux carries the factor $e$ that turns eV into joules.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 9 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="bohm_diffusivity_from_T_B"><td><a href="#bohm_diffusivity_from_T_B"><code>bohm_diffusivity_from_T_B</code></a></td><td>Bohm diffusivity: the reference scale of strongly anomalous transport.
+ <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="classical_diffusivity_from_nu_rho"><td><a href="#classical_diffusivity_from_nu_rho"><code>classical_diffusivity_from_nu_rho</code></a></td><td>Classical random-walk reference diffusivity: one gyroradius per collision.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="conductive_heat_flux_from_n_chi_grad_T"><td><a href="#conductive_heat_flux_from_n_chi_grad_T"><code>conductive_heat_flux_from_n_chi_grad_T</code></a></td><td>Radial conductive heat flux from a heat diffusivity (Fourier’s law).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="diffusivity_from_mean_square_displacement"><td><a href="#diffusivity_from_mean_square_displacement"><code>diffusivity_from_mean_square_displacement</code></a></td><td>Diffusivity from the growth rate of the mean-square displacement (Einstein relation).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="diffusivity_from_velocity_autocorrelation"><td><a href="#diffusivity_from_velocity_autocorrelation"><code>diffusivity_from_velocity_autocorrelation</code></a></td><td>Diffusivity as the time integral of the velocity autocorrelation (Taylor–Green–Kubo).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="gyrobohm_diffusivity_from_rho_s_c_s_L_ref"><td><a href="#gyrobohm_diffusivity_from_rho_s_c_s_L_ref"><code>gyrobohm_diffusivity_from_rho_s_c_s_L_ref</code></a></td><td>Gyro-Bohm diffusivity: the Bohm scale reduced by one power of $\rho_s/L_\mathrm{ref}$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="gyrobohm_energy_flux_from_n_T_c_s_rho_s_L_ref"><td><a href="#gyrobohm_energy_flux_from_n_T_c_s_rho_s_L_ref"><code>gyrobohm_energy_flux_from_n_T_c_s_rho_s_L_ref</code></a></td><td>Gyro-Bohm energy-flux unit.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="gyrobohm_particle_flux_from_n_c_s_rho_s_L_ref"><td><a href="#gyrobohm_particle_flux_from_n_c_s_rho_s_L_ref"><code>gyrobohm_particle_flux_from_n_c_s_rho_s_L_ref</code></a></td><td>Gyro-Bohm particle-flux unit.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="particle_flux_from_D_grad_n_V_n"><td><a href="#particle_flux_from_D_grad_n_V_n"><code>particle_flux_from_D_grad_n_V_n</code></a></td><td>Radial particle flux from a diffusivity and a convection velocity.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="bohm_diffusivity_from_T_B" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#bohm_diffusivity_from_T_B"><code>bohm_diffusivity_from_T_B</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="bohm_diffusivity_from_T_B" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/formula/transport.py#L355-L399" title="vaft/formula/transport.py, lines 355–399 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>bohm_diffusivity_from_T_B(T, B, Z=1.0, coefficient=0.0625)</code></pre>
+
+    <details class="ref-code" data-source-code="bohm_diffusivity_from_T_B"><summary>Show source <span class="ref-note">vaft/formula/transport.py, lines 355–399</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">bohm_diffusivity_from_T_B</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">coefficient</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">16.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Bohm diffusivity: the reference scale of strongly anomalous transport.
+
+    $$D_B = C_B\,\frac{T}{|q|B}$$
+
+    Parameters
+    ----------
+    T : float or array-like
+        Temperature, positive [eV].
+    B : float or array-like
+        Field strength, positive [T].
+    Z : float or array-like
+        Charge number of the species, $|q| = Ze$, positive [-].
+    coefficient : float
+        $C_B$, positive; Bohm</span><span class="sh">'</span><span class="s">s value $1/16$ by default [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $D_B$ [m^2/s].
+
+    Raises
+    ------
+    ValueError
+        A non-positive or non-finite input.
+
+    Convention
+    ----------
+    With $T$ in eV and $|q| = Ze$, $T/(|q|B) = T_\mathrm{eV}/(ZB)$ in
+    m^2/s. The coefficient is explicit: $C_B = 1/16$ is Bohm</span><span class="sh">'</span><span class="s">s empirical
+    value, and comparisons that use $C_B = 1$ must pass it.
+
+    Validity
+    --------
+    Empirical fit. Bohm</span><span class="sh">'</span><span class="s">s 1949 arc-discharge observation, kept as a reference
+    scale: $D_B \propto T/B$ has no gyroradius dependence, which is what
+    separates Bohm from gyro-Bohm scaling.
+
+    References
+    ----------
+    .. [1] D. Bohm, in *The Characteristics of Electrical Discharges in Magnetic
+           Fields*, ed. A. Guthrie and R. K. Wakerling, McGraw-Hill (1949), Ch. 2.
+    </span><span class="sh">"""</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">coefficient</span><span class="p">,</span> <span class="sh">"</span><span class="s">coefficient</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">c</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="sh">"</span><span class="s">T</span><span class="sh">"</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="nf">_positive</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="sh">"</span><span class="s">Z</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="sh">"</span><span class="s">B</span><span class="sh">"</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Bohm diffusivity: the reference scale of strongly anomalous transport.</p>
+
+\[D_B = C_B\,\frac{T}{|q|B}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">eV</td><td><p>Temperature, positive.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">T</td><td><p>Field strength, positive.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><table>
+  <tbody>
+    <tr>
+      <td>Charge number of the species, $</td>
+      <td>q</td>
+      <td>= Ze$, positive.</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr>
+  <tr><td><code>coefficient</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$C_B$, positive; Bohm’s value $1/16$ by default.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^2/s</td><td><p>$D_B$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>With $T$ in eV and $|q| = Ze$, $T/(|q|B) = T_\mathrm{eV}/(ZB)$ in
+m^2/s. The coefficient is explicit: $C_B = 1/16$ is Bohm’s empirical
+value, and comparisons that use $C_B = 1$ must pass it.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive or non-finite input.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Validity · References</summary>
+
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>Empirical fit. Bohm’s 1949 arc-discharge observation, kept as a reference
+scale: $D_B \propto T/B$ has no gyroradius dependence, which is what
+separates Bohm from gyro-Bohm scaling.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>D. Bohm, in <em>The Characteristics of Electrical Discharges in Magnetic Fields</em>, ed. A. Guthrie and R. K. Wakerling, McGraw-Hill (1949), Ch. 2.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="classical_diffusivity_from_nu_rho" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#classical_diffusivity_from_nu_rho"><code>classical_diffusivity_from_nu_rho</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="classical_diffusivity_from_nu_rho" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/formula/transport.py#L306-L352" title="vaft/formula/transport.py, lines 306–352 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>classical_diffusivity_from_nu_rho(nu, rho)</code></pre>
+
+    <details class="ref-code" data-source-code="classical_diffusivity_from_nu_rho"><summary>Show source <span class="ref-note">vaft/formula/transport.py, lines 306–352</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">classical_diffusivity_from_nu_rho</span><span class="p">(</span><span class="n">nu</span><span class="p">,</span> <span class="n">rho</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Classical random-walk reference diffusivity: one gyroradius per collision.
+
+    $$D_\mathrm{cl} \sim \nu\rho^2$$
+
+    Parameters
+    ----------
+    nu : float or array-like
+        Collision frequency that decorrelates the gyro-orbit, non-negative [1/s].
+    rho : float or array-like
+        Gyroradius, the random-walk step, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\nu\rho^2$ [m^2/s].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, a negative frequency or a non-positive gyroradius.
+
+    Convention
+    ----------
+    The reference scale without an order-unity prefactor. Which collision
+    frequency and which species</span><span class="sh">'</span><span class="s"> gyroradius enter is the caller</span><span class="sh">'</span><span class="s">s choice and
+    sets the meaning: electron collisions with the electron gyroradius give
+    the classical particle diffusivity, ion--ion collisions with the ion
+    gyroradius the classical ion heat diffusivity scale.
+
+    Physical interpretation
+    -----------------------
+    The random walk of :func:`diffusivity_from_mean_square_displacement` with
+    step $\rho$ and step time $1/\nu$.
+
+    Limitations
+    -----------
+    An order-of-magnitude scale, not a classical transport model: the full
+    Braginskii coefficients, with their numerical factors and cross terms,
+    are :func:`vaft.formula.kinetic.classical_electron_heat_diffusivity_from_T_e_B`
+    and :func:`vaft.formula.kinetic.classical_ion_heat_diffusivity_from_T_i_B`.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Ch. 4.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="nf">_non_negative</span><span class="p">(</span><span class="n">nu</span><span class="p">,</span> <span class="sh">"</span><span class="s">nu</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">rho</span><span class="p">,</span> <span class="sh">"</span><span class="s">rho</span><span class="sh">"</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Classical random-walk reference diffusivity: one gyroradius per collision.</p>
+
+\[D_\mathrm{cl} \sim \nu\rho^2\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>nu</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">1/s</td><td><p>Collision frequency that decorrelates the gyro-orbit, non-negative.</p>
+</td></tr>
+  <tr><td><code>rho</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m</td><td><p>Gyroradius, the random-walk step, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^2/s</td><td><p>$\nu\rho^2$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The reference scale without an order-unity prefactor. Which collision
+frequency and which species’ gyroradius enter is the caller’s choice and
+sets the meaning: electron collisions with the electron gyroradius give
+the classical particle diffusivity, ion–ion collisions with the ion
+gyroradius the classical ion heat diffusivity scale.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, a negative frequency or a non-positive gyroradius.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Limitations · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The random walk of <code class="language-plaintext highlighter-rouge">diffusivity_from_mean_square_displacement</code> with
+step $\rho$ and step time $1/\nu$.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>An order-of-magnitude scale, not a classical transport model: the full
+Braginskii coefficients, with their numerical factors and cross terms,
+are <code class="language-plaintext highlighter-rouge">vaft.formula.kinetic.classical_electron_heat_diffusivity_from_T_e_B</code>
+and <code class="language-plaintext highlighter-rouge">vaft.formula.kinetic.classical_ion_heat_diffusivity_from_T_i_B</code>.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Ch. 4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="conductive_heat_flux_from_n_chi_grad_T" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#conductive_heat_flux_from_n_chi_grad_T"><code>conductive_heat_flux_from_n_chi_grad_T</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="conductive_heat_flux_from_n_chi_grad_T" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/formula/transport.py#L265-L303" title="vaft/formula/transport.py, lines 265–303 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>conductive_heat_flux_from_n_chi_grad_T(n, chi, grad_T)</code></pre>
+
+    <details class="ref-code" data-source-code="conductive_heat_flux_from_n_chi_grad_T"><summary>Show source <span class="ref-note">vaft/formula/transport.py, lines 265–303</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">conductive_heat_flux_from_n_chi_grad_T</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">chi</span><span class="p">,</span> <span class="n">grad_T</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Radial conductive heat flux from a heat diffusivity (Fourier</span><span class="sh">'</span><span class="s">s law).
+
+    $$q_\mathrm{cond} = -n\chi\,\partial_r T$$
+
+    Parameters
+    ----------
+    n : float or array-like
+        Density of the species carrying the heat, non-negative [m^-3].
+    chi : float or array-like
+        Heat diffusivity, non-negative [m^2/s].
+    grad_T : float or array-like
+        Radial temperature gradient $\partial_r T$ [eV/m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $q_\mathrm{cond}$, positive outward [W/m^2].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, or a negative density or diffusivity.
+
+    Convention
+    ----------
+    Conduction only: the convective part $\tfrac{5}{2}T\Gamma$ (or
+    $\tfrac{3}{2}T\Gamma$, depending on the convention of the total energy
+    flux) is not included, and neither are off-diagonal terms of the
+    transport matrix. The factor $e$ converts eV to joules.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Ch. 4.
+    </span><span class="sh">"""</span>
+    <span class="n">density</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="sh">"</span><span class="s">n</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">chi</span><span class="p">,</span> <span class="sh">"</span><span class="s">chi</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">grad_T</span><span class="p">,</span> <span class="sh">"</span><span class="s">grad_T</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="o">-</span><span class="n">density</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">g</span> <span class="o">*</span> <span class="n">QE</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Radial conductive heat flux from a heat diffusivity (Fourier’s law).</p>
+
+\[q_\mathrm{cond} = -n\chi\,\partial_r T\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><p>Density of the species carrying the heat, non-negative.</p>
+</td></tr>
+  <tr><td><code>chi</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^2/s</td><td><p>Heat diffusivity, non-negative.</p>
+</td></tr>
+  <tr><td><code>grad_T</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">eV/m</td><td><p>Radial temperature gradient $\partial_r T$.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>$q_\mathrm{cond}$, positive outward.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Conduction only: the convective part $\tfrac{5}{2}T\Gamma$ (or
+$\tfrac{3}{2}T\Gamma$, depending on the convention of the total energy
+flux) is not included, and neither are off-diagonal terms of the
+transport matrix. The factor $e$ converts eV to joules.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, or a negative density or diffusivity.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Ch. 4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="diffusivity_from_mean_square_displacement" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#diffusivity_from_mean_square_displacement"><code>diffusivity_from_mean_square_displacement</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="diffusivity_from_mean_square_displacement" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/formula/transport.py#L103-L152" title="vaft/formula/transport.py, lines 103–152 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>diffusivity_from_mean_square_displacement(msd_rate, dimensions=1)</code></pre>
+
+    <details class="ref-code" data-source-code="diffusivity_from_mean_square_displacement"><summary>Show source <span class="ref-note">vaft/formula/transport.py, lines 103–152</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">diffusivity_from_mean_square_displacement</span><span class="p">(</span><span class="n">msd_rate</span><span class="p">,</span> <span class="n">dimensions</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Diffusivity from the growth rate of the mean-square displacement (Einstein relation).
+
+    $$D = \frac{1}{2d}\,\frac{d\langle(\Delta r)^2\rangle}{dt}$$
+
+    Parameters
+    ----------
+    msd_rate : float or array-like
+        Rate of growth of the mean-square displacement $d\langle(\Delta r)^2\rangle/dt$,
+        non-negative [m^2/s].
+    dimensions : int
+        Number $d$ of independent directions the displacement is summed over:
+        1 for a radial displacement alone [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $D$ [m^2/s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative rate, or ``dimensions`` not a positive integer.
+
+    Convention
+    ----------
+    $(\Delta r)^2$ is summed over the $d$ directions, so a radial-only
+    displacement takes $d = 1$; the factor $1/(2d)$ is explicit, never hidden
+    in the rate. The rate is the long-time (diffusive) slope; estimating it
+    from a trajectory ensemble is a procedure, not part of this definition.
+
+    Physical interpretation
+    -----------------------
+    For a random walk of step $\Delta$ every $\tau$, $\langle(\Delta r)^2\rangle
+    = (\Delta^2/\tau)\,t$ in one dimension, so $D = \Delta^2/(2\tau)$: the
+    reference behind every $D \sim (\text{step})^2/(\text{time})$ estimate.
+
+    Validity
+    --------
+    Only where the mean-square displacement grows linearly in time. Ballistic
+    ($\propto t^2$) or sub-/super-diffusive growth has no single $D$.
+
+    References
+    ----------
+    .. [1] G. I. Taylor, Proc. London Math. Soc. s2-20 (1922) 196.
+    </span><span class="sh">"""</span>
+    <span class="n">rate</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">msd_rate</span><span class="p">,</span> <span class="sh">"</span><span class="s">msd_rate</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">dimensions</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">integer</span><span class="p">))</span> <span class="ow">or</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">dimensions</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="n">dimensions</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">dimensions must be a positive integer</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">rate</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="nf">int</span><span class="p">(</span><span class="n">dimensions</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Diffusivity from the growth rate of the mean-square displacement (Einstein relation).</p>
+
+\[D = \frac{1}{2d}\,\frac{d\langle(\Delta r)^2\rangle}{dt}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>msd_rate</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^2/s</td><td><p>Rate of growth of the mean-square displacement $d\langle(\Delta r)^2\rangle/dt$, non-negative.</p>
+</td></tr>
+  <tr><td><code>dimensions</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Number $d$ of independent directions the displacement is summed over: 1 for a radial displacement alone.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^2/s</td><td><p>$D$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$(\Delta r)^2$ is summed over the $d$ directions, so a radial-only
+displacement takes $d = 1$; the factor $1/(2d)$ is explicit, never hidden
+in the rate. The rate is the long-time (diffusive) slope; estimating it
+from a trajectory ensemble is a procedure, not part of this definition.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-finite or negative rate, or <code class="language-plaintext highlighter-rouge">dimensions</code> not a positive integer.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Validity · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>For a random walk of step $\Delta$ every $\tau$, $\langle(\Delta r)^2\rangle
+= (\Delta^2/\tau)\,t$ in one dimension, so $D = \Delta^2/(2\tau)$: the
+reference behind every $D \sim (\text{step})^2/(\text{time})$ estimate.</p>
+
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>Only where the mean-square displacement grows linearly in time. Ballistic
+($\propto t^2$) or sub-/super-diffusive growth has no single $D$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>G. I. Taylor, Proc. London Math. Soc. s2-20 (1922) 196.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="diffusivity_from_velocity_autocorrelation" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#diffusivity_from_velocity_autocorrelation"><code>diffusivity_from_velocity_autocorrelation</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="diffusivity_from_velocity_autocorrelation" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/formula/transport.py#L155-L212" title="vaft/formula/transport.py, lines 155–212 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>diffusivity_from_velocity_autocorrelation(lag, autocorrelation)</code></pre>
+
+    <details class="ref-code" data-source-code="diffusivity_from_velocity_autocorrelation"><summary>Show source <span class="ref-note">vaft/formula/transport.py, lines 155–212</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">diffusivity_from_velocity_autocorrelation</span><span class="p">(</span><span class="n">lag</span><span class="p">,</span> <span class="n">autocorrelation</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Diffusivity as the time integral of the velocity autocorrelation (Taylor--Green--Kubo).
+
+    $$D = \int_0^\infty \langle v_r(0)\,v_r(\tau)\rangle\,d\tau$$
+
+    Parameters
+    ----------
+    lag : array-like
+        Lags $\tau$, starting at 0 and increasing [s].
+    autocorrelation : array-like
+        Velocity autocorrelation $\langle v_r(0)v_r(\tau)\rangle$ at the lags,
+        not normalised [m^2/s^2].
+
+    Returns
+    -------
+    float
+        $D$ over the sampled lags [m^2/s].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, mismatched lengths, fewer than two lags, a first lag
+        that is not zero, or lags that do not increase.
+
+    Convention
+    ----------
+    One velocity component, so the result is the diffusivity along it with no
+    dimensional factor. The upper limit is the last lag supplied: the
+    integral is truncated there, by the trapezoidal rule.
+
+    Physical interpretation
+    -----------------------
+    For $\langle v_r(0)v_r(\tau)\rangle = \langle v_r^2\rangle e^{-\tau/\tau_c}$,
+    $D = \langle v_r^2\rangle\tau_c$: the velocity variance times the
+    correlation time.
+
+    Validity
+    --------
+    Stationary, homogeneous fluctuations whose autocorrelation decays well
+    within the sampled lags; a slowly decaying or oscillating tail makes the
+    truncated integral depend on the upper limit.
+
+    Numerical notes
+    ---------------
+    :func:`vaft.formula.utils.trapz_integral`, second-order in the lag spacing.
+
+    References
+    ----------
+    .. [1] G. I. Taylor, Proc. London Math. Soc. s2-20 (1922) 196.
+    .. [2] R. Kubo, J. Phys. Soc. Jpn. 12 (1957) 570.
+    </span><span class="sh">"""</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">lag</span><span class="p">,</span> <span class="sh">"</span><span class="s">lag</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">autocorrelation</span><span class="p">,</span> <span class="sh">"</span><span class="s">autocorrelation</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">tau</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">tau</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">c</span><span class="p">.</span><span class="n">shape</span> <span class="ow">or</span> <span class="n">tau</span><span class="p">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">lag and autocorrelation must be 1-D, of equal length, with at least two samples</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">tau</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">tau</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">lag must start at 0 and increase</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="nf">trapz_integral</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="n">c</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Diffusivity as the time integral of the velocity autocorrelation (Taylor–Green–Kubo).</p>
+
+\[D = \int_0^\infty \langle v_r(0)\,v_r(\tau)\rangle\,d\tau\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>lag</code></td><td class="ref-type">array-like</td><td class="ref-unit">s</td><td><p>Lags $\tau$, starting at 0 and increasing.</p>
+</td></tr>
+  <tr><td><code>autocorrelation</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^2/s^2</td><td><p>Velocity autocorrelation $\langle v_r(0)v_r(\tau)\rangle$ at the lags, not normalised.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">m^2/s</td><td><p>$D$ over the sampled lags.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>One velocity component, so the result is the diffusivity along it with no
+dimensional factor. The upper limit is the last lag supplied: the
+integral is truncated there, by the trapezoidal rule.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, mismatched lengths, fewer than two lags, a first lag that is not zero, or lags that do not increase.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Validity · Numerical notes · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>For $\langle v_r(0)v_r(\tau)\rangle = \langle v_r^2\rangle e^{-\tau/\tau_c}$,
+$D = \langle v_r^2\rangle\tau_c$: the velocity variance times the
+correlation time.</p>
+
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>Stationary, homogeneous fluctuations whose autocorrelation decays well
+within the sampled lags; a slowly decaying or oscillating tail makes the
+truncated integral depend on the upper limit.</p>
+
+      <h4 class="ref-label no_toc">Numerical notes</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">vaft.formula.utils.trapz_integral</code>, second-order in the lag spacing.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>G. I. Taylor, Proc. London Math. Soc. s2-20 (1922) 196.
+</li>
+  <li>R. Kubo, J. Phys. Soc. Jpn. 12 (1957) 570.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="gyrobohm_diffusivity_from_rho_s_c_s_L_ref" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#gyrobohm_diffusivity_from_rho_s_c_s_L_ref"><code>gyrobohm_diffusivity_from_rho_s_c_s_L_ref</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="gyrobohm_diffusivity_from_rho_s_c_s_L_ref" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/formula/transport.py#L402-L447" title="vaft/formula/transport.py, lines 402–447 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>gyrobohm_diffusivity_from_rho_s_c_s_L_ref(rho_s, c_s, L_ref)</code></pre>
+
+    <details class="ref-code" data-source-code="gyrobohm_diffusivity_from_rho_s_c_s_L_ref"><summary>Show source <span class="ref-note">vaft/formula/transport.py, lines 402–447</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">gyrobohm_diffusivity_from_rho_s_c_s_L_ref</span><span class="p">(</span><span class="n">rho_s</span><span class="p">,</span> <span class="n">c_s</span><span class="p">,</span> <span class="n">L_ref</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Gyro-Bohm diffusivity: the Bohm scale reduced by one power of $\rho_s/L_\mathrm{ref}$.
+
+    $$\chi_\mathrm{gB} = \frac{\rho_s^2 c_s}{L_\mathrm{ref}}$$
+
+    Parameters
+    ----------
+    rho_s : float or array-like
+        Ion-sound gyroradius, non-zero; its sign (that of the field) does not
+        matter [m].
+    c_s : float or array-like
+        Ion sound speed, positive [m/s].
+    L_ref : float or array-like
+        Normalising length, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\chi_\mathrm{gB}$ [m^2/s].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, a zero gyroradius, or a non-positive speed or length.
+
+    Convention
+    ----------
+    The value depends on which $\rho_s$, $c_s$ and $L_\mathrm{ref}$ are
+    passed; GACODE uses $c_s = \sqrt{T_e/m_D}$, $\rho_s = c_s/(eB_\mathrm{unit}/m_D)$
+    and $L_\mathrm{ref} = a$ (see
+    :class:`vaft.code.gacode.tglf.inputs.TGLFNormalisation`). The reusable
+    owners are :func:`vaft.formula.ordering.sound_gyroradius` and
+    :func:`vaft.formula.sol.ion_sound_speed`.
+
+    Physical interpretation
+    -----------------------
+    $\chi_\mathrm{gB} = (\rho_s/L_\mathrm{ref})\,\rho_s c_s$: transport by
+    eddies of size $\rho_s$ decorrelating at $c_s/L_\mathrm{ref}$, smaller
+    than the Bohm scale $\rho_s c_s$ by $\rho_* = \rho_s/L_\mathrm{ref}$.
+
+    References
+    ----------
+    .. [1] W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+    </span><span class="sh">"""</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="nf">_nonzero</span><span class="p">(</span><span class="n">rho_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">rho_s</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">r</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">c_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">c_s</span><span class="sh">"</span><span class="p">)</span> <span class="o">/</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">L_ref</span><span class="p">,</span> <span class="sh">"</span><span class="s">L_ref</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Gyro-Bohm diffusivity: the Bohm scale reduced by one power of $\rho_s/L_\mathrm{ref}$.</p>
+
+\[\chi_\mathrm{gB} = \frac{\rho_s^2 c_s}{L_\mathrm{ref}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>rho_s</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m</td><td><p>Ion-sound gyroradius, non-zero; its sign (that of the field) does not matter.</p>
+</td></tr>
+  <tr><td><code>c_s</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Ion sound speed, positive.</p>
+</td></tr>
+  <tr><td><code>L_ref</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m</td><td><p>Normalising length, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^2/s</td><td><p>$\chi_\mathrm{gB}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The value depends on which $\rho_s$, $c_s$ and $L_\mathrm{ref}$ are
+passed; GACODE uses $c_s = \sqrt{T_e/m_D}$, $\rho_s = c_s/(eB_\mathrm{unit}/m_D)$
+and $L_\mathrm{ref} = a$ (see
+<code class="language-plaintext highlighter-rouge">vaft.code.gacode.tglf.inputs.TGLFNormalisation</code>). The reusable
+owners are <code class="language-plaintext highlighter-rouge">vaft.formula.ordering.sound_gyroradius</code> and
+<code class="language-plaintext highlighter-rouge">vaft.formula.sol.ion_sound_speed</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, a zero gyroradius, or a non-positive speed or length.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$\chi_\mathrm{gB} = (\rho_s/L_\mathrm{ref})\,\rho_s c_s$: transport by
+eddies of size $\rho_s$ decorrelating at $c_s/L_\mathrm{ref}$, smaller
+than the Bohm scale $\rho_s c_s$ by $\rho_* = \rho_s/L_\mathrm{ref}$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="gyrobohm_energy_flux_from_n_T_c_s_rho_s_L_ref" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#gyrobohm_energy_flux_from_n_T_c_s_rho_s_L_ref"><code>gyrobohm_energy_flux_from_n_T_c_s_rho_s_L_ref</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="gyrobohm_energy_flux_from_n_T_c_s_rho_s_L_ref" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/formula/transport.py#L490-L530" title="vaft/formula/transport.py, lines 490–530 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>gyrobohm_energy_flux_from_n_T_c_s_rho_s_L_ref(n, T, c_s, rho_s, L_ref)</code></pre>
+
+    <details class="ref-code" data-source-code="gyrobohm_energy_flux_from_n_T_c_s_rho_s_L_ref"><summary>Show source <span class="ref-note">vaft/formula/transport.py, lines 490–530</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">gyrobohm_energy_flux_from_n_T_c_s_rho_s_L_ref</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">c_s</span><span class="p">,</span> <span class="n">rho_s</span><span class="p">,</span> <span class="n">L_ref</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Gyro-Bohm energy-flux unit.
+
+    $$Q_\mathrm{gB} = n\,T\,c_s\left(\frac{\rho_s}{L_\mathrm{ref}}\right)^2$$
+
+    Parameters
+    ----------
+    n : float or array-like
+        Reference density, positive [m^-3].
+    T : float or array-like
+        Reference temperature, positive [eV].
+    c_s : float or array-like
+        Ion sound speed, positive [m/s].
+    rho_s : float or array-like
+        Ion-sound gyroradius, non-zero [m].
+    L_ref : float or array-like
+        Normalising length, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $Q_\mathrm{gB}$ [W/m^2].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, a zero gyroradius, or a non-positive density,
+        temperature, speed or length.
+
+    Convention
+    ----------
+    GACODE</span><span class="sh">'</span><span class="s">s ``q_gb`` with $n = n_e$, $T = T_e$ and $L_\mathrm{ref} = a$;
+    equal to ``TGLFNormalisation.energy_flux`` under the same inputs (that
+    class holds $T_e$ in joules, this function takes eV).
+
+    References
+    ----------
+    .. [1] J. Candy, E. A. Belli and R. V. Bravenec, J. Comput. Phys. 324 (2016) 73.
+    </span><span class="sh">"""</span>
+    <span class="n">gamma</span> <span class="o">=</span> <span class="nf">gyrobohm_particle_flux_from_n_c_s_rho_s_L_ref</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">c_s</span><span class="p">,</span> <span class="n">rho_s</span><span class="p">,</span> <span class="n">L_ref</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">gamma</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="sh">"</span><span class="s">T</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">QE</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Gyro-Bohm energy-flux unit.</p>
+
+\[Q_\mathrm{gB} = n\,T\,c_s\left(\frac{\rho_s}{L_\mathrm{ref}}\right)^2\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><p>Reference density, positive.</p>
+</td></tr>
+  <tr><td><code>T</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">eV</td><td><p>Reference temperature, positive.</p>
+</td></tr>
+  <tr><td><code>c_s</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Ion sound speed, positive.</p>
+</td></tr>
+  <tr><td><code>rho_s</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m</td><td><p>Ion-sound gyroradius, non-zero.</p>
+</td></tr>
+  <tr><td><code>L_ref</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m</td><td><p>Normalising length, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>$Q_\mathrm{gB}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>GACODE’s <code class="language-plaintext highlighter-rouge">q_gb</code> with $n = n_e$, $T = T_e$ and $L_\mathrm{ref} = a$;
+equal to <code class="language-plaintext highlighter-rouge">TGLFNormalisation.energy_flux</code> under the same inputs (that
+class holds $T_e$ in joules, this function takes eV).</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, a zero gyroradius, or a non-positive density, temperature, speed or length.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Candy, E. A. Belli and R. V. Bravenec, J. Comput. Phys. 324 (2016) 73.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="gyrobohm_particle_flux_from_n_c_s_rho_s_L_ref" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#gyrobohm_particle_flux_from_n_c_s_rho_s_L_ref"><code>gyrobohm_particle_flux_from_n_c_s_rho_s_L_ref</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="gyrobohm_particle_flux_from_n_c_s_rho_s_L_ref" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/formula/transport.py#L450-L487" title="vaft/formula/transport.py, lines 450–487 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>gyrobohm_particle_flux_from_n_c_s_rho_s_L_ref(n, c_s, rho_s, L_ref)</code></pre>
+
+    <details class="ref-code" data-source-code="gyrobohm_particle_flux_from_n_c_s_rho_s_L_ref"><summary>Show source <span class="ref-note">vaft/formula/transport.py, lines 450–487</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">gyrobohm_particle_flux_from_n_c_s_rho_s_L_ref</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">c_s</span><span class="p">,</span> <span class="n">rho_s</span><span class="p">,</span> <span class="n">L_ref</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Gyro-Bohm particle-flux unit.
+
+    $$\Gamma_\mathrm{gB} = n\,c_s\left(\frac{\rho_s}{L_\mathrm{ref}}\right)^2$$
+
+    Parameters
+    ----------
+    n : float or array-like
+        Reference density, positive [m^-3].
+    c_s : float or array-like
+        Ion sound speed, positive [m/s].
+    rho_s : float or array-like
+        Ion-sound gyroradius, non-zero [m].
+    L_ref : float or array-like
+        Normalising length, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Gamma_\mathrm{gB}$ [m^-2 s^-1].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, a zero gyroradius, or a non-positive density, speed or length.
+
+    Convention
+    ----------
+    GACODE</span><span class="sh">'</span><span class="s">s ``gamma_gb`` with $n = n_e$ and $L_\mathrm{ref} = a$; equal to
+    ``TGLFNormalisation.particle_flux`` under the same inputs. A flux in
+    gyro-Bohm units is the SI flux divided by this.
+
+    References
+    ----------
+    .. [1] J. Candy, E. A. Belli and R. V. Bravenec, J. Comput. Phys. 324 (2016) 73.
+    </span><span class="sh">"""</span>
+    <span class="n">ratio</span> <span class="o">=</span> <span class="nf">_nonzero</span><span class="p">(</span><span class="n">rho_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">rho_s</span><span class="sh">"</span><span class="p">)</span> <span class="o">/</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">L_ref</span><span class="p">,</span> <span class="sh">"</span><span class="s">L_ref</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="nf">_positive</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="sh">"</span><span class="s">n</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">c_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">c_s</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">ratio</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Gyro-Bohm particle-flux unit.</p>
+
+\[\Gamma_\mathrm{gB} = n\,c_s\left(\frac{\rho_s}{L_\mathrm{ref}}\right)^2\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><p>Reference density, positive.</p>
+</td></tr>
+  <tr><td><code>c_s</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Ion sound speed, positive.</p>
+</td></tr>
+  <tr><td><code>rho_s</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m</td><td><p>Ion-sound gyroradius, non-zero.</p>
+</td></tr>
+  <tr><td><code>L_ref</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m</td><td><p>Normalising length, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-2 s^-1</td><td><p>$\Gamma_\mathrm{gB}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>GACODE’s <code class="language-plaintext highlighter-rouge">gamma_gb</code> with $n = n_e$ and $L_\mathrm{ref} = a$; equal to
+<code class="language-plaintext highlighter-rouge">TGLFNormalisation.particle_flux</code> under the same inputs. A flux in
+gyro-Bohm units is the SI flux divided by this.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, a zero gyroradius, or a non-positive density, speed or length.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Candy, E. A. Belli and R. V. Bravenec, J. Comput. Phys. 324 (2016) 73.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="particle_flux_from_D_grad_n_V_n" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#particle_flux_from_D_grad_n_V_n"><code>particle_flux_from_D_grad_n_V_n</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="particle_flux_from_D_grad_n_V_n" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/formula/transport.py#L215-L262" title="vaft/formula/transport.py, lines 215–262 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>particle_flux_from_D_grad_n_V_n(D, grad_n, n, V)</code></pre>
+
+    <details class="ref-code" data-source-code="particle_flux_from_D_grad_n_V_n"><summary>Show source <span class="ref-note">vaft/formula/transport.py, lines 215–262</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">particle_flux_from_D_grad_n_V_n</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">grad_n</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Radial particle flux from a diffusivity and a convection velocity.
+
+    $$\Gamma = -D\,\partial_r n + nV$$
+
+    Parameters
+    ----------
+    D : float or array-like
+        Diffusivity, non-negative [m^2/s].
+    grad_n : float or array-like
+        Radial density gradient $\partial_r n$ [m^-4].
+    n : float or array-like
+        Density, non-negative [m^-3].
+    V : float or array-like
+        Convection velocity, positive outward [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Gamma$, positive outward [m^-2 s^-1].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, or a negative diffusivity or density.
+
+    Convention
+    ----------
+    $r$ increases outward and the gradient is taken along it, in metres. A
+    peaked profile ($\partial_r n &lt; 0$) with $D &gt; 0$ diffuses outward; an
+    inward pinch is $V &lt; 0$.
+
+    Physical interpretation
+    -----------------------
+    A forward definition of the flux. The inverse is not unique: one flux at
+    one gradient fixes only $-D\,\partial_r n + nV$, not $D$ and $V$ apart;
+    separating them needs transient or modulated data, which is a procedure
+    and not this formula.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Ch. 4.
+    </span><span class="sh">"""</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="sh">"</span><span class="s">D</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">grad_n</span><span class="p">,</span> <span class="sh">"</span><span class="s">grad_n</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">density</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="sh">"</span><span class="s">n</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="sh">"</span><span class="s">V</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="o">-</span><span class="n">d</span> <span class="o">*</span> <span class="n">g</span> <span class="o">+</span> <span class="n">density</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Radial particle flux from a diffusivity and a convection velocity.</p>
+
+\[\Gamma = -D\,\partial_r n + nV\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>D</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^2/s</td><td><p>Diffusivity, non-negative.</p>
+</td></tr>
+  <tr><td><code>grad_n</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-4</td><td><p>Radial density gradient $\partial_r n$.</p>
+</td></tr>
+  <tr><td><code>n</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><p>Density, non-negative.</p>
+</td></tr>
+  <tr><td><code>V</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Convection velocity, positive outward.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-2 s^-1</td><td><p>$\Gamma$, positive outward.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$r$ increases outward and the gradient is taken along it, in metres. A
+peaked profile ($\partial_r n &lt; 0$) with $D &gt; 0$ diffuses outward; an
+inward pinch is $V &lt; 0$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, or a negative diffusivity or density.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A forward definition of the flux. The inverse is not unique: one flux at
+one gradient fixes only $-D\,\partial_r n + nV$, not $D$ and $V$ apart;
+separating them needs transient or modulated data, which is a procedure
+and not this formula.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Ch. 4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/formula/regularized_profiles/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: regularized profiles">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "VEST diagnostics and data availability",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_transport.md",
+        "mtime": "2026-10-21 12:00:00 +0900",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-28 16:11:01 +0900"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/assets/animations/loader.js"></script>
+<script src="/vaft/assets/gitbook/adaptive.js"></script>
+</body>
+</html>

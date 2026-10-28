@@ -1,0 +1,884 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Particle motion: trajectories, invariants and animation · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/reference/animation/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/process/particle/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="getting-started">Getting started</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="architecture">Framework and scientific architecture</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.research-domains" data-path="/vaft/reference/research-domains/">
+                    
+                        <a href="/vaft/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="plasma-physics">Plasma physics and models</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.plasma-model-guide" data-path="/vaft/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.plasma-physics.particle-motion" data-path="/vaft/guide/particle-motion/">
+                    
+                        <a href="/vaft/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.characteristic-scales" data-path="/vaft/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.gyrokinetic-results" data-path="/vaft/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="vest-imas-data">VEST and IMAS data</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="apis-visualization">APIs and visualization</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.animation-reference" data-path="/vaft/reference/animation/">
+                    
+                        <a href="/vaft/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="software-integrations">Software and integrations</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="resources">Resources and support</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Particle motion: trajectories, invariants and animation</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/guide/Particle_motion">Particle motion: trajectories, invariants and animation</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Static Cartesian particle fields and native trajectories feed explanatory scenes and synchronized quantitative views.</dd>
+    <dt>Prerequisites / inputs</dt><dd>NumPy, SciPy, Matplotlib; LaTeX and dvisvgm for SVG export.</dd>
+    <dt>Expected result</dt><dd>Reproduce Lorentz and guiding-center reference experiments without an external solver.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<h2 id="compute-once-select-physical-time">Compute once, select physical time</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">vaft.diagram</span> <span class="k">as</span> <span class="n">diagram</span>
+<span class="kn">from</span> <span class="n">vaft.process.particle</span> <span class="kn">import</span> <span class="n">particle_motion_case</span>
+<span class="kn">from</span> <span class="n">vaft.plot</span> <span class="kn">import</span> <span class="n">ParticleOrbitView</span><span class="p">,</span> <span class="n">particle_overview</span>
+
+<span class="n">comparison</span> <span class="o">=</span> <span class="nf">particle_motion_case</span><span class="p">(</span><span class="sh">"</span><span class="s">magnetic_mirror</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">end</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="n">comparison</span><span class="p">.</span><span class="n">full</span><span class="p">.</span><span class="n">time</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">comparison</span><span class="p">.</span><span class="n">guiding_center</span><span class="p">.</span><span class="n">time</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+<span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="mi">24</span><span class="p">)</span>
+
+<span class="c1"># The scalar and animated calls select the same scientific state.
+</span><span class="n">static</span> <span class="o">=</span> <span class="n">diagram</span><span class="p">.</span><span class="nf">magnetic_mirror</span><span class="p">(</span><span class="n">trajectory</span><span class="o">=</span><span class="n">comparison</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="n">times</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span>
+<span class="n">movie</span> <span class="o">=</span> <span class="n">diagram</span><span class="p">.</span><span class="nf">magnetic_mirror</span><span class="p">(</span>
+    <span class="n">trajectory</span><span class="o">=</span><span class="n">comparison</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="n">times</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">fps</span><span class="o">=</span><span class="mi">8</span>
+<span class="p">)</span>
+<span class="n">movie</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="sh">"</span><span class="s">mirror.gif</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">9.99</span><span class="p">,</span> <span class="mf">9.99</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+<span class="n">view</span> <span class="o">=</span> <span class="n">ParticleOrbitView</span><span class="p">.</span><span class="nf">from_comparison</span><span class="p">(</span>
+    <span class="n">comparison</span><span class="p">,</span> <span class="n">bounce_coordinate</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+    <span class="n">well_coordinate</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">well_B</span><span class="o">=</span><span class="mi">1</span> <span class="o">+</span> <span class="p">(</span><span class="n">s</span> <span class="o">/</span> <span class="mi">10</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="nf">particle_overview</span><span class="p">(</span><span class="n">view</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="n">times</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span>
+<span class="n">panels</span> <span class="o">=</span> <span class="nf">particle_overview</span><span class="p">(</span><span class="n">view</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="n">times</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">fps</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>The mirror’s <code class="language-plaintext highlighter-rouge">B(s)</code> is stationary. Its marker, trajectory, velocity, energy
+partitions and invariant histories use the same physical timestamp. The
+renderer never re-integrates or recomputes diagnostics in a frame. Display-time
+interpolation is linear, recorded, and cannot extrapolate. The native Boris and
+adaptive GC sample times are retained independently of playback fps.</p>
+
+<h2 id="supported-experiments">Supported experiments</h2>
+
+<p><code class="language-plaintext highlighter-rouge">particle_motion_case</code> supports <code class="language-plaintext highlighter-rouge">gyration</code>, <code class="language-plaintext highlighter-rouge">exb_drift</code>, <code class="language-plaintext highlighter-rouge">grad_b_drift</code>,
+<code class="language-plaintext highlighter-rouge">curvature_drift</code>, <code class="language-plaintext highlighter-rouge">toroidal_drift</code>, <code class="language-plaintext highlighter-rouge">magnetic_mirror</code>, <code class="language-plaintext highlighter-rouge">mirror_passing</code>,
+<code class="language-plaintext highlighter-rouge">tokamak_trapped</code>, <code class="language-plaintext highlighter-rouge">tokamak_passing</code> and <code class="language-plaintext highlighter-rouge">symmetry_breaking</code>. Use <code class="language-plaintext highlighter-rouge">charge=-1</code>
+to reverse charge-sensitive motion. Set <code class="language-plaintext highlighter-rouge">aspect_ratio=1.5</code> for a qualified
+spherical-tokamak geometry reference; large-aspect-ratio banana scalings do not
+become accurate merely because that case can be integrated.</p>
+
+<p>Default examples use an illustrative SI particle, q=1 C and m=1 kg. Resolved
+parameters are recorded. They are not electron/ion mass-ratio examples.
+<code class="language-plaintext highlighter-rouge">speed</code>, <code class="language-plaintext highlighter-rouge">pitch_angle</code> (radians), <code class="language-plaintext highlighter-rouge">duration</code> (seconds) and <code class="language-plaintext highlighter-rouge">dt</code> can be supplied.
+The benchmark helper rejects an initial <code class="language-plaintext highlighter-rouge">abs(Omega_c)*dt &gt; 0.3</code>; inspect the
+maximum over the full orbit too and refine the step to establish accuracy.</p>
+
+<p>The existing <code class="language-plaintext highlighter-rouge">exb_drift</code>, <code class="language-plaintext highlighter-rouge">curvature_drift</code>, <code class="language-plaintext highlighter-rouge">toroidal_drift</code>,
+<code class="language-plaintext highlighter-rouge">guiding_center_invariants</code>, <code class="language-plaintext highlighter-rouge">canonical_toroidal_momentum</code>,
+<code class="language-plaintext highlighter-rouge">trapped_and_passing_orbits</code>, <code class="language-plaintext highlighter-rouge">toroidal_symmetry_breaking</code>,
+<code class="language-plaintext highlighter-rouge">ripple_well_formation</code> and <code class="language-plaintext highlighter-rouge">stochastic_ripple_orbit</code> accept a computed
+<code class="language-plaintext highlighter-rouge">trajectory</code>, scalar/sequence <code class="language-plaintext highlighter-rouge">time</code>, and <code class="language-plaintext highlighter-rouge">animation=True</code>. Their historical
+calls without these controls keep their original static scenes. The computed
+extension shows one physical particle and its independently integrated GC;
+the historical two-species mass-ratio and schematic phase parameters belong
+to the static references. A replay through <code class="language-plaintext highlighter-rouge">stochastic_ripple_orbit</code> explicitly
+labels stochasticity as unestablished.</p>
+
+<h2 id="reference-animations">Reference animations</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Cartesian gyration</th>
+      <th>Static magnetic mirror</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/assets/particle-motion/cartesian.gif" alt="Gyration" /></td>
+      <td><img src="/vaft/assets/particle-motion/mirror.gif" alt="Mirror bounce" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The <a href="/vaft/assets/particle-motion/manifest.json">artifact manifest</a>
+links all six families to animations and quantitative panels, and all but the
+tokamak and symmetry-breaking families to static SVGs.
+The mirror and invariants families share one experiment and so one panel image.
+The manifest also records the commit it was generated on and a SHA-256 of
+every scientific source its numbers depend on; the documentation catalog gate
+refuses a manifest whose sources have changed, and
+<code class="language-plaintext highlighter-rouge">python -m workflow.particle_motion.run --check</code> re-traces the six examples.
+Some manifest diagnostics are not meaningful for every family. <code class="language-plaintext highlighter-rouge">orbit_class</code> is
+<code class="language-plaintext highlighter-rouge">no_resolved_turn</code> for the cartesian and full-gc runs, which have no turning
+point to classify. <code class="language-plaintext highlighter-rouge">gc_P_phi_residual_max</code> is large for symmetry-breaking,
+because a 3-D field does not conserve <code class="language-plaintext highlighter-rouge">P_phi</code>; it is not a numerical error.</p>
+
+<h2 id="physics-and-numerical-contracts">Physics and numerical contracts</h2>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.data.particle.ParticleField</code> uses right-handed Cartesian SI coordinates.
+A Jacobian has <code class="language-plaintext highlighter-rouge">J[i,j] = dB_i/dx_j</code>. Analytic derivatives are preferred; numerical
+derivatives require an explicit step and an h/h2 audit. An electrostatic field
+requires a consistent potential; potential gradients are checked. Domain
+queries precede field evaluation, including derivative probes.</p>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.process.particle</code> exposes <code class="language-plaintext highlighter-rouge">trace_particle_orbit</code>, <code class="language-plaintext highlighter-rouge">trace_guiding_center</code>,
+<code class="language-plaintext highlighter-rouge">particle_to_guiding_center</code>, <code class="language-plaintext highlighter-rouge">analyze_particle_orbit</code> and
+<code class="language-plaintext highlighter-rouge">compare_particle_orbits</code>. The GC state is <code class="language-plaintext highlighter-rouge">(X, p_parallel, mu)</code> with mu held
+constant. The equations use <code class="language-plaintext highlighter-rouge">B*=B+(p_parallel/q) curl(b)</code> and the Hamiltonian
+<code class="language-plaintext highlighter-rouge">H=p_parallel**2/(2m)+mu*B+q*Phi</code>. DOP853 integrates scaled dimensionless states;
+position/momentum scales, tolerances and accepted times are recorded. It is
+not a symplectic method and has no long-time conservation guarantee.</p>
+
+<p>GC validity requires magnetization and weak electric drift. Diagnostics report
+<code class="language-plaintext highlighter-rouge">rho/L_B</code>, parallel-curvature ordering, E×B speed/particle speed, and numerical
+steps relative to gyroperiod. The 0.1 educational warning threshold is recorded
+and is not a universal validity boundary. Full-orbit magnetic moment is an
+instantaneous drift-frame estimate; fixed GC mu is a model assumption. The
+initial particle/GC conversion is leading order and is not a first-order
+Lie transform. Comparison metadata distinguishes local-center subtraction
+from a centered one-gyroperiod time-window average with incomplete edges omitted.</p>
+
+<p>Energy residuals use a kinetic/potential-variation scale. Canonical momentum
+residuals use mechanical/field contribution scales, preserving meaningful
+normalization even when the total initially vanishes. Canonical momentum uses
+an explicitly specified vector-potential gauge; the 3D example never substitutes
+an axisymmetric flux relation. Periods and toroidal precession are reported
+from completed bounce/transit intervals, with unwrapped angles.</p>
+
+<p>Bounce action is defined only with a supplied signed periodic field-line arc
+coordinate. Incomplete cycles, unresolved closure and incorrect arc velocity
+are reported rather than assigned an action. The on-axis parabolic mirror
+has an exact harmonic period and action benchmark. Its field is exactly
+solenoidal and current-carrying; it is not an assumed vacuum-coil solution.</p>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.process.particle_fields</code> provides uniform, slab, mirror and curl-defined
+toroidal/3D reference fields. <code class="language-plaintext highlighter-rouge">equilibrium_particle_field</code> reuses VAFT’s
+COCOS-aware equilibrium interpolator, preserving its documented F-edge clipping;
+its map is not extrapolated. <code class="language-plaintext highlighter-rouge">filament_particle_field</code> reuses the existing
+midpoint-rule Biot–Savart calculation and provides a vector potential with the
+same quadrature, plus a conductor exclusion region.</p>
+
+<p>A trace returns its valid accepted prefix with an explicit reason for domain
+exit, field null, nonfinite field/state, unresolved derivatives, GC singularity,
+or integration failure. Initial data errors raise exceptions. Boundary
+termination is not a computed wall-impact location. At valid boundary samples,
+local energy and center diagnostics remain available even when the derivative
+stencil would cross the domain: derivative diagnostics are <code class="language-plaintext highlighter-rouge">NaN</code>, with a
+<code class="language-plaintext highlighter-rouge">stencil_outside_domain</code> audit. Comparison records incomplete derivative coverage
+and raises its ordering warning rather than certifying an unavailable estimate.</p>
+
+<p>Steps smaller than the floating-point spacing of absolute timestamps are input
+errors. Shift <code class="language-plaintext highlighter-rouge">t0</code> toward zero for short gyro-resolving intervals at a large time
+origin. Full-orbit updates advance by the represented timestamp interval.</p>
+
+<p>Both diagram and diagnostic animation sidecars include <code class="language-plaintext highlighter-rouge">full_orbit</code> and
+<code class="language-plaintext highlighter-rouge">guiding_center</code> provenance records: charge, mass, initial state, field source,
+termination, integration method and solver settings. These records also cover
+custom comparisons created directly with the tracing APIs. Uniform-field
+provenance includes the supplied Cartesian B and E vectors. Straight background
+field lines follow the supplied uniform-field direction; arbitrary field
+geometries retain the sampled field arrow without invented straight lines.</p>
+
+<h2 id="reproduction-and-limits">Reproduction and limits</h2>
+
+<p>Run <code class="language-plaintext highlighter-rouge">python -m workflow.particle_motion.run</code> from the source root to generate
+six reference families, their GIFs, diagnostic panels, static SVGs (all but
+the tokamak and symmetry-breaking families) and artifact manifest under
+<code class="language-plaintext highlighter-rouge">docs/assets/particle-motion/</code>. Physical tests are in
+<code class="language-plaintext highlighter-rouge">test/test_process_particle.py</code>; replay tests are in
+<code class="language-plaintext highlighter-rouge">test/test_particle_animation.py</code>.</p>
+
+<p>This implements the static-field portion of issues #2003–#2009. The slowly
+changing mirror experiment required by #2007 remains deferred, along with
+inductive/time-dependent fields, collisions, transport and external-solver
+cross-validation. The 3D reference is a controlled vacuum harmonic, not a
+calculated plasma response. Canonical-momentum change alone supports no claim
+of secular transport, stochasticity or NTV torque.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
+        
+          
+          <li data-resource-id="diagram"><a href="/vaft/reference/diagrams/"><code>vaft.diagram</code></a></li>
+        
+          
+          <li data-resource-id="plot"><a href="/vaft/reference/api/plot/"><code>vaft.plot</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/animation/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Animation gallery">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/process/particle/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: particle">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#compute-once-select-physical-time" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Compute once, select physical time</a></li><li class="page-toc-item page-toc-level-2"><a href="#supported-experiments" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Supported experiments</a></li><li class="page-toc-item page-toc-level-2"><a href="#reference-animations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reference animations</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-and-numerical-contracts" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics and numerical contracts</a></li><li class="page-toc-item page-toc-level-2"><a href="#reproduction-and-limits" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reproduction and limits</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: particle",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_particle.md",
+            "ref": "_guide/Process_reference_particle.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Particle_motion.md",
+        "mtime": "2026-10-15 00:00:00 +0900",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-28 16:11:01 +0900"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/assets/animations/loader.js"></script>
+<script src="/vaft/assets/gitbook/adaptive.js"></script>
+</body>
+</html>

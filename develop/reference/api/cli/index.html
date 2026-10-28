@@ -1,0 +1,1204 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>API: vaft.cli · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/develop/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/develop/reference/api/code/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/computational-layers/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="getting-started">Getting started</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="architecture">Framework and scientific architecture</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-contracts" data-path="/vaft/develop/reference/scientific-contracts/">
+                    
+                        <a href="/vaft/develop/reference/scientific-contracts/" onclick="pageScrollToTop(this)">Scientific contracts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="plasma-physics">Plasma physics and models</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.plasma-model-guide" data-path="/vaft/develop/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/develop/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.particle-motion" data-path="/vaft/develop/guide/particle-motion/">
+                    
+                        <a href="/vaft/develop/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.gyrokinetic-results" data-path="/vaft/develop/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="vest-imas-data">VEST and IMAS data</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="apis-visualization">APIs and visualization</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.animation-reference" data-path="/vaft/develop/reference/animation/">
+                    
+                        <a href="/vaft/develop/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="software-integrations">Software and integrations</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="resources">Resources and support</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >API: vaft.cli</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>19835e9</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/api/Api_reference_cli">API: vaft.cli</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated reference of the objects vaft.cli publishes, read from each module's __all__ and docstrings (issue 162).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>The signature, summary, deprecation status and source of every published object.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from each module's <code>__all__</code> by <code>python -m vaft._api_catalog</code>:
+<strong>26</strong> published objects in <strong>21</strong> modules.
+Signatures and summaries are read from the source; nothing here is written by hand.
+<a href="/vaft/develop/reference/api/">All API pages</a></p>
+
+<div class="ref-index tex2jax_ignore" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 26 objects by name or module" aria-label="Filter objects" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.cache"><code>vaft.cli.cache</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.cache.main vaft.cli.cache "><td><a href="#vaft.cli.cache.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.compare_ods"><code>vaft.cli.compare_ods</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.compare_ods.main vaft.cli.compare_ods "><td><a href="#vaft.cli.compare_ods.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.corrective_worker"><code>vaft.cli.corrective_worker</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.corrective_worker.main vaft.cli.corrective_worker "><td><a href="#vaft.cli.corrective_worker.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.export"><code>vaft.cli.export</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.export.main vaft.cli.export "><td><a href="#vaft.cli.export.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.filedb"><code>vaft.cli.filedb</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.filedb.main vaft.cli.filedb "><td><a href="#vaft.cli.filedb.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.gui"><code>vaft.cli.gui</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.gui.main vaft.cli.gui "><td><a href="#vaft.cli.gui.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.help"><code>vaft.cli.help</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.help.main vaft.cli.help "><td><a href="#vaft.cli.help.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.hsds"><code>vaft.cli.hsds</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.hsds.configure vaft.cli.hsds "><td><a href="#vaft.cli.hsds.configure"><code>configure</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.cli.hsds.main vaft.cli.hsds "><td><a href="#vaft.cli.hsds.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.maintenance"><code>vaft.cli.maintenance</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.maintenance.main vaft.cli.maintenance "><td><a href="#vaft.cli.maintenance.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.mcp"><code>vaft.cli.mcp</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.mcp.main vaft.cli.mcp "><td><a href="#vaft.cli.mcp.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.pipeline_worker"><code>vaft.cli.pipeline_worker</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.pipeline_worker.main vaft.cli.pipeline_worker "><td><a href="#vaft.cli.pipeline_worker.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.plot"><code>vaft.cli.plot</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.plot.main vaft.cli.plot "><td><a href="#vaft.cli.plot.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.raw_legacy_import"><code>vaft.cli.raw_legacy_import</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.raw_legacy_import.convert_shot vaft.cli.raw_legacy_import "><td><a href="#vaft.cli.raw_legacy_import.convert_shot"><code>convert_shot</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.cli.raw_legacy_import.import_shot vaft.cli.raw_legacy_import "><td><a href="#vaft.cli.raw_legacy_import.import_shot"><code>import_shot</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.cli.raw_legacy_import.legacy_field_entry vaft.cli.raw_legacy_import "><td><a href="#vaft.cli.raw_legacy_import.legacy_field_entry"><code>legacy_field_entry</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.cli.raw_legacy_import.load_pulse_datetimes vaft.cli.raw_legacy_import "><td><a href="#vaft.cli.raw_legacy_import.load_pulse_datetimes"><code>load_pulse_datetimes</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.cli.raw_legacy_import.main vaft.cli.raw_legacy_import "><td><a href="#vaft.cli.raw_legacy_import.main"><code>main</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.cli.raw_legacy_import.read_legacy_csv vaft.cli.raw_legacy_import "><td><a href="#vaft.cli.raw_legacy_import.read_legacy_csv"><code>read_legacy_csv</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.raw_redump"><code>vaft.cli.raw_redump</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.raw_redump.main vaft.cli.raw_redump "><td><a href="#vaft.cli.raw_redump.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.raw_upgrade"><code>vaft.cli.raw_upgrade</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.raw_upgrade.main vaft.cli.raw_upgrade "><td><a href="#vaft.cli.raw_upgrade.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.setup"><code>vaft.cli.setup</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.setup.main vaft.cli.setup "><td><a href="#vaft.cli.setup.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.shotlog"><code>vaft.cli.shotlog</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.shotlog.main vaft.cli.shotlog "><td><a href="#vaft.cli.shotlog.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.summary"><code>vaft.cli.summary</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.summary.main vaft.cli.summary "><td><a href="#vaft.cli.summary.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.sxr_pack"><code>vaft.cli.sxr_pack</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.sxr_pack.main vaft.cli.sxr_pack "><td><a href="#vaft.cli.sxr_pack.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.cli.vest_upstream"><code>vaft.cli.vest_upstream</code></a></th></tr>
+  <tr data-ref-row="vaft.cli.vest_upstream.main vaft.cli.vest_upstream "><td><a href="#vaft.cli.vest_upstream.main"><code>main</code></a></td><td>function</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No object matches.</p>
+</div>
+
+<h2 id="module-vaft.cli.cache">vaft.cli.cache</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Inspect, prune and clear the local HSDS domain cache (#1759, #964).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.cache.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.cache.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.cache.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/cache.py#L149-L159" title="vaft/cli/cache.py, lines 149–159 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None, *, out=None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.compare_ods">vaft.cli.compare_ods</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Compare local ODS products using the versioned VAFT parity policy.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.compare_ods.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.compare_ods.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.compare_ods.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/compare_ods.py#L9-L43" title="vaft/cli/compare_ods.py, lines 9–43 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.corrective_worker">vaft.cli.corrective_worker</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Watch the Thomson/CES uploads and run the corrective pipeline on them (issue #1842).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.corrective_worker.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.corrective_worker.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.corrective_worker.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/corrective_worker.py#L114-L153" title="vaft/cli/corrective_worker.py, lines 114–153 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.export">vaft.cli.export</h2>
+
+<div class="ref-note tex2jax_ignore"><p><code class="language-plaintext highlighter-rouge">vaft export</code>: write one database shot as portable local files.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.export.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.export.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.export.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/export.py#L56-L81" title="vaft/cli/export.py, lines 56–81 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.filedb">vaft.cli.filedb</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Command-line interface for canonical and legacy FileDB operations.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.filedb.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.filedb.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.filedb.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/filedb.py#L10-L161" title="vaft/cli/filedb.py, lines 10–161 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.gui">vaft.cli.gui</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Launch the VAFT browser GUI.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.gui.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.gui.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.gui.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/gui.py#L27-L112" title="vaft/cli/gui.py, lines 27–112 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.help">vaft.cli.help</h2>
+
+<div class="ref-note tex2jax_ignore"><p><code class="language-plaintext highlighter-rouge">vaft help [topic] [item]</code>: what VAFT can do, its defaults, and setup status.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.help.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.help.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.help.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/help.py#L53-L75" title="vaft/cli/help.py, lines 53–75 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.hsds">vaft.cli.hsds</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Configure HSDS (h5pyd) credentials without echoing secrets.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.hsds.configure" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.hsds.configure"><code>configure</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.hsds.configure" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/hsds.py#L83-L179" title="vaft/cli/hsds.py, lines 83–179 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>configure(arguments: argparse.Namespace, *, ask: Callable[[str], str] | None = None, ask_secret: Callable[[str], str] | None = None, stdin: Iterable[str] | None = None, out=None) -&gt; int</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.cli.hsds.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.hsds.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.hsds.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/hsds.py#L198-L227" title="vaft/cli/hsds.py, lines 198–227 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.maintenance">vaft.cli.maintenance</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Maintenance of already-published HSDS shots.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.maintenance.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.maintenance.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.maintenance.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/maintenance.py#L59-L116" title="vaft/cli/maintenance.py, lines 59–116 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: list[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.mcp">vaft.cli.mcp</h2>
+
+<div class="ref-note tex2jax_ignore"><p><code class="language-plaintext highlighter-rouge">vaft mcp</code>: serve VAFT’s read-only discovery tools to an MCP client over stdio (#1423).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.mcp.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.mcp.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.mcp.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/mcp.py#L24-L28" title="vaft/cli/mcp.py, lines 24–28 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.pipeline_worker">vaft.cli.pipeline_worker</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Poll VEST SQL for new shots and run the routine pipeline on them (issue #58).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.pipeline_worker.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.pipeline_worker.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.pipeline_worker.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/pipeline_worker.py#L148-L187" title="vaft/cli/pipeline_worker.py, lines 148–187 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.plot">vaft.cli.plot</h2>
+
+<div class="ref-note tex2jax_ignore"><p><code class="language-plaintext highlighter-rouge">vaft plot</code>: render a canonical plot, or several composed, from shots, samples or files.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.plot.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.plot.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.plot.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/plot.py#L169-L231" title="vaft/cli/plot.py, lines 169–231 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.raw_legacy_import">vaft.cli.raw_legacy_import</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Import pre-SQL VEST shots (per-field CSV folders) into a FileDB raw tree.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.raw_legacy_import.convert_shot" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.raw_legacy_import.convert_shot"><code>convert_shot</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.raw_legacy_import.convert_shot" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/raw_legacy_import.py#L140-L194" title="vaft/cli/raw_legacy_import.py, lines 140–194 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>convert_shot(shot: int, shot_dir: Path, *, pulse_datetime: str | None, timebase_policy: str) -&gt; tuple[dict, dict] | None</code></pre>
+
+    <p>Return <code class="language-plaintext highlighter-rouge">(payload, legacy_info)</code> for one legacy shot, or <code class="language-plaintext highlighter-rouge">None</code> if empty.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.cli.raw_legacy_import.import_shot" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.raw_legacy_import.import_shot"><code>import_shot</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.raw_legacy_import.import_shot" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/raw_legacy_import.py#L224-L261" title="vaft/cli/raw_legacy_import.py, lines 224–261 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>import_shot(shot: int, legacy_root: str, filedb_root: str, pulse_datetime: str | None, timebase_policy: str, force: bool) -&gt; tuple[int, str]</code></pre>
+
+    <p>Convert and atomically write one shot; returns <code class="language-plaintext highlighter-rouge">(shot, status)</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.cli.raw_legacy_import.legacy_field_entry" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.raw_legacy_import.legacy_field_entry"><code>legacy_field_entry</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.raw_legacy_import.legacy_field_entry" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/raw_legacy_import.py#L70-L96" title="vaft/cli/raw_legacy_import.py, lines 70–96 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>legacy_field_entry(time: np.ndarray, data: np.ndarray, *, time_offset: float = 0.0) -&gt; dict</code></pre>
+
+    <p>Build one canonical archive field entry from a legacy time/value pair.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.cli.raw_legacy_import.load_pulse_datetimes" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.raw_legacy_import.load_pulse_datetimes"><code>load_pulse_datetimes</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.raw_legacy_import.load_pulse_datetimes" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/raw_legacy_import.py#L109-L124" title="vaft/cli/raw_legacy_import.py, lines 109–124 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>load_pulse_datetimes(legacy_root: Path) -&gt; dict[int, str]</code></pre>
+
+    <p>Map shot number to ISO pulse time from the legacy shot lists.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.cli.raw_legacy_import.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.raw_legacy_import.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.raw_legacy_import.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/raw_legacy_import.py#L284-L327" title="vaft/cli/raw_legacy_import.py, lines 284–327 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.cli.raw_legacy_import.read_legacy_csv" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.raw_legacy_import.read_legacy_csv"><code>read_legacy_csv</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.raw_legacy_import.read_legacy_csv" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/raw_legacy_import.py#L55-L67" title="vaft/cli/raw_legacy_import.py, lines 55–67 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>read_legacy_csv(path: Path) -&gt; tuple[np.ndarray, np.ndarray]</code></pre>
+
+    <p>Return <code class="language-plaintext highlighter-rouge">(time, value)</code> from one headerless two-column legacy CSV.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.raw_redump">vaft.cli.raw_redump</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Serial, restartable VEST raw-DAQ exports for an on-disk FileDB.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.raw_redump.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.raw_redump.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.raw_redump.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/raw_redump.py#L204-L285" title="vaft/cli/raw_redump.py, lines 204–285 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.raw_upgrade">vaft.cli.raw_upgrade</h2>
+
+<div class="ref-note tex2jax_ignore"><p>In-place timebase upgrade for legacy FileDB raw archives.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.raw_upgrade.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.raw_upgrade.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.raw_upgrade.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/raw_upgrade.py#L96-L180" title="vaft/cli/raw_upgrade.py, lines 96–180 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.setup">vaft.cli.setup</h2>
+
+<div class="ref-note tex2jax_ignore"><p><code class="language-plaintext highlighter-rouge">vaft setup [profile]</code>: report or prepare the runtime environment.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.setup.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.setup.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.setup.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/setup.py#L32-L43" title="vaft/cli/setup.py, lines 32–43 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.shotlog">vaft.cli.shotlog</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Archive the VEST ShotLog in FileDB and extract per-shot records (#995).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.shotlog.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.shotlog.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.shotlog.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/shotlog.py#L39-L115" title="vaft/cli/shotlog.py, lines 39–115 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.summary">vaft.cli.summary</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Preset summary materialization command.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.summary.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.summary.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.summary.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/summary.py#L56-L93" title="vaft/cli/summary.py, lines 56–93 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.sxr_pack">vaft.cli.sxr_pack</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Pack a soft X-ray archive’s digitizer CSVs into lossless HDF5 containers.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.sxr_pack.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.sxr_pack.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.sxr_pack.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/sxr_pack.py#L165-L215" title="vaft/cli/sxr_pack.py, lines 165–215 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.cli.vest_upstream">vaft.cli.vest_upstream</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Run the raw, static, diagnostics, and eddy VEST OMAS stages.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.cli.vest_upstream.main" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.cli.vest_upstream.main"><code>main</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.cli.vest_upstream.main" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/cli/vest_upstream.py#L74-L113" title="vaft/cli/vest_upstream.py, lines 74–113 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>main(argv: Iterable[str] | None = None) -&gt; int</code></pre>
+
+  </section>
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/api/code/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: API: vaft.code">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" class="navigation navigation-next navigation-unique" aria-label="Next page: Computational layers">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.cache" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.cache</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.compare_ods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.compare_ods</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.corrective_worker" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.corrective_worker</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.export" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.export</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.filedb" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.filedb</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.gui" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.gui</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.help" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.help</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.hsds</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.maintenance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.maintenance</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.mcp" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.mcp</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.pipeline_worker" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.pipeline_worker</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.plot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.plot</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.raw_legacy_import" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.raw_legacy_import</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.raw_redump" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.raw_redump</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.raw_upgrade" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.raw_upgrade</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.setup" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.setup</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.shotlog" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.shotlog</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.summary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.summary</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.sxr_pack" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.sxr_pack</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.cli.vest_upstream" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.cli.vest_upstream</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Computational layers",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Computational_layers.md",
+            "ref": "_guide/Computational_layers.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Api_reference_cli.md",
+        "mtime": "2026-09-29 10:12:00 +0900",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-28 16:13:10 +0900"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/develop/assets/animations/loader.js"></script>
+<script src="/vaft/develop/assets/gitbook/adaptive.js"></script>
+</body>
+</html>

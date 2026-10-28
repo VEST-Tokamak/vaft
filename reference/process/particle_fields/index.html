@@ -1,0 +1,1280 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: particle_fields · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/reference/process/particle/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/formula/regularized_profiles/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="getting-started">Getting started</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="architecture">Framework and scientific architecture</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.research-domains" data-path="/vaft/reference/research-domains/">
+                    
+                        <a href="/vaft/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="plasma-physics">Plasma physics and models</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.plasma-model-guide" data-path="/vaft/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.particle-motion" data-path="/vaft/guide/particle-motion/">
+                    
+                        <a href="/vaft/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.characteristic-scales" data-path="/vaft/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.gyrokinetic-results" data-path="/vaft/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="vest-imas-data">VEST and IMAS data</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="apis-visualization">APIs and visualization</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.animation-reference" data-path="/vaft/reference/animation/">
+                    
+                        <a href="/vaft/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="software-integrations">Software and integrations</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="resources">Resources and support</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: particle_fields</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_particle_fields">Process reference: particle_fields</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.particle_fields, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.particle_fields</code>:
+<strong>6</strong> public functions. Each entry is what
+<code>vaft.process.describe("particle_fields.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/process/">All process categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>All factories return static Cartesian SI-valued ParticleField objects. Analytic
+examples are controlled reference geometries, not reconstructed VEST equilibria.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 6 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="equilibrium_particle_field"><td><a href="#equilibrium_particle_field"><code>equilibrium_particle_field</code></a></td><td>Adapt an existing VAFT equilibrium field interpolator to particle tracing.
+</td></tr>
+  <tr data-ref-row="filament_particle_field"><td><a href="#filament_particle_field"><code>filament_particle_field</code></a></td><td>Adapt existing closed-filament Biot-Savart fields with a matching potential.
+</td></tr>
+  <tr data-ref-row="mirror_particle_field"><td><a href="#mirror_particle_field"><code>mirror_particle_field</code></a></td><td>Construct an exactly solenoidal axisymmetric parabolic mirror field.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="slab_particle_field"><td><a href="#slab_particle_field"><code>slab_particle_field</code></a></td><td>Construct a divergence-free slab gradient Bz = B0 (1 + x/length).
+</td></tr>
+  <tr data-ref-row="toroidal_particle_field"><td><a href="#toroidal_particle_field"><code>toroidal_particle_field</code></a></td><td>Construct an axisymmetric torus with an optional curl-defined 3-D perturbation.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="uniform_particle_field"><td><a href="#uniform_particle_field"><code>uniform_particle_field</code></a></td><td>Construct a uniform magnetic field with a consistent crossed electric field.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="equilibrium_particle_field" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#equilibrium_particle_field"><code>equilibrium_particle_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="equilibrium_particle_field" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/process/particle_fields.py#L328-L384" title="vaft/process/particle_fields.py, lines 328–384 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>equilibrium_particle_field(equilibrium, *, derivative_step=0.0001)</code></pre>
+
+    <details class="ref-code" data-source-code="equilibrium_particle_field"><summary>Show source <span class="ref-note">vaft/process/particle_fields.py, lines 328–384</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">equilibrium_particle_field</span><span class="p">(</span><span class="n">equilibrium</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">derivative_step</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Adapt an existing VAFT equilibrium field interpolator to particle tracing.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData
+        Validated equilibrium with explicit resolved COCOS convention [-].
+    derivative_step : float, optional
+        Cartesian field derivative step, a numerical convenience [m].
+
+    Returns
+    -------
+    ParticleField
+        Cartesian field restricted to the equilibrium map domain [-].
+
+    Processing steps
+    ----------------
+    Reuse the equilibrium interpolator and its COCOS sign/flux handling. Convert
+    its (B_R,B_Z,B_phi) components to Cartesian order and enforce map bounds.
+
+    Applicability
+    -------------
+    Machine-independent. A resolved static equilibrium snapshot.
+
+    Limitations
+    -----------
+    The underlying interpolator clips F beyond the profile range; this adapter
+    does not validate the equilibrium or invent a vector-potential gauge.
+
+    Provenance
+    ----------
+    .. [1] vaft.process.equilibrium.make_equilibrium_field_interpolator.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">vaft.process.equilibrium</span> <span class="kn">import</span> <span class="n">make_equilibrium_field_interpolator</span>
+
+    <span class="k">if</span> <span class="n">equilibrium</span><span class="p">.</span><span class="n">convention</span><span class="p">.</span><span class="n">cocos</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">particle equilibrium adapter requires resolved COCOS</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">native</span> <span class="o">=</span> <span class="nf">make_equilibrium_field_interpolator</span><span class="p">(</span><span class="n">equilibrium</span><span class="p">)</span>
+    <span class="n">r</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">equilibrium</span><span class="p">.</span><span class="n">r</span><span class="p">,</span> <span class="n">equilibrium</span><span class="p">.</span><span class="n">z</span>
+    <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="n">z</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">equilibrium map axes are required</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">B</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">hypot</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">br</span><span class="p">,</span> <span class="n">bz</span><span class="p">,</span> <span class="n">bt</span> <span class="o">=</span> <span class="nf">native</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([(</span><span class="n">br</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">bt</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">R</span><span class="p">,</span> <span class="p">(</span><span class="n">br</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">bt</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">R</span><span class="p">,</span> <span class="n">bz</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="nc">ParticleField</span><span class="p">(</span>
+        <span class="n">B</span><span class="p">,</span>
+        <span class="n">derivative_step</span><span class="o">=</span><span class="n">derivative_step</span><span class="p">,</span>
+        <span class="n">contains</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">np</span><span class="p">.</span><span class="nf">hypot</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">r</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">and</span> <span class="n">z</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">z</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+        <span class="n">name</span><span class="o">=</span><span class="sh">"</span><span class="s">VAFT equilibrium particle field</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">provenance</span><span class="o">=</span><span class="p">{</span>
+            <span class="sh">"</span><span class="s">cocos</span><span class="sh">"</span><span class="p">:</span> <span class="n">equilibrium</span><span class="p">.</span><span class="n">convention</span><span class="p">.</span><span class="n">cocos</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">field_source</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">make_equilibrium_field_interpolator; F edge clipping retained</span><span class="sh">"</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Adapt an existing VAFT equilibrium field interpolator to particle tracing.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>equilibrium</code></td><td class="ref-type">EquilibriumData</td><td class="ref-unit">-</td><td><p>Validated equilibrium with explicit resolved COCOS convention.</p>
+</td></tr>
+  <tr><td><code>derivative_step</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m</td><td><p>Cartesian field derivative step, a numerical convenience.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ParticleField</td><td class="ref-unit">-</td><td><p>Cartesian field restricted to the equilibrium map domain.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <p>Reuse the equilibrium interpolator and its COCOS sign/flux handling. Convert
+its (B_R,B_Z,B_phi) components to Cartesian order and enforce map bounds.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. A resolved static equilibrium snapshot.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The underlying interpolator clips F beyond the profile range; this adapter
+does not validate the equilibrium or invent a vector-potential gauge.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>vaft.process.equilibrium.make_equilibrium_field_interpolator.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="filament_particle_field" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#filament_particle_field"><code>filament_particle_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="filament_particle_field" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/process/particle_fields.py#L387-L479" title="vaft/process/particle_fields.py, lines 387–479 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>filament_particle_field(points_xyz, currents_a, *, derivative_step, exclusion_radius)</code></pre>
+
+    <p>Adapt existing closed-filament Biot-Savart fields with a matching potential.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>points_xyz</code></td><td class="ref-type">sequence</td><td class="ref-unit">m</td><td><p>Closed Cartesian filament polylines, the Biot-Savart native input.</p>
+</td></tr>
+  <tr><td><code>currents_a</code></td><td class="ref-type">array_like</td><td class="ref-unit">A</td><td><p>One current per filament.</p>
+</td></tr>
+  <tr><td><code>derivative_step</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Explicit Cartesian numerical derivative step.</p>
+</td></tr>
+  <tr><td><code>exclusion_radius</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Positive excluded distance from every straight filament segment.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ParticleField</td><td class="ref-unit">-</td><td><p>Static vacuum field and line-integral vector potential.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <p>Reuse the existing midpoint-rule Biot-Savart field. Evaluate A with the
+same midpoint quadrature, so curl(A) is exactly the represented B.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Closed vacuum filaments away from conductor singularities.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>No finite conductor radius, plasma response or wall currents are modeled.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>vaft.process.coils_non_axisymmetric.biot_savart_filaments.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="mirror_particle_field" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mirror_particle_field"><code>mirror_particle_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="mirror_particle_field" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/process/particle_fields.py#L117-L176" title="vaft/process/particle_fields.py, lines 117–176 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>mirror_particle_field(B0=1.0, length=10.0)</code></pre>
+
+    <details class="ref-code" data-source-code="mirror_particle_field"><summary>Show source <span class="ref-note">vaft/process/particle_fields.py, lines 117–176</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">mirror_particle_field</span><span class="p">(</span><span class="n">B0</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mf">10.0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Construct an exactly solenoidal axisymmetric parabolic mirror field.
+
+    Parameters
+    ----------
+    B0 : float, optional
+        Minimum on-axis field, a benchmark default [T].
+    length : float, optional
+        Half length of the accepted mirror domain, a benchmark default [m].
+
+    Returns
+    -------
+    ParticleField
+        Field with Bz = B0(1+z^2/length^2) and Br = -r B0 z/length^2 [-].
+
+    Convention
+    ----------
+    The domain is abs(z) &lt; length and r &lt; length/4. On axis, s=z and the
+    nominal mirror ratio at the two ends is two. This is a current-carrying
+    analytic benchmark, not an assertion of a vacuum-coil solution.
+
+    Applicability
+    -------------
+    Machine-independent. Magnetized mirror and harmonic-bounce benchmark.
+
+    Provenance
+    ----------
+    .. [1] Curl of A=(-y f(z)/2, x f(z)/2, 0), f=B0(1+z^2/L^2),
+       an exactly divergence-free benchmark for issue #2005.
+    </span><span class="sh">"""</span>
+    <span class="nf">_positive</span><span class="p">(</span><span class="n">B0</span><span class="o">=</span><span class="n">B0</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">length</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">B0</span> <span class="o">/</span> <span class="n">length</span><span class="o">**</span><span class="mi">2</span>
+
+    <span class="k">def</span> <span class="nf">B</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="o">-</span><span class="n">c</span> <span class="o">*</span> <span class="n">a</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="o">-</span><span class="n">c</span> <span class="o">*</span> <span class="n">b</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="n">B0</span> <span class="o">+</span> <span class="n">c</span> <span class="o">*</span> <span class="n">z</span> <span class="o">*</span> <span class="n">z</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">J</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span>
+            <span class="p">[[</span><span class="o">-</span><span class="n">c</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="n">c</span> <span class="o">*</span> <span class="n">a</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="n">c</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="o">-</span><span class="n">c</span> <span class="o">*</span> <span class="n">b</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">c</span> <span class="o">*</span> <span class="n">z</span><span class="p">]]</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="nc">ParticleField</span><span class="p">(</span>
+        <span class="n">B</span><span class="p">,</span>
+        <span class="n">jacobian</span><span class="o">=</span><span class="n">J</span><span class="p">,</span>
+        <span class="n">vector_potential</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">B0</span> <span class="o">+</span> <span class="n">c</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="p">),</span>
+        <span class="n">contains</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nf">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">length</span> <span class="ow">and</span> <span class="n">np</span><span class="p">.</span><span class="nf">hypot</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">length</span> <span class="o">/</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="sh">"</span><span class="s">solenoidal parabolic magnetic mirror</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">provenance</span><span class="o">=</span><span class="p">{</span>
+            <span class="sh">"</span><span class="s">gauge</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">A=(-y f/2,x f/2,0)</span><span class="sh">"</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">length_m</span><span class="sh">"</span><span class="p">:</span> <span class="n">length</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">B_min_T</span><span class="sh">"</span><span class="p">:</span> <span class="n">B0</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">B0_T</span><span class="sh">"</span><span class="p">:</span> <span class="n">B0</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">nominal_end_ratio</span><span class="sh">"</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">on_axis_arc_coordinate</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">z</span><span class="sh">"</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Construct an exactly solenoidal axisymmetric parabolic mirror field.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>B0</code></td><td class="ref-type">float, optional</td><td class="ref-unit">T</td><td><p>Minimum on-axis field, a benchmark default.</p>
+</td></tr>
+  <tr><td><code>length</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m</td><td><p>Half length of the accepted mirror domain, a benchmark default.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ParticleField</td><td class="ref-unit">-</td><td><p>Field with Bz = B0(1+z^2/length^2) and Br = -r B0 z/length^2.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The domain is abs(z) &lt; length and r &lt; length/4. On axis, s=z and the
+nominal mirror ratio at the two ends is two. This is a current-carrying
+analytic benchmark, not an assertion of a vacuum-coil solution.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Magnetized mirror and harmonic-bounce benchmark.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Curl of A=(-y f(z)/2, x f(z)/2, 0), f=B0(1+z^2/L^2), an exactly divergence-free benchmark for issue #2005.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="slab_particle_field" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#slab_particle_field"><code>slab_particle_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="slab_particle_field" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/process/particle_fields.py#L78-L114" title="vaft/process/particle_fields.py, lines 78–114 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>slab_particle_field(B0=1.0, length=30.0)</code></pre>
+
+    <details class="ref-code" data-source-code="slab_particle_field"><summary>Show source <span class="ref-note">vaft/process/particle_fields.py, lines 78–114</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">slab_particle_field</span><span class="p">(</span><span class="n">B0</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mf">30.0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Construct a divergence-free slab gradient Bz = B0 (1 + x/length).
+
+    Parameters
+    ----------
+    B0 : float, optional
+        Positive reference field, a benchmark default [T].
+    length : float, optional
+        Positive gradient scale, a benchmark default [m].
+
+    Returns
+    -------
+    ParticleField
+        Slab field restricted to abs(x) &lt; length/2 [-].
+
+    Applicability
+    -------------
+    Machine-independent. Weak-gradient drift benchmark when rho/length is small.
+
+    Provenance
+    ----------
+    .. [1] F. F. Chen, Introduction to Plasma Physics and Controlled Fusion,
+       3rd ed. (2016), Sec. 2.3.
+    </span><span class="sh">"""</span>
+    <span class="nf">_positive</span><span class="p">(</span><span class="n">B0</span><span class="o">=</span><span class="n">B0</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">length</span><span class="p">)</span>
+    <span class="n">J</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="n">J</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">B0</span> <span class="o">/</span> <span class="n">length</span>
+    <span class="k">return</span> <span class="nc">ParticleField</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">B0</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">length</span><span class="p">)]),</span>
+        <span class="n">jacobian</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">J</span><span class="p">.</span><span class="nf">copy</span><span class="p">(),</span>
+        <span class="n">contains</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nf">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">length</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">vector_potential</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span>
+            <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">B0</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">length</span><span class="p">)),</span> <span class="mf">0.0</span><span class="p">]</span>
+        <span class="p">),</span>
+        <span class="n">name</span><span class="o">=</span><span class="sh">"</span><span class="s">divergence-free slab gradient</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">provenance</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">gauge</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Ay=B0(x+x^2/(2L))</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">length_m</span><span class="sh">"</span><span class="p">:</span> <span class="n">length</span><span class="p">,</span> <span class="sh">"</span><span class="s">B0_T</span><span class="sh">"</span><span class="p">:</span> <span class="n">B0</span><span class="p">},</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Construct a divergence-free slab gradient Bz = B0 (1 + x/length).</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>B0</code></td><td class="ref-type">float, optional</td><td class="ref-unit">T</td><td><p>Positive reference field, a benchmark default.</p>
+</td></tr>
+  <tr><td><code>length</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m</td><td><p>Positive gradient scale, a benchmark default.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ParticleField</td><td class="ref-unit">-</td><td><p>Slab field restricted to abs(x) &lt; length/2.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Weak-gradient drift benchmark when rho/length is small.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>F. F. Chen, Introduction to Plasma Physics and Controlled Fusion, 3rd ed. (2016), Sec. 2.3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="toroidal_particle_field" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#toroidal_particle_field"><code>toroidal_particle_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="toroidal_particle_field" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/process/particle_fields.py#L179-L325" title="vaft/process/particle_fields.py, lines 179–325 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>toroidal_particle_field(R0=3.0, B0=1.0, poloidal=0.08, *, perturbation=0.0, mode=6, minor_radius=1.0, derivative_step=0.0001, constant_magnitude=False)</code></pre>
+
+    <p>Construct an axisymmetric torus with an optional curl-defined 3-D perturbation.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>R0</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m</td><td><p>Positive major radius, a benchmark default.</p>
+</td></tr>
+  <tr><td><code>B0</code></td><td class="ref-type">float, optional</td><td class="ref-unit">T</td><td><p>Reference toroidal field, a benchmark default.</p>
+</td></tr>
+  <tr><td><code>poloidal</code></td><td class="ref-type">float, optional</td><td class="ref-unit">T</td><td><p>Nonnegative coefficient c in psi=c((R-R0)^2+z^2), a benchmark default.</p>
+</td></tr>
+  <tr><td><code>perturbation</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Signed perturbation amplitude relative to B0, zero is axisymmetry.</p>
+</td></tr>
+  <tr><td><code>mode</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Positive toroidal harmonic number, a benchmark default.</p>
+</td></tr>
+  <tr><td><code>minor_radius</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m</td><td><p>Positive radial/vertical domain extent, less than R0.</p>
+</td></tr>
+  <tr><td><code>derivative_step</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m</td><td><p>Step retained for independent derivative audits; the benchmark supplies an analytic Jacobian. This is a numerical convenience.</p>
+</td></tr>
+  <tr><td><code>constant_magnitude</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Use Bphi=B0 with poloidal=perturbation=0 for a local pure-curvature benchmark; default False uses the vacuum F/R component.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ParticleField</td><td class="ref-unit">-</td><td><p>Curl-defined field, vector potential and explicit toroidal domain.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>phi=atan2(y,x), e_phi=(-sin(phi),cos(phi),0). The physical flux per
+radian is R A_phi; no COCOS label is inferred for this Cartesian benchmark.
+A_z=-B0 R0 log(R/R0)+a B0 R0 (R/R0)^n cos(n phi)/n. The perturbation
+represents a controlled vacuum transverse harmonic, not a plasma response.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Axisymmetric orbit and static symmetry-breaking tests.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The circular current-carrying poloidal field is not a Grad-Shafranov solve.
+Use reconstructed equilibria for machine-specific orbit claims.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Analytic curl of the stated vector potential, issues #2008/#2009.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="uniform_particle_field" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#uniform_particle_field"><code>uniform_particle_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="uniform_particle_field" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/process/particle_fields.py#L29-L75" title="vaft/process/particle_fields.py, lines 29–75 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>uniform_particle_field(B=(0.0, 0.0, 1.0), E=(0.0, 0.0, 0.0))</code></pre>
+
+    <details class="ref-code" data-source-code="uniform_particle_field"><summary>Show source <span class="ref-note">vaft/process/particle_fields.py, lines 29–75</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">uniform_particle_field</span><span class="p">(</span><span class="n">B</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="n">E</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)):</span>
+    <span class="sh">"""</span><span class="s">Construct a uniform magnetic field with a consistent crossed electric field.
+
+    Parameters
+    ----------
+    B : array_like, optional
+        Nonzero Cartesian magnetic field; unit z field is a reference default [T].
+    E : array_like, optional
+        Uniform electric field; zero is the magnetic-only default [V/m].
+
+    Returns
+    -------
+    ParticleField
+        Uniform field with symmetric gauge A = B cross x / 2 [-].
+
+    Applicability
+    -------------
+    Machine-independent. Exact uniform-field benchmark.
+
+    Provenance
+    ----------
+    .. [1] F. F. Chen, Introduction to Plasma Physics and Controlled Fusion,
+       3rd ed. (2016), Sec. 2.2.
+    </span><span class="sh">"""</span>
+    <span class="n">B</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="nb">float</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="nf">if </span><span class="p">(</span>
+        <span class="n">B</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,)</span>
+        <span class="ow">or</span> <span class="n">E</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,)</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">r_</span><span class="p">[</span><span class="n">B</span><span class="p">,</span> <span class="n">E</span><span class="p">]))</span>
+        <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">B</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">finite 3-vector fields and nonzero B required</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">B</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="n">B</span><span class="p">.</span><span class="nf">copy</span><span class="p">(),</span> <span class="n">E</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+    <span class="n">electric</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">E</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">ParticleField</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">B</span><span class="p">.</span><span class="nf">copy</span><span class="p">(),</span>
+        <span class="n">E</span><span class="o">=</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">E</span><span class="p">.</span><span class="nf">copy</span><span class="p">())</span> <span class="k">if</span> <span class="n">electric</span> <span class="k">else</span> <span class="bp">None</span><span class="p">,</span>
+        <span class="n">potential</span><span class="o">=</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="nf">float</span><span class="p">(</span><span class="n">E</span> <span class="o">@</span> <span class="n">x</span><span class="p">))</span> <span class="k">if</span> <span class="n">electric</span> <span class="k">else</span> <span class="bp">None</span><span class="p">,</span>
+        <span class="n">jacobian</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span>
+        <span class="n">vector_potential</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">cross</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">derivative_step</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="sh">"</span><span class="s">uniform Cartesian field</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">provenance</span><span class="o">=</span><span class="p">{</span>
+            <span class="sh">"</span><span class="s">gauge</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">A=B cross x/2; Phi=-E dot x</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">geometry</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">uniform</span><span class="sh">"</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">B_T</span><span class="sh">"</span><span class="p">:</span> <span class="n">B</span><span class="p">.</span><span class="nf">tolist</span><span class="p">(),</span> <span class="sh">"</span><span class="s">E_V_per_m</span><span class="sh">"</span><span class="p">:</span> <span class="n">E</span><span class="p">.</span><span class="nf">tolist</span><span class="p">(),</span>
+        <span class="p">},</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Construct a uniform magnetic field with a consistent crossed electric field.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>B</code></td><td class="ref-type">array_like, optional</td><td class="ref-unit">T</td><td><p>Nonzero Cartesian magnetic field; unit z field is a reference default.</p>
+</td></tr>
+  <tr><td><code>E</code></td><td class="ref-type">array_like, optional</td><td class="ref-unit">V/m</td><td><p>Uniform electric field; zero is the magnetic-only default.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ParticleField</td><td class="ref-unit">-</td><td><p>Uniform field with symmetric gauge A = B cross x / 2.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Exact uniform-field benchmark.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>F. F. Chen, Introduction to Plasma Physics and Controlled Fusion, 3rd ed. (2016), Sec. 2.2.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/process/particle/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: particle">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/formula/regularized_profiles/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: regularized profiles">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: regularized profiles",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_regularized_profiles.md",
+            "ref": "_guide/Formula_reference_regularized_profiles.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_particle_fields.md",
+        "mtime": "2026-10-15 00:00:00 +0900",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-28 16:11:01 +0900"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/assets/animations/loader.js"></script>
+<script src="/vaft/assets/gitbook/adaptive.js"></script>
+</body>
+</html>

@@ -1,0 +1,2055 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: ntv_coil_response · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/develop/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/develop/reference/process/local_mhd_criteria/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/process/resonant_coil_response/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="getting-started">Getting started</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="architecture">Framework and scientific architecture</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-contracts" data-path="/vaft/develop/reference/scientific-contracts/">
+                    
+                        <a href="/vaft/develop/reference/scientific-contracts/" onclick="pageScrollToTop(this)">Scientific contracts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="plasma-physics">Plasma physics and models</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.plasma-model-guide" data-path="/vaft/develop/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/develop/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.particle-motion" data-path="/vaft/develop/guide/particle-motion/">
+                    
+                        <a href="/vaft/develop/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.gyrokinetic-results" data-path="/vaft/develop/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="vest-imas-data">VEST and IMAS data</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="apis-visualization">APIs and visualization</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.animation-reference" data-path="/vaft/develop/reference/animation/">
+                    
+                        <a href="/vaft/develop/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="software-integrations">Software and integrations</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="resources">Resources and support</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: ntv_coil_response</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>19835e9</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_ntv_coil_response">Process reference: ntv_coil_response</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.ntv_coil_response, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.ntv_coil_response</code>:
+<strong>11</strong> public functions. Each entry is what
+<code>vaft.process.describe("ntv_coil_response.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>A non-axisymmetric coil set with <code class="language-plaintext highlighter-rouge">K</code> independently driven groups is described
+by one complex phasor per group, <code class="language-plaintext highlighter-rouge">c_k = A_k exp(+i phi_k)</code>.  On a <em>fixed</em>
+plasma and kinetic background, the signed toroidal torque PENTRC computes from
+the GPEC displacement that excitation drives may – or may not – be a
+Hermitian quadratic form of the phasors (issue #1887):</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>T(c) = c^H Q c,        Q = Q^H.
+</code></pre></div></div>
+
+<p>This module holds the algebra for testing that hypothesis and, only where it
+holds, for using it.  It runs no solver: each torque it takes is a number some
+GPEC -&gt; PENTRC evaluation produced (<code class="language-plaintext highlighter-rouge">vaft.code.gpec.torque_profile</code>), and
+each phasor is the excitation that evaluation was run with.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>quadratic_probe_design ──▶ K^2 probes  (e_i, e_i+e_j, e_i+i e_j)
+hermitian_torque_matrix ─▶ Q from the probes' torques
+quadratic_invariance_checks ─▶ T(a c) = a^2 T(c), T(-c) = T(c), T(e^{i chi} c) = T(c)
+qualify_torque_matrix ───▶ held-out error -&gt; "qualified" / "rejected" / "insufficient"
+fit_inhomogeneous_torque ─▶ T0 + 2 Re(b^H c) + c^H Q c, to see whether T0 and b vanish
+two_group_phase_extrema, budgeted_torque_extrema, fixed_amplitude_phase_extrema
+</code></pre></div></div>
+
+<p>A rejected hypothesis is a result, not a failure of this module: the direct
+scan it was tested on is then the operating-space study, and no optimizer here
+should be fed that <code class="language-plaintext highlighter-rouge">Q</code>.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>K</td><td>number of independently driven coil groups</td><td class="ref-unit">-</td></tr>
+  <tr><td>c</td><td>complex excitation phasor per group, c_k = A_k exp(+i phi_k)</td><td class="ref-unit">phasor</td></tr>
+  <tr><td>A_k</td><td>declared amplitude normalization of group k (not a sector-peak</td><td class="ref-unit"></td></tr>
+  <tr><td>phi_k</td><td>phase of group k</td><td class="ref-unit">rad</td></tr>
+  <tr><td>T</td><td>signed scalar torque of one evaluation (e.g. the enclosed edge</td><td class="ref-unit"></td></tr>
+  <tr><td>Q</td><td>Hermitian torque matrix, T = c^H Q c</td><td class="ref-unit">N m / phasor^2</td></tr>
+  <tr><td>D</td><td>Hermitian positive-definite excitation metric of a budget c^H D c [-]</td><td class="ref-unit"></td></tr>
+  </tbody>
+</table></div>
+
+<p><strong>Phasor sign.</strong>  <code class="language-plaintext highlighter-rouge">c_k = A_k exp(+i phi_k)</code> and <code class="language-plaintext highlighter-rouge">T = c^H Q c</code>.  The
+cross-term recovery below depends on it: with the opposite phasor sign the
+imaginary part of every <code class="language-plaintext highlighter-rouge">Q_ij</code> changes sign.</p>
+
+<p><strong>Signed torque.</strong>  <code class="language-plaintext highlighter-rouge">T</code> keeps PENTRC’s sign; nothing here takes <code class="language-plaintext highlighter-rouge">|T|</code>.  A
+failed or uncomputed evaluation is NaN, never zero.</p>
+
+<p><strong>Common phase.</strong>  For a single toroidal mode, <code class="language-plaintext highlighter-rouge">T(e^{i chi} c) = T(c)</code>, so a
+<code class="language-plaintext highlighter-rouge">K</code>-group phase optimum has <code class="language-plaintext highlighter-rouge">K - 1</code> free phases; group 0’s phase is held
+at zero.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 11 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="budgeted_torque_extrema"><td><a href="#budgeted_torque_extrema"><code>budgeted_torque_extrema</code></a></td><td>Largest and smallest signed torque over free complex excitations with <code class="language-plaintext highlighter-rouge">c^H D c = budget</code>.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="coil_phasors"><td><a href="#coil_phasors"><code>coil_phasors</code></a></td><td>Complex excitation phasors <code class="language-plaintext highlighter-rouge">A_k exp(+i phi_k)</code> of the coil groups.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="fit_inhomogeneous_torque"><td><a href="#fit_inhomogeneous_torque"><code>fit_inhomogeneous_torque</code></a></td><td>Least-squares <code class="language-plaintext highlighter-rouge">T = T0 + 2 Re(b^H c) + c^H Q c</code>, to test whether <code class="language-plaintext highlighter-rouge">T0</code> and <code class="language-plaintext highlighter-rouge">b</code> vanish.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="fixed_amplitude_phase_extrema"><td><a href="#fixed_amplitude_phase_extrema"><code>fixed_amplitude_phase_extrema</code></a></td><td>Phases of the largest and smallest signed torque with every group amplitude fixed.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="hermitian_torque_matrix"><td><a href="#hermitian_torque_matrix"><code>hermitian_torque_matrix</code></a></td><td>The Hermitian <code class="language-plaintext highlighter-rouge">Q</code> of <code class="language-plaintext highlighter-rouge">T = c^H Q c</code> from the probe torques.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ntv_operating_space"><td><a href="#ntv_operating_space"><code>ntv_operating_space</code></a></td><td>Direct NTV torques (and a qualified model) as a #1178 coil operating-space result.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="quadratic_invariance_checks"><td><a href="#quadratic_invariance_checks"><code>quadratic_invariance_checks</code></a></td><td>Tests of a pure quadratic response that need no <code class="language-plaintext highlighter-rouge">Q</code>: scaling, sign, common phase.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="quadratic_probe_design"><td><a href="#quadratic_probe_design"><code>quadratic_probe_design</code></a></td><td>The <code class="language-plaintext highlighter-rouge">K^2</code> unit excitations that determine a Hermitian <code class="language-plaintext highlighter-rouge">Q</code>.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="quadratic_torque"><td><a href="#quadratic_torque"><code>quadratic_torque</code></a></td><td>Signed torque <code class="language-plaintext highlighter-rouge">c^H Q c</code> of one excitation or a stack of them.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="qualify_torque_matrix"><td><a href="#qualify_torque_matrix"><code>qualify_torque_matrix</code></a></td><td>Qualify or reject a <code class="language-plaintext highlighter-rouge">Q</code> against direct evaluations it was not built from.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="two_group_phase_extrema"><td><a href="#two_group_phase_extrema"><code>two_group_phase_extrema</code></a></td><td>Relative phases of the largest and smallest signed torque of two groups.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="budgeted_torque_extrema" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#budgeted_torque_extrema"><code>budgeted_torque_extrema</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="budgeted_torque_extrema" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/process/ntv_coil_response.py#L647-L716" title="vaft/process/ntv_coil_response.py, lines 647–716 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>budgeted_torque_extrema(Q, D, budget)</code></pre>
+
+    <details class="ref-code" data-source-code="budgeted_torque_extrema"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 647–716</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">budgeted_torque_extrema</span><span class="p">(</span><span class="n">Q</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">D</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">budget</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Largest and smallest signed torque over free complex excitations with ``c^H D c = budget``.
+
+    Parameters
+    ----------
+    Q : numpy.ndarray
+        Hermitian torque matrix of a qualified model, possibly indefinite [N m / phasor^2].
+    D : numpy.ndarray
+        Hermitian positive-definite excitation metric [-].
+    budget : float
+        The excitation budget ``P_0 &gt; 0`` [phasor^2].
+
+    Returns
+    -------
+    extrema : dict
+        ``T_max``/``T_min`` [N m], ``c_max``/``c_min`` meeting the budget
+        [phasor], and the generalized ``eigenvalues`` ascending [N m / phasor^2].
+
+    Raises
+    ------
+    ValueError
+        ``D`` is not positive definite, shapes disagree, or the budget is not
+        positive.
+
+    Processing steps
+    ----------------
+    1. Solve ``Q v = lambda D v`` (generalized Hermitian eigenproblem).
+    2. Scale the extreme eigenvectors to ``v^H D v = P_0``; ``T = lambda P_0``.
+
+    Convention
+    ----------
+    Signed: with an indefinite ``Q`` the minimum is a negative torque, not a
+    small magnitude.  The returned phasors are defined up to a common phase.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A mathematical optimum of the phasor space: actual sector or circuit
+    current limits, winding signs and fixed group amplitudes are not imposed
+    and must be checked separately.
+
+    Provenance
+    ----------
+    .. [1887] Issue #1887, Sec. 8 (free complex excitation with a budget).
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">scipy.linalg</span> <span class="kn">import</span> <span class="n">eigh</span>
+
+    <span class="n">q</span> <span class="o">=</span> <span class="nf">_hermitian</span><span class="p">(</span><span class="n">Q</span><span class="p">)</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="nf">_hermitian</span><span class="p">(</span><span class="n">D</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">d</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">q</span><span class="p">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">Q and D differ in shape</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">budget</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">the budget must be positive</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">eigvalsh</span><span class="p">(</span><span class="n">d</span><span class="p">).</span><span class="nf">min</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">D must be positive definite</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">values</span><span class="p">,</span> <span class="n">vectors</span> <span class="o">=</span> <span class="nf">eigh</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">scaled</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">v</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">budget</span> <span class="o">/</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">real</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="nf">conj</span><span class="p">()</span> <span class="o">@</span> <span class="n">d</span> <span class="o">@</span> <span class="n">v</span><span class="p">)))</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">T_max</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">budget</span><span class="p">),</span>
+        <span class="sh">"</span><span class="s">T_min</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">budget</span><span class="p">),</span>
+        <span class="sh">"</span><span class="s">c_max</span><span class="sh">"</span><span class="p">:</span> <span class="nf">scaled</span><span class="p">(</span><span class="n">vectors</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]),</span>
+        <span class="sh">"</span><span class="s">c_min</span><span class="sh">"</span><span class="p">:</span> <span class="nf">scaled</span><span class="p">(</span><span class="n">vectors</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]),</span>
+        <span class="sh">"</span><span class="s">eigenvalues</span><span class="sh">"</span><span class="p">:</span> <span class="n">values</span><span class="p">,</span>
+    <span class="p">}</span></code></pre></figure>
+
+</details>
+
+    <p>Largest and smallest signed torque over free complex excitations with <code class="language-plaintext highlighter-rouge">c^H D c = budget</code>.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>Q</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">N m / phasor^2</td><td><p>Hermitian torque matrix of a qualified model, possibly indefinite.</p>
+</td></tr>
+  <tr><td><code>D</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>Hermitian positive-definite excitation metric.</p>
+</td></tr>
+  <tr><td><code>budget</code></td><td class="ref-type">float</td><td class="ref-unit">phasor^2</td><td><p>The excitation budget <code class="language-plaintext highlighter-rouge">P_0 &gt; 0</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>extrema</code></td><td class="ref-type">dict</td><td class="ref-unit">N m / phasor^2</td><td><p><code class="language-plaintext highlighter-rouge">T_max</code>/<code class="language-plaintext highlighter-rouge">T_min</code> [N m], <code class="language-plaintext highlighter-rouge">c_max</code>/<code class="language-plaintext highlighter-rouge">c_min</code> meeting the budget [phasor], and the generalized <code class="language-plaintext highlighter-rouge">eigenvalues</code> ascending.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Signed: with an indefinite <code class="language-plaintext highlighter-rouge">Q</code> the minimum is a negative torque, not a
+small magnitude.  The returned phasors are defined up to a common phase.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">D</code> is not positive definite, shapes disagree, or the budget is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Solve <code class="language-plaintext highlighter-rouge">Q v = lambda D v</code> (generalized Hermitian eigenproblem).</li>
+        <li>Scale the extreme eigenvectors to <code class="language-plaintext highlighter-rouge">v^H D v = P_0</code>; <code class="language-plaintext highlighter-rouge">T = lambda P_0</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A mathematical optimum of the phasor space: actual sector or circuit
+current limits, winding signs and fixed group amplitudes are not imposed
+and must be checked separately.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1887, Sec. 8 (free complex excitation with a budget).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="coil_phasors" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#coil_phasors"><code>coil_phasors</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="coil_phasors" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/process/ntv_coil_response.py#L116-L156" title="vaft/process/ntv_coil_response.py, lines 116–156 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>coil_phasors(amplitudes, phases)</code></pre>
+
+    <details class="ref-code" data-source-code="coil_phasors"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 116–156</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">coil_phasors</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">phases</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Complex excitation phasors ``A_k exp(+i phi_k)`` of the coil groups.
+
+    Parameters
+    ----------
+    amplitudes : sequence of float
+        Declared amplitude normalization of each group, not negative [phasor].
+    phases : sequence of float
+        Phase of each group [rad].
+
+    Returns
+    -------
+    c : numpy.ndarray
+        Complex phasor per group [phasor].
+
+    Raises
+    ------
+    ValueError
+        The two sequences differ in length or an amplitude is negative or not
+        finite.
+
+    Convention
+    ----------
+    ``c_k = A_k exp(+i phi_k)``; the sign of the exponent is the one
+    :func:`hermitian_torque_matrix` recovers cross terms in.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1887] Issue #1887, phasor convention.
+    </span><span class="sh">"""</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">ravel</span><span class="p">()</span>
+    <span class="n">phi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">phases</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">ravel</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">a</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">phi</span><span class="p">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">a</span><span class="p">.</span><span class="n">size</span><span class="si">}</span><span class="s"> amplitudes for </span><span class="si">{</span><span class="n">phi</span><span class="p">.</span><span class="n">size</span><span class="si">}</span><span class="s"> phases</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">a</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">a</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">amplitudes must be finite and not negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="mf">1j</span> <span class="o">*</span> <span class="n">phi</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Complex excitation phasors <code class="language-plaintext highlighter-rouge">A_k exp(+i phi_k)</code> of the coil groups.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>amplitudes</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">phasor</td><td><p>Declared amplitude normalization of each group, not negative.</p>
+</td></tr>
+  <tr><td><code>phases</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">rad</td><td><p>Phase of each group.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>c</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">phasor</td><td><p>Complex phasor per group.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">c_k = A_k exp(+i phi_k)</code>; the sign of the exponent is the one
+<code class="language-plaintext highlighter-rouge">hermitian_torque_matrix</code> recovers cross terms in.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The two sequences differ in length or an amplitude is negative or not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1887, phasor convention.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="fit_inhomogeneous_torque" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#fit_inhomogeneous_torque"><code>fit_inhomogeneous_torque</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="fit_inhomogeneous_torque" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/process/ntv_coil_response.py#L488-L577" title="vaft/process/ntv_coil_response.py, lines 488–577 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>fit_inhomogeneous_torque(phasors, torques)</code></pre>
+
+    <p>Least-squares <code class="language-plaintext highlighter-rouge">T = T0 + 2 Re(b^H c) + c^H Q c</code>, to test whether <code class="language-plaintext highlighter-rouge">T0</code> and <code class="language-plaintext highlighter-rouge">b</code> vanish.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>phasors</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">phasor</td><td><p><code class="language-plaintext highlighter-rouge">(N, K)</code> excitations with finite direct torques.</p>
+</td></tr>
+  <tr><td><code>torques</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">N m</td><td><p>Their signed torques.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>fit</code></td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">T0</code> [N m], <code class="language-plaintext highlighter-rouge">b</code> (length <code class="language-plaintext highlighter-rouge">K</code>) [N m / phasor], <code class="language-plaintext highlighter-rouge">Q</code> (Hermitian) [N m / phasor^2], <code class="language-plaintext highlighter-rouge">residual_rms</code> [N m], <code class="language-plaintext highlighter-rouge">rank</code> and <code class="language-plaintext highlighter-rouge">unknowns</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">2 Re(b^H c) = 2 (Re b . Re c + Im b . Im c)</code> and
+<code class="language-plaintext highlighter-rouge">c^H Q c = sum_i Q_ii |c_i|^2 + 2 sum_{i&lt;j} Re(conj(c_i) Q_ij c_j)</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Fewer finite samples than the <code class="language-plaintext highlighter-rouge">1 + 2K + K^2</code> real unknowns, shapes disagree, or the samples do not determine every unknown (rank deficient) – e.g. a scan at fixed amplitudes <code class="language-plaintext highlighter-rouge">|c_k|</code>, where <code class="language-plaintext highlighter-rouge">T0</code> and the <code class="language-plaintext highlighter-rouge">Q_ii</code> are collinear.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Real unknowns: <code class="language-plaintext highlighter-rouge">T0</code>, <code class="language-plaintext highlighter-rouge">Re b</code>, <code class="language-plaintext highlighter-rouge">Im b</code>, <code class="language-plaintext highlighter-rouge">Q_ii</code> and, for <code class="language-plaintext highlighter-rouge">i &lt; j</code>,
+<code class="language-plaintext highlighter-rouge">Re Q_ij</code> and <code class="language-plaintext highlighter-rouge">Im Q_ij</code>.</li>
+        <li>Each sample contributes one real equation; solve by least squares.</li>
+        <li>Refuse a rank-deficient design rather than split collinear terms.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A nonzero <code class="language-plaintext highlighter-rouge">T0</code> or <code class="language-plaintext highlighter-rouge">b</code> means a background (an error field, another
+coil) is present; the pure form <code class="language-plaintext highlighter-rouge">c^H Q c</code> then does not apply as is.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1887, Sec. 5 (the inhomogeneous form tested first).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="fixed_amplitude_phase_extrema" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#fixed_amplitude_phase_extrema"><code>fixed_amplitude_phase_extrema</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="fixed_amplitude_phase_extrema" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/process/ntv_coil_response.py#L719-L817" title="vaft/process/ntv_coil_response.py, lines 719–817 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>fixed_amplitude_phase_extrema(Q, amplitudes, *, grid_points, refine)</code></pre>
+
+    <p>Phases of the largest and smallest signed torque with every group amplitude fixed.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>Q</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">N m / phasor^2</td><td><p><code class="language-plaintext highlighter-rouge">K x K</code> Hermitian torque matrix of a qualified model.</p>
+</td></tr>
+  <tr><td><code>amplitudes</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">phasor</td><td><p>Fixed amplitude of each group, not negative.</p>
+</td></tr>
+  <tr><td><code>grid_points</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Phase samples per free phase of the deterministic grid, at least 4.</p>
+</td></tr>
+  <tr><td><code>refine</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>How many of the best grid points per extremum to polish with a local optimizer; 0 keeps the grid answer.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>extrema</code></td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">phases_max</code>/<code class="language-plaintext highlighter-rouge">phases_min</code> (group 0 held at 0) [rad], <code class="language-plaintext highlighter-rouge">T_max</code>/ <code class="language-plaintext highlighter-rouge">T_min</code> [N m] and <code class="language-plaintext highlighter-rouge">evaluations</code>, the model evaluations used.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">c_k = A_k exp(+i phi_k)</code>; extrema of the signed torque.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Shapes disagree, an amplitude is negative, <code class="language-plaintext highlighter-rouge">grid_points &lt; 4</code>, or the grid would exceed two million points.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Hold group 0’s phase at 0 (common phase is irrelevant for one <code class="language-plaintext highlighter-rouge">n</code>).</li>
+        <li>Evaluate <code class="language-plaintext highlighter-rouge">c^H Q c</code> on a <code class="language-plaintext highlighter-rouge">grid_points^(K-1)</code> phase grid.</li>
+        <li>Polish the <code class="language-plaintext highlighter-rouge">refine</code> best points of each extremum with L-BFGS-B on the
+free phases and keep the best.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Nonconvex for <code class="language-plaintext highlighter-rouge">K &gt;= 3</code>: the grid plus local polish is a deterministic
+reference, not a proof of the global optimum at coarse grids.  The grid
+grows as <code class="language-plaintext highlighter-rouge">grid_points^(K-1)</code>.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1887, Sec. 8 (multi-group fixed-amplitude optimization).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="hermitian_torque_matrix" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#hermitian_torque_matrix"><code>hermitian_torque_matrix</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="hermitian_torque_matrix" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/process/ntv_coil_response.py#L207-L270" title="vaft/process/ntv_coil_response.py, lines 207–270 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>hermitian_torque_matrix(torques, groups)</code></pre>
+
+    <details class="ref-code" data-source-code="hermitian_torque_matrix"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 207–270</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">hermitian_torque_matrix</span><span class="p">(</span><span class="n">torques</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">The Hermitian ``Q`` of ``T = c^H Q c`` from the probe torques.
+
+    Parameters
+    ----------
+    torques : mapping of str to float
+        Signed torque of each probe of :func:`quadratic_probe_design`, keyed
+        by its label [N m].
+    groups : int
+        Number of coil groups ``K`` [-].
+
+    Returns
+    -------
+    Q : numpy.ndarray
+        ``K x K`` Hermitian matrix [N m / phasor^2].
+
+    Raises
+    ------
+    KeyError
+        A probe label is missing.
+    ValueError
+        A probe torque is not finite (a failed evaluation cannot identify ``Q``).
+
+    Processing steps
+    ----------------
+    1. ``Q_ii = T(e_i)``.
+    2. ``Re Q_ij = [T(e_i + e_j) - T(e_i) - T(e_j)] / 2``.
+    3. ``Im Q_ij = [T(e_i) + T(e_j) - T(e_i + i e_j)] / 2``.
+    4. ``Q_ji = conj(Q_ij)``.
+
+    Convention
+    ----------
+    With ``c = e_i + i e_j``, ``c^H Q c = Q_ii + Q_jj - 2 Im Q_ij``, which is
+    step 3; it holds for the ``exp(+i phi)`` phasor of :func:`coil_phasors`.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A ``Q`` that reproduces its own probes exactly is not thereby validated:
+    the probes determine it.  Only :func:`qualify_torque_matrix` on held-out
+    evaluations can qualify it.
+
+    Provenance
+    ----------
+    .. [1887] Issue #1887, Sec. 6.
+    </span><span class="sh">"""</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">groups</span><span class="p">)</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">label</span> <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">quadratic_probe_design</span><span class="p">(</span><span class="n">k</span><span class="p">)]</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="p">{</span><span class="n">label</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">torques</span><span class="p">[</span><span class="n">label</span><span class="p">])</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">}</span>
+    <span class="n">bad</span> <span class="o">=</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">label</span> <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">values</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">bad</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">probe torques are not finite: </span><span class="si">{</span><span class="n">bad</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+        <span class="n">q</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="s">e</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="sh">"</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">combinations</span><span class="p">(</span><span class="nf">range</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="n">real</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="s">e</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s">+e</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="sh">"</span><span class="p">]</span> <span class="o">-</span> <span class="n">values</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="s">e</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="sh">"</span><span class="p">]</span> <span class="o">-</span> <span class="n">values</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="s">e</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="sh">"</span><span class="p">])</span>
+        <span class="n">imag</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="s">e</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="sh">"</span><span class="p">]</span> <span class="o">+</span> <span class="n">values</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="s">e</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="sh">"</span><span class="p">]</span> <span class="o">-</span> <span class="n">values</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="s">e</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s">+ie</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="sh">"</span><span class="p">])</span>
+        <span class="n">q</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">real</span> <span class="o">+</span> <span class="mf">1j</span> <span class="o">*</span> <span class="n">imag</span>
+        <span class="n">q</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">real</span> <span class="o">-</span> <span class="mf">1j</span> <span class="o">*</span> <span class="n">imag</span>
+    <span class="k">return</span> <span class="n">q</span></code></pre></figure>
+
+</details>
+
+    <p>The Hermitian <code class="language-plaintext highlighter-rouge">Q</code> of <code class="language-plaintext highlighter-rouge">T = c^H Q c</code> from the probe torques.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>torques</code></td><td class="ref-type">mapping of str to float</td><td class="ref-unit">N m</td><td><p>Signed torque of each probe of <code class="language-plaintext highlighter-rouge">quadratic_probe_design</code>, keyed by its label.</p>
+</td></tr>
+  <tr><td><code>groups</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Number of coil groups <code class="language-plaintext highlighter-rouge">K</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>Q</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">N m / phasor^2</td><td><p><code class="language-plaintext highlighter-rouge">K x K</code> Hermitian matrix.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>With <code class="language-plaintext highlighter-rouge">c = e_i + i e_j</code>, <code class="language-plaintext highlighter-rouge">c^H Q c = Q_ii + Q_jj - 2 Im Q_ij</code>, which is
+step 3; it holds for the <code class="language-plaintext highlighter-rouge">exp(+i phi)</code> phasor of <code class="language-plaintext highlighter-rouge">coil_phasors</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>KeyError</code> A probe label is missing.
+</li>
+  <li><code>ValueError</code> A probe torque is not finite (a failed evaluation cannot identify <code class="language-plaintext highlighter-rouge">Q</code>).
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li><code class="language-plaintext highlighter-rouge">Q_ii = T(e_i)</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">Re Q_ij = [T(e_i + e_j) - T(e_i) - T(e_j)] / 2</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">Im Q_ij = [T(e_i) + T(e_j) - T(e_i + i e_j)] / 2</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">Q_ji = conj(Q_ij)</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A <code class="language-plaintext highlighter-rouge">Q</code> that reproduces its own probes exactly is not thereby validated:
+the probes determine it.  Only <code class="language-plaintext highlighter-rouge">qualify_torque_matrix</code> on held-out
+evaluations can qualify it.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1887, Sec. 6.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="ntv_operating_space" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ntv_operating_space"><code>ntv_operating_space</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="ntv_operating_space" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/process/ntv_coil_response.py#L820-L946" title="vaft/process/ntv_coil_response.py, lines 820–946 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>ntv_operating_space(groups, n, phasors, torques, *, sample_ids, roles, amplitude_unit, frame, provenance, qualification=None)</code></pre>
+
+    <p>Direct NTV torques (and a qualified model) as a #1178 coil operating-space result.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>groups</code></td><td class="ref-type">sequence of str</td><td class="ref-unit">-</td><td><p>Coil-group names in phasor order.</p>
+</td></tr>
+  <tr><td><code>n</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Toroidal mode number.</p>
+</td></tr>
+  <tr><td><code>phasors</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">phasor</td><td><p><code class="language-plaintext highlighter-rouge">(N, K)</code> excitations in phasor units.</p>
+</td></tr>
+  <tr><td><code>torques</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">N m</td><td><p>Direct signed torque per sample; NaN for a failed evaluation.</p>
+</td></tr>
+  <tr><td><code>sample_ids</code></td><td class="ref-type">sequence of str</td><td class="ref-unit">-</td><td><p>Stable id per sample.</p>
+</td></tr>
+  <tr><td><code>roles</code></td><td class="ref-type">sequence of str</td><td class="ref-unit">-</td><td><p>Role per sample, from <code class="language-plaintext highlighter-rouge">vaft.process.coil_operating_space.OPERATING_SPACE_ROLES</code>.</p>
+</td></tr>
+  <tr><td><code>amplitude_unit</code></td><td class="ref-type">float</td><td class="ref-unit">A per turn</td><td><p>Cosine amplitude of one phasor unit.</p>
+</td></tr>
+  <tr><td><code>frame</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>The toroidal frame the sector angles were taken in.</p>
+</td></tr>
+  <tr><td><code>provenance</code></td><td class="ref-type">mapping</td><td class="ref-unit">-</td><td><p>What produced the direct torques: method, scalar radius, kinetic identity, solver tolerances.</p>
+</td></tr>
+  <tr><td><code>qualification</code></td><td class="ref-type">TorqueMatrixQualification, optional</td><td class="ref-unit">-</td><td><p>A <code class="language-plaintext highlighter-rouge">qualified</code> result of <code class="language-plaintext highlighter-rouge">qualify_torque_matrix</code>; its <code class="language-plaintext highlighter-rouge">Q</code> adds <code class="language-plaintext highlighter-rouge">ntv_torque_model</code> rows for every sample.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>result</code></td><td class="ref-type">vaft.process.coil_operating_space.CoilOperatingSpace</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">ntv_torque</code> rows (<code class="language-plaintext highlighter-rouge">valid</code> or <code class="language-plaintext highlighter-rouge">failed</code>) and, with a qualified model, <code class="language-plaintext highlighter-rouge">ntv_torque_model</code> rows.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The excitation convention is
+<code class="language-plaintext highlighter-rouge">vaft.process.coil_operating_space.COIL_EXCITATION_CONVENTION</code>
+(<code class="language-plaintext highlighter-rouge">c = A exp(+i delta)</code>); measured and modelled torques never share a
+metric.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Lengths disagree, <code class="language-plaintext highlighter-rouge">amplitude_unit</code> is not positive, the qualification given is not <code class="language-plaintext highlighter-rouge">qualified</code>, or its <code class="language-plaintext highlighter-rouge">Q</code> is for another number of groups.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Amplitudes <code class="language-plaintext highlighter-rouge">|c| * amplitude_unit</code> and phases <code class="language-plaintext highlighter-rouge">arg c mod 2 pi</code>.</li>
+        <li>One <code class="language-plaintext highlighter-rouge">ntv_torque</code> row per sample: <code class="language-plaintext highlighter-rouge">valid</code> with its value, or
+<code class="language-plaintext highlighter-rouge">failed</code> with NaN.</li>
+        <li>With a qualified model, one <code class="language-plaintext highlighter-rouge">ntv_torque_model</code> row per sample,
+<code class="language-plaintext highlighter-rouge">c^H Q c</code>; its provenance records the qualification.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A model row is a prediction valid only within the qualified domain the
+qualification’s provenance describes.  Nothing checks that <code class="language-plaintext highlighter-rouge">Q</code> was built
+from the same PENTRC method and tolerances as <code class="language-plaintext highlighter-rouge">torques</code>; the caller’s
+<code class="language-plaintext highlighter-rouge">provenance</code> is recorded as that claim.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1887, NTV torque on the #1178 operating space.
+</li>
+  <li>Issue #1886, the result schema.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="quadratic_invariance_checks" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#quadratic_invariance_checks"><code>quadratic_invariance_checks</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="quadratic_invariance_checks" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/process/ntv_coil_response.py#L309-L388" title="vaft/process/ntv_coil_response.py, lines 309–388 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>quadratic_invariance_checks(base_torque, *, scaled=(), reversed_torque=None, rotated=(), atol, rtol)</code></pre>
+
+    <details class="ref-code" data-source-code="quadratic_invariance_checks"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 309–388</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">quadratic_invariance_checks</span><span class="p">(</span>
+    <span class="n">base_torque</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">scaled</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(),</span>
+    <span class="n">reversed_torque</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">rotated</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(),</span>
+    <span class="n">atol</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">rtol</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">QuadraticTorqueCheck</span><span class="p">,</span> <span class="p">...]:</span>
+    <span class="sh">"""</span><span class="s">Tests of a pure quadratic response that need no ``Q``: scaling, sign, common phase.
+
+    Parameters
+    ----------
+    base_torque : float
+        Signed torque of the reference excitation ``c`` [N m].
+    scaled : sequence of (float, float)
+        ``(a, T(a c))`` for positive real factors ``a`` [-, N m].
+    reversed_torque : float, optional
+        ``T(-c)`` [N m].
+    rotated : sequence of (float, float)
+        ``(chi, T(exp(i chi) c))`` for common phase rotations [rad, N m].
+    atol : float
+        Absolute tolerance, the scale below which a torque is near zero [N m].
+    rtol : float
+        Relative tolerance away from zero [-].
+
+    Returns
+    -------
+    checks : tuple of QuadraticTorqueCheck
+        ``amplitude_scaling`` (expects ``a^2 T(c)``), ``sign_reversal``
+        (expects ``T(c)``) and ``common_phase`` (expects ``T(c)``), each only
+        when its samples were given [-].
+
+    Raises
+    ------
+    ValueError
+        A tolerance is negative, a factor ``a`` is not positive, or a torque
+        is not finite.
+
+    Processing steps
+    ----------------
+    1. Expected torque per sample from the homogeneous-quadratic hypothesis.
+    2. A sample passes when ``|T - T_expected| &lt;= atol + rtol |T_expected|``.
+    3. One check per kind, passed only if every sample of that kind passes.
+
+    Convention
+    ----------
+    The common-phase test assumes a single toroidal mode ``n``; a mixed-``n``
+    excitation is not phase-invariant and should not be given here.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A failed check rejects the *pure* quadratic form; a constant or linear
+    term (a background field) is examined by :func:`fit_inhomogeneous_torque`.
+    The tolerances are the caller</span><span class="sh">'</span><span class="s">s: no universal NTV tolerance exists.
+
+    Provenance
+    ----------
+    .. [1887] Issue #1887, Sec. 5.
+    </span><span class="sh">"""</span>
+    <span class="nf">_tolerances</span><span class="p">(</span><span class="n">atol</span><span class="p">,</span> <span class="n">rtol</span><span class="p">)</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">base_torque</span><span class="p">,</span> <span class="sh">"</span><span class="s">base_torque</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">checks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">QuadraticTorqueCheck</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">scaled</span><span class="p">:</span>
+        <span class="n">factors</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="nf">float</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">scaled</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">factors</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">scaling factors must be positive</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="nf">_finite</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="sh">"</span><span class="s">scaled torque</span><span class="sh">"</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">scaled</span><span class="p">])</span>
+        <span class="n">checks</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nf">_check</span><span class="p">(</span><span class="sh">"</span><span class="s">amplitude_scaling</span><span class="sh">"</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">factors</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">base</span><span class="p">,</span> <span class="n">atol</span><span class="p">,</span> <span class="n">rtol</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">reversed_torque</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">checks</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nf">_check</span><span class="p">(</span><span class="sh">"</span><span class="s">sign_reversal</span><span class="sh">"</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="nf">_finite</span><span class="p">(</span><span class="n">reversed_torque</span><span class="p">,</span> <span class="sh">"</span><span class="s">reversed_torque</span><span class="sh">"</span><span class="p">)]),</span>
+                             <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="n">base</span><span class="p">]),</span> <span class="n">atol</span><span class="p">,</span> <span class="n">rtol</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">rotated</span><span class="p">:</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="nf">_finite</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="sh">"</span><span class="s">rotated torque</span><span class="sh">"</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">rotated</span><span class="p">])</span>
+        <span class="n">checks</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nf">_check</span><span class="p">(</span><span class="sh">"</span><span class="s">common_phase</span><span class="sh">"</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">full</span><span class="p">(</span><span class="n">values</span><span class="p">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">base</span><span class="p">),</span> <span class="n">atol</span><span class="p">,</span> <span class="n">rtol</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nf">tuple</span><span class="p">(</span><span class="n">checks</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Tests of a pure quadratic response that need no <code class="language-plaintext highlighter-rouge">Q</code>: scaling, sign, common phase.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>base_torque</code></td><td class="ref-type">float</td><td class="ref-unit">N m</td><td><p>Signed torque of the reference excitation <code class="language-plaintext highlighter-rouge">c</code>.</p>
+</td></tr>
+  <tr><td><code>scaled</code></td><td class="ref-type">sequence of (float, float)</td><td class="ref-unit">-, N m</td><td><p><code class="language-plaintext highlighter-rouge">(a, T(a c))</code> for positive real factors <code class="language-plaintext highlighter-rouge">a</code>.</p>
+</td></tr>
+  <tr><td><code>reversed_torque</code></td><td class="ref-type">float, optional</td><td class="ref-unit">N m</td><td><p><code class="language-plaintext highlighter-rouge">T(-c)</code>.</p>
+</td></tr>
+  <tr><td><code>rotated</code></td><td class="ref-type">sequence of (float, float)</td><td class="ref-unit">rad, N m</td><td><p><code class="language-plaintext highlighter-rouge">(chi, T(exp(i chi) c))</code> for common phase rotations.</p>
+</td></tr>
+  <tr><td><code>atol</code></td><td class="ref-type">float</td><td class="ref-unit">N m</td><td><p>Absolute tolerance, the scale below which a torque is near zero.</p>
+</td></tr>
+  <tr><td><code>rtol</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Relative tolerance away from zero.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>checks</code></td><td class="ref-type">tuple of QuadraticTorqueCheck</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">amplitude_scaling</code> (expects <code class="language-plaintext highlighter-rouge">a^2 T(c)</code>), <code class="language-plaintext highlighter-rouge">sign_reversal</code> (expects <code class="language-plaintext highlighter-rouge">T(c)</code>) and <code class="language-plaintext highlighter-rouge">common_phase</code> (expects <code class="language-plaintext highlighter-rouge">T(c)</code>), each only when its samples were given.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The common-phase test assumes a single toroidal mode <code class="language-plaintext highlighter-rouge">n</code>; a mixed-<code class="language-plaintext highlighter-rouge">n</code>
+excitation is not phase-invariant and should not be given here.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A tolerance is negative, a factor <code class="language-plaintext highlighter-rouge">a</code> is not positive, or a torque is not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Expected torque per sample from the homogeneous-quadratic hypothesis.</li>
+        <li>A sample passes when <code class="language-plaintext highlighter-rouge">|T - T_expected| &lt;= atol + rtol |T_expected|</code>.</li>
+        <li>One check per kind, passed only if every sample of that kind passes.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A failed check rejects the <em>pure</em> quadratic form; a constant or linear
+term (a background field) is examined by <code class="language-plaintext highlighter-rouge">fit_inhomogeneous_torque</code>.
+The tolerances are the caller’s: no universal NTV tolerance exists.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1887, Sec. 5.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="quadratic_probe_design" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#quadratic_probe_design"><code>quadratic_probe_design</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="quadratic_probe_design" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/process/ntv_coil_response.py#L159-L204" title="vaft/process/ntv_coil_response.py, lines 159–204 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>quadratic_probe_design(groups)</code></pre>
+
+    <details class="ref-code" data-source-code="quadratic_probe_design"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 159–204</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">quadratic_probe_design</span><span class="p">(</span><span class="n">groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="p">...]:</span>
+    <span class="sh">"""</span><span class="s">The ``K^2`` unit excitations that determine a Hermitian ``Q``.
+
+    Parameters
+    ----------
+    groups : int
+        Number of independently driven coil groups ``K``, at least 1 [-].
+
+    Returns
+    -------
+    probes : tuple of (str, numpy.ndarray)
+        ``(</span><span class="sh">"</span><span class="s">e0</span><span class="sh">"</span><span class="s">, e_0)``, ..., then for every ``i &lt; j`` ``(</span><span class="sh">"</span><span class="s">e{i}+e{j}</span><span class="sh">"</span><span class="s">, e_i + e_j)``
+        and ``(</span><span class="sh">"</span><span class="s">e{i}+ie{j}</span><span class="sh">"</span><span class="s">, e_i + i e_j)``: ``K + 2 C(K, 2) = K^2`` phasors [phasor].
+
+    Raises
+    ------
+    ValueError
+        ``groups`` is below 1.
+
+    Convention
+    ----------
+    The mixed probes put ``+i`` on the higher-index group, matching the
+    ``exp(+i phi)`` phasor of :func:`coil_phasors`.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    ``K^2`` evaluations identify ``Q`` only; validating it needs further
+    held-out evaluations (:func:`qualify_torque_matrix`).
+
+    Provenance
+    ----------
+    .. [1887] Issue #1887, Sec. 6 (probe identities and their count).
+    </span><span class="sh">"""</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">groups</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">k</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">at least one coil group is needed</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">unit</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+    <span class="n">probes</span> <span class="o">=</span> <span class="p">[(</span><span class="sa">f</span><span class="sh">"</span><span class="s">e</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="n">unit</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">k</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">combinations</span><span class="p">(</span><span class="nf">range</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="n">probes</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="sa">f</span><span class="sh">"</span><span class="s">e</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s">+e</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="n">unit</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">unit</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span>
+        <span class="n">probes</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="sa">f</span><span class="sh">"</span><span class="s">e</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s">+ie</span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="n">unit</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="mf">1j</span> <span class="o">*</span> <span class="n">unit</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span>
+    <span class="k">return</span> <span class="nf">tuple</span><span class="p">(</span><span class="n">probes</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>The <code class="language-plaintext highlighter-rouge">K^2</code> unit excitations that determine a Hermitian <code class="language-plaintext highlighter-rouge">Q</code>.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>groups</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Number of independently driven coil groups <code class="language-plaintext highlighter-rouge">K</code>, at least 1.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>probes</code></td><td class="ref-type">tuple of (str, numpy.ndarray)</td><td class="ref-unit">phasor</td><td><p><code class="language-plaintext highlighter-rouge">("e0", e_0)</code>, …, then for every <code class="language-plaintext highlighter-rouge">i &lt; j</code> <code class="language-plaintext highlighter-rouge">("e{i}+e{j}", e_i + e_j)</code> and <code class="language-plaintext highlighter-rouge">("e{i}+ie{j}", e_i + i e_j)</code>: <code class="language-plaintext highlighter-rouge">K + 2 C(K, 2) = K^2</code> phasors.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The mixed probes put <code class="language-plaintext highlighter-rouge">+i</code> on the higher-index group, matching the
+<code class="language-plaintext highlighter-rouge">exp(+i phi)</code> phasor of <code class="language-plaintext highlighter-rouge">coil_phasors</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">groups</code> is below 1.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">K^2</code> evaluations identify <code class="language-plaintext highlighter-rouge">Q</code> only; validating it needs further
+held-out evaluations (<code class="language-plaintext highlighter-rouge">qualify_torque_matrix</code>).</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1887, Sec. 6 (probe identities and their count).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="quadratic_torque" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#quadratic_torque"><code>quadratic_torque</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="quadratic_torque" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/process/ntv_coil_response.py#L273-L306" title="vaft/process/ntv_coil_response.py, lines 273–306 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>quadratic_torque(Q, phasors)</code></pre>
+
+    <details class="ref-code" data-source-code="quadratic_torque"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 273–306</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">quadratic_torque</span><span class="p">(</span><span class="n">Q</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">phasors</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Signed torque ``c^H Q c`` of one excitation or a stack of them.
+
+    Parameters
+    ----------
+    Q : numpy.ndarray
+        ``K x K`` Hermitian torque matrix [N m / phasor^2].
+    phasors : numpy.ndarray
+        One phasor vector of length ``K``, or an ``(N, K)`` stack [phasor].
+
+    Returns
+    -------
+    torque : numpy.ndarray
+        Real signed torque, scalar or length ``N`` [N m].
+
+    Raises
+    ------
+    ValueError
+        ``Q`` is not square and Hermitian, or the phasors do not match it.
+
+    Convention
+    ----------
+    ``T = c^H Q c`` with ``c_k = A_k exp(+i phi_k)``; the imaginary part,
+    zero for a Hermitian ``Q``, is dropped after the check.
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="nf">_hermitian</span><span class="p">(</span><span class="n">Q</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">phasors</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">c</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">q</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">phasors of length </span><span class="si">{</span><span class="n">c</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s"> for a </span><span class="si">{</span><span class="n">q</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s">-group Q</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">real</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">einsum</span><span class="p">(</span><span class="sh">"</span><span class="s">...i,ij,...j-&gt;...</span><span class="sh">"</span><span class="p">,</span> <span class="n">c</span><span class="p">.</span><span class="nf">conj</span><span class="p">(),</span> <span class="n">q</span><span class="p">,</span> <span class="n">c</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Signed torque <code class="language-plaintext highlighter-rouge">c^H Q c</code> of one excitation or a stack of them.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>Q</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">N m / phasor^2</td><td><p><code class="language-plaintext highlighter-rouge">K x K</code> Hermitian torque matrix.</p>
+</td></tr>
+  <tr><td><code>phasors</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">phasor</td><td><p>One phasor vector of length <code class="language-plaintext highlighter-rouge">K</code>, or an <code class="language-plaintext highlighter-rouge">(N, K)</code> stack.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>torque</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">N m</td><td><p>Real signed torque, scalar or length <code class="language-plaintext highlighter-rouge">N</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">T = c^H Q c</code> with <code class="language-plaintext highlighter-rouge">c_k = A_k exp(+i phi_k)</code>; the imaginary part,
+zero for a Hermitian <code class="language-plaintext highlighter-rouge">Q</code>, is dropped after the check.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">Q</code> is not square and Hermitian, or the phasors do not match it.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="qualify_torque_matrix" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#qualify_torque_matrix"><code>qualify_torque_matrix</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="qualify_torque_matrix" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/process/ntv_coil_response.py#L391-L485" title="vaft/process/ntv_coil_response.py, lines 391–485 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>qualify_torque_matrix(Q, held_out_phasors, held_out_torques, *, atol, rtol, invariance_checks=())</code></pre>
+
+    <p>Qualify or reject a <code class="language-plaintext highlighter-rouge">Q</code> against direct evaluations it was not built from.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>Q</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">N m / phasor^2</td><td><p>Hermitian torque matrix, e.g. from <code class="language-plaintext highlighter-rouge">hermitian_torque_matrix</code>.</p>
+</td></tr>
+  <tr><td><code>held_out_phasors</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">phasor</td><td><p><code class="language-plaintext highlighter-rouge">(N, K)</code> excitations not among the probes that built <code class="language-plaintext highlighter-rouge">Q</code>.</p>
+</td></tr>
+  <tr><td><code>held_out_torques</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">N m</td><td><p>Their direct signed torques; NaN marks a failed evaluation.</p>
+</td></tr>
+  <tr><td><code>atol</code></td><td class="ref-type">float</td><td class="ref-unit">N m</td><td><p>Absolute tolerance, the near-zero torque scale.</p>
+</td></tr>
+  <tr><td><code>rtol</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Relative tolerance away from zero.</p>
+</td></tr>
+  <tr><td><code>invariance_checks</code></td><td class="ref-type">sequence of QuadraticTorqueCheck, optional</td><td class="ref-unit">-</td><td><p>From <code class="language-plaintext highlighter-rouge">quadratic_invariance_checks</code>; any failure rejects.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>qualification</code></td><td class="ref-type">TorqueMatrixQualification</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">rejected</code> when any compared sample or invariance check fails; otherwise <code class="language-plaintext highlighter-rouge">insufficient</code> when any held-out evaluation failed (NaN) or none was given, since a failed run is not evidence; otherwise <code class="language-plaintext highlighter-rouge">qualified</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The comparison is on the signed torque; a model that matches <code class="language-plaintext highlighter-rouge">|T|</code> but
+not its sign fails.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Shapes disagree, <code class="language-plaintext highlighter-rouge">Q</code> is not Hermitian, or a tolerance is negative.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Set aside held-out samples whose direct torque is NaN, and count them.</li>
+        <li>Compare <code class="language-plaintext highlighter-rouge">c^H Q c</code> with the direct torque per sample, passing when
+<code class="language-plaintext highlighter-rouge">|dT| &lt;= atol + rtol |T_direct|</code>.</li>
+        <li>Combine with the invariance checks into one status.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Qualification holds for the background, <code class="language-plaintext highlighter-rouge">n</code>, PENTRC method, grid and
+amplitude range the evaluations covered, and nowhere else.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1887, Sec. 6 (held-out validation).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="two_group_phase_extrema" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#two_group_phase_extrema"><code>two_group_phase_extrema</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="two_group_phase_extrema" href="https://github.com/VEST-Tokamak/vaft/blob/19835e99d32d9c90e0819e3d04f293e7550c229b/vaft/process/ntv_coil_response.py#L580-L644" title="vaft/process/ntv_coil_response.py, lines 580–644 at 19835e9">source</a>
+</header>
+    <pre class="ref-signature"><code>two_group_phase_extrema(Q, amplitudes)</code></pre>
+
+    <details class="ref-code" data-source-code="two_group_phase_extrema"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 580–644</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">two_group_phase_extrema</span><span class="p">(</span><span class="n">Q</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">amplitudes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Relative phases of the largest and smallest signed torque of two groups.
+
+    Parameters
+    ----------
+    Q : numpy.ndarray
+        ``2 x 2`` Hermitian torque matrix of a qualified model [N m / phasor^2].
+    amplitudes : sequence of float
+        Fixed amplitudes ``(A_1, A_2)``, not negative [phasor].
+
+    Returns
+    -------
+    extrema : dict
+        ``delta_phi_max`` and ``delta_phi_min`` in ``[0, 2 pi)`` [rad], or
+        ``None`` when the torque does not depend on the phase; ``T_max`` and
+        ``T_min`` [N m]; ``phase_independent`` [-].
+
+    Raises
+    ------
+    ValueError
+        ``Q`` is not ``2 x 2`` Hermitian or an amplitude is negative.
+
+    Processing steps
+    ----------------
+    1. ``T(dphi) = Q_11 A_1^2 + Q_22 A_2^2 + 2 A_1 A_2 |Q_12| cos(dphi + arg Q_12)``.
+    2. Maximum at ``dphi = -arg Q_12``, minimum at ``pi - arg Q_12``.
+    3. With ``Q_12 = 0`` or a zero amplitude no phase is preferred.
+
+    Convention
+    ----------
+    ``c = (A_1, A_2 exp(+i dphi))``; the extrema are of the *signed* torque,
+    not of ``|T|`` or of a braking criterion.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Valid only where :func:`qualify_torque_matrix` qualified ``Q``.
+
+    Provenance
+    ----------
+    .. [1887] Issue #1887, Sec. 8.
+    </span><span class="sh">"""</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="nf">_hermitian</span><span class="p">(</span><span class="n">Q</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">q</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">two_group_phase_extrema needs a 2 x 2 Q</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span> <span class="o">=</span> <span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">amplitudes</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">a1</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">a2</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">amplitudes must not be negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">real</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]))</span> <span class="o">*</span> <span class="n">a1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">real</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]))</span> <span class="o">*</span> <span class="n">a2</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">swing</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">a1</span> <span class="o">*</span> <span class="n">a2</span> <span class="o">*</span> <span class="nf">abs</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">scale</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="nf">abs</span><span class="p">(</span><span class="n">base</span><span class="p">),</span> <span class="nf">abs</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="n">a1</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="nf">abs</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="n">a2</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">).</span><span class="n">tiny</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">swing</span> <span class="o">&lt;=</span> <span class="mi">64</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">).</span><span class="n">eps</span> <span class="o">*</span> <span class="n">scale</span><span class="p">:</span>  <span class="c1"># below the roundoff of the diagonal terms
+</span>        <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">delta_phi_max</span><span class="sh">"</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span> <span class="sh">"</span><span class="s">delta_phi_min</span><span class="sh">"</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_max</span><span class="sh">"</span><span class="p">:</span> <span class="n">base</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_min</span><span class="sh">"</span><span class="p">:</span> <span class="n">base</span><span class="p">,</span>
+                <span class="sh">"</span><span class="s">phase_independent</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">}</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">angle</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]))</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">delta_phi_max</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">mod</span><span class="p">(</span><span class="o">-</span><span class="n">arg</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">)),</span>
+        <span class="sh">"</span><span class="s">delta_phi_min</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">mod</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">-</span> <span class="n">arg</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">)),</span>
+        <span class="sh">"</span><span class="s">T_max</span><span class="sh">"</span><span class="p">:</span> <span class="n">base</span> <span class="o">+</span> <span class="n">swing</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">T_min</span><span class="sh">"</span><span class="p">:</span> <span class="n">base</span> <span class="o">-</span> <span class="n">swing</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">phase_independent</span><span class="sh">"</span><span class="p">:</span> <span class="bp">False</span><span class="p">,</span>
+    <span class="p">}</span></code></pre></figure>
+
+</details>
+
+    <p>Relative phases of the largest and smallest signed torque of two groups.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>Q</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">N m / phasor^2</td><td><p><code class="language-plaintext highlighter-rouge">2 x 2</code> Hermitian torque matrix of a qualified model.</p>
+</td></tr>
+  <tr><td><code>amplitudes</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">phasor</td><td><p>Fixed amplitudes <code class="language-plaintext highlighter-rouge">(A_1, A_2)</code>, not negative.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>extrema</code></td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">delta_phi_max</code> and <code class="language-plaintext highlighter-rouge">delta_phi_min</code> in <code class="language-plaintext highlighter-rouge">[0, 2 pi)</code> [rad], or <code class="language-plaintext highlighter-rouge">None</code> when the torque does not depend on the phase; <code class="language-plaintext highlighter-rouge">T_max</code> and <code class="language-plaintext highlighter-rouge">T_min</code> [N m]; <code class="language-plaintext highlighter-rouge">phase_independent</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">c = (A_1, A_2 exp(+i dphi))</code>; the extrema are of the <em>signed</em> torque,
+not of <code class="language-plaintext highlighter-rouge">|T|</code> or of a braking criterion.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">Q</code> is not <code class="language-plaintext highlighter-rouge">2 x 2</code> Hermitian or an amplitude is negative.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li><code class="language-plaintext highlighter-rouge">T(dphi) = Q_11 A_1^2 + Q_22 A_2^2 + 2 A_1 A_2 |Q_12| cos(dphi + arg Q_12)</code>.</li>
+        <li>Maximum at <code class="language-plaintext highlighter-rouge">dphi = -arg Q_12</code>, minimum at <code class="language-plaintext highlighter-rouge">pi - arg Q_12</code>.</li>
+        <li>With <code class="language-plaintext highlighter-rouge">Q_12 = 0</code> or a zero amplitude no phase is preferred.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Valid only where <code class="language-plaintext highlighter-rouge">qualify_torque_matrix</code> qualified <code class="language-plaintext highlighter-rouge">Q</code>.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1887, Sec. 8.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/local_mhd_criteria/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: local_mhd_criteria">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/process/resonant_coil_response/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: resonant_coil_response">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: resonant_coil_response",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_resonant_coil_response.md",
+            "ref": "_guide/Process_reference_resonant_coil_response.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_ntv_coil_response.md",
+        "mtime": "2026-10-10 12:00:00 +0900",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-28 16:13:10 +0900"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/develop/assets/animations/loader.js"></script>
+<script src="/vaft/develop/assets/gitbook/adaptive.js"></script>
+</body>
+</html>

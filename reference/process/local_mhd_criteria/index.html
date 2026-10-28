@@ -1,0 +1,1639 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: local_mhd_criteria · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/reference/process/gyrokinetics/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/process/ntv_coil_response/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="getting-started">Getting started</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="architecture">Framework and scientific architecture</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.research-domains" data-path="/vaft/reference/research-domains/">
+                    
+                        <a href="/vaft/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="plasma-physics">Plasma physics and models</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.plasma-model-guide" data-path="/vaft/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.particle-motion" data-path="/vaft/guide/particle-motion/">
+                    
+                        <a href="/vaft/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.characteristic-scales" data-path="/vaft/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.gyrokinetic-results" data-path="/vaft/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="vest-imas-data">VEST and IMAS data</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="apis-visualization">APIs and visualization</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.animation-reference" data-path="/vaft/reference/animation/">
+                    
+                        <a href="/vaft/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="software-integrations">Software and integrations</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="resources">Resources and support</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: local_mhd_criteria</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_local_mhd_criteria">Process reference: local_mhd_criteria</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.local_mhd_criteria, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.local_mhd_criteria</code>:
+<strong>7</strong> public functions. Each entry is what
+<code>vaft.process.describe("local_mhd_criteria.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/process/">All process categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Mercier’s ideal-interchange index <code class="language-plaintext highlighter-rouge">D_I</code> and the Glasser-Greene-Johnson
+resistive-interchange index <code class="language-plaintext highlighter-rouge">D_R</code> with its geodesic coefficient <code class="language-plaintext highlighter-rouge">H</code>, from
+flux-surface averages of the equilibrium itself – no stability code.  They
+are the quantities DCON and RDCON report as <code class="language-plaintext highlighter-rouge">di</code>, <code class="language-plaintext highlighter-rouge">dr</code> and <code class="language-plaintext highlighter-rouge">h</code>, and the
+formulas are DCON’s (<code class="language-plaintext highlighter-rouge">dcon/mercier.f</code>, <code class="language-plaintext highlighter-rouge">mercier_scan</code>) rewritten free of
+its coordinate normalisation, so the two can be compared surface by surface.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>psi(R, Z), F, p, q ─ trace each level ─▶ &lt;1/|grad chi|^2&gt;, &lt;B^2/|grad chi|^2&gt;,
+                                         &lt;1/B^2&gt;, &lt;1/(B^2 |grad chi|^2)&gt;, &lt;B^2&gt;, V'
+                   ─ GGJ / Mercier ─────▶ D_I, H, D_R = D_I + (H - 1/2)^2
+</code></pre></div></div>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>chi</td><td>total poloidal flux, 2 pi psi with psi per radian, oriented to</td><td class="ref-unit"></td></tr>
+  <tr><td>&#39;</td><td>d/d chi</td><td class="ref-unit">1/Wb</td></tr>
+  <tr><td>V</td><td>volume enclosed by a surface; V&#39; = closed_integral(R dl / |grad psi|) [m^3/Wb]</td><td class="ref-unit"></td></tr>
+  <tr><td>F</td><td>|R B_phi|</td><td class="ref-unit">T m</td></tr>
+  <tr><td>p</td><td>mu0 times the pressure</td><td class="ref-unit">T^2</td></tr>
+  <tr><td>&lt;X&gt;</td><td>volume-weighted flux-surface average, closed_integral(X R dl / |grad psi|) / V&#39;</td><td class="ref-unit"></td></tr>
+  <tr><td>D_I</td><td>Mercier index; &gt; 0 is ideal-interchange unstable</td><td class="ref-unit">-</td></tr>
+  <tr><td>D_R</td><td>GGJ resistive-interchange index; &gt; 0 is resistive-interchange unstable [-]</td><td class="ref-unit"></td></tr>
+  <tr><td>H</td><td>GGJ geodesic coefficient</td><td class="ref-unit">-</td></tr>
+  </tbody>
+</table></div>
+
+<p><strong>DCON’s sign convention.</strong>  <code class="language-plaintext highlighter-rouge">D_I &lt; 0</code> is Mercier stable, the opposite sign
+to <code class="language-plaintext highlighter-rouge">vaft.formula.stability.mercier_criterion_circular</code> and the same as
+<code class="language-plaintext highlighter-rouge">vaft.formula.stability.ggj_ideal_interchange_index</code>.  With
+<code class="language-plaintext highlighter-rouge">T = 2 pi F p' V' &lt;1/|grad chi|^2&gt; / q'</code>::</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>D_I = -1/4 + T (1 - T) + p' (V'/q')^2 &lt;B^2/|grad chi|^2&gt;
+      * [ p' (&lt;1/B^2&gt; + (2 pi F)^2 &lt;1/(B^2 |grad chi|^2)&gt;) - V''/V' ]
+H   = 2 pi F p' V' / q' * ( &lt;1/|grad chi|^2&gt; - &lt;B^2/|grad chi|^2&gt; / &lt;B^2&gt; )
+D_R = D_I + (H - 1/2)^2
+</code></pre></div></div>
+
+<p><strong>Orientation.</strong>  The indices are invariant under the COCOS sign choices,
+so they are evaluated in DCON’s orientation: <code class="language-plaintext highlighter-rouge">chi</code> increases outward, <code class="language-plaintext highlighter-rouge">F</code>
+and <code class="language-plaintext highlighter-rouge">q</code> are taken by magnitude, and <code class="language-plaintext highlighter-rouge">p'</code> is then negative for a pressure
+that falls outward.</p>
+
+<p><strong>E and F are not separated.</strong>  Only <code class="language-plaintext highlighter-rouge">E + F</code> enters both indices
+(<code class="language-plaintext highlighter-rouge">D_I = E + F + H - 1/4</code>, <code class="language-plaintext highlighter-rouge">D_R = E + F + H^2</code>), so it is reported as one
+number, <code class="language-plaintext highlighter-rouge">E_plus_F</code>.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="curvature_map"><td><a href="#curvature_map"><code>curvature_map</code></a></td><td><code class="language-plaintext highlighter-rouge">kappa_n</code>, <code class="language-plaintext highlighter-rouge">kappa_g</code> and local shear on the (R, Z) grid inside the plasma.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="flux_surface_curvature"><td><a href="#flux_surface_curvature"><code>flux_surface_curvature</code></a></td><td>Normal and geodesic field-line curvature and local shear along flux surfaces.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="interchange_comparison"><td><a href="#interchange_comparison"><code>interchange_comparison</code></a></td><td>Equilibrium-native <code class="language-plaintext highlighter-rouge">D_I</code>, <code class="language-plaintext highlighter-rouge">D_R</code> against a stability code’s <code class="language-plaintext highlighter-rouge">di</code>, <code class="language-plaintext highlighter-rouge">dr</code>.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="mercier_ggj_from_ods"><td><a href="#mercier_ggj_from_ods"><code>mercier_ggj_from_ods</code></a></td><td>Mercier / GGJ indices of one ODS equilibrium slice.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="mercier_ggj_profile"><td><a href="#mercier_ggj_profile"><code>mercier_ggj_profile</code></a></td><td>Mercier <code class="language-plaintext highlighter-rouge">D_I</code>, GGJ <code class="language-plaintext highlighter-rouge">H</code> and <code class="language-plaintext highlighter-rouge">D_R</code> on flux surfaces of a flux map.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="s_alpha_from_ods"><td><a href="#s_alpha_from_ods"><code>s_alpha_from_ods</code></a></td><td>Per-surface s-alpha coordinates of one ODS equilibrium slice.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="s_alpha_profile"><td><a href="#s_alpha_profile"><code>s_alpha_profile</code></a></td><td>Per-surface <code class="language-plaintext highlighter-rouge">s</code> and <code class="language-plaintext highlighter-rouge">alpha</code> of local ballooning theory and the s-alpha first-stability boundary.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="curvature_map" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#curvature_map"><code>curvature_map</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="curvature_map" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/process/local_mhd_criteria.py#L724-L834" title="vaft/process/local_mhd_criteria.py, lines 724–834 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>curvature_map(psi_grid, R, Z, psi_axis, psi_boundary, *, profile_psi_n, f, pressure, axis_rz, psi_n_max=0.98, psi_n_min=0.02)</code></pre>
+
+    <p><code class="language-plaintext highlighter-rouge">kappa_n</code>, <code class="language-plaintext highlighter-rouge">kappa_g</code> and local shear on the (R, Z) grid inside the plasma.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>psi_grid</code></td><td class="ref-type">array_like</td><td class="ref-unit">Wb/rad</td><td><p>Poloidal flux, indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code>, per radian.</p>
+</td></tr>
+  <tr><td><code>R</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Major-radius grid axis.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Height grid axis.</p>
+</td></tr>
+  <tr><td><code>psi_axis</code></td><td class="ref-type">float</td><td class="ref-unit">Wb/rad</td><td><p>Flux on the axis.</p>
+</td></tr>
+  <tr><td><code>psi_boundary</code></td><td class="ref-type">float</td><td class="ref-unit">Wb/rad</td><td><p>Flux on the boundary.</p>
+</td></tr>
+  <tr><td><code>profile_psi_n</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>Normalized flux grid of <code class="language-plaintext highlighter-rouge">f</code> and <code class="language-plaintext highlighter-rouge">pressure</code>.</p>
+</td></tr>
+  <tr><td><code>f</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">T m</td><td><p><code class="language-plaintext highlighter-rouge">F = R B_phi</code>, either sign.</p>
+</td></tr>
+  <tr><td><code>pressure</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">Pa</td><td><p>Plasma pressure.</p>
+</td></tr>
+  <tr><td><code>axis_rz</code></td><td class="ref-type">tuple of float</td><td class="ref-unit">m</td><td><p>Magnetic-axis position; selects the confined region.</p>
+</td></tr>
+  <tr><td><code>psi_n_max</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Outermost normalized flux kept; a display choice, short of the boundary where <code class="language-plaintext highlighter-rouge">psi_n</code> stops labelling closed surfaces.</p>
+</td></tr>
+  <tr><td><code>psi_n_min</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Innermost kept; a display choice, outside the axis where <code class="language-plaintext highlighter-rouge">n</code> is ill-defined.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>maps</code></td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">R</code>, <code class="language-plaintext highlighter-rouge">Z</code> (2-D, indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code>) [m], <code class="language-plaintext highlighter-rouge">psi_n</code> [-], <code class="language-plaintext highlighter-rouge">kappa_n</code>, <code class="language-plaintext highlighter-rouge">kappa_g</code> [1/m], <code class="language-plaintext highlighter-rouge">local_shear</code> [1/m^3] and <code class="language-plaintext highlighter-rouge">B</code> [T]; NaN outside the confined band <code class="language-plaintext highlighter-rouge">[psi_n_min, psi_n_max]</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>As <code class="language-plaintext highlighter-rouge">flux_surface_curvature</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">psi_grid</code> is not indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code>, the band is not inside <code class="language-plaintext highlighter-rouge">(0, 1)</code>, or no closed <code class="language-plaintext highlighter-rouge">psi_n_max</code> contour encloses the axis.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Orient and spline as <code class="language-plaintext highlighter-rouge">flux_surface_curvature</code>.</li>
+        <li>Evaluate the same pointwise quantities at every grid node.</li>
+        <li>Keep nodes in the normalized-flux band <strong>and</strong> inside the closed
+<code class="language-plaintext highlighter-rouge">psi_n_max</code> contour that encloses the axis, so vacuum or private-flux
+regions whose flux happens to fall in the band are excluded.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1902, R-Z maps of curvature and local shear.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="flux_surface_curvature" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#flux_surface_curvature"><code>flux_surface_curvature</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="flux_surface_curvature" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/process/local_mhd_criteria.py#L572-L721" title="vaft/process/local_mhd_criteria.py, lines 572–721 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>flux_surface_curvature(psi_grid, R, Z, psi_axis, psi_boundary, levels_norm, *, profile_psi_n, f, pressure, q, axis_rz, min_points=40, oversample=2)</code></pre>
+
+    <p>Normal and geodesic field-line curvature and local shear along flux surfaces.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>psi_grid</code></td><td class="ref-type">array_like</td><td class="ref-unit">Wb/rad</td><td><p>Poloidal flux on the grid, indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code>, per radian.</p>
+</td></tr>
+  <tr><td><code>R</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Major-radius grid axis.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Height grid axis.</p>
+</td></tr>
+  <tr><td><code>psi_axis</code></td><td class="ref-type">float</td><td class="ref-unit">Wb/rad</td><td><p>Flux on the magnetic axis.</p>
+</td></tr>
+  <tr><td><code>psi_boundary</code></td><td class="ref-type">float</td><td class="ref-unit">Wb/rad</td><td><p>Flux on the boundary.</p>
+</td></tr>
+  <tr><td><code>levels_norm</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>Normalized flux of the surfaces to trace, inside <code class="language-plaintext highlighter-rouge">(0, 1)</code>; sorted and de-duplicated here.</p>
+</td></tr>
+  <tr><td><code>profile_psi_n</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>Normalized flux grid of <code class="language-plaintext highlighter-rouge">f</code>, <code class="language-plaintext highlighter-rouge">pressure</code> and <code class="language-plaintext highlighter-rouge">q</code>, increasing.</p>
+</td></tr>
+  <tr><td><code>f</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">T m</td><td><p><code class="language-plaintext highlighter-rouge">F = R B_phi</code>, either sign.</p>
+</td></tr>
+  <tr><td><code>pressure</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">Pa</td><td><p>Plasma pressure.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>Safety factor, either sign; only for the shear-identity check.</p>
+</td></tr>
+  <tr><td><code>axis_rz</code></td><td class="ref-type">tuple of float</td><td class="ref-unit">m</td><td><p>Magnetic-axis position.</p>
+</td></tr>
+  <tr><td><code>min_points</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Fewest contour vertices for a resolved surface; a numerical-resolution control.</p>
+</td></tr>
+  <tr><td><code>oversample</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Contours traced on the flux map refined this many times by its quintic spline; a numerical-resolution control.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>curvature</code></td><td class="ref-type">SurfaceCurvature</td><td class="ref-unit">-</td><td><p>Per surface the contour, <code class="language-plaintext highlighter-rouge">kappa_n</code>, <code class="language-plaintext highlighter-rouge">kappa_g</code> [1/m], <code class="language-plaintext highlighter-rouge">local_shear</code> [1/m^3], <code class="language-plaintext highlighter-rouge">B</code> [T], and the identity residuals in <code class="language-plaintext highlighter-rouge">checks</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">n</code> points outward (psi increasing outward), so <code class="language-plaintext highlighter-rouge">kappa_n &lt; 0</code> – the
+curvature vector pointing inward, as on the outboard side – is the
+unfavourable sign for a pressure falling outward.  <code class="language-plaintext highlighter-rouge">kappa_g</code> is along
+<code class="language-plaintext highlighter-rouge">b x n</code> and <code class="language-plaintext highlighter-rouge">local_shear</code> is <code class="language-plaintext highlighter-rouge">h . curl h</code> in the canonical
+orientation (<code class="language-plaintext highlighter-rouge">B_phi &gt; 0</code>, psi increasing outward); in it
+<code class="language-plaintext highlighter-rouge">closed(local_shear R dl/|grad psi|) = 2 pi d|q|/dpsi</code>, the local
+shear whose surface average is the global shear.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Shapes disagree or a level is outside <code class="language-plaintext highlighter-rouge">(0, 1)</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Orient: psi increasing outward, <code class="language-plaintext highlighter-rouge">F</code> by magnitude.</li>
+        <li>Trace each level (axis-enclosing closed contour) on the refined map.</li>
+        <li>At the segment midpoints: <code class="language-plaintext highlighter-rouge">b</code>, <code class="language-plaintext highlighter-rouge">n = grad psi/|grad psi|</code>,
+<code class="language-plaintext highlighter-rouge">kappa = b . grad b</code> (cylindrical, axisymmetric), <code class="language-plaintext highlighter-rouge">kappa_n = kappa . n</code>,
+<code class="language-plaintext highlighter-rouge">kappa_g = kappa . (b x n)</code>, <code class="language-plaintext highlighter-rouge">local_shear = h . curl h</code> with
+<code class="language-plaintext highlighter-rouge">h = B x grad psi / |grad psi|^2</code>; derivatives by central
+differences of the spline-evaluated fields.</li>
+        <li>Checks: <code class="language-plaintext highlighter-rouge">max |kappa . b|</code>; <code class="language-plaintext highlighter-rouge">kappa_n</code> and <code class="language-plaintext highlighter-rouge">kappa_g</code> against force
+balance, <code class="language-plaintext highlighter-rouge">(n . grad(B^2/2) + mu0 p' |grad psi|) / B^2</code> and
+<code class="language-plaintext highlighter-rouge">(b x n) . grad(B^2/2) / B^2</code>; and <code class="language-plaintext highlighter-rouge">closed(local_shear R dl/|grad psi|)</code>
+against <code class="language-plaintext highlighter-rouge">2 pi dq/dpsi</code> from the map.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Only the <code class="language-plaintext highlighter-rouge">kappa_n</code> check tests the equilibrium (it assumes ideal static
+force balance); <code class="language-plaintext highlighter-rouge">kappa . b</code>, the <code class="language-plaintext highlighter-rouge">kappa_g</code> check and the shear identity
+hold for any flux map with <code class="language-plaintext highlighter-rouge">F = F(psi)</code> and test the numerics.  Near the
+axis the flux gradient vanishes and <code class="language-plaintext highlighter-rouge">n</code> is ill-defined; trace from
+psi_N of about 0.05 on a VEST-sized map.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>J. M. Greene and J. L. Johnson, Plasma Phys. 10, 729 (1968): local shear <code class="language-plaintext highlighter-rouge">h . curl h</code> with <code class="language-plaintext highlighter-rouge">h = B x grad psi/|grad psi|^2</code>.
+</li>
+  <li>Issue #1902, normal/geodesic curvature and local shear maps.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="interchange_comparison" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#interchange_comparison"><code>interchange_comparison</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="interchange_comparison" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/process/local_mhd_criteria.py#L429-L491" title="vaft/process/local_mhd_criteria.py, lines 429–491 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>interchange_comparison(profile, psi_n, di, dr, *, label)</code></pre>
+
+    <details class="ref-code" data-source-code="interchange_comparison"><summary>Show source <span class="ref-note">vaft/process/local_mhd_criteria.py, lines 429–491</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">interchange_comparison</span><span class="p">(</span><span class="n">profile</span><span class="p">:</span> <span class="n">InterchangeProfile</span><span class="p">,</span> <span class="n">psi_n</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">di</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+                           <span class="n">dr</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Equilibrium-native ``D_I``, ``D_R`` against a stability code</span><span class="sh">'</span><span class="s">s ``di``, ``dr``.
+
+    Parameters
+    ----------
+    profile : InterchangeProfile
+        From :func:`mercier_ggj_profile` [-].
+    psi_n : sequence of float
+        The code</span><span class="sh">'</span><span class="s">s normalized flux grid [-].
+    di : sequence of float
+        The code</span><span class="sh">'</span><span class="s">s Mercier index on that grid, DCON</span><span class="sh">'</span><span class="s">s sign [-].
+    dr : sequence of float
+        The code</span><span class="sh">'</span><span class="s">s resistive-interchange index [-].
+    label : str
+        Which code and run the comparison is against, kept on the result [-].
+
+    Returns
+    -------
+    comparison : dict
+        On the profile</span><span class="sh">'</span><span class="s">s levels: ``psi_n``, ``D_I``, ``di``, ``D_R``, ``dr``,
+        the absolute differences ``dD_I``, ``dD_R``, the code</span><span class="sh">'</span><span class="s">s implied
+        ``H`` (``0.5 - sqrt(dr - di)``, the root nearer the equilibrium</span><span class="sh">'</span><span class="s">s), and
+        ``label`` [-].
+
+    Raises
+    ------
+    ValueError
+        The code</span><span class="sh">'</span><span class="s">s grid is not increasing or the arrays disagree in length.
+
+    Processing steps
+    ----------------
+    1. Interpolate the code</span><span class="sh">'</span><span class="s">s ``di``, ``dr`` linearly onto the profile</span><span class="sh">'</span><span class="s">s levels
+       inside its own range; NaN outside it.
+    2. Differences and the code</span><span class="sh">'</span><span class="s">s implied ``H``, choosing the root of
+       ``(H - 1/2)^2 = dr - di`` nearer the equilibrium</span><span class="sh">'</span><span class="s">s ``H``.
+
+    Convention
+    ----------
+    Both in DCON</span><span class="sh">'</span><span class="s">s sign convention; no QA cut, no verdict.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1902] Issue #1902, comparison with DCON/RDCON on a reference slice.
+    </span><span class="sh">"""</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">psi_n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">di</span><span class="p">,</span> <span class="n">dr</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">di</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">dr</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">di</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">x</span><span class="p">.</span><span class="n">shape</span> <span class="ow">or</span> <span class="n">dr</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">x</span><span class="p">.</span><span class="n">shape</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">psi_n must be increasing and di, dr on it</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">lv</span> <span class="o">=</span> <span class="n">profile</span><span class="p">.</span><span class="n">psi_n</span>
+    <span class="n">inside</span> <span class="o">=</span> <span class="p">(</span><span class="n">lv</span> <span class="o">&gt;=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">lv</span> <span class="o">&lt;=</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="c1"># anti-alias: spatial interpolation over normalized flux, not time -- no sample rate to reduce
+</span>    <span class="n">di_i</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">inside</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">interp</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">di</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="n">dr_i</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">inside</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">interp</span><span class="p">(</span><span class="n">lv</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">dr</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">clip</span><span class="p">(</span><span class="n">dr_i</span> <span class="o">-</span> <span class="n">di_i</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="bp">None</span><span class="p">))</span>
+    <span class="n">h_code</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">-</span> <span class="n">root</span> <span class="o">-</span> <span class="n">profile</span><span class="p">.</span><span class="n">H</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">+</span> <span class="n">root</span> <span class="o">-</span> <span class="n">profile</span><span class="p">.</span><span class="n">H</span><span class="p">),</span> <span class="mf">0.5</span> <span class="o">-</span> <span class="n">root</span><span class="p">,</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="n">root</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">psi_n</span><span class="sh">"</span><span class="p">:</span> <span class="n">lv</span><span class="p">,</span> <span class="sh">"</span><span class="s">D_I</span><span class="sh">"</span><span class="p">:</span> <span class="n">profile</span><span class="p">.</span><span class="n">D_I</span><span class="p">,</span> <span class="sh">"</span><span class="s">di</span><span class="sh">"</span><span class="p">:</span> <span class="n">di_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">D_R</span><span class="sh">"</span><span class="p">:</span> <span class="n">profile</span><span class="p">.</span><span class="n">D_R</span><span class="p">,</span> <span class="sh">"</span><span class="s">dr</span><span class="sh">"</span><span class="p">:</span> <span class="n">dr_i</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">dD_I</span><span class="sh">"</span><span class="p">:</span> <span class="n">profile</span><span class="p">.</span><span class="n">D_I</span> <span class="o">-</span> <span class="n">di_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">dD_R</span><span class="sh">"</span><span class="p">:</span> <span class="n">profile</span><span class="p">.</span><span class="n">D_R</span> <span class="o">-</span> <span class="n">dr_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">H</span><span class="sh">"</span><span class="p">:</span> <span class="n">profile</span><span class="p">.</span><span class="n">H</span><span class="p">,</span> <span class="sh">"</span><span class="s">H_code</span><span class="sh">"</span><span class="p">:</span> <span class="n">h_code</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">label</span><span class="sh">"</span><span class="p">:</span> <span class="n">label</span><span class="p">}</span></code></pre></figure>
+
+</details>
+
+    <p>Equilibrium-native <code class="language-plaintext highlighter-rouge">D_I</code>, <code class="language-plaintext highlighter-rouge">D_R</code> against a stability code’s <code class="language-plaintext highlighter-rouge">di</code>, <code class="language-plaintext highlighter-rouge">dr</code>.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>profile</code></td><td class="ref-type">InterchangeProfile</td><td class="ref-unit">-</td><td><p>From <code class="language-plaintext highlighter-rouge">mercier_ggj_profile</code>.</p>
+</td></tr>
+  <tr><td><code>psi_n</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>The code’s normalized flux grid.</p>
+</td></tr>
+  <tr><td><code>di</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>The code’s Mercier index on that grid, DCON’s sign.</p>
+</td></tr>
+  <tr><td><code>dr</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>The code’s resistive-interchange index.</p>
+</td></tr>
+  <tr><td><code>label</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Which code and run the comparison is against, kept on the result.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>comparison</code></td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p>On the profile’s levels: <code class="language-plaintext highlighter-rouge">psi_n</code>, <code class="language-plaintext highlighter-rouge">D_I</code>, <code class="language-plaintext highlighter-rouge">di</code>, <code class="language-plaintext highlighter-rouge">D_R</code>, <code class="language-plaintext highlighter-rouge">dr</code>, the absolute differences <code class="language-plaintext highlighter-rouge">dD_I</code>, <code class="language-plaintext highlighter-rouge">dD_R</code>, the code’s implied <code class="language-plaintext highlighter-rouge">H</code> (<code class="language-plaintext highlighter-rouge">0.5 - sqrt(dr - di)</code>, the root nearer the equilibrium’s), and <code class="language-plaintext highlighter-rouge">label</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Both in DCON’s sign convention; no QA cut, no verdict.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The code’s grid is not increasing or the arrays disagree in length.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Interpolate the code’s <code class="language-plaintext highlighter-rouge">di</code>, <code class="language-plaintext highlighter-rouge">dr</code> linearly onto the profile’s levels
+inside its own range; NaN outside it.</li>
+        <li>Differences and the code’s implied <code class="language-plaintext highlighter-rouge">H</code>, choosing the root of
+<code class="language-plaintext highlighter-rouge">(H - 1/2)^2 = dr - di</code> nearer the equilibrium’s <code class="language-plaintext highlighter-rouge">H</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1902, comparison with DCON/RDCON on a reference slice.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="mercier_ggj_from_ods" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mercier_ggj_from_ods"><code>mercier_ggj_from_ods</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="mercier_ggj_from_ods" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/process/local_mhd_criteria.py#L355-L419" title="vaft/process/local_mhd_criteria.py, lines 355–419 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>mercier_ggj_from_ods(ods, time_slice=0, *, levels_norm=None, min_points=40, oversample=2)</code></pre>
+
+    <details class="ref-code" data-source-code="mercier_ggj_from_ods"><summary>Show source <span class="ref-note">vaft/process/local_mhd_criteria.py, lines 355–419</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">mercier_ggj_from_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">levels_norm</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+                         <span class="n">min_points</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">40</span><span class="p">,</span> <span class="n">oversample</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">InterchangeProfile</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Mercier / GGJ indices of one ODS equilibrium slice.
+
+    Parameters
+    ----------
+    ods : ODS
+        Holding ``equilibrium.time_slice[time_slice]`` with ``profiles_2d[0]``
+        ``psi`` on a rectangular grid, ``profiles_1d`` ``psi``, ``f``,
+        ``pressure``, ``q``, and the axis and boundary flux and axis position [-].
+    time_slice : int, optional
+        The slice to read [-].
+    levels_norm : sequence of float, optional
+        Surfaces to evaluate; by default 0.05 to 0.98 in steps of 0.01, the
+        range the reference comparison covers [-].
+    min_points : int, optional
+        Passed to :func:`mercier_ggj_profile`; a numerical-resolution control [-].
+    oversample : int, optional
+        Passed to :func:`mercier_ggj_profile`; a numerical-resolution control [-].
+
+    Returns
+    -------
+    profile : InterchangeProfile
+        As :func:`mercier_ggj_profile`, with the slice index and time in its
+        provenance [-].
+
+    Raises
+    ------
+    KeyError
+        A required path is missing.
+
+    Processing steps
+    ----------------
+    1. Read the slice</span><span class="sh">'</span><span class="s">s flux map, profiles and axis, refusing a missing path.
+    2. Convert the flux to per radian and the profile grid to normalized flux.
+    3. Evaluate with :func:`mercier_ggj_profile` and record the slice and time.
+
+    Input semantics
+    ---------------
+    The ODS flux is converted to per radian with
+    :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor`, which reads the
+    record</span><span class="sh">'</span><span class="s">s own convention.
+
+    Output semantics
+    ----------------
+    Raw equilibrium-derived indices with no QA cut; comparing with a
+    stability code is :func:`interchange_comparison`</span><span class="sh">'</span><span class="s">s job.
+
+    Convention
+    ----------
+    As :func:`mercier_ggj_profile`: DCON</span><span class="sh">'</span><span class="s">s sign and orientation.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1902] Issue #1902, evaluation from one reconstructed equilibrium ODS.
+    </span><span class="sh">"""</span>
+    <span class="n">inputs</span> <span class="o">=</span> <span class="nf">_ods_slice_inputs</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">)</span>
+    <span class="n">levels</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.985</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span> <span class="k">if</span> <span class="n">levels_norm</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">levels_norm</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">profile</span> <span class="o">=</span> <span class="nf">mercier_ggj_profile</span><span class="p">(</span><span class="n">levels_norm</span><span class="o">=</span><span class="n">levels</span><span class="p">,</span> <span class="n">min_points</span><span class="o">=</span><span class="n">min_points</span><span class="p">,</span> <span class="n">oversample</span><span class="o">=</span><span class="n">oversample</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">InterchangeProfile</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="o">**</span><span class="n">profile</span><span class="p">.</span><span class="n">__dict__</span><span class="p">,</span> <span class="sh">"</span><span class="s">provenance</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="o">**</span><span class="n">profile</span><span class="p">.</span><span class="n">provenance</span><span class="p">,</span> <span class="sh">"</span><span class="s">time_slice</span><span class="sh">"</span><span class="p">:</span> <span class="nf">int</span><span class="p">(</span><span class="n">time_slice</span><span class="p">),</span>
+                                                                     <span class="sh">"</span><span class="s">time</span><span class="sh">"</span><span class="p">:</span> <span class="nf">_slice_time</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">)}})</span></code></pre></figure>
+
+</details>
+
+    <p>Mercier / GGJ indices of one ODS equilibrium slice.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ods</code></td><td class="ref-type">ODS</td><td class="ref-unit">-</td><td><p>Holding <code class="language-plaintext highlighter-rouge">equilibrium.time_slice[time_slice]</code> with <code class="language-plaintext highlighter-rouge">profiles_2d[0]</code> <code class="language-plaintext highlighter-rouge">psi</code> on a rectangular grid, <code class="language-plaintext highlighter-rouge">profiles_1d</code> <code class="language-plaintext highlighter-rouge">psi</code>, <code class="language-plaintext highlighter-rouge">f</code>, <code class="language-plaintext highlighter-rouge">pressure</code>, <code class="language-plaintext highlighter-rouge">q</code>, and the axis and boundary flux and axis position.</p>
+</td></tr>
+  <tr><td><code>time_slice</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>The slice to read.</p>
+</td></tr>
+  <tr><td><code>levels_norm</code></td><td class="ref-type">sequence of float, optional</td><td class="ref-unit">-</td><td><p>Surfaces to evaluate; by default 0.05 to 0.98 in steps of 0.01, the range the reference comparison covers.</p>
+</td></tr>
+  <tr><td><code>min_points</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">mercier_ggj_profile</code>; a numerical-resolution control.</p>
+</td></tr>
+  <tr><td><code>oversample</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Passed to <code class="language-plaintext highlighter-rouge">mercier_ggj_profile</code>; a numerical-resolution control.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>profile</code></td><td class="ref-type">InterchangeProfile</td><td class="ref-unit">-</td><td><p>As <code class="language-plaintext highlighter-rouge">mercier_ggj_profile</code>, with the slice index and time in its provenance.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>As <code class="language-plaintext highlighter-rouge">mercier_ggj_profile</code>: DCON’s sign and orientation.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>KeyError</code> A required path is missing.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Input semantics · Output semantics · Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Read the slice’s flux map, profiles and axis, refusing a missing path.</li>
+        <li>Convert the flux to per radian and the profile grid to normalized flux.</li>
+        <li>Evaluate with <code class="language-plaintext highlighter-rouge">mercier_ggj_profile</code> and record the slice and time.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Input semantics</h4>
+
+      <p>The ODS flux is converted to per radian with
+<code class="language-plaintext highlighter-rouge">vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor</code>, which reads the
+record’s own convention.</p>
+
+      <h4 class="ref-label no_toc">Output semantics</h4>
+
+      <p>Raw equilibrium-derived indices with no QA cut; comparing with a
+stability code is <code class="language-plaintext highlighter-rouge">interchange_comparison</code>’s job.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1902, evaluation from one reconstructed equilibrium ODS.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="mercier_ggj_profile" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mercier_ggj_profile"><code>mercier_ggj_profile</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="mercier_ggj_profile" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/process/local_mhd_criteria.py#L114-L320" title="vaft/process/local_mhd_criteria.py, lines 114–320 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>mercier_ggj_profile(psi_grid, R, Z, psi_axis, psi_boundary, levels_norm, *, profile_psi_n, f, pressure, q, axis_rz, min_points=40, oversample=2, q_from_map=True)</code></pre>
+
+    <p>Mercier <code class="language-plaintext highlighter-rouge">D_I</code>, GGJ <code class="language-plaintext highlighter-rouge">H</code> and <code class="language-plaintext highlighter-rouge">D_R</code> on flux surfaces of a flux map.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>psi_grid</code></td><td class="ref-type">array_like</td><td class="ref-unit">Wb/rad</td><td><p>Poloidal flux on the grid, indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code>, per radian.</p>
+</td></tr>
+  <tr><td><code>R</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Major-radius grid axis.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Height grid axis.</p>
+</td></tr>
+  <tr><td><code>psi_axis</code></td><td class="ref-type">float</td><td class="ref-unit">Wb/rad</td><td><p>Flux on the magnetic axis.</p>
+</td></tr>
+  <tr><td><code>psi_boundary</code></td><td class="ref-type">float</td><td class="ref-unit">Wb/rad</td><td><p>Flux on the boundary.</p>
+</td></tr>
+  <tr><td><code>levels_norm</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>Normalized flux of the surfaces to evaluate, strictly inside <code class="language-plaintext highlighter-rouge">(0, 1)</code> and increasing; at least five.</p>
+</td></tr>
+  <tr><td><code>profile_psi_n</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>Normalized flux grid of <code class="language-plaintext highlighter-rouge">f</code>, <code class="language-plaintext highlighter-rouge">pressure</code> and <code class="language-plaintext highlighter-rouge">q</code>, increasing.</p>
+</td></tr>
+  <tr><td><code>f</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">T m</td><td><p><code class="language-plaintext highlighter-rouge">F = R B_phi</code> on <code class="language-plaintext highlighter-rouge">profile_psi_n</code>, either sign.</p>
+</td></tr>
+  <tr><td><code>pressure</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">Pa</td><td><p>Plasma pressure on <code class="language-plaintext highlighter-rouge">profile_psi_n</code>.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>Safety factor on <code class="language-plaintext highlighter-rouge">profile_psi_n</code>, either sign; used for <code class="language-plaintext highlighter-rouge">q'</code> only when <code class="language-plaintext highlighter-rouge">q_from_map</code> is false, and otherwise compared with the map’s <code class="language-plaintext highlighter-rouge">q</code> as a consistency check.</p>
+</td></tr>
+  <tr><td><code>axis_rz</code></td><td class="ref-type">tuple of float</td><td class="ref-unit">m</td><td><p>Magnetic-axis position, which picks the confined contour.</p>
+</td></tr>
+  <tr><td><code>min_points</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Fewest contour vertices for a surface to count as resolved; a numerical-resolution control.</p>
+</td></tr>
+  <tr><td><code>oversample</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Contours are traced on the flux map refined this many times by its own quintic spline; a numerical-resolution control.</p>
+</td></tr>
+  <tr><td><code>q_from_map</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Take <code class="language-plaintext highlighter-rouge">q</code> and <code class="language-plaintext highlighter-rouge">q'</code> from the flux map on each surface, as DCON does, instead of differentiating the given profile.  A choice of method: the given profile’s derivative near a flat-q core is noise-dominated (Limitations).</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>profile</code></td><td class="ref-type">InterchangeProfile</td><td class="ref-unit">-</td><td><p>The indices, <code class="language-plaintext highlighter-rouge">E + F</code>, <code class="language-plaintext highlighter-rouge">dV/dchi</code> and the five averages per level; an unresolved level is NaN.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>DCON’s: <code class="language-plaintext highlighter-rouge">D_I &lt; 0</code> and <code class="language-plaintext highlighter-rouge">D_R &lt; 0</code> are stable; <code class="language-plaintext highlighter-rouge">chi</code> increases outward
+and <code class="language-plaintext highlighter-rouge">F</code>, <code class="language-plaintext highlighter-rouge">q</code> enter by magnitude, which leaves the indices unchanged
+under COCOS sign choices.  <code class="language-plaintext highlighter-rouge">pressure</code> is in pascal and multiplied by
+<code class="language-plaintext highlighter-rouge">mu0</code> here.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Shapes disagree, the levels are not inside <code class="language-plaintext highlighter-rouge">(0, 1)</code> and increasing, fewer than five are given, <code class="language-plaintext highlighter-rouge">psi_axis</code> equals <code class="language-plaintext highlighter-rouge">psi_boundary</code>, or <code class="language-plaintext highlighter-rouge">oversample</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Trace each level and keep the closed contour enclosing the axis.</li>
+        <li>On it, <code class="language-plaintext highlighter-rouge">|grad psi|</code> from a quintic spline of the flux map and
+<code class="language-plaintext highlighter-rouge">B^2 = (|grad psi|^2 + F^2) / R^2</code>; volume-weighted averages.</li>
+        <li><code class="language-plaintext highlighter-rouge">p'</code> from a cubic spline of the pressure; <code class="language-plaintext highlighter-rouge">V''</code> and (by default)
+<code class="language-plaintext highlighter-rouge">q'</code> on each surface itself, via <code class="language-plaintext highlighter-rouge">d/dpsi closed(g dl/|grad psi|) =
+closed(div(g grad psi / |grad psi|^2) dl/|grad psi|)</code> with <code class="language-plaintext highlighter-rouge">g = R</code>
+and <code class="language-plaintext highlighter-rouge">1/R</code> and second derivatives of the spline, so no difference is
+taken across levels; all per unit <code class="language-plaintext highlighter-rouge">chi</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">D_I</code>, <code class="language-plaintext highlighter-rouge">H</code>, <code class="language-plaintext highlighter-rouge">D_R</code> as in the module notation.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Measured against DCON (mpsi 512, mtheta 1024) with the defaults, D_I on
+a 0.01 grid of levels: the packaged VEST 39915@319 g-file (129 x 129)
+within 3.3 % for psi_N 0.05-0.1, 0.5 % for 0.1-0.3 and 0.1 % beyond; the
+upstream DIII-D-like example (257 x 257) within 0.2 % to psi_N 0.9 and
+3.4 % in its steep pedestal (0.95-0.96).  With <code class="language-plaintext highlighter-rouge">q_from_map=False</code> the
+VEST core error rises to 19 % (0.05-0.1) and 5 % (0.1-0.3).  Near the
+axis the flux gradient vanishes and every average loses accuracy.  DCON
+clamps p &gt;= 0; this uses the pressure as given.  Ideal, static,
+isotropic pressure; no flow.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>GPEC <code class="language-plaintext highlighter-rouge">dcon/mercier.f</code> <code class="language-plaintext highlighter-rouge">mercier_scan</code>.
+</li>
+  <li>Glasser, Greene and Johnson, Phys. Fluids 18, 875 (1975).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="s_alpha_from_ods" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#s_alpha_from_ods"><code>s_alpha_from_ods</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="s_alpha_from_ods" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/process/local_mhd_criteria.py#L1006-L1061" title="vaft/process/local_mhd_criteria.py, lines 1006–1061 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>s_alpha_from_ods(ods, time_slice=0, *, levels_norm=None, R0=None)</code></pre>
+
+    <details class="ref-code" data-source-code="s_alpha_from_ods"><summary>Show source <span class="ref-note">vaft/process/local_mhd_criteria.py, lines 1006–1061</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">s_alpha_from_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">levels_norm</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+                     <span class="n">R0</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SAlphaProfile</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Per-surface s-alpha coordinates of one ODS equilibrium slice.
+
+    Parameters
+    ----------
+    ods : ODS
+        As :func:`mercier_ggj_from_ods` [-].
+    time_slice : int, optional
+        The slice to read [-].
+    levels_norm : sequence of float, optional
+        Surfaces; by default 0.05 to 0.98 in steps of 0.01 [-].
+    R0 : float, optional
+        Reference major radius; the magnetic axis by default (a convention) [m].
+
+    Returns
+    -------
+    profile : SAlphaProfile
+        As :func:`s_alpha_profile`, with the slice and time in provenance [-].
+
+    Raises
+    ------
+    KeyError
+        A required path is missing.
+
+    Processing steps
+    ----------------
+    1. Read the slice (per-radian flux) as :func:`mercier_ggj_from_ods`.
+    2. Evaluate with :func:`s_alpha_profile` and record the slice and time.
+
+    Input semantics
+    ---------------
+    One reconstructed equilibrium slice; nothing else of the ODS is read.
+
+    Output semantics
+    ----------------
+    Raw ``s``, ``alpha`` and the model</span><span class="sh">'</span><span class="s">s boundaries; no verdict beyond the
+    model</span><span class="sh">'</span><span class="s">s own criterion.
+
+    Convention
+    ----------
+    As :func:`s_alpha_profile`.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1902] Issue #1902, ODS-facing per-surface s-alpha evaluation.
+    </span><span class="sh">"""</span>
+    <span class="n">inputs</span> <span class="o">=</span> <span class="nf">_ods_slice_inputs</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">)</span>
+    <span class="n">levels</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.985</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span> <span class="k">if</span> <span class="n">levels_norm</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">levels_norm</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">profile</span> <span class="o">=</span> <span class="nf">s_alpha_profile</span><span class="p">(</span><span class="n">levels_norm</span><span class="o">=</span><span class="n">levels</span><span class="p">,</span> <span class="n">R0</span><span class="o">=</span><span class="n">R0</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">SAlphaProfile</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="o">**</span><span class="n">profile</span><span class="p">.</span><span class="n">__dict__</span><span class="p">,</span> <span class="sh">"</span><span class="s">provenance</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="o">**</span><span class="n">profile</span><span class="p">.</span><span class="n">provenance</span><span class="p">,</span> <span class="sh">"</span><span class="s">time_slice</span><span class="sh">"</span><span class="p">:</span> <span class="nf">int</span><span class="p">(</span><span class="n">time_slice</span><span class="p">),</span>
+                                                               <span class="sh">"</span><span class="s">time</span><span class="sh">"</span><span class="p">:</span> <span class="nf">_slice_time</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">)}})</span></code></pre></figure>
+
+</details>
+
+    <p>Per-surface s-alpha coordinates of one ODS equilibrium slice.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ods</code></td><td class="ref-type">ODS</td><td class="ref-unit">-</td><td><p>As <code class="language-plaintext highlighter-rouge">mercier_ggj_from_ods</code>.</p>
+</td></tr>
+  <tr><td><code>time_slice</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>The slice to read.</p>
+</td></tr>
+  <tr><td><code>levels_norm</code></td><td class="ref-type">sequence of float, optional</td><td class="ref-unit">-</td><td><p>Surfaces; by default 0.05 to 0.98 in steps of 0.01.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m</td><td><p>Reference major radius; the magnetic axis by default (a convention).</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>profile</code></td><td class="ref-type">SAlphaProfile</td><td class="ref-unit">-</td><td><p>As <code class="language-plaintext highlighter-rouge">s_alpha_profile</code>, with the slice and time in provenance.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>As <code class="language-plaintext highlighter-rouge">s_alpha_profile</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>KeyError</code> A required path is missing.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Input semantics · Output semantics · Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Read the slice (per-radian flux) as <code class="language-plaintext highlighter-rouge">mercier_ggj_from_ods</code>.</li>
+        <li>Evaluate with <code class="language-plaintext highlighter-rouge">s_alpha_profile</code> and record the slice and time.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Input semantics</h4>
+
+      <p>One reconstructed equilibrium slice; nothing else of the ODS is read.</p>
+
+      <h4 class="ref-label no_toc">Output semantics</h4>
+
+      <p>Raw <code class="language-plaintext highlighter-rouge">s</code>, <code class="language-plaintext highlighter-rouge">alpha</code> and the model’s boundaries; no verdict beyond the
+model’s own criterion.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1902, ODS-facing per-surface s-alpha evaluation.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="s_alpha_profile" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#s_alpha_profile"><code>s_alpha_profile</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="s_alpha_profile" href="https://github.com/VEST-Tokamak/vaft/blob/548d12d2ea15524c3eaf19b7b9348480f830bb31/vaft/process/local_mhd_criteria.py#L860-L1003" title="vaft/process/local_mhd_criteria.py, lines 860–1003 at 548d12d">source</a>
+</header>
+    <pre class="ref-signature"><code>s_alpha_profile(psi_grid, R, Z, psi_axis, psi_boundary, levels_norm, *, profile_psi_n, f, pressure, q, axis_rz, R0=None, min_points=40, oversample=2)</code></pre>
+
+    <p>Per-surface <code class="language-plaintext highlighter-rouge">s</code> and <code class="language-plaintext highlighter-rouge">alpha</code> of local ballooning theory and the s-alpha first-stability boundary.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>psi_grid</code></td><td class="ref-type">array_like</td><td class="ref-unit">Wb/rad</td><td><p>Poloidal flux, indexed <code class="language-plaintext highlighter-rouge">(R, Z)</code>, per radian.</p>
+</td></tr>
+  <tr><td><code>R</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Major-radius grid axis.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">array_like</td><td class="ref-unit">m</td><td><p>Height grid axis.</p>
+</td></tr>
+  <tr><td><code>psi_axis</code></td><td class="ref-type">float</td><td class="ref-unit">Wb/rad</td><td><p>Flux on the axis.</p>
+</td></tr>
+  <tr><td><code>psi_boundary</code></td><td class="ref-type">float</td><td class="ref-unit">Wb/rad</td><td><p>Flux on the boundary.</p>
+</td></tr>
+  <tr><td><code>levels_norm</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>Surfaces, at least five, increasing inside <code class="language-plaintext highlighter-rouge">(0, 1)</code>.</p>
+</td></tr>
+  <tr><td><code>profile_psi_n</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>Normalized flux grid of the profiles.</p>
+</td></tr>
+  <tr><td><code>f</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">T m</td><td><p><code class="language-plaintext highlighter-rouge">F = R B_phi</code>, either sign.</p>
+</td></tr>
+  <tr><td><code>pressure</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">Pa</td><td><p>Plasma pressure.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>Safety factor, either sign; compared with the map’s.</p>
+</td></tr>
+  <tr><td><code>axis_rz</code></td><td class="ref-type">tuple of float</td><td class="ref-unit">m</td><td><p>Magnetic-axis position.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m</td><td><p>Reference major radius naming the volume radius; by default the magnetic axis, as GPEC.jl’s local ballooning uses (a convention).</p>
+</td></tr>
+  <tr><td><code>min_points</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Contour resolution control, as <code class="language-plaintext highlighter-rouge">mercier_ggj_profile</code>.</p>
+</td></tr>
+  <tr><td><code>oversample</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Flux-map refinement for tracing, as <code class="language-plaintext highlighter-rouge">mercier_ggj_profile</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>profile</code></td><td class="ref-type">SAlphaProfile</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">s</code>, <code class="language-plaintext highlighter-rouge">alpha</code>, the model’s <code class="language-plaintext highlighter-rouge">alpha_first</code>/<code class="language-plaintext highlighter-rouge">alpha_second</code> and the enclosed volume per surface.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">alpha &gt; 0</code> where the pressure falls outward.  <code class="language-plaintext highlighter-rouge">s_alpha_unstable</code>
+applies only the circular s-alpha model’s criterion: for a shaped,
+low-aspect-ratio plasma it is an indicator of proximity to the ballooning
+boundary, not a stability verdict (a ballooning code is that).</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">mercier_ggj_profile</code>, or <code class="language-plaintext highlighter-rouge">R0</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li><code class="language-plaintext highlighter-rouge">V'</code>, <code class="language-plaintext highlighter-rouge">|q|</code> and <code class="language-plaintext highlighter-rouge">d|q|/dchi</code> on each surface from the map
+(<code class="language-plaintext highlighter-rouge">mercier_ggj_profile</code>); the enclosed volume from the traced
+contour by Pappus’ theorem.</li>
+        <li><code class="language-plaintext highlighter-rouge">s = shear_from_volume</code> and <code class="language-plaintext highlighter-rouge">alpha = ballooning_alpha_from_volume</code>
+(#1720 normalisation) with per-radian flux oriented outward.</li>
+        <li>The first and second stability boundaries at each <code class="language-plaintext highlighter-rouge">s</code> from
+<code class="language-plaintext highlighter-rouge">vaft.formula.stability.s_alpha_marginal_alpha</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The s-alpha model is circular and large-aspect-ratio; on VEST’s aspect
+ratio <code class="language-plaintext highlighter-rouge">alpha_first</code> can be off by a large factor from the true
+boundary.  Inherits the near-axis accuracy of <code class="language-plaintext highlighter-rouge">mercier_ggj_profile</code>.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40, 396 (1978).
+</li>
+  <li>Issue #1720, the volume-radius normalisation of s and alpha.
+</li>
+  <li>Issue #1902, per-surface s-alpha from one equilibrium.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/process/gyrokinetics/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: gyrokinetics">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/process/ntv_coil_response/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: ntv_coil_response">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: ntv_coil_response",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_ntv_coil_response.md",
+            "ref": "_guide/Process_reference_ntv_coil_response.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_local_mhd_criteria.md",
+        "mtime": "2026-10-10 12:00:00 +0900",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-28 16:11:01 +0900"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/assets/animations/loader.js"></script>
+<script src="/vaft/assets/gitbook/adaptive.js"></script>
+</body>
+</html>
