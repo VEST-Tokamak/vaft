@@ -1,11 +1,11 @@
 # GACODE: build and verify
 
 GACODE is the General Atomics code suite for kinetic and transport modelling.
-This directory builds it; `vaft.code.gacode` then runs it. VAFT drives two suite
-members today: **NEO**, the drift-kinetic neoclassical solver, and **TGLF**, the
-quasilinear turbulent-transport model. CGYRO shares the same profile and runtime
-layer and is still tracked in
-[issue #553](https://github.com/VEST-Tokamak/vaft/issues/553).
+This directory builds it; `vaft.code.gacode` then runs it. VAFT drives three suite
+members: **NEO**, the drift-kinetic neoclassical solver; **TGLF**, the
+quasilinear turbulent-transport model; and **CGYRO**, the local delta-f continuum
+gyrokinetic code. All three share one profile and runtime layer
+(`vaft.code.gacode`).
 
 **The source is not here, deliberately.** VAFT owns the build recipe and the
 adapter contract; the source stays external, obtained from

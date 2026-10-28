@@ -64,7 +64,7 @@ workflow/**/*.log
 .hscfg.*.tmp
 **/.hscfg.*.tmp
 
-# Quarto render products and cache (issue #322). Presentation outputs are built
+# Quarto render products and cache. Presentation outputs are built
 # on demand and by CI; none of them are committed.
 /tutorial/**/_output/
 /tutorial/**/.quarto/
