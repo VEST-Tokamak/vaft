@@ -52,7 +52,9 @@ against integrated pairs plus the research community and ownership:
 ``fusion_research_ecosystem`` and ``scientific_ownership_architecture``; the VEST data platform
 (#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the software
 and external-code ecosystem (#1648): ``software_dependency_ecosystem`` and
-``external_code_integration``; the semantic pictogram gallery (#2101):
+``external_code_integration``; computation contracts and workflow execution (#2150):
+``scientific_computation_contract``, ``computation_record_layers``,
+``workflow_specification_and_run`` and ``imas_scientific_workflow_example``; the semantic pictogram gallery (#2101):
 ``pictogram_catalog`` (the symbols themselves live in :mod:`vaft.diagram.pictograms`); the physics-workflow
 spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
 ``resistive_zeff_inference``, ``magnetic_efit``, ``kinetic_efit``,
@@ -284,6 +286,10 @@ __all__ = [
     "vest_data_platform_overview",
     "software_dependency_ecosystem",
     "external_code_integration",
+    "scientific_computation_contract",
+    "computation_record_layers",
+    "workflow_specification_and_run",
+    "imas_scientific_workflow_example",
     "pictogram_catalog",
     "plasma_parameter_inference",
     "romero_transformer_balance",
@@ -523,6 +529,10 @@ _LOCATIONS = {
     "vest_data_platform_overview": "._platform",
     "software_dependency_ecosystem": "._ecosystem",
     "external_code_integration": "._ecosystem",
+    "scientific_computation_contract": "._computation_contract",
+    "computation_record_layers": "._computation_contract",
+    "workflow_specification_and_run": "._workflow_execution",
+    "imas_scientific_workflow_example": "._workflow_execution",
     "pictogram_catalog": ".pictograms",
     "plasma_parameter_inference": "._workflow_specs",
     "romero_transformer_balance": "._workflow_specs",
