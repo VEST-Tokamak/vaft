@@ -16,12 +16,13 @@ related:
 Three high-$n$ ideal-ballooning formulations are available to VAFT:
 - the reduced Connor–Hastie–Taylor (CHT) $s$–$\alpha$ model in `vaft.formula.stability`;
 - Fortran DCON's local criterion $C_A$, which VAFT reads as `ca1`;
-- GPEC.jl's BALOO-style ballooning $\Delta'$ and its $\alpha_{crit}$ scans (#1098).
+- GPEC.jl's BALOO-style ballooning $\Delta'$ and its $\alpha_{crit}$ scans. VAFT has no GPEC.jl adapter yet (Open: #1098, `vaft.code.gpec_jl`), so
+  this one is compared from its sources only.
 
 They share a physical limit. That does **not** make them the same equation, the same normalisation, the
 same stability index or the same algorithm. This page records which of those claims hold, from the
-sources. It is the theory and source part (P0) of #1637. The numerical comparisons (P1–P3) need DCON and
-GPEC.jl runs and belong to the stability workflow.
+sources: it covers the theory and the source comparison. The numerical comparisons need DCON and
+GPEC.jl runs, belong to the stability workflow and are not done yet (Open: #1637).
 
 Sources:
 - VAFT `develop`;

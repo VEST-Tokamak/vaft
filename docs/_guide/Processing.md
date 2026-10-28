@@ -167,7 +167,7 @@ Every time-domain rate change in `vaft.machine_mapping` and `vaft.process`, clas
 | `machine_mapping/pf_active.py` | PF raw → policy grid | 10× | Already safe: `firwin` + `filtfilt` |
 | `process/magnetics.py` | probes/loops → 25 kHz | 10× | Already safe: `firwin` at 2.5 kHz on the 250 kHz grid |
 | `machine_mapping/magnetics.py` (FL10) | 250 kHz → decimated | 10× | Already safe: `scipy.signal.decimate`, order-8 Chebyshev I |
-| `machine_mapping/impa.py` | IMPA raw → 25 kHz | ≤10× | `impa_lowpass` filters first, but the configured `sample_rate` may not match the channels ([#425]) |
+| `machine_mapping/impa.py` | IMPA raw → 25 kHz | ≤10× | `impa_lowpass` filters first, but against the configured `sample_rate` (default 25 kHz), which may not match the channels (Open: [#432]) |
 | `process/electromagnetics.py` | EVD substepping | 1.25× | `dt_sub` ships coarser than the diagnostics grid — a solver-parameter bug, tracked separately |
 | `code/efit/legacy.py` | 4e-5 data on a 1e-4 `ave_time` step | — | Pseudo-average, tracked separately |
 | `process/particle.py` | solver trajectory → turning/crossing instants, comparison grid | — | Evaluates a deterministic ODE solution, not acquired data; no action |
@@ -177,7 +177,7 @@ This table will rot. `test/test_no_bare_downsample.py` will not: it walks the AS
 `vaft/machine_mapping` and `vaft/process` and fails on any interpolation that neither goes through
 `resample_to_time` nor carries an `# anti-alias:` comment recording which row above it belongs to.
 
-[#425]: https://github.com/VEST-Tokamak/vaft/issues/425
+[#432]: https://github.com/VEST-Tokamak/vaft/issues/432
 
 ## Baselines
 
@@ -595,7 +595,7 @@ raw, filt, integrated, field, baselines = b_field_pol_probe_field(
 `rogowski_coil_ip` subtracts a flux-loop reference from the Rogowski signal and **auto-flips the sign**
 when $\lvert \min I_p \rvert > \lvert \max I_p \rvert$. Note the asymmetric returns:
 `b_field_pol_probe_field` gives **five** arrays, `flux_loop_flux` gives **three**. Both once accepted
-`plot_opt=True`, which built an `ipywidgets` slider; that argument has been removed (issue #485).
+`plot_opt=True`, which built an `ipywidgets` slider; that argument has been removed.
 Processing returns arrays, and drawing them is `vaft.plot`'s job -- `plot_flux_loop_time_flux` and
 `plot_b_field_probe_time_field` draw the same signals, with `interactive=True` for the controls.
 
@@ -731,7 +731,7 @@ dependency, so install it before calling.
 5. **Importing `vaft.process` pulls in `matplotlib` and `ipywidgets`** — both are module-level imports
    in `magnetics.py`.
 6. **Numba is optional.** No module uses it yet. It is the `vaft[accel]` extra, reserved for
-   acceleration work that measurements justify (#1013).
+   acceleration work that measurements justify (Open: #1013, audit of accelerated execution paths).
 
 ---
 

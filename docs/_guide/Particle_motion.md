@@ -167,8 +167,9 @@ the tokamak and symmetry-breaking families) and artifact manifest under
 `test/test_process_particle.py`; replay tests are in
 `test/test_particle_animation.py`.
 
-This implements the static-field portion of issues #2003–#2009. The slowly
-changing mirror experiment required by #2007 remains deferred, along with
+The animations cover static fields only. The slowly changing mirror
+experiment, which would show the adiabatic invariant surviving a slow field
+change, is not implemented (Open: #2007), nor are
 inductive/time-dependent fields, collisions, transport and external-solver
 cross-validation. The 3D reference is a controlled vacuum harmonic, not a
 calculated plasma response. Canonical-momentum change alone supports no claim

@@ -15,7 +15,7 @@ related:
   data_sources: [sample-ods]
 ---
 {%- assign catalog = site.data.plot_catalog -%}
-{%- comment -%}Source links are pinned to the commit the catalog was generated from, never to a branch (#1069).{%- endcomment -%}{%- assign source_ref = catalog.provenance.commit | default: "" -%}
+{%- comment -%}Source links are pinned to the commit the catalog was generated from, never to a branch, so a link shows the code the entry was generated from.{%- endcomment -%}{%- assign source_ref = catalog.provenance.commit | default: "" -%}
 {%- assign kinds = catalog.subjects | map: "kind" | uniq -%}
 
 <p class="ref-intro">Generated from <code>vaft.plot.registry</code> by <code>python -m vaft.plot.docs_catalog</code>:

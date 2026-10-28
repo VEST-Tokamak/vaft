@@ -14,8 +14,8 @@ related:
 ---
 
 This page answers one question: **how does a plasma state become a statement about which model may describe it?**
-VAFT spreads the answer over several layers. This page names the steps and the vocabulary that keeps them apart
-(issue #1724), and links to where each step is implemented.
+VAFT spreads the answer over several layers. This page names the steps and the vocabulary that keeps them apart,
+and links to where each step is implemented.
 
 ```text
 physical plasma state                    n, T, B, q, a, R, I_p(t), ...
@@ -37,10 +37,10 @@ Each arrow is a separate step, and none of them is implied by the one before.
 
 | step | owned by | page |
 | --- | --- | --- |
-| scales | `vaft.formula` (domain modules; a canonical scale layer is planned in #1064) | this page, [Formula reference]({{ '/reference/formula/' | relative_url }}) |
-| ratios and orderings | `vaft.formula.ordering`, `vaft.validation.orderings` (#1627) | [Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }}) |
-| models | `vaft.code.formalism`, `vaft.validation.model_contracts` (#1727, #1823) | [Plasma models]({{ '/reference/plasma-models/' | relative_url }}) |
-| applicability | `vaft.validation.applicability`, `vaft.process.ordering_state` (#1639, #1628, #1627 §2) | [Credibility and applicability]({{ '/reference/credibility-applicability/' | relative_url }}) |
+| scales | `vaft.formula` (domain modules; a canonical scale layer is not yet implemented, Open: #1064) | this page, [Formula reference]({{ '/reference/formula/' | relative_url }}) |
+| ratios and orderings | `vaft.formula.ordering`, `vaft.validation.orderings` | [Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }}) |
+| models | `vaft.code.formalism`, `vaft.validation.model_contracts` | [Plasma models]({{ '/reference/plasma-models/' | relative_url }}) |
+| applicability | `vaft.validation.applicability`, `vaft.process.ordering_state` | [Credibility and applicability]({{ '/reference/credibility-applicability/' | relative_url }}) |
 | resolvability | not implemented | [below](#physical-scales-are-not-resolution) |
 
 ## Four different kinds of statement
@@ -56,7 +56,7 @@ A characteristic scale on its own establishes nothing. $\rho_i = 3$ mm is neithe
 is divided by something, and the answer changes with the divisor ([§ Name the comparison scale](#name-the-comparison-scale)).
 A regime name is a reading of orderings. The banana regime is $\nu_* \ll 1$, and the plateau regime has no
 ordering of its own (Asymptotic orderings, "Ordering contracts"). The neoclassical and NTV regime diagrams
-of #1111 (`ntv_precession_regimes` and the collisionality-regime figures in
+(`ntv_precession_regimes` and the collisionality-regime figures in
 [Scientific diagrams]({{ '/reference/diagrams/' | relative_url }})) draw regimes the same way: as readings of
 ratios, with boundaries only where the theory gives one [7]. Applicability is a verdict on a state and
 belongs to the validation layer. It is never a property of the ordering's definition.
@@ -69,8 +69,8 @@ The page distinguishes three states, and says which applies everywhere it names 
 - **planned under an open issue.** Named with its issue; no interface is promised.
 - **open PR only.** None at the time of writing. Interfaces in open PRs are not documented here as stable.
 
-The main gap is **#1064 (open)**: a canonical scale layer (`vaft.formula.scales`) does not exist yet. Today
-each scale lives in the domain module that first needed it, listed below. When #1064 lands, the tables
+The main gap is a canonical scale layer (`vaft.formula.scales`, Open: #1064): it does not exist yet. Today
+each scale lives in the domain module that first needed it, listed below. Once that layer exists, the tables
 below should point at it and the domain functions stay as convention-bearing variants.
 
 ## Scale taxonomy, by physical role
@@ -144,7 +144,7 @@ plasma, but not by a fixed factor.
 | connection length $qR$ | no analytic function; field-line maps in `vaft.process.equilibrium.connection_length_map` and `vaft.process.field_line_topology.connection_length_weight` | — |
 
 The analytic orbit scales carry the large-aspect-ratio ordering $\epsilon \ll 1$. In VEST $\epsilon \approx 0.7$
-(the #1629 atlas median), so they are order-of-magnitude estimates there, not results.
+(the median of the VEST ordering atlas, `notebooks/vest_ordering_and_model_applicability.ipynb`), so they are order-of-magnitude estimates there, not results.
 
 ### Fluctuation and layer lengths
 
@@ -161,7 +161,7 @@ mode-scope and layer-scope ordering quantities take them as inputs and are `UNAS
 $$L_n=-\left(\frac{d\ln n}{dr}\right)^{-1},\qquad L_T=-\left(\frac{d\ln T}{dr}\right)^{-1},\qquad
 L_p=-\left(\frac{d\ln p}{dr}\right)^{-1}.$$
 
-These need three choices before they are numbers, and VAFT keeps them apart (#551 and #563, closed):
+These need three choices before they are numbers, and VAFT keeps them apart:
 
 | concept | what it fixes | VAFT name |
 | --- | --- | --- |
@@ -191,7 +191,7 @@ Other equilibrium scales: minor radius $a$ and major radius $R_0$ with
 | $\tau_w = \mu_0\sigma d b$ | wall diffusion time | `vde.thin_wall_time`, `vde.wall_mode_decay_time`; `vaft.process.wall_modes.global_time_constants` |
 | $\tau_{\rm evol} = |I_p/\dot I_p|$ | evolution time | `ordering.evolution_time(X, dX_dt)` with $X=I_p$ |
 | $L/R$ time | circuit time | `startup.lr_time_from_L_R` |
-| $\tau_D = L^2/D$ | diffusion time | planned under #1112 (transport and turbulence scales) |
+| $\tau_D = L^2/D$ | diffusion time | no function yet; the diffusivities $D$ and $\chi$ are in `vaft.formula.transport` |
 
 These are different physical constructions. One state can have several "times" with the same name, and they
 must not be swapped:
@@ -224,7 +224,7 @@ result, not an assumption (Asymptotic orderings, "A worked hierarchy").
 The ladder fails in practice:
 - In a low-field device the electron transit frequency can reach the ion gyrofrequency. In VEST,
   $\omega_{t,e}\approx5\times10^6$ against $\Omega_{ci}\approx10^7$ rad/s ([Plasma models]({{ '/reference/plasma-models/' | relative_url }}) §7).
-- A short pulse compresses the slow end. In the #1629 atlas the median $\tau_{\rm age}/\tau_R$ is 0.57: current
+- A short pulse compresses the slow end. In the VEST ordering atlas the median $\tau_{\rm age}/\tau_R$ is 0.57: current
   diffusion is not slower than the discharge, so "discharge evolution" is not the last rung.
 
 ## Name the comparison scale
@@ -254,7 +254,7 @@ explicitly. The issue's proposed vocabulary maps onto those fields:
 | species | in the name: `electron_...`, `ion_...`, `rho_s` (electron temperature, ion mass) |
 | radial location | a column of the point table built by `vaft.process.ordering_state.profile_ordering_quantities` |
 | mode / event | the caller's input (mode numbers, $k_y$ grid, layer width); missing gives `UNASSESSED` |
-| provenance | the atlas manifest (#1629) and the run provenance of each adapter (#1823) |
+| provenance | the atlas manifest (`manifest.json` of `workflow/ordering_atlas/build_states.py`) and the `ordering_check` run provenance of each adapter |
 
 The kernels in `vaft.formula.ordering` take the length as an explicit argument for the same reason. A global
 length cannot be silently swapped for a layer length.
@@ -298,7 +298,7 @@ $\rho_*$, $\beta$, $\nu_*$, $q$ exponents; its docstring says they are not measu
 Slab, cylindrical and toroidal describe **geometry** [3]. Local or global, $a/R\ll1$, $\rho/L\ll1$,
 $k_\parallel/k_\perp\ll1$ and $\omega/\Omega\ll1$ describe **scale separation**. They are two axes, not one
 accuracy ladder. "Large aspect ratio" is an ordering, not a geometry, and a local slab may keep coefficients
-inherited from a realistic toroidal equilibrium (#1062). The full treatment, with `geometry_ordering_map`, is
+inherited from a realistic toroidal equilibrium. The full treatment, with `geometry_ordering_map`, is
 [Geometric approximations]({{ '/reference/geometric-approximations/' | relative_url }}), "Two axes, not one
 hierarchy".
 
@@ -318,8 +318,8 @@ The comparison axes are:
 ρ/L    d_i/L    ω/Ω_i    k⊥ρ_i    k∥/k⊥    collisionality    resistivity    locality    distribution-function dynamics
 ```
 
-The ordering contracts of #1627 encode them per model (`vaft.validation.orderings.CONTRACTS`, drawn as
-`ordering_contract_map`). The adapter modes of #1823 say which contracts each VAFT code mode consumes,
+The ordering contracts encode them per model (`vaft.validation.orderings.CONTRACTS`, drawn as
+`ordering_contract_map`). The adapter modes say which contracts each VAFT code mode consumes,
 and in which **role** (`governing`, `outer_solution`, `layer_solution`, `fluid_part`, `kinetic_response`,
 `closure`, `inherited`, `transport_coupling`). That is `vaft.validation.model_contracts.ADAPTER_MODES`, drawn as
 `adapter_contract_map` ([Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }}),
@@ -339,7 +339,7 @@ gyrokinetic     ≠  "more kinetic" MHD
 
 They keep different scale information for different problems. Drift kinetics is the natural description of
 equilibrium-scale kinetic response (neoclassical transport, NTV, kinetic stabilization). Gyrokinetics is the
-description of $\rho$-scale turbulence, with transport on a separate, slower scale [10]. Plasma models §2.2–§2.3; the gyrokinetic framework is #1353 (open).
+description of $\rho$-scale turbulence, with transport on a separate, slower scale [10]. Plasma models §2.2–§2.3; a cross-formalism gyrokinetic modelling framework is Open: #1353.
 
 ### Kinetic GPEC is not on the gyrokinetic branch
 
@@ -383,12 +383,12 @@ spectrum is available.
 This page defines no verdicts. The evaluation, its statuses and its margins are
 [Credibility and applicability]({{ '/reference/credibility-applicability/' | relative_url }}). The state
 tables are built by `vaft.process.ordering_state`. The VEST population study is the notebook
-`vest_ordering_and_model_applicability.ipynb` (#1629).
+`vest_ordering_and_model_applicability.ipynb`.
 
 ## One model, two scales
 
 **A model can be asymptotically appropriate at one scale and inadequate at another.** Tearing is the standard
-example. Take the #1629 atlas medians for VEST: $d_i/a\approx0.32$ and $S\approx1\times10^5$.
+example. Take the VEST ordering-atlas medians: $d_i/a\approx0.32$ and $S\approx1\times10^5$.
 - Globally, $d_i/a\approx0.3$ is below one. The Hall term is not negligible, but single-fluid MHD is not
   obviously wrong on the device scale.
 - The resistive layer is much thinner than $a$. Its width scales as $\delta/a\propto S^{-2/5}$ for the
@@ -431,25 +431,25 @@ is drawn only when it comes from values.
 | diagram | kind | contract | state |
 | --- | --- | --- | --- |
 | `characteristic_scale_map` | conceptual, state-independent | primitive state → frequencies, speeds, lengths → times → dimensionless ratios → model orderings; no numerical ranking | planned |
-| `length_scale_ladder` | state-dependent, or labelled illustrative | $\lambda_D$, $\rho_e$, $d_e$, $\rho_i$/$\rho_s$, $d_i$, $\lambda_{\rm mfp}$, orbit width, gradient length, $a$, $R$; placed by value, never in a hard-coded order | **partly exists** as `spatial_scale_orderings` (#1739: $\rho_e$, $\rho_i$, $\rho_s$, $d_i$, banana width, gradient length, $a$, $R_0$, $qR_0$); $\lambda_D$, $d_e$ and $\lambda_{\rm mfp}$ still planned |
-| `time_scale_ladder` | state-dependent, or labelled illustrative | gyration, collision, transit/bounce, Alfvén, growth, wall, confinement, transport, resistive diffusion, age/pulse; placed by value | **exists** as `timescale_hierarchy` (illustrative state, eleven times including sound crossing, ion transit and bounce, placed by value; #1739) |
+| `length_scale_ladder` | state-dependent, or labelled illustrative | $\lambda_D$, $\rho_e$, $d_e$, $\rho_i$/$\rho_s$, $d_i$, $\lambda_{\rm mfp}$, orbit width, gradient length, $a$, $R$; placed by value, never in a hard-coded order | **partly exists** as `spatial_scale_orderings` ($\rho_e$, $\rho_i$, $\rho_s$, $d_i$, banana width, gradient length, $a$, $R_0$, $qR_0$); $\lambda_D$, $d_e$ and $\lambda_{\rm mfp}$ still planned |
+| `time_scale_ladder` | state-dependent, or labelled illustrative | gyration, collision, transit/bounce, Alfvén, growth, wall, confinement, transport, resistive diffusion, age/pulse; placed by value | **exists** as `timescale_hierarchy` (illustrative state, eleven times including sound crossing, ion transit and bounce, placed by value) |
 | `model_ordering_map` | multidimensional relationship map | fluid ↔ kinetic closure, ideal ↔ dissipative, single- ↔ two-fluid, long wavelength ↔ finite $k_\perp\rho$, local ↔ global, equilibrium ↔ fluctuation scale; no single fidelity axis | **exists** in parts: `ordering_contract_map`, `adapter_contract_map`, `reduced_representation_hierarchy`, `geometry_ordering_map` |
 
 Diagrams live in `vaft.diagram` and are conceptual. Ladders of measured states belong to `vaft.plot`, with the
-values from `vaft.process`. The two planned diagrams wait for #1064, so that they draw canonical scale
+values from `vaft.process`. The two planned diagrams wait for the canonical scale layer (Open: #1064), so that they draw canonical scale
 functions rather than define their own.
 
 ## Who owns what
 
 ```text
-vaft.formula.scales           generic dimensional scale primitives                          planned, #1064
+vaft.formula.scales           generic dimensional scale primitives                          planned, Open: #1064
 vaft.formula.<domain>         convention-bearing scales (neoclassical, wall, equilibrium, ...)   implemented
-vaft.formula.ordering         ordering kernels with explicit lengths                          implemented, #1627
+vaft.formula.ordering         ordering kernels with explicit lengths                          implemented
 vaft.process                  state- and profile-aware construction, coordinate and time alignment
                               (profile_gradients, ordering_state)                            implemented
-vaft.validation               ordering registry, contracts, applicability, credibility       implemented, #1627 / #1639 / #1628
+vaft.validation               ordering registry, contracts, applicability, credibility       implemented
 vaft.diagram                  conceptual scale and ordering diagrams                          partly implemented
-vaft.plot                     scale ladders and ordering spaces of real states                ordering spaces implemented (#1627 §3)
+vaft.plot                     scale ladders and ordering spaces of real states                ordering spaces implemented (vaft.plot.ordering_space)
 ```
 
 This page consumes those layers. It defines no formula: every expression above is either the definition a

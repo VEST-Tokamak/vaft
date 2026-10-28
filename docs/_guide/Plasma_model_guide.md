@@ -6,7 +6,7 @@ category: guide
 layout: post
 permalink: /reference/plasma-model-guide/
 guide:
-  architecture: "The user-facing map of plasma descriptions - fluid, hybrid, kinetic, particle and reduced - as independent axes rather than one fidelity ladder, with every VAFT backend mode placed on them from the shared vocabulary (issue #1739, Phase E of #1723)."
+  architecture: "The user-facing map of plasma descriptions - fluid, hybrid, kinetic, particle and reduced - as independent axes rather than one fidelity ladder, with every VAFT backend mode placed on them from the shared vocabulary."
   prerequisites: None. The Plasma models audit page holds the evidence behind each classification.
   expected: Which assumptions separate MHD, drift kinetics, gyrokinetics, orbit following and their hybrids; what each VAFT mode solves and which ordering contracts it consumes; and what the word "kinetic" means in each VAFT name.
 related:
@@ -19,8 +19,8 @@ orbit following each answer a different question under a different ordering. Non
 
 This page is the entry point. The evidence behind every classification - upstream source lines, primary
 literature, confidence marks - is the audit page,
-[Plasma models, orderings, and scales]({{ '/reference/plasma-models/' | relative_url }}) (#1725), cited below as
-"audit §n". The machine-readable record is `vaft.code.formalism.PlasmaFormalism` (#1727). The tables on this page
+[Plasma models, orderings, and scales]({{ '/reference/plasma-models/' | relative_url }}), cited below as
+"audit §n". The machine-readable record is `vaft.code.formalism.PlasmaFormalism`. The tables on this page
 marked *generated* are rendered from that record, and every other table cell that names a record value (a column
 or row headed by a field name, and the glossary) is checked against it, by `test/test_docs_plasma_model_guide.py`.
 Confidence is not part of the record: the audit marks each classification verified, provisional or unresolved,
@@ -191,8 +191,9 @@ The gyro-average $\langle\cdot\rangle_{\mathbf R}$ is what keeps finite $k_\perp
 reduces to a drift-kinetic form. So **drift kinetics is not a coarse gyrokinetics and gyrokinetics is not an
 accurate drift kinetics**: each keeps physics the other orders out. Neoclassical drift kinetics is also δf, but
 its $f_1$ is a steady axisymmetric departure, not a fluctuation (audit §2.2–§2.3). The details of *which kind* of
-gyrokinetic formulation a run uses (field model, geometry, species, collision operator) belong to
-[#1353](https://github.com/VEST-Tokamak/vaft/issues/1353).
+gyrokinetic formulation a run uses (field model, geometry, species, collision operator) go beyond the shared record's
+broad axes: for CGYRO that detail is kept in its gyrokinetic-specific record, `vaft.code.gacode.cgyro.formalism()`, and in
+the shared record's `extensions` (audit §4).
 
 ## 5. Kinetic-MHD is a coupling, not an equation
 
@@ -268,7 +269,7 @@ whether a model applies to a given state is an ordering question, answered per s
 | hybrid kinetic-MHD | macroscopic modes modified by a kinetic population | the fluid ordering for the bulk plus the kinetic ordering for the population | whatever the coupling leaves out (e.g. finite orbit width, which PENTRC appears not to keep: inferred, not stated in its source) |
 
 The scales these orderings compare, and why a model can hold on one scale and fail on another, are
-the *Characteristic scales and orderings* reference (#1724, PR #1985).
+the [Characteristic scales and orderings]({{ '/reference/characteristic-scales/' | relative_url }}) reference.
 
 ### Time scales
 
@@ -287,7 +288,7 @@ drift scale; MHD needs it slower than the kinetic times its closure averages ove
 $\tau_{evol}\gg\tau_A$. `vaft.diagram.timescale_hierarchy` evaluates these times for one labelled illustrative
 state (`ILLUSTRATIVE_STATE`; its assumed values are listed in the figure caption) and places them by value. Drift
 precession has no formula kernel and $\tau_E$ needs an energy inventory the state does not carry, so the figure
-omits both and says so (#1724).
+omits both and says so.
 
 ![timescale hierarchy]({{ '/assets/diagrams/timescale_hierarchy.svg' | relative_url }})
 
@@ -319,7 +320,8 @@ input never implies a kinetic governing equation.**
 
 *Generated from `vaft.validation.model_contracts.ADAPTER_MODES`:* one row per scientifically distinct mode, not per
 executable. "Contracts (role)" are the ordering contracts the mode consumes, which the advisory ordering check
-evaluates on a run's input (#1823; wiring per stage is #1987); "not covered" is what no contract checks.
+evaluates on a run's input when the stage passes its ordering quantities (the GPEC-suite stages do;
+Open: #1987 (wiring into the CGYRO workflows)); "not covered" is what no contract checks.
 
 **Confidence of the rows** (audit §3–§5, §12): verified for the equation class of every classified row, except
 `nice:reconstruction` and `tglf_nn` (provisional, as their audit cell says) and the *name* "drift-kinetic MHD"
@@ -398,7 +400,8 @@ These classifications are open and are shown as such, not smoothed over (audit �
   under the kinetic equation or the orbit representation (the record puts it under orbit representation);
   pressure versus current coupling in hybrid codes (MEGA, MARS-K); how kinetic reduced MHD (KRMHD) is
   represented.
-- **Pending backend adoption:** the GACODE records still trust parts of the run configuration (#1735).
+- **No record yet:** the classical (Braginskii) result in `vaft.process.transport_state`; the vocabulary has no
+  operation for classical collisional transport.
 
 ## 11. Glossary
 

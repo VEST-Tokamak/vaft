@@ -47,12 +47,12 @@ The project defines fourteen extras (twelve optional-dependency groups, the empt
 | `surrogate` | onnxruntime | running a TGLF neural-network surrogate (`vaft.code.gacode.tglf.surrogate`); resolving a model and auditing an input need no extra |
 | `tokamaker` | openfusiontoolkit | `vaft.code.tokamaker`, the one external code VAFT drives in-process |
 | `ml` | torch, onnx, onnxruntime, scikit-learn, skl2onnx | the `torch` and `sklearn` backends of `vaft.process.ml` and ONNX export; datasets, splits, the `numpy` backend and resolving a published model need no extra |
-| `tracking` | mlflow | explicitly selected local SQLite experiment indexing; JSON and immutable model artifacts remain canonical (#2016) |
-| `vtk` | pyvista (VTK) | `vaft.plot.pyvista.to_pyvista` / `write_vtk`: 3-D scenes as PyVista multiblocks and `.vtm`/`.vtp` files for ParaView (#1087) |
-| `jupyter3d` | k3d | `vaft.plot.k3d.to_k3d` and `coil_phase_explorer`: interactive 3-D scenes in Jupyter (#1087) |
-| `video` | PyAV (av) | writing `.mp4`/`.webm` from `plot_*(..., animation=True)` and its inline notebook preview; `.gif` export needs no extra (#1050) |
-| `accel` | numba | nothing yet: no VAFT module imports it. Reserved for acceleration that measurements justify (#1013) |
-| `optimize` | optuna | nothing yet: reserved for domain-owned adaptive optimization in `vaft.process.*` / `vaft.code.*` (#1875); a method that adopts it imports Optuna only when that strategy runs, and SciPy remains the default optimizer |
+| `tracking` | mlflow | explicitly selected local SQLite experiment indexing; JSON and immutable model artifacts remain canonical |
+| `vtk` | pyvista (VTK) | `vaft.plot.pyvista.to_pyvista` / `write_vtk`: 3-D scenes as PyVista multiblocks and `.vtm`/`.vtp` files for ParaView |
+| `jupyter3d` | k3d | `vaft.plot.k3d.to_k3d` and `coil_phase_explorer`: interactive 3-D scenes in Jupyter |
+| `video` | PyAV (av) | writing `.mp4`/`.webm` from `plot_*(..., animation=True)` and its inline notebook preview; `.gif` export needs no extra |
+| `accel` | numba | nothing yet: no VAFT module imports it. Reserved for acceleration that measurements justify (Open: #1013) |
+| `optimize` | optuna | nothing yet: reserved for domain-owned adaptive optimization in `vaft.process.*` / `vaft.code.*` (Open: #1875); a method that adopts it imports Optuna only when that strategy runs, and SciPy remains the default optimizer |
 | `mcp` | mcp (the Model Context Protocol SDK) | `python -m vaft.mcp` / `vaft mcp`: the local, read-only MCP server for agent clients ([MCP server]({{ site.baseurl }}/reference/mcp/)); `import vaft` never needs it |
 | `gui` | nothing | kept so that `vaft[gui]` still installs: Panel, which `vaft gui` ([Browser GUI]({{ site.baseurl }}/workflows/gui/)) needs, is a core dependency |
 | `architecture` | grimp | `python -m vaft._dependency_graph`: generating the import graph behind the [dependency explorer]({{ site.baseurl }}/reference/dependency-graph/); documentation tooling, never needed by `import vaft` |
@@ -188,7 +188,7 @@ That build runs on macOS/Apple Silicon and on native Windows. The adapter runs N
 its native output; `vaft.machine_mapping.core_sources` and `vaft.machine_mapping.distributions` map
 the profiles into IMAS, while the Monte Carlo marker records stay in the native container.
 
-NICE (`vaft.code.nice`, issue #666) is **experimental**: the adapter prepares and collects a
+NICE (`vaft.code.nice`) is **experimental**: the adapter prepares and collects a
 standalone `nice_recon` run, but it does not yet reconstruct VEST equilibria, and nothing in the
 routine pipeline uses it. Upstream has no install step, so `$NICEHOME` is the built source tree;
 VAFT looks for `build/nice_recon`, then `run/nice_recon`, then `nice_recon` beneath it, or takes
@@ -221,7 +221,7 @@ verify with `install/check_gacode.py`. VAFT drives NEO for neoclassical transpor
 current, and TGLF for turbulent transport; see
 [`install/gacode/`](https://github.com/VEST-Tokamak/vaft/tree/develop/install/gacode).
 
-MITIM-fusion (#1588) runs TGLF/NEO from the same GACODE build, but MITIM itself is a Python
+MITIM-fusion runs TGLF/NEO from the same GACODE build, but MITIM itself is a Python
 package that needs Python 3.10–3.12 and pulls tensorflow, botorch and torch. It therefore gets an
 environment of its own, and VAFT never imports it. `vaft.code.mitim` launches small driver
 scripts with that environment's interpreter:

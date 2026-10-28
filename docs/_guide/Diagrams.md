@@ -75,7 +75,7 @@ points. The separatrix and $w$ are only visible in the poloidal section.
 ### Animating the island: a phase scan or a rigid rotation
 
 The same call draws the island over a trajectory of its phase when it is asked to with
-`animation=True` (issues #1049, #1053). It returns the animation result that
+`animation=True`, under the static-to-animation contract `vaft.plot` shares. It returns the animation result that
 `plot_*(..., animation=True)` returns. An array argument never animates by itself.
 
 <!-- docs-snippet: skip needs-file (writes island.mp4, which needs the video extra) -->
@@ -98,8 +98,8 @@ rotation.metadata["driver"]      # name "time", unit "s", and every frame's time
   `time` with `rotation_frequency` (driver `time` [s]).
   - A phase array combined with `time` is refused, because it is ambiguous.
   - So is a single phase with `animation=True`, which is a static diagram.
-- **Units and direction.** `rotation_frequency` is a frequency $f$ in Hz. The synthetic island of
-  #886 (`vaft.process.magnetic_island.MagneticIslandSpec`) takes the angular frequency $\omega = 2\pi f$ in
+- **Units and direction.** `rotation_frequency` is a frequency $f$ in Hz. The synthetic island phantom
+  (`vaft.process.magnetic_island.MagneticIslandSpec`) takes the angular frequency $\omega = 2\pi f$ in
   rad/s. A positive $f$ moves the O-points towards $+\theta^*$ on a section. At fixed $\theta^*$, it
   moves them towards $-\phi$, which is clockwise seen from above.
 - **Physics, not pictures.** Every state is the static diagram at that phase, with the same O/X
@@ -139,22 +139,23 @@ vaft.diagram.li_qa(reference="cheng_1987")                 # theoretical MHD-sta
 | Peeling–ballooning | Which edge instability limits the pedestal? | $\alpha_\mathrm{max}$, $J_{B,\mathrm{max}}$ (arbitrary units) | **Schematic.** Two linear margins joined by a smooth maximum. The ★, where the peeling and ballooning limits meet (typical ELM onset), is computed where the two margins are equal |
 | $s$–$\alpha$ | How does shear set the ballooning limit, and where is second stability? | $\alpha$, $s$ | The first and second stability boundaries come from `s_alpha_marginal_alpha`, which applies Newcomb's criterion to the Connor–Hastie–Taylor equation. The dashed line is the $0.6\,s$ approximation of `ballooning_stability_criterion`. Not resolved below $s \approx 0.05$ |
 | Hugill | Where is the density limit? | $\bar n_e R/B_T$, $1/q_\mathrm{cyl}$ | The registered `greenwald_hugill` line (slope $\pi/50\kappa_a$ in $1/q_\mathrm{cyl}$ against $\bar n_e R/B_T$) and `murakami_hugill` ($\bar n_e R/B_T = 1$). The registered `low_q` is on the equilibrium $q_\psi$, not $q_\mathrm{cyl}$, so it is not drawn; `q_limit=` adds a dashed *reference* $q_\mathrm{cyl}$ line |
-| Hugill (ST) | Where is the density limit in a spherical tokamak? | $\bar n_e R/B_T$, $1/q^{ST}_\mathrm{cyl}$ with $q^{ST}_\mathrm{cyl} = 2.5a^2(1+\kappa^2)B_T/(RI_p)$ | `vaft.diagram.hugill_st(elongation=1.8)`: the Hugill limit as Sykes et al. (2000, MAST) define it (`sykes_2000_st_hugill`) and the Greenwald limit on these axes (`greenwald_hugill_st`, derived); Murakami dashed as a historical conventional-tokamak reference. Not substitutable with the conventional `hugill` axes (#1602) |
+| Hugill (ST) | Where is the density limit in a spherical tokamak? | $\bar n_e R/B_T$, $1/q^{ST}_\mathrm{cyl}$ with $q^{ST}_\mathrm{cyl} = 2.5a^2(1+\kappa^2)B_T/(RI_p)$ | `vaft.diagram.hugill_st(elongation=1.8)`: the Hugill limit as Sykes et al. (2000, MAST) define it (`sykes_2000_st_hugill`) and the Greenwald limit on these axes (`greenwald_hugill_st`, derived); Murakami dashed as a historical conventional-tokamak reference. Not substitutable with the conventional `hugill` axes, because $q^{ST}_\mathrm{cyl}$ is a different quantity from the conventional $q_\mathrm{cyl}$ |
 | $l_i$–$q$ | Where do current-profile peaking and edge q allow stable operation? | Wesson: $q_\psi$, $l_i(3)$. Cheng: cylinder $q(a)$, $l_i$ | Two separate references, never mixed. Wesson 1989 Fig. 6: the JET *empirical* boundaries (kink and double tearing below, density-limit disruptions above), with the registered `low_q` closing $q_\psi = 2$. Cheng 1987 Fig. 4: the *theoretical* MHD-stable domain of a cylinder with $q(0) = 1.01$ (ideal kink below, resistive kinks above), plotted as $l_i$ rather than $l_i/2$ |
-| Troyon | How much pressure has the current held, against which references? | $I_p/(aB_T)$, $\beta_T$ | The registered `troyon` *stability reference*, $\beta_N = 2.2\,\mu_0 10^6 \approx 2.76$, through $\beta_T = \beta_N I_p/(aB_T)$, with the experimental $\beta_N$ levels of the `troyon` projection dashed (DIII-D envelope and record, ST reference, NSTX record; #1691). None is a limit, so no side is shaded or called stable. `beta_N_max=` draws a what-if value and the note says so; `q_limit=` adds a dashed reference $q_\mathrm{cyl}$ cutoff |
+| Troyon | How much pressure has the current held, against which references? | $I_p/(aB_T)$, $\beta_T$ | The registered `troyon` *stability reference*, $\beta_N = 2.2\,\mu_0 10^6 \approx 2.76$, through $\beta_T = \beta_N I_p/(aB_T)$, with the experimental $\beta_N$ levels of the `troyon` projection dashed (DIII-D envelope and record, ST reference, NSTX record). None is a limit, so no side is shaded or called stable. `beta_N_max=` draws a what-if value and the note says so; `q_limit=` adds a dashed reference $q_\mathrm{cyl}$ cutoff |
 
 These charts show the *boundaries* of an operating space. Each one reads its lines from
-`vaft.formula.boundaries` through a canonical projection (#1425), and a population of measured or
+`vaft.formula.boundaries` through a canonical projection, and a population of measured or
 modelled states goes on the same projection with
 `vaft.plot.operational_space.operational_space_population(table, "hugill")`. Table columns are named
 by quantity identity (`murakami_parameter`, `inverse_cylindrical_q`, `normalized_beta`, …) with
 units in `table.attrs["units"]`. A boundary is drawn only when both plotted columns are exactly the
 projection's quantities in its units: a `q95` column never carries a $q_\psi$ or $q_\mathrm{cyl}$
 boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fraction_power`,
-`li_qa_wesson`, `li_qa_cheng`, `beta_n_li1` (Strait's $\beta_N = 4\,l_i(1)$ envelope), and the #1691 beta-normalisation views `volume_beta_in`,
+`li_qa_wesson`, `li_qa_cheng`, `beta_n_li1` (Strait's $\beta_N = 4\,l_i(1)$ envelope), and the beta-normalisation views `volume_beta_in`,
 `beta_n_normalizations` (with a $y = x$ guide), `aspect_ratio_beta_n`, `aspect_ratio_volume_beta_n`;
-`list_projections()` gives the full set. See
-#944 and #636.
+`list_projections()` gives the full set. Not yet available: ECDF or binned statistics over a population of
+shots, with limit overlays (Open: #944), and a Thomson-based Greenwald and Hugill analysis of measured VEST shots
+(Open: #636).
 
 ### Dimensionless similarity spaces
 
@@ -166,7 +167,7 @@ The limit diagrams above ask whether a state crosses a boundary. A similarity sp
 | `rho_star_beta_n` | How much is pressure, how much is scale? | `rho_star_verdoolaege_2021`, `normalized_beta` |
 | `rho_star_omega_ci_tau_e` | Size against confinement time in gyro-orbits | `rho_star_verdoolaege_2021`, `omega_ci_tau_e_th` |
 
-The $\rho_*$ and $\nu_*$ axes follow the ITPA confinement-database convention, Verdoolaege et al., *Nucl. Fusion* 61 (2021) 076006, Eqs. (1a) and (1c), which Hillesheim et al. use. $n$ and $T$ are volume averages with $T_e = T_i$. The functions that evaluate them are `rho_star_from_M_T_B_R_epsilon`, `nu_star_from_n_T_B_R_epsilon_kappa_I` and `omega_i_tau_E_from_B_tau_E_M` in `vaft.formula.equilibrium`. VAFT has other $\nu_*$ and $\rho_*$ definitions (issue 353): Sauter's local $\nu_*$, pedestal $\nu^*_e$, edge and separatrix collisionalities. Each is a different quantity, so it cannot be drawn on these axes. A missing input leaves the state *unassessed*: it is counted per group, in a warning and in the legend, and is never estimated. Each projection carries its meaning as metadata:
+The $\rho_*$ and $\nu_*$ axes follow the ITPA confinement-database convention, Verdoolaege et al., *Nucl. Fusion* 61 (2021) 076006, Eqs. (1a) and (1c), which Hillesheim et al. use. $n$ and $T$ are volume averages with $T_e = T_i$. The functions that evaluate them are `rho_star_from_M_T_B_R_epsilon`, `nu_star_from_n_T_B_R_epsilon_kappa_I` and `omega_i_tau_E_from_B_tau_E_M` in `vaft.formula.equilibrium`. VAFT has other $\nu_*$ and $\rho_*$ definitions: Sauter's local $\nu_*$, pedestal $\nu^*_e$, edge and separatrix collisionalities. Each is a different quantity, so it cannot be drawn on these axes. A missing input leaves the state *unassessed*: it is counted per group, in a warning and in the legend, and is never estimated. Each projection carries its meaning as metadata:
 
 <!-- docs-snippet: skip fragment (placeholder name table, a dimensionless-similarity table, is never built on the page) -->
 ```python
@@ -178,12 +179,12 @@ fig, ax = dimensionless_similarity(table, "rho_star_nu_star", group="machine")  
 ax.vaft_exclusions.summary()
 ```
 
-The only built-in reference point is ARC V3A ($\beta_N = 1.8$, $\rho_* = 0.0017$, $\nu_* = 0.031$, $\Omega_{ci}\tau_{E,\mathrm{th}} = 4.1\times10^8$), the values Hillesheim et al. state in Sec. 4. Their SPARC, ITER and EU-DEMO points appear only as plotted markers, so they are not digitised. Pass such points as `reference_table=` with a `source` column. See #1624.
+The only built-in reference point is ARC V3A ($\beta_N = 1.8$, $\rho_* = 0.0017$, $\nu_* = 0.031$, $\Omega_{ci}\tau_{E,\mathrm{th}} = 4.1\times10^8$), the values Hillesheim et al. state in Sec. 4. Their SPARC, ITER and EU-DEMO points appear only as plotted markers, so they are not digitised. Pass such points as `reference_table=` with a `source` column. Transport-regime, edge/pedestal and separatrix operating spaces are not drawn yet (Open: #1624).
 
 ### Reduced stability diagnostics
 
 What each analytic or reduced criterion is, and what it proves, is on
-[Reduced stability diagnostics]({{ '/reference/reduced-stability-diagnostics/' | relative_url }}) (#1635).
+[Reduced stability diagnostics]({{ '/reference/reduced-stability-diagnostics/' | relative_url }}).
 
 ```python
 vaft.diagram.stability_diagnostic_taxonomy()
@@ -320,7 +321,8 @@ vaft.diagram.collision_processes()
 ![collision processes]({{ '/assets/diagrams/collision_processes.svg' | relative_url }})
 
 The diagram contains no numbers except the D–T alpha energy, which is `vaft.formula.constants.E_ALPHA`. Collision frequencies, the
-Coulomb logarithm and collisionality regimes are left to formula-backed diagrams (#1111).
+Coulomb logarithm and collisionality regimes are left to the formula-backed diagrams of
+[Neoclassical and NTV collisionality regimes](#neoclassical-and-ntv-collisionality-regimes).
 
 ## Geometric approximations
 
@@ -345,7 +347,7 @@ vaft.diagram.mhd_mode_geometry_map()
 ## Asymptotic orderings
 
 The scale separations a reduced model assumes, evaluated rather than assumed. The kernels are in
-`vaft.formula.ordering`, and [Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }}) (#1627)
+`vaft.formula.ordering`, and [Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }})
 explains them. Which diagrams the scale-to-model chain needs, and which are still planned, is
 [Characteristic scales and orderings]({{ '/reference/characteristic-scales/' | relative_url }}), "Diagram contracts".
 
@@ -361,11 +363,11 @@ vaft.diagram.adapter_contract_map()
 | `timescale_hierarchy` | Inverse gyrofrequencies, collision, Alfvén, sound-crossing, inverse ion transit and bounce frequencies, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$. Drift precession (no kernel) and $\tau_E$ (no inventory) are left out |
 | `spatial_scale_orderings` | Electron and ion Larmor radii, $\rho_s$, $d_i$, the banana width, an illustrative gradient length, $a$, $R_0$ and $qR_0$ of the same state on one logarithmic axis. Below it are $\rho_i/L$, $\Delta_b/L$, $d_i/a$, with brackets for the ratios that need a mode ($k_\perp\rho$, $k_\parallel/k_\perp$, $\omega/\Omega_c$) |
 | `ordering_contract_map` | Which model needs which ordering, read from `vaft.validation.orderings.CONTRACTS`. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered. |
-| `adapter_contract_map` | Which ordering contracts each VAFT code-adapter mode consumes, and how each enters the calculation: governing (filled), RDCON's outer solution and layer solution, DCON-kinetic's fluid part and kinetic part, PENTRC's closure, inherited by a reduced model that does not solve its parent theory (dashed). An empty cell is no registered contract, not physical independence (`vaft.validation.model_contracts`, #1823) |
+| `adapter_contract_map` | Which ordering contracts each VAFT code-adapter mode consumes, and how each enters the calculation: governing (filled), RDCON's outer solution and layer solution, DCON-kinetic's fluid part and kinetic part, PENTRC's closure, inherited by a reduced model that does not solve its parent theory (dashed). An empty cell is no registered contract, not physical independence (`vaft.validation.model_contracts`) |
 
 ## Plasma-model guide
 
-Figures for the [plasma-model guide]({{ '/reference/plasma-model-guide/' | relative_url }}) (#1739). Every node is
+Figures for the [plasma-model guide]({{ '/reference/plasma-model-guide/' | relative_url }}). Every node is
 read from the formalism records: a node lists the `adapter:mode` ids of `vaft.validation.model_contracts.ADAPTER_MODES`
 whose record matches it, and codes not in VAFT (`vaft.diagram.EXTERNAL_CODES`) are hollow and labelled so. Four edge
 kinds are used: asymptotic reduction (solid), model coupling (double-headed), software dependency (dotted) and
@@ -391,7 +393,7 @@ vaft.diagram.reduced_model_ancestry()
 
 How formulas compress plasma information, from fields to profiles to scalars and from dimensional to
 dimensionless quantities, is classified on
-[Reduced representations]({{ '/reference/reduced-representations/' | relative_url }}) (#1626). The figures
+[Reduced representations]({{ '/reference/reduced-representations/' | relative_url }}). The figures
 are built from the formulas' `Reduction` docstring sections and the relation metadata in
 `vaft.formula._taxonomy`.
 
@@ -516,7 +518,7 @@ vaft.diagram.toroidal_symmetry_breaking()
   $2\pi$ error.
 * $J_\parallel$ is documented but deliberately not a numerical helper: its bounce interval and
   orientation depend on the orbit.
-* The drift of one orbit's $P_\phi$ is not NTV. Torque and transport are #1111's, and need the kinetic
+* The drift of one orbit's $P_\phi$ is not NTV. Torque and transport belong to the NTV formulas (`vaft.formula.ntv`) and need the kinetic
   response of the whole distribution.
 
 ## Straight-field-line coordinates
@@ -525,7 +527,8 @@ Straight field lines are a condition, not a coordinate system. The freedom the c
 PEST, Boozer, Hamada and equal-arc fix in different ways. All four are members of one generalised
 family, $\mathcal{J} \propto R^{p_R}/(B_p^{p_{Bp}}B^{p_B})$ (`vaft.formula.generalized_straight_field_line_angle`,
 as in DCON/GPEC). The unwrapped picture of a straight field line is `unwrapped_flux_surface`.
-Clebsch, field-aligned and ballooning coordinates are #1075's.
+Clebsch, field-aligned and ballooning coordinates are in
+[Clebsch labels and the ballooning representation](#clebsch-labels-and-the-ballooning-representation).
 
 ```python
 vaft.diagram.sfl_coordinate_grids()
@@ -664,7 +667,7 @@ The resulting $(s, \alpha)$ stability diagram is `s_alpha_ballooning`.
   ($d\theta^*/dl \propto 1/(R^2B_p)$) on the diverted toy equilibrium of the Grad–Shafranov diagrams. They are
   evenly spread in the core and crowd into the X-point near the separatrix, where $B_p \to 0$ and
   $q \propto \oint dl/(R^2B_p)$ diverges; outside it the lines are open and X-point-adapted coordinates take
-  over. See also `sfl_coordinate_validity` (#1074).
+  over. See also `sfl_coordinate_validity`.
 
 ```python
 vaft.diagram.field_aligned_basis(q=2.5)
@@ -691,7 +694,7 @@ vaft.diagram.field_aligned_xpoint_limitation(n_theta=24)
 
 How the reduced $s$–$\alpha$ equation follows from the general ballooning equation, and how DCON's $C_A$
 and GPEC.jl's ballooning $\Delta'$ relate to it, is on
-[Ballooning formulations]({{ '/reference/ballooning-formulations/' | relative_url }}) (#1637).
+[Ballooning formulations]({{ '/reference/ballooning-formulations/' | relative_url }}).
 
 ```python
 vaft.diagram.ballooning_formulation_hierarchy()
@@ -772,7 +775,7 @@ picture (independent $m$ vs toroidally coupled $m, m\pm1$) is `poloidal_harmonic
 ## Current-profile and q topology
 
 What the shape of the current does to the poloidal field, the internal inductance and the safety
-factor, and how the shape of $q$ decides how many rational surfaces one $m/n$ has (#1604). All four
+factor, and how the shape of $q$ decides how many rational surfaces one $m/n$ has. All four
 diagrams use one reduced model: a straight cylinder whose current is peaked
 ($j \propto (1 - x^2)^2$), broad ($1 - x^4$) or hollow / off-axis ($(0.1 + x^2)(1 - x^2)^{3/2}$), each
 normalized to the same $I_p$. The chain is `cylindrical_enclosed_current`, `cylindrical_poloidal_field`
@@ -805,16 +808,16 @@ vaft.diagram.rational_surface_topology(profile="reversed_shear", m=2, n=1)
 | `rational_surface_topology` | A monotonic $q$ crosses one $m/n$ once. A reversed-shear $q$ can cross it twice, $q(r_1) = q(r_2) = m/n$ with $r_1 < r_{\min} < r_2$: a *double-resonant configuration*. A double tearing mode is the instability in which tearing layers on the two surfaces couple, and only a stability calculation can say whether it grows |
 
 These diagrams sit upstream of the others. `current_to_q_profile` keeps the analytic peaked
-family $j \propto (1 - x^2)^\nu$ and `cylindrical_rational_surfaces` the monotonic surfaces of one $n$
-(#1072). `rational_surface` keeps the single-crossing definition, and `delta_prime` and
-`tearing_layer_matching` follow it (#1039). The $l_i$–$q$ diagrams of `li_qa` (#1603) are
+family $j \propto (1 - x^2)^\nu$ and `cylindrical_rational_surfaces` the monotonic surfaces of one $n$.
+`rational_surface` keeps the single-crossing definition, and `delta_prime` and
+`tearing_layer_matching` follow it. The $l_i$–$q$ diagrams of `li_qa` are
 *operating spaces*: one scalar $l_i$ against one scalar edge $q$, from the literature. They are not
 plots of a current profile. The data-side counterparts are `vaft.plot.equilibrium_profile_j_tor` and
-`equilibrium_profile_q` (#1505).
+`equilibrium_profile_q`.
 
 ## Current diffusion and current drive
 
-How the current-density and safety-factor profiles above form in time (#1605). Both diagrams evolve one
+How the current-density and safety-factor profiles above form in time. Both diagrams evolve one
 reduced model: the enclosed current $I(\rho, t)$ of a straight cylinder under
 `cylindrical_current_diffusion_rate` (Faraday, Ampère and Ohm's law with a non-inductive source
 $j_\mathrm{ni}$), integrated implicitly. The resistivity is a fixed Spitzer
@@ -1003,9 +1006,10 @@ $k_\parallel^2\kappa_\parallel T/L = 2 - \partial\ln L/\partial\ln T$, so conden
 falling radiation curve. On the $k_\parallel = 0$ axis only the constant-density flute limit
 (`radiative_thermal_instability_growth_rate`) applies, and it is unstable where $L$ falls with $T$.
 
-The band is prescribed, not solved, and no cooling curve or density-limit formula is built in; MARFE onset
-and density-limit semantics belong to #1068. The API names its sizes `poloidal_width_deg` and
-`radial_fraction`; the issue's `"prescribed"` localization is not implemented.
+The band is prescribed, not solved, and no cooling curve is built in. The Greenwald and Hugill limits are in
+`vaft.formula.boundaries`, but MARFE onset is not tied to any density limit; separating global, edge,
+sustainment and disruptive density limits is open (Open: #1068). The API names its sizes `poloidal_width_deg` and
+`radial_fraction`; `localization` accepts only `"hfs"` and `"xpoint"`, so a freely `"prescribed"` location is not implemented.
 
 ```python
 vaft.diagram.marfe(localization="hfs")      # or "xpoint"; poloidal_width_deg=30, radial_fraction=0.1
@@ -1069,7 +1073,7 @@ vaft.diagram.disruption_energy_pathways()
 | `disruption_timeline` | A 0-D reference model built from the formulas. A prescribed thermal quench raises the Spitzer $\eta$. The L/R current quench then induces $E_\parallel \approx 10^3E_c$ ($\approx 2\,\%$ of $E_D$). A Dreicer seed of a few kA is multiplied about 25-fold by the avalanche (at 1 MA, only a few e-folds) into a runaway plateau. Magnitudes are illustrative: no universal waveform |
 | `disruption_causal_chain` | The same sequence as cause and effect, each arrow labelled by its formula |
 | `runaway_generation` | The avalanche rate (per runaway) and the Dreicer rate (per electron) against $E/E_c$. The normalisations differ, so the two magnitudes are not compared. Nothing runs away below $E_c$, and Dreicer is drawn only within its asymptotic range, $E \le 0.1E_D$. Hot-tail seeding is not drawn |
-| `disruption_energy_pathways` | Thermal energy leaves by conduction and radiation. Magnetic energy $\tfrac12L_pI_p^2$ goes to ohmic heating, the vessel and coils, runaway kinetic energy and halo currents (#1042). The existing `thermal_energy_from_p_V`, `virial_thermal_energy` and `magnetic_energy_from_li_B_pa_V_p` compute the two pools |
+| `disruption_energy_pathways` | Thermal energy leaves by conduction and radiation. Magnetic energy $\tfrac12L_pI_p^2$ goes to ohmic heating, the vessel and coils, runaway kinetic energy and halo currents (`vaft.formula.vde.halo_current_fraction` gives only the peak halo fraction; an analytic halo-current model is open: #1042). The existing `thermal_energy_from_p_V`, `virial_thermal_energy` and `magnetic_energy_from_li_B_pa_V_p` compute the two pools |
 
 ## Vertical displacement events: hot and cold VDE, halo currents
 
@@ -1213,8 +1217,8 @@ A small, machine-independent NBI layer. It is not NUBEAM, ASCOT5 or BEAMS3D, and
   $S_i - S_{i+1}$, so $\sum_i + f_\mathrm{shine} = 1$ and $P_\mathrm{birth} + P_\mathrm{shine} =
   P_\mathrm{injected}$ hold exactly on any grid. The "power birth profile" is where neutrals become
   fast ions, not where the plasma is heated. The process module's docstring tabulates what this layer
-  answers and what needs a full solver; related work is #265 (VEST NBI description), #592 (NUBEAM → IMAS),
-  #1064 and #1092 (scales, orbits).
+  answers and what needs a full solver. Not yet available: a VEST NBI description in the `nbi` IDS
+  (Open: #265), a complete NUBEAM → IMAS mapping (Open: #592), and a canonical scale layer (Open: #1064).
 
 The attenuation coefficient $\alpha = \sum_j n_j\sigma_j$ is always an input; no beam-stopping data are
 built in. Orbits, trapped and passing fast ions, and $P_\phi$ are the particle-motion diagrams', and are
@@ -1315,7 +1319,7 @@ Coulomb collisions -> transit / bounce motion -> nu_hat = qR nu/v -> banana / pl
 ```
 
 The axis of the first diagram is $\hat\nu = qR_0\nu/v$ (`collisions_per_transit`), not a $\nu_*$. VAFT's
-several $\nu_*$ conventions (issue 353) share the symbol but not the value. The boundaries
+several $\nu_*$ conventions share the symbol but not the value. The boundaries
 $\hat\nu = \epsilon^{3/2}$ and $1$ come from `neoclassical_regime_boundaries`. The orbit scales behind
 them are `transit_frequency`, `deeply_trapped_bounce_frequency`,
 `trapped_particle_effective_collision_frequency` and `banana_width` in `vaft.formula.neoclassical`.
@@ -1405,7 +1409,7 @@ $\Gamma$ at one $\partial_r n$ is the line $V = (\Gamma + D\,\partial_r n)/n$, c
 
 It draws no magnitude axis, because their sizes are not universally ordered. The banana, plateau and
 Pfirsch–Schlüter regimes are `neoclassical_collisionality` above. It states its $\hat\nu$ convention, and
-since #1112 it shades a transition range, a factor of 3 either side of each boundary, rather than
+it shades a transition range, a factor of 3 either side of each boundary, rather than
 drawing exact lines.
 
 ```python
@@ -1595,7 +1599,7 @@ vaft.diagram.blob_regimes(epsilon_x=0.1)  # Lambda against Theta = delta_hat^{5/
 
 ## The VAFT framework: pillars, research cycle, managed pipeline, provenance
 
-These diagrams describe what VAFT is and how scientific data moves through it (#1090). They work at the level of
+These diagrams describe what VAFT is and how scientific data moves through it. They work at the level of
 scientific capabilities, not deployment: no storage backend, endpoint, path or module name appears in them, and
 a test enforces this. The README uses the four pillars, the research cycle and the managed pipeline.
 
@@ -1621,18 +1625,18 @@ vaft.diagram.machine_research_archive()
 | `scientific_workflow` | A managed pipeline. Heterogeneous machine and experimental sources feed ingestion and orchestration, then diagnostic processing → equilibrium reconstruction and profile fitting → interpretive simulation, all reading and writing the standardized scientific state held in the Common Data Model (IMAS). Configuration and description, provenance and versioning, and V&V with quality assessment cut across it, and V&V feeds back to the configurations. The product is qualified, analysis-ready data |
 | `interoperability_layers` | From machine to scientific workflows in both directions, through the native representation, validation/standardization, the Common Data Model (IMAS) and the IMAS database. Native artifacts are stored alongside the standard (the dashed path) |
 | `scientific_provenance_chain` | An example tokamak analysis chain: raw signal → processed data → equilibrium reconstruction and profile fitting → derived physics quantities → analysis and visualization. Versioned inputs and configurations are kept apart from the cross-cutting quality metadata |
-| `plasma_state_provenance` | The information layers of one plasma state (Tutorial 03, #1714): measured quantities ($I_p$, magnetics, diamagnetic flux, Thomson and charge-exchange profiles) and assumed priors (profile model, weights and uncertainties, $Z_\mathrm{eff}$, boundary conditions) both enter the reconstruction or fit, whose fields and profiles feed the derived descriptors ($\kappa$, $\delta$, $q_{95}$, $\beta$, $\ell_i$, pressures, $\nu^*$, $\rho^*$, $a/L_T$). A derived number is never itself a measurement |
+| `plasma_state_provenance` | The information layers of one plasma state (Tutorial 03): measured quantities ($I_p$, magnetics, diamagnetic flux, Thomson and charge-exchange profiles) and assumed priors (profile model, weights and uncertainties, $Z_\mathrm{eff}$, boundary conditions) both enter the reconstruction or fit, whose fields and profiles feed the derived descriptors ($\kappa$, $\delta$, $q_{95}$, $\beta$, $\ell_i$, pressures, $\nu^*$, $\rho^*$, $a/L_T$). A derived number is never itself a measurement |
 | `scientific_infrastructure_principles` | Two foundations, both converging on VAFT. On one side are the common principles for modern scientific infrastructure (FAIR, W3C PROV, TRUST). On the other are three fusion-community requirements: verification and validation, integrated modelling and data analysis, and multi-machine comparison and extrapolation. Each side's references, FAIR4RS among them, sit beneath it |
 | `machine_agnostic_architecture` | Theory, experiment, modelling and simulation, and data-driven methods share one scientific framework and one Common Data Model (IMAS), which holds design, experimental and simulation data and is stored in the IMAS database. Machine-specific data access and mapping absorbs device differences, so the same architecture serves existing fusion experiments and future devices and reactor concepts. No device is named |
 | `experiment_modeling_theory_data_network` | A three-step argument for a common data model. Point to point needs $N(N-1)/2$ pairwise adapters, and a new mode needs $N-1$ more. The Common Data Model (IMAS) needs $N$ adapters, and a new mode needs one. The IMAS equilibrium IDS, a standardized equilibrium representation, then serves as a tokamak example with representative routes and references |
-| `integrated_scientific_framework` | The common-model network one level up (#1698). The same four research modes and Common Data Model (IMAS), placed exactly as in the network, sit inside an Integrated Framework boundary, and the shared state feeds one Analysis node. The Common Data Model is the shared representation; the framework connects, runs, compares and reproduces research through it; analysis is the scientific use. With `domain="equilibrium"` the routes and the IMAS equilibrium IDS return, and the analysis reads MHD parameters, plasma shape and operational space. These are equilibrium-derived descriptors; stability codes such as DCON and RDCON are downstream models and stay out |
+| `integrated_scientific_framework` | The common-model network one level up. The same four research modes and Common Data Model (IMAS), placed exactly as in the network, sit inside an Integrated Framework boundary, and the shared state feeds one Analysis node. The Common Data Model is the shared representation; the framework connects, runs, compares and reproduces research through it; analysis is the scientific use. With `domain="equilibrium"` the routes and the IMAS equilibrium IDS return, and the analysis reads MHD parameters, plasma shape and operational space. These are equilibrium-derived descriptors; stability codes such as DCON and RDCON are downstream models and stay out |
 | `human_ai_interface` | Three layers: actors, shared access interfaces and one backend. Human researchers and AI agents collaborate through the Python API, CLI, GUI, repository and docs, and MCP (planned). The interface layer reaches the framework and the IMAS database through one common connection |
 | `machine_research_archive` | VEST's institutional and scientific memory since 2012: machine history, research on VEST and research knowledge feed one living archive, which new analyses and research build on. No dates are drawn beyond the start of operation |
 
 ![The four pillars of VAFT]({{ '/assets/diagrams/vaft_four_pillars.svg' | relative_url }})
 
 The four pillars, the research cycle, the managed pipeline and the human-AI interface carry
-[semantic pictograms](#semantic-pictograms) (#2101, #2109), one symbol per concept:
+[semantic pictograms](#semantic-pictograms), one symbol per concept:
 
 | Figure | Concept → symbol |
 | --- | --- |
@@ -1669,7 +1673,7 @@ cross:
 2. a shared scientific representation, `experiment_modeling_theory_data_network("common_model")`;
 3. an integrated scientific framework, `integrated_scientific_framework()`, and its equilibrium example,
    `integrated_scientific_framework(domain="equilibrium")`;
-4. the broader research infrastructure, `experimental_research_infrastructure()` (#1636);
+4. the broader research infrastructure, `experimental_research_infrastructure()`;
 5. the managed workflow, `scientific_workflow()`;
 6. the VEST implementation, `vest_data_platform()`.
 
@@ -1679,7 +1683,7 @@ and `database`, a drum drawn as polylines. They use the `concept …` and `conne
 
 ## Research infrastructure: four levels of integration, the community and ownership
 
-Why VAFT is built the way it is, in four levels (#1641, #1636, #1638, #1640). Each level is a pair of figures
+Why VAFT is built the way it is, in four levels. Each level is a pair of figures
 from one builder: `organization="fragmented"` draws the problem and `organization="integrated"` the
 architecture that answers it. The pair grammar is shared:
 
@@ -1695,13 +1699,13 @@ architecture that answers it. The pair grammar is shared:
   the problem figure cites them.
 
 ```python
-vaft.diagram.scientific_representation("fragmented")             # level 1, #1641
+vaft.diagram.scientific_representation("fragmented")             # level 1
 vaft.diagram.scientific_representation()                         # "integrated" is the default
-vaft.diagram.experimental_research_infrastructure("fragmented")  # level 2, #1636
-vaft.diagram.scientific_credibility("fragmented")                # level 3, #1638
-vaft.diagram.research_modality_architecture("fragmented")        # level 4, #1640
-vaft.diagram.fusion_research_ecosystem()                         # #1643, "full" or "presentation"
-vaft.diagram.scientific_ownership_architecture()                 # #1645
+vaft.diagram.experimental_research_infrastructure("fragmented")  # level 2
+vaft.diagram.scientific_credibility("fragmented")                # level 3
+vaft.diagram.research_modality_architecture("fragmented")        # level 4
+vaft.diagram.fusion_research_ecosystem()                         # "full" or "presentation"
+vaft.diagram.scientific_ownership_architecture()                 # scientific ownership
 ```
 
 Read in order, the figures make one argument. A Common Data Model answers the representation problem
@@ -1727,7 +1731,7 @@ The figures keep several distinctions visible, and the tests check them:
 - external solvers keep their own platform limits.
 
 `fusion_research_ecosystem` asks a different question: who does fusion research, what they do, and which
-shared scientific states connect it (#1643). The `"full"` figure shows research roles a person may combine,
+shared scientific states connect it. The `"full"` figure shows research roles a person may combine,
 with graduate researchers and learners across every activity. Planning leads to a planned shot and a planned
 simulation run. Experiment and simulation are parallel, epistemically distinct producers. Comparison,
 validation and synthesis yield qualified states and feed new questions back to planning. Knowledge is
@@ -1738,7 +1742,7 @@ discovery, and modelling, prediction and validation. Curved arrows show exchange
 they do not prescribe a fixed sequence. A test checks that its roles, verbs, states and uses map back to
 the detailed figure's roles, activities and states.
 
-`scientific_ownership_architecture` shows where scientific logic lives as research software matures (#1645).
+`scientific_ownership_architecture` shows where scientific logic lives as research software matures.
 Research groups Studies by membership, not by execution order, and neither executes anything. A workflow or
 notebook composes computation and matures reusable logic out of itself. Data and the database, and Formula,
 Process, Code and learned models, produce results and evidence. Validation interprets that evidence, and an
@@ -1748,10 +1752,9 @@ layers]({{ '/reference/computational-layers/' | relative_url }}) is the zoomed v
 [Scientific architecture]({{ '/reference/scientific-architecture/' | relative_url }}) uses this figure as VAFT's
 normative architecture.
 
-Related issues: #1090 (the concept family), #1550 (the VEST workflow), #497 (placement of canonical visuals),
-#248, #252, #1505, #1626-#1629 (provenance, contracts and applicability), #1077, #1165, #1170, #1639,
-#1642, #669 (ownership, Study, Research, learned models), #1174, #1086, #188, #1423, #1002, #1012, #1013,
-#1016 (interfaces and runtimes).
+Some elements these figures draw are architecture, not yet code: the Study and Research units (Open: #1165,
+#1170), the optional Actor overlay (Open: #1077), and production publication of versioned learned models
+(Open: #669).
 
 References for the terminology in the level-3 and community figures:
 
@@ -1775,8 +1778,8 @@ References for the terminology in the level-3 and community figures:
 ![Fragmented experimental research]({{ '/assets/diagrams/experimental_research_infrastructure_fragmented.svg' | relative_url }})
 ![Integrated research infrastructure]({{ '/assets/diagrams/experimental_research_infrastructure.svg' | relative_url }})
 
-Both infrastructure figures mark each source with the same [semantic pictogram](#semantic-pictograms)
-(#2109): DAQ signals → `signal`, machine database → `database`, diagnostic files → `file`,
+Both infrastructure figures mark each source with the same [semantic pictogram](#semantic-pictograms):
+DAQ signals → `signal`, machine database → `database`, diagnostic files → `file`,
 machine geometry → `tokamak`, operation & maintenance records → `history`, calibration &
 configuration → `parameters`. Only the integrated figure has the last one as a source, because the
 fragmented figure keeps calibration as private copies.
@@ -1789,7 +1792,7 @@ fragmented figure keeps calibration as private copies.
 ![Connecting the activities of fusion research]({{ '/assets/diagrams/fusion_research_ecosystem_presentation.svg' | relative_url }})
 
 The four concept figures embedded in the README and guides carry a few
-[semantic pictograms](#semantic-pictograms) (#2113), placed where they help a reader tell kinds of
+[semantic pictograms](#semantic-pictograms), placed where they help a reader tell kinds of
 things apart and left out elsewhere:
 
 | Figure | Concept → symbol | Deliberately without |
@@ -1810,7 +1813,7 @@ figure is changed by editing data.
 
 ## The VEST data platform
 
-The VEST data platform as a database-centred scientific workflow (#1550), laid out as a cross about the
+The VEST data platform as a database-centred scientific workflow, laid out as a cross about the
 database. The VEST machine, a CAD render packaged with `vaft.diagram` and embedded in the SVG, sits outside
 the platform server and feeds experimental data processing
 ([the render]({{ '/assets/images/vest_machine.jpg' | relative_url }})). A per-shot directory is the hub: reconstruction and physics inference (above) and simulation
@@ -1840,7 +1843,7 @@ vaft.diagram.vest_data_platform_overview()  # five stages, for papers and slides
 ## Integrated modeling: knowledge basis, realization, abstraction
 
 A single "analytic / numerical / empirical / data-driven" list mixes three independent questions. These
-diagrams keep them apart (#1085):
+diagrams keep them apart:
 
 - **Knowledge basis:** where does the model's knowledge come from, from first-principles to data-driven?
 - **Computational realization:** how is the model evaluated, from analytical to fully numerical?
@@ -1960,7 +1963,7 @@ from the outboard midplane.
 
 ## Physics workflows: derivation, inference and solver coupling
 
-The level-2 view below the platform overview (#1585). Each figure is drawn from one declarative
+The level-2 view below the platform overview. Each figure is drawn from one declarative
 `WorkflowSpec` (`vaft.diagram._workflow`); the same record produces the figure and the table under it, and
 the tests require every API and equation it names to exist on this tree. The figures follow the current
 implementation: where VAFT does not yet implement the physically complete step, or has no IMAS mapping, the
@@ -1982,7 +1985,7 @@ unsupported capability. Node style says how a quantity was obtained:
 | native result | `output_file` | the solver's own output, before any mapping |
 | standardized IMAS | `standardized` | the IMAS / OMAS representation VAFT stores |
 
-Each legend entry draws the kind's [semantic pictogram](#semantic-pictograms) inside its colour swatch (#2114),
+Each legend entry draws the kind's [semantic pictogram](#semantic-pictograms) inside its colour swatch,
 followed by its label. The swatch and label stay authoritative, and the symbol never encodes implementation
 status: a `computation` symbol on *solver / model* does not mean the solver runs, and `standardized`
 does not mean a product passed validation. The symbols appear only in the legend, not inside the nodes.
@@ -2030,7 +2033,7 @@ vaft.diagram.power_balance_confinement()
 
 ### Architecture coverage: every science box of the platform figure
 
-Each science box of the platform figure (`vest_data_platform`, #1550) maps to the workflow diagrams that
+Each science box of the platform figure (`vest_data_platform`) maps to the workflow diagrams that
 draw it, or to a tracked gap. The table is generated from `vaft.diagram._architecture_coverage`, which reads
 the boxes from `vaft.diagram._platform`; a test keeps it equal to the figure and requires every named diagram
 to exist.
@@ -2846,7 +2849,7 @@ Follow-up TODOs (implementation or IMAS mapping):
 ## Semantic pictograms
 
 Concept diagrams can carry small stroke **pictograms** that name a kind of thing -- a database, a
-solver, a researcher -- so a figure reads at a glance (#2101). They come from one registry,
+solver, a researcher -- so a figure reads at a glance. They come from one registry,
 `vaft.diagram.pictograms`, so the same concept is drawn the same way in every figure.
 
 A pictogram is a **presentation component, not a model output**. Its geometry carries no physical
@@ -2978,7 +2981,7 @@ python -m vaft.diagram.build --check    # verify the committed assets; needs no 
 Each SVG carries its own build record: one comment line after the XML declaration holding the call,
 the SHA-256 of the generated TikZ document it was rendered from, and the SHA-256 of the SVG without
 that line. Because the record lives in the diagram's own file, two pull requests that change different
-diagrams share no generated file and do not conflict (#1750). `--check` rebuilds the TikZ in pure
+diagrams share no generated file and do not conflict. `--check` rebuilds the TikZ in pure
 Python and fails in five cases: an asset is stale, an asset was edited by hand, an asset is missing,
 an asset has no record, or an asset is orphaned. CI runs it on every pull request. Freshness is judged on the source
 and not on SVG bytes, because two `dvisvgm` releases write different but equally correct SVG for the

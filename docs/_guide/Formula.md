@@ -129,7 +129,7 @@ Fields and current density from the flux map:
 ```python
 B_r = vaft.formula.radial_magnetic_field_from_psi(psi, R, Z)      # B_r = -(1/R) dpsi/dZ
 B_z = vaft.formula.vertical_magnetic_field_from_psi(psi, R, Z)    # B_z = +(1/R) dpsi/dR
-# current_density_from_psi (removed in 0.8.0, #355) returned -B_Z/mu0 [A/m],
+# current_density_from_psi (removed in 0.8.0) returned -B_Z/mu0 [A/m],
 # not a current density.  For that quantity, note the minus sign:
 j   = -vaft.formula.vertical_magnetic_field_from_psi(psi, R, Z) / MU0   # [A/m]
 # For a real toroidal current density use the Grad-Shafranov operator:
@@ -414,7 +414,7 @@ requested scaling declares, so you never pass `input_density_definition` at the 
 `scaling=` is required. The wrappers are skip-tolerant: an unknown key or a missing input logs a warning
 and returns `NaN` for that time slice instead of raising.
 
-> **Two experimental confinement times, kept apart (#1905).** `compute_tau_E_exp` and the `P_loss` above
+> **Two experimental confinement times, kept apart.** `compute_tau_E_exp` and the `P_loss` above
 > are the *legacy modelled budget*: Spitzer $\int\eta J^2 dV$ heating ($Z_\mathrm{eff}=2$,
 > $\ln\Lambda=17$), modelled radiation (line + bremsstrahlung + synchrotron) always subtracted, and
 > $W = \tfrac32\langle p\rangle V$ with $p = 2n_eT_e$. They keep that definition, and calling
@@ -451,6 +451,6 @@ Everything on this page that will silently give you a wrong number if you feed i
 | `v_alfven_from_B_n_mi` vs `collisionality_from_n_T_B_R` | $n$ in $\mathrm{m^{-3}}$ for the Alfvén speed, but $n_e$ in $10^{19}\ \mathrm{m^{-3}}$ for $\nu_*$. |
 | `confinement_time_from_engineering_parameters` | Strict **SI in** (A, W, m⁻³); the conversion to MA/MW/$10^{19}$ m⁻³ happens inside. Pre-scaled inputs are wrong by many orders of magnitude. |
 | `vaft.omas.compute_tau_E_scaling` | `scaling=` is required; an unknown key or a missing input → warning + `NaN`. |
-| `vaft.omas.compute_tau_E_exp` | The legacy modelled budget (Spitzer heating, modelled radiation), not the measured-loop Ohmic $\tau_E$ of `vaft.omas.confinement.ohmic_confinement_ods` (#1905). |
+| `vaft.omas.compute_tau_E_exp` | The legacy modelled budget (Spitzer heating, modelled radiation), not the measured-loop Ohmic $\tau_E$ of `vaft.omas.confinement.ohmic_confinement_ods`. |
 
 ---
