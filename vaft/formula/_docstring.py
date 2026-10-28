@@ -1,4 +1,4 @@
-"""The formula docstring contract (issue #248).
+"""The formula docstring contract.
 
 Every public function in :mod:`vaft.formula` documents itself in one layout:
 a one-line summary, a *Definition* paragraph (math in ``$..$``), numpydoc
@@ -57,7 +57,7 @@ SECTION_VOCABULARY: tuple[str, ...] = (
     "Warnings",
 )
 
-#: The provenance sections issue #248 adds on top of numpydoc.
+#: The provenance sections the formula contract adds on top of numpydoc.
 CUSTOM_SECTIONS: tuple[str, ...] = (
     "Convention",
     "Physical interpretation",

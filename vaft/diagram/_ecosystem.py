@@ -1,4 +1,4 @@
-"""Software dependencies and external scientific-code integration (#1648).
+"""Software dependencies and external scientific-code integration.
 
 ``software_dependency_ecosystem``
     which capabilities are part of the core and which are activated by an
@@ -107,7 +107,7 @@ def software_dependency_ecosystem(*, labels: bool = True) -> Diagram:
                            "note,text width=18cm", anchor="north", role="note"))
     return Diagram("software_dependency_ecosystem", Scene(tuple(items)), model=dict(model))
 
-#: the pictograms of the lifecycle steps that change who owns or runs what (#2113); keys follow
+#: the pictograms of the lifecycle steps that change who owns or runs what; keys follow
 #: ``vaft._ecosystem.INTEGRATION_LIFECYCLE`` and the two execution routes
 INTEGRATION_SYMBOLS: Dict[str, str] = {"upstream": "source_code", "install": "package", "adapter": "adapter",
                                        "execute:local": "laptop", "execute:slurm": "cluster",
@@ -126,7 +126,7 @@ def external_code_integration(*, labels: bool = True) -> Diagram:
     installation step, the current codes grouped by who installs them.
     """
     labels = _check_labels(labels)
-    # each box keeps its text width and gains a left column for a pictogram (#2113): 0.8 cm a side
+    # each box keeps its text width and gains a left column for a pictogram: 0.8 cm a side
     w, h, step, column = 9.6, 0.85, 1.35, 0.8
     boxes = {}
     items: List = []

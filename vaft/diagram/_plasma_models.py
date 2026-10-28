@@ -1,4 +1,4 @@
-"""Plasma-model guide figures, read from the formalism records (#1739 Phase E2).
+"""Plasma-model guide figures, read from the formalism records.
 
 Every node and edge here is derived from :mod:`vaft.code.formalism` (``AXES``
 and the :class:`~vaft.code.formalism.PlasmaFormalism` fields) and from

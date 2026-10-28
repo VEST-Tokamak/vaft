@@ -1,4 +1,4 @@
-"""The vocabulary of the integrated-modeling diagrams (#1085), kept apart from their drawing.
+"""The vocabulary of the integrated-modeling diagrams, kept apart from their drawing.
 
 A model is placed by three independent axes -- where its knowledge comes
 from, how it is evaluated, and at what physical description level it

@@ -1,4 +1,4 @@
-"""Flux-surface geometry of an arbitrary equilibrium, for equilibrium-aware diagrams (#1209).
+"""Flux-surface geometry of an arbitrary equilibrium, for equilibrium-aware diagrams.
 
 One private adapter so every phenomenon diagram draws on the same surfaces,
 normals and straight-field-line angle rather than rebuilding them::

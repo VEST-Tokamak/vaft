@@ -310,7 +310,8 @@ def committed_assets_dir() -> Path:
     return Path(__file__).resolve().parents[2] / "docs" / "assets" / "diagrams"
 
 
-#: The first comment of a committed SVG: how it was built, so freshness needs no manifest (#1750).
+#: The first comment of a committed SVG: how it was built, so freshness needs no shared
+#: manifest, which conflicted on every concurrent diagram change.
 RECORD_PREFIX = "<!-- vaft.diagram "
 RECORD_SUFFIX = " -->"
 

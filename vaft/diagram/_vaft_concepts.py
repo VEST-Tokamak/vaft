@@ -1,4 +1,4 @@
-"""VAFT framework concept diagrams (#1090): what the framework is and how scientific data moves through it.
+"""VAFT framework concept diagrams: what the framework is and how scientific data moves through it.
 
 ``vaft_four_pillars``
     four capabilities at one level -- standardized data interface, traceable
@@ -34,7 +34,7 @@
     on one backend;
 ``machine_research_archive``
     machine history, the research carried out on VEST and research knowledge
-    since 2012, feeding a living archive that new research builds on (#497).
+    since 2012, feeding a living archive that new research builds on.
 
 These are conceptual, capability-level diagrams: no storage backend,
 endpoint, path or module name appears in them (implementation diagrams are
@@ -128,7 +128,7 @@ PILLARS: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
     ("archive", "Machine Knowledge Archive",
      ("machine configuration & history", "decisions & documentation", "tutorials, notebooks, know-how")),
 )
-#: each pillar's pictogram (#2109)
+#: each pillar's pictogram
 PILLAR_SYMBOLS: Dict[str, str] = {"interface": "interface", "pipeline": "workflow", "repository": "database",
                                   "archive": "archive"}
 #: the framework-level design principles, stated once for all four pillars
@@ -151,7 +151,7 @@ def vaft_four_pillars(*, labels: bool = True) -> Diagram:
     """
     labels = _check_labels(labels)
     width, gap, height = 4.1, 0.45, 3.9
-    # the pillars grow downward by icon_room, so each pictogram has its own row above the title (#2109)
+    # the pillars grow downward by icon_room, so each pictogram has its own row above the title
     icon_room = 0.9
     span = 4 * width + 3 * gap
     x0 = -0.5 * span
@@ -166,7 +166,7 @@ def vaft_four_pillars(*, labels: bool = True) -> Diagram:
                 + "\\\\[1pt]".join(map(escape_latex, points)) + "}")
         outline, text = box(cx, -0.5 * icon_room, width, height + icon_room, body, style="concept pillar",
                             role=f"pillar:{key}", latex=True).items
-        # the capability's pictogram (#2109) in a common row; every pillar's text starts just below it
+        # the capability's pictogram in a common row; every pillar's text starts just below it
         items += [outline, replace(text, at=(cx, 0.5 * height - icon_room - 0.12), anchor="north")]
         items += pictogram(PILLAR_SYMBOLS[key], (cx, 0.5 * height - 0.5), 0.72, role=f"symbol:pillar:{key}").items
     principles = box(0.0, -0.5 * height - icon_room - 0.6, span + 0.8, 0.8,
@@ -194,7 +194,7 @@ LIFECYCLE: Tuple[Tuple[str, str, str], ...] = (
     ("discovery", "Discovery & New Questions", "new questions drive the next experiment"),
 )
 
-#: each stage's pictogram (#2109): seven distinct symbols for seven distinct stages
+#: each stage's pictogram: seven distinct symbols for seven distinct stages
 LIFECYCLE_SYMBOLS: Dict[str, str] = {"experiment": "experiment", "raw": "signal", "processing": "processing",
                                      "modelling": "computation", "interpretation": "analysis",
                                      "comparison": "comparison", "discovery": "discovery"}
@@ -218,7 +218,7 @@ def fusion_science_knowledge_lifecycle(*, labels: bool = True) -> Diagram:
     items: List = []
     edges: List = []
     boxes: Dict[str, Box] = {}
-    # 0.25 cm taller than text alone needs, so each stage's badge clears its first line (#2109)
+    # 0.25 cm taller than text alone needs, so each stage's badge clears its first line
     rx, ry, w, h = 7.7, 5.3, 4.9, 1.95
     n = len(LIFECYCLE)
     for i, (key, title, sub) in enumerate(LIFECYCLE):
@@ -259,7 +259,7 @@ MANAGEMENT: Tuple[Tuple[str, str, str], ...] = (
     ("vv", "Verification, Validation & Quality Assessment", "quality metrics"),
 )
 
-#: the pictogram of each workflow phase that names a kind of work (#2101)
+#: the pictogram of each workflow phase that names a kind of work
 WORKFLOW_SYMBOLS: Dict[str, str] = {"diagnostic": "processing", "reconstruction": "reconstruction",
                                     "simulation": "computation", "vv": "validation"}
 
@@ -328,7 +328,7 @@ def scientific_workflow(*, labels: bool = True) -> Diagram:
     for key, b in nodes.items():
         if not key.startswith("source:"):  # the sources were drawn inside their group
             items += list(b.items)
-    # semantic pictograms (#2101): the machine sources, and a badge clipped on each phase's top-left corner
+    # semantic pictograms: the machine sources, and a badge clipped on each phase's top-left corner
     items += pictogram("tokamak", (-0.5 * main_w + 0.6, 12.4), 0.8, role="symbol:group:sources").items
     for key, name in WORKFLOW_SYMBOLS.items():
         items += badge(name, corner(nodes[key], 0.78), 0.78, role=f"symbol:node:{key}").items
@@ -421,7 +421,7 @@ PROVENANCE: Tuple[Tuple[str, str, str], ...] = (
     ("derived", "Derived Physics Quantities", "definition, units, uncertainty"),
     ("analysis", "Analysis & Visualization", "analysis method, selection criteria, environment"),
 )
-#: each product stage's pictogram (#2113); the quality and versioned metadata get none: provenance is not validation
+#: each product stage's pictogram; the quality and versioned metadata get none: provenance is not validation
 PROVENANCE_SYMBOLS: Dict[str, str] = {"raw": "signal", "processed": "processing", "reconstruction": "reconstruction",
                                       "derived": "calculation", "analysis": "analysis"}
 #: what is versioned, and what quality metadata travels with every product
@@ -854,7 +854,7 @@ EQUILIBRIUM_ANALYSIS: Tuple[Tuple[str, str], ...] = (
 
 
 def integrated_scientific_framework(domain: Optional[str] = None, *, labels: bool = True) -> Diagram:
-    r"""The research modes and their common state inside one integrated framework, serving analysis (#1698).
+    r"""The research modes and their common state inside one integrated framework, serving analysis.
 
     The four research modes and the Common Data Model (IMAS) sit exactly as in
     ``experiment_modeling_theory_data_network("common_model")``, inside an
@@ -923,7 +923,7 @@ INTERFACES: Tuple[Tuple[str, str, str, bool], ...] = (
     ("mcp", "MCP", "agent tools", True),
 )
 
-#: the pictograms of the two actors and the five interfaces (#2109)
+#: the pictograms of the two actors and the five interfaces
 INTERFACE_SYMBOLS: Dict[str, str] = {"actor:human": "researcher", "actor:agent": "ai_agent", "python": "code",
                                      "cli": "terminal", "gui": "monitor", "repository": "repository",
                                      "mcp": "integration"}
@@ -1009,7 +1009,7 @@ ARCHIVE_TRACKS: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
                                         "publications & reproducible analyses")),
 )
 
-#: each track's pictogram (#2113): the VEST machine, research carried out on it, research knowledge
+#: each track's pictogram: the VEST machine, research carried out on it, research knowledge
 ARCHIVE_SYMBOLS: Dict[str, str] = {"machine": "tokamak", "studies": "experiment", "research": "library"}
 
 
@@ -1039,7 +1039,7 @@ def machine_research_archive(*, labels: bool = True) -> Diagram:
     for key, title, entries in ARCHIVE_TRACKS:
         y = track_y[key]
         items += band(x0, x1, y - 1.3, y + 1.3, role=f"track:{key}")
-        # one pictogram per track (#2113), none per entry; the title follows it
+        # one pictogram per track, none per entry; the title follows it
         items += pictogram(ARCHIVE_SYMBOLS[key], (x0 + 0.5, y + 0.83), 0.5, role=f"symbol:track:{key}").items
         items.append(Label((x0 + 0.85, y + 1.0), "\\textbf{" + escape_latex(title) + "}", "concept plain",
                            anchor="north west", role=f"track:{key}"))

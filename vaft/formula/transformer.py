@@ -35,7 +35,7 @@ function here that reads a flux refuses a result whose sign says it was not.
 This is **not** the convention of
 :func:`vaft.formula.equilibrium.loop_voltage_from_total_flux`, which is
 Ejima's $+2\pi\,\dot\psi_b$ on a per-radian flux: the two differ in sign
-and by $2\pi$ in normalisation (#354).  Feeding that function's output in as
+and by $2\pi$ in normalisation.  Feeding that function's output in as
 $V_B$ turns a ramp-up into a ramp-down.
 
 References
@@ -249,8 +249,8 @@ def equilibrium_surface_voltage_from_I_p_dL_i_V_R(I_p_A, dL_i_dt_H_s, V_R_V):
     Romero's eq. (39) solved for $V_C$.  This and
     :func:`equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R` read the same
     $V_C$ off two different measured histories, and a third route is
-    $-\dot\psi_C$ from the equilibria; their disagreement is #781's first
-    validation target, and it lands on whichever input is worst -- usually
+    $-\dot\psi_C$ from the equilibria; their disagreement is the first target
+    of the still-open VEST current-ramp validation (Open: #781), and it lands on whichever input is worst -- usually
     $R_p$, which enters both.
 
     References

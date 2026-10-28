@@ -1,4 +1,4 @@
-"""A Kadomtsev-like sawtooth on an arbitrary equilibrium, as three distinct states (#1209).
+"""A Kadomtsev-like sawtooth on an arbitrary equilibrium, as three distinct states.
 
 ``sawtooth(stage=...)``
     ``precursor``: the $m/n = 1/1$ internal-kink displacement of the core
@@ -88,7 +88,7 @@ def _island_lines(geo: dict, n_levels: int = 4) -> List[np.ndarray]:
     from contourpy import LineType, contour_generator
 
     L = geo["rho_o"] * 1.02
-    # 301 samples: nodes off the 4-decimal rounding ties (see #1063)
+    # 301 samples: nodes off the 4-decimal rounding ties, where last-bit platform differences flip a printed coordinate
     x = np.linspace(-L, L, 301)
     y = np.linspace(-L, L, 301)
     X, Y = np.meshgrid(x, y)

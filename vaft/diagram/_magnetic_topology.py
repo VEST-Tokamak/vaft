@@ -1,4 +1,4 @@
-"""Reduced Hamiltonian field-line topology on an arbitrary equilibrium (#1209).
+"""Reduced Hamiltonian field-line topology on an arbitrary equilibrium.
 
 ``stochastic_layer``
     two resonant harmonics on an equilibrium's own $q$ profile: isolated

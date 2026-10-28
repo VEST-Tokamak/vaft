@@ -1,4 +1,4 @@
-"""Cylindrical (screw-pinch) geometry: q profile, rational surfaces, mode shapes, matching (#1072).
+"""Cylindrical (screw-pinch) geometry: q profile, rational surfaces, mode shapes, matching.
 
 ``current_to_q_profile``
     $j(r) \\to B_\\theta(r) \\to q(r)$ for the peaked current $j \\propto (1 - x^2)^\\nu$;

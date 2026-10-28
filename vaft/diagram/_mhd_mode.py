@@ -1,4 +1,4 @@
-"""A prescribed ideal displacement on an arbitrary equilibrium (#1209).
+"""A prescribed ideal displacement on an arbitrary equilibrium.
 
 ``kink_mode``
     the flux surfaces of an equilibrium moved along their normals by
@@ -9,7 +9,7 @@
 Model class: synthetic parameterization. The envelope is prescribed, not an
 eigenfunction: nothing here solves $-\\rho\\omega^2\\boldsymbol\\xi =
 \\mathbf F[\\boldsymbol\\xi]$. The cylindrical reference view of internal and
-external kinks is ``internal_external_kink`` (#1072); stability-code
+external kinks is ``internal_external_kink``; stability-code
 eigenfunctions belong to result plotting.
 """
 

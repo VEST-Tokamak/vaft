@@ -490,7 +490,7 @@ _SPECS = (
                "pipeline stage stores that IDS: turbulent_transport owns core_transport only, and one occurrence "
                "per flux surface awaits the #1128/#1129 occurrence model (#2020)."),
     ),
-    # ------------------------------------------------------------------ plasma parameter inference (#1601)
+    # ------------------------------------------------------------------ plasma parameter inference
     WorkflowSpec(
         key="parameter_inference_overview", title="Plasma parameter inference: completing the kinetic profiles",
         family="parameter_inference", status="implemented",
@@ -583,7 +583,7 @@ _SPECS = (
         todos=("E_r, rotation and gamma_E are not inferred from data (#553): gamma_E = 0 enters the gyrokinetic "
                "input as an assumption, and force balance is future scope.",),
     ),
-    # ------------------------------------------------------------------ reconstruction inputs (#1901)
+    # ------------------------------------------------------------------ reconstruction inputs
     WorkflowSpec(
         key="eddy_current_model", title="Vessel eddy currents: a circuit driven by the coils and the plasma",
         family="reconstruction", status="implemented",
@@ -672,7 +672,7 @@ _SPECS = (
                "no joint multi-diagnostic fit.",
                "The kinetic-profile evidence framework (#1204) is not yet referenced by the fit records."),
     ),
-    # ------------------------------------------------------------------ transport hierarchy (#1901)
+    # ------------------------------------------------------------------ transport hierarchy
     WorkflowSpec(
         key="transport_hierarchy", title="Transport hierarchy: classical, neoclassical, turbulent",
         family="transport", status="implemented",
@@ -792,7 +792,7 @@ _SPECS = (
                "Without NEO there is no reference and no comparison; the closed-form results are not written to "
                "IMAS."),
     ),
-    # ------------------------------------------------------------------ experimental processing (#1901 part B)
+    # ------------------------------------------------------------------ experimental processing
     WorkflowSpec(
         key="machine_model_history", title="Machine model and shot history: one shot number selects the machine",
         family="experimental_processing", status="implemented",
@@ -1039,7 +1039,7 @@ _SPECS = (
                "current_quench and current_spike (vaft.process.transients) measure a quench or spike in a given "
                "window; nothing in the pipeline calls them, and they do not label it an IRE or a disruption."),
     ),
-    # ------------------------------------------------------------------ derived physics (#1901)
+    # ------------------------------------------------------------------ derived physics
     WorkflowSpec(
         key="vacuum_field_proxies", title="Vacuum fields and startup proxies: coils and vessel, no plasma",
         family="derived", status="implemented",
@@ -1461,7 +1461,7 @@ def tglf_cgyro_local_transport(*, labels: bool = True) -> Diagram:
 
 
 def parameter_inference_overview(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Where plasma parameter inference sits between reconstruction and simulation (#1601).
+    """Where plasma parameter inference sits between reconstruction and simulation.
 
     ``references=True`` numbers each closure's representative papers and lists them under the legend.
     """
@@ -1469,7 +1469,7 @@ def parameter_inference_overview(*, labels: bool = True, references: bool = Fals
 
 
 def parameter_inference_dependency_graph(*, labels: bool = True, references: bool = False) -> Diagram:
-    """How provenance propagates through inferred plasma parameters (#1601).
+    """How provenance propagates through inferred plasma parameters.
 
     ``references=True`` numbers the representative papers and lists them under the legend.
     """
@@ -1477,75 +1477,75 @@ def parameter_inference_dependency_graph(*, labels: bool = True, references: boo
 
 
 def eddy_current_model(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Vessel eddy currents from the PF and plasma current circuit (#1901)."""
+    """Vessel eddy currents from the PF and plasma current circuit."""
     return _render_workflow(WORKFLOWS["eddy_current_model"], labels=labels, references=references)
 
 
 def kinetic_profile_fitting(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Kinetic profile fitting from Thomson and charge exchange (#1901)."""
+    """Kinetic profile fitting from Thomson and charge exchange."""
     return _render_workflow(WORKFLOWS["kinetic_profile_fitting"], labels=labels, references=references)
 
 
 def transport_hierarchy(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Classical, neoclassical and turbulent transport from one state (#1901)."""
+    """Classical, neoclassical and turbulent transport from one state."""
     return _render_workflow(WORKFLOWS["transport_hierarchy"], labels=labels, references=references)
 
 
 def neoclassical_model_comparison(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Sauter / Redl against NEO at one kinetic state (#1901)."""
+    """Sauter / Redl against NEO at one kinetic state."""
     return _render_workflow(WORKFLOWS["neoclassical_model_comparison"], labels=labels, references=references)
 
 
 def machine_model_history(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Shot number to machine era, diagnostic revisions and the static machine description (#1901)."""
+    """Shot number to machine era, diagnostic revisions and the static machine description."""
     return _render_workflow(WORKFLOWS["machine_model_history"], labels=labels, references=references)
 
 
 def signal_processing(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Raw digitizer records to a diagnostic IDS, in the magnetic-probe order (#1901)."""
+    """Raw digitizer records to a diagnostic IDS, in the magnetic-probe order."""
     return _render_workflow(WORKFLOWS["signal_processing"], labels=labels, references=references)
 
 
 def quality_validation(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Source validity, vacuum-model agreement and fit quality as separate evidence (#1901)."""
+    """Source validity, vacuum-model agreement and fit quality as separate evidence."""
     return _render_workflow(WORKFLOWS["quality_validation"], labels=labels, references=references)
 
 
 def fault_anomaly_detection(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Diagnostic-specific fault checks; no universal anomaly model (#1901)."""
+    """Diagnostic-specific fault checks; no universal anomaly model."""
     return _render_workflow(WORKFLOWS["fault_anomaly_detection"], labels=labels, references=references)
 
 
 def shot_classification(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Shot and slice classes as rules over derived features (#1901)."""
+    """Shot and slice classes as rules over derived features."""
     return _render_workflow(WORKFLOWS["shot_classification"], labels=labels, references=references)
 
 
 def event_detection(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Plasma window and coil onsets from robust-baseline thresholds (#1901)."""
+    """Plasma window and coil onsets from robust-baseline thresholds."""
     return _render_workflow(WORKFLOWS["event_detection"], labels=labels, references=references)
 
 
 def vacuum_field_proxies(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Vacuum fields and the startup proxies read from them (#1901)."""
+    """Vacuum fields and the startup proxies read from them."""
     return _render_workflow(WORKFLOWS["vacuum_field_proxies"], labels=labels, references=references)
 
 
 def derived_mhd_parameters(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Global MHD quantities derived from a reconstructed equilibrium (#1901)."""
+    """Global MHD quantities derived from a reconstructed equilibrium."""
     return _render_workflow(WORKFLOWS["derived_mhd_parameters"], labels=labels, references=references)
 
 
 def synthetic_diagnostics(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Predicted diagnostic signals from a modelled or reconstructed state (#1901)."""
+    """Predicted diagnostic signals from a modelled or reconstructed state."""
     return _render_workflow(WORKFLOWS["synthetic_diagnostics"], labels=labels, references=references)
 
 
 def coordinate_cocos_conversions(*, labels: bool = True, references: bool = False) -> Diagram:
-    """COCOS transforms at the ODS and record layers, and the coordinates (#1901)."""
+    """COCOS transforms at the ODS and record layers, and the coordinates."""
     return _render_workflow(WORKFLOWS["coordinate_cocos_conversions"], labels=labels, references=references)
 
 
 def power_balance_confinement(*, labels: bool = True, references: bool = False) -> Diagram:
-    """The experimental Ohmic chain and the modelled power budget (#1901)."""
+    """The experimental Ohmic chain and the modelled power budget."""
     return _render_workflow(WORKFLOWS["power_balance_confinement"], labels=labels, references=references)

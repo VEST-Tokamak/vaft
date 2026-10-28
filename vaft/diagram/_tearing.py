@@ -1,4 +1,4 @@
-"""Tearing physics upstream of the island: rational surface, Delta-prime, layer matching (#1039).
+"""Tearing physics upstream of the island: rational surface, Delta-prime, layer matching.
 
 Three single-concept diagrams, each independent of any equilibrium, shot or
 solver output:

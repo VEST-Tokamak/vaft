@@ -1,4 +1,4 @@
-"""Time-selected scenes from precomputed Lorentz/GC trajectories (#2003–#2009).
+"""Time-selected scenes from precomputed Lorentz/GC trajectories.
 
 All integrations and quantitative reductions belong to process.particle. This
 module only selects, projects and annotates the resulting scientific states.

@@ -6,7 +6,7 @@ moves, how fast a conducting wall lets it, and how much and how unevenly the
 current returns through the wall as halo current. None of them is a VDE
 model: the hot-VDE edge-current loss, the cold-VDE equilibrium-branch loss and
 analytic halo-current models are named literature models that belong in their
-own functions once one is selected (#1042). The disruption chain these
+own functions once one is selected (Open: #1042). The disruption chain these
 couple to -- thermal and current quench, runaways -- is
 ``vaft.formula.disruption``; the plain circuit time $L/R$ of a wall element is
 ``lr_time_from_L_R``.

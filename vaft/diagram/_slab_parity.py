@@ -1,4 +1,4 @@
-"""Slab resonant layers: tearing and twisting parity, harmonic coupling (#1071).
+"""Slab resonant layers: tearing and twisting parity, harmonic coupling.
 
 ``slab_parity``
     constant-$\\Psi$ contours of ``slab_perturbed_flux``: tearing parity opens an

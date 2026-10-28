@@ -50,14 +50,15 @@ from .utils import (
     calculate_volume_weighted_average
 )
 
-# Backward compatibility: the virial closures moved to `.virial` (#711) and are
+# Backward compatibility: the virial closures moved to `.virial` and are
 # re-bound here so every `from vaft.formula.equilibrium import virial_...` keeps
 # working. Deliberately absent from this module's `__all__`, so the catalog and
 # `vaft.formula`'s own resolution attribute them to the module that defines
 # them; an explicit import does not consult `__all__`, which is why both hold.
 # Spelled out rather than `import *`. A star import makes ruff abandon F821
 # (undefined-name) for the *whole* module, which is how the synchrotron function
-# went on referencing names #368 had deleted without any check noticing (#753).
+# once went on referencing constants that had been removed from this module
+# without any check noticing.
 # This module is 4000 lines of pure formulas; that is the last place to give up
 # undefined-name detection for a compatibility shim.
 #
@@ -108,7 +109,7 @@ from .virial import (  # noqa: F401
 #: reaches ``vaft.formula.__all__``. Equilibrium, current, energy and geometry kernels.
 #: Declared so the package stops re-exporting this module's own imports --
 #: ``np``, ``warnings``, ``Union``, ``curve_fit`` -- as though they were
-#: formulas (#368).
+#: formulas.
 
 
 # ------------------------------------------------------------------
@@ -254,7 +255,7 @@ def phi_from_Bphi(B_phi: np.ndarray,
         *and* inside the LCFS, excluding the private-flux region); default the
         whole grid [-].
     dA : np.ndarray, optional
-        Deprecated (#358): caller-supplied area elements of the old bare sum,
+        Deprecated: caller-supplied area elements of the old bare sum,
         also accepted as the second positional argument for a 1-D ``B_phi`` [m^2].
 
     Returns
@@ -531,7 +532,7 @@ def q_from_phi(psi: np.ndarray,
     ``psi_per_radian=True``, without which the result is $2\pi q$.  This is the inverse of
     :func:`toroidal_flux_from_q_psi`, which integrates on the same full-weber
     grid.  :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor` tells which
-    family an ODS stores.  Tracked in #354.
+    family an ODS stores.
 
     Numerical notes
     ---------------
@@ -1807,9 +1808,9 @@ def toroidal_electric_field(r: np.ndarray, dpsi_dt: np.ndarray) -> np.ndarray:
     answer $2\pi$ too small.  Green's-function flux
     (:func:`vaft.formula.green.green_psi_exact`) is already full weber and needs
     no conversion.  The sign is the one this expression gives;
-    :func:`loop_voltage_from_total_flux` disagrees with it on both sign and flux
-    normalisation, which is `#354 <https://github.com/VEST-Tokamak/vaft/issues/354>`_
-    and still open.  The start-up chain in :mod:`vaft.formula.startup` takes the
+    :func:`loop_voltage_from_total_flux` disagrees with it on both sign (it
+    returns $+2\pi\,d\psi_b/dt$, the opposite of Lenz's law) and flux
+    normalisation (its default flux is per radian).  The start-up chain in :mod:`vaft.formula.startup` takes the
     *magnitude* of this field -- an avalanche has no preferred direction -- so it
     does not inherit the disagreement and must not be used to settle it.
 
@@ -2135,7 +2136,7 @@ def beta_normal_from_beta_tor(beta_tor: float,
     same ratio with its own ``B0`` (documented as the field on axis) but
     takes $\beta$ in percent and $I_p$ in MA and does not
     rescale: fed this function's fraction and amperes it returns $10^{-8}$ of
-    this value (#349), and this function fed percent returns 100 times too
+    this value, and this function fed percent returns 100 times too
     much; its sign also follows $B_0 I_p$, so under a COCOS with a negative
     field or current it comes back negative.  Here ``B0`` is the vacuum field
     at ``r0`` (the DD ``beta_normal``), and $|B_0|$ and $|I_p|$ are used, so the
@@ -2566,7 +2567,7 @@ def current_limit_from_q(q_95: float,
     limit), by a factor of about 2.4 at $A \approx 1.3$ for a circular
     cross-section with the START factor of :func:`estimated_q95` (about
     $2.4\,(1+\kappa^2)/2$ with elongation), which covers both shape and aspect
-    ratio.  Before #362 the
+    ratio.  Earlier versions of the
     expression lacked the $1/R_0$ and returned $I_p R_0$ [A m]; ``R0`` is now a
     required argument, so an old three-argument call fails rather than
     returning that.
@@ -2584,7 +2585,7 @@ def current_limit_from_beta(beta_N: float,
                           B0: float) -> float:
     r"""Deprecated: the cylindrical-$q$ current formula with $\beta_N$ substituted for $q$; no drop-in replacement.
 
-    No derivation or source records what this was meant to bound (#362).  A
+    No derivation or source records what this was meant to bound.  A
     current at a Troyon limit follows from $\beta_N = \beta\,a B_0/I_p$
     (:func:`vaft.formula.stability.beta_N_from_beta_a_B0_Ip`) and the
     ``troyon`` boundary of :mod:`vaft.formula.boundaries`.  Results are
@@ -2611,7 +2612,7 @@ def current_limit_from_beta(beta_N: float,
     Dimensionally the cylindrical-$q$ formula with $\beta_N$ in the place of $q$;
     no derivation or source records what this is meant to bound, and the result
     depends on the units chosen for $\beta_N$.  It also lacks the $1/R$ that
-    :func:`current_limit_from_q` now carries.  Deprecated (#362).
+    :func:`current_limit_from_q` now carries.  Deprecated.
 
     References
     ----------
@@ -2903,7 +2904,7 @@ def beta_p_diamagnetic_from_flux_circular(Phi_dia: float,
     so the product $B_{\varphi 0}\Phi_{dia}$ is positive for a paramagnetic
     and negative for a diamagnetic plasma ($\beta_p > 1$) whichever way the
     field points.  VAFT's ``magnetics.diamagnetic_flux`` follows EFIT's
-    ``cdflux``, signed with $B_t$ (#1196); pass it with the signed vacuum
+    ``cdflux``, signed with $B_t$; pass it with the signed vacuum
     field of the same record, not $|B_{\varphi 0}|$, which is right only in a
     positive field.  ``vacuum_toroidal_field.b0`` is the field at ``r0``;
     rescale it to the plasma centre $R_0$ as $b_0\,r_0/R_0$ where the two
@@ -2976,7 +2977,7 @@ def beta_p_diamagnetic_from_flux_elliptic(Phi_dia: float,
     so the product $B_{\varphi 0}\Phi_{dia}$ is positive for a paramagnetic
     and negative for a diamagnetic plasma ($\beta_p > 1$) whichever way the
     field points.  VAFT's ``magnetics.diamagnetic_flux`` follows EFIT's
-    ``cdflux``, signed with $B_t$ (#1196); pass it with the signed vacuum
+    ``cdflux``, signed with $B_t$; pass it with the signed vacuum
     field of the same record, not $|B_{\varphi 0}|$, which is right only in a
     positive field.  ``vacuum_toroidal_field.b0`` is the field at ``r0``;
     rescale it to the plasma centre $R_0$ as $b_0\,r_0/R_0$ where the two
@@ -3153,7 +3154,7 @@ def stored_energy_diamagnetic_from_beta_p_geometry(beta_p: float,
 
 
 def _diamagnetic_flux_term(Phi_dia, B_phi0, Ip) -> float:
-    """8 pi B_phi0 Phi_dia / (mu0 Ip)^2, the circular diamagnetic term (#684)."""
+    """8 pi B_phi0 Phi_dia / (mu0 Ip)^2, the circular diamagnetic term."""
     Ip, B_phi0, Phi_dia = float(Ip), float(B_phi0), float(Phi_dia)
     if not np.isfinite(Ip) or Ip == 0.0:
         raise ValueError(f"Ip must be finite and non-zero, got {Ip!r}")
@@ -3529,7 +3530,7 @@ def triangularity_from_RZ_boundary(R: np.ndarray,
     ----------
     The IMAS ``boundary.triangularity``, which is defined as the mean of the two
     extremity values and not as a separate measurement.  Measured at the two
-    vertically extremal points.  Until #365 this function
+    vertically extremal points.  Earlier versions of this function
     read the boundary sample nearest $Z=0$ instead, which returned exactly
     $-1$ for every boundary whose parameterisation starts at the outboard
     midplane -- that is, for every standard one -- so no caller can have
@@ -3644,11 +3645,11 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
         Electron temperature [eV].
     Z_eff : float
         Effective ion charge. Required: omitting it raises ``TypeError``
-        since 0.9.0 (#1188); the hidden fallback of 2 was deprecated in
+        since 0.9.0; the hidden fallback of 2 was deprecated in
         0.7.0 [-].
     ln_Lambda : float
         Coulomb logarithm. Required: omitting it raises ``TypeError`` since
-        0.9.0 (#1188); the hidden fallback of 17 was deprecated in 0.7.0 [-].
+        0.9.0; the hidden fallback of 17 was deprecated in 0.7.0 [-].
 
     Returns
     -------
@@ -3662,7 +3663,7 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
     $Z_{\mathrm{eff}}$ factor is applied linearly (the Spitzer-Harm
     $Z$-dependence is weaker than linear for $Z>1$). This is the **parallel**
     coefficient; the NRL perpendicular value ($1.03\times10^{-4}$) is 1.98x
-    larger and is not what a parallel Ohm's law needs (#1188).
+    larger and is not what a parallel Ohm's law needs.
 
     Assumptions
     -----------
@@ -3673,7 +3674,7 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
     Core tokamak plasmas well above the ionisation stage.  $Z_{\mathrm{eff}}$
     and $\ln\Lambda$ are physics inputs, not defaults: the former fallbacks
     $Z_{\mathrm{eff}}=2$, $\ln\Lambda=17$ were typical rather than derived and
-    were removed in 0.9.0 (#1188); use :func:`coulomb_logarithm_from_n_T`
+    were removed in 0.9.0; use :func:`coulomb_logarithm_from_n_T`
     for a self-consistent $\ln\Lambda$.
 
     Limitations
@@ -3842,10 +3843,10 @@ def kink_safety_factor(R: Union[float, np.ndarray],
 
 
 # ------------------------------------------------------------------
-# Edge-q estimates from global shape (#1583)
+# Edge-q estimates from global shape
 # ------------------------------------------------------------------
 #
-# Thin SI-unit fronts over the coordinate functions of `.boundaries` (#1456),
+# Thin SI-unit fronts over the coordinate functions of `.boundaries`,
 # which hold the coefficients and the registered sources once: the START scaling
 # (Akers et al. 2000), the ITER guideline (Post et al. 1991), Menard's cylindrical
 # q* and Freidberg's kink q*. Each quantity keeps its own name; none is q_a.
@@ -4291,7 +4292,7 @@ def bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
     $(Z_{\mathrm{eff}}, n_e, T_e)$ and this one takes $(n_e, T_e)$, so a caller
     moving between them by name used to swap the arguments silently and get a
     number wrong by 27 orders of magnitude; there is no argument order that can
-    now do that without raising.  Tracked in #760.
+    now do that without raising.
 
     Assumptions
     -----------
@@ -4349,7 +4350,7 @@ def surface_poloidal_flux_from_psi_boundary(
     flux that flux-consumption bookkeeping uses.  An IMAS full-weber
     ``global_quantities.psi_boundary`` (COCOS 11-18) needs
     ``psi_per_radian=False``; without it the result is $2\pi$ too large.
-    The default stays per radian so existing callers do not move (#354);
+    The default stays per radian so existing callers do not move;
     :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor` tells which family
     an ODS stores.
 
@@ -4529,7 +4530,7 @@ def alpha_heating_power_from_n_D_n_T_T_keV_V(
 
     VEST runs hydrogen (and occasionally helium), so a D-T reactivity is
     physics nothing in VAFT calls, and the quadratic fit is not worth
-    reimplementing as Bosch-Hale [2]_ (with its erratum [3]_) for it (#360).
+    reimplementing as Bosch-Hale [2]_ (with its erratum [3]_) for it.
     A caller who needs D-T power should evaluate the Bosch-Hale
     parametrisation with the erratum coefficients.  Results are unchanged; a
     ``DeprecationWarning`` is emitted.
@@ -4568,7 +4569,7 @@ def alpha_heating_power_from_n_D_n_T_T_keV_V(
     Limitations
     -----------
     Irrelevant for a hydrogen device such as VEST, which sustains no D-T
-    reaction; deprecated rather than replaced (#360).
+    reaction; deprecated rather than replaced.
 
     References
     ----------
@@ -4782,10 +4783,10 @@ def cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e(
            Bureau (1979), p. 345.
     """
     # QE/EPS0/ME/C_LIGHT, not the lower-case `e`/`epsilon_0`/`m_e`/`c` this
-    # module used to define: #368 moved those to `constants.py` because the
+    # module used to define: those moved to `constants.py` because the
     # lower-case spellings leaked into `vaft.formula.__all__`, and this function
-    # was the one caller left behind, so it has raised NameError ever since
-    # (#753).
+    # was the one caller left behind, so it raised NameError until it was
+    # rewritten with these names.
     coeff = QE**4 / (3.0 * np.pi * EPS0 * ME**3 * C_LIGHT**3)
     return coeff * n_e_m3 * B_t_T**2 * (T_e_eV * QE)
 
@@ -4906,8 +4907,8 @@ def normalized_larmor_radius_from_M_T_a_Bt(M: float,
     radius: the ITER Physics Basis definition.  Differs from
     :func:`rho_star_from_M_T_B_R_epsilon` (mass in amu, normalised by $R\varepsilon$
     with a rounded prefactor) only in input units.  It agreed with neither
-    :func:`vaft.formula.stability.rhostar_from_Te_a_Bt` until #364 gave that
-    one the same definition; the two now return the same number for electrons,
+    :func:`vaft.formula.stability.rhostar_from_Te_a_Bt` until that one was
+    given the same definition; the two now return the same number for electrons,
     and the remaining spread is tracked in #353.
 
     References
@@ -5663,7 +5664,7 @@ def check_kadomtsev_constraint(
     The default tolerance is far tighter than any published fit satisfies
     (ITER89P misses by 0.15); pass a physically motivated ``tol``.
     :func:`verify_kadomtsev_constraint` returns the same residual from the
-    dimensionless indices (#351).
+    dimensionless indices.
 
     References
     ----------
@@ -6187,7 +6188,7 @@ def ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux(
 
 
 class ConfinementScalingBasis(NamedTuple):
-    """Which confinement time and which power a published scaling predicts (issue #1713)."""
+    """Which confinement time and which power a published scaling predicts."""
 
     scaling: str
     energy_basis: str
@@ -6343,8 +6344,8 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     Limitations
     -----------
     ``a_eps`` is accepted and unused; ``a_M`` and ``a_kappa`` are returned
-    unchanged, so the transformation is a no-op for those two axes.  Before
-    #351 the indices came from a different, wrong closed form (IPB98(y,2)
+    unchanged, so the transformation is a no-op for those two axes.  Earlier
+    versions took the indices from a different, wrong closed form (IPB98(y,2)
     gave $\mu_\rho = 21.2$).
 
     Reduction
@@ -6381,7 +6382,7 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     e_n = (a_n + a_P) / denom
     e_L = (a_I + a_R + 3 * a_P) / denom
 
-    # Solve B tau ~ rho*^x beta^y nu*^z on the n, B and R exponents (#351).
+    # Solve B tau ~ rho*^x beta^y nu*^z on the n, B and R exponents.
     mu_rho = (a_B - a_I - 2 * a_R + 2 * a_n - 3 * a_P + 1) / denom
     mu_nu = mu_rho + e_L
     mu_beta = e_n - mu_nu
@@ -6505,7 +6506,7 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
 
     Limitations
     -----------
-    Until #351 this returned
+    Earlier versions returned
     $5 + \mu_\rho(1+\alpha_P) - \tfrac32(\mu_\rho + 2\mu_\beta - 4\mu_\nu - 2)$,
     "5 for a consistent mapping", which no published scaling reached.  It has
     returned the residual since; the ``FutureWarning`` that announced the
@@ -6530,7 +6531,7 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     )
 
 
-# --- Analytic 1-D profile kernels in normalized poloidal flux (#552) ----------
+# --- Analytic 1-D profile kernels in normalized poloidal flux ----------------
 
 
 #: How far outside [0, 1] a psi_N grid may stray by rounding and still be
@@ -6775,7 +6776,7 @@ def modified_tanh_profile(psi_n, *, pedestal_height, pedestal_position, pedestal
     *core_slope* on a narrow pedestal overshoots on axis; compose with a core
     shape instead when the axis value matters. This is a shape model: it
     does not predict the pedestal height or width (EPED) or its bootstrap
-    current (#550).
+    current.
 
     References
     ----------
@@ -6830,7 +6831,7 @@ def modified_tanh_profile_derivative(psi_n, *, pedestal_height, pedestal_positio
     -----------------------
     For a pressure profile this is the localized edge gradient that drives
     edge current. A shape built from it is phenomenological and must not be
-    called a bootstrap current unless that physics is evaluated (#550).
+    called a bootstrap current unless that physics is evaluated.
 
     References
     ----------
@@ -6843,6 +6844,6 @@ def modified_tanh_profile_derivative(psi_n, *, pedestal_height, pedestal_positio
 
 
 #: Derived rather than listed, so a function added here cannot silently
-#: leave the package surface the way seven did in #711.  The virial names
+#: leave the package surface the way seven once did.  The virial names
 #: re-bound above belong to `.virial` and are excluded by construction.
 __all__ = public_names(globals())
