@@ -37,7 +37,9 @@ from ._scene import Arrow, Label, Polyline, Scene
 from ._workflow import KIND_SYMBOL, KINDS, kind_legend, kind_style
 from .pictograms import pictogram
 
-_TITLE = {key: title for key, title, _ in REGIONS}
+#: section titles, the technical figure's -- except that the MHD section drops "MHD": every domain here works in
+#: the MHD framework, so only stability and response would read as MHD
+_TITLE = {**{key: title for key, title, _ in REGIONS}, "mhd": "Stability and plasma response"}
 
 
 @dataclass(frozen=True)
@@ -74,7 +76,7 @@ CONTEXT: Tuple[Item, ...] = (
     I("profiles", "measured", "Kinetic diagnostics\n\\& profiles", ("ef_kinetic", "tr_profiles"),
       (r"$T_e$, $n_e$, $T_i$, $v_\phi$",)),
     I("machine", "machine", "Machine \\& diagnostics", ("eq_machine", "gpec_coils"),
-      (r"wall, vessel, coils, sensor positions",)),
+      (r"wall, vessel, coils;", r"sensor positions \& calibration")),
     I("models", "prior", "Assumptions \\& parameters",
       ("an_shape", "tm_profiles", "tr_closures", "sr_closures", "gpec_drive"),
       (r"closures $Z_{\mathrm{eff}}$, $\gamma_E$;", r"profile shapes; 3-D excitation")),
@@ -83,23 +85,23 @@ CONTEXT: Tuple[Item, ...] = (
 )
 #: the two groups of the left panel: (title, item keys)
 CONTEXT_GROUPS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
-    ("Data", ("measurements", "profiles")),
+    ("Experimental data", ("measurements", "profiles")),
     ("Metadata", ("machine", "models", "conventions")),
 )
 #: scientific operations, by domain; lines are the code, then (italic) the physical model it rests on.
 #: A card holding alternative methods lists each code with its model in italics under it, in turn
 OPERATIONS: Dict[str, Tuple[Item, ...]] = {
     "equilibrium": (
+        I("reconstruction", "solver", "Reconstruction", ("efit",), ("EFIT", r"\itshape fit with a profile basis")),
         # an analytical model, though the technical figure files it with the solvers (its spec nodes are solvers)
         I("analytic", "derived", "Analytic\nGrad-Shafranov", ("analytic",),
           ("Solov'ev family", r"\itshape assumed shape, profiles")),
+        I("refinement", "solver", "Fixed-boundary\nmodel", ("chease",), ("CHEASE", r"\itshape prescribed boundary")),
         I("free_boundary", "solver", "Free-boundary\nmodel", ("tokamaker",), ("TokaMaker", r"\itshape assumed profiles")),
-        I("reconstruction", "solver", "Reconstruction", ("efit",), ("EFIT", r"\itshape fit with a profile basis")),
-        I("refinement", "solver", "Fixed-boundary\nequilibrium", ("chease",), ("CHEASE", r"\itshape prescribed boundary")),
     ),
     "mhd": (
         I("ideal", "solver", "Ideal\nstability", ("dcon",), ("DCON", r"\itshape energy principle")),
-        I("response", "solver", "Plasma\nresponse", ("gpec",), ("GPEC", r"\itshape uses DCON")),
+        I("response", "solver", "Plasma\nresponse", ("gpec",), ("GPEC", r"\itshape perturbed equilibria")),
         I("tearing", "solver", "Resistive\nstability", ("rdcon",), ("RDCON", r"\itshape resistive layers")),
     ),
     # alternatives that produce the same scientific output share a dash-dot enclosure titled by that physics; each
@@ -108,7 +110,7 @@ OPERATIONS: Dict[str, Tuple[Item, ...]] = {
         I("classical", "derived", "Classical", ("classical",), ("Braginskii", r"\itshape magnetized")),
         I("sauter_redl", "derived", "Sauter / Redl", ("sauter_redl",), (r"\itshape analytic fit",)),
         I("neo", "solver", "NEO", ("neo",), (r"\itshape drift-kinetic",)),
-        I("tglf", "solver", "TGLF", ("tglf",), (r"\itshape QL gyrofluid",)),  # reduced, quasilinear: not gyrokinetic
+        I("tglf", "solver", "TGLF", ("tglf",), (r"\itshape gyrofluid",)),  # a reduced quasilinear model: not gyrokinetic
         I("cgyro", "solver", "CGYRO", ("cgyro",), (r"\itshape gyrokinetic",)),
     ),
 }
@@ -126,7 +128,7 @@ INPUTS: Dict[str, Tuple[Item, ...]] = {
 #: alternative methods for the same scientific output, each set in one dash-dot enclosure: the four equilibrium
 #: formulations (all writing an equilibrium state; peers, not a chain), the neoclassical and the turbulent models
 ALTERNATIVES: Tuple[Tuple[str, ...], ...] = (
-    ("analytic", "free_boundary", "reconstruction", "refinement"),
+    ("reconstruction", "analytic", "refinement", "free_boundary"),
     ("sauter_redl", "neo"),
     ("tglf", "cgyro"),
 )
@@ -135,7 +137,8 @@ GROUP_TITLE: Dict[Tuple[str, ...], str] = {("sauter_redl", "neo"): "Neoclassical
 #: what each section writes to IMAS: (ids, representative quantities, technical elements). Only IDS with a writer
 #: are named; a code is named where the section holds several and only one writes the IDS
 IMAS: Dict[str, Tuple[Tuple[str, str, Tuple[str, ...]], ...]] = {
-    "equilibrium": (("equilibrium", r"$\psi$, $q$, $p$", ("eq_analytic", "eq_model", "eq_reconstructed", "eq_refined")),),
+    "equilibrium": (("equilibrium", r"$\psi(R,Z)$ $\cdot$ profiles $\cdot$ geometry",
+                     ("eq_analytic", "eq_model", "eq_reconstructed", "eq_refined")),),
     "mhd": (("mhd_linear", r"$\delta W_n$, $\delta\mathbf B\cdot\nabla\psi$", ("ml_dcon", "ml_gpec")),
             ("ntms", r"$\Delta'$", ("ntms_rdcon",))),
     "transport": (("core_transport", r"$\Gamma_s$, $Q_s$", ("ct_classical", "ct_neo", "ct_tglf")),
@@ -166,7 +169,7 @@ WRITES: Tuple[Tuple[str, str], ...] = (("equilibrium", "state"),)
 #: an open-headed arrow for a write, distinct from a data input without colour
 WRITE_STYLE = "-{Stealth[open,length=2.8mm,width=2.4mm,line width=0.8pt]},absequil!90!black,line width=1.2pt"
 #: the legend: each card kind with its pictogram (the cards carry the same pictogram), then the two line styles
-CONNECTION_WORDS = {"flow": "provides input to", "write": "writes", "alternative": "alternative methods"}
+CONNECTION_WORDS = {"flow": "provides input to", "write": "writes", "alternative": "alternative approaches"}
 #: the two method kinds name the primary computational approach: an analytical model or formula, or a numerical
 #: method or solver (whether or not the formula is evaluated numerically)
 KIND_WORDS = {"measured": "measured", "machine": "configuration", "prior": "assumption",
@@ -181,7 +184,7 @@ ANALYTICAL: Tuple[str, ...] = ("analytic", "classical", "sauter_redl")
 
 _WIDTH = 23.5
 _MAIN = 6.25  # where the computational sections start, right of the left panel and its arrows
-_BOTTOM = -11.6
+_BOTTOM = -11.95
 #: (x0, x1, y_top, y_bottom) of each section
 _BOUNDS: Dict[str, Tuple[float, float, float, float]] = {
     "context": (0.0, 5.4, 0.0, _BOTTOM),
@@ -191,24 +194,30 @@ _BOUNDS: Dict[str, Tuple[float, float, float, float]] = {
 }
 _X = {"equilibrium": (8.55, 12.77, 16.99, 21.21), "mhd": (7.7, 10.45, 13.2), "transport": (16.45, 19.2, 21.95)}
 _W = {"equilibrium": 3.7, "mhd": 2.5, "transport": 2.5}
-_ROW = {"equilibrium": -1.8, "mhd": -8.35, "transport": -8.35}
-_CARD_H = {"equilibrium": 2.15, "mhd": 3.0, "transport": 3.0}  # a top strip holds the pictogram
+_ROW = {"equilibrium": -1.8, "mhd": -8.625, "transport": -8.625}
+_CARD_H = {"equilibrium": 2.15, "mhd": 3.25, "transport": 3.25}  # a top strip holds the pictogram
 #: the top of each section's quantity list
-_LIST_TOP = {"mhd": -10.15, "transport": -10.15}
-#: transport cards: (x, y, width, height). Classical is a full card; each enclosed code is a half-height card
-_TR_PLACE = {"classical": (16.05, -8.35, 2.0, 3.0),
-             "sauter_redl": (18.68, -7.93, 2.7, 1.2), "neo": (18.68, -9.22, 2.7, 1.2),
-             "tglf": (21.79, -7.93, 2.7, 1.2), "cgyro": (21.79, -9.22, 2.7, 1.2)}
-#: room above an enclosure's cards for its title [cm]
-_GROUP_HEAD = 0.45
+_LIST_TOP = {"mhd": -10.5, "transport": -10.5}
+#: transport cards: (x, y, width, height). Classical spans the same rows as the MHD cards; the two titled groups
+#: share those top and bottom edges, one width, and two equal rows -- analytical / reduced model above, the
+#: drift-kinetic / gyrokinetic solver below -- so Sauter / Redl aligns with TGLF and NEO with CGYRO
+_TR_TOP, _TR_BOTTOM = -7.0, -10.25
+_TR_GROUP_X, _TR_GROUP_W = (18.85, 21.9), 2.9
+_TR_ROWS, _TR_CARD_H = (-7.96, -9.46), 1.35  # centred below the title that sits on the outline
+#: a half-height card's pictogram: smaller and tucked into its corner, so it clears the title [cm]
+_SMALL_ICON = (0.3, 0.25, 0.2)  # size, inset, how far the text sits below the centre
+_TR_PLACE = {"classical": (16.15, 0.5 * (_TR_TOP + _TR_BOTTOM), 2.2, _TR_TOP - _TR_BOTTOM),
+             **{key: (x, y, _TR_GROUP_W - 2 * 0.13, _TR_CARD_H)
+                for x, pair in zip(_TR_GROUP_X, (("sauter_redl", "neo"), ("tglf", "cgyro")))
+                for key, y in zip(pair, _TR_ROWS)}}
 #: the input chips: their row, height, and (x, width) per chip
 _INPUT_Y, _INPUT_H = -6.45, 0.55
 _INPUT_X = {"mhd": ((8.6, 4.3), (12.65, 3.4)), "transport": ((16.4, 2.6), (19.95, 4.1))}
 #: the shared equilibrium state: (x, y, width, height)
-_STATE = (14.775, -4.3, 5.6, 0.8)
+_STATE = (14.775, -4.3, 7.0, 0.8)
 _CONTEXT_Y = {"measurements": -1.7, "profiles": -3.05, "machine": -5.1, "models": -7.4, "conventions": -9.85}
 _CONTEXT_H = {"measurements": 1.0, "profiles": 1.3, "machine": 1.3, "models": 1.75, "conventions": 2.25}
-_GROUP_Y = {"Data": -0.85, "Metadata": -4.1}
+_GROUP_Y = {"Experimental data": -0.85, "Metadata": -4.1}
 #: edges drawn along given points: the left panel feeds the first section of each tier; an equilibrium leaves
 #: its section for the centre of each consumer
 _ROUTES = {
@@ -218,8 +227,8 @@ _ROUTES = {
     ("context", "inputs"): ((5.48, -6.2), (6.17, -6.2)),
     # from the enclosure, not from any one route, and over the top so it stays clear of the arrow to the state
     ("equilibrium", "state"): ((14.775, -3.53), (14.775, -3.82)),
-    ("state", "mhd"): ((11.895, -4.3), (10.45, -4.3), (10.45, -5.37)),
-    ("state", "transport"): ((17.655, -4.3), (19.2, -4.3), (19.2, -5.37)),
+    ("state", "mhd"): ((11.195, -4.3), (10.45, -4.3), (10.45, -5.37)),
+    ("state", "transport"): ((18.355, -4.3), (19.2, -4.3), (19.2, -5.37)),
 }
 _ENCLOSE = 0.13
 #: sections: one quiet solid outline, so dashes are left to the alternatives
@@ -230,16 +239,19 @@ _LEGEND = "concept plain,text=black!80,text height=1.6ex,text depth=0.45ex"
 _ICON, _ICON_INSET = 0.36, 0.3
 
 
-def _card(item: Item, x: float, y: float, w: float, h: float, role: str, icon: str) -> Box:
+def _card(item: Item, x: float, y: float, w: float, h: float, role: str, icon: str,
+          small: bool = False) -> Box:
     """A card in its kind's style with that kind's pictogram: ``icon="left"`` beside the text (a wide card),
-    ``"top"`` in a strip above it (a narrow one), so the pictogram never meets a centred title."""
+    ``"top"`` in a strip above it (a narrow one), so the pictogram never meets a centred title; ``small`` for a
+    half-height card."""
     outline = box(x, y, w, h, "", style=kind_style(item.kind), role=role).items[0]
+    size, inset, drop = _SMALL_ICON if small else (_ICON, _ICON_INSET, 0.22)
     if icon == "left":
-        at, tx, ty, tw = (x - 0.5 * w + _ICON_INSET, y), x + 0.22, y, w - 0.3 - 0.44
+        at, tx, ty, tw = (x - 0.5 * w + inset, y), x + 0.22, y, w - 0.3 - 0.44
     else:
-        at, tx, ty, tw = (x - 0.5 * w + _ICON_INSET, y + 0.5 * h - _ICON_INSET), x, y - 0.22, w - 0.3
+        at, tx, ty, tw = (x - 0.5 * w + inset, y + 0.5 * h - inset), x, y - drop, w - 0.3
     label = Label((tx, ty), _card_text(item), f"concept plain,text width={tw:.2f}cm", role=role)
-    symbol = pictogram(KIND_SYMBOL[item.kind], at, _ICON, role=f"symbol:{role}").items
+    symbol = pictogram(KIND_SYMBOL[item.kind], at, size, role=f"symbol:{role}").items
     return Box(x, y, w, h, (outline, label) + tuple(symbol))
 
 
@@ -321,7 +333,7 @@ def cross_domain_scientific_architecture(*, labels: bool = True) -> Diagram:
         for i, op in enumerate(OPERATIONS[domain]):
             place = _TR_PLACE[op.key] if domain == "transport" else (_X[domain][i], _ROW[domain], _W[domain],
                                                                      _CARD_H[domain])
-            b = _card(op, *place, f"operation:{op.key}", icon="top")
+            b = _card(op, *place, f"operation:{op.key}", icon="top", small=place[3] < 2.0)
             boxes[op.key] = b
             items += list(b.items)
         for chip, (cx, cw) in zip(INPUTS.get(domain, ()), _INPUT_X.get(domain, ())):
@@ -333,19 +345,22 @@ def cross_domain_scientific_architecture(*, labels: bool = True) -> Diagram:
     b = _card(STATE, *_STATE, "state", icon="left")
     boxes["state"] = b
     items += list(b.items)
-    for keys in ALTERNATIVES:  # around the member cards, with room for the group's title above them
-        bx0 = min(boxes[k].x - 0.5 * boxes[k].width for k in keys) - _ENCLOSE
-        bx1 = max(boxes[k].x + 0.5 * boxes[k].width for k in keys) + _ENCLOSE
-        by1 = min(boxes[k].y - 0.5 * boxes[k].height for k in keys) - _ENCLOSE
-        by0 = max(boxes[k].y + 0.5 * boxes[k].height for k in keys) + _ENCLOSE
+    for keys in ALTERNATIVES:
         title = GROUP_TITLE.get(keys)
-        if title:
-            by0 += _GROUP_HEAD
-            if labels:
-                items.append(Label((0.5 * (bx0 + bx1), by0 - 0.26), "{\\small\\bfseries " + title + "}", "concept plain",
-                                   role="group title:" + ",".join(keys)))
+        if title:  # a titled group fills its column, edge to edge with its neighbours; the title sits on its outline
+            cx = boxes[keys[0]].x
+            bx0, bx1, by0, by1 = cx - 0.5 * _TR_GROUP_W, cx + 0.5 * _TR_GROUP_W, _TR_TOP, _TR_BOTTOM
+        else:  # around the member cards
+            bx0 = min(boxes[k].x - 0.5 * boxes[k].width for k in keys) - _ENCLOSE
+            bx1 = max(boxes[k].x + 0.5 * boxes[k].width for k in keys) + _ENCLOSE
+            by1 = min(boxes[k].y - 0.5 * boxes[k].height for k in keys) - _ENCLOSE
+            by0 = max(boxes[k].y + 0.5 * boxes[k].height for k in keys) + _ENCLOSE
         items.append(Polyline.of([(bx0, by1), (bx1, by1), (bx1, by0), (bx0, by0)], CONNECTION_STYLE["alternative"],
                                  role="alternative:" + ",".join(keys), closed=True))
+        boxes["alternative:" + ",".join(keys)] = Box(0.5 * (bx0 + bx1), 0.5 * (by0 + by1), bx1 - bx0, by0 - by1, ())
+        if title and labels:  # on a white ground, so it interrupts the outline rather than crowding the cards
+            items.append(Label((0.5 * (bx0 + bx1), by0), "{\\small\\bfseries " + title + "}",
+                               "concept plain,fill=white,inner sep=1.5pt", role="group title:" + ",".join(keys)))
         boxes["alternative:" + ",".join(keys)] = Box(0.5 * (bx0 + bx1), 0.5 * (by0 + by1), bx1 - bx0, by0 - by1, ())
     for src, dst in EDGES:
         role = f"edge:flow:{src}->{dst}"

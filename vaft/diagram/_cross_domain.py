@@ -185,7 +185,7 @@ ELEMENTS: Tuple[Element, ...] = (
       basis="measured coils, assumed profiles"),
     E("efit", "Reconstruction", "solver", "equilibrium", ((_EFIT, "efit"), ("kinetic_efit", "efit")), method="EFIT",
       basis="magnetic or kinetic"),
-    E("chease", "Fixed-boundary equilibrium", "solver", "equilibrium", ((_CHEASE, "chease"),), method="CHEASE",
+    E("chease", "Fixed-boundary model", "solver", "equilibrium", ((_CHEASE, "chease"),), method="CHEASE",
       basis="re-solves a reconstruction",
       note="accepts any GEQDSK or ODS equilibrium; the coupling applies it to a reconstruction (by convention, "
            "not enforced, unlike the transport resolver)"),

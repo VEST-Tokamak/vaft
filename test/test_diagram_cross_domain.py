@@ -320,9 +320,9 @@ def test_every_technical_input_is_summarized_by_one_context_card_of_its_kind():
 def test_data_and_metadata_stay_apart():
     """Data is what was measured; metadata is the context needed to interpret it and run an operation."""
     groups = dict(C.CONTEXT_GROUPS)
-    assert list(groups) == ["Data", "Metadata"]
+    assert list(groups) == ["Experimental data", "Metadata"]
     kinds = {title: {c.kind for c in C.CONTEXT if c.key in keys} for title, keys in groups.items()}
-    assert kinds == {"Data": {"measured"}, "Metadata": {"machine", "prior", "convention"}}
+    assert kinds == {"Experimental data": {"measured"}, "Metadata": {"machine", "prior", "convention"}}
     assert sorted(k for keys in groups.values() for k in keys) == sorted(c.key for c in C.CONTEXT)
     titles = {it.role: it.text for it in _concept().scene.items if isinstance(it, Label)}
     assert "Shared data \\& metadata" in titles["region title:context"]
@@ -340,9 +340,10 @@ def test_every_technical_method_is_one_operation_with_the_same_name_and_domain()
             # one vocabulary: a card is titled by the technical label, or (inside a titled group) by its code
             in_group = any(op.key in g for g in C.GROUP_TITLE)
             assert op.title.replace("\n", " ") == (X.ELEMENT[k].method if in_group else X.ELEMENT[k].label), op.key
-    # GPEC reads DCON's eigenfunctions; with no room for an arrow, the card says so
-    assert any("DCON" in line for line in C.OPERATION["response"].lines) and ("dcon", "gpec") in _edges("flow")
-    assert C.OPERATION["tglf"].lines[-1].endswith("QL gyrofluid") and C.OPERATION["cgyro"].lines[-1].endswith("gyrokinetic")
+    assert C.OPERATION["response"].lines[-1].endswith("perturbed equilibria")
+    assert C.OPERATION["tglf"].lines[-1].endswith("gyrofluid") and C.OPERATION["cgyro"].lines[-1].endswith("gyrokinetic")
+    # the equilibrium formulations read: reconstruction, analytic, fixed-boundary, free-boundary
+    assert [op.key for op in C.OPERATIONS["equilibrium"]] == ["reconstruction", "analytic", "refinement", "free_boundary"]
     assert set(C.ANALYTICAL) == {"analytic", "classical", "sauter_redl"}
     assert C.KIND_WORDS["derived"] == "analytical model / formula"
     assert C.KIND_WORDS["solver"] == "numerical method / solver"
@@ -428,7 +429,9 @@ def test_the_figure_does_not_narrate_its_own_layout():
     assert not [it for it in items if (getattr(it, "role", "") or "").startswith("representation:")]
     titles = {it.role: it.text for it in items if isinstance(it, Label)}
     for key in ("equilibrium", "mhd", "transport"):
-        assert dict((k, t) for k, t, _ in X.REGIONS)[key] in titles[f"region title:{key}"]
+        assert C._TITLE[key] in titles[f"region title:{key}"]
+        assert C._TITLE[key] == dict((k, t) for k, t, _ in X.REGIONS)[key] or key == "mhd"
+    assert "MHD" not in titles["region title:mhd"]  # every domain is MHD-based; the title names stability only
     # sections are solid: a dash marks the alternatives' enclosure or a card's kind (assumption, convention), nothing else
     from vaft.diagram._render import template
 
@@ -512,6 +515,15 @@ def test_no_two_concept_cards_overlap_and_each_sits_in_its_section():
         assert len({boxes[op.key][2:] for op in C.OPERATIONS[domain]}) == 1
     for group in C.GROUP_TITLE:  # the enclosed codes share one size
         assert len({boxes[op][2:] for op in group}) == 1
+    # a balanced transport row: the groups share one width and height, their rows align (Sauter / Redl with TGLF,
+    # NEO with CGYRO), and Classical and the groups share the MHD cards' top and bottom edges
+    neo, turb = (boxes["alternative:" + ",".join(g)] for g in C.GROUP_TITLE)
+    assert neo[2:] == turb[2:]
+    assert boxes["sauter_redl"][1] == boxes["tglf"][1] and boxes["neo"][1] == boxes["cgyro"][1]
+    top = lambda b: b[1] + 0.5 * b[3]
+    bottom = lambda b: b[1] - 0.5 * b[3]
+    for b in (neo, turb, boxes["classical"]):
+        assert abs(top(b) - top(boxes["ideal"])) < 1e-9 and abs(bottom(b) - bottom(boxes["ideal"])) < 1e-9
     # the shared state sits between the equilibrium section and its consumers, overlapping none
     sx, sy, sw, sh = boxes["state"]
     assert C._BOUNDS["equilibrium"][3] > sy + 0.5 * sh and sy - 0.5 * sh > C._BOUNDS["mhd"][2]
