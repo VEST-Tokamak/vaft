@@ -9,7 +9,7 @@ Success is judged from ``out.cgyro.info``, never from the exit status: CGYRO wri
 ``ERROR: (CGYRO) ...`` there and exits 0 when it rejects an input, and appends
 ``EXIT: (CGYRO) <reason>`` only when the kernel finishes (``cgyro_final_kernel.F90``).
 The reason distinguishes ``Linear converged`` from ``Linear terminated at max time``,
-which is the line between a run that executed and one that is qualified (#1354).
+which is the line between a run that executed and one that is qualified.
 
 File layouts follow CGYRO's own reader, ``f2py/pygacode/cgyro/data.py`` at the pinned
 GACODE revision, and are checked against a real run in the tests rather than trusted:
@@ -558,8 +558,8 @@ def collect_cgyro_outputs(workdir: str | Path) -> Optional[CgyroOutputs]:
 def _monotonic_records(time: np.ndarray) -> np.ndarray:
     """Indices of the records whose time exceeds every earlier record's.
 
-    The first record of each time is kept, deliberately. In the requeued run that
-    prompted this (#1484), a second writer interleaved a few stale records (t going
+    The first record of each time is kept, deliberately. In a requeued run
+    observed in practice, a second writer interleaved a few stale records (t going
     back by ~4 a/c_s for one step at a time) into an otherwise continuous sequence;
     keeping the first keeps that sequence whole, whereas "last wins" would splice
     the two. CGYRO's own restart rewinds its files, so a clean restart leaves no

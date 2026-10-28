@@ -439,7 +439,7 @@ def _threshold_blockers_in_dcon(dcon_dir: Path) -> list[str]:
 
 
 def _attach_formalism(record: GPECModuleRun, config: GPECSuiteConfig, *, dcon_dir: Path | None = None) -> None:
-    """Record the run's plasma formalism (#1734) from the namelists it was prepared with.
+    """Record the run's plasma formalism from the namelists it was prepared with.
 
     Only for a cell this call prepared and ran (or deliberately left at
     ``prepare_only``): a cell skipped for a missing executable, an invalid DCON
@@ -627,7 +627,7 @@ def _run_module(
     # strand the cell without an eigenfunction just as permanently.
     #
     # Except on a stable equilibrium: there the companion has nothing to match
-    # and legitimately writes nothing (#423; with the packaged scalar `eta`,
+    # and legitimately writes nothing (with the packaged scalar `eta`,
     # `rmatch` stops before `delta.out` on every stable RDCON cell), so its
     # missing output is this cell's finished state, not a step to retry.
     # Without the condition every such cell was solved again on each call.
@@ -676,7 +676,7 @@ def _run_module(
         companion_failures: list[str] = []
         if returncode == 0:
             # A companion's namelist may depend on what the solver just wrote --
-            # rmatch's per-surface eta/massden do (#716) -- so solvers get a
+            # rmatch's per-surface eta/massden do -- so solvers get a
             # chance to refine those inputs here, between the two programs.
             refine = getattr(solver, "prepare_companions", None)
             if refine is not None:
@@ -701,7 +701,7 @@ def _run_module(
 
         # A companion that exists only to analyse an unstable mode has nothing
         # to do on a stable equilibrium, so its exit code is a note about the
-        # chain rather than this cell's verdict (issue #423). The verdict comes
+        # chain rather than this cell's verdict. The verdict comes
         # from the solver's own output, so it cannot be reached at all unless
         # the solver wrote one.
         stable = status == "completed" and _is_stable(solver, run_dir, mode)
@@ -924,8 +924,8 @@ __all__ = [
     "run_pentrc",
     "validate_pentrc_inputs",
     "write_threshold_pentrc_input",
-    # The native PENTRC reader, owned here since #1883 (vaft.code.pentrc re-exports it).
-    # The advisory ordering state of a case, from its g-file or stage ODS (#1987).
+    # The native PENTRC reader, owned here (vaft.code.pentrc re-exports it).
+    # The advisory ordering state of a case, from its g-file or stage ODS.
     "ordering_state_for_case",
     "PentrcFormatError",
     "PentrcOutput",

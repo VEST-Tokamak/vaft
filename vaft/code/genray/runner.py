@@ -69,7 +69,7 @@ def run_genray(inputs: GENRAYInputs, config: GENRAYConfig) -> GENRAYResult:
             label="genray",
         )
     )
-    # returncode=None and runtime_status="timeout" on a stop (#1016; it was 124).
+    # returncode=None and runtime_status="timeout" on a stop.
     returncode = execution.returncode
     netcdf = collect_genray_outputs(inputs.workdir)
     parsed = None

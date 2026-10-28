@@ -362,7 +362,7 @@ class GPECLimitStop(subprocess.TimeoutExpired):
     keeps the :class:`~vaft.code.execution.ExecutionResult`: a memory stop
     (``runtime_status="memory_limit"``) or a launch never admitted for memory
     (``"queue_timeout"``) is not "a timeout after N seconds" and must not be
-    reported as one (#1460).
+    reported as one.
     """
 
     def __init__(self, cmd: list[str], timeout: float, execution: ExecutionResult, reason: str) -> None:
@@ -412,7 +412,7 @@ def run_subprocess(
     command_prefix: tuple[str, ...] = (),
 ) -> tuple[int, Path]:
     # A prefix runs the program through a filter that owns its output, such as
-    # PENTRC's log cap (#1929); the program itself is still the last word.
+    # PENTRC's log cap; the program itself is still the last word.
     command = (*command_prefix, str(executable_path))
     resources, env = configured_resources(config, ResourceRequest(), gpec_env(config))
     execution = resolve_backend(config).run(

@@ -19,8 +19,8 @@ conductor polygons suitable for ``gs_Domain.define_region(..., 'conductor')``:
   resistances via ``R = 2*pi*R*eta/A``) for stainless, and the nominal
   tungsten value of :mod:`vaft.machine_mapping.wall_resistance` for ``W11``,
   with per-segment/region overrides. The outboard wall ``W1`` and ``W11``
-  carry fitted band factors in ``pf_passive.loop.*.resistance`` (issue #191,
-  :mod:`vaft.machine_mapping.wall_resistance`) that are NOT applied here:
+  carry fitted band factors in ``pf_passive.loop.*.resistance``
+  (:mod:`vaft.machine_mapping.wall_resistance`) that are NOT applied here:
   TokaMaker meshes the nominal material value. For ``W11`` the factors run
   0.40-9.21x nominal (median 4.56x), so its meshed hoop resistance is well
   below the calibrated wall model's; override ``vessel_eta`` to apply one.
@@ -29,7 +29,7 @@ conductor polygons suitable for ``gs_Domain.define_region(..., 'conductor')``:
 - a strip thinner than ``TokaMakerConfig.vessel_min_thickness`` is widened
   about its centreline to that thickness and its eta scaled by the same
   factor, so its sheet resistance is unchanged. ``W11`` (0.1 mm tungsten
-  inboard limiter tiles) is meshed this way rather than excluded (issue #965).
+  inboard limiter tiles) is meshed this way rather than excluded.
 """
 
 from __future__ import annotations
@@ -81,9 +81,8 @@ def _split_z_clusters(rects: list[dict[str, float]]) -> list[list[dict[str, floa
     """Split a segment's rectangles at genuine Z gaps (mirrored halves).
 
     The rule lives in :func:`vaft.machine_mapping.wall_segments.cluster_by_z_gap`
-    -- the same one the reduced wall-mode basis segments the wall by (vaft
-    #473) -- so a TokaMaker conductor region and a basis segment are the same
-    conductor.
+    -- the same one the reduced wall-mode basis segments the wall by -- so a
+    TokaMaker conductor region and a basis segment are the same conductor.
     """
     from vaft.machine_mapping.wall_segments import cluster_by_z_gap
 

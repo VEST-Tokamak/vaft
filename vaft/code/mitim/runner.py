@@ -1,4 +1,4 @@
-"""Launch a MITIM driver script in the isolated MITIM interpreter (#1588 stage A1).
+"""Launch a MITIM driver script in the isolated MITIM interpreter.
 
 The runner owns the run directory, the per-run ``$MITIM_CONFIG``, the GACODE
 environment, the launch through VAFT's execution backend, the driver's

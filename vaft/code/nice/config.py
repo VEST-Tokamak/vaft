@@ -72,7 +72,7 @@ class NiceConfig:
 
     # How the solver is launched; None -> LocalBackend (vaft.code.execution).
     backend: Optional["ExecutionBackend"] = None
-    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: Compute resources for each launch. ``None`` keeps the adapter's
     #: own declaration; a value replaces it, and its ``threads_per_task`` is
     #: set in the launch environment over ``env`` and the inherited one.
     resources: Optional["ResourceRequest"] = None
@@ -120,7 +120,7 @@ class NiceResult(RunOutcome):
     workdir: Path
     process_succeeded: bool = False
     converged: Optional[bool] = None
-    # Issue #666 stage success: a valid numerically converged equilibrium.
+    # Numerical stage success: a valid numerically converged equilibrium.
     # Auxiliary diagnostic/physics-quality warnings do not gate this flag.
     scientifically_usable: Optional[bool] = None
     termination_reason: str = ""
@@ -136,7 +136,7 @@ class NiceResult(RunOutcome):
     provenance: Mapping[str, Any] = field(default_factory=dict)
     ods: Any = None
 
-    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"`` (#1016).
+    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"``.
     runtime_status: str = "completed"
     #: Wall time from launch to exit or stop [s].
     elapsed_s: Optional[float] = None

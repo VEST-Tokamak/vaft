@@ -1,4 +1,4 @@
-"""Reproduce issue #666 against local clones: python -m vaft.code.nice.validate_reference.
+"""Reproduce the NICE-vs-EFIT validation study against local clones: python -m vaft.code.nice.validate_reference.
 
 Reports preserve failures; this command never treats process exit zero as
 scientific acceptance. Output directories must be new to avoid stale tables.
@@ -75,7 +75,7 @@ def condition(ods, shot, times, work, repo, table_dir=None):
 
     # The study's channel policy as it was run in September: whole-record-dead
     # probes plus the legacy positional flux-loop list, with legacy Gaussian
-    # probe recovery.  Spelled through the #296 decisions API instead of the
+    # probe recovery.  Spelled through the per-channel decisions API instead of the
     # deprecated broken=/fit= arguments, which built exactly these.  Trailing
     # probes EFIT does not represent are left out: their one-based index would
     # otherwise read as a flux loop.

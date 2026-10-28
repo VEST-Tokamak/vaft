@@ -72,7 +72,7 @@ def compare_diagnostic_residuals(
 
 
 def constraint_family_configs(base: NiceConfig) -> dict[str, NiceConfig]:
-    """The issue #666 family-addition cases (diamagnetics is provenance-only)."""
+    """The validation study's constraint-family-addition cases (diamagnetics is provenance-only)."""
     return {
         "Core": replace(
             base,

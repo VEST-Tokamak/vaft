@@ -94,8 +94,7 @@ def whole_millisecond_tstep(text: str) -> float:
     the floor -- on the log and file side). A step that is not a multiple of
     1 ms puts slices between the keys, where ``round`` and ``floor`` disagree
     and every other slice is paired with the wrong output, and a step below
-    1 ms folds several slices into one key. Both are refused with the reason
-    (cold review 0.7.0 efit-workflows F9; PR #1920 review F1).
+    1 ms folds several slices into one key. Both are refused with the reason.
     """
     value = float(text)
     milliseconds = value * 1000.0

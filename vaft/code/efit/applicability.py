@@ -1,4 +1,4 @@
-"""Whether EFIT applies to a shot at all, carried from the constraint step on (#205).
+"""Whether EFIT applies to a shot at all, carried from the constraint step on.
 
 A vacuum shot (or a breakdown failure) has no plasma current to reconstruct:
 every constraint instant is below EFIT's ``CUTIP``.  That is a result about

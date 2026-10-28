@@ -1,4 +1,4 @@
-"""Compact scientific identity for solver collections and local runs (#2026).
+"""Compact scientific identity for solver collections and local runs.
 
 Only standard code.parameters XML is used; native arrays stay in their source.
 """

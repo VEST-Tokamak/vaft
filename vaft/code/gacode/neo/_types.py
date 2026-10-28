@@ -141,7 +141,7 @@ class NEOResult(CodeResult):
 
 def plasma_formalism(config: Optional[NEOConfig] = None, *,
                      parameters: Optional[Mapping[str, Any]] = None):
-    """The #1727 record of a NEO run (:class:`vaft.code.formalism.PlasmaFormalism`, #1735).
+    """The formalism record of a NEO run (:class:`vaft.code.formalism.PlasmaFormalism`).
 
     Derived from ``parameters``, the ``KEY=VALUE`` pairs the run was written with
     (:func:`vaft.code.gacode.neo.inputs.neo_parameters`), or, without them, from the

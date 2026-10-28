@@ -72,7 +72,7 @@ class Pest3MatchingOutput:
     vacuum1: Optional[complex] = None
     total1: Optional[complex] = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    #: Local stability profiles on the solver's own ``psi_n`` grid (issue #939).
+    #: Local stability profiles on the solver's own ``psi_n`` grid.
     #: Both solvers write them from ``locstab%fs`` (``rdcon_netcdf.f:412-415``):
     #: ``di`` the ideal Mercier criterion D_I, ``dr`` the resistive
     #: interchange criterion D_R, ``ca1`` the high-n ballooning criterion C_A.
@@ -127,7 +127,7 @@ class Pest3MatchingOutput:
         interpolated linearly in ``psi_n`` from the solver's profiles to each
         surface's ``psi_n_rational``, and are ``None`` when the profile is
         absent. This is a table of values, not a verdict: neither a positive
-        Delta-prime nor ``dr > 0`` alone decides tearing stability (#939).
+        Delta-prime nor ``dr > 0`` alone decides tearing stability.
         """
         rows = []
         for row in self.delta_prime_diagonal():

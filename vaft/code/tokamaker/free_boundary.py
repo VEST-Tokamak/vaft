@@ -1,7 +1,7 @@
-"""Free-boundary PF-coil-current scans with TokaMaker (issue #67).
+"""Free-boundary PF-coil-current scans with TokaMaker.
 
 A TokaMaker-only realization of the free-boundary scan contract, mirroring the
-fixed-boundary CHEASE scan conventions (issue #66: control axes, case status
+fixed-boundary CHEASE scan conventions (:mod:`vaft.code.chease_scan`: control axes, case status
 taxonomy, atomic scan/case manifests with config-sha resume, continuation with
 explicit break marking) without sharing code yet — the common core is deferred
 until both implementations are mature.
@@ -581,8 +581,8 @@ class FreeBoundaryScan:
             self.classify_kwargs.get("active_tolerance"),
             self.classify_kwargs.get("near_null_band"),
         ) or (
-            # reports written before #1469 called a contact-free boundary
-            # LIMITED and carry no contact tolerance
+            # reports written before limiter-contact detection called a
+            # contact-free boundary LIMITED and carry no contact tolerance
             stored and "contact_tolerance" not in stored
         ) or (
             contact_tolerance is not None
@@ -828,7 +828,7 @@ def scan(
     independent upper/lower halves) to a single ``{mode: values}`` entry with
     mode ``absolute_A`` | ``offset_A`` | ``scale``. ``mode="product"`` crosses
     the axes; ``mode="zip"`` marches them together as one current trajectory
-    (the issue-#67 target-assisted continuation without an optimizer).
+    (target-assisted continuation without an optimizer).
     """
     if config is None:
         raise ValueError(

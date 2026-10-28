@@ -1,9 +1,9 @@
-"""Self-consistent equilibrium / kinetic-profile iteration through CHEASE (#123).
+"""Self-consistent equilibrium / kinetic-profile iteration through CHEASE.
 
 Composes three existing pieces and adds no physics of its own:
 
 1. **kinetic profiles** -- :func:`vaft.process.profile.generate_synthetic_kinetic_profiles`
-   (#122) applied to the current equilibrium with one unchanging
+   applied to the current equilibrium with one unchanging
    :class:`~vaft.data.SyntheticKineticSpec`, so every shape is regenerated on
    the new coordinates rather than re-interpolated from an earlier iteration;
 2. **a CHEASE pressure source** -- ``PRES`` and ``PPRIME = dp/dpsi`` built from
@@ -12,8 +12,9 @@ Composes three existing pieces and adds no physics of its own:
    :class:`~vaft.data.CurrentPolicy` (:func:`current_source_for_update`);
 3. **a fixed-boundary solve** -- :func:`vaft.code.chease.refine_equilibrium`
    with ``target_psin = 1`` (the ``EXPEQ`` boundary is the initial ``RBBBS``,
-   the #887 rule) and the policy's ``NCSCAL``.  A zero return code is not
-   acceptance: every update is validated (:func:`validate_chease_update`).
+   so the boundary solved on is the one the refined g-file reports) and the
+   policy's ``NCSCAL``.  A zero return code is not acceptance: every update is
+   validated (:func:`validate_chease_update`).
 
 The pressure is then re-extracted from the *solved* equilibrium, compared
 with the kinetic pressure regenerated on it, and the loop repeats until the
@@ -456,7 +457,7 @@ def _metrics(kin, p_eq, q, rho_tor, scalars, previous: IterationState | None) ->
 
 
 def _generate(geqdsk, spec: EquilibriumKineticSpec, time):
-    """#122 on one equilibrium: ``(result, None)`` or ``(result_or_None, failure message)``."""
+    """Synthetic kinetic profiles on one equilibrium: ``(result, None)`` or ``(result_or_None, failure message)``."""
     try:
         kin = generate_synthetic_kinetic_profiles(geqdsk, spec.kinetic, time=time)
     except SyntheticProfileError as error:
@@ -589,8 +590,8 @@ def _drifting_signals(window: list[IterationState], criteria: ConvergenceCriteri
 
 
 #: A CASE label declaring a weber-family COCOS index (11-18): a g-file whose psi is stored per weber, which the
-#: per-radian g-file readers (``to_omas``, the CHEASE adapter) would misread.  ``from_equilibrium`` has written
-#: per-radian files since #1292 was fixed, so this now guards files written before the fix, or by hand.
+#: per-radian g-file readers (``to_omas``, the CHEASE adapter) would misread.  ``from_equilibrium`` writes
+#: per-radian files, so this guards older files that store psi per weber, and files written by hand.
 _WEBER_CASE = re.compile(r"COCOS\s*=\s*(1[1-8])\b")
 
 
@@ -607,7 +608,7 @@ def _per_radian(geqdsk) -> tuple[Any, str | None]:
         eq = as_equilibrium(geqdsk)
         if eq.convention.cocos != index:
             raise ValueError(f"the file declares COCOS {index} but reads as {eq.convention.cocos}")
-        converted = from_equilibrium(eq)   # moves a weber record to its per-radian twin (#1292)
+        converted = from_equilibrium(eq)   # moves a weber record to its per-radian twin
         if re.search(rf"COCOS={index - 10}\b", str(converted["CASE"])) is None:
             raise ValueError(f"the export wrote {converted['CASE']!r}, not COCOS {index - 10}")
     except Exception as error:  # noqa: BLE001 - refused with the reason, never read with the wrong 2*pi
@@ -622,15 +623,14 @@ _ACCEPTED_INITIAL = ("a g-file path, a GEQDSK, a g-file mapping, an ODS, a #120 
 
 
 def _coerce_initial(equilibrium):
-    """A per-radian GEQDSK from a path, GEQDSK, mapping, ODS, a #120
-    ``SyntheticEquilibriumResult`` or a #1378 ``MultiTargetSynthesisResult``
+    """A per-radian GEQDSK from a path, GEQDSK, mapping, ODS, a
+    ``SyntheticEquilibriumResult`` or a ``MultiTargetSynthesisResult``
     (the g-file of the solve it reports)."""
     from .chease_synthesis_targets import MultiTargetSynthesisResult
 
     if isinstance(equilibrium, MultiTargetSynthesisResult):
-        # The #1378 result carries the g-file through the solve it reports; it
-        # used to fall through to _coerce_geqdsk and die with "not subscriptable"
-        # (cold review 0.8.0 plasma-state-and-chease F3).
+        # The multi-target result is not a g-file: it carries one, in the
+        # SyntheticEquilibriumResult of the solve it reports (``.result``).
         if not equilibrium.ok or equilibrium.result is None:
             raise ValueError(f"the #1378 multi-target synthesis did not succeed ({equilibrium.status}"
                              f"{': ' + str(equilibrium.reason) if equilibrium.reason else ''}); "
@@ -760,12 +760,12 @@ def build_consistent_state(equilibrium, spec: EquilibriumKineticSpec, *, config:
     Parameters
     ----------
     equilibrium : GEQDSK, path, ODS or SyntheticEquilibriumResult
-        The initial equilibrium; a #120 result contributes its refined g-file.
+        The initial equilibrium; a synthesis result contributes its refined g-file.
         A g-file whose CASE declares a weber-family COCOS (11-18) is converted
         to its per-radian twin first, and refused when that fails.  Ignored
         when *resume* is given [-].
     spec : EquilibriumKineticSpec
-        Closure mode, #122 kinetic spec, current policy and convergence
+        Closure mode, synthetic kinetic spec, current policy and convergence
         criteria [-].
     config : CHEASEConfig, optional
         CHEASE numerics (mesh, output box, executable, timeout).  The
@@ -799,7 +799,7 @@ def build_consistent_state(equilibrium, spec: EquilibriumKineticSpec, *, config:
     Raises
     ------
     ValueError
-        *spec* is not an :class:`~vaft.data.EquilibriumKineticSpec`, a #120
+        *spec* is not an :class:`~vaft.data.EquilibriumKineticSpec`, a synthesis
         result that did not succeed, a rising analytic current profile, or a
         weber-family g-file that cannot be converted.
 

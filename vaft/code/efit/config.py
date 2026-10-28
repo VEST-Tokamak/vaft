@@ -38,10 +38,11 @@ def _unit_uncertainty_scales() -> dict[str, float]:
     return {name: 1.0 for name in sorted(DIAGNOSTIC_GROUPS)}
 
 
-#: The default sigma scales: the #891 working setting, calibrated
-#: self-consistently on the reference shots (probe x3.62, loop x2.15 over the
-#: stored sigma), the diamagnetic flux fitted at x16 and Ip sigma 20 % (x4 of
-#: 5 %).  ``uncertainty_scales`` divides sigma, so a multiplier m is 1/m.
+#: The default sigma scales: the working setting of the EFIT weight study
+#: (#891), calibrated self-consistently on the reference shots (probe x3.62,
+#: loop x2.15 over the stored sigma), the diamagnetic flux fitted at x16
+#: and Ip sigma 20 % (x4 of 5 %).  ``uncertainty_scales`` divides sigma, so
+#: a multiplier m is 1/m.
 WORKING_UNCERTAINTY_SCALES = MappingProxyType({
     "bpol_probe": 1.0 / 3.62,
     "flux_loop": 1.0 / 2.15,
@@ -68,7 +69,7 @@ class EFITProfileConfig:
     """Pressure and FF-prime representation written to the EFIT namelist."""
 
     kppcur: int = 2
-    #: One FF' coefficient: the #891 working basis (2,1).  (2,2) is the
+    #: One FF' coefficient: the working basis (2,1).  (2,2) is the
     #: legacy routine basis; see :func:`routine_scientific_config`.
     kffcur: int = 1
     kppfnc: int = 0
@@ -78,17 +79,18 @@ class EFITProfileConfig:
     #: Enable EFIT's proportional-shape constraint between the fitted
     #: pressure and FF-prime coefficients.  The executable canonicalizes any
     #: non-zero input to one, so this is deliberately a binary switch rather
-    #: than a continuous weight (issue #579).
+    #: than a continuous weight.
     fwtbp: int = 0
     #: GA-EFIT's attached (scrape-off-layer) current model, ``ICUTFP`` in
-    #: ``&IN1`` (#672).  ``0`` -- EFIT's own default and VAFT's -- confines
-    #: the reconstructed current to the closed-flux region.  ``2`` lets the
-    #: FF' (force-free) part extend outside the LCFS up to a flux bound EFIT
-    #: derives each iteration from the limiter (``LIMVS = 1``, its default)
-    #: or the vessel (``LIMVS = 0``); the p' part stays inside
-    #: (``update_parameters.F90`` ``SOL_curr``, ``current.f90``).  ``1`` is
-    #: refused: EFIT scales psi by ``XPSIMIN`` for any non-zero value but
-    #: computes ``XPSIMIN`` only for ``2``, so ``1`` runs on an unset bound.
+    #: ``&IN1``; Open: #672 (not yet qualified for VEST).  ``0`` -- EFIT's
+    #: own default and VAFT's -- confines the reconstructed current to the
+    #: closed-flux region.  ``2`` lets the FF' (force-free) part extend
+    #: outside the LCFS up to a flux bound EFIT derives each iteration from
+    #: the limiter (``LIMVS = 1``, its default) or the vessel
+    #: (``LIMVS = 0``); the p' part stays inside (``update_parameters.F90``
+    #: ``SOL_curr``, ``current.f90``).  ``1`` is refused: EFIT scales psi by
+    #: ``XPSIMIN`` for any non-zero value but computes ``XPSIMIN`` only for
+    #: ``2``, so ``1`` runs on an unset bound.
     #: ``2`` is refused with ``ICINIT`` -3/-4 (``set_init.f90`` stops).  A
     #: restart (``EFITConfig.restart_from``, which writes ``ICINIT = -2``)
     #: builds its first current distribution before EFIT has set ``XPSIMIN``
@@ -159,8 +161,8 @@ class EFITInitializationConfig:
     ``RZERO`` (EFIT's reference major radius) and ``RCENTR``, which also sets
     ``BTOR = (B_t R)_measured / RCENTR``.  Moving it therefore moves the seed,
     the normalisation and the vacuum toroidal field together, and no study can
-    attribute a change to the seed alone (issue #588 requires exactly that
-    attribution).
+    attribute a change to the seed alone (a seed-sensitivity study needs
+    exactly that attribution).
 
     ``ellipse_rzero`` separates them: it drives ``RELIP`` alone and leaves
     ``RZERO``, ``RCENTR`` and ``BTOR`` at ``rzero``.  Setting it to ``None``
@@ -168,10 +170,11 @@ class EFITInitializationConfig:
 
     It defaults to 0.32 m rather than to the 0.4 m reference radius.  0.4 m is
     where the *vessel* is centred; 0.32 m is roughly where the plasma is, and
-    the reconstructions say so themselves -- over the #588 reference set their
-    current centroid has a median of 31.8 cm and their boundary centre
-    33.5 cm.  Seeding an ellipse at the vessel centre asks the solver to walk
-    the axis inboard on every slice before it can begin converging.
+    the reconstructions say so themselves -- over the seed-sensitivity
+    study's reference set (#588) their current centroid has a median of
+    31.8 cm and their boundary centre 33.5 cm.  Seeding an ellipse at the
+    vessel centre asks the solver to walk the axis inboard on every slice
+    before it can begin converging.
 
     The sweep supports the region, not the digits.  Over 77 plasma slices from
     three discharges, seeds at 0.30-0.36 m all produce more equilibria than
@@ -194,17 +197,17 @@ class EFITInitializationConfig:
     #: statement about when there is a plasma worth fitting, not a numerical
     #: tolerance.
     #:
-    #: 15 kA, raised from 5 kA in #708. Over the reference set the twelve
+    #: 15 kA. Over the reference set the twelve
     #: lowest-current slices run 0.3 to 14.9 kA and the next one up is
     #: 17.5 kA, so the cut has 2.6 kA of margin either side; three discharges
-    #: cannot fix the digit more tightly than that. What it buys is the
+    #: cannot fix the digit more tightly than that. What it buys over 5 kA is the
     #: leading slice of each discharge's collapse block -- 7.1, 12.3 and
     #: 9.9 kA -- which EFIT was being asked to reconstruct and failed on,
     #: reported as vacuum instead of as a collapse.
     current_threshold: float = 15_000.0
     #: EFIT initialization policy. ``None`` preserves the executable default
     #: (2); studies set it explicitly so independent-slice and continuation
-    #: experiments cannot be confused (#196, #579).
+    #: experiments cannot be confused.
     icinit: int | None = None
     #: ``RELIP`` alone, in metres. ``None`` restores the coupling to
     #: :attr:`rzero`. See the class docstring for where 0.32 comes from.
@@ -240,14 +243,14 @@ class EFITInitializationConfig:
 class EFITNumericsConfig:
     """Convergence, relaxation, and iteration controls.
 
-    The four settings VEST actually stops on were, until issue #171, not
-    expressible here at all: ``ERRMIN``, ``SAICON``, ``ICONVR`` and ``NXITER``
-    were left to EFIT's own defaults, one of them behind a commented-out line
-    in the writer.  That is why a VEST fit terminates on the chi-square
-    criterion after eleven iterations while the ``ERROR`` written beside it
-    asks for 1e-5 and is never reached.
+    The four settings VEST actually stops on -- ``ERRMIN``, ``SAICON``,
+    ``ICONVR`` and ``NXITER`` -- can be set here.  Left to EFIT's own defaults,
+    a VEST fit terminates on the chi-square criterion after eleven
+    iterations while the ``ERROR`` written beside it asks for 1e-5 and is
+    never reached.
 
-    The defaults are the #891 working setting (2026-10-01): the fit stops on
+    The defaults are the working setting (preset ``statistical_891``,
+    default since 2026-10-01): the fit stops on
     psi convergence alone -- ERRMIN 1e-4, SAICON out of reach, one inner
     iteration, MXITER 514 = (515 - 1) // NXITER -- and chi-square is judged
     afterwards, not by the exit.  ``None`` writes no key, so EFIT's own
@@ -264,7 +267,7 @@ class EFITNumericsConfig:
     error_minimum: float | None = 1.0e-4
     #: ``SAICON``: the chi-square the fit is allowed to stop at. EFIT's
     #: default is 80, which VEST's flat-top passes on the way down; 1e10 is
-    #: out of reach, so the exit is ERRMIN plus a chi-square stall (#891).
+    #: out of reach, so the exit is ERRMIN plus a chi-square stall.
     chi_squared_target: float | None = 1.0e10
     #: ``ICONVR``: which criterion terminates the outer loop. VEST runs 2
     #: (chi-square) by not writing the key at all.
@@ -376,7 +379,7 @@ class EFITAcceptanceEnvelope:
     plasma_diff: float = 0.08
     #: The virial (Lao) consistency tolerances, failures #20 and #21.  At
     #: VEST's aspect ratio these are ill-conditioned and cannot decide the
-    #: question they are asked (issue #649): ``sbpp`` is a difference of two
+    #: question they are asked: ``sbpp`` is a difference of two
     #: nearly equal terms, negative on some slices, and ``sbli`` divides by
     #: ``alpha - 1``.  :data:`IGNORE_CRITERION` disables the rejection while
     #: leaving every quantity computed and written to the a-file.
@@ -441,7 +444,7 @@ class EFITConstraintConfig:
     the branches that test ``fwtdlc`` directly (``response_matrix.F90:2840``,
     ``chkerr.f90:61``).  Scaling the sigma moves the row weight and nothing
     else, and it is the same quantity a production uncertainty decision would
-    set (#386).
+    set.
 
     :attr:`legacy_weight_scale` cannot serve this purpose: it is shared by
     every family's legacy uncertainty, so moving it moves them all.
@@ -459,24 +462,25 @@ class EFITConstraintConfig:
     uncertainty_scales: Mapping[str, float] = field(
         default_factory=_working_uncertainty_scales
     )
-    #: ``"standard_deviation"`` since the #891 working setting: the submitted
+    #: ``"standard_deviation"`` in the default working setting: the submitted
     #: sigma is the measurement's.  ``"legacy_weight"`` is the routine
     #: configuration's (see :func:`routine_scientific_config`).
     uncertainty_mode: str = "standard_deviation"
     #: Relative sigma floor: before the k-file is written, each fitted
     #: channel of these families has its sigma raised to at least this
     #: fraction of its family's median |measured|, per slice.  0 changes
-    #: nothing.  The #891 calibration assumes 2 % on probes and loops.
+    #: nothing.  The default sigma scales were calibrated assuming 2 % on
+    #: probes and loops.
     sigma_floor: float = 0.02
     sigma_floor_families: tuple[str, ...] = ("bpol_probe", "flux_loop")
     legacy_vbit: float = 10.0
     legacy_weight_scale: float = 10_000.0
     use_diamagnetic_flux: bool = True
     #: How the measured diamagnetic flux is written to DFLUX.  ``"imas"`` (the
-    #: default since issue #385) writes the stored, signed value, which is what
+    #: default) writes the stored, signed value, which is what
     #: EFIT expects: it fits DFLUX against ``cdflux = integral (B_t - B_tv) dA``
     #: signed with B_t, so a paramagnetic plasma in a positive field is
-    #: positive, as the stored measurement is (#1196).
+    #: positive, as the stored measurement is.
     #: ``"absolute"`` and ``"negative"`` force a sign and exist for controlled
     #: comparisons only; ``"absolute"`` was the historical default, inherited
     #: from a donor fitter that compared magnitudes.
@@ -611,7 +615,7 @@ class EFITConstraintConfig:
 class EFITScientificConfig:
     """Complete scientific configuration a k-file is written from.
 
-    The defaults are the #891 working setting (the ``statistical_891``
+    The defaults are the working setting (the ``statistical_891``
     preset); :func:`routine_scientific_config` is the legacy routine one.
     """
 
@@ -624,7 +628,7 @@ class EFITScientificConfig:
 
     def __post_init__(self) -> None:
         # set_init.f90 builds the -3/-4 seed only for the closed-flux model and
-        # stops EFIT otherwise ("icutfp/=0 not set up"), on every slice (#672).
+        # stops EFIT otherwise ("icutfp/=0 not set up"), on every slice.
         if self.profile.icutfp and self.initialization.icinit in (-3, -4):
             raise ValueError(
                 "icutfp = 2 cannot be combined with icinit -3/-4: EFIT's set_init "
@@ -642,7 +646,7 @@ class EFITScientificConfig:
         if not self.constraints.sigma_floor:
             payload["constraints"].pop("sigma_floor", None)
             payload["constraints"].pop("sigma_floor_families", None)
-        # Likewise the attached-current model (#672): off, it is absent, so
+        # Likewise the attached-current model: off, it is absent, so
         # every configuration recorded before it existed keeps its hash.
         if not self.profile.icutfp:
             payload["profile"].pop("icutfp", None)

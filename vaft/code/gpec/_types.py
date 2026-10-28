@@ -70,7 +70,7 @@ class RDCONOptions:
     ``rmatch`` wants one resistivity and one mass density *per rational
     surface*, and the packaged ``rmatch.in`` supplies a single scalar, so it
     stops with ``eta requires N non-zero elements`` before writing
-    ``delta.out`` or any inner-layer solution (#716). Delta-prime is unaffected -- RDCON computes it
+    ``delta.out`` or any inner-layer solution. Delta-prime is unaffected -- RDCON computes it
     and ``rmatch`` does not -- so this is opt-in rather than required.
 
     Supplying ``t_e``/``n_e`` fills both arrays from the plasma: after RDCON
@@ -90,12 +90,12 @@ class RDCONOptions:
 
     #: Passed through to :func:`vaft.process.equilibrium.resistive_layer_parameters`.
     #: ``z_eff`` and ``ln_lambda`` are an explicit *assumed value* for the NRL
-    #: parallel Spitzer resistivity, not a derived one (#1188): they only reach
+    #: parallel Spitzer resistivity, not a derived one: they only reach
     #: ``rmatch.in``'s eta/massden and leave Delta-prime untouched. They have
     #: no default: kinetic profiles without both are refused by name in
     #: ``__post_init__`` rather than silently evaluated at Z_eff = 2,
-    #: ln Lambda = 17 (Refs #1188). Pass a measured or inferred Z_eff (e.g.
-    #: Lane Z's resistive estimate, #1214) when the RMATCH growth rates are
+    #: ln Lambda = 17. Pass a measured or inferred Z_eff (e.g. the resistive
+    #: estimate of :mod:`vaft.omas.resistive_zeff`) when the RMATCH growth rates are
     #: to be read quantitatively.
     ion_mass_amu: float = 1.0
     z_eff: Optional[float] = None
@@ -591,12 +591,12 @@ class PENTRCOptions:
 
 @dataclass(frozen=True)
 class PENTRCLogLimits:
-    """How much a PENTRC run may write to its log, and when it has stalled (#1929).
+    """How much a PENTRC run may write to its log, and when it has stalled.
 
     PENTRC does not stop when an energy integration will not converge: LSODE
     repeats the same complaint and PENTRC carries on, so a stalled run writes
-    gigabytes (1.8 GB before a one-hour timeout in the #1887 scan) and is then
-    reported as a timeout.  Applied by streaming PENTRC's output through
+    gigabytes (1.8 GB before a one-hour timeout in the PENTRC NTV
+    coil-response scan of #1887) and is then reported as a timeout.  Applied by streaming PENTRC's output through
     :mod:`vaft.code.gpec._log_cap` on the local backend.
 
     ``max_bytes``
@@ -659,7 +659,7 @@ class GPECSuiteConfig:
     timeout: Optional[float] = 1200.0
     env: Mapping[str, str] = field(default_factory=dict)
     #: Ordering quantities of the equilibrium being analysed, by
-    #: ``vaft.validation.orderings.ORDERING_QUANTITIES`` name (#1823), e.g. from
+    #: ``vaft.validation.orderings.ORDERING_QUANTITIES`` name, e.g. from
     #: ``vaft.process.ordering_state``; mode and layer quantities when the caller
     #: has them. Advisory only: recorded per run as ``ordering_check``.
     ordering_state: Mapping[str, Any] = field(default_factory=dict)
@@ -670,7 +670,7 @@ class GPECSuiteConfig:
     #: Log size and stall limits of a PENTRC run; see :class:`PENTRCLogLimits`.
     pentrc_log: PENTRCLogLimits = field(default_factory=PENTRCLogLimits)
     backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
-    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: Compute resources for each launch. ``None`` keeps the adapter's
     #: own declaration; a value replaces it, and its ``threads_per_task`` is
     #: set in the launch environment over ``env`` and the inherited one.
     resources: Optional["ResourceRequest"] = None
@@ -702,7 +702,7 @@ class GPECModuleRun:
     #:
     #: ``stable`` is a *successful* outcome, kept apart from ``completed``
     #: because a stable equilibrium produces no unstable-mode output and so
-    #: cannot be told from a broken run by what it wrote (issue #423).
+    #: cannot be told from a broken run by what it wrote.
     status: str = "prepared"
     reason: str = ""
     logs: tuple[Path, ...] = ()
@@ -714,14 +714,14 @@ class GPECModuleRun:
     #: that has an eigenfunction and one that never will, so it is reported
     #: rather than left for a caller to rediscover by listing the directory.
     missing_optional_outputs: tuple[str, ...] = ()
-    #: The run's physical formulation (#1734), the versioned
+    #: The run's physical formulation, the versioned
     #: :meth:`vaft.code.formalism.PlasmaFormalism.as_dict`, derived from the
     #: namelists the cell was prepared with.  Kept as that plain dict so a run
     #: manifest built with ``dataclasses.asdict`` carries it unchanged; ``None``
     #: when the cell was never prepared.  :attr:`formalism` rebuilds the record.
     plasma_formalism: Optional[Mapping[str, Any]] = None
     #: The advisory ordering check of that formalism on
-    #: :attr:`GPECSuiteConfig.ordering_state` (#1823): the contracts the run
+    #: :attr:`GPECSuiteConfig.ordering_state`: the contracts the run
     #: consumes, in what role, with each status and margin.  JSON-ready, so the
     #: ``dataclasses.asdict`` run manifest carries it; ``None`` with no formalism.
     ordering_check: Optional[Mapping[str, Any]] = None
@@ -741,7 +741,7 @@ class GPECModuleRun:
 
         ``stable`` counts: the solver ran and found no unstable mode, which is a
         physics result. Excluding it would make every stable discharge read as
-        an unusable cell (issue #423).
+        an unusable cell.
         """
         return self.status in {"completed", "stable"} and self.returncode == 0
 

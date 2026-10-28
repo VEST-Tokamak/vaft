@@ -95,7 +95,7 @@ class EFITConfig:
     numerics: EFITNumericsConfig = field(default_factory=EFITNumericsConfig)
     constraints: EFITConstraintConfig = field(default_factory=EFITConstraintConfig)
     provenance: Mapping[str, Any] = field(default_factory=dict)
-    #: Ordering quantities of the states being reconstructed (#1823), by
+    #: Ordering quantities of the states being reconstructed, by
     #: ``vaft.validation.orderings.ORDERING_QUANTITIES`` name -- what
     #: ``vaft.process.ordering_state`` builds from the pipeline's n_e, T_e and
     #: I_p history, which EFIT's own inputs do not carry. Advisory only: it is
@@ -108,7 +108,7 @@ class EFITConfig:
     direction_constraint: Path | str | None = None
     restart_from: Path | str | None = None
     write_restart: bool = False
-    #: How much of EFIT's Picard trajectory to keep (issue #1038): ``"none"``
+    #: How much of EFIT's Picard trajectory to keep: ``"none"``
     #: (routine; nothing is parsed or written) or ``"summary"`` -- the log's
     #: and the m-files' per-iteration chi-square, flux increment and axis
     #: height, written to ``efit_iteration_history.json`` beside the outputs
@@ -116,7 +116,7 @@ class EFITConfig:
     iteration_history: str = "none"
     # How the run is launched; None -> LocalBackend (vaft.code.execution).
     backend: Optional["ExecutionBackend"] = None
-    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: Compute resources for each launch. ``None`` keeps the adapter's
     #: own declaration; a value replaces it, and its ``threads_per_task`` is
     #: set in the launch environment over ``env`` and the inherited one.
     resources: Optional["ResourceRequest"] = None
@@ -294,7 +294,7 @@ def resolved_efit_configuration(config: EFITConfig) -> dict[str, Any]:
 
 
 def _ordering_check(config: EFITConfig) -> Optional[dict[str, Any]]:
-    """The advisory check of the equilibrium-sequence contract an EFIT run consumes (#1823)."""
+    """The advisory check of the equilibrium-sequence contract an EFIT run consumes."""
     from vaft.validation.model_contracts import adapter_mode, safe_ordering_provenance
 
     return safe_ordering_provenance(adapter_mode("efit:reconstruction").formalism, config.ordering_state)
@@ -499,7 +499,7 @@ def _resolve_efit_executable(config: EFITConfig) -> Path | None:
     fails immediately when that installation is incomplete.  The historical
     ``$EFIT`` lookup is used only when ``$EFITHOME`` is absent.
     """
-    # One rule for both toolchain roles (issue #194): explicit path, then
+    # One rule for both toolchain roles: explicit path, then
     # $EFITHOME in the installed or the CMake build-tree layout, then the
     # legacy $EFIT for efit only.
     from .toolchain import resolve_role
@@ -1201,7 +1201,7 @@ def collect_efit_outputs(
     stale_output_errors: list[str] = []
     # Outputs belong to this run's k-files only: a g-file an earlier run left
     # for an instant this run did not attempt is another configuration's
-    # reconstruction, not this one's (#1786).
+    # reconstruction, not this one's.
     expected_cases = {_efit_case_key(Path(path)) for path in expected_kfiles}
 
     def current_outputs(prefix: str) -> tuple[Path, ...]:
@@ -1503,7 +1503,7 @@ def collect_efit_outputs(
         if ods is not None:
             # One flat leaf holding a JSON string: `code.parameters` is a
             # STR_0D, and a nested sub-path is discarded by the Access Layer
-            # together with every flat leaf beside it (#561).
+            # together with every flat leaf beside it.
             ods["equilibrium.code.parameters.iteration_history"] = json.dumps(
                 {
                     "path": str(iteration_history_file),
