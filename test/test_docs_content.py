@@ -114,6 +114,20 @@ def test_navigation_ids_and_urls_are_unique():
         assert not duplicates, f"duplicate navigation {field}: {duplicates}"
 
 
+def test_navigation_sections_are_distinct_and_populated():
+    """Thematic sections (#2234): unique ids and titles, none empty, flat items."""
+    sections = _data("navigation.yml")["sections"]
+    for field in ("id", "title"):
+        values = [section[field] for section in sections]
+        duplicates = sorted({v for v in values if values.count(v) > 1})
+        assert not duplicates, f"duplicate navigation section {field}: {duplicates}"
+    empty = [section["id"] for section in sections if not section.get("items")]
+    assert not empty, f"navigation sections without items: {empty}"
+    for section in sections:
+        for item in section["items"]:
+            assert set(item) == {"id", "title", "url"}, (section["id"], item)
+
+
 def test_every_navigation_target_has_a_page():
     """Each canonical URL is produced by a permalink somewhere in the source."""
     permalinks = {
