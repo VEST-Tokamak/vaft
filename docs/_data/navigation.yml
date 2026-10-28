@@ -1,10 +1,16 @@
 sections:
-  - id: workflows
-    title: Research workflows
+  - id: getting-started
+    title: Getting started
     items:
       - id: start-here
         title: Start here
         url: /workflows/start-here/
+      - id: notebooks
+        title: Notebooks
+        url: /reference/notebooks/
+  - id: workflows
+    title: Research workflows
+    items:
       - id: data-access-imas
         title: Data access and IMAS
         url: /workflows/data-access-imas/
@@ -35,8 +41,8 @@ sections:
       - id: gui
         title: Browser GUI
         url: /workflows/gui/
-  - id: reference
-    title: Library and data reference
+  - id: architecture
+    title: Framework and scientific architecture
     items:
       - id: scientific-architecture
         title: Scientific architecture
@@ -44,18 +50,12 @@ sections:
       - id: research-domains
         title: Research domains
         url: /reference/research-domains/
-      - id: api
-        title: VAFT API
-        url: /reference/api/
       - id: computational-layers
         title: Computational layers
         url: /reference/computational-layers/
       - id: credibility-applicability
         title: Credibility and applicability
         url: /reference/credibility-applicability/
-      - id: plasma-model-guide
-        title: "Plasma models: a guide"
-        url: /reference/plasma-model-guide/
       - id: plasma-models
         title: "Plasma models: audit record"
         url: /reference/plasma-models/
@@ -68,27 +68,21 @@ sections:
       - id: ontology
         title: Scientific ontology explorer
         url: /reference/ontology/
-      - id: software-dependencies
-        title: Software dependencies
-        url: /reference/software-dependencies/
-      - id: external-codes
-        title: External scientific codes
-        url: /reference/external-codes/
-      - id: mcp
-        title: MCP server for agents
-        url: /reference/mcp/
-      - id: formula-reference
-        title: Formula reference
-        url: /reference/formula/
+      - id: diagrams
+        title: Scientific diagrams
+        url: /reference/diagrams/
+  - id: plasma-physics
+    title: Plasma physics and models
+    items:
+      - id: plasma-model-guide
+        title: "Plasma models: a guide"
+        url: /reference/plasma-model-guide/
       - id: reduced-representations
         title: Reduced representations
         url: /reference/reduced-representations/
       - id: particle-motion
         title: Particle motion and invariants
         url: /guide/particle-motion/
-      - id: diagrams
-        title: Scientific diagrams
-        url: /reference/diagrams/
       - id: geometric-approximations
         title: Geometric approximations
         url: /reference/geometric-approximations/
@@ -107,33 +101,18 @@ sections:
       - id: equilibrium-representations
         title: Equilibrium representations
         url: /reference/equilibrium-representations/
-      - id: gyrokinetic-plotting
-        title: Gyrokinetic plotting
-        url: /reference/gyrokinetic-plotting/
       - id: gyrokinetic-results
         title: Gyrokinetic scientific results
         url: /reference/gyrokinetic-results/
-      - id: process-reference
-        title: Process reference
-        url: /reference/process/
-      - id: plot-reference
-        title: Plot reference
-        url: /reference/plot/
-      - id: diagram-reference
-        title: Diagram gallery
-        url: /reference/diagram/
-      - id: animation-reference
-        title: Animation gallery
-        url: /reference/animation/
-      - id: kinetic-profile-files
-        title: Kinetic profile file formats
-        url: /reference/kinetic-profile-files/
       - id: wall-modes
         title: Wall eigenmodes
         url: /reference/wall-modes/
       - id: wall-reduction
         title: Reduced-wall order study
         url: /reference/wall-reduction/
+  - id: vest-imas-data
+    title: VEST and IMAS data
+    items:
       - id: imas-concepts
         title: Fusion data structure and IMAS concepts
         url: /reference/imas-concepts/
@@ -146,9 +125,48 @@ sections:
       - id: vest-diagnostics
         title: VEST diagnostics and data availability
         url: /reference/vest-diagnostics/
-      - id: notebooks
-        title: Notebooks
-        url: /reference/notebooks/
+      - id: kinetic-profile-files
+        title: Kinetic profile file formats
+        url: /reference/kinetic-profile-files/
+  - id: apis-visualization
+    title: APIs and visualization
+    items:
+      - id: api
+        title: VAFT API
+        url: /reference/api/
+      - id: formula-reference
+        title: Formula reference
+        url: /reference/formula/
+      - id: process-reference
+        title: Process reference
+        url: /reference/process/
+      - id: plot-reference
+        title: Plot reference
+        url: /reference/plot/
+      - id: diagram-reference
+        title: Diagram gallery
+        url: /reference/diagram/
+      - id: animation-reference
+        title: Animation gallery
+        url: /reference/animation/
+      - id: gyrokinetic-plotting
+        title: Gyrokinetic plotting
+        url: /reference/gyrokinetic-plotting/
+  - id: software-integrations
+    title: Software and integrations
+    items:
+      - id: software-dependencies
+        title: Software dependencies
+        url: /reference/software-dependencies/
+      - id: external-codes
+        title: External scientific codes
+        url: /reference/external-codes/
+      - id: mcp
+        title: MCP server for agents
+        url: /reference/mcp/
+  - id: resources
+    title: Resources and support
+    items:
       - id: references
         title: References
         url: /reference/references/
