@@ -163,6 +163,23 @@ jobs:
           -f description="core-test and package passed on GitHub Actions"
           -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
+  # Reports issue/PR references the baseline does not know (CONTRIBUTING.md,
+  # "References and provenance"). Advisory: it never fails the run and is not
+  # part of merge-gate, until its false-positive rate has been reviewed.
+  issue-refs:
+    name: issue-refs (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Report references outside the baseline
+        run: python .github/scripts/audit_issue_refs.py --new
+
   test-matrix:
     name: test (${{ matrix.label }})
     runs-on: ${{ matrix.os }}

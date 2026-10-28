@@ -389,6 +389,46 @@ Three rules:
    reproducible*; *machine-agnostic tokamak research*. VAFT **interoperates
    with** community physics codes — it does not own or embed them.
 
+## References and provenance
+
+Code, docstrings, comments, guides and notebook prose explain **what** the
+code does, **why**, and **under which assumptions** in their own words. A
+reader should not have to open a GitHub issue or pull request to understand
+the current behaviour, a unit, a sign convention or a validity limit.
+
+- **No ticket-only rationale.** `"""Reject the slice (#NNNN)."""` tells a
+  reader nothing; say what is rejected and why. A scientific claim cites the
+  physics or the primary literature, not the discussion where it was settled.
+- **Current behaviour and history are kept apart.** "Used to …", "since
+  #NNNN" and "fixed in #NNNN" belong in commit messages, PR descriptions and
+  release notes, not next to the code that is true today.
+- **Some references stay, labelled for what they are:**
+  - an *open limitation* the code works around — `Open: #NNNN (…what is missing…)`;
+  - *compatibility and migration* — a deprecation message naming the version and
+    the ticket that removes the old name;
+  - *provenance and reproducibility* — the validation record, run record or study
+    a number was taken from;
+  - release notes and changelogs, which are history by definition.
+- Identifiers that carry a number — file names, fixture names, study folders —
+  are not prose and are not renamed to lose it.
+
+`.github/scripts/audit_issue_refs.py` lists every reference in tracked text,
+excludes what is not one (shot numbers, flux loops `#1`–`#15`, colours, data
+files, generated assets), and compares the rest with
+`.github/issue-refs-baseline.json`. A reference the baseline does not know is
+reported by the non-blocking `issue-refs` job of Package CI. When one is
+deliberate, record it with its reason:
+
+```bash
+python .github/scripts/audit_issue_refs.py --new
+python .github/scripts/audit_issue_refs.py --paths vaft/plot --format csv -o refs.csv
+python .github/scripts/audit_issue_refs.py --paths vaft/plot --write-baseline \
+    --retain "vaft/plot/display.py:NNNN:open-limitation:no surface resolver yet"
+```
+
+Bare counts in the baseline are references that predate this convention and
+are still to be reviewed; an entry with a reason is kept on purpose.
+
 ## Notebooks
 
 Notebook outputs are normalized by the repository's pre-commit hook. Install it
