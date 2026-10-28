@@ -343,15 +343,21 @@ def pipeline_comparison_virial(table: pd.DataFrame, *, quantity: str = "beta_p",
     The view of :func:`vaft.plot.kinetic_state.kinetic_state_virial_pair13_comparison`
     with the pipeline as the cohort, on the virial table of the comparison
     (one row per side and slice). ``band`` shades agreement within that
-    factor; ``"auto"`` draws none, so ``y = x`` is the only reference. ``log`` defaults to ``True`` for ``beta_p``, whose two pipelines
+    factor; ``"auto"`` draws the QA criterion where one exists: for ``beta_p`` the
+    virial check of :data:`vaft.validation._efit_study_criteria.CRITERIA`,
+    ``|ln(beta_p^int / beta_p^vir)| <= virial_log_ratio_max`` (ln 2), and none
+    for ``l_i``, which no criterion grades against its closure (only the
+    plausibility bound ``0 < l_i <= 3``). ``log`` defaults to ``True`` for ``beta_p``, whose two pipelines
     differ by an order of magnitude. Each legend entry counts the slices
     outside the view (a non-positive value on a log axis among them), so no
     slice is dropped silently.
     """
     if quantity not in VIRIAL_QUANTITIES:
         raise ValueError(f"unknown quantity {quantity!r}; known: {sorted(VIRIAL_QUANTITIES)}")
-    volume, closure, symbol, title, default_band = VIRIAL_QUANTITIES[quantity]
-    band = default_band if band == "auto" else band
+    volume, closure, symbol, title, _ = VIRIAL_QUANTITIES[quantity]
+    criterion = band == "auto"
+    if criterion:
+        band = _virial_criterion_band(quantity)
     log = (quantity == "beta_p") if log is None else bool(log)
     fig, ax = _axes(ax, figsize or (5.2, 5.0))
     x_all = pd.to_numeric(table[closure], errors="coerce").to_numpy(float)
@@ -386,8 +392,9 @@ def pipeline_comparison_virial(table: pd.DataFrame, *, quantity: str = "beta_p",
                    label=f"{COMPARISON_LABELS[side]} (n={int(rows.sum()):,}{note})")
     grid = np.geomspace(*limits, 100) if log else np.linspace(*limits, 100)
     if band:
-        ax.fill_between(grid, grid / band, grid * band, color="gray", alpha=0.14, zorder=1,
-                        label=f"within a factor of {band:g}")
+        label = (rf"QA: $|\ln({symbol}^{{\mathrm{{int}}}}/{symbol}^{{\mathrm{{vir}}}})| \leq \ln {band:g}$"
+                 if criterion else f"within a factor of {band:g}")
+        ax.fill_between(grid, grid / band, grid * band, color="gray", alpha=0.14, zorder=1, label=label)
     ax.plot(grid, grid, color=INK, ls="--", lw=1.0, label="y = x", zorder=5)
     # Written on the axes as well as in the legend, so a grid that drops the
     # legends still says how many slices fall outside the view.
@@ -414,6 +421,15 @@ def pipeline_comparison_virial(table: pd.DataFrame, *, quantity: str = "beta_p",
     return fig, ax
 
 
+def _virial_criterion_band(quantity: str) -> float | None:
+    """The agreement factor the virial QA criterion allows, or ``None`` when no criterion grades ``quantity``."""
+    if quantity != "beta_p":
+        return None
+    from vaft.validation._efit_study_criteria import CRITERIA
+
+    return float(np.exp(CRITERIA["virial_log_ratio_max"]))
+
+
 def _panel_letter(ax, letter: str) -> None:
     import matplotlib.pyplot as plt
 
@@ -433,6 +449,7 @@ def pipeline_comparison_overview(points: pd.DataFrame, virial: pd.DataFrame, *, 
     """
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
 
     limits = dict(limits_by_panel or {})
     unknown = set(limits) - {"probe", "loop", "beta_p", "li"}
@@ -454,8 +471,12 @@ def pipeline_comparison_overview(points: pd.DataFrame, virial: pd.DataFrame, *, 
         handles = [Line2D([], [], color=SIDE_STYLE[side]["color"], marker=SIDE_STYLE[side]["marker"],
                           linestyle="none", markersize=10, label=COMPARISON_LABELS[side]) for side in SIDES]
         handles.append(Line2D([], [], color=INK, linestyle="--", label="y = x"))
-        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.015), ncol=3, frameon=False)
-        fig.tight_layout(rect=(0.0, 0.08, 1.0, 1.0), pad=0.8, w_pad=0.8, h_pad=1.2)
+        band = _virial_criterion_band("beta_p")
+        if band:
+            handles.append(Patch(facecolor="gray", alpha=0.14, edgecolor="none",
+                                 label=rf"QA in (c): $|\ln(\beta_p^{{\mathrm{{int}}}}/\beta_p^{{\mathrm{{vir}}}})| \leq \ln {band:g}$"))
+        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.015), ncol=2, frameon=False)
+        fig.tight_layout(rect=(0.0, 0.11, 1.0, 1.0), pad=0.8, w_pad=0.8, h_pad=1.2)
     if show:
         plt.show()
     return fig, axes
@@ -575,7 +596,7 @@ def pipeline_comparison_stability_overview(w_t: pd.DataFrame, delta_prime: pd.Da
 @presented(default_figsize=(6.3, 5.5))
 def pipeline_comparison_thomson(channels: pd.DataFrame, *, by: str = "side", paired_only: bool = True,
                                 ax=None, show: bool = False, figsize=None, format: str | None = None,
-                                theme: str | None = None, limits=None):
+                                theme: str | None = None, limits=None, errorbars: bool = True):
     """EFIT pressure at each matched Thomson channel against ``2 p_e``, legacy and current.
 
     The view of :func:`vaft.plot.kinetic_state.kinetic_state_pressure_comparison`
@@ -585,8 +606,18 @@ def pipeline_comparison_thomson(channels: pd.DataFrame, *, by: str = "side", pai
     ``thomson_channels`` table (``side``, ``pair_id``, ``p_e``, ``p_recon`` in
     Pa). ``paired_only`` keeps the slices matched by time on both sides. A
     channel with a non-positive pressure has no place on a log axis; it is
-    counted on the panel, not dropped silently. The figure grades no point.
+    counted on the panel, not dropped silently. The band is the Thomson QA
+    criterion, ``thomson_log_ratio_band`` of
+    :data:`vaft.validation._efit_study_criteria.CRITERIA`; the figure grades no point.
+
+    ``errorbars`` draws a translucent horizontal bar on every point that has
+    ``n_e_error`` and ``t_e_error``: ``2 sigma(p_e)`` with
+    ``sigma(p_e)/p_e = sqrt((sigma_n/n_e)^2 + (sigma_T/T_e)^2)`` (the stored
+    ``data_error_upper`` taken as a symmetric 1-sigma, the two independent),
+    the lower arm clipped at the axis. EFIT gives ``p_EFIT`` no uncertainty,
+    so there is no vertical bar.
     """
+    from vaft.validation._efit_study_criteria import CRITERIA
     import matplotlib.pyplot as plt
 
     data = channels[channels["pair_id"].notna()] if paired_only else channels
@@ -603,6 +634,14 @@ def pipeline_comparison_thomson(channels: pd.DataFrame, *, by: str = "side", pai
         raise ValueError("logarithmic limits must be positive")
     fig, ax = _axes(ax, figsize or (6.3, 5.5))
     font_scale = plt.rcParams["font.size"] / 10.0
+    if errorbars and {"n_e", "t_e", "n_e_error", "t_e_error"} <= set(data.columns):
+        relative = np.hypot(pd.to_numeric(data["n_e_error"], errors="coerce").to_numpy(float)
+                            / pd.to_numeric(data["n_e"], errors="coerce").to_numpy(float),
+                            pd.to_numeric(data["t_e_error"], errors="coerce").to_numpy(float)
+                            / pd.to_numeric(data["t_e"], errors="coerce").to_numpy(float))
+        x_error = x_all * relative
+    else:
+        x_error = np.full_like(x_all, np.nan)
     hidden = []
     for layer, side in enumerate(SIDES, start=1):
         rows = (data[by] == side).to_numpy()
@@ -612,10 +651,18 @@ def pipeline_comparison_thomson(channels: pd.DataFrame, *, by: str = "side", pai
         use = rows & inside
         hidden.append(f"{COMPARISON_LABELS[side].split()[0].lower()} {int((rows & ~inside).sum()):,}")
         style = SIDE_STYLE[side]
+        bar = use & np.isfinite(x_error) & (x_error > 0)
+        if bar.any():
+            upper = x_error[bar]
+            lower = np.minimum(upper, x_all[bar] - limits[0])
+            ax.errorbar(x_all[bar], y_all[bar], xerr=[lower, upper], fmt="none", ecolor=style["color"],
+                        elinewidth=0.9 * font_scale, alpha=0.25, capsize=0, zorder=layer)
         ax.scatter(x_all[use], y_all[use], s=19 * font_scale ** 2, marker=style["marker"], color=style["color"],
                    alpha=0.62, linewidths=0, zorder=layer + 1, label=COMPARISON_LABELS[side])
     grid = np.geomspace(*limits, 100)
-    ax.fill_between(grid, grid / 2, grid, color="gray", alpha=0.14, zorder=1, label=r"$p_e \leq p_{EFIT} \leq 2p_e$")
+    low, high = CRITERIA["thomson_log_ratio_band"]
+    ax.fill_between(grid, grid * np.exp(low), grid * np.exp(high), color="gray", alpha=0.14, zorder=1,
+                    label=r"QA: $p_e \leq p_{EFIT} \leq 2p_e$")
     ax.plot(grid, grid / 2, color="0.4", ls=":", lw=1.2 * font_scale, label=r"$p_{EFIT}=p_e$", zorder=4)
     ax.plot(grid, grid, color=INK, ls="--", lw=1.2 * font_scale, label=r"$p_{EFIT}=2p_e$", zorder=4)
     if any(not h.endswith(" 0") for h in hidden):

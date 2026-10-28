@@ -1,16 +1,17 @@
 {
- "created": "2026-10-24T17:15:11+00:00",
+ "created": "2026-10-28T07:10:30+00:00",
  "producer": "workflow/pipeline_improvement/make_snapshot.py",
  "tables": [
   "/home/user1/runs/pipeline_improvement/tables/efit",
   "/home/user1/runs/pipeline_improvement/tables/efit2",
   "/home/user1/runs/pipeline_improvement/tables/vacuum",
-  "/home/user1/runs/pipeline_improvement/tables/vacuum_rerun"
+  "/home/user1/runs/pipeline_improvement/tables/vacuum_rerun",
+  "/home/user1/runs/pipeline_improvement/tables/thomson_err"
  ],
  "files": {
   "slices.csv.gz": {
    "rows": 12905,
-   "sha256": "1dcadd3419e09203207fe4ce8e4ea80f514dfa6c523b9a796a5a4ac821afc053"
+   "sha256": "ae3ab7f2b4ad880900e35e597620c9befa1d2eaadcabf637d3c8b7643415e8a8"
   },
   "fit.csv.gz": {
    "rows": 12905,
@@ -22,11 +23,11 @@
   },
   "thomson.csv.gz": {
    "rows": 1759,
-   "sha256": "80f6681d4f98bbbdf80c2bc2083f416e15974044d529f7de8a8d3cf2ac589975"
+   "sha256": "095ca59d83154bf05bbe221c3862adc9f0903bb48f1bce803a23e616830c9968"
   },
   "thomson_channels.csv.gz": {
    "rows": 774,
-   "sha256": "99cad3deece9220ac912c08d8ebdd49796473e78388e0746e09dcd51e418a91b"
+   "sha256": "5480a9574ae43d8c25732e792e67249313acb303b87733c1a06f0f2aee467d21"
   },
   "constraint_points.csv.gz": {
    "rows": 50639,
@@ -307,6 +308,25 @@
    "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
    "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
    "atlas_dir": "/home/user1/runs/campaign/atlas/stability"
+  },
+  "/home/user1/runs/pipeline_improvement/tables/thomson_err/manifest.json": {
+   "runs": [
+    {
+     "started": "2026-10-28T07:04:34+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "thomson"
+     ],
+     "shots": 24,
+     "shard": null
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/backup/vaft/public_restore_20261021",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": null
   }
  }
 }

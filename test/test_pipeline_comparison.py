@@ -222,6 +222,29 @@ def test_virial_view_counts_slices_it_cannot_show():
     plt.close(fig)
 
 
+def test_virial_band_is_the_qa_criterion_only_where_one_exists():
+    """beta_p shades the virial criterion (ln 2 of CRITERIA); l_i has no criterion and no band."""
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    from matplotlib.collections import PolyCollection
+
+    from vaft.plot.pipeline_comparison import pipeline_comparison_virial
+    from vaft.validation._efit_study_criteria import CRITERIA
+
+    table = pd.DataFrame({"side": ["legacy", "current"], "beta_p_integral": [0.01, 0.2],
+                          "beta_p_pair_13": [0.02, 0.2], "li_volume": [0.7, 0.6], "li_pair_13": [0.65, 0.6]})
+    fig, ax = pipeline_comparison_virial(table, quantity="beta_p", limits=(1e-3, 2.0), format="legacy")
+    band = [c for c in ax.collections if isinstance(c, PolyCollection)]
+    assert len(band) == 1 and band[0].get_label().startswith("QA:")
+    vertices = band[0].get_paths()[0].vertices
+    x0 = vertices[:, 0].min()
+    assert np.isclose(vertices[vertices[:, 0] == x0, 1].max() / x0, np.exp(CRITERIA["virial_log_ratio_max"]))
+    plt.close(fig)
+    fig, ax = pipeline_comparison_virial(table, quantity="li", limits=(0.0, 1.6), format="legacy")
+    assert not [c for c in ax.collections if isinstance(c, PolyCollection)]
+    plt.close(fig)
+
+
 def test_overview_is_a_two_by_two_with_one_legend():
     import matplotlib.pyplot as plt
     import pandas as pd
@@ -305,4 +328,27 @@ def test_thomson_channels_coloured_by_pipeline_with_band_and_references():
     plt.close(fig)
     fig, ax = pipeline_comparison_thomson(channels, paired_only=False, format="legacy")
     assert len([c for c in ax.collections if c.get_label() == "Current pipeline"][0].get_offsets()) == 2
+    plt.close(fig)
+
+
+def test_thomson_error_bars_are_two_sigma_of_p_e_clipped_at_the_axis():
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    from vaft.plot.pipeline_comparison import pipeline_comparison_thomson
+
+    channels = pd.DataFrame({"side": ["legacy", "current"], "pair_id": ["1:0", "1:0"],
+                             "n_e": [1e19, 1e19], "t_e": [50.0, 50.0], "n_e_error": [3e18, 9e18],
+                             "t_e_error": [20.0, 45.0], "p_e": [100.0, 100.0], "p_recon": [40.0, 150.0]})
+    fig, ax = pipeline_comparison_thomson(channels, format="legacy", limits=(10.0, 1e3))
+    bars = {tuple(c.get_color()[0][:3]): c for c in ax.collections if type(c).__name__ == "LineCollection"}
+    assert len(bars) == 2 and all(np.isclose(c.get_alpha(), 0.25) for c in bars.values())
+    spans = sorted(tuple(segment[:, 0]) for c in bars.values() for segment in c.get_segments())
+    legacy = 200.0 * np.hypot(0.3, 0.4)  # 2 p_e times sqrt((sn/n)^2 + (sT/T)^2) = 100 Pa
+    assert np.allclose(spans[1], (200.0 - legacy, 200.0 + legacy))
+    current = 200.0 * np.hypot(0.9, 0.9)  # larger than 2 p_e: the lower arm stops at the axis
+    assert np.allclose(spans[0], (10.0, 200.0 + current))
+    plt.close(fig)
+    fig, ax = pipeline_comparison_thomson(channels, format="legacy", errorbars=False)
+    assert not [c for c in ax.collections if type(c).__name__ == "LineCollection"]
     plt.close(fig)

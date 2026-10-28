@@ -300,7 +300,7 @@ def thomson_row(entry: Mapping[str, Any], diagnostics: Any) -> tuple[dict[str, A
     if sampled.get("available"):
         for sample in sampled["channels"]:
             channels.append({key: sample.get(key) for key in
-                             ("channel", "r", "z", "psi_norm", "n_e", "t_e", "p_e", "p_recon")})
+                             ("channel", "r", "z", "psi_norm", "n_e", "t_e", "n_e_error", "t_e_error", "p_e", "p_recon")})
             channels[-1]["ts_time"] = sampled.get("ts_time")
     return row, channels
 
