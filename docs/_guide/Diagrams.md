@@ -2074,23 +2074,33 @@ elements it summarizes (`vaft.diagram._cross_domain_concept`), and a test holds 
 technical input, method and result is summarized exactly once, under the same name, and alternatives and data
 flows agree.
 
-**Conceptual: the scientific architecture.** Shared data & metadata → equilibrium → MHD stability and plasma
-response, and transport. The left panel separates *data* (magnetic diagnostics; kinetic diagnostics and profiles -- $T_e$, $n_e$
-from Thomson scattering, $T_i$, $v_\phi$ from charge exchange) from
-*metadata*, the explicit context needed to interpret data and run an operation (machine and diagnostic
-configuration, assumptions and parameters, conventions and provenance). Each operation names its code and, in
-italics, the physical model it rests on; a card holding alternatives lists each code with its model (Sauter / Redl
-*closed-form fit*, NEO *drift-kinetic*; TGLF *gyrofluid*, CGYRO *gyrokinetic*). The three alternative equilibrium
-routes share a dash-dot enclosure and CHEASE refines a reconstruction. Each section ends with the IMAS IDS its
-operations write and representative quantities in them (`core_profiles` $j_\mathrm{bs}$, $\sigma_\parallel$ are
-NEO's). The MHD quantities kept only in the solver's own form -- DCON's energy split, GPEC's resonant response,
-RDCON's Δ′ matrix -- follow on a line keyed *native* in place of an IDS name, so none reads as mapped; the
-Sauter / Redl return value is left to the technical figure. Every card is
-drawn in its kind's style and carries that kind's pictogram -- measured, configuration, assumption / parameter,
-convention, derived, solver / model -- the same pictogram the legend shows. The figure carries no explanation of itself: the qualifications -- one IDS format
-holding distinct plasma states, each model checking its own inputs, the transport resolver taking a reconstructed
-equilibrium only, arrows as implemented interfaces rather than validated workflows -- belong to its caption and
-to the technical figure.
+**Conceptual: the scientific architecture.** Shared data & metadata feed alternative equilibrium formulations;
+the equilibrium state they write is shared by MHD stability and plasma response and by transport, which branch
+from it rather than follow one another. The left panel separates *data* (magnetic diagnostics; kinetic diagnostics
+and profiles -- $T_e$, $n_e$ from Thomson scattering, $T_i$, $v_\phi$ from charge-exchange or ion Doppler
+spectroscopy) from *metadata*
+(machine and diagnostic configuration, assumptions and parameters, conventions and provenance). Each downstream
+section opens with a row of the inputs it takes from them besides the equilibrium -- kinetic profiles ($T_e$,
+$n_e$, $T_i$; no $v_\phi$, since no rotation reaches the TGLF and CGYRO runs) and closures ($Z_\mathrm{eff}$,
+$\gamma_E$) for transport, mode numbers,
+wall model and 3-D excitation for MHD -- each chip in the style and with the The four equilibrium formulations -- analytic Grad-Shafranov, free-boundary (TokaMaker), reconstruction
+(EFIT) and fixed-boundary (CHEASE) -- are peers in one dash-dot enclosure: each produces an equilibrium state, and no
+arrow runs between them (CHEASE accepts any GEQDSK or ODS equilibrium; the technical figure draws the coupling's
+use of it, on a reconstruction). The same enclosure groups the neoclassical alternatives (Sauter / Redl, NEO) and
+the turbulent ones (TGLF, CGYRO): different methods for the same scientific output, each code its own card under
+the group's physics title. Each card names its code and, in italics, the physical model it rests on; its pictogram
+names the primary computational approach -- *analytical model / formula* (the analytic Grad-Shafranov solutions,
+the Braginskii closures, the Sauter / Redl fitted formulas) or *numerical method / solver* (EFIT, TokaMaker,
+CHEASE, DCON, RDCON, GPEC, NEO, TGLF -- a reduced quasilinear gyrofluid model, not gyrokinetic -- and CGYRO). The
+assumption cards name general inputs ($Z_\mathrm{eff}$, $\gamma_E$): $T_i$ appears with the kinetic profiles, and
+each run's actual values (an inferred or assumed $T_i$, $\gamma_E = 0$ for TGLF and CGYRO) stay in its configuration
+and provenance. Each downstream section ends with the IMAS IDS its operations write and representative
+quantities (`core_profiles` $j_\mathrm{bs}$, $\sigma_\parallel$ are NEO's), then the MHD quantities kept in the
+solver's own form on a line keyed *native*. A solid arrow means *provides input to* -- a scientific dependency
+VAFT supports, not a fixed pipeline or a validated workflow; the open-headed arrow into the equilibrium state means
+*writes*. The qualifications -- one IDS format holding distinct
+plasma states, each model checking its own inputs, the transport resolver taking a reconstructed equilibrium only
+-- belong to the caption and the technical figure.
 
 ```python
 vaft.diagram.cross_domain_scientific_architecture()
@@ -2164,7 +2174,7 @@ claim:
 | Analytic Grad-Shafranov | equilibrium | solver / model | Solov'ev, Cerfon-Freidberg, Guazzotto-Freidberg | `analytic_mhd_equilibrium.solovev`, `analytic_mhd_equilibrium.gf` | `vaft.process.solve_solovev_constraints`, `vaft.process.solve_guazzotto_freidberg` |  |  |
 | Free-boundary model | equilibrium | solver / model | TokaMaker | `tokamaker_coupling.solve` | `vaft.code.tokamaker.run_tokamaker` |  |  |
 | Reconstruction | equilibrium | solver / model | EFIT | `magnetic_efit.efit`, `kinetic_efit.efit` | `vaft.code.efit.run_efit`, `vaft.code.efit.run_kinetic_efit` |  |  |
-| Fixed-boundary refinement | equilibrium | solver / model | CHEASE | `chease_coupling.chease` | `vaft.code.chease.run_chease` |  | accepts any GEQDSK or ODS equilibrium; the coupling applies it to a reconstruction (by convention, not enforced, unlike the transport resolver) |
+| Fixed-boundary equilibrium | equilibrium | solver / model | CHEASE | `chease_coupling.chease` | `vaft.code.chease.run_chease` |  | accepts any GEQDSK or ODS equilibrium; the coupling applies it to a reconstruction (by convention, not enforced, unlike the transport resolver) |
 | analytic | equilibrium | standardized IMAS |  | `analytic_mhd_equilibrium.equilibrium` | `vaft.data.eqdsk.to_omas` | `equilibrium.time_slice.:.profiles_2d.:.psi` | reaches IMAS through EquilibriumData -> GEQDSK -> to_omas; the Solov'ev fit is not written |
 | free-boundary model | equilibrium | standardized IMAS |  | `tokamaker_coupling.equilibrium` |  | `equilibrium.time_slice.:.profiles_2d.:.psi` | a modelled state: measured coil currents with assumed profile shapes |
 | reconstructed | equilibrium | standardized IMAS |  | `magnetic_efit.equilibrium` | `vaft.code.efit.gfile_to_omas` | `equilibrium.time_slice.:.profiles_2d.:.psi` | the experimental state; the transport resolver keys on its time and lineage |

@@ -333,33 +333,54 @@ def test_every_technical_method_is_one_operation_with_the_same_name_and_domain()
     assert sorted(covered) == sorted(_methods())
     for domain, ops in C.OPERATIONS.items():
         for op in ops:
-            assert {X.ELEMENT[k].domain for k in op.covers} == {domain}, op.key
-            assert op.title.replace("\n", " ") in {X.ELEMENT[k].label for k in op.covers}, op.key  # one vocabulary
-            assert op.kind in {X.ELEMENT[k].kind for k in op.covers}, op.key  # the technical figure's kind
-            if len(op.covers) > 1:  # alternatives in one card: each code on its own line, in order, model under it
-                assert tuple(op.covers) in X.ALTERNATIVES, op.key
-                codes = [X.ELEMENT[k].method for k in op.covers]
-                assert [line for line in op.lines if not line.startswith("\\itshape")] == codes, op.key
+            (k,) = op.covers  # one code per card
+            assert X.ELEMENT[k].domain == domain, op.key
+            # the method kind is the primary computational approach: analytical model / formula or numerical solver
+            assert op.kind == ("derived" if op.key in C.ANALYTICAL else "solver"), op.key
+            # one vocabulary: a card is titled by the technical label, or (inside a titled group) by its code
+            in_group = any(op.key in g for g in C.GROUP_TITLE)
+            assert op.title.replace("\n", " ") == (X.ELEMENT[k].method if in_group else X.ELEMENT[k].label), op.key
     # GPEC reads DCON's eigenfunctions; with no room for an arrow, the card says so
     assert any("DCON" in line for line in C.OPERATION["response"].lines) and ("dcon", "gpec") in _edges("flow")
-    turbulent = C.OPERATION["turbulent"].lines
-    assert turbulent[turbulent.index("TGLF") + 1].endswith("gyrofluid")
-    assert turbulent[turbulent.index("CGYRO") + 1].endswith("gyrokinetic")
+    assert C.OPERATION["tglf"].lines[-1].endswith("QL gyrofluid") and C.OPERATION["cgyro"].lines[-1].endswith("gyrokinetic")
+    assert set(C.ANALYTICAL) == {"analytic", "classical", "sauter_redl"}
+    assert C.KIND_WORDS["derived"] == "analytical model / formula"
+    assert C.KIND_WORDS["solver"] == "numerical method / solver"
 
 
-def test_alternatives_and_flows_are_those_of_the_technical_figure():
-    for group in C.ALTERNATIVES:
-        assert tuple(k for op in group for k in C.OPERATION[op].covers) in X.ALTERNATIVES
+def test_alternatives_produce_one_scientific_output_and_the_equilibria_are_peers():
+    """A dash-dot group holds methods for the same output: a technical alternative set, or methods all writing one
+    IDS. The four equilibrium formulations are peers in one group -- no edge runs between them."""
     tech_flows = set(_edges("flow"))
-    for src, dst in C.EDGES:
-        if src in C.OPERATION and dst in C.OPERATION:
-            # an operation consumes another directly or through the IDS entry the first one writes
-            outputs = set(C.OPERATION[src].covers) | {d for s, d in _edges("mapping") if s in C.OPERATION[src].covers}
-            assert any((o, t) in tech_flows for o in outputs for t in C.OPERATION[dst].covers), (src, dst)
+    writes = {}
+    for s_, d in _edges("mapping"):
+        writes.setdefault(s_, set()).add(X.ELEMENT[d].ids_name)
+    for group in C.ALTERNATIVES:
+        methods = tuple(k for op in group for k in C.OPERATION[op].covers)
+        assert len({X.ELEMENT[k].domain for k in methods}) == 1, group
+        same_ids = len(set.intersection(*(writes.get(k, set()) for k in methods))) == 1
+        assert methods in X.ALTERNATIVES or same_ids, group
+    eq = tuple(op.key for op in C.OPERATIONS["equilibrium"])
+    assert eq in C.ALTERNATIVES  # all four, CHEASE included
+    assert not [e for e in C.EDGES if e[0] in eq and e[1] in eq]
+    # a titled group carries the technical figure's physics label of its members
+    for group, title in C.GROUP_TITLE.items():
+        assert group in C.ALTERNATIVES and title in {X.ELEMENT[k].label for op in group for k in C.OPERATION[op].covers}
+    titles = {it.role: it.text for it in _concept().scene.items if isinstance(it, Label)}
+    for group, title in C.GROUP_TITLE.items():
+        assert title in titles["group title:" + ",".join(group)]
+    for group in C.ALTERNATIVES:  # every member card inside its enclosure
+        x, y, w, h = _concept().model["boxes"]["alternative:" + ",".join(group)]
+        for op in group:
+            ox, oy, ow, oh = _concept().model["boxes"][op]
+            assert x - 0.5 * w < ox - 0.5 * ow and ox + 0.5 * ow < x + 0.5 * w and y - 0.5 * h < oy - 0.5 * oh, op
     assert ("hub", "mhd") in tech_flows and ("eq_reconstructed", "state") in tech_flows
-    assert {("equilibrium", "mhd"), ("equilibrium", "transport"), ("context", "equilibrium"),
-            ("context", "mhd")} <= set(C.EDGES)
+    # one shared equilibrium state, written by the equilibrium section, branches to both consumers: no chain
+    assert {("equilibrium", "state"), ("state", "mhd"), ("state", "transport")} <= set(C.EDGES)
     assert not [e for e in C.EDGES if set(e) == {"mhd", "transport"}]
+    assert C.STATE.covers == ("eq_analytic", "eq_model", "eq_reconstructed", "eq_refined")
+    # the shared data & metadata feed the equilibrium and the downstream input row
+    assert {("context", "equilibrium"), ("context", "inputs")} <= set(C.EDGES)
 
 
 def test_each_section_names_only_ids_its_operations_write():
@@ -381,11 +402,10 @@ def test_each_section_names_only_ids_its_operations_write():
     assert "NEO" not in transport["core_profiles"] and writes["ct_neo"] == "neo"  # NEO writes it; not repeated
     # TGLF and CGYRO both have gyrokinetics_local writers (gyrokinetics.py): neither may be named alone
     assert "CGYRO" not in transport["gyrokinetics_local"] and "TGLF" not in transport["gyrokinetics_local"]
-    assert "normalized" in dict((i, q) for i, q, _ in C.IMAS["mhd"])["mhd_linear"]
     # every native result is listed once, as native, in its own domain, and never beside an IDS
     native = [k for entries in C.NATIVE.values() for _, covers in entries for k in covers]
     assert sorted(native + list(C.OMITTED)) == sorted(e.key for e in X.ELEMENTS if e.kind == "native_result")
-    assert C.OMITTED == ("sr_native",)
+    assert C.OMITTED == ("gpec_native", "sr_native")  # representative lists; the technical figure has both
     for domain, entries in C.NATIVE.items():
         for _, covers in entries:
             assert {X.ELEMENT[k].domain for k in covers} == {domain}
@@ -416,25 +436,62 @@ def test_the_figure_does_not_narrate_its_own_layout():
                  if "dash" in body or "dotted" in body}
     dashed = {it.role for it in items if isinstance(it, Polyline) and not (it.role or "").startswith("legend:")
               and ("dash" in it.style or "dotted" in it.style or it.style.split(",")[0] in patterned)}
-    cards = {f"context:{c.key}": c for c in C.CONTEXT} | {f"operation:{k}": op for k, op in C.OPERATION.items()}
-    assert dashed - {"alternative:analytic,free_boundary,reconstruction"} == \
+    cards = _cards()
+    assert dashed - {"alternative:" + ",".join(g) for g in C.ALTERNATIVES} == \
         {role for role, card in cards.items() if W.kind_style(card.kind) in patterned}
     # one legend: each kind on a card, with its pictogram, then the two line styles
     legend = {it.role for it in items if (getattr(it, "role", "") or "").startswith("legend:")}
-    assert legend == {f"legend:{c.kind}" for c in cards.values()} | {"legend:flow", "legend:alternative"}
+    assert legend == ({f"legend:{c.kind}" for c in cards.values()}
+                      | {"legend:flow", "legend:write", "legend:alternative"})
+    # the equilibrium operations *write* the shared state: an open head, not the input arrow
+    writes = [it for it in items if (getattr(it, "role", "") or "").startswith("edge:write:")]
+    assert [it.role for it in writes] == ["edge:write:equilibrium->state"] and writes[0].style == C.WRITE_STYLE
+    assert "open" in C.WRITE_STYLE and C.WRITE_STYLE != X.CONNECTION_STYLE["flow"]
     assert not [it for it in items if isinstance(it, Label) and "black!60" in it.text + it.style]
+
+
+def _cards():
+    """Every drawn card by its role: the left panel, the operations, the downstream inputs and the shared state."""
+    return ({f"context:{c.key}": c for c in C.CONTEXT} | {f"operation:{k}": op for k, op in C.OPERATION.items()}
+            | {f"input:{c.key}": c for row in C.INPUTS.values() for c in row} | {"state": C.STATE})
+
+
+def test_downstream_inputs_are_the_shared_data_and_metadata_they_come_from():
+    """Kinetic profiles and closures feed transport; modes, wall and excitation feed MHD -- each chip in the kind
+    of the left-panel card that holds it, and the left panel's arrow meets that row."""
+    held = {}
+    for card in C.CONTEXT:
+        for k in card.covers:
+            held[k] = card.kind
+    for domain, chips in C.INPUTS.items():
+        for chip in chips:
+            assert all(held[k] == chip.kind for k in chip.covers), chip.key
+            reads = {d for s, d in _edges("flow") if s in chip.covers}
+            assert {X.ELEMENT[d].domain for d in reads} == {domain}, (chip.key, reads)
+    transport = {c.kind for c in C.INPUTS["transport"]}
+    assert {"measured", "prior"} <= transport  # kinetic profiles and modelling assumptions, explicitly
+    # no rotation: TGLF and CGYRO run with gamma_E = 0 (tglf/inputs.py, #553), so v_phi is no transport input
+    measured = " ".join(line for c in C.INPUTS["transport"] if c.kind == "measured" for line in c.lines)
+    assert "v_" not in measured and {"T_e", "n_e"} <= set(measured.replace("$", "").replace(",", " ").split())
+    # the closures chip names the general inputs only: Z_eff and gamma_E, no T_i (a kinetic profile) and no value
+    closures = " ".join(C.INPUTS["transport"][1].lines)
+    assert "Z_{\\mathrm{eff}}" in closures and "gamma_E" in closures and "T_i" not in closures and "=" not in closures
+    models = " ".join(next(c for c in C.CONTEXT if c.key == "models").lines)
+    assert "T_i" not in models and "gamma_E" in models and "=" not in models
+    (start, end) = C._ROUTES[("context", "inputs")]
+    assert abs(start[1] - C._INPUT_Y) < 0.5 * C._INPUT_H and end[0] < C._BOUNDS["mhd"][0]
 
 
 def test_every_card_carries_its_kinds_pictogram_in_its_kinds_style():
     items = _concept().scene.items
-    cards = {f"context:{c.key}": c for c in C.CONTEXT} | {f"operation:{k}": op for k, op in C.OPERATION.items()}
+    cards = _cards()
     for role, card in cards.items():
         outline = [it for it in items if isinstance(it, Polyline) and it.role == role]
         assert len(outline) == 1 and outline[0].style == W.kind_style(card.kind), role
         symbol = [it for it in items if getattr(it, "role", "") == f"symbol:{role}"]
         legend = [it for it in items if getattr(it, "role", "") == f"symbol:legend:{card.kind}"]
         assert symbol and len(symbol) == len(legend), role  # the same pictogram as the legend's, drawn once
-        (x, y, w, h) = _concept().model["boxes"][card.key]
+        (x, y, w, h) = _concept().model["boxes"][card.key if role != "state" else "state"]
         xs = [p[0] for it in symbol for p in it.points]
         ys = [p[1] for it in symbol for p in it.points]
         assert x - 0.5 * w < min(xs) and max(xs) < x + 0.5 * w and y - 0.5 * h < min(ys) and max(ys) < y + 0.5 * h, role
@@ -442,7 +499,8 @@ def test_every_card_carries_its_kinds_pictogram_in_its_kinds_style():
 
 def test_no_two_concept_cards_overlap_and_each_sits_in_its_section():
     boxes = _concept().model["boxes"]
-    section = {**{c.key: "context" for c in C.CONTEXT}, **{op.key: d for d, ops in C.OPERATIONS.items() for op in ops}}
+    section = {**{c.key: "context" for c in C.CONTEXT}, **{op.key: d for d, ops in C.OPERATIONS.items() for op in ops},
+               **{c.key: d for d, row in C.INPUTS.items() for c in row}}
     for a, b in itertools.combinations(sorted(section), 2):
         (ax, ay, aw, ah), (bx, by, bw, bh) = boxes[a], boxes[b]
         assert abs(ax - bx) >= 0.5 * (aw + bw) or abs(ay - by) >= 0.5 * (ah + bh), (a, b)
@@ -450,10 +508,15 @@ def test_no_two_concept_cards_overlap_and_each_sits_in_its_section():
         x0, x1, y0, y1 = C._BOUNDS[region]
         x, y, w, h = boxes[key]
         assert x0 <= x - 0.5 * w and x + 0.5 * w <= x1 and y1 <= y - 0.5 * h and y + 0.5 * h <= y0, key
-    for domain in ("mhd", "transport"):
+    for domain in ("equilibrium", "mhd"):
         assert len({boxes[op.key][2:] for op in C.OPERATIONS[domain]}) == 1
-    # each section's IDS list sits below its cards, inside the section
-    for domain in ("equilibrium", "mhd", "transport"):
+    for group in C.GROUP_TITLE:  # the enclosed codes share one size
+        assert len({boxes[op][2:] for op in group}) == 1
+    # the shared state sits between the equilibrium section and its consumers, overlapping none
+    sx, sy, sw, sh = boxes["state"]
+    assert C._BOUNDS["equilibrium"][3] > sy + 0.5 * sh and sy - 0.5 * sh > C._BOUNDS["mhd"][2]
+    # each downstream section's IDS list sits below its cards, inside the section
+    for domain in ("mhd", "transport"):
         lowest = min(boxes[op.key][1] - 0.5 * boxes[op.key][3] for op in C.OPERATIONS[domain])
         assert C._BOUNDS[domain][3] < C._LIST_TOP[domain] < lowest, domain
 

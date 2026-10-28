@@ -185,7 +185,7 @@ ELEMENTS: Tuple[Element, ...] = (
       basis="measured coils, assumed profiles"),
     E("efit", "Reconstruction", "solver", "equilibrium", ((_EFIT, "efit"), ("kinetic_efit", "efit")), method="EFIT",
       basis="magnetic or kinetic"),
-    E("chease", "Fixed-boundary refinement", "solver", "equilibrium", ((_CHEASE, "chease"),), method="CHEASE",
+    E("chease", "Fixed-boundary equilibrium", "solver", "equilibrium", ((_CHEASE, "chease"),), method="CHEASE",
       basis="re-solves a reconstruction",
       note="accepts any GEQDSK or ODS equilibrium; the coupling applies it to a reconstruction (by convention, "
            "not enforced, unlike the transport resolver)"),
@@ -480,19 +480,22 @@ def _enclosure(keys: Tuple[str, ...], boxes: Dict[str, Box]) -> Polyline:
 
 
 def connection_legend(left: float, right: float, y: float, connections: Tuple[str, ...] = CONNECTIONS,
-                      label: Optional[Dict[str, str]] = None, label_style: str = "concept annotation") -> List:
-    """One sample per connection, centred between ``left`` and ``right`` at ``y``: an arrow for a flow, a
-    small dash-dot enclosure for alternatives, a band swatch for a mapped or a native result."""
+                      label: Optional[Dict[str, str]] = None, label_style: str = "concept annotation",
+                      styles: Optional[Dict[str, str]] = None, arrows: Tuple[str, ...] = ("flow",)) -> List:
+    """One sample per connection, centred between ``left`` and ``right`` at ``y``: an arrow for each of
+    ``arrows``, a small dash-dot enclosure for alternatives, a band swatch for a mapped or a native result.
+    ``styles`` adds or overrides a connection's style (a figure's own arrow kinds)."""
     label = label or CONNECTION_LABEL
+    styles = {**CONNECTION_STYLE, **(styles or {})}
     items: List = []
     widths = {c: 1.95 + 0.155 * len(label[c]) for c in connections}  # sample, label, gap
     x = 0.5 * (left + right) - 0.5 * sum(widths.values())
     for c in connections:
-        if c == "flow":
-            items.append(Arrow((x, y), (x + 1.2, y), CONNECTION_STYLE[c], role=f"legend:{c}"))
+        if c in arrows:
+            items.append(Arrow((x, y), (x + 1.2, y), styles[c], role=f"legend:{c}"))
         else:
             swatch = [(x, y - 0.22), (x + 1.2, y - 0.22), (x + 1.2, y + 0.22), (x, y + 0.22)]
-            items.append(Polyline.of(swatch, CONNECTION_STYLE[c].replace("rounded corners=6pt", "rounded corners=3pt"),
+            items.append(Polyline.of(swatch, styles[c].replace("rounded corners=6pt", "rounded corners=3pt"),
                                      role=f"legend:{c}", closed=True))
         items.append(Label((x + 1.35, y), escape_latex(label[c]), label_style, anchor="west",
                            role=f"legend:{c}"))
