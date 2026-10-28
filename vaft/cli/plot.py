@@ -4,11 +4,11 @@ The command is a thin front on the plotting API: for database shots it names
 a plot and a shot in a source, and :mod:`vaft.database.plotting` opens exactly
 the IDS the plot needs and draws it; ``--sample``/``--file`` draw packaged
 samples or local files instead.  ``--compose`` draws a
-:class:`vaft.plot.FigureComposition` (#1467), ``--format``/``--theme``/
-``--figure-options`` set the presentation (#689, #1421), and ``--request``
+:class:`vaft.plot.FigureComposition`, ``--format``/``--theme``/
+``--figure-options`` set the presentation, and ``--request``
 replays a whole :class:`vaft.plot.PlotRequest` -- the command the GUI and
 ``PlotRequest.to_cli()`` write.  ``--list`` prints what a shot can plot
-without downloading it.  A table or text view (issue #1180) is printed to
+without downloading it.  A table or text view is printed to
 stdout instead of opening a window, and ``--out x.txt|x.md|x.html`` writes
 the matching export.  Nothing heavier than ``argparse`` is imported
 before the arguments are parsed, so ``vaft plot --help`` works in a bare
@@ -146,7 +146,7 @@ def _request_from(args: argparse.Namespace, options: dict[str, Any], parser: arg
 def _write(result: Any, out: str, figure_options: Any = None) -> str:
     """Save what a request drew to ``out``: HTML for Plotly, the extension's format otherwise.
 
-    A table or text view (issue #1180) is text: ``.txt``, ``.md`` or ``.html``
+    A table or text view is text: ``.txt``, ``.md`` or ``.html``
     writes the matching export; anything else goes through
     :func:`vaft.plot.save_rendered`, so an animation is written as a movie
     and ``interactive=True`` is refused, exactly as on the ``--shot`` path.

@@ -1,4 +1,4 @@
-"""A local, read-only Model Context Protocol server over VAFT discovery (#1423).
+"""A local, read-only Model Context Protocol server over VAFT discovery.
 
 MCP clients (Claude Code, Codex and others) can ask this server what VAFT can
 do -- help topics, the formula and process catalogs, validation checks, the

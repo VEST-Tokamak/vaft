@@ -1,4 +1,4 @@
-"""Deployment templates that ship with the package (#1755).
+"""Deployment templates that ship with the package.
 
 Nothing here is imported by the library.  The subpackages hold the files a
 server needs to run VAFT for a team -- ``vaft.deploy.gui`` the nginx site,

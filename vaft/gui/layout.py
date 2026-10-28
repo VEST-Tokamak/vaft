@@ -1,4 +1,4 @@
-"""One page for every screen: the responsive rules of ``vaft gui`` (#1865).
+"""One page for every screen: the responsive rules of ``vaft gui``.
 
 The GUI is one Panel application on desktops, tablets and phones -- no second
 frontend.  The template (Panel's FastListTemplate) lays the sidebar and the
@@ -132,7 +132,7 @@ def page(sidebar: list[Any], main: list[Any], *, title: str = "VAFT", **template
     pn = require_panel()
     raw_css = [RESPONSIVE_CSS, *template.pop("raw_css", [])]
     # Without it a phone lays the page out ~980 px wide and scales it down, so
-    # none of the phone rules would ever match on a real device (#1866).
+    # none of the phone rules would ever match on a real device.
     template.setdefault("meta_viewport", VIEWPORT)
     built = pn.template.FastListTemplate(
         title=title, sidebar=sidebar, main=main, sidebar_width=SIDEBAR_WIDTH, raw_css=raw_css, **template,

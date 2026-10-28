@@ -1,4 +1,4 @@
-"""Browser GUI over the public VAFT APIs (#1086, roadmap #1359).
+"""Browser GUI over the public VAFT APIs.
 
 The GUI is a presentation layer, not part of the computational API: it loads
 data, discovers plots and draws them through the same calls a notebook uses,

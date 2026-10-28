@@ -1,4 +1,4 @@
-"""The scientific ontology of VAFT, generated from its registries (#1702).
+"""The scientific ontology of VAFT, generated from its registries.
 
 ``python -m vaft._ontology_graph --output docs/_data/ontology_graph.yml``
 writes what ``/reference/ontology/`` renders: the third graph beside the
@@ -20,13 +20,13 @@ edge comes from a registry that already owns the fact, and records which:
   it measures and derives, and the mapping function;
 * :mod:`vaft.validation.registry` -- named checks and their providers;
 * :mod:`vaft.data.cocos` -- the COCOS convention each code or format uses;
-* :mod:`vaft._ecosystem` (#1648) -- external codes, their adapters and the
+* :mod:`vaft._ecosystem` -- external codes, their adapters and the
   IDS they are mapped into;
-* :mod:`vaft.formula._taxonomy` (#1626) -- which quantity a formula reduces to
+* :mod:`vaft.formula._taxonomy` -- which quantity a formula reduces to
   which, with each formula's ``Reduction`` section as facets;
 * the ``Semantics`` sections of :mod:`vaft.formula` and :mod:`vaft.process`
   docstrings -- the quantities a function consumes and produces, in the vocabulary;
-* :mod:`vaft.validation.orderings` (#1627) -- the physical models' approximation
+* :mod:`vaft.validation.orderings` -- the physical models' approximation
   contracts, the ordering quantities they assume and the kernels computing them.
 
 **Identity is strict.**  A term becomes a concept only through
@@ -465,7 +465,7 @@ def _formula_api(graph: _Graph, key: str, origin: str) -> str:
 
 
 def _reductions(graph: _Graph) -> None:
-    """#1626: which quantity is reduced to which, and by which formula.
+    """Formula reductions: which quantity is reduced to which, and by which formula.
 
     The reduction graphs name quantities by their own keys (``s_hat``,
     ``j_phi_field``).  A key becomes an edge only through the ``concept`` its
@@ -512,7 +512,7 @@ def _reductions(graph: _Graph) -> None:
 
 
 def _semantics(graph: _Graph) -> None:
-    """The ``Semantics`` sections of formulas and processes (#1702 phase 3).
+    """The ``Semantics`` sections of formulas and processes.
 
     Every term must be a quantity of the vocabulary: the section is a contract,
     so an unknown term is an error here, not an audit row.
@@ -541,7 +541,7 @@ def _semantics(graph: _Graph) -> None:
 
 
 def _orderings(graph: _Graph) -> None:
-    """#1627: approximation contracts, the ordering quantities they assume and their kernels."""
+    """Approximation contracts, the ordering quantities they assume and their kernels."""
     from vaft.validation import orderings
 
     origin = "vaft.validation.orderings"

@@ -1,4 +1,4 @@
-"""Capability-oriented help: ``vaft.help()`` and ``vaft help`` (#1203).
+"""Capability-oriented help: ``vaft.help()`` and ``vaft help``.
 
 ``vaft.help()`` answers *what can VAFT do here, with which defaults, and what
 is configured* -- without the reader knowing the package layout.  It reads;

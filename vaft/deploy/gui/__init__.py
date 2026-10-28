@@ -1,4 +1,4 @@
-"""The hosted-GUI deployment files (``vaft gui --hosted``, #1086, #1406).
+"""The hosted-GUI deployment files (``vaft gui --hosted``).
 
 Package data, listed in ``pyproject.toml`` and ``MANIFEST.in`` and required by
 ``test/verify_dist.py``:
@@ -12,7 +12,9 @@ Package data, listed in ``pyproject.toml`` and ``MANIFEST.in`` and required by
 ``vaft-gui-proxy.conf``
     the websocket proxy snippet the site includes, for ``/etc/nginx/snippets/``
 
-An isolated **test instance** next to a production one (#1862) -- own user,
+The deployment and its access boundaries are not yet validated (Open: #1862).
+
+An isolated **test instance** next to a production one -- own user,
 venv, port 5016 and ``/gui-test/`` prefix, loopback only:
 
 ``vaft-gui-test.service``, ``vaft-gui-test.env.example``

@@ -1,4 +1,4 @@
-"""The stdio MCP server: VAFT's read-only tools registered with the ``mcp`` SDK (#1423).
+"""The stdio MCP server: VAFT's read-only tools registered with the ``mcp`` SDK.
 
 The SDK is imported only inside :func:`build_server` and :func:`main`, so this
 module (and the API reference that imports it) works on an installation

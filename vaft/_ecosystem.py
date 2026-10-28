@@ -1,4 +1,4 @@
-"""What VAFT depends on and integrates with, and why (#1648).
+"""What VAFT depends on and integrates with, and why.
 
 Two different relations, kept apart on purpose:
 

@@ -1,4 +1,4 @@
-"""``vaft mcp``: serve VAFT's read-only discovery tools to an MCP client over stdio (#1423).
+"""``vaft mcp``: serve VAFT's read-only discovery tools to an MCP client over stdio.
 
 Equivalent to ``python -m vaft.mcp``.  Register it with a client, for example
 ``claude mcp add vaft -- vaft mcp``.  Needs ``pip install 'vaft[mcp]'``.
