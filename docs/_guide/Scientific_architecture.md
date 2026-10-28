@@ -192,6 +192,16 @@ standardized state:
 
 ![Machine-agnostic architecture]({{ '/assets/diagrams/machine_agnostic_architecture.svg' | relative_url }})
 
+Above that boundary, calculations from different domains meet in shared IMAS representations without becoming
+interchangeable: one `equilibrium` IDS holds analytic, modelled, reconstructed and refined states, and the
+transport runs that read one resolved state are keyed by its identity, not merged. The conceptual figure
+(`vaft.diagram.cross_domain_scientific_architecture()`) shows the architecture; its technical companion,
+`vaft.diagram.cross_domain_scientific_workflows()`, draws each solver with its inputs, outputs and IDS mappings
+(both described on
+[Diagrams]({{ '/reference/diagrams/' | relative_url }}#cross-domain-integration-equilibrium-mhd-and-transport)):
+
+![Equilibrium, MHD and transport: the scientific architecture]({{ '/assets/diagrams/cross_domain_scientific_architecture.svg' | relative_url }})
+
 ## Composition and orchestration
 
 | Level | What composes |
