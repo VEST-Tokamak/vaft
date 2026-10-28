@@ -1,12 +1,12 @@
-"""What should a VEST EFIT fit stop on, and what does tightening it cost? (#171)
+"""What should a VEST EFIT fit stop on, and what does tightening it cost?
 
     PYTHONPATH=$PWD EFITHOME=~/git/efit/vaft-install \\
         python workflow/efit_numerics/termination_scan.py --output /scratch/term \\
             --table test/data/efit_termination_scan.json
 
 Six of the parameters that decide when a VEST fit stops are EFIT's own
-defaults that VAFT never wrote, and one it does write is inert.  #171
-established that from the source; this measures what those defaults cost.
+defaults that VAFT never wrote, and one it does write is inert.  Reading the
+EFIT source established that (study record: #171); this measures what those defaults cost.
 
 What actually terminates the fit
 --------------------------------
@@ -36,12 +36,13 @@ rather than argued.
 There is a second-order effect that makes the sign genuinely ambiguous: the
 criterion tests the *new* ``saisq`` and then writes back the *previous* one,
 so a slice can stop on the criterion and still be rejected on ``#1`` with the
-restored chi-square.  The re-baseline (#852) shows that happening -- every
+restored chi-square.  The re-baseline with the shipped envelope (record: #852)
+shows that happening -- every
 slice on 39915 exits on ``iconvr=2`` and four of them still fail ``#1``.
 
 One axis at a time.  Five crossed axes would be hundreds of EFIT runs for less
-information than the marginals give first, and #588 established for the seed
-study that a scan which varies two things at once attributes nothing.
+information than the marginals give first, and the seed study
+(``seed_basin.py``) established that a scan which varies two things at once attributes nothing.
 """
 
 from __future__ import annotations
@@ -134,7 +135,7 @@ def summarize(slices: Sequence[dict[str, Any]], seed_study) -> dict[str, Any]:
     produced = [item for item in slices if item["afile"]]
     stopped = sum(1 for item in slices if item.get("iconvr") == 2)
     exhausted = sum(1 for item in slices if item["exit_path"] == "iterations_exhausted")
-    # fit.F90's silent criterion exit, counted as exhausted before #1038.
+    # fit.F90's silent criterion exit, which the log parser once counted as exhausted.
     silent = sum(1 for item in slices if item["exit_path"] == "no_exit_message")
     iterations = [item["iterations_n"] for item in slices if item.get("iterations_n")]
     chi = [item["afile"]["chisq"] for item in produced if np.isfinite(item["afile"]["chisq"])]

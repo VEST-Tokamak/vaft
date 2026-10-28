@@ -1,4 +1,4 @@
-# Nonlinear CGYRO validation plan for the #1900 surfaces
+# Nonlinear CGYRO validation plan for the selected TGLF sensitivity surfaces
 
 The surfaces come from the selection rule in
 [`tglf_cgyro_validation.md`](tglf_cgyro_validation.md):
@@ -8,7 +8,8 @@ The surfaces come from the selection rule in
 - **Disagreement:** the largest spreads.
 
 **Nothing here is launched.** Running it needs an allocated core-hour budget, and Lane Y
-owns the CGYRO allocation, the tooling (#1656) and the locality QA used below.
+owns the CGYRO allocation, the nonlinear tooling (`workflow/gyrokinetic/run_nonlinear.py`,
+`build_nonlinear.py`) and the locality QA used below.
 
 ## Linear and nonlinear stay separate
 
@@ -27,7 +28,7 @@ Rules for combining the two steps:
 
 ## Candidates
 
-TGLF EM-BPER numbers come from `sensitivity.csv` and `sat_pairs.csv` (#1932, v1, GACODE
+TGLF EM-BPER numbers come from `sensitivity.csv` and `sat_pairs.csv` (product v1, GACODE
 b493397). Linear CGYRO numbers come from Lane Y's `gyrokinetic_linear/linear_summary.csv`.
 Shear and box size come from each surface's own `input.tglf`, using
 L_x = BOX_SIZE / (KY s) at KY = 0.1. Frequencies are negative in the ion diamagnetic
@@ -43,7 +44,7 @@ direction.
 **Electromagnetic runs are required, not optional.** The EM flux fraction in TGLF is
 small (f_em <= 0.018). But electrostatic nonlinear CGYRO with kinetic electrons is
 unusable at ky_min <= 0.2: the omega_H branch runs away, and finite beta removes it
-(#1484). So step N runs EM.
+(measured on 39915 r/a 0.7, run record #1484). So step N runs EM.
 
 ### What each run is meant to resolve
 
@@ -67,7 +68,7 @@ unusable at ky_min <= 0.2: the omega_H branch runs away, and finite beta removes
   - Linear CGYRO's branch changes between ES and EM.
   - Step L decides which preset's mode is right before any saturation rule is judged on
     this surface.
-  - Lane Y's first nonlinear attempt here (#1484) ran away in an undersized box: BOX_SIZE 4
+  - Lane Y's first nonlinear attempt here (run record #1484) ran away in an undersized box: BOX_SIZE 4
     gave L_x = 15 rho_s, the adaptive dt fell 7x, and the run was cancelled. A rerun needs
     BOX_SIZE ~9.
 
@@ -85,7 +86,7 @@ but not whether the linear part or the saturation part made the difference.
 
 1. **Step L on 39916 r/a 0.5.** Run `workflow/gyrokinetic/run_linear.py` on the same
    resolved state (Lane T's `resolve_transport_state`, with `state_identity` equal to the
-   #1482 one) over ky rho_s 0.1-6, EM and ES, plus TGLF linear in both presets. About 24
+   SAT-rule sensitivity run's) over ky rho_s 0.1-6, EM and ES, plus TGLF linear in both presets. About 24
    CGYRO runs, about 10-25 core-h.
 2. **Second preset on the existing grid.** Rerun TGLF linear only (seconds each) with the
    SAT2/3 preset on all three r/a 0.6-0.8 candidates. Lane Y's TGLF linear column holds a
@@ -105,11 +106,12 @@ but not whether the linear part or the saturation part made the difference.
    | 39916 r/a 0.8 | 9 | ~192 |
 
    Each run is segmented: CGYRO counts `MAX_TIME` from the restart, so each segment's
-   target is set explicitly (#1484). The parsing is requeue-safe (#1656). After the first
-   100 a/c_s, Lane Y's locality QA (#1656) runs. If it reports `box_too_small`, the box is
+   target is set explicitly. The parsing is requeue-safe (out-of-order records left by a
+   Slurm requeue are dropped). After the first 100 a/c_s, Lane Y's locality QA
+   (`vaft.code.gacode.cgyro.locality_report`) runs. If it reports `box_too_small`, the box is
    enlarged before more time is spent.
 4. **Resolution and box checks.**
-   - The 0.7 run's own resolution check (Lane Y, #1484: `N_RADIAL=128, N_TOROIDAL=24`)
+   - The 0.7 run's own resolution check (Lane Y run record #1484: `N_RADIAL=128, N_TOROIDAL=24`)
      comes first. If it moves Q by more than the criterion below, these settings change
      before step N starts.
    - One r/a 0.8 surface also gets a second box size (L_x ~55 rho_s). The box-dependence
@@ -153,7 +155,7 @@ Recommended order, so that each stage can stop the next:
 2. **Resolution and box.** The refined (or larger-box) run gets at least 3 blocks. Its mean
    must agree with the base run's within 2 combined standard errors. Otherwise the base
    setting is not accepted on that surface.
-3. **Locality** (Lane Y's definitions, #1484/#1656):
+3. **Locality** (Lane Y's definitions, `vaft.code.gacode.cgyro.locality`):
    - box adequacy l_corr/L_x: < 0.25 adequate, < 0.5 marginal;
    - epsilon_local = l_corr / min(L_Ti, L_Te, L_n, L_q): < 0.1 ok, < 0.3 marginal, else
      `local_questionable`.

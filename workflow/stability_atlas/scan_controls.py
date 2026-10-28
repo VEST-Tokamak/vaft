@@ -1,9 +1,9 @@
-"""Narrow numerical-control scan for DCON/RDCON/STRIDE (issue #141, minimal).
+"""Narrow numerical-control scan for DCON/RDCON/STRIDE (a minimal one; results recorded on #141).
 
 One axis at a time from the packaged templates. Each variant gets its own
 templates directory (the packaged one with namelist keys patched), and each
 (equilibrium, variant, module, n) runs as its own suite call in its own
-workdir -- DCON and RDCON are never run in one call (#141: the coupled n=2
+workdir -- DCON and RDCON are never run in one call (a coupled DCON+RDCON n=2
 run did not finish in 40 min).
 
 Usage::
@@ -49,7 +49,7 @@ from vaft.code.gpec._runtime import package_vest_dir, write_template
 
 
 # Every DCON run evaluates the ballooning criterion: the packaged dcon.in has
-# bal_flag=f, which leaves ca1 identically zero (#527).
+# bal_flag=f, which leaves ca1 identically zero.
 DCON = DCONOptions(bal_flag=True)
 
 
@@ -61,7 +61,7 @@ class Variant:
     module: str
     patches: dict[str, dict[str, Any]] = field(default_factory=dict)  # template file -> {key: value}
     psihigh: float | None = None  # equil.in psihigh goes through the config, not a patch
-    dcon: DCONOptions = DCON  # psiedge < psilim selects the peak-dW truncated edge (#792)
+    dcon: DCONOptions = DCON  # psiedge < psilim selects the peak-dW truncated edge
 
 
 VARIANTS: tuple[Variant, ...] = (
@@ -247,7 +247,7 @@ def run_job(
 
 @lru_cache(maxsize=None)
 def _ordering_state(gfile: Path) -> tuple[dict, dict]:
-    """Advisory ordering state of an equilibrium (#1987), once per g-file per worker; never raises."""
+    """Advisory ordering state of an equilibrium, once per g-file per worker; never raises."""
     return ordering_state_for_case(gfile)
 
 

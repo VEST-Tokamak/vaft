@@ -128,7 +128,7 @@ def main() -> int:
             )
         except EddyNoOutputError as error:
             # The eddy stage recorded that this shot has nothing to compute
-            # (#1568): no figures, and a manifest saying why.
+            # (an unrecorded PF circuit): no figures, and a manifest saying why.
             return _write_manifest(args, empty_stage_plot_manifest(args.stage, error.reason))
         composed_with.append(
             {

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Run the plasma-free magnetic-response benchmark over a set of shots (issue #190).
+"""Run the plasma-free magnetic-response benchmark over a set of shots.
 
 A development/reference qualification tool, not a production stage.  The
-routine per-shot QA (#139) keeps its compact channel subset and its place in
+routine per-shot QA (the post-generation validation plots) keeps its compact channel subset and its place in
 the Snakemake pipeline; this walks many carefully selected plasma-free cases
 with the *full* usable channel set, so a discrepancy can be attributed to a
 sensor, a coil, the wall model or a machine era rather than merely noticed.
@@ -23,8 +23,8 @@ Usage::
     python run_vacuum_benchmark.py --output benchmark.json --packaged-sample
 
 The case list is an argument rather than a committed table: the source shots
-live in the VEST database, not in this repository, and #190 asks that the
-selection be reproducible rather than that it be vendored.  Record the exact
+live in the VEST database, not in this repository, and what is required is that
+the selection be reproducible rather than that it be vendored.  Record the exact
 invocation alongside the output -- the manifest carries the static-model
 revision each residual was measured against.
 """
@@ -140,8 +140,8 @@ def main(argv: list[str] | None = None) -> int:
             rejected.append({"shot": shot, "reason": str(error)})
 
     payload = {
-        # 4 (#752): the case records are schema 5 and their plasma_free_evidence
-        # schema 4 -- the embedded timing summary carries duty_cycle.  3 (#409):
+        # 4: the case records are schema 5 and their plasma_free_evidence
+        # schema 4 -- the embedded timing summary carries duty_cycle.  3:
         # the retired detectors' legacy block is gone; 2 had changed the case
         # records' shape.
         "schema_version": 4,

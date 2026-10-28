@@ -1,4 +1,4 @@
-"""The #891 study criteria, at the study's path.
+"""The sigma-calibration study's slice criteria, at the study's path.
 
 The policy module itself is :mod:`vaft.validation._efit_study_criteria`, so a
 wheel install can judge slices (``vaft.validation.equilibrium_quality`` loads

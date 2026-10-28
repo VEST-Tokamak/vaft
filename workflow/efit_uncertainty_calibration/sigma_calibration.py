@@ -1,16 +1,16 @@
-"""At what uncertainty scale are the magnetics informative and the fit convergent? (#891)
+"""At what uncertainty scale are the magnetics informative and the fit convergent?
 
     python workflow/efit_uncertainty_calibration/sigma_calibration.py \\
         --output /scratch/sigma --table /scratch/sigma/efit_sigma_calibration.json
 
-Under ``uncertainty_mode = "standard_deviation"`` (the contract #921 made mean
-what EFIT fits against) the magnetic sigma is ``ConstraintErrors``' relative
+Under ``uncertainty_mode = "standard_deviation"`` (the sigma EFIT actually fits
+against) the magnetic sigma is ``ConstraintErrors``' relative
 error times ``|measured|`` -- 1 % on the probes -- while the residual the model
-reaches is 4-12 %.  Nothing converges (#924, 0/81), even once the probes the
-array review condemns are out (#977).  This scans the sigma, one family at a
+reaches is 4-12 %.  Nothing converges (0 of 81 runs in the EFIT convergence study), even once the
+probes the array review condemns are out.  This scans the sigma, one family at a
 time and both together, and reports the **range** over which the fit
 converges, the magnetics are fitted to their stated sigma and are not thrown
-away, and the #924 vertical drift is gone.  It does not pick the rung with the
+away, and the convergence study's vertical drift is gone.  It does not pick the rung with the
 smallest chi-square: the sigma is the chi-square's denominator, so a wide
 enough sigma always wins that contest by removing the information.
 
@@ -19,7 +19,7 @@ Contract
 
 - ``standard_deviation`` sigma, binary weights, the diagnostics stage's
   gating as shipped (recorded faults + the array review), NXITER 1, the
-  packaged 129 table, the nine #924 slices, ERRMIN 1e-2 and 1e-4.
+  packaged 129 table, the nine convergence-study slices, ERRMIN 1e-2 and 1e-4.
 - Ladder: the ``bpol_probe`` sigma alone, the ``flux_loop`` sigma alone, and
   both together, each multiplied by 1, 2, 4, 8, 16, 32 through
   ``uncertainty_scales`` (which divides the submitted sigma).  Ip, the PF
@@ -30,15 +30,16 @@ Contract
   near-zero sigma.  The multiplier then applies to the floored sigma.
 - The diamagnetic flux is held inactive (its sigma scaled by 1e8): under
   ``standard_deviation`` it becomes a strong constraint and crashes the fit
-  once the magnetics are widened (#1027); it gets its own axis (#386).
+  once the magnetics are widened; it gets its own axis
+  (``workflow/efit_diamagnetic_weight``).
 - Profile basis (1,1) and (2,1): the routine (2,2) basis does not settle once
   the magnetics carry weight -- two of its directions trade off indefinitely
-  (#1027) -- while these converge numerically.  Two bases, so the range's
+  -- while these converge numerically.  Two bases, so the range's
   dependence on the basis is visible; each basis is judged on its own.
 - EFIT's chi-square target ``SAICON`` is ``N + 3 sqrt(2N)`` per slice, N the
   fitted probes, loops, Ip and PF currents: the legacy 80 is below the
   expected chi-square of a statistical sigma, so a converged fit could never
-  take the ``iconvr = 2`` exit (#1027).  The legacy reference keeps 80.
+  take the ``iconvr = 2`` exit.  The legacy reference keeps 80.
 - One legacy-weight run per basis is the **reference branch** for
   displacement and continuity, nothing more.
 
@@ -81,15 +82,15 @@ FAMILIES = ("bpol_probe", "flux_loop")
 #: Which families each ladder moves together.
 LADDERS = (("bpol_probe",), ("flux_loop",), ("bpol_probe", "flux_loop"))
 ERROR_MINIMA = (1.0e-2, 1.0e-4)
-#: (KPPCUR, KFFCUR): profile bases the magnetics can determine (#1027).
+#: (KPPCUR, KFFCUR): profile bases the magnetics can determine.
 BASES = ((1, 1), (2, 1))
-#: Scale that makes the diamagnetic flux inactive under standard_deviation (#1027, #386).
+#: Scale that makes the diamagnetic flux inactive under standard_deviation.
 DIAMAGNETIC_INACTIVE_SCALE = 1.0e-8
 #: Constraint families counted in N for the chi-square target.
 FITTED_FAMILIES = ("bpol_probe", "flux_loop", "ip", "pf_current")
-MAX_ITERATIONS = 514  # (515 - 1) // NXITER, NXITER = 1 (#171)
+MAX_ITERATIONS = 514  # (515 - 1) // NXITER, NXITER = 1: EFIT's iteration arrays hold 515
 
-#: The operating-range rule (#891).  Part of the result, stated with it.
+#: The operating-range rule.  Part of the result, stated with it.
 CRITERIA = {
     "all_converge_at": 1.0e-4,
     "reduced_chi2_range": (0.5, 5.0),

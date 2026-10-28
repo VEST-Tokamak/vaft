@@ -1,7 +1,8 @@
-# Resistive Z_eff atlas (#1214, Lane Z)
+# Resistive Z_eff atlas (Lane Z)
 
 `build_zeff.py` infers the resistive effective charge `Zeff_resistive` for the
-Lane K Tier A states (contract #1454). It matches the plasma resistance closed
+Lane K Tier A states (`workflow/kinetic_state`, state key contract
+`vaft.validation.kinetic_state.CONTRACT_VERSION`). It matches the plasma resistance closed
 by Romero's transformer balance against a parallel-conductivity model. The
 result is **model-inferred, not a composition measurement**, and nothing is
 written to `core_profiles.zeff`.
@@ -26,7 +27,7 @@ written to `core_profiles.zeff`.
 | setting | value | why |
 |---|---|---|
 | window | the longest run of consecutive graded (good/admissible) magnetics slices, plus, found automatically, the longest run of ≥ 3 graded slices with \|dln I_p/dt\| below the rate at every slice (`window_kind = ip_stationary_subwindow`) when it differs | the balance differentiates in time; the subwindow is the relaxed flat-top case |
-| nominal model | Redl | #1214 Sec. 3: the nominal model at spherical-tokamak trapped fractions |
+| nominal model | Redl | the nominal model at spherical-tokamak trapped fractions |
 | `ln_lambda` | Sauter's per-surface value | — |
 | bounds | `[1, 8]` | a minimum on a bound is reported as `bound_hit`, never clipped |
 | `I_ni` | `0` | stated Ohmic assumption; there is no NBI, ECCD or helicity injection in Tier A |
@@ -34,10 +35,10 @@ written to `core_profiles.zeff`.
 | smoothing | none | EFIT slices are 1 ms apart, so even a first-order local fit has no redundancy |
 | `--inductive-max` | 1.0 | slices where |V_I| ≥ |V_B| are not fitted |
 | `--max-excluded-current` | 0.05 | states with more than 5 % of the current outside the profiles' support are not fitted: the model omits the cold edge, so Z_eff would be biased high |
-| `--stationary-rate` | 20 /s | relaxed flat top (#1514): `flattop` needs only median \|dln I_p/dt\| below it; L_i may evolve and `li_evolving` records whether it does. No Thomson-equipped VEST window has a steady L_i, and Romero's balance carries (I_p/2) dL_i/dt explicitly. A small \|V_I\|/\|V_B\| is not used, because the two V_I terms cancel in the decay |
+| `--stationary-rate` | 20 /s | relaxed flat top: `flattop` needs only median \|dln I_p/dt\| below it; L_i may evolve and `li_evolving` records whether it does. No Thomson-equipped VEST window has a steady L_i, and Romero's balance carries (I_p/2) dL_i/dt explicitly. A small \|V_I\|/\|V_B\| is not used, because the two V_I terms cancel in the decay |
 
-**Boundary voltage cross-check (Lane D, #548).** The observed path uses
-Romero's EFIT ψ_B (#1214 Sec. 4). Every fitted window is also re-fitted with
+**Boundary voltage cross-check (Lane D).** The observed path uses
+Romero's EFIT ψ_B (full-Wb boundary flux, V_B = −dψ_B/dt in Romero's sign). Every fitted window is also re-fitted with
 V_B taken from the inboard midplane flux loop #10 (R = 0.091 m), which is
 what Lane D's `resistive_loop_voltage` uses. The loop sits inside the LCFS,
 so the flux between the loop and the LCFS biases it. The shift is reported
@@ -46,7 +47,7 @@ as `zeff_flux_loop` / `delta_boundary_voltage_source`, as a
 `v_loop_fl10_v`.
 
 A window that cannot be inferred is still a row, with
-`status = not_identifiable` and the reason (#1214 Sec. 10).
+`status = not_identifiable` and the reason.
 
 ## Run (vestserver)
 

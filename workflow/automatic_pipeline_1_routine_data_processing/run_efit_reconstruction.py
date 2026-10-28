@@ -67,11 +67,11 @@ def _artifact_payload(workdir: Path, shot: int, status: str, parse_errors=(), se
     }
     if seconds is not None:
         # Wall time for the whole invocation, and per slice over the k-files
-        # submitted. The termination study's central comparison is equilibrium
-        # change against runtime cost (#171), and until now nothing recorded
-        # the cost: the writer's own note that a tighter ERRMIN moves a fit
-        # "from under a minute to about three" was never measured against an
-        # artifact.
+        # submitted. The EFIT termination study (workflow/efit_numerics)
+        # compares equilibrium change against runtime cost, so the cost is
+        # recorded here: the writer's own note that a tighter ERRMIN moves a
+        # fit "from under a minute to about three" had not been measured
+        # against an artifact.
         payload["runtime"] = {
             "seconds": round(float(seconds), 3),
             "cases": len(cases),
@@ -132,7 +132,7 @@ def main() -> int:
 
     not_applicable = kfile_manifest_not_applicable_reason(manifest_text)
     if not_applicable is not None:
-        # Ahead of efit.run: the verdict is about the shot, not this deployment (#205).
+        # Ahead of efit.run: the verdict is about the shot, not this deployment.
         _write_outputs(args.gfile_manifest, args.status, args.artifact_manifest, workdir, args.shot,
                        f"skipped: not applicable: {not_applicable}; kfiles=0")
         return 0

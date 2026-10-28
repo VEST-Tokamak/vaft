@@ -5,7 +5,7 @@ IMPA is an optional, campaign-dependent diagnostic, so this stage is opt-in and
 is never a dependency of the baseline products. It also never fails the run:
 every error is recorded in the stage manifest as ``failed`` and the script exits
 0, so a broken IMPA branch cannot change the exit state of an otherwise
-successful `main` publication (issue #305). Whether the product is eligible to
+successful `main` publication. Whether the product is eligible to
 be published is decided by its manifest status, not by this exit code.
 """
 

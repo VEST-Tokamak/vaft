@@ -1,4 +1,4 @@
-"""TGLF saturation-rule sensitivity against the measured ohmic power balance (#1482, #548).
+"""TGLF saturation-rule sensitivity against the measured ohmic power balance.
 
 Lane T's sensitivity product runs SAT0-3 x {ES, EM-BPER} on the same local inputs of a
 few Tier A states. This script turns those gyro-Bohm fluxes into watts and sets them
@@ -15,7 +15,7 @@ lineage; matched by time, never by index).
 - **NEO.** The atlas neoclassical flux (configuration independent) is carried as
   ``P_neo_W``.
 
-This is a consistency test, not an identity (#548 section 11):
+This is a consistency test, not an identity:
 - P_net is the total heating minus dW/dt. The flow through r carries only what is
   deposited inside r, so a ratio below 1 at an inner surface is expected; a ratio
   above 1 at r/a = 0.8 overpredicts even the total.

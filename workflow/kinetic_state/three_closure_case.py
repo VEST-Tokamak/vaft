@@ -1,4 +1,4 @@
-"""The three closures together on one slice (#1842): resistive Z_eff + impurity amplitude + inferred T_i.
+"""The three closures together on one slice: resistive Z_eff + impurity amplitude + inferred T_i.
 
 ``kinetic_state_stages(ion_temperature="inferred")`` on FileDB products:  Lane Z's Romero scalar closes
 the impurity amplitude (C : O = 1 : 1), ``T_i`` is partitioned out of the magnetic-EFIT pressure with

@@ -1,7 +1,8 @@
 # The EFIT-quality reference set
 
-Issue #171 asks for a curated reference shot set, and #196, #468, #459 and
-#579 all inherit whatever it turns out to be. A set is only useful if every
+The EFIT solver-configuration study needs a curated reference shot set, and
+the temporal-continuation, cadence, domain/grid and profile-model studies all
+inherit whatever it turns out to be. A set is only useful if every
 shot is in it for a stated reason and the reason is checked rather than
 remembered, so `build_reference_set.py` declares the set and then verifies
 every claim about each shot against the packaged files. It runs EFIT on
@@ -42,8 +43,8 @@ polychromators at R = 0.255 to 0.475 m, ten times from 0.308 to 0.317 s. Its
 routine EFIT window is 0.306–0.331 s, so **all ten Thomson samples fall inside
 the reconstructed window**. This is the one shot where a reconstruction can be
 checked against independent kinetic information at the times it was actually
-computed for, and where the stored 2023 reconstruction (#119's reference)
-exists to compare against. Its magnetics hold their last value from 0.340 s,
+computed for, and where the stored 2023 reconstruction (the legacy reference local EFIT runs are
+compared against) exists to compare against. Its magnetics hold their last value from 0.340 s,
 which is outside the window and therefore harmless here — but it bounds how
 far a study may widen the window.
 
@@ -58,8 +59,7 @@ points from seven measurements, and three stored equilibria (the magnetic
 reconstruction, the kinetic-EFIT one and a CHEASE refinement) at 0.300 s.
 Two limits are worth stating plainly. It carries **no magnetics**, so its
 input quality cannot be assessed offline and its reconstruction cannot be
-rebuilt from constraints here — it can only be read. And issue #317 records
-that the packaged kinetic ODS is not trustworthy within `psi_N < 0.05`: an
+rebuilt from constraints here — it can only be read. And the packaged kinetic ODS is not trustworthy within `psi_N < 0.05`: it has an
 unphysical near-axis `dvolume_dpsi` ramp traceable to a `q[0]` outlier. Any
 study using it must exclude the near-axis region or say why it did not.
 

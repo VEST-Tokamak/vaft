@@ -29,23 +29,23 @@ diagnostics:
   tend: 0.36
   dt: 4.0e-5
   run: 1
-# Optional insertable diagnostic, published into its own sparse HSDS source
-# (issue #305). Off by default: absence of an IMPA product is normal, and the
+# Optional insertable diagnostic, published into its own sparse HSDS source.
+# Off by default: absence of an IMPA product is normal, and the
 # branch is never a dependency of the baseline products.
 impa:
   enable: false
   run: 1
 # Equilibrium-magnetics processing comes from the shot's acquisition era in
 # vaft/machine_mapping/vest.yaml. A `vest.magnetics.processing` mapping here is an
-# override applied on top of that era policy, for parameter scans only: the
-# legacy defaults that used to sit here ran every native-DAQ shot (46404 on)
-# through the slow-DAQ path once this file was loaded (#1541). Keys the era
+# override applied on top of that era policy, for parameter scans only. This
+# file carries no legacy defaults: defaults here would run every native-DAQ shot
+# (46404 on) through the slow-DAQ path once this file was loaded. Keys the era
 # decides (the legacy window ladder and per-sample flux baselines) are refused
 # when set off their defaults, and so are `time_start`/`time_end`/`sample_count`
 # unless `window_override` is named with them: the era window is indices into
 # that grid. `daq_mode` and `fast_sample_rate` state the acquisition and cannot
 # be changed; `calibration_mode` / `flux_output_per_radian` need a
-# `calibration_override_reason` (#2159). The filter keys (`lowpass_cutoff`,
+# `calibration_override_reason`. The filter keys (`lowpass_cutoff`,
 # `lowpass_taps`) apply on every shot. See DEPLOYMENT.md, "What a run config may override".
 vest: {}
 eddy:
@@ -66,14 +66,14 @@ eddy:
 constraints:
   timeset: auto
   tstep: 0.001
-  # Half-width [s] of the box average each constraint is taken over (#433);
-  # distinct from tstep, and qualified together with it under #468.
+  # Half-width [s] of the box average each constraint is taken over;
+  # distinct from tstep. Open: #468 (qualifying this window and tstep for VEST).
   average_window: 0.0005
   # Require the diagnostics-stage assessment (projected validity); the
-  # constraint stage never assesses signals itself (issue #296).
+  # constraint stage never assesses signals itself.
   detect_broken: true
   # No manual channel list: selection is the diagnostics-stage assessment's
-  # verdict alone (issue #295).  The retired list and its evidence are kept
+  # verdict alone.  The retired list and its evidence are kept
   # in workflow/efit_channel_selection/README.md.
   fl_correct_option: 0
   # Recovery backend: 0 none, 1 refit rejected probes from their family's
@@ -81,7 +81,7 @@ constraints:
   gaussian_fit_option: 1
   # The profile basis is not a constraints setting: the k-files take it from
   # the EFIT configuration (efit.preset below), and the constraints product
-  # no longer records one (#869). constraints.npprime/nffprime are ignored.
+  # records none. constraints.npprime/nffprime are ignored.
   uncertainty:
   - 1.0e-4
   - 1.0e-4
@@ -103,18 +103,20 @@ constraints:
   - 0.01
 efit:
   # A run config merged over this file inherits `true` when it omits the key
-  # (#1687); a deployment that does not run EFIT sets `efit: {run: false}` itself.
+  # -- a deployment that does not run EFIT sets `efit: {run: false}` itself.
   run: true
   # Named EFIT configuration from vaft.code.efit.PRESETS. Empty is the default,
-  # statistical_891: the #891 working setting (statistical sigma, diamagnetic
+  # statistical_891: the working setting of the sigma calibration study
+  # (workflow/efit_uncertainty_calibration; statistical sigma, diamagnetic
   # flux fitted, (2,1) basis, psi-only exit), the production configuration
   # since 2026-10-01. `routine` is the legacy configuration (legacy weights,
-  # (2,2), EFIT's own termination), whose beta_p sits near zero (#386).
+  # (2,2), EFIT's own termination), whose beta_p sits near zero (Open: #386,
+  # pressure far below force balance under legacy weighting).
   # Every EFIT product names the configuration in code.parameters.
   preset: ""
   executable: ${EFIT}
-  # The base Green table. A Green table is valid for one machine era only
-  # (#805); a shot of the base table's era uses this directory as is, and a
+  # The base Green table. A Green table is valid for one machine era only,
+  # because it projects that era's conductors; a shot of the base table's era uses this directory as is, and a
   # shot of any other era uses a table built once per era by rule
   # generate_efit_table (EFUND, ~3 min and ~170 MB at 129x129, under
   # <base_dir>/pipeline/efit_tables/, or <base_dir>/efit_tables/ with
@@ -128,7 +130,8 @@ efit:
   efund_timeout: 1800
   args: "129"
   # statistical_891 iterates up to 514 times per slice (routine 100), and a
-  # shot's slices run in one EFIT call: 600 s timed out 26 of 33 shots (#1331).
+  # shot's slices run in one EFIT call: 600 s timed out 26 of 33 shots (EFIT
+  # campaign record #1331).
   timeout: 3600
 chease:
   run: true
@@ -166,7 +169,7 @@ gpec:
   coil:
     source: vest_reference
 
-# HSDS replication (issue #94). Off by default: it needs a reachable HSDS and
+# HSDS replication. Off by default: it needs a reachable HSDS and
 # canonical products. Each stage replicates only the IDS subtree it owns, into
 # the source vaft.database.sources.STAGE_REPLICATION gives it -- the workflow
 # never chooses a destination itself.

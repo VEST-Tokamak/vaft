@@ -1,4 +1,4 @@
-"""The default Pipeline 2 product (``<Z_eff> = 2``, ``T_i = T_e``) on FileDB data, one panel set per slice (#1842).
+"""The default Pipeline 2 product (``<Z_eff> = 2``, ``T_i = T_e``) on FileDB data, one panel set per slice.
 
 Runs ``build_composition_ods`` exactly as the pipeline's composition stage does and draws,
 for each requested slice, the pressure (EFIT, thermal total, electron), the temperatures,

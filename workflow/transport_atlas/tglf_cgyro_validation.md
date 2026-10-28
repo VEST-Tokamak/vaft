@@ -1,11 +1,11 @@
-# TGLF against CGYRO: linear validation versus nonlinear saturation validation (#1900)
+# TGLF against CGYRO: linear validation versus nonlinear saturation validation
 
 TGLF is a quasilinear model with two parts that can each fail on their own:
 
     flux = sum over ky and modes of  W_QL(linear eigenmode) x phi_sat(saturation rule) x QLA
 
 `vaft.code.gacode.tglf.spectral` rebuilds this product from TGLF's own output files and
-reproduces `sum_flux_spectrum` to machine precision on all 240 sensitivity runs (#1932).
+reproduces `sum_flux_spectrum` to machine precision on all 240 sensitivity runs.
 CGYRO can check each factor, but each check uses a different kind of CGYRO run and
 answers a different question.
 
@@ -49,14 +49,14 @@ Three traps:
 
 What makes it a different measurement:
 
-- **Stationarity is not guaranteed in a short run.** On 39915 r/a 0.7 (Lane Y, #1484),
+- **Stationarity is not guaranteed in a short run.** On 39915 r/a 0.7 (Lane Y run record #1484),
   zonal-flow / turbulence bursts every ~100-130 a/c_s moved 50 a/c_s windows between
   0.26 and 15 Q_GB. A single window is not a result; Lane Y reports the t = 100-1000
   batch mean (3.04 ± 0.70 Q_GB), still provisional until the resolution check
   (n_radial 128 / n_tor 24) is done.
 - **The gap mixes linear and saturation errors.** On the linear grid, TGLF's growth
   rates were above CGYRO's (median TGLF/CGYRO ratio 1.79 over the 82 converged points;
-  Lane Y, #1484). On 39915 r/a 0.7, Lane Y read the nonlinear gap as partly linear and
+  Lane Y run record #1484). On 39915 r/a 0.7, Lane Y read the nonlinear gap as partly linear and
   mostly saturation. So a TGLF/CGYRO flux ratio is not a saturation-rule error by itself;
   the linear comparison on the same surface and preset has to be stated alongside it.
 - **The SAT pairs do not split the TGLF side the way they split each other.**
@@ -73,12 +73,12 @@ What makes it a different measurement:
 
 ## Which states get CGYRO
 
-Linear CGYRO is cheap. It runs on every #1482 sensitivity state at r/a 0.6, 0.7 and 0.8,
+Linear CGYRO is cheap. It runs on every TGLF SAT-rule sensitivity state at r/a 0.6, 0.7 and 0.8,
 ES and EM (Lane Y, `gyrokinetic_linear/`).
 
 Nonlinear CGYRO costs thousands of core-h per surface, so it is limited to
 **representative** and **disagreement** surfaces. The rule below is this note's proposal;
-its thresholds are choices, not values taken from #1484.
+its thresholds are choices, not values taken from Lane Y's runs.
 
 1. **Eligible.** Every one of SAT0-3 (EM-BPER, `sensitivity.csv`) must have:
    - Q_tot >= 0.2 Q_GB;
@@ -110,11 +110,11 @@ Why these surfaces:
 - **39916 r/a 0.5** sits at the median spread with a clear ion-scale drive.
 
 **Lane Y owns the CGYRO allocation and decides.** This table is the rule's current
-output. It is regenerated from `sensitivity.csv` when the state set grows (#1900 item 5).
+output. It is regenerated from `sensitivity.csv` when the state set grows (growing it is open: #1900 item 5).
 
 Not eligible, although their raw spread is large:
 - 40330 r/a 0.6 (spread 63; Q_tot 0.01-0.67, ion-scale gamma_max <= 0.05);
 - 42962 magnetics r/a 0.3 (spread 1215; Q_tot 0.01-7.0);
 - 42962 magnetics r/a 0.8 (spread 22.9). gamma_max sits at ky rho_s ~ 24, i.e. electron
-  scale; the ion-scale gamma_max is 0.08-0.20. This agrees with #1484, which found 42962
+  scale; the ion-scale gamma_max is 0.08-0.20. This agrees with Lane Y's linear runs (run record #1484), which found 42962
   near-marginal at ion scale.

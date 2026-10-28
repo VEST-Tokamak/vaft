@@ -1,4 +1,4 @@
-"""Audit, ablate, and reweight VEST EFIT constraint families (issue #663)."""
+"""Audit, ablate, and reweight VEST EFIT constraint families."""
 
 from __future__ import annotations
 

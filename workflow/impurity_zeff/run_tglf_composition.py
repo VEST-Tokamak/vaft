@@ -1,7 +1,7 @@
-"""TGLF sensitivity to the impurity composition on the Tier A good states (Lane L, #1565 / #1569).
+"""TGLF sensitivity to the impurity composition on the Tier A good states (Lane L).
 
 Each state is resolved by Lane T's own path -- ``resolve_transport_state`` with its
-defaults, so T_i, geometry and the electron profiles are Lane T's (#1428) -- and
+defaults, so T_i, geometry and the electron profiles are Lane T's routine TGLF ones -- and
 then run with the same TGLF settings under three compositions that differ in
 nothing else:
 

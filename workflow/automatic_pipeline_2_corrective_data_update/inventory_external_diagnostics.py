@@ -52,7 +52,7 @@ UNMAPPED_DIAGNOSTICS = (
 )
 
 #: A camera acquisition at or above this rate is fluctuation-grade and is
-#: reserved for the pending fluctuation routine (issue #161) rather than being
+#: reserved for the FAST-camera fluctuation analysis rather than being
 #: swept into routine IDS generation.
 FLUCTUATION_FRAME_RATE_HZ = 50_000
 

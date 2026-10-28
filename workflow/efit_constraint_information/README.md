@@ -1,6 +1,10 @@
-# EFIT constraint-information study (#663)
+# EFIT constraint-information study
 
-This workflow keeps the qualified issue-#579 `(2,2)` zero-edge equilibrium,
+Study record: #663 (which VEST constraint families carry independent
+information).
+
+This workflow keeps the qualified `(2,2)` zero-edge profile model from the
+profile-model study (`workflow/efit_profile_models/`) and its equilibrium,
 seed, numerical controls, grid, inputs, and cadence fixed. It changes only
 which EFIT constraint families participate and their submitted objective
 strength.

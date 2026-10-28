@@ -1,6 +1,6 @@
-"""R_p summary and the #1430 figure candidate from an atlas state table.
+"""R_p summary and the pressure-consistency figure candidate from an atlas state table.
 
-Reads ``state.csv`` (and the analysis JSONs, for the #1414 cross-check) and
+Reads ``state.csv`` (and the analysis JSONs, for the Ti = Te cross-check) and
 writes ``summary.json`` plus ``figures/pressure_consistency.{png,pdf}``.
 
 Every statistic is split by EFIT quality.  Since criteria version 2
@@ -46,7 +46,7 @@ def _stats(values: Iterable[float]) -> dict[str, Any]:
 
 
 def _kinetic_reference(path: Path | None) -> dict[str, Any] | None:
-    """The #1414 numbers: median exp(-ts_log_ratio) per lineage over the kinetic rows."""
+    """The Ti = Te cross-check numbers: median exp(-ts_log_ratio) per lineage over the kinetic rows."""
     if path is None or not path.is_file():
         return None
     rows = json.loads(path.read_text())["kinetic"]
@@ -113,7 +113,7 @@ def _figure(rows: Sequence[dict[str, str]], out: Path, figsize: tuple[float, flo
     # shared legend beside it and the caption underneath.
     fig, grid = plt.subplots(2, 2, figsize=figsize, constrained_layout=True)
     (left, middle), (right, notes) = grid
-    # #1430 keeps the two validation roles apart: magnetics-only is held-out
+    # The two validation roles stay apart: magnetics-only is held-out
     # validation, electron-kinetic is fit consistency (Thomson was fitted).
     panels = ((left, "magnetics", "o", "Magnetics-only EFIT\n(held out)"),
               (middle, "electron_kinetic", "s", "Electron-kinetic EFIT\n" r"($T_i=T_e$, TS fitted)"))

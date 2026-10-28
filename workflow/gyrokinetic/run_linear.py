@@ -1,20 +1,19 @@
-"""Linear CGYRO ky scans on Lane T's good states, beside TGLF on the same input (#1354).
+"""Linear CGYRO ky scans on Lane T's good states, beside TGLF on the same input.
 
 For each state (shot, time, EFIT lineage) and surface, the profile is resolved through
 Lane T's :func:`vaft.process.transport_state.resolve_transport_state` -- the same
-resolution the TGLF atlas and the #1482 sensitivity used -- and projected once with
+resolution the TGLF atlas and the SAT-rule sensitivity used -- and projected once with
 :func:`~vaft.code.gacode.cgyro.prepare_cgyro_input`. Then, per ky and field model:
 
 * a linear CGYRO run (``N_TOROIDAL=1``, one run per ky), and
 * a linear TGLF run at the **same** ky on the **same** local input
   (``USE_TRANSPORT_MODEL=F``, ``KY=<ky>``), which isolates the eigenvalue solver from
-  the saturation rule. The SAT0-3 spectra already on disk from #1482 are overlaid later
+  the saturation rule. The SAT0-3 spectra already on disk from the sensitivity runs are overlaid later
   by ``build_linear.py``, not re-run.
 
-This script needs Lane T's code at run time (``vaft.process.transport_state`` and
-``workflow/transport_atlas/run_tglf.py``), so it runs from a checkout that has both
-branches -- see ``README.md``. It refuses to start when ``vaft`` resolves outside the
-checkout it was launched from (the editable-install import trap).
+This script imports ``vaft.process.transport_state`` and
+``workflow/transport_atlas/run_tglf.py`` at run time. It refuses to start when ``vaft``
+resolves outside the checkout it was launched from (the editable-install import trap).
 
 Output tree (``--out``)::
 
@@ -44,7 +43,7 @@ import numpy as np
 
 REPO = Path(__file__).resolve().parents[2]
 
-#: The #1482 sensitivity states (#1453): shot, EFIT time [s], lineage.
+#: The five states of the TGLF SAT-rule sensitivity study: shot, EFIT time [s], lineage.
 GOOD_STATES = (
     (39916, 0.321, "magnetics"),
     (39915, 0.317, "magnetics"),
@@ -53,7 +52,7 @@ GOOD_STATES = (
     (42962, 0.332, "electron_kinetic"),
 )
 DEFAULT_SURFACES = (0.6, 0.7, 0.8)
-#: Ion scale plus the electron-scale extension: #1482 found the fastest TGLF growth
+#: Ion scale plus the electron-scale extension: the SAT-rule sensitivity study found the fastest TGLF growth
 #: at k_y rho_s > 1 on 74 % of surfaces.
 DEFAULT_KY = (0.1, 0.2, 0.3, 0.45, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0)
 

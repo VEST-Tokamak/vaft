@@ -1,12 +1,12 @@
-"""Did that refactor change what EFIT is asked to solve? (#708)
+"""Did that refactor change what EFIT is asked to solve?
 
     PYTHONPATH=$PWD python workflow/efit_kfile_ab/compare_kfiles.py emit /scratch/before
     # ... change the code ...
     PYTHONPATH=$PWD python workflow/efit_kfile_ab/compare_kfiles.py emit /scratch/after
     PYTHONPATH=$PWD python workflow/efit_kfile_ab/compare_kfiles.py compare /scratch/before /scratch/after
 
-Issue #708 moves VEST's machine description out of ``vaft/code/efit`` a stage at
-a time.  Most of those stages are supposed to change **nothing** -- the same
+VEST's machine description was moved out of ``vaft/code/efit`` a stage at a
+time (record: #708).  Most of those stages are supposed to change **nothing** -- the same
 k-file, from the same data, written by machine-neutral code reading a
 configuration instead of a literal.  "Supposed to" is not evidence, and the
 k-file is the whole of what EFIT is asked to solve, so the evidence is the

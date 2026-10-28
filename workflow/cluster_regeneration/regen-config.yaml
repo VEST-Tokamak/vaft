@@ -1,4 +1,4 @@
-# #2147 regeneration run overrides, deep-merged by Snakemake over the pinned
+# Cluster regeneration run overrides, deep-merged by Snakemake over the pinned
 # workflow/automatic_pipeline_1_routine_data_processing/config.yaml (production defaults:
 # statistical_891 EFIT preset, era Green tables, `vest: {}` era magnetics policy).
 # run_lane.sh appends `cores:` and `shots:`.
@@ -9,7 +9,7 @@ conda: null
 # -> CHEASE -> DCON/RDCON/STRIDE (mhd_linear) -> ideal GPEC (gpec_ideal). Stage keys keep the
 # workflow defaults (chease.run true, gpec.run auto, modules dcon/rdcon/stride/gpec, modes 1,2).
 stages: [raw, diagnostics, eddy, efit, chease, mhd_linear, gpec_ideal]
-# IMPA: production config.yaml leaves it off. The #2147 pilot ran it on (170 shots selected):
+# IMPA: production config.yaml leaves it off. The 2026-10 cluster pilot (run record #2147) ran it on (170 shots selected):
 # 168 products were "rejected" and 2 "partial" (acquisition rate 2 MHz vs the declared 25 kHz),
 # at ~10 MB/shot. Set true only on the owner's decision.
 impa:

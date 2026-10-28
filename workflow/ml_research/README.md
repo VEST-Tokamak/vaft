@@ -1,6 +1,6 @@
-# VAFT research ML qualification (#2016 / #2015)
+# VAFT research ML qualification
 
-This extends the #669 lifecycle; no second trainer, model registry, tuner or
+This extends the `vaft.process.ml` learned-model lifecycle; no second trainer, model registry, tuner or
 scientific-data schema is introduced. The reference integration is opt-in in
 `vaft-NeurIPSequilibrium.models.research.vaft_adapter`.
 

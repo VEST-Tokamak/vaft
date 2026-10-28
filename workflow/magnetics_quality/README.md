@@ -1,12 +1,14 @@
 # Is this shot's magnetics fit to reconstruct from?
 
-Every open EFIT study reconstructs from the same magnetics — cadence (#468),
-termination (#171), initialization (#196), domain and grid (#459),
-profile-model uncertainty (#579) — and none of them establishes that the input
+Every open EFIT study reconstructs from the same magnetics — cadence
+(`workflow/efit_temporal`), termination, initialization, domain and grid
+(`workflow/efit_numerics`), profile-model uncertainty
+(`workflow/efit_profile_models`) — and none of them establishes that the input
 was sound. The pieces to establish it exist and none answers alone: the
-quality layer (#189) reports per-channel metrics without judging a shot, the
-flux-loop back-test (#295) judges flux loops only, and the vacuum benchmark
-(#190) asks a machine-model question. `scan_magnetics_quality.py` composes
+signal-quality layer (`vaft.validation.magnetics`) reports per-channel metrics
+without judging a shot, the flux-loop back-test (`workflow/efit_channel_selection`)
+judges flux loops only, and the vacuum benchmark (`workflow/vacuum_benchmark`)
+asks a machine-model question. `scan_magnetics_quality.py` composes
 them into one per-shot verdict over the window the routine pipeline would
 actually reconstruct.
 
@@ -41,7 +43,7 @@ had them. Flux-loop families are exempt because VEST has too few loops to
 spare one.
 
 Vacuum-model disagreement is reported beside the verdict and never inside it.
-Issue #190 is explicit that scientific acceptance bounds wait for the VEST
+Scientific acceptance bounds wait, by design, for the VEST benchmark
 distribution, so a residual is evidence to read, not a threshold to fail.
 
 ## What it found on the three packaged shots
@@ -55,7 +57,7 @@ All three are **degraded**, none is unfit, and the reasons differ:
 | 41672 | degraded | 0.312–0.352 | 41 | 0.76 | H3-08, C1-01, C3-01, C3-02, C3-05, C4-02; H3-01, H3-03, H3-06, H3-07, H3-09, C2-04, C3-03, C4-03, C4-04, C4-06, L-07 | 0.360 | 0.026 |
 
 (Scanned 2026-09-18. Probes after the semicolon are condemned by the array
-review (#977) -- or, for C4-04, by its recorded fault, which the review
+review (`vaft.validation.magnetics`) -- or, for C4-04, by its recorded fault, which the review
 reaches independently.)
 
 Five findings worth carrying into the studies:
@@ -66,13 +68,13 @@ Five findings worth carrying into the studies:
   the 2026-09-07 scan it was 0 of 75. The sweep still assesses and gates into
   a copy rather than trusting what it is handed: a stored projection is the
   verdict of the detectors that ran when the product was made, and the array
-  review (#977) postdates these products.
+  review postdates these products.
 - **H3-08 (`b_field_pol_probe[25]`) is condemned on all three shots**, and not
   marginally: its amplitude is 40 times its family's median and exceeds the
   physical ceiling, with no usable sample anywhere in the record. The
   condemned set grows with shot number — two probes on 39915, ten on 41524,
   seventeen on 41672 — all of them B-probes.
-- **Most of that growth is the array review (#977)**, which condemns a probe
+- **Most of that growth is the array review**, which condemns a probe
   that departs from its two array neighbours by more than the array's own
   amplitude for 30 % or more of its record. The family-amplitude rule cannot
   see these: three outboard probes on 41524 read five times the field their
@@ -95,14 +97,16 @@ Five findings worth carrying into the studies:
   to wall currents in these windows — which is a caveat on the model layer,
   not on the loops.
 
-The last two together are the input-side answer to #295: nothing in the
+The last two together are the input-side answer to whether the retired manual
+flux-loop list was needed: nothing in the
 evidence rejects a flux loop on any packaged shot, and the automatic layer
 instead rejects **probes** the manual list never named.
 
 ## A caveat this sweep had to work around
 
 The packaged pre-EFIT products carry an `em_coupling.mutual_passive_passive`
-that predates the repair of #347/#373 and is asymmetric by 1.27e-3, which the
+that predates the reciprocity repair of the coupling asset (`workflow/em_coupling`)
+and is asymmetric by 1.27e-3, which the
 wall-mode basis refuses as ill-posed — so the vacuum model cannot be consulted
 on them as they stand. The sweep re-maps `em_coupling` from the canonical
 repaired asset before consulting the model, which is what the pipeline would
@@ -112,21 +116,21 @@ usable.
 
 ## Where this sits
 
-Read with `workflow/efit_channel_selection/README.md` (#295, the flux-loop
+Read with `workflow/efit_channel_selection/README.md` (the flux-loop
 evidence and the retired manual list) and `workflow/vacuum_benchmark/`
-(#190, the machine-model qualification). This directory asks the third
+(the machine-model qualification). This directory asks the third
 question those two leave open: taken together, is the shot's magnetics fit to
 reconstruct from?
 
 ## Class-shot checklist
 
 `class_shot_checklist.py` asks a broader and shallower question for the shots
-the #58 worker has just processed: can each diagnostic in the product be
+the routine pipeline's new-shot worker has just processed: can each diagnostic in the product be
 trusted? It reads the FileDB diagnostics product (never writes it) and gives one
 row per shot covering the plasma current, the Rogowski sensors, the condemned
 probes and flux loops grouped by detector, and the filterscope clamped tail.
 With `--raw` it also reads each PF channel from the VEST database and reports
-how far it moved between its pre-shot baseline and the end of the record (#1424).
+how far it moved between its pre-shot baseline and the end of the record.
 
 ```bash
 PYTHONPATH=$PWD python workflow/magnetics_quality/class_shot_checklist.py \
@@ -136,4 +140,4 @@ PYTHONPATH=$PWD python workflow/magnetics_quality/class_shot_checklist.py \
 
 Its `flags` column is report-only. The thresholds behind it are echoed into the
 table as `provisional_thresholds`, and nothing in the pipeline reads them until a
-population scan justifies them (#189). Progress is logged in #1543.
+population scan justifies them.

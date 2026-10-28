@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build (or re-pin) the #2147 regeneration environment on tdst.
+# Build (or re-pin) the cluster regeneration environment on tdst.
 #   PIN=<develop SHA or ref> bash $REGEN_ROOT/setup_env.sh
 # One variable re-pins everything: a private ref refs/regen2147/pin in our own clone,
 # a detached worktree src-<sha9>, a uv venv env-<sha9> (py3.14 from ~/work/vaft-ci/py314),
@@ -11,7 +11,7 @@ PIN=${PIN:?set PIN=<develop sha or ref>}
 PY=${REGEN_PYTHON:-$HOME/work/vaft-ci/py314/bin/python}   # a Python 3.14 with uv beside it
 UV=$(dirname "$PY")/uv
 REPO=$ROOT/repo
-# Versions matched to vestserver conda vaft-ml (the #2191 qualification env); omas is the
+# Versions matched to vestserver conda vaft-ml (the env the consolidation was qualified in on raw data); omas is the
 # pyproject pin (==0.95.2), not vaft-ml's 0.94.2.
 PINS="numpy==2.5.3 scipy==1.18.1 snakemake==9.27.0 snakemake-executor-plugin-cluster-generic"
 

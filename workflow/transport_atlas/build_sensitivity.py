@@ -1,4 +1,4 @@
-"""TGLF saturation-rule and electromagnetic sensitivity tables (issue #1482).
+"""TGLF saturation-rule and electromagnetic sensitivity tables.
 
 The input is the trees ``run_tglf.py`` writes, one ``tglf-sat<n>-<field>/`` per
 configuration, for the same states. No solver runs here. The output is a product
@@ -9,11 +9,11 @@ separate from the transport atlas:
                            spread across SAT rules at a fixed field model, and the
                            EM-vs-ES change at each SAT rule
     sat_pairs.csv          one row per (shot, time_efit_s, efit_lineage, r_over_a,
-                           field_model, pair) for the controlled SAT pairs (#1900)
+                           field_model, pair) for the controlled SAT pairs
     linear_spectra.csv     growth rate and frequency per (row, ky, mode)
     schema.json
 
-Controlled SAT pairs (#1900). TGLF's start-up presets (tglf_startup.f90) set the
+Controlled SAT pairs. TGLF's start-up presets (tglf_startup.f90) set the
 linear model from SAT_RULE, so the pairs compare different things:
 
 * ``sat0-sat1``, *saturation-model sensitivity*. The linear physics is shared only
@@ -283,7 +283,7 @@ def effective_controls(native: Any) -> dict[str, Any]:
 def load_native(outputs: Path) -> tuple[Any, str]:
     """A surface's native container, and where it came from.
 
-    ``outputs.json`` written before the spectral parsers existed (#1591) has no
+    ``outputs.json`` written before the spectral parsers existed has no
     spectra. When the run's own ``out.tglf.*`` files are still beside it, they are
     parsed again instead: the same files, read with the current parser, with no
     solver rerun.
@@ -345,7 +345,8 @@ def build_rows(runs: Path) -> list[dict[str, Any]]:
             if surface.get("status") == "solved" and not outputs.is_file():
                 row["status"] = "missing_outputs"  # pruned native tree: reported, not fatal
             # Why a surface is not solved, with the atlas's vocabulary (build_atlas.py):
-            # a #1299 timeout, a launcher error and a readiness refusal are different things.
+            # a solver timeout (returned as a failed result), a launcher error and a readiness
+            # refusal are different things.
             if row["status"] == "solved":
                 row["tglf_reason"] = None
             elif row["status"] == "failed":
