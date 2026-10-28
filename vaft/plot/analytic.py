@@ -1,9 +1,9 @@
-"""Plots of analytic equilibrium objects, not of an ODS (issue #952).
+"""Plots of analytic equilibrium objects, not of an ODS.
 
 The teaching models of :mod:`vaft.process.equilibrium` -- Miller flux
 surfaces and the Solov'ev / Cerfon-Freidberg equilibria of
 :func:`vaft.process.equilibrium.solovev_example` -- and the analytic plasma
-states of :mod:`vaft.process.profile` (#1045) are plain records, not
+states of :mod:`vaft.process.profile` are plain records, not
 IDS data, so they are drawn here rather than through the recipe registry that
 every ``plot_*`` adapter reads an ODS with.  Each plot is split the way the
 registry's are: a ``*_model`` function builds the typed view model

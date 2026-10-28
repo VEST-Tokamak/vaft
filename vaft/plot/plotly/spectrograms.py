@@ -49,7 +49,7 @@ def add_spectrogram(
             meta={"vaft": "spectrogram_ridge"},
         ), **cell)
     for track in model.tracks:
-        # Predicted tracks (issue #460); NaN samples stay gaps.
+        # Predicted frequency tracks (e.g. the mode_overlay= lines); NaN samples stay gaps.
         figure.add_trace(go.Scatter(
             x=np.asarray(track.time), y=np.asarray(track.frequency), name=track.label,
             connectgaps=False, legendgrouptitle={"text": model.tracks_title} if model.tracks_title else None,

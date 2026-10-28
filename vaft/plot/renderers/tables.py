@@ -1,4 +1,4 @@
-"""Renderers of the non-graphical views: tables and text summaries (issue #1180).
+"""Renderers of the non-graphical views: tables and text summaries.
 
 A ``table`` or ``text`` view is a scientific presentation like any figure --
 the adapter selects and reduces the data into a :class:`~vaft.plot.models.Table`
@@ -819,8 +819,8 @@ def magnetics_table_vacuum_benchmark(model: Table, *, show: bool = False) -> Ren
     Limitations
     -----------
     The benchmark states no acceptance threshold and no verdict, and neither
-    does the table: #190 defers acceptance bounds until the VEST benchmark
-    distribution has been inspected.  A score is measured against one shot's
+    does the table: acceptance bounds are left unset until the distribution
+    of the scores over VEST shots has been inspected.  A score is measured against one shot's
     plasma-free stretch, so it says nothing about the model with plasma, and a
     low improvement where the wall authority is small is a rounding of the
     model's error rather than a finding about the wall.  A flagged probe is a

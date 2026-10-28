@@ -1,4 +1,4 @@
-"""One matched kinetic state in four panels, from stored IMAS paths only (issue #1837).
+"""One matched kinetic state in four panels, from stored IMAS paths only.
 
 ``kinetic_overview_state`` draws the pressure, density, temperature and
 ``Z_eff`` profiles of **one** selected kinetic state: a ``core_profiles``
@@ -12,8 +12,8 @@ charge-state densities, and the Thomson electron pressure ``e n_e T_e`` per
 channel with its 1 sigma from the measured ``n_e`` and ``T_e`` errors, assumed
 independent.
 
-Evidence (the contract as amended by Lane KP on #1837)
-------------------------------------------------------
+Evidence
+--------
 * **Roles** come from the per-quantity ``*_fit.parameters`` records:
   ``origin=measured`` -> measurement, ``origin=assumed|derived`` -> assumed,
   ``origin=inferred`` -> inferred, a fit record (``coordinate=...;
@@ -34,7 +34,7 @@ Evidence (the contract as amended by Lane KP on #1837)
 * **Z_eff reference**: ``core_profiles.global_quantities.z_eff_resistive`` at
   the slice's own entry of ``core_profiles.time``, else ``target_zeff=...`` of
   the ``zeff_fit.parameters`` record.  A ``resistive_method=`` field of that
-  record names the estimate in the label (Romero, #781).
+  record names the estimate in the label (e.g. Romero).
 * **Impurity pressure** ``p_imp`` is the sum of the stored ``ion[k].pressure``
   of every impurity (``element[0].z_n > 1``), drawn as the *part of* ``p_i``
   it is: ``pressure_ion_total`` is the DD's sum over all ion species, so
@@ -55,8 +55,8 @@ Evidence (the contract as amended by Lane KP on #1837)
   ``resistive_sigma=`` and ``resistive_method=``, or names the closure and
   says its value is not recorded.  Numbers have two decimals.
 
-Inference stages (#1957)
-------------------------
+Inference stages
+----------------
 The maintainer's chain -- equilibrium and Thomson in, ``T_i = T_e`` and
 ``n_C = n_O`` assumed, the Romero ``Z_eff`` first, then ``n_I,eff``, ``n_i``
 and ``Z_eff(rho)`` -- fixes the stage of every trace by its *quantity* alone
@@ -101,7 +101,7 @@ COORDINATES = ("rho_tor_norm", "psi_norm")
 #: four panels as rows with one column per inference stage (``stages=``).
 LAYOUTS = ("grid", "stack", "stages")
 
-#: The inference stages (#1957), in order: ``(number, name)``.  The names are
+#: The inference stages, in order: ``(number, name)``.  The names are
 #: plain text, for a control, a caption and a column title alike.
 STAGES = (
     (1, "Thomson and equilibrium"),
@@ -177,7 +177,7 @@ _E = 1.602176634e-19
 #: Recorded ``origin=`` -> role.
 #: ``derived`` stays derived: a value computed from others (a composition
 #: preset's dilution) is not an assumption, and the note lists only what the
-#: legend calls assumed (#1957 cold review).
+#: legend calls assumed.
 _ORIGIN_ROLES = {"measured": "measurement", "assumed": "assumed", "derived": "derived", "inferred": "inferred"}
 #: :func:`classify_ti_record` kind -> role (a fit record is told apart below).
 _TI_ROLES = {"assumed": "assumed", "inferred": "inferred"}
@@ -631,7 +631,7 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
     main, impurity = _ion_densities(ods, base, size)
     p_imp, p_imp_paths, p_imp_reason = _impurity_pressure(ods, base, size)
     # Every record the plot reads, by the quantity it belongs to: the
-    # assumptions note lists what they state (#1957).
+    # assumptions note lists what they state.
     # Each with the role its legend entry states, so the note and the legend agree.
     records = [("n_e", ne_record, ne_text, ne_role), ("T_e", te_record, te_text, te_role),
                ("T_i", ti_path, ti_text, ti_role), ("Z_eff", zeff_record, zeff_text, zeff_role)]
@@ -1186,7 +1186,7 @@ def _zeff_reference(ods: Any, t_core: float, record_path: str, record_text: str 
     if target is None:
         return None
     # A composition target is what the note lists as assumed; the legend agrees.  The writer
-    # states which target it closed on (#1842): an axis-normalized target is Z_eff(0), not a mean.
+    # states which target it closed on: an axis-normalized target is Z_eff(0), not a mean.
     if _fields(record_path, record_text).get("normalization") == "axis":
         label = rf"target $Z_{{\mathrm{{eff}}}}(0) = {target:.2f}$ (assumed)"
     else:

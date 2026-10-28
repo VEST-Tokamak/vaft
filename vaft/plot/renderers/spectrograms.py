@@ -43,7 +43,7 @@ def render_spectrogram(
         )
     figure, axes = resolve_axes(ax, figsize=figsize or _DEFAULT_FIGSIZE)
     # A grid that reserved a colorbar cell beside this panel hands it over, so
-    # the mesh keeps the width of the panels it is aligned with (#1467).
+    # the mesh keeps the width of the panels it is aligned with.
     colorbar_axes = style.pop("colorbar_ax", None)
 
     style.setdefault("shading", "auto")
@@ -62,13 +62,13 @@ def render_spectrogram(
     if model.max_frequency is not None:
         axes.set_ylim(0.0, model.max_frequency)
     if model.ridge_time is not None:
-        # The tracked ridge (issue #1005); NaN windows leave gaps, not a line to zero.
+        # The tracked ridge; NaN windows leave gaps, not a line to zero.
         axes.plot(
             model.ridge_time, model.ridge_frequency, color=resolve_color("palette:2"),
             linewidth=1.4, label=model.ridge_label or "tracked ridge",
         )
     for track in model.tracks:
-        # Predicted tracks (issue #460): NaN samples are gaps, never bridged.
+        # Predicted frequency tracks (e.g. the mode_overlay= lines): NaN samples are gaps, never bridged.
         line_style = dict(track.style)
         if "color" in line_style:
             line_style["color"] = resolve_color(line_style["color"])

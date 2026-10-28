@@ -1,4 +1,4 @@
-"""Population renderers for canonical multi-machine tables (#1205).
+"""Population renderers for canonical multi-machine tables.
 
 These draw the canonical confinement and transition tables of
 :mod:`vaft.data.public` -- DB5.2.3, TCV L-H, VEST summaries, any source
@@ -11,7 +11,7 @@ with most rows take the categorical slots, the rest fold into a grey
 ``"Other"``.  The highlighted machine (VEST by default) is drawn on top with a
 distinct marker, so identity never rests on colour alone.
 
-Groups are named on the data, not in a legend (#1946): each label sits above
+Groups are named on the data, not in a legend: each label sits above
 its own cluster in the cluster's colour, placed by
 :func:`vaft.plot._direct_labels.add_direct_labels` so labels never overlap and
 a displaced one gets a leader line.  ``labels="legend"`` restores the legend.
@@ -66,7 +66,7 @@ LABELS = {
 }
 
 
-#: Text sizes relative to the active rcParams entry (#1946): larger than the
+#: Text sizes relative to the active rcParams entry: larger than the
 #: Matplotlib defaults, and scaled by a presentation format because the base is
 #: read when the figure is drawn into, inside the format's rc context.
 AXIS_LABEL_SCALE = 1.2
@@ -471,7 +471,7 @@ def confinement_coverage_strip(
             ax.scatter(values[mask], np.full(int(mask.sum()), len(groups)), s=120, marker="*",
                        color=HIGHLIGHT_COLOR, edgecolor="white", linewidth=1.0, zorder=5)
         positive = values[np.isfinite(values) & (values > 0)]
-        # Few ticks: the strips are narrow and their tick text is enlarged (#1946).
+        # Few ticks: the strips are narrow and their tick text is enlarged.
         if positive.size and positive.max() / positive.min() > 20:
             ax.set_xscale("log")
             ax.xaxis.set_major_locator(LogLocator(base=10.0, numticks=4))

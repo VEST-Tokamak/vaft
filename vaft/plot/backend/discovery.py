@@ -1,4 +1,4 @@
-"""Instance-aware plot discovery, shared by every namespace (issue #262).
+"""Instance-aware plot discovery, shared by every namespace.
 
 :mod:`vaft.plot.discovery` knows what this build of VAFT can plot; this module
 knows what a particular input can plot, and how.  It fills the capability
@@ -106,7 +106,7 @@ __all__ = [
     "ANALYSIS_METHODS",
 ]
 
-#: Interaction modes a plot offers (issue #261 sections 14-17).  A static
+#: Interaction modes a plot offers.  A static
 #: summary is the baseline; a time-navigable entry point appears beside it.
 INTERACTION: dict[str, tuple[str, ...]] = {
     "equilibrium_overview": ("static", "time-navigable"),
@@ -120,13 +120,13 @@ INTERACTION_ENTRY_POINTS: dict[str, str] = {
 }
 
 #: A plot whose ``controls`` mode has a named entry point of its own, beside
-#: the generic ``interactive=True`` spelling (issue #482).
+#: the generic ``interactive=True`` spelling.
 CONTROLS_ENTRY_POINTS: dict[str, str] = {
     "diagnostics_overview": "plot_diagnostics_time_interactive()",
 }
 
 #: What a composite built by code (not a PanelRecipe) draws, for discovery's
-#: ``overview:`` note (issue #262 section 13).
+#: ``overview:`` note.
 OVERVIEW_CONTENTS: dict[str, tuple[str, ...]] = {
     "equilibrium_overview": ("poloidal flux", "pressure", "q", "global quantities"),
 }
@@ -137,7 +137,7 @@ OVERVIEW_CONTENTS: dict[str, tuple[str, ...]] = {
 #: Only methods that exist are listed -- discovery never advertises a
 #: capability that would raise.
 def _analysis_methods() -> dict[str, tuple[str, ...]]:
-    """The analysis each plot offers, by plot name (issue #484).
+    """The analysis each plot offers, by plot name.
 
     Keyed by name rather than by recipe kind because the spectrograms no
     longer share one transform: the two path-driven ones and the
@@ -153,7 +153,7 @@ def _analysis_methods() -> dict[str, tuple[str, ...]]:
     return methods
 
 
-#: The options each named analysis reads (issue #484, extended by #485).
+#: The options each named analysis reads.
 ANALYSIS_PARAMETERS: dict[str, tuple[str, ...]] = {
     "wrapped n fit": (
         "frequencies", "num_modes", "candidate_n", "channels", "window_size",
@@ -284,7 +284,7 @@ PSI_FIELD_CONVENTIONS: dict[str, str | None] = {
 }
 
 #: What each 2-D equilibrium field needs beyond the psi map itself, so a
-#: record offers only the fields this input can actually draw (issue #483).
+#: record offers only the fields this input can actually draw.
 _FIELD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "psi": (),
     "j_tor": ("profiles_1d.dpressure_dpsi", "profiles_1d.f_df_dpsi"),
@@ -321,7 +321,7 @@ def _declare(record: PlotCapability) -> PlotCapability:
                 for option, choice in recipe.choices.items()
             }
     if record.name in RATIONAL_SURFACE_PLOTS:
-        # Optional overlays the plot takes on request (issue #506); the base
+        # Optional overlays the plot takes on request; the base
         # view's own requirements are unchanged by them.
         updates["annotations"] = {
             "rational_surfaces": {
@@ -330,7 +330,7 @@ def _declare(record: PlotCapability) -> PlotCapability:
             },
         }
     if record.name in MODE_OVERLAY_PLOTS:
-        # Predicted mode-frequency tracks on request (issue #460); the base
+        # Predicted mode-frequency tracks on request; the base
         # spectrogram needs none of their inputs.
         updates["annotations"] = {
             **updates.get("annotations", {}),
@@ -356,7 +356,7 @@ def _declare(record: PlotCapability) -> PlotCapability:
             "declared": tuple(recipe.coordinates),
         }
     elif record.name in PSI_FIELD_CONVENTIONS or record.name == "vacuum_field":
-        # The psi maps take units= (issue #478); the default unit follows the
+        # The psi maps take units=; the default unit follows the
         # stored convention, which only an input can tell -- see _evaluate.
         # The vacuum map is computed from the Green's functions, so its flux
         # is full weber whatever the stored equilibrium declares, and it can
@@ -372,7 +372,7 @@ def _declare(record: PlotCapability) -> PlotCapability:
     if isinstance(recipe, LineRecipe):
         options = abscissa_options(recipe)
         updates["abscissa"] = {"default": "time", "options": options, "declared": options}
-        # Only the line-series builder takes layout= (issue #260); grouped
+        # Only the line-series builder takes layout=; grouped
         # needs a radial split, which an ODS decides -- see _evaluate.
         updates["layouts"] = (
             ("overlay", "subplots", "grouped") if recipe.index == "channel" else ("overlay",)
@@ -424,7 +424,7 @@ def _declare(record: PlotCapability) -> PlotCapability:
 
 
 def _display_block(record: PlotCapability, unit: str) -> dict[str, Any]:
-    """Default unit, alternatives and notation from the display policy (#256)."""
+    """Default unit, alternatives and notation from the display policy."""
     if not unit and (record.subject, record.quantity) not in DIMENSIONLESS_DISPLAY:
         return {}
     try:
@@ -457,7 +457,7 @@ def describe_one(name: str, entries: Sequence[tuple[str, Any]]) -> PlotCapabilit
     """The capability record of one plot, evaluated against ``entries``.
 
     What ``describe_entries`` does for the whole catalog, for the single
-    record a control layer needs (issue #480); the unavailable record is
+    record a control layer needs; the unavailable record is
     returned with its reason rather than dropped.
     """
     base = _core.catalog(status=None)
@@ -509,7 +509,7 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
                 [(lbl, obj) for lbl, obj in entries if per_entry[str(lbl)]], recipe,
             )
         elif isinstance(recipe, ProfileRecipe):
-            # Profiles take the same sign policy (issue #307); the catalog has
+            # Profiles take the same sign policy; the catalog has
             # to say which default a profile applies, or a caller cannot know
             # whether the curve it gets back was flipped.
             updates["orientation"] = _orientation_block(recipe)
@@ -542,7 +542,7 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             }
         if record.projection:
             updates["projection"] = {**record.projection, **_projection_state(ods)}
-        # A plot with something to change offers ``interactive=True`` (issue #480).
+        # A plot with something to change offers ``interactive=True``.
         from vaft.plot.controls import controls_for
 
         evaluated = with_capabilities(record, **updates)
@@ -569,7 +569,7 @@ def _identity_of(name: str) -> str:
 def _composite_facts(
     record: PlotCapability, recipe: PanelRecipe, entries: Sequence[tuple[str, Any]]
 ) -> dict[str, Any]:
-    """What a panel composite can offer, folded from its members (issue #482).
+    """What a panel composite can offer, folded from its members.
 
     A composite has no facts of its own: its channels, sign policy, validity
     and overlays are its members'.  Each available member is evaluated the
@@ -657,7 +657,7 @@ def _composite_facts(
 
 
 def _fields_block(record: PlotCapability, ods: Any) -> dict[str, Any]:
-    """The 2-D fields this input can draw (issue #483).
+    """The 2-D fields this input can draw.
 
     ``psi`` is the plot's own required path; every other field is derived
     from 1-D profiles the slice may or may not carry, so a record offers
@@ -726,7 +726,7 @@ def _coordinates_block(record: PlotCapability, recipe: ProfileRecipe, ods: Any) 
 
     Evaluated on the representative slice: a stored leaf, or the leaves a
     derivation needs (``q``/``psi`` for the toroidal ones, the 2-D map with
-    the axis and the boundary outline for the radial ones, issue #479).
+    the axis and the boundary outline for the radial ones).
     """
     from .recipes import _count, resolve_time_slice
 
@@ -849,7 +849,7 @@ def _channel_facts(record: PlotCapability, recipe: Any, ods: Any) -> dict[str, A
     """Channel, layout and metadata facts of a channel-indexed recipe.
 
     Shared by the time histories (``LineRecipe``) and the spatial plots
-    (``ChannelProfileRecipe``, issue #486): the same family, the same split.
+    (``ChannelProfileRecipe``): the same family, the same split.
     """
     facts: dict[str, Any] = {}
     container = _container_of(recipe.y_path, "{i}")
@@ -906,7 +906,7 @@ def _channel_facts(record: PlotCapability, recipe: Any, ods: Any) -> dict[str, A
 
 
 def _abscissa_block(record: PlotCapability, recipe: LineRecipe, ods: Any) -> dict[str, Any]:
-    """The abscissae this input can actually supply (issue #481).
+    """The abscissae this input can actually supply.
 
     ``time`` and ``index`` always can be; a declared sibling needs its own
     leaf, so a shot without one is not offered a control that would silently
@@ -941,8 +941,8 @@ def _abscissa_is_stored(ods: Any, entry: Any) -> bool:
     return False
 
 
-#: The three kinds of scientific sequence a plot can page through (issue
-#: #1380), as their discovery blocks state them.  ``kind`` names the
+#: The three kinds of scientific sequence a plot can page through, as their
+#: discovery blocks state them.  ``kind`` names the
 #: storage -- a dense sampled time base, a camera's stored frames, a handful
 #: of stored reconstructions -- ``option`` the keyword one state is chosen
 #: with, and ``coordinate``/``unit`` what the states' values mean.  The
@@ -958,7 +958,7 @@ def _times_block(entries: Sequence[tuple[str, Any]], recipe: Any) -> dict[str, A
     ``start``/``stop``/``count`` span every channel of every entry, not the
     first one's.  ``option="time_index"`` is offered only when, in every
     entry, every channel with data shares one grid and the entries' grids
-    are the same length (issue #1380): an index then names one sample for
+    are the same length: an index then names one sample for
     the whole array of every shot, and ``selected`` is the middle sample the
     static call draws.  Otherwise ``shared`` is ``False`` and ``time=``
     remains the way to choose an instant.
@@ -1044,18 +1044,18 @@ def sequence_values(
     kept out of the record so a listing stays small.  It dispatches on the
     plot, by the same rules :func:`_evaluate` attaches those blocks with,
     never on the selector's name alone: two plots can both page a
-    ``time_index`` along different time bases (issue #1380), and labelling
+    ``time_index`` along different time bases, and labelling
     one with the other's stamps is the index-for-time pairing VAFT keeps
     getting wrong.  A plot with a slice control and no entry here is refused
-    (``animation=True`` needs every frame's time; see #1050).  A categorical
-    sequence a recipe declares (:class:`~vaft.plot.backend.recipes.SequenceDeclaration`,
-    issue #1957) returns its own states as the values, with no unit.
+    (``animation=True`` needs every frame's time).  A categorical
+    sequence a recipe declares (:class:`~vaft.plot.backend.recipes.SequenceDeclaration`)
+    returns its own states as the values, with no unit.
     """
     from .recipes import _array, sequence_declaration_for
 
     declared = sequence_declaration_for(name, option)
     if declared is not None:
-        # Categorical states (#1957) are their own values: stage 4 is 4.
+        # Categorical states are their own values: stage 4 is 4.
         return declared.coordinate, None, np.asarray(declared.states, dtype=float)
     ods = entries[0][1]
     if option == "time_slice" and _takes_time_slice(name):
@@ -1131,7 +1131,7 @@ def _validity_block(*, present: bool, flagged: int) -> dict[str, Any]:
 
 
 def _orientation_block(recipe: LineRecipe | ProfileRecipe) -> dict[str, Any]:
-    """The display sign policy a line or profile plot applies by default (#307)."""
+    """The display sign policy a line or profile plot applies by default."""
     from vaft.plot.backend.recipes import ORIENTATIONS
 
     return {"default": recipe.orientation, "options": list(ORIENTATIONS)}

@@ -1,4 +1,4 @@
-"""K3D rendering of 3-D scenes and the coil-phasing explorer (issue #1087).
+"""K3D rendering of 3-D scenes and the coil-phasing explorer.
 
 K3D is the Jupyter-native interactive frontend: it draws points and lines
 that VAFT computed and updates them in place when a control changes.  It

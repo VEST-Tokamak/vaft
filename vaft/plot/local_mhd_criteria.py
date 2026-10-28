@@ -1,4 +1,4 @@
-"""Local MHD stability criteria of one equilibrium, drawn (#1902).
+"""Local MHD stability criteria of one equilibrium, drawn.
 
 These draw what :mod:`vaft.process.local_mhd_criteria` computes: the Mercier
 and GGJ interchange indices against normalized flux, each surface on the

@@ -1,4 +1,4 @@
-"""Discovery-driven controls: what a reader may change about one plot (issue #480).
+"""Discovery-driven controls: what a reader may change about one plot.
 
 A :class:`~vaft.plot.discovery.PlotCapability` already states every option
 a plot takes and what this input supports -- the channel presets, the
@@ -68,16 +68,17 @@ class ControlSpec:
     #: What another control must read for this one to apply, as
     #: ``{control name: accepted values}``.  A 2-D map's unit and style
     #: belong to the flux field; while another field is chosen they are not
-    #: sent to the builder (issue #483).
+    #: sent to the builder.
     applies_to: Mapping[str, tuple[Any, ...]] = field(default_factory=dict)
     #: A value that means "leave the option out" for a renderer-side control,
     #: the way the ``"none"`` choice does for a builder option.  Set only where
     #: the word is not itself a mode: ``uncertainty="none"`` is one and must be
-    #: passed; ``theme="none"`` is the absence of a theme (issue #710).
+    #: passed; ``theme="none"`` is the absence of a theme.
     absent: Any = None
     #: ``True`` where the ``"none"`` choice of a builder option is itself a
-    #: value to pass -- ``reference_length="none"``, the dimensional gradient
-    #: (issue #551) -- rather than the absence of the option.
+    #: value to pass -- ``reference_length="none"`` selects the unnormalized
+    #: gradient ``-d ln f/dx`` along ``gradient_coordinate`` -- rather than the
+    #: absence of the option.
     keeps_none: bool = False
 
     def __post_init__(self) -> None:
@@ -113,7 +114,7 @@ class ControlSpec:
         if self.kind == "choice":
             if value is None and self.default is None:
                 # A choice whose default leaves the option out can return to it
-                # (#1957: the full figure after a stage was picked).
+                # (a kinetic-state stage choice returns to the full figure).
                 return None
             if value not in self.options:
                 raise ValueError(f"{self.name} must be one of {', '.join(map(str, self.options))}; got {value!r}")
@@ -148,7 +149,7 @@ def controls_for(
     from .registry import NON_GRAPHICAL_VIEWS
 
     if getattr(record, "view", "") in NON_GRAPHICAL_VIEWS:
-        # A table or text view (issue #1180) is presented as text; there is
+        # A table or text view is presented as text; there is
         # no figure for a control to redraw, so interactive=True is refused.
         return ()
     controls: list[ControlSpec] = []
@@ -168,7 +169,7 @@ def controls_for(
 
 
 def _member_controls(record: Any) -> list[ControlSpec]:
-    """Which panels of a composite to draw (issue #482).
+    """Which panels of a composite to draw (``members=``).
 
     Offered only when the input can draw more than one member; the default
     is every available one, which is also what the static call draws, so
@@ -194,7 +195,7 @@ _DENSE_INDEX_LABELS = {
 
 
 def _slice_controls(record: Any) -> list[ControlSpec]:
-    """The one control that moves through ``record.sequence`` (issue #1380).
+    """The one control that moves through ``record.sequence``.
 
     A dense time base is a slider, not a list: thousands of samples cannot
     be offered as radio buttons, and the reader wants to sweep them anyway.
@@ -206,8 +207,8 @@ def _slice_controls(record: Any) -> list[ControlSpec]:
     sequence = getattr(record, "sequence", None) or {}
     option = sequence.get("option")
     if sequence.get("kind") == "categorical":
-        # States that are not times (#1957): a labelled choice, unset where
-        # the static call draws none of them.
+        # States that are not times (such as the kinetic state's inference
+        # stages): a labelled choice, unset where the static call draws none.
         states = tuple(sequence["states"])
         labels = tuple(sequence.get("labels") or ()) or tuple(map(str, states))
         return [ControlSpec(
@@ -277,7 +278,7 @@ def _display_controls(record: Any) -> list[ControlSpec]:
     is_map = "convention" in display
     name = "units" if is_map else "yunit"
     # These units describe the flux; a map that can draw other quantities
-    # offers them only while the flux is the one drawn (issue #483).
+    # offers them only while the flux is the one drawn.
     fields = tuple((getattr(record, "fields", None) or {}).get("options") or ())
     applies_to = {"field": ("psi",)} if len(fields) > 1 else {}
     return [ControlSpec(name, "choice", "Unit", display["unit"], units, group="display", applies_to=applies_to)]
@@ -369,8 +370,8 @@ def _style_controls(record: Any) -> list[ControlSpec]:
         default = uncertainty.get("default") if uncertainty.get("default") in modes else modes[0]
         controls.append(ControlSpec("uncertainty", "choice", "Uncertainty", default, modes, group="style"))
     # The visual grammar applies to any Matplotlib figure, so every plot
-    # offers it (issue #710).  There is no format control: the controls figure
-    # owns its canvas and draws each redraw into it with ax=, which is exactly
-    # the case format= refuses (issue #689 section 11).
+    # offers it.  There is no format control: the controls figure owns its
+    # canvas and draws each redraw into it with ax=, which is exactly the case
+    # format= refuses (format= with ax= raises rather than being ignored).
     controls.append(ControlSpec("theme", "choice", "Theme", NONE, (NONE, *THEMES), group="style", absent=NONE))
     return controls

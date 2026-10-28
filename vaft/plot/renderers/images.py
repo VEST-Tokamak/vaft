@@ -52,7 +52,8 @@ def render_image_2d(
             "Adapters such as vaft.omas.plot_* build the model from data objects."
         )
     figure, axes = resolve_axes(ax, figsize=figsize or _DEFAULT_FIGSIZE)
-    # A grid that reserved a colorbar cell beside this panel hands it over (#1467).
+    # A grid that reserved a colorbar cell beside this panel (a composed
+    # figure) hands it over.
     colorbar_axes = style.pop("colorbar_ax", None)
 
     image = axes.imshow(
@@ -113,7 +114,7 @@ def render_image_sequence(
     ffmpeg.
 
     For a movie of a camera plot prefer ``plot_camera_visible_image(...,
-    animation=True)`` (issue #1050): it draws each frame as the static plot
+    animation=True)``: it draws each frame as the static plot
     draws it, overlays included, and records every frame's physical time.
     """
     from matplotlib import animation

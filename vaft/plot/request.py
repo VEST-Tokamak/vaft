@@ -1,15 +1,15 @@
-"""One reproducible description of a figure, rendered or written as code (issue #1421).
+"""One reproducible description of a figure, rendered or written as code.
 
 A :class:`PlotRequest` holds everything a figure was asked for: the data
 (:class:`DataSource` -- packaged samples, local files or database shots), one
 canonical plot with its keywords *or* a :class:`~vaft.plot.FigureComposition`
-of several (#1467), the ``format`` and ``theme`` of #689, the backend, and
+of several, the ``format`` and ``theme`` of :mod:`vaft.plot.presentation`, the backend, and
 the reader's explicit :class:`~vaft.plot.FigureOptions`.  From that one
 object come
 
 * :meth:`PlotRequest.render` -- the figure itself;
 * :meth:`PlotRequest.to_python` -- the ordinary VAFT calls that draw it,
-  optionally preceded by the Pylustrator bootstrap (#1202);
+  optionally preceded by the Pylustrator bootstrap;
 * :meth:`PlotRequest.to_cli` -- the equivalent ``vaft plot`` command;
 * :meth:`PlotRequest.to_dict` -- plain JSON, read back by
   :meth:`PlotRequest.from_dict` and by ``vaft plot --request``.
@@ -20,7 +20,7 @@ the canonical defaults have become.
 
 This request describes *a figure*; the scientific content of each plot
 stays in the recipe's backend-neutral view model (``vaft.plot.models``),
-which is what a backend -- Matplotlib, Plotly, a future MATLAB one (#1208)
+which is what a backend -- Matplotlib, Plotly, a future MATLAB one (Open: #1208)
 -- draws.
 """
 
@@ -220,7 +220,7 @@ class PlotRequest:
     def to_python(self, *, pylustrator: bool = False) -> str:
         """The script that draws this figure with the ordinary VAFT API.
 
-        ``pylustrator=True`` starts Pylustrator first (#1202), so the figure
+        ``pylustrator=True`` starts Pylustrator first, so the figure
         opens in its editor for one-off finishing; nothing else changes.
         """
         lines: list[str] = []

@@ -2,12 +2,12 @@
 
 The IMAS Data Dictionary keeps ``equilibrium.*.psi`` in full weber (COCOS
 11-18); legacy VAFT artifacts hold the g-file's weber per radian (COCOS 1-8).
-The plotting layer labels psi from this probe (issue #478): a declared COCOS
+The plotting layer labels psi from this probe: a declared COCOS
 index settles it, otherwise ``vaft.data.eqdsk``'s ladder decides.
 
-**The ladder itself is not reimplemented here.** It used to be, with two of its
-three probes, and a label two pi away from the value the same file computed to
-was the result on an ODS carrying neither ``profiles_1d.phi`` nor a boundary
+**The ladder itself is not reimplemented here.** A second copy running only
+two of its three probes would label psi two pi away from the value the same
+file computes to on an ODS carrying neither ``profiles_1d.phi`` nor a boundary
 outline. What this module supplies is the *reader*: a
 :data:`~vaft.data.eqdsk.SliceReader` per time slice built on
 :mod:`vaft.plot.backend.access`, so an OMAS ODS and an IMAS entry answer alike
