@@ -2,7 +2,7 @@
 
 The eddy-current reconstruction is validated physically, by forward-modeling the
 magnetic response of the reconstructed vacuum current system, rather than by
-plotting the fitted eddy currents (issue #139).  For each magnetic observable
+plotting the fitted eddy currents.  For each magnetic observable
 ``i``::
 
     S_measured_i(t) = S_coil_i(t) + S_eddy_i(t) + S_plasma_i(t) + error_i(t)
@@ -25,7 +25,7 @@ Both sides of every comparison carry the same physical quantity and unit:
   field response projected onto the probe's own sensitive axis,
   ``(cos(poloidal_angle), -sin(poloidal_angle))`` in ``(R, Z)`` -- the IMAS
   convention, read per channel from the ODS so a probe mounted differently from
-  the rest projects differently (issue #169).  An ODS that stores no angle for a
+  the rest projects differently.  An ODS that stores no angle for a
   channel falls back to
   :data:`~vaft.machine_mapping.magnetics.POLOIDAL_ANGLE`, VEST's +Bz default.
 """
@@ -88,8 +88,9 @@ B_FIELD_POL_PROBE = "b_field_pol_probe"
 FLUX_LOOP = "flux_loop"
 
 #: How many channels of each family the default selection keeps.  Two per family
-#: gives the inboard/outboard B-probe and flux-loop coverage issue #139 requires
-#: -- enough that agreement cannot be a local response-matrix coincidence -- and
+#: gives the inboard/outboard B-probe and flux-loop coverage the eddy-stage
+#: validation needs -- enough that agreement cannot be a local response-matrix
+#: coincidence -- and
 #: keeps the validation figures readable and the forward model fast.
 DEFAULT_PER_FAMILY = 2
 
@@ -97,7 +98,7 @@ DEFAULT_PER_FAMILY = 2
 #: noise band by this many standard deviations.
 ONSET_SIGMA = 5.0
 
-#: Schema of the :func:`vacuum_magnetics_metrics` record.  2 since #409: the
+#: Schema of the :func:`vacuum_magnetics_metrics` record.  In schema 2 the
 #: pre-plasma window ends at the plasma-free boundary of the shared timing
 #: policy, and ``plasma_timing`` carries its provenance.
 VACUUM_METRICS_SCHEMA = 2
@@ -122,7 +123,7 @@ class VacuumChannel:
     measured: np.ndarray
     coil: np.ndarray
     coil_eddy: np.ndarray
-    #: Which samples the diagnostics stage says are usable (issue #189).
+    #: Which samples the diagnostics stage says are usable.
     #: ``None`` when the ODS carries no validity, which is not the same as
     #: "none are usable" -- see :attr:`usable`.
     valid: np.ndarray | None = None
@@ -232,8 +233,8 @@ def residual_onset(
 def plasma_window(ods: Any) -> PlasmaTiming:
     """The plasma window the eddy stage validates against, with its provenance.
 
-    :func:`vaft.omas.plasma_timing.plasma_timing` under the shared policy
-    (issue #409): the slow H-alpha line when usable, the validated fast line,
+    :func:`vaft.omas.plasma_timing.plasma_timing` under the shared policy:
+    the slow H-alpha line when usable, the validated fast line,
     else the plasma-current principal pulse -- never a raw magnetic crossing,
     which the coil-firing pickup triggers.  A product without a plasma current
     or without any plasma window raises :class:`VacuumMagneticsError`: the
@@ -296,7 +297,7 @@ def probe_family(kind: str, r: float, z: float) -> str:
 def _signal(ods: Any, path: str) -> np.ndarray | None:
     """A 1-D waveform at ``path``, or ``None`` when the ODS carries none.
 
-    Through the shared non-mutating accessor (issue #118): an ODS creates paths
+    Through the shared non-mutating accessor: an ODS creates paths
     on access, so probing a channel that has no waveform would leave a malformed
     leaf behind -- invisible to ``flat()`` and fatal to the next consistency
     check.
@@ -322,7 +323,7 @@ def _usable_in_window(
 ) -> bool:
     """Whether the IDS says this channel has any usable sample in ``window``.
 
-    Step one of the three #189 asks a downstream consumer to take: consult the
+    Step one of the three a downstream consumer of validity takes: consult the
     validity the diagnostics stage established, *then* apply the consumer's own
     preconditions.  Signal health is not rediscovered here -- an integrator
     that railed at 0.31 s is the diagnostics stage's finding, and the eddy
@@ -459,7 +460,7 @@ def select_vacuum_channels(
     family, which gives the inboard/outboard B-probe and flux-loop coverage the
     routine validation contract requires.  ``per_family=None`` keeps every
     usable channel instead -- the compact subset is right for per-shot QA and
-    too small to qualify a machine model (issue #190).  Pass ``channels`` as
+    too small to qualify a machine model.  Pass ``channels`` as
     ``(kind, index)`` pairs to select explicitly.
 
     ``window`` restricts the validity question to the interval the caller
@@ -467,7 +468,7 @@ def select_vacuum_channels(
     still selected for a pre-plasma comparison.  ``min_validity`` is the floor
     on the Data Dictionary code; the default accepts flagged-but-valid channels,
     because a threshold that has not been justified on a VEST population must
-    not silently remove data (#189, non-goals).
+    not silently remove data.
     """
     rows = _candidates(ods, window=window, min_validity=min_validity)
     if channels is not None:
@@ -495,7 +496,7 @@ def _currents(ods: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     Both are read from the ODS. A plasma-free benchmark that needs the wall
     driven by the PF coils alone does not inject currents here; it passes the
     ODS that :func:`vaft.validation.vacuum_benchmark.benchmark_wall_currents`
-    returns, whose loops were solved without any plasma source (#190).
+    returns, whose loops were solved without any plasma source.
     """
     coil_count = _count(ods, "pf_active.coil")
     loop_count = _count(ods, "pf_passive.loop")
@@ -535,7 +536,7 @@ def vacuum_response(
     Returns the selected rows and the ``(psi, b_z, b_r)`` Green's-function
     triple for them. The triple is a function of geometry alone, so it can be
     handed to :func:`synthetic_vacuum_magnetics` as ``response=`` for every
-    re-solve of the wall with different resistances (#308). Returning the rows
+    re-solve of the wall with different resistances. Returning the rows
     alongside it is what lets the consumer verify the two still agree.
     """
     from vaft.omas.process_wrapper import compute_point_response_matrices_ods
@@ -552,7 +553,7 @@ def vacuum_response(
             "no magnetic channel carries usable measured data for vacuum validation"
         )
     positions = np.array([[row["r"], row["z"]] for row in rows], dtype=float)
-    # The vectorized, exact-elliptic path (issue #239 item 1). Against the
+    # The vectorized, exact-elliptic path. Against the
     # legacy per-point loop it agrees to ~1e-8 relative on the packaged shot
     # and is ~100x faster (74 sensors: 5 s -> 0.05 s), which was most of a
     # benchmark case's cost. It also puts this forward model on the same
@@ -592,12 +593,12 @@ def synthetic_vacuum_magnetics(
     The passive-loop currents are whatever the ODS carries. For a plasma-free
     benchmark pass the ODS from
     :func:`vaft.validation.vacuum_benchmark.benchmark_wall_currents`, whose
-    loops were solved from the PF coils alone (#190).
+    loops were solved from the PF coils alone.
 
     ``response`` is the bundle from :func:`vacuum_response`. The geometry
     Green's functions it holds depend only on coil/loop/sensor positions, not
     on any current or resistance, so a calibration that re-solves the wall
-    many times (#308) computes them once and passes them back in: on the real
+    many times computes them once and passes them back in: on the real
     machine they are ~97% of this function's cost. Unset, they are computed
     here through the same function, so the two paths select identically by
     construction. The bundle carries the positions it was computed for, and
@@ -658,7 +659,7 @@ def synthetic_vacuum_magnetics(
         if row["kind"] == FLUX_LOOP:
             response = psi[position]
         else:
-            # The one shared reading of the stored angle (issue #288): see
+            # The one shared reading of the stored angle: see
             # vaft.formula.magnetics for why (cos, +sin) would be wrong.
             response = project_poloidal_field(b_r[position], b_z[position], row["poloidal_angle"])
         coil = response[:n_coil] @ coil_currents
@@ -700,7 +701,8 @@ class QualityGate:
     outright in the fit window, which were partially masked, why, and under
     which thresholds. The residual function takes the gate as a *required*
     input and refuses channels the gate excluded, so a residual cannot be
-    built from ungated data by accident -- the failure #308 must not have,
+    built from ungated data by accident -- the failure a wall-resistance
+    calibration must not have,
     since a single implausible probe (H3-08 on 39915, 40x its family median)
     moved the normalized residual by 11%.
     """
@@ -763,7 +765,9 @@ def quality_gate(
     """Assess the magnetics, project the verdict, and say what it excluded.
 
     Returns a **copy** of ``ods`` with the assessment's validity projected into
-    the native nodes (the one direction #253 permits), plus the
+    the native nodes (the one projection the validation layer permits: a
+    signal-quality assessment of the datum itself into its native validity;
+    model-comparison results are never written there), plus the
     :class:`QualityGate` describing the consequence for ``window``. The source
     is never written.
 
@@ -855,7 +859,7 @@ def plasma_free_residual(
     set that still contains what the gate excluded, so a fit cannot run on
     unassessed data by omission.
 
-    This is the objective a wall-resistance calibration minimises (issue #308):
+    This is the objective a wall-resistance calibration minimises:
     with the model driven by the PF coils alone over a plasma-free interval,
     what is left is the passive-wall response the resistances control.
 
@@ -896,7 +900,7 @@ def evaluation_mask(
     """Which samples of ``channel`` a comparison may actually use.
 
     The interval the caller asked for, intersected with what the diagnostics
-    stage says is usable (issue #189).  Model agreement is only meaningful over
+    stage says is usable.  Model agreement is only meaningful over
     samples that are measurements, and an unusable stretch left in would be
     charged to the model.
 
@@ -922,11 +926,11 @@ def channel_residual_metrics(
     """Measured-versus-model agreement for one channel over one interval.
 
     This is a *comparison*, and says nothing about whether the measurement is
-    sound: a large residual is evidence about the model (issue #190), and must
-    never be written back into the channel's source validity (#253 §10).
+    sound: a large residual is evidence about the model, and must never be
+    written back into the channel's source validity.
 
-    Every quantity #190 asks for per channel, in the channel's own units except
-    where explicitly normalized:
+    Per channel, in the channel's own units except where explicitly
+    normalized:
 
     ``residual_rms_coil`` / ``residual_rms_coil_eddy``
         Agreement without and with the passive-wall response.  The pair is the
@@ -1015,7 +1019,7 @@ def vacuum_residual_metrics(
     min_wall_authority: float = 0.0,
     scored_exclude: Iterable[str] | None = None,
 ) -> dict[str, Any]:
-    """Per-channel and per-family measured-versus-model agreement (issue #190).
+    """Per-channel and per-family measured-versus-model agreement.
 
     The one residual kernel in VAFT: the routine eddy-stage QA
     (:func:`vacuum_magnetics_metrics`) reports the same numbers over its
@@ -1023,8 +1027,8 @@ def vacuum_residual_metrics(
     cannot drift apart in what they mean by "residual RMS".
 
     Metrics only -- no thresholds, no verdict.  What counts as acceptable
-    depends on the study, and #190 is explicit that broad acceptance thresholds
-    must wait until the VEST benchmark distribution has been inspected.
+    depends on the study, and broad acceptance thresholds must wait until the
+    VEST benchmark distribution has been inspected.
 
     ``scored_exclude`` names channels a caller's own review keeps out of the
     scored spread (the vacuum benchmark's array-contradiction review); the
@@ -1077,7 +1081,7 @@ def vacuum_residual_metrics(
         }
 
     return {
-        # 2 (#409 follow-up): the scored block is conditioned on flagged
+        # 2: the scored block is conditioned on flagged
         # channels when a caller supplies them and carries correlation and
         # normalized-residual spreads; excluded_flagged is None when no
         # review ran.
@@ -1137,7 +1141,7 @@ def vacuum_magnetics_metrics(
     unfloored ``median_improvement`` / ``min_improvement`` are always over
     every channel.
 
-    Everything issue #139 asks the eddy stage to record: the pre-plasma residual
+    Everything the eddy stage records: the pre-plasma residual
     RMS with and without the eddy response, the improvement from adding it, the
     residual and plasma-current onsets and their difference, and how coherently
     the residual onset appears across channels.
@@ -1169,7 +1173,7 @@ def vacuum_magnetics_metrics(
         current_onset = float(plasma_onset)
 
     # The residual statistics come from the shared kernel, so this per-shot
-    # verdict and the machine-model benchmark (#190) cannot disagree about what
+    # verdict and the machine-model benchmark cannot disagree about what
     # "residual RMS" means. What stays here is the onset analysis, which is
     # specific to asking where the plasma signal emerges.
     pre_plasma = (float("-inf"), float(plasma_onset))
@@ -1225,9 +1229,9 @@ def vacuum_magnetics_metrics(
     }
 
     return {
-        # 2 (#409): plasma_onset is the plasma-free boundary of the shared
-        # timing policy (light or current, whichever is earlier), no longer
-        # the legacy Ip discharge detector, and plasma_timing carries the
+        # 2: plasma_onset is the plasma-free boundary of the shared timing
+        # policy (light or current, whichever is earlier), not the legacy Ip
+        # discharge detector schema 1 used, and plasma_timing carries the
         # provenance (None when the caller supplied a bare onset).
         "schema_version": VACUUM_METRICS_SCHEMA,
         "plasma_onset": float(plasma_onset),

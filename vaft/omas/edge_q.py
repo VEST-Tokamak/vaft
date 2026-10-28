@@ -1,4 +1,4 @@
-"""Edge safety-factor estimates from an ODS, with or without an equilibrium (#1583).
+"""Edge safety-factor estimates from an ODS, with or without an equilibrium.
 
 Most VEST discharges have no converged equilibrium, so their q95 is unknown.
 :func:`edge_q_estimate` evaluates the analytic edge-q proxies of

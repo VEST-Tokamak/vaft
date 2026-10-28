@@ -25,11 +25,11 @@ from . import process_wrapper as _process_wrapper
 from . import sample as _sample
 from . import update as _update
 
-# Before the submodules above declared ``__all__`` (#1382), their star imports
-# also bound every VAFT function they had imported themselves, so these names
-# have always been reachable as ``vaft.omas.<name>``.  They stay bound here, but
-# they are not published by this package: each belongs to the module that
-# defines it, and ``from vaft.omas import *`` no longer binds them.  The
+# Compatibility: these VAFT functions, which the submodules above import for
+# their own use, are reachable as ``vaft.omas.<name>`` (older releases, whose
+# submodules declared no ``__all__``, star-exported them).  They stay bound
+# here, but they are not published by this package: each belongs to the module
+# that defines it, and ``from vaft.omas import *`` does not bind them.  The
 # ``omas``, NumPy, SciPy, typing and standard-library names the submodules
 # imported (and their ``logger`` and the ``vaft`` module) are not kept.
 from vaft.compat import trapz_compat
@@ -186,8 +186,9 @@ def __getattr__(name):
         globals()[name] = value
         return value
     if name.startswith("plot_"):
-        # ``plot_<old stem>`` of the issue #251 renames warned from 0.6.0 and
-        # was deleted in 0.9.0; answer with the spelling that replaced it.
+        # A ``plot_<old stem>`` of the subject-taxonomy renames warned from
+        # 0.6.0 and was deleted in 0.9.0; answer with the spelling that
+        # replaced it.
         from vaft.plot._migration import RENAMED, RENAMED_IN, RENAMED_REMOVAL_RELEASE
 
         stem = name[len("plot_"):]
@@ -268,12 +269,12 @@ def save(ods, target, *, compression=None):
     # over it with ``os.replace`` once complete, so a writer that dies
     # mid-way (disk full, a killed worker) leaves the previous product intact
     # instead of a truncated file under the canonical name that the next
-    # reader fails on (cold review 0.7.0 data F16, #1888).  The staging name
+    # reader fails on.  The staging name
     # keeps the target's last suffix because ``ODS.save`` chooses its format
     # from it, and carries a random token rather than the pid: threads of one
     # process saving the same target would otherwise share the staging path
-    # and rename each other's half-written bytes onto it (PR #1926 review F1;
-    # the same token ``vaft.database._export._atomic`` uses).
+    # and rename each other's half-written bytes onto it (the same token
+    # ``vaft.database._export._atomic`` uses).
     token = uuid.uuid4().hex[:12]
     staged = target_path.with_name(f".{target_path.stem}.tmp-{token}{target_path.suffix}")
     try:
@@ -314,7 +315,7 @@ def _write_ods_file(ods, path, suffixes, compression, reopenable_temporary_file)
     if compression is not None or path.suffix.lower() == ".hdf5":
         # ``ODS.save`` picks ``save_omas_<ext>`` from the suffix and OMAS has
         # no ``save_omas_hdf5``, so the ``.hdf5`` spelling the validation
-        # accepts goes to the HDF5 writer directly (PR #1926 review F6).
+        # accepts goes to the HDF5 writer directly.
         from omas.omas_h5 import dict2hdf5
 
         dict2hdf5(str(path), ods, lists_as_dicts=True, compression=compression)
@@ -351,7 +352,7 @@ def to_equilibrium(ods, *, time_index=0, profile_index=0, convention=None):
     )
 
 #: What ``vaft.omas`` publishes: everything its star-imported submodules
-#: publish (each declares its own ``__all__`` since #1382), the functions
+#: publish (each declares its own ``__all__``), the functions
 #: defined or imported by name here, and the reference and comparison exports
 #: resolved by ``__getattr__``.  The plotting adapters are published by
 #: ``vaft.omas.plotting.__all__`` and stay out of this list so that
