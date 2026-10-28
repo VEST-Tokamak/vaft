@@ -2074,12 +2074,21 @@ elements it summarizes (`vaft.diagram._cross_domain_concept`), and a test holds 
 technical input, method and result is summarized exactly once, under the same name, and alternatives and data
 flows agree.
 
-**Conceptual: the scientific architecture.** Shared scientific state and context -- measurements and machine
-configuration as data, physical assumptions and conventions as explicit knowledge -- feed scientific operations,
-each named by its method and the physical model it rests on. The three alternative equilibrium routes share one
-dash-dot enclosure; CHEASE refines a reconstruction. Their results become one equilibrium representation whose
-entries keep their own plasma states, and that representation is reused by MHD and transport operations whose own
-input requirements still apply. Results are IMAS-compatible representations, listed per domain, or native results.
+**Conceptual: the scientific architecture.** One hierarchy: shared data & metadata → equilibrium → MHD stability
+and plasma response, and transport → IMAS-compatible representations with complementary native results. The left
+panel separates *data* (diagnostic signals, experimental profiles) from *metadata*, the explicit context needed to
+interpret data and run an operation: machine and diagnostic configuration, model assumptions and parameters,
+conventions and provenance. Each operation names its code and, in italics, the physical model it rests on; a card
+holding alternatives lists each code with its model (Sauter / Redl *closed-form fit*, NEO *drift-kinetic*; TGLF
+*gyrofluid*, a quasilinear model, and CGYRO *gyrokinetic*, linear or nonlinear); GPEC's card says it uses DCON's
+modes. The three alternative equilibrium routes share one dash-dot enclosure,
+CHEASE refines a reconstruction, and each route's entry in the one equilibrium IDS sits under it in the same
+section: a shared format, not equivalent plasma states. MHD and transport reuse an *eligible* equilibrium under
+their own input requirements. The figure does not draw the resolved transport state, so it states no
+reconstruction requirement; that one, enforced through the state key and the EFIT quality label, binds only the
+models that read the resolved state and is drawn in the technical figure. One output section separates the
+implemented IMAS mappings (representative quantities) from the native outputs for which no IMAS mapping is
+implemented.
 
 ```python
 vaft.diagram.cross_domain_scientific_architecture()
@@ -2087,9 +2096,8 @@ vaft.diagram.cross_domain_scientific_architecture()
 
 ![Equilibrium, MHD and transport: the scientific architecture]({{ '/assets/diagrams/cross_domain_scientific_architecture.svg' | relative_url }})
 
-It simplifies on purpose: solver-specific inputs are folded into the four context cards, the resolved transport
-state and its `state_identity` are left to the technical figure, and results are grouped by domain rather than
-by solver. Its arrows are implemented interfaces, not validated end-to-end workflows.
+It simplifies on purpose: solver-specific inputs are folded into the data and metadata cards, the resolved
+transport state is left to the technical figure, and results are grouped by domain rather than by solver. Its arrows are implemented interfaces, not validated end-to-end workflows, which the legend says.
 
 **Technical: solvers, inputs and outputs.** Each method sits with the inputs it reads beside it; an input read by
 two methods (coil currents and machine geometry for TokaMaker and EFIT, the kinetic profiles for Sauter/Redl and

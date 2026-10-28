@@ -241,8 +241,9 @@ ELEMENTS: Tuple[Element, ...] = (
     E("neo", "Neoclassical", "solver", "transport", ((_HIER, "neo_code"),), method="NEO", basis="drift-kinetic"),
     E("classical", "Classical", "derived", "transport", ((_HIER, "classical"),), method="Braginskii",
       basis="magnetized"),
-    E("tglf", "Turbulent", "solver", "transport", ((_HIER, "turb_ql"),), method="TGLF", basis="quasilinear"),
-    E("cgyro", "Gyrokinetic", "solver", "transport", ((_GK, "cgyro"),), method="CGYRO", basis="linear modes"),
+    E("tglf", "Turbulent", "solver", "transport", ((_HIER, "turb_ql"),), method="TGLF", basis="QL gyrofluid"),
+    # gyrokinetic, linear or nonlinear; only the linear eigenmodes are drawn mapped (see the module docstring)
+    E("cgyro", "Gyrokinetic", "solver", "transport", ((_GK, "cgyro"),), method="CGYRO", basis="gyrokinetic"),
     E("sr_native", "Closed-form result", "native_result", "transport", ((_HIER, "neo_fit"),),
       detail=r"j_{\mathrm{bs}},\ \sigma_\parallel", note="returned to the caller; no core_transport writer"),
     E("ct_neo", "Neoclassical fluxes", "standardized", "transport", ((_HIER, "ct_neo"), (_NEOCMP, "mapping")),
@@ -479,7 +480,7 @@ def _enclosure(keys: Tuple[str, ...], boxes: Dict[str, Box]) -> Polyline:
 
 
 def connection_legend(left: float, right: float, y: float, connections: Tuple[str, ...] = CONNECTIONS,
-                      label: Optional[Dict[str, str]] = None) -> List:
+                      label: Optional[Dict[str, str]] = None, label_style: str = "concept annotation") -> List:
     """One sample per connection, centred between ``left`` and ``right`` at ``y``: an arrow for a flow, a
     small dash-dot enclosure for alternatives, a band swatch for a mapped or a native result."""
     label = label or CONNECTION_LABEL
@@ -493,7 +494,7 @@ def connection_legend(left: float, right: float, y: float, connections: Tuple[st
             swatch = [(x, y - 0.22), (x + 1.2, y - 0.22), (x + 1.2, y + 0.22), (x, y + 0.22)]
             items.append(Polyline.of(swatch, CONNECTION_STYLE[c].replace("rounded corners=6pt", "rounded corners=3pt"),
                                      role=f"legend:{c}", closed=True))
-        items.append(Label((x + 1.35, y), escape_latex(label[c]), "concept annotation", anchor="west",
+        items.append(Label((x + 1.35, y), escape_latex(label[c]), label_style, anchor="west",
                            role=f"legend:{c}"))
         x += widths[c]
     return items

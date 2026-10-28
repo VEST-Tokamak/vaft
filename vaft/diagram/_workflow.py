@@ -299,14 +299,16 @@ def _elbow(start: Box, end: Box, *, vertical_first: bool, gap: float = 0.08):
     return [(sx, start.y), (end.x, start.y), (end.x, ey)]
 
 
-def kind_legend(kinds, left: float, right: float, y: float) -> Tuple[List, float]:
+def kind_legend(kinds, left: float, right: float, y: float, label_style: str = "concept annotation",
+                labels: Optional[Dict[str, str]] = None) -> Tuple[List, float]:
     """Legend items for ``kinds`` centred between ``left`` and ``right`` from ``y`` down, and the next free ``y``.
 
     Each entry is the kind's swatch, carrying its pictogram (#2114), and its label; lines wrap at the
     figure's width so a many-kind legend never widens the figure.
     """
+    names = {**KIND_LABEL, **(labels or {})}  # a figure may shorten a kind's words, never its swatch
     items: List = []
-    widths = {k: 1.1 + 0.2 * len(KIND_LABEL[k]) for k in kinds}  # swatch (holding its pictogram) + label
+    widths = {k: 1.1 + 0.2 * len(names[k]) for k in kinds}  # swatch (holding its pictogram) + label
     lines: List[List[str]] = [[]]
     for kind in kinds:
         if lines[-1] and sum(widths[k] for k in lines[-1]) + widths[kind] > max(right - left, 12.0):
@@ -317,7 +319,7 @@ def kind_legend(kinds, left: float, right: float, y: float) -> Tuple[List, float
         for kind in line:
             items += [Polyline.of([(x, y - 0.24), (x + 0.62, y - 0.24), (x + 0.62, y + 0.24), (x, y + 0.24)],
                                   f"{kind_style(kind)},rounded corners=1pt", role=f"legend:{kind}", closed=True),
-                      Label((x + 0.74, y), escape_latex(KIND_LABEL[kind]), "concept annotation", anchor="west",
+                      Label((x + 0.74, y), escape_latex(names[kind]), label_style, anchor="west",
                             role=f"legend:{kind}")]
             items += pictogram(KIND_SYMBOL[kind], (x + 0.31, y), 0.36, role=f"symbol:legend:{kind}").items
             x += widths[kind]

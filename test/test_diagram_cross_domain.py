@@ -174,7 +174,8 @@ def test_only_the_models_reading_the_resolved_state_share_its_identity():
 def test_cgyro_is_drawn_as_linear_eigenmodes_only():
     assert [d for s, d in _edges("mapping") if s == "cgyro"] == ["gk_cgyro"]
     assert X.ELEMENT["gk_cgyro"].dd_path.startswith("gyrokinetics_local.linear.")
-    assert "linear" in X.ELEMENT["cgyro"].basis
+    assert X.ELEMENT["cgyro"].basis == "gyrokinetic" and X.ELEMENT["gk_cgyro"].label == "Linear eigenmodes"
+    assert "gyrofluid" in X.ELEMENT["tglf"].basis  # TGLF is a quasilinear gyrofluid model, not gyrokinetic
     assert not [e for e in X.ELEMENTS if e.dd_path and "non_linear" in e.dd_path]
 
 
@@ -319,10 +320,17 @@ def test_every_technical_input_is_summarized_by_one_context_card_of_its_kind():
         written = {api.rsplit(".", 1)[-1] for k in card.covers for api in X.ELEMENT[k].apis}
         assert set(card.idss) <= held | written, (card.key, set(card.idss) - held - written)
     assert "coils_non_axisymmetric" in next(c for c in C.CONTEXT if c.key == "machine").idss
-    # data and scientific knowledge stay apart
+
+
+def test_data_and_metadata_stay_apart():
+    """Data is what was measured; metadata is the context needed to interpret it and run an operation."""
     groups = {title: keys for title, _, keys in C.CONTEXT_GROUPS}
-    assert {C.CONTEXT[i].kind for i in range(len(C.CONTEXT)) if C.CONTEXT[i].key in groups["Data"]} == {"measured", "machine"}
-    assert {c.kind for c in C.CONTEXT if c.key in groups["Scientific knowledge"]} == {"prior", "convention"}
+    assert list(groups) == ["Data", "Metadata"]
+    kinds = {title: {c.kind for c in C.CONTEXT if c.key in keys} for title, keys in groups.items()}
+    assert kinds == {"Data": {"measured"}, "Metadata": {"machine", "prior", "convention"}}
+    assert sorted(k for keys in groups.values() for k in keys) == sorted(c.key for c in C.CONTEXT)
+    titles = {it.role: it.text for it in _concept().scene.items if isinstance(it, Label)}
+    assert "Shared data \\& metadata" in titles["region title:context"]
 
 
 def test_every_technical_method_is_one_operation_with_the_same_name_and_domain():
@@ -331,40 +339,49 @@ def test_every_technical_method_is_one_operation_with_the_same_name_and_domain()
     for domain, ops in C.OPERATIONS.items():
         for op in ops:
             assert {X.ELEMENT[k].domain for k in op.covers} == {domain}, op.key
-            assert op.title in {X.ELEMENT[k].label for k in op.covers}, op.key  # one vocabulary
+            assert op.title.replace("\n", " ") in {X.ELEMENT[k].label for k in op.covers}, op.key  # one vocabulary
             assert op.kind in {X.ELEMENT[k].kind for k in op.covers}, op.key
-            if len(op.covers) > 1:  # several methods in one card are alternatives, joined by "or"
-                assert tuple(op.covers) in X.ALTERNATIVES and any(" or " in line for line in op.lines), op.key
+            if len(op.covers) > 1:  # alternatives in one card: each code on its own line, in order, model under it
+                assert tuple(op.covers) in X.ALTERNATIVES, op.key
+                codes = [X.ELEMENT[k].method for k in op.covers]
+                assert [line for line in op.lines if not line.startswith("\\itshape")] == codes, op.key
+    # GPEC reads DCON's eigenfunctions; with no room for an arrow, the card says so
+    assert any("DCON" in line for line in C.OPERATION["response"].lines) and ("dcon", "gpec") in _edges("flow")
+    turbulent = C.OPERATION["turbulent"].lines
+    assert turbulent[turbulent.index("TGLF") + 1].endswith("gyrofluid")
+    assert turbulent[turbulent.index("CGYRO") + 1].endswith("gyrokinetic")
 
 
 def test_alternatives_and_flows_are_those_of_the_technical_figure():
     for group in C.ALTERNATIVES:
         assert tuple(k for op in group for k in C.OPERATION[op].covers) in X.ALTERNATIVES
     tech_flows = set(_edges("flow"))
-    entries = {e.key: e for e in C.EQUILIBRIUM_ENTRIES}
     for src, dst, _ in C.EDGES:
         if src in C.OPERATION and dst in C.OPERATION:
             # an operation consumes another directly or through the IDS entry the first one writes
-            outputs = {k for k in C.OPERATION[src].covers} | {d for s, d in _edges("mapping")
-                                                               if s in C.OPERATION[src].covers}
+            outputs = set(C.OPERATION[src].covers) | {d for s, d in _edges("mapping") if s in C.OPERATION[src].covers}
             assert any((o, t) in tech_flows for o in outputs for t in C.OPERATION[dst].covers), (src, dst)
-    assert ("equilibrium_ids", "mhd") in {(s, d) for s, d, _ in C.EDGES} and ("hub", "mhd") in tech_flows
-    assert ("eq_reconstructed", "transport") in {(s, d) for s, d, _ in C.EDGES}
-    assert entries["eq_reconstructed"].covers == ("eq_reconstructed",) and ("eq_reconstructed", "state") in tech_flows
-    # the downstream labels keep the eligibility caveat
-    labels = {(s, d): t for s, d, t in C.EDGES}
-    assert "eligible" in labels[("equilibrium_ids", "mhd")]
-    # the restriction belongs to the resolved state, not to every transport model (Sauter / Redl reads the ODS)
-    assert {"reconstructed", "resolved"} <= set(labels[("eq_reconstructed", "transport")].replace(",", "").split())
+    edges = {(s, d): t for s, d, t in C.EDGES}
+    assert ("hub", "mhd") in tech_flows and ("eq_reconstructed", "state") in tech_flows
+    # from the equilibrium section, not from one entry: eligibility is per model
+    assert "eligible" in edges[("equilibrium", "mhd")] and "eligible" in edges[("equilibrium", "transport")]
+    # the reconstruction requirement binds only the resolved state, which this figure does not draw (Sauter /
+    # Redl reads the ODS), so the concept says nothing about it; the technical figure draws it on the state
+    assert "reconstructed" not in edges[("equilibrium", "transport")]
     assert not [e for e in C.EDGES if {e[0], e[1]} == {"mhd", "transport"}]
+    assert {("context", "equilibrium"), ("context", "mhd")} <= set(edges)
 
 
-def test_each_equilibrium_entry_sits_under_the_operation_that_writes_it():
+def test_each_equilibrium_entry_sits_inside_the_equilibrium_section_under_its_operation():
     boxes = _concept().model["boxes"]
     writes = {d: s for s, d in _edges("mapping")}
     for entry in C.EQUILIBRIUM_ENTRIES:
         (producer,) = [op for op in C.OPERATIONS["equilibrium"] if writes[entry.covers[0]] in op.covers]
         assert abs(boxes[entry.key][0] - boxes[producer.key][0]) < 1e-9 and entry.title == X.ELEMENT[entry.covers[0]].label
+        assert boxes[entry.key][1] < boxes[producer.key][1]
+    titles = {it.role: it.text for it in _concept().scene.items if isinstance(it, Label)}
+    subtitle = titles["region subtitle:equilibrium"]
+    assert "one IDS format" in subtitle and "not one plasma state" in subtitle
 
 
 def test_results_cover_every_technical_result_once_and_print_the_ids_they_write():
@@ -380,34 +397,61 @@ def test_results_cover_every_technical_result_once_and_print_the_ids_they_write(
             assert written <= printed <= sourced, (item.key, printed, written, sourced)
         else:
             assert not printed, item.key
-    # CGYRO linear only, and the classical / Sauter-Redl caveats carried into the summary
+    # CGYRO linear only and not yet stored; NEO's j_bs in core_profiles
     transport = dict(next(lines for item, lines in C.RESULTS if item.key == "transport_imas"))
-    assert "linear" in transport["gyrokinetics_local"] and "NEO" in transport["core_profiles"]
+    assert "linear" in transport["gyrokinetics_local"] and "not yet stored" in transport["gyrokinetics_local"]
+    assert "NEO" in transport["core_profiles"]
 
 
-def test_the_conceptual_figure_shares_the_technical_vocabulary_and_states_its_limits():
-    titles = {it.role: it.text for it in _concept().scene.items if isinstance(it, Label)}
+def test_one_output_section_separates_implemented_mappings_from_native_outputs():
+    diagram = _concept()
+    titles = {it.role: it.text for it in diagram.scene.items if isinstance(it, Label)}
+    assert C.OUTPUT_TITLE == "IMAS-compatible representations with complementary native results"
+    assert C.OUTPUT_TITLE in titles["region title:outputs"]
+    assert [r for r, *_ in C.OUTPUT_ROWS] == ["imas", "native"]
+    assert "Implemented" in titles["output row:imas"] and "no IMAS mapping implemented" in titles["output row:native"]
+    regions = [it.role for it in diagram.scene.items if (getattr(it, "role", "") or "").startswith("region:")]
+    assert regions.count("region:outputs") == 1 and not {"region:imas", "region:native", "region:equilibrium_ids"} & set(regions)
+    boxes = diagram.model["boxes"]
+    for item in C.RESULT.values():  # a mapped result above every native one
+        row = "imas" if item.kind == "standardized" else "native"
+        assert abs(boxes[item.key][1] - C._OUTPUT_ROW[row][1]) < 1e-9, item.key
+
+
+def test_the_conceptual_figure_shares_the_technical_vocabulary_and_reads_clearly():
+    items = _concept().scene.items
+    titles = {it.role: it.text for it in items if isinstance(it, Label)}
     for key in ("equilibrium", "mhd", "transport"):
         assert dict((k, t) for k, t, _ in X.REGIONS)[key] in titles[f"region title:{key}"]
-    assert "Equilibrium representation" in titles["region title:equilibrium_ids"]
-    assert "not validated" in titles["footnote"] and "required inputs" in titles["footnote"]
-    concept_styles = {it.style for it in _concept().scene.items if (getattr(it, "role", "") or "").startswith("alternative:")}
+    # the limit of an arrow is in the legend, not a separate footnote
+    assert "not a validated workflow" in titles["legend:flow"] and "footnote" not in titles
+    concept_styles = {it.style for it in items if (getattr(it, "role", "") or "").startswith("alternative:")}
     assert concept_styles == {X.CONNECTION_STYLE["alternative"]}
+    # no pale annotation: every gray label is at least 75 % black, and no wedge connector
+    for it in items:
+        if isinstance(it, Label):
+            assert "black!60" not in it.text + it.style and (it.style.split(",")[0] != "concept annotation"
+                                                            or "text=black!80" in it.style), it.role
+    assert not [it for it in items if (getattr(it, "role", "") or "") == "edge:context"]
 
 
-def test_no_two_concept_cards_overlap_and_each_sits_in_its_panel():
+def test_no_two_concept_cards_overlap_and_each_sits_in_its_section():
     boxes = _concept().model["boxes"]
-    panel = {**{c.key: "context" for c in C.CONTEXT},
-             **{op.key: d for d, ops in C.OPERATIONS.items() for op in ops},
-             **{e.key: "equilibrium_ids" for e in C.EQUILIBRIUM_ENTRIES},
-             **{item.key: ("imas" if item.kind == "standardized" else "native") for item in C.RESULT.values()}}
-    for a, b in itertools.combinations(sorted(panel), 2):
+    section = {**{c.key: "context" for c in C.CONTEXT},
+               **{op.key: d for d, ops in C.OPERATIONS.items() for op in ops},
+               **{e.key: "equilibrium" for e in C.EQUILIBRIUM_ENTRIES},
+               **{item.key: "outputs" for item in C.RESULT.values()}}
+    for a, b in itertools.combinations(sorted(section), 2):
         (ax, ay, aw, ah), (bx, by, bw, bh) = boxes[a], boxes[b]
         assert abs(ax - bx) >= 0.5 * (aw + bw) or abs(ay - by) >= 0.5 * (ah + bh), (a, b)
-    for key, region in panel.items():
+    for key, region in section.items():
         x0, x1, y0, y1 = C._BOUNDS[region]
         x, y, w, h = boxes[key]
         assert x0 <= x - 0.5 * w and x + 0.5 * w <= x1 and y1 <= y - 0.5 * h and y + 0.5 * h <= y0, key
+    # cards of one kind of row share one size
+    for domain in ("mhd", "transport"):
+        assert len({boxes[op.key][3] for op in C.OPERATIONS[domain]}) == 1
+    assert len({boxes[e.key][2:] for e in C.EQUILIBRIUM_ENTRIES}) == 1
 
 
 def _label_sizes(diagram):

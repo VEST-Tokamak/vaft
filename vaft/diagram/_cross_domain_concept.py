@@ -1,29 +1,32 @@
 """The scientific architecture behind the equilibrium, MHD and transport figure, drawn for a manuscript.
 
-The conceptual companion of :func:`~vaft.diagram.cross_domain_scientific_workflows`:
-shared scientific state and context on the left, then scientific operations and
-the reusable representations they produce. Where the technical figure draws
-each solver with the inputs it reads, this one groups them -- inputs into four
-context cards, solvers into the operations they perform, IDS results into one
-representation per domain -- and keeps only the relations that carry the
-argument: which methods are alternatives, how the equilibrium representation is
-reused downstream, and what is mapped to IMAS and what stays native.
+The conceptual companion of :func:`~vaft.diagram.cross_domain_scientific_workflows`,
+read along one hierarchy: shared data and metadata, then equilibrium, then MHD
+stability / plasma response and transport, then IMAS-compatible representations
+with complementary native results. Where the technical figure draws each solver
+with the inputs it reads, this one groups them -- inputs into data and metadata
+cards, solvers into the operations they perform, results into one output section
+per domain -- and keeps only the relations that carry the argument: which methods
+are alternatives, how an equilibrium is reused downstream under model-specific
+eligibility, and what is mapped to IMAS and what stays native.
 
-Nothing here is restated by hand. Every card, operation and representation
-names the technical elements it summarizes (``covers``), and the tests hold the
-two figures to each other: every technical input, method and result is covered
+Data and metadata are kept apart: data are what was measured (signals and
+experimental profiles); metadata are the explicit context needed to interpret
+them and to run an operation -- machine and diagnostic configuration, model
+assumptions and parameters, conventions and provenance.
+
+Nothing here is restated by hand. Every card, operation and result names the
+technical elements it summarizes (``covers``), and the tests hold the two
+figures to each other: every technical input, method and result is covered
 exactly once, alternatives here are alternatives there, and the IDS named here
-are the ones the technical figure's writers produce. The figure claims
-interfaces that exist, not workflows that were validated end to end; each
-downstream model still checks its own inputs, which the edge labels and the
-footnote say.
+are the ones the technical figure's writers produce. The arrows claim
+interfaces that exist, not workflows that were validated end to end.
 
 Simplified on purpose (the technical figure keeps each of these):
 
-- solver-specific inputs (mode numbers, excitation, resistive layers, COCOS
-  of one code) are folded into the context cards;
-- the resolved local transport state and its ``state_identity`` are not
-  drawn; the edge into transport names the reconstructed equilibrium;
+- solver-specific inputs are folded into the data and metadata cards;
+- the resolved local transport state, its ``state_identity`` and the
+  reconstruction it requires are left to the technical figure;
 - results are listed per domain, not per solver.
 """
 
@@ -39,6 +42,7 @@ from ._scene import Arrow, Label, Polyline, Scene
 from ._workflow import KINDS, kind_legend, kind_style
 
 _TITLE = {key: title for key, title, _ in REGIONS}
+OUTPUT_TITLE = "IMAS-compatible representations with complementary native results"
 
 
 @dataclass(frozen=True)
@@ -46,8 +50,9 @@ class Item:
     """One card of the figure and the technical elements it stands for.
 
     ``kind`` is a workflow kind; ``title`` the bold first line; ``lines`` the
-    LaTeX lines under it; ``idss`` the IDS names printed in typewriter at its
-    foot. ``covers`` names :data:`vaft.diagram._cross_domain.ELEMENT` keys.
+    LaTeX lines under it (one starting ``\\itshape`` names a physical model);
+    ``idss`` the IDS names printed in typewriter at its foot. ``covers`` names
+    :data:`vaft.diagram._cross_domain.ELEMENT` keys.
     """
 
     key: str
@@ -66,56 +71,61 @@ class Item:
 
 
 I = Item
-#: shared scientific state and context: two kinds of data, then the knowledge an operation is defined by
+#: shared data and metadata: what was measured, then the context needed to interpret it and run an operation
 CONTEXT: Tuple[Item, ...] = (
-    I("measurements", "measured", "Measurements",
-      ("tm_targets", "eq_coils", "ef_magnetics", "ef_kinetic", "tr_profiles"),
-      (r"$I_p$, magnetics, coil currents", r"$T_e(\rho)$, $n_e(\rho)$"),
-      ("magnetics", "pf_active", "thomson_scattering", "core_profiles")),
-    I("machine", "machine", "Machine configuration", ("eq_machine", "gpec_coils"),
-      (r"wall, PF coils, vessel, 3-D coils",), ("wall", "pf_active", "pf_passive", "coils_non_axisymmetric")),
-    I("models", "prior", "Physical assumptions", ("an_shape", "tm_profiles", "tr_closures", "sr_closures", "gpec_drive"),
+    I("measurements", "measured", "Diagnostic signals", ("tm_targets", "eq_coils", "ef_magnetics"),
+      (r"$I_p$, magnetics, coil currents",), ("magnetics", "pf_active")),
+    I("profiles", "measured", "Experimental profiles", ("ef_kinetic", "tr_profiles"),
+      (r"$T_e(\rho)$, $n_e(\rho)$",), ("thomson_scattering", "core_profiles")),
+    I("machine", "machine", "Machine and diagnostic\nconfiguration", ("eq_machine", "gpec_coils"),
+      (r"wall, vessel, coils, sensor positions",),
+      ("wall", "pf_active", "pf_passive", "coils_non_axisymmetric")),
+    I("models", "prior", "Model assumptions\nand parameters",
+      ("an_shape", "tm_profiles", "tr_closures", "sr_closures", "gpec_drive"),
       (r"closures ($Z_{\mathrm{eff}}$, $T_i$, $\gamma_E$)", r"profile shapes ($p'$, $FF'$)", "3-D coil excitation")),
-    I("conventions", "convention", "Conventions", ("ef_basis", "ch_cocos", "dcon_in"),
-      (r"profile bases, COCOS,", r"mode numbers, wall model")),
+    I("conventions", "convention", "Conventions and provenance", ("ef_basis", "ch_cocos", "dcon_in"),
+      (r"profile bases, COCOS,", r"mode numbers, wall model;", "recorded provenance")),
 )
-#: the two groups of the context column: (title, subtitle, item keys)
+#: the two groups of the left panel: (title, subtitle, item keys)
 CONTEXT_GROUPS: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
-    ("Data", "", ("measurements", "machine")),
-    ("Scientific knowledge", "explicit inputs, distinct from data", ("models", "conventions")),
+    ("Data", "", ("measurements", "profiles")),
+    ("Metadata", "context for data and operations", ("machine", "models", "conventions")),
 )
-#: scientific operations, by domain; lines are the method, then the physical model it rests on
+#: scientific operations, by domain; lines are the method, then (italic) the physical model it rests on.
+#: A card holding alternative methods lists each code with its model in italics under it, in turn
 OPERATIONS: Dict[str, Tuple[Item, ...]] = {
     "equilibrium": (
-        I("analytic", "solver", "Analytic Grad-Shafranov", ("analytic",), ("Solov'ev family", r"\itshape assumed shape, profiles")),
+        I("analytic", "solver", "Analytic\nGrad-Shafranov", ("analytic",),
+          ("Solov'ev family", r"\itshape assumed shape, profiles")),
         I("free_boundary", "solver", "Free-boundary model", ("tokamaker",), ("TokaMaker", r"\itshape assumed profiles")),
         I("reconstruction", "solver", "Reconstruction", ("efit",), ("EFIT", r"\itshape fit with a profile basis")),
-        I("refinement", "solver", "Fixed-boundary refinement", ("chease",), ("CHEASE", r"\itshape fixed boundary")),
+        I("refinement", "solver", "Fixed-boundary\nrefinement", ("chease",), ("CHEASE", r"\itshape fixed boundary")),
     ),
     "mhd": (
-        I("ideal", "solver", "Ideal stability", ("dcon",), ("DCON", r"\itshape energy principle")),
-        I("response", "solver", "Plasma response", ("gpec",), ("GPEC", r"\itshape ideal, 3-D coils")),
-        I("tearing", "solver", "Resistive stability", ("rdcon",), ("RDCON", r"\itshape resistive layers")),
+        I("ideal", "solver", "Ideal\nstability", ("dcon",), ("DCON", r"\itshape energy principle")),
+        # GPEC reads DCON's ideal eigenfunctions: said on the card, the gap is too narrow for an arrow
+        I("response", "solver", "Plasma\nresponse", ("gpec",), ("GPEC", r"\itshape from DCON modes")),
+        I("tearing", "solver", "Resistive\nstability", ("rdcon",), ("RDCON", r"\itshape resistive layers")),
     ),
     "transport": (
         I("classical", "derived", "Classical", ("classical",), ("Braginskii", r"\itshape magnetized")),
         I("neoclassical", "solver", "Neoclassical", ("sauter_redl", "neo"),
-          ("Sauter-Redl or NEO", r"\itshape closed form or kinetic")),
+          ("Sauter / Redl", r"\itshape closed-form fit", "NEO", r"\itshape drift-kinetic")),
         I("turbulent", "solver", "Turbulent", ("tglf", "cgyro"),
-          ("TGLF or CGYRO", r"\itshape quasilinear or linear GK")),
+          ("TGLF", r"\itshape gyrofluid", "CGYRO", r"\itshape gyrokinetic")),
     ),
 }
 OPERATION: Dict[str, Item] = {op.key: op for ops in OPERATIONS.values() for op in ops}
-#: alternative operations drawn in one dash-dot enclosure (inside a card, "or" joins alternatives)
+#: alternative operations drawn in one dash-dot enclosure (inside a card, alternatives share it line by line)
 ALTERNATIVES: Tuple[Tuple[str, ...], ...] = (("analytic", "free_boundary", "reconstruction"),)
-#: the equilibrium representation: one entry under each equilibrium operation
+#: the equilibrium representation: one entry under each equilibrium operation, inside the equilibrium section
 EQUILIBRIUM_ENTRIES: Tuple[Item, ...] = (
     I("eq_analytic", "standardized", "analytic", ("eq_analytic",)),
     I("eq_model", "standardized", "free-boundary model", ("eq_model",)),
     I("eq_reconstructed", "standardized", "reconstructed", ("eq_reconstructed",)),
     I("eq_refined", "standardized", "refined", ("eq_refined",)),
 )
-#: the downstream representations, one card per domain and band: (ids or "", quantities) per line
+#: the output section, one card per domain and row: (ids or "", quantities) per line
 RESULTS: Tuple[Tuple[Item, Tuple[Tuple[str, str], ...]], ...] = (
     (I("mhd_imas", "standardized", "", ("ml_dcon", "ml_gpec", "ntms_rdcon")),
      (("mhd_linear", r"$\delta W_n$ (normalized), $\delta\mathbf B\cdot\nabla\psi$"), ("ntms", r"$\Delta'$ (diagonal)"))),
@@ -125,59 +135,70 @@ RESULTS: Tuple[Tuple[Item, Tuple[Tuple[str, str], ...]], ...] = (
     (I("mhd_native", "native_result", "", ("dcon_native", "gpec_native", "rdcon_native")),
      (("", r"$\delta W_p$, $\delta W_v$;\ \ $\Phi_{\mathrm{res}}$, $w_{\mathrm{isl}}$;\ \ $\Delta'$ matrix"),)),
     (I("transport_native", "native_result", "", ("sr_native",)),
-     (("", r"closed-form $j_{\mathrm{bs}}$, $\sigma_\parallel$ (Sauter-Redl)"),)),
+     (("", r"closed-form $j_{\mathrm{bs}}$, $\sigma_\parallel$ (Sauter / Redl)"),)),
 )
 RESULT: Dict[str, Item] = {item.key: item for item, _ in RESULTS}
-#: (source, target, label): data flows between drawn cards and panels
-EDGES: Tuple[Tuple[str, str, str], ...] = (
-    ("reconstruction", "refinement", ""),
-    ("ideal", "response", ""),
-    ("equilibrium_ids", "mhd", "eligible equilibrium + model inputs"),
-    ("eq_reconstructed", "transport", "reconstructed, for the resolved state"),
+#: the two rows of the output section: (key, heading, kind)
+OUTPUT_ROWS: Tuple[Tuple[str, str, str], ...] = (
+    ("imas", "Implemented IMAS mappings", "standardized"),
+    ("native", "Native outputs, no IMAS mapping implemented", "native_result"),
 )
-FOOTNOTE = ("Arrows mark implemented interfaces, not validated end-to-end workflows; "
-            "each model checks its own required inputs.")
+#: (source, target, label): data flows between drawn cards and sections; a label line break is "\n"
+EDGES: Tuple[Tuple[str, str, str], ...] = (
+    ("context", "equilibrium", ""),
+    ("context", "mhd", ""),
+    ("reconstruction", "refinement", ""),
+    ("equilibrium", "mhd", "eligible equilibrium\n+ model inputs"),
+    ("equilibrium", "transport", "eligible equilibrium\n+ kinetic profiles"),
+)
+#: the legend's words for the two relations drawn as lines
+CONNECTION_WORDS = {"flow": "implemented interface, not a validated workflow", "alternative": "alternative methods"}
+#: the legend's words for the kinds: short, since every card also says what it is
+KIND_WORDS = {"measured": "measured", "derived": "derived", "prior": "assumption / parameter",
+              "convention": "convention", "machine": "configuration", "solver": "solver / model"}
 
 # ---------------------------------------------------------------------------
 # layout [cm]: x from 0 to _WIDTH, y downward from 0
 # ---------------------------------------------------------------------------
 
-_WIDTH = 22.5
-_MAIN = 5.75  # where the operations start, right of the context column and its arrow
-#: (x0, x1, y_top, y_bottom) of each panel and band
+_WIDTH = 23.5
+_MAIN = 6.25  # where the computational sections start, right of the left panel and its arrows
+#: (x0, x1, y_top, y_bottom) of each section
 _BOUNDS: Dict[str, Tuple[float, float, float, float]] = {
-    "context": (0.0, 4.9, 0.0, -13.3),
-    "equilibrium": (_MAIN, _WIDTH, 0.0, -3.2),
-    "equilibrium_ids": (_MAIN, _WIDTH, -3.5, -5.1),
-    "mhd": (_MAIN, 14.05, -5.8, -9.7),
-    "transport": (14.3, _WIDTH, -5.8, -9.7),
-    "imas": (_MAIN, _WIDTH, -10.05, -11.85),
-    "native": (_MAIN, _WIDTH, -12.1, -13.3),
+    "context": (0.0, 5.4, 0.0, -12.95),
+    "equilibrium": (_MAIN, _WIDTH, 0.0, -4.15),
+    "mhd": (_MAIN, 14.65, -5.05, -8.65),
+    "transport": (14.9, _WIDTH, -5.05, -8.65),
+    "outputs": (_MAIN, _WIDTH, -9.05, -12.95),
 }
-_BAND_TITLE = {
-    "equilibrium_ids": ("Equilibrium representation", "one IDS type; each entry keeps its own plasma state"),
-    "imas": ("IMAS-compatible representations", "per domain: the IDS its operations can write"),
-    "native": ("Native results", "retained in the solver's own form"),
+_SUBTITLE = {
+    "equilibrium": "alternative routes and a refinement; their entries share one IDS format, not one plasma state",
+    "mhd": "complementary analyses",
+    "transport": "independent models; a card may hold alternatives",
 }
-_SUBTITLE = {"equilibrium": "alternative routes and a refinement", "mhd": "complementary analyses",
-             "transport": "independent models"}
-_X = {"equilibrium": (8.075, 11.875, 15.675, 20.175), "mhd": (7.1, 10.0, 12.7), "transport": (15.65, 18.4, 21.15)}
-_W = {"equilibrium": 3.5, "mhd": 2.5, "transport": 2.55}
-_ROW = {"equilibrium": -2.05, "mhd": -8.3, "transport": -8.3}
-_CARD_H = {"equilibrium": 1.85, "mhd": 2.25, "transport": 2.25}
-_CONTEXT_Y = {"measurements": -2.9, "machine": -5.65, "models": -9.15, "conventions": -11.5}
-_CONTEXT_H = {"measurements": 2.7, "machine": 2.35, "models": 1.9, "conventions": 1.6}
-_GROUP_Y = {"Data": -1.18, "Scientific knowledge": -7.35}
-_ENTRY_Y, _ENTRY_W = -4.55, 3.2
-_RESULT_PLACE = {"mhd_imas": ("mhd", -11.07, 0.95), "transport_imas": ("transport", -11.13, 1.3),
-                 "mhd_native": ("mhd", -12.87, 0.55), "transport_native": ("transport", -12.87, 0.55)}
+_X = {"equilibrium": (8.525, 12.525, 16.525, 21.225), "mhd": (7.7, 10.45, 13.2), "transport": (16.45, 19.2, 21.95)}
+_W = {"equilibrium": 3.7, "mhd": 2.5, "transport": 2.5}  # one width below the equilibrium, 0.25 cm apart
+_ROW = {"equilibrium": -2.0, "mhd": -7.3, "transport": -7.3}
+_CARD_H = {"equilibrium": 1.85, "mhd": 2.3, "transport": 2.3}
+_ENTRY_Y, _ENTRY_W, _ENTRY_H = -3.55, 3.3, 0.5
+_CONTEXT_Y = {"measurements": -1.95, "profiles": -3.75, "machine": -6.75, "models": -9.25, "conventions": -11.6}
+_CONTEXT_H = {"measurements": 1.4, "profiles": 1.85, "machine": 2.45, "models": 2.2, "conventions": 1.95}
+_GROUP_Y = {"Data": -0.92, "Metadata": -5.15}
+#: output rows: heading y, card y, card height
+_OUTPUT_ROW = {"imas": (-9.9, -10.85, 1.45), "native": (-11.85, -12.4, 0.6)}
+#: edges drawn along given points: the left panel feeds the first section of each tier, and an equilibrium
+#: leaves its section from below the entries, clear of any one entry
 _ROUTES = {
-    ("equilibrium_ids", "mhd"): ((6.1, -5.18), (6.1, -5.72)),  # from the band, clear of any one entry
-    ("eq_reconstructed", "transport"): ((_X["equilibrium"][2], _ENTRY_Y - 0.355), (_X["equilibrium"][2], -5.72)),
+    ("context", "equilibrium"): ((5.48, _ROW["equilibrium"]), (6.17, _ROW["equilibrium"])),
+    ("context", "mhd"): ((5.48, _ROW["mhd"]), (6.17, _ROW["mhd"])),
+    ("equilibrium", "mhd"): ((10.5, -4.23), (10.5, -4.97)),  # each from a gap between entries, not from one
+    ("equilibrium", "transport"): ((18.9, -4.23), (18.9, -4.97)),
 }
-_LABEL_AT = {("equilibrium_ids", "mhd"): (6.25, -5.45),
-             ("eq_reconstructed", "transport"): (_X["equilibrium"][2] + 0.15, -5.45)}
+_LABEL_AT = {("equilibrium", "mhd"): (10.65, -4.6), ("equilibrium", "transport"): (19.05, -4.6)}
 _ENCLOSE = 0.13
+#: gray annotations, darker than the template's default
+_NOTE = "concept annotation,text=black!80"
+_SUB = "{\\small\\itshape\\color{black!75}"
 
 
 def _fit(width: float, text: str) -> str:
@@ -185,12 +206,12 @@ def _fit(width: float, text: str) -> str:
     return f"\\vaftfit{{{width - 0.32:.2f}cm}}{{{text}}}"
 
 
-def _card_text(item: Item, width: float) -> str:
+def _card_text(item: Item) -> str:
     """A bold title, then the lines (wrapped to the width), then the IDS names (wrapped at the separators)."""
-    text = "{\\small\\bfseries " + escape_latex(item.title) + "}"  # wraps rather than shrinks: one size
+    # one size: a long title breaks where the data says ("\n"), never shrinks
+    text = "{\\small\\bfseries " + "\\\\".join(escape_latex(t) for t in item.title.split("\n")) + "}"
     for line in item.lines:
-        size = "\\footnotesize"
-        text += "\\\\[1pt]{" + size + " " + (line if "$" in line or "\\" in line else escape_latex(line)) + "}"
+        text += "\\\\[1pt]{\\footnotesize " + (line if "$" in line or "\\" in line else escape_latex(line)) + "}"
     if item.idss:
         text += ("\\\\[2pt]{\\footnotesize\\ttfamily "
                  + "~$\\cdot$ ".join(escape_latex(i) for i in item.idss) + "}")  # breaks after a dot
@@ -202,100 +223,102 @@ def _result_text(lines: Tuple[Tuple[str, str], ...], width: float) -> str:
     for ids, quantities in lines:
         row = ("\\texttt{" + escape_latex(ids) + "}\\ \\ " if ids else "") + quantities
         rows.append(_fit(width, "{\\small " + row + "}"))
-    return "\\\\[1pt]".join(rows)
+    return "\\\\[2pt]".join(rows)
 
 
-def _panel(key: str, title: str, subtitle: str, style: str, labels: bool, two_lines: bool = False) -> List:
-    """A panel or band outline with its title; ``two_lines`` sets the subtitle under the title."""
+def _section(key: str, title: str, subtitle: str, labels: bool) -> List:
+    """A section outline, its bold title and, on the line under it, its subtitle."""
     x0, x1, y0, y1 = _BOUNDS[key]
-    items: List = [Polyline.of([(x0, y1), (x1, y1), (x1, y0), (x0, y0)], style, role=f"region:{key}", closed=True)]
+    items: List = [Polyline.of([(x0, y1), (x1, y1), (x1, y0), (x0, y0)], "concept group", role=f"region:{key}",
+                               closed=True)]
     if labels:
-        sub = "{\\small\\itshape\\color{black!60}" + escape_latex(subtitle) + "}"
-        head = "\\textbf{" + escape_latex(title) + "}"
-        if two_lines:
-            items.append(Label((x0 + 0.2, y0 - 0.3), head, "concept group title", anchor="west",
-                               role=f"region title:{key}"))
-            items.append(Label((x0 + 0.2, y0 - 0.68), sub, "concept plain", anchor="west",
-                               role=f"region subtitle:{key}"))
-        else:
-            items.append(Label((x0 + 0.2, y0 - 0.3), head + "\\quad" + sub, "concept group title", anchor="west",
-                               role=f"region title:{key}"))
+        items.append(Label((x0 + 0.2, y0 - 0.3), "\\textbf{" + escape_latex(title) + "}", "concept group title",
+                           anchor="west", role=f"region title:{key}"))
+        if subtitle:
+            items.append(Label((x0 + 0.2, y0 - 0.68), _SUB + escape_latex(subtitle) + "}", "concept plain",
+                               anchor="west", role=f"region subtitle:{key}"))
     return items
+
+
+def _bounds_box(key: str) -> Box:
+    x0, x1, y0, y1 = _BOUNDS[key]
+    return Box(0.5 * (x0 + x1), 0.5 * (y0 + y1), x1 - x0, y0 - y1, ())
 
 
 def cross_domain_scientific_architecture(*, labels: bool = True) -> Diagram:
     """The scientific architecture of equilibrium, MHD and transport in VAFT, for a manuscript.
 
-    Shared scientific state and context -- measurements and machine
-    configuration as data, physical models, assumptions and conventions as
-    explicit knowledge -- feed scientific operations in three domains, each
-    named by its method and the physical model it rests on. Alternative
-    equilibrium routes share a dash-dot enclosure; their results become one
-    equilibrium representation whose entries keep their own states, and that
-    representation is reused by MHD and transport operations whose own input
-    requirements still apply. Results are IMAS-compatible representations or
-    native results. :func:`~vaft.diagram.cross_domain_scientific_workflows`
-    draws the same architecture solver by solver.
+    Shared data (measurements and experimental profiles) and metadata
+    (machine and diagnostic configuration, model assumptions and parameters,
+    conventions and provenance) feed scientific operations, each named by its
+    method and the physical model it rests on. Alternative equilibrium routes
+    share a dash-dot enclosure, and each writes its own entry in one
+    equilibrium representation -- a shared format, not equivalent states.
+    MHD stability and plasma response and transport reuse an eligible
+    equilibrium under their own input requirements. Their results are
+    IMAS-compatible representations, where a mapping is implemented, with
+    complementary native results.
+    :func:`~vaft.diagram.cross_domain_scientific_workflows` draws the same
+    architecture solver by solver.
     """
     if not isinstance(labels, bool):
         raise ValueError(f"labels must be True or False, not {labels!r}")
     items: List = []
     boxes: Dict[str, Box] = {}
-    # context column, and one arrow from it into every operation
+    # the left panel: data, then metadata
     x0, x1, y0, y1 = _BOUNDS["context"]
     items.append(Polyline.of([(x0, y1), (x1, y1), (x1, y0), (x0, y0)],
                              "draw=islanddark!70,line width=1.0pt,rounded corners=4pt,fill=black!3",
                              role="region:context", closed=True))
+    boxes["context"] = _bounds_box("context")
     if labels:
-        items.append(Label((x0 + 0.2, y0 - 0.42), "\\textbf{Shared scientific state}\\\\\\textbf{and context}",
-                           "concept group title,align=left", anchor="west", role="region title:context"))
+        items.append(Label((x0 + 0.2, y0 - 0.38), "\\textbf{Shared data \\& metadata}", "concept group title",
+                           anchor="west", role="region title:context"))
         for title, subtitle, _ in CONTEXT_GROUPS:
-            text = "{\\small\\bfseries\\color{black!70}" + escape_latex(title) + "}"
-            if subtitle:  # on its own line: the column is narrow
-                text += "\\\\{\\footnotesize\\itshape\\color{black!60}" + escape_latex(subtitle) + "}"
-            items.append(Label((x0 + 0.2, _GROUP_Y[title]), text, "concept plain,align=left", anchor="west",
+            text = "{\\small\\bfseries\\color{black!75}" + escape_latex(title) + "}"
+            if subtitle:  # under the heading, one size down: the column is narrow
+                text += "\\\\{\\footnotesize\\itshape\\color{black!75}" + escape_latex(subtitle) + "}"
+            items.append(Label((x0 + 0.2, _GROUP_Y[title]), text,
+                               f"concept plain,align=left,text width={x1 - x0 - 0.4:.2f}cm", anchor="west",
                                role=f"context group:{title}"))
     for item in CONTEXT:
-        b = box(0.5 * (x0 + x1), _CONTEXT_Y[item.key], x1 - x0 - 0.4, _CONTEXT_H[item.key],
-                _card_text(item, x1 - x0 - 0.4), style=kind_style(item.kind), text_style="concept plain",
-                role=f"context:{item.key}", latex=True)
+        b = box(0.5 * (x0 + x1), _CONTEXT_Y[item.key], x1 - x0 - 0.4, _CONTEXT_H[item.key], _card_text(item),
+                style=kind_style(item.kind), text_style="concept plain", role=f"context:{item.key}", latex=True)
         boxes[item.key] = b
         items += list(b.items)
-    # it ends level with the operations: context feeds operations, not their results
-    chevron = [(5.0, -1.0), (5.3, -1.0), (5.62, -5.35), (5.3, -9.7), (5.0, -9.7), (5.32, -5.35)]
-    items.append(Polyline.of(chevron, "draw=islanddark!60,fill=islanddark!22,line width=0.6pt", role="edge:context",
-                             closed=True))
-    # operations and the equilibrium representation
+    # computational sections and their operations
     for domain in ("equilibrium", "mhd", "transport"):
-        items += _panel(domain, _TITLE[domain], _SUBTITLE[domain], "concept group", labels, two_lines=True)
+        items += _section(domain, _TITLE[domain], _SUBTITLE[domain], labels)
+        boxes[domain] = _bounds_box(domain)
         for op, x in zip(OPERATIONS[domain], _X[domain]):
-            b = box(x, _ROW[domain], _W[domain], _CARD_H[domain], _card_text(op, _W[domain]), style=kind_style(op.kind),
+            b = box(x, _ROW[domain], _W[domain], _CARD_H[domain], _card_text(op), style=kind_style(op.kind),
                     text_style="concept plain", role=f"operation:{op.key}", latex=True)
             boxes[op.key] = b
             items += list(b.items)
     for keys in ALTERNATIVES:
         xs = [boxes[k].x for k in keys]
-        bx0, bx1 = min(xs) - 0.5 * _W["equilibrium"] - _ENCLOSE, max(xs) + 0.5 * _W["equilibrium"] + _ENCLOSE
         half = 0.5 * _CARD_H["equilibrium"] + _ENCLOSE
-        by0, by1 = _ROW["equilibrium"] + half, _ROW["equilibrium"] - half
-        items.append(Polyline.of([(bx0, by1), (bx1, by1), (bx1, by0), (bx0, by0)], CONNECTION_STYLE["alternative"],
-                                 role="alternative:" + ",".join(keys), closed=True))
-    for key, connection in (("equilibrium_ids", "mapping"), ("imas", "mapping"), ("native", "native")):
-        title, subtitle = _BAND_TITLE[key]
-        items += _panel(key, title, subtitle, CONNECTION_STYLE[connection], labels)
-        bx0, bx1, by0, by1 = _BOUNDS[key]
-        boxes[key] = Box(0.5 * (bx0 + bx1), 0.5 * (by0 + by1), bx1 - bx0, by0 - by1, ())
-    for key in ("mhd", "transport"):
-        bx0, bx1, by0, by1 = _BOUNDS[key]
-        boxes[key] = Box(0.5 * (bx0 + bx1), 0.5 * (by0 + by1), bx1 - bx0, by0 - by1, ())
-    for entry, x in zip(EQUILIBRIUM_ENTRIES, _X["equilibrium"]):
-        b = box(x, _ENTRY_Y, _ENTRY_W, 0.55, _fit(_ENTRY_W, "{\\small " + escape_latex(entry.title) + "}"),
+        bx0, bx1 = min(xs) - 0.5 * _W["equilibrium"] - _ENCLOSE, max(xs) + 0.5 * _W["equilibrium"] + _ENCLOSE
+        items.append(Polyline.of([(bx0, _ROW["equilibrium"] - half), (bx1, _ROW["equilibrium"] - half),
+                                  (bx1, _ROW["equilibrium"] + half), (bx0, _ROW["equilibrium"] + half)],
+                                 CONNECTION_STYLE["alternative"], role="alternative:" + ",".join(keys), closed=True))
+    for entry, x in zip(EQUILIBRIUM_ENTRIES, _X["equilibrium"]):  # each entry under the operation that writes it
+        b = box(x, _ENTRY_Y, _ENTRY_W, _ENTRY_H, _fit(_ENTRY_W, "{\\small " + escape_latex(entry.title) + "}"),
                 style=kind_style(entry.kind), text_style="concept plain", role=f"representation:{entry.key}", latex=True)
         boxes[entry.key] = b
         items += list(b.items)
+    # one output section: implemented mappings, then native outputs
+    items += _section("outputs", OUTPUT_TITLE, "", labels)
+    boxes["outputs"] = _bounds_box("outputs")
+    if labels:
+        for row, heading, _ in OUTPUT_ROWS:
+            items.append(Label((_MAIN + 0.2, _OUTPUT_ROW[row][0]), "{\\small\\bfseries\\color{black!75}"
+                               + escape_latex(heading) + "}", "concept plain", anchor="west", role=f"output row:{row}"))
     for item, lines in RESULTS:
-        domain, y, h = _RESULT_PLACE[item.key]
+        row = "imas" if item.kind == "standardized" else "native"
+        domain = "mhd" if item.key.startswith("mhd") else "transport"
         bx0, bx1, *_ = _BOUNDS[domain]
+        _, y, h = _OUTPUT_ROW[row]
         w = bx1 - bx0 - 0.4
         b = box(0.5 * (bx0 + bx1), y, w, h, _result_text(lines, w), style=kind_style(item.kind),
                 text_style="concept plain", role=f"representation:{item.key}", latex=True)
@@ -309,16 +332,14 @@ def cross_domain_scientific_architecture(*, labels: bool = True) -> Diagram:
             path = (a.start, a.end)
         items.append(Arrow(path[0], path[1], CONNECTION_STYLE["flow"], role=role))
         if text and labels:
-            items.append(Label(_LABEL_AT[(src, dst)], escape_latex(text), "concept annotation", anchor="west",
-                               role=f"edge label:{src}->{dst}"))
-    if labels:
-        used = [k for k in KINDS if any(i.kind == k for i in CONTEXT + tuple(OPERATION.values())
-                                        + EQUILIBRIUM_ENTRIES + tuple(RESULT.values()))]
-        legend, y = kind_legend(used, 0.0, _WIDTH, _BOUNDS["native"][3] - 0.7)
+            items.append(Label(_LABEL_AT[(src, dst)], "\\\\".join(escape_latex(t) for t in text.split("\n")),
+                               _NOTE + ",align=left", anchor="west", role=f"edge label:{src}->{dst}"))
+    if labels:  # the output rows name the standardized and native kinds, so the legend need not
+        used = [k for k in KINDS if k not in ("standardized", "native_result")
+                and any(i.kind == k for i in CONTEXT + tuple(OPERATION.values()))]
+        legend, y = kind_legend(used, 0.0, _WIDTH, y1 - 0.65, label_style=_NOTE, labels=KIND_WORDS)
         items += legend
-        items += connection_legend(0.0, _WIDTH, y - 0.1, ("flow", "alternative"))
-        items.append(Label((0.5 * _WIDTH, y - 0.75), escape_latex(FOOTNOTE), "concept annotation",
-                           role="footnote"))
+        items += connection_legend(0.0, _WIDTH, y - 0.05, ("flow", "alternative"), CONNECTION_WORDS, _NOTE)
     else:
         items = [it for it in items if not isinstance(it, Label)]
     model = {"context": CONTEXT, "operations": OPERATIONS, "alternatives": ALTERNATIVES,
