@@ -8,8 +8,7 @@ One Quarto source per lecture, rendered to two backends:
    └── PDF  → Beamer      archival and printable
 ```
 
-This is the course's convention, adopted from the pilot that
-[issue #322](https://github.com/VEST-Tokamak/vaft/issues/322) proposed. Every
+This is the course's convention, adopted after a pilot on session 01. Every
 session's deck is authored here; the hand-written Beamer sources that used to
 sit in the parent directory are gone, and with them the duplicated preamble each
 one carried and the committed PDFs that had to be kept in step with it.
