@@ -1,9 +1,10 @@
-"""Equilibrium-quality cohorts: why a reconstruction is good, admissible or unreconstructible (#1644).
+"""Equilibrium-quality cohorts: why a reconstruction is good, admissible or unreconstructible.
 
 This module **composes** existing layers; it defines no rule of its own.
 
-* the study policy -- :mod:`vaft.validation._efit_study_criteria` (#891/#1331,
-  criteria v2; ``workflow/efit_uncertainty_calibration/criteria.py`` re-exports
+* the study policy -- :mod:`vaft.validation._efit_study_criteria` (criteria v2
+  of the EFIT sigma-calibration study and campaign; provenance: #891, #1331;
+  ``workflow/efit_uncertainty_calibration/criteria.py`` re-exports
   it at the study's path): ``evaluate`` per (shot, time, setting) and
   ``slice_labels`` across settings.  Shipped with the package, loaded as a
   module, never copied; a caller's own criteria file is loaded by path;
@@ -82,7 +83,7 @@ STATUSES = ("pass", "fail", "indeterminate", "not_available")
 
 
 def load_study_criteria(path: str | Path | None = None) -> ModuleType:
-    """The #891/#1331 study criteria module: the shipped one, or a caller's file loaded from ``path``."""
+    """The EFIT study criteria module: the shipped one, or a caller's file loaded from ``path``."""
     if path is None:
         return importlib.import_module("vaft.validation._efit_study_criteria")
     path = Path(path).resolve()
@@ -173,8 +174,9 @@ def equilibrium_quality_table(records: Iterable[Mapping[str, Any]], *, criteria:
                               evidence: Callable[[Mapping[str, Any]], Mapping[str, Any] | None] | None = None):
     """One row per ``(shot, time, setting)``: raw metrics, verdicts and the study classification.
 
-    ``records`` are study slice records (``weight_scan.py`` / the #1331 Tier A
-    analysis); records carrying ``"error"`` are attempts that produced nothing
+    ``records`` are study slice records (``weight_scan.py`` / the EFIT
+    campaign's Tier A analysis, provenance: #1331); records carrying ``"error"`` are
+    attempts that produced nothing
     and appear only through the slice label.  ``evidence`` -- optional --
     maps a row (the dict before it becomes a frame) to extra columns, e.g.
     :func:`efit_evidence_columns` on that slice's equilibrium product.
@@ -449,9 +451,9 @@ def equilibrium_quality_constraint_points(ods: Any, time_slice: int) -> list[dic
     return points
 
 
-#: The four representative cases of #1644 §6, in report order.
+#: The four representative cases of the quality review, in report order.
 REPRESENTATIVE_CASES = ("good_consistent", "good_inconsistent", "admissible_only", "unreconstructible")
-#: The metrics a "typical" good slice is judged typical on (#1644 §7): distance
+#: The metrics a "typical" good slice is judged typical on: distance
 #: to the cohort median in each, scaled by the cohort's own spread.
 TYPICALITY_METRICS = ("probe_reduced_chi2", "loop_reduced_chi2", "gs_residual", "virial_log_ratio")
 
@@ -478,7 +480,7 @@ def _typicality(group, metrics: Sequence[str]):
 
 
 def select_representative_cases(table) -> list[dict[str, Any]]:
-    """Deterministic representative slices for the four #1644 cases, with why each was chosen.
+    """Deterministic representative slices for the four :data:`REPRESENTATIVE_CASES`, with why each was chosen.
 
     * ``good_consistent`` / ``good_inconsistent`` -- among good slices whose
       best setting is Thomson-consistent / inconsistent, the one closest to the
@@ -549,7 +551,7 @@ CONFINEMENT_RULES = ("finite", "ip_min", "dwdt_fraction", "ip_change_per_tau")
 
 def equilibrium_quality_confinement_funnel(confinement_table, *, quality_column: str = "efit_quality",
                                            rules: Sequence[str] = CONFINEMENT_RULES) -> dict[str, Any]:
-    """Equilibrium quality × confinement acceptance (#1644 §9), per quality cohort.
+    """Equilibrium quality × confinement acceptance, per quality cohort.
 
     ``confinement_table`` is the confinement study's table (``rule_<name>``
     pass columns, ``accepted``, and the EFIT quality label of each row).  Per

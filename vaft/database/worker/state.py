@@ -1,9 +1,9 @@
-"""Durable state of the new-shot pipeline worker (issue #58).
+"""Durable state of the new-shot pipeline worker.
 
 One SQLite file holds everything a restart needs: the watermark, every shot the
 worker has seen and where it is, each pipeline run, the per-stage status each
 run left behind, and an event log.  It is also the read side for monitoring
-(#1347): :func:`read_worker_state` opens it read-only.
+tools: :func:`read_worker_state` opens it read-only.
 
 Shot lifecycle::
 
@@ -558,7 +558,7 @@ def _shot_dict(row: sqlite3.Row) -> dict[str, Any]:
 
 
 def read_worker_state(path: str | os.PathLike[str]) -> WorkerState:
-    """Open a worker's state read-only -- the monitoring entry point (#1347)."""
+    """Open a worker's state read-only -- the monitoring entry point."""
     return WorkerState(path, readonly=True)
 
 

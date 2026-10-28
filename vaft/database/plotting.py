@@ -1,6 +1,6 @@
 """Plot adapters for database shots: ``plot_<canonical-stem>(shot, source=...)``.
 
-Every ``plot_<stem>`` has two twins (umbrella #434): ``dd_<stem>()`` lists the
+Every ``plot_<stem>`` has two twins: ``dd_<stem>()`` lists the
 Data Dictionary paths the plot reads without touching the database, and
 ``extract_<stem>(shot, source=..., *, lazy=True, occurrence=None, label="shot",
 **extraction_options)`` opens the same IDS the plot would and returns the view
@@ -13,7 +13,7 @@ interpret data.  Each adapter asks the registry which IDS the plot needs
 (:func:`vaft.plot.backend.recipes.required_ids`), opens those the shot stores
 over HSDS -- lazily by default, so only the leaves the plot touches travel;
 an optional IDS the shot lacks (an overlay's wall) is skipped, a required
-one is refused by name -- and hands the resulting ODS to the OMAS adapter (issue #63).  Nothing here
+one is refused by name -- and hands the resulting ODS to the OMAS adapter.  Nothing here
 imports Matplotlib, and nothing here reaches into ``vaft.machine_mapping``.
 
 Every adapter shares one signature::
@@ -190,13 +190,13 @@ def compose(
     label: Any = "shot",
     **presentation: Any,
 ) -> Any:
-    """Draw a :class:`vaft.plot.FigureComposition` for database shots (issue #1467).
+    """Draw a :class:`vaft.plot.FigureComposition` for database shots.
 
     For each shot the IDS every cell declares are narrowed to what the shot
     stores (an overlay's optional wall is skipped, a missing required IDS is
     an error naming the plot) and loaded once; the figure is then composed
     as :func:`vaft.omas.compose` composes it.  Not :func:`vaft.database.compose`,
-    which joins two *sources* of one shot (#305).
+    which joins two *sources* of one shot.
     """
     from vaft.omas.entries import normalize_entries
     from vaft.plot.composition import as_composition, render_composition
@@ -305,7 +305,7 @@ def _load_for_interaction(
 def plot_diagnostics_time_interactive(
     shot: Any, source: str | None = None, *, occurrence: Any = None, **options: Any
 ) -> Any:
-    """The diagnostics overview with live controls, from the database (issue #482).
+    """The diagnostics overview with live controls, from the database.
 
     See :func:`vaft.omas.plot_diagnostics_time_interactive`.  The overview's
     IDS are loaded once, not opened lazily: the controls redraw after this
@@ -361,7 +361,7 @@ def render_to_file(
     from vaft.plot.registry import NON_GRAPHICAL_VIEWS, get_spec
 
     if get_spec(name).view in NON_GRAPHICAL_VIEWS:
-        # A table or text view is text (issue #1180): .txt, .md or .html.
+        # A table or text view is text: .txt, .md or .html.
         rendered = render(name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options)
         return rendered.save(path)
     if options.get("backend") == "plotly":
@@ -378,7 +378,7 @@ def render_to_file(
     result = render(
         name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options
     )
-    # A figure tuple, or an Animation written by its own save (issue #1050).
+    # A figure tuple, or an Animation written by its own save.
     return save_rendered(result, path, figure_options=options.get("figure_options"))
 
 

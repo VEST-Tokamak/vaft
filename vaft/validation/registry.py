@@ -1,21 +1,21 @@
-"""Stable, machine-readable metadata for named validation checks (#253 §5, #72).
+"""Stable, machine-readable metadata for named validation checks.
 
 Every check a report can contain is described **once** here -- its category,
 the unit of its headline value, the provider it composes, and the tolerance
-that turns its normalized residual into a status.  Results then stay compact
-(#253 §4): a check returns its numbers and a status, and a consumer that needs
+that turns its normalized residual into a status.  Results then stay compact:
+a check returns its numbers and a status, and a consumer that needs
 the unit, the method or the tolerance asks the registry by the check's key.
 
-That is how #72's acceptance criterion *"every reported quantity names its
-definition, units, tolerance, and source"* is met without repeating those on
-every result instance.  What is deliberately **not** here (#253 §5): formula
+That is how every reported quantity names its definition, units, tolerance
+and source without repeating those on every result instance.  What is
+deliberately **not** here: formula
 derivations, assumptions, limitations, references.  Those belong in the
 provider's docstring, which ``provider`` points at.
 
 Tolerances are the one policy this layer owns: the boundary between "agrees",
 "disagrees but is usable" and "not credible" for the *check itself*.  Whether a
 ``warn`` result may still be used downstream is the consumer's policy, not
-this module's (#253 §7).
+this module's.
 """
 
 from __future__ import annotations
@@ -109,7 +109,7 @@ _SPECS = (
     _spec("diagnostic_fit.global", "1", "vaft.omas.efit_quality.fit_quality_metrics",
           "reduced chi-square over every fitted channel", "reduced_chi_squared", (2.0, 5.0)),
     # -- physical validity: does the result satisfy force balance and be plausible? --
-    # Virial evidence is four separable questions, not one (#546 s13). Do the
+    # Virial evidence is four separable questions, not one. Do the
     # three relations close on the equilibrium's own volume integrals; do the
     # three pairwise inversions agree with the identity each of them left out;
     # can those inversions be performed here at all; and are the resulting
@@ -164,7 +164,7 @@ _SPECS = (
           "stored energy from the measured diamagnetic flux through the virial diamagnetic beta_p, "
           "against the virial kinetic energy", "log_ratio", (0.262, 0.693)),
     # The measured loop feeding the closures themselves, not just the energy
-    # (#546 s14). This belongs here and not under physical_validity: it asks
+    # This belongs here and not under physical_validity: it asks
     # whether the reconstruction agrees with a measurement it never used.
     _spec("independent_validation.virial_measured_mu_i", "1",
           "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",

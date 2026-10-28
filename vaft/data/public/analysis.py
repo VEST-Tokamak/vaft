@@ -181,17 +181,17 @@ def h_factor(
         A global or unaudited scaling (ITER89-P, NSTX 2006 L, Kurskiev 2022,
         the Goldston 1984 forms) on rows that have ``tau_e_th_s`` but no
         ``tau_e_global_s`` while ``thermal_as_global`` does not cover them:
-        those rows are ``NaN`` by the audit gate of #1713, and the warning
+        those rows are ``NaN`` by the energy-basis audit gate, and the warning
         names the scaling and the way out. Thermal scalings never warn.
 
     Notes
     -----
     A thermal scaling (IPB98(y,2), ITPA20, ITPA20-IL, ITER97-L, NSTX 2006 H) is compared with
     ``tau_e_th_s``, a global one (ITER89-P, NSTX 2006 L) with
-    ``tau_e_global_s`` (#1713): the basis comes from
+    ``tau_e_global_s``: the basis comes from
     :func:`vaft.formula.equilibrium.confinement_scaling_basis` and the
     resolution from :func:`vaft.process.confinement.resolve_observed_confinement`.
-    For thermal scalings the result is unchanged from before #1713.  The gate
+    For thermal scalings ``tau_e_th_s`` is used directly.  The gate
     is deliberate: an H factor formed from a thermal time against a global
     scaling is not the conventional one unless the fast-ion energy is
     negligible, which only the caller can assert (``thermal_as_global``).
@@ -220,7 +220,7 @@ def h_factor(
             raise ValueError("thermal_as_global names machines, but the table has no 'machine' column")
         allow = table["machine"].isin(names).to_numpy()
     tau = np.where(allow, relaxed.tau, strict.tau)
-    # Rows the energy-basis gate (#1713) blanks although a thermal time is there:
+    # Rows the energy-basis gate blanks although a thermal time is there:
     # say so once, with the scaling, instead of returning NaN silently.
     gated = ~allow & ~np.isfinite(strict.tau) & np.isfinite(relaxed.tau)
     if gated.any():
@@ -288,8 +288,8 @@ def transition_margin(table: pd.DataFrame) -> pd.Series:
     -----
     The threshold is whatever ``p_lh_scaling_W`` holds -- for TCV the
     source-computed Martin 2008 value (``p_lh_scaling_definition`` says so).
-    VAFT evaluates no L-H scaling of its own until one exists in
-    :mod:`vaft.formula` (#670, #1066).
+    The margin does not re-evaluate it with VAFT's own Martin 2008 entry
+    (``martin_2008_lh`` in :mod:`vaft.formula.boundaries`).
     """
     loss = pd.to_numeric(table["p_loss_W"], errors="coerce")
     threshold = pd.to_numeric(table["p_lh_scaling_W"], errors="coerce")

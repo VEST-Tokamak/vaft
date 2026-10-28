@@ -1,4 +1,4 @@
-"""Run the routine Snakemake pipeline for a batch of shots (issue #58).
+"""Run the routine Snakemake pipeline for a batch of shots.
 
 One run is one ``snakemake`` process in the workflow directory, so the
 worker and a manual ``make run`` share Snakemake's directory lock: whichever
@@ -20,7 +20,7 @@ Flags the worker always passes, and why:
 HSDS concurrency is the pipeline configuration's ``hsds.concurrency``.  The
 worker used to force ``--resources hsds=1`` because replications of one shot
 that overlapped lost ``master.h5`` links; the write path now serializes each
-shot's master under a lock (#913, ``vaft.database._master_lock``).
+shot's master under a lock (``vaft.database._master_lock``).
 """
 
 from __future__ import annotations

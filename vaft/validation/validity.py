@@ -1,12 +1,12 @@
-"""What a datum's validity nodes mean, stated once (issue #424).
+"""What a datum's validity nodes mean, stated once.
 
 The Data Dictionary gives a datum two validity nodes: a scalar ``validity``
 and a per-sample ``validity_timed``.  VAFT writes the scalar as the *worst
 state reached* over the record (:func:`aggregate_validity`), so a channel that
 holds its last value after the diagnostics window reads ``-2`` there while
-every earlier sample is a measurement.  Three consumers independently read
-that scalar as "the channel is unusable" before #410 caught them, and the rule
-that should have stopped them lived only in a docstring.
+every earlier sample is a measurement.  Three consumers once independently
+read that scalar as "the channel is unusable", because the rule that should
+have stopped them lived only in a docstring.
 
 This module is that rule, as code:
 
@@ -14,9 +14,8 @@ This module is that rule, as code:
    ignored for usability; it remains what it is, a summary for readers that
    want one.
 2. When only the scalar is present it is broadcast over the record.
-3. When neither is present the datum is *unassessed*.  Missing is not zero
-   (#253): the usable mask is the consumer's ``default`` and nothing is
-   condemned.
+3. When neither is present the datum is *unassessed*.  Missing is not zero:
+   the usable mask is the consumer's ``default`` and nothing is condemned.
 4. ``min_validity`` is the consumer's floor on the DD code.  A datum is
    condemned when it was assessed and no sample reaches the floor -- never
    because the scalar is below it.
@@ -217,7 +216,7 @@ def usable_fraction(
 
     A metric, not a verdict: it says how much of the record survives
     ``min_validity``, and the consumer decides what fraction it requires.  That
-    threshold is policy and belongs to the consumer, not here (#253 §7).
+    threshold is policy and belongs to the consumer, not here.
 
     ``window`` is a boolean selector on the same grid as the mask.  ``nan``
     when it selects no samples.

@@ -1,4 +1,4 @@
-"""Read back what a pipeline run left for each shot (issue #58).
+"""Read back what a pipeline run left for each shot.
 
 The worker never infers a shot's state from Snakemake's exit code: one run
 carries several shots, ``--keep-going`` lets the healthy ones finish past a

@@ -97,7 +97,7 @@ CONFINEMENT_COLUMNS: dict[str, ColumnSpec] = {
     "source_reference": ColumnSpec("str", "Citation or DOI for the source."),
 }
 
-#: One row per regime-transition record (#1205 section 5, #1066 section 17).
+#: One row per regime-transition record.
 #: The event is explicit -- ``transition``, ``source_regime``,
 #: ``target_regime`` -- and never hidden in an unrelated IDS.  A record where
 #: the source looked for the transition and did not see it keeps the same
@@ -242,7 +242,7 @@ def empty_transition_table() -> pd.DataFrame:
     return _empty(TRANSITION_COLUMNS)
 
 
-#: Canonical confinement columns a table written before #1713 may lack: the
+#: Canonical confinement columns a table written before they existed may lack: the
 #: global stored energy and confinement time.  :func:`validate_confinement_table`
 #: adds them as missing (NaN / None) rather than refusing the table, so tables and
 #: producers from before the global columns keep validating.
@@ -273,7 +273,7 @@ def validate_confinement_table(table: pd.DataFrame) -> pd.DataFrame:
     Notes
     -----
     The columns of :data:`OPTIONAL_CONFINEMENT_COLUMNS` (the global stored
-    energy and confinement time, #1713) are added as missing when absent;
+    energy and confinement time) are added as missing when absent;
     every other canonical column must be present.
     """
     absent = [c for c in OPTIONAL_CONFINEMENT_COLUMNS if c not in table.columns]

@@ -1,4 +1,4 @@
-"""New-shot pipeline worker for the VEST server (issue #58).
+"""New-shot pipeline worker for the VEST server.
 
 Polls the VEST SQL ``shot`` table, classifies each settled shot, runs the
 routine Snakemake pipeline for it, and keeps durable per-shot and per-stage

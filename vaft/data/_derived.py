@@ -2,7 +2,8 @@
 
 ``vaft.data.eqdsk`` and ``vaft.data.vfit`` both have to turn a stored ``q``
 profile into a toroidal-flux coordinate.  Doing it twice is how the two
-conventions in issue #276 diverged, so the guard logic lives here and both
+conventions diverged (one adapter wrote the ``sqrt(psi_N)`` proxy into
+``rho_tor_norm``), so the guard logic lives here and both
 adapters call it -- as does the ODS-side updater in :mod:`vaft.omas.update`.
 
 The pure mathematics is in :mod:`vaft.formula.equilibrium`; what this module
@@ -39,13 +40,13 @@ class RhoTorProfile(NamedTuple):
 def rho_tor_profile(q: Any, psi_wb: Any, b0: Any = None) -> Optional[RhoTorProfile]:
     """Integrate ``q`` into toroidal flux and the rho_tor coordinate.
 
-    ``psi_wb`` is the poloidal flux **in weber** -- what the IMAS DD stores since
-    issue #236.  ``Phi = integral(q dpsi_wb)``, ``rho_tor = sqrt(|Phi|/(pi|B0|))``
+    ``psi_wb`` is the poloidal flux **in weber** -- what the IMAS DD stores.
+    ``Phi = integral(q dpsi_wb)``, ``rho_tor = sqrt(|Phi|/(pi|B0|))``
     and ``rho_tor_norm = rho_tor/rho_tor[-1]``.  This is the coordinate OMFIT's
     ``fluxSurfaces`` produces -- they agree to within 1.5e-3 in normalized units
     on VEST g-files.  The ``sqrt(psi_N)`` proxy VAFT wrote before is not: that is
     ``rho_pol``, off by up to 0.126 on the packaged samples, and every kinetic
-    profile is mapped onto this grid (issue #276).
+    profile is mapped onto this grid.
 
     ``b0`` is optional because the normalized coordinate does not need it -- the
     field cancels in the ratio.  Without it ``rho_tor`` is ``None`` and only
@@ -108,8 +109,8 @@ RHO_POL_PROXY_TOLERANCE = 1e-6
 def is_rho_pol_proxy(rho_tor_norm: Any, psi_norm: Any = None) -> bool:
     """Whether a stored ``rho_tor_norm`` is really the ``sqrt(psi_N)`` proxy.
 
-    Producers stopped writing the proxy in issue #276, but files written before
-    that still carry it, and it is indistinguishable from the real coordinate by
+    Producers no longer write the proxy, but files written before that still
+    carry it, and it is indistinguishable from the real coordinate by
     name alone.  A reader that trusts it plots a poloidal coordinate under a
     toroidal label; every packaged sample is in that state today.
 
@@ -162,8 +163,7 @@ def _warn_on_axis_q_outlier(q: np.ndarray) -> None:
     0.0064), which is good evidence that the outlier is what the two disagree
     about -- and is exactly why silently repairing it would be wrong. That would
     replace a measurement with a guess, and hide a solver problem behind a
-    coordinate that looks fine. Issue #317 records the finding; the caller is
-    told, and decides.
+    coordinate that looks fine. The caller is told, and decides.
     """
     import warnings
 

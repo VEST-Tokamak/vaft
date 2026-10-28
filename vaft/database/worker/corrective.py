@@ -1,4 +1,4 @@
-"""The corrective-pipeline worker: run pipeline 2 when a Thomson or CES upload arrives (issue #1842).
+"""The corrective-pipeline worker: run pipeline 2 when a Thomson or CES upload arrives.
 
 The routine worker (:mod:`vaft.database.worker.service`) is driven by the VEST
 SQL ``shot`` table: a new shot number appears, its upload finishes, the routine

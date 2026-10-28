@@ -1,14 +1,18 @@
 """Compare the analytic neoclassical models against a drift-kinetic solve.
 
-Level 4 of the verification hierarchy in issue #550 section 9. The levels below it are
+The fourth level of the neoclassical verification hierarchy: published Sauter values
+verify VAFT's formulas, a GACODE/NEO regression case verifies the NEO adapter, NEO's
+simple-limit case against VAFT's Sauter checks conventions and implementation, and NEO's
+drift-kinetic result against the analytic models is a physics-model comparison -- this
+module. The levels below it are
 already established and are *tests*, not studies: the formula kernels reproduce published
 Sauter values, the NEO adapter reproduces GACODE's own ``reg18`` regression case, and
 VAFT's Sauter and Redl agree with NEO's own implementations of them to 1e-8. This module
 asks the different question those cannot: **how far apart are the models themselves**.
 
 That distinction is the whole point. A gap between a fitted analytic model and a
-drift-kinetic solve is a property of the models, not a defect in either, and #550 is
-explicit that validation must not classify it as a solver failure. So nothing here
+drift-kinetic solve is a property of the models, not a defect in either, and validation
+must not classify it as a solver failure. So nothing here
 returns a status. :func:`model_comparison` returns numbers; :func:`model_agreement` is
 the only function that applies a tolerance, and the tolerances are the caller's, passed
 in and echoed back -- the arrangement ``vaft.validation.wall_reduction`` uses for the
@@ -153,8 +157,8 @@ def bootstrap_models(
     if solver_charge is not None:
         # The charge the solver's own species list implies, from
         # NeoOutputs.effective_charge. Comparing against a run that used a different
-        # one compares two plasmas: on VEST that inverted which model looked closer
-        # (#803), so it is refused rather than recorded and hoped for.
+        # one compares two plasmas: on VEST that inverted which model looked closer,
+        # so it is refused rather than recorded and hoped for.
         provider = provenance.get("provider", {})
         analytic = provider.get("z_eff_value")
         if analytic is not None and abs(float(analytic) - float(solver_charge)) > 1e-6:
@@ -167,8 +171,8 @@ def bootstrap_models(
         # Agreeing on Z_eff is not agreeing on the plasma: the same charge can be
         # carried by carbon or by oxygen, and n_i/n_e differs (0.833 against 0.875).
         # Above all, an analytic side with no impurity at all reaches this point with
-        # n_i = n_e and would pass a charge-only check -- which is the other half of
-        # the mismatch #803 is about.
+        # n_i = n_e and would pass a charge-only check -- the other half of the same
+        # mismatch, since NEO reads its charge and dilution from the species list.
         fraction = provider.get("ion_density_over_electron")
         if solver_ion_fraction is not None and fraction is not None:
             if abs(float(fraction) - float(solver_ion_fraction)) > 1e-6:
@@ -258,8 +262,8 @@ def model_agreement(
 
     The only place in this module where a number becomes a judgement. The tolerances are
     the study's, not the library's: what counts as agreement between a fitted model and a
-    drift-kinetic solve depends entirely on what the answer is for, and #550 warns against
-    turning a real model difference into a failure.
+    drift-kinetic solve depends entirely on what the answer is for, and a real model
+    difference must not be turned into a failure.
     """
     unknown = set(tolerances) - set(METRICS)
     if unknown:
@@ -316,7 +320,7 @@ def input_readiness(
 ) -> dict[str, Any]:
     """Whether this ODS is a kinetic state NEO can be run on, and what is missing.
 
-    #550 defers routine production to a *qualified* kinetic state rather than to a
+    Routine NEO production is keyed to a *qualified* kinetic state rather than to a
     shot: a usable equilibrium, electron density and temperature, an ion temperature
     and species, a Z_eff or an explicit assumption in its place, and a time alignment
     that pairs the equilibrium with the profiles. This function is that rule, written
@@ -590,11 +594,11 @@ def _trend(
     conventional aspect ratio should part company with a drift-kinetic solve as the
     trapped fraction rises. On VEST 48224 the relationship is **not monotonic**, so
     that question has no single answer here, and the two ways of forcing one both give
-    wrong answers (issue #808):
+    wrong answers:
 
     * comparing the mean of the lowest third of ``f_trap`` with the highest third --
-      what this function used to do -- reported "grows" for the treatment published in
-      #776 and "shrinks" for two others that differ from it by less than a percentage
+      what this function used to do -- reported "grows" for the treatment in
+      ``notebooks/neoclassical_transport_with_neo.ipynb`` and "shrinks" for two others that differ from it by less than a percentage
       point in the integrated comparison;
     * a straight-line fit reports a *negative* slope in all three, because it is
       dominated by a handful of near-axis points where the bootstrap current crosses
@@ -653,8 +657,8 @@ def _trend(
         "evaluated_above": _TREND_FLOOR,
         "monotonic": None if direction is None else ("increasing" if direction > 0 else "decreasing"),
         "grows_with_trapping": grows,
-        # Descriptive, and only that: the first and last bin. Before #808 these four
-        # names held the lowest and highest *third* and were what the verdict was
+        # Descriptive, and only that: the first and last bin. Earlier versions of these
+        # four names held the lowest and highest *third* and were what the verdict was
         # built on; they are the lowest and highest *fifth* now, which is a different
         # number under the same name (8.1 % against 15.0 % on 48224). `bins` is the
         # one to read, and `binning` says which definition produced these.

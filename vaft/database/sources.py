@@ -28,7 +28,7 @@ exists to prevent.
 A source is also how an optional diagnostic stays out of the baseline's
 semantics: ``impa`` is *sparse*, holding only the shots whose IMPA product was
 intentionally produced, so a shot missing from it says nothing about whether the
-baseline shot exists or succeeded (issue #305).  Sources are never unioned on
+baseline shot exists or succeeded.  Sources are never unioned on
 read; composing two is an explicit call to
 :func:`vaft.database.composition.compose`.
 
@@ -163,7 +163,7 @@ class HSDSSource:
     ``sparse`` describes coverage, not access: a sparse source holds only the
     shots for which its product was intentionally produced, so a shot missing
     from it means "no published product", never "the shot is missing" or "the
-    baseline failed" (issue #305).  It is documentation the CLI and the docs
+    baseline failed".  It is documentation the CLI and the docs
     render -- discovery needs no new code, because :func:`exist_shot` already
     lists whatever folders exist and nothing unions two sources.
     """
@@ -192,10 +192,11 @@ class HSDSSource:
     #: stop-gap rather than part of the lasting layout.
     #:
     #: The per-configuration TGLF sources are the case: alternative TGLF
-    #: configurations of one state are, in the target model of #1128/#1129, IMAS
-    #: occurrences of one ``core_transport`` named by ``ids_properties.name``,
-    #: not sources. Stated on the entry so that the CLI, the docs and a reviewer
-    #: see it without reading the purpose text closely.
+    #: configurations of one state are, in the target occurrence model (Open:
+    #: #1128/#1129, not implemented yet), IMAS occurrences of one
+    #: ``core_transport`` named by ``ids_properties.name``, not sources. Stated
+    #: on the entry so that the CLI, the docs and a reviewer see it without
+    #: reading the purpose text closely.
     transitional_until: str | None = None
 
     def __post_init__(self) -> None:
@@ -244,7 +245,8 @@ FAMILY_SOURCES: Mapping[str, str] = {
 #: The issues whose occurrence model retires the transitional sources below.
 TRANSITIONAL_UNTIL = "#1128/#1129"
 
-#: TGLF's saturation rules and field models: the #1482 sensitivity space.
+#: TGLF's saturation rules and field models: the space the TGLF sensitivity
+#: validation scans, since which SAT rule suits VEST is not settled.
 #:
 #: ``em-bper-bpar`` is its own field model and is never grouped under "EM"
 #: (``workflow/transport_atlas/run_tglf.py:FIELD_MODELS``).
@@ -266,7 +268,7 @@ ATLAS_LINEAGE_FAMILIES: Mapping[str, str] = {
 }
 
 #: The semantic name each equilibrium family's reconstruction carries in the
-#: #1128 occurrence model (``equilibrium / ids_properties.name``).
+#: IMAS occurrence model (``equilibrium / ids_properties.name``; Open: #1128).
 FAMILY_LINEAGE_NAMES: Mapping[str, str] = {
     "magnetic": "magnetic-efit",
     "electron": "electron-efit",
@@ -276,12 +278,13 @@ FAMILY_LINEAGE_NAMES: Mapping[str, str] = {
 #: The IDS the ``turbulent_transport`` stage owns. ``gyrokinetics_local`` is not
 #: among them: that IDS describes one flux surface, and a state is run on
 #: several, so it would need one occurrence per surface -- an allocation that
-#: belongs to #1128/#1129, not to this transitional layout.
+#: belongs to the occurrence model (Open: #1128/#1129), not to this
+#: transitional layout.
 _TURBULENT_TRANSPORT_IDS: tuple[str, ...] = ("core_transport",)
 
 
 def tglf_configuration(sat_rule: int, field_model: str) -> str:
-    """``tglf-sat<n>-<field>``: the name of one TGLF configuration (#1482).
+    """``tglf-sat<n>-<field>``: the name of one TGLF configuration.
 
     The spelling the routine driver gives its output tree, so a tree, its
     source and its future occurrence name all carry the same string.
@@ -354,9 +357,10 @@ def turbulent_transport_source(family: str, configuration: str) -> str:
 def turbulent_transport_occurrence_name(family: str, configuration: str) -> str:
     """The future ``ids_properties.name`` of one TGLF configuration's IDS.
 
-    This is the migration mapping of #1900: the name the ``core_transport``
-    occurrence carries once #1128/#1129 replace the transitional source with an
-    occurrence. It follows #1128's own example (``dcon-kink-from-kinetic-efit``):
+    This is the migration mapping of the transitional TGLF sources: the name
+    the ``core_transport`` occurrence carries once the occurrence model (Open:
+    #1128/#1129) replaces the transitional source with an occurrence. It
+    follows that model's own naming example (``dcon-kink-from-kinetic-efit``):
     ``{configuration}-from-{lineage}``, where ``lineage`` is the semantic name
     of the reconstruction the state was mapped on.
 
@@ -369,8 +373,8 @@ def turbulent_transport_occurrence_name(family: str, configuration: str) -> str:
     =====================================  ==============  =========================================
 
     The occurrence *integer* is not part of the mapping. It is allocated by the
-    #1129 VEST deployment catalog, which has not assigned one, and choosing it
-    here would pre-empt that allocation.
+    VEST deployment catalog (Open: #1129), which has not assigned one, and
+    choosing it here would pre-empt that allocation.
     """
     parse_tglf_configuration(configuration)
     _family_root(family)
@@ -379,9 +383,10 @@ def turbulent_transport_occurrence_name(family: str, configuration: str) -> str:
 
 @dataclass(frozen=True)
 class OccurrenceMigration:
-    """Where one transitional source's IDS goes in the #1128/#1129 model.
+    """Where one transitional source's IDS goes in the occurrence model.
 
-    ``occurrence`` stays ``None`` until the #1129 VEST deployment catalog
+    The model is not implemented yet (Open: #1128/#1129). ``occurrence`` stays
+    ``None`` until the VEST deployment catalog (Open: #1129)
     allocates one; ``allocated_by`` says who will.
     """
 
@@ -525,8 +530,9 @@ _CATALOG: dict[str, HSDSSource] = {
             sparse=True,
         ),
         # One source per TGLF configuration and family, so alternative
-        # configurations of one state coexist (#1900). Transitional: #1128/#1129
-        # turn each into a named core_transport occurrence.
+        # configurations of one state coexist. Transitional: the occurrence
+        # model (Open: #1128/#1129) turns each into a named core_transport
+        # occurrence.
         *_turbulent_transport_sources(),
         HSDSSource(
             "impa",
@@ -575,7 +581,7 @@ def _check_catalog(catalog: Mapping[str, "HSDSSource"]) -> None:
 
 _check_catalog(_CATALOG)
 
-#: The catalog from issue #56, keyed by namespace name.
+#: The named-source catalog, keyed by namespace name.
 CATALOG: Mapping[str, HSDSSource] = _CATALOG
 
 
@@ -764,7 +770,7 @@ class StageReplication:
     ``optional`` marks a stage the baseline does not depend on: a product that
     is not eligible to publish is *recorded* as skipped rather than raised, so
     an absent or rejected optional diagnostic cannot change the exit state of a
-    pipeline whose required stages all succeeded (issue #305).
+    pipeline whose required stages all succeeded.
     """
 
     source: str | None
@@ -788,7 +794,7 @@ class StageReplication:
 
 #: The one authority for where each stage goes and what of it travels.  A
 #: workflow must consume this rather than restate it, so a destination is never
-#: decided in two places (issues #94, #163).
+#: decided in two places.
 STAGE_REPLICATION: Mapping[str, StageReplication] = {
     # Versioned by machine era, not by shot, so it has no per-shot destination.
     # Its geometry already reaches HSDS inside the diagnostics product, which
@@ -820,7 +826,7 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
     "efit": StageReplication(source=DEFAULT_SOURCE, ids=("equilibrium",)),
     # Owns `magnetics` too, but in its own source: the split is what keeps an
     # optional, campaign-dependent diagnostic out of the baseline product it
-    # would otherwise be appended to (issue #305).
+    # would otherwise be appended to.
     "impa": StageReplication(
         source="impa",
         ids=("magnetics",),
@@ -828,9 +834,9 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
         note="sparse optional diagnostic; an ineligible product is recorded, not raised",
     ),
     # Externally produced profile diagnostics. They reach `main` beside the
-    # baseline they describe, but they are optional in the #305 sense: a shot
-    # without a Thomson or CES upload is the normal case, not a failure, so an
-    # ineligible product is recorded as skipped rather than raised.
+    # baseline they describe, but they are optional in the same sense as
+    # `impa`: a shot without a Thomson or CES upload is the normal case, not a
+    # failure, so an ineligible product is recorded as skipped rather than raised.
     "thomson": StageReplication(
         source=DEFAULT_SOURCE,
         ids=("thomson_scattering",),
@@ -929,9 +935,10 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
     ),
     # Collides with the stability branch on `mhd_linear`, so it is separated by
     # occurrence. Note that lazy HSDS access reads occurrence 0 only, so this
-    # product is eager-read for now. Execution and replication remain #95, and
-    # so does cataloguing its per-product source (`main/chease/ideal-gpec` is
-    # not provisioned): until then this names the same lineage root as
+    # product is eager-read for now. Execution and replication are not wired
+    # yet (Open: #95, how ideal GPEC and DCON coexist), and neither is
+    # cataloguing its per-product source (`main/chease/ideal-gpec` is not
+    # provisioned): until then this names the same lineage root as
     # `mhd_linear`, for the same reason.
     "gpec_ideal": StageReplication(
         source="main/chease",
@@ -945,14 +952,15 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
     # diagnostics stage already publishes. These two own IDS no other stage
     # claims, so they can live in the baseline source without a collision, and
     # a shot that never had a soft X-ray or camera acquisition is simply a shot
-    # without one (issue #599).
+    # without one.
     # Re-owns `core_profiles`, which the corrective profile stage already
     # publishes into the baseline, so it is kept apart by source exactly as the
     # two kinetic EFIT lineages are kept apart from the magnetic baseline. It is
-    # corrective rather than routine on purpose: #550 phase 8 requires promotion
-    # to stay opt-in, so there is no pipeline-1 rule demanding it for every shot,
-    # and on a cold ohmic VEST discharge the bootstrap fraction a campaign-wide
-    # sweep would compute is a percent or two of Ip.
+    # corrective rather than routine on purpose: promoting NEO results into the
+    # kinetic state is opt-in by design, so there is no pipeline-1 rule
+    # demanding it for every shot, and on a cold ohmic VEST discharge the
+    # bootstrap fraction a campaign-wide sweep would compute is a percent or
+    # two of Ip.
     "neoclassical": StageReplication(
         source="kinetic-efit/neoclassical",
         ids=("core_profiles", "core_transport"),
@@ -963,7 +971,7 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
             "vaft.validation.neoclassical.input_readiness"
         ),
     ),
-    # One TGLF configuration's result on one equilibrium family (#1900). Its
+    # One TGLF configuration's result on one equilibrium family. Its
     # destination is a function of the configuration, as `mhd_linear`'s is of
     # the stability product: alternative configurations of one state are
     # separate sources, so none overwrites another. The source named here is
@@ -999,8 +1007,8 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
     # with routine camera on `camera_visible`. Separated by source rather than
     # by occurrence, because lazy HSDS access reads occurrence 0 only and an
     # occurrence split would make this product unreadable through the path the
-    # fluctuation analysis in #161 would use. Verified when the archive was
-    # consolidated: no shot appears in both regimes, so the split costs no
+    # FAST-camera fluctuation (filament) analysis would use. Verified when the
+    # archive was consolidated: no shot appears in both regimes, so the split costs no
     # migration.
     "camera_visible_fluctuation": StageReplication(
         source="camera-visible-fluctuation",
@@ -1012,7 +1020,7 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
     # What the operators *planned* -- diagnostic, heating and gas trigger
     # windows logged in the ShotLog -- as opposed to anything measured. Sparse
     # (the structured card exists only from 2023) and hand-typed, so it is
-    # optional and corrective like the other file-archive diagnostics (#995).
+    # optional and corrective like the other file-archive diagnostics.
     "shotlog": StageReplication(
         source=DEFAULT_SOURCE,
         ids=("pulse_schedule",),
@@ -1095,7 +1103,7 @@ def replication_for_stage(
 
     For `turbulent_transport` the product is a TGLF configuration
     (``tglf-sat<n>-<field>``) and `refinement` does not apply: the destination
-    is the transitional source ``{family root}/{configuration}`` (#1900).
+    is the transitional source ``{family root}/{configuration}``.
     """
     key = _stage_key(stage)
     try:
@@ -1124,8 +1132,8 @@ def replication_for_stage(
     if key == "turbulent_transport":
         # Checked here rather than left to a later catalog lookup, so the error
         # says what a configuration is instead of listing every source. There
-        # is no default configuration, for the reason #1482 removed the
-        # driver's: which SAT rule suits VEST is an open validation question.
+        # is no default configuration, for the same reason the routine driver
+        # has none: which SAT rule suits VEST is an open validation question.
         parse_tglf_configuration(product)
     suffix = template.format(refinement=refinement, product=product)
     return replace(entry, source=f"{root}/{suffix}")

@@ -1,4 +1,4 @@
-"""Serialize the read-merge-replace of one shot's ``master.h5`` (issue #913).
+"""Serialize the read-merge-replace of one shot's ``master.h5``.
 
 A shot's ``master.h5`` names every IDS file beside it, and a write replaces it
 with "what was there, plus this write's IDS". Two writes of one shot that

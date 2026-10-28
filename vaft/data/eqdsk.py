@@ -201,7 +201,7 @@ def _trailing_namelists(lines: list[str]) -> dict[str, dict[str, Any]]:
 
 
 def _per_radian_record(eq: Any) -> Any:
-    """The record with its flux per radian, the storage every g-file uses (#1292).
+    """The record with its flux per radian, the storage every g-file uses.
 
     A g-file is weber per radian by the EFIT convention and :func:`to_omas`
     reads it that way, so a weber-family record (COCOS 11-18) is moved to its
@@ -287,8 +287,8 @@ def from_equilibrium(equilibrium: Any) -> GEQDSK:
     ----------
     A g-file is weber per radian (EFIT), and :func:`to_omas` multiplies its
     flux by ``2*pi`` on the way into an ODS.  A COCOS 11-18 record is therefore
-    converted to its per-radian twin, index - 10, before writing (#1292);
-    before that fix its full-weber flux reached the ODS ``2*pi`` too large.  A
+    converted to its per-radian twin, index - 10, before writing; written
+    as given, its full-weber flux would reach the ODS ``2*pi`` too large.  A
     per-radian record is written unchanged.  A record whose storage family is
     unknown is written as given, as the per-radian fallback the rest of the
     package applies to undeclared records, with a ``UserWarning``.
@@ -343,7 +343,7 @@ def from_equilibrium(equilibrium: Any) -> GEQDSK:
 
 
 def _per_radian_case(case: str) -> str:
-    """A CASE text whose ``COCOS=`` token names the per-radian index this writer stores (#294).
+    """A CASE text whose ``COCOS=`` token names the per-radian index this writer stores.
 
     :func:`from_omas` writes psi per radian; a token copied verbatim from a
     weber-family comment (``COCOS=17``) would declare the other family over it,
@@ -367,7 +367,7 @@ def _geqdsk_convention(geqdsk: GEQDSK) -> Any:
 
 
 def _geqdsk_psi_per_radian(geqdsk: GEQDSK, convention: Any) -> bool | None:
-    """Whether the g-file stores psi per radian, from its data before its CASE token (#294).
+    """Whether the g-file stores psi per radian, from its data before its CASE token.
 
     A CASE ``COCOS=`` token the signs contradict does not decide the family: the
     identification does whenever all its candidates fall on one side of 10 (a
@@ -399,7 +399,7 @@ def _label_cocos(geqdsk: GEQDSK, ods: Any, convention: Any = None) -> int | None
     """Record on the ODS the convention its psi is *in*, not the file's.
 
     :func:`to_omas` converts psi to the Data Dictionary's full weber on the way
-    in (issue #236): a per-radian file's psi-like leaves gain 2*pi and its
+    in: a per-radian file's psi-like leaves gain 2*pi and its
     psi-derivative profiles lose it, and a weber file is copied as it is.  So
     the index written here is the g-file's own index moved into the weber
     family -- COCOS 2 becomes COCOS 12 -- because that is what the ODS now
@@ -584,8 +584,9 @@ def _path_get(ods: Any, path: str, default: Any = None) -> Any:
     """Read ``path`` without creating it.
 
     An OMAS ODS with dynamic path creation materializes a leaf on read, so a
-    probe that merely looked for ``profiles_1d.phi`` used to leave an empty
-    ``phi`` behind on every slice it inspected (issue #478).
+    probe that merely looked for ``profiles_1d.phi`` would leave an empty
+    ``phi`` behind on every slice it inspected, so this one reads without
+    creating paths.
     """
     from vaft.ods_access import path_value
 
@@ -702,7 +703,7 @@ TWO_PI = 2.0 * np.pi
 # number, so a g-file where they disagree is inconsistent with itself.  On the
 # VEST database they disagree badly -- ``BCENTR`` drifts by up to 101% within a
 # single shot while ``FPOL`` holds flat to under 1% -- and ``FPOL`` is the half
-# the Grad-Shafranov solution actually used (issue #325).
+# the Grad-Shafranov solution actually used.
 BCENTR_FPOL_RTOL = 1e-3
 
 
@@ -732,7 +733,7 @@ def vacuum_b0_magnitude(data: Mapping[str, Any]) -> float:
     ``BCENTR`` and ``FPOL`` are flipped independently, and their signs
     legitimately disagree.
 
-    The #325 self-consistency check survives that, compared on magnitudes:
+    The ``BCENTR``/``FPOL`` self-consistency check survives that, compared on magnitudes:
     a sign the caller chose is not a disagreement, but a ``BCENTR`` that has
     drifted away from ``FPOL`` still is, and it is the one thing here worth
     interrupting over.  Dropping the warning would let a VEST g-file whose
@@ -801,7 +802,7 @@ def _vacuum_b0(data: Mapping[str, Any]) -> float:
 #: How a flux-exponent probe reads its inputs: ``read(path)`` returns the value
 #: at a slice-relative path, or ``None``.  Nothing else about the data model is
 #: assumed, which is what lets :mod:`vaft.plot.backend.convention` run the same
-#: ladder over its own accessor instead of a second copy of it (issue #478).
+#: ladder over its own accessor instead of a second copy of it.
 SliceReader = Callable[[str], Any]
 
 
@@ -870,7 +871,7 @@ def _ampere_detail(read: SliceReader) -> tuple[Literal[0, 1] | None, float | Non
     This is :func:`vaft.process.cocos.identify_flux_exponent`, which needs only
     the psi map, the boundary outline and ``Ip`` -- no ``phi``. It is the rung
     that answers for artifacts the slope test cannot reach: an EFIT-pipeline ODS
-    written before issue #236 holds Wb/rad and carries no ``profiles_1d.phi``, so
+    written before VAFT stored psi in Wb holds Wb/rad and carries no ``profiles_1d.phi``, so
     without this the DD default below would silently rescale it by 2*pi.
 
     Prerequisites and Failure Modes
@@ -1045,8 +1046,7 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
     """Factor converting an ODS equilibrium's stored ``psi`` to Wb/rad.
 
     The IMAS Data Dictionary defines ``equilibrium.*.psi`` as the full
-    poloidal flux in Wb (issue #236); ``to_omas`` writes that since the fix,
-    and OMFIT-produced ODSs always did. Legacy VAFT-native artifacts instead
+    poloidal flux in Wb; ``to_omas`` writes that, and OMFIT-produced ODSs always did. Legacy VAFT-native artifacts instead
     hold the g-file's Wb/rad verbatim. The two families are told apart from
     data the file itself carries, strongest evidence first:
 
@@ -1075,7 +1075,7 @@ def ods_psi_to_wb_per_radian_factor(ods: Any, time_index: int = 0) -> float:
     No-Phi Legacy ODS Edge Case & Fallback Mechanics
     -------------------------------------------------
     When legacy ODS artifacts lack ``profiles_1d.phi`` (common in EFIT-pipeline
-    ODS files produced before issue #236), probe 1 cannot evaluate and abstains.
+    ODS files produced before VAFT stored psi in Wb), probe 1 cannot evaluate and abstains.
     The evaluation therefore takes a **shortened path** resting entirely on
     probe 2 (Ampere's law).
 
@@ -1125,7 +1125,7 @@ def _declared_flux_exponent(ods: Any) -> Literal[0, 1] | None:
     """The flux exponent a whole ODS declares through its COCOS index, if any.
 
     A bare time slice carries no declaration and answers ``None``; so does an
-    ODS written before VAFT labelled its output (issue #478).
+    ODS written before VAFT labelled its output.
     """
     if _path_get(ods, "equilibrium") is None:
         return None
@@ -1362,7 +1362,7 @@ _SURFACE_QUANTITIES = (
 
 
 def _boundary_x_points(item: GEQDSK) -> tuple[tuple[float, float], ...]:
-    """The X-points that bound the plasma, for ``boundary.x_point`` (#238).
+    """The X-points that bound the plasma, for ``boundary.x_point``.
 
     Only saddles that :func:`~vaft.process.equilibrium.derive_boundary_representation`
     classifies as *active* -- carrying the boundary flux, with a separatrix the
@@ -1501,10 +1501,10 @@ def to_omas(
 
     eqt = ods[f"equilibrium.time_slice.{time_index}"]
     nw, nh = int(data["NW"]), int(data["NH"])
-    # The IMAS DD defines equilibrium.*.psi as the full poloidal flux in Wb
-    # (issue #236). Most g-files store it per radian (COCOS 1-8), but a file of
+    # The IMAS DD defines equilibrium.*.psi as the full poloidal flux in Wb.
+    # Most g-files store it per radian (COCOS 1-8), but a file of
     # the weber family (COCOS 11-18, e.g. TCV's COCOS 17) stores Wb already, and
-    # scaling that by 2*pi left the ODS (2*pi)^2 off its own family (#294). The
+    # scaling that by 2*pi would leave the ODS (2*pi)^2 off its own family. The
     # file's family comes from its convention: a declared index, else the
     # identification, whose Ampere probe separates the two families by 2*pi.
     # A CASE token the data contradict does not decide it; only an undecidable
@@ -1544,7 +1544,8 @@ def to_omas(
         # No toroidal coordinate is derivable, so write the poloidal one the DD
         # does define -- equilibrium profiles_1d has psi_norm but no
         # rho_pol_norm -- and leave rho_tor_norm unset for the reader to notice.
-        # Filling it with sqrt(psi_N) is what issue #276 is about.
+        # Filling it with sqrt(psi_N) would put a poloidal coordinate under a
+        # toroidal label.
         eqt["profiles_1d.psi_norm"] = np.clip(psi_norm, 0.0, 1.0)
     else:
         eqt["profiles_1d.phi"] = rho_tor_terms.phi
