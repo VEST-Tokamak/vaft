@@ -29,6 +29,7 @@ reduced representations (#1626): ``reduced_representation_hierarchy``,
 ``reduced_representation_hierarchy_compact`` and ``reduction_graph``;
 asymptotic orderings (#1627): ``timescale_hierarchy``, ``spatial_scale_orderings`` (#1739), ``ordering_contract_map`` and
 ``adapter_contract_map`` (#1823);
+separatrix asymptotics (#2152): ``separatrix_q_asymptotics`` and ``xpoint_refinement_hierarchy``;
 plasma-model guide (#1739): ``plasma_model_reduction_map``, ``formalism_axes_map``,
 ``solver_placement_map`` (with ``EXTERNAL_CODES``), ``kinetic_mhd_coupling`` and
 ``reduced_model_ancestry``;
@@ -174,6 +175,8 @@ __all__ = [
     "grad_shafranov_domain_decomposition",
     "fixed_vs_free_boundary_equilibrium",
     "limiter_and_diverted_topologies",
+    "separatrix_q_asymptotics",
+    "xpoint_refinement_hierarchy",
     "equilibrium_problem_taxonomy",
     "poloidal_flux_source_decomposition",
     "current_to_q_profile",
@@ -413,6 +416,8 @@ _LOCATIONS = {
     "grad_shafranov_domain_decomposition": "._gs_equilibrium",
     "fixed_vs_free_boundary_equilibrium": "._gs_equilibrium",
     "limiter_and_diverted_topologies": "._gs_equilibrium",
+    "separatrix_q_asymptotics": "._separatrix",
+    "xpoint_refinement_hierarchy": "._separatrix",
     "equilibrium_problem_taxonomy": "._gs_equilibrium",
     "poloidal_flux_source_decomposition": "._gs_equilibrium",
     "current_to_q_profile": "._cylindrical_modes",

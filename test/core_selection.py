@@ -451,6 +451,10 @@ CORE_MODULES: tuple[str, ...] = (
     # Ballooning normalisations (#1637): the volume shear and alpha reduce exactly
     # to s-hat and the CHT alpha for circular large-aspect-ratio surfaces.
     "test_formula_ballooning_normalisation.py",
+    # Separatrix q asymptotics and X-point geometry (#2152): the formulas called, and the
+    # q traced on analytic Solov'ev field lines against the X-point coefficient. Under 30 s.
+    "test_diagram_separatrix.py",
+    "test_formula_separatrix.py",
     # DCON local-criterion and edge-scan post-processing (lane N, #940) on the
     # real #792 DCON fixtures mapped through mhd_linear. Under 10 s.
     "test_process_mhd_stability.py",
