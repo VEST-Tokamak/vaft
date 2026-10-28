@@ -96,12 +96,12 @@ PROBE_LENGTH = 0.01
 #: of +0.85 with 62 of 63 probes positive; shot 41672 gives +0.84 with 59 of 63.
 #: See ``test_probe_orientation_is_established_from_the_coil_forward_model``.
 #:
-#: This value was ``pi/2`` until the audit for issue #288.  That was not a
-#: standalone error: the consumer in :mod:`vaft.omas.vacuum_magnetics` projected
-#: with ``(cos, +sin)``, the counter-clockwise reading, so the two cancelled and
-#: VAFT's own analysis was self-consistent.  What was wrong was the value written
-#: into the IDS, which told any DD-conformant reader that the probes measure
-#: ``-Bz``.  The stored angle and the projection must move together.
+#: Storing ``pi/2`` instead is not a standalone error if the consumer in
+#: :mod:`vaft.omas.vacuum_magnetics` projects with ``(cos, +sin)``, the
+#: counter-clockwise reading: the two cancel and VAFT's own analysis stays
+#: self-consistent.  The IDS value is still wrong, because it tells any
+#: DD-conformant reader that the probes measure ``-Bz``.  The stored angle and
+#: the projection must move together.
 POLOIDAL_ANGLE = 3 * math.pi / 2
 #: ``toroidal_angle`` is deliberately **not** written for these probes.
 #:
@@ -112,15 +112,15 @@ POLOIDAL_ANGLE = 3 * math.pi / 2
 #: projection, so there is no angle to write.  ``poloidal_angle`` alone fully
 #: specifies the orientation.
 #:
-#: Until issue #725 this field carried the probe's toroidal *position*: 0.0 for
-#: the equilibrium probes and the position angle for the reference and
-#: fluctuation arrays.  Both are wrong, and not only by convention.  0.0 says
-#: the normal is parallel to grad(R), which declares a *radial* (B_R) sensor,
-#: and the position angles fall outside the range the DD allows at all.  It
-#: also reached the analysis: `vaft.plot` prefers this field over
-#: ``position.phi`` when deciding where a probe sits, so the toroidal
-#: mode-number fit was reading 0 for all 64 equilibrium probes while they
-#: physically sit at three distinct angles.
+#: Writing the probe's toroidal *position* here instead (0.0 for the
+#: equilibrium probes, the position angle for the reference and fluctuation
+#: arrays) is wrong, and not only by convention.  0.0 says the normal is
+#: parallel to grad(R), which declares a *radial* (B_R) sensor, and the
+#: position angles fall outside the range the DD allows at all.  It also
+#: reaches the analysis: `vaft.plot` prefers this field over ``position.phi``
+#: when deciding where a probe sits, so the toroidal mode-number fit would read
+#: 0 for all 64 equilibrium probes while they physically sit at three distinct
+#: angles.
 MIRNOV_TYPE_INDEX = 2
 # Poloidal-probe and flux-loop families, by position. These are the boundaries
 # the EFIT k-file writer submits constraints by (vaft.code.efit.kfile), kept
@@ -144,7 +144,9 @@ OUTBOARD_FLUX_LOOP_MIN_R = 0.5
 #:
 #: These are **clock positions, not IMAS phi** -- see
 #: :func:`vaft.machine_mapping.conventions.port_toroidal_angle` for the
-#: negation between the two, and issue #718 for why the distinction matters.
+#: negation between the two: the clock numbering runs clockwise, IMAS ``phi``
+#: counter-clockwise, so a clock angle used as ``phi`` mirrors the toroidal
+#: direction.
 EQUILIBRIUM_PROBE_CLOCK = {
     "inboard": 1.0,
     "side": 4.0,
@@ -185,11 +187,12 @@ LIMITER_SHUNT_CHANNELS = (
 LIMITER_SHUNT_RESISTANCE = 0.1
 LIMITER_SHUNT_BASELINE_WINDOW = (0.0, 0.2)
 
-#: Scale and sign of the stored diamagnetic flux (#1196): the donor's value,
-#: positive for a paramagnetic plasma in VEST's positive toroidal field.
+#: Scale and sign of the stored diamagnetic flux: the donor's value, positive
+#: for a paramagnetic plasma in VEST's positive toroidal field.
 DIAMAGNETIC_FLUX_SCALE = 1000.0
 #: Written into `magnetics.diamagnetic_flux[0].method_name`, so a product can
-#: be told from one mapped before #1196, whose flux carries the opposite sign.
+#: be told from one mapped under the earlier convention, whose flux carries the
+#: opposite sign.
 DIAMAGNETIC_FLUX_SIGN_CONVENTION = "sign paramagnetic-positive (#1196)"
 
 
@@ -214,8 +217,8 @@ def _safe_vest_load(
 def _channel_definition(record: SensorRecord) -> dict[str, Any]:
     """The ``{field_code, kind, calibration}`` row the channel consumers take.
 
-    The key order and value types are the ones these rows have always had, so
-    the public structures built from them are unchanged by #2158.
+    The key order and value types are fixed: the public structures built from
+    these rows depend on them.
     """
     return {
         "field_code": int(record.field_code),
@@ -263,14 +266,14 @@ def equilibrium_sensor_families(
     is decided by the shot's registry geometry (:func:`~vaft.machine_mapping.
     magnetics_registry.resolve_equilibrium_magnetics_sensors`) of the sensor
     its ``identifier`` names, with the boundaries above -- not by the position
-    the product happens to carry, nor by where in the array it sits (#2164).
+    the product happens to carry, nor by where in the array it sits.
     A probe in several families is in each (the boundaries make them
     disjoint on VEST). A channel the registry cannot name for *shot* raises,
     because a family it cannot place it in would silently drop a constraint
     or weight it as the wrong one.
 
     The key is the shot-era DAQ label, which a wiring revision can move
-    between positions (#956). Two guards cover what that could hide: two
+    between positions. Two guards cover what that could hide: two
     channels with one label raise, and a channel whose carried position would
     put it in a different family than the registry does warns -- the product
     was mapped with another era's labels, or its geometry is stale -- and the
@@ -352,7 +355,7 @@ def vest_equilibrium_magnetics_channel_definitions(
     (:func:`magnetics_wiring_for_shot`); without, the 2409 base the
     ``vest.yaml`` sensor registry lists. Kinds and order are the same either
     way. Built from :func:`~vaft.machine_mapping.magnetics_registry.
-    resolve_equilibrium_magnetics_sensors` (#2158).
+    resolve_equilibrium_magnetics_sensors`.
     """
     records = resolve_equilibrium_magnetics_sensors(None if shot is None else int(shot))
     return tuple(_channel_definition(record) for record in records)
@@ -360,8 +363,9 @@ def vest_equilibrium_magnetics_channel_definitions(
 
 #: Every outboard fluctuation-Mirnov identifier, parsed strictly rather than by
 #: substring. ``sub_array`` and ``position`` are *derived* at load time from the
-#: identifier -- issue #155 forbids storing an ``L1``/``L2`` layer key in the
-#: configuration, since the identifier already carries it.
+#: identifier -- the configuration deliberately stores no ``L1``/``L2`` layer
+#: key, since the identifier already carries it and a second copy could
+#: disagree with it.
 _FLUCTUATION_IDENTIFIER = re.compile(
     r"^OutMirnov_(?P<angle>45|135|225)_(?P<sub_array>L[12])-(?P<position>0[1-5])$"
 )
@@ -594,8 +598,8 @@ def _fluctuation_mirnov_gains() -> dict[str, float]:
     gains: dict[str, float] = {}
     # The whole table, not only the published inventory.  A field the
     # equilibrium probes already read is no longer *published* as a
-    # ``:phase_reference`` entry (issue #825), but replicas mapped before that
-    # fix still carry ``MagneticFieldProbe_C2-05_Bz:phase_reference``; keeping
+    # ``:phase_reference`` entry (one acquired channel is one ODS entry), but
+    # replicas mapped before that rule still carry ``MagneticFieldProbe_C2-05_Bz:phase_reference``; keeping
     # its gain here as a legacy alias means their raw voltage is still divided
     # by 0.004529, not silently by 1.  A key nobody publishes costs nothing.
     for channel in TOROIDAL_MIRNOV_REFERENCE_CHANNELS:
@@ -629,17 +633,17 @@ OUTBOARD_MIRNOV_MAJOR_RADIUS = float(_fluctuation_mirnov_config()["geometry"]["m
 
 #: The phase-reference outboard Mirnov channels, derived from ``vest.yaml``.
 #:
-#: Their names encode their positions: ``OutMirnov_130`` is at 1:30.  Until
-#: issue #718 they carried hardcoded ``phi`` of 0, 2pi/3, pi and 4pi/3 -- a
-#: *relative* frame anchored on the first channel, a uniform -45 deg from the
+#: Their names encode their positions: ``OutMirnov_130`` is at 1:30.  The
+#: clock position is the source datum and ``phi`` is derived from it.  The
+#: hardcoded ``phi`` of 0, 2pi/3, pi and 4pi/3 that earlier versions stored is
+#: a *relative* frame anchored on the first channel, a uniform -45 deg from the
 #: clock angles the names themselves state, and clockwise-positive besides.
-#: The clock position is the source datum now and ``phi`` is derived.
 #:
 #: This is the **inventory**, un-gated.  These probes stop existing after
 #: :data:`TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT`; use
 #: :func:`toroidal_mirnov_reference_channels` to get the set a given shot
 #: actually has.  Field 171 is disputed -- see the ``toroidal_mirnov_reference``
-#: block in ``vest.yaml`` and issue #825 -- and is never *published* from this
+#: block in ``vest.yaml``, whose ``disputed`` entry records the evidence -- and is never *published* from this
 #: table, because the equilibrium probes already read it; the accessor applies
 #: that rule, this table only records the claim.
 TOROIDAL_MIRNOV_REFERENCE_CHANNELS = tuple(
@@ -662,7 +666,8 @@ TOROIDAL_MIRNOV_REFERENCE_CHANNELS = tuple(
 #: magnetics log bounds 207 at 35520 and the archives for 44740 and 45531 carry
 #: none of 207/209/241 -- but they *do* carry 171, which the same logs class as
 #: outboard equilibrium probe ``Bz C2 05``.  Bounding 171 with the others would
-#: drop a channel whose data exists, and would settle issue #825 by side effect.
+#: drop a channel whose data exists, and would settle the field-171 dispute by
+#: side effect.
 TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT: dict[int, int] = {
     int(channel["field"]): int(channel["last_operational_shot"])
     for channel in _toroidal_mirnov_reference_config()["channels"]
@@ -684,8 +689,9 @@ TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT: dict[int, int] = {
 #: So a channel that did not record is published as an empty entry with
 #: ``validity = -2`` -- "no datum here" -- rather than omitted.  That is the
 #: honest statement when the alternative is a boundary nobody wrote down:
-#: inventing one would silently drop real channels, and issue #843 is what
-#: acting on an unverified probe table costs.
+#: inventing one would silently drop real channels.  Acting on an unverified
+#: probe table has cost VAFT before: a stale geometry file that disagreed with
+#: the machine logs once published five probes at the wrong height.
 EQUILIBRIUM_PROBE_SHOT_HISTORY_IS_UNRECORDED = True
 
 
@@ -694,7 +700,7 @@ def toroidal_array_for_shot(shot: int) -> dict[str, Any]:
 
     VEST has had two, and a gap between them.  Up to shot 35520 the
     phase-reference channels at clock 1:30, 5:30 and 7:30 (the disputed 9:30
-    entry of issue #825 is field 171, which the equilibrium probes already
+    entry is field 171, which the equilibrium probes already
     read, so it is not a phase reference here); from shot 44156 the 30-channel
     outboard fluctuation array at clock 45, 135 and 225 degrees.  Between those
     boundaries nothing recorded at more than one toroidal position, so no
@@ -760,7 +766,7 @@ def _equilibrium_probe_field_codes(shot: int = 0) -> frozenset[int]:
     """The raw fields the 64 equilibrium probes read for ``shot``.
 
     ``shot=0`` is the inventory: the registry's own 2409 fields.  A discharge
-    reads its era's wiring (issue #956), which can move a field between
+    reads its era's wiring, which can move a field between
     positions -- so the set is resolved per shot rather than assumed.
     """
     records = resolve_equilibrium_magnetics_sensors(int(shot) if shot else None)
@@ -779,7 +785,7 @@ def toroidal_mirnov_reference_channels(shot: int = 0) -> tuple[dict[str, Any], .
     published again as a phase reference, for any shot including the
     inventory.  One acquired channel is one ODS entry: publishing it twice put
     one waveform at two toroidal angles, and a toroidal mode fit across the two
-    copies measured a signal against itself (issues #724, #825).  That is what
+    copies measured a signal against itself.  That is what
     happens to field 171 -- ``MagneticFieldProbe_C2-05_Bz`` -- which the
     magnetics logs class as outboard equilibrium probe ``Bz C2 05`` at 5:30 and
     which TOROIDAL_MIRNOV_REFERENCE_CHANNELS still lists at 9:30, disputed.  The
@@ -806,10 +812,9 @@ class UnsupportedMagneticsGeometryError(NotImplementedError):
     """Raised when a shot needs a magnetics geometry this repository lacks."""
 
 
-# Shots that need a probe layout this repository has no record of. Issue #195
-# section 5 put 39204 here because the archived VFIT source switches it alone
-# to `ver_2310`; issue #956 tested that switch against the raw signals and it
-# does not hold -- 39204 follows the pre-39438 layout like every shot around
+# Shots that need a probe layout this repository has no record of. 39204 was
+# once listed here because the archived VFIT source switches it alone to
+# `ver_2310`; tested against the raw signals, that switch does not hold -- 39204 follows the pre-39438 layout like every shot around
 # it, which the `wiring` revision in vest.yaml now applies. The guard stays
 # for a future shot whose layout is genuinely unknown.
 UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS: dict[int, str] = {}
@@ -834,11 +839,11 @@ def require_supported_magnetics_geometry(shot: int | None) -> None:
 class MagneticsWiring:
     """Which raw field and calibration feed each equilibrium probe for a shot.
 
-    ``channels`` is the ``vest.yaml`` sensor registry (#2158) with the shot's
+    ``channels`` is the ``vest.yaml`` sensor registry with the shot's
     ``probe_overrides`` applied, in canonical order: entry ``i`` is sensor
     ``i``. The probe *positions* do not move; their signal source does, and so
     does the DAQ label the ODS ``name``/``identifier`` carries, because a label
-    names the field a position reads (#2148 audit section 2).
+    names the field a position reads.
     """
 
     layout: str
@@ -861,7 +866,7 @@ def _equilibrium_magnetics_revision(shot: int, name: str) -> tuple[dict[str, Any
 def _pinned_channel_index(entry: Mapping[str, Any], kind: str, *, context: str) -> int:
     """The IDS index of the *kind* channel *entry* names, checked against its position.
 
-    ``{id: ...}`` names the sensor (#2158). The legacy ``{index, r, z}`` form
+    ``{id: ...}`` names the sensor. The legacy ``{index, r, z}`` form
     is the validated adapter: ``index`` counts within *kind*
     (``flux_loop[3]`` is the fourth loop), the way the IDS and the validation
     layer address channels, and ``r``/``z`` pin it, so an entry cannot silently
@@ -876,7 +881,7 @@ def _pinned_probe_index(entry: Mapping[str, Any], *, context: str) -> int:
 
 
 def magnetics_wiring_for_shot(shot: int) -> MagneticsWiring:
-    """Resolve the shot's probe wiring from vest.yaml (issues #956, #2158).
+    """Resolve the shot's probe wiring from vest.yaml.
 
     A view of :func:`~vaft.machine_mapping.magnetics_registry.
     resolve_equilibrium_magnetics_registry`; the registry validates that no
@@ -895,7 +900,7 @@ def magnetics_wiring_for_shot(shot: int) -> MagneticsWiring:
 def known_magnetics_faults(shot: int) -> dict[tuple[str, int], str]:
     """``{(kind, index): reason}`` for channels vest.yaml records as broken on *shot*.
 
-    Entries name the sensor by ``id`` (#2158); the returned key is still the
+    Entries name the sensor by ``id``; the returned key is still the
     ``(kind, index within that kind's IDS array)`` the validation layer
     addresses channels by. ``probes`` and ``flux_loops`` are separate lists.
     """
@@ -987,7 +992,8 @@ def _interpolate_signal(target_time: np.ndarray, source_time: np.ndarray, values
     # ref = -1 path; a reference shot adds an FIR low pass): integration
     # attenuates high frequencies as 1/f but does not band-limit, so a source
     # faster than the target can fold. Whether that matters is unverified
-    # (#2147 audit finding 4, Phase D #2166); no filter is added without it.
+    # (Open: #2166, independent validation of the consolidated preprocessing);
+    # no filter is added without it.
     # anti-alias: same-grid for probes/loops; unverified for Ip/diamagnetic (above).
     return np.interp(target_time, source_time, values)
 
@@ -1087,7 +1093,7 @@ def _linear_baseline_subtract(time: np.ndarray, values: np.ndarray, x_base: np.n
 
     ``nan_policy="propagate"`` keeps this chain's historical behaviour: a NaN
     inside the window makes the whole corrected trace NaN rather than being
-    skipped, as the probe and flux-loop chains do (#2162).
+    skipped, as the probe and flux-loop chains do.
     """
     corrected, _ = subtract_baseline(time, values, x_base, fitting_opt="polyfit", nan_policy="propagate")
     return corrected
@@ -1127,7 +1133,7 @@ def _apply_fl10_windowed_compensation(
 
     # FL10 raw signal is a loop VOLTAGE here (never integrated), so the
     # divisor must be in ohms for the result to be a current -- see
-    # `vest_flux_loop_voltage` for the integrated flux path (issue #214).
+    # `vest_flux_loop_voltage` for the integrated flux path.
     ip_ref = decimated_flux * float(fl10_config["gain_numerator"]) / effective_resistance
 
     # Donor: `ipRef = ipRef - polyval(polyfit(time2(1), ipRef(175), 1), time2)`
@@ -1180,7 +1186,7 @@ def vest_plasma_rogowski_current(
     compensation, or the shot-era sign convention that together turn it into
     the plasma-current estimate.  It is the single definition of the Rogowski
     calibration used by both :func:`vfit_plasma_current` and the
-    ``magnetics.rogowski_coil[0].current`` mapping (issue #215).
+    ``magnetics.rogowski_coil[0].current`` mapping.
     """
     config, _, _, _ = _plasma_processing_for_shot(shot)
     plasma_field = int(config["source"]["field"])
@@ -1203,10 +1209,9 @@ def vfit_plasma_current(
     """Return the processed plasma-current waveform.
 
     Composition of :func:`vest_plasma_rogowski_current` with the shot-era
-    baseline, FL10 compensation, and sign convention -- numerically unchanged
-    by the issue-#215 split. With a reference shot (``ref``), the comparison
-    filter's declared rate is checked against the record and the result put
-    in ``acquisition_report`` (#2159).
+    baseline, FL10 compensation, and sign convention. With a reference shot
+    (``ref``), the comparison filter's declared rate is checked against the
+    record and the result put in ``acquisition_report``.
     """
     config, reference_config, baseline_config, sign_config = _plasma_processing_for_shot(shot)
     plasma_field = int(config["source"]["field"])
@@ -1217,13 +1222,14 @@ def vfit_plasma_current(
 
         mode = reference_config.get("mode", "subtract")
         if mode == "disabled":
-            # Shot >= 47117 (#195): the FL10 waveform must not affect the
-            # resulting plasma current at all.
+            # Shot >= 47117: the inboard limiter is carbon, so FL10 no longer
+            # tracks an induced limiter current (see the `reference` revisions
+            # in vest.yaml) and must not affect the resulting plasma current.
             ip = ip_shot * float(sign_config["multiply"])
             return time, ip
 
         if mode == "subtract_fl10_windowed":
-            # Shots 46403-47116 (#195): later-era FL10 acquisition path,
+            # Shots 46403-47116: later-era FL10 acquisition path,
             # subtracted only inside the documented compensation window.
             ip_shot = _apply_fl10_windowed_compensation(
                 shot, time, ip_shot, reference_config, raw_source
@@ -1231,7 +1237,7 @@ def vfit_plasma_current(
             ip = ip_shot * float(sign_config["multiply"])
             return time, ip
 
-        # Legacy full-trace subtraction (default, unchanged since #135).
+        # Legacy full-trace baseline-matched subtraction (the default mode).
         x_flux_loop = int(reference_config["field"])
         effective_resistance = float(reference_config["effective_resistance_ohm"])
         flux_time, raw_flux = raw_db.require_signal(
@@ -1249,7 +1255,7 @@ def vfit_plasma_current(
         # `raw_flux` is FL10's loop VOLTAGE, deliberately not integrated:
         # V / R gives the current-equivalent reference subtracted from the
         # Rogowski measurement.  Dividing by an inductance instead would give
-        # A/s, which is not subtractable from a current (issue #214).
+        # A/s, which is not subtractable from a current.
         #
         # The subtracted quantity is a proxy for the induced current in the
         # tungsten limiter surrounding the CS wall -- not a general vessel
@@ -1280,7 +1286,7 @@ def vfit_plasma_current(
         reference_values = np.interp(time, reference_time, reference_values)
 
     comparison = config["processing"]["reference_comparison"]
-    # The comparison filter is designed at the declared rate (#2159).
+    # The comparison filter is designed at the declared rate, so check it.
     acquisition = check_declared_sample_rate(
         time, comparison["sample_rate"], cutoff_hz=comparison["cutoff_frequency"]
     )
@@ -1313,7 +1319,8 @@ def diamagnetic_field_for_shot(shot: int) -> int | None:
     """The raw field carrying the diamagnetic (TF Rogowski) signal, or ``None``.
 
     ``None`` when `vest.yaml` records no usable sensor for the shot -- none
-    installed yet, or a known fault period (#993).
+    installed yet, or a known fault period (the channel history was re-derived
+    from the raw archive; record: #993).
     """
     source = _diamagnetic_config(shot).get("source")
     if not source or source.get("field") is None:
@@ -1408,8 +1415,8 @@ def diamagnetic_saturation_report(
     """Report acquisition-limit saturation on the diamagnetic Rogowski channel.
 
     Detection only -- no integration, no repair. This is the seam a validity
-    mapper should call (`magnetics.rogowski_coil[:].current.validity`, issue
-    #215) so that saturation is detected in exactly one place.
+    mapper should call (`magnetics.rogowski_coil[:].current.validity`) so
+    that saturation is detected in exactly one place.
     """
     config = _diamagnetic_config(shot)
     field_code = _diamagnetic_field(shot, "diamagnetic flux")
@@ -1445,14 +1452,13 @@ def vest_diamagnetic_rogowski_current(
     This is the sensor-level quantity feeding the diamagnetic-flux
     calculation, before the reference-waveform subtraction that produces
     ``delta_i_tf``. ``delta_i_tf`` depends on the chosen plasma interval, so it
-    is this signal that is stored as ``magnetics.rogowski_coil[1].current``
-    (issue #215).
+    is this signal that is stored as ``magnetics.rogowski_coil[1].current``.
 
     It reads the same `diamagnetic_flux` configuration and applies the same
     `repair_clipped_interval` primitive as
     :func:`vest_diamagnetic_flux_detailed`, so the stored sensor current is the
-    waveform the flux is actually derived from -- saturation repair of issue
-    #285 included. It stops at the first integration rather than running the
+    waveform the flux is actually derived from -- repair of the +-5 V
+    acquisition clipping included. It stops at the first integration rather than running the
     full triple-integration chain, and `test_rogowski_coil_mapping` pins the
     two against each other so the shared expression cannot drift.
     """
@@ -1595,7 +1601,7 @@ def vest_diamagnetic_flux_detailed(
 
     # Signed as the donor's `DiaFlux - Baseline2` (VEST_DiamagneticFlux.m) and
     # as EFIT's cdflux = integral (B_t - B_tv) dA: positive for a paramagnetic
-    # plasma (#1196).  The factor 1000 reproduces the donor's scale, which
+    # plasma.  The factor 1000 reproduces the donor's scale, which
     # integrates per sample in milliseconds; the port once also negated it,
     # which the donor never did.
     dia_flux_final = DIAMAGNETIC_FLUX_SCALE * (dia_flux - baseline)
@@ -1678,8 +1684,8 @@ def vfit_equilibrium_magnetics_detailed(
 
     Shot-era resolution is identical to `vfit_equilibrium_magnetics`: an
     explicit ``processing_config`` wins, otherwise the era policy comes from
-    ``vest.yaml`` (issue #195). ``acquisition_report`` collects each probe's
-    declared-versus-observed sample-rate check (#2159).
+    ``vest.yaml``. ``acquisition_report`` collects each probe's
+    declared-versus-observed sample-rate check.
     """
     require_supported_magnetics_geometry(int(shot))
     config = (
@@ -1712,7 +1718,7 @@ def vfit_equilibrium_magnetics(
 
     An explicitly supplied ``processing_config`` still wins, preserving the
     existing override path used for parameter scans; otherwise the shot-era
-    policy is resolved from ``vest.yaml`` (issue #195).
+    policy is resolved from ``vest.yaml``.
     """
     result = vfit_equilibrium_magnetics_detailed(
         shot,
@@ -1763,8 +1769,8 @@ def _equilibrium_probe_phi(r: float, z: float, name: str) -> float | None:
     ``SIDE_PROBE_MIN_ABS_Z`` / ``OUTBOARD_PROBE_MIN_R`` boundaries classify a
     probe and :data:`EQUILIBRIUM_PROBE_CLOCK` places it.
 
-    A probe matching no family gets **no** ``phi`` at all.  Writing 0.0 there,
-    as this did before issue #718, states a toroidal position the machine
+    A probe matching no family gets **no** ``phi`` at all.  Writing 0.0 there
+    would state a toroidal position the machine
     description does not have -- and 0.0 is a real place (12 o'clock), so a
     reader cannot tell the placeholder from a measurement.
     """
@@ -1785,8 +1791,8 @@ def _equilibrium_probe_phi(r: float, z: float, name: str) -> float | None:
 
 def _populate_probe_static(ods: object, shot: int = 0) -> None:
     # A record's name is the DAQ label of the raw field it reads, so it labels
-    # the channel a position reads. For a discharge that is the shot's wiring
-    # (#956); the era inventory (shot 0) keeps the 2409 labels the registry
+    # the channel a position reads. For a discharge that is the shot's wiring;
+    # the era inventory (shot 0) keeps the 2409 labels the registry
     # lists.
     probe_index = 0
     for record in resolve_equilibrium_magnetics_sensors(int(shot) if shot else None):
@@ -1822,7 +1828,7 @@ def _populate_probe_static(ods: object, shot: int = 0) -> None:
 
 
 def _populate_fluctuation_mirnov_static(ods: object, shot: int = 0) -> None:
-    """Append the 45/135/225 deg outboard fluctuation-Mirnov array (issue #155).
+    """Append the 45/135/225 deg outboard fluctuation-Mirnov array.
 
     Continues the existing ``b_field_pol_probe`` index sequence so equilibrium
     probe ordering/indices are never shifted. Only called for shots at or
@@ -1839,7 +1845,7 @@ def _populate_fluctuation_mirnov_static(ods: object, shot: int = 0) -> None:
         # ``toroidal_angle_deg`` is the VEST *clock* angle the identifier
         # carries (``OutMirnov_45_L1-01`` is at 45 deg of clock angle, i.e.
         # 1:30).  It is clockwise-positive, so it is negated on the way into
-        # the IDS rather than written through as if it were phi -- issue #718.
+        # the IDS rather than written through as if it were phi.
         phi = clock_angle_to_toroidal_angle(float(channel["toroidal_angle_deg"]))
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.position.phi", phi)
         set_path(ods, f"magnetics.b_field_pol_probe.{probe_index}.length", PROBE_LENGTH)
@@ -1886,9 +1892,9 @@ def vfit_magnetics_static(ods: object, shot: int = 0) -> None:
     """Populate static magnetics metadata from the ``vest.yaml`` sensor registry.
 
     Probe and flux-loop names, positions and order come from
-    :func:`~vaft.machine_mapping.magnetics_registry.resolve_equilibrium_magnetics_sensors`
-    (#2158); the phase-reference Mirnovs from the ``toroidal_mirnov_reference``
-    block, and the limiter shunts from :data:`LIMITER_SHUNT_CHANNELS`. The
+    :func:`~vaft.machine_mapping.magnetics_registry.resolve_equilibrium_magnetics_sensors`;
+    the phase-reference Mirnovs from the ``toroidal_mirnov_reference`` block,
+    and the limiter shunts from :data:`LIMITER_SHUNT_CHANNELS`. The
     fluctuation-Mirnov array is not part of this static set: the dynamic
     mapper appends it for shots that have it.
 
@@ -1982,7 +1988,7 @@ def _map_flux_loops(
     tstart: float | None = None,
     tend: float | None = None,
 ) -> None:
-    """Map flux-loop terminal voltage and integrated flux (issue #209).
+    """Map flux-loop terminal voltage and integrated flux.
 
     The processing chain is kept explicit and quantity-specific::
 
@@ -2059,7 +2065,7 @@ def _map_rogowski_coils(
     tstart: float | None = None,
     tend: float | None = None,
 ) -> None:
-    """Map the two physical VEST Rogowski sensors (issue #215).
+    """Map the two physical VEST Rogowski sensors.
 
     VEST processes two Rogowski coils but previously stored only what they were
     processed *into*.  Both are now represented as measurements in their own
@@ -2078,7 +2084,7 @@ def _map_rogowski_coils(
     The stored current is the sensor-level quantity in both cases, never the
     processing intermediate and never reconstructed from the derived product.
     Currents keep their native acquisition timebase, cropped to the analysis
-    window, exactly as the flux-loop and Mirnov voltages do (issue #209).
+    window, exactly as the flux-loop and Mirnov voltages do.
     """
     # The quality verdict needs the full record (the quiet stretches lie outside
     # the analysis window the stored current is cropped to), so the loader keeps
@@ -2104,7 +2110,7 @@ def _map_rogowski_coils(
         loader=load_plasma_rogowski,
         # Calibration only, no reconstruction. What can be asserted is whether
         # the sensor records a current at all: hundreds of kA outside the
-        # discharge window cannot be one (#1373), and is the only evidence
+        # discharge window cannot be one, and is the only evidence
         # categorical enough to fail the channel.
         validity=lambda _n: _plasma_rogowski_validity(plasma_record["native"]),
         tstart=tstart,
@@ -2131,7 +2137,7 @@ def _map_rogowski_coils(
 
 
 def _plasma_rogowski_validity(native: tuple[np.ndarray, np.ndarray]) -> int:
-    """Whole-record validity of the plasma-current Rogowski (#1373).
+    """Whole-record validity of the plasma-current Rogowski.
 
     Imported here rather than at module scope: the mapping layer otherwise has
     no dependency on ``vaft.validation``, and this keeps it that way at import.
@@ -2195,7 +2201,7 @@ def _map_one_rogowski_coil(
         # deliberately propagates: a caller asking for plasma current has not
         # asked for the diamagnetic channel, so an unrecoverable waveform on
         # one sensor must degrade that sensor rather than fail the whole
-        # magnetics component (issue #285 interaction).
+        # magnetics component (the clipping repair can fail on this channel).
         _set_current_signal(ods, base, np.array([], dtype=float), np.array([], dtype=float), -2)
         return
 
@@ -2205,8 +2211,8 @@ def _map_one_rogowski_coil(
         return
     # A repaired sample is an interpolation, not a measurement, so a waveform
     # containing any must not be published as `validity = 0` ("valid from
-    # automated processing"). This is the structured home for the issue-#285
-    # saturation outcome that `_map_diamagnetic_flux` points at.
+    # automated processing"). This is the structured home for the
+    # clipping-saturation outcome that `_map_diamagnetic_flux` points at.
     _set_current_signal(ods, base, time, data, validity(len(data)))
 
 
@@ -2534,7 +2540,7 @@ def _map_diamagnetic_flux(
 ) -> None:
     # A shot with no sensor raises here, before H-alpha is read for a window
     # nothing will use -- the same error vest_diamagnetic_flux_detailed raises,
-    # and what raw_sources("magnetics.diamagnetic_flux") reports (#1742).
+    # and what raw_sources("magnetics.diamagnetic_flux") reports.
     _diamagnetic_field(shot, "diamagnetic flux")
     window = detect_plasma_window(shot, ip_time, ip, raw_source)
 
@@ -2545,8 +2551,8 @@ def _map_diamagnetic_flux(
     set_path(ods, "magnetics.diamagnetic_flux.0.time", target_time)
     # The IMAS DD has no `validity` under `magnetics.diamagnetic_flux`, so the
     # saturation outcome is recorded in the one string field it does offer.
-    # `magnetics.rogowski_coil[:].current.validity` is the structured home and
-    # belongs to issue #215; it can call `diamagnetic_saturation_report`.
+    # `magnetics.rogowski_coil[:].current.validity` is the structured home; it
+    # is set through `diamagnetic_saturation_report`.
     set_path(ods, "magnetics.diamagnetic_flux.0.method_name", _diamagnetic_method_name(report, window))
 
 
@@ -2565,11 +2571,12 @@ def vfit_magnetics_dynamic(
     """Populate dynamic magnetics nodes from required raw waveforms.
 
     ``acquisition_report`` collects each probe's declared-versus-observed
-    sample-rate check (#2159); it does not change what is mapped.
+    sample-rate check; it does not change what is mapped.
 
     Returns ``{signal: reason}`` for the signals left out because they could
     not be reconstructed -- today only ``"diamagnetic_flux"``. The diamagnetic
-    loop is one channel with its own acquisition history (#993): when it
+    loop is one channel with its own acquisition history (vest.yaml
+    ``diamagnetic_flux.revisions``): when it
     carries nothing usable (pinned at the ADC rail for the whole record, or
     not archived) its node is simply not written, rather than the probes,
     flux loops and Ip going down with it. Nothing is fabricated; the caller
@@ -2714,7 +2721,7 @@ def ip_rogowski_coil_from_raw_database(
     ip_time, ip = vfit_plasma_current(shot, raw_source=raw_source)
     target_time = _build_target_time(ip_time, tstart, tend, dt)
     _set_magnetics_properties(ods)
-    # The sensor itself, not only what it was processed into (issue #215):
+    # The sensor itself, not only what it was processed into:
     # which entry point a caller reaches for must not decide whether the
     # physical coil appears.
     _map_rogowski_coils(ods, shot, raw_source=raw_source, tstart=tstart, tend=tend)
@@ -2738,7 +2745,7 @@ def diamagnetic_flux_rogowski_coil_from_raw_database(
     _set_magnetics_properties(ods)
     _set_magnetics_time(ods, target_time)
     # See ip_rogowski_coil_from_raw_database: the sensor travels with its
-    # derived quantity regardless of entry point (issue #215).
+    # derived quantity regardless of entry point.
     _map_rogowski_coils(ods, shot, raw_source=raw_source, tstart=tstart, tend=tend)
     _map_diamagnetic_flux(ods, shot, target_time, ip_time, ip, raw_source)
 

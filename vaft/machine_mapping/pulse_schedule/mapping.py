@@ -1,4 +1,4 @@
-"""Map the VEST ShotLog's planned timing into ``pulse_schedule`` (#995).
+"""Map the VEST ShotLog's planned timing into ``pulse_schedule``.
 
 The ShotLog records, for every discharge since the 2023 template, when each
 diagnostic was triggered and when the 2.45 GHz ECH, NBI, helicity-injection

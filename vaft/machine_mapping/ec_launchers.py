@@ -2,7 +2,7 @@
 
 The source is the pair of slow-DAQ log-detector voltages on the ECH line at
 port 5ML10: field 27 (forward) and field 28 (reflected), 25 kHz over 0-1 s,
-recorded from shot ~29500 onward (issue #165).  Both go through the legacy
+recorded from shot ~29500 onward.  Both go through the legacy
 VFIT transfer function declared in ``vest.yaml``.
 
 The data dictionary has no forward/reflected leaves, so the IDS stores the net
@@ -10,7 +10,7 @@ estimate ``forward - reflected`` in ``beam.power_launched``; the separate
 traces are available from :func:`vest_ec_power`.
 
 The launch condition -- position, steering angles -- comes from the EC
-officer's CAD through ``vest.yaml`` ``0: ec_launchers`` (issue #266). It is
+officer's CAD through ``vest.yaml`` ``0: ec_launchers``. It is
 provisional until the vertical datum and the installation era are confirmed,
 and the IDS comment says so. Mode, O-mode fraction, spot and phase stay unset.
 """

@@ -8,10 +8,9 @@ Two independent diagnostic systems are supported:
 
 Both systems deliver already-postprocessed line-integrated electron density
 (``line_den``) -- this module maps it directly to ``n_e_line.data`` and must
-not apply a second phase-to-density conversion. See
-https://github.com/VEST-Tokamak/vaft/issues/153 for the full specification
-this module implements, including the geometry, wavelength constants, and the
-validity/fringe-jump policy (both left unset in this first implementation).
+not apply a second phase-to-density conversion. The chord geometry and
+wavelength constants are declared in ``vest.yaml``; validity and fringe-jump
+flags are left unset.
 """
 
 from __future__ import annotations
@@ -98,7 +97,7 @@ def _load_lid_mat(path: Path, shot: int, expected_columns: int) -> tuple[np.ndar
     """Load, validate, and return ``(time, line_den)`` from one LID MAT file.
 
     ``trigger_time`` is intentionally ignored -- it is legacy metadata that
-    does not affect the mapped time (see issue #153).
+    does not affect the mapped time; ``time`` is used as stored.
     """
     mat_data = loadmat(str(path))
 
@@ -348,7 +347,7 @@ def interferometer(
 ) -> None:
     """Populate ``ods`` with both interferometer systems in one heterogeneous-time IDS.
 
-    This is the compatibility fallback described in issue #153: the current
+    This is a compatibility fallback: the current
     VAFT/OMAS storage interface has no clean way to represent the two systems
     as separate IDS occurrences within one in-memory ODS, so both are packed
     as channels of a single ``interferometer`` IDS with

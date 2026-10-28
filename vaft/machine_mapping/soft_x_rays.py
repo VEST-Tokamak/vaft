@@ -49,16 +49,16 @@ DEFAULT_SAMPLE_RATE = DEFAULT_SAMPLE_RATES["22577"]
 # document's `12MM10 : Soft X-ray`. That one is right however it was meant.
 #
 # DAQ 22577 (bottom, lowermid) carries 120, and this is the PROVISIONAL part
-# (issue #746). Reading it as a clock angle makes it 4 o'clock, hence phi = 240,
-# and that is the reading taken here because every other legacy angle issue #718
-# audited was a clock angle written into an IMAS field -- the interferometer's
+# (Open: #746, no installation record). Reading it as a clock angle makes it
+# 4 o'clock, hence phi = 240, and that is the reading taken here because every
+# other legacy angle checked against the port table was a clock angle written into an IMAS field -- the interferometer's
 # 5.240 rad and all three Mirnov arrays. But the port document lists soft X-ray
 # only at 12MM10, 1T6 and 12T6, so 4 o'clock is not corroborated; if the column
 # was in fact already IMAS phi, the right answer is 120 and this conversion is
 # wrong for these two arrays. Either way the document does not record an SXR
 # array where this one sits, so it is likely out of date for this system.
 SXR_GEOMETRY_PHI_IS_VEST_CLOCK_ANGLE = True
-"""PROVISIONAL (issue #746): the geometry table's ``phi`` column is read as a
+"""PROVISIONAL (see the note above): the geometry table's ``phi`` column is read as a
 VEST clock angle and negated into IMAS phi. Set ``False`` if the SXR
 installation record shows the column was already IMAS phi."""
 DEFAULT_TIME_OFFSET = 0.0
@@ -473,7 +473,7 @@ def sxr_sightlines(
     Al filter blocks of the 22577 arrays share a chord and appear once -- in
     table order, labelled ``"<array>:<channel>"``.  ``phi`` is the IMAS toroidal
     angle :func:`load_sxr_geometry_table` returns; the 22577 value is
-    provisional until #746 settles the port, and it sets the helical phase a
+    provisional until an installation record settles the port, and it sets the helical phase a
     synthetic island presents to those arrays.  The end points lie on the
     legacy grid box, not the wall, so a line integral should clip them to the
     limiter polygon.
@@ -782,7 +782,8 @@ def vfit_soft_x_rays_dynamic(
             # Checked here, not by the owner, to keep this error text.
             if signal[slice(start, stop)].size == 0:
                 raise ValueError("baseline_range selects no SXR samples.")
-            # An index range, NaN-propagating (#2162 B3.11: the shared owner).
+            # An index range, NaN-propagating; the shared baseline owner in
+            # vaft.process.soft_x_rays does the subtraction.
             signal = sxr_offset_baseline(signal, slice(start, stop))
         signal = float(polarity) * float(brightness_scale) * signal
         brightness = signal.reshape(1, -1)

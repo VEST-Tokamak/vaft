@@ -40,15 +40,16 @@ DEFAULT_DT = 4e-5
 MID_Z_M = 0.0
 UPPER_Z_M = 0.98
 
-# The clock-position reference issue #152 said was missing now exists, so the
-# toroidal angle these clock positions imply is written (issue #718). The
+# The port-status document supplies the clock-position reference, so the
+# toroidal angle these clock positions imply is written. The
 # conversion is not the identity: clock number runs clockwise and IMAS phi runs
 # counter-clockwise, so 11 o'clock is phi = 30 deg, not 330. See
 # vaft.machine_mapping.conventions.
 #
 # The mid assembly is at 11M12, which the port-status document lists as "Triple
 # probe + internal magnetic probe array" -- the same port the IMPA goes through,
-# which is consistent. The upper assembly's 4 o'clock comes from #152; note the
+# which is consistent. The upper assembly's 4 o'clock comes from the triple-probe
+# hardware specification (provenance: #152); note the
 # 2023 port document marks 4U6 "Available", so the upper probe may have been
 # removed by then. That is a shot-era question, not a reason to withhold the
 # angle from the shots that do carry the assembly.
@@ -87,7 +88,8 @@ ASSEMBLIES: tuple[dict[str, Any], ...] = (
 def _assembly_phi(assembly: dict[str, Any]) -> float:
     """The IMAS toroidal angle of an assembly, from its port or clock position.
 
-    The upper assembly has a clock position (4 o'clock, from issue #152) but no
+    The upper assembly has a clock position (4 o'clock, from the triple-probe
+    hardware specification) but no
     port name -- the 2023 port document marks 4U6 "Available", so there is no
     entry to look up.
     """
@@ -104,9 +106,10 @@ class LangmuirProbeEraGapError(LangmuirProbeConfigError):
     """The shot falls in a documented gap between bias/tip-geometry eras.
 
     Not a configuration bug: the setting for that shot is unknown and must be
-    verified, not assumed (#152). The diagnostics stage therefore records the
-    Langmuir component as unavailable and keeps the rest of the product
-    (#989), whereas every other :class:`LangmuirProbeConfigError` -- an
+    verified from the operation log, never filled from a neighbouring era
+    (Open: #989, the mid-assembly values for 42138-42144 and 42641). The
+    diagnostics stage therefore records the Langmuir component as unavailable
+    and keeps the rest of the product, whereas every other :class:`LangmuirProbeConfigError` -- an
     overlap, a missing key, an unknown gas -- still fails it.
 
     The whole component is dropped, every assembly with it, because the
@@ -254,7 +257,7 @@ def vfit_langmuir_probes_dynamic(
 
     ``report``, when given, is filled per assembly and quantity with how many
     finite runs and samples the anti-alias filter left unfiltered and how many
-    target samples that invalidated (#915), for the stage manifest.
+    target samples that invalidated, for the stage manifest.
     """
     positions = {"mid_r": mid_r, "upper_r": upper_r}
     # Reported only once every assembly is mapped, so a component that fails
@@ -338,12 +341,13 @@ def vfit_langmuir_probes_dynamic(
         quantities = {}
         for key, source_key in (("n_e", "n_e"), ("t_e", "te")):
             # unfiltered="keep": this mapper flags those samples itself, in
-            # validity, below; the values stay as they were before #2162 B3.12.
+            # validity, below, so such a sample keeps its decimated unfiltered
+            # value instead of becoming NaN.
             data, filtered = resample_to_time(
                 result["time"], result[source_key], time, return_filter_mask=True, unfiltered="keep"
             )
             # A finite run shorter than filtfilt accepts is decimated unfiltered
-            # and so may carry aliased content (#915). The filtered mask is
+            # and so may carry aliased content. The filtered mask is
             # projected like solver_ok, so any target sample one of those
             # samples contributes to is flagged instead of stored beside
             # filtered values as their equal. Nothing is padded or gap-filled.

@@ -5,7 +5,7 @@ operator's titled experiment blocks) and shots. Every structured value keeps
 the cell it came from, and every shot keeps all of its raw cells in
 ``source_occurrences``, so nothing the parser declined to interpret is lost.
 
-Ported from the standalone ``VEST_ShotLog`` converter (#995). The output
+Ported from the standalone ``VEST_ShotLog`` converter. The output
 omits the conversion timestamp on purpose: a session document is a pure
 function of the workbook bytes and the schema registry, so reconverting an
 unchanged workbook reproduces it byte for byte and FileDB products do not
@@ -562,10 +562,10 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
             if card is not None:
                 _apply_card(item, card)
         # Where the next title search starts. `end` runs to the next shot
-        # number, which left every later search an empty range and put a whole
-        # sheet in one run group. A card knows where it ends; other templates
-        # keep the old span (their title rows are not yet told apart from
-        # remark rows -- #995 increment 2).
+        # number, which would leave every later search an empty range and put a
+        # whole sheet in one run group. A card knows where it ends; other
+        # templates keep the `end` span (their title rows are not yet told
+        # apart from remark rows).
         previous_end = block_end
 
     if groups and references:

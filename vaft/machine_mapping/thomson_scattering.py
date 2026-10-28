@@ -31,7 +31,7 @@ _CHANNEL_META = (
 
 
 # ---------------------------------------------------------------------------
-# Where the scattering volumes sit toroidally (issue #718)
+# Where the scattering volumes sit toroidally
 # ---------------------------------------------------------------------------
 #
 # The laser is not radial, so a single toroidal angle would be wrong for the
@@ -489,8 +489,7 @@ def _recover_simple_time(
 
     # The simple schema has been written both (time, channel) and
     # (channel, time); which axis is time is decided by the sibling's sample
-    # count matching it, not by assuming the first axis (cold review 0.7.0
-    # machine-mapping F3, #1888). A square block cannot be decided this way.
+    # count matching it, not by assuming the first axis. A square block cannot be decided this way.
     te = _as_real_array(mat_data["Te"])
     if te.ndim == 2 and te.shape[0] == te.shape[1]:
         raise KeyError(
