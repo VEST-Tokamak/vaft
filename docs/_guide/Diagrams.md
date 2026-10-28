@@ -2074,30 +2074,29 @@ elements it summarizes (`vaft.diagram._cross_domain_concept`), and a test holds 
 technical input, method and result is summarized exactly once, under the same name, and alternatives and data
 flows agree.
 
-**Conceptual: the scientific architecture.** One hierarchy: shared data & metadata → equilibrium → MHD stability
-and plasma response, and transport → IMAS-compatible representations with complementary native results. The left
-panel separates *data* (diagnostic signals, experimental profiles) from *metadata*, the explicit context needed to
-interpret data and run an operation: machine and diagnostic configuration, model assumptions and parameters,
-conventions and provenance. Each operation names its code and, in italics, the physical model it rests on; a card
-holding alternatives lists each code with its model (Sauter / Redl *closed-form fit*, NEO *drift-kinetic*; TGLF
-*gyrofluid*, a quasilinear model, and CGYRO *gyrokinetic*, linear or nonlinear); GPEC's card says it uses DCON's
-modes. The three alternative equilibrium routes share one dash-dot enclosure,
-CHEASE refines a reconstruction, and each route's entry in the one equilibrium IDS sits under it in the same
-section: a shared format, not equivalent plasma states. MHD and transport reuse an *eligible* equilibrium under
-their own input requirements. The figure does not draw the resolved transport state, so it states no
-reconstruction requirement; that one, enforced through the state key and the EFIT quality label, binds only the
-models that read the resolved state and is drawn in the technical figure. One output section separates the
-implemented IMAS mappings (representative quantities) from the native outputs for which no IMAS mapping is
-implemented.
+**Conceptual: the scientific architecture.** Shared data & metadata → equilibrium → MHD stability and plasma
+response, and transport. The left panel separates *data* (magnetic diagnostics; kinetic diagnostics and profiles -- $T_e$, $n_e$
+from Thomson scattering, $T_i$, $v_\phi$ from charge exchange) from
+*metadata*, the explicit context needed to interpret data and run an operation (machine and diagnostic
+configuration, assumptions and parameters, conventions and provenance). Each operation names its code and, in
+italics, the physical model it rests on; a card holding alternatives lists each code with its model (Sauter / Redl
+*closed-form fit*, NEO *drift-kinetic*; TGLF *gyrofluid*, CGYRO *gyrokinetic*). The three alternative equilibrium
+routes share a dash-dot enclosure and CHEASE refines a reconstruction. Each section ends with the IMAS IDS its
+operations write and representative quantities in them (`core_profiles` $j_\mathrm{bs}$, $\sigma_\parallel$ are
+NEO's). The MHD quantities kept only in the solver's own form -- DCON's energy split, GPEC's resonant response,
+RDCON's Δ′ matrix -- follow on a line keyed *native* in place of an IDS name, so none reads as mapped; the
+Sauter / Redl return value is left to the technical figure. Every card is
+drawn in its kind's style and carries that kind's pictogram -- measured, configuration, assumption / parameter,
+convention, derived, solver / model -- the same pictogram the legend shows. The figure carries no explanation of itself: the qualifications -- one IDS format
+holding distinct plasma states, each model checking its own inputs, the transport resolver taking a reconstructed
+equilibrium only, arrows as implemented interfaces rather than validated workflows -- belong to its caption and
+to the technical figure.
 
 ```python
 vaft.diagram.cross_domain_scientific_architecture()
 ```
 
 ![Equilibrium, MHD and transport: the scientific architecture]({{ '/assets/diagrams/cross_domain_scientific_architecture.svg' | relative_url }})
-
-It simplifies on purpose: solver-specific inputs are folded into the data and metadata cards, the resolved
-transport state is left to the technical figure, and results are grouped by domain rather than by solver. Its arrows are implemented interfaces, not validated end-to-end workflows, which the legend says.
 
 **Technical: solvers, inputs and outputs.** Each method sits with the inputs it reads beside it; an input read by
 two methods (coil currents and machine geometry for TokaMaker and EFIT, the kinetic profiles for Sauter/Redl and
