@@ -116,7 +116,7 @@ def test_collect_efit_outputs_prefers_fresh_copy_on_workflow_rerun(tmp_path):
 
 
 def test_collect_efit_outputs_keeps_only_the_cases_of_this_runs_kfiles(tmp_path):
-    """A g-file an earlier run left for another instant is not this run's reconstruction (#1786)."""
+    """A g-file an earlier run left for another instant is not this run's reconstruction."""
     from vaft.code.efit import EFITConfig, collect_efit_outputs
     from vaft.data.resources import data_path
 
@@ -200,7 +200,7 @@ def test_no_shipped_source_imports_omfit():
 
     A static scan rather than an import check: a module-level import in a
     workflow script that no test happens to load would otherwise go unnoticed
-    until the pipeline ran in production. See issue #192.
+    until the pipeline ran in production.
     """
     offenders = []
     for directory in ("vaft", "workflow", "test"):

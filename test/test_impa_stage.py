@@ -1,8 +1,8 @@
-"""The standalone IMPA stage product (issue #305).
+"""The standalone IMPA stage product.
 
 IMPA is insertable and campaign-dependent: raw fields can exist while the array
 is withdrawn, its geometry is self-calibrated per shot, and its vertical-field
-sensors are still being qualified (#154, #304). Those are poor invariants for
+sensors are still being qualified. Those are poor invariants for
 the baseline magnetics product, so the array has its own stage whose verdict is
 its own -- and whose product is self-contained, owing nothing to `main`.
 """

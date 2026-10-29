@@ -1,4 +1,4 @@
-"""``vaft/deploy/gui/test-instance.sh`` (#1862): dry runs only, nothing installed."""
+"""``vaft/deploy/gui/test-instance.sh``: dry runs only, nothing installed."""
 
 from __future__ import annotations
 

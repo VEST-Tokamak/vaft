@@ -1,4 +1,4 @@
-"""Physics and topology of the magnetic-island schematic (issue #890).
+"""Physics and topology of the magnetic-island schematic.
 
 These run on the model and the renderer-neutral scene, so they need no TeX:
 a picture can only be right if the geometry it is drawn from is.

@@ -1,4 +1,4 @@
-"""EFIT goodness-of-fit and numerical-convergence metrics (issue #139).
+"""EFIT goodness-of-fit and numerical-convergence metrics.
 
 Everything asserted here is computed from quantities submitted to EFIT or
 produced by the EFIT run. No independent experimental comparison, cross-code
@@ -73,7 +73,7 @@ def _fit_ods(*, residuals, weight=0.01, unit_factor=1.0, dof=10, family="bpol_pr
 def _complete_efit_quality_ods():
     """A deterministic complete EFIT-quality contract fixture.
 
-    The public issue #166 sample is deliberately portable between OMAS and
+    The public packaged sample is deliberately portable between OMAS and
     native IMAS, so it excludes the non-DD parser cache and cannot contain the
     M-file quantities that this EFIT-quality module is designed to interpret.
     Keep its real equilibrium as the self-consistency backbone, then add
@@ -329,7 +329,7 @@ def test_the_iconvr2_stopping_criterion_is_the_metric_with_content(efit_ods):
 
 def test_a_run_that_exhausts_its_iterations_did_not_stop_on_the_criterion(efit_ods):
     # MXITER=100 runs 101 outer passes; with NXITER=1 an exhausted slice has
-    # 101 steps -- exactly what the #171 scan's exhausted slices show -- and an
+    # 101 steps -- exactly what the solver-configuration scan's exhausted slices show -- and an
     # increment it could not have stopped on.
     ods = _with_afile(efit_ods)
     ods["equilibrium.time_slice.0.convergence.iterations_n"] = 101
@@ -389,11 +389,11 @@ def test_iteration_cap_is_detected():
 def test_the_cap_is_read_against_the_cumulative_counter_when_nxiter_exceeds_one(
     steps, final_error, expected
 ):
-    """#1038: `len(cerror)` counts inner steps, MXITER caps outer passes.
+    """`len(cerror)` counts inner steps, MXITER caps outer passes.
 
     At NXITER=3, MXITER=100 a capped slice has 101..301 steps and an uncapped
-    one at most 300 -- or 301, stopping silently on the last pass, as one
-    #171 scan slice does. The increment it ended on is what rules the stops
+    one at most 300 -- or 301, stopping silently on the last pass, as one solver-configuration
+    scan slice does. The increment it ended on is what rules the stops
     out; without that, the metric must not guess.
     """
     ods = _fit_ods(residuals=[1.0, -1.0, 2.0])
@@ -637,7 +637,7 @@ def test_portable_sample_reports_unavailable_optional_efit_metadata(
 ):
     """The paired sample must not fabricate cache or missing M-file output.
 
-    Since #478 the block carries the COCOS declaration and nothing else: no
+    The block carries the COCOS declaration and nothing else: no
     EFIT parser cache, no per-slice records.
     """
     parameters = portable_sample_ods["equilibrium.code.parameters"]

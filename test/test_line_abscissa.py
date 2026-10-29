@@ -1,10 +1,10 @@
-"""Issue #481: what a line plot is drawn against, and how it says so.
+"""What a line plot is drawn against, and how it says so.
 
 ``x=`` is a per-plot vocabulary: ``time`` (the default), the sample
 ``index``, and the sibling quantities a recipe declares -- each sampled on
 the ordinate's own grid, so nothing is interpolated.  An abscissa this input
 cannot supply falls back to the index and the axis says index, never a time
-label over sample numbers (the issue #276 contract, applied to lines).
+label over sample numbers (the abscissa-label contract, applied to lines).
 """
 
 from __future__ import annotations
@@ -138,7 +138,7 @@ def test_layout_selection_and_orientation_are_unaffected_by_the_choice(sample, e
     assert len(chosen.series) == 4
     canonical = build_model("diamagnetic_flux_time", entries, x="index", orientation="canonical")
     intuitive = build_model("diamagnetic_flux_time", entries, x="index", orientation="intuitive")
-    # The stored flux is positive (paramagnetic, #1196), so nothing flips...
+    # The stored flux is positive (paramagnetic), so nothing flips...
     np.testing.assert_allclose(intuitive.series[0].y, canonical.series[0].y)
     # ...and a negative-going one still does, on the index abscissa too.
     negated = copy.deepcopy(sample)
@@ -225,7 +225,7 @@ def _with_a_broken_channel(sample):
 
 
 def test_a_channel_the_selection_drops_does_not_decide_the_abscissa(sample):
-    """Review of #582: a dropped channel's failed reading used to put every
+    """Regression guard: a dropped channel's failed reading once put every
     surviving channel on a sample index, discarding their real times."""
     broken = _with_a_broken_channel(sample)
     drawn = build_model("flux_loop_time_flux", normalize_entries(broken))

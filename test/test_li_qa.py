@@ -1,4 +1,4 @@
-"""The l_i-q family (#1422): Wesson 1989 (JET, empirical) and Cheng 1987 (theory) kept apart."""
+"""The l_i-q family: Wesson 1989 (JET, empirical) and Cheng 1987 (theory) kept apart."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def test_outside_the_drawn_range_there_is_no_boundary():
 
 
 def test_the_legacy_arrays_are_the_wesson_lower_boundary():
-    """#1422 audit: empirical_li_qa is the tooth vertices of Fig. 6's lower boundary, not Fig. 5."""
+    """empirical_li_qa is the tooth vertices of Fig. 6's lower boundary, not Fig. 5."""
     qa, li = empirical_li_qa()
     tops, bottoms = li[0::2], li[1::2]
     q = qa[0::2].astype(float)
@@ -122,7 +122,7 @@ def test_a_q95_table_gets_no_wesson_line():
     assert population_overlay(t, "li_qa_wesson").keys == WESSON + ("low_q",)
 
 
-# A second, independent reading of the figures (cold review of #1473, 600 dpi, tick-calibrated) pins every
+# A second, independent reading of the figures (600 dpi, tick-calibrated) pins every
 # branch, so a digitizing slip in one table cannot hide behind a self-consistent test.
 SECOND_READING = {
     "wesson_1989_jet_li_qpsi_upper": {3.0: 1.11, 4.0: 1.26, 6.0: 1.52, 8.0: 1.72, 9.95: 1.86},

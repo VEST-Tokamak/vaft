@@ -1,4 +1,4 @@
-"""Turbulence--zonal-flow predator--prey kernels (#1820) against a numerical orbit."""
+"""Turbulence--zonal-flow predator--prey kernels against a numerical orbit."""
 
 from __future__ import annotations
 

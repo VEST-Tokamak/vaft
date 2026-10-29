@@ -1,4 +1,4 @@
-"""Mean charge and effective charge (#783 3.10).
+"""Mean charge and effective charge.
 
 Both are definitions, so what is pinned is that they agree with the two
 functions they sit between: the coronal distribution

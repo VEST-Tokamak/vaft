@@ -137,7 +137,7 @@ def test_the_hugill_regions_are_on_the_right_sides():
 
 
 def test_hugill_draws_the_registered_boundaries_and_no_q_psi_limit_by_default():
-    """#1425: the lines are the hugill projection's registered boundaries; low_q (q_psi) is not on 1/q_cyl."""
+    """The lines are the hugill projection's registered boundaries; low_q (q_psi) is not on 1/q_cyl."""
     chart = vaft.diagram.hugill(elongation=1.6).model
     assert chart.parameters["boundaries"] == ("greenwald_hugill", "murakami_hugill")
     assert "low_q" not in chart.curves and "low_q" not in chart.labels
@@ -175,7 +175,7 @@ def test_the_troyon_low_q_cutoff_is_where_q_cyl_reaches_the_limit():
 
 
 def test_the_troyon_diagram_draws_references_without_a_stable_side():
-    """#1691: Troyon is a stability reference and the experimental levels are records, so no region is called
+    """Troyon is a stability reference and the experimental levels are records, so no region is called
     stable or unstable; the names sit by their lines and the note takes its values from the registry."""
     diagram = vaft.diagram.troyon(q_limit=2.0)
     chart = diagram.model

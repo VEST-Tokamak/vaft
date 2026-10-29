@@ -1,4 +1,4 @@
-"""`equilibrium.code.parameters` must be the string the DD says it is (#380).
+"""`equilibrium.code.parameters` must be the string the DD says it is.
 
 The EFIT stage wrote a nested tree there. It looked right in the local product
 and was dropped entirely on the way through the IMAS Access Layer, so 4096

@@ -1,6 +1,6 @@
-"""``kinetic_overview_state``: one matched kinetic state from stored paths (issue #1837).
+"""``kinetic_overview_state``: one matched kinetic state from stored paths.
 
-The fixtures are the #1839 archive cases rebuilt by
+The fixtures are the archived kinetic-state cases rebuilt by
 ``workflow/kinetic_state/archive_to_ods.py`` through the real writers
 (``populate_radial_impurity_profiles``, ``infer_ti_pressure_partition``), so the
 roles the plot shows come from records a writer produced, not from the test.
@@ -122,7 +122,7 @@ def test_plotly_draws_the_state_without_a_measured_span(case_40326):
 
 
 def test_no_measured_span_is_shaded_in_any_layout_or_stage(case_40326):
-    """The Thomson span band was removed on user review (#1957)."""
+    """The Thomson span band was removed on user review."""
     for options in ({}, {"layout": "stack"}, {"stage": 1}, {"stage": 8}, {"layout": "stages"}):
         model = _extract(case_40326.ods, **options)
         for panel in model.models:

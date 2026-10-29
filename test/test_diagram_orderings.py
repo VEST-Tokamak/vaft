@@ -1,4 +1,4 @@
-"""The timescale hierarchy (#1627): every time from a formula kernel, the ordering ratios consistent."""
+"""The timescale hierarchy: every time from a formula kernel, the ordering ratios consistent."""
 
 import pytest
 

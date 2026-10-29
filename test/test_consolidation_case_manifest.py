@@ -1,4 +1,4 @@
-"""The consolidation regression portfolio is honest about what it holds (issue #2166).
+"""The consolidation regression portfolio is honest about what it holds.
 
 ``test/data/consolidation/case_manifest.yaml`` lists the cases the migration
 must be qualified on.  These checks keep it a *frozen-evidence* record: every
@@ -63,7 +63,7 @@ def test_nothing_is_passed_by_being_listed(manifest):
 
 
 def test_the_requested_portfolio_is_covered(manifest):
-    """#2166 A2's initial candidates, each present (availability may differ)."""
+    """The portfolio's initial candidate shots, each present (availability may differ)."""
     shots = {shot for case in manifest["cases"] for shot in case["shots"]}
     assert {39915, 39437, 39438, 46402, 46403, 46404, 45895, 45896, 48371, 48372, 48224} <= shots
     for shot in (41524, 41672, 42962):

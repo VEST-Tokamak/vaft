@@ -1,4 +1,4 @@
-"""vaft.formula.dimensional (#1621): Buckingham-Pi groups and the Connor-Kadomtsev constraint, exactly."""
+"""vaft.formula.dimensional: Buckingham-Pi groups and the Connor-Kadomtsev constraint, exactly."""
 
 from fractions import Fraction
 

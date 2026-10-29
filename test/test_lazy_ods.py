@@ -109,7 +109,7 @@ def test_store_reports_client_side_lazy_read_metrics(fake_hsds):
     assert metrics["ids_domain_open_count"] == 1
     assert metrics["metadata_dataset_count"] > 0
     # One selection for two reads is the guarantee that matters: the payload is
-    # not re-read. Since issue #329 the second read is served by the ODS and
+    # not re-read. The second read is served by the ODS and
     # never reaches the store, so the store's own `leaf_cache_hits` no longer
     # fires through this path -- it is checked directly below instead.
     assert metrics["payload_selection_count"] == 1
@@ -117,7 +117,7 @@ def test_store_reports_client_side_lazy_read_metrics(fake_hsds):
 
 
 def test_the_store_still_caches_for_a_caller_that_bypasses_the_ods(fake_hsds):
-    """`leaf_cache_hits` is shadowed by the ODS-level cache added for #329, so it
+    """`leaf_cache_hits` is shadowed by the ODS-level cache, so it
     is exercised here at the level where it still applies: a caller holding the
     store directly."""
     _ods, store = make_ods(fake_hsds, ids="equilibrium")
@@ -220,7 +220,7 @@ def test_store_rejects_empty_ids(fake_hsds):
 
 
 def test_a_write_to_a_stored_leaf_is_kept_not_clobbered(fake_hsds):
-    """Issue #329. ``__getitem__`` re-fetched on every read of a path the store
+    """Regression guard for #329: ``__getitem__`` re-fetched on every read of a path the store
     holds, so an assignment appeared to succeed and the next read handed back the
     stored value again -- silently. That made every in-place updater a no-op on
     HSDS-backed data for any leaf the database already had, while writes to
@@ -300,7 +300,7 @@ def _long_aos_ods():
 
 
 def test_aos_children_are_listed_in_numeric_order():
-    """#1331: children were sorted as strings, so `flat()` visited coil 10 right
+    """Regression guard: children were sorted as strings, so `flat()` visited coil 10 right
     after coil 1 and OMAS refused the gap -- `em_coupling`'s static signature
     raised IndexError on every DB shot with more than ten elements."""
     ods = _long_aos_ods()

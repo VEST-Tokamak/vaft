@@ -1,4 +1,4 @@
-"""Edge-q estimates for shots without an equilibrium (#1583)."""
+"""Edge-q estimates for shots without an equilibrium."""
 
 from __future__ import annotations
 
@@ -110,7 +110,7 @@ def test_with_an_equilibrium_the_estimate_tracks_its_q95(sample):
     ratio = result.estimated_q95 / np.interp(result.time, result.equilibrium_time, result.equilibrium_q95)
     ratio = ratio[np.isfinite(ratio)]
     assert ratio.size >= 5
-    # #1580 measured 0.99 (IQR 0.95-1.03) over 133 Tier A states; 39915's shrinking
+    # The Tier A atlas (#1580) measured 0.99 (IQR 0.95-1.03) over 133 Tier A states; 39915's shrinking
     # late slices sit above that, so the band is the population's, not the IQR.
     assert 0.9 < np.median(ratio) < 1.15
     assert np.all((ratio > 0.85) & (ratio < 1.3))

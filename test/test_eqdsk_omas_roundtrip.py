@@ -46,7 +46,7 @@ def test_geqdsk_to_omas_round_trip_does_not_transpose_psirz_on_a_square_grid():
 
     original_psi = np.asarray(direct["PSIRZ"])
     restored_psi = np.asarray(roundtrip["PSIRZ"])
-    # psi gains 2*pi on the way in and loses it on the way out (issue #236),
+    # psi gains 2*pi on the way in and loses it on the way out,
     # which re-rounds the last ulp; tight allclose keeps the transpose check.
     np.testing.assert_allclose(original_psi, restored_psi, rtol=1e-12)
     # A transposed square array is not generally equal to itself unless it
@@ -86,9 +86,9 @@ def _assert_same_flux(converted, reference, leaves=_FLUX_LEAVES):
     ("per_radian", "stale COCOS=11"),    # ... in either direction
 ])
 def test_the_flux_family_of_a_geqdsk_comes_from_its_data_not_a_stale_token(family, case):
-    """A weber-family g-file (e.g. TCV's COCOS 17) is not scaled by 2*pi again (#294).
+    """A weber-family g-file (e.g. TCV's COCOS 17) is not scaled by 2*pi again.
 
-    Before #294 to_omas scaled every file by 2*pi, leaving a weber file (2*pi)^2 off
+    Regression guard for #294: to_omas once scaled every file by 2*pi, leaving a weber file (2*pi)^2 off
     Ampere's law: TCV-X21 65402 gave li_3 = 32.9 instead of 0.83.
     """
     from vaft.data.eqdsk import TWO_PI, to_omas

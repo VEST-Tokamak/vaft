@@ -1,4 +1,4 @@
-"""Current-profile and q topology (#1604): every drawn number is the cylinder's, every crossing the processor's."""
+"""Current-profile and q topology: every drawn number is the cylinder's, every crossing the processor's."""
 
 import math
 

@@ -1,8 +1,8 @@
-"""Fourier / spectral representation of closed flux surfaces (#945).
+"""Fourier / spectral representation of closed flux surfaces.
 
 The convention is uniform arc length from the largest R, counter-clockwise,
 with the phase canonicalized on the fitted series. These tests hold it to
-what #945 asks: circle content exact, parity for symmetric surfaces, a
+what a Fourier surface owes: circle content exact, parity for symmetric surfaces, a
 translation moving only m = 0, the asymmetric families flipping sign under a
 mirror, independence from the contour's start point and sampling,
 truncation convergence, a radially ordered sequence, and one definition
@@ -130,7 +130,7 @@ def test_flat_outboard_racetrack_keeps_parity_and_start_invariance():
         r = 1 + 0.3*np.clip(1.5*np.cos(t + t0), -1, 1); z = 0.4*np.sin(t + t0)
         results.append(fit_fourier_surface((r, z), modes=8).surface)
     for s in results:
-        # A maximum-R origin gave 0.1-0.28 here (#945 review); the residual is resampling.
+        # A maximum-R origin gave 0.1-0.28 here; the residual is resampling.
         assert np.max(np.abs(s.r_sin)) < 1e-4 and np.max(np.abs(s.z_cos[1:])) < 1e-4
         np.testing.assert_allclose(s.r_cos, results[0].r_cos, atol=1e-4)
 
@@ -164,7 +164,7 @@ def test_sequence_records_levels_without_a_closed_surface():
     assert sequence.skipped == (1.4,) and len(sequence.fits) == 1
 
 
-#: develop's LCFS Fourier output before #945 (limited, single null; 12 modes):
+#: The LCFS Fourier output before the phase change (limited, single null; 12 modes):
 #: reconstruction error and per-harmonic amplitudes, which the phase change keeps.
 PRE_945 = {
     "limited": (0.0001935165136373169, [0.375004700258, 0.247898343363, 0.022812468321, 0.015884905731, 0.003634273122],

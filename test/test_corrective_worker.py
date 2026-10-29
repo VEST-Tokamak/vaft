@@ -1,4 +1,4 @@
-"""The corrective worker (#1842): upload detection, state, manifest harvest and the run cycle.
+"""The corrective worker: upload detection, state, manifest harvest and the run cycle.
 
 No Snakemake, no network, no repository data: the scanner reads a temporary
 directory, the runner is a fake that writes the manifests a real run would, and

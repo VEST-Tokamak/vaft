@@ -1,4 +1,4 @@
-"""VAFT framework concept diagrams (#1090): topology and implementation neutrality, not pixels."""
+"""VAFT framework concept diagrams: topology and implementation neutrality, not pixels."""
 
 import re
 from pathlib import Path
@@ -288,7 +288,7 @@ def test_the_framework_encloses_the_network_and_feeds_analysis(domain):
     edges = _edges(d)
     modes = d.model["activities"]
     assert modes == ("experiment", "modelling", "theory", "data_driven")
-    # the four modes and the shared state are drawn exactly as in the common-model network (#1698: no redesign)
+    # the four modes and the shared state are drawn exactly as in the common-model network (no redesign)
     for role in [f"node:{k}" for k in modes] + ["node:hub"]:
         assert d.scene.role(role) == network.scene.role(role)
     assert all((k, "hub") in edges for k in modes) and ("hub", "analysis") in edges

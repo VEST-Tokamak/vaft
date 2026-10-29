@@ -1,4 +1,4 @@
-"""FL10 plasma-current compensation semantics (issue #214).
+"""FL10 plasma-current compensation semantics.
 
 The FL10 term in the plasma-current path divides a *loop voltage* by a scalar
 and subtracts the result from a Rogowski *current*. That only closes
@@ -50,7 +50,7 @@ SHOT = 41672
     ],
 )
 def test_donor_constants_are_preserved_exactly(shot, expected_ohm):
-    """#214 renames the key; it must not move a single value."""
+    """The key is renamed; it must not move a single value."""
     _, reference, _, _ = _plasma_processing_for_shot(shot)
     assert float(reference["effective_resistance_ohm"]) == pytest.approx(expected_ohm)
 
@@ -68,7 +68,7 @@ def test_the_coefficient_is_not_named_as_an_inductance():
 
 
 def test_only_one_name_for_the_coefficient_survives_in_config():
-    """The stale `effective_res` label is what caused #214 to be filed.
+    """The stale `effective_res` label is what caused the rename.
 
     It sat in a dead `rogowski_coil` block as a third name for this constant,
     at the unrevised 2.8e-4 value -- wrong for every shot >= 17455 -- and a
@@ -141,7 +141,7 @@ def test_compensation_is_a_current_of_plausible_vessel_magnitude():
 
 
 def test_fl10_compensation_does_not_change_the_processed_plasma_current():
-    """#214 is a provenance fix: no numerical behaviour may change."""
+    """The FL10 key rename is a provenance fix: no numerical behaviour may change."""
     time, ip = vfit_plasma_current(SHOT, raw_source=RAW)
     assert time.size == ip.size
     # A real VEST discharge, not a degenerate or rescaled trace.
@@ -153,7 +153,7 @@ def test_the_two_uses_of_field_25_stay_distinct():
 
     The equilibrium-magnetics path integrates field 25 into poloidal flux; the
     plasma-current path deliberately does not. Conflating them is the error
-    #214 exists to prevent.
+    the rename exists to prevent.
     """
     from vaft.machine_mapping.magnetics import (
         vest_equilibrium_magnetics_channel_definitions,
@@ -193,8 +193,8 @@ def test_compensation_is_disabled_once_the_inboard_is_carbon():
     Resolved empirically against the SQL database (2026-09-01): 47113 -> 47114
     is a 6.5-day machine access window, and reproducing IP from raw signals
     shows the FL10 term improves the post-discharge residual on 23/23 plasma
-    shots over 47050-47113 but only 5/49 over 47114-47200. #191's competing
-    47018 sits 12 minutes after 47017 inside a continuous run day with no
+    shots over 47050-47113 but only 5/49 over 47114-47200. The competing
+    boundary 47018 sits 12 minutes after 47017 inside a continuous run day with no
     machine access and no signal step, so it is not a transition.
 
     The physical boundary is 47114; `from_shot` stays at the donor's 47117
@@ -220,7 +220,7 @@ def test_the_commissioning_shots_inside_the_boundary_carry_no_plasma():
     one (47117) cannot affect any analysed result.
 
     Offline assertion: this pins the configured eras only. The raw-signal
-    evidence lives in the #214/#216 investigation record.
+    evidence lives in the FL10 investigation record (#214/#216).
     """
     _, at_47113, _, _ = _plasma_processing_for_shot(47113)
     assert at_47113.get("mode") == "subtract_fl10_windowed"

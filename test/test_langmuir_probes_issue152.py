@@ -482,7 +482,7 @@ def test_measured_positions_are_correct_when_both_probes_are_present():
 
 @pytest.mark.parametrize("run_length", [991, 992, 993])
 def test_a_solve_finite_over_a_filter_boundary_run_completes(run_length):
-    """Shots 38525, 39137, 39241 and 39620 (#893).
+    """Shots 38525, 39137, 39241 and 39620.
 
     Their raw probe signals are complete and strong; the gaps are made by the
     solve, which leaves t_e and n_e undefined wherever no temperature root
@@ -524,7 +524,7 @@ def test_a_solve_finite_over_a_filter_boundary_run_completes(run_length):
 
 
 def test_samples_from_an_unfiltered_run_are_flagged_and_counted():
-    """#915: a finite run shorter than filtfilt accepts is decimated unfiltered.
+    """Regression guard for #915: a finite run shorter than filtfilt accepts is decimated unfiltered.
     Every target sample it contributes to must be invalid, the filtered run
     must stay valid, and the counts must be reported for the manifest."""
     omas = pytest.importorskip("omas")
@@ -576,7 +576,7 @@ def test_samples_from_an_unfiltered_run_are_flagged_and_counted():
 
 
 def test_n_e_and_t_e_are_flagged_by_their_own_filtered_runs():
-    """#915: n_e can be undefined where t_e is not, splitting a run t_e keeps
+    """n_e can be undefined where t_e is not, splitting a run t_e keeps
     whole. Each quantity is flagged by its own unfiltered runs."""
     omas = pytest.importorskip("omas")
 
@@ -667,7 +667,7 @@ def test_the_default_position_table_is_shipped_by_every_packaging_rule():
 
 @pytest.mark.parametrize("shot", [42138, 42144, 42641])
 def test_an_era_gap_is_its_own_error_type(shot):
-    """The diagnostics stage isolates exactly this condition (#989), so it has
+    """The diagnostics stage isolates exactly this condition, so it has
     to be distinguishable from every other configuration failure."""
     config = lp.resolve_langmuir_probe_config("mid", shot)
     with pytest.raises(lp.LangmuirProbeEraGapError, match="unresolved era gap"):
@@ -695,7 +695,7 @@ def _era_gaps(config):
 
 
 def test_no_langmuir_era_gap_falls_where_another_assembly_is_installed():
-    """An era gap drops the whole Langmuir component (#989), so a gap in one
+    """An era gap drops the whole Langmuir component, so a gap in one
     assembly must never coincide with another assembly producing data --
     otherwise filling or editing the table could silently discard it."""
     shot = 50000  # any shot: the era tables live in the default block

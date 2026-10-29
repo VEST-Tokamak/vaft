@@ -1,4 +1,4 @@
-"""Which shots the sparse IMPA source is allowed to contain (issue #305).
+"""Which shots the sparse IMPA source is allowed to contain.
 
 Absence from `impa` means "no published IMPA product". That stays true only if
 the pipeline attempts the stage where the array was recording, rather than for

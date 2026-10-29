@@ -1,6 +1,6 @@
 """The `develop` gate's test selection, declared in one place.
 
-VAFT runs two different gates (#515). `main` proves release confidence: the
+VAFT runs two different gates. `main` proves release confidence: the
 whole suite, on Linux and on Windows, `slow` tests included. `develop` proves
 development confidence -- is this change safe to integrate? -- and that
 question does not need thirty-plus minutes of cross-platform scientific
@@ -77,14 +77,14 @@ CORE_MODULES: tuple[str, ...] = (
     "contracts/test_machine_mapping_boundaries.py",
     "test_api_layer_boundaries.py",
     "test_architecture_guards.py",
-    # Phase A audit inventories regenerate from the tree and must match (#2174; ~11 s).
+    # Phase A audit inventories regenerate from the tree and must match (~11 s).
     "test_architecture_audit_inventory.py",
     "test_code_parameters_writers.py",
     "test_no_bare_downsample.py",
     "test_no_pyplot_outside_plot.py",
     "test_plot_backend_boundaries.py",
     "test_validation_architecture.py",
-    # IMPA grading moved into vaft.validation (#339): vocabulary, DD codes, old names; 3 s.
+    # IMPA grading lives in vaft.validation: vocabulary, DD codes, old names; 3 s.
     "test_validation_impa.py",
     # Flux-coordinate conventions, and where a renderer puts a feature because
     # of them. Cheap: a Solov'ev equilibrium and a synthetic GPEC run, no
@@ -97,21 +97,21 @@ CORE_MODULES: tuple[str, ...] = (
     "test_magnetic_island.py",
     # Machine geometry: source vertices, unknown phi, camera units and mask.
     # Registry, taxonomy and display policy: the vocabulary the rest of the
-    # package indexes itself by. The beta definitions (#1691): closed forms and
+    # package indexes itself by. The beta definitions: closed forms and
     # the packaged sample's volume beta, no solver.
     "test_beta_volume.py",
     "test_diagnostic_registry.py",
     "test_diagnostics_interactive.py",
     "test_display_policy.py",
     "test_equilibrium_field_2d.py",
-    # Read-only monitoring tables (#2067): stub backends and tmp FileDB, ~5 s.
+    # Read-only monitoring tables: stub backends and tmp FileDB, ~5 s.
     "test_equilibrium_monitoring.py",
-    # Regime bins, export and cohort cases (#1891): hand-built ODS, no solver.
+    # Regime bins, export and cohort cases: hand-built ODS, no solver.
     "test_equilibrium_regime_descriptors.py",
     "test_layout_contract.py",
     "test_line_abscissa.py",
     "test_machine_geometry_registry.py",
-    # Magnetics missing-channel reasons (#2164): two synthetic-dump diagnostics
+    # Magnetics missing-channel reasons: two synthetic-dump diagnostics
     # builds, no solver, ~15 s.
     "test_magnetics_missing_channel_reasons.py",
     "test_magnetics_spatial.py",
@@ -125,36 +125,36 @@ CORE_MODULES: tuple[str, ...] = (
     "test_plot_taxonomy.py",
     "test_process_magnetics_geometry.py",
     "test_profile_coordinates.py",
-    # Raw DAQ sources per registry id (#1742): resolver contract, no mapper run.
+    # Raw DAQ sources per registry id: resolver contract, no mapper run.
     "test_raw_sources.py",
     "test_selection_validity.py",
     "test_spectrogram_methods.py",
     # VEST configuration loading, merge and revision rules, the effective
     # configuration with its overrides and fingerprint, and declared-versus-
-    # observed sample-rate checks (#2159): tmp YAML, the packaged vest.yaml
+    # observed sample-rate checks: tmp YAML, the packaged vest.yaml
     # and synthetic records, no raw data, ~10 s. The revision-overlap and
-    # shot-boundary checks across every vest.yaml diagnostic joined in #2168:
+    # shot-boundary checks across every vest.yaml diagnostic:
     # 33 s before B2's parse cache, ~1-2 s serial after it.
     "test_acquisition_checks.py",
     "test_vest_config_loading.py",
     "test_vest_effective_config.py",
     "test_vest_yaml_boundaries.py",
-    # Predicted mode-frequency tracks and the Mirnov mode_overlay (#460):
+    # Predicted mode-frequency tracks and the Mirnov mode_overlay:
     # analytic fixtures only, a few seconds.
     "test_mode_frequency_overlay.py",
-    # Quadratic coil-response algebra of a signed NTV torque (#1887): synthetic
+    # Quadratic coil-response algebra of a signed NTV torque: synthetic
     # Hermitian matrices, no solver, about a second.
     "test_ntv_coil_response.py",
-    # The #1887 direct GPEC -> PENTRC reference replayed without a solver: the
+    # The direct GPEC -> PENTRC NTV reference replayed without a solver: the
     # committed 18 + 4 run table qualifies Q at converged tolerances only.
     "test_ntv_coil_reference_1887.py",
-    # The verified resonant-field operator Phi = H conj(c) and stages A-D (#1884):
+    # The verified resonant-field operator Phi = H conj(c) and stages A-D:
     # synthetic operators plus the committed 19-run GPEC reference, no solver.
     "test_resonant_coil_response.py",
-    # The #1178 coil operating-space result schema (#1886 contract): synthetic
+    # The coil operating-space result schema: synthetic
     # fixtures only, under a second.
     "test_coil_operating_space.py",
-    # Equilibrium-native Mercier / GGJ indices against DCON tables (#1902):
+    # Equilibrium-native Mercier / GGJ indices against DCON tables:
     # packaged VEST g-file, no solver, a few seconds.
     "test_local_mhd_criteria.py",
     "test_local_mhd_criteria_plots.py",
@@ -163,9 +163,9 @@ CORE_MODULES: tuple[str, ...] = (
     # The in-process memory guard beside it: fake cgroup trees and env only.
     # The process-tree stop behind LocalBackend runs small Python/sh trees.
     # The ssh+Slurm backend runs against fake ssh/rsync/Slurm shims: no network.
-    # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
+    # Its memory admission and RSS limit: a 300 MiB Python child, a
     # limit far below it, and a ledger with a fake MemAvailable.
-    # The MITIM adapter (#1588) runs a stub mitim_tools in this interpreter:
+    # The MITIM adapter runs a stub mitim_tools in this interpreter:
     # availability statuses, the per-run config, launch, timeout and discovery;
     # the r/a <-> rho_tor_norm bridge and the TGLF input comparison are pure.
     "test_code_execution.py",
@@ -203,13 +203,13 @@ CORE_MODULES: tuple[str, ...] = (
     "test_data_resources.py",
     "test_docstring_engine.py",
     # The plasma-model guide's generated tables and glossary against the
-    # formalism record (#1739): file read plus two registry imports.
+    # formalism record: file read plus two registry imports.
     "test_docs_plasma_model_guide.py",
     "test_formula_docstrings.py",
     "test_notebook_outputs.py",
     "test_packaging_issue45.py",
     "test_process_docstrings.py",
-    # ML backbone (#669). The framework-free lifecycle -- group split, fingerprint,
+    # ML backbone. The framework-free lifecycle -- group split, fingerprint,
     # hash-pinned artifact, registry resolution -- on the NumPy backend, and the
     # scikit-learn (ONNX) and PyTorch backends, which skip where not installed;
     # and the checker of the vaft-nn registry they resolve published models from.
@@ -227,9 +227,9 @@ CORE_MODULES: tuple[str, ...] = (
     # names an API that exists -- a library rename breaks the last without its
     # author ever opening docs/, which is exactly what develop should catch.
     # The committed diagram SVGs are checked against their TikZ source too,
-    # and the generated import graph against Grimp, which stays optional (#1646),
-    # the dependency/external-code registry against pyproject and install/ (#1648),
-    # and the generated ontology's identity contract (#1702).
+    # and the generated import graph against Grimp, which stays optional,
+    # the dependency/external-code registry against pyproject and install/,
+    # and the generated ontology's identity contract.
     "test_dependency_graph.py",
     "test_diagram_render.py",
     "test_docs_api.py",
@@ -241,23 +241,23 @@ CORE_MODULES: tuple[str, ...] = (
     "test_ecosystem_catalog.py",
     "test_ontology_graph.py",
     "test_readme_consistency.py",
-    # Pipeline-3 summary sheets (#151, #1888): the checked-in xlsx carry every
+    # Pipeline-3 summary sheets: the checked-in xlsx carry every
     # column of their summary preset, so a preset change regenerates its sheet
-    # in the same PR instead of failing the main gate weeks later (#1843,
-    # #1979). Reads three small workbooks; no database.
+    # in the same PR instead of failing the main gate weeks later.
+    # Reads three small workbooks; no database.
     "test_pipeline3_summary_scripts.py",
-    # Operational boundaries (#1067): every published limit is called and
+    # Operational boundaries: every published limit is called and
     # checked against its source's numbers and its permitted side. Pure NumPy.
     "test_formula_boundaries.py",
-    # Edge-q estimates (#1583): the START/ITER q95 scaling, the q* proxies, the
+    # Edge-q estimates: the START/ITER q95 scaling, the q* proxies, the
     # machine policy and their extraction from the packaged sample. Pure NumPy.
     "test_edge_q_estimate.py",
-    # Operational-space projections (#1425): a boundary is drawn only on its
+    # Operational-space projections: a boundary is drawn only on its
     # own quantities; the population renderer reads tables, never ODS.
-    # Dimensionless-similarity spaces (#1624): conventions never mix, missing
+    # Dimensionless-similarity spaces: conventions never mix, missing
     # inputs are counted not imputed. Pure NumPy and Agg.
     "test_dimensionless_similarity.py",
-    # The equilibrium-state adapter (#1620) builds those tables from the packaged
+    # The equilibrium-state adapter builds those tables from the packaged
     # VEST sample and must give the atlas base table's numbers, ~10 s.
     "test_equilibrium_state.py",
     "test_li_qa.py",
@@ -315,15 +315,15 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
     "test_diagram_workflows.py",
-    # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
-    # The per-shot master lock (#913): an in-memory HSDS, ~4 s of threads.
+    # The new-shot worker: SQLite state, fake SQL and a fake runner only.
+    # The per-shot master lock: an in-memory HSDS, ~4 s of threads.
     "test_hsds_master_lock.py",
     "test_pipeline_worker.py",
     # Stability atlas (lane N): real DCON/RDCON output (trimmed netCDF files)
     # read back through the readers, the edge classifier and the ntms mapping,
-    # and the #141 scan driver's template patching. No solver runs.
+    # and the edge-scan driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
-    # The advisory ordering state passed through every suite driver (#1987).
+    # The advisory ordering state passed through every suite driver.
     "test_gpec_ordering_passthrough.py",
     "test_gpec_plasma_formalism.py",
     "test_gpec_rdcon_criteria.py",
@@ -334,18 +334,18 @@ CORE_MODULES: tuple[str, ...] = (
     "test_stability_atlas_population.py",
     "test_stability_rdcon_stride_benchmark.py",
     "test_stability_validation.py",
-    # GPEC adapter records (#1460): how a solver stop is worded and recorded --
+    # GPEC adapter records: how a solver stop is worded and recorded --
     # time limit, memory limit, never admitted -- through stub executables and
     # a recording backend. No solver runs; about 20 s.
     "test_gpec_adapter.py",
     "test_gpec_pentrc_runner.py",
-    # PENTRC log cap (#1929): head/tail kept, a stalled run stopped. Python
+    # PENTRC log cap: head/tail kept, a stalled run stopped. Python
     # child processes only; about 3 s.
     "test_gpec_log_cap.py",
-    # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
+    # Kinetic state (lane K): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",
-    # Atlas V&V population and snapshot contracts (#1835): synthetic tables,
+    # Atlas V&V population and snapshot contracts: synthetic tables,
     # mocked product evaluation and offline plot fixtures; no server or solver.
     "test_equilibrium_quality_plots.py",
     "test_kinetic_state_pressure_plots.py",
@@ -355,49 +355,49 @@ CORE_MODULES: tuple[str, ...] = (
     # 48224 ODS made multi-slice with offset times, the TGLF spectrum parser on the
     # reg05 fixture, and the routine driver with a fake runner. No solver runs.
     # The atlas renderers draw synthetic tables only. The classical core_transport
-    # projection and its summary preset (#1654) use one packaged state plus synthetic
+    # projection and its summary preset use one packaged state plus synthetic
     # records; the neoclassical summary's bootstrap <-> NEO flux correspondence
-    # (#1655) uses synthetic products plus the recorded 48224 NEO fixture run.
+    # uses synthetic products plus the recorded 48224 NEO fixture run.
     "test_classical_transport_summary.py",
     "test_neoclassical_summary.py",
     "test_plot_transport_atlas.py",
     "test_transport_projection.py",
     "test_transport_state.py",
-    # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
+    # Class-shot diagnostics (lane U): the checklist on synthetic ODS,
     # the recorded flux-loop and diagnostic fault boundaries (vest.yaml reads
     # only), the plasma-current Rogowski verdict, the TF excursion repair and
-    # the shot-class pickup refusal (#1733) on synthetic records, and the EFIT
-    # not-applicable verdict for sub-CUTIP class shots (#1731), whose last test
+    # the shot-class pickup refusal on synthetic records, and the EFIT
+    # not-applicable verdict for sub-CUTIP class shots, whose last test
     # runs the k-file/EFIT/EFIT-ODS scripts as subprocesses (~10 s), and the
-    # explicit-drive magnetic decomposition (#1795) on the packaged 39915
+    # explicit-drive magnetic decomposition on the packaged 39915
     # product (two eddy solves per case, ~20 s), and magnetics in the shared
-    # machine-geometry registry plus the flux-loop top view (#1829).
+    # machine-geometry registry plus the flux-loop top view.
     "test_barometry_gauge_eras.py",
     "test_class_shot_checklist.py",
     "test_diagnostic_faults.py",
     "test_efit_not_applicable.py",
-    # SXR constant-offset baselines, one owner (#2162 B3.11). Synthetic, ~3 s.
+    # SXR constant-offset baselines, one owner. Synthetic, ~3 s.
     "test_sxr_baseline_owner.py",
-    # Canonical API ownership matrix is true of the code (#2162 12A, B3.9). AST, ~8 s.
+    # Canonical API ownership matrix is true of the code. AST, ~8 s.
     "test_api_ownership.py",
-    # Box average at every sample, one owner (#2162 B3.10).
+    # Box average at every sample, one owner.
     "test_box_average_series.py",
     "test_flux_loop_known_faults.py",
     "test_magnetic_decomposition.py",
     "test_magnetics_geometry_registry.py",
-    # The vest.yaml equilibrium magnetic sensor registry (#2158): schema,
-    # frozen-fixture equality and pre-#2158 output identity, ~30 s.
+    # The vest.yaml equilibrium magnetic sensor registry: schema,
+    # frozen-fixture equality and output identity with the retired split-file loaders, ~30 s.
     "test_magnetics_registry.py",
     "test_plasma_current_quality.py",
     "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
-    # PF coil-current filter (#2162 B3.5): the named composition held to a frozen
+    # PF coil-current filter: the named composition held to a frozen
     # copy of _legacy_pf_filter, coefficients and phase. Synthetic, ~3 s.
     "test_pf_current_filter.py",
-    # Short-run anti-alias correction (#2162 B3.12): a run too short for the
+    # Short-run anti-alias correction: a run too short for the
     # anti-alias filter is not decimated into an alias. Analytic tones, ~2 s.
     "test_resample_short_run_alias.py",
-    # Impurity composition (lane L, #1565): the mixture algebra against the
+    # Impurity composition (lane L): the mixture algebra against the
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
     # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
     "test_formula_fast_ion.py",
@@ -407,16 +407,16 @@ CORE_MODULES: tuple[str, ...] = (
     "test_process_impurity.py",
     "test_process_kinetic_closure.py",
     "test_process_species.py",
-    # #1565 Sec. 8: the impurity composition and stored Z_eff plots, on
+    # The impurity composition and stored Z_eff plots, on
     # synthetic ADF11 tables (no network). Under 10 s.
     "test_impurity_plots.py",
     "test_vest_core_profiles_policy.py",
     "test_zeff_projection.py",
-    # Turbulence-zonal-flow predator-prey reduced model (#1820): analytic kernels
+    # Turbulence-zonal-flow predator-prey reduced model: analytic kernels
     # checked against a numerical orbit, and the process layer (intensity split,
     # cycle metrics, trajectory fit) on synthetic orbits. Under 30 s.
     "test_formula_turbulence.py",
-    # Transport and turbulence reference relations (#1112): analytic limits, sign
+    # Transport and turbulence reference relations: analytic limits, sign
     # conventions and the TGLF gyro-Bohm units. Pure NumPy, under 5 s.
     "test_formula_transport.py",
     "test_process_gyrokinetics.py",
@@ -424,67 +424,67 @@ CORE_MODULES: tuple[str, ...] = (
     "test_cgyro_time.py",
     "test_gyrokinetic_cold_review.py",
     "test_gyrokinetic_result_contracts.py",
-    # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
+    # Reduced MHD stability kernels: Suydam, circular Mercier, the GGJ
     # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
     "test_formula_reduced_stability.py",
-    # Credibility and applicability (lane AP, #1639): the six-axis taxonomy and
+    # Credibility and applicability (lane AP): the six-axis taxonomy and
     # the ordering-margin evaluation on synthetic states, plus two clean-interpreter
     # import checks that keep both off the default processing path. Under 10 s.
     "test_validation_credibility.py",
-    # Scientific contract interoperability (#2163): unit scale factors, declared
+    # Scientific contract interoperability: unit scale factors, declared
     # Fourier conventions and the identity/unit/COCOS/Fourier compatibility
-    # assessment, Cases A, B, C and E of #2160. Metadata and NumPy; under 5 s.
+    # assessment on its reference cases. Metadata and NumPy; under 5 s.
     "test_data_fourier_convention.py",
     "test_formula_units.py",
     "test_scientific_compatibility.py",
-    # Sensitivity contract (lane AP, #1642): finite differences against the
+    # Sensitivity contract (lane AP): finite differences against the
     # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map; per-formula
-    # propagation and analytic Jacobians of the pilot formulas (#1874). ~3 s.
+    # propagation and analytic Jacobians of the pilot formulas. ~3 s.
     "test_formula_uncertainty.py",
     "test_sensitivity_contract.py",
-    # Asymptotic ordering parameters (#1627): Lundquist, inertial lengths,
+    # Asymptotic ordering parameters: Lundquist, inertial lengths,
     # Braginskii times, Knudsen, magnetization against the NRL formulary.
     "test_formula_ordering.py",
-    # Reduced-representation taxonomy (#1626): the Reduction vocabulary, its
+    # Reduced-representation taxonomy: the Reduction vocabulary, its
     # parser, the catalog's exposure and filters, and the family metadata.
     "test_formula_taxonomy.py",
-    # Ballooning normalisations (#1637): the volume shear and alpha reduce exactly
+    # Ballooning normalisations: the volume shear and alpha reduce exactly
     # to s-hat and the CHT alpha for circular large-aspect-ratio surfaces.
     "test_formula_ballooning_normalisation.py",
-    # DCON local-criterion and edge-scan post-processing (lane N, #940) on the
-    # real #792 DCON fixtures mapped through mhd_linear. Under 10 s.
+    # DCON local-criterion and edge-scan post-processing (lane N) on the
+    # real DCON fixtures mapped through mhd_linear. Under 10 s.
     "test_process_mhd_stability.py",
-    # Plasma-formalism provenance (lane AP, #1727): the seven audited cases as
+    # Plasma-formalism provenance: the seven audited cases as
     # records, the generic impossibilities, serialization and CGYRO's derived
-    # #1353 record. Pure Python, ~3 s.
+    # record. Pure Python, ~3 s.
     "test_plasma_formalism.py",
-    # GACODE-suite formalism (#1735): NEO/TGLF/TGLF-NN/CGYRO records derived from the
+    # GACODE-suite formalism: NEO/TGLF/TGLF-NN/CGYRO records derived from the
     # written input, and the distinctions that must not collapse. Pure Python, <1 s.
     "test_gacode_plasma_formalism.py",
-    # Ordering contracts (#1627 phase C): the registry against applicability's rules,
+    # Ordering contracts: the registry against applicability's rules,
     # the cited kernels against the catalog, and evaluation on synthetic states.
     "test_validation_orderings.py",
-    # Ordering spaces and margins (#1627 §3): the space registry, the margin bands and both plots
+    # Ordering spaces and margins: the space registry, the margin bands and both plots
     # on a synthetic population. Under 5 s.
     "test_plot_ordering_space.py",
-    # Small preprocessing duplicates (#2162 B3.2-B3.7): each canonical owner held
+    # Small preprocessing duplicates: each canonical owner held
     # to a frozen copy of the code it replaced, and the two kept with a reason.
     # Synthetic records, ~5 s.
     "test_preprocessing_duplicates.py",
-    # Adapter-mode ordering contracts (#1823): formalism mapping, registry vs the GPEC resolver and CGYRO,
+    # Adapter-mode ordering contracts: formalism mapping, registry vs the GPEC resolver and CGYRO,
     # and the advisory check. Under 5 s.
     "test_validation_model_contracts.py",
-    # Plasma-model guide figures (#1739 E2): nodes computed from ADAPTER_MODES and AXES. Under 5 s.
+    # Plasma-model guide figures: nodes computed from ADAPTER_MODES and AXES. Under 5 s.
     "test_diagram_plasma_models.py",
-    # Advisory ordering checks in EFIT, GPEC-suite and CGYRO run provenance (#1823). Under 10 s.
+    # Advisory ordering checks in EFIT, GPEC-suite and CGYRO run provenance. Under 10 s.
     "test_adapter_ordering_provenance.py",
-    # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
+    # Core q / rational / low-shear / boundary context (lane N): synthetic
     # profiles with known answers and the packaged 39915 slice. Under 15 s.
     "test_q_profile_context.py",
-    # Ordering summary layer (lane AP, #1627 §2 / #1629): each builder against
+    # Ordering summary layer: each builder against
     # its textbook definition; missing inputs stay NaN. Pure NumPy, ~3 s.
     "test_ordering_state.py",
-    # Preprocessing consolidation (#2162): each canonical owner held to frozen
+    # Preprocessing consolidation: each canonical owner held to frozen
     # copies of the helpers it replaced, on synthetic records. Pure NumPy, ~2 s.
     "test_baseline_consolidation.py",
     # The gate's own contract.

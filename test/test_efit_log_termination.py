@@ -1,4 +1,4 @@
-"""EFIT's own log as a readable record (#76, #171).
+"""EFIT's own log as a readable record.
 
 The reader used to live in `workflow/efit_numerics/baseline_termination.py`
 and was reachable only by loading that script by path. These pin the move and
@@ -53,7 +53,7 @@ INFO in efit at r=  0, t=   321: Done processing
 
 
 def test_only_efits_own_line_says_the_cap_was_reached():
-    # #1038: fit.F90 prints the warning only when the outer loop ran all its
+    # fit.F90 prints the warning only when the outer loop ran all its
     # passes. The second slice printed nothing and left through the silent
     # `go to 2020` (increment below ERROR on an inner loop's first step) --
     # a stop on EFIT's criterion, which this parser used to call exhausted.

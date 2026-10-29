@@ -1,4 +1,4 @@
-"""Several 0D targets at once around the CHEASE synthesis (#120).
+"""Several 0D targets at once around the CHEASE synthesis.
 
 The loop logic is tested offline against a smooth fake of the single-target
 synthesis; the CHEASE solves are skipped without a binary.

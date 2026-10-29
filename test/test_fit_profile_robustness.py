@@ -82,7 +82,7 @@ def test_too_few_valid_points_raises():
 
 def test_linear_mode_is_nan_outside_the_data_by_default():
     # numpy.interp holds the end values; a profile past the last channel must
-    # come back missing, not as a flat artefact (#359).
+    # come back missing, not as a flat artefact.
     x = np.array([0.2, 0.4, 0.6])
     y = np.array([2.0, 4.0, 6.0])
     x_eval = np.array([0.0, 0.3, 0.6, 0.9])

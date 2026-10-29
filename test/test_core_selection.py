@@ -1,6 +1,6 @@
 """The develop gate's contract with itself.
 
-`core` is what gates every pull request into `develop` (#515), and it is
+`core` is what gates every pull request into `develop`, and it is
 applied indirectly: test/core_selection.py declares a list, test/conftest.py
 turns that list into markers. Two things can quietly go wrong with an
 arrangement like that. A module can be renamed or deleted, leaving a dead entry

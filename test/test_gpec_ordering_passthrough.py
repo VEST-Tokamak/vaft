@@ -1,7 +1,7 @@
-"""The advisory ordering state reaches every GPEC-suite driver (#1987).
+"""The advisory ordering state reaches every GPEC-suite driver.
 
 ``GPECSuiteConfig.ordering_state`` feeds the ordering check each run records
-(#1823); the drivers built their configs without it, so every record checked
+and the drivers once built their configs without it, so every record checked
 an empty state.  :func:`vaft.code.gpec.ordering_state_for_case` builds it from
 the case's own equilibrium and never raises: a run must not be lost to an
 advisory record.

@@ -1,4 +1,4 @@
-"""Disruption diagrams (#1041): the timeline is the reference model, the model is the formulas."""
+"""Disruption diagrams: the timeline is the reference model, the model is the formulas."""
 
 import numpy as np
 import pytest

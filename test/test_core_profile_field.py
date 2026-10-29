@@ -6,7 +6,7 @@ index, and the DD-ordered ``(R, Z)`` psi of a square grid was never transposed,
 so on the packaged 129x129 sample the Te peak sat at (0.634, -0.516) while the
 magnetic axis is at (0.427, 0.023).
 
-Issue #335: the profile, stored on rho_tor_norm, was evaluated at sqrt(psi_N)
+Regression guard for #335: the profile, stored on rho_tor_norm, was evaluated at sqrt(psi_N)
 -- rho_pol -- so every value sat up to 0.15 in normalized radius from where it
 belongs.
 """
@@ -106,7 +106,7 @@ def test_a_non_square_grid_is_oriented_whichever_way_it_was_stored(stored_order)
     assert abs(r[ir] - r0) <= np.diff(r).max() and abs(z[iz] - z0) <= np.diff(z).max()
 
 
-# --- issue #335: the toroidal radius of each cell ---------------------------
+# --- the toroidal radius of each cell ---------------------------------------
 
 PSI_N_1D = np.linspace(0.0, 1.0, 41)
 

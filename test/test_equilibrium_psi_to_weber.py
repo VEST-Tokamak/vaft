@@ -1,4 +1,4 @@
-"""Issue #478: one function moves a legacy Wb/rad equilibrium to the DD's Wb.
+"""One function moves a legacy Wb/rad equilibrium to the DD's Wb.
 
 The packaged 39915 sample stored the g-file's psi per radian without saying
 so, and every reader had to redetect that from the data.  The sample is now
@@ -35,7 +35,7 @@ def weber():
 
 @pytest.fixture()
 def legacy(weber):
-    """The same equilibrium the way the pre-#236 writer stored it (Wb/rad)."""
+    """The same equilibrium the way the earlier writer stored it (Wb/rad)."""
     ods = copy.deepcopy(weber)
     ts = ods["equilibrium.time_slice.0"]
     for leaf in PSI_LEAVES:
@@ -149,7 +149,7 @@ def test_the_detector_honours_a_declared_cocos_before_probing(legacy):
 
 
 def test_field_derivations_are_invariant_under_conversion(legacy):
-    """The declared index must not divide by 2*pi a second time (#478).
+    """The declared index must not divide by 2*pi a second time.
 
     The derivations first scale psi to Wb/rad and then apply the Sauter
     prefactor; on a declared COCOS 11 ODS that prefactor used to carry its
@@ -274,7 +274,7 @@ def test_slice_callers_see_the_declaration_through_the_ods(weber):
     assert float(labelled) == pytest.approx(float(unlabelled), rel=1e-9)
 
 
-# -- issue #1371: a declared 2-8 is fully transformed, not only scaled by 2*pi --
+# -- a declared 2-8 is fully transformed, not only scaled by 2*pi -------------
 
 #: Leaves the synthetic records carry, with the OMAS ``cocos_transform`` key
 #: each is scaled by.  Written out here rather than read from the table the
@@ -373,7 +373,7 @@ def test_the_converted_record_gives_the_original_physical_field(cocos11, cocos):
     """B_Z (and B_R, B_phi) from the converted psi is the field the record described.
 
     The interpolator reads the declaration, so a 2*pi-only scale relabelled as
-    11 reversed B_Z for a declared 2 and 3 (issue #1371).
+    11 reversed B_Z for a declared 2 and 3.
     """
     reference = _field(cocos11)
     assert np.all(np.abs(reference[:, 1]) > 0)

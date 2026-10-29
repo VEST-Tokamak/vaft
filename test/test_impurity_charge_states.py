@@ -1,4 +1,4 @@
-"""Atomic-data charge states behind Z_eff(rho) (#1565 Sec. 8): synthetic ADF11 tables, no network."""
+"""Atomic-data charge states behind Z_eff(rho): synthetic ADF11 tables, no network."""
 
 from __future__ import annotations
 

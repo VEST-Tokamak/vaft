@@ -1,4 +1,4 @@
-"""Issue #161: the three camera-fluctuation views, on a synthetic camera ODS.
+"""The three camera-fluctuation views, on a synthetic camera ODS.
 
 The views must consume analysis results rather than re-derive them, so these
 tests check that what reaches the screen is what
@@ -198,7 +198,7 @@ class TestTheCameraSpectrogram:
         assert figure is not None and axes.collections
 
     def test_it_gets_the_shared_default_display_band(self):
-        """The content is at 6 kHz of a 25 kHz axis; #765's rule must apply here too.
+        """The content is at 6 kHz of a 25 kHz axis; the shared display-band rule must apply here too.
 
         A quieter scene than the shared fixture: `image_raw` is an integer node,
         so a 15-count oscillation carries a rounding floor near 1% of its own

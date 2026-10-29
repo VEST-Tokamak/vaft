@@ -1,4 +1,4 @@
-"""The operational-boundary data model (#1067): values, margins, windows, curves, registry.
+"""The operational-boundary data model: values, margins, windows, curves, registry.
 
 The catalog tests only read docstrings; everything here calls the functions
 and checks numbers.
@@ -327,7 +327,7 @@ def test_registered_keys_are_unique():
 
 
 # ------------------------------------------------------------------
-# Hugill diagram (#1068): the Greenwald line in (nR/B, 1/q_cyl)
+# Hugill diagram: the Greenwald line in (nR/B, 1/q_cyl)
 # ------------------------------------------------------------------
 
 def test_greenwald_hugill_slope_is_50_kappa_over_pi():
@@ -399,7 +399,7 @@ def test_swap_axes_maps_above_to_right():
 
 
 # ------------------------------------------------------------------
-# Murakami limit (#1068), checked against Murakami, Callen & Berry,
+# Murakami limit, checked against Murakami, Callen & Berry,
 # Nucl. Fusion 16 (1976) 347, Table I: (device, R0 [m], B_T [T], n_e max [1e19 m^-3], gas injection)
 # ------------------------------------------------------------------
 
@@ -479,7 +479,7 @@ def test_every_published_entry_cites_a_location_in_its_source():
 
 
 # ------------------------------------------------------------------
-# Giacomin et al. 2022 edge density limit (#1068): the paper's worked predictions
+# Giacomin et al. 2022 edge density limit: the paper's worked predictions
 # ------------------------------------------------------------------
 
 def _giacomin(A, a, P, R, q, kappa, B_T):
@@ -527,7 +527,7 @@ def test_giacomin_targets_edge_density_and_reports_extrapolation():
 
 
 # ------------------------------------------------------------------
-# Troyon beta limit (#350): Troyon et al., PPCF 26 (1984) 209, p. 214
+# Troyon beta limit: Troyon et al., PPCF 26 (1984) 209, p. 214
 # ------------------------------------------------------------------
 
 def test_troyon_coefficient_is_2p2_mu0_in_percent_m_T_per_MA():
@@ -560,7 +560,7 @@ def test_troyon_uses_the_same_beta_N_convention_as_the_stability_module():
 
 
 # ------------------------------------------------------------------
-# L-H threshold family (#1066): Martin et al. 2008 and Ryter et al. 2014
+# L-H threshold family: Martin et al. 2008 and Ryter et al. 2014
 # ------------------------------------------------------------------
 
 # ITER as the papers use it: B_T = 5.3 T and S = 678 m^2 (Martin 2008, p. 4); I_p = 15 MA
@@ -641,7 +641,7 @@ def test_uncertainty_rejects_impossible_scatter():
 
 
 # ------------------------------------------------------------------
-# Takizuka et al. 2004 (ITPA04): the low-aspect-ratio L-H threshold (#1066)
+# Takizuka et al. 2004 (ITPA04): the low-aspect-ratio L-H threshold
 # ------------------------------------------------------------------
 
 def test_takizuka_aspect_factor_matches_the_paper():
@@ -703,7 +703,7 @@ def test_takizuka_gamma_is_an_explicit_keyword_spanning_the_published_range():
             B._takizuka_2004_threshold(**kw, gamma=outside)
 
 
-# Experimental beta references on the Troyon plane (#1691): references, not limits
+# Experimental beta references on the Troyon plane: references, not limits
 BETA_REFERENCES = {"strait_1988_diiid_beta_n_envelope": ("experimental_envelope", 3.5),
                    "taylor_1995_diiid_beta_n_record": ("experimental_achievement", 4.3),
                    "garstka_2002_st_beta_n_reference": ("experimental_envelope", 6.0),
@@ -742,7 +742,7 @@ def test_evaluating_a_reference_says_it_is_not_a_limit():
     assert not any("not a limit" in w for w in limit.warnings)
 
 
-# --- beta_N = 4 l_i(1) (Strait 1994; #1691, #1700) ------------------------------------
+# --- beta_N = 4 l_i(1) (Strait 1994) ------------------------------------
 
 
 def test_li1_is_the_circumference_normalized_internal_inductance():

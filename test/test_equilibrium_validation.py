@@ -1,4 +1,4 @@
-"""The unified equilibrium validation report (issue #72; #253 §13-§16).
+"""The unified equilibrium validation report.
 
 What is asserted, and why it is the contract:
 
@@ -137,9 +137,9 @@ def test_aggregation_never_collapses_the_undecided_into_a_pass():
 
 
 def test_not_available_is_distinct_from_pass_and_from_fail(report):
-    # The sample carries EFIT's reconstructed values (m-file replay, #952), but
+    # The sample carries EFIT's reconstructed values (m-file replay), but
     # the k-files recorded no uncertainty model: residuals normalised by the
-    # legacy sigma (weight * 1e4, 1000 T on a probe) are not graded (#891), so
+    # legacy sigma (weight * 1e4, 1000 T on a probe) are not graded, so
     # every fitted family is not available rather than a pass. No kinetic data.
     assert report["summary"]["diagnostic_fit"] == NOT_AVAILABLE
     fit = report["diagnostic_fit"]
@@ -160,12 +160,12 @@ def test_a_partially_assessable_category_is_indeterminate(report):
     """Five slices pass the virial plausibility bounds, three fail them, and the
     dead one cannot be decided.
 
-    The three failures are real and were masked until #546. The Lao beta_p is
+    The three failures are real and were once masked. The Lao beta_p is
     built on mu_i, and the pipeline fed it the flux-convention quantity -- the
     negative of the one the virial relations use -- which put it around +1.5.
     On the volume convention this reconstruction has almost no poloidal beta
     (0.034 on the live slice, negative on three), which is the pressure-profile
-    defect #386 finally reaching a check that can see it.
+    defect (Open: #386) reaching a check that can see it.
     """
     virial = report["physical_validity"]["virial_parameter_plausibility"]
     assert virial["counts"] == {INDETERMINATE: 1, FAIL: 3, PASS: 5}
@@ -215,7 +215,7 @@ def test_continuity_needs_two_slices_and_flags_the_current_collapse(sample, repo
 
 
 def test_a_declared_but_unverifiable_convention_is_indeterminate_not_a_pass(report):
-    """The packaged sample declares COCOS 11 (#478); the sign relations that
+    """The packaged sample declares COCOS 11; the sign relations that
     would confirm it need inputs the slice does not carry, so the check is
     indeterminate -- a declaration is not a verification."""
     live = _slice(report, "verification", "convention", LIVE)
@@ -243,7 +243,7 @@ def test_an_undeclared_convention_is_indeterminate_not_a_pass(sample):
 def test_diagnostic_fit_is_efit_quality_family_by_family(efit):
     from vaft.omas.efit_quality import fit_quality_metrics
 
-    # Grading needs a statistical uncertainty model on record (#891); the
+    # Grading needs a statistical uncertainty model on record; the
     # fixture's Ip is made ten sigma off in its plasma-only residual, which is
     # what the recomputed Ip chi-square measures.
     efit = copy.deepcopy(efit)
@@ -260,7 +260,7 @@ def test_diagnostic_fit_is_efit_quality_family_by_family(efit):
     assert fit["ip"]["z"] == metrics["scalars"]["ip"]["z"] == pytest.approx(10.0)
     assert fit["ip"]["status"] == FAIL and describe("diagnostic_fit.ip").tolerance[1] < 10.0
     # The fixture leaves the diamagnetic loop as the sample stores it, which
-    # since the m-file replay (#952) is EFIT's own reconstruction: weighted out
+    # since the m-file replay is EFIT's own reconstruction: weighted out
     # (fit weight 1e-4), so its chi-square is ~1e-16 and it passes.
     assert fit["diamagnetic_flux"]["status"] == PASS
     assert fit["global"]["chi_squared_reduced"] == metrics["chi_squared_reduced"]
@@ -325,13 +325,13 @@ def test_the_reconstructed_diamagnetic_flux_agrees_with_the_measurement_in_sign(
     This test used to pin the opposite -- a paramagnetic reconstruction
     against a loop "measuring diamagnetic", and W_diamagnetic tens of times
     W_kin.  The loop's sign came from an extra minus in the mapper port that
-    the donor never had (#1196).  Corrected, the fluxes agree in sign and to
+    the donor never had.  Corrected, the fluxes agree in sign and to
     ~19 %, so ``diamagnetic_flux`` passes.
 
     ``diamagnetic_energy`` still fails, and by a smaller, now credible margin:
     the loop implies beta_p ~ 0.17 (W ~ 180 J) where the reconstruction's
     virial beta_p is 0.034 (W_kin ~ 35 J) -- a factor of ~5, the
-    pressure-profile defect #386 without the sign error on top.
+    pressure-profile defect (Open: #386) without the sign error on top.
     """
     flux = _slice(report, "physical_validity", "diamagnetic_flux", LIVE)
     assert flux["status"] == PASS
@@ -491,7 +491,7 @@ def test_registry_entries_are_internally_consistent():
 
 
 def test_results_carry_numbers_and_a_status_not_invariant_metadata(report):
-    """#253 §4-§5: units, tolerances, methods and provenance are stated once."""
+    """Units, tolerances, methods and provenance are stated once."""
     forbidden = {"unit", "units", "tolerance", "provenance", "method", "definition", "reference"}
     for category in EQUILIBRIUM_CATEGORIES:
         for check, entry in report[category].items():
@@ -569,7 +569,7 @@ def test_the_public_name_lives_on_the_package(sample):
     assert "validate_equilibrium" in vaft.validation.__all__
 
 def test_the_two_virial_checks_do_not_contradict_each_other(report):
-    """Review of #546: virial_conditioning used to say the RT-dependent closures
+    """virial_conditioning once said the RT-dependent closures
     were indeterminate while virial_pair_consistency graded their residuals and
     reported `fail` on the same slice. Every leave-one-out residual passes
     through RT/R0 -- pair_12 and pair_23 in the closure, pair_13 in the E2 it is

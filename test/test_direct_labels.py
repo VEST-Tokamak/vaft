@@ -1,4 +1,4 @@
-"""Direct labels instead of legends on the multi-machine figures (#1946)."""
+"""Direct labels instead of legends on the multi-machine figures."""
 
 import numpy as np
 import pandas as pd

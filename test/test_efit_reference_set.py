@@ -1,7 +1,9 @@
 """The EFIT-quality reference set: every declared claim is checked, not asserted.
 
-The set exists so #171, #196, #468, #459 and #579 all run on the same shots
-for stated reasons. What is pinned here is that each declared file exists,
+The set exists so the open EFIT qualification studies -- solver configuration
+(#171), temporal continuation (#196), cadence and averaging window (#468),
+domain and grid (#459) and profile-model uncertainty (#579) -- all run on the
+same shots for stated reasons. What is pinned here is that each declared file exists,
 that the arms a shot claims are the arms its data supports, and the two
 properties the set was built to guarantee: one shot covers both arms with its
 kinetic data inside the reconstructed window, and the magnetics arm varies.
@@ -109,7 +111,7 @@ def test_48224_is_the_kinetic_case_and_says_what_it_cannot_do(table):
     assert contents["charge_exchange_channels"] == 40
     assert contents["core_profiles"]["measured_points"] == 7
     assert contents["equilibrium_times"] == [0.3]
-    # The near-axis defect must stay visible in the set, not only in issue #317.
+    # The near-axis defect must stay visible in the set, not only in a ticket.
     assert any("psi_N < 0.05" in note for note in row["notes"])
 
 

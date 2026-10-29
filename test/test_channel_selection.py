@@ -1,4 +1,4 @@
-"""Semantic channel selection and the shared region classifier (issue #259).
+"""Semantic channel selection and the shared region classifier.
 
 The inboard/outboard divider is inferred per diagnostic family from that
 family's own geometry, so it cannot be moved by how densely one side is
@@ -298,7 +298,7 @@ def test_every_advertised_preset_resolves_to_something(loop_ods):
 
 
 # ---------------------------------------------------------------------------
-# Representative channels (issue #259 sections 7 and 8)
+# Representative channels
 # ---------------------------------------------------------------------------
 
 def test_a_representative_is_one_member_of_its_region(loop_ods):

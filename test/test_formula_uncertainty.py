@@ -1,4 +1,4 @@
-"""Per-formula uncertainty propagation: the optional contract and evaluation API (#1874).
+"""Per-formula uncertainty propagation: the optional contract and evaluation API.
 
 The pilot formulas keep their signatures, values and cost; the analytic
 Jacobians they carry agree with a well-scaled finite difference; correlated

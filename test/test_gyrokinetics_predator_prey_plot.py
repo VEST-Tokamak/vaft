@@ -1,4 +1,4 @@
-"""Predator--prey plots (#1820): they draw process results and derive nothing themselves."""
+"""Predator--prey plots: they draw process results and derive nothing themselves."""
 
 from __future__ import annotations
 

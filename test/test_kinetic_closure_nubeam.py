@@ -1,4 +1,4 @@
-"""The analytic fast-ion closure against NUBEAM on the packaged VEST case (#1606).
+"""The analytic fast-ion closure against NUBEAM on the packaged VEST case.
 
 ``test/data/nubeam/vest_fast_ion_reference.json`` is one NUBEAM run of
 ``vaft/data/nubeam/vest_case`` (5 x 1 ms, 2000 markers), written by
@@ -6,7 +6,7 @@
 NUBEAM's own plasma and birth rate, so only the slowing-down physics differs:
 steady, local, isotropic and lossless here, Monte Carlo orbits with bad-orbit
 and charge-exchange losses there.  The bands below document where the analytic
-baseline sits, not a tolerance to be tuned (#1606 Validation).
+baseline sits, not a tolerance to be tuned.
 """
 
 from __future__ import annotations

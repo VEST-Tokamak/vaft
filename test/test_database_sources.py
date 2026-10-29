@@ -1,4 +1,4 @@
-"""The named HSDS source registry (issue #56).
+"""The named HSDS source registry.
 
 Source identity is the one thing that decides which analysis lineage a shot is
 written into, so the catalog, the default, the alias rules and the read-only
@@ -38,7 +38,7 @@ def test_catalog_carries_every_lineage_the_issue_names():
         "impa",
         # Same IDS as the routine camera product in `main`, so it needs its own
         # lineage rather than an occurrence: lazy HSDS access reads occurrence
-        # 0 only (#599).
+        # 0 only.
         "camera-visible-fluctuation",
     }
 
@@ -124,8 +124,8 @@ def test_the_read_only_sources_are_each_read_only_for_their_own_reason():
     *name* for what `main` already holds, so making it writable would give one
     dataset two writable destinations -- the collision named sources exist to
     prevent. `chease-mhd-stability` is superseded: it stays readable so an
-    existing deployment keeps resolving, and is deleted by the gated migration
-    in #94 rather than being redirected onto the hierarchy, which would be
+    existing deployment keeps resolving, and is deleted by the gated production cut-over
+    (Open: #94) rather than being redirected onto the hierarchy, which would be
     implicit composition of several products behind one name.
     """
     unwritable = sorted(s.name for s in sources.known_sources() if not s.writable)
@@ -214,7 +214,7 @@ def _contract(stage):
     """The replication contract for `stage`, with the lineage it requires."""
     key = stage.value if hasattr(stage, "value") else str(stage)
     if key == "turbulent_transport":
-        # One TGLF configuration's result (#1900): its product is a
+        # One TGLF configuration's result: its product is a
         # configuration, not a stability product.
         return sources.replication_for_stage(stage, product="tglf-sat3-em-bper")
     needs_product = key in {"mhd_linear", "gpec_ideal"}
@@ -276,9 +276,9 @@ def test_the_two_mhd_linear_owners_no_longer_need_the_occurrence_to_stay_apart()
     equal.
 
     The occurrence is left in place regardless. Removing it is a change to how a
-    consumer reads ideal-GPEC's product, and that read contract is #95's open
-    question -- this notes that the mechanism became redundant without deciding
-    what should replace it.
+    consumer reads ideal-GPEC's product, and that read contract is
+    undecided (Open: #95, how ideal-GPEC and DCON coexist) -- this notes that the
+    mechanism became redundant without deciding what should replace it.
     """
     stability = _contract("mhd_linear")
     ideal = _contract("gpec_ideal")
@@ -573,7 +573,7 @@ def test_the_registry_never_names_a_read_only_destination():
 
     `chease-mhd-stability` became read-only while the registry still listed it
     for chease / mhd_linear / gpec_ideal. Only `replication_for_stage` overrode
-    it -- and not for the deferred gpec_ideal, which #95 would have inherited.
+    it -- and not for the deferred gpec_ideal, which the open #95 decision would inherit.
     """
     for stage, entry in sources.STAGE_REPLICATION.items():
         if entry.source is not None:

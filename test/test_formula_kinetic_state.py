@@ -18,7 +18,7 @@ from vaft.formula.equilibrium import electron_pressure, ion_pressure
 from vaft.formula.utils import normalized_gradient_scale_length
 
 
-# Z_eff itself is z_eff_from_n_s_Z_s (#968), covered in its own tests.
+# Z_eff itself is z_eff_from_n_s_Z_s, covered in its own tests.
 
 
 # --- single-impurity inversion --------------------------------------------------

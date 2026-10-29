@@ -1,4 +1,4 @@
-"""Which cohort a reconstructed slice belongs to (issue #76).
+"""Which cohort a reconstructed slice belongs to.
 
 The rule these pin is a choice, and the tests say which choice and why, so a
 later change has to argue with the measurement rather than with a number.
@@ -45,7 +45,7 @@ def _ods(currents, times=None, limloc=None):
 
 
 def test_the_phase_rule_is_a_level_and_says_why():
-    """#76: the rule must be explicit and configurable, not a hidden branch.
+    """The rule must be explicit and configurable, not a hidden branch.
 
     The level rule was chosen over the slope rule after measuring both: they
     agree on 295 of 300 reference slices, so the choice was made on what sets
@@ -92,7 +92,7 @@ def test_the_vacuum_cut_is_efits_own_and_not_a_second_opinion():
     """A slice EFIT calls vacuum is not a slice with a phase.
 
     The threshold is the same number as `CUTIP`; two different plasma-current
-    floors in one pipeline is the confusion #708 spent a commit removing.
+    floors in one pipeline is a confusion already removed once.
     """
     from vaft.code.efit.config import EFITInitializationConfig
 
@@ -126,7 +126,7 @@ def test_the_slope_rule_is_still_reachable_by_name():
 
 
 def test_an_unreadable_current_is_unknown_and_not_vacuum():
-    """The distinction #76 asks for, and the one that is easy to lose.
+    """The distinction failure classification needs, and the one that is easy to lose.
 
     A missing current means nobody looked. Calling it `vacuum` would put it in
     a cohort with slices that were measured and found empty, and every
@@ -175,13 +175,13 @@ def test_a_diverted_label_exists_but_vest_has_not_produced_one():
 
 
 def test_the_label_carries_its_inputs_so_a_cohort_can_be_recut():
-    """#76: derived labels must preserve their input quantities."""
+    """Derived labels must preserve their input quantities."""
     labels = classify_equilibrium_regimes(_ods([100_000, 50_000]), policy=POLICY)
     record = labels[0].as_dict()
     assert set(record) == {
         "time", "phase", "topology", "current", "current_rate",
         "fraction_of_peak", "limloc", "rule", "reasons",
-        # #1891 descriptors
+        # regime descriptors
         "current_bin", "magnitude_rate", "rate_bin", "era", "event",
         "eddy_current", "eddy_fraction", "version",
     }

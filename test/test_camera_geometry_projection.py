@@ -223,7 +223,7 @@ def test_project_points_reproduces_notebook_self_consistency_for_34764():
 
 
 def test_the_camera_ports_are_machine_geometry_not_a_notebook_formula():
-    """VEST's port corners come from the machine mapping (#64).
+    """VEST's port corners come from the machine mapping.
 
     Sixteen markers -- eight per port, four corners then the edge midpoints --
     in the centimeter world frame `project_points` expects, with the two ports

@@ -1,4 +1,4 @@
-"""The CHEASE fixture behind the #886 island notebook, and the island on it.
+"""The CHEASE fixture behind the magnetic-island notebook, and the island on it.
 
 ``test/data/island_sxr/solovev_vest_chease.geqdsk`` is a CHEASE fixed-boundary
 refinement of ``solovev_example(**provenance["solovev_example"])``, made by
@@ -49,7 +49,7 @@ def test_the_fixture_is_the_file_its_provenance_describes():
 def test_the_fixture_refines_the_recorded_solovev_input(pair):
     solovev, refined = pair
     # CHEASE's output comes back in its source's orientation, as the per-radian
-    # twin of COCOS 11 (#1157); before that it declared COCOS 2 and read back
+    # twin of COCOS 11; before that it declared COCOS 2 and read back
     # with the current and both field components reversed.
     assert refined.convention.cocos == 1 and solovev.convention.cocos == 11
     assert not refined.convention.contradicted

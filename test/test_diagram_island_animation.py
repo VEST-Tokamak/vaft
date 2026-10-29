@@ -1,8 +1,8 @@
-"""``vaft.diagram.magnetic_island(..., animation=True)``: a phase scan or a rigid rotation (#1053).
+"""``vaft.diagram.magnetic_island(..., animation=True)``: a phase scan or a rigid rotation.
 
 The animated form is the static diagram evaluated at every state of one
 trajectory -- the same ``IslandModel``, so the same topology and width -- and
-it returns the animation result of ``plot_*(..., animation=True)`` (#1049).
+it returns the animation result of ``plot_*(..., animation=True)``.
 These are the contract tests for a **phase-driven** and a **time-driven**
 diagram; no PyAV is needed (frames and ``.gif`` only).
 """

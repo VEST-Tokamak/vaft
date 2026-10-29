@@ -1,4 +1,4 @@
-"""The #1869 benchmark runner's logic, without HSDS: probes, scenarios, summary and correctness."""
+"""The HSDS benchmark runner's logic, without HSDS: probes, scenarios, summary and correctness."""
 
 from __future__ import annotations
 

@@ -38,7 +38,7 @@ def test_a_failed_save_leaves_the_previous_product_intact(tmp_path, monkeypatch,
 
     ``save`` used to open the target in place, so a disk-full or a killed
     worker left a short file under the canonical name that the next reader
-    failed on with ``JSONDecodeError`` (cold review 0.7.0 data F16, #1888).
+    failed on with ``JSONDecodeError`` (cold review 0.7.0 data F16).
     Every format now writes beside the target and ``os.replace``s it, so a
     failure at any point of the write leaves the previous product as it was.
     The fault here fires after the bytes of the new product were written, the
@@ -79,7 +79,7 @@ def test_threads_saving_the_same_target_do_not_share_a_staging_file(tmp_path):
     The staging name was `.<stem>.tmp-<pid><suffix>`, the same path for every
     thread of a process: one thread's `os.replace` moved another's half-written
     bytes onto the canonical name, and the other then failed with
-    FileNotFoundError (PR #1926 review F1).  The token is now random per call.
+    FileNotFoundError.  The token is now random per call.
     """
     import threading
 
@@ -110,7 +110,7 @@ def test_threads_saving_the_same_target_do_not_share_a_staging_file(tmp_path):
 
 def test_the_hdf5_spelling_is_written_by_the_hdf5_writer(tmp_path):
     """`.hdf5` passed validation but reached `ODS.save`, which has no
-    `save_omas_hdf5` (PR #1926 review F6)."""
+    `save_omas_hdf5`."""
     from omas import ODS
 
     ods = ODS()

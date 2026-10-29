@@ -2,7 +2,7 @@
 
 The consolidation decides, from names and header text alone, which of ~2000
 directories a machine mapping can read, which are derived output, and which are
-fluctuation-grade and therefore reserved for issue #161. Those decisions move
+fluctuation-grade and therefore reserved for the camera fluctuation analysis. Those decisions move
 250 GB and are hard to inspect afterwards, so they are tested here against the
 shapes that actually occur in the export tree rather than against the happy
 path only.
@@ -112,7 +112,7 @@ class TestCameraClassification:
         assert info.suffix == "-N001"
 
     def test_arranged_frames_are_never_mapper_input(self):
-        """`bmp_arranger` output is derived, and issue #161 forbids it as a fixture."""
+        """`bmp_arranger` output is derived, and must not be a fluctuation fixture."""
         info = INVENTORY.classify_camera_directory(
             "39915",
             ["39915_305.2_ms.bmp", "39915_305.6_ms.bmp", "39915_bmp.txt", "Thumbs.db"],

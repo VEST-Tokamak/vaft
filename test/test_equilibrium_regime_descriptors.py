@@ -1,4 +1,4 @@
-"""Regime descriptors, export and representative cases (#1891).
+"""Regime descriptors, export and representative cases.
 
 Bin boundaries, the unknown event state, the eddy descriptors and the
 exported table, all on hand-built ODS -- no HSDS, no EFIT run.

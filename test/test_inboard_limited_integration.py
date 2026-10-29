@@ -1,4 +1,4 @@
-"""Both forward solvers reproduce the inboard-limited 39915 @ 325 ms state (#1469).
+"""Both forward solvers reproduce the inboard-limited 39915 @ 325 ms state.
 
 EFIT places this LCFS on the inboard (center-stack) limiter at the midplane.
 Each test runs the real solver on the packaged sample with the canonical VEST

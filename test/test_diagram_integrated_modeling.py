@@ -1,4 +1,4 @@
-"""Integrated-modeling diagrams (#1085): three independent axes, their space, and typed coupling."""
+"""Integrated-modeling diagrams: three independent axes, their space, and typed coupling."""
 
 import dataclasses
 import itertools

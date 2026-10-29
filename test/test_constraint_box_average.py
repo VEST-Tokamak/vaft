@@ -1,4 +1,4 @@
-"""EFIT constraints are box averages of the samples inside the window (issue #433).
+"""EFIT constraints are box averages of the samples inside the window.
 
 The legacy writer interpolated the 25 kHz diagnostics onto a 1e-4 s grid of
 its own and averaged that: about 60 % of the samples never counted, and the

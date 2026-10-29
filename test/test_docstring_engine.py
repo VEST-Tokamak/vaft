@@ -1,4 +1,4 @@
-"""`vaft._docstring` is one parser serving two contracts (issue #417).
+"""`vaft._docstring` is one parser serving two contracts.
 
 The formula tests exercise the engine through the formula contract and are
 left exactly as they were.  These tests exercise it through a *second*

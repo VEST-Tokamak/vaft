@@ -1,4 +1,4 @@
-"""The Equilibrium workspace (#1352): modes, one shared slice, validation verdicts; never served."""
+"""The Equilibrium workspace: modes, one shared slice, validation verdicts; never served."""
 
 from __future__ import annotations
 

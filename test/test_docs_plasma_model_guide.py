@@ -1,4 +1,4 @@
-"""The plasma-model guide speaks the code's vocabulary (#1739 §33).
+"""The plasma-model guide speaks the code's vocabulary.
 
 ``docs/_guide/Plasma_model_guide.md`` carries two tables generated from the
 formalism record and the adapter-mode registry, between ``<!-- generated:... -->``
