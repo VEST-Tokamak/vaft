@@ -1,7 +1,6 @@
 """Impurity composition: which mixture a plasma is assumed, derived or measured to carry, resolved once.
 
-One resolved impurity composition for every consumer of Z_eff (issue #1565,
-Stage B): a species list -- element, charge state, mass and relative
+One resolved impurity composition for every consumer of Z_eff: a species list -- element, charge state, mass and relative
 density, kept apart -- with the target effective charge it is closed at, the
 absolute fractions ``n_s / n_e`` that closure gives, the reduced
 pseudo-impurity and the main-ion dilution, and a ``kind`` saying how the
@@ -32,10 +31,10 @@ Conventions
 diagnostic determined; ``explicit`` is what the caller passed; ``derived``
 is computed from other data by a stated model; ``assumed`` is a preset or a
 stored composition that says it was assumed (or says nothing).  A resistive
-Z_eff inferred from the transformer balance (#1214) is none of these: it is
+Z_eff inferred from the transformer balance is none of these: it is
 accepted only as ``resistive_zeff=`` and carried beside the composition
 under its own provenance, never used as a target and never turned into a
-composition (#1566).
+composition: it is a model-inferred quantity, not a mixture.
 
 **Provenance records** on ``core_profiles`` use one grammar, written by
 :func:`composition_record_text` and read by :func:`composition_record_origin`:
@@ -312,8 +311,8 @@ def composition_from_fractions(
 ) -> ImpurityComposition:
     """An impurity composition from parallel lists of elements, relative fractions and charge states.
 
-    The form issue #1565 Sec. 2 names (``species=["C", "O", "N"]``,
-    ``fractions=[0.3, 0.4, 0.3]``) with the one addition it requires: the
+    The parallel-list form (``species=["C", "O", "N"]``,
+    ``fractions=[0.3, 0.4, 0.3]``) with one addition: the
     charge state of each species is stated, never read off the atomic number.
 
     Parameters
@@ -948,7 +947,7 @@ def resolve_impurity_composition(
 
     Convention
     ----------
-    The precedence measured > explicit > derived > assumed is #1565 Sec. 4.
+    The precedence measured > explicit > derived > assumed is fixed.
     A stored composition that does not say how it is known ranks with the
     assumed ones, below an explicit argument: the Lane K products carry an
     H+/C6+ list assumed at Z_eff = 2 with no density label, and reading
@@ -963,7 +962,7 @@ def resolve_impurity_composition(
     -----------
     An argument composition has fixed charge states per species; a radially
     varying charge-state distribution enters as a ``derived`` composition
-    (#1565 Sec. 8) or is read back from the bundled ions
+    or is read back from the bundled ions
     :func:`populate_radial_impurity_profiles` wrote (``mean_charge`` /
     ``mean_square_charge`` of the result).  A stored
     composition is read only with a hydrogenic main ion; a slice whose ions
@@ -1411,7 +1410,7 @@ def populate_impurity_profiles(
     return work
 
 
-# --- radial charge states from atomic data (#1565 Sec. 8) -------------------------------------
+# --- radial charge states from atomic data ------------------------------------------------------
 
 #: How the elemental impurity density is scaled once its shape is fixed.
 NORMALIZATIONS = ("ne_weighted_mean", "axis", "fixed", "resistive_closure")
@@ -1463,7 +1462,7 @@ class RadialImpurityComposition:
         return f"OpenADAS ADF11 {self.provenance.get('ionization')} charge states"
 
     def as_rows(self, **key: Any) -> list[dict[str, Any]]:
-        """One row per rho, prefixed by ``key`` (e.g. the #1454 state key)."""
+        """One row per rho, prefixed by ``key`` (e.g. the kinetic-state key)."""
         rows = []
         for i, r in enumerate(self.rho):
             row = dict(key)
@@ -1551,7 +1550,7 @@ def charge_state_moments(
     Limitations
     -----------
     No transport and no charge exchange: the transient model is an age, not
-    an impurity-transport solution (Aurora, #897).
+    an impurity-transport solution (Aurora integration is open: #897).
 
     Provenance
     ----------
@@ -1654,7 +1653,7 @@ def resolve_radial_composition(
     resistive_target : float, optional
         Resistive Z_eff the ``resistive_closure`` rule matches [-].
     projection : callable, optional
-        ``Z_eff(rho) -> scalar`` resistive projection (#1566) for
+        ``Z_eff(rho) -> scalar`` resistive projection for
         ``resistive_closure``; it receives the full ``rho`` grid with NaN at
         undefined points and must ignore them [any].
     coronal_tolerance : float, optional
@@ -1695,7 +1694,7 @@ def resolve_radial_composition(
     The elemental ratio and a flat ``n_s/n_e`` shape are fixed; only their
     common amplitude is normalised, so the radial structure of Z_eff is the
     charge states' alone.  ``ne_weighted_mean`` is the default the VEST atlas
-    uses (#1569); ``fixed`` shows how far Z_eff falls from the stripped value.
+    uses; ``fixed`` shows how far Z_eff falls from the stripped value.
 
     Assumptions
     -----------

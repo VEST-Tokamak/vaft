@@ -855,7 +855,7 @@ def analyze_fluctuation_spectrum(
 
 
 # ---------------------------------------------------------------------------
-# Two records: cross-spectrum, coherence and phase (issue #1005)
+# Two records: cross-spectrum, coherence and phase
 # ---------------------------------------------------------------------------
 
 #: Significance level of :attr:`CrossSpectrum.significance_95`.
@@ -1352,7 +1352,7 @@ def cross_spectrum(
             values, covered = resample_to_time(
                 source_time, values, grid, extrapolate="error", return_filter_mask=True
             )
-            # A run too short to anti-alias comes back NaN (#2162 B3.12); welch
+            # A run too short to anti-alias comes back NaN; welch
             # would turn that into a coherence of 0 at every frequency, a
             # plausible wrong answer, so it is refused here as at the other
             # cross-spectral entry points.
@@ -1985,7 +1985,7 @@ def cross_spectral_matrix(
 
 
 # ---------------------------------------------------------------------------
-# One ridge through a time-frequency map (issue #1005)
+# One ridge through a time-frequency map
 # ---------------------------------------------------------------------------
 
 #: Fraction of the map's in-range peak a window's ridge must exceed to count.

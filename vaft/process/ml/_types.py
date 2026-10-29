@@ -1,4 +1,4 @@
-"""Backend-neutral records of the ML lifecycle (#669 section 3).
+"""Backend-neutral records of the ML lifecycle.
 
 Nothing here imports an ML framework.  Arrays are NumPy arrays; a model's
 trained state is opaque ``bytes`` that only its backend interprets, so no
@@ -91,7 +91,7 @@ class DatasetSpec:
 
     ``group_key`` names the independent scientific unit -- ``"shot"`` for a
     VEST event detector, ``"case"`` for a simulation-trained reconstruction --
-    that every split is made over (#669 section 6).
+    that every split is made over, so no unit leaks across splits.
     """
 
     name: str
@@ -384,7 +384,7 @@ class ModelSpec:
 
     ``architecture`` names a network shape the backend knows (``"autoencoder"``,
     ``"mlp"``, ``"ridge"``); ``task`` names what it is *for*
-    (``"ire_anomaly_stage1"``).  Keeping them apart is #669 section 5.
+    (``"ire_anomaly_stage1"``).  Keeping them apart is deliberate.
     """
 
     architecture: str
@@ -466,7 +466,7 @@ class TrainingConfig:
 
 @dataclass(frozen=True, kw_only=True)
 class ModelIdentity:
-    """Which exact model produced a result (#669 sections 9 and 13).
+    """Which exact model produced a result.
 
     ``state_sha256`` hashes the trained weights and is always known.
     ``version`` and ``manifest_sha256`` are known once the artifact has been
@@ -515,7 +515,7 @@ class CalibrationResult:
 
 @dataclass(frozen=True, kw_only=True, eq=False)
 class ModelArtifact:
-    """A trained model and everything that identifies it (#669 section 7).
+    """A trained model and everything that identifies it.
 
     ``state`` is the backend's serialised trained state.  ``normalization``
     holds the train-partition statistics applied before the network.
@@ -641,8 +641,7 @@ class EvaluationResult:
     """Metrics of one model on one partition, overall and per group.
 
     This is training evaluation, not scientific validation: a verdict on
-    whether a model may be promoted belongs to ``vaft.validation``
-    (#669 section 8).
+    whether a model may be promoted belongs to ``vaft.validation``.
     """
 
     partition: str
@@ -660,7 +659,7 @@ class InferenceResult:
 
     ``outputs`` maps an output name to an array whose first axis is the sample
     axis: a scalar ``score`` per window, a ``reconstruction`` image, a
-    ``prediction`` profile.  Nothing is collapsed to one scalar (#669 section 3).
+    ``prediction`` profile.  Nothing is collapsed to one scalar.
     ``model_identity`` is always the immutable resolved identity.
     """
 

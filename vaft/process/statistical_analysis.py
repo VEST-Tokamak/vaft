@@ -11,7 +11,7 @@ the caller; nothing here knows which columns exist except through the
 Two functions are not statistics and are here for historical reasons:
 :func:`generate_core_profiles_history_dataframe` builds the input table by
 running a workflow script, and :func:`confinement_time_histogram` draws
-one.  Both are documented as they are; their home is decided by #263.
+one.  Both are documented as they are; their home is open (#263).
 
 Notation
 --------
@@ -214,7 +214,7 @@ def generate_core_profiles_history_dataframe(max_shots: Optional[int] = None,
     Loads a workflow script by file path and inserts its directory into
     ``sys.path``, which only works from a source checkout and is a
     layer-boundary violation: a process function reaching up into a workflow.
-    Tracked in #263.
+    Open: #263.
 
     Provenance
     ----------
@@ -368,7 +368,7 @@ def perform_ols_regression(df: pd.DataFrame,
     .. [1] The study notebook [NB]_.
     """
     # statsmodels is imported here, not at module scope: it is the heaviest
-    # dependency in vaft.process and only this one regression needs it (#249).
+    # dependency in vaft.process and only this one regression needs it.
     import statsmodels.api as sm
 
     # Log transform
@@ -449,8 +449,8 @@ def analyze_significance(results: RegressionResults,
 def _goodness_of_fit(y_actual, y_pred):
     """Coefficient of determination, root-mean-square error and mean absolute error.
 
-    Three lines of numpy rather than a scikit-learn import, which made an
-    optional dependency a hard one for two metrics (#426).  Separated from
+    Three lines of numpy rather than a scikit-learn import, which would make an
+    optional dependency a hard one for two metrics.  Separated from
     :func:`compute_metrics` so the arithmetic can be tested without building a
     regression result around it.
 
@@ -564,8 +564,8 @@ def compute_metrics(results: RegressionResults,
     
     # Compute metrics
     # Both metrics inline rather than through scikit-learn: they are three
-    # lines of numpy, and importing sklearn for them made it a hard dependency
-    # of the whole package (#426).
+    # lines of numpy, and importing sklearn for them would make it a hard dependency
+    # of the whole package.
     r2, rmse, mae = _goodness_of_fit(y_actual, y_pred)
     
     # Relative errors
@@ -738,9 +738,9 @@ def confinement_time_histogram(df: pd.DataFrame,
 
     Limitations
     -----------
-    Rendering lives in :func:`vaft.plot.history.confinement_time_histogram`
-    (issue #63); this is a compatibility shim that keeps the old call site
-    and pulls Matplotlib in on call.  Its removal is tracked in #263.
+    Rendering lives in :func:`vaft.plot.history.confinement_time_histogram`;
+    this is a compatibility shim that keeps the old call site
+    and pulls Matplotlib in on call.  Its removal is open (#263).
     """
     from vaft.plot.history import confinement_time_histogram as _render
 

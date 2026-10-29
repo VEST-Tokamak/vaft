@@ -1,4 +1,4 @@
-"""Canonical species/population state and physics-specific projections of it (issue #1567).
+"""Canonical species/population state and physics-specific projections of it.
 
 One physical plasma state is not one species representation.  This module
 keeps the most explicit composition a product supports -- every component a
@@ -6,14 +6,14 @@ nuclide in one charge state and one kinetic population -- and derives reduced
 representations only at a physics boundary, each with an explicit record of
 what it preserves and what it does not.  The algebra is
 :mod:`vaft.formula.impurity`; impurity *composition* (which mixture applies)
-is :mod:`vaft.process.impurity` (#1565).  This module adds the axes those two
+is :mod:`vaft.process.impurity`.  This module adds the axes those two
 do not have -- kinetic population, an explicit basis for every dilution, and
 the projection contract.
 
 The chain::
 
     core_profiles ion[] / state[] / density_fast    (species_state_from_core_profiles)
-    #1565 resolved or radial composition            (species_state_from_composition)
+    resolved or radial impurity composition         (species_state_from_composition)
         -> CanonicalSpeciesState: components = nuclide x charge state x population
         -> composition_moments: n_e(sum Z n), Z_eff, charge fractions by NAMED basis
         -> project_species_state(target_physics) -> SpeciesProjection
@@ -103,7 +103,7 @@ PROJECTION_METHODS = {
     },
 }
 
-#: Default and allowed projection methods per target physics (#1567 Sec. 5).
+#: Default and allowed projection methods per target physics.
 PROJECTION_POLICY = {
     "quasineutrality": ("moments_only", ("moments_only", "effective_impurity", "explicit")),
     "resistive": ("moments_only", ("moments_only",)),
@@ -371,7 +371,7 @@ def species_state_from_core_profiles(ods: Any, *, time: Optional[float] = None,
     ----------------
     1. Match the slice by time; read ``rho_tor_norm`` and n_e.
     2. Per ion: nuclide from ``element.0.z_n``/``a`` (hydrogen isotopes by mass);
-       origin from ``density_fit.parameters`` (#1565 record grammar).
+       origin from ``density_fit.parameters`` (the impurity provenance-record grammar).
     3. Stored charge states become components (a state spanning several
        charges is a bundle with its ``z_average_1d``/``z_average_square_1d``
        (or the scalar ``z_average``/``z_square_average``), its own
@@ -406,7 +406,7 @@ def species_state_from_core_profiles(ods: Any, *, time: Optional[float] = None,
     Limitations
     -----------
     A fast component takes no temperature (its distribution is not
-    Maxwellian); ``distributions`` (#1216) remains authoritative for it.
+    Maxwellian); ``distributions`` remains authoritative for it.
 
     Provenance
     ----------
@@ -549,7 +549,7 @@ def _resolved_moment(values: Any, n: int) -> Optional[np.ndarray]:
 def species_state_from_composition(composition: Any, n_e: Any, *, rho: Any = None,
                                    time: Optional[float] = None,
                                    main_isotope: Optional[int] = None) -> CanonicalSpeciesState:
-    """The canonical species state a #1565 composition implies for a given electron density.
+    """The canonical species state an impurity composition implies for a given electron density.
 
     Parameters
     ----------
@@ -587,7 +587,7 @@ def species_state_from_composition(composition: Any, n_e: Any, *, rho: Any = Non
     ----------
     The origin of every component is the composition's kind (``assumed``,
     ``explicit``, ``derived``, ``inferred``); ``explicit`` is recorded as
-    ``assumed``, as the #1565 writers do.  The main ion and its charge are the
+    ``assumed``, as the impurity-composition writers do.  The main ion and its charge are the
     composition's own (``H``/``D``/``T``, or e.g. ``He`` with charge 2).  A
     resolved species' ``charge_state`` is only its label: the component's
     charge is the composition's radial ``<Z>`` moment where one exists, and a
@@ -655,7 +655,7 @@ def species_state_from_composition(composition: Any, n_e: Any, *, rho: Any = Non
         mean_z, mean_z2 = (_resolved_moment(getattr(composition, name, None), ne.size)
                            for name in ("mean_charge", "mean_square_charge"))
         for j, item in enumerate(composition.species):
-            # the label is a scalar (#1769: the stored z_ion or the density-weighted <Z>);
+            # the label is a scalar (the stored z_ion or the density-weighted <Z>);
             # the component takes the radial moments of a bundled ion where they exist
             charge, bundled, z2 = float(item.charge_state), False, None
             column = None if mean_z is None else mean_z[:, j]
@@ -860,7 +860,7 @@ def project_species_state(state: CanonicalSpeciesState, target_physics: str,
 
     Convention
     ----------
-    #1567 Sec. 5: the representation follows the physics operator, never a
+    The representation follows the physics operator, never a
     global convenience.  Same Z_eff does not mean same neoclassical or
     gyrokinetic response, so ``neoclassical`` and ``gyrokinetic`` allow only
     ``explicit``.
@@ -871,8 +871,8 @@ def project_species_state(state: CanonicalSpeciesState, target_physics: str,
 
     Limitations
     -----------
-    No solver-specific readiness here (that stays with each solver, #1428);
-    phase-space detail of fast populations lives in ``distributions`` (#1216).
+    No solver-specific readiness here (that stays with each solver);
+    phase-space detail of fast populations lives in ``distributions``.
 
     Provenance
     ----------

@@ -1,4 +1,4 @@
-"""Dataset construction, fingerprinting, group splitting and windowing (#669).
+"""Dataset construction, fingerprinting, group splitting and windowing.
 
 The split is defined over the *independent scientific unit* -- a shot, a
 simulation case -- and is carried as a group-to-partition assignment, so it

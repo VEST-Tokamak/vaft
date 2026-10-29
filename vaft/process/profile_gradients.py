@@ -1,8 +1,7 @@
 """Profile gradients with an explicit coordinate, gradient coordinate and reference length.
 
 A normalized gradient such as ``a/L_T`` is a derived quantity, not a radial
-coordinate, and it is defined only once three separate choices are stated
-(issue #551):
+coordinate, and it is defined only once three separate choices are stated:
 
 ``coordinate``
     The abscissa: where on the profile each value is placed.
@@ -373,7 +372,7 @@ def radial_coordinate_map(source: Any, time: float | None = None) -> RadialCoord
     (a branch that turns over before the boundary, an axis outside the grid)
     are NaN, and ``a_minor`` is unavailable when the boundary surface is.
     ``rho_tor_norm`` inherits the trapezoidal ``q`` integral and its axis-``q``
-    sensitivity (#317).
+    sensitivity (the EFIT q0 artifact).
 
     Provenance
     ----------
@@ -1078,7 +1077,7 @@ class ProfileGradient:
     ``values`` are ``-L d ln f/dx_g`` at the abscissa ``coordinate``, whose
     name is ``coordinate_name``; ``unit`` is ``"1"`` for a normalized gradient
     and the inverse of the gradient coordinate's unit for ``L = None``.
-    ``metadata`` is the issue #551 section 10 record: ``quantity``,
+    ``metadata`` is the gradient-convention record: ``quantity``,
     ``source_quantity``, ``plot_coordinate``, ``profile_coordinate``,
     ``gradient_coordinate``, ``reference_length``, ``requested_convention``,
     ``resolved_convention``, ``mathematical_definition``, ``unit``, ``method``

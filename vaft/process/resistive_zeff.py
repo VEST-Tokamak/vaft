@@ -2,7 +2,7 @@
 
 Infers one scalar ``Zeff_resistive`` over a time window: the effective charge
 a stated parallel-conductivity model needs to reproduce the plasma resistance
-observed through Romero's transformer balance (issue #1214).  It is a
+observed through Romero's transformer balance.  It is a
 *model-inferred* quantity, not the composition value ``sum n_i Z_i^2 / n_e``;
 it absorbs every error in T_e, the equilibrium, the boundary voltage, the
 conductivity model and any non-inductive current, and is named and stored so
@@ -33,9 +33,9 @@ Conventions
 -----------
 **Romero's voltage convention, full webers.**  Every voltage is
 ``V = -d psi/dt`` on the full flux, so a positive ``V_B`` sustains a positive
-``I_p`` (issue #781).  This is *not* the Ejima convention of
+``I_p``.  This is *not* the Ejima convention of
 :func:`vaft.formula.equilibrium.loop_voltage_from_total_flux`
-(``+2 pi d psi/dt`` on a per-radian flux, #354): the observed path accepts a
+(``+2 pi d psi/dt`` on a per-radian flux): the observed path accepts a
 :class:`RomeroBoundaryFlux` only, which carries its convention tag, and
 refuses anything else rather than guess which one an array is in.
 
@@ -45,18 +45,18 @@ Ohmic dissipation over the current squared,
 ``<E.B> = (<J.B> - <J_bs.B>) / sigma_par``.  ``V_R I_p`` is the same
 dissipation in Romero's balance, so the two sides are one definition.  The
 parallel current is never replaced by ``j_tor`` -- they differ at VEST
-aspect ratio (#1214 Sec. 7.2).
+aspect ratio.
 
 **One scalar, not a profile.**  A single global resistance constrains a
 single amplitude; the *inferred* ``Z_eff`` is held constant across radius and
-across the inference window (#1214 Sec. 10).  The forward model accepts a
-prescribed profile ``Z_eff(psi)`` -- one from an impurity model, say (#1566)
--- to project it onto the resistance; it is never fitted.
+across the inference window.  The forward model accepts a
+prescribed profile ``Z_eff(psi)`` -- one from an impurity model, say --
+to project it onto the resistance; it is never fitted.
 
 **Plasma current from the reconstruction.**  ``I_p`` in ``R_p = V_R/I_p``
 and in the flux-surface state is the equilibrium's ``global_quantities.ip``,
 not the Rogowski: the current that normalises ``<J.B>`` and the one that
-divides ``V_R`` are then the same number (#1514).  On Tier A they differ
+divides ``V_R`` are then the same number.  On Tier A they differ
 from the Rogowski by 5-10 %.
 """
 
@@ -320,7 +320,7 @@ class FluxSurfaceState:
 class TabulatedConductivity:
     """A conductivity computed elsewhere at one fixed Z_eff, as a model callable.
 
-    The seam through which a NEO conductivity case (#744) enters
+    The seam through which a NEO conductivity case enters
     :func:`parallel_conductivity` and :func:`model_resistance` without an API
     change.  NEO builds its collision operator from its species list, so its
     conductivity belongs to the charge that list implies and to no other:
@@ -348,7 +348,7 @@ class TabulatedConductivity:
                 "state to that band first (FluxSurfaceState.restricted)"
             )
         # anti-alias: spatial. Both axes are psi_norm, a flux coordinate, so there is no
-        # sampling rate to reduce and nothing to fold (#425).
+        # sampling rate to reduce and nothing to fold.
         return np.interp(state.psi_norm, grid, np.asarray(self.sigma, dtype=float))
 
 
@@ -372,7 +372,7 @@ class ModelResistance:
 
 @dataclass(frozen=True)
 class ResistiveZeffInference:
-    """The typed result of #1214 Sec. 11: an estimate, never an IMAS ``zeff``.
+    """The typed result of the resistive Z_eff inference: an estimate, never an IMAS ``zeff``.
 
     ``status`` is ``"ok"``, ``"bound_hit"`` (the minimum sits on a bound and
     the value is poorly constrained), ``"non_monotonic"`` (R_p(Z) is not
@@ -424,7 +424,7 @@ class ResistiveZeffInference:
 
 
 # ---------------------------------------------------------------------------
-# observed path (#1214 Phases A-B)
+# observed path
 # ---------------------------------------------------------------------------
 
 
@@ -559,7 +559,7 @@ def observed_resistance(
     Romero's: full-weber flux, ``V = -dpsi/dt``; a positive ``V_B`` drives a
     positive ``I_p`` and an Ohmic ``R_p`` is positive.  The Ejima loop voltage
     of :func:`vaft.formula.equilibrium.loop_voltage_from_total_flux` differs
-    by sign and, on a per-radian flux, by 2 pi (#354), which is why only a
+    by sign and, on a per-radian flux, by 2 pi, which is why only a
     tagged :class:`RomeroBoundaryFlux` gets in.
 
     Defaults
@@ -648,7 +648,7 @@ def observed_resistance(
 
 
 # ---------------------------------------------------------------------------
-# forward model (#1214 Phases C-D)
+# forward model
 # ---------------------------------------------------------------------------
 
 
@@ -669,7 +669,7 @@ def _zeff_input(state: FluxSurfaceState, z_eff) -> tuple[Any, str]:
     """``(z, label)``: a float for a constant charge, an array for a profile.
 
     A scalar stays a Python float so the constant-charge path is unchanged
-    bit for bit; a profile must lie on ``state.psi_norm`` (#1566).
+    bit for bit; a profile must lie on ``state.psi_norm``.
     """
     if np.ndim(z_eff) == 0:
         z = float(z_eff)
@@ -703,7 +703,7 @@ def parallel_conductivity(
         Electron profiles and geometry on a flux grid [any].
     z_eff : float or array_like
         Effective charge: one value for a constant charge, or a profile with
-        one value per surface of ``state.psi_norm`` (#1566); at least 1
+        one value per surface of ``state.psi_norm``; at least 1
         everywhere [-].
     model : str or callable
         ``"spitzer_nrl"`` (``1/eta_par`` of the NRL Formulary, linear in Z),
@@ -729,7 +729,7 @@ def parallel_conductivity(
     Convention
     ----------
     Parallel, not perpendicular: ``spitzer_nrl`` is ``1/eta_par`` with the
-    NRL coefficient 5.2e-5 Ohm m eV^1.5 (#1188).  The neoclassical models use
+    NRL coefficient 5.2e-5 Ohm m eV^1.5.  The neoclassical models use
     the circular trapped fraction from ``epsilon = (R_out - R_in)/(R_out + R_in)``
     unless the state carries its own, and ``R = (R_out + R_in)/2`` in
     ``nu_e*`` -- as :func:`vaft.omas.neoclassical.compute_conductivity` does.
@@ -809,7 +809,7 @@ def model_resistance(
     z_eff : float or array_like
         Effective charge, constant or a profile on ``state.psi_norm``, as in
         :func:`parallel_conductivity`.  A profile is a forward input only:
-        :func:`infer_resistive_zeff` still fits one scalar (#1214 Sec. 10) [-].
+        :func:`infer_resistive_zeff` still fits one scalar [-].
     model : str or callable
         Conductivity model, as in :func:`parallel_conductivity` [any].
     ln_lambda : float or str
@@ -840,7 +840,7 @@ def model_resistance(
     ``V_R I_p = P_Ohm`` is the resistive term of Romero's Poynting balance,
     so this ``R_p`` is the same quantity :func:`observed_resistance` closes
     for.  ``<E.J> ~ <E.B><J.B>/<B^2>`` treats ``J_par/B`` as a flux function;
-    the parallel current is used, never ``j_tor`` (#1214 Sec. 7.2).
+    the parallel current is used, never ``j_tor``: the two differ at VEST aspect ratio.
 
     Applicability
     -------------
@@ -882,7 +882,7 @@ def model_resistance(
 
 
 # ---------------------------------------------------------------------------
-# inference (#1214 Phases E-F)
+# inference
 # ---------------------------------------------------------------------------
 
 
@@ -934,7 +934,7 @@ def infer_resistive_zeff(
     Returns
     -------
     ResistiveZeffInference
-        The #1214 Sec. 11 result: estimate (``zeff``, ``uncertainty``,
+        The typed inference result: estimate (``zeff``, ``uncertainty``,
         ``bounds``, ``objective``, ``status``), observed and predicted
         voltages, quality and provenance [any].
 
@@ -964,7 +964,7 @@ def infer_resistive_zeff(
     Defaults
     --------
     ``time_tolerance_s`` 50 us is a numerical convenience below the 1e-4 s
-    rounding of the Lane K state key (#1454); ``scan_points`` 41 is a
+    rounding of the kinetic-state key; ``scan_points`` 41 is a
     numerical convenience.
 
     Applicability
@@ -974,7 +974,7 @@ def infer_resistive_zeff(
     Limitations
     -----------
     One amplitude only: Z_eff is constant across radius and time
-    (#1214 Sec. 10).  The uncertainty is statistical; the systematic part
+    (one global resistance constrains one amplitude).  The uncertainty is statistical; the systematic part
     comes from :func:`resistive_zeff_sensitivity`.
 
     Provenance
@@ -1167,7 +1167,7 @@ def per_slice_resistive_zeff(
 
     Limitations
     -----------
-    Not the estimate: #1214 Sec. 9 fits one scalar over a window, because one
+    Not the estimate: the inference fits one scalar over a window, because one
     sample carries the full noise of a differentiated ``V_R`` and no residual
     to judge it by.  These values show whether that scalar hides a trend, and
     are labelled as a diagnostic wherever they are drawn.
@@ -1261,7 +1261,7 @@ def resistive_zeff_sensitivity(
     ``relative_perturbation`` 0.1 and ``smoothing_factors`` (0.5, 2) are
     numerical-convenience probes of local sensitivity, not uncertainty
     estimates of VEST diagnostics; ``models`` is the conventional
-    Spitzer/Sauter/Redl ladder of #1214 Sec. 3.
+    Spitzer/Sauter/Redl ladder.
 
     Applicability
     -------------

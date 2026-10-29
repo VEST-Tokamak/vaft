@@ -1,4 +1,4 @@
-"""Several fitted models released as one version (#669, #973 section 24).
+"""Several fitted models released as one version.
 
 A bundle directory is flat -- every file is a GitHub Release asset -- so each
 member's files carry its role as a prefix: ``stage1.manifest.json``,
