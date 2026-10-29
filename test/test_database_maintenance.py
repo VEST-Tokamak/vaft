@@ -1,4 +1,4 @@
-"""Stripping IMPA from shots published before the split (issue #305).
+"""Stripping IMPA from shots published before the split.
 
 This rewrites published baseline data, so the safety property under test is not
 "it removes the channels" but "it refuses to move a surviving one". k-files and
@@ -168,7 +168,7 @@ class _FakeRemote:
             replication, "_remote_entries", replication._require_remote_entries
         )
         def hsget(uri, target):
-            # #1470: the audit downloads each unlinked file to tell data from a
+            # The audit downloads each unlinked file to tell data from a
             # stub before relinking it. The fake remote's files hold data.
             self.events.append("hsget")
             with h5py.File(target, "w") as handle:
@@ -209,7 +209,7 @@ _UNION_FILES = [f"{name}.h5" for name in _UNION]
 
 
 def test_the_strip_reads_the_server_without_filling_the_hsds_cache(monkeypatch):
-    """A load-modify-save maintenance read must not fill ~/.cache/vaft/hsds (#1758)."""
+    """A load-modify-save maintenance read must not fill ~/.cache/vaft/hsds."""
     caches: list = []
 
     def fake_load(shot, *, cache="auto", **kwargs):

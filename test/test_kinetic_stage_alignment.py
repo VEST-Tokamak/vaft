@@ -1,4 +1,4 @@
-"""The time-alignment rules of the Thomson lineage stages (#130).
+"""The time-alignment rules of the Thomson lineage stages.
 
 These pin the two things that only showed up on real shots: a profile mapped
 onto an equilibrium it does not belong to, and a lineage decided by an IDS
@@ -163,7 +163,7 @@ def test_an_unreadable_efit_product_is_named_not_blamed_on_the_time_base(tmp_pat
 
 
 def test_the_core_profile_psi_grid_is_the_equilibrium_s_own_weber(tmp_path):
-    """#1292: the psi map built from the EFIT product is a per-radian g-file.
+    """Regression guard for #1292: the psi map built from the EFIT product is a per-radian g-file.
 
     ``from_equilibrium`` used to copy the ODS's weber flux into the g-file, and
     ``core_profiles`` takes its ``grid.psi`` from ``geq.to_omas()``, which
@@ -189,7 +189,7 @@ def test_the_core_profile_psi_grid_is_the_equilibrium_s_own_weber(tmp_path):
 
 
 def test_an_aligned_usable_slice_wins_over_an_earlier_aligned_failed_one():
-    """#1331: Thomson and EFIT share a 1 ms grid on 39915, so every profile time
+    """Thomson and EFIT share a 1 ms grid on 39915, so every profile time
     is aligned; the first was 312 ms, a negative-pressure slice the kinetic fit
     never converged from, while 316 ms converges at scale 1.0."""
     profile = np.arange(308.0, 318.0)

@@ -1,4 +1,4 @@
-"""SOL blob formulas (#1211): reference scales, the two closure limits, the regime scalings."""
+"""SOL blob formulas: reference scales, the two closure limits, the regime scalings."""
 
 import numpy as np
 import pytest

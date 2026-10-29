@@ -1,4 +1,4 @@
-"""Degenerate denominators in vaft.formula return nan and say so (issue #357).
+"""Degenerate denominators in vaft.formula return nan and say so.
 
 Four ratios divided without a guard, so a degenerate input propagated ``inf``
 downstream with nothing to say where it started. The degenerate case is not

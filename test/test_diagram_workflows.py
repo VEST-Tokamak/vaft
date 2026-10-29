@@ -1,4 +1,4 @@
-"""The physics-workflow spine (#1585): specs that name real APIs, real formulas and real IDS."""
+"""The physics-workflow spine: specs that name real APIs, real formulas and real IDS."""
 
 import inspect
 import re
@@ -228,7 +228,7 @@ def test_inference_figures_draw_only_implemented_closures_and_name_no_code():
         assert all(n.api for n in spec.nodes if n.kind == "inferred")  # nothing future is drawn
         drawn = " ".join(f"{n.label} {n.symbols or ''}" for n in spec.nodes).lower()
         assert not re.search(r"\b(tglf|cgyro|neo|chease|efit)\b", drawn)  # "neoclassical" is physics, not a code
-    assert graph.node("gamma").kind == "prior"  # gamma_E = 0 is an assumption, not an inference (#553)
+    assert graph.node("gamma").kind == "prior"  # gamma_E = 0 is an assumption, not an inference
 
 
 def test_references_are_optional_numbered_by_first_use_and_listed():
@@ -247,7 +247,7 @@ def test_references_are_optional_numbered_by_first_use_and_listed():
 
 
 def test_every_transport_route_starts_from_the_state_and_external_codes_are_optional():
-    """#1901: no route feeds another; NEO, TGLF and CGYRO are optional external codes, each with its own writer."""
+    """No route feeds another; NEO, TGLF and CGYRO are optional external codes, each with its own writer."""
     spec = WORKFLOWS["transport_hierarchy"]
     routes = ("classical", "neo_fit", "neo_code", "turb_ql", "turb_gk")
     assert {(src, dst) for src, dst, _ in spec.edges if dst in routes} == {("state", r) for r in routes}
@@ -281,7 +281,7 @@ def test_the_eddy_model_is_a_forward_solve_checked_against_vacuum_magnetics():
 
 
 def test_vacuum_products_are_returned_and_the_vessel_write_is_drawn():
-    """#1901: the evaluators return dicts; the only IDS write is the vessel currents they solve when absent."""
+    """The evaluators return dicts; the only IDS write is the vessel currents they solve when absent."""
     spec = WORKFLOWS["vacuum_field_proxies"]
     assert spec.node("vessel").kind == "standardized" and spec.node("vessel").ids.startswith("pf_passive.")
     assert ("pf", "vessel", "if absent") in spec.edges and ("vessel", "field", "") in spec.edges
@@ -349,7 +349,7 @@ def test_every_platform_science_box_has_a_diagram_or_a_tracked_gap():
 
 
 # --------------------------------------------------------------------------
-# kind pictograms in the shared legend (#2114)
+# kind pictograms in the shared legend
 # --------------------------------------------------------------------------
 
 

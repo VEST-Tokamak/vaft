@@ -1,4 +1,4 @@
-"""The observed import graph behind /reference/dependency-graph/ (#1646).
+"""The observed import graph behind /reference/dependency-graph/.
 
 The generator is Grimp plus the API catalog; these tests pin what the snapshot
 claims (every module, its direct imports and where they are written, its

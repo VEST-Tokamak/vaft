@@ -1,4 +1,4 @@
-"""Reproducible figure options and requests over the #689 presentation (issue #1421)."""
+"""Reproducible figure options and requests over the shared figure presentation."""
 
 from __future__ import annotations
 

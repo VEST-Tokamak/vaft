@@ -209,7 +209,7 @@ def test_prepare_ideal_gpec_uses_a_separate_dcon_work_tree(no_gpec_env, tmp_path
     assert result.ok
     run_dir = case.workdir / "00325" / "gpec" / "nn=1"
     text = (run_dir / "gpec.in").read_text(encoding="utf-8")
-    # The cell, named relative to GPEC's working directory (#1239).
+    # The cell, named relative to GPEC's working directory.
     assert re.search(r"^\s*dcon_dir\s*=\s*['\"]\.['\"]", text, re.MULTILINE)
 
     # The separate tree is still where the suite looks for DCON, which is what
@@ -761,7 +761,7 @@ def test_strict_mode_still_raises_when_a_solver_cannot_be_started(monkeypatch, t
 
 
 # ---------------------------------------------------------------------------
-# A stable equilibrium is a result, not a failure (issue #423).
+# A stable equilibrium is a result, not a failure.
 # ---------------------------------------------------------------------------
 
 
@@ -856,7 +856,7 @@ def test_the_verdict_reads_dcons_eigenvalue_form_too(tmp_path):
 def test_a_stable_run_is_not_a_failure_even_when_its_companion_exits_badly(
     monkeypatch, tmp_path, case
 ):
-    """RDCON on a stable discharge reported 8 failed cases out of 8 (#423).
+    """RDCON on a stable discharge reported 8 failed cases out of 8.
 
     The solver terminates normally; `rmatch`, which exists to match resistive
     layers to unstable modes, then has nothing to match. Reading that as a
@@ -1043,7 +1043,7 @@ def test_a_reused_stable_cell_reports_the_same_status_as_a_fresh_one(
 
 
 def test_gpec_modules_launch_through_the_configured_backend(monkeypatch, tmp_path, case):
-    """#671: the suite builds the launch; the backend decides how to run it."""
+    """The suite builds the launch; the backend decides how to run it."""
     from external_code_stubs import RecordingBackend
     from vaft.code.execution import ExecutionResult
 
@@ -1095,7 +1095,7 @@ def test_a_backend_timeout_still_reaches_the_suite_timeout_carve_out(monkeypatch
     ],
 )
 def test_a_memory_stop_is_not_reported_as_a_timeout(monkeypatch, tmp_path, case, execution_fields, expected, absent):
-    """#1460: the record says what stopped the solver, via timeout_reason()."""
+    """The record says what stopped the solver, via timeout_reason()."""
     from external_code_stubs import RecordingBackend
     from vaft.code.execution import ExecutionResult
 
@@ -1116,7 +1116,7 @@ def test_a_memory_stop_is_not_reported_as_a_timeout(monkeypatch, tmp_path, case,
 
 @pytest.mark.parametrize("filename", ["dcon.exe", "dcon.cmd"])
 def test_a_limit_stop_names_the_solver_without_its_windows_launch_suffix(monkeypatch, filename):
-    """The gate's Windows leg read "dcon.cmd was stopped ..." (#1689 tests, PR #1533 stubs)."""
+    """The gate's Windows leg read "dcon.cmd was stopped ..."."""
     from vaft import compat
     from vaft.code.execution import ExecutionResult
     from vaft.code.gpec import _runtime as rt

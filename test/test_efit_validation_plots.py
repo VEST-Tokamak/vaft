@@ -1,4 +1,4 @@
-"""EFIT submitted-constraint and reconstruction-residual validation (issue #139).
+"""EFIT submitted-constraint and reconstruction-residual validation.
 
 Stage 5 validates what was handed to EFIT; stage 6 validates what came back.
 Both read the same product, because `collect_efit_outputs` merges the submitted
@@ -167,7 +167,7 @@ def test_residual_figure_shows_convergence_beside_the_residuals(efit_ods):
     assert any("measured − reconstructed" in title for title in titles)
     assert any("Residual RMS by family" in title for title in titles)
     # The stored "grad_shafranov_deviation_value" is EFIT's iteration
-    # increment, and the panel says so rather than repeating the IMAS name (#924).
+    # increment, and the panel says so rather than repeating the IMAS name.
     assert any("EFIT iteration increment (cerror)" in title for title in titles)
     assert any("Iterations" in title for title in titles)
     # PF currents are fitted exactly, so they are named rather than drawn on a

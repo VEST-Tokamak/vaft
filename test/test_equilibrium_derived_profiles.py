@@ -2,7 +2,7 @@
 
 An EFIT g-file stores ``p``, ``q``, ``f``, ``ff'``, ``p'`` and ``psi`` and nothing
 else, so the packaged VEST samples carry seven ``profiles_1d`` leaves against the
-thirty-seven an OMFIT-produced ODS carries. Issue #290 asked for ``j_tor``; the
+thirty-seven an OMFIT-produced ODS carries. ``j_tor`` is derived; the
 same flux-surface trace supplies the geometry family around it.
 
 ``vaft/data/kineticEfit/ods_48224_300ms.json`` is the reference: OMFIT wrote it

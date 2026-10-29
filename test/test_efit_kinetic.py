@@ -166,7 +166,7 @@ def test_spline_has_129_points_and_negative_rpress():
     (None, None),                                                               # measured Ti: no record
 ])
 def test_spline_sigma_carries_an_assumed_ti_te_ratio(record, fraction):
-    """#1414: the raw encodings propagate the ratio's sigma into SIGPRE; the
+    """The raw encodings propagate the ratio's sigma into SIGPRE; the
     spline encoding held a fixed 15 % of p(axis) whatever Ti was assumed."""
     ods = _make_spline_ods()
     if record is not None:
@@ -291,7 +291,7 @@ def test_run_kinetic_efit_skipped_bad_executable_path(tmp_path, monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
-# impurity dilution of the raw ion pressure (#1842)
+# impurity dilution of the raw ion pressure
 # --------------------------------------------------------------------------- #
 
 def _fake_geq():

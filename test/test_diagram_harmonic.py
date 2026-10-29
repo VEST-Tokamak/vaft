@@ -1,4 +1,4 @@
-"""3-D harmonic diagrams: one concept each, and every drawn phasor is the complex number it claims (#1088)."""
+"""3-D harmonic diagrams: one concept each, and every drawn phasor is the complex number it claims."""
 
 import math
 

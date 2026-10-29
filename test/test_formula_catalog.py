@@ -1,4 +1,4 @@
-"""The formula catalog: discovery parity, resolution rules and laziness (issue #248)."""
+"""The formula catalog: discovery parity, resolution rules and laziness."""
 
 from __future__ import annotations
 
@@ -57,72 +57,71 @@ def test_the_catalog_counts_the_known_public_surface():
     counts = {doc.name: doc.count for doc in catalog.categories()}
     assert counts == {
         "constants": 0,
-        # +gp_fit, the scipy Gaussian process (#426); +a/L, the normalised
+        # +gp_fit, the scipy Gaussian process; +a/L, the normalised
         # gradient scale length the tutorial's kinetic state reports: 12.
         "utils": 12,
-        # #711 split the virial closures out of equilibrium: 110 = 77 + 33.
-        # #365 added the two IMAS extremity triangularities and the sub-vertex
+        # The virial closures live in their own module: 110 = 77 + 33.
+        # +the two IMAS extremity triangularities and the sub-vertex
         # extremum helper they share with vaft.process: 77 + 3 = 80.
-        # #760 renamed the first-principles bremsstrahlung form to state its
+        # +the first-principles bremsstrahlung form under a name that states its
         # real argument order; the deprecated spelling is a distinct function
         # object, so it counts: 80 + 1 = 81.
-        # The electron and ion thermal pressures p = n T e (#952): 82 + 2 = 84.
-        # #782 added the dimensional internal inductance and its li_3
+        # The electron and ion thermal pressures p = n T e: 82 + 2 = 84.
+        # +the dimensional internal inductance and its li_3
         # conversions: 84 + 3 = 87.
-        # +4 psi_N profile kernels and their derivatives (#552): 93 + 4 = 97.
-        # 0.8.0 removed the two deprecated shims promised gone in it (#355, #760):
+        # +4 psi_N profile kernels and their derivatives: 93 + 4 = 97.
+        # -the two deprecated shims removed in 0.8.0:
         # current_density_from_psi and the Z_eff-first bremsstrahlung spelling, 99 - 2 = 97.
-        # #351 added the dimensionless-to-engineering inverse map: 97 + 1 = 98.
-        # #670 moved neo-Alcator, Goldston L-mode and their quadrature in: 101 + 3 = 104.
-        # #1713 added confinement_scaling_basis, the energy/power basis of each scaling: 104 + 1 = 105.
-        # #1691 added the volume beta and its normalized form: 105 + 2 = 107.
-        "equilibrium": 115,  # +4 closed-form diamagnetic beta_p / W_dia, circular and elliptic (#684), +li_1_from_Bp2_volume_integral, Strait's l_i(1) (#1691), +volume-radius shear and Miller alpha (#1637), +thermal_energy_from_p_V (W_th = 3/2 int p dV), +volume beta and its normalized form (#1691), +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
+        # +the dimensionless-to-engineering inverse map: 97 + 1 = 98.
+        # +neo-Alcator, Goldston L-mode and their quadrature: 101 + 3 = 104.
+        # +confinement_scaling_basis, the energy/power basis of each scaling: 104 + 1 = 105.
+        # +the volume beta and its normalized form: 105 + 2 = 107.
+        "equilibrium": 115,  # +4 closed-form diamagnetic beta_p / W_dia, circular and elliptic, +li_1_from_Bp2_volume_integral, Strait's l_i(1), +volume-radius shear and Miller alpha, +thermal_energy_from_p_V (W_th = 3/2 int p dV), +volume beta and its normalized form, +estimated_q95, q_star_cylindrical, q_star_kink, +SFL toroidal shift nu, +miller_surface, vacuum_toroidal_field, +shafranov_shift, +generalized SFL angle, +GS source and J_phi(p', FF'), +flux freezing
         "virial": 33,
-        "stability": 43,  # -power_limit_from_beta, -power_limit_from_q, not powers (#362), +ggj_resistive_interchange_index_from_ideal (#939), +Suydam, circular Mercier, GGJ D_I/D_R, magnetic well, Bussac beta_p1/delta W (#1635), +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
+        "stability": 43,  # -power_limit_from_beta, -power_limit_from_q, not powers, +ggj_resistive_interchange_index_from_ideal, +Suydam, circular Mercier, GGJ D_I/D_R, magnetic well, Bussac beta_p1/delta W, +s-alpha ballooning eigenmode and k_x(theta), +shear Alfven frequency, magnetosonic speeds, +kadomtsev_mixing_radius
         "green": 16,
-        "atomic": 11,  # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952), +hydrogenic levels and wavelengths (#1046), +mean square charge, transient abundances, coronal relaxation time (#1565)
+        "atomic": 11,  # +mean charge and Z_eff, +single-impurity inversion, +hydrogenic levels and wavelengths, +mean square charge, transient abundances, coronal relaxation time
         "statistics": 22,
         "magnetics": 2,
-        # #781 child A: Romero's exact transformer identities.
-        "transformer": 8,   # +Romero first-order closure (#781 child C)
-        "neoclassical": 18,  # +orbit scales and regime orderings (#1111)
-        # #783 first slice: the prefill -> Townsend -> Lloyd breakdown chain.
-        # #783 comment 1 added the post-avalanche equilibrium-field and
-        # flux-closure kernels and the limiter-aperture geometry, comment 2
-        # the generic Townsend inversion, and #676 the Ejiri mirror proxy:
-        # 5 + 7 = 12.  #888 added the Lloyd figure of merit E_phi B_phi / B_p
+        # Romero's exact transformer identities.
+        "transformer": 8,   # +Romero first-order closure
+        "neoclassical": 18,  # +orbit scales and regime orderings
+        # The prefill -> Townsend -> Lloyd breakdown chain, then the
+        # post-avalanche equilibrium-field and flux-closure kernels, the
+        # limiter-aperture geometry, the generic Townsend inversion and the
+        # Ejiri mirror proxy: 5 + 7 = 12.  +the Lloyd figure of merit E_phi B_phi / B_p
         # the tutorial's empirical thresholds are stated against: 17 + 1 = 18.
-        # #783 3.2/3.6-3.8 closed the lumped plasma circuit -- resistivity,
+        # +the lumped plasma circuit -- resistivity,
         # ring resistance, circular inductance, dIp/dt and the L/R time:
-        # 18 + 5 = 23.  #783 3.9, the burn-through barrier of a depleting
+        # 18 + 5 = 23.  +the burn-through barrier of a depleting
         # fill: 23 + 5 = 28.  The Townsend gas catalogue, coefficients and
-        # the gas-keyed threshold: 28 + 2 = 30.  #782's boundary-voltage and
+        # the gas-keyed threshold: 28 + 2 = 30.  +the boundary-voltage and
         # internal inductive-voltage splits: 30 + 2 = 32.
         "startup": 32,
-        "particle": 18,  # +gyration_offset (#1145), +mirror (#1070), +invariants and P_phi (#1092)
-        "geometry": 16,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063), +enclosed current, flux, l_i (#1604), +current diffusion (#1605)
-        "ripple": 6,  # TF ripple field and orbit consequences (#1070)
-        "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
-        "nbi": 6,  # beam rate, attenuation, birth density, shine-through, momentum rate (#1136)
-        "waves": 7,  # cold-plasma frequencies, Stix parameters, dielectric tensor, n^2 roots, CMA, regime (#1113)
-        "ntv": 2,  # precession frequency and flux-torque relation (#1111)
-        "sol": 19,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951), MARFE (#1209), blobs (#1211)
-        "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
-        "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
-        "boundaries": 16,  # +unit factor between two units of one quantity (#2163), operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068), +threshold line and quantity identity (#1425), +Freidberg kink coordinates (#1456), +Menard q*, ITER and START q95 estimates (#1580), +spherical-tokamak Hugill coordinates (#1602), +margin uncertainty (#1874)
-        "impurity": 9,  # mixture moments, target-Z_eff solver, reduce/expand pseudo-impurity, dilution (#1565)
-        "dimensional": 7,  # dimension matrix, exact null space, Pi groups, basis change, similarity constraints (#1621)
-        "sensitivity": 6,  # FD Jacobian, J Sigma J^T, Monte Carlo, SVD, linearity (#1642), per-formula propagation (#1874)
-        "ordering": 16,  # asymptotic ordering parameters (#1627), +Debye length, Mach number, pressure anisotropy (#1627 phase C)
-        "fast_ion": 8,  # critical speed/energy, slowing-down times, distribution, density/energy/pressure (#1606)
-        # electron collision time and electron-ion energy exchange, multi-species (#1606);
-        # +5 for the classical baseline moved out of the process layer (#1899): the ion
+        "particle": 18,  # +gyration_offset, +mirror, +invariants and P_phi
+        "geometry": 16,  # slab / cylinder / local reduction, +Ampere and peaked-current q, +Harris sheet, X-point, +enclosed current, flux, l_i, +current diffusion
+        "ripple": 6,  # TF ripple field and orbit consequences
+        "disruption": 11,  # TQ/CQ, induced field, runaway reference relations
+        "nbi": 6,  # beam rate, attenuation, birth density, shine-through, momentum rate
+        "waves": 7,  # cold-plasma frequencies, Stix parameters, dielectric tensor, n^2 roots, CMA, regime
+        "ntv": 2,  # precession frequency and flux-torque relation
+        "sol": 19,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile, MARFE, blobs
+        "vde": 6,  # vertical motion, thin-wall time, halo descriptors
+        "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold
+        "boundaries": 16,  # +unit factor between two units of one quantity, operational-boundary data model: value, margin, window, curve, registry, +Hugill coordinates, +threshold line and quantity identity, +Freidberg kink coordinates, +Menard q*, ITER and START q95 estimates, +spherical-tokamak Hugill coordinates, +margin uncertainty
+        "impurity": 9,  # mixture moments, target-Z_eff solver, reduce/expand pseudo-impurity, dilution
+        "dimensional": 7,  # dimension matrix, exact null space, Pi groups, basis change, similarity constraints
+        "sensitivity": 6,  # FD Jacobian, J Sigma J^T, Monte Carlo, SVD, linearity, per-formula propagation
+        "ordering": 16,  # asymptotic ordering parameters, +Debye length, Mach number, pressure anisotropy
+        "fast_ion": 8,  # critical speed/energy, slowing-down times, distribution, density/energy/pressure
+        # electron collision time and electron-ion energy exchange, multi-species;
+        # +5 for the classical baseline moved out of the process layer: the ion
         # collision time, ion-ion lnLambda, gamma_1'(Z), chi_perp,e and chi_perp,i.
         "kinetic": 7,
-        "turbulence": 16,  # predator-prey (5, #1820) + fluctuation fluxes, drift, shear, Reynolds stress (11, #1112)
-        "transport": 9,  # random-walk/TGK diffusivity, constitutive fluxes, classical/Bohm/gyro-Bohm scales (#1112)
+        "turbulence": 16,  # predator-prey (5) + fluctuation fluxes, drift, shear, Reynolds stress (11)
+        "transport": 9,  # random-walk/TGK diffusivity, constitutive fluxes, classical/Bohm/gyro-Bohm scales
         "regularized_profiles": 3,  # explicit opt-in module, outside the star namespace
-        "units": 3,  # explicit opt-in unit scale factors (#2163), outside the star namespace
+        "units": 3,  # explicit opt-in unit scale factors, outside the star namespace
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
@@ -239,7 +238,7 @@ def test_the_star_import_neither_loads_nor_binds_the_catalog():
 
 def test_touching_describe_loads_the_catalog_and_nothing_physical():
     loaded = _loaded_after("import vaft.formula; vaft.formula.describe")
-    # _taxonomy is the Reduction vocabulary (#1626): pure tuples, no physics
+    # _taxonomy is the Reduction vocabulary: pure tuples, no physics
     assert loaded == {"vaft.formula.catalog", "vaft.formula._docstring", "vaft.formula._taxonomy"}
 
 
@@ -280,7 +279,7 @@ def test_the_normal_import_path_stays_cheap():
     """``-X importtime`` costs of the formula modules, catalog absent.
 
     Both columns, deliberately. This test read only the self-time and checked
-    only three modules, so it passed all the way through #426: importing
+    only three modules, so it passed while scikit-learn was still a hard import: importing
     `vaft.formula.stability` self-timed at 0.55 ms while costing 2.57 s
     cumulatively, because `vaft.formula.utils` -- not in the checked list --
     imported scikit-learn at module scope. Adding `utils` without reading the
@@ -355,7 +354,7 @@ def test_snapshot_schema():
         assert row["id"] == f"{row['category']}.{row['name']}"
         for section in row["sections"]:
             assert section["title"] in SECTION_VOCABULARY, row["id"]
-        # the inline source (#1069) is the code as written, roles and all
+        # the inline source is the code as written, roles and all
         prose = {**row, "source": {k: v for k, v in row["source"].items() if k != "code"}}
         assert ":func:" not in yaml.safe_dump(prose), row["id"]
         assert "Raises" not in [section["title"] for section in row["sections"]], row["id"]
@@ -388,7 +387,7 @@ def test_cli_can_restrict_to_one_category(tmp_path):
     assert {row["category"] for row in data["formulas"]} == {"atomic"}
 
 
-# --- definitions and the Markdown card (issue #889) ---------------------------------
+# --- definitions and the Markdown card ---------------------------------
 
 
 def test_the_definition_is_the_docstrings_display_equation():

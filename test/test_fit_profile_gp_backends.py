@@ -1,4 +1,4 @@
-"""The scipy and scikit-learn Gaussian-process backends agree (issue #426).
+"""The scipy and scikit-learn Gaussian-process backends agree.
 
 `vaft.formula.utils` imported scikit-learn at module scope for one optional
 fitting mode, so every module that needed `gradient` paid the whole import --
@@ -77,7 +77,7 @@ def test_the_sklearn_backend_does_not_depend_on_numpys_global_rng():
     process. In a full-suite run the test order differs per platform and
     worker, so the restarts differed and the multimodal marginal likelihood
     could land in a different local optimum: the two backends disagreed by up
-    to 9e-3 on Windows only (0.8.0 release PR #1391, run 37043762573).
+    to 9e-3 on Windows only (CI run 37043762573).
     """
     x, y, y_std = _noisy_exponential()
     x_eval = np.linspace(0.0, 1.0, 21)
@@ -214,7 +214,7 @@ def test_the_returned_callable_reuses_the_fit_instead_of_refitting():
 
 
 def test_a_non_finite_target_scale_falls_back_the_same_way_in_both_branches():
-    """NaN is truthy, so ``float(np.std(...)) or 1.0`` would accept it (#714)."""
+    """NaN is truthy, so ``float(np.std(...)) or 1.0`` would accept it."""
     from vaft.formula.utils import _target_scale
 
     assert _target_scale([np.nan, 1.0]) == 1.0
@@ -227,7 +227,7 @@ def test_a_non_finite_anchor_is_refused_by_name_not_by_scipy():
 
     A non-finite anchor therefore reaches the covariance solve untouched, where
     scipy raises "array must not contain infs or NaNs" from three frames down,
-    naming neither the argument nor the caller (#714).
+    naming neither the argument nor the caller.
     """
     x, y, y_std = _noisy_exponential(n=10)
     with pytest.raises(ValueError, match="gp_anchor"):

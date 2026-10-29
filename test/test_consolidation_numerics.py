@@ -1,17 +1,17 @@
-"""Analytic references for the scientific preprocessing primitives (issue #2166, Scope B).
+"""Analytic references for the scientific preprocessing primitives.
 
 Every expected value here comes from closed-form mathematics, never from
 calling the function under test on another input: the DC gain of a normalized
 low-pass, the antisymmetry of a zero-phase step response, the frequency an
 undersampled tone folds to, the Dirichlet kernel of a moving average,
 ``integral cos = sin``, a cubic spline's exactness on a cubic.  These tests pin
-the *current* API so the consolidation (#2147, B3 #2162) has an independent
+the *current* API so the consolidation of duplicate implementations has an independent
 yardstick: a migrated implementation either still satisfies the mathematics or
 the diff says which identity it broke.
 
 The FIR section (``apply_fir_filter``, the VEST probe and IMPA low passes,
-``fir_filter_coefficients``) is written against develop *after* #2135 made the
-probe low pass zero-phase, so it tests the intended behaviour.  Its reference
+``fir_filter_coefficients``) is written against develop *after* the
+probe low pass became zero-phase, so it tests the intended behaviour.  Its reference
 designs are the window-method formula written out here (Hamming-windowed sinc,
 normalized to unit DC gain), not ``scipy.signal.firwin``.
 
@@ -393,8 +393,8 @@ def test_a_short_record_is_refused_as_nan_rather_than_aliased():
     """A record shorter than 3*numtaps+1 cannot be anti-alias filtered.
 
     It used to be decimated unfiltered, so an above-Nyquist tone folded in at
-    full amplitude (the #2166 finding, a strict xfail here until B3.12). Since
-    #2182 the samples that could not be filtered are NaN: no aliased value
+    full amplitude. Now
+    the samples that could not be filtered are NaN: no aliased value
     reaches a result.
     """
     source = _uniform_time(FAST_RATE, 0.0032)  # 800 samples < 3 * ~340 + 1
@@ -657,7 +657,7 @@ def test_repair_refuses_to_extrapolate_or_invent(case, message):
 
 
 # ---------------------------------------------------------------------------
-# FIR: apply_fir_filter, the VEST designs, and the probe low pass (post-#2135)
+# FIR: apply_fir_filter, the VEST designs, and the zero-phase probe low pass
 # ---------------------------------------------------------------------------
 
 def _hamming_lowpass(numtaps: int, cutoff: float, fs: float) -> np.ndarray:
@@ -808,7 +808,7 @@ def test_the_probe_low_pass_moves_no_feature_in_time():
     """End to end through b_field_pol_probe_field: a probe voltage V = -dB/dt of
     a Gaussian field pulse (sigma 2 ms, spectrum e^{-(2 pi f sigma)^2 / 2} below
     1e-30 at the 2.5 kHz cutoff) comes back as B itself -- same peak instant,
-    same centroid.  The pre-#2135 causal lfilter delayed it by 125 samples."""
+    same centroid.  A causal lfilter would delay it by 125 samples."""
     t = _uniform_time(FAST_RATE, 0.06)
     t0, sigma, amplitude = 0.03, 2e-3, 0.05
     field_true = amplitude * np.exp(-0.5 * ((t - t0) / sigma) ** 2)
@@ -829,7 +829,7 @@ def test_the_probe_low_pass_moves_no_feature_in_time():
 
 def test_the_probe_low_pass_refuses_a_record_too_short_for_zero_phase():
     """No silent causal fallback in the probe path: that is the route back to the
-    0.5 ms delay #2135 removed."""
+    0.5 ms delay of a causal filter."""
     n = 3 * PROBE_TAPS  # one short of the 3N + 1 filtfilt needs
     t = np.arange(n) / FAST_RATE
     with pytest.raises(ValueError, match="zero-phase"):

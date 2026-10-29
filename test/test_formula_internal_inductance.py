@@ -1,4 +1,4 @@
-"""Dimensional internal inductance and its li_3 normalisation (#782).
+"""Dimensional internal inductance and its li_3 normalisation.
 
 ``L_i = 2 W_int / I_p^2`` is Romero's definition and ``li_3 = 2 L_i / (mu0 R0)``
 the IMAS one; what is pinned is that the three functions, the existing

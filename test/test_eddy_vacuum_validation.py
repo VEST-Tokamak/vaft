@@ -1,4 +1,4 @@
-"""Eddy validation by synthetic vacuum magnetics (issue #139).
+"""Eddy validation by synthetic vacuum magnetics.
 
 The four physics tests the issue specifies are built on synthetic ODSs whose
 measured signals are *constructed* from the forward model, so they assert the
@@ -113,7 +113,7 @@ def _synthetic_ods(*, eddy_scale: float = 1.0, plasma_amplitude: float = 0.0):
     rng = np.random.default_rng(NOISE_SEED)
 
     positions = [(r, z) for _, r, z in PROBES] + [(r, z) for _, r, z in LOOPS]
-    # The same response path the forward model takes (issue #239): a fixture
+    # The same response path the forward model takes: a fixture
     # built on the other implementation would test the ~1e-7 gap between two
     # Green's-function paths rather than the model.
     psi, b_z, b_r = compute_point_response_matrices_ods(
@@ -183,7 +183,7 @@ def _pre_plasma(time):
     return np.asarray(time) < PLASMA_ONSET
 
 
-# --- the four physics checks issue #139 specifies --------------------------
+# --- the four physics checks -----------------------------------------------
 
 def test_coil_plus_eddy_measurement_gives_a_near_zero_pre_plasma_residual(vacuum_ods):
     ods, time, _ = vacuum_ods
@@ -237,7 +237,7 @@ def test_each_forward_model_preserves_its_own_physical_quantity_and_unit(vacuum_
 # --- conventions -----------------------------------------------------------
 
 def test_stored_poloidal_angle_declares_the_plus_bz_the_probes_measure():
-    # Issue #288.  Issue #169 set this to pi/2 on the reading that the IMAS
+    # pi/2 was once stored here, on the reading that the IMAS
     # projection is (cos, sin).  The DD says poloidal_angle is a *clockwise*
     # angle from +R, so the projection is (cos, -sin) and +Bz is 3*pi/2.  The
     # pi/2 value declared -Bz to any DD-conformant reader; it only looked right
@@ -248,15 +248,15 @@ def test_stored_poloidal_angle_declares_the_plus_bz_the_probes_measure():
 
 
 def test_packaged_reference_odss_carry_the_corrected_angle():
-    # Issue #166 moved the references into the representation-neutral sample
+    # The references live in the representation-neutral sample
     # registry.  Read through the public loader so this also covers compressed
     # OMAS and native IMAS storage.
     import vaft
 
     ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
     probes = ods["magnetics.b_field_pol_probe"]
-    # IMPA is its own stage (#305); phase-reference entries shot-gated (#857);
-    # field 171 published once, as equilibrium probe 36 (#825).
+    # IMPA is its own stage; phase-reference entries shot-gated;
+    # field 171 published once, as equilibrium probe 36.
     assert len(probes) == 64
     assert {
         float(ods[f"magnetics.b_field_pol_probe.{index}.poloidal_angle"])
@@ -372,7 +372,7 @@ def test_metrics_need_a_pre_plasma_window(plasma_ods):
     ods, time, _ = plasma_ods
     channels = synthetic_vacuum_magnetics(ods)
     # "usable", not merely "present": the window is now intersected with the
-    # validity the diagnostics stage established (issue #189).
+    # validity the diagnostics stage established.
     with pytest.raises(VacuumMagneticsError, match="no usable pre-plasma samples"):
         vacuum_magnetics_metrics(channels, plasma_onset=float(time[0]))
 
@@ -475,7 +475,7 @@ def test_the_residual_band_and_the_onset_markers_use_the_same_sigma(plasma_ods):
 
 
 def test_plasma_free_residual_stacks_channels_for_a_fitter(vacuum_ods):
-    """#308 minimises this vector, so its length and content must be predictable."""
+    """A wall-resistance fit (Open: #308) minimises this vector, so its length and content must be predictable."""
     ods, _, _ = vacuum_ods
     channels = synthetic_vacuum_magnetics(ods)
     window = (float(channels[0].time[0]), PLASMA_ONSET)
@@ -498,7 +498,7 @@ def test_pf_only_benchmark_runs_on_the_real_machine_geometry():
     """End-to-end on the packaged shot #190 cites as its working regression.
 
     This is the check the synthetic fixtures cannot make: 950 real passive
-    loops, the real coupling matrices, and a real PF programme. #308 will call
+    loops, the real coupling matrices, and a real PF programme. The open wall calibration (#308) will call
     `benchmark_wall_currents` inside a fit loop, so this is also its cost.
 
     Before plasma onset the PF-only and routine drives coincide, so the
@@ -560,7 +560,7 @@ def test_pf_only_benchmark_runs_on_the_real_machine_geometry():
     # Pre-onset the two drives are the same, so the residuals must be too.
     assert pf_rms == pytest.approx(routine_rms, rel=0.05)
     # And the model does not yet explain the wall response -- which is the
-    # gap #308 exists to close. If this ever falls near zero without a
+    # gap the open wall calibration (#308) exists to close. If this ever falls near zero without a
     # calibration landing, the benchmark has stopped being informative.
     assert 0.01 < pf_rms < 1.0
 
@@ -624,7 +624,7 @@ def test_an_excluded_channel_still_reports_its_wall_authority():
 
 
 def test_usable_in_window_excludes_the_held_tail():
-    """The eddy stage asks about *its* window (#189, #424): a channel whose
+    """The eddy stage asks about *its* window: a channel whose
     only unusable samples are the held tail after the diagnostics window is
     usable over the plasma-free stretch and unusable over the tail alone."""
     from vaft.omas.sample import sample_ods
@@ -673,11 +673,11 @@ def test_the_packaged_shots_inboard_flux_loops_have_little_wall_authority():
     assert scored["count"] == sum(1 for row in metrics["channels"] if row["wall_authority"] >= 0.1)
     assert scored["count"] < metrics["summary"]["channel_count"]
     assert scored["improvement"]["min"] > 0.5
-# --- issue #190: the wall must be driveable by the PF coils alone -----------
+# --- the wall must be driveable by the PF coils alone -----------------------
 
 
 def test_the_eddy_window_comes_from_the_shared_timing_policy_with_provenance():
-    """#409: the pre-plasma window ends at the light's onset, not at a raw
+    """The pre-plasma window ends at the light's onset, not at a raw
     magnetic crossing, and the metrics say which source answered."""
     from vaft.omas.vacuum_magnetics import plasma_free_boundary, plasma_window
     from vaft.validation.stage_evidence import _no_plasma_onset

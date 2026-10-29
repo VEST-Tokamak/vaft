@@ -1,4 +1,4 @@
-"""Unit coverage for the pure statistical kernels (issue #186).
+"""Unit coverage for the pure statistical kernels.
 
 Array and scalar inputs only -- nothing here constructs an ODS, so these tests
 pin the mathematics independently of EFIT, OMAS and the validation pipeline.

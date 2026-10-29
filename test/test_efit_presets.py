@@ -1,4 +1,4 @@
-"""Named EFIT configurations (#891 working setting) and their pipeline wiring."""
+"""Named EFIT configurations (the statistical-sigma working setting) and their pipeline wiring."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from vaft.code.efit.presets import DEFAULT_PRESET, PRESET_RECORD, PSI_ONLY_SAICO
 
 #: k-files written on develop before the 2026-10-01 default change, from the
 #: `_constraints_ods` fixture with INPUT_DIR=/GOLDEN_INPUT_DIR: the routine
-#: default and the statistical_891 preset of #1339.
+#: default and the statistical_891 preset.
 GOLDEN = Path(__file__).resolve().parent / "data" / "efit_kfile_golden"
 
 REPOSITORY = Path(__file__).resolve().parents[1]
@@ -56,7 +56,7 @@ def test_the_package_exports_what_the_profiles_page_names():
 
 
 def test_the_default_is_the_working_setting_byte_for_byte(tmp_path):
-    """2026-10-01: the defaults are statistical_891, whose k-file is unchanged from #1339."""
+    """2026-10-01: the defaults are statistical_891, whose k-file is unchanged since that preset was introduced."""
     assert DEFAULT_PRESET == "statistical_891"
     assert efit_preset(DEFAULT_PRESET).scientific == EFITScientificConfig()
     golden = (GOLDEN / "statistical_891.k").read_text(encoding="utf-8")
@@ -212,7 +212,7 @@ def test_a_run_naming_nothing_records_the_default(tmp_path):
 
 
 def test_a_rerun_lists_only_its_own_kfiles_and_keeps_the_earlier_ones_aside(tmp_path):
-    """k-files of an earlier run must not enter the new manifest (#1786).
+    """k-files of an earlier run must not enter the new manifest.
 
     An earlier run left a k-file at an instant this run does not produce (and,
     in production, from another Green table). Globbing ``kfile/`` listed it

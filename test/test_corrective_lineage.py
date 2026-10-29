@@ -1,4 +1,4 @@
-"""The corrective pipeline's stage list and scope (#1842): one definition for the Snakefile and the worker."""
+"""The corrective pipeline's stage list and scope: one definition for the Snakefile and the worker."""
 
 from __future__ import annotations
 

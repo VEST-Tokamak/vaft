@@ -1,4 +1,4 @@
-"""Guazzotto-Freidberg Part 2: pedestals, surface currents and toroidal flow (#1149).
+"""Guazzotto-Freidberg Part 2: pedestals, surface currents and toroidal flow.
 
 L. Guazzotto and J. P. Freidberg, J. Plasma Phys. 87, 905870305 (2021).
 Table 2 publishes beta_P and q* at q0 = 1 for four variations of Part 1's

@@ -1,4 +1,4 @@
-"""Synthetic ShotLog workbooks laid out like the real templates (#995).
+"""Synthetic ShotLog workbooks laid out like the real templates.
 
 The real workbooks live on an operator's disk and in FileDB, never in the
 repository, so the tests build the layouts they exercise. The modern card

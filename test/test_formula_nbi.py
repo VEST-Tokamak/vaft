@@ -1,4 +1,4 @@
-"""NBI formulas and the reduced attenuation process (#1136): limits, conservation and refusals."""
+"""NBI formulas and the reduced attenuation process: limits, conservation and refusals."""
 
 import numpy as np
 import pytest

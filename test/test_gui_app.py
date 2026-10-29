@@ -1,4 +1,4 @@
-"""The Panel application over a :class:`BrowserSession` (#1086); never served here."""
+"""The Panel application over a :class:`BrowserSession`; never served here."""
 
 from __future__ import annotations
 
@@ -683,7 +683,7 @@ def test_the_page_loads_plotly_before_the_first_figure(monkeypatch):
     assert "plotly" in loaded
 
 
-# --- Figure Options, reproduction and composition (#1421, #1467) ------------------
+# --- Figure Options, reproduction and composition ---------------------------------
 
 
 def test_the_form_has_a_widget_for_every_option_and_reads_back_intent(app):
@@ -782,7 +782,7 @@ def test_serve_signs_in_with_hsds_accounts(monkeypatch):
     assert kwargs["cookie_secret"]
 
 
-# -- touch screens (#1866) -------------------------------------------------------------------
+# -- touch screens -------------------------------------------------------------------
 def test_a_drag_zooms_on_a_desktop_and_scrolls_the_page_on_a_touch_screen(ods, monkeypatch):
     monkeypatch.setattr("vaft.gui.state.load_source", lambda source: ods)
     desktop = gui_app.BrowserApp(_Session())

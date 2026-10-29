@@ -1,4 +1,4 @@
-"""The limiter must not sit on an EFIT grid line (#965).
+"""The limiter must not sit on an EFIT grid line.
 
 EFIT decides which grid points may carry plasma current with ``zlim``, a
 point-in-polygon test. A grid column a fraction of a millimetre from a

@@ -1,4 +1,4 @@
-"""Linear ideal-MHD waves (#1063): the drawn polarizations and speeds are the formulas'."""
+"""Linear ideal-MHD waves: the drawn polarizations and speeds are the formulas'."""
 
 import math
 

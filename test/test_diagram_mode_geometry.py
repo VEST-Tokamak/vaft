@@ -1,4 +1,4 @@
-"""The cross-geometry MHD mode map (#1574): typed relations, no false one-to-one correspondences."""
+"""The cross-geometry MHD mode map: typed relations, no false one-to-one correspondences."""
 
 import numpy as np
 import pytest

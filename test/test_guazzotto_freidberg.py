@@ -1,4 +1,4 @@
-"""Guazzotto-Freidberg Part 1 analytic equilibria against the published paper (#1148).
+"""Guazzotto-Freidberg Part 1 analytic equilibria against the published paper.
 
 L. Guazzotto and J. P. Freidberg, J. Plasma Phys. 87, 905870303 (2021).
 Table 4 publishes, for nine configurations at q0 = 1, the eigenvalue alpha and

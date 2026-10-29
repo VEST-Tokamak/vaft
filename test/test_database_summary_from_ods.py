@@ -1,4 +1,4 @@
-"""The offline preset summary equals the database one for the same data (#1232).
+"""The offline preset summary equals the database one for the same data.
 
 ``vaft.database.summary(odss=...)`` / ``summary_from_ods`` run the preset's
 extractor on in-memory ODS. The database path is exercised with ``open``
@@ -94,7 +94,7 @@ def test_an_ids_outside_the_preset_does_not_change_the_table(sample):
     """Only the IDS the preset requests reach the table.
 
     equilibrium_global requests equilibrium, magnetics (the measured
-    diamagnetic flux since #2127) and tf; pf_active is stored by the sample
+    diamagnetic flux) and tf; pf_active is stored by the sample
     but requested by no column, so dropping it must leave every value alone.
     """
     from omas import ODS

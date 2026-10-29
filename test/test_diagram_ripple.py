@@ -1,4 +1,4 @@
-"""Toroidicity and ripple diagrams (#1070): drawn from the ripple and particle formulas."""
+"""Toroidicity and ripple diagrams: drawn from the ripple and particle formulas."""
 
 import math
 

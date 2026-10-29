@@ -1,11 +1,11 @@
-"""``kinetic_overview_state`` as an inference chain: stages, assumptions, animation (issue #1957).
+"""``kinetic_overview_state`` as an inference chain: stages, assumptions, animation.
 
 The chain is the maintainer's: equilibrium and Thomson in, ``T_i = T_e`` and
 ``n_C = n_O`` assumed, the Romero ``Z_eff`` first, then ``n_I,eff``, ``n_i``,
 ``Z_eff(rho)`` and the pressure closure.  The fixture is
 ``romero_first_case`` of ``workflow/kinetic_state/archive_to_ods.py``: the
 40326 archive's equilibrium and Thomson with a **synthetic** Romero value,
-written through the real composition writer, until Lane KP's stages (#1842)
+written through the real composition writer, until Lane KP's stages
 exist.  The plot reads only stored paths and records.
 """
 
@@ -124,7 +124,7 @@ def test_stage_one_is_the_data_and_stage_four_adds_the_reference(romero):
 
 
 def test_every_stage_draws_its_traces_as_the_full_figure_does(romero):
-    """No stage is faded (user review on #1957): a cut only leaves later stages out."""
+    """No stage is faded: a cut only leaves later stages out."""
     full = _traces(_extract(romero.ods))
     for quantity, (series, record) in _traces(_extract(romero.ods, stage=6)).items():
         assert dict(series.style) == dict(full[quantity][0].style), quantity
@@ -159,7 +159,7 @@ def test_every_stage_keeps_the_full_figures_limits(romero):
 
 
 def test_each_stage_legend_names_only_what_the_stage_draws(romero):
-    """No room is reserved for traces not drawn yet (user decision on #1957); the canvas stays the slide's."""
+    """No room is reserved for traces not drawn yet; the canvas stays the slide's."""
     for stage in (1, 4, 8):
         figure, axes = _quiet(vaft.omas.plot_kinetic_overview_state, romero.ods, stage=stage, format="slide")
         assert figure.get_size_inches().tolist() == pytest.approx([11.0, 5.5], abs=0.6)
@@ -251,7 +251,7 @@ def test_each_normalization_names_the_zeff_it_closes_on(romero, fields, kind, st
 
 
 def test_the_constraint_is_never_paired_with_a_value_no_record_states(romero):
-    """The stored z_eff_resistive is the reference line, not the closure's value (cold review #1963)."""
+    """The stored z_eff_resistive is the reference line, not the closure's value."""
     ods = _with_normalization(romero.ods, "normalization=resistive_closure; resistive_method=romero")
     ods["core_profiles.global_quantities.z_eff_resistive"] = [1.7403228517823983]
     assert [a["statement"] for a in _extract(ods).models[0].metadata["inferences"]] == [
@@ -378,7 +378,7 @@ def test_stage_columns_are_validated(romero, options, match):
         _extract(romero.ods, **options)
 
 
-# --- the #1049 contract: a categorical driver ----------------------------------------------
+# --- the animation contract: a categorical driver -----------------------------------------
 
 
 def test_the_stage_is_the_plots_categorical_slice_control(romero):
@@ -469,7 +469,7 @@ def test_nothing_is_listed_without_an_assumed_record():
     assert "Assumed" not in model.suptitle and meta["assumptions"] == [] and meta["inferences"] == []
 
 
-# --- cold review #1963 ------------------------------------------------------------------------
+# --- cold-review findings -------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("uncertainty", ["none", "band", "auto", "errorbar"])

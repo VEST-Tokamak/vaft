@@ -1,4 +1,4 @@
-"""Diamagnetic-Rogowski acquisition-limit saturation (issue #285).
+"""Diamagnetic-Rogowski acquisition-limit saturation.
 
 The channel is a signed 16-bit ADC spanning +/-5 V, so it rails at exactly
 ``-5.0`` and at ``5 * 32767 / 32768`` -- two asymmetric limits, both of which
@@ -152,8 +152,8 @@ def test_clean_trace_returns_an_all_false_mask():
     ],
 )
 def test_the_diamagnetic_channel_history_follows_the_raw_archive(shot, field):
-    """#993 replaced VFIT's `246 / 4 / 257` selector, whose first branch read
-    a flux loop, with the history the raw archive shows."""
+    """VFIT's `246 / 4 / 257` selector, whose first branch read
+    a flux loop, is replaced by the history the raw archive shows."""
     assert magnetics.diamagnetic_field_for_shot(shot) == field
 
 
@@ -223,7 +223,7 @@ def test_packaged_saturation_falls_outside_the_plasma_window(shot):
 
 @pytest.mark.parametrize("shot", sorted(PACKAGED_SATURATION))
 def test_repair_does_not_move_the_packaged_waveforms(shot):
-    """Regression lock on the quantification asked for by issue #285.
+    """Regression lock on the saturation repair's quantified effect.
 
     Because every saturated sample lies outside the plasma window, the
     reference subtraction and the two-point baseline removal cancel the
@@ -245,10 +245,10 @@ def test_method_name_records_the_saturation_outcome(shot):
     )
     method_name = ods["magnetics"]["diamagnetic_flux"][0]["method_name"]
     assert "field 257" in method_name
-    assert magnetics.DIAMAGNETIC_FLUX_SIGN_CONVENTION in method_name  # #1196
+    assert magnetics.DIAMAGNETIC_FLUX_SIGN_CONVENTION in method_name  # stored flux positive = paramagnetic
     assert f"{PACKAGED_SATURATION[shot]}/25000" in method_name
     assert "0 inside the plasma window" in method_name
-    # #409: the window the reconstruction was anchored to, and its source
+    # The window the reconstruction was anchored to, and its source
     assert "plasma window 0.3" in method_name
     assert "from h_alpha_raw" in method_name
     assert "analysis-range fallback" not in method_name
@@ -326,7 +326,7 @@ def test_an_unsaturated_channel_reports_cleanly(tmp_path):
 
 
 # --------------------------------------------------------------------------
-# The plasma window the mapper anchors to (issue #409)
+# The plasma window the mapper anchors to
 # --------------------------------------------------------------------------
 
 
@@ -465,7 +465,7 @@ def test_a_window_past_the_rogowski_record_is_said_in_the_provenance():
 
 
 # --------------------------------------------------------------------------
-# A diamagnetic loop that carries nothing costs only itself (#993)
+# A diamagnetic loop that carries nothing costs only itself
 # --------------------------------------------------------------------------
 
 
@@ -481,7 +481,7 @@ def _dump_without_diamagnetic(tmp_path):
 @pytest.mark.parametrize("case", ["pinned", "absent"])
 def test_an_unusable_diamagnetic_loop_leaves_the_rest_of_magnetics(tmp_path, case):
     """1,277 production shots lost their probes, flux loops and Ip because the
-    diamagnetic channel sat at the rail for the whole record (#993). The loop
+    diamagnetic channel sat at the rail for the whole record. The loop
     is left out, with the reason; nothing else is."""
     from omas import ODS
 

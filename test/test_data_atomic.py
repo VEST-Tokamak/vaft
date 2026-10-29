@@ -1,4 +1,4 @@
-"""Atomic and spectral identity under ``vaft.data`` (#1711), and the deprecated ``vaft.spectroscopy`` alias."""
+"""Atomic and spectral identity under ``vaft.data``, and the deprecated ``vaft.spectroscopy`` alias."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def test_one_table_owns_the_nuclear_charge_and_the_weight():
         assert _element_table()[symbol] == (z, weight)
     assert process_atomic._ATOMIC_NUMBERS is atomic.ATOMIC_NUMBERS
     assert process_atomic._ELEMENT_NAMES is atomic.ELEMENT_NAMES
-    # the values the impurity preset and the #1565 reference numbers rest on
+    # the values the impurity preset and the impurity reference numbers rest on
     assert ION_SPECIES["C"] == (6, 12.011) and ION_SPECIES["O"] == (8, 15.999) and ION_SPECIES["D"][0] == 1
 
 

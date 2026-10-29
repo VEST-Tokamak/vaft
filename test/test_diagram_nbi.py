@@ -1,4 +1,4 @@
-"""NBI diagrams (#1136): the three losses kept apart, the attenuation curves from vaft.formula.nbi."""
+"""NBI diagrams: the three losses kept apart, the attenuation curves from vaft.formula.nbi."""
 
 import numpy as np
 import pytest

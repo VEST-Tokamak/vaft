@@ -29,7 +29,7 @@ def _study():
 def _frozen_kfile_text(reference, table_dir: Path) -> str:
     """A k-file matching what the fixed configuration actually asks for.
 
-    The relations used to be written out here as a 16x12 table. Since #708
+    The relations used to be written out here as a 16x12 table. Now
     they are derived from the coilset -- one column per equality, built from
     how each circuit is split and which circuits are wired in series -- so
     this fixture derives them the same way rather than restating a shape that
@@ -101,7 +101,7 @@ def _validation(study, reference, **updates):
         "main_export_present": True,
         "external_current_export_present": True,
         # Roles, and their sum: one PF parameter per current group, so both
-        # follow the coilset rather than a literal that #708 would strand.
+        # follow the coilset rather than a literal a coilset change would strand.
         "parameter_count": len(vest_efit_coilset_policy().group_names) + 2 + 2,
         "pf_parameter_count": len(vest_efit_coilset_policy().group_names),
         "pprime_parameter_count": 2,
@@ -231,7 +231,7 @@ def test_native_problem_validation_reproduces_the_solve_and_parameter_roles():
 
 
 def test_the_stage1_gate_has_no_curvature_sum_identity():
-    """Cold review 0.7.0 efit-workflows F14 (#1888).
+    """Cold review 0.7.0 efit-workflows F14.
 
     The curvature-sum "check" compared sum_f A_f^T A_f over a partition of
     the rows with A^T A of the same matrix: an identity that holds at
@@ -264,7 +264,7 @@ def test_the_stage1_gate_has_no_curvature_sum_identity():
 
 
 def test_a_stage1_manifest_written_with_the_retired_curvature_field_still_loads():
-    """PR #1920 review F2: Stage-1 outputs predate the F14 deletion.
+    """Stage-1 outputs predate the curvature field's deletion.
 
     Resume (`_stage1_case_result`) and the Stage-2 gate rebuild
     `Stage1Validation` from the stored manifest, which carries the retired
@@ -315,7 +315,7 @@ def test_native_row_audit_keeps_measurements_weights_and_soft_relations():
 
 
 def test_zero_weight_rows_do_not_enter_the_family_residual_statistics():
-    """Cold review 0.7.0 efit-workflows F16 (#1888).
+    """Cold review 0.7.0 efit-workflows F16.
 
     ``active`` counted the channels and the residual statistics ignored it,
     so one zero-weight row with a residual of 100 set the family's rms and
@@ -964,7 +964,7 @@ def test_direction_linearity_compares_adjacent_not_baseline_secants():
 
 
 def test_direction_linearity_does_not_pass_on_a_constraint_that_never_acted():
-    """Cold review 0.7.0 efit-workflows F15 (#1888).
+    """Cold review 0.7.0 efit-workflows F15.
 
     Four converged points whose parameter state equals the baseline give
     zero derivatives on every segment. A zero-by-zero cosine used to read

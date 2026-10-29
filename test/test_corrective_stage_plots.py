@@ -1,4 +1,4 @@
-"""The corrective stages' validation figures (#1842): declared once, optional, and drawn from the stage product."""
+"""The corrective stages' validation figures: declared once, optional, and drawn from the stage product."""
 
 from __future__ import annotations
 

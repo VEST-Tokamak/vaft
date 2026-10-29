@@ -1,4 +1,4 @@
-"""Test-side import of ``workflow/kinetic_state/archive_to_ods.py`` (issue #1837).
+"""Test-side import of ``workflow/kinetic_state/archive_to_ods.py``.
 
 The converter lives beside the archive it reads; this shim puts that
 directory on ``sys.path`` once so tests can ``from _kinetic_state_fixture import ...``.

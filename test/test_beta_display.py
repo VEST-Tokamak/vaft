@@ -1,4 +1,4 @@
-"""Beta family display conventions (issue #947, phase 3).
+"""Beta family display conventions.
 
 The stored value is canonical -- beta_t and beta_p as fractions, beta_N as
 its Troyon number -- and the display only scales and labels it.

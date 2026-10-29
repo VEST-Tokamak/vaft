@@ -1,4 +1,4 @@
-"""Impurity composition and radial Z_eff plots (#1565 Sec. 8): synthetic ADF11 tables, no network."""
+"""Impurity composition and radial Z_eff plots: synthetic ADF11 tables, no network."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""convert_cocos carries the identified candidates through the transform (#601).
+"""convert_cocos carries the identified candidates through the transform.
 
 The identified list used to be shifted by ten across storage families. That
 ignored the sign changes of a same-family conversion and turned a candidate in

@@ -1,4 +1,4 @@
-"""Fixed-boundary equilibrium scans over CHEASE inputs (issue #66).
+"""Fixed-boundary equilibrium scans over CHEASE inputs.
 
 The transformations are tested offline; the solve itself needs a CHEASE
 binary and is skipped without one, as the other CHEASE integration tests are.
@@ -189,7 +189,7 @@ def test_each_knob_moves_the_quantity_it_names(tmp_path):
 
     Elongation is read off CHEASE's own output, ``EQDSK_COCOS_02.OUT``, not the
     refined g-file: that file's RBBBS is restored from the input, so it reports
-    the requested shape whether or not the solve used it (#887).
+    the requested shape whether or not the solve used it.
     """
     import vaft.omas
     from vaft.code import CHEASEConfig
@@ -327,7 +327,7 @@ def test_a_nonzero_exit_is_not_convergence(monkeypatch, tmp_path):
 
 
 def test_a_timed_out_case_is_recorded_with_its_result_and_named_limit(tmp_path, monkeypatch):
-    """#1016: a timeout is a result, so the scan keeps it and names the limit."""
+    """A timeout is a result, so the scan keeps it and names the limit."""
     import vaft.code.chease_scan as module
 
     _patch_solve(monkeypatch,
@@ -347,7 +347,7 @@ def test_a_timed_out_case_is_recorded_with_its_result_and_named_limit(tmp_path, 
 
 
 # ---------------------------------------------------------------------------
-# A shape knob must reach the boundary CHEASE solves (#887)
+# A shape knob must reach the boundary CHEASE solves
 # ---------------------------------------------------------------------------
 
 def _expeq_boundary(path):
@@ -435,7 +435,7 @@ def test_a_scan_without_shape_variation_keeps_the_configured_contour(monkeypatch
 
 
 # ---------------------------------------------------------------------------
-# A boundary from any model: Contour is what CHEASE consumes (#942)
+# A boundary from any model: Contour is what CHEASE consumes
 # ---------------------------------------------------------------------------
 
 def _fourier_boundary_of_source(geqdsk, z_stretch):
@@ -588,7 +588,7 @@ def test_a_scan_without_shape_variation_records_no_boundary(monkeypatch, tmp_pat
 
 
 # ---------------------------------------------------------------------------
-# Submit every case, then collect in order (#1018)
+# Submit every case, then collect in order
 # ---------------------------------------------------------------------------
 
 class _QueueBackend:

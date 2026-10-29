@@ -1,4 +1,4 @@
-"""Equilibrium-quality cohorts (#1644): a composed review surface, not a new status model."""
+"""Equilibrium-quality cohorts: a composed review surface, not a new status model."""
 
 from __future__ import annotations
 

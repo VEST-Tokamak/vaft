@@ -262,7 +262,7 @@ def test_both_iter97_paths_state_which_elongation_they_use():
     assert figures.h_factor_of(table, "NeoAlcator").attrs["kappa_definition"] == "no elongation term"
 
 
-# --- #1946: presentation of the tau_E figures --------------------------------
+# --- presentation of the tau_E figures ---------------------------------------
 
 
 def _tau_table():

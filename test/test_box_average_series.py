@@ -1,4 +1,4 @@
-"""One owner for the box average at every sample (#2162 B3.10).
+"""One owner for the box average at every sample.
 
 Pipeline 1's ``generate_constraints_ods._box_averaged`` evaluated
 :func:`vaft.code.efit.legacy.box_average` at every sample with a cumulative-sum

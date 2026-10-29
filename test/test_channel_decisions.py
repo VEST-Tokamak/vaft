@@ -1,4 +1,4 @@
-"""The per-channel, per-slice decision contract (issue #296).
+"""The per-channel, per-slice decision contract.
 
 Pure: no ODS.  The mapping from state to weight is stated once and is
 deterministic; the invariants keep a decision from saying two things at once.

@@ -1,9 +1,9 @@
-"""Nothing may write a nested `code.parameters` path without saying why (#561).
+"""Nothing may write a nested `code.parameters` path without saying why.
 
 `test_code_parameters_contract.py` measures what the field supports.  This
 module holds the source to it: a *flat* leaf under `code.parameters` survives
 replication, because `vaft.omas.load` promotes a leaf-only block back to an
-`omas.CodeParameters` on its way out of the stage product (#478), and a
+`omas.CodeParameters` on its way out of the stage product, and a
 *nested* one does not -- the promotion declines it, the Access Layer discards
 the plain branch that is left, and nothing raises.  Worse, the promotion is
 all-or-nothing on the block, so a nested sub-path takes every flat leaf beside
@@ -52,7 +52,7 @@ ALLOWED: dict[str, tuple[tuple[str, str, str], ...]] = {
     # -- EFIT's per-slice parser cache: the a/k/m-file namelists as they were
     # read, kept so a reconstruction can be re-run and audited locally.  It is
     # not representable as one XML parameters string (numeric-looking keys,
-    # per-slice lists), which is exactly why #478's promotion declines it.
+    # per-slice lists), which is exactly why the load-side promotion declines it.
     "vaft/data/aeqdsk.py": (
         ("equilibrium.code.parameters.time_slice.", "write", "a-file parser cache (#380)"),
     ),
@@ -268,7 +268,7 @@ def test_a_nested_parameter_path_is_declared_or_absent(path):
 
 
 def test_no_workflow_script_writes_a_nested_parameter_path():
-    """The generalisation of #380's single-file check.
+    """The generalisation of a single-file check.
 
     That check read one stage script and forbade one literal. Every pipeline
     stage writes a product that is replicated, so the rule is the same for all

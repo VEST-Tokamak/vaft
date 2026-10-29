@@ -1,4 +1,4 @@
-"""Controlled magnetics perturbations for negative-control validation (issue #2166, D2).
+"""Controlled magnetics perturbations for negative-control validation.
 
 A validation that cannot see a known error is absorbing it.  These helpers
 take a magnetics ODS and return a *perturbed deep copy* carrying one
@@ -20,7 +20,7 @@ benchmark.  The input ODS is never modified and nothing is written to disk:
 negative controls must never reach a stored product.
 
 These live under ``test/`` rather than ``vaft.validation`` on purpose: the
-validation layer evaluates data, it does not generate it (#253), and a
+validation layer evaluates data, it does not generate it, and a
 perturbation generator is test infrastructure.
 """
 

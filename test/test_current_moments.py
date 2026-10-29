@@ -1,4 +1,4 @@
-"""Toroidal current-density moments (#943, current-distribution part).
+"""Toroidal current-density moments.
 
 Analytic distributions with known moments -- a uniform disk, a rotated
 elliptical Gaussian, a skewed profile, a filament -- pin the definitions; the

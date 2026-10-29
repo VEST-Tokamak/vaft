@@ -1,4 +1,4 @@
-"""Asymptotic ordering parameters (#1627): values against the NRL formulary and their identities."""
+"""Asymptotic ordering parameters: values against the NRL formulary and their identities."""
 
 import math
 

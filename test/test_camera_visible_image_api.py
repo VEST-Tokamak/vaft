@@ -1,4 +1,4 @@
-"""One camera image API: base frame + overlays + projection (issue #261 §18-23).
+"""One camera image API: base frame + overlays + projection.
 
 39915 has a packaged calibrated pose, so the fixture adds synthetic frames to
 that shot and every overlay projects for real.

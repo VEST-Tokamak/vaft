@@ -1,4 +1,4 @@
-"""Plasma-wall interaction (#1047): definitions evaluated, species kept apart, nothing fabricated."""
+"""Plasma-wall interaction: definitions evaluated, species kept apart, nothing fabricated."""
 
 import re
 
@@ -133,7 +133,7 @@ def test_the_quantities_name_their_imas_paths():
 
 
 def test_the_new_views_draw_no_coefficient_and_leave_enrichment_slots_empty():
-    """Diagrams 3, 4, 8 and 10 of #1047 stay at level 0: named quantities, no values."""
+    """The reflection, angle, and other definition-only diagrams stay at level 0: named quantities, no values."""
     for name in ("plasma_wall_interaction_reflection_energy", "plasma_wall_interaction_angle_dependence",
                  "plasma_wall_interaction_particle_balance", "plasma_wall_interaction_surface_response"):
         d = getattr(vaft.diagram, name)()

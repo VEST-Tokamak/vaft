@@ -1,4 +1,4 @@
-"""collision_processes: three distinct branches and their leaves, checked by role (#1215)."""
+"""collision_processes: three distinct branches and their leaves, checked by role."""
 
 import numpy as np
 import pytest

@@ -1,4 +1,4 @@
-"""input.gacode read/write, and the ODS projection that feeds it (issue #550).
+"""input.gacode read/write, and the ODS projection that feeds it.
 
 The fixtures under `test/data/gacode/neo_reg18/` are a real GACODE artifact:
 `input.gacode` is the file shipped with NEO's reg18 regression case, and the
@@ -441,7 +441,7 @@ def test_rotation_is_left_absent_when_a_species_lacks_it():
 
 
 def _with_proxy_profile_grid(ods):
-    """48224 with its kinetic grid relabelled the way a pre-#420 writer stored it.
+    """48224 with its kinetic grid relabelled the way an earlier writer stored it.
 
     The profiles stay where they are physically; only the number stored under
     ``grid.rho_tor_norm`` becomes ``sqrt(psi_N)`` at each point.
@@ -561,9 +561,9 @@ def _directions(profile: GACODEProfile) -> tuple[int, int]:
 
 
 def test_the_gacode_convention_is_registered_and_confirmed():
-    """COCOS 2, and no longer this repository's own inference (issue #743).
+    """COCOS 2, and no longer this repository's own inference.
 
-    The index was carried as an assumption through #550 phases 1-7 because
+    The index was carried as an assumption through the GACODE adapter's first phases because
     nothing upstream stated it. It is now confirmed against the GACODE geometry
     convention itself and against two independent implementations that write the
     format -- OMFIT's reader and FUSE's GACODE.jl -- so the entry must name a

@@ -74,7 +74,7 @@ def test_toroidal_flux_of_a_uniform_field_is_field_times_area():
 
 def test_toroidal_flux_of_the_vacuum_field_converges_at_second_order():
     # B_phi = B0 R0 / R over a rectangle: Phi = B0 R0 dZ ln(R2/R1).  The Riemann
-    # sum the function used to be (#358) is first order; the trapezoidal rule
+    # sum the function used to be is first order; the trapezoidal rule
     # must quarter the error when the spacing halves.
     B0, R0, R1, R2, Z1, Z2 = 0.15, 0.4, 0.1, 0.8, -0.6, 0.6
     exact = B0 * R0 * (Z2 - Z1) * np.log(R2 / R1)

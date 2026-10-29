@@ -1,4 +1,4 @@
-"""The frozen-baseline capture script's contract (issue #2166).
+"""The frozen-baseline capture script's contract.
 
 ``workflow/architecture_audit/capture_baseline.py`` records, per ODS leaf, what
 the pre-migration stage chain produces from the packaged raw dumps.  These are

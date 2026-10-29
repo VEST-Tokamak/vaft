@@ -1,4 +1,4 @@
-"""The generated Python API reference (#162) and the check that nothing escapes it.
+"""The generated Python API reference and the check that nothing escapes it.
 
 Python only: ``vaft._api_catalog`` and ``docs/scripts/catalog_coverage.py`` run
 before Jekyll, so everything here works without Ruby.  The rendered pages are
@@ -58,7 +58,7 @@ def test_the_snapshot_is_deterministic_and_verifiable(snapshot):
 
 
 def test_every_primary_package_is_represented(snapshot):
-    """The packages #162 names, each through a representative object."""
+    """The primary packages, each through a representative object."""
     representatives = {
         "database": "vaft.database",
         "data": "vaft.data",
@@ -214,7 +214,7 @@ def test_a_duplicated_entry_is_caught(coverage, snapshot):
 
 
 # --------------------------------------------------------------------------
-# the cold review of #1366
+# cold-review findings on the API reference
 # --------------------------------------------------------------------------
 
 

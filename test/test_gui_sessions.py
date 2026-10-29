@@ -1,4 +1,4 @@
-"""Hosted-session isolation and cleanup (#1863): one server, several browser sessions.
+"""Hosted-session isolation and cleanup: one server, several browser sessions.
 
 A real Bokeh server serves :func:`vaft.gui.app.session_page` -- the page
 ``vaft gui`` serves -- and plain HTTP requests open sessions on it, each

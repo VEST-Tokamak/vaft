@@ -1,4 +1,4 @@
-"""Issue #482: the diagnostics overview with its panels and processing chosen live.
+"""The diagnostics overview with its panels and processing chosen live.
 
 A composite has no facts of its own, so its controls are folded from its
 members; ``members=`` picks panels by name and is an ordinary option, so the

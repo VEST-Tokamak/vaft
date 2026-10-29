@@ -363,8 +363,8 @@ def _reliability_ods(efit_preset=None):
         "dataset_description.data_entry.machine": "VEST",
         "dataset_description.data_entry.run": 1,
         "equilibrium.ids_properties.comment": "current EFIT",
-        # The one string that replicates, as the EFIT stage writes it (#380,
-        # #728).  The per-slice parser cache this used to read stays on the
+        # The one string that replicates, as the EFIT stage writes it.
+        # The per-slice parser cache this used to read stays on the
         # local product and never reaches a replica.
         "equilibrium.code.parameters": json.dumps(
             {
@@ -707,12 +707,12 @@ def test_export_validates_upsert_contract(tmp_path):
 
 
 def test_equilibrium_summary_fills_the_shape_and_volume_columns():
-    """Regression for issue #290's wider half: eleven of the forty-four columns
+    """Regression guard for #290's wider half: eleven of the forty-four columns
     were empty on the packaged sample because an EFIT-sourced ODS stores no
     flux-surface geometry, not because nothing could compute it.
 
     Four of them -- the betas and li_3 -- outlived that fix because they needed a
-    normative definition chosen first, and #238 chose it. Nothing is empty now.
+    normative definition chosen first, which now exists. Nothing is empty now.
     """
     import numpy as np
 
@@ -734,13 +734,13 @@ def test_equilibrium_summary_fills_the_shape_and_volume_columns():
     assert row["area_m2"] > 0.0
     assert row["energy_mhd_J"] > 0.0
     # The virial path read psi through a detector that assumed weber and got
-    # beta_p = 30.5 on this Wb/rad sample (issue #278 follow-up).
+    # beta_p = 30.5 on this Wb/rad sample.
     assert 0.0 < row["virial_beta"] < 10.0
 
 
 def test_the_equilibrium_preset_loads_tf_so_the_r0_cross_check_can_run():
     """`beta_pol` and `li_3` divide by R_0, and the VEST database's
-    `equilibrium.vacuum_toroidal_field.r0` is corrupt (#325). The resolver
+    `equilibrium.vacuum_toroidal_field.r0` is corrupt. The resolver
     cross-checks it against `tf`, so a preset that does not load `tf` leaves the
     check blind and the corrupt value is used with no warning -- the summary was
     in exactly that state.
@@ -773,13 +773,13 @@ def test_vacuum_b0_is_rescaled_with_the_cross_checked_radius():
 
 
 def test_the_shot_overview_loads_what_the_shot_class_reads():
-    """Review finding on #535: through the database only the preset's paths are
+    """Through the database only the preset's paths are
     loaded, and the class decides BD failure versus Vacuum on the barometry."""
     paths = summary_module.PRESETS["shot_overview"].paths
     assert "barometry" in paths and "dataset_description" in paths
 
 
-# --- lineage reads what replicates, not what stays local (#728) --------------
+# --- lineage reads what replicates, not what stays local --------------
 
 
 def _lineage(ods, eq_index=0):
@@ -835,7 +835,7 @@ def test_a_field_the_replica_cannot_carry_says_so():
 
     Three lineage fields were silently dropped from every summary built from
     the database for a year because a missing key and an unreplicated one look
-    identical (#728).
+    identical.
     """
     from omas import ODS
 
@@ -874,7 +874,7 @@ def test_an_artifact_the_run_never_produced_is_not_called_unreplicated():
     A slice whose run produced no m-file -- it is optional, and a slice that
     never converged has none -- records `not produced`. Calling that `not
     replicated` would send a reader after a file nobody wrote, which is the
-    same confusion this field was added to end (#728).
+    same confusion this field was added to end.
     """
     from omas import ODS
 
@@ -932,7 +932,7 @@ def test_the_shot_overview_says_how_much_of_the_pulse_was_active(monkeypatch):
     """`pulse_duration_s` is an envelope; the column beside it says what of it counted.
 
     A record of two brief flashes tens of milliseconds apart reports a long
-    window that is mostly gap, and until #752 a reader of the overview had no
+    window that is mostly gap, and without it a reader of the overview had no
     way to tell that from a plasma that lasted as long as the window says.
     `pulse_duration_s` keeps its meaning; the duty cycle is reported next to
     it rather than folded into it.

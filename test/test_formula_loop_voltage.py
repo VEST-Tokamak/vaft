@@ -1,9 +1,9 @@
-"""Boundary and internal inductive voltage, split term by term (#782).
+"""Boundary and internal inductive voltage, split term by term.
 
 Romero's balance is V_B = -dpsi_B/dt with psi_B = L_e I_p + sum_j M_pj I_j on
 one side and V_B = R_p I_p + (1/I_p) d(L_i I_p^2 / 2)/dt on the other.  What
 is pinned: the four boundary terms are the product rule of psi_B, the two
-internal terms are the energy derivative, and the lumped circuit of #967
+internal terms are the energy derivative, and the lumped circuit
 closes the balance only with the one-half on dL_i/dt.
 """
 

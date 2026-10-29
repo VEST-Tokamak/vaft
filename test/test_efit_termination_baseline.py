@@ -1,7 +1,7 @@
-"""The #171 baseline's log reading, on synthetic logs with known answers.
+"""The solver-configuration baseline's log reading, on synthetic logs with known answers.
 
 The study itself needs EFIT and a shot; what is pinned here is the parsing it
-rests on, because every conclusion #171 draws is a claim about what the log
+rests on, because every conclusion the open study (#171) draws is a claim about what the log
 said. The two readings that mislead if taken at face value each get a test.
 """
 

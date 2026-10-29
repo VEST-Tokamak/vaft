@@ -1,4 +1,4 @@
-"""The diamagnetic weight ladder (#386), and the Thomson cross-check.
+"""The diamagnetic weight ladder, and the Thomson cross-check.
 
 Nothing here runs EFIT.  What is pinned is the arithmetic that decides where
 the ladder is placed, the common-slice discipline that keeps population change
@@ -71,7 +71,7 @@ def test_the_baseline_rung_is_the_row_weight_vest_actually_submits(scan):
 
 
 def test_the_ladder_brackets_the_stored_measurement_error(scan):
-    """The point of the study: #663's ladder stopped four decades short.
+    """The point of the study: the constraint-information study's ladder (#663) stopped four decades short.
 
     The stored 3 % error on the packaged 39915 slice implies a processed row
     weight of 2.3e4.  ``objective_scales`` x10,000 -- the far end of #663 --
@@ -140,7 +140,7 @@ def _geometry(lcfs_mm=0.0, area=0.0, volume=0.0, acceptance=0.0):
 
 
 def test_losing_solutions_is_not_a_branch_transition(scan):
-    """#663's predicate counts a 10 pp acceptance drop as a material response.
+    """The constraint-information study's predicate (#663) counts a 10 pp acceptance drop as a material response.
 
     On this ladder acceptance falls because high weights reject slices, so
     reusing that predicate unchanged would report a branch transition every
@@ -183,7 +183,7 @@ def test_a_row_that_could_not_be_read_is_not_a_row_that_did_not_respond(
 def test_population_change_cannot_masquerade_as_a_smaller_residual(
     scan, profile_study
 ):
-    """#663's own correction, pinned so it cannot be repeated here.
+    """The constraint-information study's own correction (#663), pinned so it cannot be repeated here.
 
     The high-weight run drops the slice with the large residual instead of
     fitting it.  Aggregated over each run's own population the residual looks
@@ -252,7 +252,7 @@ def _block(scan, profile_study, responses):
 def test_a_ladder_that_never_moves_the_residual_says_so_plainly(
     scan, profile_study
 ):
-    """The answer #386 most needs to be able to receive.
+    """The answer the open 39915 pressure-deficit study (#386) most needs to be able to receive.
 
     If the residual never responds anywhere on eight decades, the pressure
     deficit is not something weighting can reach, and the study has to say
@@ -404,7 +404,7 @@ def test_a_ladder_whose_survivors_miss_the_thomson_window_says_so(thomson):
 def test_a_flagged_gfile_on_a_higher_rung_does_not_move_the_ladder(
     thomson, monkeypatch, tmp_path
 ):
-    """Cold review 0.7.0 efit-workflows F3 (#1888).
+    """Cold review 0.7.0 efit-workflows F3.
 
     EFIT writes a g-file for a slice ``chkerr`` flagged, so a directory
     listing cannot tell it from a reconstruction. Given the runs' own
@@ -446,7 +446,7 @@ def test_a_flagged_gfile_on_a_higher_rung_does_not_move_the_ladder(
 
 
 def test_rungs_with_no_common_accepted_slice_are_not_ranked(thomson, monkeypatch, tmp_path):
-    """PR #1920 review F3/F4.
+    """Ranking needs a common accepted slice.
 
     w1 and w2 accept disjoint Thomson-comparable slices: medians over
     different slice sets cannot say which rung is closer, so the ladder says
@@ -499,7 +499,7 @@ def test_a_signed_measurement_that_survived_into_the_kfile_is_reported(scan):
 
 
 def test_an_absolute_value_smuggled_into_dflux_is_caught(scan):
-    """#385's defect: the writer used to pass abs(measured) to EFIT.
+    """Regression guard for #385: the writer once passed abs(measured) to EFIT.
 
     EFIT fits DFLUX signed, so a magnitude pulls the fit toward a
     paramagnetic plasma. The default has been "imas" since the fix, and this
@@ -558,7 +558,7 @@ def test_the_stored_measurement_is_attached_to_every_slice_not_just_the_first(
 
 
 def test_reading_the_stored_measurement_does_not_grow_the_constraints(scan):
-    """Cold review 0.7.0 efit-workflows F13 (#1888).
+    """Cold review 0.7.0 efit-workflows F13.
 
     ``_stored_measurement`` used to read ``measured_error_upper`` inside a
     ``try``: on an ODS the failed lookup creates an empty node, which then
@@ -578,7 +578,7 @@ def test_reading_the_stored_measurement_does_not_grow_the_constraints(scan):
 
 
 def test_the_phase_threshold_is_stored_under_its_sibling_studies_key(profile_study):
-    """Cold review 0.7.0 efit-workflows F10 (#1888).
+    """Cold review 0.7.0 efit-workflows F10.
 
     ``_phase_map`` returns the flat-current floor in amperes; the scan used
     to store it as ``phase_dcurrent_dt_threshold`` while the profile and
@@ -593,7 +593,7 @@ def test_the_phase_threshold_is_stored_under_its_sibling_studies_key(profile_stu
 
 
 def test_a_tstep_below_the_millisecond_keys_is_refused(scan, capsys):
-    """Cold review 0.7.0 efit-workflows F9 (#1888).
+    """Cold review 0.7.0 efit-workflows F9.
 
     Slices are keyed by whole millisecond, so 0.4 ms over 300-302 ms gives
     six requests and three keys. The study refuses the step instead of
@@ -604,6 +604,6 @@ def test_a_tstep_below_the_millisecond_keys_is_refused(scan, capsys):
     assert exc.value.code == 2
     assert "whole millisecond" in capsys.readouterr().err
     with pytest.raises(SystemExit):
-        scan.main(["--tstep", "0.0015"])  # PR #1920 review F1: between the keys
+        scan.main(["--tstep", "0.0015"])  # between the keys
     assert "whole number of milliseconds" in capsys.readouterr().err
     assert scan.whole_millisecond_tstep("0.002") == 0.002

@@ -30,7 +30,7 @@ class MachineMappingBoundaryTests(unittest.TestCase):
     def test_machine_mapping_does_not_depend_on_removed_packages(self):
         failures = []
 
-        # rglob: pulse_schedule is a package (#995), and its modules are mappings too.
+        # rglob: pulse_schedule is a package, and its modules are mappings too.
         for path in sorted(MACHINE_MAPPING_DIR.rglob("*.py")):
             for imported in iter_imports(path):
                 if imported in FORBIDDEN_MODULES:

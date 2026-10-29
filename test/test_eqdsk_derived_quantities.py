@@ -2,7 +2,7 @@
 
 ``read_geqdsk(...).to_omas()`` used to write ``rho_tor_norm = sqrt(psi_N)`` and no
 volume at all, so it was not a drop-in for the OMFIT conversion the pipelines
-used before issue #192. These tests pin the replacements: the coordinate is now
+once used. These tests pin the replacements: the coordinate is now
 integrated from ``q``, and ``profiles_1d.volume`` comes from tracing the flux
 surfaces.
 

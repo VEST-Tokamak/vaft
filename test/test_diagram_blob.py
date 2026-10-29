@@ -1,4 +1,4 @@
-"""SOL blob diagrams (#1211): signs from the drawn charges, curves and boundaries against the papers."""
+"""SOL blob diagrams: signs from the drawn charges, curves and boundaries against the papers."""
 
 import math
 

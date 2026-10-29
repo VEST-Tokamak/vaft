@@ -1,4 +1,4 @@
-"""The PENTRC log cap: head and tail kept, a stall stopped (#1929)."""
+"""The PENTRC log cap: head and tail kept, a stall stopped."""
 
 from __future__ import annotations
 

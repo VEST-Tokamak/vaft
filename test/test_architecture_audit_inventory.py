@@ -1,4 +1,4 @@
-"""The Phase A audit inventories are reproducible and match their sources (#2148).
+"""The Phase A audit inventories are reproducible and match their sources.
 
 ``workflow/architecture_audit/build_inventory.py`` derives
 ``docs/architecture/consolidation/inventory.json`` and
@@ -25,7 +25,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "workflow" / "architecture_audit" / "build_inventory.py"
 OUTPUT = ROOT / "docs" / "architecture" / "consolidation"
-#: The three retired magnetics YAMLs, kept as a fixture since #2158.
+#: The three retired magnetics YAMLs, kept as a fixture.
 GEOMETRY = ROOT / "test" / "data" / "legacy_magnetics"
 
 
@@ -110,7 +110,7 @@ def test_magnetics_inventory_matches_the_three_yamls_field_by_field(sensors):
 def _named_index(entry, records, *, kind="b_field_pol_probe", within_kind=False):
     """The canonical index an override or fault entry names, in either form the runtime takes.
 
-    ``{id: ...}`` since #2158, or the legacy ``{index, r, z}`` pinned by
+    ``{id: ...}``, or the legacy ``{index, r, z}`` pinned by
     position (``index`` within the kind for flux-loop faults). Restated here,
     not imported from the generator.
     """
@@ -145,12 +145,12 @@ def test_magnetics_inventory_carries_the_vest_yaml_wiring_revisions(sensors):
         if sensor["wiring_revisions"]
     }
     assert actual == expected
-    # The pre-39438 layout swaps the two disputed outboard positions (#956).
+    # The pre-39438 layout swaps the two disputed outboard positions.
     assert sorted(expected) == [35, 47]
 
 
 def test_no_proposed_id_reuses_another_positions_label(sensors):
-    """A label-shaped id must name the position whose DAQ label it is (#2148 Q4)."""
+    """A label-shaped id must name the position whose DAQ label it is."""
     stems = {}
     for sensor in sensors:
         label = sensor["name"].removeprefix("MagneticFieldProbe_").removesuffix("_Bz")
@@ -230,7 +230,7 @@ def test_the_generator_refuses_an_entry_the_runtime_refuses(entry):
 
 
 def test_the_migration_matrix_is_complete_and_points_at_real_files():
-    """#2164 §4: every row carries the fields, a known status, and an existing source file."""
+    """Every row carries the fields, a known status, and an existing source file."""
     import re
 
     matrix = json.loads((OUTPUT / "migration_matrix.json").read_text(encoding="utf-8"))

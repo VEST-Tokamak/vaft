@@ -1,4 +1,4 @@
-"""Revision-pinned source navigation on the generated reference pages (#1069).
+"""Revision-pinned source navigation on the generated reference pages.
 
 Every generated entry carries a source span, ``{path, line, end_line, code}``,
 read by :func:`vaft._docstring.source_span`.  The pages link it as
