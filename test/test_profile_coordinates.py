@@ -1,10 +1,10 @@
-"""Issue #479: the radial coordinates of an equilibrium 1-D profile.
+"""The radial coordinates of an equilibrium 1-D profile.
 
 Five names, validated at every adapter; ``r_major`` mirrors the profile
 through the magnetic axis and marks the axis and the limiter; ``r_minor``
 is the midplane half-width; ``sqrt_phi_norm`` is the toroidal coordinate
 sourced from a stored ``phi``.  What a slice cannot supply degrades with a
-relabelled axis (issue #276), never with a wrong label.
+relabelled axis, never with a wrong label.
 """
 
 from __future__ import annotations
@@ -182,7 +182,7 @@ def test_entries_that_disagree_fall_back_together(sample):
 
 
 def test_no_entry_is_left_on_a_coordinate_under_another_entrys_label(sample):
-    """Review of #556: the common fallback failing for a later entry used to
+    """The common fallback failing for a later entry used to
     relabel the axis 'index' while an earlier entry kept its real coordinate."""
     stored_radii = copy.deepcopy(sample)
     from vaft.omas import update_equilibrium_profiles_1d_radial_coordinates
@@ -297,7 +297,7 @@ def _core_profiles_ods():
 
 @pytest.mark.parametrize("name", ["electron_temperature_profile", "electron_density_profile"])
 def test_a_core_profile_on_psi_norm_draws_psi_norm_not_its_square_root(name):
-    """Issue #1314: psi_norm read grid.rho_pol_norm, sqrt(psi_N), under a psi_N label."""
+    """Regression guard for #1314: psi_norm read grid.rho_pol_norm, sqrt(psi_N), under a psi_N label."""
     ods, psi_n, rho_pol = _core_profiles_ods()
     model = build_model(name, normalize_entries(ods), time_slice=0, coordinate="psi_norm")
     assert model.coordinate_label == COORDINATE_LABELS["psi_norm"]

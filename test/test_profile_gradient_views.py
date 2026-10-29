@@ -1,4 +1,4 @@
-"""The profile gradient views on the vaft.plot backend (issue #551, PR 2).
+"""The profile gradient views on the vaft.plot backend.
 
 ``electron_temperature_profile_gradient``, ``electron_density_profile_gradient``
 and ``ion_temperature_profile_gradient`` call
@@ -505,7 +505,7 @@ def test_choosing_a_convention_drops_the_view_defaults(ods):
 
 
 def test_the_profile_fits_now_offer_their_coordinates_in_discovery_and_controls():
-    """Additive since #551: the fits' coordinate= is declared, so discovery and controls see it."""
+    """Additive: the fits' coordinate= is declared, so discovery and controls see it."""
     import omas
     from vaft.data import data_path
     from vaft.plot.backend.discovery import describe_one

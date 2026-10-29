@@ -1,4 +1,4 @@
-"""raw_sources() reports the fields the mappers actually load (#1742).
+"""raw_sources() reports the fields the mappers actually load.
 
 Runs each real mapper on a recording stub of ``vaft.database.raw.vest_load``
 that returns a synthetic waveform for any field, at one shot per wiring /

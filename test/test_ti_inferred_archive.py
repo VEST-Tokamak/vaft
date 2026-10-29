@@ -1,4 +1,4 @@
-"""The inferred-T_i stage against the #1839 archive (40326, 322 ms), where the notebook did it by hand.
+"""The inferred-T_i stage against the archived matched case (40326, 322 ms), where the notebook did it by hand.
 
 The archive converter rebuilds the stored kinetic state with ``T_i`` inferred
 point by point.  Here that ``T_i`` is taken away, the stage is run on what is

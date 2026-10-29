@@ -1,4 +1,4 @@
-"""One navigation contract for samples, frames and stored slices (issue #1380, phase 2).
+"""One navigation contract for samples, frames and stored slices.
 
 ``PlotCapability.sequence`` states, for any input, how a reader moves through a
 plot's scientific states: the storage ``kind``, the selector ``option``, the

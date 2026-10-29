@@ -1,4 +1,4 @@
-"""The plasma-current Rogowski fails only on categorical evidence (#1373)."""
+"""The plasma-current Rogowski fails only on categorical evidence."""
 
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def test_the_45781_square_wave_fails_the_whole_record():
 
 
 def test_the_limit_sits_in_the_population_gap():
-    """Healthy shots reach ~53 kA off the discharge, the fault 170-260 kA (#1373 scan)."""
+    """Healthy shots reach ~53 kA off the discharge, the fault 170-260 kA (population scan)."""
     limit = PlasmaCurrentQualityConfig().max_off_discharge_p2p
     assert 53e3 < limit < 170e3
 

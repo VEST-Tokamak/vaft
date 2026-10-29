@@ -1,4 +1,4 @@
-"""TES input deck: limited default, limiter sampling, coil model (issue #1469).
+"""TES input deck: limited default, limiter sampling, coil model.
 
 The deck is built from the packaged 39915 sample with the canonical VEST
 limiter, exactly like the forward notebook; no ``rtes`` binary is needed.

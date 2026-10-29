@@ -3,7 +3,7 @@ and the Thomson-only kinetic pressure path in vaft.code.efit.
 
 The coefficient is VEST policy, fitted offline on the shots that carry BOTH
 electron (Thomson) and ion (IDS/charge_exchange) profiles and resolved from
-``vest.yaml`` (issue #420); these tests cover the machinery, not the value.
+``vest.yaml``; these tests cover the machinery, not the value.
 """
 
 import numpy as np
@@ -58,7 +58,7 @@ def test_fit_ti_te_ratio_validates_input():
 
 
 def test_vest_policy_values_sane():
-    # guard against accidental edits to vest.yaml: the assumed Ti = Te (#1331), sigma positive
+    # guard against accidental edits to vest.yaml: the assumed Ti = Te, sigma positive
     assert TI_TE_RATIO_VEST == 1.0
     assert 0.0 < TI_TE_RATIO_VEST_SIGMA < TI_TE_RATIO_VEST
     assert _POLICY.ti_te_ratio_status == "assumed"

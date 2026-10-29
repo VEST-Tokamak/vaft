@@ -1,4 +1,4 @@
-"""RDCON/STRIDE results recoverable from the ODS alone (#939).
+"""RDCON/STRIDE results recoverable from the ODS alone.
 
 The fixture is the real RDCON output of ``test_gpec_rdcon_criteria.py``: shot
 39915 at 319 ms, GPEC e68d7ac2, n=1, mpsi=256, CHEASE-refined.

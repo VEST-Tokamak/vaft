@@ -1,4 +1,4 @@
-"""Turbulence--zonal-flow process layer (#1820) on synthetic spectra and Lotka--Volterra orbits."""
+"""Turbulence--zonal-flow process layer on synthetic spectra and Lotka--Volterra orbits."""
 
 from __future__ import annotations
 

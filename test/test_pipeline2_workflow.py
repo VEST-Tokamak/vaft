@@ -1,4 +1,4 @@
-"""Pipeline 2's Snakefile builds the DAG it claims to (#130).
+"""Pipeline 2's Snakefile builds the DAG it claims to.
 
 Nothing else in the suite loads this file. It is generated in a `for` loop with
 computed rule names, and Snakemake's preprocessor mangles f-strings inside a
@@ -84,7 +84,7 @@ def _dry_run(
 
 
 def test_the_default_scope_leaves_the_opt_in_stages_out(tmp_path):
-    """<Z_eff> = 2 and T_i = T_e reach main by default; the inferred T_i and the resistive Z_eff do not (#1842)."""
+    """<Z_eff> = 2 and T_i = T_e reach main by default; the inferred T_i and the resistive Z_eff do not."""
     result = _dry_run(tmp_path, stages=list(DEFAULT_STAGES))
     assert result.returncode == 0, result.stderr
     assert "generate_composition_ods" in result.stdout
@@ -151,7 +151,7 @@ def test_the_lineage_is_checked_against_the_registry():
 
 
 def test_pipeline2_loads_its_own_config_under_a_run_directory(tmp_path):
-    """#1530 for pipeline 2: a run config without `hsds` keeps the workflow's.
+    """Regression guard for #1530 in pipeline 2: a run config without `hsds` keeps the workflow's.
 
     The run directory's config omits the `hsds` section; the workflow default
     (`replicate: false`) must apply, so no replication rule is scheduled -- and a
@@ -215,7 +215,7 @@ def test_the_run_config_reads_the_filedb_root_from_the_environment(tmp_path):
     """`${VAFT_FILEDB_DIR}` in a pipeline-2 config means the same as in pipeline 1.
 
     Pipeline 2 read `base_dir` raw, so the reference stayed a literal
-    `${VAFT_FILEDB_DIR}` directory name (cold review 0.7.0 data F12, #1888).
+    `${VAFT_FILEDB_DIR}` directory name.
     """
     root = tmp_path / "from-env"
     env = dict(os.environ, VAFT_FILEDB_DIR=str(root))

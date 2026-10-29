@@ -1,4 +1,4 @@
-"""Issue #709: a recipe says what a colour means; the theme says what it is.
+"""A recipe says what a colour means; the theme says what it is.
 
 What has to hold first is parity: with no theme, every model the packaged
 shot supports resolves to exactly the literal it carried before the tokens
@@ -104,7 +104,7 @@ def test_no_literal_colour_is_left_in_a_recipe_outside_the_allowed_blocks():
     assert camera, "the camera builders moved; point the allowlist at them"
 
 
-#: Figures built outside recipes.py that draw through vaft.plot models (#748).
+#: Figures built outside recipes.py that draw through vaft.plot models.
 #: Each must name its colours by intent, so a theme reaches them too.
 TOKENISED_OUTSIDE_RECIPES = (
     "plot/nubeam.py",

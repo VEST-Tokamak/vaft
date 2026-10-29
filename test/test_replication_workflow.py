@@ -1,4 +1,4 @@
-"""Pipeline 1's HSDS replication rules (issue #94).
+"""Pipeline 1's HSDS replication rules.
 
 These pin the workflow-side contract: replication is opt-in, refuses the
 shot-first tree, is a state distinct from local completion, and never restates
@@ -31,13 +31,13 @@ def test_every_replicable_stage_has_a_rule(snakefile):
     from vaft.database.sources import replicable_stages
 
     # This pipeline owns the routine products only; the corrective pipeline
-    # builds soft X-ray and camera and has no rule here (#599).
+    # builds soft X-ray and camera and has no rule here.
     for stage in replicable_stages(produced_by="routine"):
         assert f"rule replicate_{stage}_to_hsds:" in snakefile, stage
 
 
 def test_a_deferred_stage_has_no_rule(snakefile):
-    """ideal-GPEC's destination is mapped, but its rule belongs to #95."""
+    """ideal-GPEC's destination is mapped, but its rule is deferred (#95)."""
     assert "rule replicate_gpec_ideal_to_hsds:" not in snakefile
 
 
@@ -110,7 +110,7 @@ def test_each_stage_replicates_on_its_own(snakefile):
 
 def test_efit_and_chease_publish_a_stage_manifest():
     """Replication reads the manifest to decide eligibility, so the two stages
-    that had none now write one (absorbed from #137)."""
+    that had none now write one."""
     for stage in ("efit", "chease"):
         script = (WORKFLOW / f"generate_{stage}_ods.py").read_text(encoding="utf-8")
         assert "write_manifest(" in script, stage
@@ -134,7 +134,7 @@ def test_replication_is_throttled_independently_of_compute_cores(snakefile):
 
 
 # --------------------------------------------------------------------------- #
-# the optional IMPA branch (issue #305)
+# the optional IMPA branch
 # --------------------------------------------------------------------------- #
 
 

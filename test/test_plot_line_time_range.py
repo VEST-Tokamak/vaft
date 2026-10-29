@@ -2,7 +2,7 @@
 
 It was accepted by option validation and then ignored by every LineRecipe
 plot, so ``plot_flux_loop_time_flux(ods, time_range=(-5e-3, 30e-3))`` drew the
-whole record (#254's canonical analysis task asks for exactly that window).
+whole record.
 """
 
 import matplotlib

@@ -1,4 +1,4 @@
-"""Current-quench, current-spike and vertical-position measurements (#1005).
+"""Current-quench, current-spike and vertical-position measurements.
 
 Synthetic waveforms whose answers are known by construction: a linear quench
 from 80 kA to zero over 5 ms has its 80 % and 20 % crossings 3 ms apart and a

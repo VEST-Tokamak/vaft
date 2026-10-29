@@ -1,4 +1,4 @@
-"""The validity interpretation layer, stated once and tested once (issue #424).
+"""The validity interpretation layer, stated once and tested once.
 
 Pure: no ODS, no samples.  A :class:`ValidityRecord` is what an accessor
 extracted; these tests pin what it means.  The case that broke three

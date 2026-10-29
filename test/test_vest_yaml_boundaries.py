@@ -1,4 +1,4 @@
-"""Config-level shot-boundary coverage for issue #195's vest.yaml revisions.
+"""Config-level shot-boundary coverage for the vest.yaml shot-era revisions.
 
 These tests only exercise YAML resolution (`resolve_vest_diagnostic` /
 `resolve_shot_revisions`). The behavioral coverage of the processing paths
@@ -70,7 +70,7 @@ def test_plasma_current_fl10_windowed_config_is_complete():
 
 @pytest.mark.parametrize("shot", [17455, 46402, 46403, 47116, 47117, 60000])
 def test_plasma_current_effective_resistance_is_late_era_value_post_17455(shot):
-    # Renamed from `mutual_inductance` in issue #214: dividing a loop voltage
+    # Renamed from `mutual_inductance`: dividing a loop voltage
     # by an inductance yields A/s, not the current this term is subtracted
     # from. The value is unchanged from the donor.
     reference = _resolve_nested("plasma_current", ("reference",), shot)

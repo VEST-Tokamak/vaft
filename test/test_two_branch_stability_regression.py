@@ -1,4 +1,4 @@
-"""The two DCON edge branches, end to end and side by side (#527 step 10).
+"""The two DCON edge branches, end to end and side by side.
 
 Everything in this sequence exists so that one equilibrium can be solved two
 ways -- full-edge and dW-peak-truncated -- without the two results colliding.
@@ -219,7 +219,7 @@ def test_neither_branch_is_reachable_by_loading_the_parent():
     """
     assert _sources.resolve("main") == "main"
     # Besides the refinement, `main` holds only the transitional per-configuration
-    # TGLF sources (#1900), which are siblings of `main/chease`, not part of it.
+    # TGLF sources, which are siblings of `main/chease`, not part of it.
     lasting = [entry.name for entry in _sources.children("main") if entry.transitional_until is None]
     assert lasting == ["main/chease"]
     assert all(entry.name.startswith("main/tglf-") for entry in _sources.children("main")

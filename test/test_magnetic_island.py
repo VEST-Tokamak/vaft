@@ -1,4 +1,4 @@
-"""The straight-field-line map and the analytic island placed on it (#886).
+"""The straight-field-line map and the analytic island placed on it.
 
 The reference equilibrium is the classic Solov'ev solution
 ``psi = R^2 Z^2 / kappa^2 + (R^2 - R0^2)^2 / 4`` with a toroidal field strong

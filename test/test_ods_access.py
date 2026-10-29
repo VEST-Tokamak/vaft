@@ -1,4 +1,4 @@
-"""The non-mutating ODS path-access contract (issue #118).
+"""The non-mutating ODS path-access contract.
 
 An OMAS ODS creates paths on access, so a *probe* corrupts the object it was
 only meant to inspect. The corruption is invisible where anyone would look for
@@ -135,7 +135,7 @@ def test_probing_leaves_the_ods_serializable_and_consistency_clean(ods, tmp_path
 
 
 def test_a_probed_array_leaf_corrupts_the_saved_ods(tmp_path):
-    """#118's demonstrated case, reproduced.
+    """Regression guard for #118: probing a missing array leaf corrupted the saved ODS.
 
     An auto-vivified `FLT_1D` is stored with no shape, and fails against the
     coordinate it is declared on. This is what reached a real EFIT constraints

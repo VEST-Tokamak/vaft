@@ -1,4 +1,4 @@
-"""Romero's balance on the packaged VEST equilibria (#781, #652).
+"""Romero's balance on the packaged VEST equilibria.
 
 The three packaged shots are the only multi-slice equilibria in the wheel, and
 they store psi in both conventions -- 39915 in weber, 41524 and 41672 per
@@ -6,7 +6,7 @@ radian -- so the adapter's convention handling meets real data on both
 branches.  The check that decides it is independent of the equilibrium: the
 boundary volt-seconds must match the inboard midplane flux loop's over the
 same window to within the gap between the two surfaces, where a 2 pi slip on
-either branch would put the ratio near 6 or 0.16 (#652).
+either branch would put the ratio near 6 or 0.16.
 """
 
 import logging

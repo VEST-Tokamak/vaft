@@ -1,4 +1,4 @@
-"""Regression coverage for packaging and configuration issue #45."""
+"""Regression guard for #45: package data, manifest and default configuration."""
 
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ def test_runtime_configuration_is_declared_as_package_data():
     assert "data/samples/40600/omas.json.gz" not in package_data
     assert not any(entry.startswith("data/kineticEfit") for entry in package_data)
     assert "data/geometry/VEST_static_geometry.json.gz" in package_data
-    # Retired into the vest.yaml sensor registry (#2158).
+    # Retired into the vest.yaml sensor registry.
     assert "data/geometry/*.yaml" not in package_data
     assert not (ROOT / "vaft" / ".hscfg").exists()
     setup_py = (ROOT / "setup.py").read_text(encoding="utf-8")
@@ -111,7 +111,7 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     assert "include vaft/data/geometry/VEST_em_coupling_pf_versions.npz" in manifest
     assert "include vaft/data/geometry/VEST_passive_wall_2409.npz" in manifest
     # The equilibrium magnetics YAMLs left vaft/data/geometry for the vest.yaml
-    # sensor registry (#2158); nothing else there is YAML, so nothing ships one.
+    # sensor registry; nothing else there is YAML, so nothing ships one.
     assert "include vaft/data/geometry/*.yaml" not in manifest
     assert "include vaft/data/geometry/*.csv" in manifest
     assert "include vaft/data/gpec/*.in" in manifest
@@ -136,7 +136,7 @@ def test_vest_yaml_has_canonical_top_level_diagnostic_structure():
     defaults = content[0]
 
     # The placeholder 0.magnetics block (one fictitious loop) was removed with
-    # the sensor registry (#2158); the 75 sensors live under diagnostics.
+    # the sensor registry; the 75 sensors live under diagnostics.
     assert "magnetics" not in defaults
     sensors = defaults["diagnostics"]["equilibrium_magnetics"]["sensors"]["records"]
     assert len(sensors) == 75
@@ -204,7 +204,7 @@ def test_wheel_sample_carries_the_same_conventions_as_the_checkout_sample():
     }
     assert poloidal == {round(float(POLOIDAL_ANGLE), 9)}
 
-    # IMPA, the only b_field_tor_probe family, is its own stage since #305, so
+    # IMPA, the only b_field_tor_probe family, is its own stage, so
     # the regenerated sample may carry none; any it does carry must face
     # toroidally.
     toroidal = {
@@ -213,7 +213,7 @@ def test_wheel_sample_carries_the_same_conventions_as_the_checkout_sample():
         if "toroidal_angle" in probe
     }
     assert toroidal <= {round(float(IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE), 9)}
-    # and no poloidal probe carries a toroidal_angle at all (#725)
+    # and no poloidal probe carries a toroidal_angle at all
     assert not any("toroidal_angle" in probe for probe in magnetics["b_field_pol_probe"])
 
 

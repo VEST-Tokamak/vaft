@@ -1,4 +1,4 @@
-"""Issue #689: plot geometry policy, ``format=`` and ``theme=``, opt-in.
+"""Plot geometry policy, ``format=`` and ``theme=``, opt-in.
 
 Three separate things: how a kind of plot occupies a canvas, how large the
 rendering is, and which visual grammar it uses.  What has to hold first is
@@ -111,7 +111,7 @@ def _boundary(z_half: float) -> GeometryLayer:
 
 @pytest.mark.parametrize("name", BASE_RENDERERS)
 def test_the_default_is_the_screen_format_and_legacy_is_the_old_size(name):
-    """format=None means screen (issue #712); format="legacy" is the renderer's own size."""
+    """format=None means screen; format="legacy" is the renderer's own size."""
     from vaft.plot.renderers import geometry
 
     render = getattr(renderers, name, None) or getattr(geometry, name)
@@ -177,7 +177,7 @@ def test_formats_resolve_deterministic_widths():
     for name, width in (("single_column", 3.375), ("double_column", 7.0), ("screen", 6.5)):
         sizes = {tuple(renderers.render_line_series(model, format=name)[0].get_size_inches()) for _ in range(2)}
         assert len(sizes) == 1 and next(iter(sizes))[0] == width
-    # The default is the screen format (issue #712); legacy is the old constant.
+    # The default is the screen format; legacy is the old constant.
     assert tuple(renderers.render_line_series(model)[0].get_size_inches()) == tuple(
         renderers.render_line_series(model, format="screen")[0].get_size_inches()
     )
@@ -215,7 +215,7 @@ def test_panel_count_does_not_multiply_the_width():
 
 
 def test_a_row_is_as_tall_as_the_member_standing_in_it_asks():
-    """A field map spanning a column raises the grid; a trace in its place does not (issue #711)."""
+    """A field map spanning a column raises the grid; a trace in its place does not."""
     x = np.linspace(0, 1, 5)
     r, z = np.linspace(0.1, 0.8, 5), np.linspace(-1.2, 1.2, 6)
     trace = lambda i: LineSeries(series=(Series(x=x, y=x * i, label=str(i)),), y_label="y")
@@ -492,7 +492,7 @@ def test_the_option_schema_knows_the_presets_and_the_theme_is_a_control(sample):
     record = next(r for r in vaft.omas.available_plots(sample) if r.name == "plasma_current_time")
     names = [c.name for c in controls_for(record)]
     # Every plot offers the theme last; the canvas is the controls figure's,
-    # so there is no format control (issue #710).
+    # so there is no format control.
     assert names[-1] == "theme" and "format" not in names
     theme = controls_for(record)[-1]
     assert theme.group == "style" and theme.default == "none"
@@ -500,7 +500,7 @@ def test_the_option_schema_knows_the_presets_and_the_theme_is_a_control(sample):
 
 
 # ---------------------------------------------------------------------------
-# the theme as a control (issue #710)
+# the theme as a control
 # ---------------------------------------------------------------------------
 
 def test_a_theme_is_chosen_live_and_undone_live(sample):

@@ -1,4 +1,4 @@
-"""The ODS-level neoclassical provider and the Sauter/Redl-vs-NEO study (#550 phase 6).
+"""The ODS-level neoclassical provider and the Sauter/Redl-vs-NEO study.
 
 Measured on the packaged VEST 48224 state, with the seven-radius NEO run committed by
 phase 5. The numbers these tests pin, so they are readable without running anything:
@@ -45,7 +45,7 @@ pytestmark = pytest.mark.skipif(
     SAMPLE is None, reason="the packaged 48224 kinetic sample is a repository-only asset"
 )
 
-#: Excludes the near-axis region the packaged reconstruction cannot support (#317).
+#: Excludes the near-axis region the packaged reconstruction cannot support.
 BAND = (0.05, 1.0)
 
 
@@ -187,7 +187,7 @@ def test_a_stored_result_joins_the_comparison_under_the_name_that_wrote_it(mappe
 
 
 def test_the_comparison_returns_numbers_and_no_status(mapped):
-    """#550: a model difference is a result, not a verdict."""
+    """A model difference is a result, not a verdict."""
     comparison = model_comparison(bootstrap_models(mapped, z_eff=2.0, rho_range=BAND))
     flat = repr(comparison).lower()
     for word in ("pass", "fail", "warn", "status"):
@@ -225,7 +225,7 @@ def test_the_measured_metrics_stay_where_they_were(mapped):
 def test_the_disagreement_has_no_single_direction_against_trapping(ods):
     """The claim Redl was implemented for, and which this state cannot support.
 
-    It was asserted as True here until #808. The gap is U-shaped in f_trap: large and
+    It used to be asserted as True here. The gap is U-shaped in f_trap: large and
     badly scattered in the innermost bin, a minimum near 0.75-0.8, then a clean rise to
     the edge. The old lowest-third/highest-third verdict read that as "grows" and a
     straight-line fit reads it as "shrinks"; neither is a property of the models.
@@ -251,7 +251,7 @@ def test_the_disagreement_has_no_single_direction_against_trapping(ods):
     ids=["published", "carbon", "hydrogen"],
 )
 def test_the_trend_verdict_does_not_change_with_the_treatment(ods, z_eff, impurity):
-    """#808's acceptance criterion: whatever it reports, it must not silently reverse.
+    """Whatever the trend verdict reports, it must not silently reverse.
 
     These three treatments differ by under a percentage point in the integrated
     comparison and by the effective charge, and the old two-point verdict gave True,
@@ -289,7 +289,7 @@ def test_the_declared_minimum_is_the_one_the_binning_actually_needs():
 
 
 def test_the_two_point_keys_say_which_definition_produced_them():
-    """They meant the lowest and highest third before #808 and a fifth after, under
+    """They used to mean the lowest and highest third and now mean a fifth, under
     the same names, so the shape has to carry which one it is."""
     import numpy as np
 

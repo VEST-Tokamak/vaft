@@ -204,7 +204,7 @@ def test_a_recalled_eddy_solve_is_the_solve_it_recalls():
 
 
 def test_the_budget_counts_the_columns_that_are_cached(solved):
-    """One column per coil or loop, not per filament (review of #690)."""
+    """One column per coil or loop, not per filament."""
     src_r, _, _, groups = pw._vacuum_sources(solved)
     columns = len(set(groups))
     assert columns < len(src_r), "VEST coils have several elements each"
@@ -223,7 +223,7 @@ def test_clearing_the_cache_is_public(solved):
 
 
 # ---------------------------------------------------------------------------
-# The connection length and the two quantities it made drawable (#230)
+# The connection length and the two quantities it made drawable
 # ---------------------------------------------------------------------------
 
 BREAKDOWN_S = 0.3063  # the packaged shot's own onset, pinned in test_omas_general_finders
@@ -293,7 +293,7 @@ def test_a_connection_length_needs_the_toroidal_field(solved):
 
 
 def test_the_toroidal_electric_field_map_is_the_magnitude_of_the_formula(solved):
-    """Drawn as |E_phi|, which is what the breakdown chain consumes (#354)."""
+    """Drawn as |E_phi|, which is what the breakdown chain consumes."""
     from vaft.formula.equilibrium import toroidal_electric_field
     from vaft.plot.backend.recipes import build_model
 

@@ -1,4 +1,4 @@
-"""SlurmBackend against fake Slurm commands (#1017).
+"""SlurmBackend against fake Slurm commands.
 
 No cluster is needed: ``sbatch``, ``squeue``, ``sacct``, ``scancel`` and
 ``srun`` are small Python programs put first on ``PATH``. They behave the way
@@ -323,7 +323,7 @@ def test_batch_job_gets_stdin_env_delta_and_thread_defaults(tmp_path, slurm, mon
 
 
 def test_a_pinned_thread_count_is_exported_even_when_the_parent_matches():
-    """#1016 review: under a remote cluster --export=ALL carries *its* environment."""
+    """Under a remote cluster --export=ALL carries *its* environment."""
     from vaft.code.slurm import _job_script
 
     request = ExecutionRequest(
@@ -406,7 +406,7 @@ def test_max_wait_cancels_a_job_stuck_in_the_queue(tmp_path, slurm, monkeypatch)
     result = _batch(max_wait=0.05).run(_python(_workdir(tmp_path), "pass"))
     assert result.timed_out
     assert result.returncode is None
-    # Never started: a queue wait, not "timed out after N s" of running (#1016).
+    # Never started: a queue wait, not "timed out after N s" of running.
     assert result.runtime_status == "queue_timeout"
     assert "max_wait" in result.stderr and "never started" in result.stderr
     assert slurm("scancel") == [["scancel", result.job_id]]
@@ -489,8 +489,7 @@ def test_a_queued_jobs_running_time_leaves_out_the_queue_wait(tmp_path, slurm, m
     max_wait is held until the program itself has written ``ready`` -- it runs
     only after the job script installed its TERM trap -- and the controller's
     pid file exists, so scancel can reach it: on a loaded runner a wall-clock
-    cancel landed before the trap and the run read "completed" (PR #2065
-    review)."""
+    cancel landed before the trap and the run read "completed"."""
     import vaft.code.slurm as slurm_module
     from vaft.code.execution import timeout_reason
 
@@ -760,7 +759,7 @@ def test_environment_selects_the_default_backend(monkeypatch):
 
 
 def test_a_python_task_runs_as_a_batch_job(tmp_path, slurm, monkeypatch):
-    """The request ``python_task_request`` builds runs unchanged as a batch job (#1147)."""
+    """The request ``python_task_request`` builds runs unchanged as a batch job."""
     from vaft.code import python_task_request
 
     monkeypatch.delenv("VAFT_PYTHON", raising=False)
@@ -784,7 +783,7 @@ def test_a_python_task_runs_as_a_batch_job(tmp_path, slurm, monkeypatch):
     (sbatch,) = slurm("sbatch")
     assert {"--cpus-per-task=2", "--mem=1000M", "--job-name=vaft-unit-39915"} <= set(sbatch)
 def test_batch_submit_queues_every_job_before_any_wait(tmp_path, slurm):
-    """#1018: submit is sbatch alone; result() polls and collects."""
+    """Submit is sbatch alone; result() polls and collects."""
     work = _workdir(tmp_path)
     backend = _batch()
     handles = [
@@ -816,7 +815,7 @@ def test_cancelling_a_submitted_batch_job_scancels_it(tmp_path, slurm, monkeypat
 
 
 def test_a_polled_handle_applies_max_wait_to_a_queued_job(tmp_path, slurm, monkeypatch):
-    """Cold review #1018: max_wait is not deferred until the job's turn to be collected."""
+    """max_wait is not deferred until the job's turn to be collected."""
     import time
 
     monkeypatch.setenv("FAKE_SLURM_OUTCOME", "PENDING")
@@ -831,7 +830,7 @@ def test_a_polled_handle_applies_max_wait_to_a_queued_job(tmp_path, slurm, monke
 
 
 def test_a_polled_handle_applies_max_wait_to_a_running_job(tmp_path, slurm):
-    """Re-review #1018: a running head-of-line job is not exempt from max_wait."""
+    """A running head-of-line job is not exempt from max_wait."""
     import time
 
     work = _workdir(tmp_path)

@@ -1,4 +1,4 @@
-"""TF-current acquisition excursions are repaired, healthy records untouched (#1543)."""
+"""TF-current acquisition excursions are repaired, healthy records untouched."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def test_the_repair_is_enabled_for_vest(config):
 @pytest.mark.parametrize("plateau", [12000.0, 9000.0, 5000.0, 3000.0])
 def test_healthy_records_are_left_exactly_as_they_were_at_any_plateau(config, plateau):
     """The raw noise is a fixed size; a plateau-fraction trigger alone flagged
-    18/20 healthy 9 kA records (cold review of #1616)."""
+    18/20 healthy 9 kA records."""
     for seed in range(40):
         _true, measured = _tf(seed, plateau=plateau)
         repaired, intervals = repair_tf_excursions(TIME, measured, config)
@@ -193,7 +193,7 @@ def test_a_healthy_record_reports_no_repair(tmp_path):
 def test_the_tf_current_is_not_delayed_by_its_low_pass(tmp_path):
     """The TF low pass is zero-phase, as the donor's VEST_TFwaveform.m filtfilt.
 
-    The causal 26-tap filter at 25 kHz delayed the TF current by 0.5 ms (#2135).
+    The causal 26-tap filter at 25 kHz delayed the TF current by 0.5 ms.
     """
     from vaft.machine_mapping.tf import vfit_tf_current_detailed
 

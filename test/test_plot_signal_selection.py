@@ -94,7 +94,7 @@ def test_the_sample_probes_and_coils_lose_their_dead_channels_by_default(sample)
 def test_a_scalar_family_does_not_repeat_its_own_waveform_as_a_constraint(sample):
     entries = normalize_entries(sample)
     # `synthetic="both"` adds what EFIT reconstructed at its slices (the sample
-    # carries constraints.*.reconstructed since #952) -- a different quantity,
+    # carries constraints.*.reconstructed) -- a different quantity,
     # drawn as a reconstruction.  What must not appear is the measured waveform
     # a second time, re-sampled at the slices as a "constraint".
     for name in ("diamagnetic_flux_time", "plasma_current_time"):

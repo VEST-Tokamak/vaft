@@ -1,4 +1,4 @@
-"""The canonical DD path grammar and what every recipe declares (umbrella #434).
+"""The canonical DD path grammar and what every recipe declares.
 
 Two things are pinned here.  The grammar round-trips between the four
 spellings of one path.  And every path every canonical plot declares exists
@@ -391,7 +391,7 @@ def test_every_declared_path_exists_in_the_data_dictionary(name):
     for path in dd.dd_paths(name):
         if "/" not in path.canonical:
             # A bare IDS root: a computed view that deep-copies the whole IDS
-            # declares it as such (issue #439); the IDS exists by construction.
+            # declares it as such; the IDS exists by construction.
             assert path.role == "input" and path.attrs["backend"] == "omas", path.canonical
             continue
         if path.canonical in MISSING_FROM_DD:

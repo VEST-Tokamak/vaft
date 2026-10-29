@@ -1,4 +1,4 @@
-"""The ``animation=True`` contract agreed on #1049, against the packaged samples (#1050).
+"""The ``animation=True`` contract, against the packaged samples.
 
 None of these needs PyAV: frames are checked through ``frames()`` and a
 ``.gif``, and the ``.mp4`` path is checked for the error it raises when PyAV
@@ -182,7 +182,7 @@ def test_frames_are_those_of_the_camera_drawn_not_channel_0(camera):
 
 @pytest.mark.parametrize("shot", [39915, 40600])
 def test_every_slice_control_has_per_state_values(shot):
-    """Tripwire (#1380): a plot that gains a slice control must say which time axis it pages.
+    """Tripwire: a plot that gains a slice control must say which time axis it pages.
 
     ``sequence_values`` dispatches on the plot, not the selector, so a new
     ``time_index`` plot is refused here until its own axis is declared rather

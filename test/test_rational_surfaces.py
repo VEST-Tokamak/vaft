@@ -1,4 +1,4 @@
-"""Rational-surface resolution and its equilibrium/profile overlays (issue #506).
+"""Rational-surface resolution and its equilibrium/profile overlays.
 
 One resolver, :func:`vaft.process.equilibrium.rational_surfaces`, answers
 ``q_target -> radius``; the 2-D flux-surface contours and the 1-D profile

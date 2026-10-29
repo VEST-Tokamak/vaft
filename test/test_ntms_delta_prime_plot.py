@@ -1,4 +1,4 @@
-"""The resistive half of the stability suite is drawable (#170).
+"""The resistive half of the stability suite is drawable.
 
 The stage's validation set covered DCON alone -- perturbed energy, the
 eigenfunction, and a run-status coverage panel. What RDCON and STRIDE actually
@@ -130,7 +130,7 @@ def test_the_axes_say_which_sign_is_unstable():
 
 
 def test_the_stage_draws_the_resistive_codes_as_well_as_dcon():
-    """#170's third acceptance criterion.
+    """The stage draws the resistive codes, not only DCON.
 
     Optional rather than required: a DCON-only configuration is a legitimate
     run, so a shot with no resistive solver has nothing to draw here rather than

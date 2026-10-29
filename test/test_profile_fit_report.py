@@ -1,4 +1,4 @@
-"""The profile fits say how well they fit and which points they refused (#952).
+"""The profile fits say how well they fit and which points they refused.
 
 ``profile_fit_report_thomson_scattering`` / ``_charge_exchange`` return one
 :class:`vaft.process.profile.FitReport` per fitted quantity: every channel,
@@ -329,7 +329,7 @@ def test_thomson_and_the_comparison_take_the_same_time():
 
 
 def test_linear_thomson_fit_keeps_holding_the_end_values():
-    # fit_profile's linear mode is nan outside the data by default (#359); the
+    # fit_profile's linear mode is nan outside the data by default; the
     # process fitter opts back into the hold, so the profile on [0, 1] -- past
     # the outermost channel at both ends here -- stays finite.
     ne_fit, te_fit, _, _, ne_rho, te_rho = profile_fitting_thomson_scattering(
@@ -344,7 +344,7 @@ def test_linear_thomson_fit_keeps_holding_the_end_values():
 
 
 def test_linear_charge_exchange_fit_keeps_holding_the_end_values():
-    # The CX fitter opts into extrapolate=True like Thomson (#359): channels at
+    # The CX fitter opts into extrapolate=True like Thomson: channels at
     # X = 0.05..0.95 do not reach rho = 0 or 1, so without it the sampled
     # profiles would be nan at both ends of the [0, 1] grid.
     v_fit, ti_fit, _, _, v_rho, ti_rho = profile_fitting_charge_exchange(

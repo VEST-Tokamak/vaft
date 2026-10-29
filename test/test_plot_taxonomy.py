@@ -1,4 +1,4 @@
-"""Subject taxonomy contract (issue #251, phase B1).
+"""Subject taxonomy contract.
 
 Canonical plot identity is ``subject / view / [quantity]``: every registered
 spec declares a subject from :mod:`vaft.plot.taxonomy`, aliases resolve
@@ -50,9 +50,9 @@ def test_aliases_resolve_to_exactly_one_canonical_subject():
 
 
 def test_unknown_subject_terms_raise_with_the_vocabulary():
-    # Related-but-distinct concepts must not silently resolve (issue #251):
+    # Related-but-distinct concepts must not silently resolve:
     # a Rogowski coil measures plasma current but is not an alias of it -- it
-    # is its own diagnostic subject (issue #888), never plasma_current.
+    # is its own diagnostic subject, never plasma_current.
     for term in ("line_radiation", "hall_sensor", ""):
         with pytest.raises(KeyError, match="unknown subject"):
             taxonomy.resolve_subject(term)

@@ -1,4 +1,4 @@
-"""The #308 residual is gated on the diagnostics-stage assessment (#343/#189).
+"""The vacuum-magnetics residual is gated on the diagnostics-stage assessment.
 
 A product carries no marker saying whether its magnetics were ever assessed,
 so the gate re-runs the assessment, projects it into a copy, and the residual
@@ -6,7 +6,7 @@ function refuses channels the gate excluded. On 39915 that is one probe --
 H3-08, 40x its family median -- and it moves the normalized residual by 11%.
 
 The packaged 39915 product was regenerated after the diagnostics stage began
-writing that verdict itself (#189), so it already carries it. The tests that
+writing that verdict itself, so it already carries it. The tests that
 measure what the gate adds therefore start from `_unassessed`, the same shot
 with the stage-written validity removed -- the shape every product had before.
 """
@@ -65,7 +65,7 @@ def shot_39915() -> ODS:
 
 
 def _unassessed(ods: ODS) -> ODS:
-    """A copy without the validity the diagnostics stage wrote (#189)."""
+    """A copy without the validity the diagnostics stage wrote."""
     private = ods.copy()
     for family, signal in (("b_field_pol_probe", "field"), ("flux_loop", "flux")):
         for index in range(len(private[f"magnetics.{family}"])):
@@ -99,11 +99,11 @@ def test_the_gate_excludes_h3_08_on_39915_for_the_reasons_343_detects(unassessed
     interval = plasma_free_interval(unassessed_39915)
     window = (interval.start, interval.end)
     gated, gate = quality_gate(unassessed_39915, window=window)
-    # IMPA left the diagnostics product for its own stage (#305). In the
+    # IMPA left the diagnostics product for its own stage. In the
     # window the detectors condemn H3-08 alone; C4-04 is out because vest.yaml
-    # records it as a fault on every shot (#977), which the waveform check
+    # records it as a fault on every shot, which the waveform check
     # could not have found (it is 0.85x its family median).
-    # 64 probes + 11 flux loops: the field-171 phase-reference twin is gone (#825).
+    # 64 probes + 11 flux loops: the field-171 phase-reference twin is gone.
     assert not any(name.startswith("IMPA") for name in gate.excluded)
     assert set(gate.excluded) == {"MagneticFieldProbe_H3-08_Bz", "MagneticFieldProbe_C4-04"}
     reasons = set(gate.reasons["MagneticFieldProbe_H3-08_Bz"])
@@ -117,8 +117,8 @@ def test_the_gate_excludes_h3_08_on_39915_for_the_reasons_343_detects(unassessed
 
 
 def test_the_packaged_product_already_carries_the_stage_verdict(shot_39915):
-    """The regenerated diagnostics stage condemns H3-08 itself (#189); the
-    re-assessment adds C4-04 from the pulse's recorded faults (#977)."""
+    """The regenerated diagnostics stage condemns H3-08 itself; the
+    re-assessment adds C4-04 from the pulse's recorded faults."""
     interval = plasma_free_interval(shot_39915)
     _, gate = quality_gate(shot_39915, window=(interval.start, interval.end))
     assert set(gate.excluded) == {"MagneticFieldProbe_H3-08_Bz", "MagneticFieldProbe_C4-04"}
@@ -133,14 +133,14 @@ def test_gating_removes_the_probe_and_materially_changes_the_residual(unassessed
     ungated = synthetic_vacuum_magnetics(benchmark_wall_currents(unassessed_39915), **kw)
     gated_ods, gate = quality_gate(unassessed_39915, window=window)
     gated = synthetic_vacuum_magnetics(benchmark_wall_currents(gated_ods), **kw)
-    # H3-08 by the detectors, C4-04 by the pulse's recorded faults (#977).
+    # H3-08 by the detectors, C4-04 by the pulse's recorded faults.
     assert len(ungated) - len(gated) == 2
     assert not {"MagneticFieldProbe_H3-08_Bz", "MagneticFieldProbe_C4-04"} & {c.name for c in gated}
     before, after = _rms(ungated, window), _rms(gated, window)
     assert after < before
     # measured 0.256 -> 0.228 over the window to the PF-pickup crossing; over
-    # the window to the light's onset (#409) 0.356 -> 0.339, 4.8 %, for H3-08
-    # alone, and 0.356 -> 0.317, 11.0 %, once C4-04 is recorded out too (#977)
+    # the window to the light's onset 0.356 -> 0.339, 4.8 %, for H3-08
+    # alone, and 0.356 -> 0.317, 11.0 %, once C4-04 is recorded out too
     assert (before - after) / before > 0.04
     stacked = plasma_free_residual(gated, window, gate=gate, normalize=True)
     assert np.isclose(float(np.sqrt(np.mean(stacked**2))), after)

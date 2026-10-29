@@ -277,7 +277,7 @@ def test_virial_theorem_sums_the_three_energies_and_ratios_the_last_two():
 
 
 def test_stability_criterion_is_deprecated_with_unchanged_numbers():
-    """#366: the 0.5 threshold has no source; the shim keeps its old results and warns."""
+    """The 0.5 threshold has no source; the shim keeps its old results and warns."""
     W_mag, W_kin, W_th = 4.0e5, 1.0e5, 3.0e5
     with pytest.warns(DeprecationWarning, match="virial_theorem"):
         margin, critical = virial_stability_criterion(W_mag, W_kin, W_th)

@@ -1,4 +1,4 @@
-"""Quadratic coil-response algebra of a signed NTV torque (#1887).
+"""Quadratic coil-response algebra of a signed NTV torque.
 
 Synthetic Hermitian matrices only -- positive, negative and indefinite -- so
 these verify the algebra, not PENTRC physics.  No solver, no Optuna.

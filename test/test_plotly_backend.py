@@ -1,4 +1,4 @@
-"""Matplotlib and Plotly draw the same view models (issue #491).
+"""Matplotlib and Plotly draw the same view models.
 
 Semantics are compared, never pixels: the same traces, names, arrays, axis
 titles, validity marks, panel count and title reach both libraries.
@@ -79,7 +79,7 @@ def _minimal(model_type):
     raise AssertionError(model_type)
 
 
-#: The table and text views (#1180) are presented as text by their own
+#: The table and text views are presented as text by their own
 #: renderer: no drawing library draws them, so discovery offers no backend and
 #: backend='plotly' is refused by name like any uncovered model kind.
 _TEXT_VIEW_MODELS = (Table, TextSummary)
@@ -319,7 +319,7 @@ def _coils_3d_ods():
 
 
 def test_the_3d_coils_agree_between_the_libraries():
-    """#1087: one Scatter3d per Matplotlib line, one legend entry and one legend group per coil set."""
+    """One Scatter3d per Matplotlib line, one legend entry and one legend group per coil set."""
     ods = _coils_3d_ods()
     # "C<n>" follows Matplotlib's *current* cycle -- a line keeps the literal
     # "C0" and to_hex resolves it when called, and another test may have set

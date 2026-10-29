@@ -5,9 +5,9 @@ time.  Because importing any submodule first executes this package, asking for
 one pure kernel cost the whole subtree: `from vaft.process.signal_processing
 import smooth` needed scipy and got omas, Matplotlib, ipywidgets,
 uncertainties, pandas, sklearn and statsmodels as well -- 3181 modules where
-1015 would do (issue #249).
+1015 would do.
 
-The second half of that issue is what the package *exposed*.  Six submodules
+The second half of that problem is what the package *exposed*.  Six submodules
 declared no `__all__`, so a star import took everything they imported along
 with everything they defined, and `vaft/process/profile.py` opened with
 `from omas import *` -- for nothing, as it turned out; not one OMAS name was
@@ -55,8 +55,7 @@ _IMPORT_ORDER = (
 
 #: Heavy dependencies no narrow process import has any business loading.
 #: `vaft.database` is here because `vaft/database/raw.py` imports Matplotlib at
-#: module scope purely as an availability probe -- the chain issue #268
-#: describes, which used to run through `vaft/process/magnetics.py`.
+#: module scope purely as an availability probe -- a chain which used to run through `vaft/process/magnetics.py`.
 _HEAVY = (
     "omas",
     "matplotlib",
@@ -66,7 +65,7 @@ _HEAVY = (
     "sklearn",
     "uncertainties",
     "vaft.database",
-    # vaft.process.ml imports its ML frameworks only when a backend is used (#669)
+    # vaft.process.ml imports its ML frameworks only when a backend is used
     "torch",
     "onnx",
     "onnxruntime",
@@ -78,7 +77,7 @@ _HEAVY = (
 #: referenced any of them through `vaft.process`; the map exists so anyone who
 #: did is told where to go.
 REMOVED: dict[str, tuple[str, str]] = {
-    # Retired by #420: VEST policy that lived in generic process modules. The
+    # Retired: VEST policy that lived in generic process modules. The
     # third kind, "policy", means the *name* is gone on purpose and the value
     # is resolved from vest.yaml by the module named.
     # The fourth kind, "retired", means the name is gone and nothing replaces
@@ -95,7 +94,7 @@ REMOVED: dict[str, tuple[str, str]] = {
     'List': ('typing', 'attr'),
     'MU0': ('vaft.formula', 'attr'),
     # electromagnetics only probed whether numba imported; nothing used it.
-    # numba is now the optional `accel` extra (#1007/#1013).
+    # numba is now the optional `accel` extra.
     'NUMBA_AVAILABLE': ('vaft.process.electromagnetics', 'retired'),
     # The VEST probe chain's private copy of the low pass -> integrate -> baseline
     # steps, causal where the donor is zero-phase; b_field_pol_probe_field is the
@@ -295,7 +294,7 @@ def test_a_private_or_dunder_probe_imports_nothing():
     """`hasattr(vaft.process, "__wrapped__")` is what inspect/pickle/doctest ask.
 
     The package used to answer by importing every submodule and finding none
-    exporting it (cold review 0.7.0 process F6, #1888).
+    exporting it.
     """
     submodules, heavy = _import_in_subprocess(
         "import vaft.process\n"
@@ -319,7 +318,7 @@ def test_submodules_that_need_no_heavy_dependency_do_not_load_one(submodule):
 
 
 def test_magnetics_no_longer_pulls_in_widgets_or_the_database():
-    """The three module-scope imports issue #249 named, as a regression test.
+    """Regression guard for #249: the three heavy module-scope imports of magnetics.
 
     `vaft/process/magnetics.py` imported ipywidgets and `vaft.database` at
     module scope, and imported `define_baseline`/`subtract_baseline` back out
@@ -413,7 +412,7 @@ _OWNED_AND_RETIRED = frozenset({"vest_b_field_pol_probe_legacy"})
 
 def test_the_dropped_names_are_the_ones_no_submodule_defines():
     """Nothing owned was dropped, apart from the names listed above and the
-    VEST policy constants #420 moved to vest.yaml."""
+    VEST policy constants moved to vest.yaml."""
     inventory = _inventory()
     owned = {name for name, entry in inventory.items() if entry["owned"]}
     retired_policy = {name for name, (_, kind) in REMOVED.items() if kind == "policy"}
@@ -458,7 +457,7 @@ def test_import_order_is_not_load_bearing():
 
 
 def test_no_submodule_key_shadows_an_exported_name():
-    """A ``_SUBMODULES`` key wins over any exported name of the same spelling (#1838).
+    """A ``_SUBMODULES`` key wins over any exported name of the same spelling.
 
     ``__getattr__`` checks the submodule map first, and importing a submodule
     binds it as a package attribute, so ``vaft.process.core_q_context`` used to
@@ -478,7 +477,7 @@ def test_no_submodule_key_shadows_an_exported_name():
 
 
 def test_the_core_q_context_function_is_what_the_package_attribute_binds():
-    """The #1838 instance: the documented call works through the package."""
+    """Regression guard for #1838: the documented call works through the package."""
     from vaft.process import core_q_context
     from vaft.process.q_profile_context import core_q_context as defined
 

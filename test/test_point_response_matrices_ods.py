@@ -1,4 +1,4 @@
-"""Vectorized ODS response wrapper vs the legacy scalar path (issue #239)."""
+"""Vectorized ODS response wrapper vs the legacy scalar path."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def test_rejects_malformed_observation_points(machine_ods):
     """Transposed / flat inputs raise instead of returning garbage.
 
     The legacy path failed loudly on these; the vectorized path used to
-    accept anything with >= 2 columns (PR #241 review finding 1).
+    accept anything with >= 2 columns.
     """
     r_list, z_list = [0.35, 0.45, 0.55], [0.05, -0.2, 0.3]
     with pytest.raises(ValueError, match=r"\(n, 2\)"):

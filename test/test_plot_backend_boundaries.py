@@ -1,4 +1,4 @@
-"""Import boundaries of the extraction layer (issue #63).
+"""Import boundaries of the extraction layer.
 
 ``vaft.plot`` knows nothing of any data model; the backend imports no data
 model at module level; a namespace never imports Matplotlib's pyplot just by

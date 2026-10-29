@@ -1,4 +1,4 @@
-"""The three flux helpers say which flux family they take (#354).
+"""The three flux helpers say which flux family they take.
 
 q_from_phi, surface_poloidal_flux_from_psi_boundary and
 loop_voltage_from_total_flux used to hard-code one family each -- full weber

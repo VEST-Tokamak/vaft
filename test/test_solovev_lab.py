@@ -1,10 +1,10 @@
-"""The VEST-like analytic Solov'ev baseline of the laboratory notebook (#883).
+"""The VEST-like analytic Solov'ev baseline of the laboratory notebook.
 
 The notebook initializes a Solov'ev equilibrium from the packaged EFIT
 boundary of VEST shot 39915 at 319 ms and scans its geometry and sources.
 These tests pin the cheap, deterministic parts of that workflow so they do
 not depend on executing the notebook, including the pressure scan and its
-paramagnetic-diamagnetic zero crossing (#1198).
+paramagnetic-diamagnetic zero crossing.
 """
 
 from __future__ import annotations
@@ -106,7 +106,7 @@ def test_cocos1_export_round_trip_keeps_the_flux_span():
 
 
 def test_direct_cocos11_export_keeps_the_flux_span():
-    """#1292 fixed: the COCOS 11 record is written per radian, so no stray 2*pi reaches the ODS."""
+    """Regression guard for #1292: the COCOS 11 record is written per radian, so no stray 2*pi reaches the ODS."""
     _, eq = _baseline()
     geqdsk = from_equilibrium(eq)
     assert "COCOS=1" in geqdsk["CASE"] and "COCOS=11" not in geqdsk["CASE"]
@@ -153,12 +153,12 @@ def test_source_scan_leaves_the_shape_fixed_and_lowers_beta_p_with_a():
     assert np.all(np.diff(beta_p) < 0)
 
 
-# --- Pressure scan and the paramagnetic-diamagnetic zero crossing (#1198) ---------------------------------------
+# --- Pressure scan and the paramagnetic-diamagnetic zero crossing ---------------------------------------------
 #
 # The notebook raises p' on the fixed baseline boundary at fixed F_boundary and fixed |Ip| (FF' adjusted) and
 # root-finds where the LCFS-bounded toroidal-flux perturbation changes sign. These tests re-implement its small
 # helpers on the coarse test grid. The canonical calculate_reconstructed_diamagnetic_flux is deliberately not used
-# (#871: its psi_N-only mask admits the open-field region).
+# (its psi_N-only mask admits the open-field region).
 
 def _grid():
     _, _, wall = _reference()
@@ -172,7 +172,7 @@ def _solve_sources(pprime, ffprime, r=None, z=None, bt_sign=1.0):
     r0, z0 = _grid()
     model = solve_solovev_constraints(
         solovev_shape_constraints(**target), basis="cerfon_freidberg_even", rref=target["major_radius"],
-        f_boundary=bt_sign * float(reference["BCENTR"] * reference["RCENTR"]),  # F's sign follows (#1307)
+        f_boundary=bt_sign * float(reference["BCENTR"] * reference["RCENTR"]),  # F's sign follows
         pprime=pprime, ffprime=ffprime)
     return model, solovev_to_equilibrium(model, r0 if r is None else r, z0 if z is None else z, limiter=wall)
 
@@ -199,7 +199,7 @@ def _solve_fixed_ip(lam, r=None, z=None):
 
 
 def _delta_phi_tor(model, eq, r=None, z=None):
-    """LCFS-bounded sign(B_phi) * integral (F/R - F_b/R) dA [Wb], paramagnetic-positive (#1196)."""
+    """LCFS-bounded sign(B_phi) * integral (F/R - F_b/R) dA [Wb], paramagnetic-positive."""
     from matplotlib.path import Path
 
     r = eq.r if r is None else r
@@ -254,7 +254,7 @@ def test_delta_phi_tor_keeps_its_paramagnetic_positive_meaning_when_the_field_is
     forward_model, forward = _solve_sources(pp0, ff0)
     reversed_model, reversed_eq = _solve_sources(pp0, ff0, bt_sign=-1.0)
     assert reversed_model.f_boundary < 0 and reversed_model.f_sign == -1
-    # Negating F_boundary alone reverses both F and bt0 (#1307): the record agrees with itself.
+    # Negating F_boundary alone reverses both F and bt0: the record agrees with itself.
     assert reversed_eq.bt0 < 0 and np.all(reversed_eq.f < 0)
     # psi depends on FF' only, so the reversed baseline is the same plasma with B_phi -> -B_phi ...
     assert _delta_phi_tor(reversed_model, reversed_eq) == pytest.approx(_delta_phi_tor(forward_model, forward), rel=1e-9)
@@ -292,7 +292,7 @@ def test_direct_pprime_scan_at_fixed_ffprime_stays_paramagnetic_while_ip_drifts(
 
 
 def test_lcfs_bounded_integral_ignores_grid_extension_beyond_the_lcfs():
-    """The #871 failure mode: extending the domain must not change an LCFS-bounded integral."""
+    """Regression guard for #871: extending the domain must not change an LCFS-bounded integral."""
     r, z = _grid()
     dr, dz = r[1] - r[0], z[1] - z[0]
     r_ext = np.r_[r, r[-1] + dr * np.arange(1, int((2.0 - r[-1]) / dr))]

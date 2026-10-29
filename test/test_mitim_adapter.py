@@ -1,4 +1,4 @@
-"""The MITIM adapter's availability, configuration and launch contract (#1588 stage A1).
+"""The MITIM adapter's availability, configuration and launch contract.
 
 No MITIM is installed in CI. A stub ``mitim_tools`` package on ``PYTHONPATH`` plays
 the isolated interpreter (this test's own Python), and a stub GACODE tree supplies
@@ -342,7 +342,7 @@ def test_the_callers_pythonpath_never_reaches_the_mitim_interpreter(ready, profi
 
 
 def test_the_windows_launch_removes_the_callers_pythonpath_without_env(ready, tmp_path, monkeypatch):
-    """Windows has no `env -u`; the environment itself must carry the removal (#1688 gate)."""
+    """Windows has no `env -u`; the environment itself must carry the removal."""
     from dataclasses import replace
 
     from vaft import compat
@@ -481,7 +481,7 @@ def test_the_tglf_closed_loop_can_switch_off_portals_early_stops(ready, profile,
     assert NO_EARLY_STOP["maximum_value"] == 0.0 and NO_EARLY_STOP["maximum_value_is_rel"] is False
 
 
-# --------------------------------------------------------------------------- manufactured source (#1588 C1)
+# --------------------------------------------------------------------------- manufactured source
 def _geometry():
     rho = np.linspace(0.0, 0.95, 96)
     r = 0.29 * rho
@@ -590,7 +590,7 @@ def test_stopping_overrides_are_refused_for_the_analytic_model(ready, profile, t
 
 
 def test_rows_mitim_did_not_evaluate_are_skipped():
-    """The standalone r/a 0.55 run crashed on MITIM's empty duplicate rows (#1588 C1)."""
+    """The standalone r/a 0.55 run crashed on MITIM's empty duplicate rows."""
     import importlib.util
 
     path = Path(mitim.__file__).parent / "drivers" / "portals_tglf_closed_loop.py"

@@ -168,7 +168,7 @@ def test_a_jupyter_kernel_gets_a_slider_that_redraws_the_figure(tmp_path):
 def test_a_jupyter_kernel_gets_control_widgets_for_one_plot(tmp_path):
     """``interactive=True`` under a real kernel: an ipywidgets box, a PNG redraw
     per change for Matplotlib, a re-displayed figure for Plotly, and no
-    pyplot figure left behind (issue #480)."""
+    pyplot figure left behind."""
     pytest.importorskip("nbformat")
     pytest.importorskip("ipykernel")
     pytest.importorskip("ipywidgets")

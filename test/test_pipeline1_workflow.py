@@ -2,7 +2,7 @@
 
 Nothing else in the suite loads this file. `test_pipeline1_paths.py` covers
 `PipelinePaths` on its own, which cannot see how the Snakefile *calls* it -- and
-that is where #787 broke: `plot_mhd_linear` and `build_gpec_ideal` resolved
+that is where a regression broke it (#787): `plot_mhd_linear` and `build_gpec_ideal` resolved
 their paths through `shot_pattern`, which cannot name the stability product
 those stages now require, so `FileDBPathError` was raised while Snakemake was
 still reading the file. Every invocation under the canonical `filedb` layout
@@ -64,7 +64,7 @@ def _config(tmp_path: Path, layout: str = "filedb", overrides: dict | None = Non
                 "raw": {"mode": "sql"},
                 # Replication and every stability module on: the rules they gate
                 # are exactly the ones a narrower configuration would not read.
-                # (Replication has no home in a shot-first tree; see #89, #138.)
+                # (Replication has no home in a shot-first tree.)
                 "hsds": {"replicate": layout == "filedb"},
                 "gpec": {"modules": ["dcon", "rdcon", "stride", "gpec"], "modes": [1, 2]},
                 "conda": None,
@@ -124,7 +124,7 @@ def _kfile_command(stdout: str) -> str:
 
 
 def test_an_efit_preset_reaches_the_kfile_stage_in_place_of_the_basis(tmp_path):
-    """#891: `efit.preset` selects a named configuration for every shot's k-files."""
+    """`efit.preset` selects a named configuration for every shot's k-files."""
     target = [_paths(tmp_path).kfile_manifest(SHOT)]
     preset = _dry_run(tmp_path, target, extra=["-p", "--config", 'efit={"preset": "statistical_891"}'])
     assert preset.returncode == 0, preset.stderr[-3000:]
@@ -215,7 +215,7 @@ def _preflight_done(tmp_path):
 
 
 def test_a_stage_scope_narrows_rule_all(tmp_path):
-    """`stages: [raw, diagnostics, eddy]` asks for nothing of EFIT and after (#58).
+    """`stages: [raw, diagnostics, eddy]` asks for nothing of EFIT and after.
 
     Not even the constraint step, which refuses a vacuum shot by failing: a
     scope that left it in would still fail every vacuum shot.
@@ -263,7 +263,7 @@ def _shell_args(stdout: str, flag: str) -> set[str]:
 
 
 def test_a_run_directory_does_not_hide_the_workflow_config(tmp_path):
-    """#1530: `configfile: "config.yaml"` resolved against `--directory`.
+    """Regression guard for #1530: `configfile: "config.yaml"` resolved against `--directory`.
 
     A run launched with `--directory <run dir> --configfile <partial>` re-read
     its own partial config and never loaded the workflow's, so EFIT ran with
@@ -288,7 +288,7 @@ def test_the_run_config_still_overrides_the_workflow_config(tmp_path):
 
     The run config switches EFIT off and that reaches the rules, while the EFIT
     keys it leaves out (`args 129`) still come from the workflow: a deep merge,
-    not a replacement -- before #1530 they fell back to code defaults (`65`).
+    not a replacement -- they used to fall back to code defaults (`65`).
     """
     _preflight_done(tmp_path)
 
@@ -306,10 +306,9 @@ def test_the_run_config_still_overrides_the_workflow_config(tmp_path):
 
 
 def test_the_deployment_guide_states_what_a_partial_run_config_inherits():
-    """cold review 0.8.0 delta-absorb-16 F5: #1687 made a run config that omits
-    `efit.run` inherit the workflow's `true` (the 10-06 redeploy had to pin it
-    off), and nothing documented which `vest.magnetics.processing` keys a run
-    config may still override after #1541/#1731. The guide, the worker example
+    """A run config that omits `efit.run` inherits the workflow's `true` (a
+    redeploy once had to pin it off), and nothing documented which
+    `vest.magnetics.processing` keys a run config may still override. The guide, the worker example
     and the workflow config must say both."""
     guide = (WORKFLOW / "DEPLOYMENT.md").read_text(encoding="utf-8")
     assert "A run config that omits `efit.run` inherits `true`" in guide

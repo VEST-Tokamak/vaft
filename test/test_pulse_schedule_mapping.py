@@ -1,4 +1,4 @@
-"""ShotLog records -> pulse_schedule.event, and the shotlog stage product (#995)."""
+"""ShotLog records -> pulse_schedule.event, and the shotlog stage product."""
 
 from __future__ import annotations
 

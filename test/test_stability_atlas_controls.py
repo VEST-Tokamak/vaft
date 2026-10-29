@@ -1,4 +1,4 @@
-"""The #141 control-scan driver: variants, template patching, the result table."""
+"""The stability control-scan driver: variants, template patching, the result table."""
 
 from __future__ import annotations
 

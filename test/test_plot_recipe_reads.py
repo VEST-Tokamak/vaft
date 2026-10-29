@@ -1,4 +1,4 @@
-"""The computed views declare what they read, and the neutral ones run natively (#439).
+"""The computed views declare what they read, and the neutral ones run natively.
 
 Every ``CallableRecipe`` carries ``reads`` (the DD templates its builder and
 helpers touch) and ``backend`` (``neutral``: accessor reads only, any data
@@ -50,7 +50,7 @@ NEUTRAL = frozenset({
     "mhd_linear_profile_chirikov", "mhd_linear_field_spectrum",
     "mhd_linear_spectrum_b_field_perturbed", "mhd_linear_geometry_island",
     "coil_3d_profile_current", "coil_3d_spectrum_current",
-    # #1565: accessor reads only; the plasma onset comes from
+    # accessor reads only; the plasma onset comes from
     # vaft.omas.plasma_timing, which reads through vaft.ods_access.
     "core_profiles_profile_zeff", "impurity_profile_composition",
     "impurity_profile_charge_state_fraction",
@@ -61,15 +61,15 @@ NEUTRAL = frozenset({
     "equilibrium_overview_convergence", "equilibrium_overview_constraints",
     "equilibrium_overview_constraint_coverage", "equilibrium_overview_residuals",
     "chease_overview_refinement_summary", "chease_overview_profile_validity",
-    # issue #952: the constraint weights and the pressure-weight scan read
+    # the constraint weights and the pressure-weight scan read
     # through vaft.omas.efit_quality, which reads through vaft.ods_access.
     "equilibrium_overview_constraint_weights", "equilibrium_overview_pressure_weight_scan",
-    # issue #1099: the FLARE connection-length map reads plasma_initiation
+    # the FLARE connection-length map reads plasma_initiation
     # through the accessor only.
     "field_line_topology_field_connection_length",
-    # issue #1180: the fit-quality table reads vaft.omas.efit_quality's metrics.
+    # the fit-quality table reads vaft.omas.efit_quality's metrics.
     "equilibrium_table_fit_quality",
-    # issue #1583: the edge-q estimates read through vaft.omas.edge_q, which
+    # the edge-q estimates read through vaft.omas.edge_q, which
     # reads through vaft.ods_access.
     "summary_time_estimated_q95", "summary_time_q_star_cylindrical",
     "summary_time_q_star_kink", "summary_time_normalized_current",
@@ -80,7 +80,7 @@ NEUTRAL = frozenset({
 })
 OMAS_BOUND = frozenset({
     "kinetic_overview_profiles",
-    # issue #1837: the Thomson channels go through equilibrium_mapping_points.
+    # the Thomson channels go through equilibrium_mapping_points.
     "kinetic_overview_state",
     "passive_structure_geometry_wall_mode",
     "passive_structure_overview_wall_time", "passive_structure_overview_wall_reduction",
@@ -91,20 +91,20 @@ OMAS_BOUND = frozenset({
     "camera_visible_image", "camera_visible_image_frame", "camera_visible_image_efit_overlay",
     "camera_visible_image_field_line", "camera_visible_image_fluctuation",
     "camera_visible_image_mhd_power", "equilibrium_overview",
-    # issue #1180: the slice summaries derive what a g-file omits as the overview does.
+    # the slice summaries derive what a g-file omits as the overview does.
     "equilibrium_table_summary", "equilibrium_text_summary",
-    # roadmap #1242 C2: validate_equilibrium deep-copies the ODS for the virial wrapper.
+    # validate_equilibrium deep-copies the ODS for the virial wrapper.
     "equilibrium_table_validation",
     "magnetics_overview_vacuum", "magnetics_overview_plasma_residual",
-    # roadmap #1242 C3: run_benchmark_case deep-copies the ODS and re-solves the wall.
+    # run_benchmark_case deep-copies the ODS and re-solves the wall.
     "magnetics_overview_vacuum_benchmark", "magnetics_table_vacuum_benchmark",
     "magnetics_table_vacuum_benchmark_aggregate",
-    # issue #888: the startup views solve vessel currents on a private copy.
+    # the startup views solve vessel currents on a private copy.
     "startup_proxies_time", "vacuum_field_midplane", "camera_visible_image_vacuum_field_line",
-    # issue #952: the kinetic profile fits call the vaft.process.profile mappers
+    # the kinetic profile fits call the vaft.process.profile mappers
     # and fitters, which subscript the ODS.
     "thomson_scattering_profile_fit", "charge_exchange_profile_fit",
-    # issue #551: radial_coordinate_map selects and adapts the equilibrium
+    # radial_coordinate_map selects and adapts the equilibrium
     # slice with ODS item access (as_equilibrium).
     "electron_temperature_profile_gradient", "electron_density_profile_gradient",
     "ion_temperature_profile_gradient",

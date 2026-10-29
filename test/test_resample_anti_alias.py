@@ -1,4 +1,4 @@
-"""Anti-aliased resampling: rejection, in-band fidelity, and timing (issue #425).
+"""Anti-aliased resampling: rejection, in-band fidelity, and timing.
 
 Ground truth is analytic.  VEST acquires at 250 kHz (``FAST_DT``) and 25 kHz
 (``SLOW_DT``) while every processed time grid is 25 kHz, so the case under test
@@ -278,7 +278,7 @@ class TestEdgeCases:
         assert np.allclose(out, [0.5, 1.5])
 
     def test_short_source_is_not_decimated_into_an_alias(self):
-        # #2162 B3.12: a record too short to filter used to fall back to plain
+        # A record too short to filter used to fall back to plain
         # interpolation, which folds this 40 kHz tone into the band. It now
         # comes back NaN; the old passthrough is still there by name.
         source_time = np.arange(0.0, 400e-6, 1.0 / FS_FAST)  # 100 samples
@@ -350,7 +350,7 @@ class TestAntiAliasFilterDirectly:
 
 
 class TestReviewFindings:
-    """Regressions for the defects the code review of #425 turned up."""
+    """Regressions for the defects the code review of anti-aliased resampling turned up."""
 
     def test_unsorted_target_does_not_destroy_in_band_signal(self):
         # np.interp evaluates at arbitrary instants, so a scattered target is
@@ -425,7 +425,7 @@ class TestReviewFindings:
 
 
 class TestFiltfiltLengthBoundary:
-    """The length rule ``anti_alias_filter`` uses to decide what it may filter (#893).
+    """The length rule ``anti_alias_filter`` uses to decide what it may filter.
 
     The guard once admitted records three samples too short. A 331-tap filter --
     the one a 250 kHz fast channel gets on its way to the 25 kHz analysis grid --
@@ -501,7 +501,7 @@ class TestFiltfiltLengthBoundary:
 
 
 class TestFilteredMask:
-    """#915: which samples the filter actually covered must be recoverable, so
+    """Which samples the filter actually covered must be recoverable, so
     an unfiltered short run is not stored as the equal of a filtered one."""
 
     def _fragmented(self):
