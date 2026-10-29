@@ -352,3 +352,54 @@ def test_thomson_error_bars_are_two_sigma_of_p_e_clipped_at_the_axis():
     fig, ax = pipeline_comparison_thomson(channels, format="legacy", errorbars=False)
     assert not [c for c in ax.collections if type(c).__name__ == "LineCollection"]
     plt.close(fig)
+
+
+def _onset_tables():
+    import pandas as pd
+
+    t = np.arange(-2.0, 2.01, 1.0)
+    rows, traces = [], []
+    for source, offset in (("public", 0.2), ("main", 0.1)):
+        for shot in (1, 2):
+            for family in ("probe", "loop"):
+                rows += [{"source": source, "shot": shot, "family": family, "t_ms": x,
+                          "value": offset * shot * (1 + (x > 0))} for x in t]
+            rows += [{"source": source, "shot": shot, "family": "ip", "t_ms": x, "value": max(x, 0) * 10} for x in t]
+        for family, channel, size in (("outboard", "B_a", 0.01), ("side", "B_b", 0.05),
+                                      ("inboard_flux_loop", "Flux Loop - #1", 0.002), ("ip", "ip", 0.0)):
+            traces += [{"source": source, "shot": 7, "family": family, "channel": channel, "t_ms": x,
+                        "measured": size * (1 + offset), "vacuum": size} for x in t]
+    return pd.DataFrame(rows), pd.DataFrame(traces)
+
+
+def test_onset_population_draws_the_median_over_shots_per_pipeline():
+    import matplotlib.pyplot as plt
+
+    from vaft.plot.pipeline_comparison import SIDE_STYLE, pipeline_comparison_onset_population
+
+    onset, _ = _onset_tables()
+    fig, axes = pipeline_comparison_onset_population(onset)
+    assert [ax.get_title() for ax in axes] == ["Plasma current", "Poloidal probes", "Flux loops"]
+    assert axes[1].get_yscale() == "log" and axes[0].get_yscale() == "linear"
+    lines = {line.get_label(): line for line in axes[1].get_lines() if "shots" in line.get_label()}
+    legacy = lines["Legacy archive (2 shots)"]
+    assert legacy.get_color() == SIDE_STYLE["legacy"]["color"]
+    assert np.allclose(legacy.get_ydata(), [0.3, 0.3, 0.3, 0.6, 0.6])  # median of 0.2 and 0.4, doubled after onset
+    assert all(any(line.get_xdata()[0] == 0.0 == line.get_xdata()[1] for line in ax.get_lines()) for ax in axes)
+    plt.close(fig)
+
+
+def test_onset_traces_pick_the_largest_channel_both_sides_carry():
+    import matplotlib.pyplot as plt
+
+    from vaft.plot.pipeline_comparison import pipeline_comparison_onset_traces
+
+    _, traces = _onset_tables()
+    fig, axes = pipeline_comparison_onset_traces(traces, shot=7)
+    assert any(text.get_text() == "B_b" for text in axes[1].texts)
+    assert any(text.get_text() == "#1" for text in axes[2].texts)  # instrument prefix dropped
+    dashed = [line for line in axes[1].get_lines() if line.get_linestyle() == "--"]
+    assert len(dashed) == 2 and np.allclose(dashed[0].get_ydata(), 50.0)  # vacuum in mT
+    with pytest.raises(ValueError):
+        pipeline_comparison_onset_traces(traces, shot=8)
+    plt.close(fig)

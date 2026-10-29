@@ -60,7 +60,9 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 REPOSITORY = HERE.parents[1]
-CHECKS = ("fit", "virial", "thomson", "vacuum", "stability")
+CHECKS = ("fit", "virial", "thomson", "vacuum", "onset", "stability")
+#: The onset-aligned grid of the onset check, t - t_onset [ms].
+ONSET_GRID_MS = np.round(np.arange(-20.0, 15.0 + 1e-9, 0.2), 1)
 #: Slices of one shot whose g-file time is within this of a main slice belong to main [s].
 MAIN_TIME_TOLERANCE = 5.0e-4
 GFILE = re.compile(r"^g0*(\d+)\.0*(\d+)$")
@@ -379,6 +381,79 @@ def vacuum_rows(ods: Any, wall_model: str = "stored") -> list[dict[str, Any]]:
              "window_end": window[1], "onset_source": source} for row in metrics["channels"]]
 
 
+def onset_reference(loaded: Mapping[str, Any]) -> tuple[float, str]:
+    """One plasma-free boundary for both sources of a shot: main's, else public's.
+
+    Both sides are put on one clock, so a side whose own timing is off shows
+    as a shifted trace instead of being realigned out of sight.
+    """
+    from vaft.omas.vacuum_magnetics import plasma_free_boundary, plasma_window
+
+    errors = []
+    for source in ("main", "public"):
+        if source not in loaded:
+            continue
+        try:
+            onset, how = plasma_free_boundary(plasma_window(loaded[source]))
+            return float(onset), f"{source}:{how}"
+        except Exception as error:
+            errors.append(f"{source}: {error!r}")
+    raise RuntimeError("no plasma onset on either side: " + "; ".join(errors))
+
+
+def onset_rows(ods: Any, onset: float, keep_channels: bool = False) -> tuple[list[dict], list[dict]]:
+    """Measured against vacuum (coil+eddy) magnetics on the onset-aligned grid.
+
+    Per family (``ip``, ``probe`` and ``loop``, and each EFIT sub-family) and grid instant, the median over
+    channels of ``|measured - vacuum| / max|measured|`` before the onset (the
+    channel's own vacuum amplitude), with the channel count. ``ip`` has no
+    vacuum model: the compensated plasma current is expected to be zero before
+    the onset, so its row is the measured current itself [kA]. With
+    ``keep_channels`` every channel's trace is returned as well.
+    """
+    from vaft.omas.general import signal_time
+    from vaft.omas.vacuum_magnetics import synthetic_vacuum_magnetics
+
+    grid = onset + ONSET_GRID_MS * 1e-3
+    pre = ONSET_GRID_MS < 0
+    start = float(np.asarray(signal_time(ods, "pf_active.coil.0.current.data"), dtype=float)[0])
+    channels = synthetic_vacuum_magnetics(ods, per_family=None, window=(grid[0], grid[-1] + 1e-6),
+                                          validity_window=(start, onset))
+    families: dict[str, list[np.ndarray]] = {}
+    traces = []
+    for channel in channels:
+        inside = (grid >= channel.time[0]) & (grid <= channel.time[-1])
+        measured = np.where(inside, np.interp(grid, channel.time, channel.measured), np.nan)
+        vacuum = np.where(inside, np.interp(grid, channel.time, channel.coil_eddy), np.nan)
+        usable = np.interp(grid, channel.time, channel.usable.astype(float)) > 0.5
+        measured[~usable] = np.nan
+        scale = np.nanmax(np.abs(measured[pre])) if np.isfinite(measured[pre]).any() else np.nan
+        if np.isfinite(scale) and scale > 0:
+            kind = "loop" if "flux_loop" in channel.kind else "probe"
+            for family in (channel.family, kind):
+                families.setdefault(family, []).append(np.abs(measured - vacuum) / scale)
+        if keep_channels:
+            traces += [{"family": channel.family, "channel": channel.name, "t_ms": float(t), "measured": float(m),
+                        "vacuum": float(v)} for t, m, v in zip(ONSET_GRID_MS, measured, vacuum)]
+    rows = []
+    for family, stack in families.items():
+        stack = np.vstack(stack)
+        counts = np.isfinite(stack).sum(axis=0)
+        with np.errstate(all="ignore"):
+            median = np.nanmedian(np.where(counts > 0, stack, 0.0), axis=0)
+        rows += [{"family": family, "t_ms": float(t), "value": float(v) if n else np.nan, "n_channels": int(n)}
+                 for t, v, n in zip(ONSET_GRID_MS, median, counts)]
+    ip = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
+    ip_time = np.asarray(signal_time(ods, "magnetics.ip.0.data"), dtype=float)
+    inside = (grid >= ip_time[0]) & (grid <= ip_time[-1])
+    rows += [{"family": "ip", "t_ms": float(t), "value": float(v) * 1e-3 if ok else np.nan, "n_channels": int(ok)}
+             for t, v, ok in zip(ONSET_GRID_MS, np.interp(grid, ip_time, ip), inside)]
+    if keep_channels:
+        traces += [{"family": "ip", "channel": "ip", "t_ms": float(t), "measured": float(v) * 1e-3 if ok else np.nan,
+                    "vacuum": 0.0} for t, v, ok in zip(ONSET_GRID_MS, np.interp(grid, ip_time, ip), inside)]
+    return rows, traces
+
+
 # --------------------------------------------------------------------------
 # Legacy stability
 # --------------------------------------------------------------------------
@@ -616,6 +691,26 @@ def process_shot(shot: int, args, tables: Mapping[str, Table], points_budget: li
         tables["vacuum"].extend(rows)
         _mark(args.output, "vacuum", shot)
 
+    if "onset" in checks and shot not in _done(args.output, "onset"):
+        loaded = {}
+        for source in ("public", "main"):
+            try:
+                loaded[source] = vaft.database.load(
+                    shot, source=source, paths=["magnetics", "pf_active", "pf_passive"], cache="off")
+            finally:
+                time.sleep(args.hsds_sleep)
+        onset, how = onset_reference(loaded)
+        for source, ods in loaded.items():
+            try:
+                rows, traces = onset_rows(ods, onset, keep_channels=shot in args.trace_shots)
+            except Exception as error:
+                rows, traces = [{"family": "error", "t_ms": np.nan, "value": np.nan, "n_channels": 0,
+                                 "reason": repr(error)[:300]}], []
+            base = {"source": source, "shot": shot, "onset": onset, "onset_source": how}
+            tables["onset"].extend({**base, **r} for r in rows)
+            tables["onset_traces"].extend({**base, **r} for r in traces)
+        _mark(args.output, "onset", shot)
+
     if "stability" in checks and shot not in _done(args.output, "stability"):
         rows, surfaces = legacy_stability(args.legacy_root / str(shot))
         tables["stability_legacy"].extend({"shot": shot, **r} for r in rows)
@@ -676,6 +771,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--shard", help="i/n: process every n-th shot starting at i")
     parser.add_argument("--hsds-sleep", type=float, default=1.0)
     parser.add_argument("--thomson-shots", help="file of shots whose HSDS public product holds thomson_scattering")
+    parser.add_argument("--trace-shots", nargs="*", type=int, default=[],
+                        help="shots whose every onset-aligned channel trace is kept")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args(argv)
     args.legacy_root = args.legacy_root.expanduser()
@@ -688,8 +785,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     shots = read_shots(args)
     write_manifest(args, shots)
     copy_atlas(args)
+    args.trace_shots = set(args.trace_shots)
     names = ("slices", "fit", "constraint_points", "virial", "thomson", "thomson_channels", "vacuum",
-             "stability_legacy", "stability_legacy_surfaces")
+             "onset", "onset_traces", "stability_legacy", "stability_legacy_surfaces")
     suffix = "" if not args.shard else "_" + args.shard.replace("/", "of")
     tables = {name: Table(args.output / f"{name}{suffix}.csv") for name in names}
     # The point budget is shared by all shards and survives a resume: each shard

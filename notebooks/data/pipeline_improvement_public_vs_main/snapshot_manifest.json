@@ -1,12 +1,13 @@
 {
- "created": "2026-10-28T07:10:30+00:00",
+ "created": "2026-10-29T12:44:19+00:00",
  "producer": "workflow/pipeline_improvement/make_snapshot.py",
  "tables": [
   "/home/user1/runs/pipeline_improvement/tables/efit",
   "/home/user1/runs/pipeline_improvement/tables/efit2",
   "/home/user1/runs/pipeline_improvement/tables/vacuum",
   "/home/user1/runs/pipeline_improvement/tables/vacuum_rerun",
-  "/home/user1/runs/pipeline_improvement/tables/thomson_err"
+  "/home/user1/runs/pipeline_improvement/tables/thomson_err",
+  "/home/user1/runs/pipeline_improvement/tables/onset"
  ],
  "files": {
   "slices.csv.gz": {
@@ -48,6 +49,14 @@
     "public / stored / error": 273,
     "public / stored / evaluated": 149255
    }
+  },
+  "onset.csv.gz": {
+   "rows": 355872,
+   "sha256": "45e3014a7f43990999074afc3e91bd79999e5d00764af41396aa95f1e2a4c00b"
+  },
+  "onset_traces.csv.gz": {
+   "rows": 68640,
+   "sha256": "9d861fae8130823e8f1adc087ab9340101ef0c0543976203751cf325ab5c0dd3"
   },
   "stability_legacy.csv.gz": {
    "rows": 24084,
@@ -319,6 +328,82 @@
      ],
      "shots": 24,
      "shard": null
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/backup/vaft/public_restore_20261021",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": null
+  },
+  "/home/user1/runs/pipeline_improvement/tables/onset/manifest_0of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-29T12:06:19+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "onset"
+     ],
+     "shots": 96,
+     "shard": "0/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/backup/vaft/public_restore_20261021",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": null
+  },
+  "/home/user1/runs/pipeline_improvement/tables/onset/manifest_1of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-29T12:06:19+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "onset"
+     ],
+     "shots": 96,
+     "shard": "1/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/backup/vaft/public_restore_20261021",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": null
+  },
+  "/home/user1/runs/pipeline_improvement/tables/onset/manifest_2of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-29T12:06:19+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "onset"
+     ],
+     "shots": 95,
+     "shard": "2/4"
+    }
+   ],
+   "schema": 1,
+   "legacy_root": "/mnt/backup/vaft/public_restore_20261021",
+   "current_filedb": "/srv/vest.filedb",
+   "current_membership": "HSDS main equilibrium.time within 5.0e-04 s",
+   "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
+   "atlas_dir": null
+  },
+  "/home/user1/runs/pipeline_improvement/tables/onset/manifest_3of4.json": {
+   "runs": [
+    {
+     "started": "2026-10-29T12:06:19+00:00",
+     "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
+     "checks": [
+      "onset"
+     ],
+     "shots": 95,
+     "shard": "3/4"
     }
    ],
    "schema": 1,

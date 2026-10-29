@@ -31,6 +31,8 @@ from .presentation import presented, resolve_presentation
 __all__ = [
     "pipeline_comparison_distribution",
     "pipeline_comparison_measured_vs_reconstructed",
+    "pipeline_comparison_onset_population",
+    "pipeline_comparison_onset_traces",
     "pipeline_comparison_overview",
     "pipeline_comparison_paired",
     "pipeline_comparison_scorecard",
@@ -726,3 +728,150 @@ def pipeline_comparison_scorecard(
     ax.grid(False, axis="y")
     _finish(fig, show)
     return fig, ax
+
+
+#: The onset tables name the HSDS source; the figures name the pipeline.
+ONSET_SOURCES = {"public": "legacy", "main": "current"}
+#: Panels of the onset figures: family, title, y label and display scale of a trace.
+ONSET_PANELS = (
+    ("ip", "Plasma current", r"$I_p$ [kA]", 1.0),
+    ("probe", "Poloidal probes", "[mT]", 1e3),
+    ("loop", "Flux loops", "[mWb]", 1e3),
+)
+
+
+def _onset_axes(n: int, figsize):
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(1, n, figsize=figsize, sharex=True)
+    for ax in np.atleast_1d(axes):
+        ax.axvline(0.0, color=MUTED, ls=":", lw=1.2, zorder=1)
+        ax.set_xlabel(r"$t - t_\mathrm{onset}$ [ms]")
+    return fig, np.atleast_1d(axes)
+
+
+def _onset_legend(fig, extra) -> None:
+    from matplotlib.lines import Line2D
+
+    handles = [Line2D([], [], color=SIDE_STYLE[side]["color"], lw=3.0, label=COMPARISON_LABELS[side])
+               for side in SIDES]
+    handles += list(extra)
+    handles.append(Line2D([], [], color=MUTED, ls=":", lw=1.2, label="plasma onset"))
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=len(handles), frameon=False)
+    fig.tight_layout(rect=(0.0, 0.1, 1.0, 1.0), pad=0.8, w_pad=1.0)
+
+
+def pipeline_comparison_onset_population(onset: pd.DataFrame, *, sources: Mapping[str, str] = ONSET_SOURCES,
+                                         show: bool = False, figsize: tuple[float, float] = (15.0, 4.8),
+                                         panel_labels: bool = True):
+    """Measured against vacuum magnetics over many shots, on one clock aligned at the plasma onset.
+
+    ``onset`` is the onset table of the comparison: one row per source, shot,
+    family and ``t_ms`` (``t - t_onset``), where ``value`` is, for ``probe``
+    and ``loop``, the shot's median over channels of
+    ``|measured - vacuum (coil+eddy)|`` over the channel's ``max|measured|``
+    before the onset, and
+    for ``ip`` the measured plasma current [kA], whose vacuum value is zero.
+    Each side draws the median over shots and shades the interquartile range;
+    the residual panels are logarithmic. Before the onset the residual is the
+    vacuum model's error; after it, the plasma's own signal.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+
+    data = onset.assign(side=onset["source"].map(sources))
+    presentation = resolve_presentation("slide", None)
+    with presentation.context():
+        fig, axes = _onset_axes(len(ONSET_PANELS), figsize)
+        for ax, (family, title, unit, _scale) in zip(axes, ONSET_PANELS):
+            for side in SIDES:
+                rows = data[(data["side"] == side) & (data["family"] == family)]
+                if rows.empty:
+                    continue
+                table = rows.pivot_table(index="t_ms", columns="shot", values="value")
+                quartiles = table.quantile([0.25, 0.5, 0.75], axis=1).T
+                color = SIDE_STYLE[side]["color"]
+                ax.fill_between(quartiles.index, quartiles[0.25], quartiles[0.75], color=color, alpha=0.18, lw=0)
+                ax.plot(quartiles.index, quartiles[0.5], color=color, lw=2.0,
+                        label=f"{COMPARISON_LABELS[side]} ({table.shape[1]:,} shots)")
+            if family == "ip":
+                ax.axhline(0.0, color=INK, ls="--", lw=1.0)
+                ax.set_ylabel(unit)
+            else:
+                ax.set_yscale("log")
+                ax.set_ylabel(r"$|m - m_\mathrm{vac}|\,/\,\max|m|$")
+            ax.set_title(title)
+        if panel_labels:
+            for letter, ax in zip("abc", axes):
+                _panel_letter(ax, letter)
+        _onset_legend(fig, [Patch(facecolor=MUTED, alpha=0.3, label="interquartile range over shots")])
+    if show:
+        plt.show()
+    return fig, axes
+
+
+def pipeline_comparison_onset_traces(traces: pd.DataFrame, *, shot: int, channels: Mapping[str, str] | None = None,
+                                     sources: Mapping[str, str] = ONSET_SOURCES, show: bool = False,
+                                     figsize: tuple[float, float] = (15.0, 4.8), panel_labels: bool = True):
+    """One shot's plasma current, one probe and one flux loop, measured (solid) and vacuum (dashed).
+
+    ``traces`` is the onset-traces table (``source``, ``shot``, ``family``,
+    ``channel``, ``t_ms``, ``measured``, ``vacuum``; SI, ``ip`` in kA). The
+    vacuum of ``ip`` is zero. ``channels`` maps ``probe`` and ``loop`` to a
+    channel name; unset, the typical channel: of those both sides carry, the
+    one whose RMS ``|measured - vacuum| / max|measured|`` before the onset,
+    averaged over the sides, is the family's median (the largest field would
+    pick an outlier as often as not). Probes are drawn in mT and loops in mWb.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+
+    data = traces[traces["shot"] == shot].assign(side=lambda t: t["source"].map(sources))
+    if data.empty:
+        raise ValueError(f"no onset traces for shot {shot}")
+    chosen = dict(channels or {})
+    for family in ("probe", "loop"):
+        if family in chosen:
+            continue
+        rows = data[(data["family"].str.contains("flux_loop") == (family == "loop")) & (data["family"] != "ip")
+                    & (data["t_ms"] < 0)]
+        both = rows.groupby("channel")["side"].nunique()
+        rows = rows[rows["channel"].isin(both[both == len(SIDES)].index)]
+        if rows.empty:
+            raise ValueError(f"shot {shot} has no {family} channel on both sides")
+        grouped = rows.groupby(["channel", "side"])
+        error = np.sqrt(grouped.apply(lambda g: np.nanmean((g["measured"] - g["vacuum"]) ** 2), include_groups=False))
+        error = (error / grouped["measured"].apply(lambda m: np.nanmax(np.abs(m)))).groupby("channel").mean().dropna()
+        if error.empty:
+            raise ValueError(f"shot {shot} has no finite {family} channel before the onset")
+        ranked = error.sort_values()
+        chosen[family] = ranked.index[(len(ranked) - 1) // 2]
+    presentation = resolve_presentation("slide", None)
+    with presentation.context():
+        fig, axes = _onset_axes(len(ONSET_PANELS), figsize)
+        for ax, (family, title, unit, scale) in zip(axes, ONSET_PANELS):
+            name = "ip" if family == "ip" else chosen[family]
+            for side in SIDES:
+                rows = data[(data["side"] == side) & (data["channel"] == name)].sort_values("t_ms")
+                color = SIDE_STYLE[side]["color"]
+                ax.plot(rows["t_ms"], rows["measured"] * scale, color=color, lw=1.8)
+                if family != "ip":
+                    ax.plot(rows["t_ms"], rows["vacuum"] * scale, color=color, lw=1.8, ls="--")
+            if family == "ip":
+                ax.axhline(0.0, color=INK, ls="--", lw=1.0)
+            ax.set_ylabel(unit)
+            ax.set_title(title)
+            if family != "ip":
+                from vaft.plot.backend.recipes import channel_short_name
+
+                ax.text(0.03, 0.04, channel_short_name(name), transform=ax.transAxes, ha="left", va="bottom",
+                        color=MUTED, fontsize=plt.rcParams["font.size"] * 0.8)
+        if panel_labels:
+            for letter, ax in zip("abc", axes):
+                _panel_letter(ax, letter)
+        fig.suptitle(f"Shot {shot}", y=1.0)
+        _onset_legend(fig, [Line2D([], [], color=INK, lw=1.8, label="measured"),
+                            Line2D([], [], color=INK, lw=1.8, ls="--", label="vacuum (coil + eddy)")])
+    if show:
+        plt.show()
+    return fig, axes

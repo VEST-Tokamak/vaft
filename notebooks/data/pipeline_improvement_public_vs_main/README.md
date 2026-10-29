@@ -17,6 +17,7 @@ SHA-256 of each file.
 
 - **Equilibrium checks:** 1,472 shots, every shot whose HSDS `main` holds an equilibrium and that also exists in `public`.
 - **Vacuum check:** 2,279 shots that hold magnetics and PF data in both sources.
+- **Onset-aligned vacuum traces:** every sixth of those (380), 337 with a plasma onset.
 - **Thomson check:** the 57 shots whose HSDS `public` product holds `thomson_scattering`.
 - **Stability, current side:** the Tier A stability atlas v2 (`stability_current_*`), copied unchanged.
 
@@ -30,5 +31,7 @@ SHA-256 of each file.
 | `virial.csv.gz` | side and slice | Volume integral against the pair_13 closure, Grad-Shafranov residual, a-file scalars. |
 | `thomson.csv.gz` | side and slice | g-file against HSDS `public` Thomson. `no_thomson` rows mark shots without it. |
 | `thomson_channels.csv.gz` | Thomson channel | Per-channel `p_e` and `p_recon` behind each Thomson verdict, from `thomson_pressure_samples`, with `n_e_error` and `t_e_error` (the stored `data_error_upper`). |
+| `onset.csv.gz` | source, shot, family (`ip`, `probe`, `loop`) and `t_ms` | Measured against vacuum on $t - t_\mathrm{onset}$ from -20 to 15 ms: per shot the median over channels of \|m - m_vac\| / max\|m\| before the onset; `ip` is the measured current [kA]. One onset per shot (main's), both sides. |
+| `onset_traces.csv.gz` | source, shot, channel and `t_ms` | Every channel's measured and vacuum (coil+eddy) trace for 39915, 41672, 44555 (SI; `ip` in kA). |
 | `vacuum_by_family.csv.gz` | source, shot, wall model and family | Medians over channels both sources evaluated. |
 | `stability_legacy*.csv.gz` | DCON/RDCON run, or RDCON surface | Read from the legacy `linear_stability` text output. |

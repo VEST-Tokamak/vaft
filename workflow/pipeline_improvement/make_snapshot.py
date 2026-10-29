@@ -36,6 +36,8 @@ KEYS = {
     "thomson_channels": ("side", "shot", "time_ms", "channel"),
     "constraint_points": ("side", "shot", "time_ms", "family", "channel"),
     "vacuum": ("source", "shot", "wall_model", "name"),
+    "onset": ("source", "shot", "family", "t_ms"),
+    "onset_traces": ("source", "shot", "channel", "t_ms"),
     "stability_legacy": ("shot", "time_ms", "solver", "n"),
     "stability_legacy_surfaces": ("shot", "time_ms", "solver", "n", "m"),
 }
@@ -111,6 +113,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             status = frame.groupby(["source", "wall_model", "status"], dropna=False).size()
             written["vacuum_status"] = {"counts": {" / ".join(map(str, k)): int(v) for k, v in status.items()}}
             continue
+        if name == "onset":
+            # The snapshot keeps the three panels' families (the EFIT sub-families
+            # stay in the run tables) at four significant digits.
+            frame = frame[frame["family"].isin(("ip", "probe", "loop", "error"))].copy()
+            frame["value"] = pd.to_numeric(frame["value"], errors="coerce").map(lambda v: float(f"{v:.4g}"))
+        if name == "onset_traces":
+            frame = frame.copy()
+            for column in ("measured", "vacuum"):
+                frame[column] = pd.to_numeric(frame[column], errors="coerce").map(lambda v: float(f"{v:.5g}"))
         write(frame, name)
     for root in tables:
         for name in ATLAS:
