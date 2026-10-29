@@ -1,4 +1,4 @@
-"""Guazzotto-Freidberg analytic equilibria, Parts 1 (#1148) and 2 (#1149).
+"""Guazzotto-Freidberg analytic equilibria, Parts 1 and 2.
 
 L. Guazzotto and J. P. Freidberg, *Simple, general, realistic, robust,
 analytic tokamak equilibria. Part 1. Limiter and divertor tokamaks*,

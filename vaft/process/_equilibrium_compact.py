@@ -1,4 +1,4 @@
-"""Compact representations of existing equilibria: Solov'ev fit and MXH-Chebyshev (#1166).
+"""Compact representations of existing equilibria: Solov'ev fit and MXH-Chebyshev.
 
 Inverse representations -- equilibrium in, a few coefficients and their
 fidelity out -- kept apart from the generators (``solve_solovev_constraints``,
@@ -189,7 +189,7 @@ def fit_solovev(
     pressure_edge = float(np.asarray(eq.pressure)[edge]) if eq.pressure is not None else 0.0
     model = SolovevEquilibrium(solution[:n], float(solution[n]), float(solution[n+1]), rref,
                                psi_boundary=psi_boundary, pressure_boundary=pressure_edge,
-                               f_boundary=f_edge, basis=basis)  # f_sign follows f_edge (#1307)
+                               f_boundary=f_edge, basis=basis)  # f_sign follows the sign of f_edge
     model_values = evaluate_solovev(model, rm, zm, cocos=11)
     model_psi = model_values["psi"]
     error = (model_psi - psi)[use]/abs(span)

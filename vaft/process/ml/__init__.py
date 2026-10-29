@@ -1,4 +1,4 @@
-"""Backend-neutral machine-learning processing: data to published model (#669).
+"""Backend-neutral machine-learning processing: data to published model.
 
 Training is a VAFT processing stage like any other.  This package owns the
 whole path -- dataset construction, group-aware splitting, windowing,

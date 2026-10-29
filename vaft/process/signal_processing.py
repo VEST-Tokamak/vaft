@@ -1314,8 +1314,8 @@ def _filtfilt_min_length(numtaps: int) -> int:
     than that padding. This once returned ``3 * (numtaps - 1) + 1``, three
     samples short: a 331-tap filter admitted finite runs of 991, 992 and 993
     samples, which ``filtfilt`` then rejected with ``ValueError`` and took the
-    whole diagnostics stage of shots 38525, 39137, 39241 and 39620 down with it
-    (#893). Every caller that decides between ``filtfilt`` and a fallback asks
+    whole diagnostics stage of shots 38525, 39137, 39241 and 39620 down with it.
+    Every caller that decides between ``filtfilt`` and a fallback asks
     this, so the rule is stated once.
     """
     return 3 * int(numtaps) + 1
@@ -1427,7 +1427,7 @@ def anti_alias_filter(
     many runs and samples were left unfiltered, so a caller can tell a single
     stray sample from most of the record; ``return_mask=True`` says which
     samples, so a caller can flag them rather than store them beside filtered
-    values as if they were equivalent (#915).  The filter assumes evenly spaced
+    values as if they were equivalent.  The filter assumes evenly spaced
     samples; on an irregular grid the design rate is a fiction, which
     :func:`resample_to_time` refuses for you.
 
@@ -1491,8 +1491,8 @@ def anti_alias_filter(
     covered = np.zeros(moved.shape, dtype=bool)
     flat_covered = covered.reshape(-1, length)
     # One summary rather than a warning for the first short run: that run is
-    # the one correctly left alone, so naming it pointed the reader of #893 at
-    # a one-sample run while a 992-sample run was the one that failed.
+    # the one correctly left alone, so naming it would point the reader at a
+    # one-sample run while a much longer run is the one that failed.
     unfiltered: list[int] = []
     for row, row_finite, row_covered in zip(flat, flat_finite, flat_covered):
         for start, stop in _finite_runs(row_finite):
@@ -1637,8 +1637,8 @@ def resample_to_time(
     primitive without moving a stored value.  When one does, the result is
     band-limited to the target Nyquist and then interpolated, and a target
     sample that would have been interpolated from an unfiltered short run is
-    NaN rather than a possibly aliased number (#2162 B3.12; until then it was
-    stored, with only a ``RuntimeWarning`` and the mask to tell it apart).
+    NaN rather than a possibly aliased number, not a stored value with only a
+    ``RuntimeWarning`` and the mask to tell it apart.
 
     Defaults
     --------
@@ -1828,7 +1828,7 @@ def resample_to_time(
 
     out = _interp_along_last_axis(targets, times, moved, extrapolate=extrapolate)
     if should_filter and unfiltered == "nan" and not covered.all():
-        # The same rule the Langmuir mapper applies to its validity (#915): a
+        # The same rule the Langmuir mapper applies to its validity: a
         # target sample is trusted only if every source sample it is
         # interpolated from was filtered. NaN source samples are uncovered too,
         # but np.interp already returns NaN next to them.
@@ -1897,7 +1897,7 @@ def process_signal(time, data, options=None):
     Limitations
     -----------
     Kept for compatibility; its future is decided by the module-ownership
-    audit tracked in #263.
+    audit (open: #263).
     """
     if options is None:
         options = {}
@@ -2206,7 +2206,7 @@ def subtract_baseline(
         Unknown ``fitting_opt`` or ``nan_policy``.
     DegenerateBaselineWindowError
         ``"polyfit"``: fewer than two valid baseline samples and
-        ``allow_zero_fallback`` is false (issue #639).
+        ``allow_zero_fallback`` is false.
 
     Processing steps
     ----------------
@@ -2231,7 +2231,7 @@ def subtract_baseline(
     workflow removed a linear drift, which is the right model for an
     integrator's offset.  The exponential fit uses ``maxfev = 10000``, a
     numerical convenience.  ``nan_policy = "omit"`` and
-    ``allow_zero_fallback = False`` are the #639 policy of the magnetics
+    ``allow_zero_fallback = False`` are the baseline policy of the magnetics
     chains: a gap in the window is skipped, an empty window is an error.
 
     Assumptions
@@ -2260,7 +2260,7 @@ def subtract_baseline(
     relative on a 1e-3-scale integrated signal); the stored products of each
     caller were built with one or the other, and merging them would move
     those values.  ``"polyfit"`` is the canonical line of the probe,
-    flux-loop and plasma-current chains (#2162); ``"linear"`` remains that of
+    flux-loop and plasma-current chains; ``"linear"`` remains that of
     the generic :func:`~vaft.process.magnetics.rogowski_coil_ip` and
     :func:`~vaft.process.magnetics.flux_loop_flux`, which called it before.
 
@@ -2463,7 +2463,7 @@ def is_signal_active(
     mean_abs_change = np.mean(np.abs(np.diff(data)))
     level = np.mean(np.abs(data))
 
-    # Both ratios are relative to the magnitude of the trace (#463).  An
+    # Both ratios are relative to the magnitude of the trace.  An
     # identically zero trace has no level to be relative to and is inactive.
     var_ratio = variance / level**2 if level > 0.0 else 0.0
     change_ratio = mean_abs_change / (level + 1e-12)
@@ -2479,7 +2479,7 @@ def is_signal_active(
 
 @dataclasses.dataclass(frozen=True)
 class SignalOrientation:
-    """The dominant sign of a signal over its representative region (#307).
+    """The dominant sign of a signal over its representative region.
 
     ``multiplier`` is ``+1`` or ``-1`` when ``resolved``, else ``+1`` with
     ``reason`` saying why nothing could be decided: a caller that wants an
@@ -2543,9 +2543,9 @@ def infer_signal_orientation(
     Defaults
     --------
     ``active_fraction = 0.1``, ``min_samples = 8`` and ``agreement = 0.6`` are
-    empirical estimates fixed when #307 was implemented; #307 sets the rule
-    (median of an active region, never ``abs``, never per-sample) but records
-    no derivation for the three numbers.
+    empirical estimates; the rule (median of an active region, never ``abs``,
+    never per-sample) is the design, but no derivation is recorded for the three
+    numbers.
 
     Convention
     ----------

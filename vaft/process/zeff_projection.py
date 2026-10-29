@@ -1,18 +1,18 @@
 """Resistive projection of an effective-charge profile: Z_eff(rho) -> R_p -> Z_eff^res,equiv.
 
-The composition model (#1565) gives a local profile ``Z_eff(rho)``; the
-Romero transformer balance (#1214, Lane Z) gives one scalar ``Z_eff^res``,
+The impurity composition model gives a local profile ``Z_eff(rho)``; the
+Romero transformer balance (:mod:`vaft.process.resistive_zeff`) gives one scalar ``Z_eff^res``,
 the constant a conductivity model needs to reproduce the observed plasma
 resistance.  They are different quantities and are compared only through an
-explicit forward projection (issue #1566): the scalar that makes the *same*
+explicit forward projection: the scalar that makes the *same*
 conductivity model, on the *same* flux-surface states, produce the *same*
 resistance -- or, over a window, the same resistive voltage under the *same*
 objective -- as the profile does.
 
 The chain::
 
-    Z_eff(psi_N) on a FluxSurfaceState      [composition, #1565]
-    -> sigma_par(psi_N; Z_eff(psi_N))       [Lane Z's model, surface by surface]
+    Z_eff(psi_N) on a FluxSurfaceState      [impurity composition]
+    -> sigma_par(psi_N; Z_eff(psi_N))       [resistive_zeff's model, surface by surface]
     -> R_p^profile = P_Ohm / I_p^2          [vaft.process.resistive_zeff.model_resistance]
     -> Z* with R_p^model(Z*) = R_p^profile  [one slice: a bounded root]
     -> or argmin_Z sum w (V_R^profile - V_R^model(Z))^2 over a window
@@ -279,7 +279,7 @@ def project_zeff_profile_to_resistive_scalar(
     Convention
     ----------
     The projection is defined in resistance space with the same states and
-    model on both sides (#1566 Sec. 1); a flat profile returns its own value.
+    model on both sides; a flat profile returns its own value.
 
     Applicability
     -------------
@@ -367,7 +367,7 @@ def project_window_to_resistive_scalar(
 
     Convention
     ----------
-    #1566 Sec. 7: a spatio-temporal model-equivalent scalar, comparable with
+    A spatio-temporal model-equivalent scalar, comparable with
     ``Z_eff^res,obs`` because the objective is literally the same function.
     The drive is ``|I_p|``: ``R_p`` is a dissipation and does not depend on
     the current's sign convention.  Near Z_eff = 1 the estimator reports
@@ -448,7 +448,7 @@ def flat_profile_from_resistive(zeff_resistive: float, state: Any, *, assumption
 
     Convention
     ----------
-    #1566 Sec. 6: a modelling assumption, never a measurement or an
+    A modelling assumption, never a measurement or an
     inference of the profile; nothing here writes it to ``core_profiles``.
 
     Applicability

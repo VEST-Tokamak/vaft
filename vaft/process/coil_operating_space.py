@@ -1,7 +1,7 @@
-"""The common result of a non-axisymmetric coil operating-space study (#1178).
+"""The common result of a non-axisymmetric coil operating-space study.
 
 One container, :class:`CoilOperatingSpace`, carries what a GPEC resonant-field
-study (#1884), a PENTRC NTV-torque study (#1887) and their plots (#1886) share:
+study, a PENTRC NTV-torque study and their plots share:
 the operating points of ``K`` coil groups and the metrics evaluated at each.
 It is a table, not an ODS -- ``mhd_linear`` has no operating-point, phasor or
 status axis -- and it imports no solver.
@@ -10,8 +10,8 @@ status axis -- and it imports no solver.
     values  : one row per (sample, metric)   sample_id, metric, value, unit, status [, m, psi_n_rational, psi_n]
     to_frame() ─▶ the two joined, plus amplitude_ratio_<g> and phase_rel_<g> against group 0
 
-The schema was settled on #1886 with the plotting owner; field names change
-only through that thread.
+The schema is shared with the plotting layer; a field name changes only
+together with its plots.
 
 Notation
 --------
@@ -74,7 +74,7 @@ __all__ = [
 OPERATING_SPACE_STATUSES = ("valid", "infeasible", "failed", "not_computed", "undefined")
 
 #: Why a sample is in the result.  ``probe``, ``held_out`` and ``invariance``
-#: are #1887's identification runs; ``held_out`` points are direct runs.
+#: are the NTV quadratic model's identification runs; ``held_out`` points are direct runs.
 OPERATING_SPACE_ROLES = (
     "scan", "reference", "analytic_optimum", "numerical_optimum", "gpec_confirmation",
     "probe", "held_out", "invariance",
@@ -99,7 +99,7 @@ _VALUE_DISTINGUISHERS = ("m", "psi_n_rational", "psi_n")
 
 @dataclass(frozen=True)
 class CoilOperatingSpace:
-    """Operating points of ``K`` coil groups and the metrics evaluated at each (#1178).
+    """Operating points of ``K`` coil groups and the metrics evaluated at each.
 
     The tables are validated and copied at construction; treat them as read-only.
     """

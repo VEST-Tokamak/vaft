@@ -97,11 +97,11 @@ _PARAMETRIC_EXPORTS = (
     "validate_equilibrium",
 )
 
-#: Compact representations of existing equilibria (#1166), implemented in
+#: Compact representations of existing equilibria, implemented in
 #: ``._equilibrium_compact``.
 _COMPACT_EXPORTS = ("evaluate_mxh_chebyshev", "fit_mxh_chebyshev", "fit_solovev")
 
-#: The Guazzotto-Freidberg analytic family (#1148), implemented in
+#: The Guazzotto-Freidberg analytic family, implemented in
 #: ``._equilibrium_guazzotto_freidberg``.
 _GF_EXPORTS = (
     "evaluate_guazzotto_freidberg",
@@ -110,7 +110,7 @@ _GF_EXPORTS = (
     "solve_guazzotto_freidberg",
 )
 
-#: The current-moment API (#943), implemented in ``._equilibrium_moments``.
+#: The current-moment API, implemented in ``._equilibrium_moments``.
 _MOMENT_EXPORTS = (
     "current_centroid",
     "current_covariance",
@@ -2242,7 +2242,7 @@ def efit_virial_volume_integrals(
     # |int G dA| / int |G| dA -- how much of the RT denominator survives the
     # cancellation inside G. Near zero, RT is a ratio of two small differences
     # and its value says nothing, so the conditioning number is reported
-    # alongside RT rather than only used to gate it (#546 s10).
+    # alongside RT rather than only used to gate it.
     rt_denominator_ratio = np.nan
     if p_tot_grid is not None and B_phi_grid is not None and B_phi_vac_grid is not None:
         p_tot_grid = np.asarray(p_tot_grid, float)
@@ -2809,7 +2809,7 @@ def _enclosing_segment(
     by the chord between its ends, that polygon contains the axis too, and it is
     longer than the real surface. Picking it put a 10 m^3 "surface" at psi_N
     0.875-0.94 on late, low-current EFIT slices and inflated ``li_3`` up to 10x
-    and ``beta_normal`` up to 4x (issue #1462). So closed segments are preferred
+    and ``beta_normal`` up to 4x. So closed segments are preferred
     over open ones, and among those left the innermost -- the smallest enclosed
     area -- wins: flux surfaces nest, so any other enclosing contour at the same
     level lies outside the plasma. Length only ranks segments when none
@@ -3412,8 +3412,7 @@ def _record_bp_factor(caller, convention):
     ``(1, 2)`` a g-file without a ``COCOS=`` token leaves, or the ``(11, 12)``
     its ``to_omas()`` leaves -- cannot be narrowed from the signs alone, so
     ``None`` hands the record to the same assumed-orientation path, and the
-    same ``UserWarning``, the array form takes on those arrays (#1313; cold
-    review 0.8.0 equilibrium-representation F1).
+    same ``UserWarning``, the array form takes on those arrays.
     """
     from vaft.data.cocos import cocos_spec
 
@@ -3440,7 +3439,7 @@ def _field_inputs(caller, R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, cocos, p
     prefactor follows the record rather than the caller's memory.  The array
     form carries no unit, so what the arguments leave unstated -- the storage
     family, the orientation -- is an assumption, announced rather than taken
-    silently (#1313).  A contradictory convention raises; an open orientation
+    silently.  A contradictory convention raises; an open orientation
     is assumed and announced, for a record as for arrays.
     """
     from vaft.data.equilibrium import EquilibriumData
@@ -3591,7 +3590,7 @@ def equilibrium_field_on_grid(
     -----------
     With neither *cocos* nor *psi_per_radian* known, from the arguments or the
     record, the flux is taken as weber per radian and a ``UserWarning`` says
-    so (#1313); a weber flux then gives a field ``2*pi`` too large. With the
+    so; a weber flux then gives a field ``2*pi`` too large. With the
     storage family but no index, the orientation is assumed (``k < 0``) and
     the warning says that instead; a record's open candidates settle it when
     they agree, and leave it to the same announced assumption when they do
@@ -3696,7 +3695,7 @@ def make_equilibrium_field_interpolator(
     ``k`` comes from *cocos*, or from *psi_per_radian* when the index is open,
     exactly as for :func:`poloidal_field_at_boundary`; a record supplies both
     from its convention. Supplying neither assumes weber per radian and warns,
-    because a weber flux then gives a field ``2*pi`` too large (#1313).
+    because a weber flux then gives a field ``2*pi`` too large.
 
     Applicability
     -------------
@@ -3706,7 +3705,7 @@ def make_equilibrium_field_interpolator(
     -----------
     With neither *cocos* nor *psi_per_radian* known, from the arguments or the
     record, the flux is taken as weber per radian, the historical default, and
-    a ``UserWarning`` says so (#1313); a weber flux, such as every ODS
+    a ``UserWarning`` says so; a weber flux, such as every ODS
     equilibrium carries, then gives a field ``2*pi`` too large. With the
     storage family but no index, the orientation is assumed (``k < 0``) and
     the warning says that instead; a record's open candidates settle it when
@@ -5067,11 +5066,11 @@ def resistive_layer_parameters(
         which is what VEST runs [-].
     z_eff : float
         Effective ion charge, passed to the Spitzer resistivity. Required:
-        omitting it raises ``TypeError`` since 0.9.0 (#1188); the hidden
+        omitting it raises ``TypeError`` since 0.9.0; the hidden
         fallback of 2 was deprecated in 0.7.0 [-].
     ln_lambda : float
         Coulomb logarithm, passed to the Spitzer resistivity. Required:
-        omitting it raises ``TypeError`` since 0.9.0 (#1188); the hidden
+        omitting it raises ``TypeError`` since 0.9.0; the hidden
         fallback of 17 was deprecated in 0.7.0 [-].
     m_range : tuple of int, optional
         Forwarded to :func:`find_rational_surfaces` [-].
@@ -5197,10 +5196,10 @@ def resistive_layer_at(
         Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default [-].
     z_eff : float
         Effective ion charge; required, omitting it raises ``TypeError`` as
-        in :func:`resistive_layer_parameters` (#1188) [-].
+        in :func:`resistive_layer_parameters` [-].
     ln_lambda : float
         Coulomb logarithm; required, omitting it raises ``TypeError`` as in
-        :func:`resistive_layer_parameters` (#1188) [-].
+        :func:`resistive_layer_parameters` [-].
 
     Returns
     -------
@@ -6615,7 +6614,7 @@ def romero_flux_balance(
     ----------
     **Romero's signs: full-weber flux and $V = -\dot\psi$.**  This is not
     :func:`vaft.formula.equilibrium.loop_voltage_from_total_flux`'s
-    convention (#354); a COCOS-11 equilibrium has to be brought to this one
+    convention (``+2 pi d psi/dt`` on a per-radian flux); a COCOS-11 equilibrium has to be brought to this one
     before the call, and step 1 refuses fluxes that were not.
 
     **What each residual measures.**  With $L_i$ read from the same fluxes,

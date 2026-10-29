@@ -1,6 +1,6 @@
 """Searchable catalog of the processing layer, read out of the docstrings.
 
-This is the discovery layer issue #252 asks for, built the way
+This is the discovery layer of the processing namespace, built the way
 :mod:`vaft.formula.catalog` is.  It is *not* imported when ``vaft.process``
 or one of its submodules loads; it is pulled in the first time anything
 touches ``vaft.process.describe``, ``vaft.process.search``,
@@ -19,7 +19,7 @@ writes the deterministic YAML snapshot the documentation site renders.
 
 One thing this catalog records that the formula one does not: whether each
 function *conforms* to the contract.  The processing layer is being brought
-under the contract one submodule at a time (#417-#421), and the site has to
+under the contract one submodule at a time, and the site has to
 say which categories are documented and which are still pending, so every
 spec carries its parser errors and every category says whether all of its
 functions are clean.
@@ -71,7 +71,7 @@ __all__ = [
 #: functions are public through ``equilibrium``, and that is where they appear.
 CATEGORIES: tuple[str, ...] = (*_IMPORT_ORDER, "cocos")
 
-SCHEMA_VERSION = 3  # +semantics (#1702)
+SCHEMA_VERSION = 3  # +semantics
 _GENERATOR = "python -m vaft.process.catalog --output docs/_data/process_catalog.yml"
 _PACKAGE = Path(__file__).resolve().parent
 
@@ -377,7 +377,7 @@ def _specs_for(category: str) -> dict[str, ProcessSpec]:
     """Specs of every public function one submodule *exports*, by name.
 
     Imports only that submodule.  Selection is by ``__all__``, which every
-    process submodule declares (#249), not by ``__module__``: that is what
+    process submodule declares, not by ``__module__``: that is what
     puts the ``_equilibrium_parametric`` functions under ``equilibrium``,
     the submodule that is their documented public location.
     """
@@ -425,7 +425,7 @@ def describe(name: str) -> ProcessSpec:
 
     ``name`` is either ``"category.function"`` -- which imports only that
     category -- or a bare function name.  A bare name is looked up across the
-    categories in import order; since #249 established that no two process
+    categories in import order; no two process
     submodules export different objects under one name, the first hit is the
     only hit.  Aliases resolve to their canonical function.
     """

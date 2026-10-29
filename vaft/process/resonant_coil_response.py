@@ -5,7 +5,7 @@ complex resonant flux GPEC writes at the rational surfaces (``Phi_res`` total,
 ``Phi_res_v`` vacuum; area-normalized, tesla) responds linearly to the coil
 excitation.  This module holds that operator, built from per-group unit runs
 and **verified** on held-out runs rather than assumed, and the optimizations
-issue #1884 asks of it (issue #1178 umbrella).  It runs no solver.
+built on it.  It runs no solver.
 
     resonant_response_operator ─▶ H from the unit runs e_k, Phi = H conj(c)
     qualify_response_operator ──▶ held-out complex runs -> qualified / rejected / insufficient
@@ -32,7 +32,7 @@ Conventions
 (:data:`vaft.process.coil_operating_space.COIL_EXCITATION_CONVENTION`) is
 ``I_k = A cos(n phi_k + delta) = Re(c exp(+i n phi_k))``; GPEC decomposes in
 ``exp(-i n phi)``, whose coefficient is ``conj(c) / 2``.  Measured on the
-DIII-D-like example (#1884): ``Phi(i e_k) = -i Phi(e_k)`` exactly, and
+DIII-D-like example: ``Phi(i e_k) = -i Phi(e_k)`` exactly, and
 ``Phi = H conj(c)`` reproduces every held-out run to 4e-6.  Hence ``Q =
 conj(H^H W H)`` for a quadratic metric in ``c``; using ``H^H W H`` instead
 would mirror every optimal relative phase.
@@ -77,7 +77,7 @@ RESONANT_FIELDS = ("Phi_res", "Phi_res_v")
 
 @dataclass(frozen=True)
 class ResonantResponseOperator:
-    """``Phi = H conj(c)`` for one resonant field on fixed surfaces (#1884)."""
+    """``Phi = H conj(c)`` for one resonant field on fixed surfaces."""
 
     #: ``Phi_res`` (total) or ``Phi_res_v`` (vacuum).
     field: str
@@ -588,7 +588,7 @@ def resonant_operating_space(
     provenance: Mapping[str, object],
     operators: Mapping[str, tuple[ResonantResponseOperator, ResponseOperatorQualification]] | None = None,
 ):
-    """Direct resonant-field RMS per window (and a qualified operator's predictions) as a #1178 result.
+    """Direct resonant-field RMS per window (and a qualified operator's predictions) as a coil operating-space result.
 
     Parameters
     ----------

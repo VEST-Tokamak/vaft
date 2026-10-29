@@ -1,4 +1,4 @@
-"""Segment-wise eigenmode basis of a passive wall, with global coupling (vaft #473).
+"""Segment-wise eigenmode basis of a passive wall, with global coupling.
 
 The reduced vessel-wall contract (VEST-Tokamak/vfit#8) in one line: **local
 eigenbasis, global electromagnetic dynamics.**  The wall's current vector is
@@ -40,7 +40,7 @@ wall current.  Conversions -- Euclidean-normalized modes have ``a_E = a
 
 This module chooses no reduced order.  It returns every mode of every segment
 and offers selection helpers; which modes to keep is the validation study's
-question (vfit #10, vaft #494), and the tools for that question live here too:
+question (VEST-Tokamak/vfit#10), and the tools for that question live here too:
 the reduced circuit solve (:func:`solve_reduced_eddy`), rankings of the modes
 by response rather than by decay time (:func:`mode_scores`), a greedy
 segment-wise allocation to a tolerance (:func:`allocate_per_segment`), and the
@@ -111,8 +111,8 @@ def symmetrize_inductance(
 
     Reciprocity makes a mutual-inductance matrix symmetric, so a departure is a
     defect in the asset, not noise.  The sanctioned place to repair reciprocity is
-    the coupling mapper (:func:`vaft.machine_mapping.em_coupling.em_coupling`,
-    issue #373), which is why this one refuses rather than repairs beyond a
+    the coupling mapper (:func:`vaft.machine_mapping.em_coupling.em_coupling`),
+    which is why this one refuses rather than repairs beyond a
     rounding-sized asymmetry.
 
     Parameters
@@ -148,8 +148,8 @@ def symmetrize_inductance(
     --------
     ``rtol = 1e-8`` is a numerical convenience, the size of double-precision
     round-off accumulated over an assembly of this scale.  ``reject = 1e-6`` is
-    empirical: the asymmetry of the packaged VEST coupling asset once its
-    one-sided material factor was repaired (issue #373).
+    empirical: the asymmetry of the packaged VEST coupling asset once a
+    one-sided material factor in its donor data was corrected.
 
     Applicability
     -------------
@@ -1247,7 +1247,7 @@ def subspace_angles_r(V_a: np.ndarray, V_b: np.ndarray, R_mat: np.ndarray) -> np
 
 
 # ---------------------------------------------------------------------------
-# Reduced dynamics and response-ranked selection (vaft #494, vfit #10)
+# Reduced dynamics and response-ranked selection (the reduced-order study, vfit#10)
 # ---------------------------------------------------------------------------
 
 def solve_reduced_eddy(

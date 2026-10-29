@@ -1,4 +1,4 @@
-"""Line integrals of a poloidal-plane field along diagnostic sightlines (issue #886).
+"""Line integrals of a poloidal-plane field along diagnostic sightlines.
 
 A line-integrated diagnostic measures ``B_i = int epsilon dl`` along sightline
 ``i``. On a grid of cells that is a matrix product ``B = G epsilon`` with
