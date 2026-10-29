@@ -1,4 +1,4 @@
-"""Contract of vaft.machine_mapping.raw_sources (#1742).
+"""Contract of vaft.machine_mapping.raw_sources.
 
 Cheap checks of the record shape, the era boundaries the resolvers follow and
 the registry join. That the resolvers agree with what the mappers actually
@@ -43,7 +43,7 @@ def test_era_boundaries_follow_the_mapper_resolvers():
     assert {record.channel: record.field for record in raw_sources("pf_active", 19287)}[
         "pf_active.coil[8].current"
     ] == 65
-    # The diamagnetic Rogowski borrowed PF2's field 4: no PF circuit reads it then (#993).
+    # The diamagnetic Rogowski borrowed PF2's field 4: no PF circuit reads it then.
     assert 4 not in {record.field for record in raw_sources("pf_active", 38200)}
     assert [record.field for record in raw_sources("magnetics.rogowski_coil", 38200)] == [109, 4]
     # FL10 compensation is off from 47117, the carbon inboard limiter.

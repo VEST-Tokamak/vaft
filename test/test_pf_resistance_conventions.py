@@ -1,4 +1,4 @@
-"""Resistance conventions for pf_active and pf_passive (issue #117).
+"""Resistance conventions for pf_active and pf_passive.
 
 `pf_active.coil[:].resistance` is the coil's *terminal* resistance, per the DD's
 "Coil resistance". For N turns in series, each occupying `A_pack / N` of the
@@ -6,7 +6,7 @@ winding pack:
 
     R = N * rho * (2*pi*r) / (A_pack / N) = N^2 * rho * 2*pi*r / A_pack
 
-Before #117 the N^2 factor was missing, which is the resistance of one turn
+The N^2 factor used to be missing (#117), which is the resistance of one turn
 filling the entire pack -- 1.4e-7 Ohm for PF1, five orders of magnitude below
 anything physical.
 
@@ -71,7 +71,7 @@ def test_resistance_is_the_series_turn_formula_over_the_mapped_turns(pf_active_o
 def test_terminal_resistances_are_physically_plausible(pf_active_ods):
     """A copper PF coil is milliohms, not microohms.
 
-    The pre-#117 value for PF1 was 1.4e-7 Ohm -- less than a short length of
+    The old value for PF1 was 1.4e-7 Ohm -- less than a short length of
     busbar for a 632-turn coil, which is what made the missing factor visible.
     """
     for coil_index in range(PF_COIL_COUNT):
@@ -90,7 +90,7 @@ def test_multi_turn_coils_are_the_ones_that_moved(pf_active_ods):
 
 
 def test_pf_passive_resistance_is_left_alone():
-    """#117 changes nothing here: these values are fitted, and they are live.
+    """The N^2 convention changes nothing here: these values are fitted, and they are live.
 
     The inboard and outboard wall regions carry effective resistances fitted
     against magnetics in a plasma-free window, not `rho * 2*pi*R / A`, and
@@ -134,7 +134,7 @@ def test_geometry_fingerprint_ignores_the_derived_resistance():
     derived scalar, not geometry -- a pure function of the width/radius
     constants, the era height profile and `turns_with_sign`, all already
     covered -- so including it gave the guard no discriminating power while
-    making every packaged ODS fail the moment the #117 formula changed.
+    making every packaged ODS fail the moment the pf_active formula changed.
     """
     from vaft.machine_mapping.em_coupling import _static_signature
 

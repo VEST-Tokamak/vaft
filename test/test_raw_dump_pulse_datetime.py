@@ -1,4 +1,4 @@
-"""dump_all_raw_signals_for_shot() must capture pulse_datetime (issue #126)
+"""dump_all_raw_signals_for_shot() must capture pulse_datetime
 and flag fields that are all-zero/all-NaN/empty rather than real data.
 
 SQL mode resolves pulse_datetime from date_from_shot(); archive mode carries

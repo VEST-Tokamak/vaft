@@ -116,7 +116,7 @@ def _offline_notebooks():
     until now nothing checked its list. A notebook could stop running, or stop
     being offline, and the only thing that noticed was somebody running the tool
     by hand. `verification_and_validation` did exactly that: it sat in the list
-    while dying on its second cell without a database (#284).
+    while dying on its second cell without a database.
     """
     spec = importlib.util.spec_from_file_location(
         "_verify_rendering", NOTEBOOKS / "_verify_rendering.py"
@@ -155,8 +155,8 @@ def headless_matplotlib():
 
 #: Notebooks whose cells assume content the repository no longer carries in the
 #: shape they expect, mapped to the reason.  Remove an entry when its notebook
-#: is repaired.  (The verification notebook left this list with #1835: it reads
-#: the dated Atlas snapshot, not the Pipeline 3 sheets.)
+#: is repaired.  (The verification notebook is not here: it reads the dated
+#: Atlas snapshot, not the Pipeline 3 sheets.)
 _KNOWN_STALE_NOTEBOOKS: dict[str, str] = {}
 
 
@@ -581,7 +581,7 @@ def _is_interactivity_guard(statement: ast.If, ipython_names: frozenset[str]) ->
 
     Treating every ``if`` as a guard would accept a pin under ``if True:`` or
     under an unrelated ``if output_dir:`` -- the pin would still run in Jupyter,
-    which is the whole failure mode (#175/#179/#182).
+    which is the whole failure mode (an Agg pin silencing interactive figures).
     """
     for node in ast.walk(statement.test):
         if isinstance(node, ast.Name) and (
@@ -619,7 +619,7 @@ def test_notebooks_do_not_pin_a_noninteractive_backend_unconditionally():
 
     Notebooks may still fall back to Agg when no kernel is present -- that is
     what the ``get_ipython() is None`` guard expresses -- but a pin at cell top
-    level applies to interactive frontends too (issues #175/#179/#182).
+    level applies to interactive frontends too.
     """
     failures = []
     for path in _notebook_paths():
@@ -696,7 +696,7 @@ def _stdlib_import_failures(cells, label: str = "<notebook>") -> list[str]:
     binding has to be compared against the *order* cells run in: pooling every
     import in the notebook first would accept ``itertools.chain`` in cell 2
     with ``import itertools`` in cell 9, which raises ``NameError`` on a real
-    top-to-bottom run and is exactly the issue-#180 failure.
+    top-to-bottom run and is exactly the failure this guards.
     """
     first_bound: dict[str, int] = {}
     first_used: dict[str, tuple[int, str]] = {}
@@ -734,7 +734,7 @@ def _stdlib_import_failures(cells, label: str = "<notebook>") -> list[str]:
 
 
 def test_notebooks_import_every_stdlib_module_they_reference():
-    """Guards the ``itertools`` class of failure from issue #180."""
+    """Regression guard for #180: a stdlib module used before the cell that imports it."""
     failures = []
     for path in _notebook_paths():
         failures.extend(_stdlib_import_failures(_code_cells(path), path.name))
@@ -743,7 +743,7 @@ def test_notebooks_import_every_stdlib_module_they_reference():
 
 
 def test_stdlib_import_check_is_sensitive_to_cell_order():
-    """Pooling imports notebook-wide would miss the #180 failure entirely.
+    """Pooling imports notebook-wide would miss the use-before-import failure entirely.
 
     A use in an early cell with the import in a later one runs clean only if
     the reader executes out of order; top-to-bottom it is a ``NameError``.
@@ -768,7 +768,7 @@ def test_stdlib_import_check_is_sensitive_to_cell_order():
 
 
 def test_notebook_references_to_packaged_data_resolve():
-    """Guards the wrong-subdirectory class of failure from issue #177."""
+    """Regression guard for #177: a packaged-data path pointing at the wrong subdirectory."""
     import re
 
     pattern = re.compile(r"vaft/data/([\w./-]+)")
@@ -850,7 +850,7 @@ def test_verification_notebook_uses_english_atlas_content():
 def test_the_backend_guard_selects_inline_inside_an_agg_pinned_kernel():
     """The guard must recover a kernel whose environment pins Agg.
 
-    This is the reported failure from issues #175/#179/#182: a kernel running
+    Regression guard for #175/#179/#182: a kernel running
     with `MPLBACKEND=Agg` renders nothing and warns "FigureCanvasAgg is
     non-interactive". Relying on ipykernel to preset MPLBACKEND is not enough --
     older releases do not, which is why the guard asks for inline explicitly.

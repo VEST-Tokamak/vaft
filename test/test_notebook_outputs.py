@@ -50,7 +50,7 @@ def test_a_notebook_declared_offline_ships_its_figures(name):
     in a diff, and a reader on GitHub sees the difference immediately: no plot.
     `plotting_sample_using_vaft_plot_module` -- 42 000 characters about how
     plots are made -- has lost all of its figures three times: at `f08a72c`,
-    when `x=` was documented into it (#481), and when `method=` was (#484).
+    when `x=` was documented into it, and when `method=` was.
     Each time an edit was committed without a re-run.
 
     `notebooks/_clean_outputs.py` drops `error` outputs, so a cell that raised

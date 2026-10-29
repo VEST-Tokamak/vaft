@@ -1,4 +1,4 @@
-"""Measured kinetic points and their fit, on a flux coordinate (#952).
+"""Measured kinetic points and their fit, on a flux coordinate.
 
 ``thomson_scattering_profile_fit`` and ``charge_exchange_profile_fit`` draw the
 channels at one diagnostic time with their error bars, the channels the fit

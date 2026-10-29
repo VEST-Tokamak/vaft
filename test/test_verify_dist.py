@@ -1,4 +1,4 @@
-"""``test/verify_dist.py`` and the packaging rules it enforces (#1755, #1756).
+"""``test/verify_dist.py`` and the packaging rules it enforces.
 
 The distribution policy is spread over three files that must agree:
 ``[tool.setuptools.package-data]`` decides what the wheel carries,
@@ -24,7 +24,7 @@ import verify_dist  # noqa: E402
 
 tomllib = pytest.importorskip("tomllib")
 
-#: The hosted-GUI deployment templates (#1755), relative to ``vaft/``.
+#: The hosted-GUI deployment templates, relative to ``vaft/``.
 DEPLOY_FILES = (
     "deploy/gui/vaft-gui.service",
     "deploy/gui/vaft-gui.env.example",
@@ -55,7 +55,7 @@ def _wheel_of(tmp_path: Path, names: set[str], tag: str) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# #1755: deploy/gui lives inside the package and ships
+# deploy/gui lives inside the package and ships
 # ---------------------------------------------------------------------------
 
 
@@ -114,7 +114,7 @@ def test_no_documentation_links_the_old_deployment_path():
 
 
 # ---------------------------------------------------------------------------
-# #1756: the issue studies live under vaft/validation/studies; only scripts ship
+# the issue studies live under vaft/validation/studies; only scripts ship
 # ---------------------------------------------------------------------------
 
 STUDIES = ROOT / "vaft" / "validation" / "studies"

@@ -1,4 +1,4 @@
-"""Plot contracts for the reduced-wall study views (vaft #494)."""
+"""Plot contracts for the reduced-wall study views."""
 
 import matplotlib
 

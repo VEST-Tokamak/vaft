@@ -1,6 +1,6 @@
-"""DCON post-processing from the ODS payload (#940, sections 8 and 10).
+"""DCON post-processing from the ODS payload.
 
-Real DCON output (the #792 fixtures: shot 39915 at 319 ms, n=1, full edge and
+Real DCON output (the DCON reference fixtures: shot 39915 at 319 ms, n=1, full edge and
 peak-dW truncated) is mapped through ``mhd_linear`` and read back with
 ``extract_dcon_stability``, so everything here runs from the final ODS.
 """
@@ -199,8 +199,7 @@ def test_an_ambiguous_start_whose_ends_disagree_gives_no_bool():
     # q(psiedge) = 2.60005 sits 5e-5 from the nominal point 2.60 with a tolerance of
     # 9e-5 (a tenth of the first ODE step): the start is ambiguous, and a larger dW on
     # the entry DCON never searched flips the verdict between the two admissible
-    # starts. The bool was still returned; #1774's validator says indeterminate
-    # (cold review 0.8.0 delta-absorb-18 stability-opspace F3).
+    # starts. The bool used to be returned; the validator says indeterminate.
     q = _linear_q(2.60005, 30.0)
     steps = np.arange(0.95003, 0.994, 0.00003)
     row, pre_edge, dcon_peak = _dcon_edge_scan_replay(q, 0.95, 4.0, 1, steps, lambda p: complex(1.0 - p))
@@ -225,7 +224,7 @@ def test_an_ambiguous_start_whose_ends_disagree_gives_no_bool():
 
 
 def test_the_792_profile_at_psiedge_0_92617_is_indeterminate():
-    """The verifier's case: q(0.92617) = 7.79964 on the #792 profile, 4e-4 below the nominal 7.80."""
+    """The verifier's case: q(0.92617) = 7.79964 on the reference profile, 4e-4 below the nominal 7.80."""
     from scipy.interpolate import CubicSpline
 
     from vaft.code.gpec import read_dcon_output

@@ -1,4 +1,4 @@
-"""Resistive Z_eff on synthetic states: #1214 validation Levels A-C, and the guards.
+"""Resistive Z_eff on synthetic states: validation Levels A-C, and the guards.
 
 The formula catalog tests never call a formula (they check docstrings), so
 every claim here is numeric: a known Z_eff is put in and must come back out
@@ -140,7 +140,7 @@ def test_a_bootstrap_current_lowers_the_resistive_voltage():
 
 
 def test_spitzer_nrl_is_the_parallel_coefficient():
-    """#1188: 1/eta_par with 5.2e-5, not the 1.98x larger perpendicular value."""
+    """1/eta_par with 5.2e-5, not the 1.98x larger perpendicular value."""
     state = _state(flat=True)
     sigma = parallel_conductivity(state, 1.0, model="spitzer_nrl", ln_lambda=10.0)
     assert sigma[0] == pytest.approx(100.0**1.5 / (5.2e-5 * 10.0), rel=1e-12)
@@ -327,7 +327,7 @@ def test_a_tabulated_conductivity_is_held_to_its_own_charge():
         model_resistance(state, 2.0, model=table, ln_lambda=15.0)
 
 
-# --- #1188: no hidden Spitzer inputs ----------------------------------------------------
+# --- no hidden Spitzer inputs ---------------------------------------------------------
 
 
 @pytest.mark.parametrize("kwargs, missing", [
@@ -336,7 +336,7 @@ def test_a_tabulated_conductivity_is_held_to_its_own_charge():
     ({"ln_Lambda": 17.0}, "Z_eff"),
 ])
 def test_omitting_the_spitzer_inputs_raises_and_names_them(kwargs, missing):
-    """#1188: the fallbacks Z_eff=2, ln_Lambda=17 warned from 0.7.0 and were removed in 0.9.0."""
+    """The fallbacks Z_eff=2, ln_Lambda=17 warned from 0.7.0 and were removed in 0.9.0."""
     from vaft.formula.equilibrium import spitzer_resistivity_from_T_e_Z_eff_ln_Lambda
 
     with pytest.raises(TypeError, match=rf"without {missing};.*#1188"):
@@ -391,7 +391,7 @@ def test_the_parameters_variant_raises_in_its_own_name():
                                    n_e=np.full(32, 1e19))
 
 
-# --- prescribed Z_eff profiles in the forward model (#1566) ----------------------------
+# --- prescribed Z_eff profiles in the forward model ---------------------------------
 
 
 @pytest.mark.parametrize("model", ["spitzer_nrl", "sauter_spitzer", "sauter", "redl"])

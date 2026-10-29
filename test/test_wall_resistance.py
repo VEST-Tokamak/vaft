@@ -1,4 +1,4 @@
-"""The passive wall's fitted band factors are a versioned calibration (#308).
+"""The passive wall's fitted band factors are a versioned calibration.
 
 The shipped static geometry carries fitted effective resistances on two of
 its eleven regions.  These tests pin that the separation into nominal
@@ -180,7 +180,7 @@ def test_a_foreign_passive_model_is_fingerprinted_unidentified_without_side_effe
 
 
 def test_resistivity_is_the_nominal_material_value_per_region(static_ods):
-    """#388: ``resistivity`` used to be a third, unexplained band vector. It is
+    """``resistivity`` used to be a third, unexplained band vector. It is
     now the material value the nominal hoop resistance is built from, so
     ``resistance == resistivity * 2*pi*R_mean/area * band_factor`` on every loop."""
     from vaft.machine_mapping.wall_resistance import NOMINAL_RESISTIVITY
@@ -206,14 +206,14 @@ def test_the_asset_names_its_calibration_vintage(static_ods):
 
 
 def test_an_older_product_with_the_inherited_resistivity_still_uses_the_constants():
-    """Products from before #388 carry the field with an inherited vector and no
+    """Older products carry the field with an inherited vector and no
     marker; without the marker the nominal resistance must ignore it, or the
     identity breaks.
 
     The packaged samples were such products until they were regenerated on the
-    #388 asset, so the older shape is rebuilt here from the current one: the
+    material-resistivity asset, so the older shape is rebuilt here from the current one: the
     marker removed and the resistivity replaced by a vector that is not the
-    material value (a constant 8x, the ratio the pre-#388 samples carried).
+    material value (a constant 8x, the ratio the older samples carried).
     """
     from vaft.machine_mapping.wall_resistance import RESISTIVITY_MARKER, _declares_nominal_resistivity
 

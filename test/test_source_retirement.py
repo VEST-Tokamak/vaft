@@ -1,4 +1,4 @@
-"""Retiring `chease-mhd-stability` without losing what only it holds (#94, step 9).
+"""Retiring `chease-mhd-stability` without losing what only it holds.
 
 The gate matters more than the migration here, because the migration is
 deliberately partial: the stability half of the combined source **cannot** be
@@ -304,7 +304,7 @@ def test_copying_a_refinement_verifies_the_destination_before_reporting_success(
 
 
 def test_the_copy_and_its_read_back_bypass_the_hsds_cache(monkeypatch):
-    """One-shot internal reads must not fill ~/.cache/vaft/hsds (#1758)."""
+    """One-shot internal reads must not fill ~/.cache/vaft/hsds."""
     from omas import ODS
 
     caches: list = []

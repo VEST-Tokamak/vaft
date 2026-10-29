@@ -1,4 +1,4 @@
-"""The VEST kinetic-profile policy lives in vest.yaml and nowhere else (issue #420).
+"""The VEST kinetic-profile policy lives in vest.yaml and nowhere else.
 
 Two halves.  The resolver: the ``core_profiles`` block resolves per shot with
 its provenance, every value carries a status, and a malformed block is
@@ -37,12 +37,12 @@ def test_policy_resolves_for_a_two_diagnostic_shot():
     assert isinstance(policy, CoreProfilesPolicy)
     assert policy.shot == 48224
     assert policy.coordinate == "rho_tor_norm"
-    # Ti = Te, assumed until enough CES/IDS shots exist to infer it (#1331).
+    # Ti = Te, assumed until enough CES/IDS shots exist to infer it.
     assert policy.ti_te_ratio == pytest.approx(1.0)
     assert policy.ti_te_ratio_sigma == pytest.approx(0.5)
     assert policy.ti_te_ratio_status == "assumed"
     assert policy.impurity_species == ("C", "O")
-    # derived from the impurity_model preset, C6+:O8+ = 1:1 at Z_eff = 2 (#1565)
+    # derived from the impurity_model preset, C6+:O8+ = 1:1 at Z_eff = 2
     assert policy.impurity_fractions == {"C": pytest.approx(1 / 86), "O": pytest.approx(1 / 86)}
     assert policy.impurity_status == {"C": "assumed", "O": "assumed"}
     assert policy.source == "vest.yaml:diagnostics.core_profiles"
@@ -129,7 +129,7 @@ def test_a_species_without_a_fraction_entry_is_refused(tmp_path):
         vest_core_profiles_policy(1, info_file=_yaml_with(tmp_path, **{"impurities.species": ["C", "O"]}))
 
 
-# --- the impurity_model preset (#1565) --------------------------------------------
+# --- the impurity_model preset -------------------------------------------------
 
 
 _MODEL = {

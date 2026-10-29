@@ -1,4 +1,4 @@
-"""Synthetic kinetic profiles from an equilibrium, fidelity Levels 0-3 (#122)."""
+"""Synthetic kinetic profiles from an equilibrium, fidelity Levels 0-3."""
 
 from __future__ import annotations
 
@@ -77,7 +77,7 @@ def _target(result, name):
 
 
 def _legacy_reference_te0(ods, Te0_eV, rho_fit):
-    """The pre-#122 core_profiles_from_eq algorithm, copied verbatim."""
+    """The original core_profiles_from_eq algorithm, copied verbatim."""
     rho_src = np.asarray(ods["equilibrium.time_slice.0.profiles_1d.rho_tor_norm"], dtype=float)
     p_src = np.asarray(ods["equilibrium.time_slice.0.profiles_1d.pressure"], dtype=float)
     order = np.argsort(rho_src)
@@ -106,7 +106,7 @@ def test_legacy_helpers_are_byte_identical_and_the_level0_kernel_reproduces_them
 
 
 def _proxy_equilibrium(eq_ods, *, with_q: bool):
-    """The g-file slice as a pre-#276 producer wrote it: sqrt(psi_N) under rho_tor_norm."""
+    """The g-file slice as an older producer wrote it: sqrt(psi_N) under rho_tor_norm."""
     ods = copy.deepcopy(eq_ods)
     ts = "equilibrium.time_slice.0.profiles_1d"
     psi = np.asarray(ods[f"{ts}.psi"], float)
@@ -121,9 +121,9 @@ def _proxy_equilibrium(eq_ods, *, with_q: bool):
 def test_the_builders_resolve_a_proxy_grid_the_way_core_profiles_does(eq_ods, builder):
     """A stored sqrt(psi_N) must not be interpolated and written as rho_tor_norm.
 
-    Both builders read `profiles_1d.rho_tor_norm` raw, so on a pre-#276 slice
+    Both builders read `profiles_1d.rho_tor_norm` raw, so on such a slice
     the pressure was sampled on the poloidal proxy and the result stored as a
-    toroidal coordinate with no flag (cold review 0.7.0 process F10, #1888).
+    toroidal coordinate with no flag.
     """
     from vaft.data._derived import is_rho_pol_proxy
     from vaft.process.profile import _rho_tor_from_equilibrium
@@ -280,7 +280,7 @@ def test_thermal_energy_is_a_partial_constraint_that_never_claims_local_consiste
     assert not result.pressure.locally_consistent and "NOT pressure-consistent" in result.message
 
 
-# --- Level 1: the #1045 presets -------------------------------------------------------
+# --- Level 1: the presets -----------------------------------------------------------
 
 
 @pytest.mark.parametrize("preset", [analytic_lmode_state, analytic_hmode_state, analytic_itb_state,

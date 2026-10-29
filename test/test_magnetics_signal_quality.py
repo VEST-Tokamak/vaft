@@ -1,4 +1,4 @@
-"""Magnetics signal-quality validation and its downstream consumers (issue #189).
+"""Magnetics signal-quality validation and its downstream consumers.
 
 Every synthetic case is built so the *right* answer is known by construction:
 a waveform is assembled from a clean signal plus one named defect, and the test
@@ -183,8 +183,8 @@ def test_baseline_drift_is_reported_as_a_metric_and_never_as_a_verdict():
     Drift is only diagnosable against a window where the signal *should* be
     flat, and VEST's magnetics record starts with the PF coils already ramping.
     A leading window that trends is therefore indistinguishable from the
-    machine doing its job, so the trend is reported -- #189 asks for baseline
-    drift as a metric -- and no event is raised on it.
+    machine doing its job, so the trend is reported as a baseline-drift
+    metric and no event is raised on it.
     """
     walking = _clean()
     walking += 400.0 * float(np.ptp(walking)) * (TIME - TIME[0])
@@ -562,7 +562,7 @@ def packaged():
 @pytest.fixture(scope="module")
 def packaged_as_run():
     """The verdict a routine re-assessment reaches: the detectors plus the
-    faults vest.yaml records for the pulse (C4-04 on every shot, #977)."""
+    faults vest.yaml records for the pulse (C4-04 on every shot)."""
     from vaft.omas.sample import sample_ods
 
     ods = sample_ods()
@@ -623,7 +623,7 @@ def test_the_population_margin_holds_on_the_packaged_shot(packaged):
     voters = [q for q in report if "amplitude_over_family_median" in q.metrics]
     healthy = [q.metrics["amplitude_over_family_median"] for q in voters if q.valid_fraction > 0.0]
     # The margin is the family review's own: C4-04 is condemned by its array
-    # (#977) at 0.85x its family median, which is exactly what this rule
+    # at 0.85x its family median, which is exactly what this rule
     # cannot see.
     condemned = [
         q.metrics["amplitude_over_family_median"] for q in voters if "population_outlier" in _reasons(q)
@@ -640,7 +640,7 @@ def test_the_packaged_shot_stops_measuring_at_0_34_seconds(packaged):
     that runs to 0.36 s.  `np.interp` clamps, so the last 500 samples of every
     B-probe and flux loop are a held value rather than a measurement -- which
     is exactly the "which time interval is valid for downstream use?" question
-    #189 exists to answer.
+    this validation exists to answer.
     """
     _ods_, report = packaged
     present = _measuring(report)
@@ -656,7 +656,7 @@ def test_the_quality_layer_removes_exactly_the_condemned_probe_from_efit(package
     """Every reconstructed slice of the packaged shot lies inside the measured
     span, so the held tail costs no constraint its weight.  What the quality
     layer does change is the probe the population contradicts, H3-08, and the
-    probe vest.yaml records as a fault, C4-04 (#977): EFIT submitted both at
+    probe vest.yaml records as a fault, C4-04: EFIT submitted both at
     every slice, both now lose their weight at every slice -- and nothing
     else does.
     """
@@ -678,15 +678,15 @@ def test_the_manifest_block_separates_present_usable_and_fully_usable(packaged):
     metrics = magnetics_quality_metrics(ods, report)
 
     summary = metrics["summary"]
-    # 64 poloidal probes + 11 flux loops: IMPA became its own stage (#305), the
-    # phase-reference entries were shot-gated (#857), and field 171 is no longer
-    # published a second time as a trailing twin (#825); was 87, then 76.
+    # 64 poloidal probes + 11 flux loops: IMPA is its own stage, the
+    # phase-reference entries are shot-gated, and field 171 is not
+    # published a second time as a trailing twin.
     assert summary["expected"] == 75
     assert summary["present"] == 74
     # Every present channel but one is usable over part of the record; none is
     # usable over all of it, because they all share the held tail.  The one is
     # the probe the population contradicts, condemned for the whole record,
-    # and the one its array contradicts (C4-04, #977).
+    # and the one its array contradicts (C4-04).
     assert summary["usable"] == 72
     assert summary["fully_usable"] == 0
     assert summary["events"]["held_tail"] == 74
@@ -732,7 +732,7 @@ def test_efit_only_asks_about_the_families_it_submits():
 def test_the_same_probe_is_rejected_on_the_other_packaged_shots(shot):
     """H3-08 is bad in all three packaged shots, at 21-69x the B-probe median;
     a few outboard probes join it on the higher-current shots, and the array
-    review (#977) adds the probes their arrays contradict -- 7 more on 41524,
+    review adds the probes their arrays contradict -- 7 more on 41524,
     11 on 41672, among them the lower inboard H3 set.  No flux loop is ever
     implicated."""
     import vaft
@@ -762,7 +762,7 @@ def test_a_held_tail_does_not_make_a_probe_broken_for_efit(packaged):
 
     ods, report = packaged
     project_validity(ods, report)
-    # H3-08 (25) by its family, C4-04 (45) by its array (#977); the held tail
+    # H3-08 (25) by its family, C4-04 (45) by its array; the held tail
     # condemns nothing.
     assert _condemned_channels(ods, nbprobe=76) == {25, 45}
     from vaft.validation.imas import is_condemned_channel
@@ -775,7 +775,7 @@ def test_a_held_tail_does_not_make_a_probe_broken_for_efit(packaged):
 
 
 def test_every_consumer_agrees_with_the_interpretation_layer(packaged):
-    """One rule, one answer (#424): the k-file writer, plot discovery and the
+    """One rule, one answer: the k-file writer, plot discovery and the
     drawn series must condemn exactly the channels the interpretation layer
     condemns, for every magnetics channel of the packaged shot."""
     from vaft.code.efit.kfile import _condemned_channels
@@ -823,7 +823,7 @@ def test_array_contradiction_scores_judge_interior_probes_against_their_neighbou
 
 
 # ---------------------------------------------------------------------------
-# Recorded hardware faults (issue #956)
+# Recorded hardware faults
 # ---------------------------------------------------------------------------
 
 def test_a_recorded_fault_condemns_a_channel_the_detectors_cannot_see():
@@ -874,7 +874,7 @@ def test_a_re_assessment_of_a_vest_product_keeps_its_recorded_fault():
     ods["dataset_description.data_entry.pulse"] = 34125
 
     # The record is the machine's, not this ODS's: C4-04 (45) is recorded on
-    # every shot (#977) whether or not a synthetic ODS carries that many probes.
+    # every shot whether or not a synthetic ODS carries that many probes.
     assert set(recorded_faults_for(ods)) == {("b_field_pol_probe", 35), ("b_field_pol_probe", 45)}
     assert validate_magnetics_signals(ods)[35].valid_fraction == 0.0
     assert validate_magnetics_signals(ods, known_faults={})[35].valid_fraction == 1.0
@@ -890,7 +890,7 @@ def test_an_ods_that_names_no_vest_pulse_has_no_recorded_faults():
 
 
 def test_probes_beyond_efits_geometry_are_not_counted_in_an_efit_family(monkeypatch):
-    """#1331: 447xx shots carry 30 outboard Mirnov coils after EFIT's probes; they
+    """Regression guard for #1331: 447xx shots carry 30 outboard Mirnov coils after EFIT's probes; they
     sat at outboard positions, so 44780's "outboard" family expected 52 channels."""
     import vaft.machine_mapping.magnetics as mapping
 
@@ -905,7 +905,7 @@ def test_probes_beyond_efits_geometry_are_not_counted_in_an_efit_family(monkeypa
 
 
 # ---------------------------------------------------------------------------
-# #2192: a raw DAQ record stuck at the rail
+# A raw DAQ record stuck at the rail
 # ---------------------------------------------------------------------------
 
 QUANTUM = 10.0 / 2**16  # one step of VEST's +/-5 V, 16-bit probe digitizer
@@ -1057,7 +1057,7 @@ def test_efit_drops_a_rail_stuck_probe_through_validity_alone():
 @pytest.mark.parametrize("shot", [40600, 41524, 41672, 42962, 45531])
 def test_on_the_packaged_shots_only_c4_04_sits_at_the_rail(shot):
     """Real raw records: on these packaged shots the one rail-stuck probe is
-    C4-04 (on 39915 it is not at the rail), already condemned (#977, its
+    C4-04 (on 39915 it is not at the rail), already condemned (its
     recorded fault), so no channel's validity changes.  Metrics do: C4-04 no
     longer votes in the family and array reviews, which moves the other
     probes' family ratios by up to ~12 % and their array fractions by <0.02."""

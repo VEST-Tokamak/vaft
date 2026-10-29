@@ -1,9 +1,9 @@
-"""Modelling Z_eff as a real impurity, on both sides of the comparison (#803).
+"""Modelling Z_eff as a real impurity, on both sides of the comparison.
 
 NEO builds its collision operator from the species list and ignores `input.gacode`'s
 `z_eff` column, so a file declaring `z_eff = 2` beside one hydrogenic ion describes a
-plasma at `Z_eff = 1` to the solver that reads it. Every comparison in #747 and #776
-was made that way: analytic models at 2, NEO at 1.
+plasma at `Z_eff = 1` to the solver that reads it. The earlier Sauter/Redl-vs-NEO
+comparisons were made that way: analytic models at 2, NEO at 1.
 
 The fix is not to stop writing the column but to make the species list realize it --
 `impurity="C"` gives the main ion and a carbon impurity the densities that satisfy
@@ -113,7 +113,7 @@ def test_the_species_list_realizes_the_requested_charge(state):
 
 @requires_sample
 def test_without_an_impurity_the_column_and_the_species_disagree(state):
-    """The defect #803 is about, kept as a test so it cannot come back unnoticed."""
+    """Regression guard for #803: the z_eff column and the species list disagree."""
     from vaft.code.gacode.inputs import prepare_gacode_profile
 
     profile = prepare_gacode_profile(state, rho_max=0.95, z_eff=2.0)
@@ -197,7 +197,7 @@ def test_the_provider_dilutes_the_ion_channel_by_the_impurity(state):
 
 @requires_sample
 def test_omitting_the_impurity_leaves_the_old_answer_untouched(state):
-    """Every result published before #803 must be reproducible bit for bit."""
+    """Every result published before the impurity option must be reproducible bit for bit."""
     from vaft.omas.neoclassical import compute_bootstrap_current
 
     without = compute_bootstrap_current(state, model="redl", z_eff=2.0, rho_range=(0.05, 1.0))
@@ -234,7 +234,7 @@ def test_a_measured_zeff_that_contradicts_the_impurity_is_refused(state):
 
     A state carrying a measured zeff and a caller naming an impurity at a different
     charge would write a column NEO ignores beside a species list it obeys -- the
-    original #803 failure, in the other direction. The packaged sample has no zeff,
+    original column/species mismatch, in the other direction. The packaged sample has no zeff,
     which is exactly why this needs a synthesized one.
     """
     from vaft.code.gacode.inputs import prepare_gacode_profile
@@ -280,7 +280,7 @@ def test_the_guard_catches_a_forgotten_impurity_not_only_a_wrong_charge(state):
     """Same Z_eff, different plasma: a charge-only check passes this one.
 
     The analytic side with no impurity has n_i = n_e whatever its Z_eff says, so
-    comparing it against a carbon run is the other half of the #803 mismatch.
+    comparing it against a carbon run is the other half of the column/species mismatch.
     """
     from vaft.validation.neoclassical import bootstrap_models
 
@@ -317,7 +317,7 @@ def test_the_conductivity_records_that_the_impurity_did_not_enter_it(state):
 
 @requires_sample
 def test_which_model_looks_closer_is_decided_by_the_impurity_assumption(state):
-    """The finding of #803, pinned as a number rather than left as prose.
+    """The impurity finding, pinned as a number rather than left as prose.
 
     At the charge each NEO run actually used, the ordering reverses: Redl is closer
     on the pure-hydrogen run and Sauter on the carbon one. That spread is larger than

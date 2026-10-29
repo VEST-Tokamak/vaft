@@ -1,4 +1,4 @@
-"""Selection decides which channels; validity decides how their flags are drawn (issue #1380, phase 3).
+"""Selection decides which channels; validity decides how their flags are drawn.
 
 The signal presets (``active``, ``valid``) used to drop a condemned channel
 before the renderer saw it, so ``validity="show"`` could never show it.  A
@@ -149,7 +149,7 @@ def test_without_validity_a_per_sample_flag_does_not_demote_a_profile_point():
 
     The contract of this module is that without ``validity=`` nothing changes
     from 0.7.1, which drew a channel profile without a per-point mask.  The
-    #1380 phase-3 builder attached the per-sample flag unconditionally, so a
+    per-sample builder attached the per-sample flag unconditionally, so a
     code-0 channel whose ``validity_timed`` is negative at the shown sample
     was drawn demoted by default.  A stated ``validity=`` owns the flags: it
     carries them (``show``), removes them (``mask``), or ignores them.

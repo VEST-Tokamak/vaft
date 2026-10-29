@@ -1,4 +1,4 @@
-"""Memory admission and the resident-size limit of LocalBackend (#1460).
+"""Memory admission and the resident-size limit of LocalBackend.
 
 Real child processes only. The memory-stop cases allocate a few hundred MiB
 and set a limit far below that, so they do not depend on the host's memory.
@@ -185,7 +185,7 @@ def test_a_reservation_larger_than_the_host_is_refused_at_once(tmp_path):
 
 
 def test_admission_is_measured_against_the_process_budget_not_only_the_host(tmp_path):
-    """A cgroup/Slurm/env limit (memory_budget, #1433) caps the ledger's room too.
+    """A cgroup/Slurm/env limit (memory_budget) caps the ledger's room too.
 
     The host reports 10 GB free, the budget allows 1000 MiB; the launched
     tree lands in the same cgroup as its launcher, so the budget is what

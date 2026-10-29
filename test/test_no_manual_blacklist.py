@@ -1,4 +1,4 @@
-"""The routine pipeline depends on no hard-coded flux-loop blacklist (issue #295 §4).
+"""The routine pipeline depends on no hard-coded flux-loop blacklist.
 
 Channel selection is the diagnostics-stage assessment's verdict alone.  The
 list that used to exclude six flux loops on every shot is retired; it

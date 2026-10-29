@@ -1,4 +1,4 @@
-"""Coordinate, gradient coordinate, reference length and convention kept apart (#551).
+"""Coordinate, gradient coordinate, reference length and convention kept apart.
 
 The analytic reference is a family of nested, Shafranov-shifted circles: the
 surface of minor radius ``r`` is centred at ``R0 + D0 (1 - r^2/a^2)`` and

@@ -1,9 +1,9 @@
-"""Species projections of a resolved transport state (#1567 Phase C).
+"""Species projections of a resolved transport state.
 
 One C/O state -- the packaged 48224 state with its C6+ closure split into C6+ and
 O8+ at the same charge density -- is projected for resistive, TGLF (explicit and
-effective impurity) and NEO physics (#1567 Case E): one upstream identity, distinct
-projection identities, and the policy of #1709 enforced at readiness.
+effective impurity) and NEO physics: one upstream identity, distinct
+projection identities, and the projection policy enforced at readiness.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Canonical post-generation validation plots for the FileDB pipeline (issue #139)."""
+"""Canonical post-generation validation plots for the FileDB pipeline."""
 
 from __future__ import annotations
 
@@ -91,7 +91,7 @@ def test_filenames_are_unique_and_deterministic_within_a_stage():
         assert all(name.endswith(".png") for name in names), stage
         required = stage_plot_filenames(stage, required_only=True)
         # The corrective (Thomson lineage) stages are optional by design: most shots
-        # have no Thomson upload and record `unavailable` (production_qa, #1842).
+        # have no Thomson upload and record `unavailable` (production_qa).
         assert required or stage in CORRECTIVE_LINEAGE, f"{stage} declares no required validation plot"
         assert list(required) == [name for name in names if name in set(required)]
 
@@ -473,7 +473,7 @@ def _stage_plots_module():
 
 
 def test_a_companion_the_composer_cannot_express_is_refused_by_name(monkeypatch):
-    """The registry is generic; the composition behind it is not (#813).
+    """The registry is generic; the composition behind it is not.
 
     `compose_stage_products` composes a diagnostics product with an eddy one
     specifically, because that pairing is the one with a physical invariant to
@@ -552,7 +552,7 @@ def _run_eddy(tmp_path, shot, diagnostics, static):
 
 
 def test_an_unrecorded_pf_circuit_is_an_eddy_result_and_its_plots_are_empty(tmp_path):
-    """#1568 end to end: generate_eddy_ods exits 0 with no_output; the plot rule writes `empty`."""
+    """An unrecorded PF circuit end to end: generate_eddy_ods exits 0 with no_output; the plot rule writes `empty`."""
     shot, diagnostics, static = _eddy_inputs(tmp_path, nan_coil=4)
 
     result = _run_eddy(tmp_path, shot, diagnostics, static)

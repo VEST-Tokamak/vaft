@@ -1,4 +1,4 @@
-"""A local launch stops the whole process tree, not just its direct child (#1016).
+"""A local launch stops the whole process tree, not just its direct child.
 
 Real programs: a Python (or ``sh``) parent that starts a sleeping grandchild
 and writes the grandchild's pid to a file. Every test asserts that grandchild

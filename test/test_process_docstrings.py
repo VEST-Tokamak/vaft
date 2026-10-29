@@ -1,4 +1,4 @@
-"""Every public processing function documents itself under the issue #252 contract.
+"""Every public processing function documents itself under the process docstring contract.
 
 The contract is parsed by :mod:`vaft.process._docstring` and its structural
 half -- parameters match the signature and carry units, there is a Returns
@@ -10,8 +10,8 @@ Provenance because they are pure numerics, which are multi-stage and must
 list their Processing steps, which change the processing state and must say
 so, and which are convention-sensitive.
 
-``PENDING`` names the submodules not yet brought under the contract.  Each
-of #418-#421 removes its modules from it, and a test below refuses to let a
+``PENDING`` names the submodules not yet brought under the contract.  A
+submodule is removed from it when it conforms, and a test below refuses to let a
 module leave early or stay once it conforms, so the split is enforceable
 rather than aspirational.
 """
@@ -30,14 +30,8 @@ from vaft.process._docstring import (
 )
 
 #: Submodules whose functions are not yet documented under the contract.
-#: Sub-issue B (#418): magnetics, electromagnetics, fluctuation -- done.
 #: Every submodule is now under the contract, so PENDING is empty and the
 #: gate below holds it that way: a module that stops conforming fails.
-#: Sub-issue C (#419): equilibrium and cocos -- done.
-#: Sub-issue D (#420): profile, atomic -- done.
-#: Sub-issue E (#421): impa, soft_x_rays, langmuir, camera_geometry -- done.
-#: Sub-issue F (#571) removed ``onset`` and ``wall_modes``, which landed
-#: after #252 was scoped -- done.
 PENDING: frozenset[str] = frozenset()
 
 #: Pure numerics and bookkeeping: no source adds anything.
@@ -60,7 +54,7 @@ DEFINITIONAL = frozenset({
     "time_derivative",
     # Containment in the LCFS outline, or the flux threshold where there is none.
     "plasma_cell_weights",
-    # #1087: one harmonic's sector currents, the inverse of toroidal_mode_decomposition
+    # one harmonic's sector currents, the inverse of toroidal_mode_decomposition
     "phased_sector_currents",
     "filter_dataframe",
     "log_transform",
@@ -70,20 +64,20 @@ DEFINITIONAL = frozenset({
     "get_correlation_matrix",
     "get_individual_correlations",
     "confinement_time_histogram",
-    # profile / atomic (#420): pure numerics, bookkeeping, or synthetic constructions;
+    # profile / atomic: pure numerics, bookkeeping, or synthetic constructions;
     # the mappers are a definition (normalize psi, derive rho_tor from q), not a ported method
     "equilibrium_mapping_thomson_scattering",
     "equilibrium_mapping_charge_exchange",
     "export_electron_profile_txt",
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
-    # transport_state (#1428): readiness, identity and config bookkeeping; the
+    # transport_state: readiness, identity and config bookkeeping; the
     # physics they gate lives in the GACODE adapters they call.
     "assess_tglf_readiness",
     "assess_neo_readiness",
     "run_identity",
     "physics_parameters",
-    # transport_state (#1567 Phase C): the resolved profile's species list read as a
+    # transport_state: the resolved profile's species list read as a
     # canonical state -- a representation change, no physics of its own.
     "transport_species_state",
     # Signed sums and magnitude shares of fluxes the models already computed.
@@ -93,10 +87,10 @@ DEFINITIONAL = frozenset({
     # Deleting a sum-over-species leaf from a slice that has no ion species is
     # what the leaf means, not a method borrowed from anywhere.
     "strip_electron_only_pressure",
-    # impurity (#1565): constructors and the provenance-record grammar --
+    # impurity: constructors and the provenance-record grammar --
     # validation and bookkeeping; the algebra they feed is vaft.formula.impurity.
     "composition_from_fractions",
-    # mhd_stability (#940): sign intervals of a sampled profile -- pure numerics.
+    # mhd_stability: sign intervals of a sampled profile -- pure numerics.
     "criterion_intervals",
     "composition_from_model",
     "composition_record_origin",
@@ -105,9 +99,9 @@ DEFINITIONAL = frozenset({
     "find_time_match_index",
     "normalize_atomic_symbol",
     "integrate_emissivity_profile",
-    # line_of_sight (#886): a sparse matrix product
+    # line_of_sight: a sparse matrix product
     "project_emissivity",
-    # ml (#669): dataset assembly, hashing, metrics, a quantile and dispatch -- bookkeeping
+    # ml: dataset assembly, hashing, metrics, a quantile and dispatch -- bookkeeping
     "build_dataset",
     "calibrate_threshold",
     "dataset_fingerprint",
@@ -120,11 +114,11 @@ DEFINITIONAL = frozenset({
     "register_augmentation",
     "register_loss",
     "save_dataset",
-    # q_profile_context (#1798): connected |s| < threshold intervals -- pure geometry.
+    # q_profile_context: connected |s| < threshold intervals -- pure geometry.
     "low_shear_regions",
-    # mhd_stability (#1852): reading the atlas tables -- bookkeeping.
+    # mhd_stability: reading the atlas tables -- bookkeeping.
     "load_stability_atlas",
-    # ntv_coil_response (#1887): phasors and the probe set -- pure bookkeeping.
+    # ntv_coil_response: phasors and the probe set -- pure bookkeeping.
     "coil_phasors",
     "quadratic_probe_design",
     "quadratic_torque",
@@ -132,22 +126,22 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
-    # gyrokinetics (#1820): peaks -> periods -> peak lag -> correlation lag -> verdict;
+    # gyrokinetics: peaks -> periods -> peak lag -> correlation lag -> verdict;
     # initial guess -> integrate -> log residual -> least squares
     "predator_prey_cycle_metrics",
     "fit_predator_prey_model",
-    # ordering_state (#1627 §2): inputs -> v_A, eta -> ratios; gradients -> gyroradii,
+    # ordering_state: inputs -> v_A, eta -> ratios; gradients -> gyroradii,
     # collision times -> Knudsen, magnetization, collisionality; columns -> rows
     "global_ordering_quantities",
     "time_history_ordering_quantities",
     "profile_ordering_quantities",
     "ordering_table",
     "ordering_margins",
-    # #1823 follow-up: equilibrium slice by time -> core_profiles by time -> means -> builders
+    # equilibrium slice by time -> core_profiles by time -> means -> builders
     "ordering_inputs_from_ods",
-    # mode_frequency (#460): resolve q = m/n -> rotation at the root -> bracket in time
+    # mode_frequency: resolve q = m/n -> rotation at the root -> bracket in time
     "mode_frequency_tracks",
-    # ntv_coil_response (#1887): probes -> Q; expected -> tolerance -> per-kind check;
+    # ntv_coil_response: probes -> Q; expected -> tolerance -> per-kind check;
     # drop failed -> compare -> status; generalized eigen -> scale; grid -> polish
     "ntv_operating_space",
     "hermitian_torque_matrix",
@@ -157,15 +151,15 @@ PIPELINE = frozenset({
     "two_group_phase_extrema",
     "budgeted_torque_extrema",
     "fixed_amplitude_phase_extrema",
-    # coil_operating_space (#1178): ratio against group 0 -> wrapped phase, NaN at A = 0
+    # coil_operating_space: ratio against group 0 -> wrapped phase, NaN at A = 0
     "relative_coil_coordinates",
-    # resonant_coil_response (#1884): set aside failed -> compare -> status; stack ->
+    # resonant_coil_response: set aside failed -> compare -> status; stack ->
     # lstsq -> SVD; eigvec at mu -> bisect; reduce per window -> model rows
     "qualify_response_operator",
     "match_resonant_target",
     "constrained_window_extremum",
     "resonant_operating_space",
-    # local_mhd_criteria (#1902): trace -> averages -> derivatives -> indices;
+    # local_mhd_criteria: trace -> averages -> derivatives -> indices;
     # read and convert the slice; interpolate -> differences -> implied H
     "mercier_ggj_profile",
     "mercier_ggj_from_ods",
@@ -174,7 +168,7 @@ PIPELINE = frozenset({
     "curvature_map",
     "s_alpha_profile",
     "s_alpha_from_ods",
-    # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
+    # resistive_zeff: smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
     "observed_resistance",
@@ -182,34 +176,34 @@ PIPELINE = frozenset({
     "infer_resistive_zeff",
     "per_slice_resistive_zeff",
     "resistive_zeff_sensitivity",
-    # transport_state (#1428): times -> Ti hierarchy -> geometry -> composition/convert
+    # transport_state: times -> Ti hierarchy -> geometry -> composition/convert
     "resolve_transport_state",
-    # transport_state (#1567 Phase C): canonical species -> projection -> projected profile
+    # transport_state: canonical species -> projection -> projected profile
     "project_transport_state",
-    # impurity (#1565): match time -> choose by precedence -> close at Z_eff -> reduce
+    # impurity: match time -> choose by precedence -> close at Z_eff -> reduce
     "resolve_impurity_composition",
-    # impurity (#1565 Sec. 8): ADF11 states -> moments -> S1/S2 -> one scale -> check
+    # impurity: ADF11 states -> moments -> S1/S2 -> one scale -> check
     "resolve_radial_composition",
     "populate_radial_impurity_profiles",
     # impurity (Lane L PR 5): main ion -> lumped charge at the surface -> densities
     "surface_composition_profile",
-    # species (#1567): match -> nuclide/charge/population per ion -> state
+    # species: match -> nuclide/charge/population per ion -> state
     "species_state_from_core_profiles",
     "project_species_state",
-    # kinetic_closure (#1606): v_c -> tau_s -> n_f, W_f -> p_f; slice -> composition -> pressures
+    # kinetic_closure: v_c -> tau_s -> n_f, W_f -> p_f; slice -> composition -> pressures
     "fast_ion_slowing_down_estimate",
     "infer_kinetic_closure",
-    # zeff_projection (#1566): R_p of the profile -> root / Lane Z's window objective
+    # zeff_projection: R_p of the profile -> root / Lane Z's window objective
     "project_zeff_profile_to_resistive_scalar",
     "project_window_to_resistive_scalar",
-    # impurity (#1565): match -> keep main ion -> dilute -> write species -> zeff
+    # impurity: match -> keep main ion -> dilute -> write species -> zeff
     "populate_impurity_profiles",
-    # profile_gradient (#551): slice -> coordinates -> differentiate -> chain rule -> scale -> place
+    # profile_gradient: slice -> coordinates -> differentiate -> chain rule -> scale -> place
     "radial_coordinate_map",
     "profile_gradient",
-    # nbi (#1136): optical depth -> survival and birth -> shine-through -> power bookkeeping
+    # nbi: optical depth -> survival and birth -> shine-through -> power bookkeeping
     "neutral_beam_attenuation_along_path",
-    # equilibrium / magnetic_island / line_of_sight / soft_x_rays (#886):
+    # equilibrium / magnetic_island / line_of_sight / soft_x_rays:
     # map -> island -> emissivity -> chord integral
     "straight_field_line_map",
     "magnetic_island_topology",
@@ -217,9 +211,9 @@ PIPELINE = frozenset({
     "synthetic_island_soft_x_rays",
     # profile (V4/D-05): window, fit, accept-or-fall-back
     "pedestal_top",
-    # profile (#122): grid -> shapes -> normalization -> closure -> residuals
+    # profile: grid -> shapes -> normalization -> closure -> residuals
     "generate_synthetic_kinetic_profiles",
-    # magnetics / electromagnetics / fluctuation (#418)
+    # magnetics / electromagnetics / fluctuation
     "analyze_fluctuation_spectrum",
     "b_field_pol_probe_field",
     "flux_loop_flux",
@@ -230,18 +224,18 @@ PIPELINE = frozenset({
     "vest_equilibrium_magnetics_detailed",
     "vest_flux_loop_flux_from_voltage",
     "vest_flux_loop_legacy",
-    # impa (#421)
+    # impa
     "find_tf_calibration_window",
     "fit_impa_geometry",
     "impa_calibrate_signals",
     "legacy_impa_compensation",
     "legacy_impa_position",
     "process_impa",
-    # soft_x_rays / langmuir (#421)
+    # soft_x_rays / langmuir
     "process_triple_probe",
     "sxr_band_signals",
     "sxr_electron_temperature",
-    # equilibrium (#419)
+    # equilibrium
     "calculate_q_profile_from_psi",
     "calculate_reconstructed_diamagnetic_flux",
     "convert_cocos",
@@ -266,11 +260,11 @@ PIPELINE = frozenset({
     "romero_flux_balance",
     "integrate_romero_closure",
     "trace_field_line",
-    # cocos (#419)
+    # cocos
     "identify_flux_exponent",
     "identify_convention",
     "cocos_consistency_signs",
-    # onset / wall_modes (#571)
+    # onset / wall_modes
     "active_window",
     "allocate_per_segment",
     "build_wall_mode_basis",
@@ -291,7 +285,7 @@ PIPELINE = frozenset({
     "generate_core_profiles_history_dataframe",
     "perform_ols_regression",
     "compute_metrics",
-    # profile / atomic (#420)
+    # profile / atomic
     "fit_ti_te_ratio",
     "equilibrium_mapping_thomson_scattering",
     "equilibrium_mapping_charge_exchange",
@@ -303,7 +297,7 @@ PIPELINE = frozenset({
     "integrate_emissivity_profile",
     "compute_line_radiation_power_series",
 
-    # fluctuation / transients (#1005): common grid then Welch; floor, runs, path;
+    # fluctuation / transients: common grid then Welch; floor, runs, path;
     # crossings then rate; trend, window, noise, threshold
     "cross_spectrum",
     "cross_spectrogram",
@@ -312,23 +306,23 @@ PIPELINE = frozenset({
     "track_dominant_frequency",
     "current_quench",
     "current_spike",
-    # camera_fluctuation (#161)
+    # camera_fluctuation
     "mhd_band_power",
     "normalize_by_local_emission",
     "pixelwise_spectrogram",
     "subtract_temporal_background",
-    # ml (#669): the order decides leakage (split before window) and trust (hash before load)
+    # ml: the order decides leakage (split before window) and trust (hash before load)
     "fetch_model",
     "resolve_model",
     "save_model_bundle",
     "split_groups",
     "train_model",
     "window_dataset",
-    # q_profile_context (#1798): |q| -> radius and shear -> landmarks and shape ->
+    # q_profile_context: |q| -> radius and shear -> landmarks and shape ->
     # rational crossings and pairs -> low-shear regions -> enclosed pressure
     "core_q_context_from_profiles",
     "core_q_context",
-    # mhd_stability (#1852): ideal W_t -> per-slice Delta'_max -> local criteria -> counts
+    # mhd_stability: ideal W_t -> per-slice Delta'_max -> local criteria -> counts
     "stability_atlas_populations",
 })
 
@@ -338,11 +332,11 @@ PIPELINE = frozenset({
 #: reconstructions.
 STATEFUL = frozenset({
     "s_alpha_from_ods",
-    # local_mhd_criteria (#1902): ODS equilibrium in, raw indices out (no QA cut)
+    # local_mhd_criteria: ODS equilibrium in, raw indices out (no QA cut)
     "mercier_ggj_from_ods",
-    # soft_x_rays (#886): prescribed island -> synthetic chord signal
+    # soft_x_rays: prescribed island -> synthetic chord signal
     "synthetic_island_soft_x_rays",
-    # wall_modes (#571): element space <-> mode space
+    # wall_modes: element space <-> mode space
     "combined_operators",
     "project",
     "reconstruct",
@@ -350,7 +344,7 @@ STATEFUL = frozenset({
     "reduced_operators",
     "solve_reduced_eddy",
     "repair_clipped_interval",
-    # profile / atomic (#420): measured -> mapped -> fitted -> stored; reconstructed -> synthetic
+    # profile / atomic: measured -> mapped -> fitted -> stored; reconstructed -> synthetic
     "equilibrium_mapping_thomson_scattering",
     "equilibrium_mapping_charge_exchange",
     "profile_fitting_thomson_scattering",
@@ -359,54 +353,54 @@ STATEFUL = frozenset({
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
     "compute_line_radiation_power_series",
-    # profile (#122): equilibrium + assumptions -> synthetic; synthetic -> stored slice
+    # profile: equilibrium + assumptions -> synthetic; synthetic -> stored slice
     "generate_synthetic_kinetic_profiles",
     "write_synthetic_core_profiles",
 
-    # camera_fluctuation (#161): power and frames arrive on different time bases
+    # camera_fluctuation: power and frames arrive on different time bases
     "normalize_by_local_emission",
-    # ml (#669): record-level samples -> windows
+    # ml: record-level samples -> windows
     "window_dataset",
-    # impurity (#1565): an electron-only or H+ slice -> an explicit, labelled species list
+    # impurity: an electron-only or H+ slice -> an explicit, labelled species list
     "populate_impurity_profiles",
     "populate_radial_impurity_profiles",
     "surface_composition_profile",
-    # species (#1567): a core_profiles slice -> canonical components
+    # species: a core_profiles slice -> canonical components
     "species_state_from_core_profiles",
-    # kinetic_closure (#1606): a fitted slice -> derived kinetic densities and pressures
+    # kinetic_closure: a fitted slice -> derived kinetic densities and pressures
     "infer_kinetic_closure",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
-    # signal_processing (#2135): zero-phase, so no filtered waveform lags another
+    # signal_processing: zero-phase, so no filtered waveform lags another
     "apply_fir_filter",
-    # gyrokinetics (#1820): |phi|^2 is a proxy, ky = 0 is zonal, positive lag = zonal
+    # gyrokinetics: |phi|^2 is a proxy, ky = 0 is zonal, positive lag = zonal
     # after turbulence, c1/c2 carry the intensity normalisation
     "zonal_turbulence_intensity",
     "zonal_shear_proxy",
     "predator_prey_cycle_metrics",
     "fit_predator_prey_model",
-    # #1627 §2: S and tau ratios on a, n_i = n_e, v_t = sqrt(T/m), L_T on r in metres
+    # S and tau ratios on a, n_i = n_e, v_t = sqrt(T/m), L_T on r in metres
     "global_ordering_quantities",
     "time_history_ordering_quantities",
     "profile_ordering_quantities",
-    # #1823 follow-up: vacuum b0 r0/R0, r = rho_tor_norm a, cross-section means, beta_tor fraction
+    # vacuum b0 r0/R0, r = rho_tor_norm a, cross-section means, beta_tor fraction
     "ordering_inputs_from_ods",
     "trace_guiding_center", "particle_to_guiding_center", "analyze_particle_orbit",
     "mirror_particle_field", "toroidal_particle_field",
-    # #1608: COCOS source profiles versus full-weber Green response orientation.
+    # COCOS source profiles versus full-weber Green response orientation.
     "fit_free_boundary_coils",
-    # resistive_zeff (#1214): Romero's full-Wb V = -dpsi/dt, not Ejima's (#354);
+    # resistive_zeff: Romero's full-Wb V = -dpsi/dt, not Ejima's;
     # the parallel (not perpendicular) Spitzer coefficient; <J.B>, not j_tor
     "observed_resistance",
     "parallel_conductivity",
     "model_resistance",
-    # transport_state (#1435): a positive flux runs down the gradient, as the TGLF/NEO mappers
+    # transport_state: a positive flux runs down the gradient, as the TGLF/NEO mappers
     "classical_heat_fluxes",
-    # transport_state (#1426): a run surface's input must not depend on the gap fill
+    # transport_state: a run surface's input must not depend on the gap fill
     "inferred_ti_supported",
-    # profile_gradient (#551): midplane r_minor (not the contour half-width), the
+    # profile_gradient: midplane r_minor (not the contour half-width), the
     # reference length's definition, and each code's gradient normalization
     "radial_coordinate_map",
     "radial_coordinate_map_from_arrays",
@@ -419,7 +413,7 @@ CONVENTION_SENSITIVE = frozenset({
     "shielded_field",
     "lab_to_straight_field_line",
     "straight_field_line_tables",
-    # #886: the PEST angle's origin and direction, the island's width and
+    # the PEST angle's origin and direction, the island's width and
     # helicity, |q| resonance, the chord grid's cell convention
     "straight_field_line_angle_on_grid",
     "straight_field_line_map",
@@ -427,12 +421,12 @@ CONVENTION_SENSITIVE = frozenset({
     "pest_angle_from_jacobian_angle",
     "equilibrium_safety_factor",
     "resolve_rational_surface",
-    # #506: |q| = |m/n| resonance; rho_tor_norm never rebuilt from psi_norm
+    # |q| = |m/n| resonance; rho_tor_norm never rebuilt from psi_norm
     "rational_surfaces",
-    # #460: |q| = |m/n|, f_pred keeps the sign of n and of the stored rotation,
+    # |q| = |m/n|, f_pred keeps the sign of n and of the stored rotation,
     # a velocity divided by R_out of the surface (never R_axis)
     "mode_frequency_tracks",
-    # #1887: c_k = A_k exp(+i phi_k) and T = c^H Q c fix the sign of every Im Q_ij;
+    # c_k = A_k exp(+i phi_k) and T = c^H Q c fix the sign of every Im Q_ij;
     # torques stay signed
     "coil_phasors",
     "quadratic_probe_design",
@@ -445,16 +439,16 @@ CONVENTION_SENSITIVE = frozenset({
     "two_group_phase_extrema",
     "budgeted_torque_extrema",
     "fixed_amplitude_phase_extrema",
-    # #1178: I_k = A cos(n phi_k + delta), relative phase of group g minus group 0
+    # I_k = A cos(n phi_k + delta), relative phase of group g minus group 0
     "relative_coil_coordinates",
-    # #1884: Phi = H conj(c) (GPEC's exp(-i n phi) coefficient); Q = conj(H^H W H)
+    # Phi = H conj(c) (GPEC's exp(-i n phi) coefficient); Q = conj(H^H W H)
     "resonant_response_operator",
     "qualify_response_operator",
     "window_weights",
     "match_resonant_target",
     "constrained_window_extremum",
     "resonant_operating_space",
-    # #1902: DCON's sign (D_I < 0 stable), chi increasing outward, |F|, |q|
+    # DCON's sign (D_I < 0 stable), chi increasing outward, |F|, |q|
     "mercier_ggj_profile",
     "mercier_ggj_from_ods",
     "interchange_comparison",
@@ -489,7 +483,7 @@ CONVENTION_SENSITIVE = frozenset({
     "resonant_metrics",
     "resonant_windows",
     "rms_resonant_field",
-    # field_line_topology (#1099): the node order a FLARE mesh lays its values
+    # field_line_topology: the node order a FLARE mesh lays its values
     # out in, the direction normalized flux increases, the angle alphaS is
     # measured from, and that the proxy is a density whose measure -- never
     # whose factor -- is the cell area.
@@ -508,7 +502,7 @@ CONVENTION_SENSITIVE = frozenset({
     # profile (V4/D-05): the position is in the declared radial coordinate
     # and is never converted
     "pedestal_top",
-    # profile (#1045): analytic plasma states are defined in psi_norm with
+    # profile: analytic plasma states are defined in psi_norm with
     # full-width barriers, and the projection relies on the COCOS-free ratio
     "analytic_hmode_itb_state",
     "analytic_hmode_state",
@@ -520,14 +514,14 @@ CONVENTION_SENSITIVE = frozenset({
     "evaluate_plasma_state",
     "project_flux_function",
     "project_plasma_state",
-    # profile (#122): psi_norm of the source equilibrium, rho_tor from q, psi in
+    # profile: psi_norm of the source equilibrium, rho_tor from q, psi in
     # Wb / COCOS 11 only when the convention fixes it, the declared average chord
     "generate_synthetic_kinetic_profiles",
     "spec_from_plasma_state",
     "write_synthetic_core_profiles",
-    # magnetics / electromagnetics / fluctuation (#418): integration sign,
+    # magnetics / electromagnetics / fluctuation: integration sign,
     # shot-era baselines, per-unit-current responses, and the toroidal mode-number
-    # entry points harmonized under standard right-handed coordinates (#638)
+    # entry points harmonized under standard right-handed coordinates
     "analyze_fluctuation_spectrum",
     "b_field_pol_probe_field",
     "calc_grid",
@@ -559,7 +553,7 @@ CONVENTION_SENSITIVE = frozenset({
     "vest_flux_loop_voltage",
     "vest_magnetics_time_window",
     "wall_propagator",
-    # impa (#421): calibration polarity, the geometry/coupling degeneracy,
+    # impa: calibration polarity, the geometry/coupling degeneracy,
     # filter phase, and the volts-not-tesla crosstalk slope
     "find_tf_calibration_window",
     "fit_impa_crosstalk",
@@ -573,7 +567,7 @@ CONVENTION_SENSITIVE = frozenset({
     "remove_bz_crosstalk",
     "remove_tf_pickup",
     "toroidal_field",
-    # soft_x_rays / langmuir / camera_geometry (#421): filter phase, pixel and
+    # soft_x_rays / langmuir / camera_geometry: filter phase, pixel and
     # world-frame order, probe geometry, and the mode-number degeneracy
     "electron_density",
     "hilbert_instantaneous_phase",
@@ -595,7 +589,7 @@ CONVENTION_SENSITIVE = frozenset({
     "sxr_te_pairs_from_ods",
     "toroidal_ring",
     "trajectory_world_points",
-    # equilibrium (#419): every function states a flux unit, a COCOS, a radial
+    # equilibrium: every function states a flux unit, a COCOS, a radial
     # coordinate or a contour orientation; the module is convention work
     "as_equilibrium",
     "calculate_average_boundary_poloidal_field",
@@ -665,11 +659,11 @@ CONVENTION_SENSITIVE = frozenset({
     "trace_field_line",
     "volume_average",
     "plasma_cell_weights",
-    # cocos (#419): the module exists to reason about conventions
+    # cocos: the module exists to reason about conventions
     "cocos_consistency_signs",
     "identify_flux_exponent",
     "identify_convention",
-    # onset / wall_modes (#571)
+    # onset / wall_modes
     "active_window",
     "allocate_per_segment",
     "build_wall_mode_basis",
@@ -713,7 +707,7 @@ CONVENTION_SENSITIVE = frozenset({
     "log_transform",
     "perform_ols_regression",
     "compute_metrics",
-    # profile / atomic (#420): three radial coordinates, none interchangeable
+    # profile / atomic: three radial coordinates, none interchangeable
     "equilibrium_mapping_thomson_scattering",
     "equilibrium_mapping_charge_exchange",
     "profile_fitting_thomson_scattering",
@@ -728,7 +722,7 @@ CONVENTION_SENSITIVE = frozenset({
     "biot_savart_filaments",
     "phased_sector_currents",
 
-    # camera_fluctuation (#161): the frame axis comes first, band edges are
+    # camera_fluctuation: the frame axis comes first, band edges are
     # closed, pixel bounds are row-then-column while projected pixels are
     # column-then-row, and the reference frequency is tracked rather than fixed.
     "mhd_band_power",
@@ -740,11 +734,11 @@ CONVENTION_SENSITIVE = frozenset({
     "track_reference_frequency",
     "import_data_roles",
     "record_data_use",
-    # ml (#669): train-only z-score; a stage alias is recorded, never substituted for the version
+    # ml: train-only z-score; a stage alias is recorded, never substituted for the version
     "build_structured_dataset",
     "resolve_model",
     "train_model",
-    # fluctuation / transients (#1005): the phase is y relative to x, the ridge
+    # fluctuation / transients: the phase is y relative to x, the ridge
     # floor is relative to the map, and the current is measured on its magnitude.
     "cross_spectrum",
     "cross_spectrogram",
@@ -753,7 +747,7 @@ CONVENTION_SENSITIVE = frozenset({
     "track_dominant_frequency",
     "current_quench",
     "current_spike",
-    # impurity (#1565): measured > explicit > derived > assumed, and an
+    # impurity: measured > explicit > derived > assumed, and an
     # unlabelled stored composition ranks with the assumed ones; the writers
     # label assumed vs derived, never measured.
     "resolve_impurity_composition",
@@ -762,35 +756,35 @@ CONVENTION_SENSITIVE = frozenset({
     "resolve_radial_composition",
     "populate_radial_impurity_profiles",
     "surface_composition_profile",
-    # kinetic_closure (#1606): thermal and fast never share a field; the legacy fallback
+    # kinetic_closure: thermal and fast never share a field; the legacy fallback
     "assemble_pressure",
     "infer_kinetic_closure",
-    # kinetic_closure (#1426, moved by #1842): the propagation form and the lineage guard
+    # kinetic_closure: the propagation form and the lineage guard
     "infer_ti_pressure_partition",
-    # zeff_projection (#1566): same model, states and objective on both sides
+    # zeff_projection: same model, states and objective on both sides
     "profile_conductivity_model",
     "spitzer_resistive_equivalent_zeff",
     "project_zeff_profile_to_resistive_scalar",
     "project_window_to_resistive_scalar",
     "flat_profile_from_resistive",
     "zeff_profile_for_state",
-    # species (#1567): population labels, dilution bases and per-target projection policy
+    # species: population labels, dilution bases and per-target projection policy
     "species_state_from_core_profiles",
     "species_state_from_composition",
     "composition_moments",
     "project_species_state",
-    # transport_state (#1567 Phase C): bundled lumps and the closure's density origin
+    # transport_state: bundled lumps and the closure's density origin
     "transport_species_state",
-    # mhd_stability (#940): DCON's signs (D_I, D_R > 0 and C_A, dW < 0 unstable)
+    # mhd_stability: DCON's signs (D_I, D_R > 0 and C_A, dW < 0 unstable)
     # and its edge-scan peak search.
     "dcon_local_stability",
     "dcon_edge_scan",
     "dcon_edge_comparison",
-    # q_profile_context (#1798): |q| resonance with the source sign kept, shear in the
+    # q_profile_context: |q| resonance with the source sign kept, shear in the
     # named radial coordinate, q_boundary only on a limited boundary.
     "core_q_context_from_profiles",
     "core_q_context",
-    # mhd_stability (#1852): which side of zero is unstable, and which resolution is read.
+    # mhd_stability: which side of zero is unstable, and which resolution is read.
     "stability_atlas_populations",
 })
 

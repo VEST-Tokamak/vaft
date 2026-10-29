@@ -1,6 +1,6 @@
-"""Verification of DCON/RDCON/STRIDE results in the validation layer (#142).
+"""Verification of DCON/RDCON/STRIDE results in the validation layer.
 
-Real GPEC output (the #792 DCON fixtures and the #939 RDCON fixture), plus
+Real GPEC output (the DCON reference fixtures and the RDCON fixture), plus
 copies altered to break exactly one rule each.
 """
 
@@ -159,7 +159,7 @@ def test_the_peak_search_skips_the_pre_edge_entries_as_dcon_does(truncated):
 
 
 def _scan_truncated_at(truncated, psiedge: float, nperq: int = 20):
-    """The edge scan DCON would write for ``psiedge`` on the #792 profile.
+    """The edge scan DCON would write for ``psiedge`` on the reference profile.
 
     The nominal grid is ``INT(q(psiedge)) + i/(nperq*n)`` (sing.f:226-238),
     with q(psiedge) from DCON's cubic ``sq`` spline; every entry is filled, the

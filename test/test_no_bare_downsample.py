@@ -1,4 +1,4 @@
-"""Rate reductions must be explicit, not a side effect of ``np.interp`` (#425).
+"""Rate reductions must be explicit, not a side effect of ``np.interp``.
 
 Interpolating a signal onto a coarser grid silently folds everything above the
 new Nyquist frequency back into the band.  VEST makes this easy to do by

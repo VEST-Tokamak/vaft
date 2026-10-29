@@ -1,4 +1,4 @@
-"""Issue #486: a layout centre and a poloidal angle for a magnetic-sensor array."""
+"""A layout centre and a poloidal angle for a magnetic-sensor array."""
 
 from __future__ import annotations
 

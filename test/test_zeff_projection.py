@@ -1,4 +1,4 @@
-"""Z_eff(rho) -> R_p -> Z_eff^res,equiv (#1566): flat recovery, Spitzer analytic, window objective."""
+"""Z_eff(rho) -> R_p -> Z_eff^res,equiv: flat recovery, Spitzer analytic, window objective."""
 
 from __future__ import annotations
 

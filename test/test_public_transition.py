@@ -1,4 +1,4 @@
-"""Canonical transition table: TCV L-H reader, event semantics, margins (#1205).
+"""Canonical transition table: TCV L-H reader, event semantics, margins.
 
 Offline: the TCV rows are synthetic, written in the real file's layout (one
 ``(1, N)`` dataset per variable, MATLAB-style byte-string ``Units`` and

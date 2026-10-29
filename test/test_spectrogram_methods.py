@@ -1,4 +1,4 @@
-"""Issue #484: how a spectrogram's time-frequency map is computed.
+"""How a spectrogram's time-frequency map is computed.
 
 ``method=`` names the transform -- scipy's STFT (the default since this
 change), VAFT's hand-rolled Hann FFT, or an optional continuous wavelet --

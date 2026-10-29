@@ -1,7 +1,7 @@
-"""PyVista/VTK export and K3D rendering of the 3-D scenes (issue #1087).
+"""PyVista/VTK export and K3D rendering of the 3-D scenes.
 
-The reference scene is the #223 VEST non-axisymmetric coil set: its
-Cartesian vertices must be the stored ``(r, phi, z)`` through the #718
+The reference scene is the VEST non-axisymmetric coil set: its
+Cartesian vertices must be the stored ``(r, phi, z)`` through the port-clock
 convention, survive conversion with their polyline connectivity and subsystem
 identity, and round-trip through ``.vtm`` and ``.vtp`` files.  Each library
 is optional, so each half skips on its own.

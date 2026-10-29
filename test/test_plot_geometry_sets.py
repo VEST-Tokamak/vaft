@@ -101,13 +101,13 @@ def test_a_text_layer_is_an_annotation_not_a_legend_entry():
 
 
 def test_the_top_view_places_diagnostics_that_store_a_toroidal_position(sample):
-    # The B-tor probes are IMPA's, a stage of its own since #305.
+    # The B-tor probes are IMPA's, a stage of its own.
     from _synthetic_inputs import make_impa_composed
 
     sample = make_impa_composed(sample)
     layers = {layer.label: layer for layer in _topview_diagnostic_layers(sample) if layer.label}
     # flux loops are axisymmetric rings drawn from their radius alone; they no
-    # longer need a stored phi, which the VEST mapper never writes (#1829)
+    # longer need a stored phi, which the VEST mapper never writes
     assert set(layers) == {"Flux loops", "B-pol probes", "B-tor probes"}
     ring = layers["Flux loops"]
     assert np.allclose(np.hypot(ring.r, ring.z), float(sample["magnetics.flux_loop.0.position.0.r"]))
@@ -190,7 +190,7 @@ def _boundary(radius: float, elongation: float = 1.0) -> omas.ODS:
 
 
 def test_a_geometry_view_draws_every_entry_not_just_the_first():
-    """Several machines in one axes, each its own colour and legend key (#458)."""
+    """Several machines in one axes, each its own colour and legend key."""
     entries = [("A", _boundary(1.0)), ("B", _boundary(2.0)), ("C", _boundary(3.0))]
     model = build_model("equilibrium_geometry_boundary", entries)
     assert [layer.entry for layer in model.layers] == ["A", "B", "C"]

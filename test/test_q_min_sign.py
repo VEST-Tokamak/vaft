@@ -1,4 +1,4 @@
-"""q_min is the q of smallest magnitude, kept with its sign (#277).
+"""q_min is the q of smallest magnitude, kept with its sign.
 
 Under COCOS 3-6 and 13-16 q is negative (Sauter Table I), so a plain
 ``q.min()`` returns the largest |q|. The OMAS updater must agree with the EQDSK

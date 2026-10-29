@@ -345,7 +345,7 @@ def _release_tuple(text):
 
 
 #: "removed in 0.9.0", "will raise in 0.9", "raises in 0.10.0", "removed in
-#: vaft 0.11.0": a two-part release reads as X.Y.0 (the #1188 fallbacks hid
+#: vaft 0.11.0": a two-part release reads as X.Y.0 (deprecated fallbacks once hid
 #: behind "raise in 0.9").
 _PROMISE = __import__("re").compile(r"(?:[Rr]emoved|[Rr]aises?) in (?:vaft )?(\d+\.\d+(?:\.\d+)?)")
 

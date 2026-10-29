@@ -1,5 +1,5 @@
 """Contract for Tutorial 04: fluctuation diagnostics for plasma perturbations
-and transient events (issue #1005).
+and transient events.
 
 The tutorial runs offline from the packaged VEST samples, while teaching the
 same public workflow on any database shot. The tests pin the narrative spine
@@ -375,7 +375,7 @@ def test_the_analysis_runs_in_the_session_order(book):
 
 
 def test_the_diagnostics_come_in_the_issue_order(book):
-    """#1005: Mirnov, then SXR, then the camera, then density and edge, then their combination."""
+    """Mirnov, then SXR, then the camera, then density and edge, then their combination."""
     steps = [
         _first_code_index(book, token)
         for token in ("plot_mirnov_time_voltage", "sxr_band_signals", "pixelwise_spectrogram",
@@ -481,7 +481,7 @@ def test_the_array_sets_the_resolution_and_the_session_says_so(executed):
     """45531's outboard array: three IMAS angles, 90 degrees apart, n modulo 4.
 
     The identifiers carry the VEST clock angles 45/135/225; their IMAS toroidal
-    angles are the reflection of those (issue #718).
+    angles are the reflection of those.
     """
     printed = _printed(executed)
     assert "toroidal angles that recorded: [135.0, 225.0, 315.0]" in printed
@@ -503,7 +503,7 @@ def test_the_mode_number_is_reported_with_its_limits(executed):
 
 
 def test_the_shot_without_an_array_refuses_the_fit(executed):
-    """#724/#825: 39915 publishes field 171 once, and the guard counts acquisitions.
+    """39915 publishes field 171 once, and the guard counts acquisitions.
 
     Replaces the xfail pins on the pre-fix mapper, which printed a
     ``:phase_reference`` twin whose samples equalled C2-05's.

@@ -1,4 +1,4 @@
-"""The VAFT MCP server over the real SDK and a real stdio subprocess (#1423)."""
+"""The VAFT MCP server over the real SDK and a real stdio subprocess."""
 
 from __future__ import annotations
 

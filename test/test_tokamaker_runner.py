@@ -39,7 +39,7 @@ def test_run_lifecycle_order_and_outputs(tmp_path, monkeypatch):
     assert Path(save_name).name == "g039915.00325"
     assert save_kwargs["cocos"] == config.eqdsk_cocos
     assert save_kwargs["run_info"] == "# 39915 325ms"
-    # RBBBS/ZBBBS must be the LCFS itself, not the 1 - lcfs_pad surface (#882, #1469)
+    # RBBBS/ZBBBS must be the LCFS itself, not the 1 - lcfs_pad surface
     assert save_kwargs["truncate_eq"] is False
     assert save_kwargs["lcfs_pad"] == config.eqdsk_lcfs_pad
 
@@ -163,7 +163,7 @@ def test_reused_workdir_never_yields_a_stale_gfile(tmp_path, monkeypatch):
 def test_limiter_search_excludes_the_vest_chambers_by_default(tmp_path, monkeypatch):
     # The chamber corners at |Z| = 1.185 m carry the most-interior wall flux but
     # are not connected to the core; with them as limiter candidates the
-    # 39915 @ 325 ms "LCFS" floated 6 cm off the inboard limiter (#1469).
+    # 39915 @ 325 ms "LCFS" floated 6 cm off the inboard limiter.
     make_fake_oft(monkeypatch)
     fake = sys.modules["OpenFUSIONToolkit.TokaMaker"].TokaMaker
 
@@ -310,7 +310,7 @@ def test_long_workdir_falls_back_to_a_short_limiter_file(tmp_path, monkeypatch):
 
 def test_vessel_distribution_carries_the_summed_loop_currents(monkeypatch):
     # OFT spreads a coil's current as I * dist / area; at I = 1 A the region
-    # must carry the sum of its loop currents, mixed signs included (#1534)
+    # must carry the sum of its loop currents, mixed signs included
     from vaft.code.tokamaker import runner
 
     # a 0.02 x 0.40 m strip, region id 7, cut into a grid of triangles

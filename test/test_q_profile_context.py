@@ -1,4 +1,4 @@
-"""Core q-profile, rational-surface, low-shear and boundary context (#1798, #1838).
+"""Core q-profile, rational-surface, low-shear and boundary context.
 
 Synthetic profiles with known answers for each case the issue lists, plus the
 packaged 39915 slice (a VEST spherical tokamak: q > 1 everywhere, limited).
@@ -197,7 +197,7 @@ def test_record_is_strict_json():
 
 
 def test_a_nan_radius_drops_only_itself_not_the_next_sample():
-    """#1838: the duplicate-radius guard compared with the raw previous sample."""
+    """Regression guard for #1838: the duplicate-radius guard compared with the raw previous sample."""
     k = 120
     q = _reversed(0.9, psi_min=PSI[k + 1])
     psi = PSI.copy()
@@ -243,7 +243,7 @@ def test_packaged_39915_slice():
     before = set(ods.flat().keys())
     ctx = core_q_context(ods, 0)
     assert ctx.time == pytest.approx(float(ods["equilibrium.time_slice.0.time"]))
-    # The packaged rho_tor_norm is the sqrt(psi_n) proxy (#276): named for what it is.
+    # The packaged rho_tor_norm is the sqrt(psi_n) proxy: named for what it is.
     assert ctx.coordinate.startswith("rho_pol_norm") and "proxy" in ctx.provenance["radius"]
     assert ctx.boundary_topology == "limited"
     assert ctx.q_min > 1 and ctx.q1_surface_count == 0  # a VEST ST slice: no q=1 surface

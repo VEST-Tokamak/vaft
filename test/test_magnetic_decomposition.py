@@ -1,7 +1,7 @@
-"""Magnetic response split by source with an explicit plasma drive (#1795).
+"""Magnetic response split by source with an explicit plasma drive.
 
 The eddy stage drives the wall with the measured Rogowski current; an
-identifiability study (#918 H2: the magnetics carry 0.5-0.9 x the Rogowski
+identifiability study (one testing whether the magnetics carry 0.5-0.9 x the Rogowski
 current) must choose the drive itself.  These tests pin the contract on the
 packaged 39915 product: the drive is whatever the caller passes, never
 ``magnetics.ip``; the parts add up; scaling the drive scales exactly the
@@ -88,7 +88,7 @@ def test_the_parts_add_up(rogowski_drive):
 
 
 def test_a_zero_drive_gives_no_plasma_wall_although_magnetics_ip_is_populated(sample, rogowski_drive):
-    """#1795 validation C: the critical regression -- the wall must not read the diagnostic."""
+    """The critical regression: the wall must not read the diagnostic."""
     ods, drive = sample
     assert np.max(np.abs(np.asarray(ods["magnetics.ip.0.data"]))) > 1e4
     zero = decompose_magnetic_response(ods, T0, plasma_sources=SOURCES, plasma_currents=np.zeros_like(drive))
@@ -101,7 +101,7 @@ def test_a_zero_drive_gives_no_plasma_wall_although_magnetics_ip_is_populated(sa
 
 @pytest.mark.parametrize("scale", [0.5, 2.0])
 def test_scaling_the_drive_scales_only_the_plasma_parts(sample, rogowski_drive, scale):
-    """#1795 validation B: direct field and plasma-driven wall move together, nothing else."""
+    """Direct field and plasma-driven wall move together, nothing else."""
     ods, drive = sample
     scaled = decompose_magnetic_response(ods, T0, plasma_sources=SOURCES, plasma_currents=scale * drive)
     np.testing.assert_allclose(scaled.plasma, scale * rogowski_drive.plasma, rtol=1e-12)
@@ -164,7 +164,7 @@ def test_a_source_list_needs_its_currents_and_the_right_shape(sample):
 
 
 def test_the_full_wall_basis_reproduces_the_wall_response(sample, rogowski_drive):
-    """#1795 item 4: G_wall V a == G_wall I_w for the full basis, a = V^T R I_w."""
+    """G_wall V a == G_wall I_w for the full basis, a = V^T R I_w."""
     from vaft.omas.process_wrapper import compute_impedance_matrices_ods, compute_wall_mode_basis_ods
     from vaft.process.wall_modes import project
 

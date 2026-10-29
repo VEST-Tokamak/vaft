@@ -1,4 +1,4 @@
-"""The identity contract for equilibrium families and stability products (#527 stage 2).
+"""The identity contract for equilibrium families and stability products.
 
 A stability result is identified by
 

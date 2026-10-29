@@ -230,7 +230,7 @@ def test_plotting_cells_use_the_one_documented_pattern(book):
 
 
 def test_the_notebook_teaches_the_current_naming_grammar(book):
-    """The names are subject-centred since #251; the prose must say so."""
+    """The names are subject-centred; the prose must say so."""
     markdown = "\n".join(
         _source(cell) for cell in book.cells if cell.cell_type == "markdown"
     )
@@ -241,7 +241,7 @@ def test_the_notebook_teaches_the_current_naming_grammar(book):
 
 
 def test_the_notebook_explains_the_display_policy(book):
-    """A reader meets kA on the first plot; #256 is why."""
+    """A reader meets kA on the first plot; the display policy is why."""
     markdown = "\n".join(
         _source(cell) for cell in book.cells if cell.cell_type == "markdown"
     )
@@ -272,7 +272,7 @@ def test_the_unit_override_really_rescales():
 
     An axis label is easy to change without touching the data, so asserting on
     labels alone would pass for exactly the bug the display policy exists to
-    prevent (issue #256).
+    prevent.
     """
     import matplotlib
 
@@ -417,7 +417,7 @@ def test_the_appendix_shows_the_version_rather_than_only_asserting_it(executed):
 
 
 def test_the_exercise_states_its_analysis_tasks_first(book):
-    """#254: the intent is written before the code, and each task is one VAFT call."""
+    """The intent is written before the code, and each task is one VAFT call."""
     exercise = next(cell for cell in book.cells if cell.get("id") == "session01-exercise")
     assert "### Analysis tasks" in _source(exercise)
     scaffold = _source(next(cell for cell in book.cells if cell.get("id") == "session01-exercise-cell"))

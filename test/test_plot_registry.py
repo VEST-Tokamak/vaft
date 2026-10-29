@@ -90,7 +90,7 @@ def test_specs_declare_their_model_and_data_requirements():
 
 
 def test_canonical_names_follow_the_subject_view_quantity_grammar():
-    # Issue #251: canonical identity is ``subject / view / [quantity]``;
+    # Canonical identity is ``subject / view / [quantity]``;
     # ``domain`` records IDS ownership and is no longer part of the name.
     for spec in registry.specs():
         expected = "_".join(

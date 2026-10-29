@@ -666,7 +666,7 @@ def test_a_failing_generator_is_an_error_even_if_it_wrote_a_file(tmp_path):
 
 
 def test_nubeam_stages_launch_through_the_configured_backend(tmp_path):
-    """#671: `_run` builds the launch and still writes its own .log/.err."""
+    """`_run` builds the launch and still writes its own .log/.err."""
     from external_code_stubs import RecordingBackend
     from vaft.code.execution import ExecutionResult
     from vaft.code.nubeam.runner import _run
@@ -691,7 +691,7 @@ def test_nubeam_stages_launch_through_the_configured_backend(tmp_path):
 
 
 def test_a_stopped_nubeam_stage_keeps_its_partial_log_and_names_the_limit(tmp_path):
-    """#1016: ``_run`` returns the stop; the logs are this run's, not an earlier one's."""
+    """``_run`` returns the stop; the logs are this run's, not an earlier one's."""
     from external_code_stubs import RecordingBackend
     from vaft.code.execution import ExecutionResult
     from vaft.code.nubeam.runner import _run
@@ -737,7 +737,7 @@ def test_a_stopped_nubeam_run_is_a_failed_result(tmp_path, monkeypatch):
 
 def test_a_stopped_plasma_state_is_an_error_alone_and_a_result_in_a_case(tmp_path, monkeypatch):
     """``generate_plasma_state`` returns a path, so a stop raises there; the
-    one-call case returns it as the case's result (#1016)."""
+    one-call case returns it as the case's result."""
     from types import SimpleNamespace
 
     runner, inputs, config = _stopped_nubeam(tmp_path, monkeypatch, "queue_timeout")
