@@ -475,6 +475,8 @@ def test_quality_checks_are_four_named_panels_with_one_key():
                                                    limits_by_panel={"beta_p": (1e-3, 2.0)})
     assert axes.shape == (2, 2)
     assert [ax.get_title() for ax in axes.ravel()] == list(QUALITY_CHECK_TITLES)
+    assert all(ax.title.get_fontweight() == "bold" for ax in axes.ravel())
+    assert axes[0, 0].get_ylabel() == "vacuum field model [mT]"
     assert all(ax.get_legend() is None for ax in axes.ravel()) and len(fig.legends) == 1
     keys = [t.get_text() for t in fig.legends[0].get_texts()]
     assert "QA band (c, d)" in keys and "rejected by the input QA (a)" not in keys

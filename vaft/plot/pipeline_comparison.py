@@ -998,12 +998,7 @@ def pipeline_comparison_onset_scatter(points: pd.DataFrame, *, sources: Mapping[
 
 
 #: The four quality checks of :func:`pipeline_comparison_quality_checks`, one per panel.
-QUALITY_CHECK_TITLES = (
-    "Input check\nProbes vs vacuum model",
-    "Fit check\nProbes vs EFIT",
-    "Force-balance check\n" r"Virial $\beta_p$",
-    "Consistency check\nThomson vs EFIT pressure",
-)
+QUALITY_CHECK_TITLES = ("Input check", "Fit check", "Force-balance check", "Consistency check")
 
 
 def pipeline_comparison_quality_checks(onset_points: pd.DataFrame, points: pd.DataFrame, virial: pd.DataFrame,
@@ -1043,12 +1038,17 @@ def pipeline_comparison_quality_checks(onset_points: pd.DataFrame, points: pd.Da
         (a, b), (c, d) = axes
         _onset_panel(a, data, rejected, "probe", limits.get("onset"), show_rejected=show_rejected)
         pipeline_comparison_measured_vs_reconstructed(points, family="probe", ax=b, limits=limits.get("probe"))
+        a.set_ylabel(f"vacuum field model [{FAMILY_DISPLAY['probe'][1]}]")
         b.set_ylabel(f"EFIT reconstruction [{FAMILY_DISPLAY['probe'][1]}]")
+        from matplotlib.ticker import MaxNLocator
+
+        b.xaxis.set_major_locator(MaxNLocator(5))
+        b.yaxis.set_major_locator(MaxNLocator(5))
         pipeline_comparison_virial(virial, quantity="beta_p", ax=c, limits=limits.get("beta_p"))
         pipeline_comparison_thomson(channels, ax=d, limits=limits.get("thomson"))
         base = plt.rcParams["font.size"]
         for ax, title in zip(axes.ravel(), titles):
-            ax.set_title(title, fontsize=base * 0.95)
+            ax.set_title(title, fontsize=base * 0.95, fontweight="bold")
             legend = ax.get_legend()
             if legend is not None:
                 legend.remove()
@@ -1071,9 +1071,9 @@ def pipeline_comparison_quality_checks(onset_points: pd.DataFrame, points: pd.Da
                 line.set_linewidth(1.0)
                 line.set_color(INK)
         if panel_labels:
-            # Small, outside the axes' top-left corner, clear of the centred titles.
+            # Small, outside the axes' top-left corner, level with the centred titles.
             for letter, ax in zip("abcd", axes.ravel()):
-                _panel_letter(ax, letter, x=-0.24, y=1.08, scale=1.0)
+                _panel_letter(ax, letter, x=-0.24, y=1.02, scale=1.0)
         handles = [Line2D([], [], color=SIDE_STYLE[side]["color"], marker=SIDE_STYLE[side]["marker"],
                           linestyle="none", markersize=10, label=COMPARISON_LABELS[side]) for side in SIDES]
         if show_rejected and rejected.any():
