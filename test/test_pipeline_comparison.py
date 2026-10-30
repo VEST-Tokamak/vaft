@@ -477,7 +477,14 @@ def test_quality_checks_are_four_named_panels_with_one_key():
     assert [ax.get_title() for ax in axes.ravel()] == list(QUALITY_CHECK_TITLES)
     assert all(ax.get_legend() is None for ax in axes.ravel()) and len(fig.legends) == 1
     keys = [t.get_text() for t in fig.legends[0].get_texts()]
-    assert "rejected by the input QA (a)" in keys and "QA band (c, d)" in keys
+    assert "QA band (c, d)" in keys and "rejected by the input QA (a)" not in keys
+    assert not [t for t in axes[0, 0].texts if "input QA" in t.get_text()]  # left out, not counted
+    drawn = np.vstack([c.get_offsets() for c in axes[0, 0].collections if c.get_offsets().shape[0]])
+    assert not np.any(np.isclose(drawn[:, 0], 500.0))
+    plt.close(fig)
+    fig, axes = pipeline_comparison_quality_checks(onset, points, virial, channels, show_rejected=True,
+                                                   limits_by_panel={"beta_p": (1e-3, 2.0)})
+    assert "rejected by the input QA (a)" in [t.get_text() for t in fig.legends[0].get_texts()]
     assert any(t.get_text().startswith("input QA rejects: legacy 0, current 1") for t in axes[0, 0].texts)
     with pytest.raises(ValueError):
         pipeline_comparison_quality_checks(onset, points, virial, channels, limits_by_panel={"li": (0, 1)})

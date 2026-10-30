@@ -896,13 +896,19 @@ def _onset_points(points: pd.DataFrame, sources: Mapping[str, str], t_ms: float 
     return data, (code < 0).to_numpy()
 
 
-def _onset_panel(ax, data: pd.DataFrame, rejected: np.ndarray, family: str, limits) -> None:
-    """One family of the onset points: accepted points as dots, input-QA rejects as crosses, counted."""
+def _onset_panel(ax, data: pd.DataFrame, rejected: np.ndarray, family: str, limits,
+                 show_rejected: bool = True) -> None:
+    """One family of the onset points: accepted points as dots, input-QA rejects as crosses, counted.
+
+    ``show_rejected=False`` leaves the rejects out altogether: no crosses, no count.
+    """
     import matplotlib.pyplot as plt
     from matplotlib.ticker import MaxNLocator
 
     pipeline_comparison_measured_vs_reconstructed(data[~rejected], family=family, ax=ax, limits=limits)
     font_scale = plt.rcParams["font.size"] / 10.0
+    if not show_rejected:
+        rejected = np.zeros_like(rejected)
     failed = data[rejected & (data["family"] == family).to_numpy()]
     scale = FAMILY_DISPLAY[family][2]
     counts = []
@@ -1001,15 +1007,15 @@ QUALITY_CHECK_TITLES = (
 
 
 def pipeline_comparison_quality_checks(onset_points: pd.DataFrame, points: pd.DataFrame, virial: pd.DataFrame,
-                                       channels: pd.DataFrame, *, t_ms: float = -1.0,
+                                       channels: pd.DataFrame, *, t_ms: float = -1.0, show_rejected: bool = False,
                                        sources: Mapping[str, str] = ONSET_SOURCES, limits_by_panel=None,
                                        titles: Sequence[str] = QUALITY_CHECK_TITLES, show: bool = False,
                                        figsize: tuple[float, float] = (10.4, 11.0), panel_labels: bool = True):
     """Four quality checks, legacy against current, as one 2×2: input, fit, force balance, consistency.
 
-    (a) every probe's measurement against the vacuum (coil + eddy) model at
-    ``t_ms`` before the plasma onset, crosses for what the input QA rejects
-    (:func:`pipeline_comparison_onset_scatter`); (b) every fitted probe
+    (a) every probe the input QA accepts, its measurement against the vacuum
+    (coil + eddy) model at ``t_ms`` before the plasma onset; the rejects are
+    left out unless ``show_rejected`` (:func:`pipeline_comparison_onset_scatter`); (b) every fitted probe
     against the EFIT reconstruction (:func:`pipeline_comparison_measured_vs_reconstructed`);
     (c) volume-integral ``beta_p`` against the pair-13 virial closure with its
     QA band (:func:`pipeline_comparison_virial`); (d) EFIT pressure at the
@@ -1035,7 +1041,7 @@ def pipeline_comparison_quality_checks(onset_points: pd.DataFrame, points: pd.Da
     with presentation.context():
         fig, axes = plt.subplots(2, 2, figsize=figsize)
         (a, b), (c, d) = axes
-        _onset_panel(a, data, rejected, "probe", limits.get("onset"))
+        _onset_panel(a, data, rejected, "probe", limits.get("onset"), show_rejected=show_rejected)
         pipeline_comparison_measured_vs_reconstructed(points, family="probe", ax=b, limits=limits.get("probe"))
         b.set_ylabel(f"EFIT reconstruction [{FAMILY_DISPLAY['probe'][1]}]")
         pipeline_comparison_virial(virial, quantity="beta_p", ax=c, limits=limits.get("beta_p"))
@@ -1070,7 +1076,7 @@ def pipeline_comparison_quality_checks(onset_points: pd.DataFrame, points: pd.Da
                 _panel_letter(ax, letter, x=-0.24, y=1.08, scale=1.0)
         handles = [Line2D([], [], color=SIDE_STYLE[side]["color"], marker=SIDE_STYLE[side]["marker"],
                           linestyle="none", markersize=10, label=COMPARISON_LABELS[side]) for side in SIDES]
-        if rejected.any():
+        if show_rejected and rejected.any():
             handles.append(Line2D([], [], color=INK, marker="x", linestyle="none", markersize=9,
                                   label="rejected by the input QA (a)"))
         handles += [Line2D([], [], color=INK, linestyle="--", label=r"$y = x$"),
