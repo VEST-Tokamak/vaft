@@ -36,6 +36,7 @@ __all__ = [
     "pipeline_comparison_onset_traces",
     "pipeline_comparison_overview",
     "pipeline_comparison_paired",
+    "pipeline_comparison_quality_checks",
     "pipeline_comparison_scorecard",
     "pipeline_comparison_stability",
     "pipeline_comparison_stability_overview",
@@ -433,11 +434,11 @@ def _virial_criterion_band(quantity: str) -> float | None:
     return float(np.exp(CRITERIA["virial_log_ratio_max"]))
 
 
-def _panel_letter(ax, letter: str) -> None:
+def _panel_letter(ax, letter: str, y: float = 1.04, x: float = -0.18, scale: float = 1.2) -> None:
     import matplotlib.pyplot as plt
 
-    ax.text(-0.18, 1.04, letter, transform=ax.transAxes, ha="left", va="bottom", fontweight="bold",
-            fontsize=plt.rcParams["font.size"] * 1.2)
+    ax.text(x, y, letter, transform=ax.transAxes, ha="left", va="bottom", fontweight="bold",
+            fontsize=plt.rcParams["font.size"] * scale)
 
 
 def pipeline_comparison_overview(points: pd.DataFrame, virial: pd.DataFrame, *, show: bool = False,
@@ -878,9 +879,62 @@ def pipeline_comparison_onset_traces(traces: pd.DataFrame, *, shot: int, channel
     return fig, axes
 
 
+def _onset_points(points: pd.DataFrame, sources: Mapping[str, str], t_ms: float | None):
+    """The onset points as the measured-vs-reconstructed renderer reads them, and which the input QA rejects."""
+    if t_ms is not None:
+        points = points[np.isclose(pd.to_numeric(points["t_ms"], errors="coerce"), t_ms)]
+        if points.empty:
+            raise ValueError(f"no onset points at t - t_onset = {t_ms} ms")
+    data = points.assign(side=points["source"].map(sources),
+                         reconstructed=pd.to_numeric(points["vacuum"], errors="coerce"))
+    # The table holds I_p in kA; the shared renderer takes SI.
+    is_ip = (data["family"] == "ip").to_numpy()
+    for column in ("measured", "reconstructed"):
+        values = pd.to_numeric(data[column], errors="coerce").to_numpy(float)
+        data[column] = np.where(is_ip, values * 1e3, values)
+    code = pd.to_numeric(data["qa_code"], errors="coerce") if "qa_code" in data else pd.Series(np.nan, data.index)
+    return data, (code < 0).to_numpy()
+
+
+def _onset_panel(ax, data: pd.DataFrame, rejected: np.ndarray, family: str, limits) -> None:
+    """One family of the onset points: accepted points as dots, input-QA rejects as crosses, counted."""
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import MaxNLocator
+
+    pipeline_comparison_measured_vs_reconstructed(data[~rejected], family=family, ax=ax, limits=limits)
+    font_scale = plt.rcParams["font.size"] / 10.0
+    failed = data[rejected & (data["family"] == family).to_numpy()]
+    scale = FAMILY_DISPLAY[family][2]
+    counts = []
+    for layer, side in enumerate(SIDES, start=1):
+        rows = failed[failed["side"] == side]
+        counts.append(f"{COMPARISON_LABELS[side].split()[0].lower()} {len(rows):,}")
+        if len(rows):
+            # Small, faint and under the accepted points: the rejects show where
+            # the input QA acts without hiding what it lets through.
+            dense = len(rows) > 500
+            ax.scatter(rows["measured"].to_numpy(float) * scale, rows["reconstructed"].to_numpy(float) * scale,
+                       marker="x", s=(5 if dense else 14) * font_scale ** 2, color=SIDE_STYLE[side]["color"],
+                       alpha=0.25 if dense else 0.7, linewidths=0.5 if dense else 0.9, zorder=layer * 0.5,
+                       rasterized=dense)
+    if rejected.any() and family != "ip":
+        ax.text(0.03, 0.97, "input QA rejects: " + ", ".join(counts), transform=ax.transAxes, ha="left",
+                va="top", color=MUTED, fontsize=plt.rcParams["font.size"] * 0.75, zorder=6,
+                bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.8, "pad": 1.0})
+    if family == "ip":
+        ax.axhline(0.0, color=MUTED, lw=0.8, zorder=1)
+    ax.xaxis.set_major_locator(MaxNLocator(5))
+    ax.yaxis.set_major_locator(MaxNLocator(5))
+    ax.set_ylabel(f"vacuum (coil + eddy) [{FAMILY_DISPLAY[family][1]}]")
+    legend = ax.get_legend()
+    if legend is not None:
+        legend.remove()
+
+
 def pipeline_comparison_onset_scatter(points: pd.DataFrame, *, sources: Mapping[str, str] = ONSET_SOURCES,
-                                      show: bool = False, figsize: tuple[float, float] = (15.0, 5.6),
-                                      limits_by_panel=None, panel_labels: bool = True):
+                                      t_ms: float | None = None, show: bool = False,
+                                      figsize: tuple[float, float] = (15.0, 5.6), limits_by_panel=None,
+                                      panel_labels: bool = True):
     """Measured (x) against vacuum (y) before the plasma onset: plasma current, probes, flux loops.
 
     The layout of :func:`pipeline_comparison_overview` for the vacuum model:
@@ -890,36 +944,30 @@ def pipeline_comparison_onset_scatter(points: pd.DataFrame, *, sources: Mapping[
     vacuum (coil + eddy) model gives the plasma current no value but zero, so
     in (a) the points lie on ``y = 0`` and their spread along ``x`` is the
     measured offset. ``limits_by_panel`` maps ``"ip"``, ``"probe"`` or
-    ``"loop"`` to ``(min, max)`` in display units.
+    ``"loop"`` to ``(min, max)`` in display units; ``t_ms`` keeps one instant.
+
+    With a ``qa_code`` column (the per-sample validity the diagnostics
+    magnetics QA, :func:`vaft.validation.magnetics.validate_magnetics_signals`,
+    gives the channel at that instant) a point the input QA rejects
+    (``qa_code < 0``: invalid or suspect) is drawn as a cross in its
+    pipeline's colour and counted on the panel; the plasma current has no
+    such QA. The QA judges the waveform alone, never its agreement with the
+    model, so a cross far from ``y = x`` is a sensor the input QA already
+    caught, and a dot far from it is one it did not.
     """
     import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
-    from matplotlib.ticker import MaxNLocator
 
     limits = dict(limits_by_panel or {})
     unknown = set(limits) - {"ip", "probe", "loop"}
     if unknown:
         raise ValueError(f"unknown panel in limits_by_panel: {sorted(unknown)}")
-    data = points.assign(side=points["source"].map(sources),
-                         reconstructed=pd.to_numeric(points["vacuum"], errors="coerce"))
-    # The table holds I_p in kA; the shared renderer takes SI.
-    is_ip = (data["family"] == "ip").to_numpy()
-    for column in ("measured", "reconstructed"):
-        values = pd.to_numeric(data[column], errors="coerce").to_numpy(float)
-        data[column] = np.where(is_ip, values * 1e3, values)
+    data, rejected = _onset_points(points, sources, t_ms)
     presentation = resolve_presentation("slide", None)
     with presentation.context():
         fig, axes = plt.subplots(1, 3, figsize=figsize)
         for ax, family in zip(axes, ("ip", "probe", "loop")):
-            pipeline_comparison_measured_vs_reconstructed(data, family=family, ax=ax, limits=limits.get(family))
-            if family == "ip":
-                ax.axhline(0.0, color=MUTED, lw=0.8, zorder=1)
-            ax.xaxis.set_major_locator(MaxNLocator(5))
-            ax.yaxis.set_major_locator(MaxNLocator(5))
-            ax.set_ylabel(f"vacuum (coil + eddy) [{FAMILY_DISPLAY[family][1]}]")
-            legend = ax.get_legend()
-            if legend is not None:
-                legend.remove()
+            _onset_panel(ax, data, rejected, family, limits.get(family))
         if panel_labels:
             for letter, ax in zip("abc", axes):
                 _panel_letter(ax, letter)
@@ -928,12 +976,110 @@ def pipeline_comparison_onset_scatter(points: pd.DataFrame, *, sources: Mapping[
                      + ", ".join(f"{t:g}" for t in instants) + " ms", y=0.98)
         handles = [Line2D([], [], color=SIDE_STYLE[side]["color"], marker=SIDE_STYLE[side]["marker"],
                           linestyle="none", markersize=10, label=COMPARISON_LABELS[side]) for side in SIDES]
+        if rejected.any():
+            handles.append(Line2D([], [], color=INK, marker="x", linestyle="none", markersize=9,
+                                  label="rejected by the input QA"))
         handles.append(Line2D([], [], color=INK, linestyle="--", label="y = x"))
         fig.tight_layout(rect=(0.0, 0.12, 1.0, 0.95), pad=0.8, w_pad=1.2)
         # tight_layout keeps the axis labels inside the rect only to within the
         # equal-aspect boxes; the key needs its own band below them.
         fig.subplots_adjust(bottom=0.24)
-        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=3, frameon=False)
+        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=len(handles),
+                   frameon=False)
+    if show:
+        plt.show()
+    return fig, axes
+
+
+#: The four quality checks of :func:`pipeline_comparison_quality_checks`, one per panel.
+QUALITY_CHECK_TITLES = (
+    "Input check\nProbes vs vacuum model",
+    "Fit check\nProbes vs EFIT",
+    "Force-balance check\n" r"Virial $\beta_p$",
+    "Consistency check\nThomson vs EFIT pressure",
+)
+
+
+def pipeline_comparison_quality_checks(onset_points: pd.DataFrame, points: pd.DataFrame, virial: pd.DataFrame,
+                                       channels: pd.DataFrame, *, t_ms: float = -1.0,
+                                       sources: Mapping[str, str] = ONSET_SOURCES, limits_by_panel=None,
+                                       titles: Sequence[str] = QUALITY_CHECK_TITLES, show: bool = False,
+                                       figsize: tuple[float, float] = (10.4, 11.0), panel_labels: bool = True):
+    """Four quality checks, legacy against current, as one 2×2: input, fit, force balance, consistency.
+
+    (a) every probe's measurement against the vacuum (coil + eddy) model at
+    ``t_ms`` before the plasma onset, crosses for what the input QA rejects
+    (:func:`pipeline_comparison_onset_scatter`); (b) every fitted probe
+    against the EFIT reconstruction (:func:`pipeline_comparison_measured_vs_reconstructed`);
+    (c) volume-integral ``beta_p`` against the pair-13 virial closure with its
+    QA band (:func:`pipeline_comparison_virial`); (d) EFIT pressure at the
+    matched Thomson channels against ``2 p_e``, with its QA band and error
+    bars (:func:`pipeline_comparison_thomson`); ``y = x`` is the only reference
+    line, so (d) drops the ``p_EFIT = p_e`` line its band's lower edge already
+    marks. The panels' "not shown" counts are dropped (they belong in the
+    caption); one key under the panels. ``limits_by_panel`` maps ``"onset"``,
+    ``"probe"``, ``"beta_p"`` or ``"thomson"`` to ``(min, max)``.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+
+    limits = dict(limits_by_panel or {})
+    unknown = set(limits) - {"onset", "probe", "beta_p", "thomson"}
+    if unknown:
+        raise ValueError(f"unknown panel in limits_by_panel: {sorted(unknown)}")
+    if len(titles) != 4:
+        raise ValueError("titles must name the four panels")
+    data, rejected = _onset_points(onset_points, sources, t_ms)
+    presentation = resolve_presentation("slide", None)
+    with presentation.context():
+        fig, axes = plt.subplots(2, 2, figsize=figsize)
+        (a, b), (c, d) = axes
+        _onset_panel(a, data, rejected, "probe", limits.get("onset"))
+        pipeline_comparison_measured_vs_reconstructed(points, family="probe", ax=b, limits=limits.get("probe"))
+        b.set_ylabel(f"EFIT reconstruction [{FAMILY_DISPLAY['probe'][1]}]")
+        pipeline_comparison_virial(virial, quantity="beta_p", ax=c, limits=limits.get("beta_p"))
+        pipeline_comparison_thomson(channels, ax=d, limits=limits.get("thomson"))
+        base = plt.rcParams["font.size"]
+        for ax, title in zip(axes.ravel(), titles):
+            ax.set_title(title, fontsize=base * 0.95)
+            legend = ax.get_legend()
+            if legend is not None:
+                legend.remove()
+            # One visual hierarchy for a print figure: the in-panel counts recede,
+            # the QA bands read as regions, and y = x is one line everywhere.
+            # The "not shown" counts belong in the caption, not on a print figure.
+            for text in list(ax.texts):
+                if text.get_text().startswith("not shown"):
+                    text.remove()
+                elif text.get_text().startswith("input QA rejects"):
+                    text.set_fontsize(base * 0.6)
+                    text.set_color("#a19f97")
+            for band in ax.collections:
+                if type(band).__name__ in ("PolyCollection", "FillBetweenPolyCollection"):
+                    band.set_alpha(0.22)
+        for line in d.get_lines():
+            if line.get_linestyle() == ":":
+                line.remove()
+            elif line.get_linestyle() == "--":
+                line.set_linewidth(1.0)
+                line.set_color(INK)
+        if panel_labels:
+            # Small, outside the axes' top-left corner, clear of the centred titles.
+            for letter, ax in zip("abcd", axes.ravel()):
+                _panel_letter(ax, letter, x=-0.24, y=1.08, scale=1.0)
+        handles = [Line2D([], [], color=SIDE_STYLE[side]["color"], marker=SIDE_STYLE[side]["marker"],
+                          linestyle="none", markersize=10, label=COMPARISON_LABELS[side]) for side in SIDES]
+        if rejected.any():
+            handles.append(Line2D([], [], color=INK, marker="x", linestyle="none", markersize=9,
+                                  label="rejected by the input QA (a)"))
+        handles += [Line2D([], [], color=INK, linestyle="--", label=r"$y = x$"),
+                    Patch(facecolor="gray", alpha=0.22, edgecolor="none", label="QA band (c, d)")]
+        fig.tight_layout(rect=(0.0, 0.08, 1.0, 1.0), pad=0.8, w_pad=1.6, h_pad=1.8)
+        # The key is its own block under the figure, two rows, clear of (c)'s axis label.
+        fig.subplots_adjust(bottom=0.17)
+        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=(len(handles) + 1) // 2,
+                   frameon=False, fontsize=base * 0.85, columnspacing=2.0)
     if show:
         plt.show()
     return fig, axes

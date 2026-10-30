@@ -33,6 +33,7 @@ SHA-256 of each file.
 | `thomson_channels.csv.gz` | Thomson channel | Per-channel `p_e` and `p_recon` behind each Thomson verdict, from `thomson_pressure_samples`, with `n_e_error` and `t_e_error` (the stored `data_error_upper`). |
 | `onset.csv.gz` | source, shot, family (`ip`, `probe`, `loop`) and `t_ms` | Measured against vacuum on $t - t_\mathrm{onset}$ from -20 to 15 ms: per shot the median over channels of \|m - m_vac\| / max\|m\| before the onset; `ip` is the measured current [kA]. One onset per shot (main's), both sides. |
 | `onset_points.csv.gz` | source, shot, channel and `t_ms` | Every channel's measured and vacuum value at -12, -8, -4 and -1 ms before the onset (SI; `ip` in kA, vacuum 0), for the onset scatter. |
+| `onset_qa.csv.gz` | source, shot and channel | Every channel's measured and vacuum value at -1 ms before the onset with the input-QA verdict (`qa_code`: per-sample validity from `validate_magnetics_signals` run afresh on each product; `qa_scalar`, `qa_status`, `qa_reason`). |
 | `onset_traces.csv.gz` | source, shot, channel and `t_ms` | Every channel's measured and vacuum (coil+eddy) trace for 39915, 41672, 44555 (SI; `ip` in kA). |
 | `vacuum_by_family.csv.gz` | source, shot, wall model and family | Medians over channels both sources evaluated. |
 | `stability_legacy*.csv.gz` | DCON/RDCON run, or RDCON surface | Read from the legacy `linear_stability` text output. |

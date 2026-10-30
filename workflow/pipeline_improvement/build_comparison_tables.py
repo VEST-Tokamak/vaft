@@ -65,6 +65,8 @@ CHECKS = ("fit", "virial", "thomson", "vacuum", "onset", "stability")
 ONSET_GRID_MS = np.round(np.arange(-20.0, 15.0 + 1e-9, 0.2), 1)
 #: Instants before the onset at which every channel's measured and vacuum value is kept [ms].
 ONSET_POINT_MS = (-12.0, -8.0, -4.0, -1.0)
+#: The instant of the onset QA check, t - t_onset [ms].
+ONSET_QA_MS = -1.0
 #: Slices of one shot whose g-file time is within this of a main slice belong to main [s].
 MAIN_TIME_TOLERANCE = 5.0e-4
 GFILE = re.compile(r"^g0*(\d+)\.0*(\d+)$")
@@ -465,6 +467,55 @@ def onset_rows(ods: Any, onset: float, keep_channels: bool = False) -> tuple[lis
     return rows, points, traces
 
 
+def onset_qa_rows(ods: Any, onset: float) -> list[dict[str, Any]]:
+    """Every channel at :data:`ONSET_QA_MS`, measured against vacuum, with the input QA verdict.
+
+    The diagnostics magnetics QA (:func:`vaft.validation.magnetics.validate_magnetics_signals`,
+    #189) is run afresh on each product, so both sides are judged by one
+    detector rather than by whatever validity each happened to store, and no
+    channel is dropped for its stored validity: ``qa_code`` is the per-sample
+    validity at the instant (-2 invalid, -1 suspect, 0 valid, 1 valid but
+    flagged) and ``qa_reason`` the channel's reason. The plasma current has no
+    such QA (``qa_code`` empty) and no vacuum value but zero.
+    """
+    from vaft.omas.general import signal_time
+    from vaft.omas.vacuum_magnetics import synthetic_vacuum_magnetics
+    from vaft.validation.imas import resolve_signal_time
+    from vaft.validation.magnetics import QUANTITY_BY_KIND, validate_magnetics_signals
+    from vaft.validation.validity import VALIDITY_INVALID
+
+    instant = onset + ONSET_QA_MS * 1e-3
+    report = {(q.kind, q.index): q for q in validate_magnetics_signals(ods)}
+    window = (instant - 3e-3, instant + 1e-3)
+    channels = synthetic_vacuum_magnetics(ods, per_family=None, window=window, validity_window=window,
+                                          min_validity=VALIDITY_INVALID)
+    rows = []
+    for channel in channels:
+        if not channel.time[0] <= instant <= channel.time[-1]:
+            continue
+        row = {"family": "loop" if "flux_loop" in channel.kind else "probe", "channel": channel.name,
+               "t_ms": ONSET_QA_MS, "measured": float(np.interp(instant, channel.time, channel.measured)),
+               "vacuum": float(np.interp(instant, channel.time, channel.coil_eddy)),
+               "qa_code": np.nan, "qa_scalar": np.nan, "qa_status": "", "qa_reason": ""}
+        quality = report.get((channel.kind, channel.index))
+        if quality is not None and quality.projectable:
+            quantity = QUANTITY_BY_KIND[channel.kind][0]
+            time = np.asarray(resolve_signal_time(ods, f"magnetics.{channel.kind}.{channel.index}.{quantity}"),
+                              dtype=float)
+            codes = np.asarray(quality.validity_timed)
+            if time.size == codes.size and time.size:
+                row["qa_code"] = int(codes[int(np.argmin(np.abs(time - instant)))])
+            row.update(qa_scalar=int(quality.validity), qa_status=str(quality.status.value),
+                       qa_reason=str(quality.reason)[:200])
+        rows.append(row)
+    ip_time = np.asarray(signal_time(ods, "magnetics.ip.0.data"), dtype=float)
+    if ip_time[0] <= instant <= ip_time[-1]:
+        ip = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
+        rows.append({"family": "ip", "channel": "ip", "t_ms": ONSET_QA_MS,
+                     "measured": float(np.interp(instant, ip_time, ip)) * 1e-3, "vacuum": 0.0})
+    return rows
+
+
 # --------------------------------------------------------------------------
 # Legacy stability
 # --------------------------------------------------------------------------
@@ -720,6 +771,12 @@ def process_shot(shot: int, args, tables: Mapping[str, Table], points_budget: li
             base = {"source": source, "shot": shot, "onset": onset, "onset_source": how}
             tables["onset"].extend({**base, **r} for r in rows)
             tables["onset_points"].extend({**base, **r} for r in points)
+            if args.onset_qa:
+                try:
+                    qa = onset_qa_rows(ods, onset)
+                except Exception as error:
+                    qa = [{"family": "error", "reason": repr(error)[:300]}]
+                tables["onset_qa"].extend({**base, **r} for r in qa)
             tables["onset_traces"].extend({**base, **r} for r in traces)
         _mark(args.output, "onset", shot)
 
@@ -785,6 +842,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--thomson-shots", help="file of shots whose HSDS public product holds thomson_scattering")
     parser.add_argument("--trace-shots", nargs="*", type=int, default=[],
                         help="shots whose every onset-aligned channel trace is kept")
+    parser.add_argument("--onset-qa", action="store_true",
+                        help="with the onset check, also judge every channel at -1 ms by the input QA")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args(argv)
     args.legacy_root = args.legacy_root.expanduser()
@@ -799,7 +858,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     copy_atlas(args)
     args.trace_shots = set(args.trace_shots)
     names = ("slices", "fit", "constraint_points", "virial", "thomson", "thomson_channels", "vacuum",
-             "onset", "onset_points", "onset_traces", "stability_legacy", "stability_legacy_surfaces")
+             "onset", "onset_points", "onset_qa", "onset_traces", "stability_legacy", "stability_legacy_surfaces")
     suffix = "" if not args.shard else "_" + args.shard.replace("/", "of")
     tables = {name: Table(args.output / f"{name}{suffix}.csv") for name in names}
     # The point budget is shared by all shards and survives a resume: each shard

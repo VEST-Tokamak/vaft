@@ -38,6 +38,7 @@ KEYS = {
     "vacuum": ("source", "shot", "wall_model", "name"),
     "onset": ("source", "shot", "family", "t_ms"),
     "onset_points": ("source", "shot", "channel", "t_ms"),
+    "onset_qa": ("source", "shot", "channel", "t_ms"),
     "onset_traces": ("source", "shot", "channel", "t_ms"),
     "stability_legacy": ("shot", "time_ms", "solver", "n"),
     "stability_legacy_surfaces": ("shot", "time_ms", "solver", "n", "m"),
@@ -119,7 +120,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             # stay in the run tables) at four significant digits.
             frame = frame[frame["family"].isin(("ip", "probe", "loop", "error"))].copy()
             frame["value"] = pd.to_numeric(frame["value"], errors="coerce").map(lambda v: float(f"{v:.4g}"))
-        if name in ("onset_points", "onset_traces"):
+        if name in ("onset_points", "onset_qa", "onset_traces"):
             frame = frame.copy()
             for column in ("measured", "vacuum"):
                 frame[column] = pd.to_numeric(frame[column], errors="coerce").map(lambda v: float(f"{v:.5g}"))

@@ -1,5 +1,5 @@
 {
- "created": "2026-10-30T13:33:09+00:00",
+ "created": "2026-10-30T14:31:16+00:00",
  "producer": "workflow/pipeline_improvement/make_snapshot.py",
  "tables": [
   "/home/user1/runs/pipeline_improvement/tables/efit",
@@ -7,7 +7,7 @@
   "/home/user1/runs/pipeline_improvement/tables/vacuum",
   "/home/user1/runs/pipeline_improvement/tables/vacuum_rerun",
   "/home/user1/runs/pipeline_improvement/tables/thomson_err",
-  "/home/user1/runs/pipeline_improvement/tables/onset2"
+  "/home/user1/runs/pipeline_improvement/tables/onset3"
  ],
  "files": {
   "slices.csv.gz": {
@@ -57,6 +57,10 @@
   "onset_points.csv.gz": {
    "rows": 189384,
    "sha256": "415129761b0010a4b53963e8a74b567129060784fb6538ab18cae9dfc58028f0"
+  },
+  "onset_qa.csv.gz": {
+   "rows": 50840,
+   "sha256": "0bfb538a260bb02a48f51303df5db590dd169a581bed97d3a7e20a5996030e61"
   },
   "onset_traces.csv.gz": {
    "rows": 68640,
@@ -341,10 +345,10 @@
    "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
    "atlas_dir": null
   },
-  "/home/user1/runs/pipeline_improvement/tables/onset2/manifest_0of4.json": {
+  "/home/user1/runs/pipeline_improvement/tables/onset3/manifest_0of4.json": {
    "runs": [
     {
-     "started": "2026-10-30T12:53:32+00:00",
+     "started": "2026-10-30T13:50:32+00:00",
      "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
      "checks": [
       "onset"
@@ -360,10 +364,10 @@
    "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
    "atlas_dir": null
   },
-  "/home/user1/runs/pipeline_improvement/tables/onset2/manifest_1of4.json": {
+  "/home/user1/runs/pipeline_improvement/tables/onset3/manifest_1of4.json": {
    "runs": [
     {
-     "started": "2026-10-30T12:53:32+00:00",
+     "started": "2026-10-30T13:50:32+00:00",
      "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
      "checks": [
       "onset"
@@ -379,10 +383,10 @@
    "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
    "atlas_dir": null
   },
-  "/home/user1/runs/pipeline_improvement/tables/onset2/manifest_2of4.json": {
+  "/home/user1/runs/pipeline_improvement/tables/onset3/manifest_2of4.json": {
    "runs": [
     {
-     "started": "2026-10-30T12:53:32+00:00",
+     "started": "2026-10-30T13:50:32+00:00",
      "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
      "checks": [
       "onset"
@@ -398,10 +402,10 @@
    "pairing": "nearest time, one to one, closest first, |dt| <= 5e-4 s (vaft.validation.pipeline_comparison.pair_slices)",
    "atlas_dir": null
   },
-  "/home/user1/runs/pipeline_improvement/tables/onset2/manifest_3of4.json": {
+  "/home/user1/runs/pipeline_improvement/tables/onset3/manifest_3of4.json": {
    "runs": [
     {
-     "started": "2026-10-30T12:53:32+00:00",
+     "started": "2026-10-30T13:50:32+00:00",
      "commit": "fe57d39e766774461a3e876afccb60e499b4a8d2",
      "checks": [
       "onset"

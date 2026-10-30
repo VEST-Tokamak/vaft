@@ -429,3 +429,76 @@ def test_onset_scatter_puts_measured_against_vacuum_per_family():
     with pytest.raises(ValueError):
         pipeline_comparison_onset_scatter(points, limits_by_panel={"dia": (0, 1)})
     plt.close(fig)
+
+
+def test_onset_scatter_crosses_what_the_input_qa_rejects_at_one_instant():
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    from vaft.plot.pipeline_comparison import pipeline_comparison_onset_scatter
+
+    points = pd.DataFrame({
+        "source": ["public", "public", "main", "main", "public"],
+        "family": ["probe", "probe", "probe", "ip", "probe"],
+        "t_ms": [-1.0, -1.0, -1.0, -1.0, -4.0],
+        "measured": [0.010, 0.300, 0.011, 0.2, 0.05],
+        "vacuum": [0.010, 0.002, 0.010, 0.0, 0.05],
+        "qa_code": [0, -2, 0, np.nan, -2],
+    })
+    fig, axes = pipeline_comparison_onset_scatter(points, t_ms=-1.0)
+    crosses = [c for c in axes[1].collections if c.get_offsets().shape[0] and
+               c.get_paths()[0].vertices.shape[0] < 10 and c.get_alpha() == 0.7]
+    assert len(crosses) == 1 and np.allclose(crosses[0].get_offsets(), [[300.0, 2.0]])  # the -4 ms row is gone
+    assert any(t.get_text() == "input QA rejects: legacy 1, current 0" for t in axes[1].texts)
+    assert "rejected by the input QA" in [t.get_text() for t in fig.legends[0].get_texts()]
+    assert "-1 ms" in fig._suptitle.get_text()
+    with pytest.raises(ValueError):
+        pipeline_comparison_onset_scatter(points, t_ms=-8.0)
+    plt.close(fig)
+
+
+def test_quality_checks_are_four_named_panels_with_one_key():
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    from vaft.plot.pipeline_comparison import QUALITY_CHECK_TITLES, pipeline_comparison_quality_checks
+
+    onset = pd.DataFrame({"source": ["public", "main", "main"], "family": ["probe"] * 3, "t_ms": [-1.0] * 3,
+                          "measured": [0.01, 0.011, 0.5], "vacuum": [0.01, 0.01, 0.0], "qa_code": [0, 0, -2]})
+    points = pd.DataFrame({"side": ["legacy", "current"], "family": ["probe", "probe"],
+                           "measured": [0.01, 0.01], "reconstructed": [0.012, 0.01]})
+    virial = pd.DataFrame({"side": ["legacy", "current"], "beta_p_integral": [0.01, 0.2],
+                           "beta_p_pair_13": [0.02, 0.2]})
+    channels = pd.DataFrame({"side": ["legacy", "current"], "pair_id": ["1:0", "1:0"],
+                             "p_e": [100.0, 100.0], "p_recon": [40.0, 150.0]})
+    fig, axes = pipeline_comparison_quality_checks(onset, points, virial, channels,
+                                                   limits_by_panel={"beta_p": (1e-3, 2.0)})
+    assert axes.shape == (2, 2)
+    assert [ax.get_title() for ax in axes.ravel()] == list(QUALITY_CHECK_TITLES)
+    assert all(ax.get_legend() is None for ax in axes.ravel()) and len(fig.legends) == 1
+    keys = [t.get_text() for t in fig.legends[0].get_texts()]
+    assert "rejected by the input QA (a)" in keys and "QA band (c, d)" in keys
+    assert any(t.get_text().startswith("input QA rejects: legacy 0, current 1") for t in axes[0, 0].texts)
+    with pytest.raises(ValueError):
+        pipeline_comparison_quality_checks(onset, points, virial, channels, limits_by_panel={"li": (0, 1)})
+    plt.close(fig)
+
+
+def test_quality_checks_carry_no_not_shown_counts():
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    from vaft.plot.pipeline_comparison import pipeline_comparison_quality_checks
+
+    onset = pd.DataFrame({"source": ["public", "main"], "family": ["probe"] * 2, "t_ms": [-1.0] * 2,
+                          "measured": [0.01, 0.9], "vacuum": [0.01, 0.0]})
+    points = pd.DataFrame({"side": ["legacy", "current"], "family": ["probe", "probe"],
+                           "measured": [0.01, 0.01], "reconstructed": [0.012, 0.01]})
+    virial = pd.DataFrame({"side": ["legacy", "current"], "beta_p_integral": [0.01, -0.2],
+                           "beta_p_pair_13": [0.02, 0.2]})
+    channels = pd.DataFrame({"side": ["legacy", "current"], "pair_id": ["1:0", "1:0"],
+                             "p_e": [100.0, 100.0], "p_recon": [40.0, -1.0]})
+    fig, axes = pipeline_comparison_quality_checks(onset, points, virial, channels,
+                                                   limits_by_panel={"onset": (-20, 20), "beta_p": (1e-3, 2.0)})
+    assert not [t for ax in axes.ravel() for t in ax.texts if t.get_text().startswith("not shown")]
+    plt.close(fig)
