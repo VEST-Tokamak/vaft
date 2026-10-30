@@ -32,6 +32,7 @@ __all__ = [
     "pipeline_comparison_distribution",
     "pipeline_comparison_measured_vs_reconstructed",
     "pipeline_comparison_onset_population",
+    "pipeline_comparison_onset_scatter",
     "pipeline_comparison_onset_traces",
     "pipeline_comparison_overview",
     "pipeline_comparison_paired",
@@ -872,6 +873,67 @@ def pipeline_comparison_onset_traces(traces: pd.DataFrame, *, shot: int, channel
         fig.suptitle(f"Shot {shot}", y=1.0)
         _onset_legend(fig, [Line2D([], [], color=INK, lw=1.8, label="measured"),
                             Line2D([], [], color=INK, lw=1.8, ls="--", label="vacuum (coil + eddy)")])
+    if show:
+        plt.show()
+    return fig, axes
+
+
+def pipeline_comparison_onset_scatter(points: pd.DataFrame, *, sources: Mapping[str, str] = ONSET_SOURCES,
+                                      show: bool = False, figsize: tuple[float, float] = (15.0, 5.6),
+                                      limits_by_panel=None, panel_labels: bool = True):
+    """Measured (x) against vacuum (y) before the plasma onset: plasma current, probes, flux loops.
+
+    The layout of :func:`pipeline_comparison_overview` for the vacuum model:
+    ``points`` is the onset-points table (``source``, ``family`` of ``ip``,
+    ``probe`` or ``loop``, ``measured``, ``vacuum``; SI with ``ip`` in kA),
+    every channel at a few fixed instants before the onset, pooled. The
+    vacuum (coil + eddy) model gives the plasma current no value but zero, so
+    in (a) the points lie on ``y = 0`` and their spread along ``x`` is the
+    measured offset. ``limits_by_panel`` maps ``"ip"``, ``"probe"`` or
+    ``"loop"`` to ``(min, max)`` in display units.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+    from matplotlib.ticker import MaxNLocator
+
+    limits = dict(limits_by_panel or {})
+    unknown = set(limits) - {"ip", "probe", "loop"}
+    if unknown:
+        raise ValueError(f"unknown panel in limits_by_panel: {sorted(unknown)}")
+    data = points.assign(side=points["source"].map(sources),
+                         reconstructed=pd.to_numeric(points["vacuum"], errors="coerce"))
+    # The table holds I_p in kA; the shared renderer takes SI.
+    is_ip = (data["family"] == "ip").to_numpy()
+    for column in ("measured", "reconstructed"):
+        values = pd.to_numeric(data[column], errors="coerce").to_numpy(float)
+        data[column] = np.where(is_ip, values * 1e3, values)
+    presentation = resolve_presentation("slide", None)
+    with presentation.context():
+        fig, axes = plt.subplots(1, 3, figsize=figsize)
+        for ax, family in zip(axes, ("ip", "probe", "loop")):
+            pipeline_comparison_measured_vs_reconstructed(data, family=family, ax=ax, limits=limits.get(family))
+            if family == "ip":
+                ax.axhline(0.0, color=MUTED, lw=0.8, zorder=1)
+            ax.xaxis.set_major_locator(MaxNLocator(5))
+            ax.yaxis.set_major_locator(MaxNLocator(5))
+            ax.set_ylabel(f"vacuum (coil + eddy) [{FAMILY_DISPLAY[family][1]}]")
+            legend = ax.get_legend()
+            if legend is not None:
+                legend.remove()
+        if panel_labels:
+            for letter, ax in zip("abc", axes):
+                _panel_letter(ax, letter)
+        instants = sorted(pd.unique(pd.to_numeric(points["t_ms"], errors="coerce").dropna()))
+        fig.suptitle(r"Before the plasma onset, $t - t_\mathrm{onset}$ = "
+                     + ", ".join(f"{t:g}" for t in instants) + " ms", y=0.98)
+        handles = [Line2D([], [], color=SIDE_STYLE[side]["color"], marker=SIDE_STYLE[side]["marker"],
+                          linestyle="none", markersize=10, label=COMPARISON_LABELS[side]) for side in SIDES]
+        handles.append(Line2D([], [], color=INK, linestyle="--", label="y = x"))
+        fig.tight_layout(rect=(0.0, 0.12, 1.0, 0.95), pad=0.8, w_pad=1.2)
+        # tight_layout keeps the axis labels inside the rect only to within the
+        # equal-aspect boxes; the key needs its own band below them.
+        fig.subplots_adjust(bottom=0.24)
+        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=3, frameon=False)
     if show:
         plt.show()
     return fig, axes

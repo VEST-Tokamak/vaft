@@ -63,6 +63,8 @@ REPOSITORY = HERE.parents[1]
 CHECKS = ("fit", "virial", "thomson", "vacuum", "onset", "stability")
 #: The onset-aligned grid of the onset check, t - t_onset [ms].
 ONSET_GRID_MS = np.round(np.arange(-20.0, 15.0 + 1e-9, 0.2), 1)
+#: Instants before the onset at which every channel's measured and vacuum value is kept [ms].
+ONSET_POINT_MS = (-12.0, -8.0, -4.0, -1.0)
 #: Slices of one shot whose g-file time is within this of a main slice belong to main [s].
 MAIN_TIME_TOLERANCE = 5.0e-4
 GFILE = re.compile(r"^g0*(\d+)\.0*(\d+)$")
@@ -401,15 +403,16 @@ def onset_reference(loaded: Mapping[str, Any]) -> tuple[float, str]:
     raise RuntimeError("no plasma onset on either side: " + "; ".join(errors))
 
 
-def onset_rows(ods: Any, onset: float, keep_channels: bool = False) -> tuple[list[dict], list[dict]]:
+def onset_rows(ods: Any, onset: float, keep_channels: bool = False) -> tuple[list[dict], list[dict], list[dict]]:
     """Measured against vacuum (coil+eddy) magnetics on the onset-aligned grid.
 
     Per family (``ip``, ``probe`` and ``loop``, and each EFIT sub-family) and grid instant, the median over
     channels of ``|measured - vacuum| / max|measured|`` before the onset (the
     channel's own vacuum amplitude), with the channel count. ``ip`` has no
     vacuum model: the compensated plasma current is expected to be zero before
-    the onset, so its row is the measured current itself [kA]. With
-    ``keep_channels`` every channel's trace is returned as well.
+    the onset, so its row is the measured current itself [kA]. The second list
+    holds every channel's measured and vacuum value at :data:`ONSET_POINT_MS`;
+    with ``keep_channels`` the third holds every channel's whole trace.
     """
     from vaft.omas.general import signal_time
     from vaft.omas.vacuum_magnetics import synthetic_vacuum_magnetics
@@ -420,7 +423,8 @@ def onset_rows(ods: Any, onset: float, keep_channels: bool = False) -> tuple[lis
     channels = synthetic_vacuum_magnetics(ods, per_family=None, window=(grid[0], grid[-1] + 1e-6),
                                           validity_window=(start, onset))
     families: dict[str, list[np.ndarray]] = {}
-    traces = []
+    traces, points = [], []
+    at_points = np.isin(ONSET_GRID_MS, ONSET_POINT_MS)
     for channel in channels:
         inside = (grid >= channel.time[0]) & (grid <= channel.time[-1])
         measured = np.where(inside, np.interp(grid, channel.time, channel.measured), np.nan)
@@ -432,6 +436,10 @@ def onset_rows(ods: Any, onset: float, keep_channels: bool = False) -> tuple[lis
             kind = "loop" if "flux_loop" in channel.kind else "probe"
             for family in (channel.family, kind):
                 families.setdefault(family, []).append(np.abs(measured - vacuum) / scale)
+        points += [{"family": "loop" if "flux_loop" in channel.kind else "probe", "channel": channel.name,
+                    "t_ms": float(t), "measured": float(m), "vacuum": float(v)}
+                   for t, m, v in zip(ONSET_GRID_MS[at_points], measured[at_points], vacuum[at_points])
+                   if np.isfinite(m) and np.isfinite(v)]
         if keep_channels:
             traces += [{"family": channel.family, "channel": channel.name, "t_ms": float(t), "measured": float(m),
                         "vacuum": float(v)} for t, m, v in zip(ONSET_GRID_MS, measured, vacuum)]
@@ -446,12 +454,15 @@ def onset_rows(ods: Any, onset: float, keep_channels: bool = False) -> tuple[lis
     ip = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
     ip_time = np.asarray(signal_time(ods, "magnetics.ip.0.data"), dtype=float)
     inside = (grid >= ip_time[0]) & (grid <= ip_time[-1])
+    points += [{"family": "ip", "channel": "ip", "t_ms": float(t), "measured": float(v) * 1e-3, "vacuum": 0.0}
+               for t, v, ok in zip(ONSET_GRID_MS, np.interp(grid, ip_time, ip), inside)
+               if ok and t in ONSET_POINT_MS]
     rows += [{"family": "ip", "t_ms": float(t), "value": float(v) * 1e-3 if ok else np.nan, "n_channels": int(ok)}
              for t, v, ok in zip(ONSET_GRID_MS, np.interp(grid, ip_time, ip), inside)]
     if keep_channels:
         traces += [{"family": "ip", "channel": "ip", "t_ms": float(t), "measured": float(v) * 1e-3 if ok else np.nan,
                     "vacuum": 0.0} for t, v, ok in zip(ONSET_GRID_MS, np.interp(grid, ip_time, ip), inside)]
-    return rows, traces
+    return rows, points, traces
 
 
 # --------------------------------------------------------------------------
@@ -702,12 +713,13 @@ def process_shot(shot: int, args, tables: Mapping[str, Table], points_budget: li
         onset, how = onset_reference(loaded)
         for source, ods in loaded.items():
             try:
-                rows, traces = onset_rows(ods, onset, keep_channels=shot in args.trace_shots)
+                rows, points, traces = onset_rows(ods, onset, keep_channels=shot in args.trace_shots)
             except Exception as error:
-                rows, traces = [{"family": "error", "t_ms": np.nan, "value": np.nan, "n_channels": 0,
-                                 "reason": repr(error)[:300]}], []
+                rows, points, traces = [{"family": "error", "t_ms": np.nan, "value": np.nan, "n_channels": 0,
+                                         "reason": repr(error)[:300]}], [], []
             base = {"source": source, "shot": shot, "onset": onset, "onset_source": how}
             tables["onset"].extend({**base, **r} for r in rows)
+            tables["onset_points"].extend({**base, **r} for r in points)
             tables["onset_traces"].extend({**base, **r} for r in traces)
         _mark(args.output, "onset", shot)
 
@@ -787,7 +799,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     copy_atlas(args)
     args.trace_shots = set(args.trace_shots)
     names = ("slices", "fit", "constraint_points", "virial", "thomson", "thomson_channels", "vacuum",
-             "onset", "onset_traces", "stability_legacy", "stability_legacy_surfaces")
+             "onset", "onset_points", "onset_traces", "stability_legacy", "stability_legacy_surfaces")
     suffix = "" if not args.shard else "_" + args.shard.replace("/", "of")
     tables = {name: Table(args.output / f"{name}{suffix}.csv") for name in names}
     # The point budget is shared by all shards and survives a resume: each shard

@@ -403,3 +403,29 @@ def test_onset_traces_pick_the_largest_channel_both_sides_carry():
     with pytest.raises(ValueError):
         pipeline_comparison_onset_traces(traces, shot=8)
     plt.close(fig)
+
+
+def test_onset_scatter_puts_measured_against_vacuum_per_family():
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    from vaft.plot.pipeline_comparison import pipeline_comparison_onset_scatter
+
+    points = pd.DataFrame({
+        "source": ["public", "main"] * 3,
+        "family": ["ip", "ip", "probe", "probe", "loop", "loop"],
+        "t_ms": [-4.0] * 6,
+        "measured": [0.5, -0.2, 0.012, 0.010, -0.003, -0.002],  # ip in kA, the rest SI
+        "vacuum": [0.0, 0.0, 0.010, 0.010, -0.002, -0.002],
+    })
+    fig, axes = pipeline_comparison_onset_scatter(points)
+    assert [ax.get_title() for ax in axes] == ["Plasma current", "Poloidal probes", "Flux loops"]
+    assert all(ax.get_ylabel().startswith("vacuum (coil + eddy)") for ax in axes)
+    ip = [c for c in axes[0].collections if c.get_offsets().shape[0]]
+    assert sorted(o[0] for c in ip for o in c.get_offsets()) == [-0.2, 0.5]  # kA stays kA
+    probe = [c.get_offsets() for c in axes[1].collections]
+    assert any(np.allclose(o, [[12.0, 10.0]]) for o in probe)  # mT
+    assert len(fig.legends) == 1 and all(ax.get_legend() is None for ax in axes)
+    with pytest.raises(ValueError):
+        pipeline_comparison_onset_scatter(points, limits_by_panel={"dia": (0, 1)})
+    plt.close(fig)
