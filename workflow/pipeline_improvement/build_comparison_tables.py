@@ -409,8 +409,8 @@ def onset_rows(ods: Any, onset: float, keep_channels: bool = False) -> tuple[lis
     """Measured against vacuum (coil+eddy) magnetics on the onset-aligned grid.
 
     Per family (``ip``, ``probe`` and ``loop``, and each EFIT sub-family) and grid instant, the median over
-    channels of ``|measured - vacuum| / max|measured|`` before the onset (the
-    channel's own vacuum amplitude), with the channel count. ``ip`` has no
+    channels of ``|measured - vacuum|`` over the channel's largest ``|measured|``
+    before the onset, with the channel count. ``ip`` has no
     vacuum model: the compensated plasma current is expected to be zero before
     the onset, so its row is the measured current itself [kA]. The second list
     holds every channel's measured and vacuum value at :data:`ONSET_POINT_MS`;

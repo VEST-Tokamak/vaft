@@ -365,10 +365,14 @@ def _onset_tables():
                 rows += [{"source": source, "shot": shot, "family": family, "t_ms": x,
                           "value": offset * shot * (1 + (x > 0))} for x in t]
             rows += [{"source": source, "shot": shot, "family": "ip", "t_ms": x, "value": max(x, 0) * 10} for x in t]
-        for family, channel, size in (("outboard", "B_a", 0.01), ("side", "B_b", 0.05),
-                                      ("inboard_flux_loop", "Flux Loop - #1", 0.002), ("ip", "ip", 0.0)):
+        # Each probe departs from its vacuum value by its own fraction, so the
+        # channels' relative errors differ and the median one is B_b.
+        for family, channel, size, error in (("outboard", "B_a", 0.01, 0.05), ("side", "B_b", 0.05, 0.3),
+                                             ("inboard", "B_c", 0.02, 0.6),
+                                             ("inboard_flux_loop", "Flux Loop - #1", 0.002, offset),
+                                             ("ip", "ip", 0.0, 0.0)):
             traces += [{"source": source, "shot": 7, "family": family, "channel": channel, "t_ms": x,
-                        "measured": size * (1 + offset), "vacuum": size} for x in t]
+                        "measured": size * (1 + error), "vacuum": size} for x in t]
     return pd.DataFrame(rows), pd.DataFrame(traces)
 
 
@@ -389,7 +393,7 @@ def test_onset_population_draws_the_median_over_shots_per_pipeline():
     plt.close(fig)
 
 
-def test_onset_traces_pick_the_largest_channel_both_sides_carry():
+def test_onset_traces_pick_the_median_residual_channel_both_sides_carry():
     import matplotlib.pyplot as plt
 
     from vaft.plot.pipeline_comparison import pipeline_comparison_onset_traces
