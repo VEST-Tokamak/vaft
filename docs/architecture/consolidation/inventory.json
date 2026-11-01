@@ -4,7 +4,7 @@
   "duplicate": 1,
   "intentional_specialization": 39,
   "legacy": 8,
-  "unverified": 382
+  "unverified": 384
  },
  "entry_modules": {
   "pipeline1": [
@@ -7200,7 +7200,8 @@
     "vaft.plot.time.time_virial_equilibrium_quantities",
     "vaft.validation.equilibrium._virial_rows",
     "workflow.efit_uncertainty_calibration.weight_scan._virial",
-    "workflow.kinetic_state.export_virial_identity.export"
+    "workflow.kinetic_state.export_virial_identity.export",
+    "workflow.pipeline_improvement.build_comparison_tables.virial_row"
    ],
    "classification": "unverified",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -7552,7 +7553,10 @@
     "vaft.plot.backend.recipes._vacuum_channels",
     "vaft.validation.stage_evidence._eddy_metrics",
     "vaft.validation.vacuum_benchmark.run_benchmark_case",
-    "vaft.validation.wall_reduction.experimental_comparison.evaluate"
+    "vaft.validation.wall_reduction.experimental_comparison.evaluate",
+    "workflow.pipeline_improvement.build_comparison_tables.onset_qa_rows",
+    "workflow.pipeline_improvement.build_comparison_tables.onset_rows",
+    "workflow.pipeline_improvement.build_comparison_tables.vacuum_rows"
    ],
    "classification": "unverified",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -15580,7 +15584,8 @@
    "callers": [
     "vaft.omas.kinetic_state_inference.kinetic_state_stages.data",
     "vaft.validation.equilibrium._thomson_pressure",
-    "vaft.validation.kinetic_state.match_thomson_pressure"
+    "vaft.validation.kinetic_state.match_thomson_pressure",
+    "workflow.pipeline_improvement.build_comparison_tables.thomson_row"
    ],
    "classification": "unverified",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -16984,6 +16989,92 @@
    "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/ordering_atlas/build_states.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(instant, channel.time, channel.coil_eddy)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(instant, channel.time, channel.measured)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(instant, ip_time, ip)"
+    }
+   ],
+   "callers": [
+    "workflow.pipeline_improvement.build_comparison_tables.process_shot"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "workflow.pipeline_improvement.build_comparison_tables.onset_qa_rows",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "workflow_study",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "low",
+   "source_file": "workflow/pipeline_improvement/build_comparison_tables.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(grid, channel.time, channel.coil_eddy)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(grid, channel.time, channel.measured)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(grid, channel.time, channel.usable.astype(float))"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(grid, ip_time, ip)"
+    }
+   ],
+   "callers": [
+    "workflow.pipeline_improvement.build_comparison_tables.process_shot"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "workflow.pipeline_improvement.build_comparison_tables.onset_rows",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "workflow_study",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "low",
+   "source_file": "workflow/pipeline_improvement/build_comparison_tables.py"
   },
   {
    "algorithm_semantics": "calls numpy.gradient, numpy.interp (not curated)",
