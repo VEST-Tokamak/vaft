@@ -337,8 +337,10 @@ def vfit_langmuir_probes_dynamic(
         )
         quantities = {}
         for key, source_key in (("n_e", "n_e"), ("t_e", "te")):
+            # unfiltered="keep": this mapper flags those samples itself, in
+            # validity, below; the values stay as they were before #2162 B3.12.
             data, filtered = resample_to_time(
-                result["time"], result[source_key], time, return_filter_mask=True
+                result["time"], result[source_key], time, return_filter_mask=True, unfiltered="keep"
             )
             # A finite run shorter than filtfilt accepts is decimated unfiltered
             # and so may carry aliased content (#915). The filtered mask is

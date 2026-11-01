@@ -40,7 +40,6 @@ from vaft.machine_mapping.magnetics import (
     known_magnetics_faults,
     magnetics_wiring_for_shot,
     vest_equilibrium_magnetics_channel_definitions,
-    vest_md_channel_definitions,
     vfit_magnetics_static,
 )
 from vaft.machine_mapping.magnetics_registry import (
@@ -300,6 +299,8 @@ def test_static_magnetics_leaves_are_identical_to_the_pre_2158_code(before, shot
 def test_channel_definitions_are_identical_to_the_pre_2158_code(before):
     definitions = before["channel_definitions"]
     assert [dict(c) for c in vest_equilibrium_magnetics_channel_definitions()] == definitions["inventory"]
+    with pytest.warns(DeprecationWarning, match="vest_md_channel_definitions is deprecated"):
+        from vaft.machine_mapping.magnetics import vest_md_channel_definitions
     assert vest_md_channel_definitions() == vest_equilibrium_magnetics_channel_definitions()
     for shot, expected in definitions.items():
         if shot == "inventory":

@@ -167,7 +167,9 @@ def _constraint_window(ods, *, policy: PlasmaTimingPolicy | None = None) -> Cons
     window from ``vaft.omas.plasma_timing`` -- the slow H-alpha line, then the
     fast one, then the plasma current.  When no source shows a plasma the
     whole range is used and the choice is flagged ``analysis_range_fallback``
-    with the reason, so a vacuum shot's slices are visibly not plasma slices.
+    with the reason, so a vacuum shot's slices are visibly not plasma slices;
+    :func:`_no_plasma_window_reason` then decides whether that fallback is
+    the shot's "not applicable" verdict (#2195).
     """
     policy = policy or resolve_plasma_timing_policy()
     ip_time = resolve_signal_time(ods, "magnetics.ip.0")  # the node's own time, else magnetics.time
@@ -389,6 +391,139 @@ def _efit_not_applicable(
     )
 
 
+#: Detector flags that say the current could not be judged, not that it showed
+#: no discharge: a verdict of "no plasma" must not rest on them (#2195 review).
+_UNJUDGED_CURRENT_FLAGS = frozenset({
+    "ip_unusable", "baseline_inside_search", "record_too_short",
+    "reference_too_short", "reference_not_finite",
+})
+
+
+def _current_flags(window: ConstraintWindow) -> set[str]:
+    """Every timing flag plus the plasma-current detector's own window and onset flags.
+
+    The timing's flags include the light's crop flags too, so a degenerate
+    H-alpha baseline also withholds the verdict -- the safe side.
+    """
+    flags = set(window.flags)
+    ip = (window.record or {}).get("ip") or {}
+    flags.update(((ip.get("onset") or {}).get("flags")) or ())
+    flags.update(ip.get("flags") or ())
+    return flags
+
+
+def _reverse_current_pulse(ods, window: ConstraintWindow) -> bool:
+    """Whether the sign-flipped current shows a pulse the Ip detector accepts.
+
+    The detector accepts positive pulses only (VEST stores Ip positive-going),
+    so a discharge recorded with the wrong sign -- a sign fault, #275 -- shows
+    no pulse at all.  Running the same detector, with the same rule and span,
+    on ``-Ip`` tells that apart from pickup.  Any failure to judge counts as a
+    pulse: the verdict is then withheld.
+    """
+    from omas import ODS
+
+    from vaft.omas.plasma_timing import AnalysisSpan, ip_window
+
+    try:
+        clock, current = resolve_signal_waveform(ods, "magnetics.ip.0")
+        span = AnalysisSpan(**window.record["span"])
+        mirror = ODS(consistency_check=False)
+        mirror["magnetics.ip.0.time"] = np.asarray(clock, dtype=float)
+        mirror["magnetics.ip.0.data"] = -np.asarray(current, dtype=float)
+        return bool(ip_window(mirror, span=span).found)
+    except Exception as exc:  # cannot judge: withhold the verdict, but say why
+        LOGGER.warning("sign-flipped current could not be judged (%s: %s); no no-plasma verdict",
+                       type(exc).__name__, exc)
+        return True
+
+
+def _kept_currents(ods, kept_times, *, average_window: float) -> np.ndarray:
+    """The box-averaged current each kept constraint instant would be given as ``PLASMA``."""
+    from vaft.code.efit.legacy import box_average
+
+    clock, data = resolve_signal_waveform(ods, "magnetics.ip.0")
+    values = []
+    for value in kept_times:
+        try:
+            values.append(float(box_average(clock, data, float(value), float(average_window), what="ip")))
+        except Exception:
+            values.append(float("nan"))
+    return np.asarray(values, dtype=float)
+
+
+def _no_plasma_window_reason(
+    ods,
+    window: ConstraintWindow | None,
+    kept_times: np.ndarray,
+    *,
+    cut: int,
+    average_window: float = 0.0005,
+) -> str | None:
+    """Why the equilibrium branch does not apply when the timing found no plasma (#2195).
+
+    :func:`vaft.omas.plasma_timing.plasma_timing` returns ``found = False``
+    when neither source *shows* a plasma.  The constraint window then falls
+    back to the whole analysis range, and the vacuum cut used to keep
+    whatever instants PF pickup pushed past ``CUTIP`` -- 39417, 45919 and
+    46406 each reached EFIT with one to three such instants (#2166 D2).  Not
+    showing one is not yet evidence of its absence, so the verdict is drawn
+    only where the evidence is positive:
+
+    * a usable H-alpha line answered for the light and its detector accepted
+      no window (45919, 46406: no light above the noise beyond the excursions
+      the onset rules reject), while the judged current shows no pulse either:
+      two independent detectors agree that no discharge happened.  Their
+      refusals are trusted as they stand -- a sub-millisecond flash under an
+      impulsive current is refused by both, and a wrong-signed current of any
+      size under that light is pickup, the dark-window reading
+      :func:`_efit_not_applicable` already applies (#205); or
+    * no light could be judged (39417 has no H-alpha line) and the current
+      alone shows it: every kept instant is wrong-signed (VEST stores Ip
+      positive-going) and the sign-flipped current shows no pulse either, so
+      the instants are pickup excursions, not a discharge recorded with the
+      wrong sign.  A positive kept instant, or a reverse pulse, keeps the old
+      fallback -- that may be a real discharge the detector missed.
+
+    Withheld, too, when the current could not be judged at all: the timing
+    refused it, its detector could not form a reference
+    (:data:`_UNJUDGED_CURRENT_FLAGS`), or the diagnostics stage condemned the
+    plasma-current Rogowski (#1373) -- a dead sensor under a real discharge
+    is a fault to see, the same guard :func:`_efit_not_applicable` applies.
+
+    It is asked after the vacuum cut, about the ``kept_times`` the cut left
+    (``cut`` were dropped): a fallback shot whose every instant is below
+    ``CUTIP`` already got the #205 verdict and keeps its wording.  The verdict
+    travels the #205 way (not-applicable constraints; the k-file, EFIT and
+    EFIT-ODS steps report ``skipped: not applicable``); the diagnostics and
+    eddy products, which the vacuum benchmark reads, are untouched.  Manual
+    mode has no window and is never judged here.
+    """
+    if window is None or not window.fallback:
+        return None
+    if _current_flags(window) & _UNJUDGED_CURRENT_FLAGS:
+        return None
+    if is_condemned_channel(ods, "magnetics.rogowski_coil.0.current", min_validity=VALIDITY_SUSPECT):
+        return None
+    kept = int(np.asarray(kept_times).size)
+    record = window.record or {}
+    if record.get("optical") is not None:
+        evidence = "a usable H-alpha line shows no discharge window and the plasma current shows no discharge pulse"
+    else:
+        currents = _kept_currents(ods, kept_times, average_window=average_window)
+        if not currents.size or not np.all(currents < 0.0) or _reverse_current_pulse(ods, window):
+            return None
+        evidence = (
+            "no H-alpha line could be judged; the plasma current shows no pulse in either "
+            f"direction and every kept instant is wrong-signed (peak {currents.min() / 1e3:.1f} kA)"
+        )
+    return (
+        f"no plasma window in the plasma-analysis range {window.start:.4f}-{window.end:.4f} s: "
+        f"{evidence} ({window.fallback_reason}); the vacuum cut kept {kept} of {kept + cut} "
+        "constraint instants"
+    )
+
+
 def _window_comment(
     window: ConstraintWindow | None,
     times: np.ndarray,
@@ -541,6 +676,17 @@ def main() -> int:
             len(vacuum) + times.size,
             ", ".join(f"{t:.3f}s at {c / 1e3:.1f} kA" for t, c in vacuum),
         )
+    no_plasma = _no_plasma_window_reason(
+        ods, window, times, cut=len(vacuum), average_window=args.average_window
+    )
+    if no_plasma is not None:
+        # A result, not a failure (#2195): the timing found no plasma, so the
+        # instants pickup lifted past CUTIP are not equilibria to reconstruct.
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        vaft.omas.save(not_applicable_constraints(no_plasma), args.output)
+        LOGGER.info("plasma timing: %s", json.dumps(window.record, default=str))
+        LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, no_plasma)
+        return 0
     ods["equilibrium.time"] = times
     ods["equilibrium.ids_properties.comment"] = _window_comment(window, times, vacuum)
     if window is not None:
