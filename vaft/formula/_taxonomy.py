@@ -1,4 +1,4 @@
-"""The controlled vocabulary of reduced physical representations (#1626).
+"""The controlled vocabulary of reduced physical representations.
 
 A formula that turns one representation of the plasma into a more reduced one
 -- a field into a profile, a profile into a scalar, a dimensional quantity
@@ -168,7 +168,7 @@ class Quantity:
     ``concept`` names the quantity in the plotting vocabulary
     (:mod:`vaft.plot.taxonomy`) when the key is that quantity in some
     representation (``j_phi`` and ``j_phi_field`` are both ``j_tor``), so the
-    generated ontology (#1702) connects the reduction to it.  It stays
+    generated ontology connects the reduction to it.  It stays
     ``None`` for a composite (``q_features``, ``engineering``) or a quantity
     the vocabulary does not define; ``vaft.formula`` never imports
     ``vaft.plot``, so the ontology's tests check that every name resolves.

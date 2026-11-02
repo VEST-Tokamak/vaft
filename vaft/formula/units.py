@@ -3,7 +3,7 @@ r"""Unit scale factors: explicit, exact conversions between declared unit tags.
 Formula and process docstrings declare every unit as a ``[unit]`` tag, and the
 callers of a function that takes ``I_p [MA]`` or ``n [1e19 m^-3]`` convert by
 hand. This module turns such a tag into a scale factor and a dimension, so a
-conversion can be checked and stated instead of retyped (#2163).
+conversion can be checked and stated instead of retyped.
 
 It converts only what a unit tag can decide on its own. Two values with
 convertible units are not thereby the same physical quantity: whether a

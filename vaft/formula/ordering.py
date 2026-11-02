@@ -5,7 +5,7 @@ magnetization is not a performance figure: it is the small or large
 parameter a model's derivation expands in. These kernels compute them from
 explicit physical inputs -- the characteristic length, the resistivity, the
 collision time are always arguments, never defaults -- so a caller cannot
-silently substitute a global scale for a layer scale (#1627). Whether an
+silently substitute a global scale for a layer scale. Whether an
 ordering is satisfied is not decided here; that is the ordering contracts'
 job.
 

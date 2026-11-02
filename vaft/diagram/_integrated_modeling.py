@@ -1,4 +1,4 @@
-"""Integrated-modeling diagrams: three independent model axes, their space, and model coupling (#1085).
+"""Integrated-modeling diagrams: three independent model axes, their space, and model coupling.
 
 ``knowledge_basis``
     where a model's knowledge comes from: first-principles to data-driven,

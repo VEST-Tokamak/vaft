@@ -1,4 +1,4 @@
-"""MARFE: a localized radiation condensation on an equilibrium, and the condition that makes it (#1209).
+"""MARFE: a localized radiation condensation on an equilibrium, and the condition that makes it.
 
 Left, a prescribed MARFE on the equilibrium's edge. On the high-field side
 (the usual location, Lipschultz 1987) the band straddles the last closed
@@ -12,7 +12,9 @@ constant-density flute limit of ``radiative_thermal_instability_growth_rate``
 on its $k_\\parallel = 0$ axis.
 
 The MARFE is prescribed, not solved: no reaction-diffusion problem, no
-cooling curve, no density-limit formula (those belong to #1068).
+cooling curve, no density-limit formula (the Greenwald and Hugill limits live in
+``vaft.formula.boundaries``; separating global, edge and disruptive density
+limits is open: #1068).
 """
 
 from __future__ import annotations

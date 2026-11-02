@@ -1,4 +1,4 @@
-"""Coordinates, geometry, meshes, mappings and topology: the spatial vocabulary (#1101).
+"""Coordinates, geometry, meshes, mappings and topology: the spatial vocabulary.
 
 Concept-oriented, not code-oriented: a structured grid or a logical mapping is
 drawn as the numerical idea several equilibrium, transport and MHD codes share.
@@ -50,7 +50,7 @@ from ._gs_equilibrium import _lines, _note, _surfaces, flux_model, lcfs
 from ._render import Diagram
 from ._scene import Arrow, Label, Marker, Polyline, Scene
 
-#: The spatial vocabulary by family (#1101): each entry is a ``vaft.diagram`` builder.
+#: The spatial vocabulary by family: each entry is a ``vaft.diagram`` builder.
 SPATIAL_FAMILIES: Dict[str, Tuple[str, ...]] = {
     "coordinate": ("tokamak_torus", "tokamak_top_view", "cocos_orientation", "flux_coordinates",
                    "poloidal_angle_comparison", "coordinates_vs_cocos"),

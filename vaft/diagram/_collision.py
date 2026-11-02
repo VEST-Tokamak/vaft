@@ -1,11 +1,12 @@
-"""Collision processes in fusion plasmas: a classification diagram (#1215).
+"""Collision processes in fusion plasmas: a classification diagram.
 
 Three branches, kept apart because they are different physics: Coulomb
 collisions between charged particles (small-angle, cumulative relaxation),
 atomic processes between charged particles and neutrals or bound electrons,
 and nuclear fusion reactions. No collision frequency, Coulomb logarithm or
 cross-section is drawn; those belong to formula-backed diagrams such as the
-collisionality regimes of #1111.
+neoclassical collisionality-regime diagram
+(``neoclassical_collisionality``).
 """
 
 from __future__ import annotations

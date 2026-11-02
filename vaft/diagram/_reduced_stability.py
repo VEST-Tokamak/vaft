@@ -1,4 +1,4 @@
-"""Equilibrium-derived analytic and reduced MHD stability diagnostics (#1635).
+"""Equilibrium-derived analytic and reduced MHD stability diagnostics.
 
 ``stability_diagnostic_taxonomy``
     the criteria VAFT holds, by physical problem (rows) and logical status

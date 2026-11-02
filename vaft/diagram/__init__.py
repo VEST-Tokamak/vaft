@@ -1,4 +1,4 @@
-"""Reproducible scientific schematics (issue #890).
+"""Reproducible scientific schematics.
 
 ``vaft.diagram`` explains concepts -- topology, coordinates, workflows --
 where :mod:`vaft.plot` shows data and results. The boundary:
@@ -15,8 +15,8 @@ Diagrams: ``magnetic_island`` (poloidal, top and 3-D projections of one
 island model) and the stability / operational-space charts
 ``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill``, ``hugill_st``,
 ``troyon`` and ``li_qa`` (Wesson 1989 empirical / Cheng 1987 theoretical); reduced stability
-diagnostics (#1635): ``stability_diagnostic_taxonomy`` and ``interchange_criteria``; ballooning
-formulations (#1637): ``ballooning_formulation_hierarchy``; single-particle motion: ``exb_drift``, ``curvature_drift``,
+diagnostics: ``stability_diagnostic_taxonomy`` and ``interchange_criteria``; ballooning
+formulations: ``ballooning_formulation_hierarchy``; single-particle motion: ``exb_drift``, ``curvature_drift``,
 ``magnetization_current`` and ``toroidal_drift``; tearing physics upstream
 of the island: ``rational_surface``, ``delta_prime`` and
 ``tearing_layer_matching``; 3-D perturbation harmonics:
@@ -24,12 +24,12 @@ of the island: ``rational_surface``, ``delta_prime`` and
 ``harmonic_real_space_projection`` and ``complex_field_superposition``;
 the classification ``collision_processes``; geometric approximations:
 ``geometry_ordering_map``, ``field_line_geometry``, ``mode_number_mapping`` and
-``mhd_mode_geometry_map`` (#1574);
-reduced representations (#1626): ``reduced_representation_hierarchy``,
+``mhd_mode_geometry_map``;
+reduced representations: ``reduced_representation_hierarchy``,
 ``reduced_representation_hierarchy_compact`` and ``reduction_graph``;
-asymptotic orderings (#1627): ``timescale_hierarchy``, ``spatial_scale_orderings`` (#1739), ``ordering_contract_map`` and
-``adapter_contract_map`` (#1823);
-plasma-model guide (#1739): ``plasma_model_reduction_map``, ``formalism_axes_map``,
+asymptotic orderings: ``timescale_hierarchy``, ``spatial_scale_orderings``, ``ordering_contract_map`` and
+``adapter_contract_map``;
+plasma-model guide: ``plasma_model_reduction_map``, ``formalism_axes_map``,
 ``solver_placement_map`` (with ``EXTERNAL_CODES``), ``kinetic_mhd_coupling`` and
 ``reduced_model_ancestry``;
 tokamak geometry: ``tokamak_torus``, ``flux_surfaces``, ``shaping_family``,
@@ -37,42 +37,42 @@ tokamak geometry: ``tokamak_torus``, ``flux_surfaces``, ``shaping_family``,
 ``poloidal_angle_comparison``, ``unwrapped_flux_surface`` and ``field_line_pitch``;
 toroidicity and ripple: ``trapped_and_passing_orbits``, ``toroidal_field_ripple``,
 ``ripple_well_formation`` and ``stochastic_ripple_orbit``; integrated
-modeling (#1085): ``knowledge_basis``, ``computational_realization``,
+modeling: ``knowledge_basis``, ``computational_realization``,
 ``physical_abstraction``, ``integrated_modeling_space`` and
-``integrated_modeling_process``; the VAFT framework (#1090):
+``integrated_modeling_process``; the VAFT framework:
 ``fusion_science_knowledge_lifecycle``, ``vaft_four_pillars``,
 ``scientific_workflow``, ``interoperability_layers``,
 ``scientific_provenance_chain``, ``plasma_state_provenance``, ``scientific_infrastructure_principles``,
 ``machine_agnostic_architecture``, ``experiment_modeling_theory_data_network``,
-``integrated_scientific_framework`` (#1698), ``human_ai_interface`` and ``machine_research_archive``; research
-infrastructure (#1636, #1638, #1640, #1641, #1643, #1645), fragmented
+``integrated_scientific_framework``, ``human_ai_interface`` and ``machine_research_archive``; research
+infrastructure, fragmented
 against integrated pairs plus the research community and ownership:
 ``scientific_representation``, ``experimental_research_infrastructure``,
 ``scientific_credibility``, ``research_modality_architecture``,
-``fusion_research_ecosystem`` and ``scientific_ownership_architecture``; the VEST data platform
-(#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the software
-and external-code ecosystem (#1648): ``software_dependency_ecosystem`` and
-``external_code_integration``; the semantic pictogram gallery (#2101):
+``fusion_research_ecosystem`` and ``scientific_ownership_architecture``; the VEST data platform:
+``vest_data_platform`` and ``vest_data_platform_overview``; the software
+and external-code ecosystem: ``software_dependency_ecosystem`` and
+``external_code_integration``; the semantic pictogram gallery:
 ``pictogram_catalog`` (the symbols themselves live in :mod:`vaft.diagram.pictograms`); the physics-workflow
-spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
+spine: ``plasma_parameter_inference``, ``romero_transformer_balance``,
 ``resistive_zeff_inference``, ``magnetic_efit``, ``kinetic_efit``,
 ``analytic_mhd_equilibrium``, ``chease_coupling``, ``tokamaker_coupling``,
 ``dcon_rdcon_stability``, ``gpec_plasma_response``, ``flare_field_line_topology``,
 ``neo_neoclassical`` and ``tglf_cgyro_local_transport``; plasma parameter
-inference (#1601): ``parameter_inference_overview`` and
-``parameter_inference_dependency_graph``; reconstruction inputs and transport (#1901):
+inference: ``parameter_inference_overview`` and
+``parameter_inference_dependency_graph``; reconstruction inputs and transport:
 ``eddy_current_model``, ``kinetic_profile_fitting``, ``transport_hierarchy`` and
-``neoclassical_model_comparison``; experimental processing (#1901):
+``neoclassical_model_comparison``; experimental processing:
 ``machine_model_history``, ``signal_processing``, ``quality_validation``,
-``fault_anomaly_detection``, ``shot_classification`` and ``event_detection``; derived physics (#1901):
+``fault_anomaly_detection``, ``shot_classification`` and ``event_detection``; derived physics:
 ``vacuum_field_proxies``, ``derived_mhd_parameters``, ``synthetic_diagnostics``,
 ``coordinate_cocos_conversions`` and ``power_balance_confinement``; the spatial
-vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
+vocabulary: ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
 ``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
-and q topology (#1604): ``current_profile_shapes``, ``q_profile_landmarks``,
+and q topology: ``current_profile_shapes``, ``q_profile_landmarks``,
 ``q_profile_topologies`` and ``rational_surface_topology``; current diffusion and
-current drive (#1605): ``current_diffusion`` and ``current_drive_profiles``.
+current drive: ``current_diffusion`` and ``current_drive_profiles``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline

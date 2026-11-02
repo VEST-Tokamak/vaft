@@ -1,4 +1,4 @@
-"""Canonical operational-space projections and their compatible boundaries (#944, #1425).
+"""Canonical operational-space projections and their compatible boundaries.
 
 A projection is a pair of axes with a fixed physical meaning -- the Hugill
 plane is $(\\bar n_e R/B_T,\\ 1/q_\\mathrm{cyl})$, not "density against q" --
@@ -84,7 +84,7 @@ AXIS_QUANTITIES: Dict[str, _b.BoundaryQuantity] = {
             "toroidal_beta", "beta_T", "%",
             "Toroidal beta 2 mu0 <p> / B_T^2, in percent.",
         ),
-        # the aspect-ratio-robust companions of #1691 stage 2B (definitions in vaft.formula.equilibrium)
+        # the aspect-ratio-robust companions of beta_N (definitions in vaft.formula.equilibrium)
         _b.BoundaryQuantity(
             "volume_beta", "beta_B", "%",
             "Volume beta 2 mu0 int p dV / int B^2 dV inside the LCFS, B the total equilibrium field "
@@ -119,7 +119,7 @@ class OperationalProjection:
     $\\beta_N = \\beta_T/I_N$ -- so a limit on it is a line through the origin.
     ``diagram`` is the :mod:`vaft.diagram` builder for the reference picture, if any.
     ``interpretation`` states what the space is for and the conventions of its
-    axes (#1624); see :mod:`vaft.diagram._projection_interpretation`.
+    axes; see :mod:`vaft.diagram._projection_interpretation`.
     ``equality_line`` marks axes that are two normalizations of one physical
     ratio, such as $\\beta_N$ and $\\langle\\beta_N\\rangle$: the renderer draws
     $y = x$ as a guide, a comparison and not a boundary.
@@ -197,9 +197,9 @@ _register(OperationalProjection(
     ratio=_q("normalized_beta"),
 ))
 
-# Stage 2B of #1691: the same plane with the volume beta, and the two normalizations against each other and
+# The same plane with the volume beta, and the two normalizations against each other and
 # against aspect ratio. Every registered beta_N reference targets normalized_beta (toroidal beta), so none is
-# drawn on a volume-beta axis: that would be the substitution #1691 forbids.
+# drawn on a volume-beta axis: that would silently substitute one beta for another.
 _MENARD_ASPECT_RATIO = ("J. E. Menard et al., Phys. Plasmas 11 (2004) 639 (PPPL-3908): the <beta_N> definition",
                         "J. E. Menard et al., PPPL-3779, Fig. 3: optimized no-wall beta_N rises from 3.15 at A = 10 "
                         "to 5.85 at A = 1.25 while <beta_N> stays near 3.2 (not drawn: no curve is registered)")
@@ -641,5 +641,5 @@ def overlay_plan(projection: Union[str, OperationalProjection], boundaries: Unio
     return OverlayPlan(projection=proj.key, curves=tuple(curves), omitted=tuple(omitted))
 
 
-# dimensionless-similarity projections (#1624) register themselves through _register
+# dimensionless-similarity projections register themselves through _register
 from vaft.diagram import _similarity_space  # noqa: E402,F401

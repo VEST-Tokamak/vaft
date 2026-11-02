@@ -1,4 +1,4 @@
-"""Physics workflows as data: what a step takes in, what it produces, and on what grounds (#1585).
+"""Physics workflows as data: what a step takes in, what it produces, and on what grounds.
 
 The level-2 view below the platform overview (``vest_data_platform``): one
 :class:`WorkflowSpec` per derivation, inference or solver coupling, drawn by
@@ -44,7 +44,7 @@ KIND_LABEL: Dict[str, str] = {
     "machine": "machine geometry / static data", "code_input": "code input", "solver": "solver / model",
     "native_result": "native result", "standardized": "standardized IMAS",
 }
-#: each kind's pictogram in the legend (#2114), one distinct symbol per kind: supplementary to the
+#: each kind's pictogram in the legend, one distinct symbol per kind: supplementary to the
 #: swatch and ``KIND_LABEL``, which stay authoritative; it says nothing about implementation status
 KIND_SYMBOL: Dict[str, str] = {
     "measured": "signal", "reconstructed": "reconstruction", "derived": "calculation", "inferred": "inference",
@@ -417,7 +417,7 @@ def _render_workflow(spec: WorkflowSpec, *, labels: bool = True, references: boo
         for line in lines:
             x = 0.5 * (left + right) - 0.5 * sum(widths[k] for k in line)
             for kind in line:
-                # the kind's swatch, wide enough to carry its pictogram inside (#2114)
+                # the kind's swatch, wide enough to carry its pictogram inside
                 items += [Polyline.of([(x, ly - 0.24), (x + 0.62, ly - 0.24), (x + 0.62, ly + 0.24),
                                        (x, ly + 0.24)],
                                       f"{kind_style(kind)},rounded corners=1pt", role=f"legend:{kind}", closed=True),

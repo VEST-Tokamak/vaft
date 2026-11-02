@@ -1,4 +1,4 @@
-"""Reduced physical representations: how plasma information is compressed (#1626).
+"""Reduced physical representations: how plasma information is compressed.
 
 ``reduced_representation_hierarchy``
     fields, profiles and scalars down one axis, dimensional and

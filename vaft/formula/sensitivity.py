@@ -1,4 +1,4 @@
-"""Generic kernels for local sensitivity, linear uncertainty propagation and identifiability (issue #1642).
+"""Generic kernels for local sensitivity, linear uncertainty propagation and identifiability.
 
 The mathematics shared by every VAFT domain that linearizes something: a
 Jacobian by finite differences, covariance pushed through a Jacobian, the
@@ -12,13 +12,13 @@ Conventions
   ``J[i, j] = dy_i/dx_j`` with shape ``(m, n)``.
 * Nothing here knows what the parameters mean.  Which perturbation is
   physical, which step is admissible and what the derivative is *for* belong to
-  the domain that owns ``f`` (#1642 s12); interpreting the result belongs to
+  the domain that owns ``f``; interpreting the result belongs to
   :mod:`vaft.validation.sensitivity`.
 * Every function is cheap except :func:`monte_carlo_propagation`, which calls
   ``f`` once per sample and is therefore never invoked by anything else in
-  VAFT: it exists to be called explicitly (#1639 s8).
+  VAFT: it exists to be called explicitly.
 * :func:`propagate_formula_uncertainty` connects these kernels to one public
-  ``vaft.formula`` function by its parameter names (#1874).  It is opt-in: no
+  ``vaft.formula`` function by its parameter names.  It is opt-in: no
   formula calls it, and a formula's own signature, values and cost do not
   change.  A formula may carry a domain-owned analytic Jacobian
   (:mod:`vaft.formula._propagation`); otherwise the Jacobian is a scale-aware
@@ -94,7 +94,7 @@ def finite_difference_jacobian(
     logarithm; give such a parameter its own ``step``.  A model with its own solver tolerance
     (an iterative equilibrium, an external code) needs a step well above that
     tolerance, chosen by its owner: a finite difference across a convergence
-    threshold measures the solver, not the physics (#1642 s18).
+    threshold measures the solver, not the physics.
 
     References
     ----------
@@ -220,7 +220,7 @@ def monte_carlo_propagation(
     Assumptions
     -----------
     Gaussian inputs.  Expensive: ``samples`` model evaluations, so it is never
-    called implicitly (#1639 s8); the cost is the caller's decision.
+    called implicitly; the cost is the caller's decision.
 
     Limitations
     -----------
@@ -379,7 +379,7 @@ def linearity_ratio(
 
 
 # ---------------------------------------------------------------------------
-# per-formula propagation (#1874)
+# per-formula propagation
 # ---------------------------------------------------------------------------
 
 
@@ -594,7 +594,7 @@ def propagate_formula_uncertainty(
     Limitations
     -----------
     Uncertain inputs must be scalars; profile- and field-valued covariance is
-    out of scope (#1874). A finite difference is not a solver-native
+    out of scope. A finite difference is not a solver-native
     linearization.
 
     References

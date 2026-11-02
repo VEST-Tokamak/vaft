@@ -13,7 +13,7 @@ to render. Each SVG carries its own build record -- one comment line after
 the XML declaration holding the call, the SHA-256 of the TikZ document it
 was rendered from and of the SVG without that line -- so a diagram's
 freshness lives in its own file and two PRs that change different diagrams
-share no generated file (#1750). ``--check`` rebuilds the TikZ (pure
+share no generated file. ``--check`` rebuilds the TikZ (pure
 Python), and fails when either hash disagrees -- a stale asset, or a
 hand-edited one -- or when an asset is missing, unrecorded or orphaned.
 """
@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-#: The single manifest the records replaced (#1750): read once to migrate, then removed; never written.
+#: The single manifest the records replaced: read once to migrate, then removed; never written.
 LEGACY_MANIFEST = "manifest.json"
 
 #: The reference island: a 3/2 mode on a D-shaped (elongated, triangular) plasma.
@@ -43,14 +43,14 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
         f"magnetic_island_{projection}.svg": ("magnetic_island", {**REFERENCE_ISLAND, "projection": projection})
         for projection in ("poloidal", "top", "3d")
     },
-    # Computed static references share the time-selected particle animation model (#2003).
+    # Computed static references share the time-selected particle animation model.
     **{f"{name}.svg": (name, {}) for name in ("gyration", "grad_b_drift", "magnetic_mirror")},
     "magnetic_island_phase_scan.svg": ("magnetic_island", {"m": 2, "n": 1, "width": 0.24, "phase": 0.0, "projection": "poloidal", "labels": False}),
     # stability and operational-space charts, at their documented defaults
     **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "hugill_st", "troyon")},
-    # reduced stability diagnostics (#1635)
+    # reduced stability diagnostics
     **{f"{name}.svg": (name, {}) for name in ("stability_diagnostic_taxonomy", "interchange_criteria")},
-    "ballooning_formulation_hierarchy.svg": ("ballooning_formulation_hierarchy", {}),  # #1637
+    "ballooning_formulation_hierarchy.svg": ("ballooning_formulation_hierarchy", {}),  # ballooning formulations
     **{f"li_qa_{r}.svg": ("li_qa", {"reference": r}) for r in ("wesson_1989", "cheng_1987")},
     # single-particle motion
     **{f"{name}.svg": (name, {}) for name in ("exb_drift", "curvature_drift", "magnetization_current",
@@ -71,17 +71,17 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"field_line_geometry_{g}.svg": ("field_line_geometry", {"geometry": g})
        for g in ("toroidal", "cylindrical", "slab")},
     "mode_number_mapping.svg": ("mode_number_mapping", {}),
-    "timescale_hierarchy.svg": ("timescale_hierarchy", {}),  # asymptotic orderings (#1627)
-    "spatial_scale_orderings.svg": ("spatial_scale_orderings", {}),  # plasma-model guide (#1739)
+    "timescale_hierarchy.svg": ("timescale_hierarchy", {}),  # asymptotic orderings
+    "spatial_scale_orderings.svg": ("spatial_scale_orderings", {}),  # plasma-model guide
     "ordering_contract_map.svg": ("ordering_contract_map", {}),
-    "adapter_contract_map.svg": ("adapter_contract_map", {}),  # adapter modes x contracts (#1823)
-    "plasma_model_reduction_map.svg": ("plasma_model_reduction_map", {}),  # plasma-model guide (#1739)
+    "adapter_contract_map.svg": ("adapter_contract_map", {}),  # adapter modes x contracts
+    "plasma_model_reduction_map.svg": ("plasma_model_reduction_map", {}),  # plasma-model guide
     "formalism_axes_map.svg": ("formalism_axes_map", {}),
     "solver_placement_map.svg": ("solver_placement_map", {}),
     "kinetic_mhd_coupling.svg": ("kinetic_mhd_coupling", {}),
     "reduced_model_ancestry.svg": ("reduced_model_ancestry", {}),
     "mhd_mode_geometry_map.svg": ("mhd_mode_geometry_map", {}),
-    # reduced physical representations (#1626)
+    # reduced physical representations
     "reduced_representation_hierarchy.svg": ("reduced_representation_hierarchy", {}),
     "reduced_representation_hierarchy_compact.svg": ("reduced_representation_hierarchy_compact", {}),
     **{f"reduction_graph_{f}.svg": ("reduction_graph", {"family": f})
@@ -109,10 +109,10 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"slab_parity_{p}.svg": ("slab_parity", {"parity": p}) for p in ("tearing", "twisting")},
     **{f"{name}.svg": (name, {}) for name in ("slab_parity_comparison", "poloidal_harmonic_coupling",
                                               "resonant_layer_matching")},
-    # disruption physics: the quench sequence, causal chain, runaway generation, energy paths (#1041)
+    # disruption physics: the quench sequence, causal chain, runaway generation, energy paths
     **{f"{name}.svg": (name, {}) for name in ("disruption_timeline", "disruption_causal_chain",
                                               "runaway_generation", "disruption_energy_pathways")},
-    # equilibrium-aware phenomena on the default Solov'ev equilibrium (#1209)
+    # equilibrium-aware phenomena on the default Solov'ev equilibrium
     "kink_mode_1_1_internal.svg": ("kink_mode", {}),
     "kink_mode_2_1_global.svg": ("kink_mode", {"m": 2, "n": 1, "radial_profile": "global", "amplitude": 0.08,
                                                "harmonics": {2: 1.0, 3: 0.3}}),
@@ -121,10 +121,10 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"stochastic_layer_{regime}.svg": ("stochastic_layer", {"regime": regime})
        for regime in ("isolated", "touching", "overlapping")},
     "separatrix_lobes.svg": ("separatrix_lobes", {}),
-    # vertical displacement events: hot/cold VDE, halo currents, timescales (#1042)
+    # vertical displacement events: hot/cold VDE, halo currents, timescales
     **{f"{name}.svg": (name, {}) for name in ("hot_vde_sequence", "cold_vde_bifurcation",
                                               "plasma_wall_halo_current", "vde_timescales")},
-    # the Grad-Shafranov problem: regions, boundaries, topology, problem classes (#1052)
+    # the Grad-Shafranov problem: regions, boundaries, topology, problem classes
     **{f"{name}.svg": (name, {}) for name in ("grad_shafranov_domain_decomposition",
                                               "fixed_vs_free_boundary_equilibrium",
                                               "limiter_and_diverted_topologies", "equilibrium_problem_taxonomy",
@@ -133,18 +133,18 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("current_to_q_profile", "cylindrical_rational_surfaces",
                                               "cylindrical_mode_morphology", "internal_external_kink",
                                               "plasma_vacuum_wall", "cylindrical_tearing_outer")},
-    # current-profile and q topology: shapes, l_i, q landmarks, rational surfaces (#1604)
+    # current-profile and q topology: shapes, l_i, q landmarks, rational surfaces
     "current_profile_shapes.svg": ("current_profile_shapes", {}),
     "q_profile_topologies.svg": ("q_profile_topologies", {}),
     **{f"q_profile_landmarks_{p}.svg": ("q_profile_landmarks", {"profile": p})
        for p in ("monotonic", "reversed_shear")},
     **{f"rational_surface_topology_{p}.svg": ("rational_surface_topology", {"profile": p})
        for p in ("monotonic", "reversed_shear")},
-    # current diffusion and current drive (#1605)
+    # current diffusion and current drive
     "current_diffusion.svg": ("current_diffusion", {}),
     **{f"current_drive_profiles_{d}.svg": ("current_drive_profiles", {"deposition": d})
        for d in ("off_axis", "on_axis")},
-    # canonical field configurations, reconnection topology and ideal-MHD waves (#1063)
+    # canonical field configurations, reconnection topology and ideal-MHD waves
     **{f"slab_field_configuration_{k}.svg": ("slab_field_configuration", {"kind": k})
        for k in ("uniform", "sheared", "reversed", "guide")},
     "current_sheet.svg": ("current_sheet", {}),
@@ -152,7 +152,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("harris_sheet", "x_point", "magnetic_reconnection",
                                               "island_formation", "shear_alfven_wave",
                                               "fast_magnetosonic_wave", "mhd_wave_family")},
-    # plasma-wall interaction concepts (#1047)
+    # plasma-wall interaction concepts
     **{f"{name}.svg": (name, {}) for name in ("plasma_wall_interaction_processes", "plasma_wall_interaction_reflection",
                                               "plasma_wall_interaction_recycling",
                                               "plasma_wall_interaction_energy_partition")},
@@ -165,64 +165,64 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
                                               "plasma_wall_interaction_angle_dependence",
                                               "plasma_wall_interaction_particle_balance",
                                               "plasma_wall_interaction_surface_response")},
-    # spectroscopy and ionization concepts (#1046)
+    # spectroscopy and ionization concepts
     "spectroscopy_ionization_stages.svg": ("spectroscopy_ionization_stages", {"term": "C III"}),
     **{f"spectroscopy_transitions_{name}.svg": ("spectroscopy_transitions", {"term": term})
        for name, term in (("h_alpha", "H-alpha"), ("oi_7770", "OI_7770"))},
     "spectroscopy_energy_levels.svg": ("spectroscopy_energy_levels", {"term": "D-alpha"}),
     "spectroscopy_spectrum.svg": ("spectroscopy_spectrum", {}),
-    # neutral beam injection: lifecycle and reduced attenuation (#1136)
+    # neutral beam injection: lifecycle and reduced attenuation
     **{f"{name}.svg": (name, {}) for name in ("nbi_particle_lifecycle", "nbi_neutral_attenuation")},
-    # iteration behaviour, branch bifurcation and branch selection (#1093)
+    # iteration behaviour, branch bifurcation and branch selection
     **{f"{name}.svg": (name, {}) for name in ("iteration_behavior", "branch_bifurcation", "basin_of_attraction",
                                               "grid_induced_two_cycle", "branch_selection")},
-    # cold-plasma waves from their equations (#1113)
+    # cold-plasma waves from their equations
     **{f"{name}.svg": (name, {}) for name in ("o_mode_cutoff", "x_mode_dispersion", "cma_diagram",
                                               "profile_propagation")},
-    # the omega-k, n^2-X and n^2-Y views, perpendicular and at 60 degrees (#1113 section A, E)
+    # the omega-k, n^2-X and n^2-Y views, perpendicular and at 60 degrees
     **{f"{name}.svg": (name, {}) for name in ("wave_dispersion_omega_k", "refractive_index_vs_X",
                                               "refractive_index_vs_Y")},
     **{f"{name}_oblique.svg": (name, {"theta": math.radians(60.0)})
        for name in ("wave_dispersion_omega_k", "refractive_index_vs_X", "refractive_index_vs_Y",
                     "profile_propagation")},
-    # neoclassical and NTV collisionality regimes (#1111)
+    # neoclassical and NTV collisionality regimes
     "neoclassical_collisionality.svg": ("neoclassical_collisionality", {}),
     "ntv_collisionality.svg": ("ntv_collisionality", {}),
     "ntv_precession_regimes.svg": ("ntv_precession_regimes", {}),
-    # canonical turbulence concepts: drift waves, cross-phase, saturation, shear, zonal flows, scales (#1112)
+    # canonical turbulence concepts: drift waves, cross-phase, saturation, shear, zonal flows, scales
     **{f"{name}.svg": (name, {}) for name in (
         "drift_wave_transport_cycle", "cross_phase_transport", "mixing_length_saturation", "exb_shear_decorrelation",
         "zonal_flow_feedback", "turbulence_scale_hierarchy")},
-    # wall conditioning as wall-state transitions (#1051)
+    # wall conditioning as wall-state transitions
     "wall_conditioning_baking.svg": ("wall_conditioning_baking", {}),
     "wall_conditioning_gdc_deuterium.svg": ("wall_conditioning_gdc", {"gas": "D2"}),
     "wall_conditioning_gdc_helium.svg": ("wall_conditioning_gdc", {"gas": "He"}),
     "wall_conditioning_boronization.svg": ("wall_conditioning_boronization", {}),
     "wall_conditioning_sequence.svg": ("wall_conditioning_sequence", {}),
-    # field-aligned coordinates, flux tubes, shear and the ballooning eigenfunction (#1075 part 2)
+    # field-aligned coordinates, flux tubes, shear and the ballooning eigenfunction
     **{f"{name}.svg": (name, {}) for name in ("field_aligned_basis", "flux_tube_patch",
                                               "magnetic_shear_field_aligned", "ballooning_eigenfunction")},
-    # transits, boundary conditions and the X-point limit (#1075 remainder)
+    # transits, boundary conditions and the X-point limit
     **{f"{name}.svg": (name, {}) for name in ("ballooning_transit_map", "ballooning_boundary_conditions",
                                               "field_aligned_xpoint_limitation")},
-    # a toroidal mode number: the shift nu couples harmonics in every angle but PEST (#1074)
+    # a toroidal mode number: the shift nu couples harmonics in every angle but PEST
     "sfl_fourier_convergence_n2.svg": ("sfl_fourier_convergence", {"n": 2}),
-    # SFL coordinates part 2: action-angle, validity near a separatrix, coordinates vs COCOS (#1074)
+    # SFL coordinates part 2: action-angle, validity near a separatrix, coordinates vs COCOS
     **{f"{name}.svg": (name, {}) for name in ("field_line_action_angle", "sfl_coordinate_validity",
                                               "coordinates_vs_cocos")},
-    # SOL blobs and filaments: mechanism, velocity scaling, regimes (#1211)
+    # SOL blobs and filaments: mechanism, velocity scaling, regimes
     **{f"{name}.svg": (name, {}) for name in ("blob_polarization", "blob_velocity_scaling", "blob_regimes")},
     "blob_polarization_hole.svg": ("blob_polarization", {"perturbation": "hole"}),
     **{f"blob_current_closure_{r}.svg": ("blob_current_closure", {"regime": r}) for r in ("sheath", "inertial")},
-    # canonical transport concepts: random walk, flux and gradient, reference scales (#1112)
+    # canonical transport concepts: random walk, flux and gradient, reference scales
     **{f"{name}.svg": (name, {}) for name in ("random_walk_diffusion", "transport_flux_gradient",
                                               "transport_reference_scales")},
-    # MARFE on the high-field side and next to the X-point, with Drake's condition (#1209)
+    # MARFE on the high-field side and next to the X-point, with Drake's condition
     "marfe.svg": ("marfe", {}),
     "marfe_xpoint.svg": ("marfe", {"localization": "xpoint"}),
-    # Eich target profile on a diverted equilibrium (#1209)
+    # Eich target profile on a diverted equilibrium
     "divertor_heat_footprint.svg": ("divertor_heat_footprint", {}),
-    # integrated modeling: three independent axes, their space and typed model coupling (#1085)
+    # integrated modeling: three independent axes, their space and typed model coupling
     "knowledge_basis.svg": ("knowledge_basis", {}),
     "computational_realization.svg": ("computational_realization", {}),
     "physical_abstraction.svg": ("physical_abstraction", {}),
@@ -230,7 +230,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "integrated_modeling_space_fusion.svg": ("integrated_modeling_space", {"examples": "fusion"}),
     "integrated_modeling_space_tearing.svg": ("integrated_modeling_space", {"examples": "tearing"}),
     "integrated_modeling_process.svg": ("integrated_modeling_process", {}),
-    # the VAFT framework: lifecycle, pillars, workflow, interoperability, provenance, architecture (#1090)
+    # the VAFT framework: lifecycle, pillars, workflow, interoperability, provenance, architecture
     "fusion_science_knowledge_lifecycle.svg": ("fusion_science_knowledge_lifecycle", {}),
     "vaft_four_pillars.svg": ("vaft_four_pillars", {}),
     "scientific_workflow.svg": ("scientific_workflow", {}),
@@ -244,13 +244,13 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
                                                                    {"communication": "point_to_point"}),
     "experiment_modeling_theory_data_network_equilibrium.svg": ("experiment_modeling_theory_data_network",
                                                                 {"communication": "equilibrium"}),
-    # the research modes and their common state inside one integrated framework, serving analysis (#1698)
+    # the research modes and their common state inside one integrated framework, serving analysis
     "integrated_scientific_framework.svg": ("integrated_scientific_framework", {}),
     "integrated_scientific_framework_equilibrium.svg": ("integrated_scientific_framework", {"domain": "equilibrium"}),
     "human_ai_interface.svg": ("human_ai_interface", {}),
-    # the machine and research archive since 2012 (#497)
+    # the machine and research archive since 2012
     "machine_research_archive.svg": ("machine_research_archive", {}),
-    # research infrastructure: four fragmented/integrated pairs, community and ownership (#1636-#1645)
+    # research infrastructure: four fragmented/integrated pairs, community and ownership
     **{f"{name}{suffix}.svg": (name, kwargs)
        for name in ("scientific_representation", "experimental_research_infrastructure", "scientific_credibility",
                     "research_modality_architecture")
@@ -258,33 +258,33 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "fusion_research_ecosystem.svg": ("fusion_research_ecosystem", {}),
     "fusion_research_ecosystem_presentation.svg": ("fusion_research_ecosystem", {"detail": "presentation"}),
     "scientific_ownership_architecture.svg": ("scientific_ownership_architecture", {}),
-    # the VEST data platform: reference view and compact companion (#1550)
+    # the VEST data platform: reference view and compact companion
     "vest_data_platform.svg": ("vest_data_platform", {}),
     "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
     "software_dependency_ecosystem.svg": ("software_dependency_ecosystem", {}),
     "external_code_integration.svg": ("external_code_integration", {}),
     "pictogram_catalog.svg": ("pictogram_catalog", {}),
-    # the physics-workflow spine, level 2 below the platform overview (#1585)
+    # the physics-workflow spine, level 2 below the platform overview
     **{f"{name}.svg": (name, {}) for name in (
         "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",
         "kinetic_efit", "analytic_mhd_equilibrium", "chease_coupling", "tokamaker_coupling", "dcon_rdcon_stability",
         "gpec_plasma_response", "flare_field_line_topology", "neo_neoclassical", "tglf_cgyro_local_transport")},
-    # plasma parameter inference: architecture and provenance (#1601)
+    # plasma parameter inference: architecture and provenance
     "parameter_inference_overview.svg": ("parameter_inference_overview", {"references": True}),
     "parameter_inference_dependency_graph.svg": ("parameter_inference_dependency_graph", {"references": True}),
-    # reconstruction inputs and the transport hierarchy (#1901)
+    # reconstruction inputs and the transport hierarchy
     "eddy_current_model.svg": ("eddy_current_model", {}),
     "kinetic_profile_fitting.svg": ("kinetic_profile_fitting", {}),
     "transport_hierarchy.svg": ("transport_hierarchy", {"references": True}),
     "neoclassical_model_comparison.svg": ("neoclassical_model_comparison", {"references": True}),
-    # experimental processing: raw records to qualified state (#1901)
+    # experimental processing: raw records to qualified state
     "machine_model_history.svg": ("machine_model_history", {}),
     "signal_processing.svg": ("signal_processing", {}),
     "quality_validation.svg": ("quality_validation", {}),
     "fault_anomaly_detection.svg": ("fault_anomaly_detection", {}),
     "shot_classification.svg": ("shot_classification", {}),
     "event_detection.svg": ("event_detection", {}),
-    # derived physics: quantities computed from the state (#1901)
+    # derived physics: quantities computed from the state
     "vacuum_field_proxies.svg": ("vacuum_field_proxies", {}),
     "derived_mhd_parameters.svg": ("derived_mhd_parameters", {}),
     "synthetic_diagnostics.svg": ("synthetic_diagnostics", {}),
@@ -392,7 +392,7 @@ def build(out_dir: Optional[Path] = None, *, force: bool = False) -> List[str]:
         svg_path = out_dir / name
         record, body = read_record(svg_path) if svg_path.exists() else (None, "")
         if record is None and name in legacy and svg_path.exists():
-            # committed before #1750: the legacy manifest vouched for the whole file
+            # committed before per-SVG build records existed: the legacy manifest vouched for the whole file
             entry = legacy[name]
             record = {"source_sha256": entry.get("source_sha256"), "svg_sha256": entry.get("svg_sha256")}
         fresh = (

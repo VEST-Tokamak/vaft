@@ -1,4 +1,4 @@
-"""Vertical displacement events: hot and cold VDE, halo currents and timescales (#1042).
+"""Vertical displacement events: hot and cold VDE, halo currents and timescales.
 
 ``hot_vde_sequence``
     a still-hot plasma drifting into the wall: the limiting surface shrinks
@@ -20,7 +20,7 @@ Hot-VDE geometry is the default Solov'ev equilibrium of
 ``_equilibrium_geometry`` and its own limiter; the edge $q$ is the cylindrical
 estimate of ``vaft.formula.geometry``. Nothing here is a VDE model: the named
 reduced models (edge-current loss, filament-plus-wall, analytic halo) are left
-to be selected, as #1042 asks.
+to be selected (open: #1042).
 """
 
 from __future__ import annotations

@@ -1,12 +1,12 @@
 r"""Classical fast-ion slowing down: critical velocity, slowing-down time, distribution, density and pressure.
 
-A light analytic baseline for beam (or other fast) ions in a Maxwellian plasma
-(issue #1606): the critical velocity at which electron and ion drag are equal,
+A light analytic baseline for beam (or other fast) ions in a Maxwellian plasma:
+the critical velocity at which electron and ion drag are equal,
 the Spitzer slowing-down time on electrons, the time to slow between two
 speeds, the steady classical slowing-down distribution of a monoenergetic
 source, and the fast-ion density, energy density and scalar pressure it holds.
 It is not a replacement for an orbit-following or Fokker--Planck solver
-(NUBEAM, #1216): pitch-angle scattering, energy diffusion, orbits and charge
+(such as NUBEAM): pitch-angle scattering, energy diffusion, orbits and charge
 exchange are absent, so the distribution is isotropic by construction.
 
 Notation

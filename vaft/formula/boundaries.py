@@ -9,7 +9,7 @@ a quoted uncertainty. And it comes from one paper and equation. A
 :func:`evaluate_boundary` can report how far a state sits from the boundary,
 on which side, and whether the inputs lie inside the fitted domain.
 :func:`boundary_curve` returns the boundary as arrays on a chosen 2-D
-projection, and a plot draws only that; no plotting code lives here (#1067).
+projection, and a plot draws only that; no plotting code lives here.
 
 Existing formula functions stay where they are. An entry *references* one
 through ``function`` instead of restating its coefficients, so the Greenwald
@@ -47,8 +47,8 @@ VEST sample)::
 
 References
 ----------
-.. [1] Issue #1067 (data model), #1068 (density-limit family), #1066
-       (transition and access boundaries).
+.. [1] Related open work: #1067 (data model), #1068 (density-limit family),
+       #1066 (transition and access boundaries).
 """
 
 from __future__ import annotations
@@ -92,7 +92,7 @@ _FORMS = ("power_law", "threshold", "function")
 _SIDES = ("below", "above")
 _HARDNESS = ("hard", "soft", "probabilistic")
 _ORIGINS = ("published", "derived", "reproduced", "fitted")
-#: What crossing a relation means (#1691). Only a ``limit`` has a forbidden side; the others are references a
+#: What crossing a relation means. Only a ``limit`` has a forbidden side; the others are references a
 #: plot draws without shading: a ``stability_reference`` is a theoretical value for a class of equilibria, an
 #: ``experimental_envelope`` the level a machine class has operated at, an ``experimental_achievement`` a record
 #: (operation above it is not thereby unstable), a ``reduced_comparator`` a low-fidelity estimate for comparison.
@@ -119,8 +119,7 @@ class BoundaryQuantity:
     a quantity subject such as ``plasma_current``) when this quantity means
     exactly that concept, and stays ``None`` otherwise: Troyon's total-field
     ``normalized_beta`` is close to, not equal to, ``beta_n``. It links the two
-    vocabularies and changes neither ``name`` nor :func:`same_quantity`
-    (#2163).
+    vocabularies and changes neither ``name`` nor :func:`same_quantity`.
     """
 
     name: str
@@ -158,7 +157,7 @@ class Applicability:
     assumptions: tuple = ()
     #: Coordinate ranges the source's evidence covers, by quantity name (any quantity, not only an input): a
     #: constant-beta_N record demonstrated over a finite normalised current is drawn as evidence there and as an
-    #: extrapolated reference elsewhere (#1691). ``(v, v)`` is a single demonstrated point.
+    #: extrapolated reference elsewhere. ``(v, v)`` is a single demonstrated point.
     evidence_ranges: Mapping[str, tuple] = field(default_factory=dict, hash=False)
 
     def __post_init__(self):
@@ -642,7 +641,7 @@ def _source_relative_spread(boundary: "Boundary", inputs: Mapping) -> tuple:
 def propagate_boundary_uncertainty(boundary: "Boundary", operating_value: float, *, inputs: Mapping[str, float],
                                    std=None, covariance=None, input_names=None, method: str = "linear",
                                    fd_step=None, samples: int = 2000, seed: int = 0) -> BoundaryPropagation:
-    r"""Propagate measured-input uncertainty into a boundary value and a state's margin (#1874).
+    r"""Propagate measured-input uncertainty into a boundary value and a state's margin.
 
     $$\Sigma_b \approx J_b\Sigma J_b^{\mathsf T},\qquad
       \Sigma_m \approx J_m\Sigma J_m^{\mathsf T},\qquad
@@ -715,8 +714,8 @@ def propagate_boundary_uncertainty(boundary: "Boundary", operating_value: float,
     ----------
     .. [1] JCGM 100:2008, *Guide to the expression of uncertainty in
            measurement*, Sec. 5.2 (first-order propagation with correlations).
-    .. [2] Issue #1874, Phase C (measurement, source-parameter and scatter
-           uncertainty kept apart for an operational boundary).
+    .. [2] Measurement, source-parameter and scatter uncertainty are kept apart
+           for an operational boundary (design record: Open: #1874, Phase C).
     """
     from . import sensitivity
 
@@ -933,7 +932,7 @@ def same_quantity(a: BoundaryQuantity, b: BoundaryQuantity) -> bool:
     Identity is the ``name``: ``edge_safety_factor`` ($q_\psi$),
     ``edge_safety_factor_95`` ($q_{95}$) and ``inverse_cylindrical_q`` are
     different quantities even where their values are close. A boundary may be
-    drawn on an axis only when this returns ``True`` for that axis (#1425).
+    drawn on an axis only when this returns ``True`` for that axis.
     """
     return a.name == b.name and a.unit == b.unit
 
@@ -966,7 +965,7 @@ def quantity_conversion_factor(a: BoundaryQuantity, b: BoundaryQuantity) -> floa
 
     Convention
     ----------
-    Identity first, unit second (#2163). :func:`same_quantity` stays the
+    Identity first, unit second. :func:`same_quantity` stays the
     stricter test a plotted axis needs; this one says how two units of one
     quantity relate, through :func:`vaft.formula.units.unit_conversion_factor`.
 
@@ -1485,7 +1484,7 @@ _register(Boundary(
     basis="ideal_mhd_numerical",
     event="beta_limit",
     # a theoretical value for optimised conventional equilibria, not a universal limit: conventional tokamaks and
-    # spherical tokamaks have operated well above it (#1691), so a plot draws it without a forbidden side
+    # spherical tokamaks have operated well above it, so a plot draws it without a forbidden side
     kind="stability_reference",
     applicability=Applicability(
         machine_class="tokamak",
@@ -1515,7 +1514,7 @@ _register(Boundary(
 ))
 
 
-# Experimental beta references on the Troyon plane (#1691): constant-beta_N levels that machines have operated at,
+# Experimental beta references on the Troyon plane: constant-beta_N levels that machines have operated at,
 # drawn without a forbidden side. Each value was read in the source named; the verification level is in notes.
 _register(Boundary(
     key="strait_1988_diiid_beta_n_envelope",
@@ -1641,7 +1640,7 @@ _register(Boundary(
     notes="Verification level: full text. A record, not a stability limit.",
 ))
 
-# The DIII-D/JET current-profile scaling beta_N <= 4 l_i (#1691, #1700). Its l_i is l_i(1), <B_p^2>/B_pa^2 with
+# The DIII-D/JET current-profile scaling beta_N <= 4 l_i. Its l_i is l_i(1), <B_p^2>/B_pa^2 with
 # B_pa = mu0 I / Gamma (Strait 1994, p. 1421), not the IMAS l_i(3): a quantity of its own, so the line is never
 # placed on an l_i(3) axis.
 _LI1 = BoundaryQuantity(
@@ -1697,7 +1696,7 @@ _register(Boundary(
 
 
 # ------------------------------------------------------------------
-# L-H power threshold (#1066)
+# L-H power threshold
 # ------------------------------------------------------------------
 
 _LOW_ASPECT_RATIO_EVIDENCE = (
@@ -1917,7 +1916,7 @@ _register(Boundary(
 
 
 # ------------------------------------------------------------------
-# Internal inductance - edge q (#1422)
+# Internal inductance - edge q
 # ------------------------------------------------------------------
 #
 # Two different objects, kept apart on purpose:
@@ -1936,7 +1935,7 @@ _register(Boundary(
 #   low-order resistive kinks, mainly m/n = 2/1 and 3/2 (p. 354). The figure
 #   plots l_i/2; the tables below are l_i.
 #
-# The vertices were digitized for #1422 from 600-dpi renders of the published
+# The vertices were digitized (provenance: #1422) from 600-dpi renders of the published
 # pages, with the axes calibrated on the printed tick marks. For Cheng Fig. 4
 # the printed closed form MAX(l_i/2) = [1 + 2 ln(q(a)/q(0))]/4 is recovered to
 # within 0.01 in l_i/2, which bounds the digitization error. The earlier
@@ -1977,7 +1976,7 @@ _WESSON_1989_TEETH = (
     (9.0, 0.674, 0.294),
     (10.0, 0.678, 0.295),
 )
-#: Both Wesson arrays stop at q_psi = 2 and 10 because JET's Fig. 6 spans only that range (#1603). They are an
+#: Both Wesson arrays stop at q_psi = 2 and 10 because JET's Fig. 6 spans only that range. They are an
 #: empirical JET operating/disruption boundary, not a universal MHD stability limit: do not extend them to fill a
 #: plot's range, and do not read the absence of a line beyond q_psi = 10 as stability or instability there.
 #: Wesson 1989 Fig. 6 upper boundary (density-limit disruptions), l_i(3) against q_psi.
@@ -1990,7 +1989,7 @@ _WESSON_1989_UPPER = (
 #: Beyond q(a) = 6 the bound is a slowly rising curve, given by _CHENG_1987_LOWER_TAIL.
 #: The CFB arrays start at q(a) = 2 because for q(0) ~ 1 no monotonic profile is stable below it (p. 354, the
 #: comparison theorem: none for (m - 1) < n q(0) < n q(a) < m), and stop at q(a) = 7.75 because Fig. 4 is drawn only to
-#: q(a) ~ 8. The end is where the source figure ends, not an upper-q stability limit: do not extrapolate them (#1603).
+#: q(a) ~ 8. The end is where the source figure ends, not an upper-q stability limit: do not extrapolate them.
 #: The jig-saw edges sit at integer q(a) = m, where an m/1 resonance enters the plasma; the lower bound is mainly
 #: ideal external kinks, the upper bound low-order resistive kinks (mainly 2/1 and 3/2), p. 357.
 _CHENG_1987_TEETH = (
@@ -2174,7 +2173,7 @@ _register(Boundary(
 # limit Eq. (13.162), q* >= (1 + kappa)/2, is stated for THAT definition, and Eq. (13.163)
 # is the same limit written as a maximum current, I_max = (2 pi a^2 B0 / mu0 R0) 2 kappa/(1 + kappa).
 # The (1 + kappa^2)/2 form of Eq. (13.171) is the Princeton-group definition used with the
-# beta_N fit (13.172); it is a different quantity and is not paired with (13.162) here (#1524).
+# beta_N fit (13.172); it is a different quantity and is not paired with (13.162) here.
 
 _KINK_Q_STAR = BoundaryQuantity(
     "kink_safety_factor_elliptic", "q_*", "-",
@@ -2230,7 +2229,7 @@ def kink_coordinates(a, R0, B0, kappa, I_p):
     ----------
     Eq. (13.160) is the $G(\kappa) \approx 1$ form of Eq. (13.158), the definition with
     which the kink limit ``"freidberg_2008_kink_qstar"`` (Eq. 13.162) is stated. It is
-    not ``vaft.formula.equilibrium.kink_safety_factor`` (#1524). A zero current maps to
+    not ``vaft.formula.equilibrium.kink_safety_factor`` (Open: #1524). A zero current maps to
     an infinite $q_*$.
 
     References
@@ -2292,7 +2291,7 @@ _register(Boundary(
 
 
 # ------------------------------------------------------------------
-# Edge-q proxies from global shape and engineering parameters (#1456)
+# Edge-q proxies from global shape and engineering parameters
 # ------------------------------------------------------------------
 #
 # Two families, kept apart (they are different quantities and neither is q_a):
@@ -2752,7 +2751,7 @@ _register(Boundary(
 
 
 # ------------------------------------------------------------------
-# Spherical-tokamak Hugill diagram (#1602)
+# Spherical-tokamak Hugill diagram
 # ------------------------------------------------------------------
 #
 # A. Sykes et al., "First results from MAST", IAEA FEC 2000 (Sorrento), Sec. 6 and Fig. 12 (p. 8 of the
