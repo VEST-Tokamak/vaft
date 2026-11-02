@@ -366,10 +366,16 @@ class _OmasRootLoggerGuard(importlib.abc.MetaPathFinder):
     application's ``logging.basicConfig(level=logging.INFO)``. The trigger is
     third-party and cannot be skipped, so the level is saved before the
     ``omas`` package executes and restored afterwards.
+
+    Every spec handed out is wrapped, and the guard removes itself only after
+    OMAS executed successfully, so a bare ``importlib.util.find_spec("omas")``
+    probe or a failed first import cannot use it up. Not covered: pyximport
+    stays installed after OMAS loads, so a later ``.pyx`` import elsewhere
+    would reset the level again.
     """
 
     def find_spec(self, fullname, path, target=None):
-        if fullname != "omas":
+        if fullname != "omas" or fullname in sys.modules:
             return None
         for finder in sys.meta_path:
             if finder is self or not hasattr(finder, "find_spec"):
@@ -382,8 +388,6 @@ class _OmasRootLoggerGuard(importlib.abc.MetaPathFinder):
         loader = spec.loader
         if loader is None or not hasattr(loader, "exec_module"):
             return spec
-        # One-shot: once OMAS is located, later imports hit sys.modules.
-        _uninstall_omas_root_logger_guard()
         exec_module = loader.exec_module
 
         def exec_module_keeping_root_level(module):
@@ -394,6 +398,8 @@ class _OmasRootLoggerGuard(importlib.abc.MetaPathFinder):
             finally:
                 if root.level != level:
                     root.setLevel(level)
+            # Later imports hit sys.modules; the guard has nothing left to do.
+            _uninstall_omas_root_logger_guard()
 
         loader.exec_module = exec_module_keeping_root_level
         return spec

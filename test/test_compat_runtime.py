@@ -97,10 +97,11 @@ class CompatRuntimeTests(unittest.TestCase):
     # nothing at all. Subprocesses, so an already-imported OMAS cannot hide it.
     def _root_level_after(self, statement, extra_path=None):
         environment = os.environ.copy()
-        if extra_path is not None:
-            environment["PYTHONPATH"] = os.pathsep.join(
-                filter(None, [str(extra_path), environment.get("PYTHONPATH")])
-            )
+        # Explicit, so the child imports this checkout even under PYTHONSAFEPATH.
+        repository = str(Path(__file__).resolve().parents[1])
+        environment["PYTHONPATH"] = os.pathsep.join(
+            filter(None, [extra_path and str(extra_path), repository, environment.get("PYTHONPATH")])
+        )
         script = (
             "import logging, sys\n"
             "logging.basicConfig(level=logging.INFO, stream=sys.stderr)\n"
@@ -135,7 +136,10 @@ class CompatRuntimeTests(unittest.TestCase):
             )
             stand_in = str(package / "__init__.py")
             level = self._root_level_after(
-                f"import vaft, omas; assert omas.__file__ == {stand_in!r}, omas.__file__", scratch
+                # The spec probe must not use up the guard before the real import.
+                "import importlib.util, vaft; importlib.util.find_spec('omas'); import omas; "
+                f"assert omas.__file__ == {stand_in!r}, omas.__file__",
+                scratch,
             )
         self.assertEqual(level, 20)
 
