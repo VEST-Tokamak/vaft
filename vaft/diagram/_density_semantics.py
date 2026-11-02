@@ -22,8 +22,11 @@ pass through: scientific identity and IMAS data representation feed a semantic
 adapter, which builds the typed view models (:class:`vaft.plot.models.Profile1D`,
 :class:`vaft.plot.models.Field2D`); a scientific display policy
 (:func:`vaft.plot.display.resolve_display`) and a graphical presentation act on
-them separately. The scene reads only those view models and the display policy,
-never an IMAS path; ``metadata["architecture_edges"]`` records the boundaries.
+them separately. The scene takes every data value, error bar and validity flag from
+those view models and the display policy, never from an IMAS path; the geometry it
+overlays (boundary, wall, magnetic axis, channel positions in (d)) comes from the
+same model. The axis and colour ranges are fixed for VEST and warn when a value
+would be clamped. ``metadata["architecture_edges"]`` records the boundaries.
 
 Every slice is chosen by physical time, never by index. The common radial
 coordinate is ``psi_N``: the core profile is placed through its own
@@ -41,7 +44,7 @@ from __future__ import annotations
 
 import hashlib
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -54,8 +57,6 @@ from ._scene import Arrow, Label, Marker, Polyline, Scene
 SAMPLE_SHOT = 48224
 SAMPLE_TIME = 0.300
 SAMPLE_PATH = Path("vaft") / "data" / "kineticEfit" / "ods_48224_300ms.json"
-#: density display unit [m^-3]
-DISPLAY_UNIT = 1.0e18
 
 #: channel status at the chosen time, in the order a reader is told about them
 USABLE = "usable"
@@ -70,7 +71,8 @@ class ThomsonPoints:
     """Thomson channels at one time, with their status and equilibrium-mapped positions.
 
     Every array has one entry per channel. ``sigma`` is ``data_error_upper``
-    (NaN when the channel gives none); ``status`` is one of :data:`STATUSES`;
+    (NaN when the channel gives none) and ``sigma_lower`` ``data_error_lower``,
+    which is ``sigma`` when the channel stores none; ``status`` is one of :data:`STATUSES`;
     ``psi_norm`` and ``rho_tor_norm`` are NaN outside the last closed flux
     surface; ``outboard`` is ``R > R_axis``, the side a flux coordinate forgets.
     """
@@ -86,6 +88,7 @@ class ThomsonPoints:
     outboard: np.ndarray
     on_midplane: np.ndarray
     time: float
+    sigma_lower: np.ndarray = None
 
     @property
     def usable(self) -> np.ndarray:
@@ -119,9 +122,12 @@ class DensitySemantics:
     axis_r: float
     axis_z: float
     metadata: Dict[str, object] = field(default_factory=dict)
+    #: the machine's limiter outline (``wall.description_2d.0.limiter.unit.0``); empty when absent
+    wall_r: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    wall_z: np.ndarray = field(default_factory=lambda: np.zeros(0))
     #: the typed scientific view models the panels are drawn from: ``"rho"``,
     #: ``"psi"`` and ``"mid"`` are :class:`vaft.plot.models.Profile1D`, ``"map"`` a
-    #: :class:`vaft.plot.models.Field2D`; the figure reads nothing else
+    #: :class:`vaft.plot.models.Field2D`; every plotted value comes from here
     views: Dict[str, object] = field(default_factory=dict)
     #: the scientific display policy, :func:`vaft.plot.display.resolve_display`
     display: object = None
@@ -162,7 +168,7 @@ def _validity(ods, prefix: str, index: int) -> int:
 
 
 def thomson_points(ods, time: float, *, time_tolerance: float = 5e-4,
-                   midplane_tolerance: float = 1e-3) -> ThomsonPoints:
+                   midplane_tolerance: float = 1e-3, equilibrium_time: Optional[float] = None) -> ThomsonPoints:
     """Thomson ``n_e +/- sigma_n`` of every channel at ``time``, with its status and flux position.
 
     Parameters
@@ -176,6 +182,10 @@ def thomson_points(ods, time: float, *, time_tolerance: float = 5e-4,
     midplane_tolerance : float
         Largest ``|Z|`` of a channel drawn at its own ``R`` in the midplane
         panel [m].
+    equilibrium_time : float, optional
+        The time of the equilibrium slice the channels are mapped through, so
+        that they share the slice every other panel uses; ``None`` takes the
+        slice nearest the Thomson sample [s].
 
     Returns
     -------
@@ -191,7 +201,7 @@ def thomson_points(ods, time: float, *, time_tolerance: float = 5e-4,
     index = _nearest(_array(ods, "thomson_scattering.time"), time, time_tolerance, "thomson_scattering")
     sample_time = float(_array(ods, "thomson_scattering.time")[index])
     count = len(ods["thomson_scattering.channel"])
-    names, r, z, n_e, sigma, valid = [], [], [], [], [], []
+    names, r, z, n_e, sigma, lower, valid = [], [], [], [], [], [], []
     for channel in range(count):
         prefix = f"thomson_scattering.channel.{channel}"
         names.append(str(path_value(ods, prefix + ".name") or f"channel {channel}"))
@@ -201,8 +211,11 @@ def thomson_points(ods, time: float, *, time_tolerance: float = 5e-4,
         error = _array(ods, prefix + ".n_e.data_error_upper")
         n_e.append(float(data[index]) if data is not None and index < data.size else math.nan)
         sigma.append(float(error[index]) if error is not None and index < error.size else math.nan)
+        below = _array(ods, prefix + ".n_e.data_error_lower")
+        lower.append(float(below[index]) if below is not None and index < below.size else sigma[-1])
         valid.append(_validity(ods, prefix + ".n_e", index))
-    mapped = equilibrium_mapping_thomson_scattering(ods, ods, time=sample_time)
+    mapped = equilibrium_mapping_thomson_scattering(
+        ods, ods, time=sample_time if equilibrium_time is None else equilibrium_time)
     psi_norm = np.asarray(mapped.psi_norm, dtype=float)
     status = []
     for k in range(count):
@@ -218,7 +231,7 @@ def thomson_points(ods, time: float, *, time_tolerance: float = 5e-4,
     return ThomsonPoints(
         name=tuple(names), r=r, z=z, n_e=np.asarray(n_e), sigma=np.asarray(sigma), status=tuple(status),
         psi_norm=psi_norm, rho_tor_norm=np.full(count, np.nan), outboard=np.zeros(count, dtype=bool),
-        on_midplane=np.abs(z) <= midplane_tolerance, time=sample_time,
+        on_midplane=np.abs(z) <= midplane_tolerance, time=sample_time, sigma_lower=np.asarray(lower),
     )
 
 
@@ -241,6 +254,9 @@ def _rho_table(ods, slice_index: int, psi_axis: float, psi_boundary: float):
                          "this figure does not substitute it for the toroidal-flux coordinate")
     order = np.argsort(psi_norm)
     return psi_norm[order], rho[order]
+
+
+_WALL = "wall.description_2d.0.limiter.unit.0.outline"
 
 
 def _sample_source():
@@ -292,9 +308,11 @@ def density_semantics(ods=None, *, time: float = SAMPLE_TIME, time_tolerance: fl
         ods = sample_ods(SAMPLE_SHOT)
         source_path, source_blob = _sample_source()
 
-    thomson = thomson_points(ods, time, time_tolerance=time_tolerance, midplane_tolerance=midplane_tolerance)
     profile_index = _nearest(_array(ods, "core_profiles.time"), time, time_tolerance, "core_profiles")
     eq_index = _nearest(_array(ods, "equilibrium.time"), time, time_tolerance, "equilibrium")
+    eq_time = float(_array(ods, "equilibrium.time")[eq_index])
+    thomson = thomson_points(ods, time, time_tolerance=time_tolerance, midplane_tolerance=midplane_tolerance,
+                             equilibrium_time=eq_time)
     eq = f"equilibrium.time_slice.{eq_index}"
     psi_axis = float(ods[eq + ".global_quantities.psi_axis"])
     psi_boundary = float(ods[eq + ".global_quantities.psi_boundary"])
@@ -307,14 +325,20 @@ def density_semantics(ods=None, *, time: float = SAMPLE_TIME, time_tolerance: fl
     grid_rho = _array(ods, cp + ".grid.rho_tor_norm")
     if n_e is None:
         raise ValueError(f"{cp}.electrons.density is missing")
+    profile_psi = None
     if grid_psi is not None and grid_psi.size == n_e.size:
-        profile_psi = (grid_psi - psi_axis) / (psi_boundary - psi_axis)
-        placed_by = "core_profiles grid.psi"
+        candidate = (grid_psi - psi_axis) / (psi_boundary - psi_axis)
+        # a grid.psi in another convention (Wb/rad against Wb, #278) normalizes off [0, 1]: not usable here
+        if np.nanmin(candidate) >= -0.05 and np.nanmax(candidate) <= 1.05:
+            profile_psi, placed_by = candidate, "core_profiles grid.psi"
+    if profile_psi is not None:
+        pass
     elif grid_rho is not None and grid_rho.size == n_e.size:
         profile_psi = np.interp(grid_rho, table_rho, table_psi)
         placed_by = "core_profiles grid.rho_tor_norm through the equilibrium table"
     else:
-        raise ValueError(f"{cp}.grid gives neither psi nor rho_tor_norm for electrons.density")
+        raise ValueError(f"{cp}.grid gives neither a psi consistent with {eq} nor rho_tor_norm "
+                         "for electrons.density")
     profile_rho = np.interp(profile_psi, table_psi, table_rho)
 
     # the channels in the same table; the side of the axis a flux coordinate forgets
@@ -323,8 +347,7 @@ def density_semantics(ods=None, *, time: float = SAMPLE_TIME, time_tolerance: fl
     finite = np.isfinite(thomson.psi_norm)
     rho = np.full(thomson.r.shape, np.nan)
     rho[finite] = np.interp(thomson.psi_norm[finite], table_psi, table_rho)
-    object.__setattr__(thomson, "rho_tor_norm", rho)
-    object.__setattr__(thomson, "outboard", thomson.r > axis_r)
+    thomson = replace(thomson, rho_tor_norm=rho, outboard=thomson.r > axis_r)
 
     # the 2-D derived state: psi_to_rz on the equilibrium grid, masked by the boundary outline
     grid_r = _array(ods, eq + ".profiles_2d.0.grid.dim1")
@@ -334,6 +357,14 @@ def density_semantics(ods=None, *, time: float = SAMPLE_TIME, time_tolerance: fl
         raise ValueError(f"{eq}.profiles_2d.0.psi is {psi_rz.shape}, not (R, Z) = ({grid_r.size}, {grid_z.size})")
     lcfs_r = _array(ods, eq + ".boundary.outline.r")
     lcfs_z = _array(ods, eq + ".boundary.outline.z")
+    if lcfs_r is not None and lcfs_r.size >= 3:
+        # the outline decides what is plasma, for the channels as for the map: psi_N < 1 also holds
+        # where psi turns over near the coils
+        from matplotlib.path import Path as _Outline
+
+        inside = _Outline(np.column_stack([lcfs_r, lcfs_z])).contains_points(np.column_stack([thomson.r, thomson.z]))
+        status = tuple(OUTSIDE if st == USABLE and not ok else st for st, ok in zip(thomson.status, inside))
+        thomson = replace(thomson, status=status)
     if refine > 1:
         # psi bilinear between equilibrium nodes, as the channel mapper reads it; every node is kept
         from scipy.interpolate import RegularGridInterpolator
@@ -343,21 +374,23 @@ def density_semantics(ods=None, *, time: float = SAMPLE_TIME, time_tolerance: fl
         mesh = np.stack(np.meshgrid(fine_r, fine_z, indexing="ij"), axis=-1)
         psi_rz = RegularGridInterpolator((grid_r, grid_z), psi_rz)(mesh)
         grid_r, grid_z = fine_r, fine_z
-    # "edge": a node a hair below psi_axis (bilinear psi undershoots the axis) keeps the axis value
-    # instead of a zero hole; the boundary outline, not psi_N, decides what is plasma
+    # "edge": a node whose psi sits at or a hair below the reported psi_axis (psi_N = 0 to rounding)
+    # keeps the axis value instead of a zero hole; the boundary outline, not psi_N, decides what is plasma
     map_n_e, psi_norm_rz = psi_to_rz(profile_psi, n_e, psi_rz, psi_axis, psi_boundary, fill_outside="edge")
     plasma = plasma_cell_weights(grid_r, grid_z, psi_norm_rz, lcfs_r, lcfs_z) >= 0.5
     map_n_e = np.where(plasma, map_n_e, np.nan)
 
-    # panel (c) is that array at Z = 0, linear between the two rows that bracket it
-    upper = int(np.searchsorted(grid_z, 0.0))
-    if upper == 0 or upper == grid_z.size:
-        raise ValueError("Z = 0 lies outside the equilibrium grid")
-    lower = upper - 1
-    weight = (0.0 - grid_z[lower]) / (grid_z[upper] - grid_z[lower])
-    if weight == 0.0:  # a grid row at Z = 0 is the cut itself (0 * NaN would blank its edge cells)
-        midplane = map_n_e[:, lower].copy()
+    # panel (c) is that array at Z = 0: the row itself when the grid has one, else linear between the two
+    # rows that bracket it (a row at Z = 0 is taken alone, since 0 * NaN would blank its edge cells)
+    row = np.flatnonzero(np.isclose(grid_z, 0.0, rtol=0.0, atol=1e-12))
+    if row.size:
+        midplane = map_n_e[:, int(row[0])].copy()
     else:
+        upper = int(np.searchsorted(grid_z, 0.0))
+        if upper == 0 or upper == grid_z.size:
+            raise ValueError("Z = 0 lies outside the equilibrium grid")
+        lower = upper - 1
+        weight = (0.0 - grid_z[lower]) / (grid_z[upper] - grid_z[lower])
         midplane = (1.0 - weight) * map_n_e[:, lower] + weight * map_n_e[:, upper]
 
     ds = "dataset_description.data_entry"
@@ -410,19 +443,11 @@ def density_semantics(ods=None, *, time: float = SAMPLE_TIME, time_tolerance: fl
         table_psi_norm=table_psi, table_rho_tor_norm=table_rho,
         grid_r=grid_r, grid_z=grid_z, map_n_e=map_n_e, midplane_r=grid_r.copy(), midplane_n_e=midplane,
         lcfs_r=lcfs_r, lcfs_z=lcfs_z, axis_r=axis_r, axis_z=axis_z, metadata=metadata,
+        wall_r=_array(ods, _WALL + ".r") if _array(ods, _WALL + ".r") is not None else np.zeros(0),
+        wall_z=_array(ods, _WALL + ".z") if _array(ods, _WALL + ".z") is not None else np.zeros(0),
+        display=_display_policy(),
     )
-    object.__setattr__(model, "display", _display_policy())
-    object.__setattr__(model, "views", _views(model))
-    return model
-
-
-#: what each view's series is, by label: the legend's three kinds of statement
-SERIES_STATUS = {
-    "Thomson outboard": "measured",
-    "Thomson inboard": "measured",
-    "core_profiles": "stored state",
-    "Z = 0 cut of the mapped field": "equilibrium-derived",
-}
+    return replace(model, views=_views(model))
 
 
 def _display_policy():
@@ -433,15 +458,14 @@ def _display_policy():
 
 
 def _thomson_series(T: ThomsonPoints, x, keep, scale) -> tuple:
-    """Outboard and inboard Thomson traces at abscissa ``x``: ``yerr`` = sigma, ``valid_mask`` = usable."""
+    """The Thomson trace at abscissa ``x``: ``yerr`` = sigma, ``valid_mask`` = usable."""
     from vaft.plot.models import Series
 
-    out = []
-    for label, side in (("Thomson outboard", T.outboard), ("Thomson inboard", ~T.outboard)):
-        pick = keep & side
-        out.append(Series(x=np.asarray(x, float)[pick], y=T.n_e[pick] * scale, yerr=T.sigma[pick] * scale,
-                          valid_mask=T.usable[pick], label=label, channel="thomson_scattering"))
-    return tuple(out)
+    yerr = np.vstack([T.sigma_lower[keep], T.sigma[keep]]) * scale
+    if np.array_equal(yerr[0], yerr[1], equal_nan=True):
+        yerr = yerr[1]  # symmetric: data_error_lower absent or equal
+    return (Series(x=np.asarray(x, float)[keep], y=T.n_e[keep] * scale, yerr=yerr,
+                   valid_mask=T.usable[keep], label="Thomson", channel="thomson_scattering"),)
 
 
 def _views(m: DensitySemantics) -> Dict[str, object]:
@@ -517,23 +541,24 @@ _ROWS = (
 _LEFT = (-8.80, -0.25)        # left column box [cm]
 _RIGHT = (0.25, 8.80)         # right column box [cm]
 _ROW_HALF = 1.375             # half height of a left box [cm]
-_PLOT_X = (-7.45, -0.85)      # 1-D plotting box [cm]
+_PLOT_X = (-7.45, -1.75)      # 1-D plotting box [cm]
 _PLOT_DY = (-0.78, 0.78)      # 1-D plotting box, about the row centre [cm]
 _Y_RANGE = (0.0, 14.0)        # 1-D density axis [10^18 m^-3]
 _Y_TICKS = (0.0, 4.0, 8.0, 12.0)
 _R_RANGE = (0.05, 0.75)       # major radius shown in (c) and (d) [m]
-_Z_RANGE = (-0.50, 0.58)      # height shown in (d) [m]
-_MAP_ORIGIN = (1.55, -3.38)   # (d) lower-left corner [cm]
-_MAP_SCALE = 6.0              # (d) cm per metre, the same in R and Z
+_MAP_R_RANGE = (0.05, 0.82)   # major radius shown in (d): the wall's full radial extent [m]
+_Z_RANGE = (-0.66, 0.66)      # height shown in (d), past the limiter steps at |Z| = 0.6 m [m]
+_MAP_ORIGIN = (1.75, -3.55)   # (d) lower-left corner [cm]
+_MAP_SCALE = 5.45             # (d) cm per metre, the same in R and Z
 _COLOR_TOP = 12.0             # colour-scale top [10^18 m^-3]
 _COLOR_BINS = 24              # quantized colour levels, the colour bar's too
 
 _PROFILE = "islandblue,line width=1.25pt"
 _MAPPED = "absequil,densely dashed,line width=1.25pt"
 _ERROR = "black!70,line width=0.5pt"
-_FILLED = "draw=black!85,fill=black!85,line width=0.45pt"
-_OPEN = "draw=black!85,fill=white,line width=0.55pt"
-_FLAG = "black!55,line width=0.6pt"
+_POINT = "draw=black!85,fill=white,line width=0.55pt"
+_WALL_STYLE = "black!55,line width=1.3pt"
+_LCFS_STYLE = "driftred,line width=0.9pt"
 _MARKER_R = 0.07              # data-point radius [cm]
 
 
@@ -590,18 +615,28 @@ class _Axis:
         return self.y0 + (value - _Y_RANGE[0]) / (_Y_RANGE[1] - _Y_RANGE[0]) * (self.y1 - self.y0)
 
 
-def _measurement(axis, x, n, s, outboard, role):
-    """One Thomson point at abscissa ``x``: value ``n`` +/- ``s`` [10^18 m^-3], filled when outboard."""
+def _measurement(axis, x, n, below, above, role):
+    """One Thomson point at abscissa ``x``: value ``n`` - ``below`` / + ``above`` [display unit]."""
     items = []
-    x, n, s = float(_q(x)), float(_q(n)), float(_q(s))
+    x, n, below, above = float(_q(x)), float(_q(n)), float(_q(below)), float(_q(above))
     cx = axis.x(x)
-    if np.isfinite(s):
-        lo, hi = axis.y(n - s), axis.y(n + s)
+    if np.isfinite(above):
+        lo, hi = axis.y(n - (below if np.isfinite(below) else above)), axis.y(n + above)
         items += [Polyline.of([(cx, lo), (cx, hi)], _ERROR, f"{role}:error"),
                   Polyline.of([(cx - 0.05, lo), (cx + 0.05, lo)], _ERROR, f"{role}:cap"),
                   Polyline.of([(cx - 0.05, hi), (cx + 0.05, hi)], _ERROR, f"{role}:cap")]
-    items.append(_dot(cx, axis.y(n), _FILLED if outboard else _OPEN, role))
+    items.append(_dot(cx, axis.y(n), _POINT, role))
     return items
+
+
+def _unit_tex(unit: str) -> str:
+    """``10^18 m^-3`` typeset as ``$[10^{18}\\,\\mathrm{m}^{-3}]$``: the display policy's unit."""
+    parts = []
+    for token in unit.split():
+        base, _, power = token.partition("^")
+        base = base if base.isdigit() else f"\\mathrm{{{base}}}"
+        parts.append(f"{base}^{{{power}}}" if power else base)
+    return "$[" + "\\,".join(parts) + "]$"
 
 
 def _frame_1d(axis, key, ticks, tick_text, x_label):
@@ -616,7 +651,7 @@ def _frame_1d(axis, key, ticks, tick_text, x_label):
         items += [Polyline.of([(xx, axis.y0), (xx, axis.y0 - 0.06)], "black!55,line width=0.45pt", f"xtick:{key}"),
                   _text(xx, axis.y0 - 0.1, text, f"xticklabel:{key}", "scriptsize", "north", "black!75")]
     items.append(_text(axis.x1 + 0.08, axis.y0, x_label, f"xlabel:{key}", "scriptsize", "west"))
-    items.append(Label((axis.x0 - 0.5, 0.5 * (axis.y0 + axis.y1)), r"$n_e\;[10^{18}\,\mathrm{m}^{-3}]$",
+    items.append(Label((axis.x0 - 0.5, 0.5 * (axis.y0 + axis.y1)), r"$n_e\;$" + axis.unit,
                        "concept plain,font=\\scriptsize,inner sep=0.7pt,rotate=90", "south", f"ylabel:{key}"))
     return items
 
@@ -629,7 +664,41 @@ def _curve(axis, x, n, style, role):
 
 
 def _map_xy(r, z):
-    return (_MAP_ORIGIN[0] + (r - _R_RANGE[0]) * _MAP_SCALE, _MAP_ORIGIN[1] + (z - _Z_RANGE[0]) * _MAP_SCALE)
+    return (_MAP_ORIGIN[0] + (r - _MAP_R_RANGE[0]) * _MAP_SCALE, _MAP_ORIGIN[1] + (z - _Z_RANGE[0]) * _MAP_SCALE)
+
+
+def _clip_polyline(r, z, r_range, z_range) -> List[List[Tuple[float, float]]]:
+    """The runs of the closed outline ``(r, z)`` inside the box, each segment clipped (Liang-Barsky)."""
+    r, z = _q(r), _q(z)
+    if r.size < 2:
+        return []
+    runs, run = [], []
+    for k in range(r.size - 1):
+        (ra, za), (rb, zb) = (r[k], z[k]), (r[k + 1], z[k + 1])
+        t0, t1, dr, dz = 0.0, 1.0, rb - ra, zb - za
+        for p, q in ((-dr, ra - r_range[0]), (dr, r_range[1] - ra), (-dz, za - z_range[0]), (dz, z_range[1] - za)):
+            if p == 0.0:
+                if q < 0.0:
+                    t0, t1 = 1.0, 0.0
+            elif p < 0.0:
+                t0 = max(t0, q / p)
+            else:
+                t1 = min(t1, q / p)
+        if t0 > t1:
+            if run:
+                runs.append(run)
+            run = []
+            continue
+        start = (float(ra + t0 * dr), float(za + t0 * dz))
+        end = (float(ra + t1 * dr), float(za + t1 * dz))
+        if not run or run[-1] != start:
+            if run:
+                runs.append(run)
+            run = [start]
+        run.append(end)
+    if run:
+        runs.append(run)
+    return [run for run in runs if len(run) >= 2]
 
 
 def _map_cells(field):
@@ -643,6 +712,7 @@ def _map_cells(field):
     for j in range(z.size):
         if not (_Z_RANGE[0] <= z[j] <= _Z_RANGE[1]):
             continue
+        f[(r < _MAP_R_RANGE[0]) | (r > _MAP_R_RANGE[1]), j] = np.nan
         i = 0
         while i < r.size:
             if not np.isfinite(f[i, j]):
@@ -666,16 +736,16 @@ def _series(view, label):
 
 
 def _draw_thomson(axis, view, key):
-    """Every Thomson trace of a ``Profile1D``: usable samples as points with bars, the rest flagged."""
+    """The Thomson trace of a ``Profile1D``: usable samples as points with bars; the rest are not drawn."""
     items = []
-    for label, outboard in (("Thomson outboard", True), ("Thomson inboard", False)):
-        trace = _series(view, label)
-        for x, y, e, ok in zip(trace.x, trace.y, trace.yerr, trace.valid_mask):
-            if ok:
-                items += _measurement(axis, x, y, e, outboard, f"ts:{key}")
-            elif key == "mid" and np.isfinite(x):
-                items.append(Marker((round(axis.x(float(_q(x))), 4), round(axis.y0 + 0.12, 4)), "x", _FLAG,
-                                    "ts:mid:flagged"))
+    trace = _series(view, "Thomson")
+    err = np.asarray(trace.yerr)
+    below, above = (err[0], err[1]) if err.ndim == 2 else (err, err)
+    for x, y, lo, hi, ok in zip(trace.x, trace.y, below, above, trace.valid_mask):
+        if ok and not (axis.xr[0] <= x <= axis.xr[1]):
+            continue  # outside the panel's abscissa: never pinned to its edge
+        if ok:
+            items += _measurement(axis, x, y, lo, hi, f"ts:{key}")
     return items
 
 
@@ -719,7 +789,7 @@ def _architecture() -> List:
         r"electron density $n_e$"), "concept strong")
     items += _arch_box("a", _ARCH_BOTTOM, "data", (
         r"\textbf{IMAS data representation}",
-        r"Thomson measurements",
+        r"Thomson scattering",
         r"core profiles $\cdot$ equilibrium"))
     items += _arch_box("b", full, "adapter", (
         r"\textbf{Semantic adapter}",
@@ -752,9 +822,34 @@ def _architecture() -> List:
     return items
 
 
+def _warn_out_of_range(views) -> None:
+    """The axis and colour ranges are fixed for VEST; say so when a value would be clamped to an edge."""
+    import warnings
+
+    top = 0.0
+    for key in ("rho", "psi", "mid"):
+        for series in views[key].series:
+            y = np.asarray(series.y, float)
+            if series.yerr is not None:
+                err = np.asarray(series.yerr, float)
+                y = y + (err[1] if err.ndim == 2 else err)
+            if series.valid_mask is not None:
+                y = y[series.valid_mask]
+            if y.size and np.isfinite(y).any():
+                top = max(top, float(np.nanmax(y)))
+    if top > _Y_RANGE[1]:
+        warnings.warn(f"n_e reaches {top:.3g} in display units, above the 1-D axis top {_Y_RANGE[1]:g}; "
+                      "those points and bars are clamped to the edge", RuntimeWarning, stacklevel=3)
+    field = np.asarray(views["map"].values, float)
+    if np.isfinite(field).any() and np.nanmax(field) > _COLOR_TOP:
+        warnings.warn(f"the map reaches {np.nanmax(field):.3g}, above the colour top {_COLOR_TOP:g}; "
+                      "it saturates there", RuntimeWarning, stacklevel=3)
+
+
 def _scene(m: DensitySemantics) -> Scene:
     """The figure, drawn from ``m.views`` and ``m.display``; ``m`` adds only geometry and provenance text."""
     views = m.views  # every value is already in the display unit
+    _warn_out_of_range(views)
     T = m.thomson
     items: List = list(_architecture())
 
@@ -764,6 +859,7 @@ def _scene(m: DensitySemantics) -> Scene:
         items.append(_rect(_LEFT[0], centre - _ROW_HALF, _LEFT[1], centre + _ROW_HALF, "concept leaf", f"view:{key}"))
         items.append(_text(_LEFT[0] + 0.15, centre + _ROW_HALF - 0.24, head, f"view:{key}:title", "footnotesize"))
         axis = _Axis(centre, view.x_limits)
+        axis.unit = _unit_tex(view.y_unit)
         if key in ("rho", "psi"):
             items += _frame_1d(axis, key, (0.0, 0.5, 1.0), ("$0$", "$0.5$", "$1$"),
                                r"$\rho_{\mathrm{tor},N}$" if key == "rho" else r"$\psi_N$")
@@ -785,33 +881,29 @@ def _scene(m: DensitySemantics) -> Scene:
     items.append(_rect(_RIGHT[0], -2.90 - _ROW_HALF, _RIGHT[1], 2.90 + _ROW_HALF, "concept leaf", "view:map"))
     items.append(_text(_RIGHT[0] + 0.15, 2.90 + _ROW_HALF - 0.24, r"\textbf{(d)} $n_e(R,Z)$", "view:map:title",
                        "footnotesize"))
-    items.append(_text(_RIGHT[0] + 2.0, 2.90 + _ROW_HALF - 0.24, r"--- equilibrium-mapped, not measured",
-                       "map:assumption", "scriptsize", color="black!65"))
     items += _map_cells(views["map"])
     lcfs = [_map_xy(a, b) for a, b in zip(m.lcfs_r, m.lcfs_z)]
-    items.append(Polyline.of(np.round(lcfs, 4), "black!80,line width=0.6pt", "map:lcfs", closed=True))
-    x0, y0 = _map_xy(_R_RANGE[0], _Z_RANGE[0])
-    x1, y1 = _map_xy(_R_RANGE[1], _Z_RANGE[1])
+    items.append(Polyline.of(np.round(lcfs, 4), _LCFS_STYLE, "map:lcfs", closed=True))
+    for run in _clip_polyline(m.wall_r, m.wall_z, _MAP_R_RANGE, _Z_RANGE):
+        items.append(Polyline.of(np.round([_map_xy(a, b) for a, b in run], 4), _WALL_STYLE, "map:wall"))
+    x0, y0 = _map_xy(_MAP_R_RANGE[0], _Z_RANGE[0])
+    x1, y1 = _map_xy(_MAP_R_RANGE[1], _Z_RANGE[1])
     ym = _map_xy(0.0, 0.0)[1]
     items.append(Polyline.of([(x0, ym), (x1, ym)], "black!55,densely dashed,line width=0.6pt", "map:midplane"))
-    items.append(_text(x1 + 0.08, ym, r"$Z=0$: (c)", "map:midplane:label", "scriptsize", "west", "black!75"))
     axis_xy = _map_xy(m.axis_r, m.axis_z)
     ax_x, ax_y, h = round(axis_xy[0], 4), round(axis_xy[1], 4), 0.1
     items.append(Polyline.of([(ax_x - h, ax_y), (ax_x + h, ax_y)], "white,line width=0.8pt", "map:axis"))
     items.append(Polyline.of([(ax_x, ax_y - h), (ax_x, ax_y + h)], "white,line width=0.8pt", "map:axis"))
     usable = T.usable
-    for k in np.flatnonzero(~usable):  # under the usable points: a flagged channel may share their position
-        cx, cy = _map_xy(T.r[k], T.z[k])
-        items.append(Marker((round(cx, 4), round(cy, 4)), "x", "black!70,line width=0.6pt", "map:ts:flagged"))
     for k in np.flatnonzero(usable):
         cx, cy = _map_xy(T.r[k], T.z[k])
-        items.append(_dot(round(cx, 4), round(cy, 4), _FILLED if T.outboard[k] else _OPEN, "map:ts"))
+        items.append(_dot(round(cx, 4), round(cy, 4), _POINT, "map:ts"))
     items.append(_rect(x0, y0, x1, y1, "black!60,line width=0.6pt", "map:axes"))
-    for v in (0.1, 0.3, 0.5, 0.7):
+    for v in (0.2, 0.4, 0.6, 0.8):
         xx = _map_xy(v, 0.0)[0]
         items += [Polyline.of([(xx, y0), (xx, y0 - 0.06)], "black!55,line width=0.45pt", "map:xtick"),
                   _text(xx, y0 - 0.1, f"${v:g}$", "map:xticklabel", "scriptsize", "north", "black!75")]
-    for v in (-0.4, -0.2, 0.0, 0.2, 0.4):
+    for v in (-0.6, -0.3, 0.0, 0.3, 0.6):
         yy = _map_xy(0.0, v)[1]
         items += [Polyline.of([(x0, yy), (x0 - 0.06, yy)], "black!55,line width=0.45pt", "map:ytick"),
                   _text(x0 - 0.1, yy, f"${v:g}$", "map:yticklabel", "scriptsize", "east", "black!75")]
@@ -819,7 +911,7 @@ def _scene(m: DensitySemantics) -> Scene:
     items.append(Label((x0 - 0.75, 0.5 * (y0 + y1)), r"$Z\;[\mathrm{m}]$",
                        "concept plain,font=\\scriptsize,inner sep=0.7pt,rotate=90", "south", "map:ylabel"))
     # colour bar: the same quantized levels, the same unit as the 1-D axes
-    bx, bottom, top = 7.45, -2.4, 2.4
+    bx, bottom, top = x1 + 0.55, y0, y1
     for level in range(_COLOR_BINS):
         _, color = _rgb((level + 0.5) / _COLOR_BINS * _COLOR_TOP)
         lo = bottom + (top - bottom) * level / _COLOR_BINS
@@ -830,22 +922,22 @@ def _scene(m: DensitySemantics) -> Scene:
     for v in (0.0, 4.0, 8.0, 12.0):
         yy = bottom + (top - bottom) * v / _COLOR_TOP
         items.append(_text(bx + 0.32, yy, f"${v:g}$", "map:colorbar:tick", "scriptsize", color="black!75"))
-    items.append(_text(bx - 0.05, top + 0.55, r"$n_e$", "map:colorbar:quantity", "scriptsize"))
-    items.append(_text(bx - 0.05, top + 0.25, r"$[10^{18}\,\mathrm{m}^{-3}]$", "map:colorbar:unit", "tiny"))
+    items.append(Label((bx + 1.05, 0.5 * (bottom + top)), r"$n_e\;$" + _unit_tex(m.display.unit),
+                       "concept plain,font=\\scriptsize,inner sep=0.7pt,rotate=90", "north", "map:colorbar:label"))
 
     # legend: measured, stored and equilibrium-derived kept apart; the rest is the caption's
     ly, ly2 = -4.62, -4.98
     items.append(Polyline.of([(-8.6, ly - 0.15), (-8.6, ly + 0.15)], _ERROR, "legend:ts:error"))
-    items.append(_dot(-8.6, ly, _FILLED, "legend:ts:outboard"))
-    items.append(_dot(-8.38, ly, _OPEN, "legend:ts:inboard"))
-    items.append(_text(-8.2, ly, r"Thomson $n_e \pm \sigma_n$ (filled: outboard, open: inboard)",
-                       "legend:measured", "footnotesize"))
-    items.append(Marker((-8.5, ly2), "x", _FLAG, "legend:flagged"))
-    items.append(_text(-8.2, ly2, r"no valid Thomson sample", "legend:flagged:text", "footnotesize"))
-    items.append(Polyline.of([(0.45, ly), (1.05, ly)], _PROFILE, "legend:profile"))
-    items.append(_text(1.2, ly, r"stored density profile", "legend:stored", "footnotesize"))
-    items.append(Polyline.of([(0.45, ly2), (1.05, ly2)], _MAPPED, "legend:mapped"))
-    items.append(_text(1.2, ly2, r"equilibrium-mapped density", "legend:derived", "footnotesize"))
+    items.append(_dot(-8.6, ly, _POINT, "legend:ts"))
+    items.append(_text(-8.35, ly, r"Thomson $n_e \pm \sigma_n$", "legend:measured", "footnotesize"))
+    items.append(Polyline.of([(-3.3, ly), (-2.7, ly)], _WALL_STYLE, "legend:wall"))
+    items.append(_text(-2.55, ly, r"VEST wall (limiter)", "legend:wall:text", "footnotesize"))
+    items.append(Polyline.of([(-3.3, ly2), (-2.7, ly2)], _LCFS_STYLE, "legend:lcfs"))
+    items.append(_text(-2.55, ly2, r"plasma boundary (LCFS)", "legend:lcfs:text", "footnotesize"))
+    items.append(Polyline.of([(1.45, ly), (2.05, ly)], _PROFILE, "legend:profile"))
+    items.append(_text(2.2, ly, r"stored density profile", "legend:stored", "footnotesize"))
+    items.append(Polyline.of([(1.45, ly2), (2.05, ly2)], _MAPPED, "legend:mapped"))
+    items.append(_text(2.2, ly2, r"equilibrium-mapped density", "legend:derived", "footnotesize"))
     return Scene(tuple(items))
 
 

@@ -86,8 +86,7 @@ def test_the_unusable_channels_are_flagged_not_drawn(figure):
     for key in ("rho", "psi", "mid"):
         assert len(scene.role(f"ts:{key}")) == 5
         assert len(scene.role(f"ts:{key}:error")) == 5
-    assert len(scene.role("ts:mid:flagged")) == 2
-    assert len(scene.role("map:ts")) == 5 and len(scene.role("map:ts:flagged")) == 2
+    assert len(scene.role("map:ts")) == 5   # an unusable channel is recorded in the model, not drawn
 
 
 def test_negative_validity_rejects_and_a_channel_outside_the_boundary_is_flagged(sample):
@@ -185,12 +184,25 @@ def test_the_midplane_points_sit_at_their_physical_r(figure):
     expected = sorted(_PLOT_X[0] + (T.r[T.usable] - _R_RANGE[0]) / (_R_RANGE[1] - _R_RANGE[0])
                       * (_PLOT_X[1] - _PLOT_X[0]))
     np.testing.assert_allclose(centres, expected, atol=_MARKER_R * 1e-3)
-    # the inboard/outboard split is about the magnetic axis
+    # the model still records the side of the axis a flux coordinate forgets
     np.testing.assert_array_equal(T.outboard, T.r > figure.model.axis_r)
 
 
+def test_the_wall_is_drawn_inside_the_map_window(figure):
+    from vaft.diagram._density_semantics import _MAP_R_RANGE, _Z_RANGE, _map_xy
+
+    m = figure.model
+    assert m.wall_r.size == 17 and m.wall_r.min() == pytest.approx(0.104) and m.wall_r.max() == pytest.approx(0.76)
+    runs = figure.scene.role("map:wall")
+    assert runs
+    (x0, y0), (x1, y1) = _map_xy(_MAP_R_RANGE[0], _Z_RANGE[0]), _map_xy(_MAP_R_RANGE[1], _Z_RANGE[1])
+    for run in runs:
+        for x, y in run.points:
+            assert x0 - 1e-6 <= x <= x1 + 1e-6 and y0 - 1e-6 <= y <= y1 + 1e-6
+
+
 def test_measured_stored_and_derived_have_separate_legend_entries(figure):
-    for role in ("legend:measured", "legend:stored", "legend:derived", "legend:flagged:text"):
+    for role in ("legend:measured", "legend:stored", "legend:derived", "legend:wall:text", "legend:lcfs:text"):
         assert len(figure.scene.role(role)) == 1
 
 
@@ -206,14 +218,20 @@ def test_the_figure_source_is_deterministic(figure):
     assert electron_density_semantics().tikz == figure.tikz
 
 
-def test_the_map_has_no_hole_at_the_magnetic_axis(figure):
-    """Bilinear psi undershoots psi_axis next to the axis; psi_N < 0 there is the axis, not exterior."""
-    m = figure.model
-    i = int(np.argmin(np.abs(m.grid_r - m.axis_r)))
-    j = int(np.argmin(np.abs(m.grid_z - m.axis_z)))
-    block = m.map_n_e[i - 2:i + 3, j - 2:j + 3]
-    assert np.isfinite(block).all()
-    assert block.min() > 0.95 * m.profile_n_e[0]
+def test_the_map_has_no_hole_at_the_magnetic_axis(sample):
+    """A node whose psi sits a hair below psi_axis is the axis, not exterior: no zero hole there."""
+    ods = copy.deepcopy(sample)
+    base = "equilibrium.time_slice.0"
+    psi = np.array(ods[base + ".profiles_2d.0.psi"], float)
+    r = np.asarray(ods[base + ".profiles_2d.0.grid.dim1"])
+    z = np.asarray(ods[base + ".profiles_2d.0.grid.dim2"])
+    i = int(np.argmin(np.abs(r - float(ods[base + ".global_quantities.magnetic_axis.r"]))))
+    j = int(np.argmin(np.abs(z - float(ods[base + ".global_quantities.magnetic_axis.z"]))))
+    axis, edge = float(ods[base + ".global_quantities.psi_axis"]), float(ods[base + ".global_quantities.psi_boundary"])
+    psi[i, j] = axis - 1e-9 * (edge - axis)
+    ods[base + ".profiles_2d.0.psi"] = psi
+    m = _model(ods, refine=1)
+    assert m.map_n_e[i, j] == pytest.approx(m.profile_n_e[0], rel=1e-6)
 
 
 def test_the_panels_are_typed_vaft_plot_view_models(figure):
@@ -224,12 +242,10 @@ def test_the_panels_are_typed_vaft_plot_view_models(figure):
     assert isinstance(views["map"], Field2D)
     T = figure.model.thomson
     for key in ("rho", "psi"):
-        traces = [s for s in views[key].series if s.label.startswith("Thomson")]
-        assert sum(int(np.sum(s.valid_mask)) for s in traces) == int(T.usable.sum())
+        trace = next(s for s in views[key].series if s.label == "Thomson")
         # measurement sigma and validity travel in the view model, not beside it
-        for s, side in zip(traces, (T.outboard, ~T.outboard)):
-            np.testing.assert_allclose(s.yerr, T.sigma[side] * 1e-18)
-            np.testing.assert_array_equal(s.valid_mask, T.usable[side])
+        np.testing.assert_allclose(trace.yerr, T.sigma * 1e-18)
+        np.testing.assert_array_equal(trace.valid_mask, T.usable)
 
 
 def test_the_display_policy_is_vaft_plot_s(figure):
@@ -255,7 +271,7 @@ def test_the_map_is_the_vaft_plot_field_recipe_inside_the_boundary(sample):
     """On the equilibrium's own grid, (d) equals ``electron_density_field`` wherever both call it plasma."""
     from vaft.plot.backend.recipes import build_model
 
-    recipe = build_model("electron_density_field", [("", sample)], time=0.3)
+    recipe = build_model("electron_density_field", [("", sample)])
     mine = _model(sample, refine=1).views["map"]
     np.testing.assert_array_equal(mine.r, recipe.r)
     both = np.isfinite(mine.values) & np.isfinite(recipe.values)
@@ -277,3 +293,53 @@ def test_the_architecture_records_responsibility_edges(figure):
 def test_the_pdf_export_is_reproducible(figure, tmp_path):
     a, b = figure.save(tmp_path / "a.pdf"), figure.save(tmp_path / "b.pdf")
     assert a.read_bytes() == b.read_bytes()
+    assert b"D:19700101000000" in a.read_bytes()  # the fixed epoch, not the wall clock of this run
+
+
+def test_every_panel_uses_the_equilibrium_slice_at_the_requested_time(sample):
+    """With two equilibrium slices, the channels, the table and the map all come from the one at ``time``."""
+    ods = copy.deepcopy(sample)
+    ods["equilibrium.time_slice.1"] = copy.deepcopy(ods["equilibrium.time_slice.0"])
+    ods["equilibrium.time_slice.0.time"] = 0.2995
+    ods["equilibrium.time_slice.1.time"] = 0.3004
+    ods["equilibrium.time"] = np.array([0.2995, 0.3004])
+    ods["equilibrium.vacuum_toroidal_field.b0"] = np.repeat(ods["equilibrium.vacuum_toroidal_field.b0"][0], 2)
+    shifted = "equilibrium.time_slice.0.profiles_2d.0.psi"
+    ods[shifted] = np.asarray(ods[shifted]) + 0.002   # the decoy slice is visibly different
+    m = _model(ods, time=0.3003, refine=1)
+    assert m.metadata["equilibrium_slice"] == 1
+    reference = _model(sample, refine=1)
+    usable = reference.thomson.usable
+    np.testing.assert_allclose(m.thomson.psi_norm[usable], reference.thomson.psi_norm[usable], atol=1e-12)
+
+
+def test_a_grid_psi_in_another_convention_falls_back_to_rho(sample):
+    """grid.psi per radian against an equilibrium in Wb normalizes off [0, 1]; the rho grid places it instead."""
+    ods = copy.deepcopy(sample)
+    path = "core_profiles.profiles_1d.0.grid.psi"
+    ods[path] = np.asarray(ods[path]) / (2 * np.pi)
+    m = _model(ods, refine=1)
+    assert "rho_tor_norm through the equilibrium table" in m.metadata["stored_state"]
+    assert 0.0 <= m.profile_psi_norm.min() and m.profile_psi_norm.max() <= 1.0 + 1e-9
+
+
+def test_a_channel_outside_the_outline_is_flagged_even_below_psi_n_one(sample):
+    """The outline, not psi_N, decides what is plasma, for the channels as for the map."""
+    from vaft.process.profile import equilibrium_mapping_points
+
+    ods = copy.deepcopy(sample)
+    # where psi turns over near the coils psi_N < 1 although the point is far outside the plasma
+    point = (0.70, 1.10)
+    assert np.isfinite(equilibrium_mapping_points(ods, [point[0]], [point[1]], time=0.3).psi_norm[0])
+    ods["thomson_scattering.channel.4.position.r"], ods["thomson_scattering.channel.4.position.z"] = point
+    assert _model(ods, refine=1).thomson.status[4] == "outside_lcfs"
+
+
+def test_an_asymmetric_uncertainty_is_kept(sample):
+    ods = copy.deepcopy(sample)
+    upper = np.asarray(ods["thomson_scattering.channel.0.n_e.data_error_upper"])
+    ods["thomson_scattering.channel.0.n_e.data_error_lower"] = 0.5 * upper
+    m = _model(ods, refine=1)
+    trace = next(s for s in m.views["rho"].series if s.label == "Thomson")
+    assert np.asarray(trace.yerr).shape == (2, trace.y.size)
+    assert trace.yerr[0][0] == pytest.approx(0.5 * trace.yerr[1][0])
