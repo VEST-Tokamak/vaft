@@ -20,6 +20,7 @@ from pathlib import Path
 import shutil
 import sys
 import tempfile
+import threading
 from typing import Iterator
 import warnings
 
@@ -367,26 +368,39 @@ class _OmasRootLoggerGuard(importlib.abc.MetaPathFinder):
     third-party and cannot be skipped, so the level is saved before the
     ``omas`` package executes and restored afterwards.
 
-    Every spec handed out is wrapped, and the guard removes itself only after
-    OMAS executed successfully, so a bare ``importlib.util.find_spec("omas")``
-    probe or a failed first import cannot use it up. Not covered: pyximport
-    stays installed after OMAS loads, so a later ``.pyx`` import elsewhere
-    would reset the level again.
+    Every spec handed out is wrapped, so a bare
+    ``importlib.util.find_spec("omas")`` probe or a failed first import cannot
+    use the guard up. The guard stays on ``sys.meta_path`` -- a free no-op once
+    ``omas`` is in ``sys.modules`` -- because removing it would mutate a list
+    another thread's import may be iterating. Not covered: pyximport stays
+    installed after OMAS loads, so a later ``.pyx`` import elsewhere would
+    reset the level again.
     """
 
+    def __init__(self):
+        self._searching = threading.local()
+
     def find_spec(self, fullname, path, target=None):
-        if fullname != "omas" or fullname in sys.modules:
+        if fullname != "omas" or fullname in sys.modules or getattr(self._searching, "active", False):
             return None
-        for finder in sys.meta_path:
-            if finder is self or not hasattr(finder, "find_spec"):
-                continue
-            spec = finder.find_spec(fullname, path, target)
-            if spec is not None:
-                break
-        else:
-            return None
+        # Re-entry flag: another finder that delegates to sys.meta_path must
+        # not bounce the search back here.
+        self._searching.active = True
+        try:
+            for finder in sys.meta_path:
+                if finder is self or not hasattr(finder, "find_spec"):
+                    continue
+                spec = finder.find_spec(fullname, path, target)
+                if spec is not None:
+                    break
+            else:
+                return None
+        finally:
+            self._searching.active = False
         loader = spec.loader
-        if loader is None or not hasattr(loader, "exec_module"):
+        # A loader that already carries an instance-level exec_module (ours, on
+        # a cached loader such as zipimporter) is left alone.
+        if loader is None or not hasattr(loader, "exec_module") or "exec_module" in vars(loader):
             return spec
         exec_module = loader.exec_module
 
@@ -396,10 +410,9 @@ class _OmasRootLoggerGuard(importlib.abc.MetaPathFinder):
             try:
                 exec_module(module)
             finally:
+                vars(loader).pop("exec_module", None)
                 if root.level != level:
                     root.setLevel(level)
-            # Later imports hit sys.modules; the guard has nothing left to do.
-            _uninstall_omas_root_logger_guard()
 
         loader.exec_module = exec_module_keeping_root_level
         return spec
@@ -416,10 +429,6 @@ def _install_omas_root_logger_guard() -> None:
     if any(isinstance(finder, _OmasRootLoggerGuard) for finder in sys.meta_path):
         return
     sys.meta_path.insert(0, _OmasRootLoggerGuard())
-
-
-def _uninstall_omas_root_logger_guard() -> None:
-    sys.meta_path[:] = [finder for finder in sys.meta_path if not isinstance(finder, _OmasRootLoggerGuard)]
 
 
 def apply_runtime_compat_patches() -> None:
