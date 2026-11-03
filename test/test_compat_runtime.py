@@ -91,6 +91,58 @@ class CompatRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    # OMAS builds omas_cython through pyximport on import, and pyximport's
+    # setuptools command-line parse resets the root logger to WARNING; a
+    # workflow that called basicConfig(INFO) before importing VAFT then logged
+    # nothing at all. Subprocesses, so an already-imported OMAS cannot hide it.
+    def _root_level_after(self, statement, extra_path=None):
+        environment = os.environ.copy()
+        # Explicit, so the child imports this checkout even under PYTHONSAFEPATH.
+        repository = str(Path(__file__).resolve().parents[1])
+        environment["PYTHONPATH"] = os.pathsep.join(
+            filter(None, [extra_path and str(extra_path), repository, environment.get("PYTHONPATH")])
+        )
+        script = (
+            "import logging, sys\n"
+            "logging.basicConfig(level=logging.INFO, stream=sys.stderr)\n"
+            f"{statement}\n"
+            "print(logging.getLogger().level)\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=Path(__file__).resolve().parents[1],
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return int(result.stdout.strip().splitlines()[-1])
+
+    def test_importing_vest_upstream_keeps_the_root_logger_level(self):
+        level = self._root_level_after("import vaft.omas.vest_upstream")
+        self.assertEqual(level, 20)
+
+    def test_omas_import_cannot_lower_the_root_logger_level(self):
+        # A stand-in OMAS that resets the level the way pyximport does, so the
+        # guard is exercised even where OMAS skips the cython build (Windows,
+        # or a copy owned by another user).
+        with tempfile.TemporaryDirectory() as scratch:
+            package = Path(scratch) / "omas"
+            package.mkdir()
+            (package / "__init__.py").write_text(
+                "import logging\nlogging.getLogger().setLevel(logging.WARNING)\n",
+                encoding="utf-8",
+            )
+            stand_in = str(package / "__init__.py")
+            level = self._root_level_after(
+                # The spec probe must not use up the guard before the real import.
+                "import importlib.util, vaft; importlib.util.find_spec('omas'); import omas; "
+                f"assert omas.__file__ == {stand_in!r}, omas.__file__",
+                scratch,
+            )
+        self.assertEqual(level, 20)
+
     def test_user_home_matches_pathlib(self):
         self.assertEqual(compat.user_home(), Path.home())
 
