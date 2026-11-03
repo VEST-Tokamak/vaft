@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 import gzip
 import json
 from pathlib import Path
@@ -36,15 +37,6 @@ def _read_dump(path: Path) -> tuple[int, dict[str, Any]]:
     return shot, fields
 
 
-def _read_dump_or_error(path: Path) -> tuple[int, dict[str, Any]] | RawDumpValidationError:
-    # A worker returns the error instead of raising it, so the parent raises the
-    # first one in the same (sorted) order the serial loop would.
-    try:
-        return _read_dump(path)
-    except RawDumpValidationError as exc:
-        return exc
-
-
 def _missing_required_fields(fields: dict[str, Any], required_fields: Iterable[int], min_samples: int) -> list[int]:
     missing: list[int] = []
     for field in required_fields:
@@ -53,6 +45,21 @@ def _missing_required_fields(fields: dict[str, Any], required_fields: Iterable[i
         if not isinstance(data, list) or len(data) < min_samples:
             missing.append(int(field))
     return missing
+
+
+def _check_dump(path: Path, required: list[int], min_samples: int) -> tuple[int, list[int]] | BaseException:
+    """One archive's shot number and missing required fields, or what reading it raised.
+
+    The error is returned, not raised -- whatever it is (a truncated gzip raises
+    EOFError, not RawDumpValidationError) -- so the caller raises the first one in
+    the same sorted order the serial loop meets it. Only the verdict travels back
+    from a worker, never the archive's data.
+    """
+    try:
+        shot, fields = _read_dump(path)
+        return shot, _missing_required_fields(fields, required, min_samples)
+    except Exception as exc:  # noqa: BLE001 - re-raised by the caller, in order
+        return exc
 
 
 def validate_raw_dumps(
@@ -81,15 +88,16 @@ def validate_raw_dumps(
     excluded: list[dict[str, Any]] = []
     seen: set[int] = set()
     paths = sorted(Path(path) for path in dump_paths)
+    check = partial(_check_dump, required=required, min_samples=min_samples)
     if jobs > 1 and len(paths) > 1:
         with ProcessPoolExecutor(max_workers=min(int(jobs), len(paths))) as pool:
-            dumps = list(pool.map(_read_dump_or_error, paths, chunksize=4))
+            verdicts = list(pool.map(check, paths, chunksize=4))
     else:
-        dumps = map(_read_dump_or_error, paths)
-    for raw_path, dump in zip(paths, dumps):
-        if isinstance(dump, RawDumpValidationError):
-            raise dump
-        shot, fields = dump
+        verdicts = map(check, paths)
+    for raw_path, verdict in zip(paths, verdicts):
+        if isinstance(verdict, BaseException):
+            raise verdict
+        shot, missing = verdict
         expected = _OUTPUT_SHOT.search(raw_path.name)
         if expected is not None and int(expected.group("shot")) != shot:
             raise RawDumpValidationError(
@@ -98,7 +106,6 @@ def validate_raw_dumps(
         if shot in seen:
             raise RawDumpValidationError(f"Duplicate raw dumps for shot {shot}")
         seen.add(shot)
-        missing = _missing_required_fields(fields, required, min_samples)
         if missing:
             excluded.append(
                 {

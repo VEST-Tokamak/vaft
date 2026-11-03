@@ -217,6 +217,9 @@ def replication_records(shots, stages=None):
 
 
 PLOTS_ENABLED = validation_plots_enabled(config, PATHS.layout)
+# The CHEASE refinement sheet is drawn by the solver run itself, so it is not
+# subject to `validation_plots`: toggling the key must not rerun CHEASE.
+CHEASE_PLOTS = PATHS.layout == FILEDB
 EMPTY_VALIDATION_STAGES = {"chease", "eddy", "efit", "mhd_linear"}
 
 
@@ -1224,7 +1227,7 @@ rule run_chease:
         refined=PATHS.shot_pattern("chease_refined"),
         status=PATHS.shot_pattern("chease_status"),
         runs=PATHS.shot_pattern("chease_runs"),
-        **({"plot_manifest": PATHS.shot_pattern("chease_plot_manifest")} if PLOTS_ENABLED else {})
+        **({"plot_manifest": PATHS.shot_pattern("chease_plot_manifest")} if CHEASE_PLOTS else {})
     log:
         PATHS.shot_pattern("log", "run_chease")
     params:
@@ -1247,7 +1250,7 @@ rule run_chease:
         preserve_boundary_limiter=bool_text(CHEASE_CONFIG.get("preserve_boundary_limiter", True)),
         create_plot=bool_text(CHEASE_CONFIG.get("create_plot", True)),
         plot_dir=lambda wildcards: (
-            PATHS.code_plot_dir(wildcards.shot, "chease") if PLOTS_ENABLED else ""
+            PATHS.code_plot_dir(wildcards.shot, "chease") if CHEASE_PLOTS else ""
         )
     conda:
         CONDA if CONDA else None

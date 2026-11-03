@@ -67,7 +67,8 @@ fi
 # Real CPU use comes from the job's cgroup (cgroup v2, proctrack/cgroup): `pestat`'s CPUload is
 # a load average, and sacct TotalCPU is lost when a job is cancelled. Every CGROUP_SAMPLE_S the
 # job cgroup's cumulative cpu.stat and memory.current/peak go to <lane>/logs/<chunk>.cgroup.tsv,
-# and each chunk's line in lane.log carries cpu_util = CPU-seconds / (wall x booked cores).
+# and each chunk's line in lane.log carries cpu_util = CPU-seconds / (wall x booked cores),
+# the chunk's sampled memory maximum and the job's memory.peak so far.
 JOB_CG=
 if [ -r /proc/self/cgroup ]; then
   cg=/sys/fs/cgroup$(sed -n 's/^0:://p' /proc/self/cgroup)
@@ -179,7 +180,9 @@ for f in "$LANE"/chunks/shots.[0-9][0-9][0-9]; do
   if [ -n "$u0" ] && [ -n "$u1" ] && [ "$wall" -gt 0 ]; then
     cpu=$(awk -v a="$u0" -v b="$u1" -v w="$wall" -v n="$CORES" \
       'BEGIN {printf " cpu_s=%.0f cpu_util=%.3f", (b - a) / 1e6, (b - a) / 1e6 / (w * n)}')
-    cpu="$cpu mem_peak_gb=$(awk '{printf "%.1f", $1 / 2^30}' "$JOB_CG/memory.peak" 2>/dev/null)"
+    # memory.current sampled over this chunk; memory.peak is the whole job's so far.
+    cpu="$cpu chunk_mem_max_gb=$(awk -F'\t' -v t="$t0" '$1 >= t && $5 > m {m = $5} END {printf "%.1f", m / 2^30}' "$LANE/logs/$c.cgroup.tsv")"
+    cpu="$cpu job_mem_peak_gb=$(awk '{printf "%.1f", $1 / 2^30}' "$JOB_CG/memory.peak" 2>/dev/null)"
   fi
   log "$c exit=$rc wall=${wall}s$cpu log=$(basename "$attempt")"
   for j in eligible_shots excluded_shots impa_shots; do

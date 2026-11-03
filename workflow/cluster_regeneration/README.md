@@ -30,8 +30,8 @@ FileDB and never contacts HSDS; moving and replicating are separate, separately 
 - **CPU use.** `pestat`'s CPUload is a load average, and sacct `TotalCPU` is lost when a job is
   cancelled. `run_lane.sh` samples the job's cgroup (`cpu.stat`, `memory.current`/`memory.peak`)
   into `<lane>/logs/<chunk>.cgroup.tsv` every `CGROUP_SAMPLE_S` (30) s, and each chunk's line in
-  `lane.log` carries `cpu_s`, `cpu_util` (CPU-seconds / (wall x booked cores)) and the job's
-  `mem_peak_gb` so far. The 2026-11 full run measured ~0.7 of the booked slots occupied by
+  `lane.log` carries `cpu_s`, `cpu_util` (CPU-seconds / (wall x booked cores)), the chunk's
+  sampled `chunk_mem_max_gb` and the job's `job_mem_peak_gb` so far. The 2026-11 full run measured ~0.7 of the booked slots occupied by
   Snakemake jobs (about 10 % of each chunk is the serial preflight, the chunk tail and the gap to
   the next chunk) and a load of ~11 per 32-core lane: book what a lane uses, not more.
 - **Validation plots** are 38-39 % of a chunk's job time. `validation_plots: false` in the run
