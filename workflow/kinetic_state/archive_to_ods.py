@@ -302,7 +302,7 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
     cp = s["core_profiles"]
     eq_mag = s["magnetic_equilibrium"]
     eq = eq_mag if lineage == "magnetics" else s["electron_kinetic_equilibrium"]
-    rho = np.asarray(cp["rho_tor_norm"], float)
+    rho = _shared_profile_grid(s)
     psi_cp = np.asarray(cp["psi_Wb"], float)
     ne = np.asarray(cp["electron_density_m3"], float)
     te = np.asarray(cp["electron_temperature_eV"], float)
