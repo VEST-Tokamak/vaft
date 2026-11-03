@@ -14,7 +14,14 @@ if [ ! -f "$RUN/shots_all.txt" ]; then
   # copy_raw.sh leaves <scratch>/missing_or_different.lst; pass it as RAW_VERIFIED.
   [ -f "${RAW_VERIFIED:-}" ] && [ ! -s "${RAW_VERIFIED:-}" ] \
     || { echo "set RAW_VERIFIED=<copy_raw scratch>/missing_or_different.lst (must exist and be empty)" >&2; exit 2; }
-  ls "$ROOT/raw" | grep -E '^[0-9]+$' | sort -n > "$RUN/shots_all.txt.tmp" && mv "$RUN/shots_all.txt.tmp" "$RUN/shots_all.txt"
+  if [ -n "${SHOTS_ALL:-}" ]; then
+    # A subset run (e.g. the shots another run has not started): every listed shot must have raw.
+    grep -E '^[0-9]+$' "$SHOTS_ALL" | sort -n | uniq > "$RUN/shots_all.txt.tmp"
+    while read -r s; do [ -d "$ROOT/raw/$s" ] || { echo "SHOTS_ALL shot $s has no $ROOT/raw/$s" >&2; exit 2; }; done < "$RUN/shots_all.txt.tmp"
+    mv "$RUN/shots_all.txt.tmp" "$RUN/shots_all.txt"
+  else
+    ls "$ROOT/raw" | grep -E '^[0-9]+$' | sort -n > "$RUN/shots_all.txt.tmp" && mv "$RUN/shots_all.txt.tmp" "$RUN/shots_all.txt"
+  fi
   for i in $(seq 0 $((LANES - 1))); do
     mkdir -p "$RUN/lane$i"
     awk -v n="$LANES" -v i="$i" '(NR - 1) % n == i' "$RUN/shots_all.txt" > "$RUN/lane$i/shots.txt"

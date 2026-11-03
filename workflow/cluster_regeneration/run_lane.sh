@@ -95,10 +95,17 @@ KILL_MB=$(( ${SOLVER_RSS_KILL_GB:-64} * 1024 )); [ "$KILL_MB" -gt $(( ALLOC_MB /
 TOTAL_MB=$(( ALLOC_MB - 8192 ))
 
 touch "$LANE/done_chunks.txt"
+# MAX_CHUNKS=N: this invocation runs at most N not-yet-done chunks, then exits (e.g. to finish only
+# an interrupted chunk). Unset: every remaining chunk.
+started=0
 for f in "$LANE"/chunks/shots.[0-9][0-9][0-9]; do
   c=$(basename "$f")
   grep -qx "$c" "$LANE/done_chunks.txt" && continue
   [ -f "$LANE/STOP" ] && { log "STOP before $c"; exit 0; }
+  if [ -n "${MAX_CHUNKS:-}" ] && [ "$started" -ge "$MAX_CHUNKS" ]; then
+    log "MAX_CHUNKS=$MAX_CHUNKS reached before $c"; exit 0
+  fi
+  started=$((started + 1))
   # Raw: hard links into this lane's root (same filesystem, no extra space), staged in .tmp and
   # published only when both files are there. A shot without its dump and manifest is left out
   # (the raw rule would otherwise try VEST SQL) and keeps the chunk from being marked done.
