@@ -96,3 +96,19 @@ def test_parallel_preflight_raises_the_error_the_serial_run_meets_first(tmp_path
 
     with pytest.raises(importable_module.RawDumpValidationError, match="vest_3_daq_raw"):
         importable_module.validate_raw_dumps(paths, [1], jobs=3)
+
+
+def test_parallel_preflight_keeps_the_serial_error_order_for_any_read_failure(tmp_path, importable_module):
+    # A truncated gzip raises EOFError, not RawDumpValidationError; the earlier
+    # name mismatch must still be what both runs report.
+    paths = []
+    for shot in range(1, 7):
+        path = tmp_path / f"vest_{shot}_daq_raw.json.gz"
+        _dump(path, 99 if shot == 3 else shot, {1: [1.0, 2.0]})
+        paths.append(path)
+    truncated = tmp_path / "vest_6_daq_raw.json.gz"
+    truncated.write_bytes(truncated.read_bytes()[:20])
+
+    for jobs in (1, 3):
+        with pytest.raises(importable_module.RawDumpValidationError, match="named for shot 3 but contains shot 99"):
+            importable_module.validate_raw_dumps(paths, [1], jobs=jobs)
