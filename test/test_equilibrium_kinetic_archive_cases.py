@@ -178,7 +178,10 @@ def test_pressure_policies_follow_their_definitions(shot, policies):
     np.testing.assert_allclose(pol.p_prior, 2 * E * ne * te, rtol=1e-12)
     np.testing.assert_allclose(pol.p_counterfactual[valid], (E * ne * te + E * n_ion * te)[valid], rtol=1e-12)
     assert np.all(pol.p_counterfactual[valid] <= pol.p_prior[valid] + 1e-10)  # dilution only lowers it
-    sigma = E * np.sqrt((2 * pol.ts_t_e * pol.ts_sigma_n_e) ** 2 + (2 * pol.ts_n_e * pol.ts_sigma_t_e) ** 2
-                        + (pol.ts_n_e * pol.ts_t_e * TI_TE_RATIO_SIGMA) ** 2)
-    np.testing.assert_allclose(pol.ts_p_input, 2 * E * pol.ts_n_e * pol.ts_t_e, rtol=1e-12)
+    mapped = load_archive(shot)["mapped_thomson"]
+    ts = mapped.get("electron_kinetic", mapped)  # 39915: the one (magnetic) mapping
+    n, t = np.asarray(ts["electron_density_m3"], float), np.asarray(ts["electron_temperature_eV"], float)
+    sn, st = np.asarray(ts["electron_density_error_m3"], float), np.asarray(ts["electron_temperature_error_eV"], float)
+    sigma = E * np.sqrt((2 * t * sn) ** 2 + (2 * n * st) ** 2 + (n * t * TI_TE_RATIO_SIGMA) ** 2)
+    np.testing.assert_allclose(pol.ts_p_input, 2 * E * n * t, rtol=1e-12)
     np.testing.assert_allclose(pol.ts_sigma_p_input, sigma, rtol=1e-12)

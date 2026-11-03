@@ -589,7 +589,9 @@ def kinetic_efit_pressure_policies(shot: int) -> KineticEfitPressurePolicies:
     mapped = s["mapped_thomson"]
     if isinstance(mapped.get("electron_kinetic"), dict):
         ts, source, lineage = mapped["electron_kinetic"], "mapped_thomson.electron_kinetic", "electron_kinetic"
-    else:  # one mapping archived, through the magnetic EFIT
+    elif isinstance(mapped.get("magnetics"), dict):
+        ts, source, lineage = mapped["magnetics"], "mapped_thomson.magnetics", "magnetics"
+    else:  # one unkeyed mapping archived, through the magnetic EFIT
         ts, source, lineage = mapped, "mapped_thomson", "magnetics"
     ne_ts = np.asarray(ts["electron_density_m3"], float)
     te_ts = np.asarray(ts["electron_temperature_eV"], float)

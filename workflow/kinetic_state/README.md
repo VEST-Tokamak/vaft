@@ -111,7 +111,7 @@ pressure is distinct from the `T_i=T_e` prior used by kinetic EFIT. The
 pressure sum `p_e+p_i=p_eq` is a closure identity. Thomson measurements used
 as fit input are shown with errors but do not independently validate their
 own fit. The notebook does not write poster assets; `write_state_table` writes the
-CSV state table under `output/kinetic_state/`.
+CSV state table to `$VAFT_KINETIC_STATE_OUTPUT` (a temporary directory by default).
 
 The composite view is the public plot `vaft.omas.plot_kinetic_overview_state`
 ([#1837](https://github.com/VEST-Tokamak/vaft/issues/1837)), which reads stored
