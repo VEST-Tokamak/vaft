@@ -185,3 +185,38 @@ def test_pressure_policies_follow_their_definitions(shot, policies):
     sigma = E * np.sqrt((2 * t * sn) ** 2 + (2 * n * st) ** 2 + (n * t * TI_TE_RATIO_SIGMA) ** 2)
     np.testing.assert_allclose(pol.ts_p_input, 2 * E * n * t, rtol=1e-12)
     np.testing.assert_allclose(pol.ts_sigma_p_input, sigma, rtol=1e-12)
+
+
+def _patched_archive(monkeypatch, shot, edit):
+    import archive_to_ods
+
+    snapshot = load_archive(shot)
+    edit(snapshot)
+    monkeypatch.setattr(archive_to_ods, "load_archive", lambda _shot: snapshot)
+
+
+@pytest.mark.parametrize("helper", [kinetic_efit_pressure_policies, state_table])
+def test_helpers_refuse_profiles_off_the_equilibrium_grid(monkeypatch, helper):
+    def shift(s):
+        rho = np.asarray(s["magnetic_equilibrium"]["rho_tor_norm"], float)
+        s["magnetic_equilibrium"]["rho_tor_norm"] = list(np.sqrt(rho))  # same ends, different interior
+    _patched_archive(monkeypatch, 40326, shift)
+    with pytest.raises(ValueError, match="one rho_tor_norm grid"):
+        helper(40326)
+
+
+def test_policies_refuse_thomson_ne_and_te_at_different_rho(monkeypatch):
+    def shift(s):
+        ts = s["mapped_thomson"]
+        ts["density_rho_tor_norm"] = [r + 0.01 for r in ts["density_rho_tor_norm"]]
+    _patched_archive(monkeypatch, 39915, shift)
+    with pytest.raises(ValueError, match="same rho_tor_norm"):
+        kinetic_efit_pressure_policies(39915)
+
+
+def test_assessment_refuses_disagreeing_chi2_records(monkeypatch):
+    def edit(s):
+        s["state_assessment"]["electron_kinetic"]["kinetic_chi2"] = "400.0"
+    _patched_archive(monkeypatch, 40326, edit)
+    with pytest.raises(ValueError, match="disagrees with the manifest"):
+        kinetic_efit_assessment(40326)

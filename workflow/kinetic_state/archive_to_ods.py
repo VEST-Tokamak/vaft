@@ -331,6 +331,8 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
         psi_mag = np.asarray(eq_mag["psi_Wb"], float)
         ts_psi = np.interp(ts_rho, np.asarray(eq_mag["rho_tor_norm"], float),
                            (psi_mag - psi_mag[0]) / (psi_mag[-1] - psi_mag[0]))
+    if "density_rho_tor_norm" in ts and not np.allclose(ts["density_rho_tor_norm"], ts["rho_tor_norm"]):
+        raise ValueError(f"shot {shot}: Thomson n_e and T_e are not at the same rho_tor_norm")
     ne_ts = np.asarray(ts["electron_density_m3"], float)
     te_ts = np.asarray(ts["electron_temperature_eV"], float)
     sne_ts = np.asarray(ts["electron_density_error_m3"], float)
@@ -486,6 +488,15 @@ class KineticEfitAssessment:
     source_keys: tuple
 
 
+def _shared_profile_grid(s: dict) -> np.ndarray:
+    """``core_profiles`` rho, refused unless the magnetic EFIT profiles share it (they are paired by index)."""
+    rho = np.asarray(s["core_profiles"]["rho_tor_norm"], float)
+    rho_eq = np.asarray(s["magnetic_equilibrium"]["rho_tor_norm"], float)
+    if rho.shape != rho_eq.shape or not np.allclose(rho, rho_eq, rtol=0.0, atol=1e-12):
+        raise ValueError("core_profiles and magnetic_equilibrium are not on one rho_tor_norm grid")
+    return rho
+
+
 def kinetic_efit_assessment(shot: int) -> KineticEfitAssessment:
     """The archived electron-kinetic EFIT verdicts of ``shot``, as stored (nothing recomputed)."""
     s = load_archive(shot)
@@ -504,6 +515,8 @@ def kinetic_efit_assessment(shot: int) -> KineticEfitAssessment:
             source_keys=("electron_kinetic_assessment",))
     # 40326: the state atlas row (strings) and the solver manifest are separate records
     a, m = s["state_assessment"]["electron_kinetic"], s["kinetic_manifest"]
+    if "kinetic_chi2" in a and not np.isclose(float(a["kinetic_chi2"]), float(m["chi2"]), rtol=1e-3):
+        raise ValueError(f"shot {shot}: the atlas chi2 {a['kinetic_chi2']!r} disagrees with the manifest {m['chi2']!r}")
     return KineticEfitAssessment(
         efit_status=str(a["efit_status"]), manifest_status=str(m["status"]),
         manifest_converged=bool(m["converged"]), kinetic_admissible=str(a["kinetic_admissible"]),
@@ -571,7 +584,9 @@ def kinetic_efit_pressure_policies(shot: int) -> KineticEfitPressurePolicies:
     cp, eq, kin = s["core_profiles"], s["magnetic_equilibrium"], s["electron_kinetic_equilibrium"]
     if not (kin["time_s"] == eq["time_s"] == cp["time_s"] == s["time_s"]):
         raise ValueError(f"shot {shot}: the archived slices are not at one time")
-    rho = np.asarray(cp["rho_tor_norm"], float)
+    rho = _shared_profile_grid(s)
+    if not np.isclose(float(kin["rho_tor_norm"][0]), rho[0]):
+        raise ValueError(f"shot {shot}: the kinetic EFIT and core_profiles grids do not share the axis point")
     ne = np.asarray(cp["electron_density_m3"], float)
     te = np.asarray(cp["electron_temperature_eV"], float)
     comp = _composition(s, ne, rho, np.asarray(eq["volume_m3"], float))
@@ -593,6 +608,8 @@ def kinetic_efit_pressure_policies(shot: int) -> KineticEfitPressurePolicies:
         ts, source, lineage = mapped["magnetics"], "mapped_thomson.magnetics", "magnetics"
     else:  # one unkeyed mapping archived, through the magnetic EFIT
         ts, source, lineage = mapped, "mapped_thomson", "magnetics"
+    if "density_rho_tor_norm" in ts and not np.allclose(ts["density_rho_tor_norm"], ts["rho_tor_norm"]):
+        raise ValueError(f"shot {shot}: Thomson n_e and T_e are not at the same rho_tor_norm")
     ne_ts = np.asarray(ts["electron_density_m3"], float)
     te_ts = np.asarray(ts["electron_temperature_eV"], float)
     sne_ts = np.asarray(ts["electron_density_error_m3"], float)
@@ -622,7 +639,7 @@ def state_table(shot: int) -> tuple[list[str], list[np.ndarray]]:
     """
     s = load_archive(shot)
     cp, eq = s["core_profiles"], s["magnetic_equilibrium"]
-    rho = np.asarray(cp["rho_tor_norm"], float)
+    rho = _shared_profile_grid(s)
     ne = np.asarray(cp["electron_density_m3"], float)
     te = np.asarray(cp["electron_temperature_eV"], float)
     peq = np.asarray(eq["pressure_Pa"], float)
