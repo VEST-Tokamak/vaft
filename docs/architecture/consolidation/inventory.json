@@ -4,7 +4,7 @@
   "duplicate": 1,
   "intentional_specialization": 39,
   "legacy": 8,
-  "unverified": 384
+  "unverified": 385
  },
  "entry_modules": {
   "pipeline1": [
@@ -2910,6 +2910,56 @@
    "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_current_diffusion.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp, scipy.interpolate.RegularGridInterpolator (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(grid_rho, table_rho, table_psi)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(profile_psi, table_psi, table_rho)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(q_psi, table_psi, table_rho)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(thomson.psi_norm[finite], table_psi, table_rho)"
+    },
+    {
+     "call": "scipy.interpolate.RegularGridInterpolator",
+     "snippet": "RegularGridInterpolator((grid_r, grid_z), psi_rz)"
+    }
+   ],
+   "callers": [
+    "vaft.diagram._density_semantics.electron_density_semantics"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "vaft.diagram._density_semantics.density_semantics",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "diagram",
+   "primitives": [
+    "numpy.interp",
+    "scipy.interpolate.RegularGridInterpolator"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "unassessed",
+   "source_file": "vaft/diagram/_density_semantics.py"
   },
   {
    "algorithm_semantics": "calls numpy.trapezoid (not curated)",
@@ -11058,6 +11108,7 @@
     }
    ],
    "callers": [
+    "vaft.diagram._density_semantics.density_semantics",
     "vaft.omas.formula_wrapper.compute_bremsstrahlung_power",
     "vaft.omas.formula_wrapper.compute_tau_E_engineering_parameters",
     "vaft.omas.process_wrapper.compute_core_profile_2d",
