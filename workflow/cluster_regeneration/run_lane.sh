@@ -64,6 +64,29 @@ if [ -n "$BASE_TABLE" ]; then
   done
 fi
 
+# Real CPU use comes from the job's cgroup (cgroup v2, proctrack/cgroup): `pestat`'s CPUload is
+# a load average, and sacct TotalCPU is lost when a job is cancelled. Every CGROUP_SAMPLE_S the
+# job cgroup's cumulative cpu.stat and memory.current/peak go to <lane>/logs/<chunk>.cgroup.tsv,
+# and each chunk's line in lane.log carries cpu_util = CPU-seconds / (wall x booked cores).
+JOB_CG=
+if [ -r /proc/self/cgroup ]; then
+  cg=/sys/fs/cgroup$(sed -n 's/^0:://p' /proc/self/cgroup)
+  while [ -n "$cg" ] && [ "$cg" != /sys/fs/cgroup ]; do
+    case "$(basename "$cg")" in job_*) JOB_CG=$cg; break ;; esac
+    cg=$(dirname "$cg")
+  done
+fi
+cg_usage_us() { [ -n "$JOB_CG" ] && awk '$1 == "usage_usec" {print $2}' "$JOB_CG/cpu.stat" 2>/dev/null; }
+cg_sample() {  # epoch usage_usec user_usec system_usec memory.current memory.peak
+  [ -n "$JOB_CG" ] || return 0
+  printf "%s\t%s\t%s\t%s\t%s\t%s\n" "$(date +%s)" \
+    "$(awk '$1 == "usage_usec" {print $2}' "$JOB_CG/cpu.stat")" \
+    "$(awk '$1 == "user_usec" {print $2}' "$JOB_CG/cpu.stat")" \
+    "$(awk '$1 == "system_usec" {print $2}' "$JOB_CG/cpu.stat")" \
+    "$(cat "$JOB_CG/memory.current" 2>/dev/null)" "$(cat "$JOB_CG/memory.peak" 2>/dev/null)"
+}
+[ -n "$JOB_CG" ] && log "cgroup $JOB_CG" || log "no job cgroup found: cpu_util not measured"
+
 ALLOC_MB=${SLURM_MEM_PER_NODE:-65536}
 # Runaway guard limits: one solver above KILL_MB, or the lane's solvers together above the
 # allocation minus 8 GB (the largest is stopped first).
@@ -107,7 +130,9 @@ for f in "$LANE"/chunks/shots.[0-9][0-9][0-9]; do
   # The checkpoints' outputs are run-scoped and newer than every (hard-linked) raw dump, so under
   # --rerun-triggers mtime the previous chunk's verdict would be reused for this chunk's shots.
   rm -f "$META"/{eligible,excluded,impa}_shots.json "$LANE/chunks/$c".{eligible,excluded,impa}_shots.json
-  t0=$(date +%s); log "$c start ($(wc -l < "$LANE/chunks/$c.run") shots)"
+  t0=$(date +%s); u0=$(cg_usage_us); log "$c start ($(wc -l < "$LANE/chunks/$c.run") shots)"
+  ( while :; do cg_sample; sleep "${CGROUP_SAMPLE_S:-30}"; done ) >> "$LANE/logs/$c.cgroup.tsv" 9>&- &
+  CG_SAMPLER=$!
   attempt=$LANE/logs/$c.attempt-$(date +%Y%m%d%H%M%S).log
   SM=(python -m snakemake --snakefile "$WF/Snakefile" --configfile "$cfg" --directory "$WORK")
   # A time-limit kill leaves the lock behind; we hold the lane lock, so no live Snakemake owns it.
@@ -147,9 +172,16 @@ for f in "$LANE"/chunks/shots.[0-9][0-9][0-9]; do
   SAMPLER=$!
   wait "$SM_PID"
   rc=$?
-  kill "$SAMPLER" 2>/dev/null
+  kill "$SAMPLER" "$CG_SAMPLER" 2>/dev/null
+  cg_sample >> "$LANE/logs/$c.cgroup.tsv"
   cp "$attempt" "$LANE/logs/$c.snakemake.log"      # the latest attempt is what harvest.py reads
-  log "$c exit=$rc wall=$(( $(date +%s) - t0 ))s log=$(basename "$attempt")"
+  wall=$(( $(date +%s) - t0 )); u1=$(cg_usage_us); cpu=
+  if [ -n "$u0" ] && [ -n "$u1" ] && [ "$wall" -gt 0 ]; then
+    cpu=$(awk -v a="$u0" -v b="$u1" -v w="$wall" -v n="$CORES" \
+      'BEGIN {printf " cpu_s=%.0f cpu_util=%.3f", (b - a) / 1e6, (b - a) / 1e6 / (w * n)}')
+    cpu="$cpu mem_peak_gb=$(awk '{printf "%.1f", $1 / 2^30}' "$JOB_CG/memory.peak" 2>/dev/null)"
+  fi
+  log "$c exit=$rc wall=${wall}s$cpu log=$(basename "$attempt")"
   for j in eligible_shots excluded_shots impa_shots; do
     [ -f "$META/$j.json" ] && cp -p "$META/$j.json" "$LANE/chunks/$c.$j.json"
   done

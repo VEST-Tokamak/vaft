@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ProcessPoolExecutor
 import gzip
 import json
 from pathlib import Path
@@ -35,6 +36,15 @@ def _read_dump(path: Path) -> tuple[int, dict[str, Any]]:
     return shot, fields
 
 
+def _read_dump_or_error(path: Path) -> tuple[int, dict[str, Any]] | RawDumpValidationError:
+    # A worker returns the error instead of raising it, so the parent raises the
+    # first one in the same (sorted) order the serial loop would.
+    try:
+        return _read_dump(path)
+    except RawDumpValidationError as exc:
+        return exc
+
+
 def _missing_required_fields(fields: dict[str, Any], required_fields: Iterable[int], min_samples: int) -> list[int]:
     missing: list[int] = []
     for field in required_fields:
@@ -49,12 +59,17 @@ def validate_raw_dumps(
     dump_paths: Iterable[str | Path],
     required_fields: Iterable[int],
     min_samples: int = 2,
+    jobs: int = 1,
 ) -> tuple[list[int], list[dict[str, Any]]]:
     """Return eligible shots and reports for archives lacking required DAQ signals.
 
     A malformed archive is an acquisition/export failure and raises. A readable
     archive missing required field data is an incomplete shot and is reported as
     excluded without failing the batch.
+
+    ``jobs`` > 1 decompresses and parses the archives in that many processes --
+    the whole cost, ~0.3 s of CPU per shot. The result, and which error is raised
+    first, are the same as with one.
     """
     if min_samples < 1:
         raise ValueError("min_samples must be positive")
@@ -65,8 +80,16 @@ def validate_raw_dumps(
     eligible: list[int] = []
     excluded: list[dict[str, Any]] = []
     seen: set[int] = set()
-    for raw_path in sorted(Path(path) for path in dump_paths):
-        shot, fields = _read_dump(raw_path)
+    paths = sorted(Path(path) for path in dump_paths)
+    if jobs > 1 and len(paths) > 1:
+        with ProcessPoolExecutor(max_workers=min(int(jobs), len(paths))) as pool:
+            dumps = list(pool.map(_read_dump_or_error, paths, chunksize=4))
+    else:
+        dumps = map(_read_dump_or_error, paths)
+    for raw_path, dump in zip(paths, dumps):
+        if isinstance(dump, RawDumpValidationError):
+            raise dump
+        shot, fields = dump
         expected = _OUTPUT_SHOT.search(raw_path.name)
         if expected is not None and int(expected.group("shot")) != shot:
             raise RawDumpValidationError(
@@ -102,10 +125,11 @@ def main() -> int:
     parser.add_argument("--min-samples", type=int, default=2)
     parser.add_argument("--eligible-output", required=True, type=Path)
     parser.add_argument("--excluded-output", required=True, type=Path)
+    parser.add_argument("--jobs", type=int, default=1, help="Processes reading the archives.")
     args = parser.parse_args()
 
     required_fields = [int(field) for field in args.required_fields.split(",") if field.strip()]
-    eligible, excluded = validate_raw_dumps(args.raw_dumps, required_fields, args.min_samples)
+    eligible, excluded = validate_raw_dumps(args.raw_dumps, required_fields, args.min_samples, jobs=args.jobs)
     _write_json(args.eligible_output, {"eligible_shots": eligible})
     _write_json(args.excluded_output, {"excluded_shots": excluded})
     print(f"Raw preflight: {len(eligible)} eligible, {len(excluded)} excluded")
