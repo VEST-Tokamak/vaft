@@ -1,4 +1,4 @@
-"""Build the NUBEAM fast-ion reference the analytic closure is checked against (#1606, Lane L).
+"""Build the NUBEAM fast-ion reference the analytic closure is checked against.
 
 Runs the packaged VEST NUBEAM case (``vaft.code.nubeam.packaged_vest_case``),
 or reads an existing run directory, and writes one small JSON record with what

@@ -1,4 +1,4 @@
-"""Chain A (the corrective pipeline as built) against chain B (Romero first, T_i = T_e) on FileDB products (issue #1842).
+"""Chain A (the corrective pipeline as built) against chain B (Romero first, T_i = T_e) on FileDB products.
 
 For each shot this reads the pipeline-1 magnetic EFIT and the pipeline-2 Thomson,
 CES and ``core_profiles`` products from a FileDB and, slice by slice,

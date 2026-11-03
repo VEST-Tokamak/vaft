@@ -1,9 +1,9 @@
-# Magnetics wiring history (issue #956)
+# Magnetics wiring history
 
 `vaft/machine_mapping/vest.yaml` records, under
 `diagnostics.equilibrium_magnetics.processing`, two per-shot facts about the
-equilibrium probes that the sensor registry (`equilibrium_magnetics.sensors`,
-#2158) does not:
+equilibrium probes that the sensor registry (`equilibrium_magnetics.sensors`)
+does not:
 
 - `wiring` -- which raw field and calibration sign feed each probe position.
   Through shot 39437 (2023-05-29) the outboard probes at Z = +0.06 and
@@ -15,7 +15,7 @@ equilibrium probes that the sensor registry (`equilibrium_magnetics.sensors`,
   diagnostics stage marks it invalid there, so EFIT drops it. Probe C4-04
   (index 45, Z = -0.34, field 224) is recorded on every shot: it is
   anticorrelated with the PF-only wall model on all three reference shots
-  and carried 70 % of a statistical-sigma chi-square (#977, #924). This
+  and carried 70 % of a statistical-sigma chi-square in the EFIT convergence study (`workflow/efit_numerics`). This
   script does not re-derive that one; the vacuum benchmark does.
 
 `verify_wiring.py` re-derives both from the raw archive, read-only:

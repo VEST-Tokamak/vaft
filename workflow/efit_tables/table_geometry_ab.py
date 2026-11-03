@@ -1,12 +1,12 @@
-"""Which file moved the yield: the Green table, or the namelist? (#695)
+"""Which file moved the yield: the Green table, or the namelist?
 
     PYTHONPATH=$PWD EFITHOME=~/git/efit/vaft-install \\
         python workflow/efit_tables/table_geometry_ab.py --output /scratch/ab \\
             --regenerated /tables/fresh_129x129 --stage /tmp/ab
 
-The #459 control case -- the routine box, the routine grid, the routine
-solver settings -- produced 46 equilibria where the merged #171 baseline
-produced 31, over the same 82 plasma slices.  Two inputs had changed
+The domain/grid study's control case -- the routine box, the routine grid,
+the routine solver settings -- produced 46 equilibria where the termination
+baseline produced 31, over the same 82 plasma slices.  Two inputs had changed
 together: the ``.ddd`` Green tables, and the ``mhdin.dat`` EFIT reads beside
 them.  This separates them.
 
@@ -85,7 +85,7 @@ ERA = "vest-pre-43017-pf1906"
 def _same_tables(left: Path, right: Path) -> bool:
     """Whether two directories hold the same Green tables.
 
-    Guards the one way this study can silently become meaningless: #695's own
+    Guards the one way this study can silently become meaningless: this study's own
     conclusion moved the regenerated table into ``vaft/data/efit``, so the
     default "packaged" side is no longer the legacy table it was written
     against.
@@ -265,7 +265,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 2
     # The regenerated side must be the routine grid and the routine box, or
-    # this measures #459's question again instead of this one.
+    # this measures the domain/grid question again instead of this one.
     study.verify_table(regenerated, study.CASES["A"])
 
     static, _ = build_static_ods(ERA)

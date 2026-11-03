@@ -3,7 +3,7 @@
 
 The command accepts one canonical pipeline product only.  It never accepts
 independent OMAS and IMAS inputs, which preserves the paired-generation
-invariant required by issue #166.
+invariant: both products come from one source, so they cannot diverge.
 """
 
 from __future__ import annotations
@@ -83,7 +83,7 @@ def _normalize_magnetics(compact: ODS) -> None:
     compact["magnetics.ids_properties.homogeneous_time"] = 0
     for index in range(len(compact.get("magnetics.b_field_pol_probe", []))):
         base = f"magnetics.b_field_pol_probe.{index}"
-        # Issue #169: the stored sensitive axis must describe the +Bz signal.
+        # The stored sensitive axis must describe the +Bz signal the probes measure.
         compact[f"{base}.poloidal_angle"] = POLOIDAL_ANGLE
         _drop_invalid_signal(compact, f"{base}.field")
         _drop_invalid_signal(compact, f"{base}.voltage")
@@ -101,7 +101,7 @@ def _project_signal_quality(ods, manifest: dict) -> None:
     """Carry the quality layer's verdicts into the artifact's validity nodes.
 
     The canonical pipeline product predates the diagnostics-stage signal
-    validation (issue #189), so it carries validity on the raw voltages only.
+    validation, so it carries validity on the raw voltages only.
     A verdict is a property of the processed waveform, which the canonical
     stores unchanged, so projecting it at generation is the same result the
     diagnostics stage now writes -- and it is what lets a consumer that reads
@@ -171,10 +171,10 @@ def _materialize_compact(canonical: ODS, manifest: dict) -> ODS:
 
 
 def _normalize_equilibrium_flux(compact: ODS, manifest: dict) -> None:
-    """Store psi in the DD's full weber and declare COCOS 11 (issue #478).
+    """Store psi in the DD's full weber and declare COCOS 11.
 
-    The canonical pipeline product predates the writer fix of issue #236 and
-    holds the g-file's Wb/rad verbatim, undeclared.  Converting here rather
+    The canonical pipeline product predates the writer fix that stores psi in Wb
+    (the DD unit) and holds the g-file's Wb/rad verbatim, undeclared.  Converting here rather
     than rerunning the pipeline keeps the stage hashes truthful: nothing
     upstream of this normalization changes.  The manifest records it under
     ``generation.normalizations`` and ``generation.equilibrium_cocos`` so a
@@ -329,7 +329,7 @@ def verify(manifest_path: Path) -> None:
     # single-shot examples, so a selector that silently truncates one must fail
     # generation. pf_active in particular gates free-boundary work: a subset of
     # the PF coils cannot even hold the measured equilibrium, which is how the
-    # sample once came to ship only PF1-PF5 (#272).
+    # sample once came to ship only PF1-PF5.
     for ids, node, key, label in (
         ("pf_active", "pf_active.coil", "coil_count", "active coil"),
         (

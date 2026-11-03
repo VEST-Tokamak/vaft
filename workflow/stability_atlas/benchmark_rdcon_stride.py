@@ -1,7 +1,7 @@
-"""RDCON vs STRIDE Δ′ benchmark on the Tier A atlas equilibria (#143).
+"""RDCON vs STRIDE Δ′ benchmark on the Tier A atlas equilibria.
 
 Both codes solve the same PEST3 rational-surface matching problem and write
-the same ``Delta_prime`` matrix (``Pest3MatchingOutput``). #143 asks whether
+the same ``Delta_prime`` matrix (``Pest3MatchingOutput``). The benchmark asks whether
 they agree on the same equilibrium, n, domain and surfaces, after a
 convention audit, and only where each code is converged on its own.
 
@@ -13,7 +13,7 @@ convention audit, and only where each code is converged on its own.
     ``stride_dmhigh16_mpsi{256,512}``. The same setting is **not** the same
     truncation: each code forms ``mhigh = n*qmax + delta_mhigh`` from its own
     ``qmax``, so the poloidal windows differ (``truncation_match`` was False
-    on every one of the 299 pairs of the first campaign, #1597).
+    on every one of the 299 pairs of the first campaign; record: #1597).
 ``compare``
     Per (slice, n) it reads RDCON (``rdcon_mpsi*``) and the ``delta_mhigh=16``
     STRIDE runs, and writes one row per pair to ``benchmark_143.csv`` and one
@@ -34,7 +34,7 @@ Per pair:
 * Per surface, the real parts of the diagonal Δ′ are compared (the quantity
   the atlas and ``ntms.deltaw`` carry); imaginary parts are only in the
   Frobenius metric.
-* Status (#143): PASS (every common surface converged in both codes and all
+* Status: PASS (every common surface converged in both codes and all
   agree), PARTIALLY_COMPARABLE (the converged surfaces agree but not every
   surface is converged in both, or the surface sets differ),
   CONVENTION_MISMATCH, NUMERICALLY_UNRESOLVED (no surface converged in both),
@@ -43,8 +43,8 @@ Per pair:
   (no rational surface in either code).
 
 ``AGREEMENT_RTOL`` reuses the atlas heuristic (20 %, the median mpsi 256/512
-change of #141's mid-radius surfaces). It is not an independently derived
-tolerance (#142), and the CSV keeps every number so a consumer can apply
+change of the control scan's mid-radius surfaces; record: #141). It is not an
+independently derived tolerance, and the CSV keeps every number so a consumer can apply
 their own.
 """
 

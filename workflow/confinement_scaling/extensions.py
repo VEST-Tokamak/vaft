@@ -1,4 +1,4 @@
-"""Lane D extensions: what the B_T exponent measures, and where the exponents come from (#548, #1490).
+"""Lane D extensions: what the B_T exponent measures, and where the exponents come from.
 
 Three analyses on the primary selection of ``fit.py``:
 
@@ -48,7 +48,7 @@ Three analyses on the primary selection of ``fit.py``:
    I_p V_loop uses the EFIT, so a block offset present in W_mhd and absent from W_e
    locates the offset in the magnetics reconstruction. Medians are per slice, so
    shots with many slices weigh more.
-6. **Criteria v2** (``block_offset_by_thomson_consistency``, #1521). The same block
+6. **Criteria v2** (``block_offset_by_thomson_consistency``). The same block
    offset split by the Thomson verdict (p within [1, 2] p_e), with and without the
    Thomson density. On all evaluated state keys, with density in, the offset
    vanishes on the consistent slices and survives on the inconsistent ones (26 of
@@ -87,7 +87,7 @@ import extra_scalings  # noqa: E402,F401
 from fit import SELECTIONS, _git, select  # noqa: E402
 
 QE = 1.602176634e-19
-#: First shot of the second Tier A block (#1331): 399xx-403xx against 429xx-430xx.
+#: First shot of the second Tier A block: 399xx-403xx against 429xx-430xx.
 CAMPAIGN_SPLIT_SHOT = 42000
 
 
@@ -209,7 +209,7 @@ def campaign_diagnostics(frame: pd.DataFrame, state: pd.DataFrame | None = None,
 
 
 def block_offset_by_thomson_consistency(frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """The 429xx block offset of W_mhd and W_e split by the criteria-v2 Thomson verdict (#1521).
+    """The 429xx block offset of W_mhd and W_e split by the criteria-v2 Thomson verdict (p within [1, 2] p_e).
 
     Energies are regressed on I_p and the raw ohmic power I_p V_loop (no EFIT), with
     and without the Thomson line density, on the Thomson-matched rows: all, the

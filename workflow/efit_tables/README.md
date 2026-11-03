@@ -1,17 +1,20 @@
-# EFIT Green tables: provenance, regeneration, and the 39915 A/B (issue #194)
+# EFIT Green tables: provenance, regeneration, and the 39915 A/B
 
 EFIT reads its Green-function tables from `TABLE_DIR` and takes every
 dimension from the `mhdin.dat` beside them, with no consistency check of its
 own. The bundled `vaft/data/efit/` table has no recorded origin: which EFUND
 build produced it, from which input, is not recoverable (git shows only a
 2026-07 path move). Until this work, nothing in VAFT recorded which table an
-equilibrium came from either. The #468 first pass found that under the local
+equilibrium came from either. A first pass of the temporal-cadence study found that under the local
 EFIT build no slice of shot 39915 converges (`jflag = 0`) where the stored
 pipeline a-file (`a039915.00319`, EFIT of 2023-03-28) has `jflag = 1`, and
 the table was the one input that had never been controlled.
 
 This directory holds the three tools that control it, and the record of
-what they found for the legacy era shot 39915 belongs to.
+what they found for the legacy era shot 39915 belongs to. Study records:
+issue #194 (table generation and the four-slice 39915 A/B) and issue #695
+(the table-against-namelist attribution over the reference set and the
+switch of the packaged table).
 
 | Tool | Does |
 | --- | --- |
@@ -128,36 +131,38 @@ one qualitative difference is the 0.323 s slice, where arm A's boundary
 finder puts the first separatrix point off the grid and writes nothing while
 arm B writes a fit — a boundary-finder edge case, not a convergence change.
 
-## Decision (plan step 5 / #194 step 12)
+## Decision on the four-slice A/B
 
 The decision rule was: if the fresh table restores `jflag = 1` at 0.319 s or
 moves χ² by more than 10 % or the axis by more than 1 cm, the bundled table
 is a confounder and the reference window must be rerun with it before any
 further sweep. **None of that happened**: χ² +0.0 %, axis shift 0.00 cm,
 `jflag` unchanged. The bundled table is not what separates the local runs
-from the stored 2023 reconstruction. The negative result is recorded here
-and on #468/#119, and the remaining suspects stay under #119/#171: the
+from the stored 2023 reconstruction. The negative result is recorded here;
+the remaining suspects are the constraint set and the solver configuration
+(Open: #119, local reconstruction against the stored 2023 reference): the
 stored fit reaches a GS error ten times smaller with a condition number
 three orders of magnitude lower (6e6 vs 3.5e9), which points at the
 constraint set and termination settings, not the Green functions.
 
-What this PR therefore does **not** do, on purpose: it does not replace or
-edit `vaft/data/efit`, does not add era-aware `table_dir` selection to the
+What this A/B therefore did **not** do, on purpose: it did not replace or
+edit `vaft/data/efit` (since replaced, for the reason in "The switch"
+below), did not add era-aware `table_dir` selection to the
 pipeline (since added, for a different reason -- see "Per-era tables in the
-routine pipeline" below), and does not package versioned tables. Those follow from a positive
-result, and the result was negative. What it does leave behind is the
+routine pipeline" below), and did not package versioned tables. Those follow from a positive
+result, and the result was negative. What it left behind is the
 provenance chain: a table can now be generated from the canonical geometry
 for a named era with a manifest, compared with any other, and every EFIT run
 records the table it consumed (`efit_configuration.json` → `table`).
 
-> **Superseded by the section below (#695).** The decision rule above is about
+> **Superseded by the section below.** The decision rule above is about
 > χ², the axis and `jflag`, and every one of those readings still holds. The
 > effect the table does have is the one dismissed here as "a boundary-finder
 > edge case": arm A losing the separatrix off grid at 0.323 s. That was 1 of
 > 4 slices in this sample and it is 15 of 82 across the reference set. The
 > rule did not test for it.
 
-## The table against the namelist, over the whole reference set (#695)
+## The table against the namelist, over the whole reference set
 
 `table_geometry_ab.py` runs the 2×2 that the four-slice A/B above could not:
 the packaged `.ddd` tables against regenerated ones, crossed with the
@@ -187,9 +192,12 @@ only through the tables.
 works.** `findax`, which rejects a separatrix point landing within two cells
 of the grid edge, fails 17 times under the packaged table and twice under the
 regenerated one. `bound` fails 41 times under both, so the 29-slice collapse
-block is untouched — as it was by the seed (#588) and by the domain and grid
-(#459). The packaged table accounts for the entire `findax` population that
-#171 recorded and none of the collapse block.
+block is untouched — as it was by the first-slice seed
+(`workflow/efit_numerics/seed_basin.py`) and by the domain and grid
+(`workflow/efit_numerics/domain_grid.py`). The packaged table accounts for the
+entire `findax` population that the termination baseline
+(`workflow/efit_numerics/baseline_termination.py`) recorded and none of the
+collapse block.
 
 **The extra yield is not evidence that the regenerated table is correct.** On
 every slice both tables reconstruct, EFIT reports the same χ² to the digits
@@ -206,8 +214,8 @@ origin, and the `mhdin.dat` shipped beside it cannot be consumed by this
 EFUND revision at all (`islpfc` sits in the wrong namelist group), so it is
 not even the input that produced it.
 
-**What this means for the studies already run.** The #171 baseline, the #588
-seed study and the #459 domain/grid study all ran against the packaged table,
+**What this means for the studies already run.** The termination baseline, the
+seed study and the domain/grid study all ran against the packaged table,
 which is case PP. Their comparisons are internally consistent. Their absolute
 yields are the packaged table's.
 
@@ -241,11 +249,14 @@ the manifest states both rather than leaving them to be discovered.
   angles. Overwriting it with a file generated from that same geometry would
   turn those checks into a comparison of the geometry with itself.
 
-The acceptance envelope did not move. `&incheck` still carries its packaged
-values; what those should be is #649's question, and changing them alongside
-the table would confound the two.
+The acceptance envelope did not move with the switch: `&incheck` kept its
+packaged values, because changing them alongside the table would confound the
+two. It was replaced afterwards, on its own, by the machine-derived envelope
+(`vaft.machine_mapping.efund_geometry.vest_acceptance_envelope`: geometric
+bounds from the limiter and the grid, virial checks disabled because they are
+ill-conditioned at VEST's aspect ratio).
 
-**Verification of the switch**: the #171 baseline rerun against the switched
+**Verification of the switch**: the termination baseline rerun against the switched
 directory reproduces case FF exactly — `bound` 41, `findax` 2, 29 collapsed,
 against the pre-switch 41/17/29.
 
@@ -297,7 +308,7 @@ separatrix lands — moves enough to take `findax` from 17 failures to 2.
 
 ## Per-era tables in the routine pipeline
 
-The #805 era check refuses to reconstruct a shot against a table built for
+The EFIT stage's era check refuses to reconstruct a shot against a table built for
 another era, and every shot from 45968 on is of the pf2507 era, which the
 packaged table is not. So routine processing of current discharges stopped
 at the constraint stage. The routine pipeline now builds the missing table

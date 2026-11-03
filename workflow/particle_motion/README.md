@@ -29,7 +29,7 @@ They are reference particles, not physical electron/ion mass ratios. Supply
 physical charge, mass and a gyro-resolving dt for a species-specific experiment.
 The analytic circular toroidal field is not a force-balanced VEST equilibrium.
 
-No issue is automatically closed. #2007's slowly varying field experiment,
-external solver comparisons, collisions, transport, and time-dependent fields
-remain follow-ups. A varying canonical momentum in the 3D example does not
+Not covered yet: the slowly varying field experiment for the adiabatic
+invariants (Open: #2007), external solver comparisons, collisions, transport,
+and time-dependent fields. A varying canonical momentum in the 3D example does not
 establish stochasticity, secular transport, orbit loss, or NTV torque.

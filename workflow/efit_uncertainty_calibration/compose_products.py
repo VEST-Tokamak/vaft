@@ -46,7 +46,7 @@ def compose(filedb: Path, shot: int, output: Path) -> dict:
     ods, report = compose_stage_products(diagnostics=diagnostics, eddy=eddy,
                                          eddy_manifest=manifest if manifest_present else None)
     output.mkdir(parents=True, exist_ok=True)
-    # vaft.omas.save selects the encoder from the container suffix (#813), so
+    # vaft.omas.save selects the encoder from the container suffix, so
     # the product cannot be plain JSON under a `.json.gz` name.
     target = vaft.omas.save(ods, output / f"{shot}.json.gz")
     return {"shot": shot, "product": str(target), "sha256": _sha256(target),

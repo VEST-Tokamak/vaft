@@ -1,4 +1,4 @@
-# The VEST coupling asset: exact reciprocity, with provenance (issues #373, #347)
+# The VEST coupling asset: exact reciprocity, with provenance
 
 `vaft/data/geometry/VEST_em_coupling_pf_versions.npz` holds the five mutual
 inductance matrices every eddy-current solve, wall-mode basis and plasma-free
@@ -15,9 +15,9 @@ benchmark reads through `vaft.machine_mapping.em_coupling`:
 
 A mutual-inductance matrix is reciprocal: `M_ij == M_ji` exactly. The
 committed `mutual_passive_passive` was asymmetric by 1.27e-3 (relative) on
-331,200 of 902,500 entries, and until #347 it was loaded verbatim; since #347
-the mapper folded it to `(M + Mᵀ)/2` on load with a warning, and develop's
-wall-mode check refuses any product that still carries the raw matrix.
+331,200 of 902,500 entries. It was first loaded verbatim, then folded by
+the mapper to `(M + Mᵀ)/2` on load with a warning; the wall-mode check
+refuses any product that still carries the raw matrix.
 
 The asset was extracted from the legacy VFIT products, whose kernel
 `getMutualInductanceCoil.m` reads
@@ -72,8 +72,8 @@ PYTHONPATH=. python workflow/em_coupling/regenerate_passive_coupling.py --repair
 
 ## What it changes in production
 
-The repaired matrix differs from the load-time average the pipeline has used
-since #347 by 6.4e-4 of max|M|, in the cross block only. PF-driven wall
+The repaired matrix differs from the load-time average the pipeline used
+before the repair by 6.4e-4 of max|M|, in the cross block only. PF-driven wall
 currents (`benchmark_wall_currents`, plasma-free) on the packaged shots:
 
 | shot | max \|ΔI\| / max\|I\| | rms | loops moving > 1 % | slowest wall τ |
@@ -94,7 +94,7 @@ with `em_coupling` re-mapped from the repaired asset
 replaced asymmetry, and that the passive-loop currents remain those the
 frozen eddy stage solved against the old matrix).
 
-# Wall 2409: fifteen more conductors from shot 43017 (issue #956)
+# Wall 2409: fifteen more conductors from shot 43017
 
 `vaft/data/geometry/VEST_passive_wall_2409.npz` is built by
 `import_wall_2409.py` and holds only what wall 2409 adds to the 950 loops

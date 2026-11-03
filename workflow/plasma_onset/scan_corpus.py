@@ -1,4 +1,4 @@
-"""Scan the raw database for the plasma-onset corpus (issue #409).
+"""Scan the raw database for the plasma-onset corpus.
 
 The rules in the ``plasma_timing`` block of ``vest.yaml`` were tuned on a
 study of the raw database; this script is that study, reproducible.  For
@@ -48,7 +48,7 @@ from vaft.machine_mapping.utils import (
 
 LOGGER = logging.getLogger("scan_corpus")
 
-#: 2: every window record carries ``duty_cycle`` (#752).
+#: 2: every window record carries ``duty_cycle`` (the active fraction of its extent).
 CORPUS_SCHEMA = 2
 DEFAULT_TABLE = Path(__file__).resolve().parents[2] / "test" / "data" / "onset_corpus.json"
 #: Rows are checkpointed to the table this often, so an aborted scan keeps what it did.
@@ -70,7 +70,7 @@ def _window_record(window: dict[str, Any] | None) -> dict[str, Any] | None:
         "end": float(window["end"]) if found else None,
         # A window is the envelope of its segments, so its extent is not how
         # much of it was active.  Kept per row because it is the measure this
-        # table cannot be asked for afterwards (#752).
+        # table cannot be asked for afterwards.
         "duty_cycle": float(window["duty_cycle"]) if found and window.get("duty_cycle") is not None else None,
         "flags": list(window.get("flags", ())),
     }
@@ -163,7 +163,7 @@ def summarize(rows: Iterable[dict[str, Any]], policy) -> dict[str, Any]:
         }
 
     def duty(records):
-        """How many of a detector's windows are envelopes, and how hollow (#752).
+        """How many of a detector's windows are envelopes, and how hollow.
 
         A window spans the gaps between its segments, so its extent is not how
         long the signal was there.  Counted per detector because they differ:

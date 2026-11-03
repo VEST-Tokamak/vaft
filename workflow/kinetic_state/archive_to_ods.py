@@ -1,11 +1,11 @@
-"""The #1839 archive snapshots as stored kinetic-state ODS (issue #1837).
+"""The matched kinetic-state archive snapshots as stored kinetic-state ODS.
 
 A workflow-side reconstruction, not package code: the archive notebooks, the
 plotting sample notebook and the tests import it by putting this directory on
 ``sys.path``.
 
 The ``kinetic_overview_state`` plot reads stored IMAS paths only, under the
-contract Lane KP amended on #1837: evidence roles come from the per-quantity
+plot's stored-path contract: evidence roles come from the per-quantity
 ``*_fit.parameters`` records, ``T_i`` validity is carried by the data (NaN),
 and the equilibrium lineage, occurrence and ``Z_eff`` target are ``key=value``
 fields of those records.  The archived cases
@@ -33,9 +33,11 @@ Hand-built, because no writer exists yet (each says so in a comment below):
 * the electron arrays and their ``coordinate=rho_tor_norm; method=external``
   fit records (the spelling ``vaft.process.profile`` writes for an external
   profile), ``electrons.pressure = e n_e T_e``;
-* ``t_i_average`` / ``pressure_ion_total`` (Lane KP #1842 item 3) and the
+* ``t_i_average`` / ``pressure_ion_total`` and the
   ``equilibrium_lineage=...; equilibrium_occurrence=...`` fields on the T_i
-  records (the amended contract; the writers do not emit them yet) --
+  records -- the stage writer
+  (:func:`vaft.omas.kinetic_state_inference.kinetic_state_stages`) emits them,
+  but it needs a multi-slice equilibrium that the archive does not keep --
   ``target_zeff=...`` on the ``zeff`` record now comes from the composition
   writer itself;
 * the equilibrium slice and the Thomson channels.
@@ -408,7 +410,7 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
     _check("charged impurity density", charged, comp["nimp"], defined)
     _check("Z_eff", ods[f"{cpb}.zeff"], comp["zeff"], defined)
 
-    # --- t_i_average and pressure_ion_total (Lane KP #1842 item 3: no writer yet)
+    # --- t_i_average and pressure_ion_total (hand-built: the stage writer needs a multi-slice equilibrium)
     ods[f"{cpb}.t_i_average"] = t_ion
     ods[f"{cpb}.t_i_average_fit.parameters"] = t_record
     if lineage == "magnetics":
@@ -449,11 +451,11 @@ def kinetic_state_ods(shot: int = 40326, lineage: str = "magnetics", **options: 
 
 
 # ---------------------------------------------------------------------------
-# The Romero-first chain (#1957): a SYNTHETIC variant, until Lane KP's stages exist
+# The Romero-first chain: a SYNTHETIC variant on one archived single-slice case
 # ---------------------------------------------------------------------------
 
 #: The scalar Romero Z_eff the synthetic chain is given.  **Synthetic**: no
-#: Romero balance (#781) was run for it; it stands in for the stage-4 product.
+#: Romero flux balance was run for it; it stands in for the stage-4 product.
 SYNTHETIC_ZEFF_ROMERO = 2.0
 #: Its 1 sigma, as synthetic as the value.
 SYNTHETIC_ZEFF_ROMERO_SIGMA = 0.2
@@ -464,7 +466,7 @@ TI_EQUALS_TE_RECORD = "origin=assumed; method=ti_equals_te; assumption=T_i=T_e"
 
 def romero_first_case(shot: int = 40326, *, zeff_romero: float = SYNTHETIC_ZEFF_ROMERO,
                       zeff_romero_sigma: float = SYNTHETIC_ZEFF_ROMERO_SIGMA) -> KineticStateCase:
-    """The maintainer's Romero-first chain (#1957) on one archived case, as a plot-ready ODS.
+    """The maintainer's Romero-first chain on one archived case, as a plot-ready ODS.
 
     Inputs are the archive's **magnetic equilibrium and Thomson** only, with
     the archived electron fits standing in for the stage-2 Thomson fits:

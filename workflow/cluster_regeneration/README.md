@@ -2,7 +2,7 @@
 
 Tooling for regenerating the whole VEST FileDB with the **unchanged** pipeline-1 Snakefile
 (`workflow/automatic_pipeline_1_routine_data_processing/`) on a Slurm cluster, so the products
-can be moved into the production FileDB afterwards (#2147). It never writes the production
+can be moved into the production FileDB afterwards. It never writes the production
 FileDB and never contacts HSDS; moving and replicating are separate, separately approved steps.
 
 ## Design
@@ -78,9 +78,9 @@ bash push_products.sh $REGEN_ROOT/full/merged <staging dir on the server>   # af
 ```
 
 The campaign runbook (measured costs, the move procedure, open decisions) is kept with the run
-root and in #2147; it is not repeated here.
+root and in the run record (#2147); it is not repeated here.
 
-## Cross-environment differences (measured 2026-10-25, #2147)
+## Cross-environment differences (measured 2026-10-25, run record #2147)
 
 Same SHA, same EFIT/EFUND binaries and Green tables, python 3.14 on both hosts, AVX-512 cluster
 node versus an AVX2 server:

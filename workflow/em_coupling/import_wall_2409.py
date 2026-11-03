@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import the VEST wall 2409 passive additions, with provenance (issue #956).
+"""Import the VEST wall 2409 passive additions, with provenance.
 
 From shot 43017 the VEST passive structure has fifteen more conductors than
 the 950 VAFT has always carried: SUS316LN elements 20 x 6 mm at Z = -1.164 m,
@@ -295,8 +295,8 @@ def build(vfit_root: Path) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     arrays = assemble(new_loops)
     rows = arrays["mutual_passive_passive_rows"]
     # VFIT's new-SUS x tungsten entries lack the SUS factor: its kernel tested
-    # one conductor's material where it meant both, the defect #373 repaired
-    # in VAFT's base block (every such entry is exactly 1/1.04 of VAFT's).
+    # one conductor's material where it meant both, the defect that
+    # regenerate_passive_coupling.py repaired in VAFT's base block (every such entry is exactly 1/1.04 of VAFT's).
     # Put the factor back before comparing, so the check measures geometry.
     tungsten = np.array([loop["name"] == "W11" for loop in loops])
     donor_pp = l_2409[N_BASE:, :N_BASE] * np.where(tungsten, SUS_MU_R, 1.0)

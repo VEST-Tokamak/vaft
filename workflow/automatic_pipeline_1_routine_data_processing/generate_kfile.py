@@ -58,7 +58,7 @@ def supersede_earlier_run(
     The stage used to list its output by globbing ``kfile/``, so k-files of an
     earlier run (another configuration, another Green table, other instants)
     were run again with the new ones, and the collection read every g-file in
-    ``gfile/`` (#1786). EFIT reads the table of the first k-file of a batch, so
+    ``gfile/``. EFIT reads the table of the first k-file of a batch, so
     a stale first file failed every new one; stale files after a new first one
     produced g-files that passed as fresh. Each kind moves to its own
     ``<kind>file/superseded/<stamp>/`` (files EFIT left in the run directory
@@ -147,7 +147,7 @@ def main() -> int:
     ods = load_omas_json(str(args.constraints_ods), consistency_check=False)
     not_applicable = constraints_not_applicable_reason(ods)
     if not_applicable is not None:
-        # No k-file to write (#205); the manifest carries the verdict on.
+        # No k-file to write (EFIT not applicable); the manifest carries the verdict on.
         args.output.parent.mkdir(parents=True, exist_ok=True)
         (args.output.parent / PRESET_RECORD).unlink(missing_ok=True)
         supersede_earlier_run(args.output.parent.parent, args.shot, keep=args.keep_superseded)

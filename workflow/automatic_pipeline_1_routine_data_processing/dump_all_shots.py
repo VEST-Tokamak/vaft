@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Backfill raw SQL dumps for every available VEST shot into FileDB.
 
-Discovers shots via ``vaft.database.raw.list_shots()`` (issue #126) --
+Discovers shots via ``vaft.database.raw.list_shots()`` --
 filterable by shot range, date range, or their intersection -- and calls
 ``generate_raw_db_dump.dump_shot()`` for each one, writing to the canonical
 FileDB layout via ``PipelinePaths(..., layout="filedb")`` so every dump lands

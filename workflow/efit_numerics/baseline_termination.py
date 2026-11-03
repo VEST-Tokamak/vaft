@@ -1,11 +1,11 @@
-"""How a VEST EFIT fit terminates today, over whole discharges (issue #171).
+"""How a VEST EFIT fit terminates today, over whole discharges.
 
     PYTHONPATH=$PWD EFITHOME=~/git/efit/vaft-install \\
         python workflow/efit_numerics/baseline_termination.py \\
             --shots 39915 --output /scratch/baseline --markdown /scratch/baseline.md
 
-#171 asks for VEST's EFIT solver configuration to be characterized and then
-stated explicitly instead of inherited. This is the characterization half, and
+VEST's EFIT solver configuration is to be characterized and then stated
+explicitly instead of inherited (study record: #171). This is the characterization half, and
 it deliberately changes nothing: it runs the routine configuration
 (``routine_scientific_config()``) over each shot's full constraint window at the
 routine cadence and records *why* every slice stopped where it did.
@@ -72,7 +72,7 @@ def _module(path: Path, name: str):
     return module
 
 
-#: EFIT's stdout reader moved to `vaft.code.efit.termination` (#76): parsing
+#: EFIT's stdout reader lives in `vaft.code.efit.termination`: parsing
 #: EFIT's log is a fact about EFIT, not about this study, and three studies
 #: were importing it from each other by loading this file by path. Re-exported
 #: under its old name so those callers and the stored tables do not move.
@@ -126,7 +126,8 @@ def run_shot(
     # The packaged products carry a projected validity for none of the
     # channels EFIT sees, so a constraint build that reads one finds nothing
     # and fits every channel -- including the probes the assessment condemns.
-    # Assess and gate into a copy, then decide on that (#189, #296). Without
+    # Assess and gate into a copy with the magnetics quality gate, then let the
+    # separate EFIT channel decision read that copy. Without
     # this the baseline would characterize a fit that includes a probe forty
     # times out of family, which is a statement about the input, not the
     # solver.

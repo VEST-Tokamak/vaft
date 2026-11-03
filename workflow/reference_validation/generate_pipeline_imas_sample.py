@@ -49,7 +49,7 @@ def _project_signal_quality(ods, manifest: dict) -> None:
     """Carry the quality layer's verdicts into the artifact's validity nodes.
 
     The canonical pipeline product predates the diagnostics-stage signal
-    validation (issue #189), so it carries validity on the raw voltages only.
+    validation, so it carries validity on the raw voltages only.
     A verdict is a property of the processed waveform, which the canonical
     stores unchanged, so projecting it at generation is the same result the
     diagnostics stage now writes -- and it is what lets a consumer that reads
@@ -86,7 +86,7 @@ def _remap_em_coupling(ods, manifest: dict) -> None:
     """Replace the coupling the frozen pipeline materialized with the mapper's current one.
 
     The canonical product carries the `em_coupling` its eddy stage ran with,
-    which predates the #373 repair of the packaged asset and so violates
+    which predates the reciprocity repair of the packaged asset and so violates
     reciprocity by 1.27e-3 -- enough for the wall-mode check to refuse the
     sample outright.  The coupling is a derivation from the static geometry,
     not a measurement, so re-mapping it at generation is the same result the
@@ -119,7 +119,7 @@ def _remap_em_coupling(ods, manifest: dict) -> None:
             for key in ("generated", "git_commit", "passive_material_factor", "source_sha256")
         },
         "replaced_input_asymmetry": replaced,
-        # A canonical source regenerated after #373 already carries the repaired
+        # A canonical source regenerated after that repair already carries the repaired
         # asset, so its currents were solved against it; only an older one did not.
         "pf_passive_currents": (
             "solved by the eddy stage against this asset"
@@ -201,7 +201,7 @@ def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
     if probe_times and all(np.array_equal(probe_times[0], time) for time in probe_times):
         set_path(ods, "langmuir_probes.time", probe_times[0])
         set_path(ods, "langmuir_probes.ids_properties.homogeneous_time", 1)
-    # Opt-in per manifest (issue #478): the 41524/41672 artifacts are not
+    # Opt-in per manifest: the 41524/41672 artifacts are not
     # regenerated with it yet, so they keep the legacy Wb/rad psi, declared
     # through generation.canonical_equilibrium_cocos above.
     if "equilibrium_psi_weber" in manifest.get("generation", {}).get("normalizations", []):

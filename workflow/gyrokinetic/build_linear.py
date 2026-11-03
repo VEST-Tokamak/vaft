@@ -1,4 +1,4 @@
-"""Build the linear CGYRO-vs-TGLF product from a ``run_linear.py`` tree (#1354).
+"""Build the linear CGYRO-vs-TGLF product from a ``run_linear.py`` tree.
 
 Reads every ``record.json`` under ``--runs`` and writes, to ``--out``:
 
@@ -9,7 +9,8 @@ Reads every ``record.json`` under ``--runs`` and writes, to ``--out``:
 ``linear_summary.csv``
     One row per (state, surface, field model): the ky of maximum growth, ``gamma_max``
     and the branch there for both codes, plus -- when ``--sensitivity`` is given -- the
-    #1482 SAT0-3 ``Q_tot/Q_GB`` on the same surface for the nonlinear step to pick from.
+    SAT0-3 ``Q_tot/Q_GB`` of the TGLF SAT-rule sensitivity product (``transport_atlas/build_sensitivity.py``) on the same
+    surface, for the nonlinear step to pick from.
 ``schema.json``
     Column definitions, units and conventions.
 
@@ -138,7 +139,7 @@ def build_rows(root: Path) -> list[dict]:
 
 
 def _sensitivity(path: Optional[Path]) -> dict[tuple, dict[int, dict[str, float]]]:
-    """``{(shot, time, lineage, r/a, field): {sat: {...}}}`` from #1482's ``sensitivity.csv``.
+    """``{(shot, time, lineage, r/a, field): {sat: {...}}}`` from the SAT-rule ``sensitivity.csv``.
 
     Columns as Lane T writes them (``build_sensitivity.py``): ``sat_rule``,
     ``field_model`` (``es``/``em-bper``), ``q_tot_gb`` and the TGLF spectrum peak

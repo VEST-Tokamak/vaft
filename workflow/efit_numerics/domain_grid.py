@@ -1,17 +1,18 @@
-"""What the computational box and the grid are worth, measured (#459).
+"""What the computational box and the grid are worth, measured.
 
     PYTHONPATH=$PWD EFITHOME=~/git/efit/vaft-install \\
         python workflow/efit_numerics/domain_grid.py --output /scratch/domain \\
             --tables A=/tables/a,B=/tables/b,C=/tables/c,D=/tables/d
 
-The #171 baseline loses 46 of 77 plasma slices to two failures that are both
+The termination baseline loses 46 of 77 plasma slices to two failures that are both
 statements about the grid rather than about the fit: ``bound`` cannot close a
 contour, and ``findax`` refuses a separatrix point that lands within two cells
 of the box edge.  The routine box is R 0.05-1.2 m by Z +-1.5 m on 129x129,
 which is 9.0 mm across and 23.4 mm tall -- a cell aspect ratio of 2.6 -- and
 it extends to |Z| = 1.5 m where the limiter reaches only 1.185 m.
 
-So this runs #459's 2x2: the domain and the grid, separately and together.
+So this runs a 2x2: the domain and the grid, separately and together
+(study record: #459).
 
 ===== ======================== ========= ==============================
 case   domain                   grid      what its difference from A is
@@ -62,7 +63,7 @@ BASELINE = REPOSITORY / "workflow" / "efit_numerics" / "baseline_termination.py"
 REFERENCE_SET = REPOSITORY / "test" / "data" / "efit_reference_set.json"
 DEFAULT_TABLE = REPOSITORY / "test" / "data" / "efit_domain_grid.json"
 
-#: The routine box. ``rleft`` is 0.05 m and not the 0.0 m #459's text quotes:
+#: The routine box. ``rleft`` is 0.05 m, not 0.0 m:
 #: the Green functions are singular on the machine axis, so the box has never
 #: started there.
 ROUTINE_DOMAIN = (0.05, 1.2, -1.5, 1.5)
@@ -156,8 +157,8 @@ def stage_case(directory: Path, *, root: Path, name: str, envelope: Any) -> Path
     The envelope is passed in rather than derived per case on purpose. Its
     ``aminor_min`` is a resolution statement -- so many grid cells -- and would
     move with the grid, which would leave the 2x2 comparing four cases against
-    four different acceptance bars. #459 requires everything but the domain and
-    the grid to be held fixed, so the bar is case A's throughout, and what each
+    four different acceptance bars. Everything but the domain and the grid must
+    be held fixed, so the bar is case A's throughout, and what each
     case's own floor would have been is recorded instead.
 
     ``root`` must be short: EFIT truncates ``TABLE_DIR`` at 100 characters and
@@ -313,8 +314,8 @@ def outcome(record: dict[str, Any]) -> str:
 def phases(ods, times: np.ndarray) -> dict[int, str]:
     """Ramp-up, flat-top and ramp-down, keyed by integer millisecond.
 
-    The rule itself moved to `vaft.validation.classify_equilibrium_regimes`
-    (#76), where it is configuration with its measurement attached, so that
+    The rule itself lives in `vaft.validation.classify_equilibrium_regimes`,
+    where it is configuration with its measurement attached, so that
     this study and the profile-model study cannot drift into classifying the
     same slice differently. This is the local spelling: the same labels, with
     `flat` written as `flat_top` because that is the name already in this

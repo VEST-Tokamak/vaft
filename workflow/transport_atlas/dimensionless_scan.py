@@ -1,6 +1,7 @@
-"""Local TGLF sensitivities in the #548 dimensionless coordinates (issue #1900, item 4).
+"""Local TGLF sensitivities in the dimensionless coordinates of the confinement scaling.
 
-Each solved surface of the #1482 sensitivity product is rerun with one dimensionless
+The coordinates (rho_*, beta, nu_*, q) are those of the confinement-time scaling fit in
+``workflow/confinement_scaling``. Each solved surface of the TGLF SAT-rule sensitivity product is rerun with one dimensionless
 parameter moved by a factor ``1 +- delta`` and the others held fixed. Only the inputs
 that carry the parameter are changed, and they move together:
 
@@ -14,11 +15,11 @@ q          ``Q_LOC x f``; ``Q_PRIME_LOC x f^2`` (magnetic shear fixed);
 
 The scalings follow from how ``vaft.code.gacode.tglf.inputs`` builds these inputs
 (``q_prime_loc = (q/r)^2 s``, ``p_prime_loc = (|q|/r)(-beta*/8 pi)``). ``nu_star`` is
-taken proportional to q, as in the Verdoolaege form #548 fits
+taken proportional to q, as in the Verdoolaege form the confinement scaling fits
 (``vaft.formula.equilibrium.nu_star_from_n_T_B_R_epsilon_kappa_I``).
 
 Held fixed in every scan: ``DEBYE`` (lambda_De / rho_s, a fifth dimensionless parameter
-outside the #548 set, ~beta^-1/4 at fixed rho_*, nu_*; negligible at TGLF's ky range)
+outside the confinement-scaling set, ~beta^-1/4 at fixed rho_*, nu_*; negligible at TGLF's ky range)
 and ``VEXB_SHEAR`` (zero in the atlas inputs; a real diamagnetic-level ExB shear in
 a/c_s units would scale with rho_* and break ``S_rho_star = 0``).
 
@@ -35,7 +36,7 @@ taken on the gyro-Bohm flux. Two kinds of sensitivity are written separately:
   fixed ``n T c_s`` scale. Here ``S_rho_star = 2`` and the other indices equal the
   ``gb`` ones.
 
-**This is a consistency test against #548, not the identity
+**This is a consistency test against the confinement scaling, not the identity
 ``S_x^{tau_E} = -S_x^Q``.** Suppose transport were local, the same at every radius,
 and the profile *shape* (a/L) stayed fixed while the parameters moved (a diffusive
 response, Q linear in the gradient). Then ``Omega_i tau_E ~ rho_*^-3 / G(nu_*, beta, q)``
@@ -49,13 +50,13 @@ VEST departs from every one of those assumptions:
 - the gradients are fixed rather than flux-matched;
 - T_i = T_e is assumed.
 
-So ``summary.csv`` sets the TGLF numbers *beside* #548's fitted indices with their
+So ``summary.csv`` sets the TGLF numbers *beside* the confinement scaling's fitted indices with their
 errors. It does not test them for equality.
 
 Usage (run inside one allocation; GACODE from ``$GACODE_ROOT``)::
 
     python dimensionless_scan.py run   --runs ~/runs/transport/v1/sensitivity --out ~/runs/transport/v1/dimensionless --workers 16
-    python dimensionless_scan.py build --out ~/runs/transport/v1/dimensionless [--confinement <#548 product dir>]
+    python dimensionless_scan.py build --out ~/runs/transport/v1/dimensionless [--confinement <confinement-scaling product dir>]
 """
 
 from __future__ import annotations
@@ -79,9 +80,10 @@ SCANS: dict[str, dict[str, int]] = {
 SIGNS = {"plus": 1.0, "minus": -1.0}
 DELTA = 0.1
 QUANTITIES = ("qe", "qi", "q_tot")
-#: #548's names for the indices of Omega_i tau_E = C rho*^mu_rho beta^mu_beta nu*^mu_nu q^mu_q.
+#: The confinement scaling's names for the indices of Omega_i tau_E = C rho*^mu_rho beta^mu_beta nu*^mu_nu q^mu_q.
 INDEX = {"rho_star": "mu_rho", "beta": "mu_beta", "nu_star": "mu_nu", "q": "mu_q"}
-#: The #548 direct dimensionless fit with all four indices (extensions.py).
+#: The confinement scaling's direct dimensionless fit with all four indices
+#: (``workflow/confinement_scaling/extensions.py``).
 DIRECT_FIT = "dimensionless:rho,beta,nu,q"
 
 
@@ -273,7 +275,7 @@ def _percentile(values: list[float], q: float) -> Optional[float]:
 
 
 def reference_indices(confinement: Optional[Path]) -> dict[str, dict[str, Optional[float]]]:
-    """#548's indices: the direct dimensionless fit and the completed free fit (primary:A)."""
+    """The confinement scaling's indices: the direct dimensionless fit and the completed free fit (primary:A)."""
     found: dict[str, dict[str, Optional[float]]] = {name: {} for name in INDEX}
     if confinement is None:
         return found

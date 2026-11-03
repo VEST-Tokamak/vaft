@@ -1,10 +1,12 @@
-# EFIT uncertainty calibration: at what σ are the magnetics informative and the fit convergent? (#891)
+# EFIT uncertainty calibration: at what σ are the magnetics informative and the fit convergent?
 
 `sigma_calibration.py` scans the submitted σ of the magnetic families under
 `uncertainty_mode = "standard_deviation"` and reports the **range** of rungs
-that satisfy all of #891's criteria. It never reports the rung with the
+that satisfy all of the study's criteria. It never reports the rung with the
 smallest χ², because σ is χ²'s denominator: a wide enough σ always wins that
-contest by throwing the information away.
+contest by throwing the information away. Study record: issue #891 (constraint
+uncertainty as the sole continuous fit scale, weights restricted to binary
+inclusion).
 
 ```bash
 python workflow/efit_uncertainty_calibration/sigma_calibration.py \
@@ -13,14 +15,14 @@ python workflow/efit_uncertainty_calibration/sigma_calibration.py \
 
 ## Contract
 
-- **Uncertainty model.** `standard_deviation` σ with binary weights (#921).
-- **Gating.** The diagnostics stage as shipped: C4-04 is a recorded fault (#988) and the array review is on (#1003).
-- **Numerics.** NXITER 1, the packaged 129 table after #970's limiter move, the nine #924 slices, ERRMIN 1e-2 and 1e-4.
-- **EFIT.** 3b5dae5, the #918-consistent build, executable sha256 `4a4e645e…`.
+- **Uncertainty model.** `standard_deviation` σ with binary weights; σ is what EFIT actually fits against.
+- **Gating.** The diagnostics stage as shipped: probe C4-04 is recorded as a known fault on every shot, and the array review (which condemns a B-probe its own array contradicts) is on.
+- **Numerics.** NXITER 1, the packaged 129 table after the limiter faces moved off the EFIT grid lines (R 0.105/0.761 m), the nine slices of the EFIT convergence study (`workflow/efit_numerics/convergence_study.py`), ERRMIN 1e-2 and 1e-4.
+- **EFIT.** 3b5dae5, the build consistent with the Ip χ² recomputation (Open: #918, EFIT's reported Ip χ² adds the prescribed vessel current, which VEST's inner Rogowski does not link), executable sha256 `4a4e645e…`.
 - **Ladder.** Probe σ alone, loop σ alone, and both together, each × 1, 2, 4, 8, 16, 32 through `uncertainty_scales`. Each is run with and without a floor of 2 % of the family's median |m|.
-- **Profile basis.** (1,1) and (2,1). The routine (2,2) does not settle once the magnetics carry weight (#1027).
-- **χ² target.** `SAICON = N + 3√(2N)` per slice, where N counts the fitted probes, loops, Ip and PF. Under a statistical σ the legacy 80 lies below the expected χ² (#1027).
-- **Diamagnetic flux.** Held inactive; it gets its own axis (#386).
+- **Profile basis.** (1,1) and (2,1). The routine (2,2) does not settle once the magnetics carry weight: two of its directions trade off indefinitely.
+- **χ² target.** `SAICON = N + 3√(2N)` per slice, where N counts the fitted probes, loops, Ip and PF. Under a statistical σ the legacy 80 lies below the expected χ², so a converged fit could never take the `iconvr = 2` exit.
+- **Diamagnetic flux.** Held inactive; it gets its own axis (`workflow/efit_diamagnetic_weight`).
 - **Initialization.** Every run is a cold start from the same seed ellipse, one EFIT call per slice in an emptied workdir. There is no continuation along the ladder and no start from the legacy solution.
   - Each run records an initialization fingerprint, and a run that differs from the first is refused.
   - On the recorded run all 1,188 runs carry the same fingerprint (`070f8231…`).
@@ -68,18 +70,18 @@ The record is `test/data/efit_sigma_calibration.json`. In the table below:
 - **The current σ is too tight by roughly an order of magnitude.** At ×1 no slice converges. Convergence appears from ×8 and is widest at ×16–×32 on both families.
 - **With the magnetics weighted, the fit follows the data 2–3× more closely than the legacy branch.** The probe residual is 8–14 % against 25 %.
 - **It lands on a different equilibrium.** The boundary sits a median 5–9 cm from the legacy-weight reference on the same basis. So under legacy weighting EFIT settles on a branch the magnetics do not select. The routine products use legacy weighting too, on the (2,2) basis, and whether they are displaced by a similar amount is not measured here.
-- **The vertical drift of #924 shrinks but does not vanish.** It is 3–9 mm on the best rungs, against 8 mm for legacy.
+- **The vertical drift seen in the convergence study shrinks but does not vanish.** It is 3–9 mm on the best rungs, against 8 mm for legacy.
 - **(1,1) is more robust than (2,1).** It converges on at least as many slices on 31 of the 32 rungs; the exception is probe ×4 alone (0 against 1).
 
 ### Next
 
 1. **Decouple the families.** Run a 2-D probe × loop ladder, or a loop σ fixed near ×1–×2 while the probes scan. Both the probe and the loop χ²r can only reach [0.5, 5] if they are widened independently.
 2. **Treat 41672 @ 342's `findax` failure as a separate defect,** with the same class as the 46091 `bound` failures. Also report the range over the other 8 slices, stated as such.
-3. **The 5–9 cm displacement from the legacy-weight branch** is the headline for #924 and for downstream consumers. It needs to be measured against the routine (2,2) products, and checked against an independent boundary measurement (for example a camera or limiter contact), before any production σ is adopted.
+3. **The 5–9 cm displacement from the legacy-weight branch** is the headline for the convergence study and for downstream consumers. It needs to be measured against the routine (2,2) products, and checked against an independent boundary measurement (for example a camera or limiter contact), before any production σ is adopted.
 
 ## Weight study with the diamagnetic flux fitted: the study's rules (stage 2 onward)
 
-`weight_scan.py` runs every constraint time of 39915, 41524 and 41672 (89 slices) under each setting and judges each slice with `criteria.py`. The diamagnetic flux became fittable once #1196 corrected its sign. These rules were adopted on 2026-09-28 and are the rules the study reports against.
+`weight_scan.py` runs every constraint time of 39915, 41524 and 41672 (89 slices) under each setting and judges each slice with `criteria.py`. The diamagnetic flux became fittable once its sign convention was corrected (stored flux is paramagnetic-positive). These rules were adopted on 2026-09-28 and are the rules the study reports against.
 
 ### Per slice
 
@@ -96,7 +98,7 @@ The record is `test/data/efit_sigma_calibration.json`. In the table below:
    - **PF currents:** reported, not graded. They are fitted against a 10⁻⁴ relative σ.
    - A family the setting holds inactive is not graded.
 3. **Virial.** |ln(βp from the pressure integral / βp from the pair_13 closure)| ≤ ln 2.
-   - pair_13 is the RT-free closure. The others are ill-conditioned at VEST's aspect ratio (#649).
+   - pair_13 is the RT-free closure. The others are ill-conditioned at VEST's aspect ratio.
    - The slice is **indeterminate**, not failed, when the pair_13 denominator is below 0.1 or when either βp is ≤ 0. The admissibility veto catches the second case.
 4. **Grad–Shafranov.** Relative residual ≤ 0.05. The threshold is provisional.
 5. **Thomson: physical consistency, not fit quality.** This applies only where Thomson samples lie in the slice window.

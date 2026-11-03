@@ -1,4 +1,4 @@
-"""Routine NEO over the same resolved Tier A states as routine TGLF (issue #1431).
+"""Routine NEO over the same resolved Tier A states as routine TGLF.
 
 Every state goes through the same :func:`vaft.process.transport_state.resolve_transport_state`
 call that ``run_tglf.py`` makes. The upstream identity is therefore the same, and a

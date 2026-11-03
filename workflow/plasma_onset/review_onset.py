@@ -1,4 +1,4 @@
-"""Review figures for the onset primitives (issue #409).
+"""Review figures for the onset primitives.
 
 One page per shot: raw and filtered plasma current with the principal-pulse
 onset and the pickup scale, the H-alpha record with the threshold, hold and

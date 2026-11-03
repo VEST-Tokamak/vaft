@@ -1,4 +1,9 @@
-"""Native EFIT constraint-identifiability workflow for issue #664.
+"""Native EFIT constraint-identifiability workflow.
+
+It asks which EFIT constraint families carry independent information, from
+the native response-matrix Jacobian/SVD and a targeted nonlinear
+continuation, on top of the k-files frozen by the constraint-information
+study (``workflow/efit_constraint_information``).
 
 This module deliberately separates study orchestration from the EFIT adapter.
 The adapter owns native response-matrix I/O; this workflow owns immutable case
@@ -351,11 +356,11 @@ def case_identity(spec: CaseSpec) -> tuple[str, dict[str, Any]]:
 
 
 def resolve_reference_kfile(root: Path, reference: ReferenceSlice) -> Path:
-    """Resolve exactly one frozen #663 k-file for a reference slice."""
+    """Resolve exactly one frozen constraint-information-study k-file for a reference slice."""
     root = Path(root)
     expected = f"k0{reference.shot}.{reference.time_ms:05d}"
     all_candidates = sorted(path for path in root.rglob(expected) if path.is_file())
-    # A complete #663 tree contains the same basename under every variant.
+    # A complete constraint-information-study tree contains the same basename under every variant.
     # Select only its explicit baseline subtree; a curated flat root remains
     # supported, but never guess among scientific variants.
     baseline_candidates = [
@@ -450,8 +455,7 @@ def _expected_pf_parameter_count() -> int:
     """How many PF current parameters the fit carries, from the coilset.
 
     One per current group, so it follows how the machine is described rather
-    than a literal that has to be found and changed when the description does
-    (#708).
+    than a literal that has to be found and changed when the description does.
     """
     from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
 
@@ -461,7 +465,7 @@ def _expected_pf_parameter_count() -> int:
 def _resolved_coil_relations(scientific) -> tuple[np.ndarray, np.ndarray]:
     """The &INWANT matrix and targets the writer will actually emit.
 
-    Since #708 the configuration may leave both as ``None``, meaning "derive
+    The configuration may leave both as ``None``, meaning "derive
     them from the coilset": splitting a circuit into groups does not split its
     current, and series-wired circuits carry one. This gate compares a k-file
     against what was asked for, so it has to resolve them the same way the
@@ -491,7 +495,7 @@ def audit_frozen_kfile(
     scientific: Any,
     table_identity: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Prove a frozen k-file implements the declared #664 baseline.
+    """Prove a frozen k-file implements the declared identifiability baseline.
 
     A supplied one-item ``EFITInputs.kfiles`` bypasses VAFT's scientific
     writer.  Its configuration object is therefore provenance only unless we
@@ -736,7 +740,7 @@ def stage1_gate(
             item.pprime_parameter_count,
             item.ffprime_parameter_count,
         )
-        # The PF count is the coilset's, not a written-down 16: since #708 the
+        # The PF count is the coilset's, not a written-down 16: the coilset
         # table describes every circuit the machine has, and the total is the
         # sum of the roles rather than a second independent literal.
         expected_pf = _expected_pf_parameter_count()
@@ -978,7 +982,7 @@ def resumable_case_manifest(
 
 
 def fixed_scientific_config() -> Any:
-    """Reconstruct the frozen #579/#663 scientific baseline locally."""
+    """Reconstruct locally the frozen scientific baseline shared with the profile-model and constraint-information studies."""
     from vaft.code.efit.config import routine_constraint_config
     from vaft.code.efit import (
         EFITInitializationConfig,
@@ -1000,8 +1004,8 @@ def fixed_scientific_config() -> Any:
             convergence_mode=2,
             inner_iterations=1,
         ),
-        # The legacy routine constraints the study was recorded with (#891 made
-        # the statistical setting the default on 2026-10-01).
+        # The legacy routine constraints the study was recorded with (the
+        # statistical uncertainty setting became the default on 2026-10-01).
         constraints=routine_constraint_config(),
     )
 
@@ -1357,7 +1361,7 @@ def _validate_final_clean_regression(
 
 
 def _validate_archived_issue_663_regression(proof: Any) -> None:
-    """Derive the archived-#663 scientific equivalence from bound output files."""
+    """Derive the archived constraint-information-study scientific equivalence from bound output files."""
     if not isinstance(proof, Mapping):
         raise ValueError("archived #663 comparison is missing")
     if (
@@ -2245,7 +2249,7 @@ def singular_class(singular_value: float, tau: float) -> str:
 
 
 def classify_family_information(metrics: Mapping[str, Any]) -> tuple[str, ...]:
-    """Apply #664's independent/reinforcing/inactive labels deterministically."""
+    """Apply the study's independent/reinforcing/inactive labels deterministically."""
     rank_gains = tuple(int(value) for value in metrics.get("rank_gain_by_cutoff", ()))
     weak_action = float(metrics.get("weak_subspace_action_fraction", 0.0))
     lift = float(metrics.get("weak_singular_value_lift", 1.0))
@@ -3810,7 +3814,7 @@ def _validate_issue_663_endpoint_artifacts(
 def _rederive_issue_663_shot(
     payload: Mapping[str, Any], shot: int
 ) -> Mapping[str, Any]:
-    """Recompute #663 summaries, comparisons, and labels from stored raw slices."""
+    """Recompute constraint-information-study summaries, comparisons, and labels from stored raw slices."""
     support = _constraint_support()
     profile = _profile_support()
     source = payload.get("shots", {}).get(str(shot))
@@ -3871,7 +3875,7 @@ def _rederive_issue_663_shot(
 def validate_issue_663_evidence(
     path: Path, stage1: Mapping[str, Any]
 ) -> dict[str, Any]:
-    """Accept #663 evidence only when every scientific provenance hash matches."""
+    """Accept constraint-information-study evidence only when every scientific provenance hash matches."""
     path = Path(path).resolve()
     prior = json.loads(path.read_text(encoding="utf-8"))
     reasons: list[str] = []
@@ -4212,7 +4216,7 @@ def build_issue_663_reproduction_plan(output: Path) -> dict[str, Any]:
 
 
 def execute_issue_663_reproduction(output: Path) -> dict[str, Any]:
-    """Reproduce incompatible #663 endpoints and merge their classifications."""
+    """Reproduce incompatible constraint-information-study endpoints and merge their classifications."""
     stage1 = require_stage2_gate(output)
     plan = build_issue_663_reproduction_plan(output)
     workdir = Path(plan["workdir"])
@@ -4345,7 +4349,7 @@ def _median_statistic(value: Any) -> float | None:
 
 
 def issue_663_ablation_effects(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Normalize #663 nonlinear ablations by the material-response thresholds.
+    """Normalize constraint-information-study nonlinear ablations by the material-response thresholds.
 
     These records keep the physical medians as well as their threshold-normalized
     values.  The latter make the final heatmap directly auditable: one is the
@@ -4415,7 +4419,7 @@ def issue_663_ablation_effects(payload: Mapping[str, Any]) -> list[dict[str, Any
 def _issue_663_plot_artifacts(
     payload: Mapping[str, Any], source: Path
 ) -> list[dict[str, Any]]:
-    """Content-bind any source #663 plots without trusting relative paths."""
+    """Content-bind any source constraint-information-study plots without trusting relative paths."""
     records = []
     for item in payload.get("source_plot_artifacts", ()):
         if not isinstance(item, Mapping):
