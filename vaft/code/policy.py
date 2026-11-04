@@ -246,7 +246,10 @@ class ExecutionPolicy:
             reasons.append(f"{cpus} CPUs requested, limit {limits['max_cpus']}")
         if limits["max_mem_mb"] is not None:
             if mem_mb == WHOLE_NODE:
-                reasons.append(f"--mem=0 books a node's whole memory, limit {limits['max_mem_mb']} MiB")
+                reasons.append(
+                    "the request books a node's whole memory (--mem=0, or --exclusive with"
+                    f" --mem-per-cpu), limit {limits['max_mem_mb']} MiB"
+                )
             elif mem_mb is None:
                 reasons.append(f"no memory requested; cluster {cluster!r} requires --mem <= {limits['max_mem_mb']} MiB")
             elif mem_mb > limits["max_mem_mb"]:
@@ -462,7 +465,8 @@ def _effective(
         if mem_mb == 0:
             mem_mb = WHOLE_NODE
     elif "--mem-per-cpu" in values:
-        mem_mb = _mib(values["--mem-per-cpu"]) * cpus
+        # Under --exclusive the job gets every CPU of the node, and memory per CPU with it.
+        mem_mb = WHOLE_NODE if exclusive else _mib(values["--mem-per-cpu"]) * cpus
     if exclusive:
         cpus = WHOLE_NODE
     if "--partition" in values:

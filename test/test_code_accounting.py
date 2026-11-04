@@ -287,7 +287,7 @@ def test_an_oom_kill_the_batch_shell_survived_is_still_the_memory_limit():
         (["-c64"], "64 CPUs requested"),
         (["-pgpu"], "partition 'gpu'"),
         (["--exclusive"], "--exclusive books a whole node"),
-        (["--mem=0"], "--mem=0 books a node's whole memory"),
+        (["--mem=0"], "whole memory (--mem=0"),
         (["--nodes=2", "--ntasks-per-node=2", "-c", "8"], "32 CPUs requested"),
         (["--nodes=2", "--mem=48G"], "limit 65536 MiB"),
     ],
@@ -300,8 +300,36 @@ def test_whole_node_and_joined_options_cannot_slip_past(tmp_path, options, messa
 
 def test_a_step_this_host_launched_counts_while_its_client_lives():
     import os
+    import socket
+    import time
 
-    from vaft.code.slurm import SlurmBackend
+    from vaft.code.slurm import SlurmBackend, _step_record
 
+    host, now = socket.gethostname(), int(time.time())
     backend = SlurmBackend(mode="step")
-    assert backend._active_jobs([f"srun:{os.getpid()}", "srun:999999999"]) == 1
+    records = [
+        _step_record(os.getpid()),  # this process: alive and started before the record
+        f"srun:{host}:999999999:{now}",  # gone
+        f"srun:other-host:{os.getpid()}:{now}",  # another host's pid means nothing here
+        f"srun:{host}:{os.getpid()}:1000",  # recorded before this process started: a recycled pid
+    ]
+    assert backend._active_jobs(records) == 1
+
+
+def test_an_sbatch_without_a_parseable_id_counts_for_an_hour():
+    import time
+
+    from vaft.code.slurm import UNPARSED_ACTIVE_S, SlurmBackend
+
+    now = int(time.time())
+    backend = SlurmBackend(mode="batch")
+    fresh, stale = f"unparsed:{now - 60}", f"unparsed:{now - int(UNPARSED_ACTIVE_S) - 60}"
+    assert backend._active_jobs([fresh, stale]) == 1
+
+
+def test_exclusive_with_memory_per_cpu_books_the_whole_node(tmp_path):
+    policy = _write_policy(tmp_path, {"tdst": {"max_mem_mb": 65536}})
+    decision = policy.check(
+        cluster="tdst", cpus=1, mem_mb=None, partition=None, options=["--exclusive", "--mem-per-cpu=1G"]
+    )
+    assert any("whole memory" in reason or "whole node" in reason for reason in decision.reasons), decision.reasons

@@ -98,6 +98,8 @@ from .slurm import (
     _job_note,
     _job_outcome,
     _job_script,
+    _record_live,
+    _unparsed_record,
     _parse_accounting,
     _read,
     _scratch_name,
@@ -653,7 +655,7 @@ class RemoteSlurmBackend:
             job_id, cluster = self._submit(argv)
         except ExecutableNotLaunchable as error:
             if "printed no job id" in str(error):
-                gate.submitted("unknown", argv)  # sbatch accepted something: keep it on record
+                gate.submitted(_unparsed_record(), argv)  # sbatch accepted something: keep it on record
             raise
         gate.submitted(job_id, argv)
         # Every later scheduler call has to name the federation member that
@@ -986,6 +988,12 @@ class RemoteSlurmBackend:
         """How many of ``job_ids`` are queued or running on the remote cluster; ``None`` if unknown."""
         if not job_ids:
             return 0
+        # An sbatch that printed no id cannot be looked up; it counts for a grace period.
+        unparsed = [job for job in job_ids if job.startswith("unparsed:")]
+        held = sum(1 for job in unparsed if _record_live(job))
+        batch = set(job_ids) - set(unparsed)
+        if not batch:
+            return held
         listed = self._ssh('squeue -M all -h -u "$(id -un)" -o %i')
         if listed.returncode != 0:
             # -M needs slurmdbd; a cluster without federation answers plainly.
@@ -993,7 +1001,7 @@ class RemoteSlurmBackend:
             if listed.returncode != 0:
                 return None
         live = {line.strip() for line in (listed.stdout or "").splitlines() if line.strip()}
-        return len(live & set(job_ids))
+        return held + len(live & batch)
 
     def _cancel(self, job_id: str, clusters: Sequence[str]) -> None:
         for _ in range(3):

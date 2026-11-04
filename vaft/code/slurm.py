@@ -388,14 +388,66 @@ def _job_outcome(
     return returncode, timed_out, never_started, cancelled, status
 
 
-def _pid_alive(text: str) -> bool:
+#: How long a job sbatch accepted without a parseable id counts as active [s].
+UNPARSED_ACTIVE_S = 3600.0
+
+
+def _step_record(pid: int) -> str:
+    """The audit id of an srun step this host launched: host, pid and launch time."""
+    import socket
+
+    return f"srun:{socket.gethostname()}:{pid}:{int(time.time())}"
+
+
+def _unparsed_record() -> str:
+    return f"unparsed:{int(time.time())}"
+
+
+def _record_live(record: str) -> bool:
+    """Whether an audit id that squeue cannot answer for still counts as active.
+
+    An srun step counts while its client process lives on this host -- the
+    same pid *and* a process started no later than the record, so a recycled
+    pid is not mistaken for it; a step recorded on another host cannot be seen
+    from here and does not count. An sbatch that printed no id counts for
+    :data:`UNPARSED_ACTIVE_S`.
+    """
+    import socket
+
+    parts = record.split(":")
+    if parts[0] == "unparsed" and len(parts) == 2 and parts[1].isdigit():
+        return time.time() - int(parts[1]) < UNPARSED_ACTIVE_S
+    if parts[0] != "srun" or len(parts) != 4 or not (parts[2].isdigit() and parts[3].isdigit()):
+        return False
+    host, pid, recorded = parts[1], int(parts[2]), int(parts[3])
+    if host != socket.gethostname():
+        return False
     try:
-        os.kill(int(text), 0)
-    except (ValueError, ProcessLookupError):
+        os.kill(pid, 0)
+    except ProcessLookupError:
         return False
     except PermissionError:
-        return True
-    return True
+        pass
+    started = _process_start(pid)
+    return started is None or started <= recorded + 5
+
+
+def _process_start(pid: int) -> Optional[float]:
+    """Epoch a process started, from /proc or psutil; ``None`` when this host cannot tell."""
+    try:
+        import psutil
+
+        return float(psutil.Process(pid).create_time())
+    except Exception:  # noqa: BLE001 - psutil absent or the process just ended
+        pass
+    try:
+        fields = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
+        ticks = os.sysconf("SC_CLK_TCK")
+        boot = next(float(line.split()[1]) for line in Path("/proc/stat").read_text().splitlines()
+                    if line.startswith("btime"))
+        return boot + int(fields[19]) / ticks
+    except (OSError, ValueError, IndexError, StopIteration):
+        return None
 
 
 def _job_note(
@@ -672,7 +724,7 @@ class SlurmBackend:
         except OSError as error:
             raise ExecutableNotLaunchable(f"cannot launch {argv[0]}: {error}") from error
         if gate is not None:
-            gate.submitted(os.environ.get("SLURM_JOB_ID") or f"srun:{process.pid}", argv)
+            gate.submitted(os.environ.get("SLURM_JOB_ID") or _step_record(process.pid), argv)
         timed_out = False
         try:
             stdout, stderr = process.communicate(request.stdin, timeout=request.timeout)
@@ -787,7 +839,7 @@ class SlurmBackend:
             job_id, cluster = self._submit(argv)
         except ExecutableNotLaunchable as error:
             if "printed no job id" in str(error):
-                gate.submitted("unknown", argv)  # sbatch accepted something: keep it on record
+                gate.submitted(_unparsed_record(), argv)  # sbatch accepted something: keep it on record
             raise
         gate.submitted(job_id, argv)
         clusters = ["-M", cluster] if cluster else []
@@ -914,9 +966,9 @@ class SlurmBackend:
         if not job_ids:
             return 0
         # A step this host launched with srun (no batch id) counts while its client lives.
-        steps = [job for job in job_ids if job.startswith("srun:")]
-        alive = sum(1 for job in steps if _pid_alive(job.split(":", 1)[1]))
-        batch = set(job_ids) - set(steps)
+        local = [job for job in job_ids if job.startswith(("srun:", "unparsed:"))]
+        alive = sum(1 for job in local if _record_live(job))
+        batch = set(job_ids) - set(local)
         if not batch:
             return alive
         squeue = self._tool("squeue")
