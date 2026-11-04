@@ -1,0 +1,220 @@
+"""Resource accounting from the job cgroup, scheduler outcome classes, and the
+execution policy (vaft.code.accounting, vaft.code.slurm._job_outcome,
+vaft.code.policy).
+
+The tdst regeneration was cancelled by the cluster administrator for using a
+third of what it booked; sacct's TotalCPU of every cancelled job read 0. These
+pin the record that survives a cancel, what a cancel is called, and the gate a
+shared cluster's agreement is enforced by.
+"""
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from vaft.code.accounting import (
+    ResourceUsage,
+    cgroup_cpu_seconds,
+    cgroup_memory_peak_mb,
+    job_cgroup_dir,
+    parse_usage_record,
+    usage_record_lines,
+)
+from vaft.code.policy import ExecutionPolicy, SubmissionRefused, enforce, load_policy
+from vaft.code.slurm import _job_outcome
+
+
+def _cgroup(root, usage_us=1_000_000, user_us=800_000, system_us=200_000, peak=2**30):
+    job = root / "system.slice" / "slurmstepd.scope" / "job_42"
+    (job / "step_batch" / "user" / "task_0").mkdir(parents=True)
+    (job / "cpu.stat").write_text(f"usage_usec {usage_us}\nuser_usec {user_us}\nsystem_usec {system_us}\n")
+    (job / "memory.peak").write_text(f"{peak}\n")
+    return job
+
+
+def test_the_job_cgroup_is_found_above_the_task_cgroup(tmp_path):
+    job = _cgroup(tmp_path)
+    proc = tmp_path / "proc_cgroup"
+    proc.write_text("0::/system.slice/slurmstepd.scope/job_42/step_batch/user/task_0\n")
+    assert job_cgroup_dir(proc, tmp_path) == job
+    proc.write_text("0::/user.slice/user-1000.slice/session-3.scope\n")
+    assert job_cgroup_dir(proc, tmp_path) is None
+
+
+def test_cgroup_cpu_and_memory_are_read_in_seconds_and_mib(tmp_path):
+    job = _cgroup(tmp_path)
+    assert cgroup_cpu_seconds(job) == (1.0, 0.8, 0.2)
+    assert cgroup_memory_peak_mb(job) == 1024.0
+    assert cgroup_cpu_seconds(tmp_path) is None and cgroup_memory_peak_mb(tmp_path) is None
+
+
+def test_utilization_is_cpu_seconds_over_wall_times_booked_cpus():
+    usage = ResourceUsage(wall_s=100.0, cpu_s=560.0, booked_cpus=16, source="cgroup")
+    assert usage.utilization == pytest.approx(0.35)
+    assert usage.as_dict()["utilization"] == pytest.approx(0.35)
+    assert ResourceUsage(wall_s=0.0, cpu_s=1.0, booked_cpus=16, source="cgroup").utilization is None
+    assert ResourceUsage(wall_s=10.0, cpu_s=None, booked_cpus=16, source="cgroup").utilization is None
+
+
+def test_a_usage_record_is_the_difference_of_its_first_and_last_samples():
+    text = "100 1000000 800000 200000 1073741824\n160 33000000 30000000 3000000 2147483648\n"
+    usage = parse_usage_record(text, booked_cpus=16)
+    assert (usage.wall_s, usage.cpu_s, usage.user_s, usage.system_s) == (60.0, 32.0, 29.2, 2.8)
+    assert usage.peak_mem_mb == 2048.0 and usage.source == "cgroup"
+    assert usage.utilization == pytest.approx(32.0 / (60 * 16))
+    assert parse_usage_record(text.splitlines()[0], 16) is None
+    assert parse_usage_record(None, 16) is None
+    no_peak = parse_usage_record("100 1000000 - - -\n110 2000000 - - -\n", 1)
+    assert (no_peak.cpu_s, no_peak.user_s, no_peak.peak_mem_mb) == (1.0, None, None)
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+def test_the_job_script_snippet_samples_the_job_cgroup(tmp_path):
+    job = _cgroup(tmp_path)
+    record = tmp_path / "usage"
+    script = "\n".join(usage_record_lines(str(record))) + (
+        f"\nvaft_job_cg={job}\nvaft_usage_sample\n"
+        f"printf 'usage_usec 9000000\\nuser_usec 8000000\\nsystem_usec 1000000\\n' > {job}/cpu.stat\n"
+        "vaft_usage_sample\n"
+    )
+    subprocess.run(["bash", "-c", script], check=True)
+    usage = parse_usage_record(record.read_text(), booked_cpus=2)
+    assert usage.cpu_s == 8.0 and usage.peak_mem_mb == 1024.0
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+def test_the_snippet_writes_nothing_outside_a_job_cgroup(tmp_path):
+    record = tmp_path / "usage"
+    script = "\n".join(usage_record_lines(str(record))) + "\nvaft_job_cg=\nvaft_usage_sample\n"
+    subprocess.run(["bash", "-c", script], check=True)
+    assert not record.exists()
+
+
+# -- what a scheduler outcome is called --------------------------------------
+
+def _outcome(**kw):
+    base = dict(cancelled=False, recorded=None, state=None, exit_code=None, began=True, walltime_kill=False)
+    base.update(kw)
+    return _job_outcome(**base)
+
+
+@pytest.mark.parametrize(
+    ("state", "status"),
+    [("OUT_OF_MEMORY", "memory_limit"), ("CANCELLED", "cancelled"), ("NODE_FAIL", "node_fail"),
+     ("PREEMPTED", "node_fail"), ("BOOT_FAIL", "node_fail")],
+)
+def test_a_job_the_scheduler_ended_carries_its_reason(state, status):
+    returncode, timed_out, never_started, _, runtime_status = _outcome(
+        state=state, exit_code=137, recorded="terminated 100 "
+    )
+    assert (returncode, timed_out, never_started, runtime_status) == (None, True, False, status)
+
+
+def test_a_program_that_exited_before_the_cancel_keeps_its_exit():
+    returncode, timed_out, _, _, status = _outcome(state="CANCELLED", recorded="0")
+    assert (returncode, timed_out, status) == (0, False, "completed")
+
+
+def test_the_backends_own_max_wait_cancel_is_a_timeout_or_a_queue_timeout():
+    assert _outcome(cancelled=True, state="CANCELLED", recorded="terminated 5 ")[4] == "timeout"
+    assert _outcome(cancelled=True, state="CANCELLED", began=False)[4] == "queue_timeout"
+
+
+def test_a_time_limit_and_a_clean_exit_are_unchanged():
+    assert _outcome(state="TIMEOUT", recorded="terminated 5 ")[4] == "timeout"
+    assert _outcome(state="COMPLETED", recorded="0")[:2] == (0, False)
+    assert _outcome(state="FAILED", recorded="3")[4] == "completed"
+
+
+# -- execution policy --------------------------------------------------------
+
+def _write_policy(tmp_path, clusters, default=None, approvals=()):
+    import yaml
+
+    (tmp_path / "approvals").mkdir(exist_ok=True)
+    for approval in approvals:
+        (tmp_path / "approvals" / f"{approval['id']}.json").write_text(json.dumps(approval))
+    data = {"approvals_dir": "approvals", "audit_log": "audit.jsonl", "clusters": clusters}
+    if default is not None:
+        data["default"] = default
+    path = tmp_path / "policy.yaml"
+    path.write_text(yaml.safe_dump(data))
+    return ExecutionPolicy.load(path)
+
+
+def test_no_policy_file_means_no_policy(tmp_path):
+    assert load_policy({}) is None
+    assert enforce(cluster="tdst", cpus=128, mem_mb=None, partition=None, argv=["sbatch"], environ={}) == (None, None)
+
+
+def test_a_named_but_missing_policy_file_raises():
+    with pytest.raises(FileNotFoundError):
+        load_policy({"VAFT_EXECUTION_POLICY": "/nonexistent/policy.yaml"})
+
+
+def test_unknown_policy_keys_are_refused(tmp_path):
+    with pytest.raises(ValueError, match="unknown policy keys"):
+        _write_policy(tmp_path, {"tdst": {"requires_aproval": True}})
+
+
+def test_approval_is_checked_for_cluster_and_expiry(tmp_path):
+    now = datetime(2026, 11, 4, tzinfo=timezone.utc)
+    policy = _write_policy(
+        tmp_path,
+        {"tdst": {"requires_approval": True}},
+        approvals=[
+            {"id": "ok", "cluster": "tdst", "approver": "admin", "expires": (now + timedelta(days=1)).isoformat()},
+            {"id": "old", "cluster": "tdst", "approver": "admin", "expires": (now - timedelta(days=1)).isoformat()},
+            {"id": "other", "cluster": "vest", "approver": "admin"},
+        ],
+    )
+    check = lambda approval: policy.check(cluster="tdst", cpus=1, mem_mb=1, partition=None, approval_id=approval, now=now)
+    assert check("ok").allowed
+    assert "expired" in check("old").reasons[0]
+    assert "is for cluster 'vest'" in check("other").reasons[0]
+    assert "none given" in check("").reasons[0]
+    assert "not found" in check("missing").reasons[0]
+    assert not policy.check(cluster="tdst", cpus=1, mem_mb=1, partition=None, approval_id="../ok", now=now).allowed
+
+
+def test_the_tighter_of_cluster_and_approval_limits_applies(tmp_path):
+    policy = _write_policy(
+        tmp_path,
+        {"tdst": {"requires_approval": True, "max_cpus": 32, "max_mem_mb": 262144}},
+        approvals=[{"id": "a", "cluster": "tdst", "approver": "admin", "max_cpus": 16, "max_mem_mb": 65536}],
+    )
+    decision = policy.check(cluster="tdst", cpus=32, mem_mb=65536, partition=None, approval_id="a")
+    assert not decision.allowed and decision.limits["max_cpus"] == 16
+    assert policy.check(cluster="tdst", cpus=16, mem_mb=65536, partition=None, approval_id="a").allowed
+
+
+def test_max_concurrent_counts_this_logs_jobs_that_are_still_live(tmp_path):
+    policy = _write_policy(tmp_path, {"tdst": {"max_concurrent": 2}})
+    decision = policy.check(cluster="tdst", cpus=1, mem_mb=None, partition=None)
+    for job in ("10", "11", "12"):
+        policy.record("submitted", decision, argv=["sbatch"], job_id=job)
+    assert policy.recorded_jobs("tdst") == ["10", "11", "12"]
+    live = lambda ids: len({"11", "12"} & set(ids))
+    assert "2 jobs already active" in policy.check(
+        cluster="tdst", cpus=1, mem_mb=None, partition=None, active_jobs=live
+    ).reasons[0]
+    assert policy.check(cluster="tdst", cpus=1, mem_mb=None, partition=None, active_jobs=lambda ids: 1).allowed
+
+
+def test_the_default_entry_covers_clusters_the_file_does_not_name(tmp_path):
+    policy = _write_policy(tmp_path, {}, default={"requires_approval": True})
+    assert not policy.check(cluster="somewhere", cpus=1, mem_mb=None, partition=None).allowed
+
+
+def test_enforce_raises_and_audits_a_refusal(tmp_path):
+    _write_policy(tmp_path, {"tdst": {"requires_approval": True}})
+    env = {"VAFT_EXECUTION_POLICY": str(tmp_path / "policy.yaml")}
+    with pytest.raises(SubmissionRefused, match="requires a recorded approval"):
+        enforce(cluster="tdst", cpus=16, mem_mb=65536, partition="g1", argv=["sbatch", "job.sh"], environ=env)
+    (entry,) = [json.loads(line) for line in (tmp_path / "audit.jsonl").read_text().splitlines()]
+    assert entry["event"] == "refused" and entry["argv"] == ["sbatch", "job.sh"] and entry["requester"]

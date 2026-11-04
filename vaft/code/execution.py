@@ -58,6 +58,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
 
 from . import _process_tree
+from .accounting import ResourceUsage
 from ._executables import ExecutableNotLaunchable
 
 #: Thread-count variables the common Fortran/BLAS runtimes read.
@@ -131,9 +132,11 @@ class ExecutionResult:
     launcher: tuple[str, ...] = ()
     log_path: Optional[Path] = None
     job_id: Optional[str] = None
-    #: ``"completed"`` (the program exited; see ``returncode``), ``"timeout"``
-    #: ``"queue_timeout"`` or ``"memory_limit"``. Left empty, it is derived from
-    #: ``timed_out``, which is true for every limit stop.
+    #: ``"completed"`` (the program exited; see ``returncode``), ``"timeout"``,
+    #: ``"queue_timeout"``, ``"memory_limit"``, ``"cancelled"`` (someone else
+    #: cancelled the job) or ``"node_fail"`` (the node or the scheduler ended
+    #: it). Left empty, it is derived from ``timed_out``, which is true for
+    #: every status but ``"completed"``: the program did not exit on its own.
     runtime_status: str = ""
     #: How long the program itself ran [s], when the backend can tell that
     #: apart from time spent queued: a scheduler batch job's own start and
@@ -146,6 +149,9 @@ class ExecutionResult:
     #: What a ``queue_timeout`` waited for: ``"memory"`` for local memory
     #: admission (#1460); empty otherwise, including a scheduler queue.
     waited_for: str = ""
+    #: CPU time, utilization and peak memory, when the backend measured them
+    #: (:class:`vaft.code.accounting.ResourceUsage`); ``None`` otherwise.
+    usage: Optional[ResourceUsage] = None
 
     def __post_init__(self) -> None:
         if not self.runtime_status:
@@ -167,13 +173,22 @@ RUNTIME_TIMEOUT = "timeout"
 #: A scheduler job was cancelled while still queued, or a local launch was never
 #: admitted for memory; either way the program never started.
 RUNTIME_QUEUE_TIMEOUT = "queue_timeout"
-#: The program's process tree grew past the backend's memory limit and was stopped.
+#: The program's process tree grew past the backend's memory limit and was stopped
+#: (locally, or a scheduler job that ended ``OUT_OF_MEMORY``).
 RUNTIME_MEMORY_LIMIT = "memory_limit"
+#: Someone other than the backend cancelled the job (``scancel`` by a user or an
+#: administrator); the backend's own ``max_wait`` cancel is a timeout.
+RUNTIME_CANCELLED = "cancelled"
+#: The node or the scheduler ended the job (``NODE_FAIL``, ``PREEMPTED``,
+#: ``BOOT_FAIL``): nothing about the program itself.
+RUNTIME_NODE_FAIL = "node_fail"
 RUNTIME_STATUSES: tuple[str, ...] = (
     RUNTIME_COMPLETED,
     RUNTIME_TIMEOUT,
     RUNTIME_QUEUE_TIMEOUT,
     RUNTIME_MEMORY_LIMIT,
+    RUNTIME_CANCELLED,
+    RUNTIME_NODE_FAIL,
 )
 
 
@@ -189,6 +204,10 @@ def timeout_reason(program: str, execution: ExecutionResult, timeout: Optional[f
     if execution.runtime_status == RUNTIME_MEMORY_LIMIT:
         peak = "" if execution.peak_rss_mb is None else f" at {execution.peak_rss_mb:.0f} MiB resident"
         return f"{program} was stopped by the memory limit{peak} after {execution.elapsed_s:.3g} s"
+    if execution.runtime_status == RUNTIME_CANCELLED:
+        return f"{program} was cancelled by someone else after {execution.elapsed_s:.3g} s (job {execution.job_id})"
+    if execution.runtime_status == RUNTIME_NODE_FAIL:
+        return f"{program} was ended by a node or scheduler failure after {execution.elapsed_s:.3g} s (job {execution.job_id})"
     if execution.runtime_status == RUNTIME_QUEUE_TIMEOUT:
         where = "for memory to become available" if execution.waited_for == "memory" else "in the scheduler queue"
         return f"{program} was cancelled after waiting {execution.elapsed_s:.0f} s {where} (it never started)"
@@ -912,8 +931,10 @@ __all__ = [
     "BACKEND_ENV",
     "BACKEND_NAMES",
     "FIRST_COMPLETED",
+    "RUNTIME_CANCELLED",
     "RUNTIME_COMPLETED",
     "RUNTIME_MEMORY_LIMIT",
+    "RUNTIME_NODE_FAIL",
     "RUNTIME_QUEUE_TIMEOUT",
     "RUNTIME_STATUSES",
     "RUNTIME_TIMEOUT",

@@ -189,7 +189,8 @@ def slurm(tmp_path, monkeypatch):
         "SLURM_JOB_ID", "SLURM_STEP_ID", "FAKE_SLURM_OUTCOME", "FAKE_SLURM_REJECT",
         "FAKE_SLURM_NO_SACCT", "FAKE_SQUEUE_FLAKY", "FAKE_SLURM_CLUSTER", "FAKE_SLURM_BANNER",
         "FAKE_SLURM_BANNER_ONLY", "FAKE_JOB_END_NOW", "FAKE_SACCT_LAG",
-        "FAKE_SLURM_REJECT_MESSAGE",
+        "FAKE_SLURM_REJECT_MESSAGE", "VAFT_EXECUTION_POLICY", "VAFT_EXECUTION_APPROVAL",
+        "VAFT_SLURM_CLUSTER", "SLURM_CLUSTER_NAME",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -558,12 +559,24 @@ def test_an_interrupt_while_waiting_cancels_the_job(tmp_path, slurm, monkeypatch
     assert slurm("scancel") == [["scancel", "1000"]]
 
 
-@pytest.mark.parametrize("state", ["NODE_FAIL", "OUT_OF_MEMORY", "PREEMPTED", "BOOT_FAIL", "CANCELLED"])
-def test_a_job_ended_around_the_program_is_non_zero_with_its_state(tmp_path, slurm, monkeypatch, state):
+@pytest.mark.parametrize(
+    ("state", "status"),
+    [
+        ("NODE_FAIL", "node_fail"),
+        ("OUT_OF_MEMORY", "memory_limit"),
+        ("PREEMPTED", "node_fail"),
+        ("BOOT_FAIL", "node_fail"),
+        ("CANCELLED", "cancelled"),
+    ],
+)
+def test_a_job_ended_around_the_program_carries_why(tmp_path, slurm, monkeypatch, state, status):
+    # The program did not exit on its own: the scheduler's reason is the
+    # status (the tdst admin's scancel was a "cancelled", not a "137").
     monkeypatch.setenv("FAKE_SLURM_OUTCOME", state)
     result = _batch().run(_python(_workdir(tmp_path), "pass"))
-    assert not result.timed_out
-    assert result.returncode == 128 + 9
+    assert result.timed_out
+    assert result.runtime_status == status
+    assert result.returncode is None
     assert state in result.stderr
 
 
@@ -920,3 +933,65 @@ def test_an_adapter_runs_unchanged_through_slurm(tmp_path, slurm):
     assert result.returncode == 0
     assert result.stdout.strip() == "solved rtes.in"
     assert slurm("sbatch")
+
+
+# ---------------------------------------------------------------------------
+# Execution policy (vaft.code.policy): checked before sbatch, audited after
+# ---------------------------------------------------------------------------
+
+def _policy(tmp_path, *, approval=None, **cluster):
+    import yaml
+
+    approvals = tmp_path / "approvals"
+    approvals.mkdir(exist_ok=True)
+    if approval is not None:
+        (approvals / f"{approval['id']}.json").write_text(json.dumps(approval))
+    path = tmp_path / "policy.yaml"
+    path.write_text(yaml.safe_dump({
+        "approvals_dir": "approvals", "audit_log": "audit.jsonl",
+        "clusters": {"tdst": {"requires_approval": True, **cluster}},
+    }))
+    return path
+
+
+def test_a_cluster_that_requires_approval_refuses_before_sbatch(tmp_path, slurm, monkeypatch):
+    from vaft.code.policy import SubmissionRefused
+
+    monkeypatch.setenv("VAFT_EXECUTION_POLICY", str(_policy(tmp_path)))
+    with pytest.raises(SubmissionRefused, match="requires a recorded approval"):
+        _batch(cluster="tdst").run(_python(_workdir(tmp_path), "pass"))
+    assert not (slurm.directory / "calls.jsonl").exists() or slurm("sbatch") == []
+    (entry,) = [json.loads(line) for line in (tmp_path / "audit.jsonl").read_text().splitlines()]
+    assert entry["event"] == "refused" and entry["cluster"] == "tdst" and entry["job_id"] is None
+
+
+def test_an_approved_submission_within_its_limits_is_audited_with_its_job_id(tmp_path, slurm, monkeypatch):
+    approval = {"id": "tdst-1", "cluster": "tdst", "approver": "admin", "max_cpus": 16, "max_mem_mb": 65536}
+    monkeypatch.setenv("VAFT_EXECUTION_POLICY", str(_policy(tmp_path, approval=approval, partitions=["g1"])))
+    request = _python(_workdir(tmp_path), "pass", resources=ResourceRequest(threads_per_task=16, memory_mb=65536))
+    result = _batch(cluster="tdst", approval="tdst-1", partition="g1").run(request)
+    assert result.returncode == 0
+    entries = [json.loads(line) for line in (tmp_path / "audit.jsonl").read_text().splitlines()]
+    assert [(e["event"], e["approval"], e["job_id"]) for e in entries] == [("submitted", "tdst-1", result.job_id)]
+
+
+@pytest.mark.parametrize(
+    ("resources", "partition", "message"),
+    [
+        (dict(threads_per_task=32, memory_mb=65536), "g1", "32 CPUs requested, limit 16"),
+        (dict(threads_per_task=16, memory_mb=220000), "g1", "limit 65536 MiB"),
+        (dict(threads_per_task=16), "g1", "no memory requested"),
+        (dict(threads_per_task=16, memory_mb=65536), "gpu", "partition 'gpu' not in"),
+    ],
+)
+def test_an_approval_does_not_widen_the_limits(tmp_path, slurm, monkeypatch, resources, partition, message):
+    from vaft.code.policy import SubmissionRefused
+
+    approval = {"id": "tdst-1", "cluster": "tdst", "approver": "admin", "max_cpus": 64, "max_mem_mb": 65536}
+    monkeypatch.setenv(
+        "VAFT_EXECUTION_POLICY", str(_policy(tmp_path, approval=approval, max_cpus=16, partitions=["g1"]))
+    )
+    request = _python(_workdir(tmp_path), "pass", resources=ResourceRequest(**resources))
+    with pytest.raises(SubmissionRefused, match=message):
+        _batch(cluster="tdst", approval="tdst-1", partition=partition).run(request)
+    assert not (slurm.directory / "calls.jsonl").exists() or slurm("sbatch") == []

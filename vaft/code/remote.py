@@ -87,9 +87,10 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence, Union
 
-from . import _process_tree
+from . import _process_tree, policy as _policy
 from ._executables import ExecutableNotLaunchable
-from .execution import RUNTIME_QUEUE_TIMEOUT, ExecutionRequest, ExecutionResult
+from .accounting import USAGE_RECORD, parse_usage_record
+from .execution import ExecutionRequest, ExecutionResult
 from .slurm import (
     LIVE_STATES,
     SCRATCH_DIRECTORY,
@@ -497,6 +498,8 @@ class RemoteSlurmBackend:
         max_poll_interval: float = 60.0,
         backoff: float = 1.5,
         keep_scratch: bool = False,
+        cluster: Optional[str] = None,
+        approval: Optional[str] = None,
     ) -> None:
         if not isinstance(host, RemoteHost):
             raise TypeError(f"host must be a RemoteHost, got {type(host).__name__}")
@@ -524,6 +527,9 @@ class RemoteSlurmBackend:
         self.max_poll_interval = float(max_poll_interval)
         self.backoff = float(backoff)
         self.keep_scratch = keep_scratch
+        #: The name the execution policy (vaft.code.policy) knows the cluster by.
+        self.cluster = cluster or os.environ.get("VAFT_SLURM_CLUSTER") or host.host
+        self.approval = approval
 
     @classmethod
     def from_environment(cls, environ: Optional[Mapping[str, str]] = None) -> "RemoteSlurmBackend":
@@ -625,8 +631,16 @@ class RemoteSlurmBackend:
             # log sits in a directory the working directory does not have yet
             # would otherwise lose the whole run to it.
             needed.append(posixpath.dirname(remote_log))
+        cpus = int(request.resources.ntasks) * int(request.resources.threads_per_task or 1)
+        policy, decision = _policy.enforce(
+            cluster=self.cluster, cpus=cpus, mem_mb=request.resources.memory_mb,
+            partition=self.partition, argv=argv, approval_id=self.approval,
+            active_jobs=self._active_jobs,
+        )
         self._push(local_work, remote_work, needed)
         job_id, cluster = self._submit(argv)
+        if policy is not None:
+            policy.record("submitted", decision, argv=argv, job_id=job_id)
         # Every later scheduler call has to name the federation member that
         # accepted the job, or it asks the wrong controller. Carried as an
         # argument, not on ``self``: one backend may serve several runs.
@@ -659,7 +673,7 @@ class RemoteSlurmBackend:
         )
         state, exit_code, scheduler_run_s = self._accounting(job_id, clusters)
 
-        returncode, timed_out, never_started, cancelled = _job_outcome(
+        returncode, timed_out, never_started, cancelled, runtime_status = _job_outcome(
             cancelled=cancelled,
             recorded=recorded,
             state=state,
@@ -667,6 +681,8 @@ class RemoteSlurmBackend:
             began=began,
             walltime_kill=self._walltime_kill(recorded or "", begin, request),
         )
+        cpus = int(request.resources.ntasks) * int(request.resources.threads_per_task or 1)
+        usage = parse_usage_record(_read(local_scratch / USAGE_RECORD), cpus)
         run_s = scheduler_run_s
         if run_s is None and recorded is not None and recorded.startswith(_TERMINATED) and begin.isdigit():
             # No accounting: fall back to the node's own clock at the start and
@@ -715,8 +731,9 @@ class RemoteSlurmBackend:
             launcher=tuple(argv),
             log_path=local_log,
             job_id=job_id,
-            runtime_status=RUNTIME_QUEUE_TIMEOUT if never_started else "",
+            runtime_status=runtime_status,
             run_s=run_s,
+            usage=usage,
         )
 
     # -- sbatch options ---------------------------------------------------
@@ -940,6 +957,14 @@ class RemoteSlurmBackend:
                 sleep_for = max(0.0, min(interval, self.max_wait - (now - started)))
             time.sleep(sleep_for)
             interval = min(interval * self.backoff, self.max_poll_interval)
+
+    def _active_jobs(self, job_ids: Sequence[str]) -> int:
+        """How many of ``job_ids`` are queued or running on the remote cluster."""
+        if not job_ids:
+            return 0
+        listed = self._ssh('squeue -h -u "$(id -un)" -o %i')
+        live = {line.strip() for line in (listed.stdout or "").splitlines() if line.strip()}
+        return len(live & set(job_ids))
 
     def _cancel(self, job_id: str, clusters: Sequence[str]) -> None:
         for _ in range(3):

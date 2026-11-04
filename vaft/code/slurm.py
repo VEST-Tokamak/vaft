@@ -84,9 +84,22 @@ from datetime import datetime
 from pathlib import Path
 from typing import IO, Any, Mapping, Optional, Sequence
 
-from . import _process_tree
+from . import _process_tree, policy as _policy
+from .accounting import (
+    NODE_FAIL_STATES,
+    OUT_OF_MEMORY_STATES,
+    USAGE_RECORD,
+    parse_usage_record,
+    usage_record_lines,
+)
 from ._executables import ExecutableNotLaunchable
 from .execution import (
+    RUNTIME_CANCELLED,
+    RUNTIME_COMPLETED,
+    RUNTIME_MEMORY_LIMIT,
+    RUNTIME_NODE_FAIL,
+    RUNTIME_QUEUE_TIMEOUT,
+    RUNTIME_TIMEOUT,
     THREAD_ENV_VARIABLES,
     ExecutionRequest,
     ExecutionResult,
@@ -252,6 +265,7 @@ def _job_script(
     """
     quote = shlex.quote
     status, started = f"{scratch}/returncode", f"{scratch}/started"
+    usage = quote(f"{scratch}/{USAGE_RECORD}")
     lines = ["#!/bin/bash", *[str(line) for line in setup_lines]]
     lines += [
         f"cd {quote(str(workdir))} || exit 1",
@@ -279,13 +293,18 @@ def _job_script(
             lines.append(f'export {variable}="${{{variable}:-{int(threads)}}}"')
     command = " ".join(quote(str(part)) for part in request.command)
     source = quote(str(stdin)) if stdin is not None else "/dev/null"
+    # The job cgroup's CPU time and memory peak, sampled as the program starts
+    # and ends (also at the TERM of a cancel or a time limit): sacct's TotalCPU
+    # does not survive a cancel, this record does (vaft.code.accounting).
+    lines += usage_record_lines(usage)
     lines += [
+        "vaft_usage_sample",
         f"date +%s > {quote(started)}",
         # The termination record carries the node's own clock and, where
         # Slurm provides it, the job's end time, so a walltime kill can be
         # told from a cancel without accounting and without comparing
         # clocks across hosts.
-        f'terminated() {{ echo "{_TERMINATED} $(date +%s) ${{SLURM_JOB_END_TIME:-}}" > {quote(status)}; }}',
+        f'terminated() {{ echo "{_TERMINATED} $(date +%s) ${{SLURM_JOB_END_TIME:-}}" > {quote(status)}; vaft_usage_sample; }}',
         # Backgrounded so a TERM at the time limit or on scancel runs the
         # trap now rather than after the program exits.
         "trap 'terminated; kill -TERM $child 2>/dev/null; wait $child; exit 143' TERM",
@@ -296,7 +315,7 @@ def _job_script(
         "wait $child",
         "rc=$?",
         # The program may die of the TERM before this shell handles its own.
-        f'if [ "$rc" -eq 143 ]; then terminated; else echo "$rc" > {quote(status)}; fi',
+        f'if [ "$rc" -eq 143 ]; then terminated; else vaft_usage_sample; echo "$rc" > {quote(status)}; fi',
         "exit $rc",
         "",
     ]
@@ -322,8 +341,12 @@ def _job_outcome(
     whether a ``terminated`` record looks like the time limit rather than a
     cancel.
 
-    Returns ``(returncode, timed_out, never_started, cancelled)``; the last is
-    ``cancelled`` corrected for a program that exited before the cancel landed.
+    Returns ``(returncode, timed_out, never_started, cancelled, runtime_status)``;
+    ``cancelled`` is corrected for a program that exited before the cancel
+    landed. A job the scheduler ended ``OUT_OF_MEMORY``, ``CANCELLED`` by
+    someone else, or for a node failure did not exit on its own either: it is
+    ``timed_out`` with ``runtime_status`` ``memory_limit``, ``cancelled`` or
+    ``node_fail`` -- unless the program's own exit was recorded first.
     """
     terminated = recorded is not None and recorded.startswith(_TERMINATED)
     exited = recorded is not None and not terminated
@@ -333,6 +356,21 @@ def _job_outcome(
     never_started = cancelled and not began
     if not timed_out and state is None and terminated:
         timed_out = walltime_kill
+    status = ""
+    if not timed_out and not exited:
+        if state in OUT_OF_MEMORY_STATES:
+            status = RUNTIME_MEMORY_LIMIT
+        elif state == "CANCELLED":
+            status = RUNTIME_CANCELLED
+        elif state in NODE_FAIL_STATES:
+            status = RUNTIME_NODE_FAIL
+        timed_out = bool(status)
+    if never_started:
+        status = RUNTIME_QUEUE_TIMEOUT
+    elif timed_out and not status:
+        status = RUNTIME_TIMEOUT
+    elif not timed_out:
+        status = RUNTIME_COMPLETED
     if timed_out:
         returncode: Optional[int] = None
     elif exited:
@@ -341,7 +379,7 @@ def _job_outcome(
         returncode = exit_code or 0
     else:
         returncode = exit_code or (143 if terminated else 1)
-    return returncode, timed_out, never_started, cancelled
+    return returncode, timed_out, never_started, cancelled, status
 
 
 def _job_note(
@@ -444,6 +482,13 @@ class SlurmBackend:
         step before it is killed [s].
     keep_scratch : bool
         Keep the job script and captured streams even after a clean exit [n/a].
+    cluster : str, optional
+        Name the execution policy (:mod:`vaft.code.policy`) knows this cluster
+        by; default ``$VAFT_SLURM_CLUSTER``, ``$SLURM_CLUSTER_NAME`` or
+        ``"slurm"`` [n/a].
+    approval : str, optional
+        Approval id a policy that requires one checks; default
+        ``$VAFT_EXECUTION_APPROVAL`` [n/a].
     """
 
     #: How long a finished job's status file and accounting may lag behind
@@ -465,6 +510,8 @@ class SlurmBackend:
         poll_interval: float = 10.0,
         step_grace: float = 30.0,
         keep_scratch: bool = False,
+        cluster: Optional[str] = None,
+        approval: Optional[str] = None,
     ) -> None:
         if mode not in _MODES:
             raise ValueError(f"mode must be one of {_MODES}, got {mode!r}")
@@ -485,6 +532,8 @@ class SlurmBackend:
         self.poll_interval = float(poll_interval)
         self.step_grace = float(step_grace)
         self.keep_scratch = keep_scratch
+        self.cluster = cluster or os.environ.get("VAFT_SLURM_CLUSTER") or os.environ.get("SLURM_CLUSTER_NAME") or "slurm"
+        self.approval = approval
 
     @classmethod
     def from_environment(cls, environ: Optional[Mapping[str, str]] = None) -> "SlurmBackend":
@@ -699,8 +748,17 @@ class SlurmBackend:
             *self._sizing(request), *self._placement(), *self.extra_args, str(script),
         ]
 
+        # The execution policy, if one is configured, decides before sbatch
+        # and records the job it let through (vaft.code.policy).
+        policy, decision = _policy.enforce(
+            cluster=self.cluster, cpus=_cpus(request), mem_mb=request.resources.memory_mb,
+            partition=self.partition, argv=argv, approval_id=self.approval,
+            active_jobs=self._active_jobs,
+        )
         started = time.monotonic()
         job_id, cluster = self._submit(argv)
+        if policy is not None:
+            policy.record("submitted", decision, argv=argv, job_id=job_id)
         clusters = ["-M", cluster] if cluster else []
         return _BatchJob(request, tuple(argv), job_id, clusters, scratch, log_path, started)
 
@@ -734,7 +792,7 @@ class SlurmBackend:
         state, exit_code = self._accounting(job_id, clusters)
 
         terminated = recorded is not None and recorded.startswith(_TERMINATED)
-        returncode, timed_out, never_started, cancelled = _job_outcome(
+        returncode, timed_out, never_started, cancelled, runtime_status = _job_outcome(
             cancelled=cancelled,
             recorded=recorded,
             state=state,
@@ -742,6 +800,7 @@ class SlurmBackend:
             began=bool(begin),
             walltime_kill=self._walltime_kill(recorded or "", scratch, request),
         )
+        usage = parse_usage_record(_read(scratch / USAGE_RECORD), _cpus(request))
         # The program's own run time, from the node's clock at start and at
         # the TERM that stopped it; ``elapsed_s`` below counts from submission.
         run_s: Optional[float] = None
@@ -786,8 +845,9 @@ class SlurmBackend:
             launcher=tuple(argv),
             log_path=log_path,
             job_id=job_id,
-            runtime_status="queue_timeout" if never_started else "",
+            runtime_status=runtime_status,
             run_s=run_s,
+            usage=usage,
         )
 
     def _slurm(self, argv: list[str], *, environment: Optional[dict[str, str]] = None) -> subprocess.CompletedProcess:
@@ -813,6 +873,14 @@ class SlurmBackend:
                 raise ExecutableNotLaunchable(f"sbatch rejected the job for {argv[-1]}: {message}")
             time.sleep(self.poll_interval)
         raise AssertionError("unreachable")  # pragma: no cover
+
+    def _active_jobs(self, job_ids: Sequence[str]) -> int:
+        """How many of ``job_ids`` are queued or running (for the policy's ``max_concurrent``)."""
+        if not job_ids:
+            return 0
+        listed = self._slurm([self._tool("squeue"), "-h", "-u", _policy._requester(), "-o", "%i"])
+        live = {line.strip() for line in listed.stdout.splitlines() if line.strip()}
+        return len(live & set(job_ids))
 
     def _live(self, job_id: str, clusters: list[str]) -> Optional[bool]:
         """True while the job is live, False once it is not, None if unknown."""
