@@ -61,7 +61,7 @@ class RunOutcome:
         The name predates the memory limit; it means the same as
         :attr:`vaft.code.execution.ExecutionResult.timed_out`.
         """
-        return self.runtime_status != "completed"
+        return self.runtime_status in ("timeout", "queue_timeout", "memory_limit", "cancelled", "node_fail")
 
 
 @dataclass

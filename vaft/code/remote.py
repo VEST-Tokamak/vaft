@@ -566,8 +566,25 @@ class RemoteSlurmBackend:
             raise FileNotFoundError(f"working directory does not exist: {request.workdir}")
         local_work = local_work.resolve()
 
-        host = self.host
         name = _scratch_name(request.label)  # refuses a label that is not one path component
+        # The execution policy decides before anything is written or sent, and
+        # holds its lock until the job id is recorded (vaft.code.policy).
+        gate = _policy.open_gate(
+            cluster=self.cluster,
+            cpus=int(request.resources.ntasks) * int(request.resources.threads_per_task or 1),
+            mem_mb=request.resources.memory_mb, partition=self.partition,
+            options=[*self._sizing(request), *self._placement(), *self.extra_args],
+            approval_id=self.approval, active_jobs=self._active_jobs,
+        )
+        try:
+            return self._run_gated(request, local_work, name, gate)
+        finally:
+            gate.close()
+
+    def _run_gated(
+        self, request: ExecutionRequest, local_work: Path, name: str, gate: "_policy.SubmissionGate"
+    ) -> ExecutionResult:
+        host = self.host
         mapped = host.remote_path(local_work)
         remote_work = mapped or posixpath.join(host.work_root.rstrip("/"), name)
         local_scratch = local_work / SCRATCH_DIRECTORY / name
@@ -631,16 +648,9 @@ class RemoteSlurmBackend:
             # log sits in a directory the working directory does not have yet
             # would otherwise lose the whole run to it.
             needed.append(posixpath.dirname(remote_log))
-        cpus = int(request.resources.ntasks) * int(request.resources.threads_per_task or 1)
-        policy, decision = _policy.enforce(
-            cluster=self.cluster, cpus=cpus, mem_mb=request.resources.memory_mb,
-            partition=self.partition, argv=argv, approval_id=self.approval,
-            active_jobs=self._active_jobs,
-        )
         self._push(local_work, remote_work, needed)
         job_id, cluster = self._submit(argv)
-        if policy is not None:
-            policy.record("submitted", decision, argv=argv, job_id=job_id)
+        gate.submitted(job_id, argv)
         # Every later scheduler call has to name the federation member that
         # accepted the job, or it asks the wrong controller. Carried as an
         # argument, not on ``self``: one backend may serve several runs.
@@ -683,6 +693,15 @@ class RemoteSlurmBackend:
         )
         cpus = int(request.resources.ntasks) * int(request.resources.threads_per_task or 1)
         usage = parse_usage_record(_read(local_scratch / USAGE_RECORD), cpus)
+        if usage is None and began:
+            # The last sample follows the status record; on a lagging shared
+            # filesystem it may land after the scratch fetch: fetch it once more.
+            self._rsync(
+                [*host.rsync_prefix(), host.remote(posixpath.join(remote_scratch, USAGE_RECORD)),
+                 str(local_scratch / USAGE_RECORD)],
+                "fetch the job's usage record", raises=None,
+            )
+            usage = parse_usage_record(_read(local_scratch / USAGE_RECORD), cpus)
         run_s = scheduler_run_s
         if run_s is None and recorded is not None and recorded.startswith(_TERMINATED) and begin.isdigit():
             # No accounting: fall back to the node's own clock at the start and
@@ -958,11 +977,13 @@ class RemoteSlurmBackend:
             time.sleep(sleep_for)
             interval = min(interval * self.backoff, self.max_poll_interval)
 
-    def _active_jobs(self, job_ids: Sequence[str]) -> int:
-        """How many of ``job_ids`` are queued or running on the remote cluster."""
+    def _active_jobs(self, job_ids: Sequence[str]) -> Optional[int]:
+        """How many of ``job_ids`` are queued or running on the remote cluster; ``None`` if unknown."""
         if not job_ids:
             return 0
-        listed = self._ssh('squeue -h -u "$(id -un)" -o %i')
+        listed = self._ssh('squeue -M all -h -u "$(id -un)" -o %i')
+        if listed.returncode != 0:
+            return None
         live = {line.strip() for line in (listed.stdout or "").splitlines() if line.strip()}
         return len(live & set(job_ids))
 

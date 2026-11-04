@@ -13,6 +13,7 @@ A policy file (YAML, path in ``VAFT_EXECUTION_POLICY``) names clusters::
     default: {requires_approval: false}
     clusters:
       tdst:
+        hosts: [147.46.36.74, tdst.cluster.master]   # names a backend may know it by
         requires_approval: true
         max_cpus: 16
         max_mem_mb: 65536
@@ -52,8 +53,10 @@ __all__ = [
     "ClusterPolicy",
     "ExecutionPolicy",
     "PolicyDecision",
+    "SubmissionGate",
     "SubmissionRefused",
     "load_policy",
+    "open_gate",
 ]
 
 POLICY_ENV = "VAFT_EXECUTION_POLICY"
@@ -74,10 +77,11 @@ class ClusterPolicy:
     max_mem_mb: Optional[int] = None
     max_concurrent: Optional[int] = None
     partitions: tuple[str, ...] = ()
+    hosts: tuple[str, ...] = ()
 
     @classmethod
     def from_mapping(cls, name: str, data: Mapping[str, Any]) -> "ClusterPolicy":
-        unknown = set(data) - {"requires_approval", "max_cpus", "max_mem_mb", "max_concurrent", "partitions"}
+        unknown = set(data) - {"requires_approval", "max_cpus", "max_mem_mb", "max_concurrent", "partitions", "hosts"}
         if unknown:
             raise ValueError(f"cluster {name!r}: unknown policy keys {sorted(unknown)}")
         return cls(
@@ -87,6 +91,7 @@ class ClusterPolicy:
             max_mem_mb=_optional_int(data.get("max_mem_mb")),
             max_concurrent=_optional_int(data.get("max_concurrent")),
             partitions=tuple(str(p) for p in data.get("partitions") or ()),
+            hosts=tuple(str(h) for h in data.get("hosts") or ()),
         )
 
 
@@ -164,22 +169,31 @@ class ExecutionPolicy:
         )
 
     def cluster(self, name: str) -> ClusterPolicy:
-        """The policy for ``name``: its own entry, else the default, else no limits."""
+        """The policy for ``name`` -- an entry's name or one of its ``hosts`` --
+        else the default, else no limits."""
         if name in self.clusters:
             return self.clusters[name]
+        for entry in self.clusters.values():
+            if name in entry.hosts:
+                return entry
         if self.default is not None:
             return ClusterPolicy(**{**self.default.__dict__, "name": name})
         return ClusterPolicy(name=name)
 
     def approval(self, approval_id: str) -> Optional[Approval]:
-        """The approval recorded as ``<approvals_dir>/<id>.json``, or ``None``."""
+        """The approval recorded as ``<approvals_dir>/<id>.json``, or ``None``.
+
+        The record's own ``id`` must be the file's name, so a copied file
+        cannot stand in for another approval.
+        """
         if not approval_id or self.approvals_dir is None or "/" in approval_id or approval_id.startswith("."):
             return None
         path = self.approvals_dir / f"{approval_id}.json"
         try:
-            return Approval.from_mapping(json.loads(path.read_text(encoding="utf-8")))
+            approval = Approval.from_mapping(json.loads(path.read_text(encoding="utf-8")))
         except (OSError, ValueError, KeyError):
             return None
+        return approval if approval.id == approval_id else None
 
     def check(
         self,
@@ -189,16 +203,22 @@ class ExecutionPolicy:
         mem_mb: Optional[int],
         partition: Optional[str],
         approval_id: str = "",
-        active_jobs: Optional[Callable[[Sequence[str]], int]] = None,
+        active_jobs: Optional[Callable[[Sequence[str]], Optional[int]]] = None,
         now: Optional[datetime] = None,
+        options: Sequence[str] = (),
     ) -> PolicyDecision:
         """Decide one submission of ``cpus`` CPUs and ``mem_mb`` MiB on ``cluster``.
 
         ``active_jobs`` counts which of the job ids this log recorded for the
-        cluster are still queued or running; ``max_concurrent`` is only
-        enforced when the backend can answer that.
+        cluster are still queued or running, or ``None`` when it cannot tell;
+        ``max_concurrent`` then refuses rather than guess. ``options`` are the
+        scheduler options the submission will carry: a later ``--partition``,
+        ``--cpus-per-task`` or ``--mem`` (an ``extra_args`` entry) wins in
+        sbatch, so it is what is checked.
         """
+        cpus, mem_mb, partition = _effective(options, cpus, mem_mb, partition)
         rules = self.cluster(cluster)
+        cluster = rules.name if rules.name != "default" else cluster
         reasons: list[str] = []
         approval = self.approval(approval_id) if approval_id else None
         current = now or datetime.now(timezone.utc)
@@ -212,6 +232,8 @@ class ExecutionPolicy:
                 reasons.append(f"approval {approval.id!r} is for cluster {approval.cluster!r}, not {cluster!r}")
             elif approval.expires is not None and current > approval.expires:
                 reasons.append(f"approval {approval.id!r} expired at {approval.expires.isoformat()}")
+            elif approval.requester and approval.requester != _requester():
+                reasons.append(f"approval {approval.id!r} was given to {approval.requester!r}, not {_requester()!r}")
         limits = {
             "max_cpus": _tighter(rules.max_cpus, approval.max_cpus if approval else None),
             "max_mem_mb": _tighter(rules.max_mem_mb, approval.max_mem_mb if approval else None),
@@ -229,7 +251,9 @@ class ExecutionPolicy:
             reasons.append(f"partition {partition!r} not in {list(rules.partitions)}")
         if limits["max_concurrent"] is not None and active_jobs is not None:
             running = active_jobs(self.recorded_jobs(cluster))
-            if running >= limits["max_concurrent"]:
+            if running is None:
+                reasons.append(f"cannot count active jobs on {cluster!r}; limit {limits['max_concurrent']}")
+            elif running >= limits["max_concurrent"]:
                 reasons.append(f"{running} jobs already active, limit {limits['max_concurrent']}")
         return PolicyDecision(
             allowed=not reasons, cluster=cluster, reasons=tuple(reasons), approval=approval, limits=limits
@@ -292,39 +316,135 @@ def load_policy(environ: Optional[Mapping[str, str]] = None) -> Optional[Executi
     return ExecutionPolicy.load(Path(path).expanduser())
 
 
-def enforce(
+class SubmissionGate:
+    """A submission the policy let through, held under the policy's lock until it is recorded.
+
+    The lock (``<audit_log>.lock``) serializes check-then-submit across threads
+    and processes on this host, so concurrent submitters cannot all pass a
+    ``max_concurrent`` that only one of them fits under.
+    """
+
+    def __init__(self, policy: Optional[ExecutionPolicy], decision: Optional[PolicyDecision], lock: Any = None):
+        self.policy, self.decision, self._lock = policy, decision, lock
+
+    def submitted(self, job_id: str, argv: Sequence[str]) -> None:
+        """Record the job the scheduler accepted, then release the lock.
+
+        Never raises: the job is already on the cluster, and a failure to write
+        the audit log must not leave it running untracked by its caller.
+        """
+        try:
+            if self.policy is not None and self.decision is not None:
+                self.policy.record("submitted", self.decision, argv=argv, job_id=job_id)
+        except OSError as error:
+            import warnings
+
+            warnings.warn(f"execution policy: could not audit job {job_id}: {error}", RuntimeWarning, stacklevel=2)
+        finally:
+            self.close()
+
+    def close(self) -> None:
+        if self._lock is not None:
+            try:
+                import fcntl
+
+                fcntl.flock(self._lock, fcntl.LOCK_UN)
+            finally:
+                self._lock.close()
+                self._lock = None
+
+    def __enter__(self) -> "SubmissionGate":
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        self.close()
+
+
+def open_gate(
     *,
     cluster: str,
     cpus: int,
     mem_mb: Optional[int],
     partition: Optional[str],
-    argv: Sequence[str],
+    options: Sequence[str] = (),
     approval_id: Optional[str] = None,
-    active_jobs: Optional[Callable[[Sequence[str]], int]] = None,
+    active_jobs: Optional[Callable[[Sequence[str]], Optional[int]]] = None,
     environ: Optional[Mapping[str, str]] = None,
-) -> tuple[Optional[ExecutionPolicy], Optional[PolicyDecision]]:
-    """Check one submission and raise :class:`SubmissionRefused` if the policy says no.
+) -> SubmissionGate:
+    """Check one submission before any side effect; raise :class:`SubmissionRefused` if refused.
 
-    For the scheduler backends: returns ``(policy, decision)`` so the caller
-    can :meth:`ExecutionPolicy.record` the job id once ``sbatch`` accepted it,
-    or ``(None, None)`` when no policy is configured.
+    For the scheduler backends. Without a configured policy the gate is a
+    no-op. With one, the gate holds the policy lock until
+    :meth:`SubmissionGate.submitted` records the job id (or it is closed).
     """
     env = os.environ if environ is None else environ
     policy = load_policy(env)
     if policy is None:
-        return None, None
-    approval = approval_id if approval_id is not None else env.get(APPROVAL_ENV, "")
-    decision = policy.check(
-        cluster=cluster, cpus=cpus, mem_mb=mem_mb, partition=partition,
-        approval_id=approval, active_jobs=active_jobs,
-    )
-    if not decision.allowed:
-        policy.record("refused", decision, argv=argv)
-        raise SubmissionRefused(
-            f"execution policy ({policy.source}) refused the submission to {cluster!r}: "
-            + "; ".join(decision.reasons)
+        return SubmissionGate(None, None)
+    lock = _acquire(policy)
+    try:
+        approval = approval_id if approval_id is not None else env.get(APPROVAL_ENV, "")
+        decision = policy.check(
+            cluster=cluster, cpus=cpus, mem_mb=mem_mb, partition=partition,
+            approval_id=approval, active_jobs=active_jobs, options=options,
         )
-    return policy, decision
+        if not decision.allowed:
+            policy.record("refused", decision, argv=options)
+            raise SubmissionRefused(
+                f"execution policy ({policy.source}) refused the submission to {cluster!r}: "
+                + "; ".join(decision.reasons)
+            )
+    except BaseException:
+        SubmissionGate(None, None, lock).close()
+        raise
+    return SubmissionGate(policy, decision, lock)
+
+
+def _acquire(policy: ExecutionPolicy) -> Any:
+    if policy.audit_log is None:
+        return None
+    import fcntl
+
+    policy.audit_log.parent.mkdir(parents=True, exist_ok=True)
+    handle = open(policy.audit_log.with_name(policy.audit_log.name + ".lock"), "a")
+    fcntl.flock(handle, fcntl.LOCK_EX)
+    return handle
+
+
+def _effective(
+    options: Sequence[str], cpus: int, mem_mb: Optional[int], partition: Optional[str]
+) -> tuple[int, Optional[int], Optional[str]]:
+    """``(cpus, mem MiB, partition)`` an sbatch/srun option list really asks for (last wins)."""
+    values: dict[str, str] = {}
+    aliases = {"-c": "--cpus-per-task", "-p": "--partition", "-n": "--ntasks"}
+    items = [str(item) for item in options]
+    for index, item in enumerate(items):
+        name, _, value = item.partition("=")
+        name = aliases.get(name, name)
+        if name in ("--cpus-per-task", "--partition", "--ntasks", "--mem", "--mem-per-cpu"):
+            if not value and index + 1 < len(items) and not items[index + 1].startswith("-"):
+                value = items[index + 1]
+            if value:
+                values[name] = value
+    per_task = int(values["--cpus-per-task"]) if "--cpus-per-task" in values else None
+    tasks = int(values.get("--ntasks", "1"))
+    if per_task is not None:
+        cpus = per_task * tasks
+    if "--mem" in values:
+        mem_mb = _mib(values["--mem"])
+    elif "--mem-per-cpu" in values:
+        mem_mb = _mib(values["--mem-per-cpu"]) * cpus
+    if "--partition" in values:
+        partition = values["--partition"]
+    return cpus, mem_mb, partition
+
+
+def _mib(text: str) -> int:
+    units = {"K": 1 / 1024, "M": 1, "G": 1024, "T": 1024 * 1024}
+    text = text.strip().upper()
+    if text and text[-1] in units:
+        return int(float(text[:-1]) * units[text[-1]])
+    return int(float(text))
 
 
 def _optional_int(value: Any) -> Optional[int]:
@@ -337,8 +457,9 @@ def _tighter(a: Optional[int], b: Optional[int]) -> Optional[int]:
 
 
 def _parse_time(text: Any) -> datetime:
+    # A stamp without a zone is the local time of the host that checks it.
     parsed = datetime.fromisoformat(str(text))
-    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+    return parsed if parsed.tzinfo is not None else parsed.astimezone()
 
 
 def _relative(base: Path, value: Any) -> Optional[Path]:

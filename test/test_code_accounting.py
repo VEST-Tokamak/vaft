@@ -25,7 +25,7 @@ from vaft.code.accounting import (
     parse_usage_record,
     usage_record_lines,
 )
-from vaft.code.policy import ExecutionPolicy, SubmissionRefused, enforce, load_policy
+from vaft.code.policy import ExecutionPolicy, SubmissionRefused, load_policy, open_gate
 from vaft.code.slurm import _job_outcome
 
 
@@ -149,7 +149,9 @@ def _write_policy(tmp_path, clusters, default=None, approvals=()):
 
 def test_no_policy_file_means_no_policy(tmp_path):
     assert load_policy({}) is None
-    assert enforce(cluster="tdst", cpus=128, mem_mb=None, partition=None, argv=["sbatch"], environ={}) == (None, None)
+    gate = open_gate(cluster="tdst", cpus=128, mem_mb=None, partition=None, environ={})
+    assert gate.policy is None
+    gate.submitted("1", ["sbatch"])  # a no-op
 
 
 def test_a_named_but_missing_policy_file_raises():
@@ -211,10 +213,69 @@ def test_the_default_entry_covers_clusters_the_file_does_not_name(tmp_path):
     assert not policy.check(cluster="somewhere", cpus=1, mem_mb=None, partition=None).allowed
 
 
-def test_enforce_raises_and_audits_a_refusal(tmp_path):
+def test_a_refusal_raises_and_is_audited(tmp_path):
     _write_policy(tmp_path, {"tdst": {"requires_approval": True}})
     env = {"VAFT_EXECUTION_POLICY": str(tmp_path / "policy.yaml")}
     with pytest.raises(SubmissionRefused, match="requires a recorded approval"):
-        enforce(cluster="tdst", cpus=16, mem_mb=65536, partition="g1", argv=["sbatch", "job.sh"], environ=env)
+        open_gate(cluster="tdst", cpus=16, mem_mb=65536, partition="g1", options=["--cpus-per-task=16"], environ=env)
     (entry,) = [json.loads(line) for line in (tmp_path / "audit.jsonl").read_text().splitlines()]
-    assert entry["event"] == "refused" and entry["argv"] == ["sbatch", "job.sh"] and entry["requester"]
+    assert entry["event"] == "refused" and entry["argv"] == ["--cpus-per-task=16"] and entry["requester"]
+
+
+def test_a_cluster_is_found_by_any_of_its_hosts(tmp_path):
+    policy = _write_policy(tmp_path, {"tdst": {"requires_approval": True, "hosts": ["147.46.36.74"]}})
+    decision = policy.check(cluster="147.46.36.74", cpus=1, mem_mb=1, partition=None)
+    assert not decision.allowed and decision.cluster == "tdst"
+
+
+def test_later_scheduler_options_are_what_is_checked(tmp_path):
+    # sbatch takes the last value: an extra_args --cpus-per-task/--mem/--partition must not slip past.
+    policy = _write_policy(tmp_path, {"tdst": {"max_cpus": 16, "max_mem_mb": 65536, "partitions": ["g1"]}})
+    check = lambda options: policy.check(cluster="tdst", cpus=16, mem_mb=65536, partition="g1", options=options)
+    assert check(["--cpus-per-task=16", "--mem=65536M", "--partition=g1"]).allowed
+    assert "64 CPUs requested" in check(["--cpus-per-task=16", "-c", "64"]).reasons[0]
+    assert "limit 65536 MiB" in check(["--mem=65536M", "--mem=220G"]).reasons[0]
+    assert "partition 'gpu'" in check(["--partition=g1", "-p", "gpu"]).reasons[0]
+    assert "limit 65536 MiB" in check(["--mem-per-cpu=8G", "--cpus-per-task=16"]).reasons[0]
+
+
+def test_an_approval_binds_its_requester_and_its_own_file_name(tmp_path, monkeypatch):
+    policy = _write_policy(
+        tmp_path, {"tdst": {"requires_approval": True}},
+        approvals=[{"id": "mine", "cluster": "tdst", "approver": "admin", "requester": "someone-else"}],
+    )
+    assert "was given to 'someone-else'" in policy.check(
+        cluster="tdst", cpus=1, mem_mb=1, partition=None, approval_id="mine"
+    ).reasons[0]
+    (tmp_path / "approvals" / "copy.json").write_text((tmp_path / "approvals" / "mine.json").read_text())
+    assert policy.approval("copy") is None
+
+
+def test_an_unknown_active_count_refuses_under_max_concurrent(tmp_path):
+    policy = _write_policy(tmp_path, {"tdst": {"max_concurrent": 2}})
+    decision = policy.check(cluster="tdst", cpus=1, mem_mb=None, partition=None, active_jobs=lambda ids: None)
+    assert "cannot count active jobs" in decision.reasons[0]
+
+
+def test_a_failed_audit_write_after_sbatch_warns_instead_of_raising(tmp_path, monkeypatch):
+    policy = _write_policy(tmp_path, {"tdst": {}})
+    env = {"VAFT_EXECUTION_POLICY": str(tmp_path / "policy.yaml")}
+    gate = open_gate(cluster="tdst", cpus=1, mem_mb=None, partition=None, environ=env)
+
+    def broken(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(type(gate.policy), "record", broken)
+    with pytest.warns(RuntimeWarning, match="could not audit job 77"):
+        gate.submitted("77", ["sbatch"])
+
+
+def test_a_naive_expiry_is_local_time():
+    from vaft.code.policy import _parse_time
+
+    assert _parse_time("2026-11-04T12:00:00").utcoffset() == datetime.now().astimezone().utcoffset()
+
+
+def test_an_oom_kill_the_batch_shell_survived_is_still_the_memory_limit():
+    returncode, timed_out, _, _, status = _outcome(state="OUT_OF_MEMORY", recorded="137")
+    assert (returncode, timed_out, status) == (None, True, "memory_limit")

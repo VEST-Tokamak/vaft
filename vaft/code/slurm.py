@@ -357,6 +357,10 @@ def _job_outcome(
     if not timed_out and state is None and terminated:
         timed_out = walltime_kill
     status = ""
+    if not timed_out and exited and state in OUT_OF_MEMORY_STATES and int(recorded) != 0:
+        # The cgroup OOM killer took the program; the batch shell survived and
+        # recorded its 137. Still the memory limit, not an exit of its own.
+        status, timed_out = RUNTIME_MEMORY_LIMIT, True
     if not timed_out and not exited:
         if state in OUT_OF_MEMORY_STATES:
             status = RUNTIME_MEMORY_LIMIT
@@ -622,12 +626,15 @@ class SlurmBackend:
 
         environment = _step_environment(request)
         log_path = Path(request.log_path) if request.log_path is not None else None
+        # srun outside an allocation creates one: the policy decides that too.
+        gate = self._gate(request) if not os.environ.get("SLURM_JOB_ID") else _policy.SubmissionGate(None, None)
         started = time.monotonic()
-        if log_path is None:
-            return self._step(argv, request, environment, None, started)
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        with log_path.open("w", encoding="utf-8") as log:
-            return self._step(argv, request, environment, log, started)
+        with gate:
+            if log_path is None:
+                return self._step(argv, request, environment, None, started, gate)
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("w", encoding="utf-8") as log:
+                return self._step(argv, request, environment, log, started, gate)
 
     def _step(
         self,
@@ -636,6 +643,7 @@ class SlurmBackend:
         environment: dict[str, str],
         log: Optional[IO[str]],
         started: float,
+        gate: Optional["_policy.SubmissionGate"] = None,
     ) -> ExecutionResult:
         try:
             process = subprocess.Popen(
@@ -651,6 +659,8 @@ class SlurmBackend:
             )
         except OSError as error:
             raise ExecutableNotLaunchable(f"cannot launch {argv[0]}: {error}") from error
+        if gate is not None:
+            gate.submitted(os.environ.get("SLURM_JOB_ID") or f"srun:{process.pid}", argv)
         timed_out = False
         try:
             stdout, stderr = process.communicate(request.stdin, timeout=request.timeout)
@@ -720,8 +730,20 @@ class SlurmBackend:
     def _run_batch(self, request: ExecutionRequest) -> ExecutionResult:
         return self._finish_batch(self._start_batch(request))
 
+    def _gate(self, request: ExecutionRequest) -> "_policy.SubmissionGate":
+        """The execution policy's decision on ``request``, before any side effect (vaft.code.policy)."""
+        return _policy.open_gate(
+            cluster=self.cluster, cpus=_cpus(request), mem_mb=request.resources.memory_mb,
+            partition=self.partition, options=[*self._sizing(request), *self._placement(), *self.extra_args],
+            approval_id=self.approval, active_jobs=self._active_jobs,
+        )
+
     def _start_batch(self, request: ExecutionRequest) -> "_BatchJob":
         sbatch = self._tool("sbatch")
+        with self._gate(request) as gate:
+            return self._start_gated_batch(request, sbatch, gate)
+
+    def _start_gated_batch(self, request: ExecutionRequest, sbatch: str, gate: "_policy.SubmissionGate") -> "_BatchJob":
         workdir = Path(request.workdir).resolve()
         scratch = workdir / SCRATCH_DIRECTORY / _scratch_name(request.label)
         scratch.mkdir(parents=True)
@@ -748,17 +770,9 @@ class SlurmBackend:
             *self._sizing(request), *self._placement(), *self.extra_args, str(script),
         ]
 
-        # The execution policy, if one is configured, decides before sbatch
-        # and records the job it let through (vaft.code.policy).
-        policy, decision = _policy.enforce(
-            cluster=self.cluster, cpus=_cpus(request), mem_mb=request.resources.memory_mb,
-            partition=self.partition, argv=argv, approval_id=self.approval,
-            active_jobs=self._active_jobs,
-        )
         started = time.monotonic()
         job_id, cluster = self._submit(argv)
-        if policy is not None:
-            policy.record("submitted", decision, argv=argv, job_id=job_id)
+        gate.submitted(job_id, argv)
         clusters = ["-M", cluster] if cluster else []
         return _BatchJob(request, tuple(argv), job_id, clusters, scratch, log_path, started)
 
@@ -874,11 +888,17 @@ class SlurmBackend:
             time.sleep(self.poll_interval)
         raise AssertionError("unreachable")  # pragma: no cover
 
-    def _active_jobs(self, job_ids: Sequence[str]) -> int:
-        """How many of ``job_ids`` are queued or running (for the policy's ``max_concurrent``)."""
+    def _active_jobs(self, job_ids: Sequence[str]) -> Optional[int]:
+        """How many of ``job_ids`` are queued or running; ``None`` if squeue cannot say.
+
+        Every federation member (``-M all``), so a job accepted by another
+        member still counts against the policy's ``max_concurrent``.
+        """
         if not job_ids:
             return 0
-        listed = self._slurm([self._tool("squeue"), "-h", "-u", _policy._requester(), "-o", "%i"])
+        listed = self._slurm([self._tool("squeue"), "-M", "all", "-h", "-u", _policy._requester(), "-o", "%i"])
+        if listed.returncode != 0:
+            return None
         live = {line.strip() for line in listed.stdout.splitlines() if line.strip()}
         return len(live & set(job_ids))
 

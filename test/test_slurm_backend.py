@@ -995,3 +995,22 @@ def test_an_approval_does_not_widen_the_limits(tmp_path, slurm, monkeypatch, res
     with pytest.raises(SubmissionRefused, match=message):
         _batch(cluster="tdst", approval="tdst-1", partition=partition).run(request)
     assert not (slurm.directory / "calls.jsonl").exists() or slurm("sbatch") == []
+
+
+def test_a_refused_batch_job_leaves_nothing_behind(tmp_path, slurm, monkeypatch):
+    from vaft.code.policy import SubmissionRefused
+
+    monkeypatch.setenv("VAFT_EXECUTION_POLICY", str(_policy(tmp_path)))
+    work = _workdir(tmp_path)
+    with pytest.raises(SubmissionRefused):
+        _batch(cluster="tdst").run(_python(work, "pass"))
+    assert not (work / SCRATCH_DIRECTORY).exists()
+
+
+def test_a_step_outside_an_allocation_is_gated_too(tmp_path, slurm, monkeypatch):
+    from vaft.code.policy import SubmissionRefused
+
+    monkeypatch.setenv("VAFT_EXECUTION_POLICY", str(_policy(tmp_path)))
+    with pytest.raises(SubmissionRefused):
+        SlurmBackend(mode="step", cluster="tdst").run(_python(_workdir(tmp_path), "pass"))
+    assert not (slurm.directory / "calls.jsonl").exists() or slurm("srun") == []
