@@ -64,23 +64,37 @@ class Dataset:
         """Yield the data for one tool call, then release any remote handles.
 
         A lazy database shot reads HSDS inside the ``with`` body, where an
-        ``OSError`` (an HTTP failure, a 404) can carry the endpoint or account
-        in its text.  Those are reported by class only, as a failed open is;
-        VAFT's own lookup, value and type errors pass through unchanged.
+        ``OSError`` (an HTTP failure, a 404; h5pyd and requests raise these)
+        can carry the endpoint or account in its text.  Those are reported by
+        class only, as a failed open is.  Anything else is VAFT's own error and
+        passes through, so a bug still reaches the server's traceback.
         """
+        database = self.provenance.get("kind") == "database"
         try:
             yield self.data
-        except (LookupError, ValueError, TypeError):
-            raise
-        except Exception as error:  # noqa: BLE001 - never echo server text
-            if self.provenance.get("kind") != "database":
+        except OSError as error:
+            if not database:
                 raise
             raise ValueError(f"database shot {self.shot} (source {self.provenance.get('database_source')}) "
                              f"could not be read: {type(error).__name__}") from None
         finally:
-            close = getattr(self.data, "close", None)
-            if self.provenance.get("kind") == "database" and callable(close):
-                close()
+            if database:
+                self.data.close()
+
+    def prefetch(self, *locations: str) -> None:
+        """Bulk-read ``locations`` of a database shot now, skipping IDS the shot lacks.
+
+        For a caller that reads through code which absorbs exceptions (the
+        summary updaters do): a remote failure here raises inside
+        :meth:`reading` instead of turning into a silently missing column.
+        A sample or an artifact is already in memory and is left alone.
+        """
+        if self.provenance.get("kind") != "database":
+            return
+        held = set(self.data.keys())
+        for location in locations:
+            if location.split(".", 1)[0] in held:
+                self.data.prefetch(location)
 
 
 def known_shots() -> tuple[int, ...]:
@@ -185,11 +199,14 @@ def _database(shot: int, source: str | None) -> Dataset:
         )
     import vaft.database as database
 
+    ods = None
     try:
         ods = database.open(int(shot), source=source)
         # the first lazy read, so it belongs inside the guard as well
         version = _data_dictionary_version(ods)
     except Exception as error:  # noqa: BLE001 - never echo server text: it may carry endpoints or accounts
+        if ods is not None:
+            ods.close()
         raise ValueError(f"database shot {shot} (source {source or 'default'}) is unavailable: "
                          f"{type(error).__name__}") from None
     return Dataset(ods, {

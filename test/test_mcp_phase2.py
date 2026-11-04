@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from vaft.mcp import _atlas
@@ -324,66 +325,143 @@ def test_a_database_failure_reports_its_class_and_never_its_text(monkeypatch):
     assert "PermissionError" in text and "hunter22" not in text and "hsds.internal" not in text
 
 
-def _lazy_shot(failing=()):
-    """A stand-in for ``vaft.database.open``'s lazy ODS: a small ODS that records its close
-    and raises the way a remote read does for any path under ``failing``."""
-    import numpy as np
-    from omas import ODS
-
-    class Lazy(ODS):
-        closed = False
-
-        def __getitem__(self, key, *args, **kwargs):
-            if str(key).split(".", 1)[0] in failing:
-                raise OSError("GET http://hsds.internal:5101/?domain=/main/1/magnetics.h5 user=hs_user 404")
-            return super().__getitem__(key, *args, **kwargs)
-
-        def close(self):
-            type(self).closed = True
-
-    ods = Lazy(consistency_check=False)
-    ods["magnetics.time"] = np.linspace(0.0, 0.4, 5)
-    ods["magnetics.ip.0.data"] = np.arange(5.0)
-    ods["equilibrium.time"] = np.array([0.30, 0.31])
-    return ods
+SECRET = "GET http://hsds.internal:5101/?domain=/main/1/x.h5 user=hs_user 403"
 
 
-def test_a_database_shot_is_opened_lazily_and_closed_after_the_call(monkeypatch):
+class _Dataset:
+    """An h5pyd dataset that serves ``value``, or raises a remote-looking ``OSError`` on read."""
+
+    def __init__(self, value, fail=False):
+        self.value = np.asarray(value)
+        self.shape, self.dtype, self.fail = self.value.shape, self.value.dtype, fail
+
+    def __getitem__(self, selection):
+        if self.fail:
+            raise OSError(SECRET)
+        return self.value[selection]
+
+
+class _File(dict):
+    def __init__(self, name, datasets):
+        super().__init__({name: dict(datasets)})
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+class _H5pyd:
+    def __init__(self, files):
+        self.files, self.opened = files, []
+
+    def File(self, uri, mode):
+        self.opened.append(self.files[uri])
+        return self.files[uri]
+
+    def Folder(self, path, mode=None):
+        return [uri.rsplit("/", 1)[-1] for uri in self.files] + ["master.h5"]
+
+
+def _hsds(failing=()):
+    """Shot 1 in ``main`` as HSDS IMAS images; a dataset named in ``failing`` raises on read."""
+    def ids(name, datasets):
+        return f"hdf5://main/1/{name}.h5", _File(name, {
+            key: _Dataset(value, fail=f"{name}/{key}" in failing) for key, value in datasets.items()})
+
+    return _H5pyd(dict([
+        ids("dataset_description", {"ids_properties&version_put&data_dictionary": np.asarray(b"3.41.0")}),
+        ids("magnetics", {"time": np.linspace(0.0, 0.4, 5), "ip[]&AOS_SHAPE": [1],
+                          "ip[]&data": [np.arange(5.0)]}),
+        ids("equilibrium", {"time": [0.30, 0.31], "time_slice[]&AOS_SHAPE": [2],
+                            "time_slice[]&global_quantities&ip": [1.0e5, 1.1e5]}),
+    ]))
+
+
+@pytest.fixture
+def lazy_database(monkeypatch):
+    """``vaft.database.open`` over a fake HSDS, eager ``load`` forbidden; returns the fake's builder."""
     import vaft.database
+    from vaft.database.lazy_ods import HSDSODS, HSDSStore
 
-    opened = []
+    state = {}
 
-    def open_lazy(shot, **kwargs):
-        opened.append((shot, kwargs, _lazy_shot()))
-        return opened[-1][2]
+    def serve(failing=()):
+        state["module"] = _hsds(failing)
+        return state["module"]
+
+    def open_lazy(shot, source=None, **kwargs):
+        store = HSDSStore(shot, source, h5pyd_module=state["module"])
+        return HSDSODS(store=store, consistency_check=True)
 
     monkeypatch.setenv("VAFT_MCP_DATABASE", "1")
     monkeypatch.setattr(vaft.database, "load", lambda *a, **k: pytest.fail("eager load of the whole shot"))
     monkeypatch.setattr(vaft.database, "open", open_lazy)
+    serve()
+    return serve
+
+
+def _closed(module):
+    """Whether every IDS file the call opened was closed again (and at least one was opened)."""
+    return bool(module.opened) and all(handle.closed for handle in module.opened)
+
+
+def test_a_database_shot_is_read_lazily_and_its_handles_closed(lazy_database):
+    module = lazy_database()
     result = _json(tools.inspect_dataset(shot=1, database_source="main"))
-    assert [(shot, kwargs) for shot, kwargs, _ in opened] == [(1, {"source": "main"})]
     assert result["dataset"]["loader"] == "vaft.database.open"
-    assert {row["ids"]: row["times"] for row in result["items"]} == {"equilibrium": 2, "magnetics": 5}
-    assert type(opened[0][2]).closed
-    times = _json(tools.list_equilibrium_times(shot=1, database_source="main"))
-    assert times["times_s"] == [0.30, 0.31]
+    assert result["dataset"]["data_dictionary"] == "3.41.0"
+    assert {row["ids"]: row["times"] for row in result["items"]} == {
+        "dataset_description": None, "equilibrium": 2, "magnetics": 5}
+    assert _closed(module)
+    assert _json(tools.list_equilibrium_times(shot=1, database_source="main"))["times_s"] == [0.30, 0.31]
+    value = _json(tools.inspect_data_path("equilibrium.time_slice.*.global_quantities.ip", shot=1,
+                                          database_source="main", time=0.31))
+    assert value["value"] == 1.1e5 and value["matched"]["slice"] == 1
+    # a structure node comes back as plain data, readable after the handles closed
+    node = _json(tools.inspect_data_path("equilibrium.time_slice.0", shot=1, database_source="main"))
+    assert node["value"] == {"children": ["global_quantities"]}
+    absent = _json(tools.inspect_data_path("magnetics.flux_loop.0.flux.data", shot=1, database_source="main"))
+    assert absent["present"] is False
 
 
-def test_a_lazy_read_failure_inside_a_tool_reports_its_class_and_never_its_text(monkeypatch):
-    import vaft.database
-
-    shot = _lazy_shot(failing=("magnetics",))
-    monkeypatch.setenv("VAFT_MCP_DATABASE", "1")
-    monkeypatch.setattr(vaft.database, "open", lambda *a, **k: shot)
+@pytest.mark.parametrize("failing, call", [
+    ("magnetics/time", lambda: tools.inspect_dataset(shot=1, database_source="main")),
+    ("magnetics/ip[]&data", lambda: tools.inspect_data_path("magnetics.ip.0.data", shot=1, database_source="main")),
+    ("equilibrium/time", lambda: tools.list_equilibrium_times(shot=1, database_source="main")),
+    # the summary's updaters absorb exceptions: the bulk read before them must not
+    ("equilibrium/time_slice[]&global_quantities&ip",
+     lambda: tools.get_equilibrium_summary(shot=1, database_source="main")),
+])
+def test_a_remote_read_failure_inside_a_tool_reports_its_class_and_never_its_text(lazy_database, failing, call):
+    module = lazy_database(failing=(failing,))
     with pytest.raises(ValueError) as caught:
-        tools.inspect_data_path("magnetics.ip.0.data", shot=1, database_source="main")
+        call()
     text = str(caught.value)
     assert "could not be read: OSError" in text
     assert "hsds.internal" not in text and "hs_user" not in text
-    assert type(shot).closed
-    # a VAFT input error raised while reading keeps its own message
+    assert _closed(module)
+
+
+def test_a_failure_at_the_first_read_closes_what_it_opened(lazy_database):
+    module = lazy_database(failing=("dataset_description/ids_properties&version_put&data_dictionary",))
+    with pytest.raises(ValueError, match="is unavailable: OSError") as caught:
+        tools.inspect_dataset(shot=1, database_source="main")
+    assert "hsds.internal" not in str(caught.value)
+    assert _closed(module)
+
+
+def test_a_vaft_error_on_a_database_shot_is_not_relabelled_a_read_failure(lazy_database, monkeypatch):
+    module = lazy_database()
+
+    def broken(ods, ids):
+        raise RuntimeError("a bug in VAFT")
+
+    monkeypatch.setattr(tools, "_times", broken)
+    with pytest.raises(RuntimeError, match="a bug in VAFT"):
+        tools.inspect_dataset(shot=1, database_source="main")
     with pytest.raises(tools.ToolInputError, match="time-slice index"):
         tools.inspect_data_path("equilibrium.time_slice.*.global_quantities.ip", shot=1, database_source="main")
+    assert _closed(module)
 
 
 def test_artifacts_resolve_only_inside_their_directory(tmp_path, monkeypatch):

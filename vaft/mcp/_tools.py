@@ -689,6 +689,9 @@ def _slice_index(times, time: float, tolerance: float | None) -> tuple[int, floa
     return index, float(times[index]), tolerance
 
 
+#: What get_equilibrium_summary reads of a database shot, fetched in bulk before the summary runs.
+SUMMARY_PREFETCH = ("equilibrium", "magnetics.time", "magnetics.diamagnetic_flux", "tf")
+
 #: Arrays of structures with one entry per ``<ids>.time``, where '*' may stand for the slice.
 TIME_INDEXED = ("equilibrium.time_slice", "core_profiles.profiles_1d", "core_sources.source.0.profiles_1d",
                 "core_transport.model.0.profiles_1d", "mhd_linear.time_slice")
@@ -810,6 +813,9 @@ def get_equilibrium_summary(
         if count > MAX_SUMMARY_SLICES:
             raise ToolInputError(f"{count} equilibrium slices; the summary is limited to {MAX_SUMMARY_SLICES} per call "
                                  f"(use inspect_data_path for single quantities)")
+        # The summary's updaters absorb their own exceptions, so read what they
+        # need up front, where a failed remote read is an error, not a blank column.
+        dataset.prefetch(*SUMMARY_PREFETCH)
         rows = extract_equilibrium_global(dataset.data, dataset.shot)
         if not rows:
             raise ToolInputError("this dataset holds no equilibrium time slices")
