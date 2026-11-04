@@ -470,12 +470,30 @@ def _load_from_shot_waveform_3(
 # Because the span is fixed by class and n is stored in every archive entry,
 # the true cadence of a legacy two-rate archive entry is fully recoverable
 # offline; :func:`upgrade_archive_timebase` uses exactly this inference.
-#: Shot at which the *time convention* changes, for archives that carry nothing
-#: but a shot number to identify themselves.  This is **not** a table-selection
-#: boundary: `shotDataWaveform_2` is in use more than five thousand shots past
-#: it, and the two tables overlap (issue #761).  Live table selection goes
-#: through :func:`waveform_generation_for_shot`, which asks the database.
-V2_LAST_SHOT = 42190
+# ``V2_LAST_SHOT`` -- the shot at which the *time convention* changes, for
+# archives that carry nothing but a shot number to identify themselves -- is
+# the last shot of generation 2 in vest.yaml's
+# ``machine_history.daq.waveform_table_fallback`` (issue #2267), read on
+# access through the module ``__getattr__`` below.  It is **not** a
+# table-selection boundary: `shotDataWaveform_2` is in use more than five
+# thousand shots past it, and the two tables overlap (issue #761).  Live table
+# selection goes through :func:`waveform_generation_for_shot`, which asks the
+# database.
+
+
+def _machine_history():
+    # Imported lazily: vaft.machine_mapping imports this module at load time.
+    from vaft.machine_mapping import machine_history
+
+    return machine_history
+
+
+def __getattr__(name: str):
+    if name == "V2_LAST_SHOT":
+        return _machine_history().last_shot_of_waveform_generation(2)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 FAST_SPAN_S = 0.1
 SLOW_SPAN_S = 1.0
 
@@ -594,7 +612,7 @@ def upgrade_archive_timebase(payload: dict) -> dict:
         if n < 2 or label not in ("fast", "slow"):
             report["skipped"] += 1
             continue
-        if shot > V2_LAST_SHOT:
+        if shot > _machine_history().last_shot_of_waveform_generation(2):
             span = FAST_SPAN_S if label == "fast" else SLOW_SPAN_S
             dt = span / (n - 1)
         else:
@@ -794,20 +812,16 @@ def _daq_trigger_time_correction(shot: int) -> float:
     """
     Correct time array for DAQ trigger delay.
 
+    The offset is vest.yaml's ``machine_history.daq.fast_trigger_offset``
+    (issue #2267).
+
     Args:
         shot: Shot number
 
     Returns:
         float: Time shift value
     """
-    if shot < 41446:
-        return 0.24
-    elif 41446 <= shot <= 41451:
-        return 0.26
-    elif 41452 <= shot <= 41659:
-        return 0.24
-    else:  # shot >= 41660
-        return 0.26
+    return _machine_history().fast_trigger_offset_s(shot)
 
 def load_raw(
     shot: int,
@@ -932,11 +946,7 @@ def vest_check_table(mydb: Any, shot: int) -> int:
         generation = waveform_generation_for_shot(mydb, shot)
         if generation is not None:
             return generation
-    if 29349 < shot <= V2_LAST_SHOT:
-        return 2
-    if shot > V2_LAST_SHOT:
-        return 3
-    return 1
+    return _machine_history().fallback_waveform_generation(shot)
 
 
 def vest_load_shot_waveform_2(mydb: Any, shot: int, field: int) -> Tuple[np.ndarray, np.ndarray]:
