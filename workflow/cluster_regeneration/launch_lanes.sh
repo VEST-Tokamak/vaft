@@ -44,9 +44,11 @@ for lane in "$RUN"/lane*/; do
     [ "$rc" -eq 0 ] && [ -n "$q" ] && { echo "$name: job $id is $q"; continue; }
   fi
   [ -f "$lane/STOP" ] && { echo "$name: STOP file present; remove it to resume"; continue; }
-  job=$(sbatch --parsable -A "${SLURM_ACCOUNT_NAME:?set SLURM_ACCOUNT_NAME, e.g. tdst}" -p "$PART" -c "$CORES" --mem="$MEM" -t "$TIME" -J "$name" \
+  # DEPENDENCY=afterany:<id>[:<id>...] holds the lanes until those jobs end. It is passed as -d:
+  # Slurm 22.05's sbatch reads no SBATCH_DEPENDENCY variable, so an exported one is silently ignored.
+  job=$(sbatch --parsable ${DEPENDENCY:+-d "$DEPENDENCY"} -A "${SLURM_ACCOUNT_NAME:?set SLURM_ACCOUNT_NAME, e.g. tdst}" -p "$PART" -c "$CORES" --mem="$MEM" -t "$TIME" -J "$name" \
         -o "$lane/slurm-%j.out" --wrap "bash $ROOT/run_lane.sh $lane $lane/shots.txt $CORES") \
     || { echo "$name: sbatch failed" >&2; continue; }
-  echo "$job" > "$lane/job"; echo "$(date '+%F %T') $name $job" >> "$RUN/jobs.txt"
+  echo "$job" > "$lane/job"; echo "$(date '+%F %T') $name $job${DEPENDENCY:+ $DEPENDENCY}" >> "$RUN/jobs.txt"
   echo "$name: submitted $job"
 done
