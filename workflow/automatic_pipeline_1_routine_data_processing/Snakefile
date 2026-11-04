@@ -522,7 +522,9 @@ checkpoint preflight_raw_dumps:
         min_samples=RAW_MIN_SAMPLES
     # Every per-shot job waits on this checkpoint, so it runs alone: reading the
     # archives in parallel costs the run nothing and is ~0.3-0.8 s per shot serially.
-    threads: workflow.cores
+    # A callable, evaluated per job: a bare workflow.cores raises in a run without
+    # --cores (`snakemake --unlock`, which run_lane.sh and the worker issue).
+    threads: lambda wildcards: workflow.cores
     conda:
         CONDA if CONDA else None
     shell:
