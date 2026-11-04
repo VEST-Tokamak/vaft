@@ -59,7 +59,7 @@ __all__ = [
     "SLOW_SPAN_S",
     "SQL_TABLE_PATH",
     "SecureConfigManager",
-    "V2_LAST_SHOT",
+    "V2_LAST_SHOT",  # noqa: F822 - served by module __getattr__
     "compare_db_and_dumped_raw_signals_for_shot",
     "configuration",
     "date_from_shot",
@@ -460,7 +460,8 @@ def _load_from_shot_waveform_3(
 
 # The eras' time-encoding conventions, measured directly from the VEST tables:
 #
-# * shotDataWaveform_2 (29350 <= shot <= 42190) stores per-sample times on the
+# * shotDataWaveform_2 (29350 <= shot <= 42190, the vest.yaml
+#   ``machine_history.daq.waveform_table_fallback`` bounds) stores per-sample times on the
 #   ``arange`` convention -- t = arange(n) * dt with dt exactly the nominal
 #   FAST_DT / SLOW_DT, ending one sample short of the acquisition span.
 # * shotDataWaveform_3 (shot > 42190) stores one linspace(0, span, n) string

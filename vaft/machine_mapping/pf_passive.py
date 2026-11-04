@@ -156,7 +156,7 @@ __all__ = [
     "DEFAULT_REFERENCE_ODS",
     "DEFAULT_STATIC_GEOMETRY",
     "DEFAULT_WALL_2409_ADDITIONS",
-    "WALL_GEOMETRY_2409_FIRST_SHOT",
+    "WALL_GEOMETRY_2409_FIRST_SHOT",  # noqa: F822 - served by module __getattr__
     "append_wall_loops",
     "load_wall_2409_additions",
     "pf_passive",

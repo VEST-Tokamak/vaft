@@ -483,7 +483,7 @@ def pf_active_from_raw_database(
 
 
 __all__ = [
-    "PF_GEOMETRY_2507_FIRST_SHOT",
+    "PF_GEOMETRY_2507_FIRST_SHOT",  # noqa: F822 - served by module __getattr__
     "coil_field_code_by_index",
     "pf_active",
     "pf_active_from_raw_database",

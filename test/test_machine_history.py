@@ -152,3 +152,31 @@ def test_missing_machine_history_fails_loudly(tmp_path):
 def test_negative_shot_is_refused():
     with pytest.raises(VestConfigurationError):
         mh.machine_era_for_shot(-1)
+
+
+def test_a_gap_between_waveform_generations_fails(tmp_path):
+    document = _packaged()
+    document["machine_history"]["daq"]["waveform_table_fallback"]["revisions"][0]["to_shot"] = 42180
+    path = tmp_path / "vest.yaml"
+    path.write_text(yaml.safe_dump(document), encoding="utf-8")
+    with pytest.raises(VestConfigurationError, match="contiguous"):
+        mh.fallback_waveform_generation(42185, info_file=str(path))
+    with pytest.raises(VestConfigurationError, match="contiguous"):
+        mh.last_shot_of_waveform_generation(2, info_file=str(path))
+
+
+def test_resolved_daq_values_are_read_only():
+    resolved = mh._resolved_daq(mh._stat_key(None), "fast_trigger_offset", 41700)
+    with pytest.raises(TypeError):
+        resolved["offset_s"] = 1.0  # type: ignore[index]
+
+
+def test_wall_2409_import_derives_its_reference_shots():
+    import importlib.util
+    from pathlib import Path as _Path
+
+    script = _Path(__file__).resolve().parents[1] / "workflow" / "em_coupling" / "import_wall_2409.py"
+    spec = importlib.util.spec_from_file_location("_import_wall_2409", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.PF_REFERENCE_SHOT == {"1906": 43017, "2507": 45968}

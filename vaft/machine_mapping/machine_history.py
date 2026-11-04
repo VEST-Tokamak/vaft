@@ -20,6 +20,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 import os
+from types import MappingProxyType
 from typing import Any
 
 from .utils import (
@@ -192,9 +193,32 @@ def _resolved_daq(key: tuple[str, int, int], name: str, shot: int) -> Mapping[st
     if not isinstance(block, Mapping):
         raise VestConfigurationError(f"{MACHINE_HISTORY_KEY}.daq.{name} must be a mapping")
     base = {k: v for k, v in block.items() if k != "revisions"}
-    return resolve_shot_revisions(
-        base, block.get("revisions"), shot, context=f"{MACHINE_HISTORY_KEY}.daq.{name}"
+    context = f"{MACHINE_HISTORY_KEY}.daq.{name}"
+    resolved = resolve_shot_revisions(base, block.get("revisions"), shot, context=context)
+    if name == "waveform_table_fallback":
+        _check_contiguous(block.get("revisions"), context=context)
+    # Read-only: the cached value is shared by every later call.
+    return MappingProxyType(resolved)
+
+
+def _check_contiguous(revisions: Any, *, context: str) -> None:
+    """Refuse a gap between bounded revisions of a DAQ table.
+
+    ``resolve_shot_revisions`` already refuses overlaps; a gap between two
+    waveform-table generations would silently hand its shots to generation 1.
+    (The trigger-offset table has a deliberate gap, 41452-41659, that falls
+    back to its base offset, so it is not checked.)
+    """
+    spans = sorted(
+        (int(r["from_shot"]), None if r.get("to_shot") is None else int(r["to_shot"]))
+        for r in revisions or ()
+        if r.get("from_shot") is not None
     )
+    for (_, last), (first, _) in zip(spans, spans[1:]):
+        if last is not None and first != last + 1:
+            raise VestConfigurationError(
+                f"{context}: revisions must be contiguous; {last} is followed by {first}"
+            )
 
 
 def fast_trigger_offset_s(shot: int, *, info_file: str | os.PathLike[str] | None = None) -> float:
@@ -220,10 +244,20 @@ def fallback_waveform_generation(shot: int, *, info_file: str | os.PathLike[str]
     return value
 
 
-def last_shot_of_waveform_generation(generation: int) -> int:
-    """The last shot the packaged fallback assigns to *generation* (``V2_LAST_SHOT`` for 2)."""
-    block = _section(_history(_stat_key(None)), "daq", "waveform_table_fallback")
-    for revision in block.get("revisions") or ():
+def last_shot_of_waveform_generation(
+    generation: int, *, info_file: str | os.PathLike[str] | None = None
+) -> int:
+    """The last shot the fallback assigns to *generation* (``V2_LAST_SHOT`` for 2)."""
+    return _last_shot_of_generation(_stat_key(info_file), generation)
+
+
+@lru_cache(maxsize=16)
+def _last_shot_of_generation(key: tuple[str, int, int], generation: int) -> int:
+    block = _section(_history(key), "daq", "waveform_table_fallback")
+    revisions = block.get("revisions") if isinstance(block, Mapping) else None
+    # Validate the whole table exactly as a shot lookup would.
+    _resolved_daq(key, "waveform_table_fallback", 0)
+    for revision in revisions or ():
         if revision.get("generation") == generation and revision.get("to_shot") is not None:
             return _shot_number(revision["to_shot"], name="to_shot", context="waveform_table_fallback")
     raise ValueError(f"The waveform-table fallback gives generation {generation} no last shot")
