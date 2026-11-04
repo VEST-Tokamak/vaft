@@ -30,7 +30,7 @@ DEFAULT_IGNORED_KEYS = frozenset({
     "creation_date", "created", "created_at", "generated", "generated_at", "timestamp", "time_put",
     "started", "finished", "start_time", "end_time", "elapsed_s", "duration_s", "wall_s", "runtime_s",
     "host", "hostname", "user", "pid", "code_version", "version", "git_sha", "git_commit", "commit", "sha",
-    "command", "argv", "cmdline", "config_path", "configfile", "provenance", "repository", "pin",
+    "command", "argv", "cmdline", "config_path", "configfile",
 })
 
 _ODS = ("diagnostics_ods", "eddy_ods", "efit_ods")
@@ -38,10 +38,14 @@ _MANIFESTS = ("diagnostics_manifest", "eddy_manifest", "efit_manifest")
 
 
 def _load(path: Path) -> Any:
-    if path.suffix == ".gz":
-        with gzip.open(path, "rt", encoding="utf-8") as handle:
-            return json.load(handle)
-    return json.loads(path.read_text(encoding="utf-8"))
+    """JSON content, or the raw bytes for a file that is not JSON (compared as such)."""
+    try:
+        if path.suffix == ".gz":
+            with gzip.open(path, "rt", encoding="utf-8") as handle:
+                return json.load(handle)
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError, EOFError):
+        return path.read_bytes()
 
 
 def _equal(a: Any, b: Any) -> bool:

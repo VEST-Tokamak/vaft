@@ -9,7 +9,8 @@ run-scoped rule, a missing checkpoint verdict, or a Snakemake killed before it
 finished -- means the chunk did not run and must not be marked done.
 
 This is the rule ``workflow/cluster_regeneration/run_lane.sh`` applied in shell,
-kept here so the worker and the lanes judge a run the same way.
+kept here so other runners judge a run the same way (the deployed lanes still
+use the shell rule; ``test/test_campaign.py`` pins that the two agree).
 """
 
 from __future__ import annotations
@@ -56,10 +57,18 @@ def chunk_verdict(returncode: int, log: str, *, has_eligible_verdict: bool) -> C
     scoped = sorted(set(failed) & RUN_SCOPED_RULES)
     if scoped:
         return ChunkVerdict(False, failed, f"run-scoped rule failed: {', '.join(scoped)}")
-    for block in re.finditer(r"^WorkflowError:?\s*\n?(.*)$", log, flags=re.MULTILINE):
-        detail = block.group(1).strip()
-        if detail and not any(text in detail for text in _PER_SHOT_WORKFLOW_ERRORS):
-            return ChunkVerdict(False, failed, f"WorkflowError: {detail}")
+    # As `grep -A1 "^WorkflowError"`: the WorkflowError line and the one after
+    # it must be the bare header and the keep-going summary, nothing else.
+    lines = log.splitlines()
+    for index, line in enumerate(lines):
+        if not line.startswith("WorkflowError"):
+            continue
+        for candidate in lines[index:index + 2]:
+            if re.match(r"^WorkflowError:?$", candidate) or candidate == "--":
+                continue
+            if any(candidate.startswith(text) for text in _PER_SHOT_WORKFLOW_ERRORS):
+                continue
+            return ChunkVerdict(False, failed, f"WorkflowError: {candidate.strip()}")
     if not has_eligible_verdict:
         return ChunkVerdict(False, failed, "no preflight verdict was written")
     return ChunkVerdict(True, failed)

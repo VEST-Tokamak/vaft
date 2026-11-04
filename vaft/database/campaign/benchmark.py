@@ -103,7 +103,7 @@ def lane_report(lane: PathLike) -> dict[str, Any]:
         "cpu_h": cpu / 3600 if measured else None,
         "cpu_util": cpu / measured_booked if measured_booked else None,
         "cpu_h_per_shot": cpu / 3600 / sum(c["shots"] for c in measured) if measured else None,
-        "mem_max_gb": max((chunk.get("chunk_mem_max_gb", 0.0) for chunk in done), default=None),
+        "mem_max_gb": max((chunk["chunk_mem_max_gb"] for chunk in done if "chunk_mem_max_gb" in chunk), default=None),
         "slot_occupancy": (
             sum(chunk.get("slot_occupancy", 0.0) * chunk["wall_s"] for chunk in done) / wall if wall else None
         ),

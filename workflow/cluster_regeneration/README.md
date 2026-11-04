@@ -107,7 +107,12 @@ python -m vaft.database.campaign compare NEW/filedb REF/lane0/filedb REF/lane1/f
 python -m vaft.database.campaign verdict logs/shots.000.snakemake.log --returncode 1 --eligible chunks/shots.000.eligible_shots.json
 ```
 
+`plan --pin <sha>` writes `shots_all.txt` and `PIN_SHA` too, so `launch_lanes.sh` takes the run as
+planned and submits its lanes without re-dealing them.
+
 `resource_profile` in the run config (rule -> `mem_mb`/`threads`) becomes `--set-resources`/
-`--set-threads` for the worker and, via `paths.resource_profile_args`, for a lane. The deployed
-`run_lane.sh` keeps its own shell verdict while a run is in flight; `test/test_campaign.py` pins
-that the Python verdict and chunk split agree with it.
+`--set-threads` for the routine worker (`paths.resource_profile_args`); bookings bind only under a
+run-wide `--resources mem_mb=...` (pass it in the worker's `extra_args`, which come after the profile
+and win over it). The deployed `run_lane.sh` keeps its own `--set-resources` and its shell verdict
+while a run is in flight; `test/test_campaign.py` pins that the Python verdict and chunk split agree
+with the shell's.

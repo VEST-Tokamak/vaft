@@ -23,6 +23,7 @@ def main(argv: list[str] | None = None) -> int:
     plan.add_argument("--lanes", type=int, required=True)
     plan.add_argument("--chunk", type=int, required=True)
     plan.add_argument("--exclude", type=Path, nargs="*", default=(), help="run dirs whose lanes' shots must not overlap")
+    plan.add_argument("--pin", help="code SHA the run is pinned at (written to <run>/PIN_SHA for launch_lanes.sh)")
 
     bench = commands.add_parser("benchmark", help="cost report of one or more lanes")
     bench.add_argument("lanes", nargs="+", help="label=lane_dir or lane_dir")
@@ -47,6 +48,14 @@ def main(argv: list[str] | None = None) -> int:
         if overlap:
             print(f"{len(overlap)} shots are already in another run's lanes, e.g. {overlap[:5]}", file=sys.stderr)
             return 2
+        if (args.run_dir / "shots_all.txt").exists() or any(args.run_dir.glob("lane*/chunks")):
+            print(f"{args.run_dir} is already planned; its lanes' shots and chunks are fixed", file=sys.stderr)
+            return 2
+        args.run_dir.mkdir(parents=True, exist_ok=True)
+        # What launch_lanes.sh reads to treat the run as planned (it re-deals lanes otherwise).
+        (args.run_dir / "shots_all.txt").write_text("".join(f"{s}\n" for s in sorted(set(shots))), encoding="utf-8")
+        if args.pin:
+            (args.run_dir / "PIN_SHA").write_text(f"{args.pin}\n", encoding="utf-8")
         for index, lane_shots in enumerate(plan_lanes(shots, args.lanes)):
             lane = LaneState(args.run_dir / f"lane{index}")
             lane.ensure("chunk_size", str(args.chunk))

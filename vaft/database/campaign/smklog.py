@@ -30,7 +30,7 @@ _START = re.compile(r"^(?:local)?(?:rule|checkpoint) (\w+):$")
 _JOBID = re.compile(r"^\s+jobid: (\d+)$")
 _WILDCARDS = re.compile(r"^\s+wildcards: (.*)$")
 _THREADS = re.compile(r"^\s+threads: (\d+)$")
-_FINISHED = re.compile(r"^Finished jobid: (\d+)")
+_FINISHED = re.compile(r"^Finished job(?:id:)? (\d+)")  # Snakemake 9 / 8
 _ERROR = re.compile(r"^Error in rule (\w+):")
 
 
@@ -80,18 +80,24 @@ def parse_log(source: Union[str, Path, Iterable[str]]) -> list[SnakemakeJob]:
             pending_id = None
             continue
         if pending is not None:
+            # wildcards/threads may come before or after jobid: they fill the
+            # pending header, which running[...] refers to once the id is known.
             jobid = _JOBID.match(line)
-            if jobid:
-                running[int(jobid.group(1))] = pending
+            if jobid and pending_id is None:
                 pending_id = int(jobid.group(1))
+                if pending_id in running:
+                    # An appended run reused the id of a job the last one never
+                    # finished (it was killed): that job ends open, not lost.
+                    jobs.append(_close(pending_id, running.pop(pending_id), None, failed=False))
+                running[pending_id] = pending
                 continue
             wildcards = _WILDCARDS.match(line)
-            if wildcards and pending_id in running:
-                running[pending_id]["wildcards"] = wildcards.group(1)
+            if wildcards:
+                pending["wildcards"] = wildcards.group(1)
                 continue
             threads = _THREADS.match(line)
-            if threads and pending_id in running:
-                running[pending_id]["threads"] = int(threads.group(1))
+            if threads:
+                pending["threads"] = int(threads.group(1))
                 continue
         finished = _FINISHED.match(line)
         if finished and now is not None:
@@ -102,7 +108,11 @@ def parse_log(source: Union[str, Path, Iterable[str]]) -> list[SnakemakeJob]:
             continue
         error = _ERROR.match(line)
         if error and now is not None:
-            for follow in lines[index + 1:index + 8]:
+            # The error block runs until the next timestamp or blank line; its
+            # message may span several lines before the jobid.
+            for follow in lines[index + 1:]:
+                if _TIMESTAMP.match(follow) or not follow.strip():
+                    break
                 found = _JOBID.match(follow)
                 if found and int(found.group(1)) in running:
                     jobid = int(found.group(1))

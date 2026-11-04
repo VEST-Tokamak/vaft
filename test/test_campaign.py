@@ -285,3 +285,35 @@ def test_the_worker_books_rules_from_the_same_profile(tmp_path):
     runner = SnakemakeRunner(_Config(), {"resource_profile": {"run_chease": {"mem_mb": 4000}}})
     command = runner.command(RunPlan(run_id=1, full_shots=(39915,)), tmp_path / "c.yaml")
     assert command[-3:] == ["--set-resources", "run_chease:mem_mb=4000", "--nolock"]
+
+
+def test_a_killed_job_whose_id_an_appended_run_reuses_ends_open():
+    log = ("[Tue Nov  3 12:00:00 2026]\nrule a:\n    wildcards: shot=1\n    threads: 2\n    jobid: 5\n"
+           "[Tue Nov  3 13:00:00 2026]\nrule b:\n    jobid: 5\n[Tue Nov  3 13:00:10 2026]\nFinished job 5.\n")
+    jobs = parse_log(log)
+    assert [(j.rule, j.end is None, j.wildcards, j.threads) for j in jobs] == [
+        ("a", True, "shot=1", 2), ("b", False, "", 1)]
+
+
+def test_an_error_block_with_a_long_message_still_closes_its_job():
+    log = ("[Tue Nov  3 12:00:00 2026]\nrule a:\n    jobid: 3\n[Tue Nov  3 12:00:05 2026]\nError in rule a:\n"
+           "    message: one\n      two\n      three\n      four\n      five\n      six\n      seven\n    jobid: 3\n")
+    (job,) = parse_log(log)
+    assert job.failed and job.seconds == 5.0
+
+
+def test_the_verdict_reads_workflow_error_like_grep_a1():
+    tail = "Error in rule a:\n    jobid: 1\nExiting because a job execution failed.\n"
+    assert chunk_verdict(1, tail + "WorkflowError: At least one job did not complete successfully.\n",
+                         has_eligible_verdict=True).done is False
+    assert chunk_verdict(1, tail + "WorkflowError:\n\nlater text\n", has_eligible_verdict=True).done is False
+
+
+def test_plan_writes_what_launch_lanes_reads_and_refuses_a_replan(tmp_path):
+    (tmp_path / "shots.txt").write_text("1\n2\n3\n")
+    args = ["plan", str(tmp_path / "shots.txt"), str(tmp_path / "run"), "--lanes", "2", "--chunk", "2", "--pin", "abc"]
+    assert campaign_main(args) == 0
+    assert (tmp_path / "run" / "shots_all.txt").read_text() == "1\n2\n3\n"
+    assert (tmp_path / "run" / "PIN_SHA").read_text().strip() == "abc"
+    assert campaign_main(args) == 2
+    assert (tmp_path / "run" / "lane0" / "shots.txt").read_text() == "1\n3\n"
