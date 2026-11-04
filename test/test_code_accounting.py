@@ -258,7 +258,7 @@ def test_an_unknown_active_count_refuses_under_max_concurrent(tmp_path):
 
 
 def test_a_failed_audit_write_after_sbatch_warns_instead_of_raising(tmp_path, monkeypatch):
-    policy = _write_policy(tmp_path, {"tdst": {}})
+    _write_policy(tmp_path, {"tdst": {}})
     env = {"VAFT_EXECUTION_POLICY": str(tmp_path / "policy.yaml")}
     gate = open_gate(cluster="tdst", cpus=1, mem_mb=None, partition=None, environ=env)
 
