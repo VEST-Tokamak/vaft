@@ -303,7 +303,7 @@ def test_a_shot_without_a_sample_needs_the_database_switch(monkeypatch):
     import vaft.database
 
     monkeypatch.delenv("VAFT_MCP_DATABASE", raising=False)
-    monkeypatch.setattr(vaft.database, "load", lambda *a, **k: pytest.fail("database contacted"))
+    monkeypatch.setattr(vaft.database, "open", lambda *a, **k: pytest.fail("database contacted"))
     with pytest.raises(ValueError, match="VAFT_MCP_DATABASE=1"):
         tools.inspect_dataset(shot=1)
     with pytest.raises(ValueError, match="VAFT_MCP_DATABASE=1"):
@@ -317,11 +317,73 @@ def test_a_database_failure_reports_its_class_and_never_its_text(monkeypatch):
         raise PermissionError("403 for user hs_user at http://hsds.internal:5101 password=hunter22")
 
     monkeypatch.setenv("VAFT_MCP_DATABASE", "1")
-    monkeypatch.setattr(vaft.database, "load", refuse)
+    monkeypatch.setattr(vaft.database, "open", refuse)
     with pytest.raises(ValueError) as caught:
         tools.inspect_dataset(shot=1, database_source="main")
     text = str(caught.value)
     assert "PermissionError" in text and "hunter22" not in text and "hsds.internal" not in text
+
+
+def _lazy_shot(failing=()):
+    """A stand-in for ``vaft.database.open``'s lazy ODS: a small ODS that records its close
+    and raises the way a remote read does for any path under ``failing``."""
+    import numpy as np
+    from omas import ODS
+
+    class Lazy(ODS):
+        closed = False
+
+        def __getitem__(self, key, *args, **kwargs):
+            if str(key).split(".", 1)[0] in failing:
+                raise OSError("GET http://hsds.internal:5101/?domain=/main/1/magnetics.h5 user=hs_user 404")
+            return super().__getitem__(key, *args, **kwargs)
+
+        def close(self):
+            type(self).closed = True
+
+    ods = Lazy(consistency_check=False)
+    ods["magnetics.time"] = np.linspace(0.0, 0.4, 5)
+    ods["magnetics.ip.0.data"] = np.arange(5.0)
+    ods["equilibrium.time"] = np.array([0.30, 0.31])
+    return ods
+
+
+def test_a_database_shot_is_opened_lazily_and_closed_after_the_call(monkeypatch):
+    import vaft.database
+
+    opened = []
+
+    def open_lazy(shot, **kwargs):
+        opened.append((shot, kwargs, _lazy_shot()))
+        return opened[-1][2]
+
+    monkeypatch.setenv("VAFT_MCP_DATABASE", "1")
+    monkeypatch.setattr(vaft.database, "load", lambda *a, **k: pytest.fail("eager load of the whole shot"))
+    monkeypatch.setattr(vaft.database, "open", open_lazy)
+    result = _json(tools.inspect_dataset(shot=1, database_source="main"))
+    assert [(shot, kwargs) for shot, kwargs, _ in opened] == [(1, {"source": "main"})]
+    assert result["dataset"]["loader"] == "vaft.database.open"
+    assert {row["ids"]: row["times"] for row in result["items"]} == {"equilibrium": 2, "magnetics": 5}
+    assert type(opened[0][2]).closed
+    times = _json(tools.list_equilibrium_times(shot=1, database_source="main"))
+    assert times["times_s"] == [0.30, 0.31]
+
+
+def test_a_lazy_read_failure_inside_a_tool_reports_its_class_and_never_its_text(monkeypatch):
+    import vaft.database
+
+    shot = _lazy_shot(failing=("magnetics",))
+    monkeypatch.setenv("VAFT_MCP_DATABASE", "1")
+    monkeypatch.setattr(vaft.database, "open", lambda *a, **k: shot)
+    with pytest.raises(ValueError) as caught:
+        tools.inspect_data_path("magnetics.ip.0.data", shot=1, database_source="main")
+    text = str(caught.value)
+    assert "could not be read: OSError" in text
+    assert "hsds.internal" not in text and "hs_user" not in text
+    assert type(shot).closed
+    # a VAFT input error raised while reading keeps its own message
+    with pytest.raises(tools.ToolInputError, match="time-slice index"):
+        tools.inspect_data_path("equilibrium.time_slice.*.global_quantities.ip", shot=1, database_source="main")
 
 
 def test_artifacts_resolve_only_inside_their_directory(tmp_path, monkeypatch):

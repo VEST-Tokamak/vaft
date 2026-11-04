@@ -9,15 +9,24 @@ changing any tool schema.  Three kinds of dataset resolve:
 * a packaged reference shot (:func:`vaft.omas.sample.sample_ods`), offline;
 * a local artifact under ``VAFT_ARTIFACT_DIR`` -- a g-file, OMAS JSON, IMAS
   netCDF or IMAS HDF5 -- through :func:`vaft.omas.load`;
-* a database shot through :func:`vaft.database.load`, only when the server was
+* a database shot through :func:`vaft.database.open`, only when the server was
   started with ``VAFT_MCP_DATABASE=1``.  Credentials come from the user's own
   HSDS configuration; nothing here reads, logs or returns them, and a failure
   is reported by its exception class only.
 
+A database shot is opened lazily: opening lists the shot's IDS and nothing
+else, and each leaf is fetched when a tool first reads it, so a tool pays for
+the paths it touches rather than for the whole shot (an eager load of every
+IDS takes tens of seconds; a time base or one global quantity, a fraction of a
+second).  Its reads therefore fail inside the tool, not at open, and the tool
+reads through :meth:`Dataset.reading`, which keeps the exception-class-only
+rule there too and closes the remote handles afterwards.
+
 Every load returns a fresh object: VAFT's updaters and extraction may
 materialise paths on the loaded data, and a cached object would carry that
-into the next answer.  Nothing here writes to the data's home: database shots
-are read with the download cache off, and the only files created are the
+into the next answer.  Nothing here writes to the data's home: a lazy database
+shot keeps what it fetches (and what an updater writes) in memory only, and
+the only files created are the
 temporary copies VAFT's own loaders stage (a decompressed ``.json.gz``, a
 partial IMAS entry), which they remove.  Artifacts are size-capped so that
 staging stays small.
@@ -26,6 +35,7 @@ staging stays small.
 from __future__ import annotations
 
 import os
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -48,6 +58,29 @@ class Dataset:
     @property
     def shot(self) -> int:
         return int(self.provenance.get("shot") or 0)
+
+    @contextmanager
+    def reading(self):
+        """Yield the data for one tool call, then release any remote handles.
+
+        A lazy database shot reads HSDS inside the ``with`` body, where an
+        ``OSError`` (an HTTP failure, a 404) can carry the endpoint or account
+        in its text.  Those are reported by class only, as a failed open is;
+        VAFT's own lookup, value and type errors pass through unchanged.
+        """
+        try:
+            yield self.data
+        except (LookupError, ValueError, TypeError):
+            raise
+        except Exception as error:  # noqa: BLE001 - never echo server text
+            if self.provenance.get("kind") != "database":
+                raise
+            raise ValueError(f"database shot {self.shot} (source {self.provenance.get('database_source')}) "
+                             f"could not be read: {type(error).__name__}") from None
+        finally:
+            close = getattr(self.data, "close", None)
+            if self.provenance.get("kind") == "database" and callable(close):
+                close()
 
 
 def known_shots() -> tuple[int, ...]:
@@ -153,7 +186,9 @@ def _database(shot: int, source: str | None) -> Dataset:
     import vaft.database as database
 
     try:
-        ods = database.load(int(shot), source=source, cache="off")
+        ods = database.open(int(shot), source=source)
+        # the first lazy read, so it belongs inside the guard as well
+        version = _data_dictionary_version(ods)
     except Exception as error:  # noqa: BLE001 - never echo server text: it may carry endpoints or accounts
         raise ValueError(f"database shot {shot} (source {source or 'default'}) is unavailable: "
                          f"{type(error).__name__}") from None
@@ -161,8 +196,8 @@ def _database(shot: int, source: str | None) -> Dataset:
         "kind": "database",
         "shot": int(shot),
         "database_source": source or "default",
-        "loader": "vaft.database.load",
-        "data_dictionary": _data_dictionary_version(ods),
+        "loader": "vaft.database.open",
+        "data_dictionary": version,
         "vaft_version": _vaft_version(),
     })
 
