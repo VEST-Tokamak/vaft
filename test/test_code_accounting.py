@@ -279,3 +279,29 @@ def test_a_naive_expiry_is_local_time():
 def test_an_oom_kill_the_batch_shell_survived_is_still_the_memory_limit():
     returncode, timed_out, _, _, status = _outcome(state="OUT_OF_MEMORY", recorded="137")
     assert (returncode, timed_out, status) == (None, True, "memory_limit")
+
+
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        (["-c64"], "64 CPUs requested"),
+        (["-pgpu"], "partition 'gpu'"),
+        (["--exclusive"], "--exclusive books a whole node"),
+        (["--mem=0"], "--mem=0 books a node's whole memory"),
+        (["--nodes=2", "--ntasks-per-node=2", "-c", "8"], "32 CPUs requested"),
+        (["--nodes=2", "--mem=48G"], "limit 65536 MiB"),
+    ],
+)
+def test_whole_node_and_joined_options_cannot_slip_past(tmp_path, options, message):
+    policy = _write_policy(tmp_path, {"tdst": {"max_cpus": 16, "max_mem_mb": 65536, "partitions": ["g1"]}})
+    decision = policy.check(cluster="tdst", cpus=16, mem_mb=65536, partition="g1", options=options)
+    assert any(message in reason for reason in decision.reasons), decision.reasons
+
+
+def test_a_step_this_host_launched_counts_while_its_client_lives():
+    import os
+
+    from vaft.code.slurm import SlurmBackend
+
+    backend = SlurmBackend(mode="step")
+    assert backend._active_jobs([f"srun:{os.getpid()}", "srun:999999999"]) == 1

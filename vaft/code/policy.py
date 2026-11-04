@@ -240,10 +240,14 @@ class ExecutionPolicy:
             "max_concurrent": _tighter(rules.max_concurrent, approval.max_concurrent if approval else None),
             "partitions": rules.partitions,
         }
-        if limits["max_cpus"] is not None and cpus > limits["max_cpus"]:
+        if limits["max_cpus"] is not None and cpus == WHOLE_NODE:
+            reasons.append(f"--exclusive books a whole node, limit {limits['max_cpus']} CPUs")
+        elif limits["max_cpus"] is not None and cpus > limits["max_cpus"]:
             reasons.append(f"{cpus} CPUs requested, limit {limits['max_cpus']}")
         if limits["max_mem_mb"] is not None:
-            if mem_mb is None:
+            if mem_mb == WHOLE_NODE:
+                reasons.append(f"--mem=0 books a node's whole memory, limit {limits['max_mem_mb']} MiB")
+            elif mem_mb is None:
                 reasons.append(f"no memory requested; cluster {cluster!r} requires --mem <= {limits['max_mem_mb']} MiB")
             elif mem_mb > limits["max_mem_mb"]:
                 reasons.append(f"{mem_mb} MiB requested, limit {limits['max_mem_mb']} MiB")
@@ -411,32 +415,64 @@ def _acquire(policy: ExecutionPolicy) -> Any:
     return handle
 
 
+#: A request for the whole node: ``--mem=0`` (all its memory) or ``--exclusive``.
+WHOLE_NODE = -1
+
+
 def _effective(
     options: Sequence[str], cpus: int, mem_mb: Optional[int], partition: Optional[str]
 ) -> tuple[int, Optional[int], Optional[str]]:
-    """``(cpus, mem MiB, partition)`` an sbatch/srun option list really asks for (last wins)."""
+    """``(cpus, mem MiB, partition)`` an sbatch/srun option list really asks for (last wins).
+
+    Short options may be joined (``-c32``, ``-pg1``). ``--nodes`` and
+    ``--ntasks-per-node`` multiply the CPU count; ``--exclusive`` and
+    ``--mem=0`` ask for a whole node and come back as :data:`WHOLE_NODE`.
+    """
     values: dict[str, str] = {}
-    aliases = {"-c": "--cpus-per-task", "-p": "--partition", "-n": "--ntasks"}
+    short = {"-c": "--cpus-per-task", "-p": "--partition", "-n": "--ntasks", "-N": "--nodes"}
+    known = ("--cpus-per-task", "--partition", "--ntasks", "--nodes", "--ntasks-per-node", "--mem", "--mem-per-cpu")
     items = [str(item) for item in options]
+    exclusive = False
     for index, item in enumerate(items):
+        if item == "--exclusive" or item.startswith("--exclusive="):
+            exclusive = True
+            continue
         name, _, value = item.partition("=")
-        name = aliases.get(name, name)
-        if name in ("--cpus-per-task", "--partition", "--ntasks", "--mem", "--mem-per-cpu"):
+        if name[:2] in short and len(name) > 2 and not name.startswith("--"):
+            name, value = short[name[:2]], name[2:]   # -c32
+        name = short.get(name, name)
+        if name in known:
             if not value and index + 1 < len(items) and not items[index + 1].startswith("-"):
                 value = items[index + 1]
             if value:
                 values[name] = value
-    per_task = int(values["--cpus-per-task"]) if "--cpus-per-task" in values else None
-    tasks = int(values.get("--ntasks", "1"))
-    if per_task is not None:
-        cpus = per_task * tasks
+    nodes = _first_int(values.get("--nodes", "1"))
+    if "--ntasks" in values:
+        tasks = int(values["--ntasks"])
+    elif "--ntasks-per-node" in values:
+        tasks = int(values["--ntasks-per-node"]) * nodes
+    else:
+        tasks = nodes
+    if "--cpus-per-task" in values:
+        cpus = int(values["--cpus-per-task"]) * tasks
+    elif tasks > 1:
+        cpus = max(cpus, tasks)
     if "--mem" in values:
-        mem_mb = _mib(values["--mem"])
+        mem_mb = _mib(values["--mem"]) * nodes
+        if mem_mb == 0:
+            mem_mb = WHOLE_NODE
     elif "--mem-per-cpu" in values:
         mem_mb = _mib(values["--mem-per-cpu"]) * cpus
+    if exclusive:
+        cpus = WHOLE_NODE
     if "--partition" in values:
         partition = values["--partition"]
     return cpus, mem_mb, partition
+
+
+def _first_int(text: str) -> int:
+    # --nodes takes a range (2-4): the scheduler may give the upper bound.
+    return int(str(text).split("-")[-1]) if str(text).replace("-", "").isdigit() else 1
 
 
 def _mib(text: str) -> int:

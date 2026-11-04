@@ -330,7 +330,7 @@ def _job_outcome(
     exit_code: Optional[int],
     began: bool,
     walltime_kill: bool,
-) -> tuple[Optional[int], bool, bool, bool]:
+) -> tuple[Optional[int], bool, bool, bool, str]:
     """How a finished batch job ended, from the records a backend collected.
 
     Shared with :mod:`vaft.code.remote`. ``recorded`` is the job script's own
@@ -346,7 +346,9 @@ def _job_outcome(
     landed. A job the scheduler ended ``OUT_OF_MEMORY``, ``CANCELLED`` by
     someone else, or for a node failure did not exit on its own either: it is
     ``timed_out`` with ``runtime_status`` ``memory_limit``, ``cancelled`` or
-    ``node_fail`` -- unless the program's own exit was recorded first.
+    ``node_fail`` -- unless the program's own exit was recorded first, except
+    that a non-zero exit under ``OUT_OF_MEMORY`` is the OOM killer's (the batch
+    shell survived the program and recorded its 137).
     """
     terminated = recorded is not None and recorded.startswith(_TERMINATED)
     exited = recorded is not None and not terminated
@@ -384,6 +386,16 @@ def _job_outcome(
     else:
         returncode = exit_code or (143 if terminated else 1)
     return returncode, timed_out, never_started, cancelled, status
+
+
+def _pid_alive(text: str) -> bool:
+    try:
+        os.kill(int(text), 0)
+    except (ValueError, ProcessLookupError):
+        return False
+    except PermissionError:
+        return True
+    return True
 
 
 def _job_note(
@@ -771,7 +783,12 @@ class SlurmBackend:
         ]
 
         started = time.monotonic()
-        job_id, cluster = self._submit(argv)
+        try:
+            job_id, cluster = self._submit(argv)
+        except ExecutableNotLaunchable as error:
+            if "printed no job id" in str(error):
+                gate.submitted("unknown", argv)  # sbatch accepted something: keep it on record
+            raise
         gate.submitted(job_id, argv)
         clusters = ["-M", cluster] if cluster else []
         return _BatchJob(request, tuple(argv), job_id, clusters, scratch, log_path, started)
@@ -896,11 +913,21 @@ class SlurmBackend:
         """
         if not job_ids:
             return 0
-        listed = self._slurm([self._tool("squeue"), "-M", "all", "-h", "-u", _policy._requester(), "-o", "%i"])
+        # A step this host launched with srun (no batch id) counts while its client lives.
+        steps = [job for job in job_ids if job.startswith("srun:")]
+        alive = sum(1 for job in steps if _pid_alive(job.split(":", 1)[1]))
+        batch = set(job_ids) - set(steps)
+        if not batch:
+            return alive
+        squeue = self._tool("squeue")
+        listed = self._slurm([squeue, "-M", "all", "-h", "-u", _policy._requester(), "-o", "%i"])
         if listed.returncode != 0:
-            return None
+            # -M needs slurmdbd; a cluster without federation answers plainly.
+            listed = self._slurm([squeue, "-h", "-u", _policy._requester(), "-o", "%i"])
+            if listed.returncode != 0:
+                return None
         live = {line.strip() for line in listed.stdout.splitlines() if line.strip()}
-        return len(live & set(job_ids))
+        return alive + len(live & batch)
 
     def _live(self, job_id: str, clusters: list[str]) -> Optional[bool]:
         """True while the job is live, False once it is not, None if unknown."""

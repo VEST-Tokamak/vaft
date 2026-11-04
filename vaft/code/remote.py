@@ -649,7 +649,12 @@ class RemoteSlurmBackend:
             # would otherwise lose the whole run to it.
             needed.append(posixpath.dirname(remote_log))
         self._push(local_work, remote_work, needed)
-        job_id, cluster = self._submit(argv)
+        try:
+            job_id, cluster = self._submit(argv)
+        except ExecutableNotLaunchable as error:
+            if "printed no job id" in str(error):
+                gate.submitted("unknown", argv)  # sbatch accepted something: keep it on record
+            raise
         gate.submitted(job_id, argv)
         # Every later scheduler call has to name the federation member that
         # accepted the job, or it asks the wrong controller. Carried as an
@@ -983,7 +988,10 @@ class RemoteSlurmBackend:
             return 0
         listed = self._ssh('squeue -M all -h -u "$(id -un)" -o %i')
         if listed.returncode != 0:
-            return None
+            # -M needs slurmdbd; a cluster without federation answers plainly.
+            listed = self._ssh('squeue -h -u "$(id -un)" -o %i')
+            if listed.returncode != 0:
+                return None
         live = {line.strip() for line in (listed.stdout or "").splitlines() if line.strip()}
         return len(live & set(job_ids))
 
