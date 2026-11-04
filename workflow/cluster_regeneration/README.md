@@ -93,3 +93,21 @@ node versus an AVX2 server:
   per-slice acceptance flips on marginal slices: shot yields move by +-1-2 slices (39915: 19 vs
   17), while the totals over many shots agree. Within one host and setting, reruns are
   byte-identical.
+
+## Python API (`vaft.database.campaign`)
+
+The steps above that are not tied to tdst are also a library, reading and writing the same lane
+layout, so a run started by these scripts resumes under it and the other way round:
+
+```bash
+python -m vaft.database.campaign plan shots.txt RUN --lanes 2 --chunk 1000 --exclude OLD_RUN  # refuses shared shots
+python -m vaft.database.campaign benchmark c1=bench/c1 c2=bench/c2      # cpu_util, CPU-h/shot, shots/h, per rule
+python -m vaft.database.campaign compare NEW/filedb REF/lane0/filedb REF/lane1/filedb \
+    --shots-file shots.txt --workflow-dir <pin>/workflow/automatic_pipeline_1_routine_data_processing
+python -m vaft.database.campaign verdict logs/shots.000.snakemake.log --returncode 1 --eligible chunks/shots.000.eligible_shots.json
+```
+
+`resource_profile` in the run config (rule -> `mem_mb`/`threads`) becomes `--set-resources`/
+`--set-threads` for the worker and, via `paths.resource_profile_args`, for a lane. The deployed
+`run_lane.sh` keeps its own shell verdict while a run is in flight; `test/test_campaign.py` pins
+that the Python verdict and chunk split agree with it.

@@ -222,6 +222,36 @@ def stage_scope(value) -> frozenset[str] | None:
     return frozenset(scope)
 
 
+def resource_profile_args(config) -> list[str]:
+    """Snakemake options for the config's ``resource_profile`` (rule -> mem_mb / threads).
+
+    The Snakefile declares no memory, so a run that shares a node -- a Slurm
+    allocation, a worker on a server -- books each rule from this profile:
+    ``--set-resources rule:mem_mb=N`` and ``--set-threads rule=N``. Snakemake then
+    keeps the running jobs' sum under the run's ``--resources mem_mb``. The
+    solvers differ by an order of magnitude (EFIT ~1 GB, CHEASE ~1.4 GB, DCON /
+    RDCON ``match`` up to ~16 GB), which is why one cap per run does not do.
+    """
+    profile = config.get("resource_profile") or {}
+    if not isinstance(profile, dict):
+        raise ValueError("resource_profile must map rule names to {mem_mb, threads}")
+    resources: list[str] = []
+    threads: list[str] = []
+    for rule, entry in sorted(profile.items()):
+        if not isinstance(entry, dict) or set(entry) - {"mem_mb", "threads"}:
+            raise ValueError(f"resource_profile.{rule} takes only mem_mb and threads, got {entry!r}")
+        if "mem_mb" in entry:
+            resources.append(f"{rule}:mem_mb={int(entry['mem_mb'])}")
+        if "threads" in entry:
+            threads.append(f"{rule}={int(entry['threads'])}")
+    args: list[str] = []
+    if resources:
+        args += ["--set-resources", *resources]
+    if threads:
+        args += ["--set-threads", *threads]
+    return args
+
+
 class ScientificReference(NamedTuple):
     """A product a rule consults without Snakemake scheduling it (#1647).
 
