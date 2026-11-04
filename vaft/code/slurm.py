@@ -420,7 +420,7 @@ def _record_live(record: str) -> bool:
     if parts[0] != "srun" or len(parts) != 4 or not (parts[2].isdigit() and parts[3].isdigit()):
         return False
     host, pid, recorded = parts[1], int(parts[2]), int(parts[3])
-    if host != socket.gethostname():
+    if host != socket.gethostname() or os.name == "nt":  # os.kill(pid, 0) terminates on Windows
         return False
     try:
         os.kill(pid, 0)
@@ -432,6 +432,15 @@ def _record_live(record: str) -> bool:
     return started is None or started <= recorded + 5
 
 
+def _etime_seconds(text: str) -> int:
+    """Seconds in a ps ``etime`` field, ``[[dd-]hh:]mm:ss``."""
+    days, _, clock = text.rpartition("-")
+    seconds = 0
+    for part in clock.split(":"):
+        seconds = seconds * 60 + int(part)
+    return seconds + 86400 * int(days or 0)
+
+
 def _process_start(pid: int) -> Optional[float]:
     """Epoch a process started, from /proc or psutil; ``None`` when this host cannot tell."""
     try:
@@ -439,6 +448,14 @@ def _process_start(pid: int) -> Optional[float]:
 
         return float(psutil.Process(pid).create_time())
     except Exception:  # noqa: BLE001 - psutil absent or the process just ended
+        pass
+    try:  # macOS has no /proc; ps reports the elapsed time on both
+        elapsed = subprocess.run(
+            ["ps", "-o", "etime=", "-p", str(pid)], capture_output=True, text=True, timeout=10
+        ).stdout.strip()
+        if elapsed:
+            return time.time() - _etime_seconds(elapsed)
+    except (OSError, ValueError, subprocess.SubprocessError):
         pass
     try:
         fields = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()

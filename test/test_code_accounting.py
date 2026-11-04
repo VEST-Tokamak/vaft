@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 import subprocess
 from datetime import datetime, timedelta, timezone
 
@@ -298,6 +299,7 @@ def test_whole_node_and_joined_options_cannot_slip_past(tmp_path, options, messa
     assert any(message in reason for reason in decision.reasons), decision.reasons
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="os.kill(pid, 0) terminates on Windows")
 def test_a_step_this_host_launched_counts_while_its_client_lives():
     import os
     import socket
