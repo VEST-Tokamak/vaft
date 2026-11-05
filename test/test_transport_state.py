@@ -1922,3 +1922,125 @@ def test_a_non_positive_ion_coulomb_logarithm_is_refused_not_used():
     from vaft.formula.kinetic import ion_ion_coulomb_logarithm_from_n_T
 
     assert ion_ion_coulomb_logarithm_from_n_T(1e21, 0.5, 6.0) < 0.0   # cold, dense, C6+
+
+
+# --------------------------------------------------------------------------- TGLF-NN population audit
+
+
+@pytest.fixture()
+def nn_audit():
+    path = ROOT / "workflow" / "transport_atlas" / "audit_tglf_nn.py"
+    spec = importlib.util.spec_from_file_location("transport_atlas_audit_tglf_nn", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    yield module
+    sys.modules.pop(spec.name, None)
+    sys.modules.pop("transport_atlas_run_tglf", None)
+
+
+def _nn_family(root: Path, name: str, xnames, xm, xsigma) -> Path:
+    """A model directory with chosen moments: the audit reads only the text files."""
+    import shutil
+
+    synthetic = ROOT / "test" / "data" / "gacode" / "tglf_surrogate" / "synthetic_linear"
+    target = root / name
+    shutil.copytree(synthetic, target)
+    (target / "xnames.txt").write_text("\n".join(xnames) + "\n")
+    (target / "xm.txt").write_text("\n".join(f"{v:g}" for v in xm) + "\n")
+    (target / "xsigma.txt").write_text("\n".join(f"{v:g}" for v in xsigma) + "\n")
+    return target
+
+
+def test_the_nn_audit_scores_the_confinement_population_under_each_ti_scenario(nn_audit, sample, tmp_path):
+    import pandas as pd
+    from omas import ODS
+
+    from vaft.data.public import load_vest_tier_a_confinement
+
+    ods = _electron_only(_multi_slice(sample, eq_times=(0.300, 0.302), cp_times=(0.300, 0.302)))
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    filedb = tmp_path / "filedb"
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+
+    # The reference products: one smooth inferred T_i/T_e = 1.5, as the ti_inferred stage
+    # writes with --ti-form profile.
+    inferred = _multi_slice(sample, eq_times=(0.300, 0.302), cp_times=(0.300, 0.302))
+    record = ("origin=inferred; method=equilibrium_pressure_partition_profile; ti_te_order=0; "
+              "rho_valid=0.2:0.6; extrapolated_outside_rho_valid=1; not measured")
+    profiles = ODS(consistency_check=False)
+    profiles["core_profiles"] = inferred["core_profiles"]
+    for k in range(2):
+        base = f"core_profiles.profiles_1d.{k}"
+        profiles[f"{base}.ion.0.temperature"] = 1.5 * np.asarray(profiles[f"{base}.electrons.temperature"])
+        profiles[f"{base}.ion.0.temperature_fit.parameters"] = record
+    profile_dir = tmp_path / "ti_profile"
+    profile_dir.mkdir()
+    from vaft.omas import save
+
+    save(profiles, profile_dir / "48224.json.gz")
+
+    table = load_vest_tier_a_confinement(selection="primary").iloc[:2].copy()
+    table["shot"] = 48224
+    table["time_efit_s"] = [0.300, 0.302]
+    table["efit_lineage"] = "magnetics"
+    table["efit_quality"] = ["good", "admissible"]
+    # the loader re-derives ``selected`` from the slice evidence: fail the second state
+    table["ip_change_per_tau"] = [0.05, 0.50]
+    table["thomson_consistent"] = [True, np.nan]
+    confinement = tmp_path / "table.csv"
+    table.to_csv(confinement, index=False)
+
+    # TAUS_2 carries the training moments the public D3D/MAST-U/NSTX families have
+    # (1.106 +- 0.230); the other channels are made wide so TAUS alone decides.
+    models = tmp_path / "models"
+    _nn_family(models, "sat3_em_d3d_azf-1", ("Q_LOC", "TAUS_2", "BETAE_log10"),
+               (3.0, 1.106, -2.0), (1e3, 0.230, 1e3))
+    _nn_family(models, "sat3_em_d3d_gknn31", ("Q_LOC", "OUT_G_elec", "BETAE_log10"),
+               (3.0, 0.0, -2.0), (1e3, 1.0, 1e3))
+
+    out = tmp_path / "out"
+    assert nn_audit.main(["--filedb", str(filedb), "--confinement", str(confinement),
+                          "--profile-ti-dir", str(profile_dir), "--ratios", "1.0", "0.17",
+                          "--model-dir", str(models), "--surfaces", "0.3", "0.5",
+                          "--out", str(out)]) == 0
+
+    states = pd.read_csv(out / "states.csv")
+    assert set(states["status"]) == {"resolved"}
+    lineage = dict(zip(states["scenario"], states["ti_lineage"]))
+    assert lineage == {"pressure_partition_profile": "pressure_partition_inferred",
+                       "ratio_1": "ti_eq_te_assumed", "ratio_0.17": "ti_te_0.17_assumed"}
+
+    audit = pd.read_csv(out / "audit.csv")
+    audited = audit[audit["audit_status"] == "audited"]
+    assert set(audited["model"]) == {"sat3_em_d3d_azf-1"}, "the two-stage family is never audited"
+    by = audited.groupby("scenario")
+    assert by["in_domain"].all().to_dict() == {"pressure_partition_profile": True, "ratio_0.17": False,
+                                               "ratio_1": True}
+    assert set(audited.loc[audited["scenario"] == "ratio_0.17", "worst_feature"]) == {"TAUS_2"}
+    assert audited.loc[audited["scenario"] == "ratio_0.17", "taus_main"].round(3).eq(0.17).all()
+    # the reference T_i is an extrapolation outside its fitted rho span, and says so
+    reference = audited[audited["scenario"] == "pressure_partition_profile"]
+    assert reference["ti_extrapolated"].notna().all()
+
+    summary = pd.read_csv(out / "summary.csv")
+    primary = summary[(summary["subset"] == "primary")].set_index("scenario")
+    assert primary.loc["ratio_0.17", "states"] == 1
+    assert primary.loc["ratio_0.17", "in_domain_surfaces"] == 0
+    assert primary.loc["ratio_0.17", "in_domain_if_taus_ignored"] == primary.loc["ratio_0.17", "surfaces"]
+    assert set(summary["subset"]) == {"primary", "thomson_consistent", "tier_a"}
+    assert summary.loc[summary["subset"] == "tier_a", "states"].max() == 2
+
+    manifest = json.loads((out / "MANIFEST.json").read_text())
+    assert [m["model"] for m in manifest["skipped_models"]] == ["sat3_em_d3d_gknn31"]
+    assert manifest["settings"]["reference_scenario"] == "pressure_partition_profile"
+    assert manifest["counts"]["by_subset"] == {"primary": 1, "thomson_consistent": 1, "tier_a": 2}
+
+
+def test_the_nn_audit_refuses_a_non_positive_ratio_scenario(nn_audit):
+    with pytest.raises(ValueError, match="positive"):
+        nn_audit.scenarios(None, [0.0])
+    assert [s["name"] for s in nn_audit.scenarios(Path("x"), [1.0])] == ["pressure_partition_profile", "ratio_1"]

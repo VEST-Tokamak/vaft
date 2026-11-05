@@ -6,6 +6,8 @@ writes the same product with ``T_i = p_eq / (e f n_e) - T_e / f`` on the slices
 that have no measured ion temperature: ``origin=inferred`` in its record, NaN
 where the ion pressure is not positive and significant, and the slice
 pressures recomputed from it. Slices with a measured T_i are left alone.
+``--ti-form profile`` writes one smooth T_i/T_e(rho) fitted to the partition
+instead, on the whole grid.
 
 Only the ``efit/magnetic`` lineage is accepted, read from where the EFIT
 product lives. This stage's product must never feed the kinetic EFIT stages:
@@ -24,6 +26,7 @@ import traceback
 from vaft.omas.vest_upstream import (
     TI_INFERENCE_FLOOR,
     TI_INFERENCE_WINDOW_S,
+    TI_INFERRED_FORMS,
     build_ti_inferred_ods,
     write_stage_product,
 )
@@ -38,6 +41,9 @@ def main() -> int:
     parser.add_argument("--efit-product", required=True, type=Path, help="Pipeline 1's magnetic EFIT product.")
     parser.add_argument("--floor", default=TI_INFERENCE_FLOOR, type=float, help="Relative sigma floor of p_EFIT (#874).")
     parser.add_argument("--window-s", default=TI_INFERENCE_WINDOW_S, type=float, help="Ensemble window for sigma(p_EFIT) [s].")
+    parser.add_argument("--ti-form", default="pointwise", choices=TI_INFERRED_FORMS,
+                        help="pointwise partition (NaN where p_i carries no information) or one "
+                             "BIC-chosen T_i/T_e(rho) profile fitted to it (#1842 inferred_profile).")
     parser.add_argument("--output", required=True, type=Path, help="Output core_profiles ODS JSON.")
     parser.add_argument("--metadata", required=True, type=Path, help="Output stage manifest JSON.")
     parser.add_argument("--run", default=1, type=int, help="Dataset run number.")
@@ -54,6 +60,7 @@ def main() -> int:
             floor=args.floor,
             window_s=args.window_s,
             run=args.run,
+            ti_form=args.ti_form,
         )
     except Exception as error:  # noqa: BLE001 - the containment is the point
         LOGGER.exception("ti_inferred stage failed for shot %s; recording", args.shot)

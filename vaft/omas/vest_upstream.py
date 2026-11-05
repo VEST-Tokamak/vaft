@@ -2898,6 +2898,23 @@ def _magnetic_efit_lineage(efit_product: str | Path) -> str | None:
     return "magnetics" if any(pair == ("efit", "magnetic") for pair in zip(parts, parts[1:])) else None
 
 
+#: What :func:`build_ti_inferred_ods` writes: the partition point by point, or one
+#: smooth ``T_i/T_e(rho)`` fitted to it (#1842 ``inferred_profile``).
+TI_INFERRED_FORMS = ("pointwise", "profile")
+
+#: Thomson channels assumed independent when a product carries no channel list.
+DEFAULT_THOMSON_CHANNELS = 5
+
+
+def _thomson_channel_count(ods: ODS) -> int:
+    """Independent radial measurements behind one fitted profile: the Thomson channels."""
+    if _path_present(ods, "thomson_scattering.channel"):
+        count = len(ods["thomson_scattering.channel"])
+        if count > 0:
+            return int(count)
+    return DEFAULT_THOMSON_CHANNELS
+
+
 def _thomson_relative_errors(ods: ODS, time_s: float) -> tuple[float, float]:
     """Median relative one-sigma of ``n_e`` and ``T_e`` over the valid channels nearest ``time_s``.
 
@@ -2954,6 +2971,7 @@ def build_ti_inferred_ods(
     window_s: float = TI_INFERENCE_WINDOW_S,
     equilibrium_tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
     run: int = 1,
+    ti_form: str = "pointwise",
 ) -> tuple[ODS, dict[str, Any]]:
     """Give the electron-only slices an ion temperature inferred from the magnetic pressure partition.
 
@@ -2974,12 +2992,25 @@ def build_ti_inferred_ods(
     are left alone.  A slice with no composition is skipped rather than inferred
     with ``n_i = n_e``: the ion density is half of the formula.  The stage reads
     the *composed* product and must never be read by the kinetic EFIT stages.
+
+    ``ti_form`` chooses what is written.  ``"pointwise"`` (default) keeps the
+    partition point by point, NaN where ``p_i`` carries no information.
+    ``"profile"`` smooths the significant points into one ``T_i/T_e(rho)``
+    polynomial of order 0-2 chosen by BIC
+    (:func:`vaft.process.kinetic_closure.fit_ti_te_ratio_profile`, the
+    ``inferred_profile`` mode of #1842) and writes ``T_i = ratio * T_e`` on the
+    whole grid, with ``method=equilibrium_pressure_partition_profile`` and the
+    order, coefficients and fitted span in the record.  Outside that span the
+    ratio is extrapolated, and the record says so.
     """
+    if ti_form not in TI_INFERRED_FORMS:
+        raise ValueError(f"ti_form must be one of {TI_INFERRED_FORMS}; got {ti_form!r}")
     from vaft.machine_mapping.core_profiles import classify_ti_record, inferred_ti_text, ti_record_fields
     from vaft.ods_access import path_value
     from vaft.process.kinetic_closure import (
         TI_FLAGS,
         assemble_pressure,
+        fit_ti_te_ratio_profile,
         infer_kinetic_closure,
         infer_ti_pressure_partition,
     )
@@ -2994,7 +3025,7 @@ def build_ti_inferred_ods(
     }
     manifest["configuration"].update(
         floor=float(floor), window_s=float(window_s),
-        equilibrium_tolerance_ms=float(equilibrium_tolerance_ms),
+        equilibrium_tolerance_ms=float(equilibrium_tolerance_ms), ti_form=ti_form,
     )
     if not Path(core_profiles_product).exists():
         raise FileNotFoundError(f"the core_profiles product is missing: {core_profiles_product}")
@@ -3027,6 +3058,7 @@ def build_ti_inferred_ods(
     skipped: list[dict[str, Any]] = []
     flag_totals: dict[str, int] = {}
     ratios: list[float] = []
+    orders: dict[int, int] = {}
 
     def infer_slice(index: int, time_s: float) -> None:
         base = f"core_profiles.profiles_1d.{index}"
@@ -3084,16 +3116,40 @@ def build_ti_inferred_ods(
             raise _SliceSkipped(f"no point has a positive, significant p_i (flags: {', '.join(seen) or 'none'})")
 
         rho = np.asarray(electron["rho_tor_norm"], dtype=float)
-        t_i = np.full(rho.shape, np.nan)
-        t_i[inside] = result["t_i"]
-        record = "; ".join([
-            inferred_ti_text("equilibrium_pressure_partition"),
+        lineage_fields = [
             f"equilibrium_lineage={lineage}", "equilibrium_occurrence=0",
             f"equilibrium_time_s={float(eq_times_ms[nearest]) * 1e-3:.6f}",
             f"sigma_p_eq_basis={basis}", f"valid_points={int(valid.sum())}/{valid.size}",
-            f"rho_valid={float(rho[inside][valid].min()):.4g}:{float(rho[inside][valid].max()):.4g}",
-            "not measured",
-        ])
+        ]
+        if ti_form == "profile":
+            try:
+                fit = fit_ti_te_ratio_profile(
+                    rho[inside], result["ti_te"], result["sigma_t_i"], t_e, rho,
+                    n_independent=_thomson_channel_count(ods),
+                )
+            except ValueError as error:
+                raise _SliceSkipped(f"no T_i/T_e profile: {error}")
+            t_i = fit["ratio"] * np.asarray(electron["t_e"], dtype=float)
+            record = "; ".join([
+                inferred_ti_text("equilibrium_pressure_partition_profile"),
+                f"ti_te_order={fit['order']}",
+                "ti_te_coefficients=" + ",".join(f"{c:.4g}" for c in fit["coefficients"]),
+                *lineage_fields,
+                f"rho_valid={fit['rho_span'][0]:.4g}:{fit['rho_span'][1]:.4g}",
+                "extrapolated_outside_rho_valid=1",
+                *(["axis_extrapolated=1"] if fit["warnings"] else []),
+                "not measured",
+            ])
+            orders[fit["order"]] = orders.get(fit["order"], 0) + 1
+        else:
+            t_i = np.full(rho.shape, np.nan)
+            t_i[inside] = result["t_i"]
+            record = "; ".join([
+                inferred_ti_text("equilibrium_pressure_partition"),
+                *lineage_fields,
+                f"rho_valid={float(rho[inside][valid].min()):.4g}:{float(rho[inside][valid].max()):.4g}",
+                "not measured",
+            ])
         for k in range(len(ods[f"{base}.ion"])):
             ods[f"{base}.ion.{k}.temperature"] = t_i
             ods[f"{base}.ion.{k}.temperature_fit.parameters"] = record
@@ -3134,7 +3190,10 @@ def build_ti_inferred_ods(
     manifest["slices"] = {**counts, "total": int(times.size)}
     manifest["skipped_slices"] = skipped[:20]
     manifest["inference"] = {
-        "method": "equilibrium_pressure_partition", "equilibrium_lineage": lineage,
+        "method": ("equilibrium_pressure_partition_profile" if ti_form == "profile"
+                   else "equilibrium_pressure_partition"),
+        "equilibrium_lineage": lineage,
+        **({"ti_te_orders": {str(k): v for k, v in sorted(orders.items())}} if ti_form == "profile" else {}),
         "flags": {f: flag_totals.get(f, 0) for f in (*TI_FLAGS, "sigma_unavailable")},
         "ti_te_median": float(np.median(ratios)) if ratios else None,
     }

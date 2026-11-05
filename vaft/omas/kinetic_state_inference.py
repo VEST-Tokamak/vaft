@@ -199,12 +199,13 @@ def _full(inside: np.ndarray, values: np.ndarray) -> np.ndarray:
 #: carries no information); ``inferred_ratio`` one T_i/T_e from that partition.
 ION_TEMPERATURE_MODES = ("assumed", "inferred", "inferred_ratio", "inferred_profile")
 
-#: Highest polynomial order in rho of the ``inferred_profile`` T_i/T_e.
-TI_PROFILE_MAX_ORDER = 2
-
-#: A sloped (order >= 1) ratio profile whose first significant point lies beyond this
-#: rho is flagged ``axis_extrapolated``: its axis value is set by the polynomial alone.
-TI_PROFILE_AXIS_GAP = 0.2
+# The ratio-profile fit lives with the partition it smooths (one estimator for the
+# kinetic-state stages, the ti_inferred stage and the transport atlas).
+from vaft.process.kinetic_closure import (  # noqa: E402, F401 - re-exported for existing importers
+    TI_PROFILE_AXIS_GAP,
+    TI_PROFILE_MAX_ORDER,
+    fit_ti_te_ratio_profile as _ti_ratio_profile,
+)
 
 
 def combine_ti_ratios(ratios: Sequence[float], sigmas: Sequence[float]) -> dict[str, float]:
@@ -229,68 +230,6 @@ def combine_ti_ratios(ratios: Sequence[float], sigmas: Sequence[float]) -> dict[
     chi2 = float(np.sum(w * (r[ok] - mean) ** 2) / (ok.sum() - 1))
     return {"ratio": mean, "sigma": formal * float(np.sqrt(max(1.0, chi2))), "sigma_formal": formal,
             "chi2_per_dof": chi2, "slices": int(ok.sum()), "std": float(np.std(r[ok], ddof=1))}
-
-
-def _ti_ratio_profile(
-    rho: np.ndarray, ti_te: np.ndarray, sigma_t_i: np.ndarray, t_e: np.ndarray, rho_out: np.ndarray,
-    *, n_independent: int = 5, max_order: int = TI_PROFILE_MAX_ORDER,
-) -> dict[str, Any]:
-    """A smooth ``T_i/T_e(rho)`` from the significant points: a polynomial in ``rho`` of order 0..max.
-
-    Weighted least squares with weights ``1/sigma^2``.  The points of one profile
-    are smooth fits of ``n_independent`` Thomson channels, so chi-square and the
-    covariance are rescaled to that many independent points (the covariance by
-    ``N/n_independent``, then by ``chi2/dof`` when it exceeds one).  The order is
-    the lowest BIC, ``chi2_eff + k ln(n_independent)``; an order whose ratio is not
-    positive everywhere on ``rho_out``, or that has no degree of freedom left, is
-    rejected.  Returns the ratio and its one-sigma on ``rho_out``, the chosen
-    order, coefficients and every order's BIC; outside the span of the points the
-    values are an extrapolation (``extrapolated`` mask).
-    """
-    rho, ratio = np.asarray(rho, dtype=float), np.asarray(ti_te, dtype=float)
-    sigma = np.asarray(sigma_t_i, dtype=float) / np.asarray(t_e, dtype=float)
-    ok = np.isfinite(rho) & np.isfinite(ratio) & np.isfinite(sigma) & (sigma > 0)
-    if ok.sum() < 3:
-        raise ValueError("fewer than three significant T_i/T_e points: no ratio profile can be fitted")
-    x, y, w = rho[ok], ratio[ok], 1.0 / sigma[ok] ** 2
-    n, n_eff = int(ok.sum()), max(1, int(n_independent))
-    out = np.asarray(rho_out, dtype=float)
-    fits: dict[int, dict[str, Any]] = {}
-    for order in range(max_order + 1):
-        k = order + 1
-        if k >= n_eff:
-            break
-        design = np.vander(x, k, increasing=True)
-        normal = design.T @ (w[:, None] * design)
-        try:
-            cov = np.linalg.inv(normal)
-        except np.linalg.LinAlgError:
-            continue
-        coef = cov @ (design.T @ (w * y))
-        chi2 = float(np.sum(w * (y - design @ coef) ** 2))
-        chi2_eff = chi2 * n_eff / n
-        scale = (n / n_eff) * max(1.0, chi2_eff / max(1, n_eff - k))
-        basis = np.vander(out, k, increasing=True)
-        values = basis @ coef
-        if not np.all(values[np.isfinite(values)] > 0):
-            continue
-        band = np.sqrt(np.einsum("ij,jk,ik->i", basis, cov * scale, basis))
-        fits[order] = {"coef": coef, "ratio": values, "sigma": band,
-                       "bic": chi2_eff + k * float(np.log(n_eff)), "chi2_eff": chi2_eff}
-    if not fits:
-        raise ValueError("no polynomial T_i/T_e stays positive over the profile")
-    best = min(fits, key=lambda o: fits[o]["bic"])
-    span = (float(x.min()), float(x.max()))
-    warnings = []
-    if best >= 1 and span[0] > TI_PROFILE_AXIS_GAP:
-        # a sloped fit carried over a wide gap is the polynomial speaking, not the data
-        warnings.append(f"axis_extrapolated: order-{best} fit carried over rho < {span[0]:.2f} with no point; "
-                        "do not quote the axis value")
-    return {"order": int(best), "warnings": warnings, "coefficients": [float(c) for c in fits[best]["coef"]],
-            "ratio": fits[best]["ratio"], "sigma": fits[best]["sigma"],
-            "bic": {int(o): float(f["bic"]) for o, f in fits.items()},
-            "rho_span": span, "extrapolated": (out < span[0]) | (out > span[1]),
-            "points": n, "n_independent": n_eff}
 
 
 #: Elementary charge [J/eV]: p [Pa] = e n [m^-3] T [eV].
