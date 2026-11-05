@@ -2906,13 +2906,31 @@ TI_INFERRED_FORMS = ("pointwise", "profile")
 DEFAULT_THOMSON_CHANNELS = 5
 
 
-def _thomson_channel_count(ods: ODS) -> int:
-    """Independent radial measurements behind one fitted profile: the Thomson channels."""
-    if _path_present(ods, "thomson_scattering.channel"):
-        count = len(ods["thomson_scattering.channel"])
+def _thomson_channel_count(ods: ODS, time_s: float) -> tuple[int, str]:
+    """Independent radial measurements behind the profile at ``time_s``: the valid Thomson channels.
+
+    Counts the channels whose ``t_e`` is positive and finite at the sample nearest
+    ``time_s`` (the channels the profile was fitted to, as the kinetic-state stages
+    count them). Returns ``(count, "thomson")``, or ``(DEFAULT_THOMSON_CHANNELS,
+    "default")`` when the product carries no usable channel.
+    """
+    from vaft.ods_access import path_value
+
+    times = path_value(ods, "thomson_scattering.time", None)
+    if times is not None and _path_present(ods, "thomson_scattering.channel"):
+        times = np.atleast_1d(np.asarray(times, dtype=float))
+        it = int(np.argmin(np.abs(times - time_s)))
+        count = 0
+        for i in range(len(ods["thomson_scattering.channel"])):
+            data = path_value(ods, f"thomson_scattering.channel.{i}.t_e.data", None)
+            if data is None:
+                continue
+            data = np.atleast_1d(np.asarray(data, dtype=float))
+            if it < data.size and np.isfinite(data[it]) and data[it] > 0:
+                count += 1
         if count > 0:
-            return int(count)
-    return DEFAULT_THOMSON_CHANNELS
+            return count, "thomson"
+    return DEFAULT_THOMSON_CHANNELS, "default"
 
 
 def _thomson_relative_errors(ods: ODS, time_s: float) -> tuple[float, float]:
@@ -3059,6 +3077,7 @@ def build_ti_inferred_ods(
     flag_totals: dict[str, int] = {}
     ratios: list[float] = []
     orders: dict[int, int] = {}
+    written: list[float] = []
 
     def infer_slice(index: int, time_s: float) -> None:
         base = f"core_profiles.profiles_1d.{index}"
@@ -3122,10 +3141,11 @@ def build_ti_inferred_ods(
             f"sigma_p_eq_basis={basis}", f"valid_points={int(valid.sum())}/{valid.size}",
         ]
         if ti_form == "profile":
+            n_independent, n_source = _thomson_channel_count(ods, time_s)
             try:
                 fit = fit_ti_te_ratio_profile(
                     rho[inside], result["ti_te"], result["sigma_t_i"], t_e, rho,
-                    n_independent=_thomson_channel_count(ods),
+                    n_independent=n_independent,
                 )
             except ValueError as error:
                 raise _SliceSkipped(f"no T_i/T_e profile: {error}")
@@ -3134,6 +3154,7 @@ def build_ti_inferred_ods(
                 inferred_ti_text("equilibrium_pressure_partition_profile"),
                 f"ti_te_order={fit['order']}",
                 "ti_te_coefficients=" + ",".join(f"{c:.4g}" for c in fit["coefficients"]),
+                f"n_independent={n_independent}", f"n_independent_source={n_source}",
                 *lineage_fields,
                 f"rho_valid={fit['rho_span'][0]:.4g}:{fit['rho_span'][1]:.4g}",
                 "extrapolated_outside_rho_valid=1",
@@ -3141,6 +3162,7 @@ def build_ti_inferred_ods(
                 "not measured",
             ])
             orders[fit["order"]] = orders.get(fit["order"], 0) + 1
+            written.append(float(np.nanmedian(fit["ratio"][inside])))
         else:
             t_i = np.full(rho.shape, np.nan)
             t_i[inside] = result["t_i"]
@@ -3195,7 +3217,11 @@ def build_ti_inferred_ods(
         "equilibrium_lineage": lineage,
         **({"ti_te_orders": {str(k): v for k, v in sorted(orders.items())}} if ti_form == "profile" else {}),
         "flags": {f: flag_totals.get(f, 0) for f in (*TI_FLAGS, "sigma_unavailable")},
-        "ti_te_median": float(np.median(ratios)) if ratios else None,
+        # the pointwise partition's median; in profile mode also the written profile's
+        ("pointwise_ti_te_median" if ti_form == "profile" else "ti_te_median"):
+            float(np.median(ratios)) if ratios else None,
+        **({"profile_ti_te_median": float(np.median(written)) if written else None}
+           if ti_form == "profile" else {}),
     }
     if counts["inferred"]:
         manifest["status"] = "success"

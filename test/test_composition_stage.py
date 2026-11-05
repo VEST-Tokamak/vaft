@@ -498,6 +498,9 @@ def test_the_profile_form_writes_one_smooth_ratio_on_the_whole_grid(tmp_path, ta
     fields = ti_record_fields(record)
     assert fields["method"] == "equilibrium_pressure_partition_profile"
     assert fields["ti_te_order"] == "0" and fields["extrapolated_outside_rho_valid"] == "1"
+    assert fields["n_independent_source"] in ("thomson", "default") and int(fields["n_independent"]) >= 1
+    assert manifest["inference"]["profile_ti_te_median"] == pytest.approx(TI_OVER_TE, rel=5e-3)
+    assert "ti_te_median" not in manifest["inference"], "profile mode names the pointwise median as such"
     assert fields["equilibrium_lineage"] == "magnetics"
     low, high = (float(x) for x in fields["rho_valid"].split(":"))
     assert 0.0 <= low < high <= 1.0

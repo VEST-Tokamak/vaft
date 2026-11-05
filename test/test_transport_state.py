@@ -1970,7 +1970,7 @@ def test_the_nn_audit_scores_the_confinement_population_under_each_ti_scenario(n
     # writes with --ti-form profile.
     inferred = _multi_slice(sample, eq_times=(0.300, 0.302), cp_times=(0.300, 0.302))
     record = ("origin=inferred; method=equilibrium_pressure_partition_profile; ti_te_order=0; "
-              "rho_valid=0.2:0.6; extrapolated_outside_rho_valid=1; not measured")
+              "rho_valid=0.35:0.6; extrapolated_outside_rho_valid=1; not measured")
     profiles = ODS(consistency_check=False)
     profiles["core_profiles"] = inferred["core_profiles"]
     for k in range(2):
@@ -2025,6 +2025,10 @@ def test_the_nn_audit_scores_the_confinement_population_under_each_ti_scenario(n
     # the reference T_i is an extrapolation outside its fitted rho span, and says so
     reference = audited[audited["scenario"] == "pressure_partition_profile"]
     assert reference["ti_extrapolated"].notna().all()
+    outside = (reference["rho_tor_norm"] < 0.35) | (reference["rho_tor_norm"] > 0.6)
+    assert (reference["ti_extrapolated"].astype(bool) == outside).all()
+    assert outside.any() and (~outside).any(), "the two surfaces straddle the fitted span"
+    assert reference["taus_main"].round(6).eq(1.5).all()
 
     summary = pd.read_csv(out / "summary.csv")
     primary = summary[(summary["subset"] == "primary")].set_index("scenario")
@@ -2033,6 +2037,8 @@ def test_the_nn_audit_scores_the_confinement_population_under_each_ti_scenario(n
     assert primary.loc["ratio_0.17", "in_domain_if_taus_ignored"] == primary.loc["ratio_0.17", "surfaces"]
     assert set(summary["subset"]) == {"primary", "thomson_consistent", "tier_a"}
     assert summary.loc[summary["subset"] == "tier_a", "states"].max() == 2
+    ref = summary[(summary["subset"] == "tier_a") & (summary["scenario"] == "pressure_partition_profile")].iloc[0]
+    assert ref["surfaces_ti_fitted"] == int((~outside).sum())
 
     manifest = json.loads((out / "MANIFEST.json").read_text())
     assert [m["model"] for m in manifest["skipped_models"]] == ["sat3_em_d3d_gknn31"]

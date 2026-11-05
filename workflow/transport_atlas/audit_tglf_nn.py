@@ -183,8 +183,17 @@ def inferred_ti_for(profiles: Any, time_s: float, tolerance: float) -> tuple[Opt
     kind = classify_ti_record(record)
     if kind != "inferred":
         return None, f"profile_ti_{kind}"
+    fields = ti_record_fields(record)
+    if "equilibrium_time_s" in fields:
+        # the partition must come from this state's own EFIT slice
+        try:
+            eq_time = float(fields["equilibrium_time_s"])
+        except ValueError:
+            return None, "profile_ti_record_unreadable"
+        if abs(eq_time - time_s) > tolerance:
+            return None, "profile_ti_from_another_equilibrium"
     return {"temperature": temperature, "time": float(times[index]), "source": str(record),
-            "method": ti_record_fields(record).get("method", "equilibrium_pressure_partition")}, ""
+            "method": fields.get("method", "equilibrium_pressure_partition")}, ""
 
 
 # --------------------------------------------------------------------------- audit
@@ -276,12 +285,17 @@ def summarise(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             if not r["in_domain"]:
                 binding[r["worst_feature"]] = binding.get(r["worst_feature"], 0) + 1
         clean = [r for r in members if not r["violations_without_taus"]]
+        # the reference T_i outside the partition's fitted span is the polynomial's
+        # extrapolation; count the surfaces that stand on fitted T_i separately
+        fitted = [r for r in members if r.get("ti_extrapolated") is not True]
         out.append({
             "subset": subset, "scenario": scenario, "model": model,
             "states": len(states), "surfaces": len(members),
             "in_domain_surfaces": sum(bool(r["in_domain"]) for r in members),
             "states_with_any_in_domain_surface": len(in_states),
             "in_domain_if_taus_ignored": len(clean),
+            "surfaces_ti_fitted": len(fitted),
+            "in_domain_surfaces_ti_fitted": sum(bool(r["in_domain"]) for r in fitted),
             "taus_violating_surfaces": sum(bool(r["taus_violates"]) for r in members),
             "median_max_abs_z": float(np.median([r["max_abs_z"] for r in members])),
             "median_taus_main": float(np.nanmedian([r["taus_main"] for r in members])),
@@ -384,6 +398,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             state_rows.append({**ident, "status": state.status, "reasons": " ".join(state.reasons),
                                "ti_lineage": state.ti.get("lineage"), "ti_method": state.ti.get("method"),
                                "ti_te_ratio": state.ti.get("ratio"), "ti_source": state.ti.get("source"),
+                               "ti_fill_points": (state.ti.get("fill") or {}).get("points", 0),
                                "z_eff": state.settings.get("z_eff"), "impurity": state.settings.get("impurity")})
             if not state.resolved:
                 continue
