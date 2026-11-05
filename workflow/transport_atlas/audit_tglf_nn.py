@@ -18,7 +18,9 @@ routine T_i. So every state is audited under several T_i *scenarios*:
 * ``pressure_partition_profile`` (the reference): T_i = (T_i/T_e)(rho) * T_e, the
   BIC-chosen polynomial fitted to the magnetics-EFIT pressure partition. Its products
   come from the ``ti_inferred`` stage run with ``--ti-form profile`` and are read from
-  ``--profile-ti-dir/<shot>.json.gz``;
+  ``--profile-ti-dir/<shot>.json.gz``. Only their ion temperature is taken (as the
+  resolver's ``inferred_ti``); n_e, T_e and the composition closure are the FileDB
+  product's, as in every other scenario, so the scenarios differ in T_i alone;
 * ``ratio_<r>`` for each ``--ratios`` value, e.g. 1.0 (the pipeline's T_i = T_e
   assumption) and 0.17 (the superseded pressure-matching value that #834's sample
   reflects).
@@ -53,6 +55,7 @@ import numpy as np
 from vaft.process.transport_state import (
     DEFAULT_RHO_MAX,
     DEFAULT_SURFACES,
+    DEFAULT_TIME_TOLERANCE_S,
     TransportStateKey,
     assess_tglf_readiness,
     resolve_transport_state,
@@ -110,14 +113,13 @@ def scenarios(profile_ti_dir: Optional[Path], ratios: Iterable[float]) -> list[d
         # "policy" only fills points where the stored profile is not positive (an edge
         # where T_e itself is missing); the resolver records the fill and no surface
         # whose input depends on it is ready (readiness ``ti_not_inferred_here``).
-        out.append({"name": REFERENCE_SCENARIO, "core_profiles_dir": Path(profile_ti_dir),
-                    "use_stored_inferred_ti": True, "ti_te_ratio": "policy"})
+        out.append({"name": REFERENCE_SCENARIO, "profile_ti_dir": Path(profile_ti_dir),
+                    "ti_te_ratio": "policy"})
     for ratio in ratios:
         ratio = float(ratio)
         if not np.isfinite(ratio) or ratio <= 0.0:
             raise ValueError(f"a T_i/T_e scenario must be positive; got {ratio!r}")
-        out.append({"name": f"ratio_{ratio:g}", "core_profiles_dir": None,
-                    "use_stored_inferred_ti": False, "ti_te_ratio": ratio})
+        out.append({"name": f"ratio_{ratio:g}", "profile_ti_dir": None, "ti_te_ratio": ratio})
     names = [s["name"] for s in out]
     if len(set(names)) != len(names):
         raise ValueError(f"duplicate T_i scenarios: {names}")
@@ -153,6 +155,36 @@ def families(model_dir: Optional[Path] = None, names: Optional[Iterable[str]] = 
             continue
         usable.append((identity, metadata))
     return usable, skipped
+
+
+def inferred_ti_for(profiles: Any, time_s: float, tolerance: float) -> tuple[Optional[dict], str]:
+    """The stored inferred ion temperature of the slice nearest ``time_s``, as ``inferred_ti``.
+
+    Returns ``(mapping, "")`` or ``(None, reason)``. Only a temperature whose record
+    classifies as inferred is taken; a measured or assumed one is not this scenario's.
+    """
+    from vaft.machine_mapping.core_profiles import classify_ti_record, ti_record_fields
+
+    try:
+        times = np.atleast_1d(np.asarray(profiles["core_profiles.time"], dtype=float))
+    except Exception:  # noqa: BLE001 - a product with no time has no slice
+        return None, "no_profile_ti_slices"
+    if times.size == 0:
+        return None, "no_profile_ti_slices"
+    index = int(np.argmin(np.abs(times - time_s)))
+    if abs(float(times[index]) - time_s) > tolerance:
+        return None, "no_profile_ti_slice_within_tolerance"
+    base = f"core_profiles.profiles_1d.{index}.ion.0"
+    try:
+        record = profiles[f"{base}.temperature_fit.parameters"]
+        temperature = np.asarray(profiles[f"{base}.temperature"], dtype=float)
+    except Exception:  # noqa: BLE001 - absent leaves read as "not inferred here"
+        return None, "profile_ti_missing"
+    kind = classify_ti_record(record)
+    if kind != "inferred":
+        return None, f"profile_ti_{kind}"
+    return {"temperature": temperature, "time": float(times[index]), "source": str(record),
+            "method": ti_record_fields(record).get("method", "equilibrium_pressure_partition")}, ""
 
 
 # --------------------------------------------------------------------------- audit
@@ -325,7 +357,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             ident = {"shot": key.shot, "time_efit_s": key.time_efit_s, "efit_lineage": key.efit_lineage,
                      "efit_quality": record["efit_quality"], "subsets": " ".join(record["subsets"]),
                      "scenario": scenario["name"]}
-            cp_path, cp_manifest = driver.core_profiles_product(args.filedb, key.shot, scenario["core_profiles_dir"])
+            cp_path, cp_manifest = driver.core_profiles_product(args.filedb, key.shot)
             eq_path, eq_manifest = driver.product(args.filedb, key.efit_lineage, key.shot)
             missing = [name for name, path, manifest in (("core_profiles", cp_path, cp_manifest),
                                                          ("equilibrium", eq_path, eq_manifest))
@@ -333,11 +365,20 @@ def main(argv: Optional[list[str]] = None) -> int:
             if missing:
                 state_rows.append({**ident, "status": "missing_product", "reasons": " ".join(missing)})
                 continue
+            inferred_ti = None
+            if scenario["profile_ti_dir"] is not None:
+                ti_path = Path(scenario["profile_ti_dir"]) / f"{key.shot}.json.gz"
+                if not ti_path.is_file():
+                    state_rows.append({**ident, "status": "missing_product", "reasons": "profile_ti"})
+                    continue
+                inferred_ti, why = inferred_ti_for(cached(ti_path), key.time_efit_s, DEFAULT_TIME_TOLERANCE_S)
+                if inferred_ti is None:
+                    state_rows.append({**ident, "status": "no_inferred_ti", "reasons": why})
+                    continue
             ods = driver.compose(cached(eq_path), cached(cp_path))
             state = resolve_transport_state(
                 ods, key, efit_quality=record["efit_quality"], quality_source="confinement_table",
-                ti_te_ratio=scenario["ti_te_ratio"],
-                use_stored_inferred_ti=scenario["use_stored_inferred_ti"], rho_max=args.rho_max,
+                ti_te_ratio=scenario["ti_te_ratio"], inferred_ti=inferred_ti, rho_max=args.rho_max,
                 inputs={"core_profiles": {"path": str(cp_path)}, "equilibrium": {"path": str(eq_path)}},
             )
             state_rows.append({**ident, "status": state.status, "reasons": " ".join(state.reasons),
