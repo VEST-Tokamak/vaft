@@ -46,6 +46,7 @@ from .inference import ensemble_predict, run_surrogate
 from .resolver import (
     KNOWN_DEVICES,
     METADATA_FILES,
+    OPTIONAL_METADATA_FILES,
     MODELS_COMPATIBILITY_ENVS,
     MODELS_HOME_ENV,
     available_models,
@@ -59,6 +60,7 @@ __all__ = [
     "DOMAIN_MEASURE",
     "KNOWN_DEVICES",
     "METADATA_FILES",
+    "OPTIONAL_METADATA_FILES",
     "MODELS_COMPATIBILITY_ENVS",
     "MODELS_HOME_ENV",
     "DomainAudit",

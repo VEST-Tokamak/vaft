@@ -128,16 +128,18 @@ def run_surrogate(
     12 is that an extrapolated prediction and an in-domain one must not be
     interchangeable downstream.
 
-    That default is not caution for its own sake.  No public TGLF-NN family has VEST
-    in domain: every one of them was trained where the ions are about as hot as the
-    electrons, and VEST's ohmic plasma runs at ``T_i/T_e`` near 0.1, which lands
-    ``TAUS`` four to ten sigma out with nothing in the returned fluxes to show it.
+    The refusal uses :attr:`DomainAudit.applicable`: the z-score distance and, when an
+    exported ``xbounds.txt`` makes them known, the true training min/max.  It is not
+    caution for its own sake.  Every public family was trained where the ions are about
+    as hot as the electrons; on VEST whether an input applies is decided by the ion
+    temperature it is given (``T_i/T_e`` near 0.1 lands ``TAUS`` outside every family,
+    ``T_i = T_e`` does not; #2272), with nothing in the returned fluxes to show it.
     """
     identity = resolve_model(model, model_dir=model_dir, env=env)
     metadata = load_metadata(identity)
     features, assumed = build_features(local, metadata, config=config)
     audit = audit_features(features, assumed, identity, metadata, threshold=threshold)
-    if not audit.in_domain and not allow_extrapolation:
+    if not audit.applicable and not allow_extrapolation:
         raise TrainingDomainError(
             f"refusing to predict outside the training distribution -- {audit.summary()}. "
             f"The network will return finite numbers for this input; they are not "

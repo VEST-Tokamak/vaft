@@ -50,6 +50,11 @@ MODELS_COMPATIBILITY_ENVS = ("TURBULENTTRANSPORT_ROOT",)
 #: Files that must sit beside an ONNX ensemble for it to be usable.
 METADATA_FILES = ("xnames.txt", "ynames.txt", "xm.txt", "xsigma.txt", "ym.txt", "ysigma.txt")
 
+#: Read when present: the training min/max per input, exported from the Julia ``.bson``
+#: by ``workflow/tglf_nn/export_training_bounds.jl`` (#2274). It changes what the audit
+#: concludes, so it is part of the model's digest.
+OPTIONAL_METADATA_FILES = ("xbounds.txt",)
+
 #: Device tokens the upstream naming convention uses.
 KNOWN_DEVICES = frozenset(
     {
@@ -211,6 +216,10 @@ def _artifact_digests(directory: Path) -> dict[str, str]:
     members.update(
         {name: _digest(directory / name) for name in METADATA_FILES}
     )
+    members.update(
+        {name: _digest(directory / name) for name in OPTIONAL_METADATA_FILES
+         if (directory / name).is_file()}
+    )
     return members
 
 
@@ -349,6 +358,15 @@ def load_metadata(identity: ModelIdentity) -> SurrogateMetadata:
         )
 
     try:
+        bounds = None
+        if (directory / "xbounds.txt").is_file():
+            bounds = numbers("xbounds.txt")
+            if bounds.size % 2:
+                raise ModelContractError(
+                    f"{identity.name}: xbounds.txt holds {bounds.size} numbers; it needs "
+                    f"one 'min max' pair per input"
+                )
+            bounds = bounds.reshape(-1, 2)
         return SurrogateMetadata(
             xnames=tuple(words("xnames.txt")),
             ynames=tuple(words("ynames.txt")),
@@ -356,6 +374,7 @@ def load_metadata(identity: ModelIdentity) -> SurrogateMetadata:
             xsigma=numbers("xsigma.txt"),
             ym=numbers("ym.txt"),
             ysigma=numbers("ysigma.txt"),
+            xbounds=bounds,
         )
     except ValueError as exc:
         raise ModelContractError(
