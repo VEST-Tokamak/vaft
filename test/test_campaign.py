@@ -11,6 +11,7 @@ import gzip
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -432,7 +433,7 @@ def test_a_lane_runs_its_chunks_here_resumes_and_measures(tmp_path):
     assert report["shots"] == 3 and report["cpu_util"] is not None
 
 
-@pytest.mark.skipif(subprocess.run(["python", "-c", "import snakemake"], capture_output=True).returncode != 0,
+@pytest.mark.skipif(subprocess.run([sys.executable, "-c", "import snakemake"], capture_output=True).returncode != 0,
                     reason="needs snakemake")
 def test_a_failed_shot_finishes_the_chunk_and_a_missing_input_keeps_it_open(tmp_path):
     lane, options = _toy(tmp_path, [1, 2], bad_shot=2, raw=[2])
@@ -469,7 +470,7 @@ def test_launch_runs_every_pending_lane_through_a_backend(tmp_path, monkeypatch)
     assert list(handles) == ["lane0"] and calls[0].workdir == (run / "lane0").resolve()
 
 
-@pytest.mark.skipif(subprocess.run(["python", "-c", "import snakemake"], capture_output=True).returncode != 0,
+@pytest.mark.skipif(subprocess.run([sys.executable, "-c", "import snakemake"], capture_output=True).returncode != 0,
                     reason="needs snakemake")
 def test_launch_with_the_local_backend_runs_every_lane_end_to_end(tmp_path, monkeypatch):
     lane, options = _toy(tmp_path, [1, 2, 3])
