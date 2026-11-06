@@ -292,7 +292,10 @@ def _containment(audit: Any) -> dict[str, Any]:
         "n_bound_violations": len(audit.bound_violations),
         "bound_violations": " ".join(audit.bound_violations),
         # past where the training data ended, not past upstream's 3.3-sigma clip
-        "bound_violations_at_data_edge": " ".join(getattr(audit, "bound_violations_at_data_edge", ())),
+        # None (unknown), not empty, when this VAFT cannot tell a data edge from the clip
+        "bound_violations_at_data_edge": (
+            " ".join(audit.bound_violations_at_data_edge)
+            if hasattr(audit, "bound_violations_at_data_edge") else None),
         "worst_bound_feature": worst,
         "min_bound_margin": None if worst is None else float(margins[worst]),
         "_positions": positions,
@@ -340,7 +343,9 @@ def summarise(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "median_min_bound_margin": float(np.median([r["min_bound_margin"] for r in bounded])),
                 "bound_binding_features": " ".join(
                     f"{k}:{v}" for k, v in sorted(outside.items(), key=lambda kv: -kv[1])[:4]),
-                "surfaces_past_data_edge": sum(bool(r.get("bound_violations_at_data_edge")) for r in bounded),
+                "surfaces_past_data_edge": (
+                    None if any(r.get("bound_violations_at_data_edge") is None for r in bounded)
+                    else sum(bool(r["bound_violations_at_data_edge"]) for r in bounded)),
                 "data_edge_features": " ".join(
                     f"{k}:{v}" for k, v in sorted(data_edge.items(), key=lambda kv: -kv[1])[:4]),
             }

@@ -12,7 +12,9 @@ SHA-256), and the row count and SHA-256 of each copied table.
 ## Population
 
 - **States:** the Tier A confinement table (`vaft/data/confinement/vest_tier_a_confinement.csv`, 133 magnetics-EFIT states).
-- **Usable states:** only states with a Thomson profile within 0.5 ms of their EFIT slice can become a TGLF input. That leaves 64: 31 of the 59 `primary` states and all 16 `thomson_consistent` ones.
+- **Usable states:** only states with a Thomson profile within 0.5 ms of their EFIT slice can become a TGLF input. That leaves 64 of the 133. Another 64 have no profile that close, and 5 have no core_profiles product.
+  - The 64 include 31 of the 59 `primary` states. The 16 `thomson_consistent` states are a subset of those 31.
+  - The other 33 are `tier_a` only.
 - **Surfaces:** six per state, r/a = 0.3, 0.4, ..., 0.8.
 - **T_i scenarios** (`scenario`):
   - `ratio_1`: T_i = T_e, the pipeline's assumption.
@@ -41,6 +43,8 @@ Upstream's `xbounds` are the training data range clipped at `xm ± 3.3 xsigma`.
 - The notebook keeps the two apart.
 
 ## Regenerating
+
+The snapshot was produced from a local merge of #2272 (8e8866166) and #2275 (e059effae); that merge commit (`30cf15e…`) is not in the repository. **Both are needed.** Without #2275, `DomainAudit` has no `bound_violations_at_data_edge`, and the audit quietly reports zero data-edge surfaces for every family.
 
 1. Export the bounds once:
    `julia --startup-file=no workflow/tglf_nn/export_training_bounds.jl <TurbulentTransport checkout> <copy>`.

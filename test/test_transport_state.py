@@ -2065,6 +2065,10 @@ def test_the_nn_audit_reports_containment_when_a_model_carries_its_training_rang
     assert record["min_bound_margin"] == pytest.approx(-0.12)
     assert record["bound_violations_at_data_edge"] == "TAUS_2"
     assert nn_audit._containment(SimpleNamespace()) == {"bounds_available": False}
+    # a VAFT without the data-edge split reports it unknown, never as zero crossings
+    older = nn_audit._containment(SimpleNamespace(bounds_available=True, contained=True, applicable=True,
+                                                  bound_violations=(), bound_positions={"Q_LOC": 0.5}))
+    assert older["bound_violations_at_data_edge"] is None
 
     base = {"audit_status": "audited", "subsets": "tier_a primary", "scenario": "ratio_1",
             "model": "m", "shot": 1, "time_efit_s": 0.3}
