@@ -200,6 +200,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Packaging and documentation policy. Metadata reads; they catch the
     # breakage `package` cannot see until it is already building a wheel.
     "contracts/test_dependency_policy_matrix.py",
+    # The issue/PR reference audit's detector and baseline shape. String
+    # matching on literals; the tree-wide scan itself is the advisory CI job.
+    "test_audit_issue_refs.py",
     "test_data_resources.py",
     "test_docstring_engine.py",
     # The plasma-model guide's generated tables and glossary against the
