@@ -623,13 +623,19 @@ def test_upstreams_own_sample_is_in_domain_for_the_model_trained_on_it():
 
 @requires_upstream
 @requires_sample
-def test_no_public_model_has_vest_in_domain_and_the_temperature_ratio_is_why(vest_local):
-    """Issue #553 section 16: a number is not qualification.
+def test_no_public_model_has_the_ces_sample_in_domain_and_the_temperature_ratio_is_why(vest_local):
+    """Issue #553 section 16: a number is not qualification -- on ONE slice.
 
     Every public TGLF-NN family was trained where the ions are about as hot as the
-    electrons. VEST's ohmic plasma runs an order of magnitude colder in ``T_i/T_e``,
-    which is what ``TAUS`` measures, so no amount of agreement in the other thirty
-    inputs makes any of these models applicable.
+    electrons. This sample (48224, 300 ms, r/a = 0.5) carries a CES-measured ion
+    temperature an order of magnitude below T_e, which is what ``TAUS`` measures,
+    so no agreement in the other thirty inputs makes any of these models applicable
+    to *it*.
+
+    This is a statement about this slice and its T_i, not about VEST: the pipeline
+    assumes T_i = T_e where no T_i is measured, and the magnetics pressure partition
+    gives T_i/T_e near or above one (#1842). The population verdict, under each T_i
+    scenario, is ``workflow/transport_atlas/audit_tglf_nn.py``'s.
     """
     from vaft.code.gacode.tglf.surrogate.resolver import load_metadata as _load
 
