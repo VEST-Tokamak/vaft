@@ -1,6 +1,8 @@
 #!/bin/bash
 # Build (or re-pin) the #2147 regeneration environment on tdst.
 #   PIN=<develop SHA or ref> bash $REGEN_ROOT/setup_env.sh
+#   PIN=<sha> PIN_BRANCH=ops/<name> ...   a pin that is not on develop: a reviewed ops branch
+#                                          (e.g. a frozen pin plus cherry-picked fixes)
 # One variable re-pins everything: a private ref refs/regen2147/pin in our own clone,
 # a detached worktree src-<sha9>, a uv venv env-<sha9> (py3.14 from ~/work/vaft-ci/py314),
 # the real EFIT .ddd tables (no git-lfs here), and ~/regen2147/{src,env,env.sh} -> that pin.
@@ -19,9 +21,15 @@ if ! git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
   git clone -q --no-checkout https://github.com/VEST-Tokamak/vaft.git "$REPO"
 fi
 git -C "$REPO" fetch -q --no-write-fetch-head origin '+refs/heads/develop:refs/remotes/origin/develop'
+BASE=origin/develop
+if [ -n "${PIN_BRANCH:-}" ]; then
+  case "$PIN_BRANCH" in ops/*) ;; *) echo "PIN_BRANCH must be an ops/* branch, not $PIN_BRANCH" >&2; exit 2 ;; esac
+  git -C "$REPO" fetch -q --no-write-fetch-head origin "+refs/heads/$PIN_BRANCH:refs/remotes/origin/$PIN_BRANCH"
+  BASE=origin/$PIN_BRANCH
+fi
 SHA=$(git -C "$REPO" rev-parse --verify "${PIN}^{commit}")
-git -C "$REPO" merge-base --is-ancestor "$SHA" origin/develop \
-  || { echo "PIN $PIN ($SHA) is not on develop" >&2; exit 2; }
+git -C "$REPO" merge-base --is-ancestor "$SHA" "$BASE" \
+  || { echo "PIN $PIN ($SHA) is not on $BASE" >&2; exit 2; }
 git -C "$REPO" update-ref refs/regen2147/pin "$SHA"
 S9=${SHA:0:9}
 SRC=$ROOT/src-$S9 ENV=$ROOT/env-$S9

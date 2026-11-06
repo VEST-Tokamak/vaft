@@ -1302,3 +1302,23 @@ def test_status_reports_a_disk_pause(setup, capsys, tmp_path):
     from vaft.cli.pipeline_worker import main
     assert main(["status", "--config", str(config_path)]) == 0
     assert "PAUSED for disk space: below 200 GB" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("config", "plots"),
+    [({}, True), ({"validation_plots": True}, True), ({"validation_plots": False}, False)],
+)
+def test_the_harvester_judges_validation_plots_only_where_the_run_builds_them(config, plots):
+    # A regeneration run with `validation_plots: false` must not read as missing
+    # every PNG: the worker's verdict follows the Snakefile's PLOTS_ENABLED.
+    harvester = PipelineHarvester({"base_dir": "/tmp/x", "layout": "filedb", **config},
+                                  workflow_dir=WORKFLOW, environment={})
+    assert bool(harvester.plot_targets(1234)) is plots
+    stage_targets = [t for t in harvester.targets(1234) if t.kind != "plot"]
+    assert stage_targets, "stage products are judged with or without plots"
+
+
+def test_validation_plots_must_be_a_boolean():
+    with pytest.raises(ValueError, match="validation_plots must be true or false"):
+        PipelineHarvester({"base_dir": "/tmp/x", "layout": "filedb", "validation_plots": "no"},
+                          workflow_dir=WORKFLOW, environment={})
