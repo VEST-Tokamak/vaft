@@ -4,7 +4,7 @@
   "duplicate": 1,
   "intentional_specialization": 39,
   "legacy": 8,
-  "unverified": 385
+  "unverified": 386
  },
  "entry_modules": {
   "pipeline1": [
@@ -17299,6 +17299,39 @@
    "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/stability_atlas/build_atlas.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(r_over_a * rmin[-1], rmin, rho)"
+    }
+   ],
+   "callers": [
+    "workflow.transport_atlas.audit_tglf_nn.audit_state"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "workflow.transport_atlas.audit_tglf_nn._surface_rho",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "workflow_study",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "low",
+   "source_file": "workflow/transport_atlas/audit_tglf_nn.py"
   }
  ],
  "scan_roots": [
