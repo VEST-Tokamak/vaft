@@ -84,8 +84,10 @@ install_instance() {
   fi
   run install -m 0644 "$HERE/vaft-gui-test.service" "$UNIT"
   run systemctl daemon-reload
-  if [[ ! -e $ENV_FILE ]] || grep -q '^HS_PASSWORD=change-me' "$ENV_FILE"; then
-    echo "NOT STARTED: fill in $ENV_FILE (the read-only HSDS account), then: systemctl enable --now vaft-gui-test"
+  if [[ ! -e $ENV_FILE ]] || grep -q '^HS_PASSWORD=change-me' "$ENV_FILE" \
+     || ! grep -qE '^VAFT_GUI_ORIGINS=.+' "$ENV_FILE" || grep -q '^VAFT_GUI_ORIGINS=.*example\.org' "$ENV_FILE"; then
+    echo "NOT STARTED: fill in $ENV_FILE (the read-only HSDS account and VAFT_GUI_ORIGINS, the host"
+    echo "names readers open), then: systemctl enable --now vaft-gui-test"
   else
     run systemctl enable --now vaft-gui-test
   fi

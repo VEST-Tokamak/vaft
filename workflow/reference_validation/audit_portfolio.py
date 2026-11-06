@@ -10,10 +10,12 @@ VAFT version under review:
     output artifact (name, size, mtime) and the stage manifest's status, sha256
     and machine version.  Nothing is written::
 
-        ssh $VAFT_SERVER_SSH \\      # your "-p <port> <user>@<host>" for the server
+        ssh vaft-server \\
             python3 - scan --root /srv/vest.filedb --root ~/runs/campaign/filedb \\
             --shot 39915 --shot 48224 \\
             < workflow/reference_validation/audit_portfolio.py > server_scan.json
+
+    (``vaft-server``: a Host entry in ``~/.ssh/config`` naming the production server.)
 
 ``report``
     Runs locally against this checkout.  It reads the packaged samples

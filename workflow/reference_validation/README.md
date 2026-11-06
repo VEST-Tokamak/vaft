@@ -29,8 +29,8 @@ assert all(item.valid for item in results)
 Download the full reference artifact to a temporary location. Do not commit it:
 
 ```bash
-# VAFT_SERVER_SCP: your scp options and login for the production server, e.g. "-P <port> <user>@<host>"
-scp ${VAFT_SERVER_SCP%% *} ${VAFT_SERVER_SCP#* }:/srv/vest.filedb/public/39915/omas/39915_combined.json \
+# vaft-server: a Host entry in your ~/.ssh/config (HostName, Port, User of the production server)
+scp vaft-server:/srv/vest.filedb/public/39915/omas/39915_combined.json \
   /tmp/vaft-legacy-39915-combined.json
 ```
 
@@ -80,8 +80,8 @@ The scan half uses only the standard library and is read-only, so it can be pipe
 server's `python3` without touching the production checkout:
 
 ```bash
-# VAFT_SERVER_SSH: your ssh options and login for the production server, e.g. "-p <port> <user>@<host>"
-ssh $VAFT_SERVER_SSH \
+# vaft-server: a Host entry in your ~/.ssh/config (HostName, Port, User of the production server)
+ssh vaft-server \
   python3 - scan --root /srv/vest.filedb --root '~/runs/campaign/filedb' \
   --shot 39915 --shot 48224 \
   < workflow/reference_validation/audit_portfolio.py > server_scan.json

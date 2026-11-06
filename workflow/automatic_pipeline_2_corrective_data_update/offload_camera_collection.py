@@ -34,7 +34,8 @@ Every step is re-runnable; later collector output is picked up by running the
 same sequence again. A size match alone is not accepted for containers: an
 ``rsync --partial`` resume has left a truncated file in place before.
 
-Run::
+Run (with ``VAFT_CAMERA_COLLECT``, ``VAFT_CAMERA_OFFLOAD_HOST`` = ``<user>@<server>`` and, if not
+22, ``VAFT_CAMERA_OFFLOAD_PORT`` exported, or ``--collect``/``--host``/``--port`` given)::
 
     ./offload_camera_collection.py plan
     ./offload_camera_collection.py push --limit 1000
@@ -65,7 +66,7 @@ LOGGER = logging.getLogger("offload_camera_collection")
 # Site settings come from the environment (or the command line), never from the repository.
 DEFAULT_COLLECT = Path(os.environ["VAFT_CAMERA_COLLECT"]) if os.environ.get("VAFT_CAMERA_COLLECT") else None
 DEFAULT_HOST = os.environ.get("VAFT_CAMERA_OFFLOAD_HOST")  # <user>@<server>
-DEFAULT_PORT = int(os.environ.get("VAFT_CAMERA_OFFLOAD_PORT", "22"))
+DEFAULT_PORT = os.environ.get("VAFT_CAMERA_OFFLOAD_PORT", "22")  # parsed by argparse
 DEFAULT_REMOTE_LEGACY = "/srv/vest.filedb/legacy/camera_visible"
 DEFAULT_REMOTE_MCF = "/mnt/backup/vaft/camera_mcf"
 

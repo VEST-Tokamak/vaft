@@ -42,7 +42,7 @@ def test_install_never_starts_without_a_filled_env_file(tmp_path):
 
 def test_install_starts_once_the_account_is_filled_in(tmp_path):
     env_file = tmp_path / "missing.env"
-    env_file.write_text("HS_ENDPOINT=http://127.0.0.1:5101\nHS_USERNAME=gui-test-reader\nHS_PASSWORD=filled\n")
+    env_file.write_text("HS_ENDPOINT=http://127.0.0.1:5101\nHS_USERNAME=gui-test-reader\nHS_PASSWORD=filled\nVAFT_GUI_ORIGINS=gui.test.invalid\n")
     result = _run("install", SHA, "--dry-run", tmp_path=tmp_path)
     assert "+ systemctl enable --now vaft-gui-test" in result.stdout
 

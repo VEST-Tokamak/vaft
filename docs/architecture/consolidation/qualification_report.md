@@ -7,7 +7,7 @@ baselines that other lanes own.
 
 Machine-readable companion: [`qualification_results.json`](qualification_results.json).
 Case statuses: [`test/data/consolidation/case_manifest.yaml`](../../../test/data/consolidation/case_manifest.yaml).
-The bulk evidence stays on vestserver under `/home/user1/runs/consolidation-d2/` (23 GB, listed in §11).
+The bulk evidence stays on vestserver under `~/runs/consolidation-d2/` (23 GB, listed in §11).
 
 ## 1. Verdict
 
@@ -445,7 +445,7 @@ Selection rules (fixed before results):
   43017, 43685 and 45896. Near 46404 and 48372 no shot was reconstructed, so the five nearest
   shots on each side were used.
 
-| What | Path (under `/home/user1/runs/consolidation-d2/`) |
+| What | Path (under `~/runs/consolidation-d2/`) |
 |---|---|
 | Captures (per shot: products, logs, per-leaf `baseline.json`) | `captures/{p1,p2}-{before,after}/<shot>/` |
 | Leaf-by-leaf comparison with magnitudes and manifest diffs | `compare/{p1,p2}_leaf_compare.json` |
@@ -460,7 +460,7 @@ Selection rules (fixed before results):
 | §4.3 environment reproducibility check | `env_repro_39915.txt` |
 | Superseded runs, kept for the record | `vacuum/` (eddy-only inputs, all 49 rejected: no pf_active grid), `captures/smoke-before/` (driver smoke test) |
 
-Tools are in `/home/user1/work/d2-tools/`, listed with the sha256 prefix of each file:
+Tools are in `~/work/d2-tools/`, listed with the sha256 prefix of each file:
 - `d2_capture.py` `b92fec22`, `d2_run.sh` `ab6ddcd1`
 - `d2_compare.py` `29315444`
 - `d2_kfile.sh` `71a98ee6`
