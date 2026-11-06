@@ -521,3 +521,37 @@ def test_no_site_specific_name_is_committed_in_the_regeneration_tooling():
     for pattern in (r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", r"\w+@\w[\w.-]*\.\w+", r"-p \d{3,5}\b"):
         found = [match for match in re.findall(pattern, text) if not match.startswith("127.")]
         assert not found, (pattern, found)
+
+
+def test_the_runner_reads_paths_under_the_workflows_own_defaults(monkeypatch):
+    monkeypatch.delenv("VAFT_FILEDB_DIR", raising=False)
+    merged = SPEC.merged_config({"base_dir": "/lane/filedb", "efit": {"table_dir": "/t/"}})
+    assert merged["layout"] == "filedb" and merged["base_dir"] == "/lane/filedb"
+    assert merged["efit"]["table_dir"] == "/t/" and len(merged["efit"]) > 1  # deep, not replaced
+    assert SPEC.paths(merged).raw_dump(1).startswith("/lane/filedb/raw/")
+
+
+def test_the_guard_watches_prefixed_names_like_the_efit_loader():
+    from vaft.database.campaign.run import _RssGuard
+
+    guard = _RssGuard.__new__(_RssGuard)
+    guard.names = frozenset(SPEC.solver_processes)
+    assert guard._watched("ld-linux-x86-64") and guard._watched("rdcon") and not guard._watched("python3")
+
+
+def test_a_site_lane_command_gets_the_lanes_cores_and_memory(tmp_path):
+    from vaft.database.campaign.launch import lane_request
+
+    request = lane_request(tmp_path, [], cores=12, memory_mb=4096, lane_command=["bash", "run_lane.sh"])
+    assert request.command == ["bash", "run_lane.sh", str(tmp_path.resolve())]
+    assert (request.env["CORES"], request.env["MEM_MB"]) == ("12", "4096")
+
+
+def test_the_usage_meter_reports_a_child_peak_only_for_its_own_interval():
+    from vaft.code.accounting import UsageMeter
+
+    big = "b = bytearray(64 * 1024 * 1024)"
+    subprocess.run([sys.executable, "-c", big], check=True)
+    meter = UsageMeter(booked_cpus=1, cgroup=None).start()
+    subprocess.run([sys.executable, "-c", "pass"], check=True)
+    assert meter.stop().max_process_rss_mb is None  # the earlier, larger child is not this interval's

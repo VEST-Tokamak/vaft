@@ -22,6 +22,10 @@ CORES=${CORES:-${SLURM_CPUS_PER_TASK:-8}}
 MEM_MB=${MEM_MB:-${SLURM_MEM_PER_NODE:-65536}}
 FILEDB=$LANE/filedb
 mkdir -p "$FILEDB"
+# One job per lane: a duplicate (a resubmit racing a queued job) waits a minute, then leaves.
+# The lane runner holds <lane>/.lock itself; this one also covers the staging below.
+exec 8>"$LANE/.site.lock"
+flock -w 60 8 || { echo "another job holds $LANE/.site.lock; not starting" >&2; exit 0; }
 python -c "import vaft,sys; sys.exit(0 if vaft.__file__.startswith('$REGEN_SRC/') else 3)" \
   || { echo "vaft.__file__ outside $REGEN_SRC" >&2; exit 3; }
 

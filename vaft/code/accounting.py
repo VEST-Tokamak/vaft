@@ -210,8 +210,9 @@ class UsageMeter:
     docstring). Anywhere else -- a workstation, a server without a scheduler --
     CPU time is :func:`resource.getrusage` of the waited-for children, which
     covers a whole process tree once each parent has reaped its own. Either way
-    ``max_process_rss_mb`` is the largest resident peak of any child this
-    process has waited for so far (``getrusage`` keeps no per-interval peak).
+    ``max_process_rss_mb`` is the largest resident peak of a child reaped in the
+    interval -- known only when it raised the process's lifetime child peak
+    (``getrusage`` keeps no per-interval peak); otherwise ``None``.
 
     The meter measures *this* process's children: start it before launching the
     command and stop it after waiting for it. ``booked_cpus`` is what the run
@@ -244,6 +245,13 @@ class UsageMeter:
             return None
         return rss / _MIB if sys.platform == "darwin" else rss / 1024.0  # bytes on macOS, KiB on Linux
 
+    def _interval_max_rss_mb(self) -> Optional[float]:
+        after = self._children_max_rss_mb()
+        before = getattr(self, "_rss_before", None)
+        if after is None or (before is not None and after <= before):
+            return None
+        return after
+
     def _sample_memory(self) -> None:
         try:
             text = (self.cgroup / "memory.current").read_text().strip()
@@ -259,6 +267,7 @@ class UsageMeter:
 
         cpu = cgroup_cpu_seconds(self.cgroup) if self.cgroup else None
         self._start = (time.time(), cpu, self._rusage())
+        self._rss_before = self._children_max_rss_mb()
         self._mem_max = None
         if cpu is not None and self.sample_s > 0:
             self._sample_memory()
@@ -298,7 +307,7 @@ class UsageMeter:
             system_s=system,
             booked_cpus=self.booked_cpus,
             peak_mem_mb=peak,
-            max_process_rss_mb=self._children_max_rss_mb(),
+            max_process_rss_mb=self._interval_max_rss_mb(),
             source=source,
             start_epoch=t0,
             end_epoch=now,

@@ -277,9 +277,11 @@ CAMPAIGN_COMPARED_PRODUCTS = (
 )
 #: Per-shot directories compared file by file: name -> (PipelinePaths method, levels up from its path).
 CAMPAIGN_COMPARED_DIRECTORIES = {"efit_files": ("efit_status", 2)}
-#: Solver executables a lane's runaway-memory guard watches (process names).
+#: Solver executables a lane's runaway-memory guard watches (process names;
+#: ``name*`` for a prefix). EFIT may run through its own glibc loader, whose
+#: process is named after the loader (ld-linux-x86-64), not efit.bin.
 CAMPAIGN_SOLVER_PROCESSES = (
-    "dcon", "rdcon", "match", "rmatch", "stride", "gpec", "chease", "efit.bin", "efund.bin",
+    "dcon", "rdcon", "match", "rmatch", "stride", "gpec", "chease", "efit.bin", "efund.bin", "ld-linux*",
 )
 
 

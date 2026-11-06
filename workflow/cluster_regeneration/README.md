@@ -46,7 +46,7 @@ FileDB and never contacts HSDS; moving and replicating are separate, separately 
   on disk (confirm with `snakemake -n` before relying on it).
 - **Changing settings mid-run.** A lane refuses another pin, so a re-pinned remainder runs from a
   second root (`REGEN_ROOT=<another root>`, `PIN_BRANCH=ops/<name>` for a pin built from a
-  frozen SHA plus cherry-picked fixes) over `SHOTS_ALL=<file>`: the shots the first run has not
+  frozen SHA plus cherry-picked fixes) over `SHOTS_FILE=<file>`: the shots the first run has not
   started. `MAX_CHUNKS=1` lets the first run's lanes finish only their interrupted chunk, so the
   two runs' shot sets stay disjoint for `merge_lanes.sh`.
 - **Solver scratch.** DCON `euler.bin` and vacuum `vmat.bin` (~5 GB per MHD shot, 98 % of the

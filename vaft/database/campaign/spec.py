@@ -20,7 +20,7 @@ Snakemake workflow that states these names can run as a campaign.
 ``CAMPAIGN_COMPARED_PRODUCTS``, ``CAMPAIGN_COMPARED_DIRECTORIES``
     per-shot products (and directories) two runs are compared on;
 ``CAMPAIGN_SOLVER_PROCESSES``
-    process names a lane's runaway-memory guard watches.
+    process names a lane's runaway-memory guard watches (``name*`` for a prefix).
 """
 
 from __future__ import annotations
@@ -83,6 +83,28 @@ class WorkflowSpec:
     def snakefile(self) -> Path:
         return self.directory / "Snakefile"
 
+    def merged_config(self, config: Mapping[str, Any]) -> dict[str, Any]:
+        """``config`` deep-merged over the workflow's ``config.yaml``, as Snakemake will see it.
+
+        Environment references in the defaults are expanded with the workflow's
+        own ``expand_config_environment`` where it has one; a reference the
+        environment cannot answer leaves the defaults as written (the run config
+        overrides what the campaign itself reads, e.g. ``base_dir``).
+        """
+        import yaml
+
+        defaults: dict[str, Any] = {}
+        location = self.directory / "config.yaml"
+        if location.is_file():
+            defaults = yaml.safe_load(location.read_text(encoding="utf-8")) or {}
+            expand = getattr(self.module, "expand_config_environment", None) if self.module is not None else None
+            if expand is not None:
+                try:
+                    defaults = expand(defaults)
+                except Exception:  # noqa: BLE001 - an unset variable the run config overrides anyway
+                    pass
+        return _deep_merge(defaults, config)
+
     def paths(self, config: Mapping[str, Any]) -> Any:
         """The workflow's ``PipelinePaths`` for a run config, or ``None`` without one."""
         if self.module is None or not hasattr(self.module, "PipelinePaths"):
@@ -90,5 +112,16 @@ class WorkflowSpec:
         return self.module.PipelinePaths.from_config(config)
 
     def resource_profile_args(self, config: Mapping[str, Any]) -> list[str]:
+        """``--set-resources``/``--set-threads`` for ``config`` (already merged), via the workflow."""
         helper = getattr(self.module, "resource_profile_args", None) if self.module is not None else None
         return list(helper(config)) if helper is not None else []
+
+
+def _deep_merge(base: Mapping[str, Any], override: Mapping[str, Any]) -> dict[str, Any]:
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, Mapping) and isinstance(merged.get(key), Mapping):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged

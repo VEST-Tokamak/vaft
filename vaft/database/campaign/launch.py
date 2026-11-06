@@ -57,7 +57,11 @@ def lane_request(
     overlay = {variable: "1" for variable in THREAD_ENV_VARIABLES}
     overlay.update(env or {})
     if lane_command:
+        # The site script reads what the lane books from its environment.
         command = [*lane_command, str(lane)]
+        overlay.setdefault("CORES", str(cores))
+        if memory_mb:
+            overlay.setdefault("MEM_MB", str(memory_mb))
     else:
         command = [python or sys.executable, "-m", "vaft.database.campaign", "run-lane", str(lane),
                    "--cores", str(cores), *run_lane_args]
@@ -121,4 +125,8 @@ def _still_active(backend: object, lane: Path) -> bool:
     if not job or count is None:
         return False
     active = count([job])
-    return active is None or active > 0
+    if active is None:
+        print(f"{lane.name}: cannot tell whether job {job} is still queued or running; not submitting",
+              file=sys.stderr)
+        return True
+    return active > 0

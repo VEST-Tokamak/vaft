@@ -36,6 +36,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence, Union
@@ -54,6 +55,8 @@ PathLike = Union[str, Path]
 
 #: Exit statuses of :func:`run_lane`.
 DONE, FAILED, REFUSED, BUSY = 0, 1, 2, 75
+#: How long a second runner waits for the lane lock before giving up [s].
+LOCK_WAIT_S = 60.0
 
 
 @dataclass
@@ -123,11 +126,17 @@ def run_lane(lane: PathLike, options: LaneOptions) -> int:
     lane_path = Path(lane).resolve()
     lane_path.mkdir(parents=True, exist_ok=True)
     handle = (lane_path / ".lock").open("w")
-    try:
-        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        print(f"another runner holds {lane_path}/.lock", file=sys.stderr)
-        return BUSY
+    deadline = time.monotonic() + LOCK_WAIT_S
+    while True:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except BlockingIOError:
+            if time.monotonic() >= deadline:
+                handle.close()
+                print(f"another runner holds {lane_path}/.lock; not starting", file=sys.stderr)
+                return BUSY
+            time.sleep(1.0)
     try:
         return _run(_Lane(lane_path), options)
     finally:
@@ -157,8 +166,10 @@ def _run(lane: _Lane, options: LaneOptions) -> int:
 
     base = yaml.safe_load(Path(options.config).read_text(encoding="utf-8")) or {}
     base["base_dir"] = options.base_dir or str(filedb)
-    # What exists is read through the FileDB as this process sees it.
-    local_paths = spec.paths({**base, "base_dir": str(filedb)})
+    # What exists is read through the FileDB as this process sees it, under the
+    # config Snakemake will use (the workflow's config.yaml under the run's).
+    effective = spec.merged_config(base)
+    local_paths = spec.paths({**effective, "base_dir": str(filedb)})
     env = {**os.environ, **options.env}
     command = [*options.prefix, sys.executable, "-m", "snakemake", "--snakefile", str(spec.snakefile),
                "--directory", str(work)]
@@ -206,15 +217,19 @@ def _run(lane: _Lane, options: LaneOptions) -> int:
                 *run, "--cores", str(options.cores), "--scheduler", "greedy", "--keep-going",
                 "--rerun-incomplete", "--rerun-triggers", "mtime", "--printshellcmds", "--nocolor",
                 *(["--resources", f"mem_mb={options.mem_mb}"] if options.mem_mb else []),
-                *spec.resource_profile_args(base), *options.extra_args,
+                *spec.resource_profile_args(effective), *options.extra_args,
             ]
             meter = UsageMeter(options.cores).start()
-            process = subprocess.Popen(snakemake, stdout=log, stderr=subprocess.STDOUT, env=env)
-            guard = _RssGuard(lane, name, process.pid, spec.solver_processes, options)
-            guard.start()
-            returncode = process.wait()
-            guard.stop()
-            usage = meter.stop()
+            try:
+                process = subprocess.Popen(snakemake, stdout=log, stderr=subprocess.STDOUT, env=env)
+                guard = _RssGuard(lane, name, process.pid, spec.solver_processes, options)
+                guard.start()
+                try:
+                    returncode = process.wait()
+                finally:
+                    guard.stop()
+            finally:
+                usage = meter.stop()
         shutil.copyfile(attempt, lane.path / "logs" / f"{name}.snakemake.log")
         text = attempt.read_text(encoding="utf-8", errors="replace")
         verdict = chunk_verdict(
@@ -309,6 +324,12 @@ class _RssGuard:
             return None
         return None
 
+    def _watched(self, comm: str) -> bool:
+        """A watched name, or one starting with a watched ``prefix*``."""
+        return comm in self.names or any(
+            name.endswith("*") and comm.startswith(name[:-1]) for name in self.names
+        )
+
     def _descends(self, pid: int) -> bool:
         for _ in range(64):
             if pid == self.root:
@@ -327,7 +348,7 @@ class _RssGuard:
                     continue
                 pid = int(entry.name)
                 stat = self._stat(pid)
-                if stat is None or stat[0] not in self.names or not self._descends(pid):
+                if stat is None or not self._watched(stat[0]) or not self._descends(pid):
                     continue
                 rss = self._rss_mb(pid)
                 if rss is not None:

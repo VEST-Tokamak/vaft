@@ -341,10 +341,12 @@ def test_the_usage_meter_measures_children_outside_any_scheduler():
     from vaft.code.accounting import UsageMeter
 
     meter = UsageMeter(booked_cpus=2, cgroup=None).start()
-    subprocess.run([sys.executable, "-c", "s = 0\nfor i in range(3_000_000): s += i"], check=True)
+    # Larger than any child this test process reaped before, so the interval's peak is known.
+    work = "b = bytearray(768 * 1024 * 1024)\nb[::4096] = b'x' * len(b[::4096])\ns = 0\nfor i in range(3_000_000): s += i"
+    subprocess.run([sys.executable, "-c", work], check=True)
     usage = meter.stop()
     assert usage.source == "rusage" and usage.cpu_s > 0.05 and usage.wall_s >= usage.cpu_s / 2 * 0.5
-    assert usage.peak_mem_mb is None and usage.max_process_rss_mb > 1
+    assert usage.peak_mem_mb is None and usage.max_process_rss_mb > 700
     assert 0 < usage.utilization <= 1.5
 
 
