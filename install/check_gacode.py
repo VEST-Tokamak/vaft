@@ -41,7 +41,7 @@ TITLE = "GACODE environment check"
 RERUN = "python install/check_gacode.py"
 PROJECT = "GACODE"
 
-#: Suite members every installation must build. CGYRO has an adapter (#1354) but
+#: Suite members every installation must build. CGYRO has an adapter but
 #: is an optional, MPI-heavy build, so its absence does not fail this check.
 CODES = ("neo", "tglf")
 

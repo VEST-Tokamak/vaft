@@ -28,29 +28,30 @@ classifiers = [
 
 dependencies = [
   # Every direct dependency is here because VAFT imports it (or omas needs it
-  # outside what its sdist declares -- xmltodict below). Pin policy (#1012):
+  # outside what its sdist declares -- xmltodict below). Pin policy:
   #   exact pins only where a version is required for reproducibility or
   #   compatibility, with the reason next to them; otherwise a floor that is the
   #   oldest version known to work and a ceiling at the next major release.
-  #   Older interpreters may resolve older releases (see #1009).
+  #   Older interpreters may resolve older releases (python-compat.yml checks them).
   "cryptography>=42.0.0",               # vaft.database.raw (credential file)
   "f90nml>=1.4.4",
-  # The floor is issue #50: older h5py builds break against NumPy 2.
+  # The floor: older h5py builds break against NumPy 2 (DLL import errors on Windows).
   "h5py>=3.16,<4",
-  # Exact: the HSDS client (#969). 0.24.0 was qualified live against the VEST
+  # Exact: the HSDS client. 0.24.0 was qualified live against the VEST
   # HSDS server (0.9.0.alpha0): reads bit-identical to 0.20.0; publication,
   # master merge, attribute writes and the hs* tools verified. 1.0.0 is NOT
   # usable with that server -- it trusts the consolidated `getobjs` metadata,
   # which this server returns without attributes, so every HDF5 attribute reads
   # back empty without an error (hsget'd IMAS files lose HDF5_BACKEND_VERSION).
-  # Moving to 1.x waits for a server upgrade; see #1271.
+  # Moving to 1.x waits for a server upgrade (Open: #1271, 1.0.0 drops HDF5
+  # attributes against the VEST HSDS server).
   "h5pyd==0.24.0",
   "ipykernel>=6.29.4",
   "ipython",
   "ipywidgets",
   "matplotlib>=3.7.3,<4",
   "plotly>=5.24,<7",
-  # The browser GUI (`vaft gui`, vaft.gui; #1086, roadmap #1359). A core
+  # The browser GUI (`vaft gui`, vaft.gui). A core
   # dependency so that `pip install vaft` alone gives the team the GUI, which is
   # also served from the VEST server; it used to be the optional [gui] extra.
   # It costs about 150 MB of install (Panel and Bokeh, mostly bundled
@@ -93,12 +94,12 @@ vaft = "vaft.cli._main:main"
 [project.optional-dependencies]
 # scikit-learn is needed only by `fit_profile(fitting_function='gp_sklearn')`.
 # The default 'gp' mode is implemented against scipy, so the package no longer
-# pays a heavy import for one optional fitting backend (#426).
+# pays a heavy import for one optional fitting backend.
 sklearn = ["scikit-learn"]
 # onnxruntime is needed only by `vaft.code.gacode.tglf.surrogate` when it actually
 # runs a network. Resolving a model and auditing an input against its training
 # distribution need neither the runtime nor a prediction, so the decision "does this
-# model apply to this plasma" stays answerable without a heavy ML dependency (#553).
+# model apply to this plasma" stays answerable without a heavy ML dependency.
 surrogate = ["onnxruntime"]
 # TokaMaker is the one external code VAFT drives in-process rather than as a
 # subprocess, so "installed" means "importable in this interpreter" and pip can
@@ -107,7 +108,7 @@ surrogate = ["onnxruntime"]
 # the wheel carries compiled libraries, and every other workflow works without
 # it. vaft.code.tokamaker raises an actionable ImportError when it is absent.
 tokamaker = ["openfusiontoolkit"]
-# The framework backends of vaft.process.ml (#669). Importing vaft.process.ml
+# The framework backends of vaft.process.ml. Importing vaft.process.ml
 # needs none of it: the dataset, split, artifact and registry contract and the
 # "numpy" backend run on NumPy, and each framework is imported only when a
 # ModelSpec names its backend. torch: the "torch" backend; onnx is what its
@@ -119,19 +120,19 @@ tokamaker = ["openfusiontoolkit"]
 ml = ["torch", "onnx", "onnxruntime", "scikit-learn", "skl2onnx"]
 # Explicit local experiment index only; base ML never imports it.
 tracking = ["mlflow>=3,<4"]
-# 3-D scenes beyond Matplotlib and Plotly (#1087). vaft.plot.pyvista converts
+# 3-D scenes beyond Matplotlib and Plotly. vaft.plot.pyvista converts
 # Geometry3DLayers to PyVista/VTK and writes .vtm/.vtp files ParaView opens
 # (ParaView itself is never a dependency); vaft.plot.k3d draws them in Jupyter.
 # Both are imported only when a function asks for them: VTK is a large wheel
 # most 1-D/2-D workflows never need, and K3D matters only in a notebook.
 vtk = ["pyvista>=0.44"]
 jupyter3d = ["k3d>=2.16"]
-# Video files of an animated plot (#1050): `plot_*(..., animation=True).save("x.mp4")`
+# Video files of an animated plot: `plot_*(..., animation=True).save("x.mp4")`
 # encodes through PyAV, which carries its own FFmpeg. It is imported only when an
 # .mp4/.webm is written or previewed; static plots, interactive sliders and .gif
 # export (Pillow, already a Matplotlib dependency) never need it.
 video = ["av>=13"]
-# Numba is reserved for measured acceleration work (#1013) and is not a runtime
+# Numba is reserved for measured acceleration work (Open: #1013) and is not a runtime
 # dependency: no VAFT module imports it yet. It used to be required, but
 # electromagnetics.py only checked whether it imported and printed a warning when
 # it did not. Keeping it required would cost every install a compiled
@@ -139,14 +140,14 @@ video = ["av>=13"]
 # entirely. A kernel that later adopts it must keep a NumPy fallback that
 # produces the same result, and must import numba lazily inside that kernel.
 accel = ["numba"]
-# Optuna for adaptive, domain-owned scientific optimization (#1875, #1877). No
+# Optuna for adaptive, domain-owned scientific optimization. No
 # VAFT module imports it yet; when a domain method adopts an Optuna strategy
 # it imports optuna inside that function only and tells a user without the
 # extra to `pip install 'vaft[optimize]'`. SciPy stays the default optimizer.
 # Never a core dependency and never in [dev]: the suite must stay runnable,
 # and meaningful, without it.
 optimize = ["optuna>=5,<6"]
-# The local, read-only MCP server (`python -m vaft.mcp`, `vaft mcp`; #1423).
+# The local, read-only MCP server (`python -m vaft.mcp`, `vaft mcp`).
 # Only vaft.mcp.server imports the SDK, inside build_server(): `import vaft` and
 # `import vaft.mcp` never need it. In [dev] too, so CI runs the stdio round trip.
 mcp = ["mcp>=1.26,<2"]
@@ -154,7 +155,7 @@ mcp = ["mcp>=1.26,<2"]
 # `pip install 'vaft[gui]'` already written in scripts and notes still works.
 gui = []
 # The observed import graph on /reference/dependency-graph/ (`python -m
-# vaft._dependency_graph`; #1646). Grimp builds it; it is documentation and
+# vaft._dependency_graph`). Grimp builds it; it is documentation and
 # architecture tooling, never imported by `import vaft`, and the generator stops
 # with an install hint rather than fall back to another analyser. In [dev] too,
 # so the docs-site tests that run every generator can run this one.
@@ -171,22 +172,21 @@ dev = [
   # instead of skipping; the animation contract tests themselves need no PyAV.
   "av>=13",
   # The suite is 4800+ largely independent tests; running them on one core is
-  # what made the required CI check a 20-minute gate (issue #413).
+  # what made the required CI check a 20-minute gate.
   "pytest-xdist",
   "pre-commit",
   "black",
   "flake8",
   # F821 (undefined name) is a required check on vaft/formula/. flake8 carries
   # the same pyflakes code, but ruff runs it over the tree in well under a
-  # second, which is what makes it affordable as a gate rather than a nightly
-  # (issue #753).
+  # second, which is what makes it affordable as a gate rather than a nightly.
   "ruff",
   "ipykernel>=7.2.0",
   # the MCP SDK, so test_mcp_server.py's stdio round trip runs on the gate
   "mcp>=1.26,<2",
   "nbclient>=0.10",
   "nbformat>=5.10",
-  # so the dependency-graph generator (#1646) runs on the gate; see [architecture]
+  # so the dependency-graph generator runs on the gate; see [architecture]
   "grimp>=3.17,<4",
 ]
 
@@ -205,9 +205,9 @@ include = ["vaft*"]
 # -- MANIFEST.in prunes it from the sdist for the same reason.
 exclude = [
   "docs*",
-  # Issue studies that do not ship (#1756): the EC launcher CAD extraction
+  # Issue studies that do not ship: the EC launcher CAD extraction
   # needs cadquery-ocp and a STEP file that is not in the repository; the NICE
-  # #666 folders are notes and dated run records.  fixed_free_1608 ships.
+  # folders are notes and dated run records (NICE is experimental: Open: #666).  fixed_free_1608 ships.
   "vaft.validation.studies.ec_launcher_cad_266*",
   "vaft.validation.studies.nice_issue_666*",
 ]
@@ -239,7 +239,7 @@ vaft = [
   # Read by machine_mapping.langmuir_probes() on every call; without it a wheel
   # install leaves position.r unset where a source checkout fills it.
   "data/legacy/langmuir_probe_positions.csv",
-  # ShotLog era schemas read by vaft.database.shotlog (#995).
+  # ShotLog era schemas read by vaft.database.shotlog.
   "data/shotlog/schemas/*.yaml",
   "data/unified/vest_diagnostics/manifest.yaml",
   "data/unified/vest_diagnostics/omas.json.gz",
@@ -250,10 +250,10 @@ vaft = [
   "data/samples/39915/omas.json.gz",
   # The authored TikZ template vaft.diagram renders every scene into.
   "diagram/templates/*.tex",
-  # packaged pictures a diagram embeds (the VEST machine render, #1550)
+  # packaged pictures a diagram embeds (the VEST machine render)
   "diagram/images/*.jpg",
   "diagram/images/*.png",
-  # The hosted-GUI deployment templates (`vaft gui --hosted`, #1755): the
+  # The hosted-GUI deployment templates (`vaft gui --hosted`): the
   # systemd unit, its environment file, the nginx site and proxy snippet.
   "deploy/gui/*.service",
   "deploy/gui/*.example",

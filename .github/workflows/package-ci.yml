@@ -65,7 +65,7 @@ jobs:
           # still parse, because nothing imports Panel before an app is built.
           /tmp/vaft-wheel-test/bin/vaft gui --help
 
-  # The two gates this workflow implements, stated once here (#515):
+  # The two gates this workflow implements, stated once here:
   #
   #   develop  development confidence -- is this change safe to integrate?
   #            required: `package` and `core-test`
@@ -91,7 +91,7 @@ jobs:
       - name: Install vaft with dev dependencies
         run: python -m pip install -e ".[dev]"
 
-      # The torch backend of vaft.process.ml (#669) is in the core selection,
+      # The torch backend of vaft.process.ml is in the core selection,
       # and without torch its tests skip -- which would let a broken training
       # loop or an ONNX export that disagrees with its model pass the gate green,
       # as the onnxruntime note in pyproject.toml warns. The CPU wheel, because
@@ -99,7 +99,7 @@ jobs:
       - name: Install the CPU torch and sklearn-ONNX backends for vaft.process.ml
         run: |
           # Bounded: the ONNX export uses the TorchScript exporter (dynamo=False),
-          # which torch deprecates; lift the bound with the dynamo migration (#669).
+          # which torch deprecates; lift the bound with the dynamo migration.
           python -m pip install "torch>=2.4,<2.12" --index-url https://download.pytorch.org/whl/cpu
           python -m pip install onnx skl2onnx
 
@@ -107,7 +107,7 @@ jobs:
       # signal and its failure mode is unambiguous: a name that does not exist
       # cannot be a flake, an environment difference, or a tolerance. F821 was
       # silently disabled for `vaft/formula/` by a star import for long enough
-      # that a public function raised NameError on every call (#753); running it
+      # that a public function raised NameError on every call; running it
       # here means the next star import fails a gate rather than waiting for
       # someone to call the function it blinded.
       - name: Check for undefined names
@@ -241,7 +241,7 @@ jobs:
       - name: Run test suite
         # Deliberately serial. VAFT is a scientific validation suite, so the
         # required check runs in one process with one deterministic execution
-        # environment. xdist was measured here (see #413) and rejected: it cut
+        # environment. xdist was measured here (record: #413) and rejected: it cut
         # the job from 19m55s to 15m51s, but xdist's loadfile scheduler assigns
         # files to workers dynamically by completion timing, so a test's view of
         # the process-local lru_caches in vaft/machine_mapping varies run to
@@ -249,7 +249,9 @@ jobs:
         # state in the check that gates every merge.
         #
         # pytest-xdist stays in [dev] for local iteration; it is not the
-        # canonical mode. See #413 for what a future optimization must show.
+        # canonical mode. A future optimization must show identical pass/skip
+        # outcomes against the serial run and no dependence on execution order or
+        # worker assignment, not only a wall-clock saving.
         #
         # Running serially is also what makes the `perf` budgets meaningful:
         # they assert wall-clock ratios, and it was four xdist workers on a
@@ -352,7 +354,7 @@ jobs:
       - name: Verify committed tutorial source and artifacts
         run: python test/verify_tutorial.py
 
-      # --- Quarto presentations (issue #322) -------------------------------
+      # --- Quarto presentations -------------------------------
       # Every session's slides are one .qmd rendered to both backends. Nothing
       # is committed, so this job is the only producer of the decks and the only
       # proof that the sources still build. Quarto is pinned for that reason: an

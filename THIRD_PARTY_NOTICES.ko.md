@@ -55,7 +55,7 @@ VAFT는 `omfit_classes`에 의존하지 않으며, import하거나 요구하지�
 
 ### Lucide 아이콘
 
-`vaft.diagram.pictograms`(#2101)의 범용 픽토그램은 npm 패키지 `lucide-static`
+`vaft.diagram.pictograms`의 범용 픽토그램은 npm 패키지 `lucide-static`
 1.52.0에서 `vaft/diagram/_lucide.py`로 그대로 옮겨 온 SVG 아이콘 소스로 그립니다.
 그중 일부 아이콘은 Feather 프로젝트에서 파생되었으며, 아래 라이선스에 포함된 MIT 조건을 따릅니다.
 

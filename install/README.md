@@ -669,7 +669,7 @@ CHEASE's native `EXPEQ` from the g-file (`NEQDSK=0`) and reads back the COCOS-2
 EQDSK, which upstream CHEASE writes for `NIDEAL=6`, its own documented default.
 `CHEASEConfig(output="geqdsk")`, the default, selects that; you do not set
 `NIDEAL` yourself. Other mappings, such as `NIDEAL=9` for GENE/ORB5, produce
-files the adapter does not read and are not part of it (#516).
+files the adapter does not read and are not part of it.
 
 The adapter used to expose `nideal` and default it to `11`, the value the VEST
 `jsk95` workflow runs against the CHEASE build that group uses. Upstream
@@ -682,7 +682,7 @@ WRONG VALUE FOR NIDEAL IT HAS TO BE 1,2,3,4,5,6,7,8,9 OR 10
 ```
 
 so a CHEASE built from the public repository refused the default configuration
-on every platform (#717). `CHEASEConfig(nideal=11)` still works against the
+on every platform; VAFT's default is now upstream's own 6. `CHEASEConfig(nideal=11)` still works against the
 jsk95 revision, as a deprecated raw override that warns; the pipeline passes it
 only when `chease.nideal` is set in its config.
 
@@ -1021,8 +1021,8 @@ there.
 
 If you build `rtes` from source, apply `install/tes/tes_limiter_and_powell.patch`
 first. It adds or changes about twenty lines, with one line of TES source
-around each change as an anchor, and fixes three upstream problems
-(issue #1469):
+around each change as an anchor, and fixes three upstream problems found
+while making TES represent the VEST inboard-limited state:
 
 - **Limiting-point check.** `TES/find_psiab.cpp` writes `if(j=max_index)`, an
   assignment, in the check that walks inward from a limiting-point candidate.
