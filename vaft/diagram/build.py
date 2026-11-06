@@ -247,6 +247,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # the research modes and their common state inside one integrated framework, serving analysis (#1698)
     "integrated_scientific_framework.svg": ("integrated_scientific_framework", {}),
     "integrated_scientific_framework_equilibrium.svg": ("integrated_scientific_framework", {"domain": "equilibrium"}),
+    # pairwise coupling, a common data model and the integrated framework in one row (#2157)
+    "integration_paradigms_lineage.svg": ("integration_paradigms_lineage", {}),
     "human_ai_interface.svg": ("human_ai_interface", {}),
     # the machine and research archive since 2012 (#497)
     "machine_research_archive.svg": ("machine_research_archive", {}),
