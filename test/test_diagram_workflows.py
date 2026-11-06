@@ -249,8 +249,11 @@ def test_references_are_optional_numbered_by_first_use_and_listed():
 def test_every_transport_route_starts_from_the_state_and_external_codes_are_optional():
     """#1901: no route feeds another; NEO, TGLF and CGYRO are optional external codes, each with its own writer."""
     spec = WORKFLOWS["transport_hierarchy"]
-    routes = ("classical", "neo_fit", "neo_code", "turb_ql", "turb_gk")
-    assert {(src, dst) for src, dst, _ in spec.edges if dst in routes} == {("state", r) for r in routes}
+    resolved = ("classical", "neo_code", "turb_ql", "turb_gk")
+    routes = resolved + ("neo_fit",)
+    # Sauter/Redl reads the ODS (compute_bootstrap_current(ods, ...)), not the resolved state built from it
+    assert {(src, dst) for src, dst, _ in spec.edges if dst in routes + ("state",)} == \
+        {("state", r) for r in resolved} | {("source", "neo_fit"), ("source", "state")}
     for key in ("neo_code", "turb_ql", "turb_gk"):
         assert spec.node(key).kind == "solver" and "optional" in spec.node(key).symbols, key
     for key in ("classical", "neo_fit"):
@@ -262,6 +265,23 @@ def test_every_transport_route_starts_from_the_state_and_external_codes_are_opti
     assert ("window", "ct_cgyro") in spec.side
     for key in ("ct_classical", "ct_neo", "ct_tglf", "ct_cgyro"):
         assert "model[k]" in spec.node(key).ids and "identifier.index" in spec.node(key).ids, key
+
+
+@pytest.mark.parametrize("key", ["transport_hierarchy", "neo_neoclassical"])
+def test_only_the_steps_drawn_from_the_source_read_the_ods(key):
+    """Sauter / Redl and the resolver read the ODS; everything downstream of the resolved state reads its outputs."""
+    spec = WORKFLOWS[key]
+
+    def first_parameter(node_key):
+        return next(iter(inspect.signature(W.resolve(spec.node(node_key).api)).parameters))
+
+    from_source = {dst for src, dst, _ in spec.edges if src == "source"}
+    assert from_source == {"state", "neo_fit" if key == "transport_hierarchy" else "fits"}
+    assert all(first_parameter(k) == "ods" for k in from_source)
+    from_state = {dst for src, dst, _ in spec.edges if src == "state"}
+    assert from_state and all(first_parameter(k) != "ods" for k in from_state if spec.node(k).api)
+    # the fits are returned, not written: nothing leaves them
+    assert not [e for e in spec.edges if e[0] in from_source - {"state"}]
 
 
 def test_the_comparison_separates_the_shared_state_from_two_input_paths():
