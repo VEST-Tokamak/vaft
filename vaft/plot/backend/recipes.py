@@ -2360,13 +2360,20 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
         (f"interferometer.channel.{index}.n_e_line.time", "interferometer.time"),
     )
     if time is None or time.size != signal_values.size:
-        time = np.arange(signal_values.size, dtype=float)
+        time = _untimed_axis(
+            signal_values.size, options, f"interferometer.channel.{index}.n_e_line.data"
+        )
 
     sample_rate = options.get("sample_rate")
     if sample_rate is None:
         steps = np.diff(time)
         positive = steps[steps > 0]
-        sample_rate = 1.0 / float(np.median(positive)) if positive.size else 1.0
+        if not positive.size:
+            raise ValueError(
+                f"interferometer.channel.{index} has no increasing time samples to "
+                "derive a sample rate from; pass sample_rate= in Hz"
+            )
+        sample_rate = 1.0 / float(np.median(positive))
     sample_rate = float(sample_rate)
     nyquist = sample_rate / 2.0
 
@@ -2375,6 +2382,14 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     if signal_values.size > 32 and 0.0 < highpass_cutoff < nyquist:
         fluctuation = butterworth_highpass(
             signal_values, highpass_cutoff, sample_rate, order=4, zero_phase=True
+        )
+    elif highpass_cutoff > 0.0:
+        # A cut-off the record cannot honour leaves the trend in, and the map is
+        # the raw trace's (issue #2270 B5); a cut-off <= 0 is the caller's opt-out.
+        _warn_at_caller(
+            f"interferometer_spectrogram: the {highpass_cutoff:g} Hz trend high-pass is not "
+            f"applied ({signal_values.size} samples, Nyquist {nyquist:g} Hz); the map is "
+            "of the unfiltered line density"
         )
 
     window_size = options.get("window_size") or options.get("nperseg")
@@ -2387,9 +2402,10 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     time_resolution = options.get("time_resolution")
     time_resolution = int(time_resolution) if time_resolution else max(1, window_size // 40)
 
+    method = _spectrogram_method(options, "interferometer_spectrogram")
     result = _spectrogram_result(
         time, fluctuation,
-        method=_spectrogram_method(options, "interferometer_spectrogram"),
+        method=method,
         sample_rate=sample_rate, options=options,
         window_hint=window_size, resolution_hint=time_resolution,
     )
@@ -2398,7 +2414,7 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
         max_frequency=_display_ceiling(result, options),
         cmap=options.get("cmap", "turbo"),
         title=_channel_label(ods, "interferometer.channel.{i}.name", index, f"channel {index}"),
-        value_label="Fluctuation Magnitude",
+        value_label=_spectrogram_value_label("Fluctuation Magnitude", method),
     )
 
 
@@ -11210,6 +11226,23 @@ SPECTROGRAM_PARAMETERS: dict[str, tuple[str, ...]] = {
     "cwt": ("frequency_range", "n_frequencies"),
 }
 
+#: What a pixel of each method's map is (issue #2270 B5): the three transforms
+#: are scaled differently, so the colour bar says which one it shows rather
+#: than one bare "Magnitude" for all three.
+SPECTROGRAM_VALUE_SCALES: dict[str, str] = {
+    # scipy's mode="magnitude" with its default density scaling,
+    # |X|/sqrt(fs sum w^2) -- the formula does not fit on a colour bar
+    "stft": "STFT amplitude density",
+    "hann_fft": "amplitude 2|X|/N",
+    "cwt": "CWT |W|",
+}
+
+
+def _spectrogram_value_label(label: str, method: str) -> str:
+    """``label`` with the method's scale, e.g. ``Magnitude (STFT |X|)``."""
+    return f"{label} ({SPECTROGRAM_VALUE_SCALES[method]})"
+
+
 #: The window both Fourier methods use when the caller names none.  The same
 #: number of samples either way, so switching method changes the algorithm
 #: and not, silently, the resolution as well.
@@ -11309,13 +11342,21 @@ def _spectrogram_result(
     if method == "stft":
         from vaft.process.fluctuation import compute_spectrogram
 
-        nperseg = int(options.get("nperseg") or window_hint or _SPECTROGRAM_WINDOW)
-        nperseg = max(2, min(nperseg, int(values.size)))
+        requested = int(options.get("nperseg") or window_hint or _SPECTROGRAM_WINDOW)
+        nperseg = max(2, min(requested, int(values.size)))
         noverlap = options.get("noverlap")
-        overlap = 0.5 if noverlap is None else float(noverlap) / nperseg
+        if noverlap is not None and not 0 <= int(noverlap) < requested:
+            # A named overlap the window cannot hold was clamped in silence
+            # (issue #2270 B5).
+            raise ValueError(
+                f"noverlap must be 0 <= noverlap < nperseg ({requested} samples); got {noverlap!r}"
+            )
+        # The overlap is a fraction of the window, so a window shortened to the
+        # record keeps the caller's fraction; a valid one is no longer capped.
+        overlap = 0.5 if noverlap is None else float(noverlap) / requested
         result = compute_spectrogram(
             time, values, sample_rate=sample_rate, nperseg=nperseg,
-            overlap=min(max(overlap, 0.0), 0.99),
+            overlap=overlap,
             window=options.get("window", "hann"),
             detrend=options.get("detrend", "constant"),
         )
@@ -11363,6 +11404,21 @@ class _SpectrogramResult:
     magnitude: np.ndarray
 
 
+def _untimed_axis(size: int, options: Mapping[str, Any], path: str) -> np.ndarray:
+    """A time axis in seconds for a signal stored without one, from ``sample_rate=``.
+
+    Refused without a rate: the index axis it used to fall back to was then
+    labelled seconds and its frequencies Hz.
+    """
+    rate = options.get("sample_rate")
+    if rate is None or not np.isfinite(float(rate)) or float(rate) <= 0.0:
+        raise ValueError(
+            f"{path} has no matching time base; pass sample_rate= in Hz so the "
+            "time and frequency axes are in seconds and hertz"
+        )
+    return np.arange(size, dtype=float) / float(rate)
+
+
 def _build_spectrogram(
     ods: Any, recipe: SpectrogramRecipe, **options: Any
 ) -> Spectrogram:
@@ -11381,7 +11437,11 @@ def _build_spectrogram(
     time = _first_time(ods, recipe.time_paths, i=index)
     timed = time is not None and time.size == signal.size
     if not timed:
-        time = np.arange(signal.size, dtype=float)
+        # Sample indices drawn as seconds and cycles per sample as Hz (issue
+        # #2270 B5): without a time base the axes need the caller's rate.
+        time = _untimed_axis(
+            signal.size, options, " or ".join(path.format(i=index) for path in candidates)
+        )
 
     time_range = options.get("time_range")
     if time_range is not None:
@@ -11392,7 +11452,12 @@ def _build_spectrogram(
     if sample_rate is None:
         steps = np.diff(time)
         positive = steps[steps > 0]
-        sample_rate = 1.0 / float(np.median(positive)) if positive.size else 1.0
+        if not positive.size:
+            raise ValueError(
+                f"{recipe.signal_path.format(i=index)} has no increasing time samples "
+                "to derive a sample rate from; pass sample_rate= in Hz"
+            )
+        sample_rate = 1.0 / float(np.median(positive))
     method = _spectrogram_method(options, options.get("_plot_name"))
     result = _spectrogram_result(
         time, signal, method=method, sample_rate=float(sample_rate), options=options
@@ -11403,7 +11468,7 @@ def _build_spectrogram(
         max_frequency=ceiling,
         cmap=options.get("cmap", "hot_r"),
         title=_channel_label(ods, recipe.label_path, index, f"channel {index}"),
-        value_label=recipe.value_label,
+        value_label=_spectrogram_value_label(recipe.value_label, method),
         **_spectrogram_ridge(result, options, ceiling),
     )
     request = _mode_overlay_request(options)
@@ -11624,6 +11689,13 @@ def _with_mode_overlay(
     )
 
 
+#: Options only a spectrogram reads; a power spectrum refuses them.
+_SPECTROGRAM_ONLY_OPTIONS = (
+    "method", "window_size", "time_resolution", "n_frequencies", "frequency_range",
+    "max_frequency", "track", "max_jump", "overlap",
+)
+
+
 def _build_power_spectrum(
     ods: Any, recipe: PowerSpectrumRecipe, **options: Any
 ) -> PowerSpectrum:
@@ -11635,6 +11707,18 @@ def _build_power_spectrum(
     of ``B`` -- integrate first if you want a field spectrum.
     """
     from vaft.process.fluctuation import compute_psd, fit_power_law_spectrum
+
+    # Spectrogram options the global schema accepts but a Welch PSD has no use
+    # for were dropped in silence (issue #2270 B5): refused by name instead.
+    foreign = sorted(
+        key for key in _SPECTROGRAM_ONLY_OPTIONS if options.get(key) is not None and options[key] is not False
+    )
+    if foreign:
+        raise ValueError(
+            f"the power spectrum of {recipe.signal_path} is a Welch PSD and takes no "
+            f"{', '.join(foreign)}; its analysis options are sample_rate, window, nperseg, "
+            "noverlap, detrend and time_range"
+        )
 
     requested = options.get("channel")
     if requested is None:
