@@ -379,6 +379,9 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # profile/perturbation (#2270 P2): V tabulated on the toroidal radius, never
+    # the sqrt(psi_N) proxy; phase = arg(Phi_res), m takes the sign of q
+    "volume_weights_on_grid", "equilibrium_volume_weights", "resonant_table",
     # signal_processing (#2135): zero-phase, so no filtered waveform lags another
     "apply_fir_filter",
     # gyrokinetics (#1820): |phi|^2 is a proxy, ky = 0 is zonal, positive lag = zonal

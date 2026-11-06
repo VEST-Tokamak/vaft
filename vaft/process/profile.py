@@ -87,6 +87,7 @@ __all__ = [
     "equilibrium_mapping_charge_exchange",
     "equilibrium_mapping_points",
     "equilibrium_mapping_thomson_scattering",
+    "equilibrium_volume_weights",
     "export_electron_profile_txt",
     "fit_ti_te_ratio",
     "pedestal_top",
@@ -96,6 +97,7 @@ __all__ = [
     "profile_fitting_charge_exchange",
     "profile_fitting_thomson_scattering",
     "strip_electron_only_pressure",
+    "volume_weights_on_grid",
     # analytic confinement-regime plasma states (#1045), from ._analytic_plasma_state
     "analytic_hmode_itb_state",
     "analytic_hmode_state",
@@ -2354,6 +2356,188 @@ def _channel_rho_tor_norm(mapped, positions, coordinate, eq_grid):
     out = np.full(np.shape(positions), np.nan)
     finite = np.isfinite(psi_n)
     out[finite] = np.interp(np.clip(psi_n[finite], 0.0, 1.0), psi_n_grid, rho_tor_grid)
+    return out
+
+
+def _leaf_array(source, path):
+    """The leaf at ``path`` as a float array, or ``None``; never creates the path."""
+    from vaft.ods_access import accessor_for
+
+    value = accessor_for(source).get(source, path, None)
+    if value is None:
+        return None
+    try:
+        out = np.asarray(value, dtype=float)
+    except (TypeError, ValueError):
+        return None
+    return out if out.size else None
+
+
+def volume_weights_on_grid(rho_tor_norm_equilibrium, volume, rho_tor_norm):
+    """The plasma volume each point of a profile grid stands for, ``dV``.
+
+    Parameters
+    ----------
+    rho_tor_norm_equilibrium : array_like
+        Toroidal-flux radius of the equilibrium's 1-D grid [-].
+    volume : array_like
+        Volume enclosed by each of those surfaces, ``V(rho_tor_norm)`` [m^3].
+    rho_tor_norm : array_like
+        The profile grid to weight, strictly increasing [-].
+
+    Returns
+    -------
+    np.ndarray or None
+        ``dV`` per point of ``rho_tor_norm``, or ``None`` when the inputs
+        cannot weight the grid: fewer than two grid points, a non-finite or
+        non-increasing grid, no finite ``(rho, V)`` pair, mismatched equilibrium
+        arrays, or a total volume of zero (a constant ``V``) [m^3].
+
+    Processing steps
+    ----------------
+    1. Cell edges at ``0``, the midpoints between grid points, and the last
+       grid point.
+    2. ``V`` at each edge by linear interpolation in the finite, ``rho``-sorted
+       equilibrium table, clamped at its ends.
+    3. ``dV`` as the difference across each cell; a negative difference (a
+       non-monotonic ``V``) is clipped to zero.
+
+    Convention
+    ----------
+    Both radii are ``rho_tor_norm`` of the **same** equilibrium time slice; the
+    caller matches the slice by time and must not pass the ``sqrt(psi_N)``
+    proxy (:func:`equilibrium_volume_weights` refuses it).  The weights make
+    ``sum(f dV)/sum(dV)`` a volume average on the grid.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Points beyond the equilibrium's ``rho`` range get ``dV = 0`` because the
+    interpolation clamps.  The first cell starts at the axis whatever the first
+    grid point is.
+
+    Provenance
+    ----------
+    .. [2270] VAFT issue #2270: one kernel for the copies in
+       ``vaft.omas.vest_upstream._volume_weights_on_grid`` (the composition
+       stage and the kinetic-state inference) and the impurity views'
+       ``_volume_weights_at``, which had drifted apart on degenerate input.
+    """
+    rho = np.asarray(rho_tor_norm, dtype=float).reshape(-1)
+    rho_eq = np.asarray(rho_tor_norm_equilibrium, dtype=float).reshape(-1)
+    volume = np.asarray(volume, dtype=float).reshape(-1)
+    if rho.size < 2 or not np.all(np.isfinite(rho)) or np.any(np.diff(rho) <= 0.0):
+        return None
+    if rho_eq.shape != volume.shape:
+        return None
+    ok = np.isfinite(rho_eq) & np.isfinite(volume)
+    if not ok.any():
+        return None
+    order = np.argsort(rho_eq[ok])
+    edges = np.concatenate(([0.0], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
+    dv = np.clip(np.diff(np.interp(edges, rho_eq[ok][order], volume[ok][order])), 0.0, None)
+    return dv if np.sum(dv) > 0.0 else None
+
+
+def equilibrium_volume_weights(ods, time_slice, rho_tor_norm):
+    """``dV`` on a profile grid from equilibrium slice ``time_slice``'s ``V(rho_tor_norm)``.
+
+    Parameters
+    ----------
+    ods : ODS
+        Data holding ``equilibrium.time_slice[time_slice].profiles_1d`` with
+        ``volume`` and ``rho_tor_norm`` (and ``psi``/``q`` when the stored
+        radius is the proxy); read without being modified [-].
+    time_slice : int
+        Index of the equilibrium slice, matched to the profile by time by the
+        caller [-].
+    rho_tor_norm : array_like
+        The profile grid to weight [-].
+
+    Returns
+    -------
+    np.ndarray or None
+        :func:`volume_weights_on_grid` of the slice, or ``None`` when the
+        slice has no volume or radius, its radius is the ``sqrt(psi_N)`` proxy
+        and cannot be re-derived from ``q``, or the kernel declines [m^3].
+
+    Processing steps
+    ----------------
+    1. Read ``profiles_1d.volume`` and ``profiles_1d.rho_tor_norm``.
+    2. When the radius is the ``sqrt(psi_N)`` proxy, replace it by the
+       toroidal radius integrated from ``q`` -- the same resolution
+       :func:`core_profiles` applies to the grid the profile is stored on --
+       or decline when that cannot be done.
+    3. Weight the grid with :func:`volume_weights_on_grid`.
+
+    Convention
+    ----------
+    ``V`` is tabulated against the slice's *toroidal* radius, as the profile
+    grid is; reading it against the proxy would give each profile point the
+    volume of a different surface.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The radius is trusted once it is not the proxy; its normalization is
+    assumed to be the profile grid's.
+
+    Provenance
+    ----------
+    .. [2270] VAFT issue #2270: the ODS side of the volume weighting shared by
+       the impurity views, the composition stage and the kinetic-state
+       inference.
+    """
+    from vaft.data._derived import is_rho_pol_proxy
+
+    base = f"equilibrium.time_slice.{int(time_slice)}.profiles_1d"
+    rho_eq = _leaf_array(ods, f"{base}.rho_tor_norm")
+    volume = _leaf_array(ods, f"{base}.volume")
+    if rho_eq is None or volume is None or rho_eq.ndim != 1:
+        return None
+    psi = _leaf_array(ods, f"{base}.psi")
+    grid = None
+    if psi is not None and psi.shape == rho_eq.shape and np.all(np.isfinite(psi)):
+        # The derivation reads optional paths with OMAS item access, which
+        # creates them; it runs on a private copy of the leaves it needs so the
+        # caller's ODS is never written (cold review #2270 P2).
+        grid = _equilibrium_grid_at_index(_profiles_1d_copy(ods, int(time_slice)), 0)
+        if grid is not None:
+            if not grid.rho_tor_norm_trusted:
+                return None
+            rho_eq = np.asarray(grid.rho_tor_norm, dtype=float)
+    if grid is None and is_rho_pol_proxy(rho_eq):
+        # No usable psi to re-derive from (missing, flat, non-finite): the
+        # proxy is still not a toroidal radius.
+        return None
+    return volume_weights_on_grid(rho_eq, volume, rho_tor_norm)
+
+
+#: The leaves :func:`_equilibrium_grid_at_index` and the ``q`` derivation read.
+_RADIUS_LEAVES = (
+    "profiles_1d.psi", "profiles_1d.q", "profiles_1d.rho_tor_norm",
+    "global_quantities.psi_axis", "global_quantities.psi_boundary",
+)
+
+
+def _profiles_1d_copy(ods, time_slice):
+    """A new ODS whose slice 0 holds only :data:`_RADIUS_LEAVES` of ``ods``'s slice."""
+    from omas import ODS
+
+    from vaft.ods_access import accessor_for
+
+    out = ODS(consistency_check=False)
+    accessor = accessor_for(ods)
+    for leaf in _RADIUS_LEAVES:
+        value = accessor.get(ods, f"equilibrium.time_slice.{time_slice}.{leaf}", None)
+        if value is not None:
+            out[f"equilibrium.time_slice.0.{leaf}"] = np.array(value, dtype=float, copy=True)
     return out
 
 
