@@ -5,6 +5,11 @@ A scheduler's own view of usage is not enough on the clusters VAFT runs on.
 a job is cancelled (tdst, 2026-11: every cancelled lane reported 0 s). The job's
 cgroup is the one record that is always there: ``cpu.stat`` counts the CPU time
 of every process the job ever ran, and ``memory.peak`` its largest footprint.
+That footprint includes the page cache the job's file reads filled: on a node
+that does not constrain RAM (Slurm ``ConstrainRAMSpace=no``) it can exceed the
+booked ``--mem`` many times over while the processes' resident memory stays
+far below it (tdst #2147: 160 GB ``memory.peak``, 20 GB sacct ``MaxRSS``, 64 GB
+booked). Compare ``peak_mem_mb`` with a memory request only together with RSS.
 This module reads it, and gives batch job scripts the few shell lines that
 write it next to their exit record, where a cancel cannot erase it.
 
@@ -114,7 +119,10 @@ def cgroup_cpu_seconds(directory: PathLike) -> Optional[tuple[float, float, floa
 
 
 def cgroup_memory_peak_mb(directory: PathLike) -> Optional[float]:
-    """``memory.peak`` of a cgroup in MiB (kernel >= 5.19), else ``None``."""
+    """``memory.peak`` of a cgroup in MiB (kernel >= 5.19), else ``None``.
+
+    Page cache included: an upper bound on resident memory, not a measure of it.
+    """
     try:
         text = (Path(directory) / "memory.peak").read_text().strip()
     except OSError:
