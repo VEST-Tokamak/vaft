@@ -52,7 +52,7 @@ Tables and text summaries
 -------------------------
 
 Not every scientific view is a figure.  A ``<subject>_table_<content>`` or
-``<subject>_text_<content>`` view (issue #1180) goes through the same three
+``<subject>_text_<content>`` view goes through the same three
 steps as a plot -- the adapter selects and reduces the data (a slice is
 chosen, metrics are computed), builds a typed model
 (:class:`~vaft.plot.models.Table`, :class:`~vaft.plot.models.TextSummary`)
@@ -128,18 +128,18 @@ identity, and iterates as :class:`~vaft.plot.discovery.PlotCapability` records
 that still answer the flat-row keys -- the canonical ``name``, its
 ``domain``/``view``/``quantity``, the ``model`` the renderer consumes, the
 ``ids`` roots and ``required_paths`` an adapter must supply, and a short
-``description`` (issue #262).  ``query=`` resolves strictly through the alias
+``description``.  ``query=`` resolves strictly through the alias
 registry.  :func:`available_plots`, ``__all__`` and ``dir()`` report the same
 canonical set because all three derive from :mod:`vaft.plot.registry`.  The
-``ids`` and ``required_paths`` fields are what will let a database adapter
-fetch only the data a plot needs once selective loading (issue #51) lands.
+``ids`` and ``required_paths`` fields are what a database adapter needs to
+fetch only the data a plot reads instead of whole IDS.
 
 Adding a renderer means adding a ``@renderer(...)``-decorated function; the
 decorator registers it and returns it unchanged, so the name stays a real
 module-level ``def`` that documentation tools and type checkers can see.
 
 What a plot is *for* lives in that function's docstring, written to the plot
-docstring contract (issue #1505): a summary, an ``Interpretation`` of what the
+docstring contract (CONTRIBUTING.md, "Plot docstrings"): a summary, an ``Interpretation`` of what the
 figure shows and which questions it answers, ``Options`` explaining the choices
 that change the representation, and ``Limitations`` on what it cannot show.
 :func:`documentation` parses it into a :class:`PlotDocumentation` that the
@@ -585,7 +585,8 @@ def dd(name: str) -> tuple:
 
     A tuple of :class:`vaft.plot.backend.dd.DDPath`, data paths first -- the
     same answer as ``vaft.omas.dd_<name>()`` and ``vaft.imas.dd_<name>()``
-    (umbrella #434).  See :func:`vaft.plot.backend.dd.dd_paths`.
+    -- one answer whichever backend reads the data.  See
+    :func:`vaft.plot.backend.dd.dd_paths`.
     """
     from .backend.dd import dd_paths
 
@@ -598,8 +599,7 @@ def documentation(name: str) -> PlotDocumentation:
     A :class:`PlotDocumentation`: the summary plus the plot contract's
     sections -- ``Interpretation`` (what the figure shows and which questions
     it supports), ``Options`` (what the representation-changing options mean),
-    ``Limitations`` (what not to conclude from it alone) and the rest (issue
-    #1505).  Documentation pages and GUI help panels read this one parsed form;
+    ``Limitations`` (what not to conclude from it alone) and the rest.  Documentation pages and GUI help panels read this one parsed form;
     the option vocabulary itself stays structural, in
     :func:`vaft.plot.controls.controls_for` and the plot's capability.
     """
@@ -617,7 +617,7 @@ def extract(name: str, source: Any, *, label: Any = "shot", **options: Any) -> A
     to ``vaft.imas.extract_<name>``;
     anything else is refused naming both.  ``label`` and the extraction
     options are those of the matching ``plot_<name>``; a rendering keyword is
-    refused (umbrella #434).
+    refused: an extraction returns the data model and never draws.
     """
     namespace = _extract_namespace(source)
     return getattr(import_module(namespace), f"extract_{name}")(source, label=label, **options)

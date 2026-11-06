@@ -1,13 +1,13 @@
-"""Colour intent tokens: what a recipe means by a colour, resolved when drawn (issue #709).
+"""Colour intent tokens: what a recipe means by a colour, resolved when drawn.
 
-A recipe used to write ``style={"color": "#e41a1c"}`` and mean "this is the
-plasma boundary".  The literal defeated every theme (an explicit colour is
-a plain keyword to Matplotlib, so the prop cycle never reached it) and
-scattered the meaning across eighty sites.  A recipe now writes the
-meaning -- ``feature:boundary`` -- and the colour is looked up when the
-figure is drawn, from the theme in force or, without one, from the table
-of what those literals always were.  So with no theme every figure comes
-out exactly as before, and under a theme every series follows it.
+A recipe writes the meaning -- ``feature:boundary`` -- rather than a literal
+such as ``style={"color": "#e41a1c"}`` meaning "this is the plasma boundary".
+A literal defeats every theme (an explicit colour is a plain keyword to
+Matplotlib, so the prop cycle never reaches it) and scatters the meaning
+across the recipes.  The colour is looked up when the figure is drawn, from
+the theme in force or, without one, from a table of fixed default colours.
+So with no theme every figure keeps its default colours, and under a theme
+every series follows it.
 
 Tokens are plain strings of the form ``<namespace>:<key>``; anything else
 (``"k"``, ``"0.4"``, a hex, an RGBA tuple, ``"none"``, ``"C3"``) passes

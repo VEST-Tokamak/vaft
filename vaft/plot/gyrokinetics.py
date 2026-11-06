@@ -1,11 +1,11 @@
 """Native gyrokinetic figures: TGLF/CGYRO validation in the solvers' own units.
 
-This is the **native** layer of the gyrokinetic plot family (#1591): plain functions
+This is the **native** layer of the gyrokinetic plot family: plain functions
 over arrays and native results (:class:`~vaft.code.gacode.tglf.outputs.TglfOutputs`,
 :class:`~vaft.code.gacode.cgyro.outputs.CgyroOutputs`), meant for matched TGLF-CGYRO
 comparisons and solver diagnostics. The **standardized** layer -- registered plots that
 read IMAS ``gyrokinetics_local`` / ``core_transport`` -- is separate and uses the IMAS/GKDB
-normalisation; the two are never mixed (#1591 section 8). These functions are not in
+normalisation; the two are never mixed. These functions are not in
 :mod:`vaft.plot.registry`.
 
 The inventory follows the scientific questions MITIM's ``TGLF.plot`` answers (Summary,
@@ -667,7 +667,7 @@ def plot_local_state(
 
 
 # ---------------------------------------------------------------------------------
-# Turbulence--zonal-flow predator--prey views (#1820). They draw what
+# Turbulence--zonal-flow predator--prey views. They draw what
 # vaft.process.gyrokinetics derived; no peak detection, correlation or fitting here.
 # Fitted overlays are dashed, data solid, so the two never read as one curve.
 # ---------------------------------------------------------------------------------

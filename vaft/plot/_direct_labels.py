@@ -1,4 +1,4 @@
-"""Direct labels: name each series beside its own data instead of in a legend (#1946).
+"""Direct labels: name each series beside its own data instead of in a legend.
 
 A legend makes the reader match a colour swatch to a curve; a direct label sits
 on the data it names, in that data's colour.  The cost is placement: labels

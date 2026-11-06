@@ -1,8 +1,8 @@
 """Turn IMAS-DD path data into ``vaft.plot`` view models.
 
 This module is the only place in VAFT that knows both the data paths and the
-shape of the plotting view models.  Renderers stay data-object free (issue #62)
-and the ``plot_*`` adapters of every namespace (issue #63) stay thin: they
+shape of the plotting view models.  Renderers stay data-object free
+and the ``plot_*`` adapters of every namespace stay thin: they
 normalize their input into ``(label, object)`` entries, call
 :func:`build_model` here, and hand the result to the registered renderer.
 
@@ -16,7 +16,7 @@ the actual reads cannot drift apart.
 
 A ``CallableRecipe`` computes its view instead of reading it.  Each one
 declares the paths its builder and helpers read (``reads``) and how it reads
-them (``backend``, issue #439): a *neutral* builder goes through the accessor
+them (``backend``): a *neutral* builder goes through the accessor
 only and is handed any data model as it is; an *OMAS-bound* one hands the
 object to ``vaft.omas`` / ``vaft.process`` functions written for an ODS --
 they write, deep-copy or subscript it -- so a non-OMAS namespace converts the
@@ -39,7 +39,8 @@ import dataclasses
 
 import numpy as np
 
-# One shared non-mutating accessor, dispatched on the object (issues #118, #63).
+# One shared non-mutating accessor, dispatched on the object: a plain
+# ``ods[...]`` read would materialise a missing OMAS path in the caller's ODS.
 from vaft.plot.backend.access import array as _array, count as _count, get as _get, has as _has
 
 from vaft.machine_mapping.conventions import cylindrical_to_cartesian
@@ -272,7 +273,7 @@ def _keep_by_signal(traces: list, selection: Any, validity: Any = None) -> list:
     untouched, invalid channels included, for the renderer to mark.
 
     Selection decides which channels are requested; ``validity=`` decides how
-    flagged data inside them are drawn (issue #1380).  When the caller states
+    flagged data inside them are drawn.  When the caller states
     a ``validity=`` mode, that mode owns the flags: a condemned channel is no
     longer dropped here but reaches the renderer, which shows it demoted
     (``show``), leaves it out (``mask``) or draws it plainly (``ignore``).
@@ -476,7 +477,7 @@ def diagnoses_itself(name: str) -> bool:
 
     A recipe that is a plain path read builds a model with no series in it when
     the path is absent, and the renderer then draws an empty figure -- no lines,
-    no error, nothing to say why (issue #290). Those need
+    no error, nothing to say why. Those need
     :func:`vaft.omas.plotting.render` to speak for them.
 
     ``CallableRecipe`` builders and ``PanelRecipe`` do not: they raise their own,
@@ -534,7 +535,7 @@ def _unmet_data_condition(recipe: Any, name: str, ods: Any) -> str | None:
     """The reason a recipe's own predicate refuses this input, or ``None``.
 
     A plot may need something no path expresses -- probes spread around the
-    torus, say (issue #485).  The predicate is asked before the paths so that
+    torus, say.  The predicate is asked before the paths so that
     a recipe declaring no ``required_paths`` still gets one, and a failure
     inside it is reported as a failure rather than dressed up as
     unavailability: an unreadable input and a broken predicate are different
@@ -588,7 +589,7 @@ def _holds_data(value: Any) -> bool:
     An empty array is absence: OMAS keeps ``[]`` for a channel that was never
     filled where a native IDS reports no value at all, and a plot built on it
     would draw nothing -- the very case the availability check exists to
-    refuse (issue #290).  Both representations therefore answer alike.
+    refuse.  Both representations therefore answer alike.
     """
     if value is None:
         return False
@@ -629,7 +630,7 @@ def required_ids(name: str) -> tuple[str, ...]:
 
 @dataclass(frozen=True)
 class Abscissa:
-    """One quantity a line plot can be drawn against (issue #481).
+    """One quantity a line plot can be drawn against.
 
     ``paths`` are read exactly as ``y_path`` is -- ``{i}`` substituted per
     channel, or gathered per slice for a slice-indexed recipe -- so a sibling
@@ -676,7 +677,7 @@ class LineRecipe:
     #: Missing or zero divides by 1.0 rather than raising or producing inf/nan.
     divide_by_path: str = ""
     title: str = ""
-    #: Display sign policy (issue #307): ``canonical`` draws the stored sign
+    #: Display sign policy: ``canonical`` draws the stored sign
     #: exactly; ``intuitive`` multiplies the whole plotted object by one
     #: ``+1``/``-1`` so its dominant response is positive, and says so in the
     #: title when it flipped.  Set on quantities whose sign is a convention
@@ -684,7 +685,7 @@ class LineRecipe:
     #: intrinsically positive one.
     orientation: str = "canonical"
     #: Sibling quantities this plot may be drawn against besides time and the
-    #: sample index (issue #481), each sampled on the ordinate's own grid.
+    #: sample index, each sampled on the ordinate's own grid.
     abscissae: tuple[Abscissa, ...] = ()
 
 
@@ -694,8 +695,8 @@ class ProfileRecipe:
 
     y_path: str
     coordinate_paths: dict[str, str] = field(default_factory=dict)
-    #: How a declared coordinate leaf becomes the coordinate it is named for
-    #: (issue #1314), by coordinate name: ``"square"`` draws the square of the
+    #: How a declared coordinate leaf becomes the coordinate it is named for,
+    #: by coordinate name: ``"square"`` draws the square of the
     #: leaf, for a leaf that stores the coordinate's square root (the DD
     #: ``grid.rho_pol_norm`` is sqrt(psi_N), so ``psi_norm`` squares it).  A
     #: coordinate not named here is drawn as stored.  The axis is always
@@ -708,7 +709,7 @@ class ProfileRecipe:
     y_unit: str = ""
     label_path: str = ""
     fallback_y_paths: tuple[str, ...] = ()
-    #: Display sign policy (issue #307), as on :class:`LineRecipe`.  A profile
+    #: Display sign policy, as on :class:`LineRecipe`.  A profile
     #: whose sign is a convention rather than a measurement -- everything the
     #: COCOS of the source decides -- can be drawn with its dominant response
     #: positive, per entry, so two machines stored in opposite conventions are
@@ -716,7 +717,7 @@ class ProfileRecipe:
     orientation: str = "canonical"
 
 
-#: Where a sensor's poloidal angle comes from (issue #486): ``geometric`` is
+#: Where a sensor's poloidal angle comes from: ``geometric`` is
 #: measured about the layout's centre; ``stored`` reads the IDS
 #: ``poloidal_angle``, which on VEST is the probe's *orientation* (3*pi/2 for
 #: every +Bz probe) and so collapses to one abscissa there.
@@ -765,7 +766,7 @@ class GeometryRecipe:
     #: sensor in the view can be named in ``selection=`` without a lookup.
     annotate_indices: bool = False
     #: ``GeometryLayer.role`` of every layer: ``"equilibrium"`` for a view of
-    #: the plasma itself, whose outline must not size a canvas (issue #689).
+    #: the plasma itself, whose outline must not size a canvas.
     role: str = ""
 
 
@@ -780,14 +781,14 @@ class FieldRecipe:
     boundary_paths: tuple[str, str] = ()
     title: str = ""
     values_order: str = "zr"
-    #: The quantities this map can draw (issue #483), keys of
+    #: The quantities this map can draw, keys of
     #: :data:`EQUILIBRIUM_FIELDS`; empty for a map with a single fixed value.
     fields: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class EquilibriumField:
-    """One quantity an equilibrium 2-D map can draw (issue #483).
+    """One quantity an equilibrium 2-D map can draw.
 
     ``updater`` names the :mod:`vaft.omas` function that writes ``leaf`` when
     a slice does not store it; the builder runs it on a private copy, so the
@@ -940,7 +941,7 @@ class PowerSpectrumRecipe:
     value_label: str = "PSD"
 
 
-#: How a computed view reads its input (issue #439).  ``NEUTRAL``: every read
+#: How a computed view reads its input.  ``NEUTRAL``: every read
 #: goes through :mod:`vaft.plot.backend.access` or a ``vaft.omas`` helper that
 #: reads through :mod:`vaft.ods_access` (both dispatch on the object), so an
 #: OMAS ODS, a native IMAS entry and a lazy remote handle are all handed to the
@@ -966,7 +967,7 @@ class ChoiceDeclaration:
     when nothing is applied).  :func:`coordinate_options_for`,
     :func:`choice_options_for`, the option validator, discovery and the
     controls all read this one declaration, so a computed view's ``coordinate=``
-    is offered exactly as a path-driven profile's is (issue #551).
+    is offered exactly as a path-driven profile's is.
     """
 
     default: Any
@@ -991,7 +992,7 @@ CoordinateDeclaration = ChoiceDeclaration
 
 @dataclass(frozen=True)
 class SequenceDeclaration:
-    """A categorical sequence a computed view declares: states that are not times (issue #1957).
+    """A categorical sequence a computed view declares: states that are not times.
 
     ``option`` is the keyword one state is drawn with (``stage=``),
     ``states`` the integer values it accepts in order and ``labels`` the text
@@ -1033,7 +1034,7 @@ class CallableRecipe:
     and for models derived through :mod:`vaft.omas` processing helpers.
 
     ``available(ods)`` answers a requirement that no path can express -- two
-    probes at *distinct* toroidal angles, say (issue #485).  It returns the
+    probes at *distinct* toroidal angles, say.  It returns the
     reason the input cannot serve the plot, or ``None`` when it can, and
     :func:`missing_required_path` consults it after the declared paths, so
     discovery never advertises a plot that would then raise.
@@ -1092,7 +1093,7 @@ class PanelRecipe:
     ``member_defaults`` are renderer keyword arguments applied to every member
     beneath whatever the caller passes.  A member the input cannot support is
     omitted and the grid shrinks; the members that remain keep their declared
-    order, so what is drawn is always in a known order (issue #476).
+    order, so what is drawn is always in a known order.
     """
 
     members: tuple[str, ...]
@@ -1190,7 +1191,7 @@ def _nbi_profile_builder(**spec):
 
 
 # ---------------------------------------------------------------------------
-# What the computed views read (issue #439): the templates their builders and
+# What the computed views read: the templates their builders and
 # helpers touch, shared where several builders share a helper.
 # ---------------------------------------------------------------------------
 
@@ -1260,7 +1261,7 @@ def _topview_reads() -> tuple[str, ...]:
             for point in ("first_point", "second_point"):
                 reads += [f"{container}.{{i}}.line_of_sight.{point}.r", f"{container}.{{i}}.line_of_sight.{point}.phi"]
         elif kind == "rings":
-            # an axisymmetric loop: radius (top) and height (3-D), no phi (#1829)
+            # an axisymmetric loop: radius (top) and height (3-D), no phi
             reads += [f"{container}.{{i}}.position.{{j}}.r", f"{container}.{{i}}.position.{{j}}.z"]
         elif container in _LISTED_POSITIONS:
             reads += [f"{container}.{{i}}.position.{{j}}.r", f"{container}.{{i}}.position.{{j}}.phi"]
@@ -1296,7 +1297,7 @@ _EFIT_CONSTRAINT_READS = tuple(
     for family in ("bpol_probe.{j}", "flux_loop.{j}", "pf_current.{j}", "pressure.{j}")
     for leaf in ("measured", "measured_error_upper", "reconstructed", "chi_squared", "weight", "source", "exact")
 ) + (
-    # The kinetic pressure points carry where they sit (issue #952).
+    # The kinetic pressure points carry where they sit.
     "equilibrium.time_slice.{i}.constraints.pressure.{j}.position.psi",
     "equilibrium.time_slice.{i}.constraints.pressure.{j}.position.rho_tor_norm",
 ) + tuple(
@@ -1673,7 +1674,7 @@ RECIPES: dict[str, Any] = {
         y_unit="m",
         title="Equilibrium Major Radius",
     ),
-    # Boundary shape (issue #952): the IDS boundary leaves, which an EFIT
+    # Boundary shape: the IDS boundary leaves, which an EFIT
     # export does not store and vaft.omas.update_equilibrium_derived_profiles
     # (through update_equilibrium_boundary) fills from the LCFS.
     "equilibrium_time_minor_radius": LineRecipe(
@@ -1759,7 +1760,7 @@ RECIPES: dict[str, Any] = {
         label_path="spectrometer_uv.channel.{i}.name",
         title="UV Line Intensity",
     ),
-    # Net launched ECH power, forward minus reflected (issue #165); noisy and
+    # Net launched ECH power, forward minus reflected; noisy and
     # spiky, so the plot is usually read with smooth=.
     "ec_launchers_time_power": LineRecipe(
         y_path="ec_launchers.beam.{i}.power_launched.data",
@@ -2410,9 +2411,8 @@ def _toroidal_phase_channels(ods: Any) -> tuple[list[int], np.ndarray]:
     indices: list[int] = []
     angles: list[float] = []
     for index in range(_count(ods, _MIRNOV_PROBES)):
-        # position.phi only: `toroidal_angle` is an orientation field in the DD
-        # and preferring it here is what hid a position being written into it
-        # (issue #725).
+        # position.phi only: `toroidal_angle` is an orientation field in the DD;
+        # falling back to it would hide a mapper that writes a position there.
         angle = _finite_scalar(_get(ods, f"{_MIRNOV_PROBES}.{index}.position.phi"))
         if angle is None:
             continue
@@ -2482,11 +2482,11 @@ def _distinct_acquisitions(
     """Drop entries that repeat another entry's waveform sample for sample.
 
     One acquired channel published twice is one measurement, whatever angles
-    its two entries declare.  Before issue #825 was fixed in the mapper, DAQ
-    field 171 sat in ``b_field_pol_probe`` both as equilibrium probe ``C2-05``
-    at 195 deg and as a ``:phase_reference`` at 75 deg; a fit across the two
-    "measured" a phase difference of exactly zero and returned an ``n`` that
-    was an identity (#724).  The metadata cannot say which entries share a DAQ
+    its two entries declare.  VEST DAQ field 171 was once mapped into
+    ``b_field_pol_probe`` both as equilibrium probe ``C2-05`` at 195 deg and as
+    a ``:phase_reference`` at 75 deg; a fit across the two "measured" a phase
+    difference of exactly zero and returned an ``n`` that was an identity.
+    The metadata cannot say which entries share a DAQ
     field, so the data is asked: byte-identical samples are one channel.
 
     Copies declaring one angle collapse to the first.  Copies declaring
@@ -2543,7 +2543,7 @@ def _toroidal_phase_group(ods: Any) -> tuple[list[int], np.ndarray]:
     A toroidal mode fit compares the phase of one mode at several toroidal
     angles.  The model it minimises, ``phi = phi_0 - n * theta``, carries no
     poloidal term, so probes at different poloidal positions bring a phase
-    difference it will absorb into ``n`` (issue #816).
+    difference it will absorb into ``n``.
 
     Of the groups that span more than one toroidal angle, this takes the one
     spanning the **most** angles, since that is what limits how well ``n`` can
@@ -2556,7 +2556,7 @@ def _toroidal_phase_group(ods: Any) -> tuple[list[int], np.ndarray]:
     channels at ``z = +0.02`` (shots up to 35520) span three angles and each
     row of the outboard fluctuation array (from 44156) spans three.
 
-    Only distinct acquisitions count (issues #724, #825): a waveform stored
+    Only distinct acquisitions count: a waveform stored
     under two entries is one channel, so it can never supply the second
     toroidal position, and a constant (dead) channel supplies none -- see
     :func:`_distinct_acquisitions`.
@@ -2613,7 +2613,7 @@ def _toroidal_alias_period(degrees: np.ndarray) -> int | None:
 
 
 def _mirnov_phase_available(ods: Any) -> str | None:
-    """Why this input cannot carry a toroidal mode fit, or ``None`` (issue #485).
+    """Why this input cannot carry a toroidal mode fit, or ``None``.
 
     An array measures a mode number by comparing phases *around* the torus,
     so the requirement is two probes at genuinely different toroidal angles
@@ -2695,7 +2695,7 @@ def _build_mirnov_spatial_phase(
     ``-n``; ``show_fit`` draws that line, wrapped at the +-180 degree
     boundary the same way the measurement is.  Nothing is drawn that the
     caller did not ask for: with ``show_fit=False`` the points stand alone
-    (the ``PowerSpectrum.fits`` rule, issue #485).
+    (the ``PowerSpectrum.fits`` rule).
 
     The title states how many *distinct* toroidal positions the array
     offered, because that is what limits the answer: a wrapped phase read at
@@ -2707,7 +2707,8 @@ def _build_mirnov_spatial_phase(
     from vaft.process.magnetics import mirnov_preprocess_signal, toroidal_phase_fit_at_time
 
     if channels is None:
-        # One poloidal position, chosen from the geometry (issue #816).
+        # One poloidal position, chosen from the geometry (see
+        # _toroidal_phase_group: the fit model has no poloidal term).
         indices, angles = _toroidal_phase_group(ods)
     else:
         # An explicit choice is honoured across poloidal positions: the caller
@@ -3368,7 +3369,7 @@ _WALL_REDUCTION_METRIC_LABELS = {
 def _build_wall_reduction_convergence(ods: Any, **options: Any) -> Panels:
     """Reduced-wall response error against retained order, one panel per metric.
 
-    Every series is one selection rule (vaft #494); the errors are relative to
+    Every series is one selection rule; the errors are relative to
     the full wall's own contribution, so a panel reads "how much of the wall
     term the reduced model misses".  Rows come from
     :func:`vaft.validation.wall_reduction.order_convergence`, passed in as
@@ -3491,7 +3492,7 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     """Compose wall, coils, passive structure and diagnostics into one view.
 
     ``overlay=`` selects the parts (:data:`MACHINE_OVERLAYS`); everything the
-    input supports is drawn when the caller names nothing (issue #483).
+    input supports is drawn when the caller names nothing.
     """
     names = (
         DEFAULT_MACHINE_OVERLAYS if options.get("overlay") is None
@@ -3651,7 +3652,7 @@ def _pellet_positions(ods: Any, time_slice: int) -> list[tuple[float, float]]:
 #: line of sight (first and second point projected onto the midplane), and
 #: ``rings`` for a toroidal loop (drawn as the circle at its radius).
 #: ``(container, label, kind, style)``; the flux loop is the one family whose
-#: ``position`` is a list of points, read at index 0 (issue #439).
+#: ``position`` is a list of points, read at index 0.
 _TOPVIEW_DIAGNOSTICS: tuple[tuple[str, str, str, dict], ...] = (
     ("magnetics.flux_loop", "Flux loops", "rings",
      {"color": palette(0), "lw": 0.6, "linestyle": ":"}),
@@ -3676,7 +3677,7 @@ def _toroidal_position(ods: Any, base: str) -> tuple[float, float] | None:
 
     A flux loop's ``position`` is an array of structures and is read at index
     0; every other family stores a single structure, so only the paths the
-    Data Dictionary defines are probed (issue #439).
+    Data Dictionary defines are probed.
     """
     prefix = f"{base}.0" if base.startswith(_LISTED_POSITIONS) and base.endswith(".position") else base
     radius = _get(ods, f"{prefix}.r")
@@ -3695,7 +3696,7 @@ def _ring_position(ods: Any, base: str) -> tuple[float, float | None] | None:
 
     A flux loop is axisymmetric: its ``position`` (a list in the DD) gives the
     loop's radius and height and has no toroidal angle, so -- unlike
-    :func:`_toroidal_position` -- no ``phi`` is required (issue #1829).
+    :func:`_toroidal_position` -- no ``phi`` is required.
     """
     prefix = f"{base}.0" if base.startswith(_LISTED_POSITIONS) and base.endswith(".position") else base
     try:
@@ -3860,7 +3861,7 @@ def _isolated_copy(ods: Any, roots: Sequence[str]) -> Any:
     """A private ODS holding deep copies of ``roots`` from ``ods``.
 
     Some builders hand the object to functions written with plain ``ods[...]``
-    reads, which OMAS materialises (issue #118): the caller's ODS would come
+    reads, which OMAS materialises: the caller's ODS would come
     back with nodes it never had, and a later availability check would see
     them.  Working on a copy of the IDS the plot declares keeps the input as
     it was -- which is also exactly what a converted native IMAS entry is,
@@ -4028,7 +4029,7 @@ def _vacuum_map_time(ods: Any, time: float | None, time_index: int | None) -> fl
 
     ``time=`` is a continuous instant (the coil currents are interpolated to
     it); ``time_index=`` names a stored PF sample.  Given together they would
-    compete, so the pair is refused (issue #1380).
+    compete, so the pair is refused.
     """
     if time_index is not None and time is not None:
         raise ValueError("vacuum maps take one of time=, time_index=; got time=, time_index=")
@@ -4148,7 +4149,7 @@ def _build_vacuum_field(
         values = decay_index_from_bz(r_axis, result["b_z"], axis=0)
     elif field == "e_toroidal":
         # The magnitude, as everything downstream of it takes: an avalanche runs
-        # in whichever direction the field points (issue #354).
+        # in whichever direction the field points.
         values = np.abs(toroidal_electric_field(mesh_r, result["dpsi_dt"]))
     elif field == "lloyd_margin":
         from vaft.formula.startup import breakdown_margin, lloyd_breakdown_field
@@ -4305,7 +4306,7 @@ def _vacuum_b_toroidal(ods: Any, time: float, mesh_r: np.ndarray) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
-# Startup views (issue #888): the vacuum proxies against time, and a radial
+# Startup views: the vacuum proxies against time, and a radial
 # cut of the vacuum map along the midplane.  Both read the vaft.omas startup
 # helpers, which are themselves readings of the cached vacuum evaluators, so
 # they agree with vacuum_field by construction.
@@ -4773,7 +4774,7 @@ def _build_core_profile_field(
         )
     # The profile lives on rho_tor_norm; each cell knows only its psi_N.  The
     # slice's own rho_tor_norm(psi_N) carries one to the other -- sqrt(psi_N)
-    # is rho_pol, up to 0.15 away (issue #335, the last instance of #276).
+    # is rho_pol, up to 0.15 away, so it cannot stand in for rho_tor_norm.
     table_psi, table_rho = _rho_tor_of_psi_norm(ods, int(time_slice))
     rho_2d = np.interp(np.clip(psi_norm, 0.0, 1.0).ravel(), table_psi, table_rho)
     values = np.interp(rho_2d, rho, profile).reshape(psi_norm.shape)
@@ -5612,7 +5613,7 @@ RECIPES["neoclassical_profile_bootstrap_current"] = CallableRecipe(
 )
 
 
-# --- Gyrokinetics (#1591): local flux tube (gyrokinetics_local) and radial
+# --- Gyrokinetics: local flux tube (gyrokinetics_local) and radial
 # turbulent transport (core_transport) ----------------------------------------
 #
 # Standardized views: they read the IMAS IDS in its own (GKDB) normalisation and
@@ -6490,7 +6491,7 @@ RECIPES["summary_time_power_balance"] = CallableRecipe(
 )
 
 
-#: Conductivity models the resistive Z_eff view offers (#1214).
+#: Conductivity models the resistive Z_eff view offers.
 ZEFF_CONDUCTIVITY_MODELS = ("redl", "sauter", "spitzer_nrl")
 
 #: Read because the Romero helper and the geometry trace copy whole IDSs
@@ -6563,7 +6564,7 @@ _ZEFF_BOUNDS = (1.0, 8.0)
 def _build_resistive_zeff(ods: Any, **options: Any) -> Panels:
     """Romero voltages, observed vs model R_p, and the resistive Z_eff history.
 
-    The Z_eff panel draws the window estimate (one scalar, #1214 Sec. 9) as a
+    The Z_eff panel draws the window estimate (one scalar) as a
     line across its window with dashed +/- 1 sigma, and the per-slice
     solutions as markers labelled a diagnostic -- never as the result.
     """
@@ -6664,7 +6665,7 @@ RECIPES["summary_time_resistive_zeff"] = CallableRecipe(
 
 
 # ---------------------------------------------------------------------------
-# Impurity composition and the radial Z_eff (#1565 Sec. 8, Lane L)
+# Impurity composition and the radial Z_eff
 #
 # Two questions, kept apart: what Z_eff(rho) the ODS stores and on what
 # authority (core_profiles_profile_zeff), and what the slice's own T_e, n_e
@@ -7142,11 +7143,11 @@ RECIPES["impurity_profile_charge_state_fraction"] = CallableRecipe(
 
 
 # ---------------------------------------------------------------------------
-# Romero's voltage and volt-second balance (#781, #1590)
+# Romero's voltage and volt-second balance
 #
 # compute_romero_flux_balance_ods evaluates every term; this view draws them.
-# The plasma resistance is an upstream estimate with its own provenance
-# (#781), so none is assumed: without plasma_resistance= the view draws the
+# The plasma resistance is an upstream estimate with its own provenance,
+# so none is assumed: without plasma_resistance= the view draws the
 # terms that do not depend on it and the resistive part the balance
 # *implies*, V_B - V_I, labelled as such and never as an independent V_R.
 # ---------------------------------------------------------------------------
@@ -7170,7 +7171,7 @@ def _romero_resistance(value: Any, n: int) -> np.ndarray | None:
 
 
 def _build_romero_balance(ods: Any, **options: Any) -> Panels:
-    """Romero's voltages, volt-seconds, internal inductance and closing resistance (#1590).
+    """Romero's voltages, volt-seconds, internal inductance and closing resistance.
 
     ``V_B``, ``V_C``, ``V_I``, ``L_i``, ``Phi_B``, ``Phi_B_direct`` and
     ``Phi_I`` do not depend on the plasma resistance and are always drawn.
@@ -7346,7 +7347,7 @@ def _efit_overlay_layers(
                 kind="points",
                 label="Wall",
                 # Camera overlays keep literal colours: they must contrast with a
-                # photograph, not follow a theme (issue #709).
+                # photograph, not follow a theme.
                 style={"marker": "o", "markersize": 1, "color": "yellow"},
             )
         )
@@ -7387,8 +7388,8 @@ def _efit_overlay_layers(
     return layers
 
 
-#: What may be drawn over a camera frame (issue #261 section 18), and the
-#: projection methods that map machine geometry into its pixels (section 20).
+#: What may be drawn over a camera frame, and the projection methods that map
+#: machine geometry into its pixels.
 from vaft.plot.machine_geometry import MACHINE_GEOMETRY_FAMILIES
 
 CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line", "vacuum_field_line", "machine_geometry", "equilibrium_section") + MACHINE_GEOMETRY_FAMILIES
@@ -7406,7 +7407,7 @@ def _overlay_option(
 
     ``vocabulary`` is the plot's own overlay set -- the camera's
     (:data:`CAMERA_OVERLAYS`) or the poloidal one
-    (:data:`POLOIDAL_OVERLAYS`, issue #483).
+    (:data:`POLOIDAL_OVERLAYS`).
     """
     overlay = options.get("overlay", ())
     if overlay is None or overlay == "" or overlay is False:
@@ -7468,7 +7469,7 @@ def _field_line_seed(options: Mapping[str, Any]) -> tuple[float, float, float]:
 
 
 def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
-    """One camera frame with optional overlays through one projection (#261 §18-22).
+    """One camera frame with optional overlays through one projection.
 
     ``overlay`` names what is drawn over the frame -- ``wall``, ``equilibrium``
     (LCFS, magnetic axis, flux surfaces) and ``field_line`` (a traced line
@@ -7783,7 +7784,7 @@ def _build_camera_visible_animation_frames(ods: Any, **options: Any) -> ImageSeq
 
 
 # ---------------------------------------------------------------------------
-# Camera fluctuation views (issue #161)
+# Camera fluctuation views
 # ---------------------------------------------------------------------------
 
 
@@ -7815,7 +7816,7 @@ def _camera_visible_region(options: Mapping[str, Any]):
 
 
 def _build_camera_visible_image_fluctuation(ods: Any, **options: Any) -> Image2D:
-    """One frame with its local temporal background removed (#161 section 1).
+    """One frame with its local temporal background removed.
 
     Only the frames the local mean needs are read, and the answer is the one
     subtracting over the whole record would give.  That takes a span of a full
@@ -7897,7 +7898,7 @@ def _camera_visible_region_signal(ods: Any, **options: Any):
 
 
 def _build_camera_visible_spectrogram(ods: Any, **options: Any) -> Spectrogram:
-    """Time-frequency map of the camera intensity summed over one region (#161 section 5).
+    """Time-frequency map of the camera intensity summed over one region.
 
     The published comparison puts this beside the magnetic probe's own
     spectrogram to show that the camera carries the same MHD component; the
@@ -7920,7 +7921,7 @@ def _build_camera_visible_spectrogram(ods: Any, **options: Any) -> Spectrogram:
         result,
         # Through the shared rule, like every other spectrogram here: a camera
         # analysed to 25 kHz whose content sits at 3-5 kHz otherwise renders
-        # almost empty (#765).
+        # almost empty.
         max_frequency=_display_ceiling(result, options),
         cmap=options.get("cmap", "hot_r"),
         title=options.get("title", f"{channel_name} summed intensity -- {where}"),
@@ -7929,7 +7930,7 @@ def _build_camera_visible_spectrogram(ods: Any, **options: Any) -> Spectrogram:
 
 
 def _build_camera_visible_image_mhd_power(ods: Any, **options: Any) -> Image2D:
-    """Normalised MHD-band power of every pixel, at one time (#161 section 6).
+    """Normalised MHD-band power of every pixel, at one time.
 
     ``centre_frequency`` is the band centre; the published method takes it from
     a magnetic probe, which a camera-only product cannot supply, so when it is
@@ -8088,7 +8089,7 @@ RECIPES["camera_visible_spectrogram"] = CallableRecipe(
 def _resolve_axis_display(
     canonical_unit, *, unit, subject, series_values, quantity=None
 ):
-    """Resolve one axis through the shared display policy (issue #256).
+    """Resolve one axis through the shared display policy.
 
     ``unit="auto"`` needs data; with nothing plotted it falls back to the
     subject/quantity default rather than failing an empty-but-valid figure.
@@ -8784,7 +8785,7 @@ def _build_line_traces(
     Every trace comes back with ``x`` on ``abscissa`` (the recipe's own time
     axis by default) or, when this input cannot supply it, on the sample
     index -- which :func:`_build_line_series` then says on the axis rather
-    than labelling an index as a time (issues #276, #481).
+    than labelling an index as a time.
     """
     value_scale = recipe.scale
     abscissa = abscissa or _abscissa_of(recipe, "time")
@@ -8868,8 +8869,8 @@ def _build_line_traces(
             r_i = float(r_all[index]) if index < r_all.size else float("nan")
             z_i = float(z_all[index]) if index < z_all.size else float("nan")
             has_position = bool(np.isfinite(r_i) and np.isfinite(z_i))
-            # The canonical channel label is index + position (issue #256
-            # section 8); a channel with no stored geometry keeps its identifier.
+            # The canonical channel label is index + position; a channel with
+            # no stored geometry keeps its identifier.
             channel = (
                 channel_label(index, r_i, z_i) if has_position
                 else _channel_label(ods, recipe.label_path, index, f"#{index}")
@@ -8922,7 +8923,7 @@ def _build_line_traces(
 
 
 #: Diagnostic time plots that an equilibrium reconstruction also predicts, and
-#: the constraint family that stores the prediction (issue #261 section 9).
+#: the constraint family that stores the prediction.
 #: A scalar family has one node per slice; an array family has one node per
 #: channel, matched to the diagnostic channel by its ``source`` identifier.
 SYNTHETIC_CONSTRAINTS: dict[str, tuple[str, bool]] = {
@@ -8936,7 +8937,7 @@ SYNTHETIC_MODES = ("equilibrium", "both")
 
 #: Every slice-indexed equilibrium scalar is stored on the same slice grid as
 #: the plasma current, so it can be drawn against it -- the operational space
-#: a shot is judged in -- with no interpolation anywhere (issue #481).  The
+#: a shot is judged in -- with no interpolation anywhere.  The
 #: current itself is left out: a quantity against itself says nothing.
 _EQUILIBRIUM_IP_ABSCISSA = (
     Abscissa(
@@ -9110,7 +9111,7 @@ ORIENTATIONS = ("canonical", "intuitive")
 
 
 def _orient(traces: tuple, orientation: str) -> tuple[tuple, bool]:
-    """Apply the display sign policy of issue #307 to a set of traces.
+    """Apply the display sign policy (``LineRecipe.orientation``) to a set of traces.
 
     ``intuitive`` asks the processing layer for the dominant sign of the
     measured traces (:func:`vaft.process.signal_processing.
@@ -9256,7 +9257,7 @@ def _build_line_series(
             traces.extend(overlay)
     # One figure carries one abscissa: a trace this input cannot place on the
     # requested one puts every trace on the sample index, and the axis says
-    # index rather than labelling one as a time (issues #276, #481).
+    # index rather than labelling one as a time.
     drawn = abscissa
     xunit = options.get("xunit")
     if any(name != abscissa.name for name in resolved):
@@ -9362,7 +9363,7 @@ _COORDINATE_FALLBACK_ORDER = (
 
 
 def _coordinate_options(recipe: ProfileRecipe) -> tuple[str, ...]:
-    """The coordinates ``recipe`` can be drawn against (issue #479).
+    """The coordinates ``recipe`` can be drawn against.
 
     A recipe that declares its own ``coordinate_paths`` (a diagnostic
     profile) offers exactly those; an equilibrium profile offers
@@ -9422,7 +9423,7 @@ def coordinate_options_for(name: str) -> tuple[str, ...] | None:
     """The ``coordinate=`` vocabulary of plot ``name``, or ``None`` if it takes none.
 
     A 1-D profile offers :func:`_coordinate_options`; a spatial plot its own
-    ``coordinates`` (issue #486); the option validator asks here so the
+    ``coordinates``; the option validator asks here so the
     schema's global vocabulary never refuses a name a recipe accepts.
     """
     recipe = RECIPES.get(name)
@@ -9493,7 +9494,7 @@ COORDINATE_FORMS = ("stored", "square")
 
 
 def _declared_coordinate_form(recipe: ProfileRecipe, name: str, values: Any) -> Any:
-    """``values`` of the declared leaf of ``name`` turned into ``name`` itself (#1314)."""
+    """``values`` of the declared leaf of ``name`` turned into ``name`` itself."""
     form = recipe.coordinate_forms.get(name, "stored")
     if form not in COORDINATE_FORMS:
         raise ValueError(f"coordinate form must be one of {', '.join(COORDINATE_FORMS)}; got {form!r}")
@@ -9557,16 +9558,16 @@ def _equilibrium_coordinate_values(
 ) -> tuple[Any, str]:
     """The abscissa for one equilibrium profile, and the coordinate it really is.
 
-    Two ways this used to lie about its x-axis (issue #276):
+    Two ways the x-axis could misstate what it shows, both guarded here:
 
-    * the stored ``rho_tor_norm`` on anything written before the fix is
+    * the stored ``rho_tor_norm`` in files written by older mappers is
       ``sqrt(psi_N)`` -- a *poloidal* coordinate under a toroidal label, up to
       0.126 away from the real one on the packaged samples. It is detected and
       refused here rather than plotted, and the toroidal coordinate is derived
       from ``q`` on the spot when the slice can support one;
-    * a missing or length-mismatched coordinate fell back to
-      ``linspace(0, 1, n)`` while the label still read "Normalized Toroidal
-      Flux", so a bare sample index was drawn as rho_N.
+    * a missing or length-mismatched coordinate must not fall back to
+      ``linspace(0, 1, n)`` under a "Normalized Toroidal Flux" label, which
+      would draw a bare sample index as rho_N.
 
     Returns ``(values, coordinate_name)``. ``values`` is ``None`` only when
     nothing can be resolved; the name is what the axis must be labelled with,
@@ -9669,7 +9670,7 @@ def _equilibrium_trace(
     ``r_major`` is the one coordinate with two samples per flux surface: the
     inboard crossings run from the edge to the axis and the outboard ones
     back out, so the profile is mirrored through the axis (2n points).  A
-    coordinate the slice cannot supply degrades the way issue #276 fixed:
+    coordinate the slice cannot supply degrades openly:
     the axis is relabelled with what was drawn, never with what was asked.
     """
     y = _array(ods, recipe.y_path.format(i=time_slice))
@@ -9784,7 +9785,7 @@ def _profile_reference_lines(ods: Any, time_slice: int, coordinate: str, traces:
     return tuple(lines)
 
 
-# --- rational surfaces (issue #506) ------------------------------------------
+# --- rational surfaces -----------------------------------------------------
 
 #: The options that ask a view to mark rational surfaces: ``rational_q=`` (a
 #: q value or several) and ``resonances=`` (``(m, n)`` harmonics).  Both are
@@ -10264,7 +10265,7 @@ def channel_profile_axis(
     """The time axis every channel of ``indices`` that carries data shares, or ``None``.
 
     ``time_index=`` names one stored sample, and an index means the same
-    instant on every channel only when they sample one grid (issue #1380).
+    instant on every channel only when they sample one grid.
     Every channel with data is checked -- never the first alone -- and any
     disagreement in length or stamps returns ``None``; ``indices=None``
     checks the whole array.  No signal preset is applied: a dead channel on
@@ -10294,7 +10295,7 @@ def channel_profile_axis(
 def _build_channel_profile(
     entries: Sequence[tuple[str, Any]], recipe: ChannelProfileRecipe, **options: Any
 ) -> Any:
-    """A sensor array's values at one time against position (issue #486)."""
+    """A sensor array's values at one time against position."""
     from vaft.plot.selection import classify_regions, radial_divider
 
     plot_name = options.pop("_plot_name", None)
@@ -10332,7 +10333,7 @@ def _build_channel_profile(
 
     given = [key for key in ("time", "time_slice", "time_index") if options.get(key) is not None]
     if len(given) > 1:
-        # One instant, chosen once (issue #1380, after #933): two selectors
+        # One instant, chosen once: two selectors
         # never compete, whichever would have been read first.
         raise ValueError(
             f"{plot_name or recipe.title} takes one of time=, time_slice=, time_index=; "
@@ -10491,8 +10492,7 @@ def _sampled_stamp(sampled: Sequence[float], reason: str) -> str:
 
     Channels on one grid sample the same stored time and the stamp names it;
     channels on their own axes each snap to their nearest sample, and the
-    stamp then gives the range they span rather than the first one's time
-    (issue #1380).
+    stamp then gives the range they span rather than the first one's time.
     """
     if not sampled:
         return "no sample"
@@ -10541,11 +10541,11 @@ def _build_profile_1d(
                 position = min(time_slice, y_flat.size - 1) if y_flat.size else 0
                 y_values.append(float(y_flat[position]) if y_flat.size else np.nan)
                 # Each point carries its channel's flag at the sampled position,
-                # so a stated validity= can demote or mask it (issue #1380): a
+                # so a stated validity= can demote or mask it: a
                 # condemned channel the preset lets through is not drawn as valid.
                 # The stored per-sample mask is authoritative when present; the
                 # scalar is "worst state reached" and decides only without one
-                # (the Series.is_invalid_channel rule, #424).  Without validity=
+                # (the Series.is_invalid_channel rule).  Without validity=
                 # no flag is attached: the preset has already left condemned
                 # channels out, and a per-sample flag on a channel it kept must
                 # not demote the point by default -- 0.7.1 drew it plainly, and
@@ -10810,7 +10810,7 @@ def _flux_display(
     convention: str | None = None,
     data: Any = None,
 ):
-    """The display resolution of this equilibrium's poloidal flux (issue #478).
+    """The display resolution of this equilibrium's poloidal flux.
 
     ``convention`` is the stored family (``"Wb"`` or ``"Wb/rad"``) when the
     caller already resolved it; otherwise the backend probe settles it from
@@ -10855,7 +10855,7 @@ def _style_psi_field(
         display=flux_display,
     )
     # The axis marker and the boundary are overlays now, assembled by
-    # _build_field_2d from ``overlay=`` (issue #483).
+    # _build_field_2d from ``overlay=``.
     overlays = list(field.overlays)
     if style == "filled":
         return dataclasses.replace(field, overlays=tuple(overlays))
@@ -10921,7 +10921,7 @@ def field_options_for(name: str) -> tuple[str, ...] | None:
 def member_options_for(name: str) -> tuple[str, ...] | None:
     """The ``members=`` vocabulary of composite ``name``: its declared panels.
 
-    Only a :class:`PanelRecipe` takes ``members=`` (issue #482); a composite
+    Only a :class:`PanelRecipe` takes ``members=``; a composite
     built by code draws what it draws, and a leaf plot has no panels to pick.
     """
     recipe = RECIPES.get(name)
@@ -10938,7 +10938,7 @@ def overlay_options_for(name: str) -> tuple[str, ...] | None:
         return POLOIDAL_OVERLAYS
     if name == "camera_visible_image":
         # The view's own entry point declares them; the presets beneath it do
-        # not (issue #261 G.5).
+        # not.
         return CAMERA_OVERLAYS
     return None
 
@@ -11062,7 +11062,7 @@ def _inside_limiter(limiter: Any, point: Any) -> bool:
 
 
 def _x_point_layers(ods: Any, time_slice: int) -> list[GeometryLayer]:
-    """The saddles of psi on the displayed slice, boundary-relevant ones marked (#952).
+    """The saddles of psi on the displayed slice, boundary-relevant ones marked.
 
     Classified by :func:`vaft.process.equilibrium.derive_boundary_representation`
     from the slice's own flux map: an *active* X-point is a saddle whose flux
@@ -11107,7 +11107,7 @@ def _style_scalar_field(field: Field2D, spec: EquilibriumField, unit: str | None
 
 
 def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
-    """A 2-D map, with the requested rational surfaces over it (issue #506)."""
+    """A 2-D map, with the requested rational surfaces over it."""
     base = {k: v for k, v in options.items() if k not in RATIONAL_SURFACE_OPTIONS}
     field = _build_field_2d_base(ods, recipe, **base)
     if not recipe.boundary_paths:
@@ -11128,7 +11128,7 @@ def _build_field_2d_base(ods: Any, recipe: FieldRecipe, **options: Any) -> Field
     # ``style`` belongs to the flux map: every other field is one filled map,
     # so a style asked of it is not an error, it simply does not apply.  That
     # keeps the interactive control usable, where the style control's value
-    # travels with every field change (issue #483).
+    # travels with every field change.
     style = options.get("style") if spec is None or spec.name in ("psi",) else None
     source = ods
     values = None
@@ -11165,7 +11165,7 @@ def _build_field_2d_base(ods: Any, recipe: FieldRecipe, **options: Any) -> Field
     # Overlays: the machine context the caller asked for, plus the boundary and
     # axis that belong to an equilibrium field itself.  A style that confines
     # its levels to the plasma needs the boundary whatever was asked for, since
-    # that outline *is* the region (issue #483).
+    # that outline *is* the region.
     owns_equilibrium = bool(recipe.boundary_paths)
     if options.get("overlay") is None:
         names = DEFAULT_POLOIDAL_OVERLAYS + (("boundary", "axis") if owns_equilibrium else ())
@@ -11194,7 +11194,7 @@ def _build_field_2d_base(ods: Any, recipe: FieldRecipe, **options: Any) -> Field
         return _style_scalar_field(field, spec, options.get("units"))
     # ``_convention`` is the overview's internal hand-off (the family it
     # resolved once for the map and the text panel); a leading underscore
-    # keeps it off the public keyword surface (review of #538).
+    # keeps it off the public keyword surface.
     extra = {
         k: v for k, v in options.items()
         if k not in ("time_slice", "style", "units", "field", "overlay", "_convention", "_plot_name")
@@ -11229,7 +11229,7 @@ def _first_channel_with_signal(
     return 0
 
 
-#: How a spectrogram's time-frequency map is computed (issue #484).
+#: How a spectrogram's time-frequency map is computed.
 #: ``stft`` is scipy's short-time Fourier transform and the default;
 #: ``hann_fft`` is VAFT's hand-rolled Hann-window FFT, kept because the VEST
 #: Mirnov analyses were written against it; ``cwt`` is a continuous-wavelet
@@ -11273,8 +11273,7 @@ def _default_display_band(result: Any) -> float | None:
     A spectrogram is analysed to Nyquist, which for a diagnostic sampled far
     above its physics band means the content occupies the bottom few percent of
     the axis and the default render reads as an empty map. VEST soft X-ray
-    digitizers sample near 1 MHz while the plasma content sits below ~30 kHz
-    (#765).
+    digitizers sample near 1 MHz while the plasma content sits below ~30 kHz.
 
     The ceiling comes from the map itself rather than from a machine constant,
     so nothing VEST-specific is baked into a general renderer: it sits one bin
@@ -11333,7 +11332,7 @@ def _spectrogram_result(
     window_hint: int | None = None,
     resolution_hint: int | None = None,
 ) -> Any:
-    """The time-frequency map of one signal by the chosen method (issue #484).
+    """The time-frequency map of one signal by the chosen method.
 
     Every method returns an object with ``time``/``frequency``/``magnitude``,
     which :meth:`vaft.plot.models.Spectrogram.from_result` consumes, so the
@@ -11456,7 +11455,7 @@ def _build_spectrogram(
 
 
 def _spectrogram_ridge(result: Any, options: dict, ceiling: float | None) -> dict[str, Any]:
-    """The ``ridge_*`` fields of a spectrogram when ``track=`` asks for one (issue #1005).
+    """The ``ridge_*`` fields of a spectrogram when ``track=`` asks for one.
 
     ``track=True`` searches the drawn band -- ``frequency_range`` if named, else
     from the first non-zero bin to the display ceiling -- and ``track=(f0, f1)``
@@ -11492,7 +11491,7 @@ def _spectrogram_ridge(result: Any, options: dict, ceiling: float | None) -> dic
     return {"ridge_time": ridge.time, "ridge_frequency": ridge.frequency, "ridge_label": label}
 
 
-# --- mode-frequency overlay (issue #460) -----------------------------------------
+# --- mode-frequency overlay -----------------------------------------------------
 
 #: The option that overlays predicted mode-frequency tracks on a spectrogram:
 #: ``mode_overlay=[(m, n), ...]``.  Declared-only
@@ -11572,7 +11571,7 @@ def _finite_list(values: Any) -> list[float | None]:
 def _with_mode_overlay(
     model: Spectrogram, ods: Any, modes: tuple[tuple[int, int], ...], window: tuple[float, float]
 ) -> Spectrogram:
-    """``model`` with the predicted tracks of ``modes`` drawn over it (issue #460).
+    """``model`` with the predicted tracks of ``modes`` drawn over it.
 
     The tracks come from :func:`vaft.process.mode_frequency.mode_frequency_tracks`;
     this only presents them.  ``|f_pred|`` is drawn, on the equilibrium times,
@@ -11741,11 +11740,11 @@ def _build_panels(
     # A composite nested inside another composite is still a composite, so drop
     # any inherited flag before re-adding it for this level's members.
     options.pop("_panel_member", None)
-    # ``members=`` picks panels by name (issue #482).  It keeps the declared
+    # ``members=`` picks panels by name.  It keeps the declared
     # order rather than the caller's, so a composite's shape does not depend
     # on how a selection was spelled, and it never resurrects a panel the
     # input cannot support: a chosen member without data is left out the way
-    # every unavailable member is (issue #476), with the reason in the error
+    # every unavailable member is, with the reason in the error
     # if nothing is left.  An empty choice means the default -- every
     # available member -- because a control that has been toggled all the
     # way off should show the overview again, not an empty figure.
@@ -11762,7 +11761,7 @@ def _build_panels(
         merged = {**member_options, **options}
         # An overlay applies to the members that can carry it: a composite
         # asked for the equilibrium's prediction annotates its magnetics
-        # panels and leaves the PF-current panel alone (issue #261 section 9).
+        # panels and leaves the PF-current panel alone.
         if merged.get("synthetic") and name not in SYNTHETIC_CONSTRAINTS:
             merged.pop("synthetic")
         # Likewise for a spectral-line selector: it applies to the members that
@@ -11846,7 +11845,7 @@ LAYOUTS = ("overlay", "subplots", "grouped")
 def _layout_columns(count: int, requested: Any = None) -> int:
     """Columns for a subplots grid: a function of the panel count alone.
 
-    Deterministic in the resolved selection (issue #260 section 6): one column
+    Deterministic in the resolved selection: one column
     up to six panels, two up to sixteen, three up to thirty-six, four beyond.
     ``ncols=`` overrides.
     """
@@ -11880,7 +11879,7 @@ def _lay_out(
     model: LineSeries, layout: str, *, entries, recipe: LineRecipe, options: dict,
     suptitle: str,
 ) -> LineSeries | Panels:
-    """Arrange an already-resolved set of traces (issue #260).
+    """Arrange an already-resolved set of traces.
 
     Layout never changes which channels were selected; it only decides how the
     same traces are presented, and the figure's structure follows from the
@@ -12027,7 +12026,7 @@ _VERIFICATION_FAMILIES = (
     ("pf_current", "PF currents", "kA", 1e-3, True),
 )
 
-#: The constraint views read the kinetic family too (issue #952); the
+#: The constraint views read the kinetic family too; the
 #: verification overlay stays magnetic.  Mirrors
 #: ``vaft.omas.efit_quality.CONSTRAINT_FAMILIES`` without importing it here.
 _CONSTRAINT_FAMILIES = _VERIFICATION_FAMILIES + (
@@ -12039,7 +12038,7 @@ _CONSTRAINT_FAMILIES = _VERIFICATION_FAMILIES + (
 # (:mod:`vaft.omas.efit_quality`), so the recipes and the goodness-of-fit
 # numbers can never disagree about what a channel's state or residual is.
 # Reached lazily: this module imports nothing from a data-model namespace at
-# import time (issue #63), and these builders run only for an OMAS input.
+# import time, and these builders run only for an OMAS input.
 def _efit_quality():
     from vaft.omas import efit_quality
 
@@ -12181,7 +12180,7 @@ def _build_equilibrium_verification(ods: Any, **options: Any) -> Panels:
         time_slice=time_slice,
         contour_levels=options.get("contour_levels", np.linspace(0.0, 1.0, 16)),
         # A verification panel shows the fit against the vessel, not the
-        # machine's coils (issue #483).
+        # machine's coils.
         overlay=("wall", "boundary", "axis"),
     )
     root = f"equilibrium.time_slice.{time_slice}"
@@ -12257,7 +12256,7 @@ def _build_equilibrium_verification(ods: Any, **options: Any) -> Panels:
 
 
 # ---------------------------------------------------------------------------
-# One equilibrium slice from one figure (issue #261 sections 11-13)
+# One equilibrium slice from one figure
 # ---------------------------------------------------------------------------
 
 
@@ -12316,8 +12315,8 @@ def resolve_time_slice(
 
     ``time_slice`` names a stored slice directly; ``time`` snaps to the
     nearest usable slice, and the returned time is that slice's own -- never
-    an interpolated state presented as a reconstruction (issue #261 section
-    13); neither given, the representative slice.
+    an interpolated state presented as a reconstruction; neither given, the
+    representative slice.
     """
     if time is not None and time_slice is not None:
         raise ValueError("pass either time= or time_slice=, not both")
@@ -12556,7 +12555,7 @@ _SLICE_GLOBAL_QUANTITIES: tuple[tuple[str, str, str], ...] = (
     ("li_3", "li_3", ""),
     ("q_axis", "q_axis", ""),
     ("q_95", "q_95", ""),
-    # "psi": the stored flux convention, resolved once per slice (issue #478).
+    # "psi": the stored flux convention, resolved once per slice.
     ("psi_axis", "psi_axis", "psi"),
     ("psi_boundary", "psi_boundary", "psi"),
     ("R_axis", "magnetic_axis.r", "m"),
@@ -12568,7 +12567,7 @@ _SLICE_GLOBAL_QUANTITIES: tuple[tuple[str, str, str], ...] = (
 )
 
 #: Slice-summary labels that are a beta, and the taxonomy quantity whose
-#: display convention they follow (issue #947).
+#: display convention they follow.
 _SLICE_DIMENSIONLESS: dict[str, str] = {"beta_p": "beta_p", "beta_N": "beta_n"}
 
 
@@ -12588,12 +12587,12 @@ def slice_global_cells(
 
     A quantity the slice stores is read from ``ods``; one it does not store is
     read from ``derived`` -- the private copy on which
-    ``vaft.omas.update_equilibrium_derived_profiles`` has run (issue #475);
+    ``vaft.omas.update_equilibrium_derived_profiles`` has run;
     neither leaves the cell empty.  Each cell keeps the stored value and the
     unit and display subject the policy converts it by, so the slice
-    overview's text panel and the table/text views (issue #1180) format the
+    overview's text panel and the table/text views format the
     same values the same way.  The poloidal flux rows carry the stored flux
-    convention, resolved once per slice (issue #478), and ``flux_display``'s
+    convention, resolved once per slice, and ``flux_display``'s
     unit when the caller chose one.
     """
     from vaft.plot.display import QUANTITIES
@@ -12651,7 +12650,7 @@ def _slice_global_lines(
 
 
 def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
-    """Understand one equilibrium slice from one figure (issue #261 section 11).
+    """Understand one equilibrium slice from one figure.
 
     Poloidal flux with the LCFS, axis and wall; pressure and q against the
     normalised flux; and the slice's global quantities as text.  The slice is
@@ -12670,7 +12669,7 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
     # The map is drawn in the requested psi style (flux surfaces by default),
     # in the display unit the text panel uses, with the axis marked.
     # The stored flux convention is resolved once and handed to both the map
-    # and the text panel, so the two cannot disagree (issue #478).
+    # and the text panel, so the two cannot disagree.
     from .convention import psi_convention
 
     convention = psi_convention(ods, index)
@@ -12680,7 +12679,7 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
         units=units, _convention=convention,
         # A slice summary draws the plasma and the vessel it sits in, not the
         # machine: the coils belong to the standalone map, where there is room
-        # for them (issue #483).
+        # for them.
         overlay=("wall", "boundary", "axis"),
         **({"style": options["style"]} if options.get("style") else {}),
     )
@@ -12693,7 +12692,7 @@ def _build_equilibrium_slice_overview(ods: Any, **options: Any) -> Panels:
     # quantities.  An EFIT g-file stores no j_tor; it is derived for this
     # slice on a private copy (the caller's ODS is never written), and the
     # panel says so.  A profile that is neither stored nor derivable is
-    # omitted and its column re-stacks to fill the height (issue #476).
+    # omitted and its column re-stacks to fill the height.
     derived, derived_entries = _derived_profiles_for(ods, index)
     columns: list[list[Any]] = []
     for column in _OVERVIEW_COLUMNS:
@@ -12835,7 +12834,7 @@ RECIPES["equilibrium_overview_verification"] = CallableRecipe(
 
 
 # ---------------------------------------------------------------------------
-# EFIT submitted constraints and reconstruction residuals (issue #139)
+# EFIT submitted constraints and reconstruction residuals
 # ---------------------------------------------------------------------------
 
 #: Marker style per channel state, shared by the submitted and residual views so
@@ -13081,7 +13080,7 @@ def _build_equilibrium_residuals(ods: Any, **options: Any) -> Panels:
     # Convergence is context for the residuals, never a substitute for them.
     for path, title, unit in (
         # Stored under the IMAS name of a Grad-Shafranov deviation, but what
-        # EFIT writes there is its last Picard step's flux increment (#924).
+        # EFIT writes there is its last Picard step's flux increment.
         ("convergence.grad_shafranov_deviation_value", "EFIT iteration increment (cerror)", ""),
         ("convergence.iterations_n", "Iterations", ""),
     ):
@@ -13337,7 +13336,8 @@ def _build_equilibrium_convergence(ods: Any, **options: Any) -> Panels:
                        style={"linestyle": "--", "color": "emphasis:low", "lw": 1.0})
             )
         hit = sum(1 for block in blocks if block["iterations"]["hit_cap"])
-        # With NXITER > 1 the cumulative count cannot always say (#1038).
+        # With NXITER > 1 the cumulative count cannot always say whether the cap
+        # was reached (hit_cap is None; efit_quality.iteration_cap_reached).
         undecided = sum(1 for block in blocks if block["iterations"]["hit_cap"] is None)
         panels.append(
             LineSeries(
@@ -13506,7 +13506,7 @@ RECIPES["equilibrium_overview_residuals"] = CallableRecipe(
 
 
 def _build_equilibrium_constraint_weights(ods: Any, **options: Any) -> Panels:
-    """What each constraint family weighed in the fit, channel by channel (#952).
+    """What each constraint family weighed in the fit, channel by channel.
 
     One row per family the slice carries.  Left: the uncertainty the
     diagnostic stored (``measured_error_upper``) beside the one EFIT actually
@@ -13618,7 +13618,7 @@ def _normalized_psi(
 
 
 def _build_pressure_weight_scan(entries: Sequence[tuple[str, Any]], **options: Any) -> Panels:
-    """Equilibria reconstructed with the pressure constraint weighted differently (#952).
+    """Equilibria reconstructed with the pressure constraint weighted differently.
 
     Each entry is one reconstruction of the same instant, labelled by the
     factor its kinetic-pressure weight was multiplied by (a dict
@@ -13763,7 +13763,7 @@ RECIPES["equilibrium_overview_pressure_weight_scan"] = CallableRecipe(
 
 
 # ---------------------------------------------------------------------------
-# Linear MHD stability (issue #139)
+# Linear MHD stability
 # ---------------------------------------------------------------------------
 
 def _build_mhd_linear_energy_perturbed(ods: Any, **options: Any) -> LineSeries:
@@ -13927,10 +13927,10 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
     documents: ``code.parameters`` reaches a reader either as the string the
     mapper wrote or as the tree OMAS decoded, and which one depends on the
     document.  A block with no ``time_slice`` attribute (DCON fragments before
-    version 2, #940) is keyed on ``None`` and matches any slice; since version 2
+    version 2) is keyed on ``None`` and matches any slice; since version 2
     DCON blocks carry ``time_slice`` too, so for a cell both DCON and GPEC wrote
     the later block in document order names the solver.  RDCON and STRIDE blocks
-    (version 2, #939) carry ``time_slice`` as well but write neither the
+    (version 2) carry ``time_slice`` as well but write neither the
     eigenfunction nor ``energy_perturbed``, so they never name a cell.
     """
     parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
@@ -14305,7 +14305,7 @@ def _gpec_rational_surfaces(
 
 
 def _no_rational_geometry_message(ods: Any, n_tor: int, time_slice: int | None) -> str:
-    """Why the rational-surface geometry is absent, as the mapper recorded it (#1243).
+    """Why the rational-surface geometry is absent, as the mapper recorded it.
 
     A mapping that had no geometry to write records which GPEC output was
     missing in its place (``<resonant_geometry_unavailable>``); that is quoted.
@@ -15279,7 +15279,7 @@ RECIPES["mhd_linear_geometry_island"] = CallableRecipe(
 
 
 # ---------------------------------------------------------------------------
-# Field-line tracing (issue #1099)
+# Field-line tracing
 # ---------------------------------------------------------------------------
 
 #: How a field map spaces its value axis; the ``scale=`` vocabulary.
@@ -15305,7 +15305,7 @@ def _field_line_plane(ods: Any, options: Mapping[str, Any]) -> int:
     The array of structures is indexed by time, so ``time=`` picks an entry
     rather than a sample.  A time outside the recorded ones raises: snapping
     to the nearest end would draw a different plane under the caller's own
-    label, which is the defect vaft#1035 fixed in the spectrum figures.
+    label.
     """
     count = _count(ods, _B_FIELD_LINES)
     if not count:
@@ -15496,7 +15496,7 @@ RECIPES["mhd_linear_overview_eigenfunction"] = PanelRecipe(
 
 
 # ---------------------------------------------------------------------------
-# Eddy-stage vacuum magnetics (issue #139)
+# Eddy-stage vacuum magnetics
 # ---------------------------------------------------------------------------
 
 def _vacuum_channels(ods: Any, options: Mapping[str, Any]):
@@ -15718,12 +15718,12 @@ RECIPES["magnetics_overview_plasma_residual"] = CallableRecipe(
 
 
 # ---------------------------------------------------------------------------
-# Plasma-free vacuum benchmark scores (issue #190, plotting roadmap #1242 C3)
+# Plasma-free vacuum benchmark scores
 # ---------------------------------------------------------------------------
 #
-# The #139 figures above draw one shot's waveforms; these views draw the
-# benchmark's per-channel *scores* (vaft.validation.vacuum_benchmark), and the
-# aggregate table in vaft.plot.backend.tables compares them across shots.  The
+# The eddy-stage vacuum figures above draw one shot's waveforms; these views
+# draw the benchmark's per-channel *scores* (vaft.validation.vacuum_benchmark),
+# and the aggregate table in vaft.plot.backend.tables compares them across shots.  The
 # benchmark states no threshold and no verdict, so neither do the views: the
 # zero line on the improvement panel is the point where the wall term adds
 # nothing, a reference and not a pass mark.
@@ -15736,7 +15736,7 @@ VACUUM_BENCHMARK_PLOTS = frozenset({
 })
 
 #: The benchmark's own knobs, taken only by :data:`VACUUM_BENCHMARK_PLOTS`
-#: (``per_family=`` is shared with the #139 vacuum figures).
+#: (``per_family=`` is shared with the eddy-stage vacuum figures).
 VACUUM_BENCHMARK_OPTIONS = ("resistance_scale", "n_tau")
 
 #: What a benchmark case reads: the PF and passive-loop circuits and their
@@ -16199,7 +16199,7 @@ RECIPES["chease_overview_profile_validity"] = CallableRecipe(
 
 
 # ---------------------------------------------------------------------------
-# Measured kinetic points against their fit, on a flux coordinate (#952)
+# Measured kinetic points against their fit, on a flux coordinate
 # ---------------------------------------------------------------------------
 
 #: The coordinates a profile-fit view is drawn against: the three flux radii
@@ -16575,12 +16575,12 @@ RECIPES["kinetic_overview_profiles"] = CallableRecipe(
 
 
 # ---------------------------------------------------------------------------
-# One matched kinetic state in four panels (issue #1837)
+# One matched kinetic state in four panels
 #
-# Reads the stored state only: the pipeline-2 stages (#1842) write the
+# Reads the stored state only: the pipeline-2 stages write the
 # composition, T_i and Z_eff into core_profiles, with their evidence roles,
 # equilibrium lineage and Z_eff target in the per-quantity *_fit.parameters
-# records (the contract as amended on #1837); the view maps Thomson through
+# records; the view maps Thomson through
 # the selected equilibrium and draws.  No EFIT, fit, OpenADAS or composition call.
 # ---------------------------------------------------------------------------
 
@@ -16641,7 +16641,7 @@ RECIPES["kinetic_overview_state"] = CallableRecipe(
     time_axis=OWN_TIME,
     coordinates=CoordinateDeclaration("rho_tor_norm", KINETIC_STATE_COORDINATES),
     choices={"layout": ChoiceDeclaration("grid", KINETIC_STATE_LAYOUTS)},
-    # The inference stages (#1957): stage=k cuts the figure; animation=True
+    # The inference stages: stage=k cuts the figure; animation=True
     # walks them.  The static call draws the full figure, no stage cut.
     sequence=SequenceDeclaration(
         "stage", tuple(number for number, _ in KINETIC_STATE_STAGES),
@@ -16654,7 +16654,7 @@ RECIPES["kinetic_overview_state"] = CallableRecipe(
 
 
 # ---------------------------------------------------------------------------
-# Normalized profile gradients with every choice stated (issue #551)
+# Normalized profile gradients with every choice stated
 # ---------------------------------------------------------------------------
 
 from vaft.process.profile_gradients import (  # noqa: E402 -- numpy-only, imported with the section
@@ -16693,9 +16693,10 @@ _GRADIENT_GRIDS = (
 
 #: How far a stored ``grid.rho_tor_norm`` may sit from the map's own
 #: q-integrated ``rho_tor_norm`` on the same surfaces and still be read as the
-#: toroidal-flux radius.  The map's integral carries the axis-q sensitivity of
-#: issue #317, which puts it 0.037 from the EFIT-stored grid of the packaged
-#: 48224 sample; the sqrt(psi_N) proxy of older files is 0.11 or more away.
+#: toroidal-flux radius.  The map's integral phi = int q dpsi inherits the
+#: packaged kineticEfit 48224 sample's outlier q[0] (8.07, about 4x its
+#: neighbours), which puts it 0.037 from that sample's EFIT-stored grid near the
+#: axis; the sqrt(psi_N) proxy of older files is 0.11 or more away.
 RHO_TOR_GRID_TOLERANCE = 0.05
 
 #: The view's own defaults: drawn against rho_tor_norm, differentiated along
@@ -16788,8 +16789,8 @@ def _verified_rho_tor_grid(
 ) -> tuple[np.ndarray, dict[str, Any]]:
     """``psi_norm`` of each sample of a stored ``grid.rho_tor_norm``, once that grid is verified.
 
-    A stored ``rho_tor_norm`` is the sqrt(psi_N) proxy in every file written
-    before #276, and nothing on the profile says which it is.  It is used
+    A stored ``rho_tor_norm`` is the sqrt(psi_N) proxy in files written by
+    older mappers, and nothing on the profile says which it is.  It is used
     only when its samples are the equilibrium slice's own surfaces -- equal to
     the slice's stored ``profiles_1d.rho_tor_norm`` -- so that each sample's
     ``psi_norm`` is known exactly; it is then refused when it is the proxy,
@@ -17075,7 +17076,7 @@ del _name, _axis
 
 
 # ---------------------------------------------------------------------------
-# Two fluctuation channels compared: coherence and phase (issue #1005)
+# Two fluctuation channels compared: coherence and phase
 # ---------------------------------------------------------------------------
 
 #: The channels ``diagnostics_spectrum_coherence`` can compare:
@@ -17491,7 +17492,7 @@ def _copy_root(obj: Any, root: str, private: Any, name: str) -> None:
         # Walk the store's index: a leaf is what the store can fetch, the
         # rest are structures and arrays of structures to descend.  Each leaf
         # is read through the ODS, so a value the caller wrote over the store
-        # (issue #329) is what travels.
+        # is what travels.
         def walk(location: str) -> None:
             for child in store.keys(location):
                 below = f"{location}.{child}"
@@ -17535,7 +17536,7 @@ def conversion_reason(name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Edge-q estimates for shots without an equilibrium (#1583)
+# Edge-q estimates for shots without an equilibrium
 # ---------------------------------------------------------------------------
 
 #: ``summary_time_<quantity>`` -> (EdgeQEstimate field, y label, unit). The
@@ -17606,7 +17607,7 @@ def _build_edge_q_time(entries: Sequence[tuple[str, Any]], *, _plot_name: str, *
     titles: set[str] = set()
     for position, (label, ods) in enumerate(entries):
         # The plot's "auto" is the full-shot magnetics trace when there is one:
-        # the equilibrium slices then overlay it as the check (issue #1583).
+        # the equilibrium slices then overlay it as the check.
         resolved = ("magnetics" if _magnetics_usable(ods) else "equilibrium") if source == "auto" else source
         try:
             result = edge_q_estimate(ods, source=resolved, **kwargs)
@@ -17672,6 +17673,6 @@ for _name in EDGE_Q_VIEWS:
         },
     )
 
-# The non-graphical views (issue #1180) keep their builders in their own module
-# and register into RECIPES here, once every helper they share is defined.
+# The non-graphical views (tables and text summaries) keep their builders in
+# their own module and register into RECIPES here, once every helper they share is defined.
 from . import tables as _tables  # noqa: E402,F401

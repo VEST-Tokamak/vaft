@@ -1,4 +1,4 @@
-"""Population renderers for the equilibrium-quality cohort tables (#1644).
+"""Population renderers for the equilibrium-quality cohort tables.
 
 They draw the tables :mod:`vaft.validation.equilibrium_quality` builds -- the
 per-slice cohort table, its channel-level constraint points and its census --

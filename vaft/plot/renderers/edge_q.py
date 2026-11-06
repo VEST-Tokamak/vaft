@@ -1,4 +1,4 @@
-"""Edge-q proxies against time, for shots with or without an equilibrium (#1583).
+"""Edge-q proxies against time, for shots with or without an equilibrium.
 
 Each renderer draws a :class:`~vaft.plot.models.LineSeries` built by
 :func:`vaft.omas.edge_q.edge_q_estimate`: the estimated q95 (labelled with its

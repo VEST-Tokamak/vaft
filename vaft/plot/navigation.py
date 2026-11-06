@@ -1,4 +1,4 @@
-"""Slice navigation: the scientific interaction contract (issue #261 §14-17).
+"""Slice navigation: the scientific interaction contract.
 
 Interactive exploration of an equilibrium means one thing scientifically:
 there is one *selected slice*, every panel shows that slice, and moving the
@@ -11,7 +11,7 @@ Backends -- a Matplotlib slider, an ipywidgets slider, a test that calls
 :meth:`SliceNavigator.select` directly -- are adapters over this object.  A
 requested time always snaps to the nearest *stored* slice: an equilibrium
 exists only where the solver wrote one, so nothing is ever interpolated and
-presented as a reconstruction (§13, §16).
+presented as a reconstruction.
 """
 
 from __future__ import annotations
@@ -141,7 +141,7 @@ def _preset_first(values: Mapping[str, Any]) -> list[tuple[str, Any]]:
 
 
 class ControlState:
-    """The current value of every control of one plot, with observers (issue #480).
+    """The current value of every control of one plot, with observers.
 
     ``controls`` are the :class:`~vaft.plot.controls.ControlSpec` entries a
     record supports; ``values`` start at their defaults.  :meth:`set`
@@ -254,7 +254,7 @@ class ControlState:
 
         A control may declare ``applies_to={"field": ("psi",)}``: while the
         field control reads something else, its value is not sent to the
-        builder at all, rather than being refused there (issue #483).
+        builder at all, rather than being refused there.
         """
         for name, accepted in (getattr(control, "applies_to", None) or {}).items():
             if name in self._values and self._values[name] not in accepted:
