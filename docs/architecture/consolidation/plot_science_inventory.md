@@ -40,7 +40,7 @@ Presence of NumPy/SciPy calls is not a criterion.
 | 8 | `recipes._surface_at` (14941) | island geometry | R,z at a target psi_N per theta column, NaN outside | none equivalent (`extract_flux_surface_contours` labels a different angle) | view | keep |
 | 9 | `recipes._gpec_resonant_table` (~14350) | `mhd_linear_profile_resonant_flux`, `_island_width`, `_chirikov`, island geometry | Delta, Phi_res, phase, w_isl per rational surface | building blocks canonical (`process.perturbation.resonant_delta`, `formula.stability.*`); the pipeline only here | reusable | **moved (P2)**: `process.perturbation.resonant_table`; the view keeps the IDS/XML reading |
 | 10 | island separatrix assembly (~15000) | `mhd_linear_geometry_island` | psi_r +- (w/2)|cos(xi/2)| | `formula.stability.helical_phase`, `process.equilibrium.pest_angle_from_jacobian_angle` | delegation (geometry local) | keep |
-| 11 | `recipes._spectrogram_result` (11326) | `_build_spectrogram`, interferometer spectrogram | method dispatch (stft / hann_fft / cwt) | `process.fluctuation.compute_spectrogram`, `process.magnetics.mirnov_spectrogram`, `process.soft_x_rays.sxr_cwt_spectrogram` | delegation (parameter rewriting) | P3: fix pass-through, see B5 |
+| 11 | `recipes._spectrogram_result` (11326) | `_build_spectrogram`, interferometer spectrogram | method dispatch (stft / hann_fft / cwt) | `process.fluctuation.compute_spectrogram`, `process.magnetics.mirnov_spectrogram`, `process.soft_x_rays.sxr_cwt_spectrogram` | delegation (parameter rewriting) | **fixed (P3)**, see B5 |
 | 12 | `recipes._build_spectrogram` (11400) | `mirnov_spectrogram`, `soft_x_rays_spectrogram` | channel/time window, fs from median dt | `process.fluctuation._resolve_sample_rate` | view + delegation | P3 |
 | 13 | `recipes._spectrogram_ridge` (~11460) | `_build_spectrogram` (`track=`) | ridge over a search band | `process.fluctuation.track_dominant_frequency` | delegation | P3: band bug, see B5 |
 | 14 | `recipes._build_power_spectrum` (11661) | `*_spectrum` | Welch PSD + power-law fit | `process.fluctuation.compute_psd`, `fit_power_law_spectrum` | delegation | P3 |
@@ -125,6 +125,19 @@ Parameter findings for the P3 PR:
    refuses the same input.
 7. Camera spectrograms take `overlap=` (fraction) where the others take
    `noverlap=` (samples).
+
+**Done in P3.** Items 4-6 are fixed: an explicit `noverlap` is honoured exactly
+(no 0.99 cap; a window shortened to the record keeps the caller's fraction)
+or refused when out of range; the colour bar names each method's scale
+(`STFT amplitude density`, `amplitude 2|X|/N`, `CWT |W|`); an untimed signal
+needs `sample_rate=`.  Of item 1, the Welch PSD now refuses the
+spectrogram-only options; `nperseg` and `window_size` stay accepted together
+on purpose (#484), so a method switch keeps the caller's resolution.  The
+interferometer warns when a positive trend high-pass cannot be applied.
+Kept by design: item 2 (the ridge is an overlay of the drawn map, so it
+searches the drawn band), item 3 (a crop of the full-band Fourier map equals
+the band's own map), item 7.  Items 27-28 (the legacy `vaft.plot.soft_x_rays`
+and `vaft.plot.mirnov` spectrogram paths) are left for a retirement decision.
 
 ## Other defects found by the sweep
 
