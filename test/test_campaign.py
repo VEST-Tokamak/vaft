@@ -550,7 +550,8 @@ def test_a_site_lane_command_gets_the_lanes_cores_and_memory(tmp_path):
 def test_the_usage_meter_reports_a_child_peak_only_for_its_own_interval():
     from vaft.code.accounting import UsageMeter
 
-    big = "b = bytearray(64 * 1024 * 1024)"
+    # Above this test process's own size: on Linux a forked child counts its parent's pages.
+    big = "b = bytearray(512 * 1024 * 1024)\nb[::4096] = b'x' * len(b[::4096])"
     subprocess.run([sys.executable, "-c", big], check=True)
     meter = UsageMeter(booked_cpus=1, cgroup=None).start()
     subprocess.run([sys.executable, "-c", "pass"], check=True)
