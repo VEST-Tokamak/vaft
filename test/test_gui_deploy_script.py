@@ -143,7 +143,7 @@ def _real(env, *args):
 
 def test_publish_then_remove_round_trips_the_site(sandbox):
     root, env, log = sandbox
-    result = _real(env, "nginx", "10.0.0.0/8", "147.46.36.0/24")
+    result = _real(env, "nginx", "10.0.0.0/8", "192.0.2.0/24")
     assert result.returncode == 0, result.stderr
     site = (root / "site.conf").read_text()
     lines = site.splitlines()

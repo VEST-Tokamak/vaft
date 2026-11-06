@@ -111,7 +111,7 @@ in the user configuration and must never be committed to a notebook or documenta
 ```bash
 >> vaft hsds configure
 Configuring HSDS credentials in /home/you/.hscfg
-Server endpoint: http://147.46.36.244:5101
+Server endpoint: <endpoint sent with your account>
 Username: [assigned_username]
 Password (input hidden, Enter keeps it):
 API key (input hidden, Enter keeps it):

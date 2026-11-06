@@ -428,7 +428,7 @@ structural. The root cause is **not asserted**.
   consistent with the two copies holding the same records for those fields, but it does not
   prove it.
 
-## 11. Reproduction and evidence paths (vestserver, `ssh -p 2222 user1@147.46.36.244`)
+## 11. Reproduction and evidence paths (the production server)
 
 Raw availability: `/srv/vest.filedb/raw/<shot>/vest_<shot>_daq_raw.json.gz` was present for:
 - the portfolio shots 39437/39438, 46402/46403/46404, 45895/45896 (+45929/45960/45964/45965),

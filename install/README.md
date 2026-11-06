@@ -169,7 +169,7 @@ enforced; `.hscfg` inherits the permissions of your user profile.
 
 | Field | Value |
 | --- | --- |
-| Server endpoint | `http://147.46.36.244:5101` |
+| Server endpoint | sent with the account (ask the contact below) |
 | Username | contact [peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr) |
 | Password | contact [peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr) |
 

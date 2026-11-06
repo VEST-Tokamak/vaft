@@ -168,7 +168,7 @@ def run_checks(
 def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m vaft.deploy.gui.smoke", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("url", help="the page, e.g. https://147.46.36.244/gui-test/")
+    parser.add_argument("url", help="the page, e.g. https://gui.example.org/gui-test/")
     parser.add_argument("--insecure", action="store_true", help="accept a self-signed certificate")
     args = parser.parse_args(list(argv) if argv is not None else None)
     results = run_checks(
