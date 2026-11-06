@@ -1922,3 +1922,277 @@ def test_a_non_positive_ion_coulomb_logarithm_is_refused_not_used():
     from vaft.formula.kinetic import ion_ion_coulomb_logarithm_from_n_T
 
     assert ion_ion_coulomb_logarithm_from_n_T(1e21, 0.5, 6.0) < 0.0   # cold, dense, C6+
+
+
+# --------------------------------------------------------------------------- TGLF-NN population audit
+
+
+@pytest.fixture()
+def nn_audit():
+    path = ROOT / "workflow" / "transport_atlas" / "audit_tglf_nn.py"
+    spec = importlib.util.spec_from_file_location("transport_atlas_audit_tglf_nn", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    yield module
+    sys.modules.pop(spec.name, None)
+    sys.modules.pop("transport_atlas_run_tglf", None)
+
+
+def _nn_family(root: Path, name: str, xnames, xm, xsigma) -> Path:
+    """A model directory with chosen moments: the audit reads only the text files."""
+    import shutil
+
+    synthetic = ROOT / "test" / "data" / "gacode" / "tglf_surrogate" / "synthetic_linear"
+    target = root / name
+    shutil.copytree(synthetic, target)
+    (target / "xnames.txt").write_text("\n".join(xnames) + "\n")
+    (target / "xm.txt").write_text("\n".join(f"{v:g}" for v in xm) + "\n")
+    (target / "xsigma.txt").write_text("\n".join(f"{v:g}" for v in xsigma) + "\n")
+    return target
+
+
+def test_the_nn_audit_scores_the_confinement_population_under_each_ti_scenario(nn_audit, sample, tmp_path):
+    import pandas as pd
+    from omas import ODS
+
+    from vaft.data.public import load_vest_tier_a_confinement
+
+    ods = _electron_only(_multi_slice(sample, eq_times=(0.300, 0.302), cp_times=(0.300, 0.302)))
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    filedb = tmp_path / "filedb"
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+
+    # The reference products: one smooth inferred T_i/T_e = 1.5, as the ti_inferred stage
+    # writes with --ti-form profile.
+    inferred = _multi_slice(sample, eq_times=(0.300, 0.302), cp_times=(0.300, 0.302))
+    record = ("origin=inferred; method=equilibrium_pressure_partition_profile; ti_te_order=0; "
+              "rho_valid=0.35:0.6; extrapolated_outside_rho_valid=1; not measured")
+    profiles = ODS(consistency_check=False)
+    profiles["core_profiles"] = inferred["core_profiles"]
+    for k in range(2):
+        base = f"core_profiles.profiles_1d.{k}"
+        profiles[f"{base}.ion.0.temperature"] = 1.5 * np.asarray(profiles[f"{base}.electrons.temperature"])
+        profiles[f"{base}.ion.0.temperature_fit.parameters"] = record
+    profile_dir = tmp_path / "ti_profile"
+    profile_dir.mkdir()
+    from vaft.omas import save
+
+    save(profiles, profile_dir / "48224.json.gz")
+
+    table = load_vest_tier_a_confinement(selection="primary").iloc[:2].copy()
+    table["shot"] = 48224
+    table["time_efit_s"] = [0.300, 0.302]
+    table["efit_lineage"] = "magnetics"
+    table["efit_quality"] = ["good", "admissible"]
+    # the loader re-derives ``selected`` from the slice evidence: fail the second state
+    table["ip_change_per_tau"] = [0.05, 0.50]
+    table["thomson_consistent"] = [True, np.nan]
+    confinement = tmp_path / "table.csv"
+    table.to_csv(confinement, index=False)
+
+    # TAUS_2 carries the training moments the public D3D/MAST-U/NSTX families have
+    # (1.106 +- 0.230); the other channels are made wide so TAUS alone decides.
+    models = tmp_path / "models"
+    _nn_family(models, "sat3_em_d3d_azf-1", ("Q_LOC", "TAUS_2", "BETAE_log10"),
+               (3.0, 1.106, -2.0), (1e3, 0.230, 1e3))
+    _nn_family(models, "sat3_em_d3d_gknn31", ("Q_LOC", "OUT_G_elec", "BETAE_log10"),
+               (3.0, 0.0, -2.0), (1e3, 1.0, 1e3))
+
+    out = tmp_path / "out"
+    assert nn_audit.main(["--filedb", str(filedb), "--confinement", str(confinement),
+                          "--profile-ti-dir", str(profile_dir), "--ratios", "1.0", "0.17",
+                          "--model-dir", str(models), "--surfaces", "0.3", "0.5",
+                          "--out", str(out)]) == 0
+
+    states = pd.read_csv(out / "states.csv")
+    assert set(states["status"]) == {"resolved"}
+    lineage = dict(zip(states["scenario"], states["ti_lineage"]))
+    assert lineage == {"pressure_partition_profile": "pressure_partition_inferred",
+                       "ratio_1": "ti_eq_te_assumed", "ratio_0.17": "ti_te_0.17_assumed"}
+
+    audit = pd.read_csv(out / "audit.csv")
+    audited = audit[audit["audit_status"] == "audited"]
+    assert set(audited["model"]) == {"sat3_em_d3d_azf-1"}, "the two-stage family is never audited"
+    by = audited.groupby("scenario")
+    assert by["in_domain"].all().to_dict() == {"pressure_partition_profile": True, "ratio_0.17": False,
+                                               "ratio_1": True}
+    assert set(audited.loc[audited["scenario"] == "ratio_0.17", "worst_feature"]) == {"TAUS_2"}
+    assert audited.loc[audited["scenario"] == "ratio_0.17", "taus_main"].round(3).eq(0.17).all()
+    # the reference T_i is an extrapolation outside its fitted rho span, and says so
+    reference = audited[audited["scenario"] == "pressure_partition_profile"]
+    assert reference["ti_extrapolated"].notna().all()
+    outside = (reference["rho_tor_norm"] < 0.35) | (reference["rho_tor_norm"] > 0.6)
+    assert (reference["ti_extrapolated"].astype(bool) == outside).all()
+    assert outside.any() and (~outside).any(), "the two surfaces straddle the fitted span"
+    assert reference["taus_main"].round(6).eq(1.5).all()
+
+    summary = pd.read_csv(out / "summary.csv")
+    primary = summary[(summary["subset"] == "primary")].set_index("scenario")
+    assert primary.loc["ratio_0.17", "states"] == 1
+    assert primary.loc["ratio_0.17", "in_domain_surfaces"] == 0
+    assert primary.loc["ratio_0.17", "in_domain_if_taus_ignored"] == primary.loc["ratio_0.17", "surfaces"]
+    assert set(summary["subset"]) == {"primary", "thomson_consistent", "tier_a"}
+    assert summary.loc[summary["subset"] == "tier_a", "states"].max() == 2
+    ref = summary[(summary["subset"] == "tier_a") & (summary["scenario"] == "pressure_partition_profile")].iloc[0]
+    assert ref["surfaces_ti_fitted"] == int((~outside).sum())
+
+    manifest = json.loads((out / "MANIFEST.json").read_text())
+    assert [m["model"] for m in manifest["skipped_models"]] == ["sat3_em_d3d_gknn31"]
+    assert manifest["settings"]["reference_scenario"] == "pressure_partition_profile"
+    assert manifest["counts"]["by_subset"] == {"primary": 1, "thomson_consistent": 1, "tier_a": 2}
+
+
+def test_the_nn_audit_refuses_a_non_positive_ratio_scenario(nn_audit):
+    with pytest.raises(ValueError, match="positive"):
+        nn_audit.scenarios(None, [0.0])
+    assert [s["name"] for s in nn_audit.scenarios(Path("x"), [1.0])] == ["pressure_partition_profile", "ratio_1"]
+
+
+def test_the_nn_audit_reports_containment_when_a_model_carries_its_training_range(nn_audit):
+    """#2274: with exported bounds the rows carry containment and the coverage table fills."""
+    from types import SimpleNamespace
+
+    audit = SimpleNamespace(bounds_available=True, contained=False, applicable=False,
+                            bound_violations=("TAUS_2",), bound_violations_at_data_edge=("TAUS_2",),
+                            bound_positions={"TAUS_2": -0.12, "Q_LOC": 0.4})
+    record = nn_audit._containment(audit)
+    assert record["contained"] is False and record["n_bound_violations"] == 1
+    assert record["worst_bound_feature"] == "TAUS_2"
+    assert record["min_bound_margin"] == pytest.approx(-0.12)
+    assert record["bound_violations_at_data_edge"] == "TAUS_2"
+    assert nn_audit._containment(SimpleNamespace()) == {"bounds_available": False}
+    # a VAFT without the data-edge split reports it unknown, never as zero crossings
+    older = nn_audit._containment(SimpleNamespace(bounds_available=True, contained=True, applicable=True,
+                                                  bound_violations=(), bound_positions={"Q_LOC": 0.5}))
+    assert older["bound_violations_at_data_edge"] is None
+
+    base = {"audit_status": "audited", "subsets": "tier_a primary", "scenario": "ratio_1",
+            "model": "m", "shot": 1, "time_efit_s": 0.3}
+    rows = [{**base, **record},
+            {**base, "time_efit_s": 0.31, **nn_audit._containment(SimpleNamespace(
+                bounds_available=True, contained=False, applicable=False, bound_violations=("Q_LOC",),
+                bound_positions={"TAUS_2": 0.5, "Q_LOC": 1.3}))}]
+    table = {(r["subset"], r["feature"]): r for r in nn_audit.coverage(rows)}
+    assert table[("primary", "TAUS_2")]["inside_fraction"] == 0.5
+    assert table[("primary", "TAUS_2")]["below_fraction"] == 0.5
+    assert table[("tier_a", "Q_LOC")]["above_fraction"] == 0.5
+
+
+@pytest.fixture()
+def nn_compare():
+    path = ROOT / "workflow" / "transport_atlas" / "compare_tglf_nn.py"
+    spec = importlib.util.spec_from_file_location("transport_atlas_compare_tglf_nn", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    yield module
+    for name in (spec.name, "transport_atlas_audit_tglf_nn", "transport_atlas_run_tglf"):
+        sys.modules.pop(name, None)
+
+
+def test_native_and_nn_see_one_input_and_pair_by_trained_configuration(nn_compare, sample, tmp_path, monkeypatch):
+    """#2274 phase B: one resolution feeds both backends; a family meets only its own rule."""
+    pytest.importorskip("onnxruntime")
+    import shutil
+
+    import pandas as pd
+    from omas import ODS
+
+    import vaft.code.gacode.tglf as tglf
+    from vaft.code.gacode.tglf import TGLFResult
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+    from vaft.data.public import load_vest_tier_a_confinement
+
+    ods = _electron_only(_multi_slice(sample, eq_times=(0.300,), cp_times=(0.300,)))
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    filedb = tmp_path / "filedb"
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+    table = load_vest_tier_a_confinement(selection="primary").iloc[:1].copy()
+    table["shot"], table["time_efit_s"] = 48224, [0.300]
+    table["efit_lineage"], table["efit_quality"] = "magnetics", ["good"]
+    confinement = tmp_path / "table.csv"
+    table.to_csv(confinement, index=False)
+
+    synthetic = ROOT / "test" / "data" / "gacode" / "tglf_surrogate" / "synthetic_linear"
+    models = tmp_path / "models"
+    shutil.copytree(synthetic, models / "sat3_em_d3d_azf-1")
+
+    calls = []
+
+    def fake_run(profile, rho, workdir, config=None, *, check=True):
+        workdir = Path(workdir)
+        workdir.mkdir(parents=True, exist_ok=True)
+        calls.append((config.sat_rule, config.use_bper, config.use_bpar,
+                      dict(config.extra_parameters).get("UNITS"), rho))
+        scale = 1.0 + config.sat_rule  # the SAT rules disagree, so model form is non-zero
+        native = TglfOutputs(directory=str(workdir), version={"revision": "test"},
+                             gbflux={"particle": np.array([0.1, 0.05, 0.0]) * scale,
+                                     "energy": np.array([2.0, 1.0, 0.5]) * scale,
+                                     "momentum": np.array([0.0, 0.2, 0.1]), "exchange": np.zeros(3)},
+                             grid={"n_species": 3, "n_xgrid": 4})
+        return TGLFResult(returncode=0, runtime_status="completed", workdir=workdir, outputs_native=native)
+
+    monkeypatch.setattr(tglf, "run_tglf_case", fake_run)
+    out = tmp_path / "out"
+    argv = ["--filedb", str(filedb), "--confinement", str(confinement), "--model-dir", str(models),
+            "--surfaces", "0.4", "0.6", "--sat-rules", "2", "3", "--field-models", "es", "em-bper",
+            "--workers", "2", "--out", str(out)]
+    assert nn_compare.main(argv) == 0
+    assert len(calls) == 2 * 2 * 2 + 2, "the SAT x field grid plus the family's upstream preset"
+    preset_calls = [c for c in calls if c[3] == "CGYRO"]
+    assert {c[:3] for c in preset_calls} == {(3, True, True)}, "an EM family ran with BPER and BPAR"
+
+    native = pd.read_csv(out / "native.csv")
+    assert set(native["status"]) == {"solved"} and len(native) == 10
+    assert native.loc[native["config"] == "tglf-sat3-em-bper", "OUT_Q_ions"].eq(6.0).all()
+
+    nn = pd.read_csv(out / "nn.csv")
+    assert set(nn["model"]) == {"sat3_em_d3d_azf-1"} and len(nn) == 2
+
+    paired = pd.read_csv(out / "compare.csv")
+    assert set(paired["config"]) == {"nnpreset-sat3-em-azf-1"}, "a family meets only its own preset"
+    assert len(paired) == 2
+    assert paired["OUT_Q_elec_native"].eq(8.0).all()
+    summary = pd.read_csv(out / "compare_summary.csv")
+    assert {"all"} <= set(summary["domain_class"])
+    assert set(summary["subset"]) == {"primary"}, "the summary covers the requested subset only"
+    assert (out / "preset_vs_default.csv").is_file()
+    form = pd.read_csv(out / "model_form.csv")
+    assert form["OUT_Q_elec_log10_max_over_min"].round(6).eq(round(np.log10(4 / 3), 6)).all()
+
+    # A second run is served from the run-identity cache, and the comparison is reproducible.
+    calls.clear()
+    assert nn_compare.main(argv) == 0
+    assert calls == []
+    assert pd.read_csv(out / "native.csv")["cached"].all()
+
+
+def test_trained_configuration_comes_from_the_family_name(nn_compare):
+    assert nn_compare.trained_config("sat3_em_d3d+mastu+nstx_azf-1") == "tglf-sat3-em-bper-bpar"
+    assert nn_compare.trained_config("sat2_es_nstx_azf-1") == "tglf-sat2-es"
+
+
+def test_upstream_preset_reproduces_turbulenttransport_switches(nn_compare):
+    """Transcribed from TurbulentTransport.jl src/tglf.jl InputTGLF (1.1.4 = 1.2.0)."""
+    label, kw = nn_compare.upstream_preset("sat3_em_d3d+mastu+nstx_azf-1", 3)
+    extra = kw["extra_parameters"]
+    assert label == "nnpreset-sat3-em-azf-1"
+    assert (kw["sat_rule"], kw["use_bper"], kw["use_bpar"]) == (3, True, True)
+    assert (extra["UNITS"], extra["KYGRID_MODEL"], extra["NBASIS_MAX"], extra["NMODES"]) == ("CGYRO", 4, 6, 5)
+    assert (extra["ALPHA_ZF"], extra["USE_MHD_RULE"], extra["USE_AVE_ION_GRID"]) == (-1.0, False, True)
+
+    label, kw = nn_compare.upstream_preset("sat0quench_es_ukstep_azf+1", 3)
+    extra = kw["extra_parameters"]
+    assert label == "nnpreset-sat0quench-es-azf+1"
+    assert (kw["use_bper"], kw["use_bpar"], extra["ALPHA_QUENCH"], extra["ALPHA_ZF"]) == (False, False, 1.0, 1.0)
+    assert (extra["UNITS"], extra["KYGRID_MODEL"], extra["NBASIS_MAX"]) == ("GYRO", 1, 4)
+
+    _, kw = nn_compare.upstream_preset("sat1geo_es_nstx_azf-1", 3)
+    assert kw["extra_parameters"]["UNITS"] == "CGYRO" and kw["sat_rule"] == 1
