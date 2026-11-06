@@ -4,7 +4,7 @@
   "duplicate": 1,
   "intentional_specialization": 39,
   "legacy": 8,
-  "unverified": 386
+  "unverified": 384
  },
  "entry_modules": {
   "pipeline1": [
@@ -7767,40 +7767,6 @@
    "source_file": "vaft/omas/vest_upstream.py"
   },
   {
-   "algorithm_semantics": "calls numpy.interp (not curated)",
-   "assets": [],
-   "audit_scope": "preprocessing",
-   "call_sites": [
-    {
-     "call": "numpy.interp",
-     "snippet": "np.interp(edges, rho_eq[ok][order], volume[ok][order])"
-    }
-   ],
-   "callers": [
-    "vaft.omas.kinetic_state_inference.kinetic_state_stages.pressure_closure",
-    "vaft.omas.vest_upstream.build_composition_ods"
-   ],
-   "classification": "unverified",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.omas.vest_upstream._volume_weights_on_grid",
-   "operation": [
-    "resampling"
-   ],
-   "owning_layer": "omas",
-   "primitives": [
-    "numpy.interp"
-   ],
-   "production_reachability": "pipeline2",
-   "production_reachability_note": "",
-   "recommended_action": "triage in the owning B3/C slice",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "unassessed",
-   "source_file": "vaft/omas/vest_upstream.py"
-  },
-  {
    "algorithm_semantics": "calls vaft.machine_mapping.magnetics.known_magnetics_faults, vaft.machine_mapping.magnetics.vest_equilibrium_magnetics_channel_definitions (not curated)",
    "assets": [
     "MD.yaml",
@@ -7877,43 +7843,6 @@
    "source_file": "vaft/omas/vest_upstream.py"
   },
   {
-   "algorithm_semantics": "calls numpy.interp (not curated)",
-   "assets": [],
-   "audit_scope": "derived_numerics_not_triaged",
-   "call_sites": [
-    {
-     "call": "numpy.interp",
-     "snippet": "np.interp(np.clip(psi_norm, 0.0, 1.0).ravel(), table_psi, table_rho)"
-    },
-    {
-     "call": "numpy.interp",
-     "snippet": "np.interp(rho_2d, rho, profile)"
-    }
-   ],
-   "callers": [
-    "vaft.plot.backend.recipes.<module>"
-   ],
-   "classification": "unverified",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.plot.backend.recipes._build_core_profile_field",
-   "operation": [
-    "resampling"
-   ],
-   "owning_layer": "plot",
-   "primitives": [
-    "numpy.interp"
-   ],
-   "production_reachability": "not_statically_reached",
-   "production_reachability_note": "",
-   "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "low",
-   "source_file": "vaft/plot/backend/recipes.py"
-  },
-  {
    "algorithm_semantics": "butterworth_highpass(order 4, 200 Hz, zero_phase=True), sample rate inferred from median dt.",
    "assets": [],
    "audit_scope": "preprocessing",
@@ -7980,39 +7909,6 @@
    "source_file": "vaft/plot/backend/recipes.py"
   },
   {
-   "algorithm_semantics": "calls numpy.interp (not curated)",
-   "assets": [],
-   "audit_scope": "preprocessing",
-   "call_sites": [
-    {
-     "call": "numpy.interp",
-     "snippet": "np.interp(psi_norm_2d, psi_norm_1d[order], profile[order])"
-    }
-   ],
-   "callers": [
-    "vaft.plot.backend.recipes._build_field_2d_base"
-   ],
-   "classification": "unverified",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.plot.backend.recipes._mapped_field_values",
-   "operation": [
-    "resampling"
-   ],
-   "owning_layer": "plot",
-   "primitives": [
-    "numpy.interp"
-   ],
-   "production_reachability": "pipeline1,pipeline2",
-   "production_reachability_note": "",
-   "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "low",
-   "source_file": "vaft/plot/backend/recipes.py"
-  },
-  {
    "algorithm_semantics": "calls <attribute>.rolling (not curated)",
    "assets": [],
    "audit_scope": "preprocessing",
@@ -8067,39 +7963,6 @@
    "curated": false,
    "evidence": "",
    "implementation": "vaft.plot.backend.recipes._surface_at",
-   "operation": [
-    "resampling"
-   ],
-   "owning_layer": "plot",
-   "primitives": [
-    "numpy.interp"
-   ],
-   "production_reachability": "not_statically_reached",
-   "production_reachability_note": "",
-   "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "low",
-   "source_file": "vaft/plot/backend/recipes.py"
-  },
-  {
-   "algorithm_semantics": "calls numpy.interp (not curated)",
-   "assets": [],
-   "audit_scope": "derived_numerics_not_triaged",
-   "call_sites": [
-    {
-     "call": "numpy.interp",
-     "snippet": "np.interp(edges, rho_eq[ok][order], volume[ok][order])"
-    }
-   ],
-   "callers": [
-    "vaft.plot.backend.recipes._impurity_inputs"
-   ],
-   "classification": "unverified",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.plot.backend.recipes._volume_weights_at",
    "operation": [
     "resampling"
    ],
@@ -11100,7 +10963,7 @@
   {
    "algorithm_semantics": "calls numpy.interp (not curated)",
    "assets": [],
-   "audit_scope": "derived_numerics_not_triaged",
+   "audit_scope": "preprocessing",
    "call_sites": [
     {
      "call": "numpy.interp",
@@ -11116,6 +10979,7 @@
     "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
     "vaft.omas.process_wrapper.compute_volume_averaged_pressure",
     "vaft.omas.update.update_core_profiles_global_quantities_volume_average.convert_to_2d",
+    "vaft.plot.backend.recipes._mapped_field_values",
     "vaft.plot.twodim.equilibrium_2d_profiles",
     "vaft.process.equilibrium.calculate_diamagnetism",
     "vaft.process.equilibrium.calculate_reconstructed_diamagnetic_flux"
@@ -11132,9 +10996,9 @@
    "primitives": [
     "numpy.interp"
    ],
-   "production_reachability": "not_statically_reached",
+   "production_reachability": "pipeline1,pipeline2",
    "production_reachability_note": "",
-   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
    "resolved_by": "",
    "scientific_risk": "unassessed",
@@ -13731,6 +13595,76 @@
    "production_reachability": "not_statically_reached",
    "production_reachability_note": "",
    "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "unassessed",
+   "source_file": "vaft/process/profile.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(cell_rho, rho, profile)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(np.clip(psi_norm, 0.0, 1.0).ravel(), table_psi, table_rho)"
+    }
+   ],
+   "callers": [
+    "vaft.plot.backend.recipes._build_core_profile_field"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "vaft.process.profile.map_rho_tor_profile_to_rz",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "process",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "unassessed",
+   "source_file": "vaft/process/profile.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(edges, rho_eq[ok][order], volume[ok][order])"
+    }
+   ],
+   "callers": [
+    "vaft.process.profile.equilibrium_volume_weights"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "vaft.process.profile.volume_weights_on_grid",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "process",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "pipeline2",
+   "production_reachability_note": "",
+   "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
    "resolved_by": "",
    "scientific_risk": "unassessed",

@@ -733,7 +733,7 @@ def kinetic_state_stages(
         with np.errstate(invalid="ignore", divide="ignore"):
             relative = residual / p_eq
         volume = _volume_weights_on_grid(ods, ctx["eq_index"], ctx["rho"])
-        weights_name = "equilibrium dV" if volume is not None else "rho drho (no equilibrium volume)"
+        weights_name = "equilibrium dV" if volume is not None else "rho drho (no usable equilibrium volume)"
         if volume is None:
             edges = np.concatenate(([0.0], 0.5 * (ctx["rho"][1:] + ctx["rho"][:-1]), [ctx["rho"][-1]]))
             volume = np.diff(edges**2)
