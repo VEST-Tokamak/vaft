@@ -6842,6 +6842,247 @@ def modified_tanh_profile_derivative(psi_n, *, pedestal_height, pedestal_positio
     return -pedestal_height / pedestal_width * _mtanh_derivative(z, core_slope)
 
 
+def _separatrix_delta(delta_psi_n) -> np.ndarray:
+    delta = np.asarray(delta_psi_n, dtype=float)
+    if np.any(~np.isfinite(delta)) or np.any(delta <= 0.0) or np.any(delta >= 1.0):
+        raise ValueError("delta_psi_n = 1 - psi_N must lie strictly between 0 and 1")
+    return delta
+
+
+def _log_slope(A) -> float:
+    A = float(A)
+    if not np.isfinite(A) or A <= 0.0:
+        raise ValueError(f"the logarithmic coefficient A must be positive and finite, not {A!r}")
+    return A
+
+
+def separatrix_q_asymptotic(delta_psi_n, A, B):
+    r"""Safety factor just inside a separatrix with a non-degenerate X-point.
+
+    $$|q| \simeq A\,\ln\frac{1}{\delta} + B,\qquad \delta = 1 - \psi_N$$
+
+    Parameters
+    ----------
+    delta_psi_n : float or np.ndarray
+        Normalized-flux distance from the separatrix, $0 < \delta < 1$ [-].
+    A : float
+        Leading logarithmic coefficient, positive; from the X-point geometry by
+        :func:`vaft.formula.geometry.xpoint_log_q_coefficient` or fitted [-].
+    B : float
+        Regular offset: the part of the surface away from the X-point [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $|q|$ to leading order [-].
+
+    Raises
+    ------
+    ValueError
+        ``delta_psi_n`` outside $(0, 1)$, or ``A`` not positive.
+
+    Convention
+    ----------
+    $\psi_N = (\psi - \psi_\mathrm{axis})/(\psi_X - \psi_\mathrm{axis})$ is
+    zero on axis and one on the separatrix through the X-point; the result is
+    the magnitude $|q|$, its sign being the helicity's. A limited plasma has
+    no such divergence: $q \to q_a < \infty$ wherever the poloidal field on the
+    boundary stays non-zero, so this form does not apply to it.
+
+    Physical interpretation
+    -----------------------
+    $B_p$ vanishes linearly at the X-point, so a field line on a surface that
+    passes near it spends a time growing as $\ln(1/\delta)$ there; the
+    logarithm is a boundary asymptotic of a diverted equilibrium, not an
+    empirical profile shape.
+
+    Assumptions
+    -----------
+    Leading order in $\delta \to 0$ about a non-degenerate saddle
+    ($\det H_\psi < 0$); $B$ absorbs everything regular. The coefficient is
+    the sum over the X-points that lie on the separatrix being approached.
+
+    Limitations
+    -----------
+    Not valid away from the separatrix, where $q$ is the profile's own, nor
+    for a degenerate (snowflake-like) null, where $B_p$ vanishes faster than
+    linearly and the divergence is stronger than logarithmic.
+
+    References
+    ----------
+    .. [1] A. D. Turnbull et al., "The external kink mode in diverted
+           tokamaks", J. Plasma Phys. (2016), doi:10.1017/S0022377816000568.
+    .. [2] Benjamin, Logan and Hansen, "Computation of generalised magnetic
+           coordinates asymptotically close to the separatrix", Plasma Phys.
+           Control. Fusion (2025), doi:10.1088/1361-6587/add9ca.
+    """
+    delta = _separatrix_delta(delta_psi_n)
+    return _log_slope(A) * np.log(1.0 / delta) + float(B)
+
+
+def separatrix_q_gradient_asymptotic(delta_psi_n, A):
+    r"""Flux-coordinate gradient of $|q|$ just inside a separatrix.
+
+    $$\frac{d|q|}{d\psi_N} \simeq \frac{A}{\delta},\qquad
+      \frac{1}{|q|}\frac{d|q|}{d\psi_N} \sim \frac{1}{\delta\ln(1/\delta)}$$
+
+    Parameters
+    ----------
+    delta_psi_n : float or np.ndarray
+        Normalized-flux distance from the separatrix, $0 < \delta < 1$ [-].
+    A : float
+        Leading logarithmic coefficient of :func:`separatrix_q_asymptotic`,
+        positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $d|q|/d\psi_N$ to leading order [-].
+
+    Raises
+    ------
+    ValueError
+        ``delta_psi_n`` outside $(0, 1)$, or ``A`` not positive.
+
+    Convention
+    ----------
+    The derivative is against the normalized poloidal flux. It is not the
+    magnetic shear, which is taken against a chosen radial coordinate
+    ($\hat s = (r/q)\,dq/dr$ or $2\rho\,d\ln q/d\rho$) and stays finite where
+    this one does not.
+
+    Physical interpretation
+    -----------------------
+    How sensitive the edge $q$ is to where the flux grid ends: a fixed
+    $\Delta\psi_N$ shifts $q$ by $A\,\Delta\psi_N/\delta$, unbounded as the
+    separatrix is approached.
+
+    Assumptions
+    -----------
+    The derivative of the leading-order form; a valid differentiable
+    asymptotic expansion.
+
+    Limitations
+    -----------
+    As :func:`separatrix_q_asymptotic`.
+
+    References
+    ----------
+    .. [1] Derivative of :func:`separatrix_q_asymptotic`.
+    """
+    delta = _separatrix_delta(delta_psi_n)
+    return _log_slope(A) / delta
+
+
+def separatrix_rational_offset(m, n, A, B):
+    r"""Where the rational surface $|q| = |m/n|$ sits in the logarithmic edge regime.
+
+    $$\delta_{m/n} \simeq C\exp\left(-\frac{|m|}{|n|A}\right),\qquad C = e^{B/A}$$
+
+    Parameters
+    ----------
+    m : int or np.ndarray
+        Poloidal mode number [-].
+    n : int or np.ndarray
+        Toroidal mode number, non-zero [-].
+    A : float
+        Leading logarithmic coefficient, positive [-].
+    B : float
+        Regular offset of :func:`separatrix_q_asymptotic` [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\delta_{m/n} = 1 - \psi_N$ of the surface [-].
+
+    Raises
+    ------
+    ValueError
+        ``n`` zero, or ``A`` not positive.
+
+    Convention
+    ----------
+    Inverts :func:`separatrix_q_asymptotic` at $|q| = |m|/|n|$. A value that is
+    not small lies outside the logarithmic regime and means nothing.
+
+    Physical interpretation
+    -----------------------
+    Rational surfaces of every order accumulate on the separatrix, each
+    further one exponentially closer in flux.
+
+    Assumptions
+    -----------
+    The logarithmic regime of :func:`separatrix_q_asymptotic`.
+
+    Limitations
+    -----------
+    For interpretation and verification only: it does not replace the
+    numerical root finder, :func:`vaft.process.equilibrium.rational_surfaces`,
+    on a computed profile.
+
+    References
+    ----------
+    .. [1] Inversion of :func:`separatrix_q_asymptotic`.
+    """
+    n = np.asarray(n, dtype=float)
+    if np.any(n == 0.0):
+        raise ValueError("the toroidal mode number n must be non-zero")
+    q_mn = np.abs(np.asarray(m, dtype=float)) / np.abs(n)
+    return np.exp((float(B) - q_mn) / _log_slope(A))
+
+
+def separatrix_rational_spacing(n, A):
+    r"""Ratio of successive rational-surface offsets at fixed $n$ near a separatrix.
+
+    $$\frac{\delta_{(m+1)/n}}{\delta_{m/n}} \simeq e^{-1/(|n|A)}$$
+
+    Parameters
+    ----------
+    n : int or np.ndarray
+        Toroidal mode number, non-zero [-].
+    A : float
+        Leading logarithmic coefficient, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        The constant ratio, below one [-].
+
+    Raises
+    ------
+    ValueError
+        ``n`` zero, or ``A`` not positive.
+
+    Convention
+    ----------
+    Successive positive harmonics $m$, $m + 1$ at one $n$; in
+    $\ln(1/\delta)$ they are evenly spaced by $1/(|n|A)$.
+
+    Physical interpretation
+    -----------------------
+    The flux spacing of resonances shrinks geometrically towards the
+    separatrix, which sets the radial and harmonic resolution a stability
+    calculation needs there. ``Delta psi_grid << Delta psi_{m/n}`` is a
+    geometric resolution heuristic, not a convergence proof.
+
+    Assumptions
+    -----------
+    The logarithmic regime of :func:`separatrix_q_asymptotic`.
+
+    Limitations
+    -----------
+    As :func:`separatrix_rational_offset`.
+
+    References
+    ----------
+    .. [1] Ratio of :func:`separatrix_rational_offset` at $m + 1$ and $m$.
+    """
+    n = np.asarray(n, dtype=float)
+    if np.any(n == 0.0):
+        raise ValueError("the toroidal mode number n must be non-zero")
+    return np.exp(-1.0 / (np.abs(n) * _log_slope(A)))
+
+
 #: Derived rather than listed, so a function added here cannot silently
 #: leave the package surface the way seven did in #711.  The virial names
 #: re-bound above belong to `.virial` and are excluded by construction.
