@@ -1,0 +1,77 @@
+{
+ "collection": "vest_tier_a",
+ "manifest_version": 1,
+ "description": "Frozen offline mirror of the Tier A operational-space Atlas (vestserver ~/runs/campaign/atlas): 150 EFIT states (133 magnetics + 17 electron-kinetic) from 32 shots 39906-43002, labelled good or admissible under statistical_891.",
+ "distribution": "repository-only (not in the wheel or sdist)",
+ "layout": {
+  "v1/": "state and Thomson profile tables (state key contract v1, #1454) + virial identity export",
+  "equilibrium_quality/": "#1644 cohort table and constraint points",
+  "confinement/": "Lane D Tier A confinement table (#548), magnetics lineage only (133 rows)",
+  "stability/": "Lane N stability atlas v2 (#1429/#1509): DCON n=1..6, RDCON/STRIDE n=1,2",
+  "snapshot_manifest.json + README.md": "capture record of v1/, equilibrium_quality/, confinement/ (snapshot v2, captured 2026-10-14)"
+ },
+ "captures": {
+  "verification_and_validation": {
+   "files": [
+    "README.md",
+    "snapshot_manifest.json",
+    "v1/**",
+    "equilibrium_quality/**",
+    "confinement/**"
+   ],
+   "original_path": "notebooks/data/verification_and_validation/",
+   "relocated": "2026-11-06 (#2277), git mv of the whole directory, byte-identical; relative paths inside snapshot_manifest.json unchanged",
+   "captured_by": "workflow/kinetic_state/capture_verification_snapshot.py"
+  },
+  "stability_atlas_v2": {
+   "renamed": {
+    "stability/atlas_n.csv.gz": "notebooks/data/pipeline_improvement_public_vs_main/stability_current_atlas_n.csv.gz",
+    "stability/atlas_surfaces.csv.gz": "notebooks/data/pipeline_improvement_public_vs_main/stability_current_atlas_surfaces.csv.gz",
+    "stability/schema.json": "notebooks/data/pipeline_improvement_public_vs_main/stability_current_schema.json",
+    "stability/README.md": "notebooks/data/pipeline_improvement_public_vs_main/stability_current_README.md"
+   },
+   "relocated": "2026-11-06 (#2277), git mv, byte-identical; the pipeline-improvement snapshot_manifest.json records the same SHA-256 under the original names",
+   "representation": "gzip CSV re-serialised by pandas from the server's atlas_n.csv / atlas_surfaces.csv in workflow/pipeline_improvement/make_snapshot.py (2026-10-30); not byte-identical to the server CSV, values unchanged by intent",
+   "built_by": "workflow/stability_atlas/build_atlas.py (ATLAS_VERSION 2), 2026-10-03",
+   "reader": "pandas.read_csv; vaft.process.mhd_stability.load_stability_atlas expects uncompressed atlas_n.csv/atlas_surfaces.csv in one directory"
+  }
+ },
+ "keys": {
+  "state": "(shot, time_efit_s, efit_lineage); join on round(time_efit_s * 1e6) microseconds",
+  "lineage_labels": "v1/ and confinement/ use 'magnetics' / 'electron_kinetic'; stability/ uses 'magnetics-only' / 'electron-kinetic' for the same states",
+  "grain": {
+   "v1/state.csv": "state (150)",
+   "v1/profiles.csv": "state x Thomson channel (405)",
+   "confinement/table.csv": "magnetics state (133)",
+   "stability/atlas_n.csv.gz": "state x n_tor (900)",
+   "stability/atlas_surfaces.csv.gz": "state x n_tor x solver x m (6970)"
+  }
+ },
+ "related": {
+  "vaft/data/confinement/vest_tier_a_confinement.csv": {
+   "sha256": "b557b71fe1b0f3bd01f389b2836b690d1c88d261b351f9b8b63ccfe848693e20",
+   "relationship": "compact derived representation of confinement/table.csv for vaft.data.public.load_vest_tier_a_confinement: same 133 rows in the same order, 57 of the 68 columns (drops the 11 descriptor columns n_e_definition, p_loss_definition, w_th_definition, tau_e_definition, b_t_definition, m_eff_source, source_database, source_release, source_reference, efit_product_sha256, assumptions); numeric values agree within rtol 5e-6 (rounded); 'accepted' equals 'selected'",
+   "kept_separately_because": "it is a wheel-independent runtime input of vaft.data.public with its own manifest (vaft/data/confinement/manifest.json)"
+  }
+ },
+ "sha256": {
+  "README.md": "d3f5a1c49ac170518c84561ec15e4cdac4b0c324e76beab4813029aa00ddd76c",
+  "confinement/MANIFEST.json": "6a4185d17ca356950ec6c74c87d146baabca446b5acd5903eb064f01a47c5226",
+  "confinement/table.csv": "4f6d3d243fe6826fd01ec413598c6c17c1fd184848fbe924225883364aaf2f61",
+  "equilibrium_quality/cohort_table.csv": "88aafa2ccd9a7cfc2269f17294ec49ab1173332fde6c61f4a2cf7eaf95452d17",
+  "equilibrium_quality/constraint_points.csv": "ab7a2332d992c32276b03bb60730e4a6d49f3f080a1256e4f097f2d5548d88d9",
+  "equilibrium_quality/manifest.json": "298649130d473eefdd1eeb19c69f3c9b69a66d2c403935e66502469079dc90b9",
+  "equilibrium_quality/summary.json": "a7cb67ee4f08edc9ec2e0d7e24bdb6e9688693ebbb360d1023eaae17c487ab96",
+  "snapshot_manifest.json": "ee10c213ae882428eb293cf5ef4532031fa4fc47bbee004a15da1407435e56e9",
+  "stability/README.md": "6a50ce70d3f23bd270096160ab9e33a28055b23ded5dd51571a4a50dcb3b373a",
+  "stability/atlas_n.csv.gz": "0e1bae97682911b620907fb20279e996026b15f942c453d5711b6be42b3f83e8",
+  "stability/atlas_surfaces.csv.gz": "0b9868e20baad32638b207f8bc2f2174bfbc22bb4b73df353e906ab9d200b2c8",
+  "stability/schema.json": "050caccef77eb0b43185f3f865a830788dfbd52311dbd28089c9b12e91e88f73",
+  "v1/MANIFEST.json": "10a7ac71ea940621ecac4e8b0559e330a9236e362d00a985a20adfce687f01f8",
+  "v1/profiles.csv": "f2daafa6f89298115e40ed27ab163788667b3b246bd24779946f12d1dfa58cf9",
+  "v1/schema/profiles.schema.json": "e0a9f1f8658231e1ba253115e5adecb6e3a3ace6e0a573f3df04a785aa05a724",
+  "v1/schema/state.schema.json": "2753c7cf3f33125813502e44303d8218b416c768907608652f7af7ccea356298",
+  "v1/state.csv": "d023ee87da53b7cf09a48a79663d2987f423bafe696099781a1b4100f202480a",
+  "v1/virial_identity.csv": "63a98602db3ee56f5ccbe61cf6ca323ce020924e1375267031cc6f1bde8d0113"
+ }
+}

@@ -19,7 +19,10 @@ SHA-256 of each file.
 - **Vacuum check:** 2,279 shots that hold magnetics and PF data in both sources.
 - **Onset-aligned vacuum traces:** every sixth of those (380), 337 with a plasma onset.
 - **Thomson check:** the 57 shots whose HSDS `public` product holds `thomson_scattering`.
-- **Stability, current side:** the Tier A stability atlas v2 (`stability_current_*`), copied unchanged.
+- **Stability, current side:** the Tier A stability atlas v2. Its four files (`stability_current_*` in
+  `snapshot_manifest.json`) now live, byte-identical, in the shared sample collection
+  `vaft/data/samples/vest_tier_a/stability/` (`atlas_n.csv.gz`, `atlas_surfaces.csv.gz`, `schema.json`,
+  `README.md`; #2277). The SHA-256 values below are unchanged.
 
 **Files**
 
