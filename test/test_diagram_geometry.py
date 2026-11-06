@@ -1,4 +1,4 @@
-"""Geometric-approximation diagrams: drawn from vaft.formula.geometry, one concept each (#1062)."""
+"""Geometric-approximation diagrams: drawn from vaft.formula.geometry, one concept each."""
 
 import numpy as np
 import pytest

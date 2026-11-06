@@ -1,4 +1,4 @@
-"""The table/namelist A/B (#695): its reading of the two files, and its answer.
+"""The table/namelist A/B: its reading of the two files, and its answer.
 
 The study runs EFIT; what is pinned here is the field comparison the design
 rests on and the result it produced. The design argument was that everything
@@ -48,7 +48,7 @@ def test_the_two_by_two_crosses_the_two_files(module):
         "FP": ("regenerated", "packaged"),
         "FF": ("regenerated", "regenerated"),
     }
-    # PP is the #171 baseline's configuration and everything is measured
+    # PP is the solver-configuration baseline's configuration and everything is measured
     # against it, so it must be the reference.
     assert module.REFERENCE_CASE == "PP"
 
@@ -134,9 +134,9 @@ def test_swapping_the_namelist_alone_changes_nothing(table):
 
 
 def test_the_packaged_table_is_what_loses_the_separatrix(table):
-    """#695's answer, and the population it accounts for.
+    """The table attribution's answer (#695), and the population it accounts for.
 
-    The #171 baseline attributed 17 slices to `findax` -- the separatrix point
+    The solver-configuration baseline (#171) attributed 17 slices to `findax` -- the separatrix point
     landing off grid. Regenerating the Green table takes that to 2 and leaves
     `bound` untouched, so the table explains that whole population and none of
     the collapse block.

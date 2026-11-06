@@ -1,4 +1,4 @@
-"""Dimensionless-similarity projections, their interpretation metadata and the population plot (#1624)."""
+"""Dimensionless-similarity projections, their interpretation metadata and the population plot."""
 
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ def test_existing_projections_are_unchanged_by_the_new_field():
     assert ops.get_projection("hugill").interpretation is None
     troyon = ops.get_projection("troyon")
     assert troyon.interpretation is None
-    # the Troyon plane leads with the Troyon reference; its literature beta_N references follow (#1691)
+    # the Troyon plane leads with the Troyon reference; its literature beta_N references follow
     assert troyon.default_boundaries[0] == "troyon"
 
 

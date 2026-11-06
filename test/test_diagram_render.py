@@ -1,4 +1,4 @@
-"""SVG rendering, notebook display and freshness of the committed assets (#890)."""
+"""SVG rendering, notebook display and freshness of the committed assets."""
 
 import json
 import re
@@ -196,7 +196,7 @@ def test_the_tex_pipe_is_decoded_as_utf8_with_replacement(monkeypatch, tmp_path)
 
 
 def test_every_committed_svg_carries_its_own_build_record():
-    """#1750: freshness lives in each SVG, so diagram PRs share no generated manifest."""
+    """Freshness lives in each SVG, so diagram PRs share no generated manifest."""
     assert not (ASSETS / build.LEGACY_MANIFEST).exists()
     for name, (builder, kwargs) in build.CANONICAL.items():
         record, body = build.read_record(ASSETS / name)
@@ -217,7 +217,7 @@ def test_check_refuses_an_unrecorded_svg_and_a_resurrected_manifest(tmp_path):
     _copy_assets(tmp_path)
     name = next(iter(build.CANONICAL))
     _, body = build.read_record(tmp_path / name)
-    (tmp_path / name).write_text(body, encoding="utf-8")  # a stale branch's pre-#1750 file
+    (tmp_path / name).write_text(body, encoding="utf-8")  # a stale branch's file from before per-SVG records
     (tmp_path / build.LEGACY_MANIFEST).write_text("{}\n", encoding="utf-8")
     problems = build.check(tmp_path)
     assert f"{name}: no build record; run python -m vaft.diagram.build" in problems

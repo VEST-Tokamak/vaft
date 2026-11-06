@@ -1,4 +1,4 @@
-"""The CGYRO input translation, held against CGYRO's own projection (#1354).
+"""The CGYRO input translation, held against CGYRO's own projection.
 
 The fixture ``data/gacode/cgyro_oracle_48224/r<r/a>/`` is CGYRO itself (GACODE b493397,
 TDST_GNU) run in test mode (``cgyro -t``) with ``PROFILE_MODEL=2`` on the

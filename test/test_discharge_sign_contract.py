@@ -1,6 +1,6 @@
 """What signs a normal VEST discharge must carry to mean what IMAS says it means.
 
-Issue #288. The contract comes first and the constants follow from it: IMAS
+The contract comes first and the constants follow from it: IMAS
 defines positive ``Ip`` and positive ``B0`` as counter-clockwise viewed from
 above, so the working physical assumption -- ``Ip`` clockwise, ``Bt``
 counter-clockwise -- fixes the mapped discharge signs outright::
@@ -125,8 +125,8 @@ def test_the_stored_discharge_does_not_yet_satisfy_the_contract_for_ip():
     """IP_SIGN is declared but not applied, and that gap is deliberate.
 
     Applying it flips Ip and, through Eq. 23, q and the orientation of psi, so
-    the whole equilibrium must move together -- a data migration in the class of
-    #275. Pinning the gap stops anyone reading the constant as a description of
+    the whole equilibrium must move together -- a data migration that rewrites
+    every stored equilibrium. Pinning the gap stops anyone reading the constant as a description of
     what is currently in the IDS.
     """
     from vaft.machine_mapping import IMAS_DISCHARGE_SIGNS
@@ -239,7 +239,7 @@ def _packaged_gfile():
 def test_the_packaged_gfile_does_not_yet_satisfy_the_contract():
     """It stores a parallel configuration where the contract requires antiparallel.
 
-    This is Anomaly A of #288, still open, and the same fact as IP_SIGN being
+    Open: #288, Anomaly A (two g-file producers disagree on Ip/Bt), and the same fact as IP_SIGN being
     declared but not applied. Reading the file's own CURRENT and BCENTR is the
     point: comparing its q against a contract-derived expectation would compare
     two numbers computed from disjoint inputs and see agreement that is not there.

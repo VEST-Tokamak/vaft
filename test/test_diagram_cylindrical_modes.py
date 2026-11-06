@@ -1,4 +1,4 @@
-"""Cylindrical geometry (#1072): the q profile is the formula's, the pictures follow it."""
+"""Cylindrical geometry: the q profile is the formula's, the pictures follow it."""
 
 import math
 

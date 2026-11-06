@@ -1,4 +1,4 @@
-"""vaft.imas.plot_* adapters over native IMAS objects (issue #63, H·1).
+"""vaft.imas.plot_* adapters over native IMAS objects.
 
 One adapter per canonical plot, the renderer contract on every path, native
 classes never patched, and only native reads for the path-driven plots.
@@ -37,8 +37,8 @@ def test_every_canonical_plot_has_an_imas_adapter():
     for name in canonical_names():
         function = getattr(vaft.imas, f"plot_{name}")
         assert name in (function.__doc__ or ""), name
-    # The two explorers are entry points over the canonical plots, not plots
-    # (issues #261 and #482); they are twins of vaft.omas's.
+    # The two explorers are entry points over the canonical plots, not plots,
+    # and they are twins of vaft.omas's.
     entry_points = {"plot_equilibrium_interactive", "plot_diagnostics_time_interactive"}
     assert {n for n in dir(vaft.imas) if n.startswith("plot_")} == {f"plot_{n}" for n in canonical_names()} | entry_points
     assert entry_points <= {n for n in dir(vaft.omas) if n.startswith("plot_")}
@@ -61,7 +61,7 @@ def test_every_offered_plot_renders_with_the_contract(entry):
     for row in vaft.imas.available_plots(entry):
         result = getattr(vaft.imas, f"plot_{row.name}")(entry)
         if row.view in NON_GRAPHICAL_VIEWS:
-            # A table or text view returns text, not a figure (issue #1180).
+            # A table or text view returns text, not a figure.
             assert isinstance(result, TextView) and result.text()
             continue
         figure, axes = result
@@ -194,9 +194,9 @@ def test_a_lazy_hsds_handle_reads_natively():
 
 
 def test_a_neutral_computed_view_runs_on_a_lazy_remote_handle():
-    """A model-neutral computed view (issue #439) builds from the lazy handle natively.
+    """A model-neutral computed view builds from the lazy handle natively.
 
-    Before #439 every computed view converted its input to an ODS first, which
+    Every computed view once converted its input to an ODS first, which
     a lazy remote handle cannot supply; the neutral ones now read through the
     accessor like a path-driven plot, and the conversion contract is unchanged.
     """

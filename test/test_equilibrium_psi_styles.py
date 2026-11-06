@@ -41,7 +41,7 @@ def test_flux_surfaces_are_the_default_and_stay_inside_the_plasma(sample):
     levels = np.asarray(model.contour_levels)
     assert levels.size == 9 and np.allclose(levels, axis + (boundary - axis) * np.linspace(0.1, 0.9, 9))
     assert model.secondary_levels and min(model.secondary_levels) > boundary
-    # The machine context joins the field's own boundary and axis (issue #483);
+    # The machine context joins the field's own boundary and axis;
     # the per-coil names are text annotations, not legend entries.
     labels = {layer.label for layer in model.overlays if layer.label and layer.kind != "text"}
     assert labels == {"Boundary", "Magnetic axis", "PF coils"}

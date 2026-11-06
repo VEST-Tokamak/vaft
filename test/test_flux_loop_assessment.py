@@ -1,4 +1,4 @@
-"""Flux-loop evidence for EFIT channel selection (issue #295, step 1).
+"""Flux-loop evidence for EFIT channel selection.
 
 Source validity and model agreement are separate evidence, only the first
 rejects on its own, every threshold is policy and is echoed into the record,
@@ -191,7 +191,7 @@ def test_flux_loop_evidence_runs_on_a_synthetic_machine(synthetic_shot):
 def test_a_model_disagreement_never_changes_source_validity(synthetic_shot):
     """A loop whose measurement is three times what the wall model predicts
     is suspect under a threshold, and its validity nodes are byte-identical
-    before and after (#253 §10)."""
+    before and after."""
     ods = copy.deepcopy(synthetic_shot)
     base = "magnetics.flux_loop.1.flux"
     ods[f"{base}.data"] = 3.0 * np.asarray(ods[f"{base}.data"])
@@ -262,7 +262,7 @@ def test_agreement_vocabulary_covers_every_state():
 
 
 def test_the_routine_config_carries_no_manual_list_and_the_historical_one_is_named():
-    """#295 §4: the list is gone from the pipeline; the back-test keeps it by
+    """The list is gone from the pipeline; the back-test keeps it by
     name as the record of what the evidence was measured against."""
     assert BACKTEST.routine_manual_broken() == []
     assert "constraints" in BACKTEST.ROUTINE_CONFIG.read_text()

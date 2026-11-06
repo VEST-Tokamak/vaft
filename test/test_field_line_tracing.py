@@ -202,7 +202,7 @@ def _build_ods(n_frames: int = 4, shape: tuple[int, int] = (12, 16)) -> ODS:
     theta_wall = np.linspace(0, 2 * np.pi, 64, endpoint=False)
     ods["wall.description_2d.0.limiter.unit.0.outline.r"] = r0 + 0.35 * np.cos(theta_wall)
     ods["wall.description_2d.0.limiter.unit.0.outline.z"] = 0.35 * np.sin(theta_wall)
-    # Declared, so the tracer does not have to assume an orientation (#1313):
+    # Declared, so the tracer does not have to assume an orientation:
     # 12 is the weber sibling of COCOS 2, the k = -1 form this fixture assumes.
     from vaft.omas.general import set_ods_cocos
 
@@ -250,7 +250,7 @@ def test_compute_camera_visible_field_line_overlay_preserves_discontinuities(mon
     """A gap of invalid samples in the middle of a trace must survive as NaN,
     not be compacted away -- compacting would let a renderer draw a single
     connected polyline through the gap, fabricating a segment that doesn't
-    correspond to any real part of the field line (see PR #128 review).
+    correspond to any real part of the field line.
     """
     import vaft.omas.process_wrapper as pw
 
@@ -318,7 +318,7 @@ def test_plot_camera_visible_field_line_can_include_efit_overlay():
 
 
 # ---------------------------------------------------------------------------
-# The vacuum-field interpolator and the connection length it feeds (#230)
+# The vacuum-field interpolator and the connection length it feeds
 # ---------------------------------------------------------------------------
 
 BOX_R = np.array([0.1, 0.8, 0.8, 0.1, 0.1])
@@ -491,7 +491,7 @@ def test_a_line_whose_field_gives_out_has_no_length_rather_than_a_partial_one():
     assert not bool(result["outside"][0])
 
 
-# --- the flux convention reaches the field (#1313) ----------------------------
+# --- the flux convention reaches the field ----------------------------
 
 
 @pytest.fixture(scope="module")

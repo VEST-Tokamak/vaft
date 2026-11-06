@@ -1,4 +1,4 @@
-"""Unit tests for dataset_description pulse-timestamp wiring (issue #126).
+"""Unit tests for dataset_description pulse-timestamp wiring.
 
 `dataset_description.pulse_time_begin` is a real IMAS field that was never
 populated by any builder in this module. `date_from_shot`/`list_shots` in

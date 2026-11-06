@@ -1,4 +1,4 @@
-"""Wall conditioning (#1051): methods kept apart by what they draw, no quantity without its source."""
+"""Wall conditioning: methods kept apart by what they draw, no quantity without its source."""
 
 import numpy as np
 import pytest

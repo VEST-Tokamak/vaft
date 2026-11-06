@@ -1,4 +1,4 @@
-"""Per-era EFIT Green tables built by the routine pipeline (#805 follow-up).
+"""Per-era EFIT Green tables built by the routine pipeline.
 
 The library half -- config reuse, the limiter file, the 100-character
 ``TABLE_DIR`` guard, and the build itself against a stand-in EFUND -- and the
@@ -67,7 +67,7 @@ def test_a_manifest_without_a_configuration_is_refused():
 
 
 def test_the_limiter_file_is_the_packaged_one_byte_for_byte(packaged, tmp_path):
-    """lim.dat must equal the static wall limiter (#965); writing it reproduces it."""
+    """lim.dat must equal the static wall limiter; writing it reproduces it."""
     from vaft.omas.vest_upstream import build_static_ods
 
     ods, _ = build_static_ods(LEGACY_ERA)

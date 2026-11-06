@@ -1,11 +1,11 @@
-"""Reciprocity of the passive-passive coupling matrix (issues #347, #373).
+"""Reciprocity of the passive-passive coupling matrix.
 
 A mutual-inductance matrix must satisfy M_ij == M_ji exactly. The packaged
 asset did not: 35% of its entries were asymmetric, up to 4% on the worst pair
 -- the donor applied its SUS material factor from one side only -- and it was
-loaded verbatim into every eddy-current solve. #347 made `em_coupling()`
-symmetrize on load and record how far off the input was; #373 repaired the
-asset itself, with provenance, so the fold is now a silent no-op on the
+loaded verbatim into every eddy-current solve. `em_coupling()` now
+symmetrizes on load and records how far off the input was, and the
+asset itself is repaired, with provenance, so the fold is now a silent no-op on the
 packaged matrix and still guards a caller-supplied one.
 """
 
@@ -40,7 +40,7 @@ def test_the_loaded_passive_coupling_is_exactly_symmetric():
 
 
 def test_the_packaged_asset_is_symmetric_and_carries_provenance():
-    """The #373 repair: every reciprocity-bound matrix in the asset is exact,
+    """The repaired asset: every reciprocity-bound matrix in the asset is exact,
     the asset says who repaired it and how, and loading it is silent."""
     with np.load(em.DEFAULT_VERSIONED_COUPLING, allow_pickle=False) as versioned:
         keys = set(versioned.files)
@@ -82,8 +82,8 @@ def test_the_loaded_matrix_is_the_asset_bit_for_bit():
 
 
 def test_a_legacy_asset_without_provenance_still_loads_and_says_symmetrized(tmp_path, monkeypatch):
-    """An asset written before #373 has no provenance key and a lopsided
-    matrix; it loads with the #347 warning and an honest record."""
+    """An asset written before the repair has no provenance key and a lopsided
+    matrix; it loads with the symmetrization warning and an honest record."""
     with np.load(em.DEFAULT_VERSIONED_COUPLING, allow_pickle=False) as versioned:
         arrays = {k: np.asarray(versioned[k], dtype=float) for k in versioned.files if k != em.COUPLING_PROVENANCE_KEY}
     lopsided = arrays["mutual_passive_passive"].copy()

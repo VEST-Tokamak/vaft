@@ -246,7 +246,7 @@ def test_gpec_in_points_at_its_own_cell(case, tmp_path):
     run_dir = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
     text = (run_dir / "gpec.in").read_text(encoding="utf-8")
     line = next(l for l in text.splitlines() if l.strip().startswith("dcon_dir"))
-    # Its own cell, named relative to the working directory GPEC runs in (#1239).
+    # Its own cell, named relative to the working directory GPEC runs in.
     assert line.split("!")[0].split("=", 1)[1].strip().strip("'\"") == "."
     # Not DCON's cell: that is the whole change.
     dcon_dir = gpec._module_dir(case.workdir, case.time_ms, "dcon", 1, geqdsk=case.geqdsk)
@@ -254,7 +254,7 @@ def test_gpec_in_points_at_its_own_cell(case, tmp_path):
 
 
 def test_gpec_in_does_not_depend_on_the_workdir_path_length(case, tmp_path):
-    """GPEC reads dcon_dir into CHARACTER(128); a deep workdir must not reach it (#1239)."""
+    """GPEC reads dcon_dir into CHARACTER(128); a deep workdir must not reach it."""
     deep = tmp_path.joinpath(*(["a_rather_long_directory_name"] * 6))
     assert len(str(deep)) > 128
     deep_case = gpec.GPECCaseInputs(

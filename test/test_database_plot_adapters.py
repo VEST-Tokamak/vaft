@@ -1,4 +1,4 @@
-"""vaft.database.plot_* adapters (issue #63, H·2), without a live HSDS server.
+"""vaft.database.plot_* adapters, without a live HSDS server.
 
 An adapter opens only the IDS its plot declares, in the source the caller
 named, lazily by default, and delegates rendering to the OMAS adapter; its
@@ -257,7 +257,7 @@ def test_an_unknown_adapter_names_the_package():
 
 
 # ---------------------------------------------------------------------------
-# dd_* / extract_* (umbrella #434) and interactive over the lazy path
+# dd_* / extract_* and interactive over the lazy path
 # ---------------------------------------------------------------------------
 
 def test_the_three_verbs_cover_the_same_plots_as_vaft_omas():
@@ -449,7 +449,7 @@ def test_a_shot_without_wall_draws_end_to_end_over_a_fake_hsds_store(monkeypatch
 
 
 def test_an_animation_is_built_from_an_eager_load_not_a_closed_lazy_store(sample_ods, tmp_path):
-    """``animation=True`` draws its frames at save time, after render() has closed its lazy store (review of #1924, R4)."""
+    """``animation=True`` draws its frames at save time, after render() has closed its lazy store."""
     store = Mock(wraps=sample_ods)  # the lazy store, closed by render() on the way out
     store.close = Mock()
     open_ods = Mock(return_value=store)

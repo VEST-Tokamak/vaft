@@ -1,4 +1,4 @@
-"""The static equilibrium overview is one slice from one figure (issue #261 §11-13).
+"""The static equilibrium overview is one slice from one figure.
 
 The slice is the representative one unless ``time=`` (snapped to a stored
 slice, never interpolated) or ``time_slice=`` says otherwise; the title states
@@ -136,7 +136,7 @@ def test_global_quantities_follow_the_display_policy_and_say_what_is_missing(sho
     assert lines["Ip"].endswith(" kA") and lines["psi_axis"].endswith(" mWb")
     assert lines["B_tor"].startswith("at axis") or "B_tor at axis" in "\n".join(model.models[-1].lines)
     # Quantities the g-file does not store are derived on the private copy
-    # (issue #475) and shown like any stored value; nothing here reads
+    # and shown like any stored value; nothing here reads
     # "not stored" because everything in the table is derivable from 39915.
     derived = {"beta_p": "", "beta_N": "", "li_3": "", "volume": " m^3", "area": " m^2"}
     for label, unit in derived.items():

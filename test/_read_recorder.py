@@ -1,4 +1,4 @@
-"""Record every IMAS-DD path a plot builder reads (issue #439 declaration tests).
+"""Record every IMAS-DD path a plot builder reads, for the IDS-declaration tests.
 
 A test utility, not a test: ``test_plot_recipe_reads.py`` imports it by bare
 name (``test/`` is on ``sys.path`` through ``conftest.py``).  Two recorders:

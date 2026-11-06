@@ -1,4 +1,4 @@
-"""GENRAY EC ray-tracing adapter (#264), without GENRAY.
+"""GENRAY EC ray-tracing adapter, without GENRAY.
 
 The launch-angle conversion, the input file, the refusals, the netCDF ->
 ``waves`` mapping and the run contract are all tested here with synthetic
@@ -455,7 +455,7 @@ def test_a_psi_convention_mismatch_between_ids_is_refused(vest_48224, tmp_path):
 
 
 def test_a_stopped_genray_run_is_a_failed_result(tmp_path):
-    """#1016: returncode None and runtime_status "timeout" (it was 124)."""
+    """Returncode None and runtime_status "timeout" (it was 124)."""
     from external_code_stubs import RecordingBackend, write_launchable_stub
     from vaft.code.execution import ExecutionResult
     from vaft.code.genray.config import GENRAYConfig, GENRAYInputs

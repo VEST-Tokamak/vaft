@@ -1,4 +1,4 @@
-"""The native EQDSK conversion writes ``boundary.x_point`` (#238).
+"""The native EQDSK conversion writes ``boundary.x_point``.
 
 ``OMFITgeqdsk.to_omas`` used to supply the leaf and the native conversion left
 it empty. It now carries the boundary X-points only -- the saddles that bound

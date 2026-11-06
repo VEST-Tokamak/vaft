@@ -1,4 +1,4 @@
-"""VDE reference quantities (#1042): evaluated, not just catalogued."""
+"""VDE reference quantities: evaluated, not just catalogued."""
 
 import math
 

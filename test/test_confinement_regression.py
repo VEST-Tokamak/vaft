@@ -1,4 +1,4 @@
-"""Regression and identifiability for confinement scaling (#548 Sec. 3, 4, 6; Lane D)."""
+"""Regression and identifiability for confinement scaling."""
 
 import numpy as np
 import pytest
@@ -138,7 +138,7 @@ def test_robust_iid_error_is_the_robust_estimators_own():
     assert robust.stderr_iid[1] < plain.stderr_iid[1]
 
 
-# --- #1621: principal directions and the engineering/dimensionless equivalence ----------
+# --- principal directions and the engineering/dimensionless equivalence ----------
 
 
 def test_principal_directions_find_the_locked_combination():
@@ -196,7 +196,7 @@ def test_engineering_and_direct_dimensionless_routes_agree_on_exact_data():
 
 
 
-# --- #1713: thermal vs global energy basis -------------------------------------------------
+# --- thermal vs global energy basis -------------------------------------------------
 
 
 def test_resolver_is_strict_and_records_the_thermal_for_global_approximation():

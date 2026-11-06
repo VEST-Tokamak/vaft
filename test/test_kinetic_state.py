@@ -1,4 +1,4 @@
-"""Thomson against EFIT pressure per slice, the atlas state key (#1430, #1454).
+"""Thomson against EFIT pressure per slice, the atlas state key.
 
 The equilibria here have several slices stored out of time order, because the
 bug this layer exists to avoid -- pairing by index -- passes every one-slice test.
@@ -435,7 +435,7 @@ def test_status_reads_the_criteria_v2_evaluation_not_a_stale_stored_verdict():
 
 
 # ---------------------------------------------------------------------------
-# pressure-partition T_i (#1426)
+# pressure-partition T_i
 # ---------------------------------------------------------------------------
 
 def test_composition_closure_gives_five_sixths():
@@ -738,7 +738,7 @@ def test_an_empty_density_thermal_falls_back_to_density():
 
 
 def test_the_old_import_path_still_works_and_warns():
-    """It moved to vaft.process.kinetic_closure (#1842); the name here only delegates."""
+    """It moved to vaft.process.kinetic_closure; the name here only delegates."""
     comp = ks.ion_composition()
     args = ([2 * E * 1e19 * 20], [1e19], [20.0])
     kwargs = dict(composition=comp, sigma_p_eq=0.0, sigma_n_e=0.0, sigma_t_e=0.0,
@@ -752,7 +752,7 @@ def test_the_old_import_path_still_works_and_warns():
 
 
 def test_a_composition_given_per_point_is_applied_per_point():
-    """The dilution varies with radius, so f may be an array on the points (#1842)."""
+    """The dilution varies with radius, so f may be an array on the points."""
     f = np.array([0.8, 0.9, 1.0])
     ti = np.array([10.0, 20.0, 30.0])
     te = np.array([50.0, 50.0, 50.0])

@@ -187,7 +187,7 @@ def test_prepare_with_coil_specs_generates_inputs(no_gpec_env, case):
     )
     assert names == {1: "MID"}
     assert currents[1] == pytest.approx(list(REFERENCE_CURRENTS))
-    # Relative to the cell GPEC runs in, so no workdir length reaches GPEC (#1239).
+    # Relative to the cell GPEC runs in, so no workdir length reaches GPEC.
     assert scalars["data_dir"] == "coil"
     from vaft.code.gpec import coil_filaments_from_coil_in
 

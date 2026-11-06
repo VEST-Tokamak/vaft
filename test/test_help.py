@@ -1,4 +1,4 @@
-"""``vaft.help()`` and ``vaft help``: lazy, read-only, secret-free (#1203)."""
+"""``vaft.help()`` and ``vaft help``: lazy, read-only, secret-free."""
 
 from __future__ import annotations
 

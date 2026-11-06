@@ -1,4 +1,4 @@
-"""SFL coordinates part 2 (#1074): toroidal shift, n != 0 spectra, action-angle, validity, COCOS."""
+"""SFL coordinates part 2: toroidal shift, n != 0 spectra, action-angle, validity, COCOS."""
 
 import math
 

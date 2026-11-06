@@ -64,7 +64,7 @@ def _constraints_ods(tmp_path, *, time=0.319):
 def _kfile_text(tmp_path, scientific=None):
     """A k-file under ``scientific``; the legacy routine configuration when None.
 
-    The tests in this file document the routine k-file's semantics; the #891
+    The tests in this file document the routine k-file's semantics; the statistical-sigma
     default (statistical_891) is pinned in test_efit_presets.py.
     """
     ods = _constraints_ods(tmp_path)
@@ -78,10 +78,10 @@ def _kfile_text(tmp_path, scientific=None):
 
 
 def test_the_termination_settings_are_absent_until_a_study_sets_them(tmp_path):
-    """Issue #171: the four settings a VEST fit stops on are now expressible.
+    """The four settings a VEST fit stops on are now expressible.
 
     Absent by default, so the routine k-file is unchanged and EFIT's own
-    defaults still apply -- which is exactly the situation #171 exists to
+    defaults still apply -- which is exactly the situation the open solver-configuration study (#171) has to
     characterize, and it must stay reproducible while it is characterized.
     """
     routine = _kfile_text(tmp_path, routine_scientific_config())
@@ -161,7 +161,7 @@ def test_routine_defaults_preserve_documented_kfile_semantics(tmp_path):
 
 
 def test_the_inboard_seed_default_moves_relip_and_nothing_else(tmp_path):
-    """#588's conclusion, pinned where it can silently regress.
+    """The seed-basin study's conclusion (#588), pinned where it can silently regress.
 
     `rzero` was three namelist quantities at once, and the seed study had to
     split `RELIP` out of it before a sweep could attribute anything to the
@@ -198,7 +198,7 @@ def test_the_seed_comes_from_the_config_not_the_constraints_tree(tmp_path):
 
     It is a second, hard-coded copy of the seed (`kfile.py`, in the block that
     sets `RZERO`, `AELIP` and `EELIP` beside it) and it still says 0.4. The
-    writer overrides it from the configuration, which is why the #588 sweep
+    writer overrides it from the configuration, which is why the seed sweep
     varied anything at all -- but nothing said so out loud, and a change that
     let the stale copy win would move every routine reconstruction back to the
     old seed while every test on the config kept passing.
@@ -269,7 +269,7 @@ RETIRED_COIL_MATRIX = tuple(
 
 
 def test_a_discharge_that_energised_a_different_subset_gets_a_kfile():
-    """#708's whole point, and a thing this repository could not do before.
+    """Any energised PF subset gets a k-file.
 
     The table used to describe five circuits, so a discharge that energised
     PF2 or PF3 produced no k-file for them -- those coils were dropped
@@ -326,7 +326,7 @@ def test_a_discharge_that_energised_a_different_subset_gets_a_kfile():
 
 
 def test_the_coil_constraint_matrix_is_derived_from_the_machine():
-    """#708: the equalities follow from the coilset, not from a table by index.
+    """The equalities follow from the coilset, not from a table by index.
 
     Splitting a circuit into current groups does not split its current, so each
     circuit ties its extra groups back to its first; each series-wired pair
@@ -338,7 +338,7 @@ def test_the_coil_constraint_matrix_is_derived_from_the_machine():
     assignments with no explanation; it is now a `ties:` entry carrying its
     evidence.
     """
-    # The shipped coilset, which since #708 describes all ten circuits.
+    # The shipped coilset, which describes all ten circuits.
     policy = vest_efit_coilset_policy()
     derived = policy.constraint_matrix()
     assert len(derived) == policy.nfsum == 26
@@ -384,7 +384,7 @@ def test_the_plasma_current_floor_is_the_vacuum_switch():
 
     EFIT tests `|Ip| <= cutip` and then stops reconstructing: `ivacum = 1`,
     `ierchk = 0`, `iconvr = 3` (`data_input.F90:2454`). Raised from 5 kA to
-    15 kA in #708.
+    15 kA for VEST.
 
     `IP_FIT_FLOOR` remains a different quantity -- the probe-recovery
     backend's floor, deciding whether there is enough signal to fit a family
@@ -407,7 +407,7 @@ def test_the_plasma_current_floor_is_the_vacuum_switch():
 
 
 def test_the_coilset_is_configuration_and_derives_its_own_names():
-    """#708: the coilset stops being three literals in the projection module.
+    """The coilset is configuration, not three literals in the projection module.
 
     A sixteen-name tuple, a tuple of solenoid edges, and an
     `if coil_name == "PF1" ... elif coil_name in (...)` that returned None --
@@ -621,7 +621,7 @@ def test_one_probe_count_rule_serves_every_consumer():
     present = len(ods["magnetics.b_field_pol_probe"])
     # The sample carries EFIT's probes plus whatever trailing toroidal-Mirnov
     # references its shot has -- none for 39915 since field 171 is published
-    # once (#825) -- so the rule's answer is the defined count either way.
+    # once -- so the rule's answer is the defined count either way.
     assert present == defined + len(toroidal_mirnov_reference_channels(39915))
     assert answers(ods) == {defined}
 
@@ -820,7 +820,7 @@ def test_typed_settings_reach_their_namelist_fields(tmp_path):
     initialization = EFITInitializationConfig(
         rzero=0.45,
         # Deliberately unequal to `rzero`: RELIP and RZERO are separate fields
-        # since #588, and a test that gave them one value could not tell a
+        # and a test that gave them one value could not tell a
         # working writer from one that had recoupled them.
         ellipse_rzero=0.38,
         zzero=0.02,
@@ -897,7 +897,7 @@ def test_objective_scales_change_only_submitted_fwt_values(tmp_path):
 
 
 def test_uncertainty_scales_divide_only_their_own_family_sigma(tmp_path):
-    """Issue #386: the row weight EFIT processes is ``FWT/sigma``, not ``FWT``.
+    """The row weight EFIT processes is ``FWT/sigma``, not ``FWT``.
 
     ``data_input.F90:2782`` divides each family's submitted ``FWT*`` by its
     sigma (``nsq = 1``, ``:109``), so the diamagnetic row VEST actually
@@ -1130,7 +1130,7 @@ def test_standard_deviation_pins_the_terms_efit_would_otherwise_fold_into_sigma(
     """EFIT fits against max(SERROR*|m|, BIT*VBIT) -- ERRSIL*|m| for flux loops.
 
     With VBIT left at its default of 10 every submitted sigma is used ten times
-    over, and with SERROR/ERRSIL unpinned a floor replaces it (#891).  Legacy
+    over, and with SERROR/ERRSIL unpinned a floor replaces it.  Legacy
     weighting relies on the default VBIT and must be left alone.
     """
     sd = _kfile_text(
@@ -1224,7 +1224,7 @@ def test_a_disabled_row_needs_no_sigma(tmp_path):
 
 def test_the_code_parameters_state_the_serror_the_kfile_carries(tmp_path):
     # The constraints tree used to say SERROR = 0.05 while the k-file wrote
-    # 5e-4: a record of a k-file that was not written (#869).
+    # 5e-4: a record of a k-file that was not written.
     for mode, expected in (("legacy_weight", 5.0e-4), ("standard_deviation", 0.0)):
         ods = _constraints_ods(tmp_path / mode)
         generate_kfile(
@@ -1262,7 +1262,7 @@ def test_the_code_parameters_state_the_serror_the_kfile_carries(tmp_path):
     ],
 )
 def test_the_recorded_profile_parameters_round_trip_the_written_kfile(tmp_path, scientific):
-    """The stored IN1 profile keys are the k-file's, read back from it (#869)."""
+    """The stored IN1 profile keys are the k-file's, read back from it."""
     from vaft.data.keqdsk import read_keqdsk
 
     ods = _constraints_ods(tmp_path)
@@ -1410,7 +1410,7 @@ def test_custom_coil_matrix_is_validated_against_selected_machine_coils(tmp_path
         )
 
 
-# --- GA-EFIT attached (SOL) current model, ICUTFP (#672) -----------------------
+# --- GA-EFIT attached (SOL) current model, ICUTFP -----------------------
 
 
 def test_the_attached_current_model_is_off_and_unwritten_by_default(tmp_path):
@@ -1476,7 +1476,7 @@ def test_the_attached_current_model_is_a_scan_axis():
 
 
 def test_the_attached_current_model_refuses_the_seeds_efit_cannot_build():
-    """set_init.f90 stops on ICUTFP != 0 with ICINIT -3/-4 (#672 cold review)."""
+    """set_init.f90 stops on ICUTFP != 0 with ICINIT -3/-4."""
     for icinit in (-3, -4):
         with pytest.raises(ValueError, match="icinit -3/-4"):
             routine_scientific_config(

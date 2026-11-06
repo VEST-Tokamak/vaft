@@ -1,4 +1,4 @@
-"""A shot EFIT does not apply to is a result, not a failure (#205).
+"""A shot EFIT does not apply to is a result, not a failure.
 
 A vacuum shot reached the EFIT constraint step and failed there ("every one of
 the 65 selected instants carries less than 15000.0 A", vestserver 48927,
@@ -100,10 +100,10 @@ def test_light_without_current_is_not_a_vacuum():
 
 
 def test_an_eddy_stage_without_output_is_a_verdict_not_a_failure(monkeypatch, tmp_path):
-    """#1568 unscoped: the eddy manifest says `no_output` (a PF circuit was never
+    """The eddy manifest says `no_output` (a PF circuit was never
     recorded). Composition refuses it by name; the constraint step used to let
     that escape, so the worker retried the shot to `gave_up` for a product that
-    cannot exist (cold review 0.8.0 delta-absorb-16 F1). It is now the #205
+    cannot exist (cold review 0.8.0 delta-absorb-16 F1). It is now the not-applicable
     carrier, which the k-file and EFIT steps already pass on."""
     eddy_manifest = tmp_path / "eddy-manifest.json"
     eddy_manifest.write_text(json.dumps({
@@ -134,7 +134,7 @@ def test_a_refused_verdict_still_fails_the_step(monkeypatch, tmp_path):
 def test_a_condemned_rogowski_is_a_fault_not_a_verdict():
     """cold review 0.8.0 delta-absorb-16 F3: a dead or drifting plasma-current
     Rogowski reads below CUTIP on every shot. The diagnostics stage condemns it
-    in `magnetics.rogowski_coil.0.current.validity` (#1373) -- the mapper writes
+    in `magnetics.rogowski_coil.0.current.validity` -- the mapper writes
     no `magnetics.ip.0.validity` -- and that is the channel, not the shot."""
     t = grid()
     ods = synthetic_ods(ip=pickup_only(t), t=t)
@@ -227,7 +227,7 @@ def test_replication_still_refuses_a_skip_that_is_a_fault(reason):
         _nothing_to_replicate(manifest, "efit")
 
 
-# --- #1731 class shots: what "the current reached CUTIP" means ------------------------------
+# --- class shots: what "the current reached CUTIP" means ------------------------------
 
 def _class_shot(ip, *, lit=False):
     from _plasma_timing_fixtures import light
@@ -324,7 +324,7 @@ TF_RAW_ABSENT = {"status": "unavailable", "reason": (
 
 
 def test_a_tf_current_absent_from_the_raw_data_is_a_verdict(monkeypatch, tmp_path):
-    """42675 (#1799): the diagnostics manifest records the TF coil current as
+    """42675: the diagnostics manifest records the TF coil current as
     absent from the raw dump. BTOR has no other source, so EFIT does not apply;
     the stage used to crash with ``float * ODS`` and the shot was retried."""
     ods, diagnostics, manifest = _diagnostics_without_tf(tmp_path, TF_RAW_ABSENT)
@@ -367,14 +367,14 @@ def test_a_shot_with_its_tf_needs_no_explanation(tmp_path):
     assert efit_constraint_inputs_absent_from_data(diagnostics, manifest) is None
 
 
-# --- #2195: a shot the timing finds no plasma in is not reconstructed --------------------------
+# --- a shot the timing finds no plasma in is not reconstructed --------------------------------
 
 def _pickup_past_cutip(t):
     """46406 in miniature: PF pickup a few kA deep, and one 2 ms swing to -20 kA.
 
     The swing is wrong-signed and dark, so the timing finds no plasma; box
     averaged it still lifts one or two constraint instants past CUTIP, which is
-    how 39417, 45919 and 46406 reached EFIT (#2166 D2).
+    how 39417, 45919 and 46406 reached EFIT.
     """
     y = pickup_only(t) - 5e3
     swing = (t >= 0.3550) & (t < 0.3570)
@@ -393,7 +393,7 @@ def _shot(ip, *, dark_light=True):
 
 
 def _judge(ods):
-    """The constraint step's own path: window, vacuum cut, then the #2195 verdict."""
+    """The constraint step's own path: window, vacuum cut, then the no-plasma verdict."""
     times, window = CONSTRAINTS._select_times(ods, "auto", 0.001, None, None)
     kept, vacuum = CONSTRAINTS._drop_vacuum_times(ods, times, average_window=0.0005)
     return window, kept, CONSTRAINTS._no_plasma_window_reason(ods, window, kept, cut=len(vacuum))
@@ -453,8 +453,8 @@ def test_without_light_a_positive_current_past_cutip_keeps_the_fallback():
 
 
 def test_without_light_a_reverse_discharge_keeps_the_fallback():
-    """cold review (C)/(D): -60 kA with no judged light is a possible sign fault
-    (#275); the sign-flipped current shows a pulse, so no verdict."""
+    """cold review (C)/(D): -60 kA with no judged light is a possible sign-convention
+    fault; the sign-flipped current shows a pulse, so no verdict."""
     window, kept, reason = _judge(_shot(lambda t: -current(t, peak=60e3), dark_light=False))
     assert window.fallback and kept.size > 3
     assert reason is None
@@ -473,7 +473,7 @@ def test_a_plasma_window_is_never_judged_by_the_no_plasma_rule():
 
 
 def test_a_condemned_rogowski_keeps_the_fallback_rather_than_a_verdict():
-    """A dead plasma-current sensor under a real discharge is a fault to see (#1373)."""
+    """A dead plasma-current sensor under a real discharge is a fault to see."""
     ods = _shot(_pickup_past_cutip)
     window, kept, reason = _judge(ods)
     assert reason is not None
@@ -517,7 +517,7 @@ def test_manual_mode_is_never_judged_by_the_no_plasma_rule(monkeypatch, tmp_path
 
 def test_under_a_dark_line_a_reverse_current_is_pickup_by_design():
     """Pinned design: with usable dark light, a wrong-signed current is pickup
-    whatever its size -- the dark-window reading of #205 -- so it gets the verdict."""
+    whatever its size -- the dark-window reading of the skip rule -- so it gets the verdict."""
     window, kept, reason = _judge(_shot(lambda t: -current(t, peak=60e3)))
     assert window.fallback and kept.size > 3
     assert reason is not None and "shows no discharge window" in reason

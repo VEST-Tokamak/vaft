@@ -121,7 +121,7 @@ def test_the_plot_catalog_holds_every_registered_plot_whatever_its_status(snapsh
 
 
 def test_the_plot_catalog_carries_each_renderers_parsed_docstring(snapshots):
-    """The page's scientific prose is the docstring's, parsed once (issue #1505)."""
+    """The page's scientific prose is the docstring's, parsed once."""
     from vaft.plot._docstring import plot_documentation
 
     rows = {row["name"]: row for row in snapshots["plot"]["plots"]}
@@ -368,7 +368,7 @@ def test_the_build_passes_when_coverage_passes_or_the_track_predates_it(build, t
 
 
 # --------------------------------------------------------------------------
-# enumerations the generators do not perform (review of #1275)
+# enumerations the generators do not perform
 # --------------------------------------------------------------------------
 
 
@@ -481,7 +481,7 @@ def test_plot_rows_carry_the_committed_thumbnail(snapshots):
         if thumbnail["status"] == "rendered":
             assert thumbnail["png"] == f"assets/plots/{row['name']}.png"
             assert thumbnail["png_sha256"] == recorded[row["name"]]["png_sha256"]
-            # Staleness only warns (#1322): a renderer change must not fail this test.
+            # Staleness only warns: a renderer change must not fail this test.
             assert isinstance(thumbnail["stale"], str)
     recorded_sources = {entry["path"] for entry in snapshots["plot"]["source"]}
     assert "docs/assets/plots/manifest.json" in recorded_sources

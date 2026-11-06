@@ -191,7 +191,7 @@ def test_database_save_forwards_per_ids_derived_policy():
         derived_cache="imas-images",
         # Forwarded even when unset: the writer calls it just before the master
         # replaces the one already stored, which is the commit point of a shot
-        # write (#598).
+        # write.
         finalize_master=None,
     )
 

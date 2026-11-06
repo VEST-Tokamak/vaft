@@ -1,4 +1,4 @@
-"""Video export from the GUI's Export card (#1400) through ``plot_*(..., animation=True)``.
+"""Video export from the GUI's Export card through ``plot_*(..., animation=True)``.
 
 The GUI does not encode anything itself: it asks the public animation path for
 the on-screen plot over the sequence its player walks, with the reader's other

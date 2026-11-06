@@ -1,4 +1,4 @@
-"""#1331 campaign shot selection: inventory, quality join and tiers."""
+"""Campaign shot selection: inventory, quality join and tiers."""
 
 from __future__ import annotations
 

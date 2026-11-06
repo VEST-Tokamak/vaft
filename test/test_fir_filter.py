@@ -1,4 +1,4 @@
-"""Linear-phase FIR filtering (#64).
+"""Linear-phase FIR filtering.
 
 `vaft.process.signal_processing` carried only Butterworth IIR filters, so a
 workflow that wanted linear phase -- VEST's fluctuation spectrograms -- designed
@@ -117,7 +117,7 @@ def test_a_stack_of_waveforms_filters_along_the_last_axis(two_tone):
 
 
 # --------------------------------------------------------------------------- #
-# apply_fir_filter: the one zero-phase application (#2135)
+# apply_fir_filter: the one zero-phase application
 # --------------------------------------------------------------------------- #
 
 def test_apply_fir_filter_moves_nothing_in_time():

@@ -119,7 +119,7 @@ def test_material_response_uses_the_documented_thresholds():
 
 
 def test_a_nan_in_an_embedded_run_does_not_lose_the_whole_table():
-    """Cold review 0.7.0 efit-workflows F7 (#1888).
+    """Cold review 0.7.0 efit-workflows F7.
 
     The table embeds each variant's raw run and is written with
     ``allow_nan=False``; a collapsed g-file's NaN diagnostics used to make
@@ -147,7 +147,7 @@ def test_a_nan_in_an_embedded_run_does_not_lose_the_whole_table():
 
 
 def test_a_tstep_below_the_millisecond_keys_is_refused(capsys):
-    """Cold review 0.7.0 efit-workflows F9 (#1888): same key granularity as the siblings."""
+    """Cold review 0.7.0 efit-workflows F9: same key granularity as the siblings."""
     import pytest
 
     study = _study()
@@ -156,6 +156,6 @@ def test_a_tstep_below_the_millisecond_keys_is_refused(capsys):
     assert exc.value.code == 2
     assert "whole millisecond" in capsys.readouterr().err
     with pytest.raises(SystemExit):
-        study.main(["--tstep", "0.0015"])  # PR #1920 review F1: between the keys
+        study.main(["--tstep", "0.0015"])  # between the keys
     assert "whole number of milliseconds" in capsys.readouterr().err
     assert study.whole_millisecond_tstep("0.002") == 0.002

@@ -1,6 +1,6 @@
-"""Semantic pictograms across the core VAFT concept diagrams (#2109).
+"""Semantic pictograms across the core VAFT concept diagrams.
 
-The shared registry and its placement helpers are tested in ``test_diagram_pictograms.py`` (#2101);
+The shared registry and its placement helpers are tested in ``test_diagram_pictograms.py``;
 this module checks how four builders use them: every mapped concept gets its symbol, the same
 concept draws the same way in both infrastructure variants, and pictograms only ever add
 ``symbol:`` polylines -- topology, text, roles and model are what the builder draws without them.

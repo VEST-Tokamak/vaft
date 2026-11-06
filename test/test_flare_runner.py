@@ -247,7 +247,7 @@ def test_a_file_the_os_will_not_start_is_named_as_such(tmp_path):
 
 
 def test_flare_declares_its_ranks_and_returns_its_timeout(tmp_path):
-    """#671: `processes` is declared for a scheduler; #1016: a timeout is a result."""
+    """`processes` is declared for a scheduler, and a timeout is a result."""
     from external_code_stubs import RecordingBackend
     from vaft.code.execution import ExecutionResult
 

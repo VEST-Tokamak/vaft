@@ -1,4 +1,4 @@
-"""Architecture guards for the VEST configuration consolidation (#2147, Phase E #2168).
+"""Architecture guards for the VEST configuration consolidation.
 
 Each active guard pins a specific known architectural defect rather than a
 library or a filename pattern at large, and each comes with:
@@ -7,7 +7,7 @@ library or a filename pattern at large, and each comes with:
   so the guard passes today and blocks only *new* occurrences;
 * a **stale-entry check**: an allowlist entry that no longer matches reality
   fails the guard, so the allowlist can only shrink as the migration lands
-  (B1 #2158 rewires the loaders, B3 #2162 the processing duplicates);
+  (loaders rewired onto the canonical registry, processing duplicates merged);
 * a **negative control** that feeds the same detector a synthetic violation in
   ``tmp_path`` and asserts it is reported for the right reason.
 
@@ -27,15 +27,15 @@ Active guards
     sensor records (``r``/``z`` plus ``field_code``, ``index`` or ``name``, as a
     list or a mapping) outside the allowlisted locations.
 
-(d) Canonical registry schema and uniqueness, through B1's own validator (#2158).
+(d) Canonical registry schema and uniqueness, through the registry's own validator.
 (e) An explicit ``info_file`` that does not exist raises, naming the path:
     every public function with an ``info_file`` parameter in
     ``vaft.machine_mapping``, ``vaft.omas`` and ``vaft.process`` is discovered
-    and called with a missing path (audit gap G1, #2159).
+    and called with a missing path (audit gap G1).
 (f) Overrides go through the validated semantics: machine facts, unknown keys
     and calibrations without ``calibration_override_reason`` are refused by
     both public override entry points, and no code outside the validated
-    owners merges or applies an ``override`` mapping (G5/G7, #2159).
+    owners merges or applies an ``override`` mapping (G5/G7).
 (g) No module under ``vaft/`` or ``workflow/`` uses a deprecated alias
     (register rows L5, L6, P9, P10). Names are resolved through the imports,
     so ``vaft.code.efit.legacy``'s own, different ``vfit_signal_startend`` is
@@ -142,7 +142,7 @@ def _relative(path: Path, base: Path) -> str:
 # (a) retired magnetics YAML readers
 # ---------------------------------------------------------------------------
 
-#: The three files the canonical registry (#2158) replaces, and how a string
+#: The three files the canonical registry replaces, and how a string
 #: literal names each. Case-insensitive, because macOS and Windows filesystems
 #: are: ``"md.yaml"`` opens ``MD.yaml`` there. The geometry pattern is the
 #: family prefix, so ``f"VEST_MagneticsGeometry_Full_ver_{v}.yaml"`` matches on
@@ -166,7 +166,7 @@ RETIRED_YAML_EXPECTED = (
 )
 
 #: (path, enclosing qualname, retired file) -> why it is still allowed.
-#: B1 (#2158) retired every runtime reader; only the audit generator names them.
+#: The registry migration retired every runtime reader; only the audit generator names them.
 RETIRED_YAML_ALLOWLIST: dict[tuple[str, str, str], str] = {
     ("workflow/architecture_audit/build_inventory.py", "<module>", name):
         "Phase A audit generator (#2148): joins the frozen fixture copies in "
@@ -182,7 +182,7 @@ RETIRED_LOADER_RULE = (
 )
 
 #: (path, enclosing qualname, loader) -> why the reference is still allowed.
-#: Empty since B1 (#2158) deleted the loaders and rewired every caller onto the
+#: Empty since the registry migration deleted the loaders and rewired every caller onto the
 #: registry; the rule stays so a reintroduced loader or caller is caught.
 RETIRED_LOADER_ALLOWLIST: dict[tuple[str, str, str], str] = {}
 
@@ -784,7 +784,7 @@ def missing_path_findings(resolvers, missing: str) -> list[Finding]:
 
 
 def test_explicit_missing_config_path_raises(tmp_path):
-    """Every public machine_mapping resolver taking ``info_file`` refuses a missing explicit path (G1, #2177)."""
+    """Every public machine_mapping resolver taking ``info_file`` refuses a missing explicit path (G1)."""
     from vaft.machine_mapping.effective_config import resolve_vest_processing_config
     from vaft.machine_mapping.utils import VestConfigurationError, _resolve_info_file_path
 
@@ -931,7 +931,7 @@ def _apply_override(entry: str, shot: int, diagnostic: str | None, override):
 
 @pytest.mark.parametrize(("entry", "shot", "diagnostic", "override", "refusal"), UNSAFE_OVERRIDES)
 def test_unsafe_override_is_rejected(entry, shot, diagnostic, override, refusal):
-    """A machine fact, an unknown key or an unflagged calibration is refused (G5/G7, #2177/#2184)."""
+    """A machine fact, an unknown key or an unflagged calibration is refused (audit gaps G5/G7)."""
     from vaft.machine_mapping.utils import VestConfigurationError
 
     with pytest.raises(VestConfigurationError, match=refusal):

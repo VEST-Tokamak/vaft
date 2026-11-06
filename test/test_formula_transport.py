@@ -1,4 +1,4 @@
-"""Transport and turbulence reference relations (#1112): analytic limits, signs and gyro-Bohm units."""
+"""Transport and turbulence reference relations: analytic limits, signs and gyro-Bohm units."""
 
 import numpy as np
 import pytest

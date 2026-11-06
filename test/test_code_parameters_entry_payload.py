@@ -1,4 +1,4 @@
-"""The save half of the `code.parameters` pair, in isolation (#642).
+"""The save half of the `code.parameters` pair, in isolation.
 
 `test_code_parameters_contract.py` measures what an entry does with each shape.
 This module tests the thing that decides which shape it is given: what is kept,
@@ -225,7 +225,7 @@ def test_an_empty_block_gains_nothing_from_the_split():
     """Nothing to carry means nothing invented.
 
     A missing `code.parameters` is materialized by the act of reading it (the
-    hazard #478 documents), and an empty node is an accident rather than a
+    hazard of a plain ods[...] read), and an empty node is an accident rather than a
     declaration.  The split leaves it exactly as it found it -- no promotion,
     no `parameters_cache_omitted` note.
 

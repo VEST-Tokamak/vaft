@@ -1,4 +1,4 @@
-"""The GUI player walks every kind of sequence through its generic control (issue #1380).
+"""The GUI player walks every kind of sequence through its generic control.
 
 The Panel player is built for any slice-group control, so a plot that gains
 one -- the spatial magnetics' dense ``time_index`` (phase 1) -- plays with no

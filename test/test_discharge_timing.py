@@ -1,4 +1,4 @@
-"""The discharge-timing events of issue #409 (PR-v).
+"""The discharge-timing events.
 
 The packaged products pin the measured events -- the ohmic onset, the
 solenoid-driven loop-voltage excursion on the inboard-midplane loop and its
@@ -355,7 +355,7 @@ def test_reading_a_product_materialises_nothing():
 
 
 # ---------------------------------------------------------------------------
-# Review findings on PR #530
+# Review findings: edge cases of the detector
 # ---------------------------------------------------------------------------
 
 

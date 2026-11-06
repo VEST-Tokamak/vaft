@@ -1,4 +1,4 @@
-"""The composition stage of pipeline 2 (#1842): C/O composition, n_i and Z_eff(rho) on measured core profiles.
+"""The composition stage of pipeline 2: C/O composition, n_i and Z_eff(rho) on measured core profiles.
 
 Synthetic ADF11 tables and synthetic products, no network and no repository data.
 """
@@ -576,7 +576,7 @@ def test_the_inferred_ti_replaces_the_one_the_composition_assumed(tmp_path, tabl
 
 
 def test_an_assumed_or_inferred_ion_temperature_does_not_make_a_slice_kinetic(tmp_path, tables):
-    """With the default T_i = T_e a Thomson-only shot stays in the electron lineage (cold review #1842)."""
+    """With the default T_i = T_e a Thomson-only shot stays in the electron lineage."""
     ods, _ = _build(tmp_path, tables, assume_ti_eq_te=True)
     assert ti_record_fields(ods["core_profiles.profiles_1d.1.ion.0.temperature_fit.parameters"])["status"] == "assumed"
     assert vu._has_kinetic_slice(ods), "slice 0 carries the fixture's measured T_i"

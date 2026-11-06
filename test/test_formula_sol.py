@@ -1,4 +1,4 @@
-"""Scrape-off-layer formulas (#951): closures explicit, sheath bookkeeping, conduction, Eich profile."""
+"""Scrape-off-layer formulas: closures explicit, sheath bookkeeping, conduction, Eich profile."""
 
 import numpy as np
 import pytest

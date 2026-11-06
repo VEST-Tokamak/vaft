@@ -1,4 +1,4 @@
-"""Moving a canonical tree onto the lineage-bearing grammar (#527 step 4).
+"""Moving a canonical tree onto the lineage-bearing grammar.
 
 A FileDB written before `family`/`refinement`/`product` became path segments
 resolves to nothing afterwards: `FileDB.efit(shot, family="magnetic")` looks

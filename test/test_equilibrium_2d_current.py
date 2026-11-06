@@ -1,11 +1,11 @@
-"""``profiles_2d.j_tor`` is the local current density, not a splatted average (#316).
+"""``profiles_2d.j_tor`` is the local current density, not a splatted average.
 
 The updater used to map ``profiles_1d.j_tor`` onto (R,Z) the way pressure is
 mapped. ``profiles_1d.j_tor`` is not a flux function -- the DD defines it as the
 flux-surface average ``<j_tor/R> / <1/R>`` -- so that produced a field constant on
 each surface, where the real one varies across a surface as ``R`` and ``1/R``.
 
-It was inert until #290 supplied the 1-D profile it needed, which is what armed
+It was inert until the 1-D profile it needed was supplied, which is what armed
 the defect.
 
 A Solov'ev equilibrium is the anchor: ``p'`` and ``ff'`` are constants there, the
@@ -97,7 +97,7 @@ def solovev():
 
 
 def test_the_field_equals_the_closed_form_pointwise(solovev):
-    """The whole content of #316: the local value, not the surface average."""
+    """Regression guard for #316: the local value, not the surface average."""
     covered = solovev["inside"] & np.isfinite(solovev["derived"])
     assert covered.sum() > 0.99 * solovev["inside"].sum()
 
@@ -105,7 +105,7 @@ def test_the_field_equals_the_closed_form_pointwise(solovev):
     derived = solovev["derived"][covered]
     scale = np.max(np.abs(analytic))
     # Both carry the COCOS orientation, -sigma_Bp (Sauter Eq. 12): the closed
-    # form dropped it until #966 and this compared magnitudes only, which is
+    # form once dropped it while this compared magnitudes only, which is
     # how the sign stayed wrong.
     assert np.max(np.abs(derived - analytic)) / scale < 1e-8
     assert np.all(np.sign(derived) == np.sign(derived[0]))

@@ -308,7 +308,7 @@ def test_a_stale_case_header_declares_a_convention_the_signs_contradict():
     is currently accepted in silence; Eq. 23 catches it.
 
     `kineticEfit/g048224.00300.chease` used to be a second example. It was
-    regenerated from `g048224.00300.kinetic_efit` with the NS = NT = 150 mesh (#885),
+    regenerated from `g048224.00300.kinetic_efit` with the NS = NT = 150 mesh,
     and that source already carries CHEASE's COCOS-2 signs, so nothing was
     re-signed and its header now holds -- see the test after the next one.
     """
@@ -391,7 +391,7 @@ def test_the_two_pi_survives_an_index_the_signs_cannot_pin_down():
 
 
 def test_an_ods_read_reports_the_family_even_when_the_index_is_ambiguous():
-    """Regression for the #274/#281 merge: `_resolve_convention` rebuilt the
+    """Regression guard for the #274/#281 merge: `_resolve_convention` rebuilt the
     convention record from the resolved index alone, dropping the family that
     both `identify_flux_exponent` and the dphi/dpsi-vs-q slope had established.
     """
@@ -861,7 +861,7 @@ def test_a_geqdsk_conversion_labels_the_ods_when_the_convention_is_certain():
     """An unlabelled ODS is how weber-per-radian psi came to sit in weber slots.
 
     The label is the convention the ODS is *in*, not the file's: ``to_omas``
-    converts psi to full weber on the way in (issue #236), so a COCOS 2 g-file
+    converts psi to full weber on the way in, so a COCOS 2 g-file
     yields a COCOS 12 ODS. Declaring 2 over weber data would be worse than not
     labelling at all -- a declared index beats the data probe in
     ``ods_psi_to_wb_per_radian_factor``, so every flux quantity downstream
@@ -936,7 +936,7 @@ def test_a_geqdsk_survives_a_round_trip_through_an_ods():
         )
 
 
-# --- from_equilibrium writes a per-radian g-file (#1292) ---------------------------
+# --- from_equilibrium writes a per-radian g-file ---------------------------
 
 
 def _weber_record(cocos=11):
@@ -949,7 +949,7 @@ def _weber_record(cocos=11):
 
 @pytest.mark.parametrize("cocos", [11, 12])
 def test_a_weber_record_reaches_the_ods_with_its_own_flux(cocos):
-    """#1292: the full-weber flux was copied into a per-radian g-file and
+    """Regression guard for #1292: the full-weber flux was copied into a per-radian g-file and
     ``to_omas`` then multiplied it by 2*pi, so it reached the ODS 2*pi too large."""
     import numpy as np
 
@@ -1140,7 +1140,7 @@ def test_the_ods_virial_path_uses_one_convention_for_both_fields():
         # to_omas always yields weber flux; the per-radian ODS is made by hand,
         # so each ODS holds the flux its label declares.  Labelling both with
         # the source index over weber data only ever compared two equally
-        # wrong ODS (before #1292 the COCOS 11 one carried an extra 2*pi).
+        # wrong ODS (the COCOS 11 one once carried an extra 2*pi).
         ods = from_equilibrium(equilibrium).to_omas()
         if cocos < 10:
             ts = ods["equilibrium.time_slice.0"]

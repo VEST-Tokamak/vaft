@@ -1,10 +1,10 @@
-"""One owner for the index-based linear baseline (#2162 B3.1).
+"""One owner for the index-based linear baseline.
 
 Before the consolidation three helpers fitted a straight line through selected
 samples with ``np.polyfit`` and evaluated it with ``np.polyval``:
 
 * ``vaft.process.magnetics._linear_baseline`` -- the probe and flux-loop
-  chains, with the #639 guards (out-of-range indices dropped, non-finite
+  chains, with its guards (out-of-range indices dropped, non-finite
   samples dropped, fewer than two valid samples raises
   ``DegenerateBaselineWindowError`` or, when allowed, falls back to zero);
 * ``vaft.machine_mapping.magnetics._linear_baseline_subtract`` -- the plasma
@@ -13,7 +13,7 @@ samples with ``np.polyfit`` and evaluated it with ``np.polyval``:
 * ``vaft.machine_mapping.magnetics._polyfit_baseline`` -- no caller.
 
 The frozen copies below are those helpers verbatim, as they stood on develop
-at 75b154e31 (after #2135).  They are the reference the canonical
+at 75b154e31.  They are the reference the canonical
 implementation is held to, so the comparison does not depend on the code it
 checks.  Agreement is asserted bit for bit: the canonical path performs the
 same ``np.polyfit`` / ``np.polyval`` calls on the same samples.
@@ -23,7 +23,7 @@ integer indices with at least two samples, which is all its only caller
 (``_plasma_current_baseline_indices``) can produce.  Outside that the frozen
 helper indexed raw (negative indices wrapped, past-the-end raised
 ``IndexError``, a one-sample window raised ``LinAlgError``); the delegating one
-applies the #639 guard instead (drops out-of-range indices, raises
+applies the guarded behaviour instead (drops out-of-range indices, raises
 ``DegenerateBaselineWindowError``).  A boolean mask now selects samples under
 ``fitting_opt="polyfit"`` rather than being cast to the indices 0 and 1.
 """

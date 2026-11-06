@@ -79,7 +79,7 @@ def test_empty_gfile_manifest_skips_even_when_chease_is_enabled(tmp_path):
 
 
 def test_chease_runs_json_is_written_on_the_skip_path(tmp_path):
-    # Issue #172: Snakemake declares chease_runs.json as a real rule output,
+    # Snakemake declares chease_runs.json as a real rule output,
     # so it must exist on every exit path, including run=false, the same way
     # plot_refined_gfiles_generated.txt already does.
     import json

@@ -1,4 +1,4 @@
-"""``python -m vaft.deploy.gui.smoke`` against a local signed-in Panel server (#1862)."""
+"""``python -m vaft.deploy.gui.smoke`` against a local signed-in Panel server."""
 
 from __future__ import annotations
 

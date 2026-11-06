@@ -1,4 +1,4 @@
-"""Spectroscopy diagrams (#1046): the same vocabulary as emission=, and nothing fabricated."""
+"""Spectroscopy diagrams: the same vocabulary as emission=, and nothing fabricated."""
 
 import numpy as np
 import pytest

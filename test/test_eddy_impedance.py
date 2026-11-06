@@ -160,7 +160,7 @@ def _foreign_machine(n_loops):
 
 
 def test_ensure_em_coupling_tells_a_foreign_machine_to_supply_the_matrices():
-    """A non-VEST ODS is refused in its own terms, not told to rename its coils (#271)."""
+    """A non-VEST ODS is refused in its own terms, not told to rename its coils."""
     import pytest
     from vaft.machine_mapping.em_coupling import CouplingGeometryMismatch
     from vaft.omas.process_wrapper import ensure_em_coupling
