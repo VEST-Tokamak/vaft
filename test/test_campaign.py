@@ -414,8 +414,8 @@ def _records(lane):
     return [json.loads(line) for line in (lane / "lane.jsonl").read_text().splitlines()]
 
 
-@pytest.mark.skipif(shutil.which("snakemake") is None and subprocess.run(
-    ["python", "-c", "import snakemake"], capture_output=True).returncode != 0, reason="needs snakemake")
+@pytest.mark.skipif(subprocess.run([sys.executable, "-c", "import snakemake"], capture_output=True).returncode != 0,
+                    reason="needs snakemake")
 def test_a_lane_runs_its_chunks_here_resumes_and_measures(tmp_path):
     lane, options = _toy(tmp_path, [1, 2, 3])
     assert run_lane(lane, options) == 0
