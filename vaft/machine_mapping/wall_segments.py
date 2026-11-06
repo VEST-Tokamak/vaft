@@ -1,4 +1,4 @@
-"""Deterministic segmentation of the VEST passive wall (vfit #8/#9, vaft #473).
+"""Deterministic segmentation of the VEST passive wall.
 
 The reduced vessel-wall contract asks for "approximately ten physically
 meaningful conductor segments", a deterministic map from every vessel element

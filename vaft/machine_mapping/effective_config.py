@@ -1,4 +1,4 @@
-"""The effective VEST configuration for one shot and diagnostic (#2159).
+"""The effective VEST configuration for one shot and diagnostic.
 
 ``vest.yaml`` resolves in layers: a diagnostic block's base values, the one
 shot-era revision that applies to the shot (at every nesting level that has a
@@ -698,7 +698,7 @@ def vest_configuration_record(
     extra: Mapping[str, Any] | None = None,
     info_file: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """The configuration identity a stage manifest records for ``shot`` (#2159).
+    """The configuration identity a stage manifest records for ``shot``.
 
     Each named diagnostic (default: :data:`MAPPED_DIAGNOSTICS`) contributes
     its effective configuration, fingerprint, applied revisions and accepted

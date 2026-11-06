@@ -1,7 +1,8 @@
-"""How VEST estimates an edge safety factor without an equilibrium (issue #1583).
+"""How VEST estimates an edge safety factor without an equilibrium.
 
 Most VEST discharges have no converged equilibrium, so their q95 is unknown.
-#1580 checked the analytic edge-q proxies against the Tier A EFIT equilibria
+A comparison study (provenance: #1580, recorded in
+``vest.yaml:edge_q_estimate.provenance``) checked the analytic edge-q proxies against the Tier A EFIT equilibria
 and found the START scaling of Akers et al. (2000) reproduces the equilibrium
 q95 (median ratio 0.99). Which scaling, which START configuration and which
 shape stands in for a shot with no boundary are choices about VEST, so they

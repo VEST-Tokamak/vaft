@@ -1,6 +1,6 @@
 """Keep the ShotLog in FileDB: the workbooks themselves and what was read from them.
 
-Layout (#995)::
+Layout::
 
     legacy/shotlog/input/{YYYY}/ShotLog_YYYY_MM #a-b.xlsx    each month's record, byte-identical
     legacy/shotlog/input/supplementary/{name}.xlsx           real logs outside the monthly naming

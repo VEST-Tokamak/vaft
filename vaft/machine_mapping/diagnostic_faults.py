@@ -1,4 +1,4 @@
-"""Recorded faults of the VEST diagnostics that have no IMAS validity node (#1543).
+"""Recorded faults of the VEST diagnostics that have no IMAS validity node.
 
 The equilibrium magnetics record their broken channels under
 ``equilibrium_magnetics.processing.known_faults`` and the signal-quality layer

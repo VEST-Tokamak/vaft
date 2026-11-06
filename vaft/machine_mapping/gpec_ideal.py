@@ -1,6 +1,6 @@
 """Ideal-GPEC output mapping into ``mhd_linear``.
 
-Like :mod:`vaft.machine_mapping.mhd_linear` (issue #170), this module is the
+Like :mod:`vaft.machine_mapping.mhd_linear`, this module is the
 IDS-populating layer only: it never re-parses ``.nc`` files itself, it reads
 the native container from :func:`vaft.code.gpec.read_gpec_netcdf` and copies
 only quantities with a scientifically correct IMAS home.  Everything else
@@ -381,13 +381,14 @@ _QUOTE = {'"': "&quot;"}
 
 
 def _rational_surface_gap(profile, chi1: Optional[float]) -> str:
-    """Why no rational-surface block was written, naming what was missing (#1243).
+    """Why no rational-surface block was written, naming what was missing.
 
     Recorded in the block's place so a reader that needs the geometry can say
     which GPEC output to look at rather than guess.  The usual cause on VEST is
     ``Phi_res``/``Delta``: GPEC writes them only with ``singfld_flag``, and it
     switches that off under DCON's ``con_flag = t`` (its log says
-    ``singfld_flag not supported with con_flag``).
+    ``singfld_flag not supported with con_flag``). Open: #1243 (the packaged
+    ``dcon.in`` sets ``con_flag = t``).
     """
     missing = [
         f"{name} ({source})"

@@ -145,7 +145,7 @@ def validate_diagnostic_registry(
         if not isinstance(source, Mapping) or not isinstance(source.get("type"), str):
             raise DiagnosticRegistryError(f"{context}: source requires a type")
         raw_fields = source.get("raw_fields")
-        # The resolver behind vaft.machine_mapping.raw_daq_sources (#1742); the
+        # The resolver behind vaft.machine_mapping.raw_daq_sources; the
         # name is checked here, the import by test_raw_sources.
         if raw_fields is not None and (
             not isinstance(raw_fields, str) or not _RAW_FIELDS_SPEC.fullmatch(raw_fields)

@@ -1,11 +1,11 @@
-"""Effective VEST processing provenance for one shot (issue #195).
+"""Effective VEST processing provenance for one shot.
 
 For a requested shot it must be possible to determine which processing
 revision actually applies -- calibration era, baseline era, FL10
 compensation mode, PF gain era, PF6 saturation-repair policy, and the
 equilibrium-magnetics acquisition era -- without reading several unrelated
 `if shot ...` statements. This module is that single query point, and the
-record it returns is what later EFIT/VFIT comparison work (#73) needs in
+record it returns is what an EFIT/VFIT comparison needs in
 order to say which preprocessing produced a given result.
 """
 
@@ -80,8 +80,8 @@ def _plasma_current_provenance(shot: int, info_file: str | None = None) -> dict[
         },
         "reference": {
             "mode": str(reference.get("mode", "subtract")),
-            # Renamed from `mutual_inductance` in issue #214: the divisor
-            # must be in ohms for V/X to be a current. The donor calls it a
+            # An effective resistance, not the donor's `mutual_inductance`:
+            # the divisor must be in ohms for V/X to be a current. The donor calls it a
             # mutual inductance; see vest.yaml for that unresolved conflict.
             "effective_resistance_ohm": float(reference["effective_resistance_ohm"]),
             "flux_gain": float(reference["flux_gain"]),
@@ -133,7 +133,7 @@ def _equilibrium_magnetics_provenance(shot: int, info_file: str | None = None) -
         "geometry_supported": int(shot) not in UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS,
         "required_geometry_version": UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS.get(int(shot)),
         # Which raw field feeds each probe position, and which positions are
-        # recorded as broken, for this shot (issue #956).
+        # recorded as broken, for this shot.
         "wiring": {
             "layout": wiring.layout,
             "probe_overrides": [dict(entry) for entry in wiring.overrides],
@@ -146,7 +146,8 @@ def _equilibrium_magnetics_provenance(shot: int, info_file: str | None = None) -
         # The wiring and fault resolvers read the packaged vest.yaml only; say
         # so rather than let a campaign file appear to have supplied them.
         "wiring_and_faults_source": "vaft/machine_mapping/vest.yaml",
-        # The effective sensor definitions this shot resolved to (#2158):
+        # The effective sensor definitions this shot resolved to (the vest.yaml
+        # sensor registry):
         # where they live and the fingerprint of the resolved records.
         "sensor_registry": {
             "source": REGISTRY_CONFIG_PATH,
@@ -239,8 +240,8 @@ def vest_processing_provenance(shot: int, *, info_file: str | None = None) -> di
     ``info_file`` selects the configuration file exactly as every resolver
     does (``None``: the packaged vest.yaml; a missing explicit path raises).
     The record names that file and its sha256 (``source``), and carries the
-    TF, IMPA and time-policy resolutions and per-diagnostic fingerprints
-    (#2159). The equilibrium-magnetics wiring and known faults are always the
+    TF, IMPA and time-policy resolutions and per-diagnostic fingerprints.
+    The equilibrium-magnetics wiring and known faults are always the
     packaged file's (``wiring_and_faults_source``).
     """
     numeric_shot = int(shot)

@@ -40,14 +40,15 @@ def _uarray_or_values(values: Any, errors: Any) -> Any:
 
 #: Ion Doppler spectroscopy looks through 10MR, which the port-status document
 #: lists as "Interferometry / IDS" -- IDS being this diagnostic, not the IMAS
-#: sense of the acronym.  Issue #718.
+#: sense of the acronym.  Its toroidal angle follows from the port name through
+#: the clock-to-IMAS-phi convention of :mod:`vaft.machine_mapping.conventions`.
 ION_DOPPLER_PORT = "10MR"
 
 #: The two bottom ports the port-status document lists CES at.  Nothing in the
 #: data files says which one a given channel belongs to.
 CES_CANDIDATE_PORTS = ("3B6", "9B6")
 
-#: PROVISIONAL (issue #746): which of the two CES ports the channels view
+#: PROVISIONAL (Open: #746, no installation record): which of the two CES ports the channels view
 #: through.
 #:
 #: Chosen on beam geometry, not on an installation record.  CES views the
