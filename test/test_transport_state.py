@@ -2080,3 +2080,96 @@ def test_the_nn_audit_reports_containment_when_a_model_carries_its_training_rang
     assert table[("primary", "TAUS_2")]["inside_fraction"] == 0.5
     assert table[("primary", "TAUS_2")]["below_fraction"] == 0.5
     assert table[("tier_a", "Q_LOC")]["above_fraction"] == 0.5
+
+
+@pytest.fixture()
+def nn_compare():
+    path = ROOT / "workflow" / "transport_atlas" / "compare_tglf_nn.py"
+    spec = importlib.util.spec_from_file_location("transport_atlas_compare_tglf_nn", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    yield module
+    for name in (spec.name, "transport_atlas_audit_tglf_nn", "transport_atlas_run_tglf"):
+        sys.modules.pop(name, None)
+
+
+def test_native_and_nn_see_one_input_and_pair_by_trained_configuration(nn_compare, sample, tmp_path, monkeypatch):
+    """#2274 phase B: one resolution feeds both backends; a family meets only its own rule."""
+    pytest.importorskip("onnxruntime")
+    import shutil
+
+    import pandas as pd
+    from omas import ODS
+
+    import vaft.code.gacode.tglf as tglf
+    from vaft.code.gacode.tglf import TGLFResult
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+    from vaft.data.public import load_vest_tier_a_confinement
+
+    ods = _electron_only(_multi_slice(sample, eq_times=(0.300,), cp_times=(0.300,)))
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    filedb = tmp_path / "filedb"
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+    table = load_vest_tier_a_confinement(selection="primary").iloc[:1].copy()
+    table["shot"], table["time_efit_s"] = 48224, [0.300]
+    table["efit_lineage"], table["efit_quality"] = "magnetics", ["good"]
+    confinement = tmp_path / "table.csv"
+    table.to_csv(confinement, index=False)
+
+    synthetic = ROOT / "test" / "data" / "gacode" / "tglf_surrogate" / "synthetic_linear"
+    models = tmp_path / "models"
+    shutil.copytree(synthetic, models / "sat3_em_d3d_azf-1")
+
+    calls = []
+
+    def fake_run(profile, rho, workdir, config=None, *, check=True):
+        workdir = Path(workdir)
+        workdir.mkdir(parents=True, exist_ok=True)
+        calls.append((config.sat_rule, config.use_bper, rho))
+        scale = 1.0 + config.sat_rule  # the SAT rules disagree, so model form is non-zero
+        native = TglfOutputs(directory=str(workdir), version={"revision": "test"},
+                             gbflux={"particle": np.array([0.1, 0.05, 0.0]) * scale,
+                                     "energy": np.array([2.0, 1.0, 0.5]) * scale,
+                                     "momentum": np.array([0.0, 0.2, 0.1]), "exchange": np.zeros(3)},
+                             grid={"n_species": 3, "n_xgrid": 4})
+        return TGLFResult(returncode=0, runtime_status="completed", workdir=workdir, outputs_native=native)
+
+    monkeypatch.setattr(tglf, "run_tglf_case", fake_run)
+    out = tmp_path / "out"
+    argv = ["--filedb", str(filedb), "--confinement", str(confinement), "--model-dir", str(models),
+            "--surfaces", "0.4", "0.6", "--sat-rules", "2", "3", "--field-models", "es", "em-bper",
+            "--workers", "2", "--out", str(out)]
+    assert nn_compare.main(argv) == 0
+    assert len(calls) == 2 * 2 * 2
+
+    native = pd.read_csv(out / "native.csv")
+    assert set(native["status"]) == {"solved"} and len(native) == 8
+    assert native.loc[native["config"] == "tglf-sat3-em-bper", "OUT_Q_ions"].eq(6.0).all()
+
+    nn = pd.read_csv(out / "nn.csv")
+    assert set(nn["model"]) == {"sat3_em_d3d_azf-1"} and len(nn) == 2
+
+    paired = pd.read_csv(out / "compare.csv")
+    assert set(paired["config"]) == {"tglf-sat3-em-bper"}, "an EM SAT3 family meets only SAT3 em-bper"
+    assert len(paired) == 2
+    assert paired["OUT_Q_elec_native"].eq(8.0).all()
+    summary = pd.read_csv(out / "compare_summary.csv")
+    assert {"all"} <= set(summary["domain_class"])
+    form = pd.read_csv(out / "model_form.csv")
+    assert form["OUT_Q_elec_log10_max_over_min"].round(6).eq(round(np.log10(4 / 3), 6)).all()
+
+    # A second run is served from the run-identity cache, and the comparison is reproducible.
+    calls.clear()
+    assert nn_compare.main(argv) == 0
+    assert calls == []
+    assert pd.read_csv(out / "native.csv")["cached"].all()
+
+
+def test_trained_configuration_comes_from_the_family_name(nn_compare):
+    assert nn_compare.trained_config("sat3_em_d3d+mastu+nstx_azf-1") == "tglf-sat3-em-bper"
+    assert nn_compare.trained_config("sat2_es_nstx_azf-1") == "tglf-sat2-es"
+    assert nn_compare.trained_config("sat0quench_em_mastu_azf+1") == "tglf-sat0-em-bper"
