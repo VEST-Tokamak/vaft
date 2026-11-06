@@ -335,3 +335,30 @@ def test_exclusive_with_memory_per_cpu_books_the_whole_node(tmp_path):
         cluster="cluster-a", cpus=1, mem_mb=None, partition=None, options=["--exclusive", "--mem-per-cpu=1G"]
     )
     assert any("whole memory" in reason or "whole node" in reason for reason in decision.reasons), decision.reasons
+
+
+def test_the_usage_meter_measures_children_outside_any_scheduler():
+    from vaft.code.accounting import UsageMeter
+
+    meter = UsageMeter(booked_cpus=2, cgroup=None).start()
+    subprocess.run([sys.executable, "-c", "s = 0\nfor i in range(3_000_000): s += i"], check=True)
+    usage = meter.stop()
+    assert usage.source == "rusage" and usage.cpu_s > 0.05 and usage.wall_s >= usage.cpu_s / 2 * 0.5
+    assert usage.peak_mem_mb is None and usage.max_process_rss_mb > 1
+    assert 0 < usage.utilization <= 1.5
+
+
+def test_the_usage_meter_reads_a_job_cgroup(tmp_path):
+    from vaft.code.accounting import UsageMeter
+
+    job = tmp_path / "job_42"
+    job.mkdir()
+    (job / "cpu.stat").write_text("usage_usec 1000000\nuser_usec 800000\nsystem_usec 200000\n")
+    (job / "memory.current").write_text(str(3 * 1024**3))
+    meter = UsageMeter(booked_cpus=4, cgroup=job, sample_s=0).start()
+    (job / "cpu.stat").write_text("usage_usec 9000000\nuser_usec 7000000\nsystem_usec 2000000\n")
+    (job / "memory.current").write_text(str(5 * 1024**3))
+    usage = meter.stop()
+    assert usage.source == "cgroup"
+    assert (usage.cpu_s, usage.user_s, usage.system_s) == pytest.approx((8.0, 6.2, 1.8))
+    assert usage.peak_mem_mb == pytest.approx(5 * 1024)

@@ -30,6 +30,7 @@ __all__ = [
     "OUT_OF_MEMORY_STATES",
     "ResourceUsage",
     "USAGE_RECORD",
+    "UsageMeter",
     "cgroup_cpu_seconds",
     "cgroup_memory_peak_mb",
     "job_cgroup_dir",
@@ -53,8 +54,8 @@ class ResourceUsage:
     """CPU and memory one launch used, and where the numbers came from.
 
     ``source`` is ``"cgroup"`` (the job's cgroup, read by the job itself),
-    ``"sacct"`` (scheduler accounting) or ``"proc"`` (a local process tree
-    sampled from ``/proc``). Any number the source did not provide is ``None``.
+    ``"sacct"`` (scheduler accounting) or ``"rusage"`` (the waited-for children
+    of this process, :func:`resource.getrusage`). Any number the source did not provide is ``None``.
     """
 
     wall_s: Optional[float]
@@ -64,6 +65,8 @@ class ResourceUsage:
     user_s: Optional[float] = None
     system_s: Optional[float] = None
     peak_mem_mb: Optional[float] = None
+    #: Resident memory of the largest single process (``getrusage``), MiB.
+    max_process_rss_mb: Optional[float] = None
     start_epoch: Optional[float] = None
     end_epoch: Optional[float] = None
 
@@ -196,3 +199,113 @@ def parse_usage_record(text: Optional[str], booked_cpus: Optional[int]) -> Optio
         start_epoch=first[0],
         end_epoch=last[0],
     )
+
+
+class UsageMeter:
+    """What the commands run between :meth:`start` and :meth:`stop` used, anywhere.
+
+    Inside a Slurm job (a cgroup v2 ``job_*`` directory above this process) CPU
+    time is the job cgroup's ``cpu.stat`` difference, and memory the largest
+    ``memory.current`` sampled in between (page cache included, see the module
+    docstring). Anywhere else -- a workstation, a server without a scheduler --
+    CPU time is :func:`resource.getrusage` of the waited-for children, which
+    covers a whole process tree once each parent has reaped its own. Either way
+    ``max_process_rss_mb`` is the largest single child's resident peak.
+
+    The meter measures *this* process's children: start it before launching the
+    command and stop it after waiting for it. ``booked_cpus`` is what the run
+    reserved (the scheduler allocation, or the cores it was told to use).
+    """
+
+    def __init__(self, booked_cpus: Optional[int], *, sample_s: float = 30.0, cgroup: Any = "auto") -> None:
+        self.booked_cpus = booked_cpus
+        self.sample_s = sample_s
+        self.cgroup = job_cgroup_dir() if cgroup == "auto" else (Path(cgroup) if cgroup else None)
+        self._start: Optional[tuple[float, Optional[tuple[float, float, float]], tuple[float, float]]] = None
+        self._mem_max: Optional[float] = None
+        self._stop_sampling = None
+        self._sampler = None
+
+    @staticmethod
+    def _rusage() -> tuple[float, float]:
+        import resource
+
+        usage = resource.getrusage(resource.RUSAGE_CHILDREN)
+        return usage.ru_utime, usage.ru_stime
+
+    @staticmethod
+    def _children_max_rss_mb() -> Optional[float]:
+        import resource
+        import sys
+
+        rss = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+        if not rss:
+            return None
+        return rss / _MIB if sys.platform == "darwin" else rss / 1024.0  # bytes on macOS, KiB on Linux
+
+    def _sample_memory(self) -> None:
+        try:
+            text = (self.cgroup / "memory.current").read_text().strip()
+        except (OSError, TypeError):
+            return
+        if text.isdigit():
+            value = int(text) / _MIB
+            self._mem_max = value if self._mem_max is None else max(self._mem_max, value)
+
+    def start(self) -> "UsageMeter":
+        import threading
+        import time
+
+        cpu = cgroup_cpu_seconds(self.cgroup) if self.cgroup else None
+        self._start = (time.time(), cpu, self._rusage())
+        self._mem_max = None
+        if cpu is not None and self.sample_s > 0:
+            self._sample_memory()
+            self._stop_sampling = threading.Event()
+
+            def loop() -> None:
+                while not self._stop_sampling.wait(self.sample_s):
+                    self._sample_memory()
+
+            self._sampler = threading.Thread(target=loop, name="vaft-usage-meter", daemon=True)
+            self._sampler.start()
+        return self
+
+    def stop(self) -> ResourceUsage:
+        import time
+
+        if self._start is None:
+            raise RuntimeError("UsageMeter.stop() before start()")
+        if self._stop_sampling is not None:
+            self._stop_sampling.set()
+            self._sampler.join()
+            self._stop_sampling = self._sampler = None
+        t0, cpu0, rusage0 = self._start
+        now = time.time()
+        cpu1 = cgroup_cpu_seconds(self.cgroup) if cpu0 is not None else None
+        if cpu0 is not None and cpu1 is not None:
+            self._sample_memory()
+            usage, user, system = (b - a for a, b in zip(cpu0, cpu1))
+            source, peak = "cgroup", self._mem_max
+        else:
+            user, system = (b - a for a, b in zip(rusage0, self._rusage()))
+            usage, source, peak = user + system, "rusage", None
+        return ResourceUsage(
+            wall_s=now - t0,
+            cpu_s=usage,
+            user_s=user,
+            system_s=system,
+            booked_cpus=self.booked_cpus,
+            peak_mem_mb=peak,
+            max_process_rss_mb=self._children_max_rss_mb(),
+            source=source,
+            start_epoch=t0,
+            end_epoch=now,
+        )
+
+    def __enter__(self) -> "UsageMeter":
+        return self.start()
+
+    def __exit__(self, *exc: Any) -> None:
+        if self._start is not None and self._stop_sampling is not None:
+            self._stop_sampling.set()

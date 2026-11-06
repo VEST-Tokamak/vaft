@@ -811,6 +811,10 @@ partitions, concurrent jobs) and, where the cluster requires it, a recorded appr
 `SubmissionRefused` before anything reaches the scheduler, and every refusal and submission is appended
 to the policy's audit log with the requester, the approval and the job id. Backends name the cluster
 with `cluster=` (default `$VAFT_SLURM_CLUSTER`, then `$SLURM_CLUSTER_NAME`, or the remote host).
+`memory.peak` counts page cache: on a node that does not constrain RAM it can exceed the booked
+memory while resident memory stays far below it. `UsageMeter` measures any command this process
+launches and waits for, with or without a scheduler: the job cgroup inside a Slurm job, else
+`getrusage` of the children; both report the largest single process's resident peak.
 
 **Paths.** The two machines share no filesystem, so the working directory, `log_path`, every
 `command` argument (`--home=/opt/gpec` included) and every path-valued `env` entry go through
