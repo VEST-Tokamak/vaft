@@ -758,9 +758,15 @@ def _run_module(
         }
         output_names = {path.name for path in outputs}
         never_started = isinstance(exc, rt.GPECLimitStop) and exc.never_started
+        # A job a person or the cluster ended (scancel, node failure) is not a
+        # limit the run outlived: its outputs are never claimed as a success.
+        ended_from_outside = isinstance(exc, rt.GPECLimitStop) and exc.execution.runtime_status in (
+            "cancelled", "node_fail"
+        )
         # A launch never admitted cannot have written anything: core files in the
         # run dir are an earlier run's, so the carve-out must not claim them.
-        if module == "gpec" and core_gpec_outputs.issubset(output_names) and not never_started:
+        if (module == "gpec" and core_gpec_outputs.issubset(output_names) and not never_started
+                and not ended_from_outside):
             # A process killed mid-write can leave the core files present but
             # truncated, so the timeout carve-out must verify its outputs
             # before reporting success (release review, 0.6.0). This does not

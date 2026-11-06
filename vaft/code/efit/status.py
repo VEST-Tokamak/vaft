@@ -10,9 +10,10 @@ import numpy as np
 
 
 #: Backend runtime statuses of a run a limit ended (see :mod:`vaft.code.execution`):
-#: the time limit, the memory limit, or a queue wait after which it never started.
-#: All three carry the ``timeout`` failure code; ``runtime_status`` keeps which.
-LIMIT_STOP_STATUSES = frozenset({"timeout", "memory_limit", "queue_timeout"})
+#: the time limit, the memory limit, a queue wait after which it never started, a
+#: cancel by someone else, or a node failure. All carry the ``timeout`` failure
+#: code; ``runtime_status`` keeps which.
+LIMIT_STOP_STATUSES = frozenset({"timeout", "memory_limit", "queue_timeout", "cancelled", "node_fail"})
 
 EFIT_FAILURE_CODES = (
     "runtime_error",
@@ -319,7 +320,7 @@ def validate_efit_slice(
             "returncode": returncode,
             "runtime": {
                 "executable_resolved": bool((provenance or {}).get("executable")),
-                "process_started": runtime_status in {"completed", "timeout", "memory_limit"},
+                "process_started": runtime_status in {"completed", "timeout", "memory_limit", "cancelled", "node_fail"},
                 "timed_out": runtime_status in LIMIT_STOP_STATUSES,
                 "returncode": returncode,
             },
