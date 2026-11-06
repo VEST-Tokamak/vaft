@@ -32,6 +32,7 @@ from __future__ import annotations
 from ._types import (
     DEFAULT_DOMAIN_THRESHOLD,
     DOMAIN_MEASURE,
+    UPSTREAM_BOUND_CLIP_SIGMA,
     DomainAudit,
     ModelContractError,
     ModelIdentity,
@@ -58,6 +59,7 @@ from .resolver import (
 __all__ = [
     "DEFAULT_DOMAIN_THRESHOLD",
     "DOMAIN_MEASURE",
+    "UPSTREAM_BOUND_CLIP_SIGMA",
     "KNOWN_DEVICES",
     "METADATA_FILES",
     "OPTIONAL_METADATA_FILES",

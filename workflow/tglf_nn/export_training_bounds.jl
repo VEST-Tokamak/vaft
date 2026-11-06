@@ -1,8 +1,11 @@
 # Export the TGLF-NN training bounds (xbounds) beside each ONNX family (issue #2274, phase A).
 #
 # The ONNX distribution of TurbulentTransport.jl carries the normalisation moments
-# (xm/xsigma) but not the per-input training min/max; those live only inside the
-# Julia .bson twin of every family. This script reads them with BSON alone -- no Flux,
+# (xm/xsigma) but not the per-input training bounds; those live only inside the Julia
+# .bson twin of every family. Upstream stores them as the training data range clipped
+# at xm +/- 3.3 xsigma (46-89 % of the edges sit at |z| = 3.3 on version 1.2.0), and
+# uses them only to warn. xbounds.source records, per family, how many edges are clipped
+# and which inputs' bounds exclude their own training mean. This script reads them with BSON alone -- no Flux,
 # no TurbulentTransport load -- and writes a copy of the checkout's ONNX families with
 # one extra file per family:
 #
@@ -48,6 +51,7 @@ field(member, name) = raise(member[2][findfirst(==(name), member[1])])
 function export_family(src::AbstractString, bson::AbstractString, dst::AbstractString)
     xnames_txt = split(read(joinpath(src, "xnames.txt"), String))
     xm_txt = parse.(Float64, split(read(joinpath(src, "xm.txt"), String)))
+    xs_txt = parse.(Float64, split(read(joinpath(src, "xsigma.txt"), String)))
     ms = members(BSON.parse(bson))
     lows = Vector{Vector{Float64}}(); highs = Vector{Vector{Float64}}()
     for m in ms
@@ -63,6 +67,9 @@ function export_family(src::AbstractString, bson::AbstractString, dst::AbstractS
     low = reduce((a, b) -> max.(a, b), lows)
     high = reduce((a, b) -> min.(a, b), highs)
     agree = all(l -> l == lows[1], lows) && all(h -> h == highs[1], highs)
+    z = vcat((low .- xm_txt) ./ xs_txt, (high .- xm_txt) ./ xs_txt)
+    clipped = count(v -> abs(abs(v) - 3.3) <= 1e-3, z)
+    inconsistent = [xnames_txt[i] for i in eachindex(low) if !(low[i] <= xm_txt[i] <= high[i])]
     mkpath(dst)
     for f in readdir(src)
         isfile(joinpath(src, f)) && cp(joinpath(src, f), joinpath(dst, f); force=true)
@@ -78,17 +85,28 @@ function export_family(src::AbstractString, bson::AbstractString, dst::AbstractS
         println(io, "members=", length(ms))
         println(io, "members_agree=", agree ? 1 : 0)
         println(io, "combination=", agree ? "identical" : "intersection")
-        println(io, "space=physical, log10 for *_log10 inputs (the xnames convention)")
+        println(io, "space=feature space: log10 of the TGLF key for *_log10 inputs, the key itself otherwise")
+        println(io, "clipped_edges=", clipped, "/", length(z), " (at |z| = 3.3)")
+        println(io, "xm_outside_bounds=", isempty(inconsistent) ? "none" : join(inconsistent, ","))
     end
     return nothing
 end
 
 function main(args)
     length(args) == 2 || error("usage: export_training_bounds.jl <TurbulentTransport checkout> <out>")
-    checkout, out = abspath(args[1]), abspath(args[2])
+    checkout = realpath(args[1])
     models = joinpath(checkout, "models")
     isdir(models) || error("$models is not a directory")
-    abspath(out) == checkout && error("refusing to write into the source checkout")
+    # Resolve the output through its nearest existing ancestor, so the check runs before
+    # anything is created (symlinks and trailing slashes included).
+    target = abspath(args[2])
+    existing, rest = target, String[]
+    while !ispath(existing)
+        pushfirst!(rest, basename(existing)); existing = dirname(existing)
+    end
+    out = isempty(rest) ? realpath(existing) : joinpath(realpath(existing), rest...)
+    (out == checkout || startswith(out, checkout * "/") || startswith(checkout, out * "/")) &&
+        error("refusing to write into, or above, the source checkout ($checkout)")
     mkpath(joinpath(out, "models"))
     for f in ("Project.toml",)
         isfile(joinpath(checkout, f)) && cp(joinpath(checkout, f), joinpath(out, f); force=true)
@@ -103,7 +121,11 @@ function main(args)
         if !isfile(bson)
             println("skip  $name: no $(name).bson twin"); refused += 1; continue
         end
-        why = export_family(src, bson, joinpath(out, "models", name))
+        why = try
+            export_family(src, bson, joinpath(out, "models", name))
+        catch err
+            "unreadable .bson: " * sprint(showerror, err)[1:min(end, 160)]
+        end
         if why === nothing
             println("ok    $name"); exported += 1
         else

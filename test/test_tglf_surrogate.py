@@ -681,6 +681,7 @@ def _with_bounds(tmp_path, rows, name="sat2_em_d3d_azf-1"):
     import shutil
 
     target = tmp_path / name
+    target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(SYNTHETIC, target)
     (target / "xbounds.txt").write_text("\n".join(" ".join(str(v) for v in row) for row in rows) + "\n")
     return target
@@ -760,3 +761,63 @@ def test_an_odd_count_of_bounds_is_refused(tmp_path):
     (target / "xbounds.txt").write_text("1 4\n0 2\n-3\n")
     with pytest.raises(ModelContractError, match="pair"):
         load_metadata(resolve_model(target))
+
+
+def test_an_exported_copy_beside_the_original_resolves_to_the_copy(tmp_path):
+    """The exporter needs the depot, so both roots always exist: same network, more file."""
+    import shutil
+
+    name = "sat2_em_d3d_azf-1"
+    plain = tmp_path / "depot" / "models"
+    plain.mkdir(parents=True)
+    shutil.copytree(SYNTHETIC, plain / name)
+    exported = tmp_path / "export"
+    (exported / "models").mkdir(parents=True)
+    _with_bounds(exported / "models", BOUNDS, name=name)
+
+    identity = resolve_model(name, model_dir=plain, env={"TURBULENTTRANSPORTHOME": str(exported)})
+    assert Path(identity.directory) == exported / "models" / name
+    assert identity.alternatives == (str(plain / name),)
+    assert load_metadata(identity).xbounds is not None
+
+    # two exports of the same network with different bounds are still a choice to refuse
+    other = tmp_path / "other" / "models"
+    other.mkdir(parents=True)
+    _with_bounds(other, ((0.0, 9.0), (0.0, 2.0), (-3.0, 3.0)), name=name)
+    with pytest.raises(ModelResolutionError, match="different training bounds"):
+        resolve_model(name, model_dir=other, env={"TURBULENTTRANSPORTHOME": str(exported)})
+
+
+def test_a_violation_is_marked_as_past_the_data_only_when_the_edge_is_not_the_clip(tmp_path):
+    """Upstream clips its bounds at xm +/- 3.3 xsigma; Q_LOC has xm 2.0, xsigma 0.5."""
+    from vaft.code.gacode.tglf.surrogate import UPSTREAM_BOUND_CLIP_SIGMA
+
+    clip = (2.0 - UPSTREAM_BOUND_CLIP_SIGMA * 0.5, 2.0 + UPSTREAM_BOUND_CLIP_SIGMA * 0.5)
+    local = local_input(q_loc=4.5, rmin_loc=1.0, betae=10.0)
+    clipped = _with_bounds(tmp_path / "a", (clip, (0.0, 2.0), (-3.0, 3.0)))
+    audit = audit_training_domain(local, resolve_model(clipped), load_metadata(resolve_model(clipped)))
+    assert audit.bound_violations == ("Q_LOC",) and audit.bound_violations_at_data_edge == ()
+
+    data = _with_bounds(tmp_path / "b", ((1.0, 3.0), (0.0, 2.0), (-3.0, 3.0)))
+    audit = audit_training_domain(local, resolve_model(data), load_metadata(resolve_model(data)))
+    assert audit.bound_violations_at_data_edge == ("Q_LOC",), "the data ended at z = +2"
+
+
+def test_bounds_that_exclude_their_own_training_mean_are_reported_not_used(tmp_path):
+    """RMIN_LOC has xm 0.5; bounds [0.6, 2] describe some other data."""
+    target = _with_bounds(tmp_path, ((1.0, 4.0), (0.6, 2.0), (-3.0, 3.0)))
+    identity = resolve_model(target)
+    audit = audit_training_domain(local_input(q_loc=3.0, rmin_loc=0.55, betae=10.0),
+                                  identity, load_metadata(identity))
+    assert audit.bounds_inconsistent == ("RMIN_LOC",)
+    assert audit.bound_violations == () and audit.contained is True
+
+
+def test_a_prediction_keeps_which_input_left_the_range(tmp_path):
+    pytest.importorskip("onnxruntime")
+    target = _with_bounds(tmp_path, ((1.0, 3.0), (0.0, 2.0), (-3.0, 3.0)))
+    prediction = run_surrogate(local_input(q_loc=3.4, rmin_loc=1.0, betae=10.0), target,
+                               allow_extrapolation=True)
+    assert prediction.provenance["contained"] is False
+    assert prediction.provenance["bound_violations"] == ("Q_LOC",)
+    assert prediction.provenance["bound_violations_at_data_edge"] == ("Q_LOC",)
