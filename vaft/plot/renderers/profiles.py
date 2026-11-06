@@ -456,13 +456,26 @@ def equilibrium_profile_ffprime(
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
+#: What a core profile on ``coordinate="psi_norm"`` reads when it stores no
+#: ``grid.rho_pol_norm``: its ``grid.psi``, normalised by the equilibrium slice
+#: at its time (#2253).
+_CORE_PSI_NORM_PATHS = (
+    "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
+    "core_profiles.profiles_1d.{i}.grid.psi",
+    "equilibrium.time_slice.{i}.time",
+    "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+    "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+    "equilibrium.time_slice.{i}.profiles_1d.psi",
+)
+
+
 @_profile_renderer(
     domain="core_profiles", quantity="",
     subject="electron_temperature",
     description="Core electron temperature profile.",
-    ids=("core_profiles",),
+    ids=("core_profiles", "equilibrium"),
     required_paths=("core_profiles.profiles_1d.{i}.electrons.temperature",),
-    optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm",),
+    optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm", *_CORE_PSI_NORM_PATHS),
 )
 def electron_temperature_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
@@ -505,9 +518,9 @@ def electron_temperature_profile(
     domain="core_profiles", quantity="",
     subject="electron_density",
     description="Core electron density profile.",
-    ids=("core_profiles",),
+    ids=("core_profiles", "equilibrium"),
     required_paths=("core_profiles.profiles_1d.{i}.electrons.density",),
-    optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm",),
+    optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm", *_CORE_PSI_NORM_PATHS),
 )
 def electron_density_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
