@@ -1,14 +1,15 @@
 """Project a GACODE profile onto TGLF's local input, and write ``input.tglf``.
 
-**TGLF never reads ``input.gacode``.** NEO is a profile code, so #550 could hand it a
-whole :class:`~vaft.code.gacode._profiles.GACODEProfile` and let ``expro`` do the rest.
+**TGLF never reads ``input.gacode``.** NEO is a profile code, so its adapter hands it a
+whole :class:`~vaft.code.gacode._profiles.GACODEProfile` and lets ``expro`` do the rest.
 TGLF is local: it takes dimensionless quantities at one flux surface -- shaping and its
 radial derivatives, normalised logarithmic gradients, species ratios, and four
 normalisations -- and everything ``expro`` did for NEO has to be done here instead.
 
 That makes this module the place where GACODE's conventions have to be reproduced rather
-than deferred to, which is the failure mode this milestone has paid for three times (the
-``b_unit`` sign in #661, the ``torfluxa`` factor in #661, the ``z_eff`` column in #803).
+than deferred to, which is a failure mode the GACODE adapters have hit three times (the
+``b_unit`` sign and the ``torfluxa`` factor in the NEO projection, and a ``z_eff`` column
+that NEO never reads).
 So every quantity below is held against GACODE's own answer:
 ``$GACODEHOME/profiles_gen/locpargen/locpargen`` writes ``input.tglf.locpargen`` from any
 ``input.gacode``, and ``test_tglf_input.py`` compares all 34 physics keys against it at
@@ -397,8 +398,8 @@ def prepare_tglf_input(
     requested = None if config is None else config.n_species
     if requested is not None and int(requested) != count:
         # Refused rather than silently truncated: dropping a species changes the
-        # plasma, and which one to drop is not this layer's decision. #803 is the
-        # precedent -- the impurity model belongs to whoever builds the profile.
+        # plasma, and which one to drop is not this layer's decision: as with Z_eff,
+        # the impurity model belongs to whoever builds the profile.
         raise LocalConversionError(
             f"the configuration asks for {int(requested)} species and this profile "
             f"carries {count} ({', '.join(('e',) + tuple(profile.name))}). Build the "

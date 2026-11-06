@@ -1,4 +1,4 @@
-"""Configuration and result objects for the MITIM-fusion adapter (#1588 stage A1).
+"""Configuration and result objects for the MITIM-fusion adapter.
 
 MITIM (https://github.com/pabloprf/MITIM-fusion, MIT licence) needs Python
 3.10-3.12 and pulls tensorflow, botorch and torch. VAFT's interpreter is newer
@@ -84,7 +84,7 @@ class MITIMConfig:
     cores: int = 1
     timeout: Optional[float] = None
     backend: Optional["ExecutionBackend"] = None
-    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: Compute resources for each launch. ``None`` keeps the adapter's
     #: own declaration; a value replaces it, and its ``threads_per_task`` is
     #: set in the launch environment over ``env`` and the inherited one.
     resources: Optional["ResourceRequest"] = None

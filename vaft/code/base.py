@@ -21,7 +21,7 @@ class CodeConfig:
     timeout: Optional[float] = None
     # None runs locally; see vaft.code.execution.
     backend: Optional["ExecutionBackend"] = None
-    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: Compute resources for each launch. ``None`` keeps the adapter's
     #: own declaration; a value replaces it, and its ``threads_per_task`` is
     #: set in the launch environment over ``env`` and the inherited one.
     resources: Optional["ResourceRequest"] = None
@@ -39,8 +39,8 @@ class CodeInputs:
 class RunOutcome:
     """``status`` and ``timed_out`` for a result that carries ``runtime_status``.
 
-    Every subprocess adapter's result has the same three outcome fields
-    (#1016): ``returncode`` (``None`` when the program was stopped),
+    Every subprocess adapter's result has the same three outcome fields:
+    ``returncode`` (``None`` when the program was stopped),
     ``runtime_status`` (``"completed"``, ``"timeout"``, ``"queue_timeout"`` or
     ``"memory_limit"``; see :mod:`vaft.code.execution`) and ``elapsed_s``.
     """
@@ -55,7 +55,7 @@ class RunOutcome:
 
     @property
     def timed_out(self) -> bool:
-        """The program was stopped by a limit, or never started: time, queue or memory (#1460).
+        """The program was stopped by a limit, or never started: time, queue or memory.
 
         The name predates the memory limit; it means the same as
         :attr:`vaft.code.execution.ExecutionResult.timed_out`.

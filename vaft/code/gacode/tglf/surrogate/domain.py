@@ -3,7 +3,7 @@
 This module is deliberately usable without ``onnxruntime``: deciding whether a model
 applies to a plasma is a question about the input and the training moments, not about
 the network, and it is the question that matters first when a public model meets a
-device it was not trained on (issue #553 section 16).
+device it was not trained on (no VEST-trained model is assumed to exist).
 
 The feature construction follows upstream ``TurbulentTransport.jl``
 (``src/tglf_nn.jl``): the model's ``xnames`` are TGLF keys, in the model's own order,
@@ -77,9 +77,8 @@ def build_features(
     """The model's input vector for *local*, and which entries rest on a default.
 
     The values come from :func:`~vaft.code.gacode.tglf.inputs.tglf_parameters`, so the
-    surrogate is fed exactly what the native run would be written from -- the point of
-    issue #553 section 4 being that the two share one contract rather than two
-    parallel ones.
+    surrogate is fed exactly what the native run would be written from: the two share
+    one contract rather than two parallel ones.
 
     Refuses rather than substituting:
 

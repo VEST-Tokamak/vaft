@@ -1,4 +1,4 @@
-"""Run external codes as Slurm jobs through the shared execution contract (#1017).
+"""Run external codes as Slurm jobs through the shared execution contract.
 
 :class:`SlurmBackend` is a drop-in :class:`~vaft.code.execution.ExecutionBackend`:
 ``EFITConfig(backend=SlurmBackend(partition="short"))`` runs EFIT as a cluster
@@ -50,7 +50,7 @@ Contract details specific to Slurm:
   exists on the submitting host but not on the compute node shows up as exit
   status 127.
 * ``KeyboardInterrupt`` while waiting cancels the job and re-raises.
-* ``submit`` (#1018) in batch mode runs ``sbatch`` at once and returns a
+* ``submit`` in batch mode runs ``sbatch`` at once and returns a
   handle carrying the job id; ``result()`` then polls and collects it as
   ``run`` would, in the calling thread, and ``cancel()`` is ``scancel``. Many
   jobs can be queued before any is waited for, without a thread each.
@@ -260,8 +260,8 @@ def _job_script(
     exported = exported_environment(request.env)
     threads = request.resources.threads_per_task
     if threads is not None:
-        # A thread count the request pins in its overlay (config.resources,
-        # #1016) is exported even when it equals the submitting environment's:
+        # A thread count the request pins in its overlay (config.resources)
+        # is exported even when it equals the submitting environment's:
         # under RemoteSlurmBackend ``--export=ALL`` carries the *remote*
         # login environment, which must not win over it.
         exported.update(
@@ -724,7 +724,7 @@ class SlurmBackend:
             stop.redeliver()
             raise
         # The script stamps ``started`` as the program begins, so a cancelled
-        # job without it never left the queue (#1016: "queue_timeout") and can
+        # job without it never left the queue (``"queue_timeout"``) and can
         # have no exit record to wait ``status_grace`` for.
         begin = (_read(scratch / "started") or "").strip()
         if cancelled and not begin:

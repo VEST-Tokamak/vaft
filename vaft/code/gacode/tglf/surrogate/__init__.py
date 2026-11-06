@@ -6,7 +6,7 @@
                                   (decides whether the prediction is made at all)
 
 The surrogate is an implementation of the *same* physics contract the native backend
-runs, not a second scientific input representation (issue #553 section 4).  Its feature
+runs, not a second scientific input representation.  Its feature
 vector is built from :func:`~vaft.code.gacode.tglf.inputs.tglf_parameters` -- the keys
 that would be written into ``input.tglf`` -- so the two backends cannot drift apart
 without the shared contract changing.

@@ -1,4 +1,4 @@
-"""EFIT's Picard trajectory per slice, as a reusable object (issue #1038).
+"""EFIT's Picard trajectory per slice, as a reusable object.
 
 A reconstruction is stored as its final state; how EFIT got there is printed
 and then thrown away. This module keeps what EFIT already reports without any
@@ -73,7 +73,7 @@ ITERATION_HISTORY_SCHEMA_VERSION = 1
 #: The levels :class:`vaft.code.efit.EFITConfig` accepts today. ``none`` is
 #: routine production: nothing is parsed or written.
 ITERATION_HISTORY_LEVELS = ("none", "summary")
-#: Levels issue #1038 plans that need EFIT instrumented first: per-iteration
+#: Levels that need EFIT instrumented first (Open: #1038): per-iteration
 #: diagnostic vectors (phase 2) and psi/axis/boundary snapshots (phase 3).
 PLANNED_ITERATION_HISTORY_LEVELS = ("diagnostics", "state", "full")
 SIDECAR_NAME = "efit_iteration_history.json"

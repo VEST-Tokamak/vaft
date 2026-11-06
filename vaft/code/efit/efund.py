@@ -124,7 +124,7 @@ class EFUNDConfig:
     timeout: Optional[float] = None
     stack_size_kb: int | str | None = "hard"
     backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
-    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: Compute resources for each launch. ``None`` keeps the adapter's
     #: own declaration; a value replaces it, and its ``threads_per_task`` is
     #: set in the launch environment over ``env`` and the inherited one.
     resources: Optional["ResourceRequest"] = None
@@ -704,7 +704,7 @@ def _vaft_identity() -> dict[str, Any]:
 #: Hashing it therefore made ``table.identity`` answer "which invocation
 #: produced this" instead of "which table is this", and any check of the form
 #: "regenerate and confirm the identity is unchanged" would fail for a reason
-#: with nothing to do with the table (#793). Its hash is still recorded under
+#: with nothing to do with the table. Its hash is still recorded under
 #: ``table.files``; it just does not decide identity.
 IDENTITY_EXCLUDED_FILES = frozenset({"mhdout.dat"})
 
@@ -786,7 +786,7 @@ def table_machine_era(directory: str | os.PathLike[str]) -> str | None:
     valid for the era whose geometry it was built from. The name is read back
     verbatim and compared as an opaque string: which eras a machine has, and
     which one a shot belongs to, are facts about that machine and are resolved
-    by the caller (issue #805).
+    by the caller.
 
     ``None`` means the directory makes no claim -- a legacy table with no
     manifest -- and cannot be checked rather than being known to match.

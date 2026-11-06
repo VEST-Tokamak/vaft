@@ -1,7 +1,7 @@
 """Project a GACODE profile onto CGYRO's local input, and write ``input.cgyro``.
 
 **CGYRO is built from TGLF's local input, not beside it.** The purpose of running CGYRO
-here is to judge TGLF (#1482: the saturation rule alone moves the VEST flux ~5x), and a
+here is to judge TGLF (the saturation rule alone moves the VEST flux ~5x, #1482), and a
 comparison is only a comparison when both codes see the same surface. So the projection
 is done once, by :func:`~vaft.code.gacode.tglf.inputs.prepare_tglf_input` -- which is
 already held against GACODE's ``locpargen`` key by key -- and this module only renames

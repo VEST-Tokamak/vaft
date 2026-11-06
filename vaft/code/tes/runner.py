@@ -107,7 +107,7 @@ def run_tes(inputs: TESInputs, config: TESConfig) -> TESResult:
         )
     )
     if execution.timed_out:
-        # returncode=None and runtime_status="timeout" (#1016; it was 124).
+        # returncode=None and runtime_status="timeout".
         result = collect_tes_outputs(inputs.workdir, config, before=before)
         result.returncode = None
         reason = timeout_reason("rtes", execution, config.timeout)

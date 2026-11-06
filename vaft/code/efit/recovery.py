@@ -1,10 +1,10 @@
-"""The Gaussian-profile recovery of rejected B-probe constraints, as a backend (issue #296).
+"""The Gaussian-profile recovery of rejected B-probe constraints, as a backend.
 
 The legacy constraint builder fitted a four-parameter Gaussian through each
 poloidal-probe family (inboard, side, outboard) at every reconstruction slice
 and replaced the readings of "broken" probes with the fit.  That is a
 *recovery policy*: it decides what value a rejected channel contributes and
-with what confidence, which is not the constraint adapter's business (#296).
+with what confidence, which is not the constraint adapter's business.
 It lives here as a compatibility backend with the same numbers and the same
 optimizer calls, consumed through the decision contract:
 
@@ -20,7 +20,7 @@ Two rules are made explicit that the legacy code only implied:
   the rejection was the routine manual list, which is a configuration
   choice rather than a finding about the signal.
 
-A GP or Bayesian backend (#297) plugs in the same way: take decisions, return
+A GP or Bayesian backend (Open: #297) plugs in the same way: take decisions, return
 decisions with recovered slices carrying value, uncertainty, weight
 factor and provenance.
 """
@@ -86,7 +86,7 @@ PROBE_Z_TABLE: tuple[float, ...] = (
 #: Gaussian.  But there is no reason for the backend to withhold a recovered
 #: probe reading from a slice EFIT will go on to reconstruct, which is what
 #: the inherited 45 kA did between the two floors, so they are set alike at
-#: 15 kA (#708).  Across the three reference discharges 1.8 % to 6.7 % of the
+#: 15 kA.  Across the three reference discharges 1.8 % to 6.7 % of the
 #: in-window samples fall in that band -- the current ramps, where a rejected
 #: probe is exactly what recovery exists for.
 IP_FIT_FLOOR = 15000.0
@@ -109,8 +109,8 @@ def probe_families(magnetics: Any, *, count: int, shot: int | None = None) -> Pr
 
     With *shot*, each probe is placed by the registry sensor its
     ``identifier`` names for that shot
-    (:func:`~vaft.machine_mapping.magnetics.equilibrium_sensor_families`,
-    #2164), and a probe the registry cannot name raises. Without it, by the
+    (:func:`~vaft.machine_mapping.magnetics.equilibrium_sensor_families`),
+    and a probe the registry cannot name raises. Without it, by the
     positions the IDS carries -- the legacy rule, kept for hand-built IDSs
     that have no identifiers; on a mapped product both give the same sets.
     """

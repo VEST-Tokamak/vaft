@@ -1,7 +1,7 @@
-"""The advisory ordering state of a GPEC-suite case, from the equilibrium it runs on (#1987).
+"""The advisory ordering state of a GPEC-suite case, from the equilibrium it runs on.
 
 :attr:`GPECSuiteConfig.ordering_state` feeds the advisory ordering check each
-run records (#1823).  A workflow stage holds a g-file, and sometimes a fuller
+run records.  A workflow stage holds a g-file, and sometimes a fuller
 stage ODS; this turns either into that state through
 :func:`vaft.process.ordering_state.ordering_inputs_from_ods`, and never
 raises: the check is advisory, so a failure is recorded in the provenance and

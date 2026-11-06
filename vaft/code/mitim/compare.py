@@ -1,4 +1,4 @@
-"""Compare MITIM's TGLF local inputs with VAFT's, key by key (#1588 stage A2).
+"""Compare MITIM's TGLF local inputs with VAFT's, key by key.
 
 MITIM builds TGLF's local input in its own Python (``MITIMstate.to_tglf``: its
 own splines, derivatives and normalisations), as VAFT does in

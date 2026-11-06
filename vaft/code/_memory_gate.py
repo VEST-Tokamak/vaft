@@ -1,4 +1,4 @@
-"""Memory admission and resident-size readings for child process trees (#1460).
+"""Memory admission and resident-size readings for child process trees.
 
 :mod:`vaft.code.resources` guards the *current* Python process. A solver that
 an adapter launches is a separate process tree, and several of them, started

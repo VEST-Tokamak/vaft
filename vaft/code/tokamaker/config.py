@@ -105,8 +105,8 @@ class TokaMakerConfig:
     # corners at (0.1337, +-1.185) carry the most-interior wall flux. TokaMaker
     # then takes that flux as the boundary although the corner is not
     # magnetically connected to the core: on 39915 @ 325 ms the "LCFS" stands
-    # 6 cm clear of every wall point instead of resting on the inboard limiter
-    # (issue #1469). X-point detection, hence diverted states, is unaffected.
+    # 6 cm clear of every wall point instead of resting on the inboard limiter.
+    # X-point detection, hence diverted states, is unaffected.
     # The cut is by height, so it also removes the upper part of the neck
     # (the inboard slant from Z = 0.575 m, the (0.6, 0.6) corner);
     # ``neck_limiter_zmax`` puts those faces back as explicit points.
@@ -136,7 +136,7 @@ class TokaMakerConfig:
     include_vessel: bool = False
     # Impose the eddy-stage wall currents (pf_passive.loop.*.current at the
     # case time) on the vessel in a STATIC solve, as EFIT (IVESEL=1) and TES
-    # (eddy=True) do (#1534). The vessel regions are then meshed as one-turn
+    # (eddy=True) do. The vessel regions are then meshed as one-turn
     # coils carrying the loop currents, distributed along the wall loop by
     # loop, instead of conductors. Requires include_vessel; the evolution,
     # stability and scan entry points need conductor regions and reject it.
@@ -144,7 +144,7 @@ class TokaMakerConfig:
     dx_conductor: float = 0.02                # per-region cap [m]; actual dx = clamp(thickness)
     dx_conductor_min: float = 0.004           # per-region floor [m] (thin-strip mesh cost guard)
     # SUS316LN; exactly reproduces the packaged pf_passive W2-W10 loop resistances
-    # via R = 2*pi*R*eta/A. W1 carries a black-box per-loop calibration (issue #191)
+    # via R = 2*pi*R*eta/A. W1 carries a black-box per-loop calibration
     # and gets this uniform default unless overridden. Segments of another
     # material (W11, tungsten) default to that material's nominal resistivity
     # from vaft.machine_mapping.wall_resistance instead.
@@ -156,7 +156,7 @@ class TokaMakerConfig:
     # vessel_gap/2 shrink alone would erase them -- so they are widened about
     # their centreline to this thickness and their eta is multiplied by the same
     # factor. That keeps the sheet resistance eta/t, hence every loop's hoop
-    # resistance 2*pi*R*eta/A, unchanged (issue #965).
+    # resistance 2*pi*R*eta/A, unchanged.
     vessel_min_thickness: float = 2.0e-3
     # Minimum clearance enforced between conductor regions [m]. The filament
     # segments physically abut (and slightly overlap at corner joints); meshing

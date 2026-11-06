@@ -551,7 +551,7 @@ def collect_nice_outputs(
         provenance["active_response_verification"] = verification
     returncode = provenance.get("process_returncode")
     process_succeeded = returncode == 0 if returncode is not None else False
-    # Issue #666 stage acceptance deliberately means final numerical
+    # Stage acceptance deliberately means final numerical
     # convergence, not equilibrium-quality acceptance.  Auxiliary diagnostic
     # tables can be unusable (notably the pinned signBp/signF output defect)
     # while the equilibrium and convergence record remain valid.  Preserve
@@ -578,7 +578,8 @@ def collect_nice_outputs(
         tuple(errors),
         provenance,
         ods,
-        # A manifest from before #1016 has neither; a stop there was 124.
+        # A manifest written before the runtime status and elapsed time were
+        # recorded has neither; a stop there is returncode 124.
         runtime_status=str(provenance.get("process_runtime_status") or "completed"),
         elapsed_s=provenance.get("process_elapsed_s"),
     )

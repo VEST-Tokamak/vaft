@@ -2,9 +2,9 @@
 
 A neural network answers every question it is asked.  Ask one about a plasma unlike
 anything in its training set and it returns a finite, plausible-looking flux with no
-outward sign that nothing behind it is grounded -- which is why issue #553 section 12
-requires validity and extrapolation to be *outputs*, not diagnostics a caller may
-choose to look at.  The types here exist to make that structural: a
+outward sign that nothing behind it is grounded -- which is why validity and
+extrapolation are *outputs* here, not diagnostics a caller may choose to look
+at.  The types here exist to make that structural: a
 :class:`SurrogatePrediction` cannot be built without a :class:`DomainAudit`, and
 :func:`~vaft.code.gacode.tglf.surrogate.inference.run_surrogate` refuses by default
 when the audit says the input is outside the model's training distribution.
@@ -52,8 +52,9 @@ class SurrogateError(RuntimeError):
 class ModelResolutionError(SurrogateError):
     """No model artifact could be found, or the search was ambiguous.
 
-    Carries what was searched so the message is actionable offline, which is the whole
-    requirement of issue #553 section 10.
+    Carries what was searched so the message is actionable offline: the expected model,
+    the paths searched and how to supply one, since VAFT never downloads a model
+    on its own.
     """
 
 

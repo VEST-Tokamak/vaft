@@ -1,4 +1,4 @@
-"""Locality QA for local (flux-tube) CGYRO runs: is the turbulence small enough? (#1354)
+"""Locality QA for local (flux-tube) CGYRO runs: is the turbulence small enough?
 
 A local gyrokinetic run assumes the turbulence lives on scales much smaller than the
 scales on which the equilibrium varies (``rho* -> 0``). VEST has weak scale separation

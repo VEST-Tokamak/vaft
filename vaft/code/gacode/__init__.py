@@ -13,7 +13,7 @@ boundary once rather than once per solver:
               |
       +-------+--------+
       v                v
-    NEO              TGLF (#553) / CGYRO (#1354)
+    NEO              TGLF / CGYRO
 
 ``input.gacode`` is an interoperability format, not VAFT's kinetic state: the
 canonical state stays in IMAS/OMAS and is converted deterministically here.

@@ -8,7 +8,7 @@ eigenfunction reconstructed from ``solutions.bin`` has only a closest-fit one
 -- so :class:`DconOutput` is where all of it lives losslessly and at full
 radial resolution, while ``vaft.machine_mapping.mhd_linear`` writes a strided
 view of the eigenfunction into the IDS with its unit and normalization
-mismatches recorded explicitly (issue #170).
+mismatches recorded explicitly.
 
 This is DCON's own schema, not a cross-solver abstraction: RDCON/STRIDE's
 native output (:mod:`vaft.code.gpec._matching_output`) has a genuinely
