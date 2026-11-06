@@ -1,4 +1,4 @@
-"""``smooth=``: a NaN-aware rolling median on every line plot (issue #888).
+"""``smooth=``: a NaN-aware rolling median on every line plot.
 
 The ECH launched power is forward minus reflected from two noisy detectors,
 so it is read through a median; the option is generic, on every LineRecipe

@@ -1,8 +1,8 @@
-"""The 3-D adapters' contract without their optional libraries (issue #1087).
+"""The 3-D adapters' contract without their optional libraries.
 
 Importing VAFT, ``vaft.plot``, and the adapters ``vaft.plot.pyvista`` and
 ``vaft.plot.k3d`` themselves, must not import PyVista or K3D; a missing library is named together with the extra that installs it;
-the Cartesian convention is the IMAS toroidal angle of #718; and the coil
+the Cartesian convention is the IMAS toroidal angle of the port-clock map; and the coil
 phasing the K3D explorer drives is the inverse of the existing toroidal mode
 decomposition.  The rendering itself is covered in test_plot_3d_adapters.py.
 """
@@ -61,7 +61,7 @@ def test_a_non_scene_is_refused_with_the_way_to_build_one():
 
 
 def test_the_cartesian_axes_follow_the_imas_toroidal_angle():
-    # 3 o'clock is phi = 270 degrees (#718): the -y axis, counter-clockwise from +x.
+    # 3 o'clock is phi = 270 degrees: the -y axis, counter-clockwise from +x.
     x, y, z = cylindrical_to_cartesian(0.5, port_toroidal_angle(3), 0.2)
     assert np.allclose([x, y, z], [0.0, -0.5, 0.2])
     x, y, _ = cylindrical_to_cartesian(1.0, clock_angle_to_toroidal_angle(45.0), 0.0)

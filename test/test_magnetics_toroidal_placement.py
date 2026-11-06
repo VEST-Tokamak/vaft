@@ -1,4 +1,4 @@
-"""Where the magnetic diagnostics sit toroidally (issue #718).
+"""Where the magnetic diagnostics sit toroidally.
 
 Pinned against the VEST magnetic diagnostic layout figure. Its top view places
 the four toroidal probes at coordinates that convert to 45.6 / 164.8 / 225.0 /
@@ -73,7 +73,7 @@ def test_reference_mirnov_names_encode_their_own_clock_position():
 def test_reference_mirnov_resolves_in_both_coordinates(name, clock_angle_deg, phi_deg):
     """The stored value is phi, not the clock angle.
 
-    Before #718 these were 0 / 120 / 180 / 240 -- a relative frame anchored on
+    These used to be 0 / 120 / 180 / 240 -- a relative frame anchored on
     the first channel, a uniform -45 deg from the clock angles the names state,
     and left-handed besides.
     """
@@ -220,7 +220,7 @@ def test_thomson_static_writes_a_distinct_angle_per_channel():
 
 
 # ---------------------------------------------------------------------------
-# toroidal_angle is an orientation, and these probes do not have one (#725)
+# toroidal_angle is an orientation, and these probes do not have one
 # ---------------------------------------------------------------------------
 
 
@@ -249,7 +249,7 @@ def test_poloidal_angle_still_states_the_orientation(static_ods):
 
 
 def test_the_toroidal_phase_fit_reads_real_angles(static_ods):
-    """The consumer-visible point of #725.
+    """The consumer-visible point of leaving toroidal_angle empty.
 
     `_toroidal_phase_channels` used to prefer ``toroidal_angle``, so it read 0
     for all 64 equilibrium probes while they physically sit at three distinct

@@ -1,7 +1,7 @@
-"""Small preprocessing duplicates and their canonical owners (#2162 B3.2-B3.7).
+"""Small preprocessing duplicates and their canonical owners.
 
 Each duplicate is held to a frozen copy of what it computed on develop at
-75b154e31 (after #2135), so the check does not depend on the code it checks:
+75b154e31, so the check does not depend on the code it checks:
 
 * the Mirnov band-pass design (``process.magnetics._firwin_order`` + ``firwin``)
   -> :func:`~vaft.process.signal_processing.fir_filter_coefficients`;

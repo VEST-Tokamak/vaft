@@ -285,9 +285,8 @@ class TestTimeIsRecoveredOrRefused:
         """`(channel, time)` is as real a layout as `(time, channel)`.
 
         The recovery took `Te.shape[0]` as the sample count, so a channel-major
-        file was refused for "a time axis of 5 samples" that no sibling has
-        (cold review 0.7.0 machine-mapping F3, #1888).  The axis that matches
-        the sibling is the time axis, as `_extract_channel_series` then reads it.
+        file was refused for "a time axis of 5 samples" that no sibling has.
+        The axis that matches the sibling is the time axis, as `_extract_channel_series` then reads it.
         """
         from omas import ODS
 

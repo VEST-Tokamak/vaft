@@ -52,21 +52,21 @@ _SDIST_ONLY_DATA_FILES = {
 }
 _ALLOWED_DATA_SUFFIXES = {
     # Code, not data: the public-database readers ship; the databases they
-    # read are fetched at run time and never shipped (#1205).
+    # read are fetched at run time and never shipped.
     "public/": (".py",),
     # No YAML: the equilibrium magnetics YAMLs that lived here are retired into
-    # the vest.yaml sensor registry (#2158), and a distribution carrying one
+    # the vest.yaml sensor registry, and a distribution carrying one
     # would ship a second, stale sensor inventory.
     "geometry/": (".csv",),
     "gpec/": (".in", ".dat"),
     "legacy/": (".txt", ".yaml"),
-    # ShotLog era schemas, read at run time by vaft.machine_mapping.pulse_schedule
-    # (#995); package-data in pyproject.toml and an explicit include in MANIFEST.in.
+    # ShotLog era schemas, read at run time by vaft.machine_mapping.pulse_schedule;
+    # package-data in pyproject.toml and an explicit include in MANIFEST.in.
     "shotlog/schemas/": (".yaml",),
     "unified/vest_diagnostics/": (".yaml", ".gz"),
 }
 
-# Issue studies under vaft/validation/studies (#1756): the folders whose
+# Issue studies under vaft/validation/studies: the folders whose
 # scripts ship, and only their ``.py`` files.  Notes, run records and the
 # repository-only folders (ec_launcher_cad_266, nice_issue_666*) never ship;
 # ``[tool.setuptools.packages.find] exclude`` and MANIFEST.in make the same
@@ -86,7 +86,7 @@ REQUIRED_FILES = {
     "vaft/validation/studies/fixed_free_1608/__init__.py",
     "vaft/.hscfg.example",
     "vaft/machine_mapping/vest.yaml",
-    # The equilibrium magnetic sensor registry reader (#2158); vest.yaml holds
+    # The equilibrium magnetic sensor registry reader; vest.yaml holds
     # the sensors themselves.
     "vaft/machine_mapping/magnetics_registry.py",
     "vaft/data/geometry/line_of_sight_endpoints.csv",
@@ -107,7 +107,7 @@ REQUIRED_FILES = {
     "vaft/diagram/images/vest_machine.jpg",  # the machine photo vaft.diagram scenes render onto
     # The TikZ template every vaft.diagram scene renders into.
     "vaft/diagram/templates/standalone.tex",
-    # The hosted-GUI deployment templates (#1755): a server installing from
+    # The hosted-GUI deployment templates: a server installing from
     # PyPI gets the unit, env file and nginx configuration its own
     # ``vaft gui --hosted`` is meant to be deployed with.
     "vaft/deploy/__init__.py",
@@ -128,8 +128,8 @@ REQUIRED_FILES = {
 }
 
 
-#: The split-file magnetics inventory retired into the vest.yaml sensor registry
-#: (#2158). Frozen copies live in test/data/legacy_magnetics, which never ships.
+#: The split-file magnetics inventory retired into the vest.yaml sensor registry.
+#: Frozen copies live in test/data/legacy_magnetics, which never ships.
 RETIRED_MAGNETICS_FILES = frozenset(
     {
         "vaft/data/geometry/MD.yaml",

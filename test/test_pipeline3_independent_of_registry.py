@@ -3,7 +3,7 @@
 The registry was written by the quarantined polling scripts and is not
 maintained by the Snakemake pipeline 2. A summary generator that listed shots
 through ``exist_shot(data_filter=...)`` would silently come out empty on a source
-filled by pipeline 2 alone (issue #1842).
+filled by pipeline 2 alone.
 """
 
 from __future__ import annotations

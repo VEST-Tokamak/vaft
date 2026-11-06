@@ -1,4 +1,4 @@
-"""The #1627 §2 summary layer: ordering quantities of measured states (Lane AP, #1629).
+"""The summary layer: ordering quantities of measured states.
 
 Each builder is checked against an independent hand computation from the
 textbook definition, so the test catches a wrong kernel, a wrong unit or a
@@ -251,7 +251,7 @@ def test_no_assessable_ordering_reads_as_no_evidence_not_as_failure():
 
 
 # --------------------------------------------------------------------------- #
-# ordering_inputs_from_ods (#1823 follow-up)
+# ordering_inputs_from_ods
 # --------------------------------------------------------------------------- #
 
 RHO = np.linspace(0.0, 0.95, 20)

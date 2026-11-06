@@ -1,4 +1,4 @@
-"""NEO -> IMAS projection (issue #550, phase 5).
+"""NEO -> IMAS projection.
 
 The fixture under `test/data/gacode/neo_vest_48224_profile/` is a real seven-radius
 NEO run on the packaged VEST 48224 kinetic state, so these assert against output a
@@ -172,10 +172,10 @@ def test_only_the_parallel_bootstrap_current_is_mapped_never_a_toroidal_one(
     """GACODE publishes two bootstrap currents; exactly one has an IMAS home here.
 
     NEO's `jbs` is the parallel current density and `jbstor` the toroidal one --
-    different quantities related by a flux-surface geometry factor, not by a sign
-    (issue #743). `core_profiles.j_bootstrap` is defined as average(J.B)/B0, so
-    only the parallel form maps onto it, and the toroidal spellings must stay
-    absent rather than being filled from the same number.
+    different quantities related by a flux-surface geometry factor, not by a sign.
+    `core_profiles.j_bootstrap` is defined as average(J.B)/B0, so only the
+    parallel form maps onto it, and the toroidal spellings must stay absent
+    rather than being filled from the same number.
 
     Asserted separately from the sign tests above because a convention error that
     mirrored the device would move both together, while writing a parallel value
@@ -426,7 +426,7 @@ def test_provenance_says_which_bootstrap_current_was_written(mapped):
 
 
 def test_the_provenance_fragment_cannot_close_the_envelope_early(mapped):
-    """A literal </parameters> inside a fragment truncates the document (#642)."""
+    """Regression guard for #642: a literal </parameters> inside a fragment truncated the document."""
     for owner in ("core_profiles", "core_transport.model.0"):
         parameters = str(mapped[f"{owner}.code.parameters"])
         assert parameters.endswith("</parameters>")
@@ -606,7 +606,7 @@ def test_the_mapped_current_agrees_with_the_analytic_model_in_magnitude():
     sign and a peak at a similar radius, is what says the units are right.
 
     psi_N < 0.05 is excluded: the packaged sample's innermost surfaces are not
-    trustworthy (#317).
+    trustworthy.
     """
     from omas import load_omas_json
 
@@ -765,7 +765,7 @@ def test_outside_neos_span_the_current_is_unevaluated_not_extrapolated():
 
 
 def test_the_vacuum_field_is_read_at_the_slice_being_mapped(native):
-    """b0 is sampled on its own time base, and VEST's drifts within a shot (#325)."""
+    """b0 is sampled on its own time base, and VEST's b0 drifts within a shot."""
     from omas import ODS
 
     ods = ODS(consistency_check=False)
@@ -814,7 +814,7 @@ def test_a_size_one_r0_array_does_not_break_the_mapping(native):
 
 
 def test_each_slice_is_normalised_by_its_own_vacuum_field(native):
-    """Mapping slice 1 must not inherit slice 0's b0 -- VEST's drifts (#325).
+    """Mapping slice 1 must not inherit slice 0's b0 -- VEST's drifts within a shot.
 
     The trap is circular: this mapper writes core_profiles' own b0, so reading
     that leaf back by nearest-time lets the first slice answer for every later

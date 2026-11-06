@@ -1,4 +1,4 @@
-"""ITPA PR08 profile database: UFILE/0D readers and the ODS mapping (#1205 stage 3).
+"""ITPA PR08 profile database: UFILE/0D readers and the ODS mapping.
 
 Offline: the discharge is synthetic, written in the release's formats (UFILE
 blocks with abutting fixed-format numbers, CSV and fixed-width 0D files, the

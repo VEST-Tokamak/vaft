@@ -1,4 +1,4 @@
-"""TGLF -> IMAS ``core_transport`` projection (issue #553 section 14).
+"""TGLF -> IMAS ``core_transport`` projection.
 
 The fixture under `test/data/gacode/tglf_vest_48224_profile/` is a real five-surface
 TGLF run (SAT3, electromagnetic) on the packaged VEST 48224 kinetic state, trimmed to
@@ -473,7 +473,7 @@ def test_a_q_that_changes_sign_has_no_current_direction(profile):
 
 
 def test_a_classical_entry_keeps_the_shared_ids_heterogeneous(surfaces, profile):
-    """#1654: classical slice indices are per entry, so core_transport.time cannot index them."""
+    """Classical slice indices are per entry, so core_transport.time cannot index them."""
     from vaft.machine_mapping.classical import core_transport_from_classical
     from vaft.process.transport_state import CLASSICAL_MODEL
 

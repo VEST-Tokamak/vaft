@@ -1,4 +1,4 @@
-"""The VAFT <-> MITIM coordinate bridge and the TGLF local-input comparison (#1588 A2).
+"""The VAFT <-> MITIM coordinate bridge and the TGLF local-input comparison.
 
 Pure functions and a stub MITIM driver; no MITIM, no GACODE, no solver.
 """

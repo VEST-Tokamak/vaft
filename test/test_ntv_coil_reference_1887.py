@@ -1,4 +1,4 @@
-"""The #1887 direct GPEC -> PENTRC reference: the quadratic NTV model, replayed without a solver.
+"""The direct GPEC -> PENTRC reference (#1887): the quadratic NTV model, replayed without a solver.
 
 ``test/data/gpec/ntv_diiid_like_1887/scan.json`` holds the signed PENTRC
 torques of 18 direct runs (9 K^2 probes, a reference with scaled, reversed and

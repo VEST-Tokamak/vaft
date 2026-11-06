@@ -1,4 +1,4 @@
-"""PR08 global MHD states as a canonical table (#1736).
+"""PR08 global MHD states as a canonical table.
 
 Offline: the 0D files are synthetic, written in the release's CSV and
 fixed-width formats; the directory index and downloads are mocked.

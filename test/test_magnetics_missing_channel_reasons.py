@@ -1,7 +1,7 @@
-"""The magnetics status names every field the product lacks, and why (#2164).
+"""The magnetics status names every field the product lacks, and why.
 
 ``channel_status.magnetics.missing_channels`` used to be built from the raw
-archive's field list alone. Since #2135 an equilibrium probe whose record is
+archive's field list alone. An equilibrium probe whose record is
 too short for the zero-phase low pass is published with an empty ``field``
 instead of failing the shot -- so it was archived, absent from the list, and
 the component still said ``success``. These tests drive the real diagnostics
@@ -113,7 +113,7 @@ def test_a_short_probe_record_is_a_missing_channel_not_a_success(degraded):
     status = manifest["channel_status"]["magnetics"]
     field = SHORT_PROBE.field_code
 
-    # The waveform itself is what #2135 made it: published, empty, in place.
+    # The waveform itself stays published, empty, in place.
     assert len(ods[f"magnetics.b_field_pol_probe.{SHORT_PROBE.kind_index}.field.data"]) == 0
     assert ods[f"magnetics.b_field_pol_probe.{SHORT_PROBE.kind_index}.identifier"] == SHORT_PROBE.name
 
@@ -254,7 +254,7 @@ def test_each_family_is_checked_on_its_own_published_node():
 
 @pytest.mark.parametrize("shot", [30000, 39436, 39437, 39438, 43016, 46000, 48224])
 def test_the_identity_check_holds_across_wiring_eras(shot):
-    """The probe identifier guard must agree with the static writer in every era (#956)."""
+    """The probe identifier guard must agree with the static writer in every wiring era."""
     from vaft.omas.vest_upstream import _unusable_magnetics_channels
 
     ods = _filled_static(shot)

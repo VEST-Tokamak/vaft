@@ -1,4 +1,4 @@
-"""The coupling-asset repair tool (issue #373).
+"""The coupling-asset repair tool.
 
 It repairs exactly one defect -- a material factor applied from one side of a
 two-material cross block -- and refuses everything else, so an asset it has

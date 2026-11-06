@@ -1,4 +1,4 @@
-"""The backend-neutral extraction layer (issue #63, H·0).
+"""The backend-neutral extraction layer.
 
 Recipes read every value through ``vaft.plot.backend.access``, which chooses
 the accessor for the object; the OMAS namespace keeps its behaviour to the

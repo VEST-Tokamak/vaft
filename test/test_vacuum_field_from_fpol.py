@@ -7,7 +7,7 @@ plasma because no poloidal current flows there. The two are the same number.
 
 On the VEST shot database they are not: ``BCENTR`` drifts by up to 101% within a
 single shot while ``FPOL`` holds flat to under 1%, and shot 41672 stores the
-correct ``RCENTR = 0.4`` while its ``BCENTR`` still swings (issue #325). ``FPOL``
+correct ``RCENTR = 0.4`` while its ``BCENTR`` still swings. ``FPOL``
 is the half the Grad-Shafranov solution actually used, so it wins -- loudly.
 """
 import warnings
@@ -133,7 +133,7 @@ def test_the_magnitude_view_stays_silent_when_bcentr_and_fpol_signs_disagree():
 
 
 def test_a_drifting_bcentr_loses_to_fpol_in_the_magnitude_view_and_still_says_so():
-    """Sign-blindness must not buy silence about the #325 drift.
+    """Sign-blindness must not buy silence about the BCENTR drift.
 
     The whole point of the magnitude view is to tolerate a sign the caller
     chose, not to stop reporting a BCENTR that has wandered away from FPOL.
@@ -193,7 +193,7 @@ def test_a_contaminated_bcentr_no_longer_reaches_b0_or_the_axis_field():
 
 def test_rho_tor_norm_is_indifferent_to_the_contamination_but_rho_tor_is_not():
     # B0 enters rho_tor as 1/sqrt(B0) and cancels in the normalization, so the
-    # canonical coordinate from issue #276 was never at risk here -- but the
+    # canonical coordinate was never at risk here -- but the
     # absolute rho_tor was, and is what the fix rescues.
     clean = _gfile()
     with warnings.catch_warnings():
@@ -364,7 +364,7 @@ def _names_the_sign_disagreement(record) -> bool:
 
 def test_an_f_and_b0_sign_disagreement_is_logged_not_reconciled(caplog):
     # f and b0 are both TOR under a COCOS change, so opposite signs are a data
-    # inconsistency rather than two conventions (#692). The stored sign is kept.
+    # inconsistency rather than two conventions. The stored sign is kept.
     import logging
 
     from vaft.database._summary import _normalize_vacuum_field

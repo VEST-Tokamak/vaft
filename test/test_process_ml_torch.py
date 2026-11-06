@@ -1,4 +1,4 @@
-"""The PyTorch backend and the two #669 reference archetypes, in miniature.
+"""The PyTorch backend and the two reference archetypes, in miniature.
 
 (a) the IRE shape: an engineered-feature table in two blocks, one
 autoencoder per block, a threshold calibrated on held-out shots;

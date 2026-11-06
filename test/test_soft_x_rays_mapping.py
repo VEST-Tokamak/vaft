@@ -80,7 +80,7 @@ def test_packaged_soft_x_ray_geometry_table_is_available():
     assert geometry[("horizontal", 1)]["daq_label"] == "17592"
     assert geometry[("lowermid", 1)]["daq_label"] == "22577"
     # The CSV column holds a VEST clock angle; the loader returns IMAS phi, so
-    # that it and the IDS cannot disagree about a chord's frame (issue #746).
+    # that it and the IDS cannot disagree about a chord's frame.
     # The raw column is asserted above, through pandas.
     np.testing.assert_allclose(geometry[("horizontal", 1)]["phi"], 0.0)
     np.testing.assert_allclose(geometry[("lowermid", 1)]["phi"], np.deg2rad(240.0))
@@ -100,7 +100,7 @@ def test_soft_x_rays_uses_packaged_phi_for_default_daq_mapping(tmp_path):
         time_offset=0.0,
     )
     # The packaged table stores 120 deg as a VEST *clock* angle; the IMAS
-    # toroidal angle is its reflection, 240 deg (issues #718, #746).
+    # toroidal angle is its reflection, 240 deg.
     np.testing.assert_allclose(
         ods["soft_x_rays.channel.0.line_of_sight.first_point.phi"],
         np.deg2rad(240.0),

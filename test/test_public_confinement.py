@@ -1,4 +1,4 @@
-"""Canonical confinement table: DB5.2.3 reader, VEST adapters, predictions (#1205).
+"""Canonical confinement table: DB5.2.3 reader, VEST adapters, predictions.
 
 Everything here is offline.  The DB5 rows are synthetic, written in the real
 file's layout (byte-order mark, a line of column numbers before the header,
@@ -434,7 +434,7 @@ def test_the_subpackage_survives_the_sdist_prune_of_vaft_data():
     assert not any(Path(__file__).resolve().parents[1].joinpath("vaft/data/public").glob("*.csv"))
 
 
-# --- lane D Tier A loader (#548) ---------------------------------------------
+# --- Tier A loader ---------------------------------------------------------
 
 
 def test_tier_a_loader_selections_and_schema():
@@ -491,7 +491,7 @@ def test_tier_a_loader_reads_an_atlas_table_and_rejects_a_foreign_one(tmp_path):
         public.load_vest_tier_a_confinement(path=copy)
 
 
-# ---------------------------------------------------------------- global energy basis (#1713)
+# ---------------------------------------------------------------- global energy basis
 
 
 def test_a_table_without_the_global_columns_still_validates(db5):
@@ -582,11 +582,10 @@ def test_vest_summary_definitions_quote_the_stored_energy_factor_the_code_uses()
 
 
 def test_no_inline_three_halves_energy_factor_remains_outside_the_formula_layer():
-    """W_th = 3/2 <p> V has one definition, ``thermal_energy_from_p_V`` (#1768); a
+    """W_th = 3/2 <p> V has one definition, ``thermal_energy_from_p_V``; a
     literal ``3.0 / 2.0`` (or ``3 / 2``) used as a multiplier anywhere else under
     ``vaft/`` is a second one that can drift -- two survived the PR in
-    ``vaft/plot/time.py`` and ``vaft/omas/update.py`` (cold review 0.8.0
-    delta-absorb-19 physics, #1768 note).  Read with ``ast``: comments,
+    ``vaft/plot/time.py`` and ``vaft/omas/update.py``.  Read with ``ast``: comments,
     docstrings and ``** (3 / 2)`` exponents do not count."""
     import ast
     from pathlib import Path
@@ -635,9 +634,8 @@ def test_update_equilibrium_stored_energy_is_the_formula_on_the_pressure_integra
 
 
 def test_h_factor_warns_when_the_energy_basis_gate_blanks_rows(db5):
-    # The #1713 gate is deliberate, but it must not be silent: a global or
-    # unaudited scaling without tau_e_global_s names itself and the gate
-    # (cold review 0.8.0 delta-absorb-16 confinement F5).
+    # The energy-basis gate is deliberate, but it must not be silent: a global or
+    # unaudited scaling without tau_e_global_s names itself and the gate.
     with pytest.warns(UserWarning, match=r"h_factor\('ITER89P'\).*#1713.*thermal_as_global") as record:
         strict = h_factor(db5, "ITER89P")
     assert strict.isna().all() and len(record) == 1

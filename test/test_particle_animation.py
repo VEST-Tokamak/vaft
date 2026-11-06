@@ -220,7 +220,7 @@ def _gyrations(velocity):
 @pytest.mark.parametrize("case", ["tokamak_trapped", "symmetry_breaking"])
 def test_long_full_orbit_trails_resolve_the_gyration(case):
     """A fixed 1200-point grid drew ~3 points per turn on these ~400-gyration
-    orbits, so the trail zigzagged by ~0.5 rho (cold review of #2044)."""
+    orbits, so the trail zigzagged by ~0.5 rho."""
     from vaft.diagram._particle_states import _trail
 
     full = particle_motion_case(case).full
@@ -246,7 +246,7 @@ def test_guiding_center_trail_does_not_follow_adaptive_nodes(case):
 
 def test_equation_rows_stay_single_height():
     """The rows sit 0.45 units apart; a stacked \\frac in either collides with
-    its neighbour (cold review of #2045). Fails if a catalog edit defeats the
+    its neighbour. Fails if a catalog edit defeats the
     inline rewrite."""
     from vaft.diagram._particle_states import _equation_labels
 

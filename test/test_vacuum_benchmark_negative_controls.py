@@ -1,6 +1,6 @@
-"""Negative controls for the plasma-free vacuum benchmark (issue #2166, Scope D2).
+"""Negative controls for the plasma-free vacuum benchmark.
 
-The vacuum benchmark (:mod:`vaft.validation.vacuum_benchmark`, #190) asks
+The vacuum benchmark (:mod:`vaft.validation.vacuum_benchmark`) asks
 whether the active-coil / passive-wall model reproduces measured plasma-free
 magnetics.  That is only evidence if the benchmark *responds* when a sensor's
 identity, sign or position is wrong.  Each control below introduces one such
@@ -46,7 +46,7 @@ neither the source ODS nor the packaged file is modified.
 Evidence type: ``experimental_physical`` for the unperturbed residuals (real
 39915 plasma-free data against an independently specified machine model);
 the controls themselves are a *self-consistency* check of the benchmark's
-sensitivity, not independent evidence that the model is right (#2166 D3).
+sensitivity, not independent evidence that the model is right.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Stability atlas population reader and its 3x1 histogram figure (#1852).
+"""Stability atlas population reader and its 3x1 histogram figure.
 
 Synthetic atlas tables with known answers; no atlas file is needed.
 """

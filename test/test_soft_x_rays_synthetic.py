@@ -1,4 +1,4 @@
-"""Synthetic soft-X-ray response of a rotating island (#886)."""
+"""Synthetic soft-X-ray response of a rotating island."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""The ``vaft.omas`` plot adapters (issue #63) against the packaged sample shot."""
+"""The ``vaft.omas`` plot adapters against the packaged sample shot."""
 
 import logging
 
@@ -38,7 +38,7 @@ def test_no_adapter_is_defined_twice():
     """Two merges can each add the same adapter and neither will conflict.
 
     That is how `plot_neoclassical_profile_bootstrap_current` came to be defined
-    twice in this module and in its IMAS twin: #810 registered a renderer without
+    twice in this module and in its IMAS twin: a renderer was registered without
     adapters, two branches fixed it independently at different insertion points,
     and both merged green. The later definition silently shadowed the earlier,
     and the two modules ended up exposing different docstrings for one name.
@@ -77,7 +77,7 @@ def test_every_offered_plot_actually_renders(sample_ods):
         try:
             result = getattr(vomas, f"plot_{row['name']}")(sample_ods)
             if row["view"] in ("table", "text"):
-                # A table or text view returns text, not a figure (issue #1180).
+                # A table or text view returns text, not a figure.
                 assert result.text(), row["name"]
                 continue
             figure, _ = result
@@ -179,7 +179,7 @@ def test_missing_data_produces_an_actionable_error(sample_ods):
 
 def test_render_refuses_exactly_what_available_plots_omits(sample_ods):
     """A path-driven adapter used to hand back a figure with no lines in it when
-    its leaf was absent -- silently, so nothing told the caller why (issue #290).
+    its leaf was absent -- silently, so nothing told the caller why.
     ``render`` now refuses those, and refuses precisely the ones this object's
     ``available_plots`` leaves out, so the listing and the adapters cannot
     disagree about what is drawable.

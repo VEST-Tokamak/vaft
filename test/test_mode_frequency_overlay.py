@@ -1,7 +1,7 @@
-"""Predicted mode-frequency tracks and the Mirnov ``mode_overlay=`` (issue #460).
+"""Predicted mode-frequency tracks and the Mirnov ``mode_overlay=``.
 
 :func:`vaft.process.mode_frequency.mode_frequency_tracks` locates ``|q| = m/n``
-through the #506 resolver, evaluates the toroidal rotation there and returns
+through the rational-surface resolver, evaluates the toroidal rotation there and returns
 ``f_pred = n f_phi`` per equilibrium slice; the Mirnov spectrogram only draws
 ``|f_pred|``.  No packaged sample holds Mirnov, equilibrium and rotation
 together, so every input here is an analytic fixture.
@@ -514,7 +514,7 @@ def test_a_stored_r_outboard_is_recorded_as_stored(ods):
 def test_a_proxy_rho_tor_grid_is_read_at_the_root_rho_pol():
     ods = ODS()
     _equilibrium(ods)
-    proxy = np.sqrt(np.linspace(0.0, 1.0, 21))   # what pre-#276 files stored as rho_tor_norm
+    proxy = np.sqrt(np.linspace(0.0, 1.0, 21))   # what older files stored as rho_tor_norm
     _rotation(ods, f_phi=lambda t, rho: F0 * (1.0 + rho), leaf="rotation_frequency_tor", grid=proxy)
     for k in range(len(ROT_TIMES)):
         ods[f"core_profiles.profiles_1d.{k}.grid.psi"] = np.linspace(0.0, -0.01, proxy.size)  # uniform psi_N

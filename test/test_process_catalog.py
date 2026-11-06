@@ -1,12 +1,12 @@
-"""The process catalog: coverage, resolution, conformance and laziness (issue #417).
+"""The process catalog: coverage, resolution, conformance and laziness.
 
 Built the way ``vaft.formula.catalog`` is, with two deliberate differences
 these tests pin.  Selection is by ``__all__`` rather than ``__module__``,
-because every process submodule declares one (#249) and because that is what
+because every process submodule declares one and because that is what
 puts the ``_equilibrium_parametric`` functions under ``equilibrium``, their
 documented public location.  And every spec carries ``errors`` and a
-``conforming`` flag, because the layer is being brought under the contract
-one submodule at a time (#418-#421) and the site has to say which categories
+``conforming`` flag, because the layer was brought under the contract
+one submodule at a time and the site has to say which categories
 are done.
 """
 
@@ -244,7 +244,7 @@ def test_snapshot_schema():
         assert row["machine_scope"] in (None, "independent", "vest")
         for section in row["sections"]:
             assert section["title"] in SECTION_VOCABULARY, row["id"]
-        # the inline source (#1069) is the code as written, roles and all
+        # the inline source is the code as written, roles and all
         prose = {**row, "source": {k: v for k, v in row["source"].items() if k != "code"}}
         assert ":func:" not in yaml.safe_dump(prose), row["id"]
         assert "Raises" not in [section["title"] for section in row["sections"]], row["id"]

@@ -1,4 +1,4 @@
-"""Issue #480: controls rebuild and redraw one plot; the state is the contract."""
+"""Controls rebuild and redraw one plot; the state is the contract."""
 
 from __future__ import annotations
 

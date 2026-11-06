@@ -51,7 +51,7 @@ def test_segments_group_by_name_and_split_mirrored_pairs():
 
     assert "WA" in regions                       # contiguous through Z=0 -> single
     assert {"WB_U", "WB_L"} <= set(regions)      # mirrored -> split
-    assert "W11" in regions                      # meshed, not excluded (#965)
+    assert "W11" in regions                      # meshed, not excluded
     assert regions["WA"]["segment"] == "WA"
     assert regions["WB_U"]["n_loops"] >= 3
     contour = np.asarray(regions["WA"]["contour"])
@@ -59,7 +59,7 @@ def test_segments_group_by_name_and_split_mirrored_pairs():
 
 
 def test_a_thin_strip_is_widened_with_its_sheet_resistance_kept():
-    """#965: W11's 0.1 mm tiles are meshed, not dropped.
+    """W11's 0.1 mm tiles are meshed, not dropped.
 
     The 0.15 mm/side de-conflict shrink alone would erase a 0.1 mm strip, so it
     is widened about its centreline to `vessel_min_thickness` and eta grows by
@@ -255,7 +255,7 @@ def test_bbox_fallback_overlapping_a_neighbour_is_rejected():
         vessel_segments_from_ods(ods, TokaMakerConfig(include_vessel=True))
 
 
-# --- imposed wall currents (#1534) ---------------------------------------------
+# --- imposed wall currents --------------------------------------------------
 
 def test_every_loop_belongs_to_exactly_one_vessel_region():
     ods = _build_ods()

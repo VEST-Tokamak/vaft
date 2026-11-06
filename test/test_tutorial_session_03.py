@@ -1,4 +1,4 @@
-"""Contract for Tutorial 03: equilibrium and kinetic profiles (issue #952).
+"""Contract for Tutorial 03: equilibrium and kinetic profiles.
 
 The tutorial runs offline from the packaged VEST samples, while teaching the
 same public workflow on any database shot.  The tests pin the narrative spine
@@ -286,7 +286,7 @@ def test_no_literal_equilibrium_slice_or_frame(book):
 
 
 def test_every_shot_number_is_written_once_in_the_load_cell(book):
-    """#1714: one cell selects every shot, so new reference samples (#1712) are a one-cell change."""
+    """One cell selects every shot, so new reference samples are a one-cell change."""
     executable = _executable(book)
     load = _strip_comments(_source(_cell(book, "s03-load-sample")))
     for assignment in ("SHOT = 39915", "KINETIC_SHOT = 48224", "COMPARISON_SHOTS = [39915, 41524, 41672]"):
@@ -378,7 +378,7 @@ def test_the_analysis_runs_in_the_session_order(book):
 
 
 def test_the_reconstruction_is_seen_before_it_is_validated(book):
-    """#1714: the analytic intuition comes first, then the real equilibrium, then its validation."""
+    """The analytic intuition comes first, then the real equilibrium, then its validation."""
     derive = _first_code_index(book, "update_equilibrium_derived_profiles(ods)")
     assert _first_code_index(book, "solve_guazzotto_freidberg") < derive
     for token in ("plot_equilibrium_overview_constraints", "compare_flux_mapping",
@@ -429,7 +429,7 @@ def test_the_fixed_headings_wrap_every_subsection(book):
 
 
 def test_the_analytic_equilibrium_is_force_balanced_and_scanned(book):
-    """#1714: a Guazzotto-Freidberg model at the discharge's shape, and kappa, delta, nu scans."""
+    """A Guazzotto-Freidberg model at the discharge's shape, and kappa, delta, nu scans."""
     executable = _executable(book)
     for api in ("vaft.process.equilibrium.solve_guazzotto_freidberg",
                 "vaft.process.equilibrium.guazzotto_freidberg_to_equilibrium",
@@ -560,7 +560,7 @@ def test_the_efit_weighting_is_shown_as_it_is(executed):
     assert "vessel accounting term" in printed
     assert "Ip chi-square, plasma-only residual" in printed
     assert "sigma EFIT used" in printed
-    assert "diamagnetic flux: measured +" in printed  # paramagnetic (#1196)
+    assert "diamagnetic flux: measured +" in printed  # paramagnetic
 
 
 def test_the_topologies_are_classified(executed):
@@ -671,7 +671,7 @@ def test_the_session_declares_itself_complete_in_both_modes(book):
 
 
 # ---------------------------------------------------------------------------
-# #1052: one flux function, three regions, and the boundary as an output
+# one flux function, three regions, and the boundary as an output
 # ---------------------------------------------------------------------------
 
 
@@ -709,7 +709,7 @@ GS_DIAGRAMS = ("equilibrium_problem_taxonomy", "fixed_vs_free_boundary_equilibri
 
 
 def test_the_grad_shafranov_concept_diagrams_are_shown_canonically(book):
-    """#1236: the five concept diagrams, called with their canonical arguments so they
+    """The five concept diagrams, called with their canonical arguments so they
     render from the committed assets on a machine without TeX."""
     executable = _executable(book)
     for name in GS_DIAGRAMS:
@@ -738,7 +738,7 @@ def test_every_grad_shafranov_diagram_is_drawn(executed):
         assert any("image/svg+xml" in output.get("data", {}) for output in outputs), cell_id
 
 
-#: #1714: the diagrams that carry the main teaching path, in the order the session uses them
+#: The diagrams that carry the main teaching path, in the order the session uses them
 MAIN_PATH_DIAGRAMS = (
     ("s03-shaping-diagram", "shaping_family"),
     ("s03-analytic-diagram", "analytic_mhd_equilibrium"),

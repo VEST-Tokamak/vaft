@@ -1,4 +1,4 @@
-"""Scientific compatibility of declared representations (#2163, Cases A, B, C and E of #2160).
+"""Scientific compatibility of declared representations (Cases A, B, C and E).
 
 An assessment compares declarations: identity first, then unit, COCOS and
 Fourier convention.  It never reads or changes data, and its outcomes are not
@@ -239,7 +239,7 @@ def test_compatible_does_not_mean_verified():
 def test_vest_polarity_is_not_resolved_by_a_cocos_assessment():
     from vaft.machine_mapping.conventions import equilibrium_orientation_is_resolved
 
-    # A clean COCOS 11 -> 11 assessment says nothing about #288.
+    # A clean COCOS 11 -> 11 assessment says nothing about the open VEST sign chain (#288).
     assert assess_compatibility(Representation("plasma_current", "A", cocos=11),
                                 Representation("plasma_current", "A", cocos=11)).status is C.COMPATIBLE
     assert equilibrium_orientation_is_resolved() is False

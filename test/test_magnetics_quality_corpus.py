@@ -105,8 +105,7 @@ def test_a_row_carries_the_evidence_behind_its_verdict(table, shot):
 def test_the_routine_window_lies_inside_the_measured_record(table, shot):
     """39915 holds its last value from 0.34 s; its window ends before that.
 
-    The hold is real (issue #244's class of defect) and a study that widened
-    the window past the measured end would be fitting held values, so the
+    The hold is real, and a study that widened the window past the measured end would be fitting held values, so the
     coverage is asserted rather than assumed.
     """
     row = next(item for item in table["rows"] if item["shot"] == shot)
@@ -137,7 +136,7 @@ def test_the_products_now_carry_the_diagnostics_stage_projection(table):
     one with a waveform does -- all but the missing H1-01 placeholder.  The
     sweep still assesses and gates into a copy: a stored projection is the
     verdict of the detectors that ran when the product was made, and the
-    array review (#977) postdates these products.
+    array review postdates these products.
     """
     for row in table["rows"]:
         projection = row["decisions"]["projection_in_product"]
@@ -146,7 +145,7 @@ def test_the_products_now_carry_the_diagnostics_stage_projection(table):
 
 
 def test_the_flux_loops_agree_with_the_vacuum_model_everywhere(table):
-    """Nothing in the evidence rejects a flux loop on any packaged shot (#295)."""
+    """Nothing in the evidence rejects a flux loop on any packaged shot."""
     for row in table["rows"]:
         model = row["model"]
         assert model["consulted"] and model["available"], row["shot"]
@@ -205,7 +204,7 @@ def test_the_report_renders_from_the_committed_table(module, table):
 
 
 def test_a_shot_the_source_does_not_hold_is_an_absent_row_not_a_crash(module, monkeypatch):
-    """#1331: a lazy source opens without contacting the server; the 404 for a
+    """Regression guard for #1331: a lazy source opens without contacting the server; the 404 for a
     missing shot surfaces at the first `in` test, which was outside the guard."""
 
     class Unreachable:

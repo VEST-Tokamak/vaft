@@ -1,4 +1,4 @@
-"""Coverage classification of the reference-portfolio audit (#1712)."""
+"""Coverage classification of the reference-portfolio audit."""
 
 from __future__ import annotations
 

@@ -48,7 +48,7 @@ def test_machine_era_boundaries_are_explicit(shot, expected):
     [(43016, "1906", "1512"), (43017, "1906", "2409"), (45967, "1906", "2409"), (45968, "2507", "2409")],
 )
 def test_each_era_names_the_conductors_its_shots_select(shot, pf, wall):
-    """An era's declared geometry is what the mappers pick for its shots (#956)."""
+    """An era's declared geometry is what the mappers pick for its shots."""
     from vaft.machine_mapping.pf_active import pf_geometry_version_for_shot
     from vaft.machine_mapping.pf_passive import wall_geometry_version_for_shot
 
@@ -104,11 +104,11 @@ def test_static_product_is_not_a_reference_shot_container():
     assert "pf_active.time" not in ods
     assert "pf_passive.time" not in ods
     assert "pf_passive.loop.0.current" not in ods
-    # Wall 2409: the 950 base loops plus fifteen SUS316LN elements (#956).
+    # Wall 2409: the 950 base loops plus fifteen SUS316LN elements.
     assert np.shape(ods["em_coupling.mutual_passive_passive"]) == (965, 965)
     assert manifest["machine_era"]["wall_geometry"] == "2409"
     assert manifest["input"]["wall_additions"]["name"] == "VEST_passive_wall_2409.npz"
-    # PF2 left this list in #708: it has an acquisition channel (field 4) and
+    # PF2 is not in this list: it has an acquisition channel (field 4) and
     # shot 46742 uses it. The four that remain have no channel at all -- the
     # donor gives PF3/PF4 the same code as PF5 and none of the four a gain --
     # so "disabled" is still the honest word for them.
@@ -202,7 +202,7 @@ def test_unavailable_diagnostic_does_not_corrupt_valid_sibling(tmp_path):
     assert diagnostics_manifest["channel_status"]["barometry"]["status"] == "success"
     for name in ("pf_active", "spectrometer_uv", "tf", "magnetics"):
         assert diagnostics_manifest["channel_status"][name]["status"] == "unavailable"
-    # IMPA is not part of this product at all since issue #305: it has its own
+    # IMPA is not part of this product at all: it has its own
     # stage and its own source, so the baseline verdict never mentions it.
     assert "impa" not in diagnostics_manifest["channel_status"]
     assert not any(
@@ -220,7 +220,7 @@ def test_unavailable_diagnostic_does_not_corrupt_valid_sibling(tmp_path):
     assert "tf" not in ods
     assert np.all(np.asarray(ods["barometry.gauge.0.pressure.data"]) > 0)
     # No ECH detector fields (27/28) in the dump: EC power is unavailable, not
-    # zero, and leaves no realized grid behind (issue #165).
+    # zero, and leaves no realized grid behind.
     ec_status = diagnostics_manifest["channel_status"]["ec_launchers"]
     assert ec_status["status"] == "unavailable"
     assert "field 27" in ec_status["reason"]
@@ -231,7 +231,7 @@ def test_unavailable_diagnostic_does_not_corrupt_valid_sibling(tmp_path):
 
 
 def test_diagnostics_ods_carries_the_raw_dumps_pulse_datetime(tmp_path):
-    """A raw dump carrying pulse_datetime (issue #126) must reach dataset_description.
+    """A raw dump carrying pulse_datetime must reach dataset_description.
 
     dump_all_raw_signals_for_shot() writes pulse_datetime from the SQL `shot`
     table when it runs against live SQL; build_diagnostics_ods() must read it
@@ -917,9 +917,9 @@ def _built_static(tmp_path, shot):
 
 
 def test_a_langmuir_era_gap_leaves_the_rest_of_the_product(tmp_path):
-    """42138-42144 and 42641 have no known mid-assembly bias or tip geometry
-    (#152). Refusing to guess is right; losing magnetics, PF and every other
-    diagnostic of the shot over it is not (#989)."""
+    """42138-42144 and 42641 have no known mid-assembly bias or tip geometry.
+    Refusing to guess is right; losing magnetics, PF and every other
+    diagnostic of the shot over it is not."""
     shot = 42140
     raw = tmp_path / "raw.json.gz"
     ramp = np.linspace(1.0, 2.0, 200).tolist()
@@ -970,7 +970,7 @@ def test_a_langmuir_configuration_bug_still_fails_the_stage(tmp_path, monkeypatc
 
 
 def test_langmuir_unfiltered_counts_reach_the_manifest(tmp_path, monkeypatch):
-    """#915: the counts of samples left unfiltered are visible in the manifest
+    """The counts of samples left unfiltered are visible in the manifest
     without opening the ODS."""
     from vaft.omas import vest_upstream
 
@@ -1000,7 +1000,7 @@ def test_langmuir_unfiltered_counts_reach_the_manifest(tmp_path, monkeypatch):
 
 
 def test_one_unrecorded_pf_channel_keeps_the_other_circuits(tmp_path):
-    """#1568: PF5's field 5 was not recorded on 48644-48760; PF1/PF2/PF6/PF9/10 were."""
+    """PF5's field 5 was not recorded on 48644-48760; PF1/PF2/PF6/PF9/10 were."""
     shot = 48700
     raw = tmp_path / "raw.json.gz"
     samples = (np.sin(np.linspace(0.0, 20.0, 1200)) + np.linspace(0.0, 0.2, 1200)).tolist()
@@ -1048,7 +1048,7 @@ def test_eddy_refuses_a_diagnostics_product_with_an_unrecorded_pf_coil(tmp_path)
 
 
 def test_an_eddy_with_no_input_is_a_recorded_result_not_a_failure(tmp_path):
-    """#1568: the routine stage writes no_output and why; build_eddy_ods still raises."""
+    """The routine stage writes no_output and why; build_eddy_ods still raises."""
     from vaft.database.production_qa import empty_stage_plot_manifest
     from vaft.omas.vest_upstream import EDDY_INPUT_UNAVAILABLE, eddy_no_output_product
 
@@ -1069,7 +1069,7 @@ def test_an_eddy_with_no_input_is_a_recorded_result_not_a_failure(tmp_path):
 
 
 def test_an_eddy_input_absent_from_the_raw_data_is_recognised_only_from_the_diagnostics_record(tmp_path):
-    """#1799: no_output only when the diagnostics manifest records the raw signal as absent."""
+    """no_output only when the diagnostics manifest records the raw signal as absent."""
     from vaft.omas.vest_upstream import eddy_inputs_absent_from_data
 
     time = np.linspace(0.0, 0.01, 5)
@@ -1117,7 +1117,7 @@ def test_an_eddy_input_absent_from_the_raw_data_is_recognised_only_from_the_diag
 
 
 def test_the_eddy_stage_records_a_raw_absent_input_and_still_fails_without_the_record(tmp_path):
-    """#1799, stage level: generate_eddy_ods.py writes no_output only with the diagnostics record."""
+    """Stage level: generate_eddy_ods.py writes no_output only with the diagnostics record."""
     import subprocess
     import sys
     from pathlib import Path
@@ -1165,8 +1165,8 @@ def test_the_eddy_stage_records_a_raw_absent_input_and_still_fails_without_the_r
 
 
 def test_the_eddy_stage_still_records_an_unacquired_pf_circuit_as_no_output(tmp_path):
-    """#1568 through the script: UnacquiredPFCircuitError subclasses RawSignalUnavailableError,
-    so its handler must come first (cold review of #1799)."""
+    """Through the script: UnacquiredPFCircuitError subclasses RawSignalUnavailableError,
+    so its handler must come first."""
     import subprocess
     import sys
     from pathlib import Path

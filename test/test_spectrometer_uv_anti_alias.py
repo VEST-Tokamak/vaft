@@ -1,6 +1,6 @@
 """The filterscope mapper must not alias the fast DAQ onto the policy grid.
 
-Issue #425, motivated by #409.  The versatile filterscope (channel 2, fields
+The versatile filterscope (channel 2, fields
 138-144) is acquired at 250 kHz while ``spectrometer_uv``'s policy grid is
 25 kHz, so writing it out is a 10x decimation.  The slow-DAQ lines on channels
 0 and 1 (fields 101 and 214) are already at the grid rate, and the assertion

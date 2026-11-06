@@ -146,7 +146,7 @@ def test_an_unfocused_beam_gets_no_focal_length(ods):
 
 
 def test_the_static_mapping_carries_no_beam_energy_or_power(ods):
-    """Those are per-case modelling inputs, not machine description (#490 s5)."""
+    """Those are per-case modelling inputs, not machine description."""
     keys = set(ods.flat())
     assert not any("energy" in k for k in keys)
     assert not any("power_launched" in k for k in keys)

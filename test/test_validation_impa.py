@@ -1,4 +1,4 @@
-"""IMPA source validity in the validation layer (issue #339).
+"""IMPA source validity in the validation layer.
 
 The grading itself is covered by ``test_impa_processing.py`` and
 ``test_impa_mapping.py``; this file pins what the move promised: one status
@@ -97,7 +97,7 @@ def test_the_default_channel_count_matches_the_kernels():
 # projections
 # ---------------------------------------------------------------------------
 def test_the_manifest_keeps_its_spelling():
-    """#305 reads ``invalid`` as rejected; the strings are a serialization only."""
+    """The IMPA product reads ``invalid`` as rejected; the strings are a serialization only."""
     assert MANIFEST_LABELS == {
         ValidationStatus.PASS: "valid",
         ValidationStatus.WARN: "warning",

@@ -1,4 +1,4 @@
-"""Small analytic topology and representability checks for the #1608 matrix."""
+"""Small analytic topology and representability checks for the TokaMaker validation matrix."""
 from dataclasses import replace
 import json
 from pathlib import Path
@@ -81,7 +81,7 @@ def test_matrix_records_target_failure_for_each_route_and_exits_nonzero(tmp_path
     assert all('target construction failed' in row['error'] for row in records)
 
 
-# The README and measured_matrix.json are excluded from the wheel (#1756), so
+# The README and measured_matrix.json are excluded from the wheel, so
 # read them from the repository checkout rather than next to the module.
 STUDY_DIR = Path(__file__).resolve().parents[1] / 'vaft' / 'validation' / 'studies' / 'fixed_free_1608'
 

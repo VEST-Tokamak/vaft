@@ -1,11 +1,11 @@
-"""The GACODEProfile -> TGLF local input projection (issue #553, increment 1).
+"""The GACODEProfile -> TGLF local input projection.
 
 TGLF never reads `input.gacode`, so unlike NEO everything `expro` used to supply --
 local Miller shaping and its radial derivatives, normalised logarithmic gradients, and
 four normalisations -- is computed on the VAFT side. That makes this the module where
 GACODE's conventions are reproduced rather than deferred to, which is exactly what went
-wrong three times in milestone 25 (the `b_unit` sign and `torfluxa` factor in #661, the
-`z_eff` column in #803): each produced a plausible number and passed every check that
+wrong three times in the NEO work (the `b_unit` sign, the `torfluxa` factor and the
+`z_eff` column): each produced a plausible number and passed every check that
 only compared VAFT against itself.
 
 So the central test here is **not** self-consistent. `$GACODEHOME/profiles_gen/locpargen`
@@ -123,7 +123,7 @@ def test_the_species_list_is_electrons_first(profile):
     assert local.zs[0] == -1.0
     assert local.as_[0] == pytest.approx(1.0)
     assert local.taus[0] == pytest.approx(1.0)
-    # And the carbon #803 added is still carbon.
+    # And the carbon impurity is still carbon.
     assert local.zs[2] == pytest.approx(6.0)
     assert local.as_[2] == pytest.approx(1.0 / 30.0, rel=1e-3)
 
@@ -256,7 +256,7 @@ def test_a_configuration_that_disagrees_about_the_species_is_refused(profile):
     MAX_SPECIES, so `config` never constrained anything.
 
     Refusing rather than truncating is the point -- dropping a species changes the
-    plasma, and #803 established that which species exist is decided when the profile
+    plasma, and which species exist is decided when the profile
     is built, not here.
     """
     with pytest.raises(LocalConversionError, match="asks for 2 species"):

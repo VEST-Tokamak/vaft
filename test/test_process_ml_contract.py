@@ -1,4 +1,4 @@
-"""The framework-free ML contract: datasets, group splits, artifacts, resolution (#669).
+"""The framework-free ML contract: datasets, group splits, artifacts, resolution.
 
 Everything here runs on the closed-form NumPy backend, so the whole lifecycle
 is exercised on the gate without an ML framework installed.
@@ -413,7 +413,7 @@ def test_importing_the_ml_package_loads_no_ml_framework():
 
 
 # ---------------------------------------------------------------------------
-# Contract extensions for #973 / #991 (all toy-sized)
+# Contract extensions (all toy-sized)
 # ---------------------------------------------------------------------------
 
 

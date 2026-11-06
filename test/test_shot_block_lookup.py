@@ -91,7 +91,7 @@ def test_no_packaged_shot_resolves_differently_now_that_its_block_is_found():
             assert resolve_langmuir_probe_config(assembly, shot) == (
                 resolve_langmuir_probe_config(assembly, unkeyed)
             ), (shot, assembly)
-        for diagnostic in ("tf",):  # the placeholder 0.magnetics block is gone since #2158
+        for diagnostic in ("tf",):  # the placeholder 0.magnetics block is gone
             assert get_diagnostic_info(str(shot), diagnostic) == (
                 get_diagnostic_info(str(unkeyed), diagnostic)
             ), (shot, diagnostic)

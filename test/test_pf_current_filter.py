@@ -1,11 +1,11 @@
-"""The PF coil-current filter as a named composition (#2162 B3.5).
+"""The PF coil-current filter as a named composition.
 
 ``vaft.machine_mapping.pf_active._legacy_pf_filter`` designed a SciPy
 ``firwin`` low-pass (default **Hamming** window, tap count and cutoff from
 vest.yaml), applied it forward-backward -- forward only on a record too short
 for ``filtfilt`` -- and then smoothed with a 10-sample
 ``scipy.ndimage.uniform_filter1d``.  The frozen copy below is that function
-verbatim from develop 75b154e31 (after #2135) -- its coefficient design
+verbatim from develop 75b154e31 -- its coefficient design
 (``firwin``) and smoothing are independent of the new code, its filter
 application is the shared, unchanged ``apply_fir_filter``; the composition that
 replaces it is held to it bit for bit, and its phase behaviour is pinned against

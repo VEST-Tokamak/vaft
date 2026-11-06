@@ -1,4 +1,4 @@
-"""Ordering spaces and ordering margins (#1627 §3): registry, labels and the two plots."""
+"""Ordering spaces and ordering margins: registry, labels and the two plots."""
 
 import math
 

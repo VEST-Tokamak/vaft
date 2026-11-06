@@ -1,4 +1,4 @@
-"""Toroidal placements written without an installation record (issue #746).
+"""Toroidal placements written without an installation record.
 
 These are best-available inferences, not measurements. They are pinned so that
 a later correction is a deliberate edit with a failing test to update, rather
@@ -133,7 +133,7 @@ def test_the_projection_landmarks_are_still_in_their_own_frame():
 
 
 def test_the_filterscope_shares_the_cameras_port():
-    """Documented, not inferred, so it does not belong in issue #746.
+    """Documented, not inferred, so it is not a provisional placement.
 
     The port document lists 6MR as "Entrance" with the fast camera, the
     H-alpha / O I filterscope and the hard X-ray detector on it together, and
@@ -178,7 +178,7 @@ def test_the_filterscope_writes_only_the_coordinate_it_knows():
 
 
 def test_the_camera_view_is_recorded_as_tangential():
-    """Why the projection frame is neither clock angle nor phi (issue #746)."""
+    """Why the projection frame is neither clock angle nor phi."""
     from vaft.machine_mapping.camera_visible import (
         PORT_MAJOR_RADIUS_M,
         TANGENTIAL_VIEW,

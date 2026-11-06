@@ -140,7 +140,7 @@ def test_the_reconstructed_diamagnetic_flux_has_the_measured_size(samples, shot)
     # on 41524 as the plasma shrank; inside the outline it stays within
     # 0.66-1.19 on the first five slices of all three shots.  Signed: loop and
     # reconstruction are both paramagnetic since the mapper's extra minus was
-    # removed (#1196); before that this could compare magnitudes only.
+    # removed; before that this could compare magnitudes only.
     from vaft.omas.process_wrapper import compute_diamagnetic_flux_measured_vs_computed
 
     ods, _ = samples[shot]

@@ -1,4 +1,4 @@
-"""``is_signal_active`` decides by the trace's own level (issue #463).
+"""``is_signal_active`` decides by the trace's own level.
 
 The variance test used to divide the variance by itself, so it was 1 for any
 real signal and the ``var_ratio_thresh`` parameter never governed a verdict.
@@ -131,7 +131,7 @@ def test_the_lenient_form_agrees_and_answers_none_when_it_cannot_classify():
 
 
 # ---------------------------------------------------------------------------
-# Review findings on PR #535
+# Review findings
 # ---------------------------------------------------------------------------
 
 

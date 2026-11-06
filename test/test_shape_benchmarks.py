@@ -1,4 +1,4 @@
-"""Smooth-boundary shape benchmarks: Miller rejection is not representation failure (#942).
+"""Smooth-boundary shape benchmarks: Miller rejection is not representation failure.
 
 Seven deterministic contours, from a circle to a doublet, each fitted by the
 semantic Miller model and by the general arc-length Fourier series, and

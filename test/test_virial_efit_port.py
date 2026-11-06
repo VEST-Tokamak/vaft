@@ -309,7 +309,7 @@ def test_virial_closure_relations_match_manual_forms():
 
     # Re-typing a formula only proves the code matches the typing. These two tie
     # the Lao halves to the relations they are derived from, which is what
-    # caught the sign #546 fixed: E1 - E2 fixes beta_p - mu_i without E3, so
+    # caught the Lao beta_p sign error: E1 - E2 fixes beta_p - mu_i without E3, so
     # both halves must read the same (1 - RT/R0), and beta_p_d differs from
     # beta_p by exactly 2 mu_i.
     np.testing.assert_allclose(

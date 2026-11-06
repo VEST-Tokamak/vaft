@@ -1,4 +1,4 @@
-"""The #891 sigma calibration: its ladder, its floor, its cold-start guard and its verdict rule.
+"""The EFIT sigma calibration: its ladder, its floor, its cold-start guard and its verdict rule.
 
 The study runs EFIT; what is pinned here is the bookkeeping the verdict rests
 on.  Fixtures carry two slices, because a floor or a summary that is right on
@@ -53,14 +53,14 @@ def test_a_multiplier_widens_the_sigma_through_uncertainty_scales(module):
     rung = {"multipliers": {"bpol_probe": 8.0, "flux_loop": 1.0}}
 
     # uncertainty_scales divides the submitted sigma; the diamagnetic flux is
-    # made inactive on every standard_deviation rung (#1027).
+    # made inactive on every standard_deviation rung.
     assert module.uncertainty_scales_for(rung) == {
         "bpol_probe": 0.125, "flux_loop": 1.0, "diamagnetic_flux": module.DIAMAGNETIC_INACTIVE_SCALE,
     }
 
 
 def test_the_chi_square_target_follows_the_number_of_fitted_constraints(module):
-    """SAICON 80 is below a statistical sigma's expected chi-square (#1027)."""
+    """SAICON 80 is below a statistical sigma's expected chi-square."""
     ods = ODS(consistency_check=False)
     root = "equilibrium.time_slice.0.constraints"
     for j, w in enumerate((1.0, 1.0, 0.0, 1.0)):
