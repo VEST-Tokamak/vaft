@@ -67,6 +67,7 @@ from vaft.formula.utils import eped_tanh_bounds
 
 __all__ = [
     "COORDINATES",
+    "CORE_GRID_COORDINATES",
     "CoordinateUnavailableError",
     "FitReport",
     "FittedProfile",
@@ -84,11 +85,14 @@ __all__ = [
     "core_profiles",
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
+    "core_profiles_grid_coordinate",
     "equilibrium_mapping_charge_exchange",
     "equilibrium_mapping_points",
     "equilibrium_mapping_thomson_scattering",
+    "equilibrium_rho_tor_norm_table",
     "export_electron_profile_txt",
     "fit_ti_te_ratio",
+    "map_rho_tor_profile_to_rz",
     "pedestal_top",
     "compare_flux_mapping",
     "profile_fit_report_charge_exchange",
@@ -2355,6 +2359,323 @@ def _channel_rho_tor_norm(mapped, positions, coordinate, eq_grid):
     finite = np.isfinite(psi_n)
     out[finite] = np.interp(np.clip(psi_n[finite], 0.0, 1.0), psi_n_grid, rho_tor_grid)
     return out
+
+
+def _leaf_array(source, path):
+    """The leaf at ``path`` as a float array, or ``None``; never creates the path.
+
+    Read through :func:`vaft.ods_access.accessor_for`, so an OMAS ``ODS``, a
+    plain mapping and any registered model (``vaft.imas``) read alike.
+    """
+    from vaft.ods_access import accessor_for
+
+    value = accessor_for(source).get(source, path, None)
+    if value is None:
+        return None
+    try:
+        out = np.asarray(value, dtype=float)
+    except (TypeError, ValueError):
+        return None
+    return out if out.size else None
+
+
+def equilibrium_rho_tor_norm_table(ods, time_slice=0):
+    """The ``(psi_norm, rho_tor_norm)`` table of one equilibrium slice.
+
+    Parameters
+    ----------
+    ods : ODS
+        Data holding ``equilibrium.time_slice[time_slice].profiles_1d.psi`` and
+        either an authentic ``rho_tor_norm`` or a ``q`` to integrate one from;
+        read without being modified [-].
+    time_slice : int, optional
+        Index of the equilibrium slice [-].
+
+    Returns
+    -------
+    psi_norm : np.ndarray
+        Normalized poloidal flux of the 1-D grid, strictly increasing from 0 on
+        axis to 1 at the boundary [-].
+    rho_tor_norm : np.ndarray
+        Normalized toroidal-flux radius on the same grid [-].
+
+    Raises
+    ------
+    CoordinateUnavailableError
+        ``profiles_1d.psi`` is missing, non-finite, flat or not monotonic, or
+        the slice supplies no toroidal coordinate: the stored ``rho_tor_norm``
+        is absent, degenerate or the ``sqrt(psi_N)`` proxy, and ``q`` cannot
+        be integrated into toroidal flux.
+
+    Processing steps
+    ----------------
+    1. Normalize ``profiles_1d.psi`` by its own ends.
+    2. Accept the stored ``profiles_1d.rho_tor_norm`` when it is finite, runs
+       from 0 to 1 within 1e-6, never decreases and is not the ``sqrt(psi_N)``
+       proxy (:func:`vaft.data._derived.is_rho_pol_proxy`).
+    3. Otherwise integrate ``q`` into ``Phi = int q dpsi`` through
+       :func:`vaft.data._derived.rho_tor_profile`.
+
+    Convention
+    ----------
+    ``psi_norm`` is normalized by the 1-D profile's own ends, so it runs 0 to
+    1 whatever the COCOS sign or per-radian storage of ``psi``.  The table is
+    the slice's own map between the poloidal and the toroidal radius; reading
+    ``rho_tor_norm`` as ``sqrt(psi_norm)`` instead is ``rho_pol_norm``, up to
+    0.15 away on VEST equilibria (issues #276, #335).
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A stored coordinate is trusted once it passes the checks above; it is not
+    compared with the ``q`` integral.  The derived coordinate is a trapezoidal
+    integral on the stored grid, so a coarse ``q`` near the axis limits its
+    accuracy there.
+
+    Provenance
+    ----------
+    .. [2270] VAFT issue #2270: moved from the plot layer's
+       ``_rho_tor_of_psi_norm`` so that the 2-D core-profile maps and the
+       rational-surface overlays share one resolver with analysis code.
+    """
+    from vaft.data._derived import is_rho_pol_proxy, rho_tor_profile
+
+    base = f"equilibrium.time_slice.{int(time_slice)}.profiles_1d"
+    psi = _leaf_array(ods, f"{base}.psi")
+    if psi is None or psi.size < 2 or not np.all(np.isfinite(psi)) or psi[-1] == psi[0]:
+        raise CoordinateUnavailableError(
+            f"{base}.psi is required to map a core profile's rho_tor_norm grid "
+            "onto the poloidal plane"
+        )
+    psi_norm = (psi - psi[0]) / (psi[-1] - psi[0])
+    if np.any(np.diff(psi_norm) <= 0.0):
+        raise CoordinateUnavailableError(
+            f"{base}.psi is not monotonic from the axis to the boundary"
+        )
+    stored = _leaf_array(ods, f"{base}.rho_tor_norm")
+    if (
+        stored is not None and stored.size == psi.size and np.all(np.isfinite(stored))
+        # a coordinate at all: axis to edge, never turning back (an all-zero
+        # leaf from a failed slice would paint the plasma at Te(0))
+        and abs(stored[0]) < 1e-6 and abs(stored[-1] - 1.0) < 1e-6
+        and np.all(np.diff(stored) >= 0.0)
+        and not is_rho_pol_proxy(stored, psi_norm)
+    ):
+        return psi_norm, stored
+    q = _leaf_array(ods, f"{base}.q")
+    derived = rho_tor_profile(q, psi) if q is not None else None
+    if derived is None or derived.rho_tor_norm.size != psi.size:
+        raise CoordinateUnavailableError(
+            f"{base} supplies no toroidal coordinate: rho_tor_norm is missing or the "
+            "sqrt(psi_N) proxy, and q cannot be integrated into toroidal flux"
+        )
+    return psi_norm, derived.rho_tor_norm
+
+
+def map_rho_tor_profile_to_rz(
+    psi_rz, psi_axis, psi_boundary, rho_tor_norm, values, *, flux_table
+):
+    """A profile stored on ``rho_tor_norm``, evaluated on a 2-D poloidal-flux map.
+
+    Parameters
+    ----------
+    psi_rz : array_like
+        Poloidal flux on the grid, in any array orientation [Wb or Wb/rad].
+    psi_axis : float
+        Poloidal flux on the magnetic axis, same unit as ``psi_rz`` [Wb or Wb/rad].
+    psi_boundary : float
+        Poloidal flux at the plasma boundary, same unit as ``psi_rz`` [Wb or Wb/rad].
+    rho_tor_norm : array_like
+        Abscissa of the profile, increasing [-].
+    values : array_like
+        The profile on ``rho_tor_norm``, in whatever unit it has [any].
+    flux_table : tuple of array_like
+        ``(psi_norm, rho_tor_norm)`` of the same equilibrium slice, as returned
+        by :func:`equilibrium_rho_tor_norm_table` [-].
+
+    Returns
+    -------
+    np.ndarray
+        The profile on the grid, shape and orientation of ``psi_rz``; NaN where
+        ``psi_norm > 1`` (outside the boundary) or where the flux is not finite
+        [any].
+
+    Raises
+    ------
+    ValueError
+        ``psi_axis`` equals ``psi_boundary``, or a profile or table pair is not
+        non-empty, one-dimensional and of equal length.
+
+    Processing steps
+    ----------------
+    1. ``psi_norm = (psi - psi_axis)/(psi_boundary - psi_axis)``, the ratio of
+       :func:`vaft.formula.equilibrium.psi_normalised`.
+    2. ``rho_tor_norm`` of every cell by linear interpolation in the slice's own
+       table, after clamping ``psi_norm`` into ``[0, 1]``.
+    3. The profile at that radius by linear interpolation, clamped to its end
+       values; cells with ``psi_norm > 1`` are set to NaN.
+
+    Convention
+    ----------
+    Each cell is evaluated at its *toroidal* radius, never at
+    ``sqrt(psi_norm)``, which is ``rho_pol_norm``.  The flux normalization is
+    COCOS- and ``2*pi``-independent provided the three flux inputs share one
+    convention.  The function is elementwise, so the caller's ``(R, Z)`` or
+    ``(Z, R)`` orientation is preserved.  Cells with ``psi_norm < 0`` (an axis
+    flux slightly shallower than the grid's own extremum) take the axis value.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Containment is the flux threshold alone: a private-flux region below an
+    X-point, or exterior flux turning back below one near the coils, is not
+    excluded (:func:`vaft.process.profile.project_flux_function` uses the
+    boundary outline as well).  Linear interpolation smooths a coarsely
+    sampled steep gradient.
+
+    Provenance
+    ----------
+    .. [2270] VAFT issue #2270: the mapping the core-profile 2-D views drew
+       with, made independent of the view so analysis code can use the same
+       one; :func:`vaft.process.equilibrium.psi_to_rz` is its counterpart for a
+       profile already on ``psi_norm``.
+    """
+    if float(psi_boundary) == float(psi_axis):
+        raise ValueError("psi_axis and psi_boundary are equal")
+    pairs = (
+        ("rho_tor_norm/values", rho_tor_norm, values),
+        ("flux_table", *flux_table),
+    )
+    resolved = []
+    for name, x, y in pairs:
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
+        if x.ndim != 1 or y.ndim != 1 or x.size != y.size or x.size < 1:
+            raise ValueError(f"{name} must be two non-empty one-dimensional arrays of equal length")
+        resolved.append((x, y))
+    (rho, profile), (table_psi, table_rho) = resolved
+    # The plain ratio, not psi_normalised: its guard turns a non-finite span
+    # into NaN, where this map has always clamped (issue #2270 keeps the views
+    # bit-identical).  The formula is the same one.
+    psi_norm = (np.asarray(psi_rz, dtype=float) - float(psi_axis)) / (
+        float(psi_boundary) - float(psi_axis)
+    )
+    cell_rho = np.interp(np.clip(psi_norm, 0.0, 1.0).ravel(), table_psi, table_rho)
+    mapped = np.interp(cell_rho, rho, profile).reshape(psi_norm.shape)
+    return np.where(psi_norm <= 1.0, mapped, np.nan)
+
+
+#: Radial coordinates of a ``core_profiles`` grid that
+#: :func:`core_profiles_grid_coordinate` resolves.
+CORE_GRID_COORDINATES = ("psi_norm", "rho_pol_norm", "rho_tor_norm")
+
+
+def core_profiles_grid_coordinate(
+    ods, index, coordinate, *, psi_axis=None, psi_boundary=None
+):
+    """The radial grid of one ``core_profiles`` slice, in the requested coordinate.
+
+    Parameters
+    ----------
+    ods : ODS
+        Data holding ``core_profiles.profiles_1d[index].grid``; read without
+        being modified [-].
+    index : int
+        Index of the ``profiles_1d`` slice [-].
+    coordinate : str
+        One of :data:`CORE_GRID_COORDINATES` [-].
+    psi_axis, psi_boundary : float, optional
+        Axis and boundary flux of the equilibrium slice matched to this profile
+        *by time*; needed only when the grid stores ``psi`` but no
+        ``rho_pol_norm`` [Wb, same convention as ``grid.psi``].
+
+    Returns
+    -------
+    np.ndarray
+        The grid in ``coordinate`` [-].
+
+    Raises
+    ------
+    CoordinateUnavailableError
+        The grid cannot supply ``coordinate``: ``rho_tor_norm`` is missing or
+        is the ``sqrt(psi_N)`` proxy, or neither ``rho_pol_norm`` nor ``psi``
+        with a distinct axis and boundary flux is available.
+    ValueError
+        ``coordinate`` is not one of :data:`CORE_GRID_COORDINATES`.
+
+    Processing steps
+    ----------------
+    1. ``rho_tor_norm``: the stored ``grid.rho_tor_norm``, refused when it
+       equals ``sqrt(psi_N)`` of the grid's own poloidal coordinate (or, with
+       none stored, of a uniform ``psi_N``).
+    2. ``rho_pol_norm``/``psi_norm``: the stored ``grid.rho_pol_norm`` (and its
+       square), else ``grid.psi`` normalized by ``psi_axis``/``psi_boundary``.
+
+    Convention
+    ----------
+    ``psi_norm``, ``rho_pol_norm = sqrt(psi_norm)`` and ``rho_tor_norm`` are
+    three coordinates and are never substituted for one another; in
+    particular ``sqrt(psi_norm)`` is not returned as ``rho_tor_norm``.  The
+    normalization of ``grid.psi`` is COCOS- and ``2*pi``-independent provided
+    all three flux values share one convention.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A stored ``rho_tor_norm`` that is not the proxy is trusted as it is.  No
+    conversion between the poloidal and toroidal radius is attempted here;
+    that needs an equilibrium (:func:`equilibrium_rho_tor_norm_table`).
+
+    Provenance
+    ----------
+    .. [2270] VAFT issue #2270: moved from the kinetic-overview plot, which
+       until then labelled a stored ``sqrt(psi_N)`` proxy as ``rho_tor_norm``.
+    """
+    from vaft.data._derived import is_rho_pol_proxy
+
+    if coordinate not in CORE_GRID_COORDINATES:
+        raise ValueError(
+            f"coordinate must be one of {', '.join(CORE_GRID_COORDINATES)}; got {coordinate!r}"
+        )
+    prefix = f"core_profiles.profiles_1d.{int(index)}.grid"
+    rho_pol = _leaf_array(ods, f"{prefix}.rho_pol_norm")
+    psi_norm = None
+    if rho_pol is not None:
+        psi_norm = rho_pol**2
+    else:
+        psi = _leaf_array(ods, f"{prefix}.psi")
+        if (
+            psi is not None and psi_axis is not None and psi_boundary is not None
+            and float(psi_boundary) != float(psi_axis)
+        ):
+            psi_norm = (psi - float(psi_axis)) / (float(psi_boundary) - float(psi_axis))
+    if coordinate == "rho_tor_norm":
+        rho_tor = _leaf_array(ods, f"{prefix}.rho_tor_norm")
+        if rho_tor is None:
+            raise CoordinateUnavailableError(f"{prefix}.rho_tor_norm is not stored")
+        reference = psi_norm if psi_norm is not None and psi_norm.size == rho_tor.size else None
+        if is_rho_pol_proxy(rho_tor, reference):
+            raise CoordinateUnavailableError(
+                f"{prefix}.rho_tor_norm is the sqrt(psi_N) proxy, which is rho_pol_norm"
+            )
+        return rho_tor
+    if psi_norm is None:
+        raise CoordinateUnavailableError(
+            f"{prefix} stores neither rho_pol_norm nor psi with a distinct axis and "
+            "boundary flux to normalise it"
+        )
+    if coordinate == "psi_norm":
+        return psi_norm
+    return rho_pol if rho_pol is not None else np.sqrt(np.clip(psi_norm, 0, None))
 
 
 def _append_code_parameters(ods, ids, line, *, replace_key=None):

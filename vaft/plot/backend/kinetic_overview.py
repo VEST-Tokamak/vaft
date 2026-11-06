@@ -171,24 +171,29 @@ def _auto_coordinate(ods, target: float | None) -> str:
 
 def _core_coordinate(ods, index: int, coordinate: str,
                      target: float | None) -> np.ndarray | None:
-    prefix = f"core_profiles.profiles_1d.{index}.grid"
+    """The fit's grid in ``coordinate``, or ``None`` when the grid cannot supply it.
+
+    Resolved by :func:`vaft.process.profile.core_profiles_grid_coordinate`
+    (issue #2270), which refuses a stored ``sqrt(psi_N)`` proxy as
+    ``rho_tor_norm``; the view omits what it cannot place.
+    """
     if coordinate in ("R", "r_major"):
         # A flux coordinate does not name one physical major radius. Refuse to
         # turn a fitted flux profile into an invented midplane R trace.
         return None
-    if coordinate == "rho_tor_norm":
-        return array(ods, f"{prefix}.rho_tor_norm")
-    rho_pol = array(ods, f"{prefix}.rho_pol_norm")
-    if rho_pol is not None:
-        return rho_pol**2 if coordinate == "psi_norm" else rho_pol
-    psi = array(ods, f"{prefix}.psi")
+    from vaft.process.profile import CoordinateUnavailableError, core_profiles_grid_coordinate
+
+    # The grid's psi is normalised by the equilibrium slice matched by time.
     slice_index, _ = _equilibrium_slice(ods, target)
-    axis = _scalar(get(ods, f"equilibrium.time_slice.{slice_index}.global_quantities.psi_axis"))
-    edge = _scalar(get(ods, f"equilibrium.time_slice.{slice_index}.global_quantities.psi_boundary"))
-    if psi is None or axis is None or edge is None or edge == axis:
+    base = f"equilibrium.time_slice.{slice_index}.global_quantities"
+    try:
+        return core_profiles_grid_coordinate(
+            ods, index, coordinate,
+            psi_axis=_scalar(get(ods, f"{base}.psi_axis")),
+            psi_boundary=_scalar(get(ods, f"{base}.psi_boundary")),
+        )
+    except CoordinateUnavailableError:
         return None
-    normalized = (psi - axis) / (edge - axis)
-    return normalized if coordinate == "psi_norm" else np.sqrt(np.clip(normalized, 0, None))
 
 
 def _diagnostic_points(ods, family: str, signal: str, coordinate: str,
