@@ -1,8 +1,7 @@
 """Who may submit what to a shared cluster: limits, approvals and an audit trail.
 
-A shared cluster has an owner. On tdst the administrator cancelled a run that
-booked more than it used, and the run may resume only inside what the
-administrator agreed to. That agreement has to bind every way VAFT submits a
+A shared cluster has an owner. An administrator may cancel a run that books
+more than it uses and let it resume only inside what they agreed to. That agreement has to bind every way VAFT submits a
 job -- a script, a pipeline stage, an agent over MCP -- so it is checked here,
 by the scheduler backends themselves, right before ``sbatch``.
 
@@ -12,8 +11,8 @@ A policy file (YAML, path in ``VAFT_EXECUTION_POLICY``) names clusters::
     approvals_dir: /path/to/approvals      # one <id>.json per approval
     default: {requires_approval: false}
     clusters:
-      tdst:
-        hosts: [147.46.36.74, tdst.cluster.master]   # names a backend may know it by
+      cluster-a:
+        hosts: [login.cluster-a.example]   # names a backend may know it by
         requires_approval: true
         max_cpus: 16
         max_mem_mb: 65536
@@ -22,8 +21,8 @@ A policy file (YAML, path in ``VAFT_EXECUTION_POLICY``) names clusters::
 
 An approval (``<approvals_dir>/<id>.json``) records who agreed to what::
 
-    {"id": "tdst-2147-20261104", "cluster": "tdst", "approver": "tdst admin",
-     "scope": "benchmark + 2 x 16 CPU resume", "requester": "hs_yun",
+    {"id": "cluster-a-20261104", "cluster": "cluster-a", "approver": "cluster-a admin",
+     "scope": "benchmark + 2 x 16 CPU resume", "requester": "alice",
      "expires": "2026-12-31T23:59:59", "max_cpus": 16, "max_mem_mb": 65536,
      "max_concurrent": 2}
 

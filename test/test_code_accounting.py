@@ -2,7 +2,7 @@
 execution policy (vaft.code.accounting, vaft.code.slurm._job_outcome,
 vaft.code.policy).
 
-The tdst regeneration was cancelled by the cluster administrator for using a
+The cluster-a regeneration was cancelled by the cluster administrator for using a
 third of what it booked; sacct's TotalCPU of every cancelled job read 0. These
 pin the record that survives a cancel, what a cancel is called, and the gate a
 shared cluster's agreement is enforced by.
@@ -150,7 +150,7 @@ def _write_policy(tmp_path, clusters, default=None, approvals=()):
 
 def test_no_policy_file_means_no_policy(tmp_path):
     assert load_policy({}) is None
-    gate = open_gate(cluster="tdst", cpus=128, mem_mb=None, partition=None, environ={})
+    gate = open_gate(cluster="cluster-a", cpus=128, mem_mb=None, partition=None, environ={})
     assert gate.policy is None
     gate.submitted("1", ["sbatch"])  # a no-op
 
@@ -162,51 +162,51 @@ def test_a_named_but_missing_policy_file_raises():
 
 def test_unknown_policy_keys_are_refused(tmp_path):
     with pytest.raises(ValueError, match="unknown policy keys"):
-        _write_policy(tmp_path, {"tdst": {"requires_aproval": True}})
+        _write_policy(tmp_path, {"cluster-a": {"requires_aproval": True}})
 
 
 def test_approval_is_checked_for_cluster_and_expiry(tmp_path):
     now = datetime(2026, 11, 4, tzinfo=timezone.utc)
     policy = _write_policy(
         tmp_path,
-        {"tdst": {"requires_approval": True}},
+        {"cluster-a": {"requires_approval": True}},
         approvals=[
-            {"id": "ok", "cluster": "tdst", "approver": "admin", "expires": (now + timedelta(days=1)).isoformat()},
-            {"id": "old", "cluster": "tdst", "approver": "admin", "expires": (now - timedelta(days=1)).isoformat()},
+            {"id": "ok", "cluster": "cluster-a", "approver": "admin", "expires": (now + timedelta(days=1)).isoformat()},
+            {"id": "old", "cluster": "cluster-a", "approver": "admin", "expires": (now - timedelta(days=1)).isoformat()},
             {"id": "other", "cluster": "vest", "approver": "admin"},
         ],
     )
-    check = lambda approval: policy.check(cluster="tdst", cpus=1, mem_mb=1, partition=None, approval_id=approval, now=now)
+    check = lambda approval: policy.check(cluster="cluster-a", cpus=1, mem_mb=1, partition=None, approval_id=approval, now=now)
     assert check("ok").allowed
     assert "expired" in check("old").reasons[0]
     assert "is for cluster 'vest'" in check("other").reasons[0]
     assert "none given" in check("").reasons[0]
     assert "not found" in check("missing").reasons[0]
-    assert not policy.check(cluster="tdst", cpus=1, mem_mb=1, partition=None, approval_id="../ok", now=now).allowed
+    assert not policy.check(cluster="cluster-a", cpus=1, mem_mb=1, partition=None, approval_id="../ok", now=now).allowed
 
 
 def test_the_tighter_of_cluster_and_approval_limits_applies(tmp_path):
     policy = _write_policy(
         tmp_path,
-        {"tdst": {"requires_approval": True, "max_cpus": 32, "max_mem_mb": 262144}},
-        approvals=[{"id": "a", "cluster": "tdst", "approver": "admin", "max_cpus": 16, "max_mem_mb": 65536}],
+        {"cluster-a": {"requires_approval": True, "max_cpus": 32, "max_mem_mb": 262144}},
+        approvals=[{"id": "a", "cluster": "cluster-a", "approver": "admin", "max_cpus": 16, "max_mem_mb": 65536}],
     )
-    decision = policy.check(cluster="tdst", cpus=32, mem_mb=65536, partition=None, approval_id="a")
+    decision = policy.check(cluster="cluster-a", cpus=32, mem_mb=65536, partition=None, approval_id="a")
     assert not decision.allowed and decision.limits["max_cpus"] == 16
-    assert policy.check(cluster="tdst", cpus=16, mem_mb=65536, partition=None, approval_id="a").allowed
+    assert policy.check(cluster="cluster-a", cpus=16, mem_mb=65536, partition=None, approval_id="a").allowed
 
 
 def test_max_concurrent_counts_this_logs_jobs_that_are_still_live(tmp_path):
-    policy = _write_policy(tmp_path, {"tdst": {"max_concurrent": 2}})
-    decision = policy.check(cluster="tdst", cpus=1, mem_mb=None, partition=None)
+    policy = _write_policy(tmp_path, {"cluster-a": {"max_concurrent": 2}})
+    decision = policy.check(cluster="cluster-a", cpus=1, mem_mb=None, partition=None)
     for job in ("10", "11", "12"):
         policy.record("submitted", decision, argv=["sbatch"], job_id=job)
-    assert policy.recorded_jobs("tdst") == ["10", "11", "12"]
+    assert policy.recorded_jobs("cluster-a") == ["10", "11", "12"]
     live = lambda ids: len({"11", "12"} & set(ids))
     assert "2 jobs already active" in policy.check(
-        cluster="tdst", cpus=1, mem_mb=None, partition=None, active_jobs=live
+        cluster="cluster-a", cpus=1, mem_mb=None, partition=None, active_jobs=live
     ).reasons[0]
-    assert policy.check(cluster="tdst", cpus=1, mem_mb=None, partition=None, active_jobs=lambda ids: 1).allowed
+    assert policy.check(cluster="cluster-a", cpus=1, mem_mb=None, partition=None, active_jobs=lambda ids: 1).allowed
 
 
 def test_the_default_entry_covers_clusters_the_file_does_not_name(tmp_path):
@@ -215,24 +215,24 @@ def test_the_default_entry_covers_clusters_the_file_does_not_name(tmp_path):
 
 
 def test_a_refusal_raises_and_is_audited(tmp_path):
-    _write_policy(tmp_path, {"tdst": {"requires_approval": True}})
+    _write_policy(tmp_path, {"cluster-a": {"requires_approval": True}})
     env = {"VAFT_EXECUTION_POLICY": str(tmp_path / "policy.yaml")}
     with pytest.raises(SubmissionRefused, match="requires a recorded approval"):
-        open_gate(cluster="tdst", cpus=16, mem_mb=65536, partition="g1", options=["--cpus-per-task=16"], environ=env)
+        open_gate(cluster="cluster-a", cpus=16, mem_mb=65536, partition="g1", options=["--cpus-per-task=16"], environ=env)
     (entry,) = [json.loads(line) for line in (tmp_path / "audit.jsonl").read_text().splitlines()]
     assert entry["event"] == "refused" and entry["argv"] == ["--cpus-per-task=16"] and entry["requester"]
 
 
 def test_a_cluster_is_found_by_any_of_its_hosts(tmp_path):
-    policy = _write_policy(tmp_path, {"tdst": {"requires_approval": True, "hosts": ["147.46.36.74"]}})
-    decision = policy.check(cluster="147.46.36.74", cpus=1, mem_mb=1, partition=None)
-    assert not decision.allowed and decision.cluster == "tdst"
+    policy = _write_policy(tmp_path, {"cluster-a": {"requires_approval": True, "hosts": ["login.cluster-a.example"]}})
+    decision = policy.check(cluster="login.cluster-a.example", cpus=1, mem_mb=1, partition=None)
+    assert not decision.allowed and decision.cluster == "cluster-a"
 
 
 def test_later_scheduler_options_are_what_is_checked(tmp_path):
     # sbatch takes the last value: an extra_args --cpus-per-task/--mem/--partition must not slip past.
-    policy = _write_policy(tmp_path, {"tdst": {"max_cpus": 16, "max_mem_mb": 65536, "partitions": ["g1"]}})
-    check = lambda options: policy.check(cluster="tdst", cpus=16, mem_mb=65536, partition="g1", options=options)
+    policy = _write_policy(tmp_path, {"cluster-a": {"max_cpus": 16, "max_mem_mb": 65536, "partitions": ["g1"]}})
+    check = lambda options: policy.check(cluster="cluster-a", cpus=16, mem_mb=65536, partition="g1", options=options)
     assert check(["--cpus-per-task=16", "--mem=65536M", "--partition=g1"]).allowed
     assert "64 CPUs requested" in check(["--cpus-per-task=16", "-c", "64"]).reasons[0]
     assert "limit 65536 MiB" in check(["--mem=65536M", "--mem=220G"]).reasons[0]
@@ -242,26 +242,26 @@ def test_later_scheduler_options_are_what_is_checked(tmp_path):
 
 def test_an_approval_binds_its_requester_and_its_own_file_name(tmp_path, monkeypatch):
     policy = _write_policy(
-        tmp_path, {"tdst": {"requires_approval": True}},
-        approvals=[{"id": "mine", "cluster": "tdst", "approver": "admin", "requester": "someone-else"}],
+        tmp_path, {"cluster-a": {"requires_approval": True}},
+        approvals=[{"id": "mine", "cluster": "cluster-a", "approver": "admin", "requester": "someone-else"}],
     )
     assert "was given to 'someone-else'" in policy.check(
-        cluster="tdst", cpus=1, mem_mb=1, partition=None, approval_id="mine"
+        cluster="cluster-a", cpus=1, mem_mb=1, partition=None, approval_id="mine"
     ).reasons[0]
     (tmp_path / "approvals" / "copy.json").write_text((tmp_path / "approvals" / "mine.json").read_text())
     assert policy.approval("copy") is None
 
 
 def test_an_unknown_active_count_refuses_under_max_concurrent(tmp_path):
-    policy = _write_policy(tmp_path, {"tdst": {"max_concurrent": 2}})
-    decision = policy.check(cluster="tdst", cpus=1, mem_mb=None, partition=None, active_jobs=lambda ids: None)
+    policy = _write_policy(tmp_path, {"cluster-a": {"max_concurrent": 2}})
+    decision = policy.check(cluster="cluster-a", cpus=1, mem_mb=None, partition=None, active_jobs=lambda ids: None)
     assert "cannot count active jobs" in decision.reasons[0]
 
 
 def test_a_failed_audit_write_after_sbatch_warns_instead_of_raising(tmp_path, monkeypatch):
-    _write_policy(tmp_path, {"tdst": {}})
+    _write_policy(tmp_path, {"cluster-a": {}})
     env = {"VAFT_EXECUTION_POLICY": str(tmp_path / "policy.yaml")}
-    gate = open_gate(cluster="tdst", cpus=1, mem_mb=None, partition=None, environ=env)
+    gate = open_gate(cluster="cluster-a", cpus=1, mem_mb=None, partition=None, environ=env)
 
     def broken(*args, **kwargs):
         raise OSError("disk full")
@@ -294,8 +294,8 @@ def test_an_oom_kill_the_batch_shell_survived_is_still_the_memory_limit():
     ],
 )
 def test_whole_node_and_joined_options_cannot_slip_past(tmp_path, options, message):
-    policy = _write_policy(tmp_path, {"tdst": {"max_cpus": 16, "max_mem_mb": 65536, "partitions": ["g1"]}})
-    decision = policy.check(cluster="tdst", cpus=16, mem_mb=65536, partition="g1", options=options)
+    policy = _write_policy(tmp_path, {"cluster-a": {"max_cpus": 16, "max_mem_mb": 65536, "partitions": ["g1"]}})
+    decision = policy.check(cluster="cluster-a", cpus=16, mem_mb=65536, partition="g1", options=options)
     assert any(message in reason for reason in decision.reasons), decision.reasons
 
 
@@ -330,8 +330,8 @@ def test_an_sbatch_without_a_parseable_id_counts_for_an_hour():
 
 
 def test_exclusive_with_memory_per_cpu_books_the_whole_node(tmp_path):
-    policy = _write_policy(tmp_path, {"tdst": {"max_mem_mb": 65536}})
+    policy = _write_policy(tmp_path, {"cluster-a": {"max_mem_mb": 65536}})
     decision = policy.check(
-        cluster="tdst", cpus=1, mem_mb=None, partition=None, options=["--exclusive", "--mem-per-cpu=1G"]
+        cluster="cluster-a", cpus=1, mem_mb=None, partition=None, options=["--exclusive", "--mem-per-cpu=1G"]
     )
     assert any("whole memory" in reason or "whole node" in reason for reason in decision.reasons), decision.reasons

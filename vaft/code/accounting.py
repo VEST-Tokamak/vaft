@@ -2,13 +2,13 @@
 
 A scheduler's own view of usage is not enough on the clusters VAFT runs on.
 ``pestat``'s CPUload is a load average, and ``sacct``'s ``TotalCPU`` is lost when
-a job is cancelled (tdst, 2026-11: every cancelled lane reported 0 s). The job's
+a job is cancelled (every cancelled job of a 2026-11 regeneration reported 0 s). The job's
 cgroup is the one record that is always there: ``cpu.stat`` counts the CPU time
 of every process the job ever ran, and ``memory.peak`` its largest footprint.
 That footprint includes the page cache the job's file reads filled: on a node
 that does not constrain RAM (Slurm ``ConstrainRAMSpace=no``) it can exceed the
 booked ``--mem`` many times over while the processes' resident memory stays
-far below it (tdst #2147: 160 GB ``memory.peak``, 20 GB sacct ``MaxRSS``, 64 GB
+far below it (one regeneration lane: 160 GB ``memory.peak``, 20 GB sacct ``MaxRSS``, 64 GB
 booked). Compare ``peak_mem_mb`` with a memory request only together with RSS.
 This module reads it, and gives batch job scripts the few shell lines that
 write it next to their exit record, where a cancel cannot erase it.
