@@ -2057,12 +2057,13 @@ def test_the_nn_audit_reports_containment_when_a_model_carries_its_training_rang
     from types import SimpleNamespace
 
     audit = SimpleNamespace(bounds_available=True, contained=False, applicable=False,
-                            bound_violations=("TAUS_2",),
+                            bound_violations=("TAUS_2",), bound_violations_at_data_edge=("TAUS_2",),
                             bound_positions={"TAUS_2": -0.12, "Q_LOC": 0.4})
     record = nn_audit._containment(audit)
     assert record["contained"] is False and record["n_bound_violations"] == 1
     assert record["worst_bound_feature"] == "TAUS_2"
     assert record["min_bound_margin"] == pytest.approx(-0.12)
+    assert record["bound_violations_at_data_edge"] == "TAUS_2"
     assert nn_audit._containment(SimpleNamespace()) == {"bounds_available": False}
 
     base = {"audit_status": "audited", "subsets": "tier_a primary", "scenario": "ratio_1",

@@ -291,6 +291,8 @@ def _containment(audit: Any) -> dict[str, Any]:
         "applicable": bool(audit.applicable),
         "n_bound_violations": len(audit.bound_violations),
         "bound_violations": " ".join(audit.bound_violations),
+        # past where the training data ended, not past upstream's 3.3-sigma clip
+        "bound_violations_at_data_edge": " ".join(getattr(audit, "bound_violations_at_data_edge", ())),
         "worst_bound_feature": worst,
         "min_bound_margin": None if worst is None else float(margins[worst]),
         "_positions": positions,
@@ -321,9 +323,12 @@ def summarise(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         containment: dict[str, Any] = {}
         if bounded:
             outside: dict[str, int] = {}
+            data_edge: dict[str, int] = {}
             for r in bounded:
                 for name in (r["bound_violations"] or "").split()[:1]:
                     outside[name] = outside.get(name, 0) + 1
+                for name in (r.get("bound_violations_at_data_edge") or "").split():
+                    data_edge[name] = data_edge.get(name, 0) + 1
             containment = {
                 "bounded_surfaces": len(bounded),
                 "contained_surfaces": sum(bool(r["contained"]) for r in bounded),
@@ -335,6 +340,9 @@ def summarise(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "median_min_bound_margin": float(np.median([r["min_bound_margin"] for r in bounded])),
                 "bound_binding_features": " ".join(
                     f"{k}:{v}" for k, v in sorted(outside.items(), key=lambda kv: -kv[1])[:4]),
+                "surfaces_past_data_edge": sum(bool(r.get("bound_violations_at_data_edge")) for r in bounded),
+                "data_edge_features": " ".join(
+                    f"{k}:{v}" for k, v in sorted(data_edge.items(), key=lambda kv: -kv[1])[:4]),
             }
         out.append({
             "subset": subset, "scenario": scenario, "model": model,
