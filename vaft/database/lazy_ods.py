@@ -157,7 +157,10 @@ class HSDSStore(dynamic_ODS):
             self._index(ids_name, handle)
         except Exception as error:
             if handle is not None:
-                handle.close()
+                try:
+                    handle.close()
+                except Exception:  # noqa: BLE001 - the index failure is the error to report
+                    pass
             if isinstance(error, OSError):
                 raise
             raise HSDSIndexError(
@@ -177,6 +180,9 @@ class HSDSStore(dynamic_ODS):
 
         def walk(group: Any, prefix: tuple[Any, ...] = ()) -> None:
             for name, node in group.items():
+                if node is None:
+                    # h5pyd's items() yields None for a child whose lookup failed
+                    raise KeyError(f"no object behind link {name!r}")
                 if hasattr(node, "items"):
                     walk(node, prefix + (name,))
                     continue

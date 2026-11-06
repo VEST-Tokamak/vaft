@@ -329,32 +329,48 @@ def test_flat_walks_every_element_of_a_long_lazy_aos():
 
 
 class _UnreachableFile(FakeFile):
-    """An IDS file whose link lookups fail the way h5pyd reports them: as ``KeyError``.
+    """An IDS file whose remote listing fails as h5pyd reports it.
 
-    h5pyd turns a 403/503/timeout on a link into ``KeyError("Unable to open
-    object")`` and its membership test into ``False``, so a reader that trusts
-    either would take the failure for an empty or absent IDS.
+    h5pyd 0.24 raises ``OSError`` from ``keys()`` (a plain GET), answers
+    ``name in group`` with ``False`` and turns a failed link lookup into
+    ``KeyError``; ``items()`` yields ``None`` for a child it could not fetch.
+    A reader that trusts any of these takes the failure for an empty IDS.
     """
+
+    def __init__(self, failure, *args):
+        super().__init__(*args)
+        self.failure = failure
 
     def __contains__(self, name):
         return False
 
     def keys(self):
-        raise KeyError("Unable to open object (403 for hs_user at http://hsds.internal)")
+        if self.failure == "listing":
+            raise OSError("403 for hs_user at http://hsds.internal")
+        return super().keys()
 
-    def items(self):
-        raise KeyError("Unable to open object (403 for hs_user at http://hsds.internal)")
+    def __getitem__(self, name):
+        if self.failure == "lookup":
+            raise KeyError("Unable to open object (403 for hs_user at http://hsds.internal)")
+        return super().__getitem__(name)
 
 
-def test_an_ids_that_cannot_be_indexed_is_an_error_not_an_absence():
-    unreachable = _UnreachableFile("magnetics", FakeGroup({"time": FakeDataset([0.1])}))
+@pytest.mark.parametrize("failure, raised", [
+    ("listing", OSError),                    # what production hits: OSError from the link listing
+    ("lookup", lazy_ods.HSDSIndexError),     # a KeyError from a link lookup must not read as absent
+    ("missing", lazy_ods.HSDSIndexError),    # items() yielding None for a child it could not fetch
+])
+def test_an_ids_that_cannot_be_indexed_is_an_error_not_an_absence(failure, raised):
+    group = FakeGroup({"time": None if failure == "missing" else FakeDataset([0.1])})
+    unreachable = _UnreachableFile(failure, "magnetics", group)
     module = FakeH5pyd({"hdf5://main/39915/magnetics.h5": unreachable})
     store = HSDSStore(39915, h5pyd_module=module)
     ods = HSDSODS(store=store, consistency_check=False)
-    with pytest.raises(lazy_ods.HSDSIndexError) as caught:
+    with pytest.raises(raised) as caught:
         ods["magnetics.time"]
     assert isinstance(caught.value, OSError)
-    assert "hsds.internal" not in str(caught.value) and "KeyError" in str(caught.value)
+    if raised is lazy_ods.HSDSIndexError:
+        assert "hsds.internal" not in str(caught.value)
     assert unreachable.closed and store.opened_ids == ()
-    with pytest.raises(lazy_ods.HSDSIndexError):  # not cached as an empty IDS on the second try
+    with pytest.raises(OSError):  # not cached as an empty IDS: the second access fails again
         "magnetics.time" in store
