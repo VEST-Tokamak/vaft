@@ -64,6 +64,7 @@ from typing import Any
 import numpy as np
 
 from vaft.data.resources import data_path
+from vaft.machine_mapping.machine_history import first_shot_of, machine_eras
 
 ASSET = data_path("geometry/VEST_passive_wall_2409.npz")
 BASE_COUPLING = data_path("geometry/VEST_em_coupling_pf_versions.npz")
@@ -88,8 +89,14 @@ MATERIAL_SUS, NEW_GROUP = 2, 11
 #: import is refused: the two kernels differ by up to 0.9 % on the existing
 #: 950 loops (VFIT's self-term is ~13 % higher and is excluded).
 DONOR_AGREEMENT = 0.01
-#: A shot in each PF geometry era, to build that era's coil geometry.
-PF_REFERENCE_SHOT = {"1906": 43017, "2507": 45968}
+#: A shot in each PF geometry era on wall 2409, to build that era's coil
+#: geometry: the eras' reference shots (vest.yaml ``machine_history``, #2267).
+def _pf_reference_shots() -> dict[str, int]:
+
+    return {era.pf_geometry: era.reference_shot for era in machine_eras() if era.wall_geometry == "2409"}
+
+
+PF_REFERENCE_SHOT = _pf_reference_shots()
 #: How closely the recomputation must reproduce the shipped 950-loop asset
 #: before the same method is trusted for the new rows.
 CONVENTION_TOLERANCE = 1e-11
@@ -318,7 +325,7 @@ def build(vfit_root: Path) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     provenance = {
         "generator": GENERATOR,
         "issue": ISSUE,
-        "first_shot": 43017,
+        "first_shot": first_shot_of("wall_geometry", "2409"),
         "name": NAME,
         "vfit_group": NEW_GROUP,
         "sources": {

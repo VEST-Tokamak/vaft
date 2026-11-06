@@ -11,6 +11,7 @@ import scipy.io
 from vaft.database import raw as raw_db
 from vaft.process.signal_processing import pf_current_filter, repair_clipped_interval
 
+from .machine_history import first_shot_of, machine_era_for_shot
 from .utils import resolve_vest_diagnostic, set_path
 
 PF_COIL_COUNT = 10
@@ -19,12 +20,15 @@ PF_WIDTH_BY_COIL = [0.0172, 0.04, 0.028, 0.028, 0.042, 0.042, 0.042, 0.042, 0.04
 PF_RADIUS_BY_COIL = [0.053, 0.104, 0.29, 0.57, 0.71, 0.71, 0.71, 0.71, 0.93, 0.93]
 PF_HEIGHT_BY_COIL_1906 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.029, 0.0648, 0.0648, 0.0648, 0.0648]
 PF_HEIGHT_BY_COIL_2507 = [2.4, 0.76, 0.029, 0.029, 0.029, 0.0616, 0.0324, 0.0648, 0.0648, 0.0648]
-#: First shot on the rebuilt PF6/PF7 (VFIT DiscretizedCoilGeometry ver_2507).
-#: Shots 45950-45967 run every ~12 minutes on 2025-06-30 and 45968 follows on
-#: 2025-07-07, so the coils could only have been rebuilt in that week-long
-#: access; VFIT's own selection is ``shot > 45967``. The 45958 used before
-#: #956 had no recorded source.
-PF_GEOMETRY_2507_FIRST_SHOT = 45968
+# The first shot on the rebuilt PF6/PF7 (VFIT DiscretizedCoilGeometry
+# ver_2507) is vest.yaml's ``machine_history.machine_eras`` (issue #2267);
+# ``PF_GEOMETRY_2507_FIRST_SHOT`` is derived from it on access.
+
+
+def __getattr__(name: str):
+    if name == "PF_GEOMETRY_2507_FIRST_SHOT":
+        return first_shot_of("pf_geometry", "2507")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _candidate_geometry_roots() -> list[Path]:
@@ -73,11 +77,13 @@ def pf_geometry_version_for_shot(shot: int | None) -> str:
 
     Keeping this boundary in one public helper ensures that static PF geometry
     and geometry-dependent coupling matrices always select the same version.
+    The boundary is the shot's machine era (vest.yaml
+    ``machine_history.machine_eras``).
     ``None`` retains the historical geometry for backward compatibility.
     """
-    if shot is not None and shot >= PF_GEOMETRY_2507_FIRST_SHOT:
-        return "2507"
-    return "1906"
+    if shot is None:
+        return "1906"
+    return machine_era_for_shot(int(shot)).pf_geometry
 
 
 def _geometry_profile_for_shot(shot: int | None) -> tuple[str, list[float]]:
@@ -477,7 +483,7 @@ def pf_active_from_raw_database(
 
 
 __all__ = [
-    "PF_GEOMETRY_2507_FIRST_SHOT",
+    "PF_GEOMETRY_2507_FIRST_SHOT",  # noqa: F822 - served by module __getattr__
     "coil_field_code_by_index",
     "pf_active",
     "pf_active_from_raw_database",
