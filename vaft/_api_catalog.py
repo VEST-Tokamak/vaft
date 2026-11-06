@@ -1,7 +1,7 @@
 """The published Python API of VAFT, read from the source, for the documentation site.
 
 ``python -m vaft._api_catalog --output docs/_data/api_catalog.yml`` writes what
-``/reference/api/<page>/`` renders (issue #162).  What is published is decided
+``/reference/api/<page>/`` renders.  What is published is decided
 in two places, and neither is this module:
 
 * each public module's ``__all__`` -- the module's own statement of what it
@@ -21,7 +21,7 @@ constants that merely share a name and a value stay two entries.
 
 "Where it is defined" is a source span (:func:`vaft._docstring.source_span`):
 the file and the first and last line of the definition, decorators included.
-The pages link it at the provenance commit (#1069), for every function, class
+The pages link it at the commit the snapshot was built from, for every function, class
 and class member; unlike the scientific pages they do not show the code inline
 (see :func:`source_of`).
 
@@ -82,7 +82,7 @@ def is_public(module_name: str) -> bool:
 def is_script(module_name: str, inventory: Mapping) -> bool:
     """Whether ``module_name`` is under a ``scripts`` prefix of the inventory.
 
-    Issue studies (``vaft.validation.studies``, #1756) are run with
+    Issue studies (``vaft.validation.studies``) are run with
     ``python -m``, not imported: they load optional solver toolkits at module
     level, so the catalog must not import them to find out they publish nothing.
     """
@@ -324,7 +324,7 @@ def source_of(obj: Any) -> dict:
     """Where ``obj`` is defined: ``{path, line, end_line, code}`` (see :func:`vaft._docstring.source_span`).
 
     Always without inline code: the API pages link the source but do not show
-    it (#1069).  They list about 3000 functions and methods, many of them one
+    it.  They list about 3000 functions and methods, many of them one
     factory closure exported under hundreds of names, and inlining them would
     double the site; the scientific pages (formula, process, plot, diagram)
     show theirs.

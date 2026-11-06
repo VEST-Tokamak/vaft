@@ -1,7 +1,7 @@
 """Parser for VAFT's standardized docstring contracts.
 
 Two layers document themselves through one parser: :mod:`vaft.formula`
-(issue #248) and :mod:`vaft.process` (issue #252).  They share a layout -- a
+and :mod:`vaft.process`.  They share a layout -- a
 one-line summary, prose, numpydoc ``Parameters`` / ``Returns`` items whose
 description paragraph closes with a unit tag such as ``[Wb/rad]`` or ``[-]``,
 and a fixed set of underlined sections -- but not a *schema*: a formula has a
@@ -198,7 +198,7 @@ def source_location(fn, root) -> tuple[str, int]:
 
 
 INLINE_SOURCE_LINES = 80
-"""Longest definition the reference pages show inline; longer ones keep only the link (#1069)."""
+"""Longest definition the reference pages show inline; longer ones keep only the link."""
 
 
 def source_span(obj, root, *, inline: bool = True) -> dict:
@@ -207,7 +207,7 @@ def source_span(obj, root, *, inline: bool = True) -> dict:
     ``line`` and ``end_line`` are the first and last line of the definition,
     decorators included, as ``inspect.getsourcelines`` reads them from the
     unwrapped object -- the range the generated pages link to at the commit
-    the snapshot was built from (#1069).  ``code`` is that range, dedented, when
+    the snapshot was built from.  ``code`` is that range, dedented, when
     ``inline`` and the definition is at most :data:`INLINE_SOURCE_LINES` lines
     long, else ``""``: the pages show it collapsed next to the link, so both
     come from the same tree.
