@@ -176,8 +176,23 @@ class SnakemakeRunner:
             "greedy",
             "--keep-going",
             "--rerun-incomplete",
+            *self.resource_profile_args(),
             *self.config.extra_args,
         ]
+
+    def resource_profile_args(self) -> list[str]:
+        """``--set-resources``/``--set-threads`` from the pipeline config's ``resource_profile``.
+
+        Resolved by the workflow's own ``paths.py``, so the worker and the
+        cluster lanes book rules the same way.
+        """
+        from .status import load_pipeline_paths_module
+
+        if not (self.config.workflow_dir / "paths.py").is_file():
+            return []  # a workflow without the helper books nothing extra
+        module = load_pipeline_paths_module(self.config.workflow_dir)
+        helper = getattr(module, "resource_profile_args", None)
+        return helper(self.pipeline_config) if helper is not None else []
 
     # -- execution ---------------------------------------------------------
     def run(

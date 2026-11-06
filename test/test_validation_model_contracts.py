@@ -264,8 +264,8 @@ def test_every_physics_adapter_in_vaft_code_has_a_mode():
 
     root = Path(code.__file__).parent
     adapters = {p.stem for p in root.glob("*.py")} | {p.name for p in root.iterdir() if (p / "__init__.py").exists()}
-    infrastructure = {"__init__", "_executables", "_launch", "_memory_gate", "_process_tree", "base", "execution",
-                      "formalism", "remote", "resources", "slurm", "snakemake"}
+    infrastructure = {"__init__", "_executables", "_launch", "_memory_gate", "_process_tree", "accounting", "base",
+                      "execution", "formalism", "policy", "remote", "resources", "slurm", "snakemake"}
     # adapters folded into another registry adapter: CHEASE helpers into chease, PENTRC's package into pentrc
     folded = {"chease_kinetic_iteration": "chease", "chease_scan": "chease", "chease_synthesis": "chease",
               "chease_synthesis_targets": "chease"}

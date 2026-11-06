@@ -1,7 +1,7 @@
 # #2147 regeneration run overrides, deep-merged by Snakemake over the pinned
 # workflow/automatic_pipeline_1_routine_data_processing/config.yaml (production defaults:
 # statistical_891 EFIT preset, era Green tables, `vest: {}` era magnetics policy).
-# run_lane.sh appends `cores:` and `shots:`.
+# The lane runner (vaft.database.campaign) writes `cores:`, `shots:` and `base_dir:` per chunk.
 base_dir: /srv/vest.filedb        # seen through srvns; the real root is <lane>/filedb
 layout: filedb
 conda: null
@@ -22,3 +22,8 @@ efit:
   table_dir: /srv/vest.filedb/pipeline/efit_tables/packaged-vest-pre-43017-pf1906/
 hsds:
   replicate: false
+# Memory booked per rule (paths.resource_profile_args): GPEC cells peak at 12-25 GB in DCON/RDCON
+# `match`, CHEASE at ~1.4 GB. The lane caps the sum at its allocation minus 8 GB.
+resource_profile:
+  run_gpec_module: {mem_mb: 24000}
+  run_chease: {mem_mb: 4000}

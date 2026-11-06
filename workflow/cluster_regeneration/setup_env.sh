@@ -1,19 +1,22 @@
 #!/bin/bash
-# Build (or re-pin) the #2147 regeneration environment on tdst.
+# Build (or re-pin) a regeneration environment on the cluster (#2147). Site settings: site.sh.
 #   PIN=<develop SHA or ref> bash $REGEN_ROOT/setup_env.sh
 #   PIN=<sha> PIN_BRANCH=ops/<name> ...   a pin that is not on develop: a reviewed ops branch
 #                                          (e.g. a frozen pin plus cherry-picked fixes)
-# One variable re-pins everything: a private ref refs/regen2147/pin in our own clone,
-# a detached worktree src-<sha9>, a uv venv env-<sha9> (py3.14 from ~/work/vaft-ci/py314),
-# the real EFIT .ddd tables (no git-lfs here), and ~/regen2147/{src,env,env.sh} -> that pin.
-# Never touches ~/git/vaft, ~/work/vaft-ci/repo or any other checkout.
+# One variable re-pins everything: a private ref refs/regen/pin in our own clone,
+# a detached worktree src-<sha9>, a uv venv env-<sha9> (Python 3.14 from REGEN_PYTHON),
+# the real EFIT .ddd tables (no git-lfs here), and $REGEN_ROOT/{src,env} -> that pin.
+# Never touches any other checkout.
 set -euo pipefail
-ROOT=${REGEN_ROOT:-$HOME/regen2147}
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=site.sh
+. "$HERE/site.sh"
+ROOT=${REGEN_ROOT:?set REGEN_ROOT in $VAFT_REGEN_ENV (see site.example.env)}
 PIN=${PIN:?set PIN=<develop sha or ref>}
-PY=${REGEN_PYTHON:-$HOME/work/vaft-ci/py314/bin/python}   # a Python 3.14 with uv beside it
+PY=${REGEN_PYTHON:?set REGEN_PYTHON (a Python 3.14 with uv beside it)}
 UV=$(dirname "$PY")/uv
 REPO=$ROOT/repo
-# Versions matched to vestserver conda vaft-ml (the #2191 qualification env); omas is the
+# Versions matched to the production server's environment (the #2191 qualification env); omas is the
 # pyproject pin (==0.95.2), not vaft-ml's 0.94.2.
 PINS="numpy==2.5.3 scipy==1.18.1 snakemake==9.27.0 snakemake-executor-plugin-cluster-generic"
 
@@ -30,11 +33,11 @@ fi
 SHA=$(git -C "$REPO" rev-parse --verify "${PIN}^{commit}")
 git -C "$REPO" merge-base --is-ancestor "$SHA" "$BASE" \
   || { echo "PIN $PIN ($SHA) is not on $BASE" >&2; exit 2; }
-git -C "$REPO" update-ref refs/regen2147/pin "$SHA"
+git -C "$REPO" update-ref refs/regen/pin "$SHA"
 S9=${SHA:0:9}
 SRC=$ROOT/src-$S9 ENV=$ROOT/env-$S9
 if [ ! -d "$SRC" ]; then
-  git -C "$REPO" worktree add -q --detach "$SRC" refs/regen2147/pin
+  git -C "$REPO" worktree add -q --detach "$SRC" refs/regen/pin
 fi
 [ "$(git -C "$SRC" rev-parse HEAD)" = "$SHA" ] || { echo "worktree $SRC is not at $SHA" >&2; exit 2; }
 # Real Green tables: each must hash to the oid its LFS pointer names.
