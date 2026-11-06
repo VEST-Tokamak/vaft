@@ -35,10 +35,10 @@ Presence of NumPy/SciPy calls is not a criterion.
 | 3 | `recipes._mapped_field_values` (10971) | `equilibrium_*` 2-D field maps of 1-D flux functions | f(psi_N) -> f(R,Z) | `process.equilibrium.psi_to_rz` | reusable (duplicate) | **delegates (P1)** |
 | 4 | `kinetic_overview._core_coordinate` (172) | `kinetic_overview`, `kinetic_state` | core grid in psi_N / rho_pol / rho_tor | none public | reusable | **moved (P1)** |
 | 5 | `kinetic_overview._mapped_coordinate` (127) | `kinetic_overview` | Thomson/CX (R,Z) -> flux coordinate | `process.profile.equilibrium_mapping_points` | delegation | keep |
-| 6 | `recipes._volume_weights_at` (6836) | `_impurity_inputs` -> impurity composition views | dV on a rho_tor grid from equilibrium V(rho_tor) | `omas.vest_upstream._volume_weights_on_grid` (same algorithm, private) | reusable (duplicate) | P2: one public process helper used by both; see B3 |
+| 6 | `recipes._volume_weights_at` (6836) | `_impurity_inputs` -> impurity composition views | dV on a rho_tor grid from equilibrium V(rho_tor) | `omas.vest_upstream._volume_weights_on_grid` (same algorithm, private) | reusable (duplicate) | **moved (P2)**: `process.profile.volume_weights_on_grid` + `equilibrium_volume_weights`, used by the view, the composition stage and the kinetic-state inference |
 | 7 | `recipes._mhd_linear_flux_surface_mesh` (14790) | `mhd_linear_geometry_island` | read/validate DCON R,z(psi_N, theta) mesh | none (writer `machine_mapping.gpec_ideal`) | view | keep |
 | 8 | `recipes._surface_at` (14941) | island geometry | R,z at a target psi_N per theta column, NaN outside | none equivalent (`extract_flux_surface_contours` labels a different angle) | view | keep |
-| 9 | `recipes._gpec_resonant_table` (~14350) | `mhd_linear_profile_resonant_flux`, `_island_width`, `_chirikov`, island geometry | Delta, Phi_res, phase, w_isl per rational surface | building blocks canonical (`process.perturbation.resonant_delta`, `formula.stability.*`); the pipeline only here | reusable | P2: candidate for `vaft.process.perturbation` |
+| 9 | `recipes._gpec_resonant_table` (~14350) | `mhd_linear_profile_resonant_flux`, `_island_width`, `_chirikov`, island geometry | Delta, Phi_res, phase, w_isl per rational surface | building blocks canonical (`process.perturbation.resonant_delta`, `formula.stability.*`); the pipeline only here | reusable | **moved (P2)**: `process.perturbation.resonant_table`; the view keeps the IDS/XML reading |
 | 10 | island separatrix assembly (~15000) | `mhd_linear_geometry_island` | psi_r +- (w/2)|cos(xi/2)| | `formula.stability.helical_phase`, `process.equilibrium.pest_angle_from_jacobian_angle` | delegation (geometry local) | keep |
 | 11 | `recipes._spectrogram_result` (11326) | `_build_spectrogram`, interferometer spectrogram | method dispatch (stft / hann_fft / cwt) | `process.fluctuation.compute_spectrogram`, `process.magnetics.mirnov_spectrogram`, `process.soft_x_rays.sxr_cwt_spectrogram` | delegation (parameter rewriting) | P3: fix pass-through, see B5 |
 | 12 | `recipes._build_spectrogram` (11400) | `mirnov_spectrogram`, `soft_x_rays_spectrogram` | channel/time window, fs from median dt | `process.fluctuation._resolve_sample_rate` | view + delegation | P3 |
@@ -79,6 +79,15 @@ check.  No public `vaft.process` API produces dV on a profile grid
 public helper with proxy and monotonicity validation, used by both callers --
 a separate PR, because unifying the edge policy changes upstream output.
 
+**Done in P2.** `vaft.process.profile.volume_weights_on_grid` (array kernel)
+and `equilibrium_volume_weights` (ODS adapter) replace both copies.
+Bit-identical on an authentic radius (frozen copies; packaged 48224).
+Corrections: a proxy radius is replaced by the `q`-derived one, the same
+resolution `core_profiles` builds its grid with, or the slice is declined; a
+constant `V` and an unusable grid are declined by every caller (upstream used
+to return zeros, i.e. 0/0).  The derivation runs on a private copy of the
+radius leaves, so the caller's ODS is never written.
+
 ## B4 -- MHD flux-surface geometry
 
 `_mhd_linear_flux_surface_mesh` only reads and validates the mapped DCON mesh;
@@ -87,8 +96,10 @@ outside the mapped range, which is correct for clipped islands.  Neither has an
 equivalent outside the plot layer, and the process straight-field-line
 routines label a different angle, so they are not interchangeable.  The angle
 conversion already delegates (`pest_angle_from_jacobian_angle`).  Both stay.
-The reusable science in this area is `_gpec_resonant_table` (item 9).  The
-`m = round(n q)` sign for negative q is unresolved.
+The reusable science in this area is `_gpec_resonant_table` (item 9), whose
+per-surface derivation moved verbatim to
+`vaft.process.perturbation.resonant_table` in P2.  The `m = round(n q)` sign
+for negative q is unresolved.
 
 ## B5 -- spectral parameter semantics
 

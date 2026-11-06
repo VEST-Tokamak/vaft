@@ -6810,11 +6810,12 @@ def _impurity_weights(options: Mapping[str, Any]) -> tuple[dict[str, float], flo
 def _volume_weights_at(ods: Any, t: float, rho: np.ndarray) -> np.ndarray | None:
     """``dV`` per rho point from the equilibrium V(rho_tor_norm) of the same time, or ``None``.
 
-    The slice is matched BY TIME within :data:`_IMPURITY_SLICE_TOLERANCE`;
-    points beyond the equilibrium's rho range get ``dV = 0`` (``np.interp``
-    clamps), as in the Lane L atlas.
+    The slice is matched BY TIME within :data:`_IMPURITY_SLICE_TOLERANCE`; the
+    weighting is :func:`vaft.process.profile.equilibrium_volume_weights`
+    (issue #2270), which declines a constant V and a proxy radius it cannot
+    re-derive -- the caller then says the stand-in is used.
     """
-    if not np.isfinite(t) or not np.all(np.isfinite(rho)) or not _count(ods, "equilibrium.time_slice"):
+    if not np.isfinite(t) or not _count(ods, "equilibrium.time_slice"):
         return None
     times = slice_times(ods, "equilibrium.time_slice")
     if not np.isfinite(times).any():
@@ -6822,20 +6823,9 @@ def _volume_weights_at(ods: Any, t: float, rho: np.ndarray) -> np.ndarray | None
     index = int(np.nanargmin(np.abs(times - t)))
     if abs(times[index] - t) > _IMPURITY_SLICE_TOLERANCE:
         return None
-    base = f"equilibrium.time_slice.{index}.profiles_1d"
-    rho_eq, volume = _array(ods, f"{base}.rho_tor_norm"), _array(ods, f"{base}.volume")
-    if rho_eq is None or volume is None or rho_eq.shape != volume.shape:
-        return None
-    ok = np.isfinite(rho_eq) & np.isfinite(volume)
-    if not ok.any():
-        return None
-    order = np.argsort(rho_eq[ok])
-    edges = np.concatenate(([0.0], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
-    v = np.interp(edges, rho_eq[ok][order], volume[ok][order])
-    dv = np.clip(np.diff(v), 0.0, None)
-    # A constant or zero V(rho) weighs nothing; the caller then says the
-    # stand-in is used rather than the resolver failing on a NaN amplitude.
-    return dv if np.sum(dv) > 0.0 else None
+    from vaft.process.profile import equilibrium_volume_weights
+
+    return equilibrium_volume_weights(ods, index, rho)
 
 
 def _plasma_age(ods: Any, t: float, options: Mapping[str, Any]) -> tuple[float | None, str]:
@@ -14330,17 +14320,13 @@ def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
     figure should not pay for them again per trace.
 
     What the IDS carries is the perturbed flux on a ``(psi_n, m)`` grid plus
-    the equilibrium geometry; :func:`vaft.process.perturbation.resonant_delta`
+    the equilibrium geometry; :func:`vaft.process.perturbation.resonant_table`
     turns the jump across each rational surface into the resonance parameter,
-    and the closed forms in :mod:`vaft.formula.stability` take it from there.
+    the resonant flux, its phase and the island width.
     Reproduces GPEC's own ``w_isl`` to about a per cent on the DIII-D
     reference.
     """
-    from vaft.formula.stability import (
-        island_width_from_resonant_flux,
-        resonant_flux_from_delta,
-    )
-    from vaft.process.perturbation import resonant_delta
+    from vaft.process.perturbation import resonant_table
 
     cell = _mhd_linear_eigenfunction_cell(ods, **options)
     n_tor = int(cell["n_tor"])
@@ -14358,47 +14344,9 @@ def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
     if real is None or imaginary is None:
         raise ValueError(f"mhd_linear ODS carries a grid but no perturbed flux for n={n_tor}")
     field = np.asarray(real, dtype=float) + 1j * np.asarray(imaginary, dtype=float)
-    psi_n, harmonics = cell["psi_n"], cell["m"]
-    if field.shape != (psi_n.size, harmonics.size):
-        raise ValueError(
-            f"the perturbed flux has shape {field.shape}, but the declared (psi, m) "
-            f"grid is {(psi_n.size, harmonics.size)}"
-        )
-
-    rows: list[dict[str, Any]] = []
-    for surface in surfaces:
-        m_pol = int(round(n_tor * surface["q"]))
-        column = int(np.argmin(np.abs(harmonics - m_pol)))
-        if int(harmonics[column]) != m_pol:
-            # The resonant harmonic is outside the mapped band, so this
-            # surface has no column to take a jump in.
-            continue
-        jump = resonant_delta(
-            psi_n, field[:, column],
-            psi_rational=surface["psi_n"], area=surface["area"],
-            dq_dpsi_norm=surface["dq_dpsi_n"], chi1=chi1,
-            m_pol=m_pol, n_tor=n_tor,
-        )
-        flux = resonant_flux_from_delta(jump.delta, surface["geometric_factor"], n_tor)
-        rows.append({
-            "psi_n": surface["psi_n"],
-            "q": surface["q"],
-            "m_pol": m_pol,
-            "delta": jump.delta,
-            "Phi_res": complex(flux),
-            # The island's phase reference (C-20). GPEC reports it as
-            # arg(I_res), and I_res is not mapped -- but it does not need to
-            # be: `gpec/gpout.f:1689-1691` builds both from the same jump,
-            # I_res = -Delta*chi1*j_c/m and Phi_res = -G*Delta/n, and the two
-            # scale factors are real and of one sign, so the two arguments are
-            # analytically the same number. This one is derived from the
-            # fitted jump rather than read, so it carries the derivation's own
-            # accuracy -- degrees, not the exactness of the identity.
-            "phase": float(np.angle(flux)),
-            "w_isl": float(island_width_from_resonant_flux(
-                flux, surface["area"], surface["q"], surface["dq_dpsi_n"], m_pol, chi1,
-            )),
-        })
+    # The derivation itself is the process layer's (issue #2270); the view
+    # reads the IDS and the recorded geometry around it.
+    rows = resonant_table(cell["psi_n"], cell["m"], field, surfaces, chi1=chi1, n_tor=n_tor)
     if not rows:
         raise ValueError(
             f"none of the {len(surfaces)} rational surfaces recorded for n={n_tor} "
