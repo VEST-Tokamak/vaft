@@ -2129,7 +2129,8 @@ def test_native_and_nn_see_one_input_and_pair_by_trained_configuration(nn_compar
     def fake_run(profile, rho, workdir, config=None, *, check=True):
         workdir = Path(workdir)
         workdir.mkdir(parents=True, exist_ok=True)
-        calls.append((config.sat_rule, config.use_bper, rho))
+        calls.append((config.sat_rule, config.use_bper, config.use_bpar,
+                      dict(config.extra_parameters).get("UNITS"), rho))
         scale = 1.0 + config.sat_rule  # the SAT rules disagree, so model form is non-zero
         native = TglfOutputs(directory=str(workdir), version={"revision": "test"},
                              gbflux={"particle": np.array([0.1, 0.05, 0.0]) * scale,
@@ -2144,21 +2145,25 @@ def test_native_and_nn_see_one_input_and_pair_by_trained_configuration(nn_compar
             "--surfaces", "0.4", "0.6", "--sat-rules", "2", "3", "--field-models", "es", "em-bper",
             "--workers", "2", "--out", str(out)]
     assert nn_compare.main(argv) == 0
-    assert len(calls) == 2 * 2 * 2
+    assert len(calls) == 2 * 2 * 2 + 2, "the SAT x field grid plus the family's upstream preset"
+    preset_calls = [c for c in calls if c[3] == "CGYRO"]
+    assert {c[:3] for c in preset_calls} == {(3, True, True)}, "an EM family ran with BPER and BPAR"
 
     native = pd.read_csv(out / "native.csv")
-    assert set(native["status"]) == {"solved"} and len(native) == 8
+    assert set(native["status"]) == {"solved"} and len(native) == 10
     assert native.loc[native["config"] == "tglf-sat3-em-bper", "OUT_Q_ions"].eq(6.0).all()
 
     nn = pd.read_csv(out / "nn.csv")
     assert set(nn["model"]) == {"sat3_em_d3d_azf-1"} and len(nn) == 2
 
     paired = pd.read_csv(out / "compare.csv")
-    assert set(paired["config"]) == {"tglf-sat3-em-bper"}, "an EM SAT3 family meets only SAT3 em-bper"
+    assert set(paired["config"]) == {"nnpreset-sat3-em-azf-1"}, "a family meets only its own preset"
     assert len(paired) == 2
     assert paired["OUT_Q_elec_native"].eq(8.0).all()
     summary = pd.read_csv(out / "compare_summary.csv")
     assert {"all"} <= set(summary["domain_class"])
+    assert set(summary["subset"]) == {"primary"}, "the summary covers the requested subset only"
+    assert (out / "preset_vs_default.csv").is_file()
     form = pd.read_csv(out / "model_form.csv")
     assert form["OUT_Q_elec_log10_max_over_min"].round(6).eq(round(np.log10(4 / 3), 6)).all()
 
@@ -2170,6 +2175,24 @@ def test_native_and_nn_see_one_input_and_pair_by_trained_configuration(nn_compar
 
 
 def test_trained_configuration_comes_from_the_family_name(nn_compare):
-    assert nn_compare.trained_config("sat3_em_d3d+mastu+nstx_azf-1") == "tglf-sat3-em-bper"
+    assert nn_compare.trained_config("sat3_em_d3d+mastu+nstx_azf-1") == "tglf-sat3-em-bper-bpar"
     assert nn_compare.trained_config("sat2_es_nstx_azf-1") == "tglf-sat2-es"
-    assert nn_compare.trained_config("sat0quench_em_mastu_azf+1") == "tglf-sat0-em-bper"
+
+
+def test_upstream_preset_reproduces_turbulenttransport_switches(nn_compare):
+    """Transcribed from TurbulentTransport.jl src/tglf.jl InputTGLF (1.1.4 = 1.2.0)."""
+    label, kw = nn_compare.upstream_preset("sat3_em_d3d+mastu+nstx_azf-1", 3)
+    extra = kw["extra_parameters"]
+    assert label == "nnpreset-sat3-em-azf-1"
+    assert (kw["sat_rule"], kw["use_bper"], kw["use_bpar"]) == (3, True, True)
+    assert (extra["UNITS"], extra["KYGRID_MODEL"], extra["NBASIS_MAX"], extra["NMODES"]) == ("CGYRO", 4, 6, 5)
+    assert (extra["ALPHA_ZF"], extra["USE_MHD_RULE"], extra["USE_AVE_ION_GRID"]) == (-1.0, False, True)
+
+    label, kw = nn_compare.upstream_preset("sat0quench_es_ukstep_azf+1", 3)
+    extra = kw["extra_parameters"]
+    assert label == "nnpreset-sat0quench-es-azf+1"
+    assert (kw["use_bper"], kw["use_bpar"], extra["ALPHA_QUENCH"], extra["ALPHA_ZF"]) == (False, False, 1.0, 1.0)
+    assert (extra["UNITS"], extra["KYGRID_MODEL"], extra["NBASIS_MAX"]) == ("GYRO", 1, 4)
+
+    _, kw = nn_compare.upstream_preset("sat1geo_es_nstx_azf-1", 3)
+    assert kw["extra_parameters"]["UNITS"] == "CGYRO" and kw["sat_rule"] == 1

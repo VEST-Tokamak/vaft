@@ -17,13 +17,20 @@ Stages (``--stage``, default ``all``):
   (z-score, and containment when ``xbounds.txt`` was exported) and the ensemble
   prediction, *whether or not* the input is in domain, because the in-domain vs
   extrapolated contrast is the point. Writes ``nn.csv``.
-* ``compare`` -- pairs each family with the native configuration it was trained on
-  (same SAT rule; ``em`` families with ``em-bper``, ``es`` with ``es``;
-  ``em-bper-bpar`` is never grouped under EM) and writes ``compare.csv`` (one row
-  per surface x family) and ``compare_summary.csv`` (per scenario x subset x
-  family x domain class). ``model_form.csv`` is the spread of the native fluxes
-  across SAT rules at one field model -- the model-form reference an NN error is
-  read against.
+* ``compare`` -- pairs each family with its **upstream preset**: a native run with
+  the TGLF switches the family was trained with, read from TurbulentTransport.jl's
+  own input builder (``src/tglf.jl``, ``InputTGLF``). Those differ from VAFT's
+  defaults in more than the SAT rule: electromagnetic families ran with BPER *and*
+  BPAR, ``ALPHA_ZF`` comes from the ``azf+-1`` tag, SAT2/3 use CGYRO units and
+  ``KYGRID_MODEL`` 4 with ``NBASIS_MAX`` 6, ``NMODES = NS + 2``, the MHD rule is
+  off, and ``sat0quench``/``sat1geo`` set ``ALPHA_QUENCH``/CGYRO units. Pairing with
+  a plain VAFT configuration would mix network error with settings differences.
+  Writes ``compare.csv`` (one row per surface x family) and ``compare_summary.csv``
+  (per scenario x family x domain class, for ``--subset``). The SAT0-3 x
+  {es, em-bper, em-bper-bpar} grid at VAFT's defaults is the model-form reference:
+  ``model_form.csv`` is the spread of its fluxes across SAT rules at one field
+  model, and ``preset_vs_default.csv`` compares each preset with the nearest
+  default configuration.
 
 Channels (upstream ``src/tglf_nn.jl``): ``OUT_G_elec`` electron particle flux,
 ``OUT_Q_elec`` electron energy flux, ``OUT_Q_ions`` ion energy flux summed over
@@ -94,18 +101,51 @@ def native_channels(native: Any) -> dict[str, float]:
 
 
 def trained_config(model: str) -> Optional[str]:
-    """The native configuration a family was trained on, ``tglf-sat<n>-<es|em-bper>``.
+    """The nearest VAFT-default configuration, ``tglf-sat<n>-<es|em-bper-bpar>``.
 
-    Read from the upstream name (the only machine-readable statement of it). A variant
-    tag (``quench``, ``geo``) is not a native TGLF switch VAFT sets, so such a family is
-    paired with its base rule and the tag is carried in ``nn_tags``.
+    Upstream's electromagnetic families ran with BPER and BPAR, so ``em`` pairs with
+    ``em-bper-bpar``. Used for ``preset_vs_default.csv``; the comparison itself pairs
+    with :func:`upstream_preset`.
     """
     from vaft.code.gacode.tglf.surrogate import parse_model_name
 
     parsed = parse_model_name(model)
     if parsed["sat_rule"] is None or parsed["electromagnetic"] is None:
         return None
-    return f"tglf-sat{int(parsed['sat_rule'])}-{'em-bper' if parsed['electromagnetic'] else 'es'}"
+    return f"tglf-sat{int(parsed['sat_rule'])}-{'em-bper-bpar' if parsed['electromagnetic'] else 'es'}"
+
+
+def upstream_preset(model: str, n_species: int) -> Optional[tuple[str, dict[str, Any]]]:
+    """``(label, TGLFConfig keywords)`` reproducing the switches a family was trained with.
+
+    Transcribed from TurbulentTransport.jl ``src/tglf.jl`` (``InputTGLF``, the
+    "saturation rules" and "electrostatic/electromagnetic" blocks; checked against
+    1.1.4 and 1.2.0, which agree). The variant comes from the family name: ``sat0quench``,
+    ``sat1geo``, plain ``sat<n>``; ``em``/``es``; and ``azf+1``/``azf-1`` for
+    ``ALPHA_ZF``, which the generic builder fixes at -1 but the name states per family.
+    ``n_species`` counts electrons, as ``NS`` does.
+    """
+    from vaft.code.gacode.tglf.surrogate import parse_model_name
+
+    parsed = parse_model_name(model)
+    if parsed["sat_rule"] is None or parsed["electromagnetic"] is None:
+        return None
+    sat, em, tags = int(parsed["sat_rule"]), bool(parsed["electromagnetic"]), set(parsed["tags"])
+    variant = "quench" if "quench" in tags else "geo" if "geo" in tags else ""
+    azf = next((t for t in tags if t.startswith("azf")), "azf-1")
+    extra: dict[str, Any] = {
+        "ALPHA_ZF": float(azf[3:]), "USE_MHD_RULE": False, "NMODES": int(n_species) + 2,
+        "NKY": 12, "ALPHA_QUENCH": 1.0 if variant == "quench" else 0.0, "ALPHA_MACH": 0.0,
+    }
+    if sat in (2, 3):
+        extra.update(UNITS="CGYRO", KYGRID_MODEL=4, NBASIS_MIN=2, NBASIS_MAX=6,
+                     USE_AVE_ION_GRID=True, XNU_MODEL=3, WDIA_TRAPPED=1.0)
+    else:
+        extra.update(UNITS="CGYRO" if variant == "geo" else "GYRO", KYGRID_MODEL=1,
+                     NBASIS_MIN=2, NBASIS_MAX=4, USE_AVE_ION_GRID=False, XNU_MODEL=2,
+                     WDIA_TRAPPED=0.0)
+    label = f"nnpreset-sat{sat}{variant}-{'em' if em else 'es'}-{azf}"
+    return label, {"sat_rule": sat, "use_bper": em, "use_bpar": em, "extra_parameters": extra}
 
 
 def domain_class(audit: Any) -> str:
@@ -158,6 +198,12 @@ def ready_surfaces(state: Any, surfaces: Iterable[float], config: Any = None) ->
     return [s for s in assess_tglf_readiness(state, tuple(surfaces), config=config).surfaces if s.ready]
 
 
+def _n_species(state: Any, surfaces: Iterable[float]) -> Optional[int]:
+    """TGLF's ``NS`` for a state (electrons included), from its first ready surface."""
+    ready = ready_surfaces(state, surfaces)
+    return int(np.size(ready[0].local_input.zs)) if ready else None
+
+
 # --------------------------------------------------------------------------- native
 
 
@@ -165,30 +211,57 @@ def native_stage(args, resolved) -> list[dict[str, Any]]:
     from vaft.code.gacode.tglf.outputs import TglfOutputs
     from vaft.process.transport_state import physics_parameters, run_identity
 
+    from vaft.code.gacode.tglf import TGLFConfig
+
     driver = _driver()
-    jobs = []
+    configs = []
     for sat_rule in args.sat_rules:
         for field_model in args.field_models:
             ns = argparse.Namespace(sat_rule=sat_rule, field_model=field_model, backend=args.backend,
                                     partition=args.partition, account=args.account, max_wait=args.max_wait,
                                     timeout=args.timeout, mem_mb=args.mem_mb)
-            config = driver.build_config(ns)
-            label = driver.config_label(sat_rule, field_model)
-            revision = driver.gacode_revision(config)
-            parameters = physics_parameters(config)
-            for ident, state in resolved:
-                for surface in ready_surfaces(state, args.surfaces, config):
-                    identity = run_identity(state, solver="tglf", parameters=parameters,
-                                            surface=surface.r_over_a, solver_revision=revision)
-                    workdir = (args.out / "native" / label / ident["scenario"] / state.key.slug()
-                               / f"r{surface.r_over_a:.2f}")
-                    jobs.append(({**ident, "r_over_a": surface.r_over_a, "config": label,
-                                  "sat_rule": sat_rule, "field_model": field_model,
-                                  "gacode_revision": revision},
-                                 {"workdir": str(workdir), "r_over_a": surface.r_over_a, "identity": identity,
-                                  "profile": state.profile, "local_input": surface.local_input,
-                                  "local": driver._local_summary(surface.local_input)},
-                                 config))
+            configs.append((driver.config_label(sat_rule, field_model), sat_rule, field_model,
+                            driver.build_config(ns), None))
+    if args.presets:
+        base = driver.build_config(argparse.Namespace(
+            sat_rule=0, field_model="es", backend=args.backend, partition=args.partition,
+            account=args.account, max_wait=args.max_wait, timeout=args.timeout, mem_mb=args.mem_mb))
+        audit = _audit()
+        models, _ = audit.families(args.model_dir, args.models)
+        species = {n for n in (_n_species(s, args.surfaces) for _, s in resolved) if n} or {3}
+        seen = set()
+        for identity, _ in models:
+            for n_species in sorted(species):
+                preset = upstream_preset(identity.name, n_species)
+                if preset is None:
+                    continue
+                label, keywords = preset
+                if (label, n_species) in seen:
+                    continue
+                seen.add((label, n_species))
+                config = TGLFConfig(**keywords, backend=base.backend, timeout=base.timeout,
+                                    memory_mb=base.memory_mb)
+                configs.append((label, keywords["sat_rule"], "nn-preset", config, n_species))
+    jobs = []
+    for label, sat_rule, field_model, config, n_species in configs:
+        revision = driver.gacode_revision(config)
+        parameters = physics_parameters(config)
+        for ident, state in resolved:
+            if n_species is not None and _n_species(state, args.surfaces) != n_species:
+                continue
+            for surface in ready_surfaces(state, args.surfaces, config):
+                identity = run_identity(state, solver="tglf", parameters=parameters,
+                                        surface=surface.r_over_a, solver_revision=revision)
+                workdir = (args.out / "native" / label / ident["scenario"] / state.key.slug()
+                           / f"r{surface.r_over_a:.2f}")
+                jobs.append(({**ident, "state_slug": state.key.slug(), "r_over_a": surface.r_over_a,
+                              "config": label,
+                              "sat_rule": sat_rule, "field_model": field_model,
+                              "gacode_revision": revision},
+                             {"workdir": str(workdir), "r_over_a": surface.r_over_a, "identity": identity,
+                              "profile": state.profile, "local_input": surface.local_input,
+                              "local": driver._local_summary(surface.local_input)},
+                             config))
     print(f"native: {len(jobs)} surface runs", flush=True)
     rows: list[dict[str, Any]] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
@@ -230,12 +303,15 @@ def nn_stage(args, resolved) -> list[dict[str, Any]]:
                 try:
                     features, assumed = build_features(surface.local_input, metadata)
                 except ModelContractError as error:
-                    rows.append({**ident, "r_over_a": surface.r_over_a, "model": identity.name,
-                                 "domain_class": "refused", "detail": str(error)[:240]})
+                    rows.append({**ident, "state_slug": state.key.slug(), "r_over_a": surface.r_over_a,
+                                 "model": identity.name, "domain_class": "refused",
+                                 "detail": str(error)[:240]})
                     continue
                 verdict = audit_features(features, assumed, identity, metadata)
                 mean, spread = ensemble_predict(features, identity, metadata)
-                row = {**ident, "r_over_a": surface.r_over_a, "model": identity.name,
+                preset = upstream_preset(identity.name, int(np.size(surface.local_input.zs)))
+                row = {**ident, "state_slug": state.key.slug(), "r_over_a": surface.r_over_a,
+                       "model": identity.name, "preset": None if preset is None else preset[0],
                        "nn_sat_rule": identity.sat_rule, "nn_electromagnetic": identity.electromagnetic,
                        "nn_tags": " ".join(identity.tags), "domain_class": domain_class(verdict),
                        "in_domain": verdict.in_domain, "contained": verdict.contained,
@@ -255,16 +331,17 @@ def nn_stage(args, resolved) -> list[dict[str, Any]]:
 # --------------------------------------------------------------------------- compare
 
 
-KEY = ("scenario", "shot", "time_efit_s", "efit_lineage", "r_over_a")
+KEY = ("scenario", "state_slug", "r_over_a")
 
 
 def _key(row: Mapping[str, Any]) -> tuple:
-    return tuple(round(float(row[k]), 6) if k in ("time_efit_s", "r_over_a") else
-                 (int(row[k]) if k == "shot" else str(row[k])) for k in KEY)
+    """Join on the state's own slug (whole milliseconds) and the surface, not on a float time."""
+    return (str(row["scenario"]), str(row["state_slug"]), round(float(row["r_over_a"]), 3))
 
 
-def compare(native_rows: list[dict], nn_rows: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
-    """Pair NN predictions with their trained-on native configuration; summarise."""
+def compare(native_rows: list[dict], nn_rows: list[dict], subset: str
+            ) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
+    """Pair NN predictions with their upstream-preset native run; summarise for ``subset``."""
     from scipy.stats import spearmanr
 
     solved = {}
@@ -275,11 +352,12 @@ def compare(native_rows: list[dict], nn_rows: list[dict]) -> tuple[list[dict], l
     for row in nn_rows:
         if row.get("domain_class") == "refused":
             continue
-        config = trained_config(row["model"])
-        native = None if config is None else solved.get((_key(row), config))
+        config = row.get("preset")
+        native = None if not isinstance(config, str) else solved.get((_key(row), config))
         if native is None:
             continue
-        out = {k: row[k] for k in (*KEY, "subsets", "model", "domain_class", "max_abs_z")}
+        out = {k: row[k] for k in (*KEY, "shot", "time_efit_s", "subsets", "model", "nn_tags",
+                                   "domain_class", "max_abs_z")}
         out["config"] = config
         for channel in CHANNELS:
             n, m, s = float(native[channel]), float(row[channel]), float(row[f"{channel}_spread"])
@@ -293,11 +371,12 @@ def compare(native_rows: list[dict], nn_rows: list[dict]) -> tuple[list[dict], l
 
     groups: dict[tuple, list[dict]] = {}
     for row in paired:
-        for subset in str(row["subsets"]).split():
-            for cls in (row["domain_class"], "all"):
-                groups.setdefault((row["scenario"], subset, row["model"], row["config"], cls), []).append(row)
+        # The population was resolved for ``subset`` only; every row also carries the
+        # wider labels (tier_a), which would name a group it does not represent.
+        for cls in (row["domain_class"], "all"):
+            groups.setdefault((row["scenario"], row["model"], row["config"], cls), []).append(row)
     summary = []
-    for (scenario, subset, model, config, cls), members in sorted(groups.items()):
+    for (scenario, model, config, cls), members in sorted(groups.items()):
         entry = {"scenario": scenario, "subset": subset, "model": model, "config": config,
                  "domain_class": cls, "surfaces": len(members)}
         for channel in CHANNELS:
@@ -314,7 +393,14 @@ def compare(native_rows: list[dict], nn_rows: list[dict]) -> tuple[list[dict], l
                                             else None)
             if channel in LOG_CHANNELS:
                 logs = np.array([r[f"{channel}_log10_ratio"] for r in members
-                                 if r[f"{channel}_log10_ratio"] is not None], dtype=float)
+                                 if r[f"{channel}_log10_ratio"] is not None
+                                 and np.isfinite(r[f"{channel}_log10_ratio"])], dtype=float)
+                # pairs with a non-positive flux on either side are not in the log ratio
+                entry[f"{channel}_log_n"] = int(logs.size)
+                entry[f"{channel}_native_nonpositive"] = int(np.sum(
+                    np.array([r[f"{channel}_native"] for r in members], dtype=float) <= 0))
+                entry[f"{channel}_nn_nonpositive"] = int(np.sum(
+                    np.array([r[f"{channel}_nn"] for r in members], dtype=float) <= 0))
                 entry[f"{channel}_median_log10_ratio"] = float(np.median(logs)) if logs.size else None
                 entry[f"{channel}_median_abs_log10_ratio"] = float(np.median(np.abs(logs))) if logs.size else None
         summary.append(entry)
@@ -322,6 +408,8 @@ def compare(native_rows: list[dict], nn_rows: list[dict]) -> tuple[list[dict], l
     model_form = []
     by_surface: dict[tuple, dict[str, dict]] = {}
     for (key, config), row in solved.items():
+        if row["field_model"] == "nn-preset":
+            continue
         by_surface.setdefault((key, row["field_model"]), {})[config] = row
     for (key, field_model), configs in sorted(by_surface.items()):
         entry = dict(zip(KEY, key))
@@ -332,7 +420,24 @@ def compare(native_rows: list[dict], nn_rows: list[dict]) -> tuple[list[dict], l
             entry[f"{channel}_log10_max_over_min"] = (
                 float(np.log10(positive.max() / positive.min())) if positive.size >= 2 else None)
         model_form.append(entry)
-    return paired, summary, model_form
+
+    # How far each upstream preset sits from the nearest VAFT-default configuration:
+    # the part of an NN-vs-VAFT-default gap that is settings, not network.
+    preset_vs_default = []
+    for (key, config), row in solved.items():
+        if row["field_model"] != "nn-preset":
+            continue
+        sat = int(row["sat_rule"])
+        default = solved.get((key, f"tglf-sat{sat}-{'em-bper-bpar' if '-em-' in config else 'es'}"))
+        if default is None:
+            continue
+        entry = {**dict(zip(KEY, key)), "preset": config, "default": default["config"]}
+        for channel in LOG_CHANNELS:
+            a, b = float(row[channel]), float(default[channel])
+            entry[f"{channel}_log10_preset_over_default"] = (
+                math.log10(a / b) if np.isfinite(a) and np.isfinite(b) and a > 0 and b > 0 else None)
+        preset_vs_default.append(entry)
+    return paired, summary, model_form, preset_vs_default
 
 
 # --------------------------------------------------------------------------- driver
@@ -360,6 +465,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--sat-rules", type=int, nargs="*", default=list(DEFAULT_SAT_RULES))
     parser.add_argument("--field-models", nargs="*", default=list(DEFAULT_FIELD_MODELS),
                         choices=DEFAULT_FIELD_MODELS)
+    parser.add_argument("--no-presets", dest="presets", action="store_false",
+                        help="skip the per-family upstream-preset native runs")
     parser.add_argument("--stage", default="all", choices=("native", "nn", "compare", "all"))
     parser.add_argument("--backend", default="local", choices=("local", "slurm"))
     parser.add_argument("--partition", default="lowpri-short")
@@ -387,10 +494,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         if args.stage in ("nn", "all"):
             audit._write_csv(args.out / "nn.csv", nn_stage(args, resolved))
     if args.stage in ("compare", "all"):
-        paired, summary, model_form = compare(_read_csv(args.out / "native.csv"), _read_csv(args.out / "nn.csv"))
+        paired, summary, model_form, preset_gap = compare(
+            _read_csv(args.out / "native.csv"), _read_csv(args.out / "nn.csv"), args.subset)
         audit._write_csv(args.out / "compare.csv", paired)
         audit._write_csv(args.out / "compare_summary.csv", summary)
         audit._write_csv(args.out / "model_form.csv", model_form)
+        audit._write_csv(args.out / "preset_vs_default.csv", preset_gap)
         print(f"compare: {len(paired)} paired surfaces", flush=True)
 
     manifest_path = args.out / "MANIFEST.json"
