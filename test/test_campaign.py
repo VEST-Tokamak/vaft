@@ -491,3 +491,32 @@ def test_launch_with_the_local_backend_runs_every_lane_end_to_end(tmp_path, monk
     assert campaign_main(["launch", str(run), "--backend", "local", "--cores", "1",
                           "--workflow-dir", str(options.workflow_dir), "--config", str(options.config)]) == 0
     assert len((run / "lane0" / "lane.jsonl").read_text().splitlines()) == 2
+
+
+_SITE = Path(__file__).resolve().parents[1] / "workflow" / "cluster_regeneration"
+
+
+@pytest.mark.skipif(subprocess.run(["cp", "--version"], capture_output=True).returncode != 0
+                    or shutil.which("bash") is None, reason="needs GNU cp (-l)")
+def test_the_site_raw_hook_links_complete_dumps_only(tmp_path):
+    root = tmp_path / "root"
+    for shot, files in ((1, ("raw.json.gz", "manifest.json")), (2, ("raw.json.gz",))):
+        for kind in files:
+            name = f"vest_{shot}_daq_{kind}"
+            (root / "raw" / str(shot)).mkdir(parents=True, exist_ok=True)
+            (root / "raw" / str(shot) / name).write_text(kind)
+    (tmp_path / "chunk").write_text("1\n2\n3\n")
+    filedb = tmp_path / "filedb"
+    result = subprocess.run(["bash", str(_SITE / "stage_raw.sh"), "lane", "shots.000", str(tmp_path / "chunk"),
+                             str(filedb)], env={"PATH": "/usr/bin:/bin", "REGEN_ROOT": str(root)})
+    assert result.returncode == 0
+    assert sorted(p.name for p in (filedb / "raw").iterdir()) == ["1"]  # 2 lacks its manifest, 3 its dump
+
+
+def test_no_site_specific_name_is_committed_in_the_regeneration_tooling():
+    import re
+
+    text = "\n".join(path.read_text(encoding="utf-8") for path in _SITE.iterdir() if path.is_file())
+    for pattern in (r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", r"\w+@\w[\w.-]*\.\w+", r"-p \d{3,5}\b"):
+        found = [match for match in re.findall(pattern, text) if not match.startswith("127.")]
+        assert not found, (pattern, found)

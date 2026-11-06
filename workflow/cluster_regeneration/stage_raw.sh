@@ -6,6 +6,7 @@
 set -uo pipefail
 FILEDB=${4:?lane filedb}
 : "${REGEN_ROOT:?REGEN_ROOT is not set}"
+mkdir -p "$FILEDB/raw" || exit 1
 while read -r s; do
   [ -z "$s" ] && continue
   src=$REGEN_ROOT/raw/$s dst=$FILEDB/raw/$s
