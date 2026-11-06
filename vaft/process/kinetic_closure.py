@@ -1,7 +1,7 @@
-"""Analytic kinetic closure: dilution-aware thermal pressure and a classical fast-ion estimate (issue #1606).
+"""Analytic kinetic closure: dilution-aware thermal pressure and a classical fast-ion estimate.
 
 Connects pieces VAFT already has -- Thomson n_e and T_e, a T_i/T_e policy,
-an impurity composition (#1565), the per-species pressure law -- into one
+an impurity composition, the per-species pressure law -- into one
 pressure construction that does not assume ``n_i = n_e``, and adds a
 lightweight fast-ion baseline (:mod:`vaft.formula.fast_ion`) for when no
 NUBEAM run exists.  Thermal and fast pressure stay separate quantities.
@@ -28,7 +28,7 @@ Conventions
 -----------
 **Thermal and fast never share a field.**  ``p_thermal`` holds Maxwellian
 species only; ``p_total`` adds ``p_fast``.  Writing fast pressure into a
-thermal field is what #1606 Sec. 5 forbids.
+thermal field would count fast ions as Maxwellian, so it is never done.
 
 **Every assumed number is recorded.**  The T_i source (measured or a ratio
 with its record), the composition's kind and source, the dilution mode and
@@ -66,7 +66,7 @@ _QE = 1.602176634e-19
 #: Equilibrium lineages whose pressure carries information independent of the
 #: ion temperature being inferred.  ``electron_kinetic`` is excluded: its
 #: pressure was fitted to ``n_e T_e (1 + Ti/Te)`` with Ti/Te *assumed*, so
-#: inverting it returns the assumption (#1426 section 6).
+#: inverting it returns the assumption.
 INDEPENDENT_LINEAGES = ("magnetics",)
 
 #: The flags that void a pressure-partition point: a flagged point has no T_i.
@@ -450,7 +450,7 @@ def infer_kinetic_closure(
     ----------------
     1. Match the slice by time; read n_e, T_e and the main-ion T_i if stored.
     2. ``species``: resolve the composition (stored ions, explicit, preset;
-       #1565 precedence) and form n_s = n_e (n_s/n_e) with the diluted main
+       the impurity-composition precedence) and form n_s = n_e (n_s/n_e) with the diluted main
        ion; ``none``: one hydrogenic ion with n_i = n_e.
     3. Ion temperatures for every ion: the stored main-ion T_i when its
        ``temperature_fit.parameters`` record classifies as measured
@@ -515,9 +515,9 @@ def infer_kinetic_closure(
     stored_ti = None if main_ion is None else _get(ods, f"{main_ion}.temperature")
     provenance: dict[str, Any] = {"slice": base, "dilution": dilution}
     # The stored T_i is a measurement only when its record says so (shared grammar:
-    # classify_ti_record).  A product's own Ti = ratio * Te (#1414) or a lane K
-    # inference (#1426) stored in the same leaf is not one, and must not outrank
-    # the caller's ratio as if it were (cold review 0.8.0 delta-absorb-19 F1).
+    # classify_ti_record).  A product's own Ti = ratio * Te or a pressure-partition
+    # inference stored in the same leaf is not one, and must not outrank
+    # the caller's ratio as if it were.
     record = None if main_ion is None else _get(ods, f"{main_ion}.temperature_fit.parameters")
     kind = "measured" if stored_ti is None else classify_ti_record(record)
     if stored_ti is not None and kind == "unknown":

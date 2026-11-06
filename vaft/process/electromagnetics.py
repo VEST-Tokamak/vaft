@@ -753,9 +753,9 @@ def wall_propagator(
     diagonal and positive and inductance symmetric, a change of variable makes the
     operator symmetric, so the symmetric eigensolver applies and the eigenvector
     inverse is a transpose. **On the real 950-loop machine that is about eleven
-    times faster than the general solver and agrees to about one part in 1e14**
-    (#308). It is valid only when the inductance is symmetric, which the loader
-    guarantees for the packaged asset (#347) but nothing guarantees for a
+    times faster than the general solver and agrees to about one part in 1e14**.
+    It is valid only when the inductance is symmetric, which the loader
+    guarantees for the packaged asset but nothing guarantees for a
     caller-built matrix, so the automatic mode checks and otherwise leaves the
     general path unchanged.
 
@@ -858,8 +858,7 @@ def solve_eddy_currents(
     --------
     The substep is a hard-coded value. It is meant to be finer than the input
     grid, and the shipped value is coarser than the 40 microsecond diagnostics
-    grid, making this a mild rate reduction rather than the refinement intended;
-    tracked in #425.
+    grid, making this a mild rate reduction rather than the refinement intended.
 
     Applicability
     -------------
@@ -904,7 +903,7 @@ def solve_eddy_currents(
 
     # One-substep propagator expm(-M^-1 R dt). The symmetric-pencil path is used
     # automatically when M_mat is symmetric (the loader guarantees that for the
-    # packaged asset, #347); a hand-built asymmetric M keeps the general path.
+    # packaged asset); a hand-built asymmetric M keeps the general path.
     try:
         RLR_mat = wall_propagator(R_mat, M_mat, dt_sub, method=method)
     except (np.linalg.LinAlgError, ValueError) as e:
@@ -936,8 +935,8 @@ def solve_eddy_currents(
         if n_times_original > 1:
             for i_src in range(n_active_sources):
                 # anti-alias: substepping grid for the integrator.  dt_sub is
-                # meant to be finer than the input grid; issue #425 tracks the
-                # shipped default (5e-5) being coarser than the 4e-5 diagnostics
+                # meant to be finer than the input grid, but the
+                # shipped default (5e-5) is coarser than the 4e-5 diagnostics
                 # grid, which makes this a mild rate reduction.
                 coil_plasma_currents_fine[:, i_src] = np.interp(t_fine, time, coil_plasma_currents[:, i_src])
         elif n_times_original == 1 and n_fine_steps > 0: 

@@ -53,7 +53,7 @@ script exactly [2]_.  All three pairings give the same ratio of measured to
 toroidal field up to an overall sign, so **the fits here are sign-agnostic**:
 they detect the working polarity from the data rather than assuming a
 positive coupling, and only the magnitude of the coupling carries physical
-meaning.  The shipped default carries that sign since #681 closed #624.
+meaning.  The shipped default carries that sign.
 
 The datasheet leaves the vertical sensors' own volts-to-tesla gain
 unspecified, so those waveforms stay in native volts throughout; see
@@ -127,7 +127,7 @@ from scipy import ndimage, optimize, signal
 from vaft.formula.statistics import rms
 from vaft.process.acquisition import AcquisitionInconsistencyError, check_declared_sample_rate
 from vaft.process.signal_processing import apply_fir_filter
-# The shot verdict lives in the validation layer (#339); it imports no kernel
+# The shot verdict lives in the validation layer; it imports no kernel
 # back at run time, so this cannot cycle.
 from vaft.validation.impa import ImpaAssessment
 from vaft.validation.impa import validate_impa as _validate_impa
@@ -435,7 +435,7 @@ def impa_calibrate_signals(
     filter's transient riding on a different level.
 
     The sign of the calibration factor is the caller's, and the fits downstream
-    are deliberately sign-agnostic; see the module's conventions and #624.
+    are deliberately sign-agnostic; see the module's conventions.
 
     Defaults
     --------
@@ -600,8 +600,7 @@ def find_tf_calibration_window(
     floor. The fraction of peak is a validated-workflow value distinguishing the
     reference shots from a weakly energised one; the rest have no recorded
     derivation. The median-filter width is an acquisition-era value, one
-    millisecond at the array's own rate. One configured threshold, the relative
-    noise limit, is read by nothing at all, which is tracked in #625.
+    millisecond at the array's own rate.
 
     Applicability
     -------------
@@ -1518,13 +1517,13 @@ def legacy_impa_compensation(
 # validation (moved)
 # --------------------------------------------------------------------------
 #: Deprecated alias: the shot verdict is :class:`vaft.validation.impa.ImpaAssessment`,
-#: whose ``status`` is a ``ValidationStatus`` (#339).  It still accepts the old
+#: whose ``status`` is a ``ValidationStatus``.  It still accepts the old
 #: ``valid`` / ``warning`` / ``invalid`` strings on construction.
 ImpaQuality = ImpaAssessment
 
 
 def grade_impa_quality(*args: Any, **kwargs: Any) -> ImpaAssessment:
-    """Deprecated: IMPA grading moved to :func:`vaft.validation.impa.validate_impa` (#339).
+    """Deprecated: IMPA grading moved to :func:`vaft.validation.impa.validate_impa`.
 
     The verdict is now an :class:`~vaft.validation.impa.ImpaAssessment` whose
     status is a :class:`~vaft.validation.model.ValidationStatus`; the checks
@@ -1663,9 +1662,9 @@ def process_impa(
     Defaults
     --------
     The spacing, bounds, starting guess and channel count are machine-specific
-    VEST values. The residual threshold and the radial offset disagree with what
-    ``vest.yaml`` carries, which is tracked in #625; the VEST pipeline passes the
-    configured values, so the disagreement bites only a direct caller.
+    VEST values. The residual threshold (0.15) and the radial offset (0.01 m) are the
+    values ``vest.yaml`` carries; the VEST pipeline passes the configured
+    values in any case.
 
     Applicability
     -------------
@@ -1690,7 +1689,7 @@ def process_impa(
     i_tf = np.asarray(i_tf, dtype=float)
     n_channels = raw.shape[0]
     # The low pass is designed at the declared rate; say whether the record
-    # agrees (#2159, #432). Report-only, except a cutoff the acquired data
+    # agrees. Report-only, except a cutoff the acquired data
     # cannot carry.
     acquisition = check_declared_sample_rate(
         time, config.sample_rate, cutoff_hz=config.signal_lowpass_hz

@@ -1,4 +1,4 @@
-"""PyTorch backend: the first production NN backend (#669 phase 2).
+"""PyTorch backend: the first production NN backend.
 
 ``torch`` is imported when this backend is first *used*, never when
 ``vaft.process.ml`` is imported.  Training is seeded -- initialisation,
@@ -254,7 +254,7 @@ class TorchBackend(Backend):
         model, _ = self._load(spec, state)
         # The TorchScript exporter (dynamo=False): it needs only `onnx`, where the
         # torch.export-based default also needs `onnxscript`. It is deprecated
-        # since torch 2.9 and warns; moving is a follow-up of #669.
+        # since torch 2.9 and warns; moving to the torch.export exporter is a follow-up.
         opset = 17
         example = torch.zeros((1, *input_shape), dtype=torch.float32)
         torch.onnx.export(

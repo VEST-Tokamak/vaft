@@ -1,11 +1,11 @@
-"""Synthetic kinetic profiles from a magnetic equilibrium, fidelity Levels 0-3 (#122).
+"""Synthetic kinetic profiles from a magnetic equilibrium, fidelity Levels 0-3.
 
 ``equilibrium + assumptions -> n_e, T_e, T_i, n_i, n_impurity`` as one
 deterministic transformation.  The equilibrium supplies the coordinate, the
 pressure ``p_eq(psi)`` and the geometry the averages need; the assumptions
 are the records of :mod:`vaft.data.synthetic_kinetic_profiles`.  The profile
-kernels are the #1045 composition of the #552 kernels, reused unchanged, and
-the #1045 presets pass through :func:`spec_from_plasma_state` as special
+kernels are the analytic plasma-state composition of the analytic profile
+kernels, reused unchanged, and the analytic plasma-state presets pass through :func:`spec_from_plasma_state` as special
 cases.  Nothing here is fitted, measured or transport-predicted, and nothing
 changes the equilibrium.  :mod:`vaft.process.profile` is the public import
 location.
@@ -275,7 +275,7 @@ def _extrapolation_note(shape: TabulatedProfile, grid, geom) -> str:
 
 
 def _recompose(profile: AnalyticProfile, *, scale: float = 1.0, core_beta: float | None = None) -> AnalyticProfile:
-    """The same #1045 composition with every value scaled and, optionally, a new core exponent."""
+    """The same analytic composition with every value scaled and, optionally, a new core exponent."""
     kwargs = dict(axis_value=scale * profile.axis_value, separatrix_value=scale * profile.separatrix_value,
                   core_alpha=profile.core_alpha,
                   core_beta=profile.core_beta if core_beta is None else core_beta, unit=profile.unit)
@@ -490,7 +490,7 @@ def generate_synthetic_kinetic_profiles(
        ``rho_pol_norm`` unless the spec gives ``psi_norm``); map ``p_eq``,
        ``rho_tor_norm`` (from ``q``) and ``psi`` (Wb, COCOS 11) onto it; trace
        the flux-surface volume; lay the axis chord.
-    2. Resolve each prescribed channel: shape (analytic #1045 composition,
+    2. Resolve each prescribed channel: shape (analytic core/pedestal/ITB composition,
        tabulated, or integrated ``a/L``), then a peaking factor through the
        core exponent, then one amplitude target by linear scaling.
     3. Apply the pressure constraint: solve the closure's variable locally
@@ -543,8 +543,8 @@ def generate_synthetic_kinetic_profiles(
     Limitations
     -----------
     Levels 0-3 only: no empirical closure, no pedestal model (EPED) and no
-    transport solver.  The equilibrium is not updated to the kinetic pressure
-    (#123).  A local pressure closure divides by the held variable, so a held
+    transport solver.  The equilibrium is not updated to the kinetic pressure.
+    A local pressure closure divides by the held variable, so a held
     profile that vanishes where ``p_eq`` does not fails the closure rather
     than being clipped.  Across the edge region the solved channel is an
     assumption (its declared ``edge_value``), not a closure: ``p_kin`` there
@@ -927,7 +927,7 @@ def generate_synthetic_kinetic_profiles(
 
 def spec_from_plasma_state(state: AnalyticPlasmaState, *, main_ion: str = "H",
                            label: str | None = None) -> SyntheticKineticSpec:
-    r"""The generator spec that reproduces a #1045 analytic plasma state on any equilibrium.
+    r"""The generator spec that reproduces an analytic plasma state on any equilibrium.
 
     Parameters
     ----------

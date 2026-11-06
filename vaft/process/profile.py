@@ -16,7 +16,7 @@ are *arguments*; on VEST the pipeline
 (:func:`vaft.code.efit.build_kinetic_core_profiles`) resolves them from
 ``vest.yaml`` through
 :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`.  This
-module holds no VEST number (issue #420).
+module holds no VEST number.
 
 Notation
 --------
@@ -96,7 +96,7 @@ __all__ = [
     "profile_fitting_charge_exchange",
     "profile_fitting_thomson_scattering",
     "strip_electron_only_pressure",
-    # analytic confinement-regime plasma states (#1045), from ._analytic_plasma_state
+    # analytic confinement-regime plasma states, from ._analytic_plasma_state
     "analytic_hmode_itb_state",
     "analytic_hmode_state",
     "analytic_itb_state",
@@ -107,7 +107,7 @@ __all__ = [
     "evaluate_plasma_state",
     "project_flux_function",
     "project_plasma_state",
-    # synthetic kinetic profiles from an equilibrium (#122), from ._synthetic_kinetic_profiles
+    # synthetic kinetic profiles from an equilibrium, from ._synthetic_kinetic_profiles
     "generate_synthetic_kinetic_profiles",
     "spec_from_plasma_state",
     "write_synthetic_core_profiles",
@@ -117,10 +117,10 @@ __all__ = [
 #: The radial coordinates a profile can be fitted in, in order of preference.
 #: ``rho_tor_norm`` is the IMAS convention and the default; ``rho_pol_norm``
 #: is ``sqrt(psi_norm)``; ``psi_norm`` is what the mappers computed and every
-#: fit consumed before the coordinate became a choice (issue #420).
+#: fit consumed before the coordinate became a choice.
 COORDINATES = ("rho_tor_norm", "rho_pol_norm", "psi_norm")
 
-#: The coordinate every fit used before issue #420, and the only meaning a
+#: The coordinate every fit used before the coordinate became a choice, and the only meaning a
 #: bare array of mapped positions can have.
 LEGACY_COORDINATE = "psi_norm"
 
@@ -182,7 +182,7 @@ def _positions_for_fit(mapped, coordinate, *, legacy_name="mapped_rho_position")
     """Resolve what a fitter was handed into ``(positions, coordinate)``.
 
     A :class:`MappedPositions` yields the requested coordinate.  A bare array
-    is the pre-#420 calling convention: it was always ``psi_norm``, so it is
+    is the legacy calling convention: it was always ``psi_norm``, so it is
     accepted only when the caller says ``coordinate="psi_norm"`` -- making
     the meaning explicit -- and with a :class:`DeprecationWarning`; without
     that it is refused, because guessing would repeat the confusion this
@@ -245,7 +245,7 @@ class FittedProfile:
 
 @dataclass(frozen=True, eq=False)
 class FitReport:
-    """How well one fitted profile reproduces the channels it was fitted to (#952).
+    """How well one fitted profile reproduces the channels it was fitted to.
 
     Every channel of the diagnostic is listed, in channel order, whether the
     fit used it or not.  For a used channel ``normalized_residual`` is
@@ -414,7 +414,7 @@ def fit_ti_te_ratio(te, ti, te_std=None, ti_std=None, max_iter=200, tol=1e-12):
     -------------
     Machine-independent.  The VEST value it produced (0.17, sigma 0.08) is kept
     in ``vest.yaml`` as ``superseded_inference``; the policy in force there is an
-    assumed Ti = Te until more ion-diagnostic shots exist (#1331).
+    assumed Ti = Te until more ion-diagnostic shots exist.
 
     Limitations
     -----------
@@ -732,7 +732,7 @@ def equilibrium_mapping_thomson_scattering(ods, geq, *, time=None):
     ----------
     ``psi_norm`` is normalized *poloidal* flux; ``rho_tor_norm`` is the
     normalized toroidal-flux radius and is **not** ``sqrt(psi_norm)`` except
-    for a flat-``q`` cylinder.  Before issue #420 this function returned a
+    for a flat-``q`` cylinder.  Earlier versions of this function returned a
     bare ``psi_norm`` array under the name "rho".
 
     Applicability
@@ -841,7 +841,7 @@ def profile_fitting_thomson_scattering(
         [ms].
     mapped_positions : MappedPositions or np.ndarray, optional
         Channel positions from :func:`equilibrium_mapping_thomson_scattering`.  A
-        bare array is the deprecated pre-#420 form, accepted only with
+        bare array is the deprecated legacy form, accepted only with
         ``coordinate="psi_norm"`` [-].
     Te_order : int, optional
         Polynomial order for ``T_e`` [-].
@@ -932,7 +932,7 @@ def profile_fitting_thomson_scattering(
     The fit, its ``(1 - x)`` edge factor in the polynomial and exponential
     bases, and the physicality checks are all in the selected coordinate; a
     cubic in ``psi_norm`` is not a cubic in ``rho_tor_norm``, and the edge
-    factor lands at a different physical radius.  Before issue #420 every fit
+    factor lands at a different physical radius.  Before the coordinate became a choice every fit
     was in ``psi_norm`` while the docstring said ``rho_tor_norm``.
 
     Assumptions
@@ -950,7 +950,7 @@ def profile_fitting_thomson_scattering(
     -----------
     Thomson often covers only the inner part of the profile; every model
     extrapolates over the rest and the guard can only catch the gross failures.
-    ``'gp'`` imports scikit-learn on first use (#426).  A slice with fewer
+    ``'gp'`` imports scikit-learn on first use.  A slice with fewer
     channels than the order plus one cannot be fitted at that order and the
     guard steps down; with ``enforce_physical=False`` it raises from the
     kernel.
@@ -1038,7 +1038,7 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
     # --- Te / Ne FITS ---
     # extrapolate=True is read by the 'linear' mode only: these fits are sampled
     # on the whole [0, 1] grid and guarded below, so they keep the constant
-    # end-value hold rather than the formula's nan default (#359).
+    # end-value hold rather than the formula's nan default.
     te_anchor_strength = None
     te_anchor = None
     if te_anchor_strength is not None:
@@ -1126,7 +1126,7 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
     )
 
     # The linear mode's end-value hold is opted into above; record it so a
-    # report reader sees which part of the grid is not data (#359).
+    # report reader sees which part of the grid is not data.
     span_lo, span_hi = float(np.min(rho)), float(np.max(rho))
     if span_lo > 0.0 or span_hi < 1.0:
         held = (f"linear: values outside the channels' span [{span_lo:.3g}, {span_hi:.3g}] "
@@ -1260,13 +1260,13 @@ def equilibrium_mapping_charge_exchange(ods, geq, *, time=None):
 #: exactly 0 at ``x = 1`` by construction, in whichever radial coordinate
 #: ``x`` the fit is made. That endpoint zero is intended, and including it
 #: would reject every such fit (and make any dynamic-range ratio
-#: meaningless). The value 0.98 was chosen with the fits in psi_N (issue
-#: #420 made the coordinate a choice); it is a cut on the normalized radius
+#: meaningless). The value 0.98 was chosen with the fits in psi_N (before the
+#: coordinate became a choice); it is a cut on the normalized radius
 #: the fit is in, not a physical location.
 PHYSICAL_EDGE_MAX = 0.98
 TE_POSITIVE_EDGE_MAX = PHYSICAL_EDGE_MAX
-PHYSICAL_PSIN_MAX = PHYSICAL_EDGE_MAX          # pre-#420 name, kept as an alias
-TE_POSITIVE_PSIN_MAX = PHYSICAL_EDGE_MAX       # pre-#420 name, kept as an alias
+PHYSICAL_PSIN_MAX = PHYSICAL_EDGE_MAX          # legacy psi_N-era name, kept as an alias
+TE_POSITIVE_PSIN_MAX = PHYSICAL_EDGE_MAX       # legacy psi_N-era name, kept as an alias
 NE_DYNAMIC_RANGE_MAX = 1.0e3
 
 
@@ -1675,7 +1675,7 @@ def _fit_charge_exchange(ods, time_ms, mapped_positions, Ti_order, Vtor_order,
     rho_eval = np.linspace(0.0, 1.0, rho_points)
 
     # --- Fit T_i(ρ) ---
-    # extrapolate=True: 'linear' holds the end values, as for Thomson (#359).
+    # extrapolate=True: 'linear' holds the end values, as for Thomson.
     Ti_rho, Ti_std_fit, Ti_function_raw, coeffs_ti = fit_profile(
         rho,
         Ti,
@@ -1746,7 +1746,7 @@ def _fit_charge_exchange(ods, time_ms, mapped_positions, Ti_order, Vtor_order,
         "ti_gp": (rho, Ti, Ti_std, None, 1.0), "v_gp": (rho_vtor, Vtor, Vtor_std, None, 1.0),
     }
 # ---------------------------------------------------------------------------
-# Fit quality (#952): what the fit did with every channel
+# Fit quality: what the fit did with every channel
 # ---------------------------------------------------------------------------
 
 _REPORT_UNITS = {"t_e": "eV", "n_e": "m^-3", "t_i": "eV", "velocity_tor": "m/s"}
@@ -2178,8 +2178,8 @@ class _EquilibriumGrid(NamedTuple):
     """The 1-D flux grid a profile is stored on, and whether its rho is real.
 
     ``rho_tor_norm_trusted`` is ``False`` when the grid's ``rho_tor_norm`` is
-    indistinguishable from the ``sqrt(psi_N)`` proxy that producers wrote
-    before issue #276 and the real coordinate could not be re-derived from
+    indistinguishable from the ``sqrt(psi_N)`` proxy that older producers
+    wrote and the real coordinate could not be re-derived from
     ``q``.  The array is still stored as the equilibrium's own description of
     itself, but a ``rho_tor_norm`` fit must not be evaluated on it.
     """
@@ -2251,9 +2251,9 @@ def _equilibrium_rho_tor_norm_for_builder(ods, eq_time_index):
     """The ``rho_tor_norm`` of slice ``eq_time_index`` that a profile may be built on.
 
     The synthetic builders used to read ``profiles_1d.rho_tor_norm`` raw and
-    interpolate the pressure on it; on a pre-#276 slice that array is the
+    interpolate the pressure on it; on a slice from an older producer that array is the
     ``sqrt(psi_N)`` proxy, so the profile landed at the wrong radius and was
-    then stored as ``rho_tor_norm`` (cold review 0.7.0 process F10, #1888).
+    then stored as ``rho_tor_norm``.
     The grid now goes through :func:`_resolve_grid_rho` like
     :func:`core_profiles`: a proxy is re-derived from ``q``, and refused by
     name when it cannot be.
@@ -2291,7 +2291,7 @@ def _equilibrium_rho_tor_norm_for_builder(ods, eq_time_index):
 def _resolve_grid_rho(rho, psi, psi_n, derive):
     """Trust the grid's ``rho_tor_norm``, or re-derive it, or mark it untrusted.
 
-    A producer before issue #276 wrote ``sqrt(psi_N)`` under ``rho_tor_norm``,
+    Older producers wrote ``sqrt(psi_N)`` under ``rho_tor_norm``,
     and every packaged sample is in that state; evaluating a ``rho_tor_norm``
     fit on it would put the profile at the wrong radius.  When the array looks
     like that proxy the real coordinate is re-derived from ``q``; when it
@@ -2461,7 +2461,7 @@ def _write_fit_uncertainty(ods, fit_base, measured, reconstructed, error):
 
 
 def _refuse_synthetic_core_profiles(ods):
-    """Refuse to add a slice to a ``core_profiles`` IDS the #122 synthetic writer owns.
+    """Refuse to add a slice to a ``core_profiles`` IDS the synthetic kinetic-profile writer owns.
 
     Its ``ids_properties`` and ``code`` label every slice synthetic; a measured
     or legacy slice added beside them would be mislabelled, and its
@@ -2514,7 +2514,7 @@ def core_profiles(
     mapped_positions : MappedPositions or np.ndarray, optional
         Thomson channel positions from :func:`equilibrium_mapping_thomson_scattering`;
         required with an electron fit.  A bare array is the deprecated
-        pre-#420 form and is accepted only with ``coordinate="psi_norm"`` [-].
+        legacy form and is accepted only with ``coordinate="psi_norm"`` [-].
     n_e_function : FittedProfile or callable, optional
         Electron density fit [m^-3].
     T_e_function : FittedProfile or callable, optional
@@ -2600,8 +2600,8 @@ def core_profiles(
 
     Defaults
     --------
-    ``ti_te_ratio = None`` is a legacy compatibility value: the pre-#420
-    behaviour writes ``T_i = T_e`` and no pressure.  The VEST value is
+    ``ti_te_ratio = None`` is a legacy compatibility value: the legacy
+    psi_N-era behaviour writes ``T_i = T_e`` and no pressure.  The VEST value is
     resolved by :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`
     and passed in by :func:`vaft.code.efit.build_kinetic_core_profiles`.
     ``tol_ms = 0.1`` and ``time_tolerance_ms = 1.0`` are numerical
@@ -2631,7 +2631,7 @@ def core_profiles(
     -----------
     Only the first equilibrium time slice of ``geq`` is used.  The
     charge-exchange ``*_fit`` metadata is best-effort and its failure is
-    reported, not raised.  A slice produced before #420 has no
+    reported, not raised.  A slice produced before the coordinate became a choice has no
     ``*_fit.parameters``; that absence is the signature of a legacy product
     fitted in ``psi_norm``.
 
@@ -2908,9 +2908,9 @@ def core_profiles(
     # --- IDS bookkeeping: producer and per-slice provenance, then the time base ---
     if 'core_profiles.code.name' not in ods:
         ods['core_profiles.code.name'] = 'vaft.process.profile'
-    # `grid.psi=Wb(#1292)` marks absolute flux written after #1292: before it the
-    # stage path stored grid.psi 2*pi too large, and nothing else in a product
-    # tells the two apart (#1338). Only where grid.psi is actually written.
+    # The `grid.psi=Wb(#1292)` marker (read back as written) labels absolute flux in
+    # Wb: older products of the stage path stored grid.psi 2*pi too large, and
+    # nothing else in a product tells the two apart. Only where grid.psi is actually written.
     psi_record = " grid.psi=Wb(#1292)" if eq_grid is not None and psi_grid is not None else ""
     _append_code_parameters(
         ods,
@@ -2985,7 +2985,7 @@ def core_profiles_from_eq(
     ``p = 2 n_e T_e e`` [Pa]: ``T_i = T_e`` and ``n_i = n_e`` are absorbed in
     the factor 2.  The grid is the equilibrium's ``rho_tor_norm``, resolved
     the way :func:`core_profiles` resolves it: a slice that stores the
-    ``sqrt(psi_N)`` proxy under that name (pre-#276 producers) has the real
+    ``sqrt(psi_N)`` proxy under that name (older producers) has the real
     coordinate re-derived from ``q``, and is refused with
     :class:`CoordinateUnavailableError` when it cannot be.
 
@@ -3537,7 +3537,7 @@ def pedestal_top(
     )
 
 
-# Analytic L-/H-mode/ITB plasma states (#1045) are implemented separately and
+# Analytic L-/H-mode/ITB plasma states are implemented separately and
 # re-exported here, their stable public import location.  The absolute
 # fallback serves tools that load this file directly by path.
 try:  # pragma: no branch - normal package import takes this path
@@ -3553,8 +3553,8 @@ except ImportError:  # direct ``spec_from_file_location`` loading
         evaluate_plasma_state, project_flux_function, project_plasma_state,
     )
 
-# Synthetic kinetic profiles from an equilibrium (#122), fidelity Levels 0-3,
-# built on the #1045 primitives above.
+# Synthetic kinetic profiles from an equilibrium, fidelity Levels 0-3,
+# built on the analytic plasma-state primitives above.
 try:  # pragma: no branch - normal package import takes this path
     from ._synthetic_kinetic_profiles import (  # noqa: E402,F401
         generate_synthetic_kinetic_profiles, spec_from_plasma_state, write_synthetic_core_profiles,

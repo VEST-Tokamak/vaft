@@ -53,7 +53,7 @@ def _mpl_path(points):
 
     Five call sites here want one point-in-polygon test.  Importing Matplotlib
     at module scope for it made every consumer of ``vaft.process.equilibrium``
-    pay for the whole plotting stack (issue #249).
+    pay for the whole plotting stack.
     """
     from matplotlib.path import Path as MplPath
 
@@ -201,7 +201,7 @@ def _from_geqdsk(source: Any, convention: int | None) -> EquilibriumData:
     match = re.search(r"COCOS\s*[=_-]?\s*(\d{1,2})", case, re.IGNORECASE)
     explicit = convention if convention is not None else (int(match.group(1)) if match else None)
     # Same source as to_omas: a g-file states its vacuum field twice and the
-    # FPOL half is the one the solution used (issue #325). Taking BCENTR here
+    # FPOL half is the one the solution used. Taking BCENTR here
     # while to_omas takes FPOL would put the two paths a few 1e-9 apart on a
     # merely round-off-inconsistent file, and much further apart on a corrupt one.
     from vaft.data.eqdsk import _vacuum_b0
@@ -261,8 +261,8 @@ def _from_ods(source: Any, time_index: int, profile_index: int, convention: int 
     )
     if conv.psi_per_radian is None:
         # Sign-based identification cannot separate the per-radian (1-8) from
-        # the full-weber (11-18) family; the dphi/dpsi-vs-q slope can (issue
-        # #236).  It reads the stored profiles directly, so it still answers on
+        # the full-weber (11-18) family; the dphi/dpsi-vs-q slope can.
+        # It reads the stored profiles directly, so it still answers on
         # an ODS whose LCFS or psi map is too thin for the Ampere-law test
         # `_resolve_convention` runs, and `_psi_family` keeps this answer when
         # that test abstains.  Candidates are left alone: `_detect_convention`
@@ -381,10 +381,10 @@ def check_equilibrium_requirements(
 ) -> ValidationReport:
     """Whether an equilibrium carries what a named algorithm needs to run.
 
-    A **precondition**, not a scientific verdict (issue #337): it answers "can the
+    A **precondition**, not a scientific verdict: it answers "can the
     global, Miller, edge or Solov'ev algorithms be applied to this input", which is
     why the answer depends on which one is asked about.  Whether the equilibrium is
-    *credible* is a different question, asked by :mod:`vaft.validation` (#72).
+    *credible* is a different question, asked by :mod:`vaft.validation`.
     Renamed from ``validate_equilibrium``, which read as the latter and is now the
     name of the latter.
 
@@ -531,7 +531,7 @@ def convert_cocos(equilibrium: EquilibriumData, target_cocos: int) -> Equilibriu
     the conversion crosses storage families, a candidate in the other family has
     no image -- the ``2*pi`` lands on the wrong side -- so it is dropped and named
     in the result's ``source`` rather than shifted to an index that does not
-    exist (#601).  If that leaves no candidate at all, the dropped ones are kept
+    exist.  If that leaves no candidate at all, the dropped ones are kept
     on ``convention.uncarried`` so the result stays ``contradicted``.
 
     Provenance
@@ -662,7 +662,7 @@ def _polygon_geometry(contour: Contour) -> dict[str, float]:
 
 
 #: Published definition of ``rho_tor_n``: names the variable actually integrated
-#: (normalized flux, not psi) and why the result needs no COCOS (#602).
+#: (normalized flux, not psi) and why the result needs no COCOS.
 _RHO_TOR_N_DEFINITION = (
     "sqrt(int_0^psi_n q dpsi_n' / int_0^1 q dpsi_n'), psi_n the normalized poloidal flux; "
     "convention-independent: the flux span and the COCOS 2*pi factor cancel"
@@ -1205,7 +1205,7 @@ def fit_miller_surface(
     design, not by omission: a bare contour has none to report.  When the fit is
     made from an equilibrium, :func:`fit_miller_sequence` attaches that
     equilibrium's convention to every nested fit, because the surfaces it returns
-    also carry ``q``, whose sign is convention-dependent (#604).
+    also carry ``q``, whose sign is convention-dependent.
     The residual is a symmetric point-set distance in metres, and the normalized
     form divides it by the fitted minor radius so the threshold means the same
     thing on every surface.
@@ -1221,12 +1221,13 @@ def fit_miller_surface(
     a surface whose corners are squarer or rounder than a sine can express has
     nowhere to put that shape either: it goes into the residual, and past
     *max_normalized_rms* the fit is rejected as "not Miller-like enough to use"
-    when what is true is "not five-parameter Miller-like" (#867).  Surfaces at or beyond
+    when what is true is "not five-parameter Miller-like".  Surfaces at or beyond
     95.5 percent of the normalized flux are rejected outright, because separatrix
     geometry is not locally Miller-like there.  The X-point proximity has to be
     determined by the caller; this function only honours the flag.  Unlike every
     other derived quantity in this module, the provenance recorded here carries no
-    convention, tracked in #604.
+    convention: a bare contour has none, and :func:`fit_miller_sequence` attaches
+    its equilibrium's.
 
     Provenance
     ----------
@@ -1489,7 +1490,7 @@ def fit_miller_sequence(
         )
         fit = fit_miller_surface(contour, radial_value=float(requested), radial_coordinate=radial_coordinate, max_normalized_rms=max_normalized_rms, near_xpoint=near)
         # The contour came from this equilibrium's psi, so the nested record names
-        # its convention like every other derived value does (#604).
+        # its convention like every other derived value does.
         fits.append(replace(fit, provenance=_provenance(
             eq, fit.provenance.method, ("psi",), radial_coordinate=radial_coordinate,
             fit_range=fit.provenance.fit_range, tolerances=fit.provenance.tolerances,
@@ -1686,8 +1687,8 @@ def evaluate_solovev(
     vector, ``-sigma_Bp (R dp/dpsi + F dF/dpsi / (mu0 R))`` per Sauter Eq. 12,
     which is what Ampere's law gives on the returned field; the historical
     fallback takes the right-handed member of its family (COCOS 3/7,
-    ``sigma_Bp = -1``). Before #966 the sign was dropped, so a COCOS 11
-    model reported the current opposite to its own field.
+    ``sigma_Bp = -1``). Dropping the sign would make a COCOS 11
+    model report the current opposite to its own field.
     :func:`solovev_to_equilibrium` is where this is reconciled with a declared
     convention, scaling the flux by 2*pi for full-weber conventions and
     transforming signs appropriately. Pressure and the squared poloidal
@@ -1796,7 +1797,7 @@ def solve_solovev_constraints(
         +1 and overrode the sign of *f_boundary*, so ``f_sign=-1`` with a
         positive *f_boundary* was accepted (and gave an F(psi) whose sign
         disagreed with ``bt0``); it is now refused -- pass a signed
-        *f_boundary* instead (#1307) [-].
+        *f_boundary* instead [-].
     basis : str, optional
         ``"classic"`` (five up-down symmetric terms), ``"cerfon_freidberg_even"``
         (seven symmetric terms, enough for a double null) or
@@ -1817,7 +1818,7 @@ def solve_solovev_constraints(
     ------
     ValueError
         A zero *f_boundary*, an *f_sign* that contradicts the sign of
-        *f_boundary* (#1307), an unknown basis, fewer constraints than basis
+        *f_boundary*, an unknown basis, fewer constraints than basis
         terms, an unrecognized constraint kind, a constraint set whose rank is
         below the basis size, or one whose condition number exceeds
         *max_condition_number*.
@@ -2249,7 +2250,7 @@ def solovev_to_equilibrium(
     and ``pressure`` are physical fields too.  Any orientation sign they carry
     under another *convention* is applied by :func:`convert_cocos`.  That says
     nothing about whether the sign of :func:`evaluate_solovev`'s ``j_phi`` is
-    consistent with its poloidal field; that is a separate question (#966).
+    consistent with its poloidal field; that is a separate question.
 
     Applicability
     -------------
@@ -3054,7 +3055,7 @@ def _outboard_midplane_radius(eq: EquilibriumData, psi_value: float, r_axis: flo
 
 
 def _arc_length_fourier(contour: Contour, modes: int, samples: int | None = None) -> tuple[dict[str, np.ndarray], float, Contour, float]:
-    """The one Fourier definition of a closed contour (#945), shared with the LCFS.
+    """The one Fourier definition of a closed contour, shared with the LCFS.
 
     Returns the coefficients in the canonical arc-length convention of
     :class:`FourierSurface`, the RMS residual at the fitted samples, and the
@@ -3429,7 +3430,7 @@ def grad_shafranov_residual_modes(
     Limitations
     -----------
     The angle is geometric (arc length), not a straight-field-line angle; a
-    PEST projection waits on the flux-coordinate framework (#472).  The
+    PEST projection waits on the flux-coordinate framework (open: #472).  The
     residual is a finite-difference quantity, so near a sharp boundary or on a
     coarse grid its harmonics carry discretization error of the grid scale.
 
@@ -3579,7 +3580,7 @@ def derive_boundary_representation(
     ``fourier_modes = 16`` is likewise a numerical convenience, enough harmonics
     to represent a tokamak boundary without fitting the contour's own sampling.
     The coefficients are :func:`fit_fourier_surface`'s, one convention for
-    every contour (#945).  Before #945 the phase origin was the sampled point
+    every contour.  Older versions put the phase origin at the sampled point
     of largest R; it is now the phase of R's first harmonic, so individual
     cosine and sine values differ from older results while the per-harmonic
     amplitudes and the reconstruction error do not.

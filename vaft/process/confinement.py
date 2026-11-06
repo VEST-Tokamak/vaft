@@ -1,6 +1,6 @@
-"""Power balance and slice qualification for energy-confinement scaling (vaft #548).
+"""Power balance and slice qualification for energy-confinement scaling.
 
-The first layer of the #548 hierarchy: from time series of plasma current,
+The first layer of the confinement-scaling hierarchy: from time series of plasma current,
 resistive loop voltage and stored energy to the loss power and confinement
 time of each time slice, and the evidence that decides whether a slice enters
 a scaling fit. It composes the definitions of :mod:`vaft.formula.equilibrium`
@@ -19,7 +19,7 @@ name               definition                                   compares with
 modelled $P_\\mathrm{rad}$ is a sensitivity study, never the default.
 
 Slice qualification keeps the *evidence* (rates and ratios per slice) apart
-from the *decision* (thresholds), as #253 asks: thresholds are arguments,
+from the *decision* (thresholds): thresholds are arguments,
 never constants copied from another database, and
 :func:`confinement_exclusion_table` reports how many slices each rule
 removes so a threshold sweep can be read off directly.
@@ -181,10 +181,10 @@ def smoothed_time_derivative(
 class ResistiveLoopVoltage:
     """Loop voltage split into its internal-inductive and resistive parts.
 
-    The single home of $V_R$ and $R_p$ in VAFT (#548 Lane D, shared with the
-    resistive $Z_\\mathrm{eff}$ inference of #1214): ``v_ind`` and ``v_res``
+    The single home of $V_R$ and $R_p$ in VAFT, shared with the
+    resistive $Z_\\mathrm{eff}$ inference: ``v_ind`` and ``v_res``
     [V], ``r_p = v_res / i_p`` [Ohm], ``l_int`` [H], one value per sample.
-    ``v_ind = v_ind_current + v_ind_profile`` (#1905): the current-evolution
+    ``v_ind = v_ind_current + v_ind_profile``: the current-evolution
     term $L_i\\,dI_p/dt$ and the profile-evolution term
     $\\tfrac14\\mu_0 R_0 I_p\\,dl_{i,3}/dt$ [V]. ``li3_rate_fallback`` is
     True where the inductance was held fixed: no ``dli3_dt`` given, or a NaN
@@ -286,7 +286,7 @@ def resistive_loop_voltage(
         raise ValueError(f"r0 must be positive, got {r0!r}")
     l_int = 0.5 * MU0 * float(r0) * li
     v_ind_current = l_int * didt
-    if dli3_dt is None:  # no profile term at all, exactly as before #1905
+    if dli3_dt is None:  # no profile term at all: v_ind is the current-evolution term alone
         v_ind_profile = np.zeros(n)
         fallback = np.ones(n, dtype=bool)
     else:
@@ -419,7 +419,7 @@ def confinement_power_balance(
     )
 
 
-#: Named approximation carried by every inferred resistive voltage (#1905 Sec. 4).
+#: Named approximation carried by every inferred resistive voltage.
 BOUNDARY_VOLTAGE_APPROXIMATION = (
     "V_res is inferred, not measured: the loop voltage minus the internal-inductive voltage "
     "(Romero 2010 eq. 24), exact only at the plasma boundary; a loop away from the LCFS still "
@@ -429,7 +429,7 @@ BOUNDARY_VOLTAGE_APPROXIMATION = (
 
 @dataclass(frozen=True)
 class OhmicConfinement:
-    """The Ohmic confinement chain of one discharge, every intermediate kept (#1905 Sec. 3.4).
+    """The Ohmic confinement chain of one discharge, every intermediate kept.
 
     One value per sample of ``time`` in every array: the inputs (``i_p``,
     ``v_loop``, ``dip_dt``, ``li_3``, ``w``), the rates (``dli3_dt``, NaN where
@@ -558,7 +558,7 @@ def ohmic_confinement_series(
     Defaults
     --------
     ``rate_polyorder = 1`` and ``hold_li3_where_missing = True`` are the VEST
-    Tier A reference settings of #548 (3 ms holds about three EFIT slices),
+    Tier A reference settings (3 ms holds about three EFIT slices),
     numerical choices recorded in ``settings``, not physical constants.
 
     Applicability
@@ -843,7 +843,7 @@ def confinement_exclusion_table(rules: Mapping[str, np.ndarray]) -> list[dict]:
     return table
 
 
-# --- Regression and identifiability (#548 Sec. 3, 4, 6) -------------------------
+# --- Regression and identifiability --------------------------------------------
 
 
 def _log_design(response, predictors: Mapping[str, np.ndarray], groups):
@@ -1064,7 +1064,7 @@ def resolve_observed_confinement(
     tau_global=None,
     thermal_as_global: bool = False,
 ) -> ObservedConfinement:
-    """Observed confinement time with the energy basis a scaling was fitted on (issue #1713).
+    """Observed confinement time with the energy basis a scaling was fitted on.
 
     Parameters
     ----------
@@ -1483,7 +1483,7 @@ def leave_one_group_out_scaling(
     }
 
 
-# --- Errors in variables, Kadomtsev completion and closures (#548 Sec. 6-8) ------
+# --- Errors in variables, Kadomtsev completion and closures --------------------
 
 
 def fit_confinement_scaling_odr(
@@ -1506,7 +1506,7 @@ def fit_confinement_scaling_odr(
         Standard deviation of the *equation* error of $\\ln y$: measurement
         error plus the scaling's intrinsic scatter, not measurement error
         alone. One number for every row, or one per input row (e.g. a
-        reconstruction's model-form spread, #579); a row whose value is not
+        reconstruction's model-form spread); a row whose value is not
         finite and positive is dropped [-].
     sigma_log_predictors : Mapping
         Standard deviation of the measurement error of $\\ln x_j$ per
@@ -1670,7 +1670,7 @@ def infer_kadomtsev_size_exponent(
     An *assumed* size exponent, not a measured one: one machine's shot-to-shot
     radius changes are not a size scan, and a Kadomtsev-completed scaling
     satisfies the constraint by construction, so a zero residual is no
-    evidence for it. Label every use accordingly (#548 Sec. 7).
+    evidence for it. Label every use accordingly.
 
     Provenance
     ----------
@@ -1815,7 +1815,7 @@ def closure_constraint(mu_rho: float, names) -> tuple[dict, float]:
     -----------
     The closures are alternative hypotheses, not simultaneous constraints;
     the intermediate $\\mu_\\rho = -2.5$ is a single index, not an additive
-    Bohm plus gyro-Bohm model (#548 Sec. 8). A density-free fit has
+    Bohm plus gyro-Bohm model. A density-free fit has
     $\\alpha_n = 0$ by definition, which is part of the hypothesis tested.
 
     Provenance
