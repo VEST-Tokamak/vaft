@@ -2050,3 +2050,28 @@ def test_the_nn_audit_refuses_a_non_positive_ratio_scenario(nn_audit):
     with pytest.raises(ValueError, match="positive"):
         nn_audit.scenarios(None, [0.0])
     assert [s["name"] for s in nn_audit.scenarios(Path("x"), [1.0])] == ["pressure_partition_profile", "ratio_1"]
+
+
+def test_the_nn_audit_reports_containment_when_a_model_carries_its_training_range(nn_audit):
+    """#2274: with exported bounds the rows carry containment and the coverage table fills."""
+    from types import SimpleNamespace
+
+    audit = SimpleNamespace(bounds_available=True, contained=False, applicable=False,
+                            bound_violations=("TAUS_2",),
+                            bound_positions={"TAUS_2": -0.12, "Q_LOC": 0.4})
+    record = nn_audit._containment(audit)
+    assert record["contained"] is False and record["n_bound_violations"] == 1
+    assert record["worst_bound_feature"] == "TAUS_2"
+    assert record["min_bound_margin"] == pytest.approx(-0.12)
+    assert nn_audit._containment(SimpleNamespace()) == {"bounds_available": False}
+
+    base = {"audit_status": "audited", "subsets": "tier_a primary", "scenario": "ratio_1",
+            "model": "m", "shot": 1, "time_efit_s": 0.3}
+    rows = [{**base, **record},
+            {**base, "time_efit_s": 0.31, **nn_audit._containment(SimpleNamespace(
+                bounds_available=True, contained=False, applicable=False, bound_violations=("Q_LOC",),
+                bound_positions={"TAUS_2": 0.5, "Q_LOC": 1.3}))}]
+    table = {(r["subset"], r["feature"]): r for r in nn_audit.coverage(rows)}
+    assert table[("primary", "TAUS_2")]["inside_fraction"] == 0.5
+    assert table[("primary", "TAUS_2")]["below_fraction"] == 0.5
+    assert table[("tier_a", "Q_LOC")]["above_fraction"] == 0.5

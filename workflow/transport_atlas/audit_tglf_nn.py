@@ -36,7 +36,10 @@ Output (``--out``)::
 
     audit.csv       one row per state x surface x scenario x family
     states.csv      one row per state x scenario: resolution status and T_i lineage
-    summary.csv     in-domain fraction per subset x scenario x family
+    summary.csv     in-domain fraction per subset x scenario x family; with exported
+                    training bounds (#2274) also containment and its binding inputs
+    coverage.csv    with exported bounds only: per input, the fraction of surfaces
+                    inside / below / above the training range and the position on it
     MANIFEST.json   inputs, models (sha256), settings, code revision, counts
 """
 
@@ -264,8 +267,34 @@ def audit_state(state: Any, surfaces: Iterable[float], models, *, threshold: flo
                 # in domain once the T_i channel is set aside: what binds without TAUS
                 "violations_without_taus": " ".join(v for v in audit.violations if not v.startswith("TAUS")),
                 "assumed": " ".join(audit.assumed),
+                **_containment(audit),
             })
     return rows
+
+
+def _containment(audit: Any) -> dict[str, Any]:
+    """Containment in the true training range, when the model carries one (#2274).
+
+    ``min_bound_margin`` is the smallest distance to a bound over the inputs, as a
+    fraction of each input's training range: positive inside, negative outside. The
+    per-input positions ride along under ``_positions`` for the coverage table and are
+    not written to ``audit.csv``.
+    """
+    if not getattr(audit, "bounds_available", False):
+        return {"bounds_available": False}
+    positions = dict(audit.bound_positions)
+    margins = {name: min(p, 1.0 - p) for name, p in positions.items()}
+    worst = min(margins, key=margins.get) if margins else None
+    return {
+        "bounds_available": True,
+        "contained": bool(audit.contained),
+        "applicable": bool(audit.applicable),
+        "n_bound_violations": len(audit.bound_violations),
+        "bound_violations": " ".join(audit.bound_violations),
+        "worst_bound_feature": worst,
+        "min_bound_margin": None if worst is None else float(margins[worst]),
+        "_positions": positions,
+    }
 
 
 def summarise(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -288,6 +317,25 @@ def summarise(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         # the reference T_i outside the partition's fitted span is the polynomial's
         # extrapolation; count the surfaces that stand on fitted T_i separately
         fitted = [r for r in members if r.get("ti_extrapolated") is not True]
+        bounded = [r for r in members if r.get("bounds_available")]
+        containment: dict[str, Any] = {}
+        if bounded:
+            outside: dict[str, int] = {}
+            for r in bounded:
+                for name in (r["bound_violations"] or "").split()[:1]:
+                    outside[name] = outside.get(name, 0) + 1
+            containment = {
+                "bounded_surfaces": len(bounded),
+                "contained_surfaces": sum(bool(r["contained"]) for r in bounded),
+                "applicable_surfaces": sum(bool(r["applicable"]) for r in bounded),
+                "states_with_any_contained_surface": len(
+                    {(r["shot"], r["time_efit_s"]) for r in bounded if r["contained"]}),
+                "contained_surfaces_ti_fitted": sum(
+                    bool(r["contained"]) for r in bounded if r.get("ti_extrapolated") is not True),
+                "median_min_bound_margin": float(np.median([r["min_bound_margin"] for r in bounded])),
+                "bound_binding_features": " ".join(
+                    f"{k}:{v}" for k, v in sorted(outside.items(), key=lambda kv: -kv[1])[:4]),
+            }
         out.append({
             "subset": subset, "scenario": scenario, "model": model,
             "states": len(states), "surfaces": len(members),
@@ -301,7 +349,37 @@ def summarise(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "median_taus_main": float(np.nanmedian([r["taus_main"] for r in members])),
             "binding_features": " ".join(f"{k}:{v}" for k, v in
                                          sorted(binding.items(), key=lambda kv: -kv[1])[:4]),
+            **containment,
         })
+    return out
+
+
+def coverage(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Marginal coverage per subset x scenario x family x input over the audited surfaces.
+
+    For each input: the fraction of surfaces inside the training range, below it and
+    above it, and the median and extremes of its position on the range (``[0, 1]``
+    inside). Only models that carry exported bounds contribute.
+    """
+    groups: dict[tuple, list[dict[str, float]]] = {}
+    for row in rows:
+        if row.get("audit_status") != "audited" or not row.get("bounds_available"):
+            continue
+        for subset in row["subsets"].split():
+            groups.setdefault((subset, row["scenario"], row["model"]), []).append(row["_positions"])
+    out = []
+    for (subset, scenario, model), members in sorted(groups.items()):
+        for name in members[0]:
+            p = np.array([m[name] for m in members], dtype=float)
+            out.append({
+                "subset": subset, "scenario": scenario, "model": model, "feature": name,
+                "surfaces": int(p.size),
+                "inside_fraction": float(np.mean((p >= 0.0) & (p <= 1.0))),
+                "below_fraction": float(np.mean(p < 0.0)),
+                "above_fraction": float(np.mean(p > 1.0)),
+                "position_median": float(np.median(p)),
+                "position_min": float(np.min(p)), "position_max": float(np.max(p)),
+            })
     return out
 
 
@@ -310,12 +388,13 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
     columns: list[str] = []
     for row in rows:
-        columns += [c for c in row if c not in columns]
+        columns += [c for c in row if c not in columns and not c.startswith("_")]
     with open(path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
         for row in rows:
-            writer.writerow({k: (f"{v:.6g}" if isinstance(v, float) else v) for k, v in row.items()})
+            writer.writerow({k: (f"{v:.6g}" if isinstance(v, float) else v) for k, v in row.items()
+                             if not k.startswith("_")})
 
 
 # --------------------------------------------------------------------------- driver
@@ -411,6 +490,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     _write_csv(args.out / "audit.csv", audit_rows)
     _write_csv(args.out / "states.csv", state_rows)
     _write_csv(args.out / "summary.csv", summary)
+    marginal = coverage(audit_rows)
+    if marginal:
+        _write_csv(args.out / "coverage.csv", marginal)
     manifest = {
         "schema_version": 1,
         "created": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
