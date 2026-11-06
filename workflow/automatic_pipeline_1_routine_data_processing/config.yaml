@@ -3,6 +3,11 @@ base_dir: ${VAFT_FILEDB_DIR} # Base path for all output
 # hierarchy this pipeline is validated against; `filedb` resolves the canonical
 # OMAS-first grammar through vaft.database.filedb.FileDB.
 layout: filedb
+# Per-rule bookings for a run that shares a node (paths.resource_profile_args):
+#   resource_profile: {run_efit_reconstruction: {mem_mb: 2000}, run_chease: {mem_mb: 4000},
+#                      run_gpec_module: {mem_mb: 24000}}
+# Empty: Snakemake's defaults, the routine worker's behaviour since #58.
+resource_profile: {}
 # Which analysis lineage this run produces, under `layout: filedb`. Every
 # product is filed under it, so an electron-EFIT or kinetic-EFIT campaign gets
 # its own identity by changing these rather than the resolver -- and can never
