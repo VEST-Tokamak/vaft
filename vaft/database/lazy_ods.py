@@ -32,6 +32,16 @@ class LazyODSClosedError(RuntimeError):
     """Raised when an uncached leaf is requested after closing a lazy ODS."""
 
 
+class HSDSIndexError(OSError):
+    """Raised when an IDS that the shot lists cannot be indexed from HSDS.
+
+    h5pyd reports a failed link lookup (a 403, a 503, a timeout) as a
+    ``KeyError``, which every OMAS-style reader takes to mean "absent".  An
+    ``OSError`` keeps such a failure an error.  The message names the IDS and
+    the cause's class only; the cause itself is chained.
+    """
+
+
 @dataclass(frozen=True)
 class _DatasetRecord:
     template: tuple[Any, ...]
@@ -140,10 +150,27 @@ class HSDSStore(dynamic_ODS):
             raise KeyError(f"IDS {ids_name!r} is not available for shot {self.shot}")
 
         uri = f"hdf5://{self.source}/{self.shot}/{ids_name}.h5"
-        handle = self._h5pyd.File(uri, "r")
-        self._metrics["ids_domain_open_count"] += 1
+        handle = None
+        try:
+            handle = self._h5pyd.File(uri, "r")
+            self._metrics["ids_domain_open_count"] += 1
+            self._index(ids_name, handle)
+        except Exception as error:
+            if handle is not None:
+                handle.close()
+            if isinstance(error, OSError):
+                raise
+            raise HSDSIndexError(
+                f"IDS {ids_name!r} of shot {self.shot} could not be indexed from HSDS: "
+                f"{type(error).__name__}"
+            ) from error
         self._handles[ids_name] = handle
-        root = handle[ids_name] if ids_name in handle else handle
+
+    def _index(self, ids_name: str, handle: Any) -> None:
+        # The link listing, not ``ids_name in handle``: h5pyd's membership test
+        # answers False for a lookup that *failed*, and the walk below would
+        # then index the whole file under a doubled prefix as if it were empty.
+        root = handle[ids_name] if ids_name in list(handle.keys()) else handle
         records: list[_DatasetRecord] = []
         shapes: dict[tuple[Any, ...], Any] = {}
         aos_shapes: dict[tuple[Any, ...], Any] = {}
@@ -459,4 +486,4 @@ def open_ods(
     )
 
 
-__all__ = ["HSDSODS", "HSDSStore", "LazyODSClosedError", "open_ods"]
+__all__ = ["HSDSIndexError", "HSDSODS", "HSDSStore", "LazyODSClosedError", "open_ods"]

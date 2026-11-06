@@ -326,3 +326,35 @@ def test_flat_walks_every_element_of_a_long_lazy_aos():
     flat = ods["pf_active"].flat()
     assert flat["coil.11.element.0.turns_with_sign"] == 11.0
     assert flat["coil.2.name"] == "c2"
+
+
+class _UnreachableFile(FakeFile):
+    """An IDS file whose link lookups fail the way h5pyd reports them: as ``KeyError``.
+
+    h5pyd turns a 403/503/timeout on a link into ``KeyError("Unable to open
+    object")`` and its membership test into ``False``, so a reader that trusts
+    either would take the failure for an empty or absent IDS.
+    """
+
+    def __contains__(self, name):
+        return False
+
+    def keys(self):
+        raise KeyError("Unable to open object (403 for hs_user at http://hsds.internal)")
+
+    def items(self):
+        raise KeyError("Unable to open object (403 for hs_user at http://hsds.internal)")
+
+
+def test_an_ids_that_cannot_be_indexed_is_an_error_not_an_absence():
+    unreachable = _UnreachableFile("magnetics", FakeGroup({"time": FakeDataset([0.1])}))
+    module = FakeH5pyd({"hdf5://main/39915/magnetics.h5": unreachable})
+    store = HSDSStore(39915, h5pyd_module=module)
+    ods = HSDSODS(store=store, consistency_check=False)
+    with pytest.raises(lazy_ods.HSDSIndexError) as caught:
+        ods["magnetics.time"]
+    assert isinstance(caught.value, OSError)
+    assert "hsds.internal" not in str(caught.value) and "KeyError" in str(caught.value)
+    assert unreachable.closed and store.opened_ids == ()
+    with pytest.raises(lazy_ods.HSDSIndexError):  # not cached as an empty IDS on the second try
+        "magnetics.time" in store

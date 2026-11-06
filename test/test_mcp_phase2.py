@@ -442,6 +442,24 @@ def test_a_remote_read_failure_inside_a_tool_reports_its_class_and_never_its_tex
     assert _closed(module)
 
 
+def test_an_ids_whose_index_fails_is_reported_not_answered_absent(lazy_database, monkeypatch):
+    # h5pyd reports a failed link lookup as KeyError (and ``in`` as False);
+    # read as "absent", a 403 would answer present: false instead of an error.
+    module = lazy_database()
+    magnetics = module.files["hdf5://main/1/magnetics.h5"]
+
+    def unreachable(*args):
+        raise KeyError(SECRET)
+
+    monkeypatch.setattr(magnetics, "keys", unreachable, raising=False)  # this file only
+    monkeypatch.setattr(magnetics, "items", unreachable, raising=False)
+    with pytest.raises(ValueError) as caught:
+        tools.inspect_data_path("magnetics.ip.0.data", shot=1, database_source="main")
+    text = str(caught.value)
+    assert "could not be read: HSDSIndexError" in text and "hsds.internal" not in text
+    assert _closed(module)
+
+
 def test_a_failure_at_the_first_read_closes_what_it_opened(lazy_database):
     module = lazy_database(failing=("dataset_description/ids_properties&version_put&data_dictionary",))
     with pytest.raises(ValueError, match="is unavailable: OSError") as caught:
