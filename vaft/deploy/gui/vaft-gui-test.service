@@ -36,8 +36,8 @@ Environment=HOME=/var/lib/vaft-gui-test
 Environment=PATH=/opt/vaft-gui-test/bin:/usr/bin:/bin
 Environment=MPLCONFIGDIR=/var/lib/vaft-gui-test/.cache/matplotlib
 ExecStart=/opt/vaft-gui-test/bin/vaft gui --hosted --auth hsds --prefix /gui-test \
-    --address 127.0.0.1 --port 5016 --no-show \
-    --allow-websocket-origin 147.46.36.244 --allow-websocket-origin vest.hsds.snu.ac.kr
+    --address 127.0.0.1 --port 5016 --no-show
+# The browser origins (host name and/or address) come from VAFT_GUI_ORIGINS in the env file.
 Restart=on-failure
 RestartSec=5
 

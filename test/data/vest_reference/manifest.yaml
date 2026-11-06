@@ -2,9 +2,8 @@ schema_version: 1
 reference_id: vest-legacy-2026-08-19-v1
 captured_at: "2026-08-19T07:35:00Z"
 source:
-  host: 147.46.36.244
-  ssh_port: 2222
-  workflow_root: /home/user1/test/laurent/VEST_database/OMAS
+  host: the production server
+  workflow_root: <production server>:~/test/laurent/VEST_database/OMAS
   filedb_root: /srv/vest.filedb/public
   omas_version: 0.94.2
   role: read-only reference implementation and outputs
