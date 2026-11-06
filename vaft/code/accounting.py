@@ -212,7 +212,9 @@ class UsageMeter:
     covers a whole process tree once each parent has reaped its own. Either way
     ``max_process_rss_mb`` is the largest resident peak of a child reaped in the
     interval -- known only when it raised the process's lifetime child peak
-    (``getrusage`` keeps no per-interval peak); otherwise ``None``.
+    (``getrusage`` keeps no per-interval peak); otherwise ``None``. On Linux a
+    forked child counts its parent's pages until it execs, so the figure is never
+    below the launching process's own size.
 
     The meter measures *this* process's children: start it before launching the
     command and stop it after waiting for it. ``booked_cpus`` is what the run
