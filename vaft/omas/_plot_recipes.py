@@ -1,6 +1,6 @@
 """Compatibility shim: the recipes moved to :mod:`vaft.plot.backend.recipes`.
 
-The extraction layer is backend-neutral since issue #63 and lives under
+The extraction layer is backend-neutral and lives under
 ``vaft.plot.backend``; the OMAS-specific entry normalisation lives in
 :mod:`vaft.omas.entries`.  Every name this module used to expose -- public
 and private, since tests and ``vaft.omas.discovery`` import the helpers by

@@ -1,4 +1,4 @@
-"""Native IMAS access for the plotting recipes (issue #63).
+"""Native IMAS access for the plotting recipes.
 
 The recipes in :mod:`vaft.plot.backend.recipes` are written in IMAS Data
 Dictionary dotted paths (``magnetics.flux_loop.{i}.flux.data``).  imas-python
@@ -21,7 +21,7 @@ per entry), so ``equilibrium.code.parameters.cocos`` reads alike on both
 models while the leaf itself stays the stored text.
 
 The one exception is the set of OMAS-bound computed views
-(``CallableRecipe.backend == "omas"``, issue #439) whose builders hand the
+(``CallableRecipe.backend == "omas"``) whose builders hand the
 object to functions written for an ODS: for those, and only those,
 :meth:`IDSEntry.as_ods_for` converts the IDS the plot declares, through the
 same fast walker :func:`vaft.imas.omas_imas.ods_from_toplevels` uses, and

@@ -1,4 +1,4 @@
-"""Equilibrium-only plasma states as one canonical table, for operational-space plots (#1620).
+"""Equilibrium-only plasma states as one canonical table, for operational-space plots.
 
 :func:`equilibrium_state_table` turns ODS equilibria from any machine into one
 row per time slice, with columns named by the quantity identities of
@@ -413,7 +413,7 @@ def equilibrium_state_table(entries: Iterable, *, cocos: Optional[Mapping[str, i
 
 
 # ---------------------------------------------------------------------------
-# The VEST Tier A atlas as an equilibrium-state table (#1620)
+# The VEST Tier A atlas as an equilibrium-state table
 # ---------------------------------------------------------------------------
 
 #: Columns of the atlas base table (``workflow/operational_space_atlas/build_efit_base.py``) that are already
@@ -431,14 +431,14 @@ _ATLAS_RENAMES = {
                                "normalized_current", "inverse_cylindrical_q")},
 }
 
-#: Quantities the atlas carries beyond :data:`EQUILIBRIUM_STATE_UNITS` (#1691), kept under their registry names.
+#: Quantities the atlas carries beyond :data:`EQUILIBRIUM_STATE_UNITS`, kept under their registry names.
 ATLAS_EXTRA_UNITS = {
     "internal_inductance_li1": "-",
     "volume_beta": "%",
     "normalized_volume_beta": "% m T/MA",
 }
 
-#: Atlas columns carried as they are: the state key of Lane K's contract (#1454) and the cross-check labels.
+#: Atlas columns carried as they are: the state key of the kinetic-state contract and the cross-check labels.
 _ATLAS_CARRIED = ("efit_lineage", "efit_quality", "efit_setting", "kinetic_admissible", "li_beta_source",
                   "li_beta_crosscheck", "update_routine_status")
 
