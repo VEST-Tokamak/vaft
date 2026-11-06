@@ -657,14 +657,26 @@ def prepare_gacode_profile(
 
     from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
 
+    from vaft.data.cocos import convention_for
+    from vaft.data.representation import cocos_transformation_record
+
+    gacode = convention_for("gacode")
     sign = _cocos_factors()
+    factors = {key: float(sign[key]) for key in ("PSI", "TOR", "BT", "IP", "F", "Q")}
     provenance["cocos"] = {
         "kind": "derived",
         "from": VAFT_INTERNAL_COCOS,
         "to": _gacode_cocos(),
-        "factors": {key: float(sign[key]) for key in ("PSI", "TOR", "BT", "IP", "F", "Q")},
+        "factors": factors,
         "confirmed": False,
         "source": "vaft.data.cocos.convention_for('gacode')",
+        # The same conversion as a shared transformation record (#2165): executed,
+        # with no invariant check run on it here.
+        "transformation": cocos_transformation_record(
+            VAFT_INTERNAL_COCOS, _gacode_cocos(), provider="vaft.code.gacode.inputs",
+            parameters={"factors": factors},
+            unresolved=() if gacode.confirmed else ("the GACODE COCOS index is inferred, not confirmed upstream",),
+        ).as_dict(),
     }
 
     psi_factor = ods_psi_to_wb_per_radian_factor(ods)

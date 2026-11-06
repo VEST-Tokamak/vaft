@@ -89,6 +89,8 @@ __all__ = [
     "compose",
     "evidence_from_efit_criteria",
     "evidence_from_equilibrium_report",
+    "phase_verdict_evidence",
+    "transformation_evidence",
 ]
 
 #: The six credibility axes of #1639 §4, in E, T, I, A, N, V order.
@@ -136,6 +138,11 @@ CATEGORY_AXES: Mapping[str, str] = MappingProxyType({
 #: Registry checks (:data:`vaft.validation.registry.CHECKS`) whose axis differs
 #: from their category's default, with the reason in the comment.
 CHECK_AXES: Mapping[str, str] = MappingProxyType({
+    # A convention change checked against what it must preserve: how faithfully
+    # the input was turned into what is consumed (#2165), not whether the
+    # calculation that consumes it converged.
+    "verification.cocos_transform_invariants": "transformation",
+    "verification.harmonic_phase_convention": "transformation",
     # Leave-one-identity-out: each closure is scored on the identity it did not
     # use -- the "infer with A+B, test with C" pattern of #1639 §10.
     "physical_validity.virial_pair_consistency": "independent_validation",
@@ -392,3 +399,70 @@ def evidence_from_efit_criteria(
         evidence.append(Evidence(axis, f"efit_criteria.{name}", verdict.get("status", "not_available"),
                                  metrics, tuple(verdict.get("reasons") or ()), role=role))
     return tuple(evidence)
+
+
+def transformation_evidence(record: Any, report: Any = None, *, key: str | None = None) -> tuple[Evidence, ...]:
+    """Evidence on the ``transformation`` axis for one transformation record (#2165).
+
+    Distinguishes what the record alone cannot: a transformation that was only
+    declared or found necessary (``record.executed`` false) yields **no**
+    evidence -- availability is not execution.  An executed transformation with
+    no check yields ``not_available``: it happened, and nothing says how well.
+    Only an actual check -- ``report``, a
+    :class:`~vaft.validation.model.ValidationReport` such as
+    :func:`vaft.validation.cocos.check_cocos_transform` returns -- yields its
+    own status.  ``key`` defaults to the record's first check, else to
+    ``transformation.<kind>``.
+
+    The record's ``unresolved`` items travel in the reasons and do not change
+    the status: a faithful COCOS conversion of an unconfirmed polarity is a
+    faithful conversion (T), and the polarity stays an open source question (E).
+    """
+    if not getattr(record, "executed", False):
+        return ()
+    if report is None and record.checks:
+        raise ValueError(f"the record names checks {record.checks} but no report was given")
+    key = key or (record.checks[0] if record.checks else f"transformation.{record.kind}")
+    reasons = [f"{record.kind} transformation by {record.provider}"]
+    reasons += [f"unresolved: {item}" for item in record.unresolved]
+    metrics = {"parameters": dict(record.parameters)}
+    if report is None:
+        return (Evidence("transformation", key, ValidationStatus.NOT_AVAILABLE, metrics,
+                         tuple(reasons + ["executed, but no check was run on the result"])),)
+    issues = tuple(getattr(report, "issues", ()))
+    reasons += [f"{issue.code}: {issue.message}" for issue in issues]
+    return (Evidence("transformation", key, report.status, metrics, tuple(reasons)),)
+
+
+def phase_verdict_evidence(verdict: Any, declared: Any, *, key: str = "verification.harmonic_phase_convention",
+                           cost: str = "moderate") -> Evidence:
+    """A :class:`~vaft.validation.perturbation_phase.PhaseConventionVerdict` on the ``transformation`` axis.
+
+    The audit (:func:`vaft.process.perturbation.toroidal_phase_audit`) measures
+    against one fixed kernel, ``Re(C e^{-i n phi})``: ``"stored"`` means the
+    file follows that kernel, ``"conjugate"`` that it follows the opposite one.
+    ``declared`` is the :class:`~vaft.data.fourier.FourierConvention` the file
+    claims, and its kernel sign decides which verdict confirms it.  A settled
+    verdict that matches is ``pass``; one that does not is ``fail`` -- the
+    declaration is wrong; ``indeterminate`` stays ``indeterminate``, never a
+    pass.  A declaration without a kernel sign cannot be confirmed and gives
+    ``indeterminate``.  The audit evaluates the field independently
+    (Biot-Savart), so it is ``moderate`` cost by default.
+    """
+    from vaft.data.fourier import GPEC_HARMONIC
+
+    status = ValidationStatus(verdict.status)
+    reason = verdict.reason
+    sign = getattr(declared, "kernel_sign", None)
+    if status is ValidationStatus.PASS:
+        if sign is None:
+            status, reason = ValidationStatus.INDETERMINATE, "the declared convention has no kernel sign: " + reason
+        else:
+            expected = "stored" if sign == GPEC_HARMONIC.kernel_sign else "conjugate"
+            if verdict.convention != expected:
+                status = ValidationStatus.FAIL
+                reason = (f"the audit settles {verdict.convention!r}, but {declared.name!r} declares "
+                          f"{expected!r}: " + reason)
+    return Evidence("transformation", key, status,
+                    {"convention": verdict.convention, "declared": getattr(declared, "name", None)},
+                    (reason,), cost=cost)

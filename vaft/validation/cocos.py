@@ -19,7 +19,7 @@ from vaft.data.cocos import cocos_spec
 from vaft.data.equilibrium import ValidationIssue, ValidationReport
 from vaft.process.cocos import _sign, cocos_consistency_signs
 
-__all__ = ["validate_cocos"]
+__all__ = ["check_cocos_transform", "validate_cocos"]
 
 #: Relations Eq. 23 defines, in report order, with the field each one inspects.
 _RELATIONS = (
@@ -152,4 +152,125 @@ def validate_cocos(
             f"COCOS {cocos} relations not checked because their inputs are "
             f"unavailable: {', '.join(unverifiable)}",
         ))
+    return ValidationReport(tuple(issues))
+
+
+#: Relative tolerance on the quantities a COCOS transform must leave unchanged
+#: in magnitude.  The transform multiplies by exact signs and powers of 2*pi, so
+#: anything above rounding is a wrong factor, not noise.
+TRANSFORM_RTOL = 1e-9
+
+
+def check_cocos_transform(before: Any, after: Any) -> ValidationReport:
+    """Check that a COCOS conversion preserved what no convention can change.
+
+    The registry check ``verification.cocos_transform_invariants``: the
+    transformation-axis evidence that a conversion was carried out correctly,
+    as opposed to merely declared (#2165).
+
+    Parameters
+    ----------
+    before : EquilibriumData
+        The equilibrium in its source convention [-].
+    after : EquilibriumData
+        The same equilibrium after the conversion [-].
+
+    Returns
+    -------
+    ValidationReport
+        An error per broken invariant, a warning per invariant that could not
+        be checked; empty when every checkable invariant held [-].
+
+    Raises
+    ------
+    ValueError
+        Either equilibrium carries no COCOS index.
+
+    Processing steps
+    ----------------
+    1. Both conventions must carry an index.
+    2. ``|I_p|``, ``|B_0|``, ``|q|``, ``|F|`` and the pressure are invariant
+       in magnitude under any COCOS change.
+    3. ``|psi_boundary - psi_axis|`` and the grid ``|psi - psi_axis|`` scale by
+       ``k = (2*pi)**(e_Bp,after - e_Bp,before)``; ``|p'|`` and ``|FF'|`` by
+       ``1/k``.
+    4. The converted equilibrium satisfies the Sauter Eq. 23 sign relations of
+       its new index, as far as :func:`validate_cocos` can check them.
+
+    A missing or non-finite input is a warning, never a pass: the report then
+    reads ``warn`` because something was not checked.
+
+    Convention
+    ----------
+    Mathematical consistency of the transform only.  A passing report says the
+    conversion was faithful to the source convention; it says nothing about
+    whether that source convention was right, and so nothing about the VEST
+    machine polarity (#288).
+
+    Limitations
+    -----------
+    The standing ``cocos_unverifiable`` warning of :func:`validate_cocos`
+    about ``j_phi`` and ``phi_tor``, which no ``EquilibriumData`` field can
+    carry, is not repeated here; every other finding of it is, including a
+    missing current or field sign that leaves no relation checkable.
+
+    Provenance
+    ----------
+    .. [1] Sauter and Medvedev (2013), Table I (``e_Bp``) and Eq. 23.
+    """
+    import numpy as np
+
+    from vaft.data.cocos import psi_is_per_radian
+
+    issues: list[ValidationIssue] = []
+    source = getattr(getattr(before, "convention", None), "cocos", None)
+    target = getattr(getattr(after, "convention", None), "cocos", None)
+    if source is None or target is None:
+        raise ValueError("both equilibria must carry a COCOS index; a conversion that produced "
+                         "an undeclared convention is not a conversion to check")
+
+    exponent = int(not psi_is_per_radian(target)) - int(not psi_is_per_radian(source))
+    flux_scale = (2.0 * np.pi) ** exponent
+
+    def unverifiable(field: str, why: str) -> None:
+        issues.append(ValidationIssue("warning", "cocos_transform_unverifiable", field,
+                                      f"{field} {why}, so it is not checked"))
+
+    def scaled(field: str, a, b, factor: float, label: str) -> None:
+        # |b| == factor * |a| elementwise; a missing or non-finite input is never a pass
+        if a is None or b is None:
+            unverifiable(field, "is missing")
+            return
+        a, b = np.abs(np.asarray(a, dtype=float)), np.abs(np.asarray(b, dtype=float))
+        if a.shape != b.shape:
+            issues.append(ValidationIssue("error", f"cocos_transform_{field}", field,
+                                          f"{field} changed shape under COCOS {source} -> {target}"))
+            return
+        if not (np.all(np.isfinite(a)) and np.all(np.isfinite(b))):
+            unverifiable(field, "holds non-finite values")
+            return
+        if not np.allclose(b, factor * a, rtol=TRANSFORM_RTOL, atol=0.0):
+            issues.append(ValidationIssue("error", f"cocos_transform_{field}", field,
+                                          f"{label} under COCOS {source} -> {target}"))
+
+    for field in ("ip", "bt0", "q", "f", "pressure"):
+        scaled(field, getattr(before, field, None), getattr(after, field, None), 1.0, f"|{field}| changed")
+
+    def flux_from_axis(e, field):
+        value, axis = getattr(e, field, None), getattr(e, "psi_axis", None)
+        return None if value is None or axis is None else np.asarray(value, dtype=float) - float(axis)
+
+    for field in ("psi_boundary", "psi"):
+        scaled(field, flux_from_axis(before, field), flux_from_axis(after, field), flux_scale,
+               f"the flux from the axis did not scale by {flux_scale:.12g}")
+    for field in ("pprime", "ffprime"):
+        scaled(field, getattr(before, field, None), getattr(after, field, None), 1.0 / flux_scale,
+               f"d/dpsi did not scale by {1.0 / flux_scale:.12g}")
+
+    standing = {"toroidal current density", "toroidal flux"}
+    for issue in validate_cocos(after, target).issues:
+        if issue.code == "cocos_unverifiable" and issue.message.startswith(f"COCOS {target} relations not checked"):
+            if set(issue.message.split(": ", 1)[-1].split(", ")) <= standing:
+                continue  # the two relations no EquilibriumData field can ever carry
+        issues.append(issue)
     return ValidationReport(tuple(issues))
