@@ -210,7 +210,8 @@ class UsageMeter:
     docstring). Anywhere else -- a workstation, a server without a scheduler --
     CPU time is :func:`resource.getrusage` of the waited-for children, which
     covers a whole process tree once each parent has reaped its own. Either way
-    ``max_process_rss_mb`` is the largest single child's resident peak.
+    ``max_process_rss_mb`` is the largest resident peak of any child this
+    process has waited for so far (``getrusage`` keeps no per-interval peak).
 
     The meter measures *this* process's children: start it before launching the
     command and stop it after waiting for it. ``booked_cpus`` is what the run

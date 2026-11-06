@@ -22,6 +22,7 @@ the caller's ``env`` wins).
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Mapping, Optional, Sequence, Union
@@ -60,6 +61,12 @@ def lane_request(
     else:
         command = [python or sys.executable, "-m", "vaft.database.campaign", "run-lane", str(lane),
                    "--cores", str(cores), *run_lane_args]
+        # The lane runs the vaft that launched it, not whatever its working directory finds.
+        import vaft
+
+        root = str(Path(vaft.__file__).resolve().parents[1])
+        inherited = overlay.get("PYTHONPATH", os.environ.get("PYTHONPATH", ""))
+        overlay["PYTHONPATH"] = os.pathsep.join([root, *([inherited] if inherited else [])])
     return ExecutionRequest(
         command=command,
         workdir=lane,

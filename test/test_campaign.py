@@ -467,3 +467,27 @@ def test_launch_runs_every_pending_lane_through_a_backend(tmp_path, monkeypatch)
                         lambda backend, request: calls.append(request) or type("H", (), {"job_id": None})())
     handles = launch_lanes(run, LocalBackend(), ["--workflow-dir", "w"], cores=8)
     assert list(handles) == ["lane0"] and calls[0].workdir == (run / "lane0").resolve()
+
+
+@pytest.mark.skipif(subprocess.run(["python", "-c", "import snakemake"], capture_output=True).returncode != 0,
+                    reason="needs snakemake")
+def test_launch_with_the_local_backend_runs_every_lane_end_to_end(tmp_path, monkeypatch):
+    lane, options = _toy(tmp_path, [1, 2, 3])
+    for key, value in options.env.items():
+        monkeypatch.setenv(key, value)
+    run = tmp_path / "run"
+    (tmp_path / "shots.txt").write_text("1\n2\n3\n")
+    assert campaign_main(["plan", str(tmp_path / "shots.txt"), str(run), "--lanes", "2", "--chunk", "1"]) == 0
+    for index, shots in ((0, [1, 3]), (1, [2])):
+        for shot in shots:
+            raw = run / f"lane{index}" / "filedb" / "raw" / f"{shot}.json"
+            raw.parent.mkdir(parents=True, exist_ok=True)
+            raw.write_text("{}")
+    assert campaign_main(["launch", str(run), "--backend", "local", "--cores", "1",
+                          "--workflow-dir", str(options.workflow_dir), "--config", str(options.config)]) == 0
+    assert LaneState(run / "lane0").done() == ["shots.000", "shots.001"]
+    assert LaneState(run / "lane1").done() == ["shots.000"]
+    # Finished lanes are not launched again.
+    assert campaign_main(["launch", str(run), "--backend", "local", "--cores", "1",
+                          "--workflow-dir", str(options.workflow_dir), "--config", str(options.config)]) == 0
+    assert len((run / "lane0" / "lane.jsonl").read_text().splitlines()) == 2

@@ -20,18 +20,24 @@ FileDB and never contacts HSDS; moving and replicating are separate, separately 
   500 shots) by `snakemake --cores N --scheduler greedy` inside one allocation. `merge_lanes.sh`
   joins the lanes by hard links (per-shot directories are disjoint) and rebuilds the run-wide
   preflight with the same scripts the checkpoints run.
-- **Memory.** The Snakefile declares none. `run_lane.sh` caps the run at the allocation
-  (`--resources mem_mb`) and books GPEC cells (`GPEC_MEM_MB`, default 24000: DCON/RDCON `match`
-  peaks at 12-25 GB) and CHEASE (4000) with `--set-resources`. The solver RSS of the lane's own
-  process tree is sampled into `<lane>/logs/<chunk>.rss`, and a solver above
-  `SOLVER_RSS_KILL_GB` (64) is stopped: the stock RDCON grows to 60-210 GB on msing >= 25 cases
+- **Memory.** The Snakefile declares none. The lane caps the run at the allocation minus 8 GB
+  (`--resources mem_mb`) and `regen-config.yaml`'s `resource_profile` books GPEC cells (24000:
+  DCON/RDCON `match` peaks at 12-25 GB) and CHEASE (4000). The lane runner watches the solvers of
+  its own process tree (`CAMPAIGN_SOLVER_PROCESSES`), and one above `SOLVER_RSS_KILL_GB` (64) is
+  stopped: the stock RDCON grows to 60-210 GB on msing >= 25 cases
   before it aborts in `gal.f` anyway, and in the pilot such a case took a 64 GB allocation's
   Snakemake down with it.
+- **Layers.** Chunks, resume, the Snakemake invocation, the chunk verdict and the CPU/memory
+  measurement are `vaft.database.campaign` (scheduler-agnostic; it runs a lane on a workstation
+  just the same). Submission and its policy gate are `vaft.code` (`SlurmBackend`,
+  `vaft.code.policy`). What is this site's -- the pinned environment, `srvns`, raw staging,
+  scratch pruning, hosts and accounts -- is the scripts here plus a site file kept outside the
+  repository (`site.example.env` -> `~/.config/vaft/regen.env`).
 - **CPU use.** `pestat`'s CPUload is a load average, and sacct `TotalCPU` is lost when a job is
-  cancelled. `run_lane.sh` samples the job's cgroup (`cpu.stat`, `memory.current`/`memory.peak`)
-  into `<lane>/logs/<chunk>.cgroup.tsv` every `CGROUP_SAMPLE_S` (30) s, and each chunk's line in
-  `lane.log` carries `cpu_s`, `cpu_util` (CPU-seconds / (wall x booked cores)), the chunk's
-  sampled `chunk_mem_max_gb` and the job's `job_mem_peak_gb` so far. The 2026-11 full run measured ~0.7 of the booked slots occupied by
+  cancelled. The lane runner measures every chunk with `vaft.code.accounting.UsageMeter` (the
+  job cgroup inside a Slurm job, `getrusage` elsewhere): `lane.jsonl` carries the chunk's
+  `ResourceUsage` and `lane.log` its `cpu_s`, `cpu_util` (CPU-seconds / (wall x booked cores)),
+  `mem_max_gb` (cgroup `memory.current`, page cache included) and `max_rss_gb` (largest process). The 2026-11 full run measured ~0.7 of the booked slots occupied by
   Snakemake jobs (about 10 % of each chunk is the serial preflight, the chunk tail and the gap to
   the next chunk) and a load of ~11 per 32-core lane: book what a lane uses, not more.
 - **Validation plots** are 38-39 % of a chunk's job time. `validation_plots: false` in the run
@@ -39,7 +45,7 @@ FileDB and never contacts HSDS; moving and replicating are separate, separately 
   config with the key removed is meant to render only the PNGs from the stage products already
   on disk (confirm with `snakemake -n` before relying on it).
 - **Changing settings mid-run.** A lane refuses another pin, so a re-pinned remainder runs from a
-  second root (`REGEN_ROOT=~/regen2147-<name>`, `PIN_BRANCH=ops/<name>` for a pin built from a
+  second root (`REGEN_ROOT=<another root>`, `PIN_BRANCH=ops/<name>` for a pin built from a
   frozen SHA plus cherry-picked fixes) over `SHOTS_ALL=<file>`: the shots the first run has not
   started. `MAX_CHUNKS=1` lets the first run's lanes finish only their interrupted chunk, so the
   two runs' shot sets stay disjoint for `merge_lanes.sh`.
@@ -65,29 +71,35 @@ FileDB and never contacts HSDS; moving and replicating are separate, separately 
 | `env.example.sh` | copy to `$REGEN_ROOT/env.sh`; sourced by every job (tools, isolation, CPU parity) |
 | `srvns` | `srvns <real FileDB root> <cmd...>`: `/srv/vest.filedb` bound to that root |
 | `regen-config.yaml` | run overrides deep-merged over the pinned workflow `config.yaml` |
-| `run_lane.sh` | `run_lane.sh <lane dir> <shots file> [cores]`; resumable, `STOP` file honoured |
-| `launch_lanes.sh` | deal all raw shots round-robin over lanes, submit/resume one allocation per lane |
+| `site.example.env`, `site.sh` | the site file's template (copy outside the repo) and its loader |
+| `run_lane.sh` | `run_lane.sh <lane dir>`: pinned env + `srvns` + hooks around `vaft.database.campaign run-lane` |
+| `stage_raw.sh`, `prune_scratch.sh` | the lane's before/after-chunk hooks (raw hard links; solver scratch) |
+| `launch_lanes.sh` | plan once (`campaign plan`), then `campaign launch --backend slurm` per pending lane |
 | `harvest.py` | per-shot stage outcomes, failure classes, per-rule wall time, volume |
 | `compare_stage.py` | stage-level ODS comparison (EFIT slices paired by time, never by index) |
 | `kdiff.py` | numeric diff of two k-file directories |
 | `merge_lanes.sh` | hard-link union of lane roots + run-wide preflight / IMPA selection |
 | `copy_raw.sh`, `push_products.sh` | workstation relays (server raw -> cluster; products -> server staging), resumable, sha256-checked |
 
-Hosts and accounts stay out of the repository: the relays read `VAFT_REGEN_TDST_SSH` /
-`VAFT_REGEN_VEST_SSH` from the environment or `~/.config/vaft/regen.env`, and
-`launch_lanes.sh` takes the Slurm account from `SLURM_ACCOUNT_NAME`.
+Hosts, ports, user names, accounts, partitions and cluster paths stay out of the repository:
+every script reads them from `${VAFT_REGEN_ENV:-~/.config/vaft/regen.env}` (template
+`site.example.env`; keep it `chmod 600`). The relays use `VAFT_REGEN_CLUSTER_SSH` /
+`VAFT_REGEN_SERVER_SSH`; submission uses `VAFT_SLURM_ACCOUNT`/`_PARTITION`/`_QOS`/`_ARGS` and the
+execution policy `VAFT_EXECUTION_POLICY` + `VAFT_EXECUTION_APPROVAL`.
 
 ## Use
 
 ```bash
-export REGEN_ROOT=$HOME/regen2147
+cp workflow/cluster_regeneration/site.example.env ~/.config/vaft/regen.env   # fill in; chmod 600
+. ~/.config/vaft/regen.env
 mkdir -p $REGEN_ROOT/{raw,efit-ddd}            # efit-ddd: the four real *.ddd tables
-cp workflow/cluster_regeneration/{setup_env.sh,srvns,run_lane.sh,launch_lanes.sh,merge_lanes.sh,harvest.py,compare_stage.py,kdiff.py,regen-config.yaml} $REGEN_ROOT/
+cp workflow/cluster_regeneration/{*.sh,srvns,harvest.py,compare_stage.py,kdiff.py,regen-config.yaml} $REGEN_ROOT/
 cp workflow/cluster_regeneration/env.example.sh $REGEN_ROOT/env.sh   # adapt EFITHOME/CHEASEHOME/GPECHOME
-PIN=<develop sha> bash $REGEN_ROOT/setup_env.sh
+PIN=<develop sha> bash $REGEN_ROOT/setup_env.sh  # the pin must contain vaft.database.campaign
 bash copy_raw.sh <scratch dir>                  # on the workstation
-RAW_VERIFIED=<scratch>/missing_or_different.lst SLURM_ACCOUNT_NAME=<account> bash $REGEN_ROOT/launch_lanes.sh $REGEN_ROOT/full 4 32
-#   monitor: tail $REGEN_ROOT/full/lane*/lane.log ; python harvest.py $REGEN_ROOT/full/lane* --out s.json
+RAW_VERIFIED=<scratch>/missing_or_different.lst bash $REGEN_ROOT/launch_lanes.sh $REGEN_ROOT/full 2 16
+#   monitor: tail $REGEN_ROOT/full/lane*/lane.log
+#            python -m vaft.database.campaign benchmark $REGEN_ROOT/full/lane*
 #   resume: run launch_lanes.sh again (same run dir); stop: touch <lane>/STOP or scancel <its job id>
 sbatch ... --wrap "bash $REGEN_ROOT/merge_lanes.sh $REGEN_ROOT/full/merged $REGEN_ROOT/full/lane*"
 bash push_products.sh $REGEN_ROOT/full/merged <staging dir on the server>   # after review only
@@ -112,23 +124,22 @@ node versus an AVX2 server:
 
 ## Python API (`vaft.database.campaign`)
 
-The steps above that are not tied to tdst are also a library, reading and writing the same lane
-layout, so a run started by these scripts resumes under it and the other way round:
+The library behind the scripts runs any Snakemake workflow whose `paths.py` states the
+`CAMPAIGN_*` names (run-scoped rules and outputs, shot inputs, compared products, watched solvers;
+see `vaft/database/campaign/spec.py`), on any host:
 
 ```bash
 python -m vaft.database.campaign plan shots.txt RUN --lanes 2 --chunk 1000 --exclude OLD_RUN  # refuses shared shots
-python -m vaft.database.campaign benchmark c1=bench/c1 c2=bench/c2      # cpu_util, CPU-h/shot, shots/h, per rule
-python -m vaft.database.campaign compare NEW/filedb REF/lane0/filedb REF/lane1/filedb \
-    --shots-file shots.txt --workflow-dir <pin>/workflow/automatic_pipeline_1_routine_data_processing
-python -m vaft.database.campaign verdict logs/shots.000.snakemake.log --returncode 1 --eligible chunks/shots.000.eligible_shots.json
+python -m vaft.database.campaign run-lane RUN/lane0 --cores 8 --workflow-dir WF --config run.yaml   # here, no scheduler
+python -m vaft.database.campaign launch RUN --backend local --cores 8 --workflow-dir WF --config run.yaml
+python -m vaft.database.campaign launch RUN --backend slurm --cores 16 --memory-mb 65536 --workflow-dir WF --config run.yaml
+python -m vaft.database.campaign benchmark c1=bench/c1 c2=bench/c2 --workflow-dir WF   # cpu_util, CPU-h/shot, shots/h, per rule
+python -m vaft.database.campaign compare NEW/filedb REF/lane0/filedb REF/lane1/filedb --shots-file shots.txt --workflow-dir WF
 ```
 
-`plan --pin <sha>` writes `shots_all.txt` and `PIN_SHA` too, so `launch_lanes.sh` takes the run as
-planned and submits its lanes without re-dealing them.
-
-`resource_profile` in the run config (rule -> `mem_mb`/`threads`) becomes `--set-resources`/
-`--set-threads` for the routine worker (`paths.resource_profile_args`); bookings bind only under a
-run-wide `--resources mem_mb=...` (pass it in the worker's `extra_args`, which come after the profile
-and win over it). The deployed `run_lane.sh` keeps its own `--set-resources` and its shell verdict
-while a run is in flight; `test/test_campaign.py` pins that the Python verdict and chunk split agree
-with the shell's.
+`--backend slurm` submits through `vaft.code.slurm.SlurmBackend`, so the execution policy applies;
+account and partition come from `--account`/`--partition` or `VAFT_SLURM_*`, never from the
+repository. `resource_profile` in the run config (rule -> `mem_mb`/`threads`) becomes
+`--set-resources`/`--set-threads` for both the lane runner and the routine worker
+(`paths.resource_profile_args`); bookings bind under the lane's `--mem-mb` (`--resources mem_mb`).
+Lanes started by the earlier all-shell `run_lane.sh` (no `lane.jsonl`) are not read by `benchmark`.
