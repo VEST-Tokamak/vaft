@@ -27,6 +27,22 @@ FileDB and never contacts HSDS; moving and replicating are separate, separately 
   `SOLVER_RSS_KILL_GB` (64) is stopped: the stock RDCON grows to 60-210 GB on msing >= 25 cases
   before it aborts in `gal.f` anyway, and in the pilot such a case took a 64 GB allocation's
   Snakemake down with it.
+- **CPU use.** `pestat`'s CPUload is a load average, and sacct `TotalCPU` is lost when a job is
+  cancelled. `run_lane.sh` samples the job's cgroup (`cpu.stat`, `memory.current`/`memory.peak`)
+  into `<lane>/logs/<chunk>.cgroup.tsv` every `CGROUP_SAMPLE_S` (30) s, and each chunk's line in
+  `lane.log` carries `cpu_s`, `cpu_util` (CPU-seconds / (wall x booked cores)), the chunk's
+  sampled `chunk_mem_max_gb` and the job's `job_mem_peak_gb` so far. The 2026-11 full run measured ~0.7 of the booked slots occupied by
+  Snakemake jobs (about 10 % of each chunk is the serial preflight, the chunk tail and the gap to
+  the next chunk) and a load of ~11 per 32-core lane: book what a lane uses, not more.
+- **Validation plots** are 38-39 % of a chunk's job time. `validation_plots: false` in the run
+  config leaves them out of `rule all` (and of the worker's verdict); a later run of the same
+  config with the key removed is meant to render only the PNGs from the stage products already
+  on disk (confirm with `snakemake -n` before relying on it).
+- **Changing settings mid-run.** A lane refuses another pin, so a re-pinned remainder runs from a
+  second root (`REGEN_ROOT=~/regen2147-<name>`, `PIN_BRANCH=ops/<name>` for a pin built from a
+  frozen SHA plus cherry-picked fixes) over `SHOTS_ALL=<file>`: the shots the first run has not
+  started. `MAX_CHUNKS=1` lets the first run's lanes finish only their interrupted chunk, so the
+  two runs' shot sets stay disjoint for `merge_lanes.sh`.
 - **Solver scratch.** DCON `euler.bin` and vacuum `vmat.bin` (~5 GB per MHD shot, 98 % of the
   GPEC tree) are deleted after each finished chunk (`PRUNE_SOLVER_SCRATCH=1`), with size, mtime
   and path kept in `<lane>/pruned.tsv`; no Snakemake output or stage product reads them. A later
