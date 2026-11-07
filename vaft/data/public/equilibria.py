@@ -1087,7 +1087,7 @@ def _read_imas_netcdf(source, *, cache=None, timeout=120.0) -> PublicEquilibrium
 
     import vaft.omas
 
-    filename = f"equilibrium_{source.device.lower()}_{source.artefact}"
+    filename = f"equilibrium_{source.device.lower()}_{source.sha256[:12]}_{source.artefact}"
     path = _fetch_artefact(source, filename, cache, timeout)
     notes: list[str] = []
     with warnings.catch_warnings(record=True) as caught:
@@ -1111,7 +1111,8 @@ def _read_imas_netcdf(source, *, cache=None, timeout=120.0) -> PublicEquilibrium
     times = np.atleast_1d(np.asarray(full["equilibrium.time"], dtype=float))
     ip = [full[f"equilibrium.time_slice.{i}.global_quantities.ip"] for i in range(len(times))]
     index = _flat_top_midpoint(times, ip)
-    ods = ODS(consistency_check=False)
+    # Keep the artefact's DD version: the default ODS would claim omas's own.
+    ods = ODS(imas_version=full.imas_version, consistency_check=False)
     ods["equilibrium"] = full["equilibrium"]
     dropped = sorted(k for k in full.keys() if k != "equilibrium")
     if dropped:

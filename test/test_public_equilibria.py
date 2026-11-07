@@ -425,6 +425,7 @@ def test_imas_netcdf_adapter_keeps_only_the_equilibrium(tmp_path, monkeypatch):
     with _serve({source.url: payload}):
         result = equilibria._read_imas_netcdf(source, cache=tmp_path)
     assert set(result.ods.keys()) == {"equilibrium", "dataset_description"}
+    assert result.ods.imas_version == "3.41.0"  # the artefact's DD, not omas's default
     assert any("not adapted" in note and "magnetics" in note for note in result.notes)
     times = np.asarray(result.ods["equilibrium.time"], dtype=float)
     ip = [result.ods[f"equilibrium.time_slice.{i}.global_quantities.ip"] for i in range(len(times))]
