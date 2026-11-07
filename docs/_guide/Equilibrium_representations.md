@@ -347,10 +347,12 @@ or Zarr group; a software licence or a readable URL does not count.
 | MAST | FAIR-MAST level 2, shot 30420, `equilibrium` group | CC BY-SA 4.0 | EFIT++ flux map, LCFS, F, p, B0, q95 |
 | STEP | OpenSTEP SPP-001 EB-CC flat-top JETTO g-file | CC BY 4.0 | full g-file, design |
 | SPARC | SPARCPublic `sparc_1593` g-file | MIT (CFS), treated as the file's licence | full g-file, design |
+| ITER | ITER Organization IMAS example, Zenodo 17062700, scenario 53298 (DD3 netCDF) | CC BY 4.0 | full IMAS equilibrium, modelled 15 MA / 5.3 T JINTRAC scenario |
 
-JET, MAST-U and the FUSE ITER sample are in `EXCLUDED_EQUILIBRIUM_SOURCES` and raise
-`EquilibriumLicenceError`: the redistribution rights of their underlying data were not
-established. MAST does not stand in for MAST-U, and STEP does not stand in for ITER.
+JET and MAST-U are in `EXCLUDED_EQUILIBRIUM_SOURCES` and raise `EquilibriumLicenceError`: the
+redistribution rights of their underlying data (FUSE.jl samples) were not established. MAST does
+not stand in for MAST-U. ITER is read from the ITER Organization's own CC BY 4.0 release, not from
+the FUSE ITER sample; only its equilibrium IDS is returned.
 
 The adapters construct nothing a source does not ship. The DIII-D record has no F, p, q or
 toroidal field, so those stay missing and `as_equilibrium` reads no B0. FAIR-MAST stores q on a

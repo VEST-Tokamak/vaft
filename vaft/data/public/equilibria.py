@@ -19,13 +19,14 @@ DIII-D    NeurIPS challenge ``diii_d_train`` row   CC BY 4.0           flux map 
 MAST      FAIR-MAST level-2 30420 ``equilibrium``  CC BY-SA 4.0        full EFIT++ slice
 STEP      OpenSTEP EB-CC flat-top JETTO g-file     CC BY 4.0           full GEQDSK (design)
 SPARC     SPARCPublic ``sparc_1593`` g-file        MIT (CFS)           full GEQDSK (design)
+ITER      ITER IMAS example scenario 53298 (DD3)   CC BY 4.0           full IMAS slice (modelled)
 ========  ======================================  =================  ==============================
 
-JET (FUSE ``JET_99948``), MAST-U (FUSE ``MASTU_Hmode``) and ITER (FUSE
-``ITER_equilibrium_ods``) are listed in :data:`EXCLUDED_EQUILIBRIUM_SOURCES`
-and cannot be loaded: the redistribution rights of their underlying data were
-not established.  MAST is not MAST-U and STEP is not ITER; neither stands in
-for the other.
+JET (FUSE ``JET_99948``) and MAST-U (FUSE ``MASTU_Hmode``) are listed in
+:data:`EXCLUDED_EQUILIBRIUM_SOURCES` and cannot be loaded: the redistribution
+rights of their underlying data were not established.  MAST is not MAST-U and
+does not stand in for it.  ITER is read from the ITER Organization's own CC BY
+4.0 Zenodo release, not from the FUSE ``ITER_equilibrium_ods`` sample.
 
 What is *not* done: no profile, pressure, ``F`` or ``q`` is constructed for a
 source that does not ship it (DIII-D carries a flux map, an LCFS and EFIT
@@ -217,6 +218,8 @@ _MAST_SHOT = 30420
 _MAST_STORE = f"https://s3.echo.stfc.ac.uk/mast/level2/shots/{_MAST_SHOT}.zarr/"
 _MAST_INGEST_COMMIT = "ed6ea4e2a81f2317ae474f7c5421071994220948"
 _MAST_LICENCE_NAME = "Creative Commons 4.0 BY-SA"
+_ITER_RECORD = "17062700"
+_ITER_DD_VERSION = "3.39.0"
 
 _SOURCES = (
     PublicEquilibriumSource(
@@ -424,6 +427,44 @@ _SOURCES = (
         stated_cocos=None,
         reader="geqdsk",
     ),
+    PublicEquilibriumSource(
+        device="ITER",
+        producer="ITER Organization",
+        dataset="Example of ITER simulation results in IMAS (Zenodo, version 4.0.0)",
+        revision=f"zenodo record {_ITER_RECORD} (doi:10.5281/zenodo.{_ITER_RECORD}), 2025-09-05",
+        url=(
+            f"https://zenodo.org/records/{_ITER_RECORD}/files/"
+            "iter_scenario_53298_seq1_DD3.nc?download=1"
+        ),
+        artefact="iter_scenario_53298_seq1_DD3.nc",
+        sha256="5792cce5815f53195eea1671647491c9502e49664a122ad3c14582e62346dd10",
+        size_bytes=14646060,
+        licence="CC BY 4.0",
+        licence_url=_CC_BY,
+        licence_basis=(
+            "The Zenodo record's own licence field is CC BY 4.0 (creator: ITER "
+            "Organization); the title's 'for code testing purpose' describes intent and "
+            "places no restriction on the licence."
+        ),
+        attribution=(
+            "ITER Organization, Example of ITER simulation results in IMAS (for code "
+            f"testing purpose), Zenodo (2025), doi:10.5281/zenodo.{_ITER_RECORD}, CC BY 4.0."
+        ),
+        share_alike=False,
+        references=(f"doi:10.5281/zenodo.{_ITER_RECORD}",),
+        data_kind="modelled scenario (JINTRAC core-edge, 15 MA / 5.3 T H-mode)",
+        contract="full",
+        selection=(
+            "ITER scenario 53298 seq. 1 (JINTRAC), the single equilibrium slice; only the "
+            "equilibrium IDS is kept"
+        ),
+        convention=(
+            f"IMAS DD {_ITER_DD_VERSION} netCDF (DD3 is COCOS 11); psi in Wb, Ip < 0, B0 < 0. "
+            "The DD4 conversion in the same record is not used."
+        ),
+        stated_cocos=11,
+        reader="imas_netcdf",
+    ),
 )
 
 #: Audited sources keyed by device, in display order.
@@ -444,10 +485,6 @@ EXCLUDED_EQUILIBRIUM_SOURCES: Mapping[str, str] = MappingProxyType(
             "FUSE.jl sample MASTU_Hmode.json only; original source and rights unresolved "
             "(and its slice fails Ampere's law). MAST is a different device and is not a "
             "substitute."
-        ),
-        "ITER": (
-            "FUSE.jl sample ITER_equilibrium_ods.json only; licence of the underlying "
-            "design data unresolved. OpenSTEP is STEP, not ITER."
         ),
     }
 )
@@ -1043,9 +1080,51 @@ def _read_fair_mast(source, *, cache=None, timeout=120.0) -> PublicEquilibrium:
     return _finish(ods, source, source.sha256, 0, t_s, notes)
 
 
+def _read_imas_netcdf(source, *, cache=None, timeout=120.0) -> PublicEquilibrium:
+    import warnings
+
+    from omas import ODS
+
+    import vaft.omas
+
+    filename = f"equilibrium_{source.device.lower()}_{source.artefact}"
+    path = _fetch_artefact(source, filename, cache, timeout)
+    notes: list[str] = []
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        try:
+            full = vaft.omas.load(path, imas_version=_ITER_DD_VERSION)
+        except Exception as exc:
+            raise EquilibriumParseError(
+                f"{source.device} IMAS netCDF could not be read: {exc}"
+            ) from exc
+    for message in dict.fromkeys(str(w.message) for w in caught):
+        if "IMAS DD version" not in message and "binary incompatibility" not in message:
+            notes.append(f"reader warning: {message}")
+    if "equilibrium" not in full.keys():
+        raise EquilibriumParseError(f"{source.device} artefact holds no equilibrium IDS")
+    put = full["equilibrium.ids_properties"].get("version_put.data_dictionary", None)
+    if put != _ITER_DD_VERSION:
+        raise EquilibriumParseError(
+            f"{source.device} artefact declares DD {put!r}, audited as {_ITER_DD_VERSION}"
+        )
+    times = np.atleast_1d(np.asarray(full["equilibrium.time"], dtype=float))
+    ip = [full[f"equilibrium.time_slice.{i}.global_quantities.ip"] for i in range(len(times))]
+    index = _flat_top_midpoint(times, ip)
+    ods = ODS(consistency_check=False)
+    ods["equilibrium"] = full["equilibrium"]
+    dropped = sorted(k for k in full.keys() if k != "equilibrium")
+    if dropped:
+        notes.append(f"Only the equilibrium IDS is returned; not adapted: {', '.join(dropped)}.")
+    if len(times) > 1:
+        notes.append(f"Representative slice {index} of {len(times)} by the flat-top midpoint rule.")
+    return _finish(ods, source, source.sha256, index, float(times[index]), notes)
+
+
 _READERS = {
     "vaft_sample": _read_vest_sample,
     "geqdsk": _read_geqdsk,
     "neurips_parquet": _read_neurips_parquet,
     "fair_mast_zarr": _read_fair_mast,
+    "imas_netcdf": _read_imas_netcdf,
 }

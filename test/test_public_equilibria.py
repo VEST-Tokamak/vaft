@@ -65,7 +65,7 @@ def _serve(store: dict[str, bytes]):
 
 def test_every_external_source_is_pinned_licensed_and_attributed():
     externals = [s for s in PUBLIC_EQUILIBRIUM_SOURCES.values() if s.reader != "vaft_sample"]
-    assert {s.device for s in externals} == {"TCV", "DIII-D", "MAST", "STEP", "SPARC"}
+    assert {s.device for s in externals} == {"TCV", "DIII-D", "MAST", "STEP", "SPARC", "ITER"}
     for source in externals:
         assert _HEX64.match(source.sha256), source.device
         assert source.size_bytes and source.size_bytes > 0
@@ -73,7 +73,7 @@ def test_every_external_source_is_pinned_licensed_and_attributed():
         assert source.licence_basis and source.attribution
         assert source.data_kind and source.contract in {"full", "flux-map+lcfs"}
         assert source.selection and source.convention
-        if source.reader != "fair_mast_zarr":
+        if source.reader not in ("fair_mast_zarr", "imas_netcdf"):
             # A revision-pinned URL, never a moving branch.
             assert source.revision in source.url
             assert "/main/" not in source.url and "/master/" not in source.url
@@ -85,9 +85,9 @@ def test_every_external_source_is_pinned_licensed_and_attributed():
 
 
 def test_excluded_and_unknown_devices_are_licence_failures():
-    assert set(EXCLUDED_EQUILIBRIUM_SOURCES) == {"JET", "MAST-U", "ITER"}
+    assert set(EXCLUDED_EQUILIBRIUM_SOURCES) == {"JET", "MAST-U"}
     assert not set(EXCLUDED_EQUILIBRIUM_SOURCES) & set(PUBLIC_EQUILIBRIUM_SOURCES)
-    for device in ("JET", "MAST-U", "ITER", "NSTX"):
+    for device in ("JET", "MAST-U", "NSTX"):
         with pytest.raises(EquilibriumLicenceError):
             load_public_equilibrium(device)
 
@@ -403,6 +403,49 @@ def test_stated_cocos_is_labelled_only_when_the_data_agree(tmp_path, monkeypatch
             out = equilibria._read_geqdsk(changed, cache=tmp_path / str(stated))
         assert (out.cocos is not None) is labelled
         assert any("producer" in note.lower() or "Producer" in note for note in out.notes)
+
+
+# ----------------------------------------------------------------- IMAS netCDF (ITER)
+
+
+def _imas_nc_source():
+    """The packaged VEST IMAS netCDF (DD 3.41.0, several IDSs) served as ITER."""
+    import vaft.data
+
+    payload = open(vaft.data.sample(39915, representation="imas"), "rb").read()
+    source = dataclasses.replace(
+        PUBLIC_EQUILIBRIUM_SOURCES["ITER"], sha256=hashlib.sha256(payload).hexdigest()
+    )
+    return source, payload
+
+
+def test_imas_netcdf_adapter_keeps_only_the_equilibrium(tmp_path, monkeypatch):
+    monkeypatch.setattr(equilibria, "_ITER_DD_VERSION", "3.41.0")
+    source, payload = _imas_nc_source()
+    with _serve({source.url: payload}):
+        result = equilibria._read_imas_netcdf(source, cache=tmp_path)
+    assert set(result.ods.keys()) == {"equilibrium", "dataset_description"}
+    assert any("not adapted" in note and "magnetics" in note for note in result.notes)
+    times = np.asarray(result.ods["equilibrium.time"], dtype=float)
+    ip = [result.ods[f"equilibrium.time_slice.{i}.global_quantities.ip"] for i in range(len(times))]
+    assert result.time_index == equilibria._flat_top_midpoint(times, ip)
+    assert result.time_s == pytest.approx(times[result.time_index])
+    assert result.ods["dataset_description.data_entry.machine"] == "ITER"
+    assert "zenodo" in result.ods["equilibrium.ids_properties.comment"].lower()
+
+
+def test_imas_netcdf_with_another_dd_version_is_a_parse_error(tmp_path):
+    source, payload = _imas_nc_source()  # DD 3.41.0, audited as 3.39.0
+    with _serve({source.url: payload}), pytest.raises(EquilibriumParseError):
+        equilibria._read_imas_netcdf(source, cache=tmp_path)
+
+
+def test_iter_record_is_the_iter_organization_release():
+    source = PUBLIC_EQUILIBRIUM_SOURCES["ITER"]
+    assert source.producer == "ITER Organization"
+    assert source.licence == "CC BY 4.0" and source.stated_cocos == 11
+    assert "zenodo.org/records/17062700/" in source.url and source.url.endswith("DD3.nc?download=1")
+    assert "modelled" in source.data_kind
 
 
 # ----------------------------------------------------------------- network
