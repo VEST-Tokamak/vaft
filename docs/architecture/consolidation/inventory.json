@@ -4,7 +4,7 @@
   "duplicate": 1,
   "intentional_specialization": 39,
   "legacy": 8,
-  "unverified": 383
+  "unverified": 384
  },
  "entry_modules": {
   "pipeline1": [
@@ -2477,6 +2477,7 @@
     }
    ],
    "callers": [
+    "vaft.data.public.equilibria._read_vest_sample",
     "vaft.mcp._tools.list_samples",
     "vaft.omas.sample.sample_ods",
     "vaft.plot.docs_catalog._thumbnails",
@@ -2537,6 +2538,37 @@
    "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/data/pfile.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(times_ms, np.asarray(row['magnetics_plasma_current_times'], dtype=float), np.asarray(row['magnetics_plasma_current'], dtype=float), left=np.nan, ri..."
+    }
+   ],
+   "callers": [],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "vaft.data.public.equilibria._read_neurips_parquet",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "data",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "unassessed",
+   "source_file": "vaft/data/public/equilibria.py"
   },
   {
    "algorithm_semantics": "calls numpy.interp, numpy.trapezoid, scipy.interpolate.RegularGridInterpolator (not curated)",
