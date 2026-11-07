@@ -332,6 +332,36 @@ island with a field-line check, a 3-D embedding and a camera projection, and che
 COCOS and flux unit at each step. The GPEC response step is missing because no GPEC output is
 packaged.
 
+## Public equilibria from other machines
+
+`vaft.data.public.load_public_equilibrium(device)` fetches one audited third-party equilibrium,
+checks its SHA-256 against the pinned revision and returns an ODS with a provenance record
+(#2285). A source is listed only when the licence of its *data* was read at the level of the file
+or Zarr group; a software licence or a readable URL does not count.
+
+| Device | Artefact | Data licence | What it carries |
+| --- | --- | --- | --- |
+| VEST | packaged sample 39915 | VAFT reference | full EFIT |
+| TCV | TCV-X21 `65402_t1.eqdsk` | CC BY 4.0 | full g-file, experimental reference |
+| DIII-D | Fusion Equilibrium Challenge, `diii_d_train` record | CC BY 4.0 | flux map, LCFS, q95 and βN only |
+| MAST | FAIR-MAST level 2, shot 30420, `equilibrium` group | CC BY-SA 4.0 | EFIT++ flux map, LCFS, F, p, B0, q95 |
+| STEP | OpenSTEP SPP-001 EB-CC flat-top JETTO g-file | CC BY 4.0 | full g-file, design |
+| SPARC | SPARCPublic `sparc_1593` g-file | MIT (CFS), treated as the file's licence | full g-file, design |
+
+JET, MAST-U and the FUSE ITER sample are in `EXCLUDED_EQUILIBRIUM_SOURCES` and raise
+`EquilibriumLicenceError`: the redistribution rights of their underlying data were not
+established. MAST does not stand in for MAST-U, and STEP does not stand in for ITER.
+
+The adapters construct nothing a source does not ship. The DIII-D record has no F, p, q or
+toroidal field, so those stay missing and `as_equilibrium` reads no B0. FAIR-MAST stores q on a
+midplane coordinate rather than on ψ_N, so only q95 is mapped. Values are copied apart from the 2π
+that takes a per-radian flux into the ODS's weber ψ. A few fields are derived from shipped data and
+are named as such in the ODS comment: the DIII-D axis and boundary flux and its Ip (interpolated from
+the flux map, the LCFS and the magnetics current), and the MAST ψ grid of the 1-D profiles. A COCOS
+index is written only when one index is pinned. `public_equilibrium_provenance(results)` tabulates the producer, licence,
+attribution, share-alike obligation, revision, hash and selected slice of whatever was loaded.
+DIII-D and MAST need `pip install 'vaft[public]'` (pyarrow).
+
 ## Gaps
 
 These are the items the #1201 audit grades *not met* or *partly met*, with the issue that owns

@@ -95,6 +95,10 @@ vaft = "vaft.cli._main:main"
 # The default 'gp' mode is implemented against scipy, so the package no longer
 # pays a heavy import for one optional fitting backend (#426).
 sklearn = ["scikit-learn"]
+# pyarrow reads the DIII-D Fusion Equilibrium Challenge parquet record and,
+# before Python 3.14 brings compression.zstd, decodes the zstd chunks of the
+# FAIR-MAST Zarr store (vaft.data.public.equilibria, #2285).
+public = ["pyarrow>=14"]
 # onnxruntime is needed only by `vaft.code.gacode.tglf.surrogate` when it actually
 # runs a network. Resolving a model and auditing an input against its training
 # distribution need neither the runtime nor a prediction, so the decision "does this
@@ -188,6 +192,8 @@ dev = [
   "nbformat>=5.10",
   # so the dependency-graph generator (#1646) runs on the gate; see [architecture]
   "grimp>=3.17,<4",
+  # so the DIII-D parquet and FAIR-MAST zstd adapters of [public] run on the gate
+  "pyarrow>=14",
 ]
 
 [project.urls]

@@ -62,8 +62,10 @@ def _mpl_path(points):
 
 
 def _path_get(item: Any, path: str, default: Any = None) -> Any:
+    if _is_ods_branch(item):
+        return _ods_get(item, path, default)
     try:
-        return item[path]
+        value = item[path]
     except Exception:
         node = item
         try:
@@ -76,9 +78,68 @@ def _path_get(item: Any, path: str, default: Any = None) -> Any:
                     node = getattr(node, part)
                 else:
                     node = node[part]
-            return node
         except Exception:
             return default
+        value = node
+    return default if _is_empty_branch(value) else value
+
+
+def _ods_get(ods: Any, path: str, default: Any = None) -> Any:
+    """Read ``path`` from an ODS without creating it.
+
+    ``ods[path]`` on an absent path materializes an empty branch -- a missing
+    time-dependent leaf such as ``vacuum_toroidal_field.b0`` comes back as
+    ``[None]``, which ``np.asarray`` turns into ``[0.]``: an ODS with no vacuum
+    field read as B0 = 0.0 and kept the phantom node (#2285). The path is
+    walked one key at a time through :func:`vaft.ods_access.path_value`, which
+    never creates; a trailing integer past an ODS leaf indexes the array, as
+    in ``b0.2``.
+    """
+    from vaft.ods_access import path_value
+
+    node = ods
+    for part in path.split("."):
+        if _is_ods_branch(node):
+            node = path_value(node, part, _MISSING_PATH)
+            if node is _MISSING_PATH:
+                return default
+        elif part.isdigit():
+            try:
+                node = node[int(part)]
+            except Exception:
+                return default
+        else:
+            return default
+    return default if node is None or _is_empty_branch(node) else node
+
+
+_MISSING_PATH = object()
+
+
+def _is_empty_branch(value: Any) -> bool:
+    """An OMAS ODS node holding no data (what a missing path reads back as).
+
+    A missing time-dependent leaf such as ``vacuum_toroidal_field.b0`` reads
+    back as a one-element branch ``[None]``, not as a childless one, so the
+    test is on the leaves, not on the keys.
+    """
+    if not _is_ods_branch(value):
+        return False
+    try:
+        return not _holds_data(value)
+    except Exception:
+        return False
+
+
+def _is_ods_branch(value: Any) -> bool:
+    return hasattr(value, "flat") and hasattr(value, "keys")
+
+
+def _holds_data(node: Any) -> bool:
+    """Whether any leaf under ``node`` is not ``None``; stops at the first one."""
+    if not _is_ods_branch(node):
+        return node is not None
+    return any(_holds_data(node[key]) for key in node.keys())
 
 
 def _array(value: Any) -> np.ndarray | None:
