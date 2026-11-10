@@ -7,6 +7,7 @@ import copy
 import importlib.util
 import json
 import math
+import re
 from pathlib import Path
 
 import numpy as np
@@ -158,11 +159,31 @@ def test_operation_space_notebook_uses_the_comparison_notebooks_sources():
                     found[node.targets[0].id] = names[node.targets[0].id]
         return found
 
-    comparison, operation = defaults(NOTEBOOKS / "multiple_tokamak_comparison.ipynb"), defaults(NEW_NOTEBOOK)
-    assert all(comparison.get(n, "").startswith("https://") for n in ("d3d_url", "tcv_url", "sparc_url"))
-    for name in ("d3d_url", "mastu_url", "jet_url", "tcv_url", "sparc_url", "iter_url"):
-        assert operation.get(name) == comparison.get(name), name
-    assert "vaft.data.sample(39915" in _code(NEW_NOTEBOOK)
+    comparison_path = NOTEBOOKS / "multiple_tokamak_comparison.ipynb"
+    comparison, operation = defaults(comparison_path), defaults(NEW_NOTEBOOK)
+    # licence-verified devices come from the public loader (#2285), the same set in both
+    for path in (comparison_path, NEW_NOTEBOOK):
+        code = _code(path)
+        assert "load_public_equilibrium(" in code and "PUBLIC_DEVICES = PUBLIC_EQUILIBRIUM_DEVICES" in code
+        # no unpinned upstream URL and no FUSE sample the library already replaces
+        assert "/master/" not in code and "/main/" not in code
+        for retired in ("D3D_eq_ods.json", "ITER_equilibrium_ods.json", "sparc_1593", "65402_t1"):
+            assert retired not in code, (path.name, retired)
+    # JET and MAST-U: the same commit-pinned FUSE samples and hashes in both
+    assert set(comparison) == set(operation) == {"jet_url", "mastu_url"}
+    for name in ("jet_url", "mastu_url"):
+        assert comparison[name] == operation[name] and "/FUSE.jl/" in comparison[name], name
+    hashes = [re.findall(r'"([0-9a-f]{64})"', _code(path)) for path in (comparison_path, NEW_NOTEBOOK)]
+    assert hashes[0] == hashes[1] and len(hashes[0]) == 2
+    # the unverified rows never reach an exported figure: the FUSE branch tags them, and the export
+    # path renders the filtered table and filtered trajectories, never the page's
+    code = _code(NEW_NOTEBOOK)
+    assert 'fmt, licence, verified = "ODS JSON (FUSE.jl)", "not established", False' in code
+    assert '"licence_verified": verified' in code
+    assert 'kept = table[~table["licence_verified"].eq(False)]' in code
+    assert "_render(exported, key, title, EXPORT_FORMAT, calibration, marker, **export_kw)" in code
+    assert 'export_kw["trajectories"] = ' in code
+    assert "EXPORT_FORMAT, calibration, marker, **kw)" not in code
 
 
 def test_operation_space_notebook_discovers_projections_and_restates_no_boundary():
