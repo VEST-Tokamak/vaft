@@ -88,6 +88,7 @@ __all__ = [
     "compute_eddy_currents",
     "compute_ejiri_mirror_proxy_ods",
     "compute_field_line_trace",
+    "compute_gpec_resonant_table",
     "compute_grad_shafranov_residual",
     "compute_grid_ods",
     "compute_grid_response_ods",
@@ -4791,6 +4792,74 @@ def compute_parallel_current_from_toroidal(
         shell_area=np.diff(_on(edges, "area")),
     )
 
+
+
+def compute_gpec_resonant_table(
+    ods: Any,
+    *,
+    n_tor: Optional[int] = None,
+    time_slice: Optional[int] = None,
+) -> dict[str, Any]:
+    """Per-surface resonant response of one ideal-GPEC mode, from the mapped IDS alone.
+
+    An ideal-GPEC run mapped by :func:`vaft.machine_mapping.gpec_ideal.gpec_ideal`
+    carries the total perturbed flux on a ``(psi_n, m)`` grid and, in
+    ``mhd_linear.code.parameters``, the geometry of every rational surface with
+    the *vacuum* resonant flux GPEC wrote there.  This returns both, surface by
+    surface, so a caller can compare -- or linearly superpose -- coil sets
+    without the solver's native files.
+
+    Returns a dict with ``n_tor``, ``time_slice``, ``chi1`` and ``rows``; each
+    row has ``psi_n``, ``q``, ``m_pol``, ``dq_dpsi_n``, ``area``, the total
+    response ``Phi_res`` (complex, T), its ``phase`` (rad) and island width
+    ``w_isl`` (psi_N), and the vacuum pair ``Phi_res_vacuum`` (complex, T) and
+    ``w_isl_vacuum`` -- ``None`` where the mapping recorded no vacuum value.
+
+    The total is *derived* from the mapped spectral field by
+    :func:`vaft.process.perturbation.resonant_table`, the same derivation the
+    registered ``mhd_linear_profile_resonant_flux`` plot draws (it reproduces
+    GPEC's own ``w_isl`` to about a per cent on the DIII-D reference); the vacuum
+    values are GPEC's own, copied by the mapper.  A run whose DCON namelist had
+    ``con_flag=t`` carries no total: GPEC switches its singular-field output
+    off then, the mapping writes no surface geometry, and this raises the same
+    ``ValueError`` the plots do.
+
+    ``n_tor`` / ``time_slice`` select the cell when the ODS holds several, as
+    for the registered ``mhd_linear`` plots.
+    """
+    from vaft.plot.backend.recipes import _gpec_rational_surfaces, _gpec_resonant_table
+
+    options: dict[str, Any] = {}
+    if n_tor is not None:
+        options["n_tor"] = int(n_tor)
+    if time_slice is not None:
+        options["time_slice"] = int(time_slice)
+    table = _gpec_resonant_table(ods, **options)
+    cell_slice = int(table["cell"]["time_slice"])
+    _chi1, surfaces = _gpec_rational_surfaces(ods, int(table["n_tor"]), cell_slice)
+    by_psi = {round(float(surface["psi_n"]), 10): surface for surface in surfaces}
+    rows = []
+    for row in table["rows"]:
+        surface = by_psi.get(round(float(row["psi_n"]), 10), {})
+        real, imag = surface.get("phi_res_v_real"), surface.get("phi_res_v_imag")
+        rows.append({
+            "psi_n": float(row["psi_n"]),
+            "q": float(row["q"]),
+            "m_pol": int(row["m_pol"]),
+            "dq_dpsi_n": surface.get("dq_dpsi_n"),
+            "area": surface.get("area"),
+            "Phi_res": complex(row["Phi_res"]),
+            "phase": float(row["phase"]),
+            "w_isl": float(row["w_isl"]),
+            "Phi_res_vacuum": None if real is None or imag is None else complex(float(real), float(imag)),
+            "w_isl_vacuum": surface.get("w_isl_v"),
+        })
+    return {
+        "n_tor": int(table["n_tor"]),
+        "time_slice": cell_slice,
+        "chi1": float(table["chi1"]),
+        "rows": rows,
+    }
 
 
 def compute_grad_shafranov_residual(

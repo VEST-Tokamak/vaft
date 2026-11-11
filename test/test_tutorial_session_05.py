@@ -1,13 +1,16 @@
-"""Contract for Tutorial 05: MHD stability and perturbed equilibria (issue #1023).
+"""Contract for Tutorial 05: MHD stability and perturbed equilibria (#1023, #2278).
 
-The session runs offline from packaged data -- an EFIT g-file, the VEST 3-D coil
-geometry and its vacuum field -- and runs DCON, RDCON and GPEC only in lab mode
-with ``$GPECHOME``. The tests pin the narrative spine (rational surfaces ->
-ideal stability -> tearing -> 3-D coils -> sector harmonics -> vacuum field ->
-relative phase by linearity -> GPEC -> multi-time and multi-n) and the honesty
-rules: no solver in the default path, a time read from the file rather than
-typed, sector angles taken from each coil set, a vacuum-approximation result
-labelled as one, and model excitations never presented as hardware scenarios.
+The session follows EFIT -> CHEASE -> DCON/RDCON -> GPEC -> IMAS -> VAFT plots.
+Offline (the default) every solver stage loads a precomputed, validated IMAS
+sample (``vaft/data/samples/39915/mhd_stability``); lab mode runs a stage when
+its executables are ready and maps the result to the same IDS. The tests pin
+the narrative spine (rational surfaces -> CHEASE refinement -> ideal stability
+-> tearing -> 3-D coils -> sector harmonics -> vacuum field -> relative phase by
+linearity -> GPEC -> multi-time and multi-n) and the honesty rules: no solver in
+the default path, every stage's execution / data source / validation reported
+apart, a time read from the file rather than typed, sector angles taken from
+each coil set, vacuum and total response kept distinct, and model excitations
+never presented as hardware scenarios.
 """
 
 import ast
@@ -28,11 +31,12 @@ MAX_OUTPUT_BYTES = 200_000
 MAX_IMAGE_BYTES = 2_000_000
 IMAGE_MIME_TYPES = ("image/png", "image/jpeg", "image/svg+xml")
 
-#: The offline run draws 18 figures and diagrams; the floor leaves a margin.
-FIGURE_FLOOR = 16
+#: The offline run draws 33 figures and diagrams; the floor leaves a margin.
+FIGURE_FLOOR = 30
 
-#: Every solver the session can launch, and the flag that must gate it.
-SOLVER_CALLS = ("run_gpec_suite_case",)
+#: Every solver the session can launch; each must sit under ``if READY[...]``.
+SOLVER_CALLS = ("run_gpec_suite_case", "scan_chease")
+STAGES = ("CHEASE", "DCON", "RDCON", "GPEC")
 
 
 def _execute(notebook):
@@ -139,41 +143,63 @@ def test_no_cell_dumps_a_data_object(executed):
             assert len("".join(output.get("text", ""))) < MAX_OUTPUT_BYTES, cell.id
 
 
-def test_the_default_path_runs_no_solver(executed):
-    """Offline is the default even on a machine that has $GPECHOME set."""
-    printed = _printed(executed)
-    for solver in ("dcon", "rdcon", "gpec"):
-        assert re.search(rf"{solver}\s+skipped: offline mode", printed), solver
-    for cell_id in ("s05-dcon-run", "s05-rdcon-run", "s05-gpec-run"):
-        assert "skipped" in "".join(
-            output.get("text", "") for output in _cell(executed, cell_id).outputs
-        ), cell_id
+def test_the_default_path_runs_no_solver_and_says_so(executed):
+    """Offline is the default even on a machine that has the solvers installed."""
+    summary = "".join(output.get("text", "") for output in _cell(executed, "s05-stage-summary").outputs)
+    for stage in STAGES:
+        line = next(line for line in summary.splitlines() if line.startswith(stage))
+        assert "not attempted" in line and "precomputed sample" in line and "passed" in line, line
+        assert "offline mode" in line, line
+    assert "Would " not in _printed(executed)
 
 
 def test_every_solver_launch_is_gated_by_the_mode_and_the_preflight(book):
-    assert 'MODE = os.environ.get("VAFT_TUTORIAL_MODE", "offline")' in _executable(book)
-    assert 'MODE == "lab" and path is not None' in _executable(book)
+    executable = _executable(book)
+    assert 'MODE = os.environ.get("VAFT_TUTORIAL_MODE", "offline")' in executable
+    assert 'READY[stage] = MODE == "lab" and not missing' in executable
+    assert "executable_ready(" in executable
     launches = 0
     for cell in _code_cells(book):
         tree = ast.parse(_source(cell))
         guarded = set()
         for node in ast.walk(tree):
-            if isinstance(node, ast.If) and "RUN[" in ast.unparse(node.test):
+            if isinstance(node, ast.If) and "READY[" in ast.unparse(node.test):
                 guarded.update(id(child) for statement in node.body for child in ast.walk(statement))
         for node in ast.walk(tree):
-            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-                    and node.func.attr in SOLVER_CALLS):
+            if not isinstance(node, ast.Call):
+                continue
+            name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", "")
+            if name in SOLVER_CALLS:
                 launches += 1
-                assert id(node) in guarded, f"{cell.id}: {ast.unparse(node)[:80]} runs outside `if RUN[...]`"
-    assert launches >= 4
+                assert id(node) in guarded, f"{cell.id}: {ast.unparse(node)[:80]} runs outside `if READY[...]`"
+    assert launches >= 5
 
 
 def test_solver_workdirs_are_short_temporary_directories(book):
     """The GPEC suite reads paths into fixed-length Fortran strings (#1239)."""
+    executable = _executable(book)
+    assert 'LAB_ROOT = Path(tempfile.mkdtemp(prefix="vaft-t05-"))' in executable
     for cell in _code_cells(book):
         source = _strip_comments(_source(cell))
         if "GPECCaseInputs(" in source:
-            assert "tempfile.mkdtemp(prefix=" in source, cell.id
+            assert "LAB_ROOT" in source or "tempfile.mkdtemp(prefix=" in source, cell.id
+
+
+def test_live_and_sample_paths_meet_in_the_same_ids(book):
+    """Each stage's live branch maps to IMAS and its fallback loads the IMAS sample."""
+    for cell_id, builder in (("s05-dcon-run", "build_mhd_linear_ods("), ("s05-rdcon-run", "build_mhd_linear_ods("),
+                             ("s05-gpec-run", "build_gpec_ideal_ods("), ("s05-chease-run", ".to_omas()")):
+        source = _strip_comments(_source(_cell(book, cell_id)))
+        assert builder in source and "mhd_stability_sample(" in source, cell_id
+    for name in ("gpec.read_dcon_output(", "read_gpec_netcdf(", "read_pest3_matching_output("):
+        assert name not in _executable(book), f"a plot path reads native output: {name}"
+
+
+def test_the_offline_sample_holds_no_solver_intermediates():
+    sample = ROOT / "vaft" / "data" / "samples" / "39915" / "mhd_stability"
+    names = [path.name for path in sample.iterdir()]
+    assert "manifest.yaml" in names
+    assert all(name.endswith(".json.gz") or name == "manifest.yaml" for name in names), names
 
 
 def test_the_notebook_uses_only_public_vaft_modules(book):
@@ -193,6 +219,7 @@ def test_the_notebook_uses_only_public_vaft_modules(book):
 def test_the_session_climbs_from_surfaces_to_driven_response(book):
     order = [
         _first_code_index(book, "find_rational_surfaces("),
+        _first_code_index(book, "scan_chease("),
         _first_code_index(book, 'modules=("dcon",)'),
         _first_code_index(book, "vaft.diagram.tearing_layer_matching()"),
         _first_code_index(book, 'modules=("rdcon",)'),
@@ -250,11 +277,35 @@ def test_the_linear_picture_is_checked_before_it_is_used(executed):
     assert max(fractions) < 10.0
 
 
-def test_the_vacuum_approximation_is_labelled_and_its_gap_named(book):
+def test_vacuum_and_total_response_are_kept_distinct(book, executed):
     text = _markdown(book)
-    assert "vacuum-approximation" in text or "vacuum approximation" in text
-    assert "#1243" in text
-    assert "Vacuum approximation: no screening, no amplification" in _executable(book)
+    assert "#1243" in text and "con_flag" in text
+    assert "vacuum against total" in _executable(book)
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s05-gpec-run").outputs)
+    ratios = [float(value) for value in re.findall(r"^\s+\d+\s+[0-9.]+\s+[0-9.]+\s+[0-9.]+\s+([0-9.]+)$",
+                                                   printed, re.M)]
+    assert len(ratios) == 22, printed          # 11 n=1 surfaces, UP and LOW
+    assert max(ratios) < 1.0                   # screened everywhere on this equilibrium
+
+
+def test_the_dcon_comparison_is_verified_at_two_resolutions(executed):
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s05-dcon-run").outputs)
+    assert "-> stable: ideally STABLE at both resolutions" in printed
+    assert "-> pressure_x6: ideally UNSTABLE, dominant m = 2" in printed
+
+
+def test_rdcon_reports_resolution_sensitivity_rather_than_a_verdict(book, executed):
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s05-rdcon-table").outputs)
+    assert "sign changes with resolution: unresolved" in printed
+    assert "near the axis: not interpretable" in printed
+    assert "not a tearing verdict" in _markdown(book)
+
+
+def test_the_chease_step_compares_residuals_without_ranking_them(book, executed):
+    assert "compute_grad_shafranov_residual(" in _executable(book)
+    assert "**not** a ranking" in _markdown(book)
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s05-gs-residual").outputs)
+    assert printed.count("median |residual| / RMS source") == 2
 
 
 def test_model_excitations_are_not_presented_as_hardware_scenarios(book):

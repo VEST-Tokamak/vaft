@@ -10,6 +10,8 @@ import yaml
 __all__ = [
     "available_samples",
     "data_path",
+    "mhd_stability_manifest",
+    "mhd_stability_sample",
     "require_repository_sample",
     "sample",
     "sample_camera_visible_frame_paths",
@@ -264,6 +266,63 @@ def unified_diagnostics_fixture():
 
     manifest = unified_diagnostics_manifest()
     return load(_require_shipped_fixture(data_path("unified/vest_diagnostics") / manifest["artifact"]["path"]))
+
+
+_MHD_STABILITY_DIR = "samples/39915/mhd_stability"
+
+
+def mhd_stability_manifest() -> dict:
+    """The manifest of the Tutorial 05 MHD-stability sample, validated.
+
+    The sample is the CHEASE -> DCON/RDCON -> GPEC chain of shot 39915 at
+    319 ms, mapped to IMAS and stored as OMAS JSON products: one per
+    (solver, case, resolution).  The manifest names each product's IDS, the
+    check it was accepted on, its SHA-256 and its validation status, and the
+    inputs (source g-file, solver revisions, configuration) that regenerate it
+    with ``workflow/tutorial_05_mhd_samples/build_mhd_stability_sample.py``.
+    Repository-only, like the g-files it was computed from.
+    """
+    path = require_repository_sample(data_path(f"{_MHD_STABILITY_DIR}/manifest.yaml"))
+    with path.open("r", encoding="utf-8") as handle:
+        manifest = yaml.safe_load(handle) or {}
+    if int(manifest.get("schema_version", 0)) != 1 or manifest.get("kind") != "tutorial-05-mhd-stability-sample":
+        raise ValueError(f"not a Tutorial 05 MHD-stability manifest: {path}")
+    if manifest.get("status") != "validated":
+        raise ValueError(f"the MHD-stability sample is not validated (status {manifest.get('status')!r}): {path}")
+    for name, record in (manifest.get("products") or {}).items():
+        if not isinstance(record, dict) or not record.get("path") or not record.get("sha256"):
+            raise ValueError(f"MHD-stability product {name!r} has no path and sha256: {path}")
+    return manifest
+
+
+def mhd_stability_sample(product: str, *, verify: bool = False):
+    """Load one precomputed Tutorial 05 MHD-stability product as an OMAS ODS.
+
+    ``product`` is a key of :func:`mhd_stability_manifest`'s ``products``:
+    ``chease_stable``, ``chease_pressure_x6``, ``dcon_<case>_mpsi<N>``,
+    ``rdcon_stable_mpsi<N>``, ``gpec_UP``/``gpec_LOW``.  The ODS carries the
+    same IDS a live run maps (``equilibrium``; ``mhd_linear``; ``mhd_linear`` +
+    ``ntms``; ``mhd_linear`` + ``coils_non_axisymmetric``), so every reader and
+    plot downstream is the one a live run uses.  ``verify=True`` re-hashes the
+    file against the manifest first.
+    """
+    import hashlib
+
+    from vaft.omas import load
+
+    manifest = mhd_stability_manifest()
+    products = manifest["products"]
+    if product not in products:
+        raise KeyError(f"unknown MHD-stability product {product!r}; available: {', '.join(sorted(products))}")
+    record = products[product]
+    path = require_repository_sample(data_path(f"{_MHD_STABILITY_DIR}/{record['path']}"))
+    if verify:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if digest != record["sha256"]:
+            raise ValueError(f"{path} does not match its manifest sha256")
+    # The products carry no DD version of their own; they were mapped under the
+    # parent sample's, which the manifest links.
+    return load(path, imas_version=sample_manifest(int(manifest["shot"])).get("imas_dd_version"))
 
 
 def sample_geqdsk(name: str = "efit/g039915.00319"):

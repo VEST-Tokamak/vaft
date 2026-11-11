@@ -501,11 +501,14 @@ def prepare_gpec_suite_case(
             run_dir.mkdir(parents=True, exist_ok=True)
             if module in STABILITY_MODULES:
                 rt.copy_gfile_for_gpec(geqdsk, run_dir / eq_filename, shot=inputs.shot, time_ms=inputs.time_ms)
-                rt.write_template(
-                    template_dir / "equil.in",
-                    run_dir / "equil.in",
-                    {"eq_filename": eq_filename, "psilow": config.psilow, "psihigh": config.psihigh},
-                )
+                equil_values: dict[str, object] = {
+                    "eq_filename": eq_filename,
+                    "psilow": config.psilow,
+                    "psihigh": config.psihigh,
+                }
+                if config.mpsi is not None:
+                    equil_values["mpsi"] = int(config.mpsi)
+                rt.write_template(template_dir / "equil.in", run_dir / "equil.in", equil_values)
                 shutil.copy2(template_dir / "vac.in", run_dir / "vac.in")
             ctx = SolverContext(
                 run_dir=run_dir,

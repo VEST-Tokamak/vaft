@@ -79,6 +79,8 @@ NEUTRAL = frozenset({
     "current_overview_reconstruction",
 })
 OMAS_BOUND = frozenset({
+    # Tutorial 05 (#2278): surfaces and Delta-prime via extract_rdcon_stability.
+    "ntms_overview_delta_prime",
     "kinetic_overview_profiles",
     # issue #1837: the Thomson channels go through equilibrium_mapping_points.
     "kinetic_overview_state",

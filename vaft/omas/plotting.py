@@ -748,6 +748,29 @@ def plot_equilibrium_overview_residuals(
     )
 
 
+def plot_ntms_overview_delta_prime(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """RDCON/STRIDE rational surfaces on q and the classical tearing index of each.
+
+    One resistive record (``time_slice=``, ``solver=``, ``n_tor=``): the
+    solver's own ``q(psi_N)`` with every matched ``q = m/n`` surface marked,
+    and the real diagonal ``Delta'`` of the same surfaces below it. A positive
+    value is classical tearing drive under thin-layer, single-surface
+    assumptions -- not a stability verdict for coupled modes.
+
+    Renders with :func:`vaft.plot.ntms_overview_delta_prime`.
+    """
+    return render(
+        "ntms_overview_delta_prime", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_ntms_time_delta_prime(
     source: Any,
     *,
@@ -1567,6 +1590,7 @@ __all__ = [
     "plot_nbi_profile_electron_heating",
     "plot_nbi_profile_ion_heating",
     "plot_mhd_linear_time_energy_perturbed",
+    "plot_ntms_overview_delta_prime",
     "plot_ntms_time_delta_prime",
     "plot_impa_time_field",
     "plot_mirnov_spectrum",

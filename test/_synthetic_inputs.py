@@ -306,6 +306,27 @@ def make_ntms(_sample: ODS) -> ODS:
 
 
 # ---------------------------------------------------------------------------
+# ntms_overview_delta_prime -- the real RDCON fixture of test_rdcon_ods_closure.py,
+# mapped exactly as a run is
+# ---------------------------------------------------------------------------
+def make_rdcon_mapped(_sample: ODS) -> ODS:
+    import shutil
+    import tempfile
+
+    from vaft.machine_mapping.mhd_linear import mhd_linear
+
+    fixture = Path(__file__).resolve().parent / "data" / "gpec" / "rdcon_39915_319_n1"
+    ods = ODS(consistency_check=False)
+    ods["dataset_description.data_entry.pulse"] = 39915
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "rdcon"
+        target.mkdir()
+        shutil.copy(fixture / "rdcon_output_n1.nc", target / "rdcon_output_n1.nc")
+        mhd_linear(ods, str(target), {"module": "rdcon", "modes": [1]})
+    return ods
+
+
+# ---------------------------------------------------------------------------
 # mhd_linear_* -- adapted from test/test_mhd_linear_validation_plots.py
 # (_mhd_linear_ods + _add_eigenfunction)
 # ---------------------------------------------------------------------------
@@ -458,6 +479,7 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "camera_visible_image_vacuum_field_line": make_camera,
     "camera_visible_animation_frames": make_camera,
     "ntms_time_delta_prime": make_ntms,
+    "ntms_overview_delta_prime": make_rdcon_mapped,
     "mhd_linear_time_energy_perturbed": make_mhd_linear,
     "mhd_linear_profile_displacement": make_mhd_linear,
     "mhd_linear_profile_b_field_perturbed": make_mhd_linear,
