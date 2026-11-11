@@ -15,7 +15,8 @@ import pytest
 
 import vaft
 from vaft.diagram._op_space import get_projection, list_projections
-from vaft.omas import EQUILIBRIUM_STATE_UNITS, equilibrium_state_rows, equilibrium_state_table
+from vaft.omas import (EQUILIBRIUM_STATE_UNITS, POLOIDAL_FIELD_COLUMNS, equilibrium_state_rows, equilibrium_state_table,
+                       usable_rows)
 
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOKS = ROOT / "notebooks"
@@ -116,6 +117,35 @@ def test_a_psi_map_that_fails_amperes_law_is_not_a_state(vest_ods, vest_rows):
     assert [r["state_status"] for r in rows] == ["valid", "flux_conflict"]
     assert "Ampere" in rows[1]["state_reason"] or "disagree" in rows[1]["state_reason"]
     assert rows[1]["internal_inductance_li3"] > 5 * vest_rows[2]["internal_inductance_li3"]
+
+
+def test_a_slice_without_a_cocos_keeps_its_convention_free_columns(vest_ods, vest_rows, monkeypatch):
+    """No declared COCOS and no q profile (the DIII-D and MAST adapters): the shape and |I_p| stay, the
+    poloidal-field columns are left out (#2285)."""
+    monkeypatch.setattr("vaft.omas.general.ods_cocos", lambda ods: None)
+    ods = copy.deepcopy(vest_ods)
+    del ods["equilibrium.time_slice.1.profiles_1d.q"]
+    (row,) = equilibrium_state_rows(ods, {"machine": "VEST"}, time_indices=[1])
+    assert row["state_status"] == "cocos_unidentified" and row["cocos_source"] is None
+    assert row["cocos_target"] is None and "COCOS" in row["state_reason"]
+    for name in ("plasma_current", "elongation", "triangularity", "minor_radius", "b0", "kink_safety_factor_elliptic"):
+        assert row[name] == pytest.approx(vest_rows[1][name], rel=1e-9), name
+    for name in ("toroidal_beta", "normalized_beta", "normalized_shafranov_shift", "area_elongation"):
+        assert row[name] == pytest.approx(vest_rows[1][name], rel=1e-6), name   # pressure and shape need no COCOS
+    assert all(math.isnan(row[name]) for name in POLOIDAL_FIELD_COLUMNS)
+    assert row["cocos_status"].startswith("unidentified") and row["li_beta_crosscheck"] == "unavailable"
+    assert "COCOS unidentified" in row["state_notes"]
+
+
+def test_usable_rows_keeps_poloidal_field_columns_to_states():
+    import pandas as pd
+
+    table = pd.DataFrame({"state_status": ["valid", "flux_conflict", "cocos_unidentified", "failed"]})
+    assert list(usable_rows(table, ["elongation", "plasma_current"])) == [True, True, True, False]
+    for name in POLOIDAL_FIELD_COLUMNS:
+        assert list(usable_rows(table, ["normalized_beta", name])) == [True, False, False, False]
+        assert list(usable_rows(table, name)) == [True, False, False, False]   # one column, not its characters
+    assert list(usable_rows(table, "elongation")) == [True, True, True, False]
 
 
 def test_a_source_without_an_equilibrium_keeps_one_failed_row():

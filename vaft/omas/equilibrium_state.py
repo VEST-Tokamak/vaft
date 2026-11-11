@@ -40,7 +40,14 @@ all keeps its row with ``state_status = "failed"`` and the reason. A slice whose
 psi map does not satisfy Ampere's law round the LCFS in the flux family it is
 read in (:func:`vaft.process.cocos.identify_flux_exponent`) gets
 ``state_status = "flux_conflict"``: its ``li_3`` and $\\beta_p$ would be off by
-the mismatch, so it is not a state, though its values stay in the row. The quantities
+the mismatch, so it is not a state, though its values stay in the row. A slice
+whose COCOS cannot be identified from its signs (no $q$ profile, no toroidal
+field) gets ``state_status = "cocos_unidentified"``: it is read as stored, the
+magnitudes and the shape need no convention, and the columns that scale with
+the poloidal field (:data:`POLOIDAL_FIELD_COLUMNS`), whose flux family is then
+unsettled, stay NaN. Neither kind of row is a state, but a plot whose axes avoid
+:data:`POLOIDAL_FIELD_COLUMNS` may use them: :func:`usable_rows` says which
+rows a set of columns may be read from. The quantities
 that are not equilibrium properties (density, loss power, ...) are not
 columns, and neither are the straight-cylinder $q(a)$ and $l_i$ of Cheng et
 al. (1987), which a toroidal equilibrium does not define.
@@ -54,8 +61,9 @@ from typing import Any, Iterable, Mapping, Optional, Sequence
 
 import numpy as np
 
-__all__ = ["ATLAS_EXTRA_UNITS", "EQUILIBRIUM_STATE_CONVENTIONS", "EQUILIBRIUM_STATE_UNITS", "atlas_state_table",
-           "equilibrium_state_rows", "equilibrium_state_table"]
+__all__ = ["ATLAS_EXTRA_UNITS", "EQUILIBRIUM_STATE_CONVENTIONS", "EQUILIBRIUM_STATE_UNITS", "PARTIAL_STATE_STATUSES",
+           "POLOIDAL_FIELD_COLUMNS", "atlas_state_table", "equilibrium_state_rows", "equilibrium_state_table",
+           "usable_rows"]
 
 #: Units of the quantity columns, as ``table.attrs["units"]`` declares them.
 EQUILIBRIUM_STATE_UNITS = {
@@ -88,6 +96,19 @@ EQUILIBRIUM_STATE_UNITS = {
     "edge_safety_factor_95_estimate_iter": "-",
     "edge_safety_factor_95_estimate_start": "-",
 }
+
+#: Columns that scale with the poloidal field, so with the flux family psi is read in (weber or weber per
+#: radian). They are the ones a ``flux_conflict`` row gets wrong, and the ones a ``cocos_unidentified`` row
+#: leaves NaN. ``normalized_beta`` and ``toroidal_beta`` are pressure over the toroidal field, and every other
+#: column is a magnitude or the shape: none of them depends on the flux family.
+POLOIDAL_FIELD_COLUMNS = ("internal_inductance_li3", "li3_grid_integral", "poloidal_beta")
+
+#: ``state_status`` values of rows that are not states, but whose columns outside
+#: :data:`POLOIDAL_FIELD_COLUMNS` hold (see :func:`usable_rows`). A ``flux_conflict`` whose loop ratio matches
+#: neither family ("I_p and the psi map disagree") cannot itself say whether psi or ``ip`` is at fault; treating
+#: the row as partial trusts ``|I_p|`` and every column built on it, so a caller that uses these rows on such a
+#: source should have independent evidence that ``ip`` is right (the multi-machine notebook cites one).
+PARTIAL_STATE_STATUSES = ("flux_conflict", "cocos_unidentified")
 
 #: Which toroidal field and which radius the field-normalized columns use, as
 #: ``table.attrs["conventions"]`` declares them. ``normalized_current`` and
@@ -191,8 +212,8 @@ def _resolved(ods, k: int, cocos: Optional[int]):
         per_radian = stated.convention.psi_per_radian
         if per_radian is not None:   # the flux family is settled even when the signs leave the index open
             candidates = tuple(c for c in candidates if (c < 10) == per_radian) or candidates
-        if not candidates:
-            raise ValueError("COCOS could not be identified from the equilibrium's signs")
+        if not candidates:   # read as stored: magnitudes and shape need no convention, B_p columns are left out
+            return stated, None, "unidentified: the equilibrium's signs identify no COCOS"
         source = int(candidates[0])
         status = "identified" if len(candidates) == 1 else f"ambiguous {candidates}: took {source}"
         stated = as_equilibrium(ods, time_index=k, convention=source)
@@ -269,7 +290,7 @@ def _slice_values(ods, k: int, cocos: Optional[int]) -> dict:
     b_geo = b0 * r_ref / r_geo   # vacuum field at R_geo from the field at the reference radius
     delta = 0.5 * (pick("triangularity_upper") + pick("triangularity_lower"))
     shift = pick("shafranov_shift")
-    return {
+    values = {
         "cocos_source": source,
         "cocos_status": status,
         "cocos_target": 11,
@@ -314,8 +335,16 @@ def _slice_values(ods, k: int, cocos: Optional[int]) -> dict:
         "edge_safety_factor_95_estimate_start": _guarded(notes, "edge_safety_factor_95_estimate_start",
                                                          lambda: _b.start_q95_coordinates(a, r_geo, b_geo, kappa,
                                                                                           delta, ip_ma)),
-        "state_notes": "; ".join(notes),
     }
+    if source is None:
+        values["cocos_target"] = None
+        for name in POLOIDAL_FIELD_COLUMNS:
+            values[name] = math.nan
+        values["li_beta_crosscheck"] = "unavailable"
+        notes.append(f"{', '.join(POLOIDAL_FIELD_COLUMNS)}: left out, COCOS unidentified (the slice is not converted, "
+                     "so its flux family is not taken as settled)")
+    values["state_notes"] = "; ".join(notes)
+    return values
 
 
 def _equilibrium_provenance(ods) -> str:
@@ -366,9 +395,15 @@ def equilibrium_state_rows(ods: Any, provenance: Optional[Mapping[str, Any]] = N
         row["time_s"] = float(t) if t is not None else math.nan
         try:
             row.update(_slice_values(ods, int(k), cocos))
-            conflict = _flux_consistency(ods, int(k), cocos)
-            # the values stay in the row so the conflict can be inspected; only "valid" rows are states
-            row.update(state_status="flux_conflict" if conflict else "valid", state_reason=conflict)
+            if row["cocos_source"] is None:
+                row.update(state_status="cocos_unidentified",
+                           state_reason="COCOS could not be identified from the equilibrium's signs (it needs a q "
+                                        "profile and the I_p and B_0 signs); read as stored, poloidal-field "
+                                        "columns left out")
+            else:
+                conflict = _flux_consistency(ods, int(k), cocos)
+                # the values stay in the row so the conflict can be inspected; only "valid" rows are states
+                row.update(state_status="flux_conflict" if conflict else "valid", state_reason=conflict)
         except Exception as exc:  # recorded per row, never silently dropped
             row.update(state_status="failed", state_reason=f"{type(exc).__name__}: {exc}")
         rows.append(row)
@@ -410,6 +445,30 @@ def equilibrium_state_table(entries: Iterable, *, cocos: Optional[Mapping[str, i
     table.attrs["units"] = dict(EQUILIBRIUM_STATE_UNITS)
     table.attrs["conventions"] = copy.deepcopy(EQUILIBRIUM_STATE_CONVENTIONS)
     return table
+
+
+def usable_rows(table, columns):
+    """Which rows of an equilibrium-state table the given columns may be read from.
+
+    Parameters
+    ----------
+    table : pandas.DataFrame
+        From :func:`equilibrium_state_table` (or a table with the same ``state_status`` column).
+    columns : iterable of str
+        The columns a plot or a statistic reads, e.g. its two axes.
+
+    Returns
+    -------
+    pandas.Series of bool
+        True for a state (``valid``), and for a row of :data:`PARTIAL_STATE_STATUSES` when no column is in
+        :data:`POLOIDAL_FIELD_COLUMNS`. Missing values are not tested here, and only the columns given are
+        checked: pass every column the plot reads, off-axis inputs included.
+    """
+    columns = [columns] if isinstance(columns, str) else list(columns)
+    status = table["state_status"]
+    if any(c in POLOIDAL_FIELD_COLUMNS for c in columns):
+        return status.eq("valid")
+    return status.eq("valid") | status.isin(PARTIAL_STATE_STATUSES)
 
 
 # ---------------------------------------------------------------------------
