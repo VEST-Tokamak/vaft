@@ -1,15 +1,15 @@
-"""Contract for Tutorial 06: operational space and data-driven analysis (issue #1091).
+"""Contract for Tutorial 06: operational history, summary contracts and stability space (#2277).
 
-The session builds its population offline from the six packaged VEST samples
-through the canonical summary presets, and in lab mode from
-``vaft.database.summary``. The tests pin the spine (units of analysis ->
-coverage and validity -> representative states -> distributions ->
-operational space -> beta validity -> density -> dimensionless variables ->
-confinement -> confounding -> similarity -> events -> planned data-driven
-representations) and the honesty rules: tables come only from the presets,
-every validity rule prints what it removed, a reference limit carries its
-source, the unsourced kink heuristic is never drawn, events are joined by time,
-and machine learning is presented as planned, not as a working model.
+The session runs offline from the repository-only sample collections
+``vaft/data/samples/vest_operational_history`` and ``vaft/data/samples/vest_tier_a``
+(read through ``vaft.data.data_path``) and from the packaged sample shots, and in
+lab mode rebuilds the population with ``vaft.database.summary``. The tests pin
+the spine (history -> summary contracts -> Tier A population -> confinement ->
+lazy/eager access -> operating space -> stability join -> classification ->
+distributions) and the honesty rules: only the three in-scope presets, skipped
+shots printed, file hashes checked against the manifest, joins validated at
+their grain, no boundary drawn on a foreign quantity, ideal/resistive/local
+layers and their QA kept separate, and database access only in lab mode.
 """
 
 import ast
@@ -28,13 +28,18 @@ NOTEBOOK = ROOT / "tutorial" / "06_operational_space_and_data_driven_analysis.ip
 
 MAX_OUTPUT_BYTES = 200_000
 IMAGE_MIME_TYPES = ("image/png", "image/jpeg", "image/svg+xml")
-FIGURE_FLOOR = 5
+FIGURE_FLOOR = 10
+IN_SCOPE_PRESETS = {"shot_overview", "equilibrium_global", "core_profiles"}
+OUT_OF_SCOPE_PRESETS = ("efit_magnetic_reliability", "efit_kinetic_reliability", "efit_reliability",
+                        "volume_averaged", "neoclassical", "turbulent_transport", "classical_transport")
 
 
-def _execute(notebook):
-    previous = {key: os.environ.get(key) for key in ("MPLBACKEND", "VAFT_TUTORIAL_MODE")}
+def _execute(notebook, output_dir):
+    keys = ("MPLBACKEND", "VAFT_TUTORIAL_MODE", "VAFT_TUTORIAL_OUTPUT_DIR")
+    previous = {key: os.environ.get(key) for key in keys}
     os.environ["MPLBACKEND"] = "inline"
     os.environ.pop("VAFT_TUTORIAL_MODE", None)
+    os.environ["VAFT_TUTORIAL_OUTPUT_DIR"] = str(output_dir)
     try:
         NotebookClient(notebook, timeout=900, kernel_name="python3",
                        resources={"metadata": {"path": str(ROOT)}}).execute()
@@ -53,8 +58,8 @@ def book():
 
 
 @pytest.fixture(scope="module")
-def executed():
-    return _execute(nbformat.from_dict(nbformat.read(NOTEBOOK, as_version=4)))
+def executed(tmp_path_factory):
+    return _execute(nbformat.from_dict(nbformat.read(NOTEBOOK, as_version=4)), tmp_path_factory.mktemp("s06"))
 
 
 def _code_cells(book):
@@ -79,185 +84,125 @@ def _markdown(book):
 
 
 def _cell(book, cell_id):
-    return next(cell for cell in book.cells if cell.id == cell_id)
+    return next(cell for cell in book.cells if cell.get("id") == cell_id)
 
 
-def _printed_by(executed, cell_id):
-    return "".join(output.get("text", "") for output in _cell(executed, cell_id).outputs)
+def _text(cell):
+    parts = []
+    for output in cell.get("outputs", []):
+        if output.get("output_type") == "stream":
+            parts.append(output.get("text", ""))
+        parts.append(str(output.get("data", {}).get("text/plain", "")))
+    return "\n".join(parts)
 
 
-def _first_code_index(book, token):
-    for index, cell in enumerate(book.cells):
-        if cell.cell_type == "code" and token in _strip_comments(_source(cell)):
+def _first_cell_with(book, token):
+    for index, cell in enumerate(_code_cells(book)):
+        if token in _strip_comments(_source(cell)):
             return index
-    raise AssertionError(f"no executable code cell uses {token!r}")
+    raise AssertionError(f"no code cell contains {token!r}")
 
 
-# ---------------------------------------------------------------------------
-# Runs offline, from the presets
-# ---------------------------------------------------------------------------
-
-
-def test_the_notebook_runs_top_to_bottom(executed):
-    assert _code_cells(executed)
-
-
-def test_every_analysis_view_produces_a_figure(executed):
-    drawn = [
-        cell for cell in _code_cells(executed)
-        if any(any(mime in output.get("data", {}) for mime in IMAGE_MIME_TYPES) for output in cell.get("outputs", []))
-    ]
-    assert len(drawn) >= FIGURE_FLOOR, [cell.id for cell in drawn]
-
-
-def test_no_cell_dumps_a_data_object(executed):
+def test_notebook_runs_offline_and_draws_its_figures(executed):
+    errors = [o for c in _code_cells(executed) for o in c.get("outputs", []) if o.get("output_type") == "error"]
+    assert not errors
+    figures = sum(any(m in o.get("data", {}) for m in IMAGE_MIME_TYPES)
+                  for c in _code_cells(executed) for o in c.get("outputs", []))
+    assert figures >= FIGURE_FLOOR
     for cell in _code_cells(executed):
-        for output in cell.get("outputs", []):
-            for mime, payload in output.get("data", {}).items():
-                if mime not in IMAGE_MIME_TYPES:
-                    text = payload if isinstance(payload, str) else "".join(payload)
-                    assert len(text) < MAX_OUTPUT_BYTES, (cell.id, mime)
-            assert len("".join(output.get("text", ""))) < MAX_OUTPUT_BYTES, cell.id
+        assert len(nbformat.writes(nbformat.from_dict({"cells": [cell], "metadata": {}, "nbformat": 4,
+                                                        "nbformat_minor": 5}))) < MAX_OUTPUT_BYTES, cell.id
 
 
-def test_the_tables_come_from_the_canonical_presets(book):
-    # Since #2110 the offline tables come from the same call the database
-    # summary makes, run on in-memory ODS, so the presets' extractors, columns
-    # and sort are the database's own.
-    executable = _executable(book)
-    assert "vaft.database.summary(odss=samples, preset=preset)" in executable
-    assert "# tables = {preset: vaft.database.summary(" in _source(_cell(book, "s06-load-population"))
+def test_the_spine_runs_in_order(book):
+    tokens = ["omas_history_new.xlsx", "get_summary_preset(name)", "summary(odss=samples",
+              "ip_measured_a", "h_factor(", "vaft.database.open(", '"qstar_in"', "li_qa_pair(",
+              '"beta_n_li"', '"troyon"', '"hugill_st"', "stability_state = ", "stability_atlas_populations("]
+    positions = [_first_cell_with(book, token) for token in tokens]
+    assert positions == sorted(positions), dict(zip(tokens, positions))
 
 
-def test_the_database_path_is_gated_by_the_mode(book, executed):
-    source = _strip_comments(_source(_cell(book, "s06-lab-population")))
-    assert 'LAB = os.environ.get("VAFT_TUTORIAL_MODE", "offline") == "lab"' in source
-    tree = ast.parse(source)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.If) and ast.unparse(node.test) == "LAB":
-            assert "vaft.database.summary" in "\n".join(ast.unparse(statement) for statement in node.body)
-            break
-    else:
-        raise AssertionError("the database summary is not inside `if LAB:`")
-    assert "Offline: the database population needs lab mode" in _printed_by(executed, "s06-lab-population")
-    # The database path is a shot_range summary; the offline cells may call the
-    # same function on in-memory ODS (odss=, #2110) without touching the database.
-    outside = _strip_comments(
-        "\n".join(_source(cell) for cell in _code_cells(book) if cell.id != "s06-lab-population"))
-    assert "vaft.database.summary(shot_range=" not in outside
-    assert "vaft.database.summary(odss=" in outside
+def test_only_the_three_in_scope_presets(book):
+    code = _executable(book)
+    assert not [name for name in OUT_OF_SCOPE_PRESETS if name in code]
+    named = set(re.findall(r'preset="(\w+)"', code)) | set(re.findall(r'PRESETS = \(([^)]*)\)', code)[0].replace('"', "").replace(" ", "").split(","))
+    assert named - {""} == IN_SCOPE_PRESETS
 
 
-def test_the_notebook_uses_only_public_vaft_modules_and_no_local_functions(book):
-    tree = ast.parse(_executable(book))
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("vaft"):
-            assert not any(part.startswith("_") for part in node.module.split(".")), node.module
-        assert not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)), \
-            f"notebook-local function {getattr(node, 'name', 'lambda')}"
+def test_samples_come_from_the_collections_with_checked_hashes(book, executed):
+    code = _executable(book)
+    assert 'data_path("samples/vest_tier_a")' in code
+    assert 'data_path("samples/vest_operational_history")' in code
+    assert "notebooks/data" not in code
+    manifest = _text(_cell(executed, "s06-manifest"))
+    assert "True" in manifest and "False" not in manifest
 
 
-# ---------------------------------------------------------------------------
-# The spine
-# ---------------------------------------------------------------------------
+def test_skipped_shots_are_printed(executed):
+    assert "skipped 48224 shot_overview: PlasmaTimingError" in _text(_cell(executed, "s06-samples"))
 
 
-def test_the_session_climbs_from_records_to_representations(book):
-    order = [
-        _first_code_index(book, "per_shot = slices.groupby"),
-        _first_code_index(book, "coverage = pd.DataFrame("),
-        _first_code_index(book, "at_max_ip = "),
-        _first_code_index(book, "ECDF"),
-        _first_code_index(book, "stability.empirical_li_qa()"),
-        _first_code_index(book, "beta_N_from_beta_a_B0_Ip"),
-        _first_code_index(book, "greenwald_density"),
-        _first_code_index(book, "rho_star_from_M_T_B_R_epsilon"),
-        _first_code_index(book, "kadomtsev_constraint_from_engineering_exponents"),
-        _first_code_index(book, "perform_ols_regression("),
-        _first_code_index(book, "standardized = "),
-        _first_code_index(book, "quench = current_quench("),
-    ]
-    assert order == sorted(order), order
-    assert book.cells.index(_cell(book, "s06-ml")) > book.cells.index(_cell(book, "s06-events"))
+def test_database_access_only_in_lab_mode(book, executed):
+    lab = _source(_cell(book, "s06-lab-population"))
+    assert 'LAB = os.environ.get("VAFT_TUTORIAL_MODE", "offline") == "lab"' in lab
+    assert "summary(shot_range=" in lab.split("if LAB:", 1)[1].split("else:", 1)[0]
+    others = [_strip_comments(_source(c)) for c in _code_cells(book) if c.id != "s06-lab-population"]
+    assert not any("summary(shot_range=" in source for source in others)
+    access = _source(_cell(book, "s06-access")).split("if LAB:", 1)[1].split("else:", 1)[0]
+    assert "vaft.database.open(" in access and "vaft.database.load(" in access
+    assert "Offline: the database population needs lab mode" in _text(_cell(executed, "s06-lab-population"))
+    assert not re.search(r"\b(save_ods|save|upload|export_ods)\(", _executable(book).replace("export_summary(", ""))
 
 
-# ---------------------------------------------------------------------------
-# Honesty
-# ---------------------------------------------------------------------------
+def test_joins_are_validated_at_their_grain(book, executed):
+    code = _executable(book)
+    assert code.count('validate="one_to_one"') >= 3
+    grain = _text(_cell(executed, "s06-load-tables"))
+    assert "duplicate keys" in grain
+    report = _text(_cell(executed, "s06-join"))
+    assert re.search(r"matched / state only / atlas only: 150 / 0 / 0", report)
+    assert re.search(r"duplicate keys after the join\s*: 0", report)
+    assert "electron_kinetic" in report
 
 
-def test_every_validity_rule_reports_what_it_removed(book, executed):
-    assert "current_quench(" in _source(_cell(book, "s06-coverage"))   # rule 2 is each shot's own quench
-    printed = _printed_by(executed, "s06-coverage")
-    assert re.search(r"rule 1 -- .*: \d+ removed", printed)
-    assert re.search(r"rule 2 -- .*: \d+ removed", printed)
-    assert re.search(r"slices kept: \d+", printed)
+def test_boundaries_stay_on_their_own_quantities(book, executed):
+    code = _executable(book)
+    assert '"edge_safety_factor"' not in code  # no q95 or qlim relabelled as q_psi
+    assert "kink_stability_criterion(" not in code
+    assert "Strait 4 l_i(1) on this l_i(3) axis: False" in _text(_cell(executed, "s06-beta-li"))
+    assert "applicable:" in _text(_cell(executed, "s06-qstar"))
+    prepare = _source(_cell(book, "s06-opspace-prepare"))
+    assert 'mag["ip_efit_A"]' in prepare and 'mag["i_p_A"]' not in prepare  # one current: the equilibrium's
+    assert "factor R_geo/R0 = 0.731–1.139" in _text(_cell(executed, "s06-opspace-prepare"))
+    for call in re.findall(r"vaft\.diagram\.\w+\(([^)]*)\)", code):
+        assert call == ""
 
 
-def test_a_failed_preset_is_recorded_not_swallowed(executed):
-    printed = _printed_by(executed, "s06-load-population")
-    assert "48224 shot_overview: PlasmaTimingError" in printed
+def test_stability_layers_stay_separate(book, executed):
+    join = _source(_cell(book, "s06-join"))
+    for token in ("dcon_full_sign_class", "dcon_trunc_sign_class", "rdcon", "stride",
+                  "_classical_tearing_drive_qa", '"not assessed"', '"unresolved"'):
+        assert token in join
+    assert ".astype(bool)" not in join  # an empty (failed-run) flag must not become a drive
+    text = _text(_cell(executed, "s06-classify"))
+    for label in ("ideal, full edge", "ideal, trunc. edge", "RDCON", "STRIDE", "Mercier", "ballooning"):
+        assert label in text
+    # the frozen Tier A atlas pins these per-state counts; 39915 @ 0.322 s has failed n=2 runs and
+    # must stay "raw drive only", not "QA-supported drive" (which bool(NaN) once made it)
+    assert "'stable': 129, 'unstable': 13, 'unresolved': 8" in text
+    assert "'stable': 146, 'unstable': 3, 'unresolved': 1" in text
+    assert re.search(r"RDCON  n=1,2\s*:.*'QA-supported drive': 9\b", text)
+    assert re.search(r"STRIDE n=1,2\s*:.*'QA-supported drive': 38\b", text)
+    markdown = _markdown(book)
+    for phrase in ("not a tearing verdict", "never stable", "An empty region is not by itself an operating limit",
+                   "not a VEST limit"):
+        assert phrase in markdown
 
 
-def test_the_representative_rule_is_stated_and_compared(book):
-    source = _source(_cell(book, "s06-representative"))
-    assert 'idxmax()' in source and "max Ip" in source and "max W_mhd" in source
-    assert "A representative state is a modelling decision" in _markdown(book)
-
-
-def test_reference_limits_carry_their_source_and_the_heuristic_is_not_drawn(book):
-    text = _markdown(book)
-    assert "reference drawn for comparison, not a VEST limit" in text
-    assert "#350" in text
-    assert "kink_stability_criterion(" not in _executable(book)
-    assert "reference only" in _source(_cell(book, "s06-opspace"))
-
-
-def test_an_observed_envelope_is_never_called_a_limit(book):
-    text = _markdown(book)
-    assert "An empty region is not by itself an operating limit" in text
-    assert "an observed envelope, not a limit" in _source(_cell(book, "s06-opspace"))
-
-
-def test_beta_validity_is_checked_before_beta_is_used(book, executed):
-    assert "#386" in _markdown(book)
-    assert "constrained by kinetic profiles: [48224]" in _printed_by(executed, "s06-beta")
-    assert "vaft.diagram.troyon()" in _executable(book)
-
-
-def test_greenwald_is_formed_in_one_unit(book, executed):
-    source = _source(_cell(book, "s06-greenwald"))
-    assert 'greenwald_fraction(state["ne_line_1e19_m3"], n_g)' in source
-    f_g = float(re.search(r"f_G = ([0-9.]+)", _printed_by(executed, "s06-greenwald")).group(1))
-    # 0.098 in one unit; a 1e20 n_G against a 1e19 density would print ten times less or more.
-    assert 0.05 < f_g < 0.2
-
-
-def test_confounding_is_shown_within_and_across_shots(executed):
-    printed = _printed_by(executed, "s06-regression")
-    pooled = re.search(r"pooled over \d+ slices: li ~ q95\^([+-][0-9.]+)", printed)
-    within = re.findall(r"alone \(\s*\d+ slices\): li ~ q95\^([+-][0-9.]+)", printed)
-    assert pooled and len(within) >= 2, printed
-
-
-def test_events_are_joined_to_states_by_time_not_position(book, executed):
-    source = _source(_cell(book, "s06-events"))
-    assert 'slices["time_s"] < quench.time_80' in source
-    rows = [line.split() for line in _printed_by(executed, "s06-events").splitlines()
-            if re.match(r"\s*\d{5}\s", line)]
-    joined = [row for row in rows if row[3] != "NaN"]
-    assert joined, rows
-    for row in joined:
-        assert float(row[3]) < float(row[1]), row   # the pre-event state precedes the quench
-
-
-def test_machine_learning_is_presented_as_planned_not_as_a_model(book):
-    text = _markdown(book)
-    assert "Planned — not implemented as a validated VAFT workflow" in text
-    assert "train_model(" not in _executable(book)
-    assert "split by shot" in text.lower()
-
-
-def test_the_diagrams_are_canonical_so_they_render_without_tex(book):
-    calls = re.findall(r"vaft\.diagram\.(\w+)\(([^)]*)\)", _executable(book))
-    assert calls and all(arguments.strip() == "" for _name, arguments in calls)
+def test_code_stays_plain(book):
+    for cell in _code_cells(book):
+        tree = ast.parse(_source(cell))
+        assert not any(isinstance(n, (ast.FunctionDef, ast.Lambda, ast.ClassDef)) for n in ast.walk(tree)), cell.id
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                assert not any(part.startswith("_") for part in node.module.split(".")), node.module

@@ -7,209 +7,220 @@ format:
 bibliography: assets/bibliography/vaft.bib
 ---
 
-# From a discharge to a database
+# From one discharge to a population
 
 ## The question turns around
 
 Sessions 01--05 went deeper into one discharge. Session 06 asks:
 
-> What can a database of consistently represented discharges tell us --- and not tell us?
+> Where in operational and MHD-stability space do the reconstructed VEST states lie ---
+> and which statements about limits does the evidence support?
 
-$$\text{discharges} \rightarrow \text{features} \rightarrow \text{population}
-\rightarrow \text{operational space} \rightarrow \text{limits, regimes, performance}$$
+$$\text{history} \rightarrow \text{summary contracts} \rightarrow \text{population}
+\rightarrow \text{reference boundaries} \rightarrow \text{stability join} \rightarrow \text{classification}$$
 
 ::: {.notes}
 [2 min]
 
 NARRATE:
-The course has been a descent into one shot. This session reverses it. The
-precondition for everything is one definition and one provenance per quantity
-in every row: VAFT's summary presets.
+Everything runs offline from two repository-only sample collections,
+vest_operational_history and vest_tier_a, read with vaft.data.data_path. Their
+manifests carry the hashes the notebook checks before any number is shown.
 
 TRANSITION:
-What is a row?
+Start with the longest record: the shot history.
 :::
 
-## The unit of analysis
+## Four things drawn on one plane
 
-| unit | example | question |
-| --- | --- | --- |
-| shot | max $I_p$, pulse duration | what discharge was produced? |
-| time slice | $q_{95}$, $l_i$, $\kappa$ | where did the state exist? |
-| event | current quench | from what state did it occur? |
+| term | evidence it needs |
+| --- | --- |
+| observed envelope | the population itself |
+| accessible operating space | engineering limits, scans |
+| empirical / theoretical boundary | source, domain, quantity definitions |
+| solver classification | the solver, its inputs, its numerical QA |
 
-Offline: 6 samples $\rightarrow$ 5 shot rows, 35 slices from 4 shots, **one shot
-supplies over half of the slices**.
-
-::: {.notes}
-[4 min]
-
-NARRATE:
-Slices of one discharge share settings, wall, fuelling and reconstruction.
-They are not independent samples of the machine. That is pseudo-replication,
-and it is the first thing to check.
-
-TRANSITION:
-Before any statistic: what is actually there?
-:::
-
-# Coverage and validity first
-
-## The funnel
-
-- $C_X = N(X\ \text{available}) / N(\text{relevant records})$
-- equilibrium 4/6, kinetic profiles 1/6, one shot has no $I_p$ record at all
-- rule 1: slices with zero current (failed reconstructions)
-- rule 2: slices from each shot's own current-quench 80 % time on --- their $l_i$ reaches 12
-
-Missing data are part of the experiment. **Stated rules, counted removals.**
-
-::: {.notes}
-[4 min]
-
-NARRATE:
-Rule 2 is the one to dwell on. Reconstructions of a collapsing current give
-profile quantities no equilibrium of this machine has. The cut is each shot's
-own quench, measured as in session 04; a cruder half-of-peak-current cut keeps
-ten of those slices.
-
-TRANSITION:
-With a clean population, reduce each shot to one state.
-:::
-
-## A representative state is a modelling decision
-
-$$\text{question} \rightarrow \text{sampling rule} \rightarrow \text{representative value}$$
-
-- max $I_p$ and max $W_{\mathrm{MHD}}$ pick the same slice on three shots, not on 41672
-- on 41672 $q_{95}$ moves from 5.0 to 7.4 between the two rules
-- the rule belongs in the provenance of the table
+An empty region is not by itself an operating limit.
 
 ::: {.notes}
 [3 min]
 
 NARRATE:
-Neither rule is wrong. They answer different questions. Populations built with
-different rules are not comparable.
+Keep the four apart for the whole session. Most mistakes in operational-space
+plots are one of these being read as another.
 :::
 
-# Operational space
+# Operational history and summary contracts
 
-## An observed envelope is not a limit
+## The archived history is history, not a preset
 
-- VEST states in $(q_{95}, l_i)$ sit far from $q = 2$
-- the empty region: never attempted? unreachable? avoided? filtered? unstable?
-- the JET survey points are a **reference drawn for comparison, not a VEST limit**
+- 2257 shots, 38000--45767; 1932 with max $I_p \geq 2$ kA; 1382 with a legacy EFIT ODS
+- no pulse date, no `shot_class`, no onset source: shot number $\neq$ calendar time
+- the 32 Tier A shots occupy two narrow bands of shot numbers
 
 ::: {.notes}
 [4 min]
 
 NARRATE:
-List the six reasons a region can be empty. Only one of them is physics. The
-evidence that separates them: accessibility limits of the PF system, event
-labels, and session 05's stability calculations on states near the edge of
-the cloud.
-
-WARN:
-The survey is q_a from another machine; VEST plots q95.
+Compare the archived columns with the shot_overview contract column by column.
+The 2 kA cut borrows the pickup threshold of shot_class; it is not a
+classification.
 :::
 
-## Validity before physics: $\beta_N$
+## A preset is a definition
 
-- magnetics-only reconstructions: $\beta_N$ 0.06--0.12, no pressure constraint (Open: #386)
-- the kinetically constrained 48224: the highest, $\beta_t$ between the electron-only and $T_i = T_e$ Thomson estimates
-- a pooled $\beta_N$ column mixes two quantities under one name
-- `kink_stability_criterion` uses $2.8\,q_{95}$: unsourced and deprecated, not drawn
+| preset | reads | grain / key |
+| --- | --- | --- |
+| `shot_overview` | spectrometer_uv, magnetics, tf, barometry, dataset_description | shot |
+| `equilibrium_global` | equilibrium, magnetics, tf | `(shot, eq_index, time_s)` |
+| `core_profiles` | equilibrium, core_profiles, magnetics, tf | `(shot, cp_index, time_s)` |
+
+`summary(odss=...)` runs the same extractor offline; `attrs["skipped"]` names the
+shots it could not build (48224: no plasma current, `PlasmaTimingError`).
 
 ::: {.notes}
 [4 min]
 
 NARRATE:
-A column's constraint set is part of its definition. A formula existing in the
-code base is not evidence; its own docstring records the defect.
+shot_overview takes its window from plasma_timing (H-alpha first, I_p as a
+cross-check) and classifies Plasma / BD failure / Vacuum. Always print skipped.
+
+TRANSITION:
+Offline extraction is one of three access paths.
 :::
 
-## Density, dimensionless variables, confinement
+## Lazy, eager, offline
 
-- $f_G \approx 0.1$ on the one kinetic state; `greenwald_density` returns $10^{19}$
-- $\rho_* \approx 0.03$ (hydrogen), $\nu_* \approx 0.1$, $\epsilon \approx 0.73$: a spherical tokamak in dimensionless terms
-- $q_{\mathrm{cyl}} \approx 1.9$ beside $q_{95} \approx 5.8$: $q$ definitions part company at low aspect ratio
-- five reference scalings, H from 0.06 to 0.9: five questions, not one answer
-- Kadomtsev residual: a similarity check on exponents, not a fit
+- `open(shot, paths=...)`: read-only, lazy, inside a `with` block; few leaves of many shots
+- `load(shot)`: eager, materialised; one shot to modify or run codes on
+- `summary(shot_range=...)`: lazy per shot, only the preset's IDS
+- `summary(odss=...)`: no database at all
+
+Database calls run only in lab mode, read-only.
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+The same shot number in two sources is two reconstructions; every population
+row therefore carries its lineage.
+:::
+
+# The Tier A population
+
+## Grain, joins and names
+
+- 150 states from 32 shots: 133 magnetics + 17 electron-kinetic, good or admissible
+- five tables, five grains: shot, state, state $\times n$, state $\times n \times$ solver $\times$ surface
+- join on `(shot, round(t * 1e6), lineage)`, `validate="one_to_one"`: 150 / 0 / 0
+- two "internal inductance" columns differ by 1.00--1.51$\times$: a name is not a definition
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+The atlas spells the lineages magnetics-only and electron-kinetic; map them
+explicitly and refuse unknown labels. Joining a per-state table to atlas_n
+without reducing it first multiplies every state by six.
+:::
+
+## Reconstructed, selected, sparse
+
+- $q_{95}$, $l_i$, $\beta_p$, $W_\mathrm{MHD}$ are EFIT outputs: joint inference, not two measured axes
+- `efit_quality` (trustworthy equilibrium) $\neq$ `selected` (usable power balance)
+- Thomson density on 64/133 states; scalings only there
+- H (selected, median): ITER89P 0.75, H98y2 0.72, NSTX2006L 0.24
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+One state per shot versus all slices changes every distribution; say which
+population a statistic describes.
+:::
+
+# Operating space
+
+## Field conventions and quantity identities
+
+- $I_N$, $q^*$, Hugill: vacuum $B_T$ at $R_\mathrm{geo}$; stored $\beta_N$: $B_T$ at $R_0 = 0.4$ m
+- $\beta_N(R_\mathrm{geo}) = \beta_N(R_0)\,R_\mathrm{geo}/R_0$, factor 0.73--1.14
+- $q_{95} \neq q_\psi \neq q(a) \neq q^*$; DCON `qlim` sits at $\psi_N = 0.994$
+- Wesson and Cheng panels: reference only; Strait $4\,l_i(1)$ never on an $l_i(3)$ axis
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+vaft.plot.operational_space draws a boundary only where the column's quantity
+and unit match the axis, and reports what it omitted.
+:::
+
+## Reading the planes
+
+- $q^* I_N = 5\kappa/A$ (4.4--6.7): the $q^*$--$I_N$ plane is mostly shape
+- the kink boundary is OUTSIDE its calibration for a spherical tokamak; the rest are UNASSESSED
+- the Troyon plane re-expresses $\beta_N$; it adds no independent measurement
+- spherical-tokamak Hugill (Sykes 2000) is the native density plane for VEST
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+Read the applicability line before the boundary. Unless a boundary is
+SUPPORTED, it is a reference, not a VEST limit.
+:::
+
+# Stability
+
+## Layers stay separate
+
+1. raw: $W_t$ per $n$ and edge; $\Delta'$ per surface
+2. QA: sign at two resolutions (`sign_class`, `two_resolution_consistent`)
+3. criterion: $W_t<0$; $\Delta'>0$; $D_I>0$; $D_R>0$; $C_A<0$
+4. interpretation: not produced --- $\Delta'>0$ is a classical drive, not a tearing verdict
+
+Not assessed is never stable.
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+A state can be ideal-stable at every n, carry a QA-supported Delta-prime and be
+Mercier-stable at once. Keep all three flags.
+:::
+
+## What the atlas says
+
+- DCON full edge: 129 stable / 13 unstable / 8 unresolved; truncated edge: 146 / 3 / 1
+- $\Delta'>0$ raw on most states, QA-supported on 9 (RDCON) and 38 (STRIDE); a failed run is not assessed, never a drive
+- $D_R>0$ on 124, $D_I>0$ on 1, $C_A<0$ on 12
+- magnitudes are not growth rates; no "marginal" band without a derived threshold
 
 ::: {.notes}
 [5 min]
 
 NARRATE:
-Only references whose domain includes a small ohmic spherical tokamak are
-candidates. A database H factor is a distribution, and needs validated
-power balance (Open: #548).
-:::
-
-# Statistics and its traps
-
-## Confounding and similarity
-
-- pooled $l_i \propto q_{95}^{\alpha}$ sits on 41672's own exponent: half the slices, half the fit
-- $I_p$ and $q_{95}$ share a variable
-- nearest states by $\lVert\mathbf z_i - \mathbf z_j\rVert$ depend on features and scaling
-- **split by shot**, for tests and for learning
-
-::: {.notes}
-[4 min]
-
-NARRATE:
-The within-shot slopes describe evolution in time; the between-shot spread
-describes how the machine was run. A pooled fit mixes the two.
-:::
-
-## Events, joined by time
-
-- current quench on every shot with an $I_p$ record
-- pre-event state = latest slice **before** the 80 % time
-- occupancy $\neq P(\text{event} \mid \mathbf x)$
-
-::: {.notes}
-[3 min]
-
-NARRATE:
-The join is only as good as the slice cadence. A general event contract and
-pre-event join are still missing (Open: #1234); so are stability labels in aggregate
-(Open: #940, #1084).
-:::
-
-# Learning from the database
-
-## A ladder, and where VAFT stands on it
-
-$$\text{statistics} \rightarrow \text{machine learning} \rightarrow \text{representation learning}$$
-
-- scalar features lose ramp, oscillation, onset, termination
-- levels: tabular $\rightarrow$ time series $\rightarrow$ profiles $\rightarrow$ images $\rightarrow$ multimodal $\mathbf z$
-- **planned, not implemented:** classification, event risk, hazards, stability surrogates, retrieval
-- `vaft.process.ml`: datasets, group-aware splits, provenance --- infrastructure, not models
-
-::: {.notes}
-[4 min]
-
-NARRATE:
-Be explicit that the data-driven half is a direction. The endpoint is a latent
-operational space: the high-dimensional successor of the (q_a, l_i) plane.
+The edge treatment decides most ideal verdicts; report both. The gap between
+raw and QA-supported drive is a statement about numerics, not tearing. The
+legacy pipeline-3 sheets collapsed all of this into one label with fixed
+magnitude cut-offs, which is why they are not plotted.
 :::
 
 ## Takeaways
 
-- one definition and one provenance per quantity; the presets, not the notebook
-- unit of analysis and representative rule are choices; slices are not independent
-- coverage and validity before physics
-- observed envelope $\neq$ limit; references with their source
-- engineering $\rightarrow$ dimensionless; H is a distribution
-- split by shot
+- presets are definitions; print `skipped`
+- archived tables are history; shot number $\neq$ time
+- lazy for many shots, eager for one, `odss=` offline
+- envelope $\neq$ limit; boundaries only on their own quantity, with applicability
+- join at the native grain and print the report
+- ideal, resistive, local and QA are separate layers
 
 ::: {.notes}
 [2 min]
 
 NARRATE:
 End of the course. Session 01 opened one discharge; session 06 put it among the
-others. The next step is the learner's own question on the database.
+others. Regression, similarity, events and learning are optional extensions on
+top of a population defined this carefully.
 :::
