@@ -4,19 +4,23 @@ status: validated
 shot: 39915
 time_ms: 319
 parent_manifest: ../manifest.yaml
-built: '2026-11-11T06:33:13+00:00'
-build_seconds: 516
+built: '2026-11-11T07:50:17+00:00'
+build_seconds: 316
 regenerate: PYTHONPATH=$PWD python workflow/tutorial_05_mhd_samples/build_mhd_stability_sample.py
   --chease <CHEASE executable> --gpec-home <GPECHOME>
 source:
-  geqdsk: vaft/data/efit/g039915.00319
-  lineage: EFIT (magnetics) g-file of the 39915 reference sample at 319 ms
+  sample: vaft/data/samples/39915/omas.json.gz
+  time_ms: 319
+  lineage: EFIT reconstruction of the 39915 reference sample (pipeline until-efit-v5),
+    slice at 319 ms, exported with vaft.data.eqdsk.from_omas; the legacy 2023 g-file
+    vaft/data/efit/g039915.00319 is no longer the source
 vaft:
-  commit: d975c45594ea193b71e1f48f51d8c24d5adf48e6
+  commit: fae05cd427773da3da750423a4e825cbec81900b
   dirty: true
 inputs:
-  source_geqdsk_sha256: 50dd1b14784e8b68b9d6c59ba13e70e8fa2942e246dfd00dcffc8220b4654cb4
-  script_sha256: 65743f70fcffa069e669dddd889644b5fc178ca58d104d8d5a9a19b158c3c071
+  source_sample_sha256: 70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb
+  source_time_ms: 319
+  script_sha256: f47d1cfee422fa8f3d709fd3f92c004f8676388dbc71c99fea718bf4766e9289
   chease:
     commit: 0b2a7d22eebd36943479e26f79a73e1de0ee2c7d
     dirty: true
@@ -24,7 +28,7 @@ inputs:
     commit: e68d7ac22f7d5c3fa1be921aaa395571c48a51a9
     dirty: false
   configuration:
-    unstable_pressure_scale: 6.0
+    unstable_current_scale: 2.8
     dcon_resolutions:
     - 256
     - 512
@@ -60,8 +64,8 @@ conventions:
 evidence:
   con_flag_true_UP:
     gpec_status: completed
-    dcon_W_t: 5.4546844331975715
-    energy_vacuum: 0.02309946931947995
+    dcon_W_t: 7.504103138276313
+    energy_vacuum: 0.008310125367962011
     total_resonant_field_written: false
 products:
   chease_stable:
@@ -71,119 +75,119 @@ products:
     stage: chease
     check:
       variation:
-        pressure_scale: 1.0
+        plasma_current_scale: 1.0
       comparison_to_efit:
-        q_rms_rel: 0.014425871969797749
-        pressure_rms_rel: 0.06556441106392118
-        pprime_rms_rel: 0.028526688685698205
-        ffprim_rms_rel: 0.02852924338667701
-        psi_axis_abs_diff: 0.0013086395820000002
-        psi_boundary_abs_diff: 0.00144722795
-        current_abs_diff: 3310.7543799999985
-        current_rel_diff: 0.04297440773854876
+        q_rms_rel: 0.003999989807557972
+        pressure_rms_rel: 0.029018410422801007
+        pprime_rms_rel: 0.009129846423001183
+        ffprim_rms_rel: 0.009130067370727038
+        psi_axis_abs_diff: 0.001272494225
+        psi_boundary_abs_diff: 0.00133002065
+        current_abs_diff: 2279.2447799999936
+        current_rel_diff: 0.028854516007317497
         boundary_r_rms: 0.0
         boundary_z_rms: 0.0
         boundary_rz_rms: 0.0
-        boundary_points: 110.0
-      q_axis: 1.982070833
-      q_edge: 12.80564207
-      q95: 8.834109799799997
-      beta_n: 1.2805988159146875
-      ip_a: 73729.38542
+        boundary_points: 87.0
+      q_axis: 2.292907617
+      q_edge: 8.378491536
+      q95: 6.638349674799999
+      beta_n: 0.04554383905725437
+      ip_a: 76711.67572
       target_psin: 0.993
     validation: passed
-    sha256: 7b6f4a152b03d09282d6b5609b0a8ff99046f7f1eac4a7f84894dea0b1d43a0c
-    size: 2399308
-  chease_pressure_x6:
-    path: equilibrium_chease_pressure_x6.json.gz
+    sha256: 6152e2770416e675014897b1330b1955a29aa4109cb648b7481624deee445fc3
+    size: 2462850
+  chease_high_ip:
+    path: equilibrium_chease_high_ip.json.gz
     ids:
     - equilibrium
     stage: chease
     check:
       variation:
-        pressure_scale: 6.0
+        plasma_current_scale: 2.8
       comparison_to_efit:
-        q_rms_rel: 0.1713616050616207
-        pressure_rms_rel: 0.4905902552997665
-        pprime_rms_rel: 0.5656944120659152
-        ffprim_rms_rel: 0.5656955540363405
-        psi_axis_abs_diff: 0.0020755178
-        psi_boundary_abs_diff: 0.00144722795
-        current_abs_diff: 1816.7321400000073
-        current_rel_diff: 0.023581630883800747
+        q_rms_rel: 0.6189201314512163
+        pressure_rms_rel: 7.07157846947991
+        pprime_rms_rel: 1.8568700581010624
+        ffprim_rms_rel: 1.8568694211177696
+        psi_axis_abs_diff: 0.006557493617000001
+        psi_boundary_abs_diff: 0.00133002065
+        current_abs_diff: 0.0013000000035390258
+        current_rel_diff: 5.877709901477247e-09
         boundary_r_rms: 0.0
         boundary_z_rms: 0.0
         boundary_rz_rms: 0.0
-        boundary_points: 110.0
-      q_axis: 1.21580066
-      q_edge: 14.97454759
-      q95: 8.834350307199996
-      beta_n: 3.846049179887795
-      ip_a: 75223.40766
+        boundary_points: 87.0
+      q_axis: 1.159676902
+      q_edge: 2.90597649
+      q95: 2.3084273907999995
+      beta_n: 0.1313116851965781
+      ip_a: 221174.5787
       target_psin: 0.993
     validation: passed
-    sha256: 65594f728a945cb67c49a9c7642f62ce35baacdbd6acdf885339556c3d223e0b
-    size: 2401547
+    sha256: f7df7038a15af132b2da5b7ca46b898d5bcd16d82def733288e3ab310d8c3ce0
+    size: 2455421
   dcon_stable_mpsi256:
     path: dcon_stable_mpsi256.json.gz
     ids:
     - mhd_linear
     stage: dcon
     check:
-      W_t: 5.421607327259795
-      W_p: -4.312618708383284
-      W_v: 0.2781033446112022
-      m_pol_dominant: 12
+      W_t: 7.460801682354968
+      W_p: 3.197760453055869
+      W_v: 0.31266869540302084
+      m_pol_dominant: 8
       edge_treatment: full_edge
       solver_status: stable
     validation: passed
-    sha256: 0e4dd1ad2b7b5eede82788dbc0077f1610b21fd08ecfa0ee0c4acdd4ca0223d8
-    size: 400803
+    sha256: ec3b02a21369a875e4e9759023023d6fe2d61e25c3bd80ac13ae387d615539b2
+    size: 353446
   dcon_stable_mpsi512:
     path: dcon_stable_mpsi512.json.gz
     ids:
     - mhd_linear
     stage: dcon
     check:
-      W_t: 5.424547737136546
-      W_p: -4.254696551093149
-      W_v: 0.2781033446113901
-      m_pol_dominant: 7
+      W_t: 7.464034083446581
+      W_p: 3.2005082681415167
+      W_v: 0.3126686954026546
+      m_pol_dominant: 8
       edge_treatment: full_edge
       solver_status: stable
     validation: passed
-    sha256: 183d1570857ba2548038db0730eeea15696718504dc011318aba09b62e108b13
-    size: 390119
-  dcon_pressure_x6_mpsi256:
-    path: dcon_pressure_x6_mpsi256.json.gz
+    sha256: eeb6c1ef7d43db8c9008c9ffebdeb556f71f6b028592cfe72346df895794a1b9
+    size: 368638
+  dcon_high_ip_mpsi256:
+    path: dcon_high_ip_mpsi256.json.gz
     ids:
     - mhd_linear
     stage: dcon
     check:
-      W_t: -0.18162454458022054
-      W_p: -64.84178686806516
-      W_v: 0.5013440897458453
-      m_pol_dominant: 2
+      W_t: -1.1795389870818178
+      W_p: -17.421434848119343
+      W_v: 1.8194735423271369
+      m_pol_dominant: 3
       edge_treatment: full_edge
       solver_status: completed
     validation: passed
-    sha256: 7ef220c388bb113cfda72be9351422473111b4937b9fe8055111d31fa7f4d1ac
-    size: 408488
-  dcon_pressure_x6_mpsi512:
-    path: dcon_pressure_x6_mpsi512.json.gz
+    sha256: 949b01ec1354d219a6b361f6cca4bad050a3726699b5cb1caa7adf94467f3da0
+    size: 258944
+  dcon_high_ip_mpsi512:
+    path: dcon_high_ip_mpsi512.json.gz
     ids:
     - mhd_linear
     stage: dcon
     check:
-      W_t: -0.12465986322561952
-      W_p: -64.75701932054
-      W_v: 0.5013440897461757
-      m_pol_dominant: 2
+      W_t: -1.1795920953425112
+      W_p: -17.418606933366565
+      W_v: 1.8194735423273298
+      m_pol_dominant: 3
       edge_treatment: full_edge
       solver_status: completed
     validation: passed
-    sha256: d3c39156c835e523a4fda93134ffa5cf2b7f5ac07558b821906e900b8cf06aae
-    size: 421620
+    sha256: 44aa577e5645957a0bd6e3edbd138c16fb8d83f6276def2c250772dfd131c4ec
+    size: 290135
   rdcon_stable_mpsi256:
     path: rdcon_stable_mpsi256.json.gz
     ids:
@@ -193,42 +197,27 @@ products:
     check:
       solver_status: stable
       surfaces:
-      - m: 2
-        psi_n: 0.025151396003144325
-        delta_prime_real: -5.201662854181613e+33
       - m: 3
-        psi_n: 0.5538835336673382
-        delta_prime_real: -14.304036102226505
+        psi_n: 0.5450616405951495
+        delta_prime_real: -5.799311498203565
       - m: 4
-        psi_n: 0.7232979489533079
-        delta_prime_real: -14.586469573900217
+        psi_n: 0.7597133644334979
+        delta_prime_real: -8.263342301571242
       - m: 5
-        psi_n: 0.8123017522082556
-        delta_prime_real: -20.579082342173074
+        psi_n: 0.8620059961182442
+        delta_prime_real: -10.33374246563676
       - m: 6
-        psi_n: 0.8675421929345267
-        delta_prime_real: -25.23464674030977
+        psi_n: 0.9226909275954263
+        delta_prime_real: -20.304307140128003
       - m: 7
-        psi_n: 0.9051770559649113
-        delta_prime_real: -30.00832786198424
+        psi_n: 0.9628513729464399
+        delta_prime_real: -26.500979323442834
       - m: 8
-        psi_n: 0.9324441975731407
-        delta_prime_real: -3.631289508467944
-      - m: 9
-        psi_n: 0.9530746480365049
-        delta_prime_real: 89.22972249487
-      - m: 10
-        psi_n: 0.9692100724861232
-        delta_prime_real: -38.77882813752694
-      - m: 11
-        psi_n: 0.9821601033064868
-        delta_prime_real: -40.59495590559527
-      - m: 12
-        psi_n: 0.9927674417441268
-        delta_prime_real: -47.93707420226201
+        psi_n: 0.9913010684092416
+        delta_prime_real: -20.40727311217438
     validation: passed
-    sha256: 03b1bcd3f58025db3257f32a056a32157c6975aa9e6cd5ae285b1383f072338c
-    size: 19573
+    sha256: 1118b0f314cba3f73d015d8c0889f3bb50b7f4d889ed2e6451330defe7b95d34
+    size: 17499
   rdcon_stable_mpsi512:
     path: rdcon_stable_mpsi512.json.gz
     ids:
@@ -238,42 +227,27 @@ products:
     check:
       solver_status: stable
       surfaces:
-      - m: 2
-        psi_n: 0.025152406788220102
-        delta_prime_real: -6.0578819312488795e+35
       - m: 3
-        psi_n: 0.5538811961257779
-        delta_prime_real: 7.0847454584209615
+        psi_n: 0.5450624962161636
+        delta_prime_real: -18.720940746959364
       - m: 4
-        psi_n: 0.7232977891767112
-        delta_prime_real: -12.749771337120514
+        psi_n: 0.7597143898473087
+        delta_prime_real: -12.820610527996905
       - m: 5
-        psi_n: 0.8123081595980084
-        delta_prime_real: -24.698070139583542
+        psi_n: 0.862003299629787
+        delta_prime_real: -10.739988335601481
       - m: 6
-        psi_n: 0.86754137805321
-        delta_prime_real: -22.41297731809803
+        psi_n: 0.9226904648906242
+        delta_prime_real: -15.45443493922312
       - m: 7
-        psi_n: 0.9051768422855749
-        delta_prime_real: -38.27966797152261
+        psi_n: 0.962850934087836
+        delta_prime_real: -9.548135073771391
       - m: 8
-        psi_n: 0.9324424933639786
-        delta_prime_real: 18.61262590547608
-      - m: 9
-        psi_n: 0.9530752636169157
-        delta_prime_real: -43.4027030457047
-      - m: 10
-        psi_n: 0.9692101040556356
-        delta_prime_real: -38.67059736127885
-      - m: 11
-        psi_n: 0.9821605231674688
-        delta_prime_real: 46.26289090678165
-      - m: 12
-        psi_n: 0.9927666082519295
-        delta_prime_real: -266.0989259772314
+        psi_n: 0.9912999593782696
+        delta_prime_real: -36.347559628270574
     validation: passed
-    sha256: 89b5066352fe3ea0e9769f34a1ba213ba01b5074a07f0016401d3e9f8177abfc
-    size: 33528
+    sha256: 654a96041e604e4dcd24af445b721e6ae9b3313a72afffafacf1d45f3daff654
+    size: 31416
   rdcon_stable_mpsi1024:
     path: rdcon_stable_mpsi1024.json.gz
     ids:
@@ -281,44 +255,29 @@ products:
     - ntms
     stage: rdcon
     check:
-      solver_status: completed
+      solver_status: stable
       surfaces:
-      - m: 2
-        psi_n: 0.02515303604304622
-        delta_prime_real: 1.3467215323585524e+37
       - m: 3
-        psi_n: 0.5538798628440578
-        delta_prime_real: -237.1230254364934
+        psi_n: 0.5450590264263264
+        delta_prime_real: -37.23880574355587
       - m: 4
-        psi_n: 0.7232977578297806
-        delta_prime_real: -8.551074549270908
+        psi_n: 0.7597155604536167
+        delta_prime_real: -16.60419926252598
       - m: 5
-        psi_n: 0.8123116819020373
-        delta_prime_real: 30.009466192394342
+        psi_n: 0.8620036170884788
+        delta_prime_real: -11.239704195486183
       - m: 6
-        psi_n: 0.8675433658818268
-        delta_prime_real: -23.001535113849506
+        psi_n: 0.922689932404225
+        delta_prime_real: -24.056240962694346
       - m: 7
-        psi_n: 0.9051762797428493
-        delta_prime_real: -25.46298359071693
+        psi_n: 0.9628516083729977
+        delta_prime_real: -29.613963318567585
       - m: 8
-        psi_n: 0.9324399705490323
-        delta_prime_real: -32.569510606994754
-      - m: 9
-        psi_n: 0.9530747203307186
-        delta_prime_real: -79.13998404906579
-      - m: 10
-        psi_n: 0.9692103456547871
-        delta_prime_real: -25.34825730533703
-      - m: 11
-        psi_n: 0.9821603933276594
-        delta_prime_real: -53.885074809869664
-      - m: 12
-        psi_n: 0.9927655942477396
-        delta_prime_real: -3586.25731254371
+        psi_n: 0.9913002462689882
+        delta_prime_real: 266.3634358911072
     validation: passed
-    sha256: b1bb50a8e4e5332c9739735493580a9eb490ea89253aec9021cbdcea453a52f7
-    size: 60675
+    sha256: 94d85459941830b3e9cdce3dca2a6dcf652a30b1aa33f6a0eb4aae4b1915cf05
+    size: 58358
   gpec_UP:
     path: gpec_UP.json.gz
     ids:
@@ -333,49 +292,34 @@ products:
       - -193.18516525781365
       - -51.76380902050413
       - 141.42135623730948
-      dcon_W_t: 5.421607327259795
-      energy_vacuum: 0.023099469319479957
-      energy_plasma: 0.02274911755369332
-      n_rational_surfaces: 11
+      dcon_W_t: 7.460801682354968
+      energy_vacuum: 0.00831012536796201
+      energy_plasma: 0.00763888653603512
+      n_rational_surfaces: 6
       abs_phi_res_native:
-      - 2.397793370839585e-07
-      - 2.0865048585779115e-05
-      - 2.816896573901363e-05
-      - 2.813890001168875e-05
-      - 2.7925310857163752e-05
-      - 2.653960722382197e-05
-      - 2.914429613364381e-05
-      - 2.9289673938830832e-05
-      - 2.685392103036417e-05
-      - 3.758482612217205e-05
-      - 4.0745495901061165e-05
+      - 2.0534838805798376e-05
+      - 2.3092943092573997e-05
+      - 2.4031542108654967e-05
+      - 2.7015533676387748e-05
+      - 3.0287405786132523e-05
+      - 3.5198951844817216e-05
       abs_phi_res_derived:
-      - 2.4584379272840945e-07
-      - 2.093450077743627e-05
-      - 2.820242002120793e-05
-      - 2.815857384076744e-05
-      - 2.7933893317952825e-05
-      - 2.6537160633860377e-05
-      - 2.9130911896974023e-05
-      - 2.926730996593541e-05
-      - 2.6846106082320124e-05
-      - 3.7589249414146334e-05
-      - 4.074938380245988e-05
+      - 2.0544222058579375e-05
+      - 2.3102418520195168e-05
+      - 2.4046514465448337e-05
+      - 2.7024902573553325e-05
+      - 3.027230069113697e-05
+      - 3.517168597762877e-05
       abs_phi_res_vacuum:
-      - 1.7376662160701403e-05
-      - 6.313082111529604e-05
-      - 7.171370021507801e-05
-      - 7.656884446013562e-05
-      - 7.960146782799329e-05
-      - 8.169181980977156e-05
-      - 8.320302618228065e-05
-      - 8.432087525926168e-05
-      - 8.519951975484387e-05
-      - 8.588901424065761e-05
-      - 8.644509356586497e-05
+      - 5.411139635532359e-05
+      - 6.312760037183918e-05
+      - 6.65994636595051e-05
+      - 6.819322702571985e-05
+      - 6.895046203333407e-05
+      - 6.9301133334232e-05
     validation: passed
-    sha256: 641bb635d1cf5351170d8d05f1b261e749f9cfa750f4ad6b73705b00ec5597ce
-    size: 2856673
+    sha256: 01453f0c0aee5324b4ec41a55e6556ac3cafaff211ac790bc60558b408b643f0
+    size: 1378440
   gpec_LOW:
     path: gpec_LOW.json.gz
     ids:
@@ -390,49 +334,34 @@ products:
       - -193.18516525781365
       - -51.76380902050413
       - 141.42135623730948
-      dcon_W_t: 5.421607327259795
-      energy_vacuum: 0.023098902361693253
-      energy_plasma: 0.022748612172364426
-      n_rational_surfaces: 11
+      dcon_W_t: 7.460801682354968
+      energy_vacuum: 0.006569885586780541
+      energy_plasma: 0.0059923421796703735
+      n_rational_surfaces: 6
       abs_phi_res_native:
-      - 2.3958528067890243e-07
-      - 2.086539178772517e-05
-      - 2.8176441382623745e-05
-      - 2.8142503112174825e-05
-      - 2.792289112929219e-05
-      - 2.6527783035944044e-05
-      - 2.9140040294763405e-05
-      - 2.9278624976728657e-05
-      - 2.6823751466451857e-05
-      - 3.759713716469138e-05
-      - 4.058262901041716e-05
+      - 1.8281515925744858e-05
+      - 2.0664130716788146e-05
+      - 2.159847872709869e-05
+      - 2.4171348017191416e-05
+      - 2.704649613835889e-05
+      - 3.134456683506867e-05
       abs_phi_res_derived:
-      - 2.458250962174606e-07
-      - 2.0934835268898836e-05
-      - 2.8209937008530052e-05
-      - 2.8162155770627997e-05
-      - 2.7931527454697243e-05
-      - 2.652512695884198e-05
-      - 2.9126799717447905e-05
-      - 2.9256900072733863e-05
-      - 2.6815898002837245e-05
-      - 3.760129591766699e-05
-      - 4.058619230178684e-05
+      - 1.8289517089904587e-05
+      - 2.0672258785391236e-05
+      - 2.1612044412987904e-05
+      - 2.4179718879425545e-05
+      - 2.703276871365959e-05
+      - 3.131967581406612e-05
       abs_phi_res_vacuum:
-      - 1.737697554949694e-05
-      - 6.313137213513646e-05
-      - 7.171423471632217e-05
-      - 7.656992363972704e-05
-      - 7.960181673979655e-05
-      - 8.169218403228552e-05
-      - 8.320319663998841e-05
-      - 8.432131321302517e-05
-      - 8.520022388658838e-05
-      - 8.588960782214593e-05
-      - 8.64453976213475e-05
+      - 4.9168383984833826e-05
+      - 5.7192264807901915e-05
+      - 6.0230707764515016e-05
+      - 6.15895793699855e-05
+      - 6.220483198464423e-05
+      - 6.245924143241229e-05
     validation: passed
-    sha256: 1a347bc02553f511424b6997019481224ee8f968c56e4d8b43e5aedba87919f2
-    size: 2854838
+    sha256: 2d0337a4cc4b5cba16d9117adb5f4f3380e1df88f1d58d0ddb1e5a62db76a4cd
+    size: 1377709
 not_distributed:
 - euler.bin
 - psi_in.bin

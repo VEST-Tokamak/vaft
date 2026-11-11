@@ -110,12 +110,13 @@ def test_the_manifest_is_complete_and_matches_the_files(manifest):
 
     assert manifest["status"] == "validated"
     assert manifest["parent_manifest"] == "../manifest.yaml"
-    assert manifest["inputs"]["source_geqdsk_sha256"] == hashlib.sha256(
-        data_path("efit/g039915.00319").read_bytes()).hexdigest()
+    assert manifest["inputs"]["source_sample_sha256"] == hashlib.sha256(
+        data_path("samples/39915/omas.json.gz").read_bytes()).hexdigest()
+    assert manifest["inputs"]["source_time_ms"] == manifest["time_ms"]
     for key in ("gpec", "chease", "configuration", "script_sha256"):
         assert manifest["inputs"][key], key
-    expected = {f"chease_{c}" for c in ("stable", "pressure_x6")} \
-        | {f"dcon_{c}_mpsi{m}" for c in ("stable", "pressure_x6") for m in (256, 512)} \
+    expected = {f"chease_{c}" for c in ("stable", "high_ip")} \
+        | {f"dcon_{c}_mpsi{m}" for c in ("stable", "high_ip") for m in (256, 512)} \
         | {f"rdcon_stable_mpsi{m}" for m in (256, 512, 1024)} | {"gpec_UP", "gpec_LOW"}
     assert set(manifest["products"]) == expected
     on_disk = {path.name for path in SAMPLE_DIR.iterdir()} - {"manifest.yaml"}
@@ -126,7 +127,7 @@ def test_the_manifest_is_complete_and_matches_the_files(manifest):
 
 
 def test_dcon_verdicts_survive_serialisation(manifest):
-    for case, negative in (("stable", False), ("pressure_x6", True)):
+    for case, negative in (("stable", False), ("high_ip", True)):
         dominant = set()
         for mpsi in (256, 512):
             ods = mhd_stability_sample(f"dcon_{case}_mpsi{mpsi}")
@@ -138,7 +139,7 @@ def test_dcon_verdicts_survive_serialisation(manifest):
             assert np.asarray(mode["plasma.displacement_perpendicular.real"]).ndim == 2
             dominant.add(int(mode["m_pol_dominant"]))
         if negative:
-            assert dominant == {2}
+            assert dominant == {3}
 
 
 def test_rdcon_delta_prime_comes_back_from_ntms(manifest):
@@ -160,10 +161,9 @@ def test_gpec_resonant_table_is_recovered_from_the_mapped_ids(manifest):
         check = manifest["products"][f"gpec_{name}"]["check"]
         total = [abs(row["Phi_res"]) for row in table["rows"]]
         vacuum = [abs(row["Phi_res_vacuum"]) for row in table["rows"]]
-        assert len(total) == check["n_rational_surfaces"] == 11
-        # The derived jump reproduces GPEC to 0.4 % except on the near-axis m=2 surface (2.5 %).
-        np.testing.assert_allclose(total[1:], check["abs_phi_res_native"][1:], rtol=5e-3)
-        np.testing.assert_allclose(total[0], check["abs_phi_res_native"][0], rtol=3e-2)
+        assert len(total) == check["n_rational_surfaces"] == 6
+        # The derived jump reproduces GPEC's own; 1 % leaves room for a weak near-axis surface.
+        np.testing.assert_allclose(total, check["abs_phi_res_native"], rtol=1e-2)
         np.testing.assert_allclose(vacuum, check["abs_phi_res_vacuum"], rtol=1e-9)
         assert max(t / v for t, v in zip(total, vacuum)) < 1.0
 

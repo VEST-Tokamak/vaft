@@ -3,11 +3,12 @@
 The tutorial reads only what this script leaves in
 ``vaft/data/samples/39915/mhd_stability/``: IMAS-compatible OMAS JSON products
 and one manifest. Every product is computed here, through the same VAFT
-adapters a live tutorial run uses, from the packaged EFIT g-file
-``vaft/data/efit/g039915.00319``::
+adapters a live tutorial run uses, from the EFIT reconstruction of the packaged
+39915 reference sample (``vaft.omas.sample_ods(39915)``, the reconstruction
+Tutorials 03 and 04 use) at 319 ms, exported to a g-file::
 
-    EFIT g-file --CHEASE--> stable refined equilibrium
-                --CHEASE (pressure x6)--> synthetic unstable equilibrium
+    EFIT slice --CHEASE--> stable refined equilibrium
+               --CHEASE (Ip x 2.8, total-current constraint)--> synthetic unstable equilibrium
     each --DCON (+ MATCH, solutions.bin), mpsi 256 and 512--> mhd_linear
     stable --RDCON, mpsi 256 / 512 / 1024--> mhd_linear + ntms
     stable --DCON --> GPEC, UP alone and LOW alone, n = 1, 200 A--> mhd_linear
@@ -49,17 +50,20 @@ import numpy as np
 import yaml
 
 REPOSITORY = Path(__file__).resolve().parents[2]
-SOURCE_GEQDSK = REPOSITORY / "vaft" / "data" / "efit" / "g039915.00319"
+SOURCE_SAMPLE = REPOSITORY / "vaft" / "data" / "samples" / "39915" / "omas.json.gz"
 DEFAULT_OUTPUT = REPOSITORY / "vaft" / "data" / "samples" / "39915" / "mhd_stability"
 PARENT_MANIFEST = "../manifest.yaml"
 SHOT, TIME_MS, N_TOR = 39915, 319, 1
 
-#: The synthetic unstable variant: CHEASE re-solves the same boundary with
-#: p and p' scaled by this factor (q95 held by ncscal=1). Chosen in the
-#: 2026-11-06 scan as the smallest factor of (2, 4, 6, 8, 10, 12, 16) whose
-#: DCON n=1 W_t is negative at mpsi 256 *and* 512 with the same dominant m
-#: (x4 stable; x8, x10 flip their dominant m between resolutions).
-UNSTABLE_PRESSURE_SCALE = 6.0
+#: The synthetic unstable variant: CHEASE re-solves the same boundary at this
+#: multiple of the EFIT plasma current (ncscal=2), lowering q_edge to just
+#: below 3. Chosen in the 2026-11-11 scan: pressure x2..x8 and current peaking
+#: 0.5..4 stay stable on this reconstruction; Ip x2.0 is unstable only in a
+#: narrow window (q_edge 4.07, neighbours at 3.87 and 4.28 stable); Ip x2.7..x3.0
+#: (q_edge 3.01..2.71) is unstable at mpsi 256 and 512 with the same dominant m.
+#: x2.8 sits inside that window: W_t ~ -1.2, m = 3 -- an m/n = 3/1 external kink.
+UNSTABLE_CURRENT_SCALE = 2.8
+UNSTABLE_LABEL = "high_ip"
 DCON_RESOLUTIONS = (256, 512)
 RDCON_RESOLUTIONS = (256, 512, 1024)
 GPEC_RESOLUTION = 256
@@ -105,7 +109,21 @@ def _require(condition: bool, message: str) -> None:
 
 
 # --------------------------------------------------------------------- CHEASE
-def run_chease(scratch: Path, executable: Path) -> dict[str, Any]:
+def export_source_geqdsk(scratch: Path) -> Path:
+    """The sample ODS's EFIT slice at TIME_MS, as the g-file the solvers read."""
+    import vaft
+    from vaft.data.eqdsk import from_omas, write_geqdsk
+
+    ods = vaft.omas.load(SOURCE_SAMPLE)
+    times = np.asarray(ods["equilibrium.time"], dtype=float)
+    index = int(np.argmin(np.abs(times - TIME_MS * 1e-3)))
+    _require(abs(times[index] * 1e3 - TIME_MS) < 0.5, f"the sample has no slice at {TIME_MS} ms")
+    target = scratch / f"g0{SHOT}.{TIME_MS:05d}"
+    write_geqdsk(from_omas(ods, index), target)
+    return target
+
+
+def run_chease(scratch: Path, executable: Path, source: Path) -> dict[str, Any]:
     from vaft.code.chease import CHEASEConfig
     from vaft.code.chease_scan import EquilibriumVariation, scan_chease
     from vaft.data import read_geqdsk
@@ -114,9 +132,9 @@ def run_chease(scratch: Path, executable: Path) -> dict[str, Any]:
     config = CHEASEConfig(executable=str(executable), create_plot=False)
     variations = [
         EquilibriumVariation(label="stable"),
-        EquilibriumVariation(label="pressure_x6", pressure_scale=UNSTABLE_PRESSURE_SCALE),
+        EquilibriumVariation(label=UNSTABLE_LABEL, plasma_current_scale=UNSTABLE_CURRENT_SCALE),
     ]
-    cases = scan_chease(SOURCE_GEQDSK, variations, config=config, workdir=scratch / "chease")
+    cases = scan_chease(source, variations, config=config, workdir=scratch / "chease")
     out: dict[str, Any] = {}
     for case in cases:
         label = case.variation.label
@@ -133,7 +151,7 @@ def run_chease(scratch: Path, executable: Path) -> dict[str, Any]:
         out[label] = {
             "geqdsk": refined,
             "ods": geqdsk.to_omas(),
-            "variation": {"pressure_scale": case.variation.pressure_scale},
+            "variation": {"plasma_current_scale": case.variation.plasma_current_scale},
             "comparison_to_efit": {k: float(v) for k, v in dict(case.result.comparison).items()},
             "q_axis": float(q[0]),
             "q_edge": float(q[-1]),
@@ -209,7 +227,7 @@ def run_dcon(scratch: Path, gpec_home: Path, equilibria: dict[str, Any]) -> dict
                 "stage_manifest_status": manifest.get("status"),
             }
     # Acceptance (#142: the sign is the verdict, two resolutions must agree).
-    for label, expect_negative in (("stable", False), ("pressure_x6", True)):
+    for label, expect_negative in (("stable", False), (UNSTABLE_LABEL, True)):
         checks = [products[f"dcon_{label}_mpsi{m}"]["check"] for m in DCON_RESOLUTIONS]
         signs = {c["W_t"] < 0 for c in checks}
         _require(signs == {expect_negative}, f"DCON {label}: W_t signs {[c['W_t'] for c in checks]}")
@@ -340,12 +358,13 @@ def _reload_and_recheck(path: Path, key: str, check: dict[str, Any]) -> str:
 
 def fingerprint(args: argparse.Namespace) -> dict[str, Any]:
     return {
-        "source_geqdsk_sha256": _sha256(SOURCE_GEQDSK),
+        "source_sample_sha256": _sha256(SOURCE_SAMPLE),
+        "source_time_ms": TIME_MS,
         "script_sha256": _sha256(Path(__file__)),
         "chease": _revision(Path(args.chease).resolve()),
         "gpec": _revision(Path(args.gpec_home).resolve()),
         "configuration": {
-            "unstable_pressure_scale": UNSTABLE_PRESSURE_SCALE,
+            "unstable_current_scale": UNSTABLE_CURRENT_SCALE,
             "dcon_resolutions": list(DCON_RESOLUTIONS),
             "rdcon_resolutions": list(RDCON_RESOLUTIONS),
             "gpec_resolution": GPEC_RESOLUTION,
@@ -385,7 +404,8 @@ def main(argv: list[str] | None = None) -> int:
     started = time.monotonic()
     try:
         print("CHEASE ...", flush=True)
-        chease = run_chease(scratch, Path(args.chease).expanduser())
+        source = export_source_geqdsk(scratch)
+        chease = run_chease(scratch, Path(args.chease).expanduser(), source)
         print("DCON ...", flush=True)
         dcon = run_dcon(scratch, Path(args.gpec_home).expanduser(), chease)
         print("RDCON ...", flush=True)
@@ -427,8 +447,11 @@ def main(argv: list[str] | None = None) -> int:
             "regenerate": "PYTHONPATH=$PWD python workflow/tutorial_05_mhd_samples/build_mhd_stability_sample.py "
                           "--chease <CHEASE executable> --gpec-home <GPECHOME>",
             "source": {
-                "geqdsk": "vaft/data/efit/g039915.00319",
-                "lineage": "EFIT (magnetics) g-file of the 39915 reference sample at 319 ms",
+                "sample": "vaft/data/samples/39915/omas.json.gz",
+                "time_ms": TIME_MS,
+                "lineage": "EFIT reconstruction of the 39915 reference sample (pipeline until-efit-v5), "
+                           "slice at 319 ms, exported with vaft.data.eqdsk.from_omas; the legacy 2023 "
+                           "g-file vaft/data/efit/g039915.00319 is no longer the source",
             },
             "vaft": _revision(REPOSITORY),
             "inputs": json.loads(json.dumps(inputs)),

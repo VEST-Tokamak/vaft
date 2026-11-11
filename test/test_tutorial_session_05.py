@@ -245,9 +245,9 @@ def test_the_diagrams_are_the_canonical_ones_so_they_render_without_tex(book):
 # ---------------------------------------------------------------------------
 
 
-def test_the_time_is_read_from_the_file_not_typed(book):
+def test_the_time_is_read_from_the_sample_manifest_not_typed(book):
     executable = _executable(book)
-    assert 'TIME_MS = int(GEQDSK.name.split(".")[-1])' in executable
+    assert 'SHOT, TIME_MS = int(MANIFEST["shot"]), int(MANIFEST["time_ms"])' in executable
     without_paths = re.sub(r'"[^"]*"', '""', executable)
     assert not re.search(r"\b31[6-9]\b|\b32\d\b|\b331\b", without_paths)
 
@@ -284,20 +284,20 @@ def test_vacuum_and_total_response_are_kept_distinct(book, executed):
     printed = "".join(output.get("text", "") for output in _cell(executed, "s05-gpec-run").outputs)
     ratios = [float(value) for value in re.findall(r"^\s+\d+\s+[0-9.]+\s+[0-9.]+\s+[0-9.]+\s+([0-9.]+)$",
                                                    printed, re.M)]
-    assert len(ratios) == 22, printed          # 11 n=1 surfaces, UP and LOW
+    assert len(ratios) == 12, printed          # 6 n=1 surfaces, UP and LOW
     assert max(ratios) < 1.0                   # screened everywhere on this equilibrium
 
 
 def test_the_dcon_comparison_is_verified_at_two_resolutions(executed):
     printed = "".join(output.get("text", "") for output in _cell(executed, "s05-dcon-run").outputs)
     assert "-> stable: ideally STABLE at both resolutions" in printed
-    assert "-> pressure_x6: ideally UNSTABLE, dominant m = 2" in printed
+    assert "-> high_ip: ideally UNSTABLE, dominant m = 3" in printed
 
 
 def test_rdcon_reports_resolution_sensitivity_rather_than_a_verdict(book, executed):
     printed = "".join(output.get("text", "") for output in _cell(executed, "s05-rdcon-table").outputs)
     assert "sign changes with resolution: unresolved" in printed
-    assert "near the axis: not interpretable" in printed
+    assert "classically stable" in printed
     assert "not a tearing verdict" in _markdown(book)
 
 
