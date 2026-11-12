@@ -30,6 +30,7 @@ from ._concept import Box, escape_latex
 from ._cross_domain_concept import IMAS, INPUTS, OPERATIONS
 from ._render import Diagram
 from ._scene import Arrow, Label, Polyline, Scene
+from ._workflow import kind_style
 from ._vaft_concepts import _MODE_OFFSET, _check_labels, _record, box, integrated_scientific_framework
 
 #: the two calculations: (key, the cross-domain section they summarize, title, the physics they cover)
@@ -71,8 +72,9 @@ CODES: Dict[str, Tuple[str, ...]] = {key: _ordered(key, _codes(section)) for key
 OUTPUTS: Dict[str, Tuple[Tuple[str, str], ...]] = {
     key: tuple((ids, quantities) for ids, quantities, _ in IMAS[section]) for key, section, _, _ in CALCULATIONS}
 #: chips named by their role here rather than by their quantities: the transport closures' Z_eff is a kinetic
-#: profile in this figure, and what remains of the chip is the closure and how the profiles are fitted
-_ASSUMPTION_TEXT = {"tr_closures": ("physics closure, fitting method",)}
+#: profile in this figure, and what remains of the chip is the closure and how the profiles are fitted; the 3-D
+#: coil excitation is machine data (``coils_non_axisymmetric``), drawn with the experiment, not assumed
+_ASSUMPTION_TEXT = {"tr_closures": ("physics closure, fitting method",), "mhd_drive": ()}
 #: the external assumptions, gathered from the inputs each downstream section takes besides measured profiles
 ASSUMPTIONS: Tuple[str, ...] = tuple(line for section in ("transport", "mhd") for chip in INPUTS[section]
                                      if chip.kind != "measured"
@@ -83,16 +85,23 @@ SHARED_INPUTS: Tuple[Tuple[str, str, str, str], ...] = (
     ("core_profiles", "Kinetic Profiles", "core_profiles", r"$n_i$, $n_e$, $T_e$, $T_i$, $Z_{\rm eff}$, $v_\phi$"),
     ("assumptions", "Assumptions", "", "; ".join(ASSUMPTIONS)),
 )
+#: the kind of each box, as the cross-domain figure classifies it, so a colour means the same in both figures: the
+#: IDS are the shared state, the assumptions an assumption, the two physics models numerical solvers
+KIND: Dict[str, str] = {"equilibrium": "standardized", "core_profiles": "standardized", "assumptions": "prior",
+                        "mhd_stability": "solver", "transport": "solver", "output": "standardized"}
 #: which shared inputs each calculation reads (the measured profiles enter transport only)
 READS: Dict[str, Tuple[str, ...]] = {
     "mhd_stability": ("equilibrium", "assumptions"),
     "transport": ("equilibrium", "core_profiles", "assumptions"),
 }
 
-#: what an experimental reconstruction and the kinetic profiles are made from, as IMAS IDS: (group, IDS)
-MEASUREMENT_MACHINE: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
-    ("Machine", ("wall", "pf_active", "pf_passive", "em_coupling")),
-    ("Measurement", ("magnetics", "thomson_scattering", "charge_exchange")),
+#: what the reconstruction and the kinetic profiles are made from, as IMAS IDS: machine configuration on the first
+#: line, measurements on the second. The 3-D coil excitation is ``coils_non_axisymmetric``, so it is drawn here as
+#: machine data, not among the assumptions
+EXPERIMENT_TITLE = "Machine Configuration & Experimental Data"
+EXPERIMENT_IDS: Tuple[Tuple[str, ...], ...] = (
+    ("wall", "pf_active", "pf_passive", "em_coupling", "coils_non_axisymmetric"),
+    ("magnetics", "thomson_scattering", "charge_exchange"),
 )
 #: what the kinetic profiles are made from inside the shared input, when they are drawn as derived
 PROFILE_SOURCES: Tuple[str, ...] = ("equilibrium", "assumptions")
@@ -139,7 +148,7 @@ def stability_transport_io(*, labels: bool = True, derived_profiles: bool = Fals
 
     Top: the shared plasma state -- the ``equilibrium`` IDS, the measured kinetic
     profiles in ``core_profiles`` and external assumptions (physics closure and fitting method, mode
-    numbers and wall model, 3-D coil excitation). Middle: MHD stability (ideal
+    numbers and wall model). Middle: MHD stability (ideal
     & resistive energy principle, perturbed equilibria) reads the equilibrium and the
     assumptions; transport (classical, neoclassical, turbulent) reads all
     three. The codes sit beneath each, in the style the equilibrium panel
@@ -184,8 +193,7 @@ def stability_transport_io(*, labels: bool = True, derived_profiles: bool = Fals
             text += "\\\\{\\small\\ttfamily " + escape_latex(ids) + "}\\\\{\\footnotesize " + detail + "}"
         else:
             text += "".join("\\\\{\\footnotesize " + part + "}" for part in ASSUMPTIONS)
-        b = box(x, _INPUT_Y, w, _INPUT_H, text, style="concept hub" if ids else "concept box", role=f"input:{key}",
-                latex=True)
+        b = box(x, _INPUT_Y, w, _INPUT_H, text, style=kind_style(KIND[key]), role=f"input:{key}", latex=True)
         nodes[key] = b
         items += list(b.items)
     if derived_profiles:
@@ -200,7 +208,7 @@ def stability_transport_io(*, labels: bool = True, derived_profiles: bool = Fals
     # the calculations, each fed from the input group and annotated with what it reads
     for key, _, title, physics in CALCULATIONS:
         x = col[key]
-        b = box(x, _CALC_Y, _CALC_W, _CALC_H, _calc_text(key, title, physics), style="concept strong",
+        b = box(x, _CALC_Y, _CALC_W, _CALC_H, _calc_text(key, title, physics), style=kind_style(KIND[key]),
                 role=f"node:{key}", latex=True)
         nodes[key] = b
         items += list(b.items)
@@ -209,8 +217,9 @@ def stability_transport_io(*, labels: bool = True, derived_profiles: bool = Fals
         for src in READS[key]:
             _record(edges, src, key, "forward")
         # what it writes
-        h = 0.75 + 0.48 * len(OUTPUTS[key])
-        out = box(x, _OUT_TOP - 0.5 * h, _OUT_W, h, _output_text(key), style="concept hub",
+        # both output boxes take the taller one's height, so their bottoms align
+        h = 0.75 + 0.48 * max(len(v) for v in OUTPUTS.values())
+        out = box(x, _OUT_TOP - 0.5 * h, _OUT_W, h, _output_text(key), style=kind_style(KIND["output"]),
                   role=f"output:{key}", latex=True)
         nodes[f"output:{key}"] = out
         items += list(out.items)
@@ -223,14 +232,18 @@ def stability_transport_io(*, labels: bool = True, derived_profiles: bool = Fals
                           "calculations": tuple(k for k, *_ in CALCULATIONS), "codes": dict(CODES),
                           "outputs": {k: tuple(i for i, _ in v) for k, v in OUTPUTS.items()},
                           "derived_profiles": PROFILE_SOURCES if derived_profiles else (), "half": half,
+                          "kinds": dict(KIND),
                           "edges": tuple(edges),
                           "boxes": {k: (b.x, b.y, b.width, b.height) for k, b in nodes.items()}})
 
 
-def _measurement_text() -> str:
-    rows = ["{\\small " + group + ": " + ", ".join("\\texttt{" + escape_latex(i) + "}" for i in ids) + "}"
-            for group, ids in MEASUREMENT_MACHINE]
-    return "\\textbf{Experiment}\\\\" + "\\\\".join(rows)
+#: the experiment box mixes machine configuration and measurement, so it takes no kind of its own: a plain outline
+_EXPERIMENT_STYLE = "draw=black!60,line width=1.0pt,rounded corners=3pt,fill=black!4"
+
+
+def _experiment_text() -> str:
+    rows = ["{\\small\\ttfamily " + " $\\cdot$ ".join(escape_latex(i) for i in line) + "}" for line in EXPERIMENT_IDS]
+    return "\\textbf{" + escape_latex(EXPERIMENT_TITLE) + "}\\\\" + "\\\\".join(rows)
 
 
 def equilibrium_stability_transport(*, labels: bool = True, measurements: bool = False) -> Diagram:
@@ -247,12 +260,20 @@ def equilibrium_stability_transport(*, labels: bool = True, measurements: bool =
     equilibrium is the input downstream. No panel letters: the two halves read
     as one flow.
 
-    ``measurements=True`` adds what the reconstruction is made from: an
-    Experiment card of IMAS IDS (machine:
-    ``wall``, ``pf_active``, ``pf_passive``, ``em_coupling``; measurement:
-    ``magnetics``, ``thomson_scattering``, ``charge_exchange``) above the
-    panels, consumed by the experimental reconstruction and by the kinetic
-    profiles. The reconstruction then only writes the equilibrium IDS, and the
+    Every box takes the kind the cross-domain figure gives it, so its colour
+    means what it means there: the IDS are the shared state; reconstruction,
+    the boundary models and the two physics models numerical solvers; theory
+    an analytical model; the assumptions an assumption. The four equilibrium
+    routes are drawn alike, and no legend is drawn: the caption says what the
+    styles mean.
+
+    ``measurements=True`` adds what the reconstruction is made from: one
+    Machine Configuration & Experimental Data box of IMAS IDS above the panels
+    (``wall``, ``pf_active``, ``pf_passive``, ``em_coupling``,
+    ``coils_non_axisymmetric``; ``magnetics``, ``thomson_scattering``,
+    ``charge_exchange``), consumed by the
+    reconstruction and by the kinetic profiles. It mixes configuration and
+    measurement, so it takes a plain outline rather than a kind. The reconstruction then only writes the equilibrium IDS, and the
     kinetic profiles are drawn as made from the equilibrium and the external
     assumptions as well (``stability_transport_io(derived_profiles=True)``).
     """
@@ -275,23 +296,22 @@ def equilibrium_stability_transport(*, labels: bool = True, measurements: bool =
                              "connector", role="edge:hub->equilibrium"))
     edges = tuple(a.model["edges"]) + (("hub", "equilibrium", "forward"),) + tuple(b.model["edges"])
     if measurements:
-        # the measurement and machine card above the panels, between the reconstruction and the kinetic profiles,
-        # feeding both through elbows
+        # the experiment box above the panels, between the reconstruction and the kinetic profiles, feeding both
         efit = next(i for i in a.scene.role("node:experiment") if isinstance(i, Polyline))
         efit_x = 0.5 * (min(p[0] for p in efit.points) + max(p[0] for p in efit.points))
         efit_top = max(p[1] for p in efit.points)
         kin_x, kin_y, _, kin_h = b.model["boxes"]["core_profiles"]
         kin_x += dx
-        h, w = 1.65, 11.5
+        h, w = 1.45, 13.4
         cx, cy = 0.5 * (efit_x + kin_x), _TOP + 0.8 + 0.5 * h
-        card = box(cx, cy, w, h, _measurement_text(), style="concept hub", role="node:measurement", latex=True)
-        items += list(card.items)
+        data = box(cx, cy, w, h, _experiment_text(), style=_EXPERIMENT_STYLE, role="node:experiment_data", latex=True)
+        items += list(data.items)
         items.append(Polyline.of([(cx - 0.5 * w - _GAP, cy), (efit_x, cy), (efit_x, efit_top + _GAP)], "connector",
-                                 role="edge:measurement->experiment"))
+                                 role="edge:experiment_data->experiment"))
         items.append(Polyline.of([(cx + 0.5 * w + _GAP, cy), (kin_x, cy), (kin_x, kin_y + 0.5 * kin_h + _GAP)],
-                                 "connector", role="edge:measurement->core_profiles"))
-        edges += (("measurement", "experiment", "forward"), ("measurement", "core_profiles", "forward"))
+                                 "connector", role="edge:experiment_data->core_profiles"))
+        edges += (("experiment_data", "experiment", "forward"), ("experiment_data", "core_profiles", "forward"))
     return Diagram("equilibrium_stability_transport", Scene(tuple(items)),
                    model={"equilibrium": a.model, "io": {k: v for k, v in b.model.items() if k != "boxes"},
-                          "measurements": tuple(i for _, ids in MEASUREMENT_MACHINE for i in ids) if measurements
+                          "measurements": tuple(i for line in EXPERIMENT_IDS for i in line) if measurements
                           else (), "edges": edges})

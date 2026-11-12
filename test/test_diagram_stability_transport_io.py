@@ -109,18 +109,31 @@ def test_the_measurement_variant_feeds_the_reconstruction_and_the_profiles():
     edges = set(d.model["edges"])
     # the reconstruction only writes the equilibrium; the other routes still exchange with it
     assert ("experiment", "hub", "forward") in edges and ("theory", "hub", "both") in edges
-    assert {("measurement", "experiment", "forward"), ("measurement", "core_profiles", "forward"),
+    assert {("experiment_data", "experiment", "forward"), ("experiment_data", "core_profiles", "forward"),
             ("equilibrium", "core_profiles", "forward"), ("assumptions", "core_profiles", "forward")} <= edges
-    assert d.model["measurements"] == ("wall", "pf_active", "pf_passive", "em_coupling",
+    assert d.model["measurements"] == ("wall", "pf_active", "pf_passive", "em_coupling", "coils_non_axisymmetric",
                                        "magnetics", "thomson_scattering", "charge_exchange")
-    card = next(i for i in d.scene.role("node:measurement") if isinstance(i, Label)).text
-    assert "\\textbf{Experiment}" in card and "thomson\\_scattering" in card
-    for role in ("edge:measurement->experiment", "edge:measurement->core_profiles",
+    data = next(i for i in d.scene.role("node:experiment_data") if isinstance(i, Label)).text
+    assert "Machine Configuration \\& Experimental Data" in data and "coils\\_non\\_axisymmetric" in data
+    # the 3-D coil excitation is coils_non_axisymmetric, machine data here, no longer an assumption
+    assert "3-D coil excitation" not in data
+    assert "3-D coil excitation" not in d.scene.role("input:assumptions")[1].text
+    assert not d.scene.role("node:machine") and not d.scene.role("group:experiment")
+    # colours carry the cross-domain kinds: shared state, solver, analytical model, assumption
+    assert d.model["equilibrium"]["kinds"] == {"experiment": "solver", "theory": "derived",
+                                               "fixed_boundary": "solver", "free_boundary": "solver"}
+    assert d.scene.role("node:hub")[0].style.startswith("wf standardized")
+    assert d.scene.role("node:transport")[0].style.startswith("wf solver")
+    assert d.scene.role("input:assumptions")[0].style.startswith("wf prior")
+    assert not any(i.role.startswith("legend") for i in d.scene.items)  # no legend: the caption explains
+    # the four equilibrium routes are drawn alike
+    assert len({d.scene.role(f"node:{k}")[0].style for k in d.model["equilibrium"]["kinds"]}) == 1
+    for role in ("edge:experiment_data->experiment", "edge:experiment_data->core_profiles",
                  "edge:equilibrium->core_profiles", "edge:assumptions->core_profiles"):
         assert d.scene.role(role)
     # the default figure is unchanged: no measurement card, the reconstruction exchanges both ways
     plain = vaft.diagram.equilibrium_stability_transport()
-    assert not plain.scene.role("node:measurement") and plain.model["measurements"] == ()
+    assert not plain.scene.role("node:experiment_data") and plain.model["measurements"] == ()
     assert ("experiment", "hub", "both") in plain.model["edges"]
     with pytest.raises(ValueError):
         vaft.diagram.equilibrium_stability_transport(measurements="yes")
