@@ -183,8 +183,9 @@ Shot 39915 has **no toroidal array**. Its archive published DAQ field 171 twice,
 at two angles, so a fit used to compare a signal with itself and return an
 identity.
 
-Since the #724 / #825 fix, `mirnov_spatial_phase` counts **distinct
-acquisitions**, and on 39915 the call refuses --- with its reason.
+`mirnov_spatial_phase` now counts **distinct acquisitions** --- a byte-identical
+waveform is one channel whatever angle it declares --- and on 39915 the call
+refuses, with its reason.
 
 ::: {.notes}
 [3 min]
@@ -292,7 +293,8 @@ Assemble what has been measured.
 
 - $f$: 9 kHz falling to 3 kHz; $n = 1$ mod 4; coherent in $\delta B$ and $\delta\epsilon$
 - **$m$ is not measured**: outboard probes outside the LCFS span only ~16--20$^\circ$
-  of $\theta^*$ on 39915 (#472, #506)
+  of $\theta^*$ on 39915 (approximate mapping; Open: #472, no native
+  flux-coordinate transform)
 - $q = m/n$: for $n = 1$, 39915 has **9 surfaces** ($m = 3$--$11$), and no
   $q = 1$ surface
 - **$n$ alone does not fix the resonant surface**
@@ -371,9 +373,12 @@ Close with where the chain stops.
 
 ## Where the chain stops
 
-- no resolver from $(m, n)$ to a surface, and no measured $m$ --- #506, #472
-- no $f = n f_\phi$ overlay on spectrograms, and no same-shot rotation --- #460
-- field 171 published twice --- fixed in the mapper and the fit guard (#724, #825)
+- no measured $m$, so the candidate $q = m/n$ surfaces cannot be told apart;
+  no native flux-coordinate transform (Open: #472)
+- the $f = n f_\phi$ overlay (`mode_overlay=`) needs a rotation profile, and
+  VEST has no same-shot rotation
+- field 171 published twice --- the mapper now publishes it once, and the fit
+  counts distinct acquisitions
 - no IRE, sawtooth or disruption classifier
 - method depth: `notebooks/fluctuation_diagnostics_analysis.ipynb`
 

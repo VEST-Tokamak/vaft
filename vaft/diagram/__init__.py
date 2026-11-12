@@ -72,7 +72,10 @@ vocabulary: ``tokamak_top_view``, ``cocos_orientation``,
 ``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
 and q topology: ``current_profile_shapes``, ``q_profile_landmarks``,
 ``q_profile_topologies`` and ``rational_surface_topology``; current diffusion and
-current drive: ``current_diffusion`` and ``current_drive_profiles``.
+current drive: ``current_diffusion`` and ``current_drive_profiles``; one measured
+sample in four representations: ``electron_density_semantics``, the packaged VEST
+48224 kinetic slice -- a data figure composed here, its numbers taken through
+:mod:`vaft.process` rather than computed in the diagram.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -322,6 +325,7 @@ __all__ = [
     "geometry_to_mesh",
     "logical_to_physical_mapping",
     "physical_to_flux_mapping",
+    "electron_density_semantics",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -561,6 +565,7 @@ _LOCATIONS = {
     "geometry_to_mesh": "._spatial",
     "logical_to_physical_mapping": "._spatial",
     "physical_to_flux_mapping": "._spatial",
+    "electron_density_semantics": "._density_semantics",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }
