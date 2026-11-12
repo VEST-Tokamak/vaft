@@ -104,14 +104,13 @@ EXPERIMENT_IDS: Tuple[Tuple[str, ...], ...] = (
     ("coils_non_axisymmetric", "nbi", "ec_launchers"),
     ("magnetics", "thomson_scattering", "charge_exchange"),
 )
-#: the representative quantities of each, as VAFT reads them: limiter and vessel outline
-#: (``description_2d.*.outline``), coil and passive-loop currents (``coil.current``, ``loop.current``), the mutual
+#: the representative quantities of each, as VAFT reads them (the wall, a geometry, carries none): coil and passive-loop currents (``coil.current``, ``loop.current``), the mutual
 #: inductance matrices (``mutual_*``), 3-D coil currents, EC launched power and frequency (``beam.power_launched``,
 #: ``beam.frequency``), plasma current, poloidal field probes, flux loops and diamagnetic flux, Thomson and
 #: charge-exchange profiles. For NBI VAFT maps only the units, so the quantities are the data dictionary's
 #: ``unit.power_launched`` and ``unit.energy``.
 EXPERIMENT_QUANTITIES: Dict[str, str] = {
-    "wall": r"$(R,Z)_{\rm wall}$",
+    "wall": "",
     "pf_active": r"$I_{\rm coil}$",
     "pf_passive": r"$I_{\rm eddy}$",
     "em_coupling": r"$M_{ij}$",
@@ -119,8 +118,8 @@ EXPERIMENT_QUANTITIES: Dict[str, str] = {
     "nbi": r"$P_{\rm NBI}$, $E_b$",
     "ec_launchers": r"$P_{\rm EC}$, $f$",
     "magnetics": r"$I_p$, $B_p$, $\psi_p$, $\Phi_{\rm dia}$",
-    "thomson_scattering": r"$T_e$, $n_e$",
-    "charge_exchange": r"$T_i$, $v_\phi$",
+    "thomson_scattering": r"$n_e$, $T_e$",
+    "charge_exchange": r"$v_\phi$, $T_i$",
 }
 assert set(EXPERIMENT_QUANTITIES) == {i for line in EXPERIMENT_IDS for i in line}
 #: what the kinetic profiles are made from inside the shared input, when they are drawn as derived
@@ -263,8 +262,9 @@ _EXPERIMENT_STYLE = "draw=black!60,line width=1.0pt,rounded corners=3pt,fill=bla
 
 def _experiment_text() -> str:
     # each IDS as the output boxes print theirs: the name in typewriter, a colon, its quantities
-    rows = ["{\\small " + " $\\cdot$ ".join("\\texttt{" + escape_latex(i) + "}: " + EXPERIMENT_QUANTITIES[i] for i in line)
-            + "}" for line in EXPERIMENT_IDS]
+    rows = ["{\\small " + " $\\cdot$ ".join("\\texttt{" + escape_latex(i) + "}" +
+                                             (": " + EXPERIMENT_QUANTITIES[i] if EXPERIMENT_QUANTITIES[i] else "")
+                                             for i in line) + "}" for line in EXPERIMENT_IDS]
     return "\\textbf{" + escape_latex(EXPERIMENT_TITLE) + "}\\\\" + "\\\\".join(rows)
 
 
