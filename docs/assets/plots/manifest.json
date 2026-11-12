@@ -946,9 +946,9 @@
     },
     "mirnov_spectrogram": {
       "call": "vaft.omas.plot_mirnov_spectrogram(vaft.omas.load(vaft.data.sample(39915)))",
-      "model_sha256": "c6a4db235b5f9231ef2a5d1e3e1b74c75f8c6d5dca52c12d94727533a5ffe09e",
-      "png_sha256": "7964b5d3a1e13e51992a216a6d378ff8832f70095fd6756c4196d2493aa32419",
-      "renderer_sha256": "066f3e32f1660bb561f26db9ac30290b1f33ee8d742fed6956d302d229d66fa9",
+      "model_sha256": "262eaef97d75912552548c5bcafed6ce15d9d2807928be39f66cc2709d3c67e7",
+      "png_sha256": "364e505d39a15ddde6fad410ad9fc5a1e07d4784ec08af8a59cb2f889007df73",
+      "renderer_sha256": "c0d6a8cb7ef63a4e133e9fc43f1a0d9df3c7aebe63b7020cca855527c2d11599",
       "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
       "shot": 39915,
       "status": "rendered"
@@ -1114,9 +1114,9 @@
     },
     "soft_x_rays_spectrogram": {
       "call": "vaft.omas.plot_soft_x_rays_spectrogram(vaft.omas.load(vaft.data.sample(45531)))",
-      "model_sha256": "cb5717bfdaa6476165f3bd9168b7c971eca6dec1142940cdbbf01fc15930a3ac",
-      "png_sha256": "d01c1078ccd9a631bca395288924d21c25e0768740b8d2ea0abf598ba5c93888",
-      "renderer_sha256": "066f3e32f1660bb561f26db9ac30290b1f33ee8d742fed6956d302d229d66fa9",
+      "model_sha256": "d9632954a672e89e2f67d515a7d0faeac801adf1a0bd088dd3398a0611e959ad",
+      "png_sha256": "bd93eb9e05596240dcd1a57f7422ec50f0a1efac80985a906079872bcc4ad81f",
+      "renderer_sha256": "c0d6a8cb7ef63a4e133e9fc43f1a0d9df3c7aebe63b7020cca855527c2d11599",
       "sample_sha256": "41b62e19c41da83d62d9f3d4b0bb5359641ef67b28bbcaeb5dee3c872878f21f",
       "shot": 45531,
       "status": "rendered"

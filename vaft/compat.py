@@ -13,10 +13,14 @@ Two kinds of difference are absorbed here, and nowhere else in VAFT:
 from __future__ import annotations
 
 from contextlib import contextmanager
+import importlib.abc
+import logging
 import os
 from pathlib import Path
 import shutil
+import sys
 import tempfile
+import threading
 from typing import Iterator
 import warnings
 
@@ -352,6 +356,81 @@ def short_temporary_directory(
     )
 
 
+class _OmasRootLoggerGuard(importlib.abc.MetaPathFinder):
+    """Keep the root logger level across the first import of ``omas``.
+
+    OMAS compiles ``omas_cython`` with ``pyximport`` while ``omas.omas_utils``
+    is imported, and pyximport parses a setuptools ``Distribution`` command
+    line on *every* import -- even when the extension is already built.
+    ``Distribution.parse_command_line`` then calls
+    ``logging.getLogger().setLevel(logging.WARNING)``, silently undoing an
+    application's ``logging.basicConfig(level=logging.INFO)``. The trigger is
+    third-party and cannot be skipped, so the level is saved before the
+    ``omas`` package executes and restored afterwards.
+
+    Every spec handed out is wrapped, so a bare
+    ``importlib.util.find_spec("omas")`` probe or a failed first import cannot
+    use the guard up. The guard stays on ``sys.meta_path`` -- a free no-op once
+    ``omas`` is in ``sys.modules`` -- because removing it would mutate a list
+    another thread's import may be iterating. Not covered: pyximport stays
+    installed after OMAS loads, so a later ``.pyx`` import elsewhere would
+    reset the level again.
+    """
+
+    def __init__(self):
+        self._searching = threading.local()
+
+    def find_spec(self, fullname, path, target=None):
+        if fullname != "omas" or fullname in sys.modules or getattr(self._searching, "active", False):
+            return None
+        # Re-entry flag: another finder that delegates to sys.meta_path must
+        # not bounce the search back here.
+        self._searching.active = True
+        try:
+            for finder in sys.meta_path:
+                if finder is self or not hasattr(finder, "find_spec"):
+                    continue
+                spec = finder.find_spec(fullname, path, target)
+                if spec is not None:
+                    break
+            else:
+                return None
+        finally:
+            self._searching.active = False
+        loader = spec.loader
+        # A loader that already carries an instance-level exec_module (ours, on
+        # a cached loader such as zipimporter) is left alone.
+        if loader is None or not hasattr(loader, "exec_module") or "exec_module" in vars(loader):
+            return spec
+        exec_module = loader.exec_module
+
+        def exec_module_keeping_root_level(module):
+            root = logging.getLogger()
+            level = root.level
+            try:
+                exec_module(module)
+            finally:
+                vars(loader).pop("exec_module", None)
+                if root.level != level:
+                    root.setLevel(level)
+
+        loader.exec_module = exec_module_keeping_root_level
+        return spec
+
+
+def _install_omas_root_logger_guard() -> None:
+    """Protect the root logger level from OMAS's import-time distutils run.
+
+    A no-op when ``omas`` is already imported (the reset, if any, happened
+    before VAFT could intervene) or when the guard is already installed.
+    """
+    if "omas" in sys.modules:
+        return
+    if any(isinstance(finder, _OmasRootLoggerGuard) for finder in sys.meta_path):
+        return
+    sys.meta_path.insert(0, _OmasRootLoggerGuard())
+
+
 def apply_runtime_compat_patches() -> None:
     """Apply broad NumPy/SciPy shims that are safe for all runtime paths."""
     global _RUNTIME_PATCH_APPLIED
@@ -362,6 +441,8 @@ def apply_runtime_compat_patches() -> None:
     # normally provides USERPROFILE instead, so establish HOME before any
     # optional dependency imports below can reach OMAS.
     ensure_home_environment()
+    # Likewise before anything can import OMAS: its import resets the root logger.
+    _install_omas_root_logger_guard()
 
     try:
         import numpy as np
