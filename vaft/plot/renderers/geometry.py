@@ -90,7 +90,7 @@ def draw_geometry_layer(
 def finite_runs(r: Any, z: Any) -> list[np.ndarray] | None:
     """The finite stretches of a polyline, or ``None`` when it has no gap.
 
-    A layer marks a break with a non-finite sample (issue #1314): the camera
+    A layer marks a break with a non-finite sample: the camera
     overlays set a sample that is behind the camera or outside the lens model
     to NaN.  Each run is an ``(n, 2)`` array of consecutive finite samples;
     a lone finite sample between two gaps is no segment and is dropped.
@@ -120,7 +120,7 @@ def _draw_runs(axes: Axes, runs: list[np.ndarray], options: dict[str, Any]) -> N
     Matplotlib breaks a ``Line2D`` at NaN, but only while the NaN is still in
     the line's data: anything that rewrites that data after ``plot`` -- a
     third-party ``xlim_changed`` hook that crops each line to the view, which
-    a Jupyter startup script can install (issue #1314) -- joins the runs with
+    a Jupyter startup script can install -- joins the runs with
     straight segments.  A ``LineCollection`` holds each run as its own path.
     """
     from matplotlib.collections import LineCollection
@@ -218,7 +218,7 @@ def render_geometry_layers(
         # Through the shared policy rather than straight to `axes.legend`: a
         # view with more layers than `LEGEND_MAX_ENTRIES` -- 40 soft X-ray
         # sight lines, 10 PF coils -- otherwise draws a legend that covers the
-        # drawing it is labelling (#764). `lone_entry` keeps the legend a
+        # drawing it is labelling. `lone_entry` keeps the legend a
         # single named layer still earns.
         apply_legend(axes, legend=legend, lone_entry=True)
     return finalize(figure, axes, show=show, tight_layout=ax is None)

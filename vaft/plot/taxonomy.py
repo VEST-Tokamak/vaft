@@ -1,4 +1,4 @@
-"""Canonical physical-subject vocabulary for VAFT plotting (issue #251).
+"""Canonical physical-subject vocabulary for VAFT plotting.
 
 Canonical plot identity is ``subject / view / [quantity]``: the ``subject`` is
 the physical or diagnostic concept a user thinks of (``flux_loop``,
@@ -10,7 +10,7 @@ source of truth for:
 * quantity-level aliases for concise tokamak terminology,
 * canonical quantities, with or without an alias (:data:`CANONICAL_QUANTITIES`),
   which the formula/process ``Semantics`` sections and the generated ontology
-  resolve against as well (#1702),
+  resolve against as well,
 * quantity families -- named groups of distinct, related quantities.
 
 Alias semantics are strict: an alias is registered only when both terms
@@ -113,7 +113,7 @@ _SUBJECTS = (
     # the machine, not a reconstruction of a discharge.
     Subject("vacuum", "model", ("vacuum_field", "null_field")),
     # The vacuum readings a startup is judged by -- B_Z, V_loop, the decay
-    # index at one point -- against time, several shots overlaid (issue #888).
+    # index at one point -- against time, several shots overlaid.
     Subject("startup_proxies", "model", ("startup",)),
     Subject("core_profiles", "reconstruction"),
     Subject("mhd_linear", "model"),
@@ -128,19 +128,19 @@ _SUBJECTS = (
     # because what it describes is the topology a *perturbed* field makes --
     # an equilibrium is only one of its inputs -- and rather than of
     # `mhd_linear`, because a traced line is not one of the toroidal modes
-    # the solver was asked for (issue #1099).
+    # the solver was asked for.
     Subject("field_line_topology", "model", ("connection_length", "field_lines")),
     # Neoclassical transport: the analytic models and the drift-kinetic solver
     # that answer the same question, which is why the plot compares them.
     Subject("neoclassical", "model", ("bootstrap_current",)),
-    # Turbulence (#1591): one local flux-tube calculation (gyrokinetics_local) and the
+    # Turbulence: one local flux-tube calculation (gyrokinetics_local) and the
     # radial turbulent fluxes several of them give (core_transport, anomalous) are
     # different objects, so they are two subjects rather than one "turbulence".
     Subject("gyrokinetics", "model", ("gyrokinetics_local", "local_gyrokinetics", "linear_spectrum")),
     Subject("turbulent_transport", "model", ("anomalous_transport", "turbulent_flux")),
     # Impurity composition: elements spread over charge states by atomic data
-    # from T_e, n_e -- a model of what the plasma holds, not a measurement of it
-    # (#1565).  The stored Z_eff stays a core_profiles quantity.
+    # from T_e, n_e -- a model of what the plasma holds, not a measurement of it.
+    # The stored Z_eff stays a core_profiles quantity.
     Subject("impurity", "model", ("impurities",)),
     Subject("nbi", "machine", ("neutral_beam", "nubeam")),
     Subject("ec_launchers", "machine", ("ech", "ecrh", "electron_cyclotron")),
@@ -193,16 +193,16 @@ def _build_quantity_aliases() -> dict[str, str]:
     return aliases
 
 
-#: Concise canonical quantity names with strict aliases (issue #251 section 11).
+#: Concise canonical quantity names with strict aliases.
 QUANTITY_ALIASES: dict[str, str] = _build_quantity_aliases()
 
 #: Canonical quantities that need no alias (yet): physical quantities a plot
-#: names as its ``quantity`` or a #1626 reduction graph reduces (#1702).  A
+#: names as its ``quantity`` or a formula catalog ``Reduction`` reduces.  A
 #: name joins only when it means one quantity: ``pressure`` stays out, because
 #: plots and diagnostics use it for both plasma and neutral gas pressure, and
 #: ``estimated_q95`` (a scaling estimate) stays distinct from ``q95``.
 #:
-#: Same unit is not same quantity (#2163): the four electron densities below
+#: Same unit is not same quantity: the four electron densities below
 #: differ in where or how they are averaged, ``psi_n`` is not ``psi``,
 #: ``beta_n_volume`` (Menard's volume-averaged beta_N) is not the Troyon
 #: ``beta_n``, and the vacuum and plasma-response parts of a perturbed field

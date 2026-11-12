@@ -110,14 +110,16 @@ _POINTS = {
 # the other point families store a static ``position.r``.
 _DYNAMIC_POSITIONS = {"charge_exchange"}
 _LOS = {"interferometer": "interferometer.channel", "soft_x_rays": "soft_x_rays.channel"}
-# Magnetics (#1829).  A flux loop is a toroidal loop: the DD stores its
+# Magnetics.  A flux loop is a toroidal loop: the DD stores its
 # ``position`` as a list whose first entry is the loop's (R, Z); VEST stores no
 # phi there because the loop has none.  B-pol and B-tor (IMPA) probes are
 # points whose phi is used only when stored.  On VEST the probe and loop R-Z
 # are identical across every donor geometry version (21193, 2302-2311, 2409);
 # what changes by era is the DAQ wiring (field codes, see
 # ``magnetics_wiring_for_shot``) and per-probe calibration, not geometry.  The
-# B-pol phi is a family-to-port-clock convention (#718), the IMPA phi its port.
+# B-pol phi is a family-to-port-clock convention (the clockwise-positive VEST
+# port clock converted to IMAS phi by
+# ``vaft.machine_mapping.conventions.port_toroidal_angle``), the IMPA phi its port.
 _MAGNETIC_RINGS = {"flux_loop": "magnetics.flux_loop"}
 _MAGNETIC_POINTS = {"b_field_pol_probe": "magnetics.b_field_pol_probe",
                     "b_field_tor_probe": "magnetics.b_field_tor_probe"}

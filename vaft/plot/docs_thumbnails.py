@@ -395,7 +395,7 @@ def _fresh(entry: dict, spec, ods, out_dir: Path) -> bool:
 
 
 #: The states a manifest entry may record.  ``no_figure`` is a table or text
-#: view (issue #1180): it presents text, so there is no picture to draw.
+#: view: it presents text, so there is no picture to draw.
 STATUSES = ("rendered", "no_sample", "failed", "no_figure")
 
 #: Why a table or text view has no thumbnail.
@@ -418,7 +418,7 @@ def build(out_dir: Path | None = None, *, force: bool = False, only: Iterable[st
     for name in sorted(selected):
         spec = specs[name]
         if spec.view in registry.NON_GRAPHICAL_VIEWS:
-            # A table or text view returns text, not a figure (issue #1180).
+            # A table or text view returns text, not a figure.
             entries[name] = {"status": "no_figure", "reason": NO_FIGURE_REASON}
             (out_dir / f"{name}.png").unlink(missing_ok=True)
             continue
@@ -523,7 +523,7 @@ def check(out_dir: Path | None = None, *, full: bool = False) -> tuple[list[str]
 
     # A plot registered after the last render has no picture yet; the page says
     # so, and the next render adds it.  Not blocking, so a new plot never breaks
-    # the docs build of the PR that registers it (#1270).
+    # the docs build of the PR that registers it.
     for name in sorted(set(specs) - set(recorded)):
         notes.append(f"{name}: registered plot has no entry in {MANIFEST} yet; "
                      f"render it with python -m vaft.plot.docs_thumbnails --only {name}")

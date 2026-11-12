@@ -1,4 +1,4 @@
-"""Population histograms of the Tier A stability atlas (#1852).
+"""Population histograms of the Tier A stability atlas.
 
 These draw the populations :func:`vaft.process.mhd_stability.stability_atlas_populations`
 reads from the atlas that ``workflow/stability_atlas/build_atlas.py`` writes. They
