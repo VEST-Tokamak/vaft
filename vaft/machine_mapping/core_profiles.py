@@ -7,14 +7,15 @@ impurity fractions they are given for line radiation.  *Which* coordinate,
 *which* ratio and *which* fractions are VEST decisions, and this module is
 where a VEST pipeline gets them: the ``core_profiles`` entry under
 ``diagnostics`` in ``vest.yaml``, resolved per shot era exactly like every
-other diagnostic policy (issue #420).
+other diagnostic policy.
 
 Every value carries a ``status`` -- ``assumed``, ``measured`` or
 ``inferred`` -- so that a stored profile can say whether the number that
 shaped it was known or guessed.  The Ti/Te ratio is ``assumed`` (Ti = Te,
-#1331) until enough shots carry both diagnostics to infer it; the earlier
+decided 2026-09-30 for ohmic plasmas without an ion diagnostic) until
+enough shots carry both diagnostics to infer it; the earlier
 inference stays in ``vest.yaml`` as its record.  The impurity composition is
-the ``impurity_model`` preset (C6+:O8+ = 1:1 at a target Z_eff = 2, #1565),
+the ``impurity_model`` preset (C6+:O8+ = 1:1 at a target Z_eff = 2),
 ``assumed``; the carbon and oxygen fractions line radiation uses are derived
 from it rather than configured beside it, so the two cannot disagree.
 """
@@ -48,7 +49,8 @@ POLICY_STATUSES = ("assumed", "measured", "inferred")
 
 #: What an ion ``temperature_fit.parameters`` record says about the temperature
 #: beside it, as :func:`classify_ti_record` reads it: a measured fit, a Ti/Te
-#: ratio the writer assumed, an inference (lane K's #1426 pressure partition),
+#: ratio the writer assumed, an inference (the equilibrium
+#: pressure partition),
 #: or a record in no grammar this module knows (a reader refuses it by name).
 TI_RECORD_KINDS = ("measured", "assumed", "inferred", "unknown")
 
@@ -57,7 +59,7 @@ INFERRED_TI_ORIGIN = "inferred"
 
 _RECORD_FIELD = re.compile(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*([^;]*)")
 
-#: The mixture reductions an ``impurity_model`` may name (#1565): one
+#: The mixture reductions an ``impurity_model`` may name: one
 #: pseudo-impurity keeping the charge, Z^2 and mass moments.
 IMPURITY_REDUCTIONS = ("preserve_charge_z2_mass",)
 
@@ -124,7 +126,7 @@ def inferred_ti_text(method: str = "equilibrium_pressure_partition") -> str:
 
     One spelling for producer and consumer: ``origin=inferred; method=<method>``
     is what :func:`classify_ti_record` reads back as ``"inferred"``, so a
-    transport reader never takes the temperature as a measurement (#1426).
+    transport reader never takes the temperature as a measurement.
     """
     return f"origin={INFERRED_TI_ORIGIN}; method={method}"
 
@@ -173,7 +175,7 @@ def classify_ti_record(record: Any) -> str:
         if origin == "measured":
             return "measured"
         if origin == "assumed":
-            # ``origin=assumed; method=ti_equals_te`` (#1957): the composition
+            # ``origin=assumed; method=ti_equals_te``: the composition
             # grammar's assumption, the same kind as a ratio record.
             return "assumed"
         return "inferred" if INFERRED_TI_ORIGIN in origin else "unknown"
@@ -381,7 +383,7 @@ def _fractions_from_model(model: Mapping[str, Any]):
 def vest_impurity_model(shot: Optional[int], *, info_file: str | None = None) -> Optional[Mapping[str, Any]]:
     """The VEST impurity-composition preset for *shot*, or ``None`` for an era without one.
 
-    An explicit modelling preset (#1565), never a global VAFT default: the
+    An explicit modelling preset, never a global VAFT default: the
     process-layer resolver (:func:`vaft.process.impurity.resolve_impurity_composition`)
     takes it only when asked for the ``"vest"`` preset and nothing measured,
     explicit or derived outranks it.  The record keeps element, charge state,

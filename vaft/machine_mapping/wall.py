@@ -39,8 +39,8 @@ def wall(ods: ODS, source: str | Path | None = None) -> None:
         # `in` rather than a read: probing a missing ODS branch by subscript
         # materializes an empty placeholder, which then fails a
         # consistency-checked reload even though nothing was written. That is
-        # now the shared contract rather than a local precaution -- see
-        # `vaft.ods_access` (issue #118).
+        # the shared contract rather than a local precaution -- see
+        # `vaft.ods_access`.
         if "vessel" not in entry and "type" not in entry:
             # No vessel description is provided; only limiter geometry is filled.
             entry["type.index"] = 1

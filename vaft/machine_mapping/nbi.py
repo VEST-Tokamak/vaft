@@ -1,10 +1,10 @@
 """`nbi` IDS mapping for the VEST neutral beam.
 
-Issue #490 section 5. The geometry here is **NUBEAM-derived, not as-built**: it
+The geometry here is **NUBEAM-derived, not as-built**: it
 comes from ``mdescr_VEST_190307.dat``, the machine description the validated
 VEST NUBEAM case runs with, and is stored natively in ``vest.yaml`` so the
-provenance survives. Reconciling it against the real hardware is issue #265,
-and until that happens the diagnostic registry keeps this mapping ``partial``.
+provenance survives. Open: #265 (reconciliation against the real hardware);
+until that happens the diagnostic registry keeps this mapping ``partial``.
 
 Four conversions are needed, and each is a place the obvious reading is wrong:
 
@@ -96,7 +96,7 @@ def nbi(ods: ODS, shot: int = 0, options: Optional[dict] = None) -> dict[str, An
     """
     document = load_yaml(package_data_path("vest.yaml"))
     # The beam has no shot-resolved revisions yet: one machine description, from
-    # one NUBEAM case. When as-built data arrive (#265) this is where a
+    # one NUBEAM case. When as-built data arrive this is where a
     # resolve_shot_revisions call belongs.
     config = (document.get(0) or {}).get("nbi")
     if not config:
@@ -204,8 +204,8 @@ def nbi_run_conditions(ods: ODS, result: Any, *, unit: int = 0) -> dict[str, Any
     """Write the beam conditions a NUBEAM case actually ran with.
 
     Separate from :func:`nbi` on purpose. These are modelling inputs chosen for
-    one case, not machine description, and #490 section 5 is explicit that a
-    modelled NUBEAM input is not equivalent to a measured machine parameter.
+    one case, not machine description, and a modelled NUBEAM input is not
+    equivalent to a measured machine parameter.
     """
     native = getattr(result, "outputs_native", None) or result
     conditions = getattr(native, "beam_conditions", None) or {}

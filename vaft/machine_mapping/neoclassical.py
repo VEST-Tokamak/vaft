@@ -7,7 +7,7 @@ documents for NUBEAM. What NEO produced in NEO's own units stays in
 ``NeoOutputs``; what has a defensible IMAS home is derived here, and what does
 not is reported as skipped rather than forced into a nearby field.
 
-Mapping audit (issue #550, phase 5). "Status" is the claim being made about the
+Mapping audit. "Status" is the claim being made about the
 correspondence, not about the run.
 
 =========================== ============================================= =================== =========
@@ -214,7 +214,7 @@ def _resolve_b0(
 ) -> Optional[float]:
     """The vacuum field IMAS normalises ``j_bootstrap`` by, for this slice.
 
-    VEST's b0 drifts by up to a factor of two within a shot (#325), so which
+    VEST's database b0 drifts by up to a factor of two within a shot, so which
     entry is read is a physical question, not a rounding one.
 
     ``core_profiles`` is preferred, because that is the field IMAS defines
@@ -264,7 +264,7 @@ def _onto(target: np.ndarray, source: np.ndarray, values: np.ndarray) -> tuple[n
     """
     order = np.argsort(source)
     # anti-alias: spatial. Both grids are rho_tor_norm, a flux coordinate, so
-    # there is no sampling rate here to reduce and nothing to fold (#425). The
+    # there is no sampling rate here to reduce and nothing to fold. The
     # target is the equilibrium's own radial grid, which is finer than NEO's
     # handful of solved surfaces, so this is a refinement rather than a
     # decimation in any case.
@@ -682,7 +682,8 @@ def core_transport_from_neo(
     )
 
     _set_time_array(ods, "core_transport.time", time_index, float(time))
-    # An IDS the classical mapper (#1654) made heterogeneous stays so: every slice
+    # An IDS the classical mapper made heterogeneous (its slice indices are per
+    # entry, not a shared core_transport.time) stays so: every slice
     # here also carries its own profiles_1d time, so 0 remains true.
     if ods.get("core_transport.ids_properties.homogeneous_time", None) != 0:
         ods["core_transport.ids_properties.homogeneous_time"] = 1
@@ -831,7 +832,7 @@ def _write_provenance(
     The caveats are attributes rather than prose so that a consumer can test
     them, following ``mhd_linear``'s convention. Angle brackets are escaped:
     a literal ``</parameters>`` in a fragment closes the envelope early, and
-    the splice does not check (issue #642).
+    the splice below does not check.
 
     In ``core_transport`` the record goes on the neoclassical *model* entry, as
     the classical, TGLF and gyrokinetic mappers do: the IDS-level ``code`` would

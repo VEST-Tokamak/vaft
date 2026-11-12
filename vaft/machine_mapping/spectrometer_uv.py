@@ -21,8 +21,9 @@ DEFAULT_DT = 4e-5
 #: filterscope's toroidal position is the fast camera's.
 #:
 #: So this is the same port :data:`vaft.machine_mapping.camera_visible.CAMERA_PORT`
-#: names, and unlike the provisional placements in issue #746 it is documented
-#: rather than inferred.  Issue #718 for the clock-to-phi conversion.
+#: names, and unlike the provisional SXR, CES and camera-frame placements it is
+#: documented rather than inferred.  The clock-to-phi conversion is the one in
+#: :mod:`vaft.machine_mapping.conventions`.
 FILTERSCOPE_PORT = "6MR"
 
 CHANNEL_NAMES: dict[int, str] = {
@@ -129,7 +130,7 @@ def vfit_filterscope(
         # and the Data Dictionary gives spectrometer_uv no scalar toroidal
         # angle, so line_of_sight.first_point.phi is where the one thing we do
         # know belongs. Writing an invented R and Z beside it to look complete
-        # is what issue #718 exists to stop.
+        # would present a guess as geometry.
         set_path(ods, f"spectrometer_uv.channel.{channel}.line_of_sight.first_point.phi", phi)
 
     for _, channel, line, label, wavelength in SIGNALS:
