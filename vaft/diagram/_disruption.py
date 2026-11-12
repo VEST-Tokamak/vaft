@@ -1,4 +1,4 @@
-"""Disruption physics: the quench sequence, its causal chain, runaway generation and energy paths (#1041).
+"""Disruption physics: the quench sequence, its causal chain, runaway generation and energy paths.
 
 ``disruption_timeline``
     a 0-D reference model integrated on a common time axis: prescribed

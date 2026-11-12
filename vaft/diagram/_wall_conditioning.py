@@ -1,4 +1,4 @@
-"""Wall conditioning: baking, glow-discharge cleaning and boronization as wall-state transitions (#1051).
+"""Wall conditioning: baking, glow-discharge cleaning and boronization as wall-state transitions.
 
 ``wall_conditioning_baking``
     thermal desorption: external heat drives adsorbed water and gases off the
@@ -20,7 +20,7 @@ Every method is a transition $S^{(0)}_\\mathrm{wall} \\to S^{(1)}_\\mathrm{wall}
 reduced and semantic: species are examples, and no temperature, precursor,
 pressure or thickness is drawn unless the caller supplies it -- a number only
 with its source. What the conditioned wall then does under the plasma is the
-plasma-wall interaction (``plasma_wall_interaction_*``, #1047).
+plasma-wall interaction (``plasma_wall_interaction_*``).
 """
 
 from __future__ import annotations

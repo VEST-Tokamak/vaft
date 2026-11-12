@@ -18,7 +18,7 @@ from vaft.compat import trapz_compat
 #: reaches ``vaft.formula.__all__``. Profile fitting and small numerical helpers.
 #: Declared so the package stops re-exporting this module's own imports --
 #: ``np``, ``warnings``, ``Union``, ``curve_fit`` -- as though they were
-#: formulas (#368).
+#: formulas.
 __all__ = [
     "calculate_peaking_factor",
     "calculate_poloidal_flux",
@@ -170,7 +170,7 @@ def trapz_integral(x: np.ndarray, y: np.ndarray) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Gaussian-process regression (issue #426)
+# Gaussian-process regression
 #
 # Written against scipy so that scikit-learn is an optional dependency rather
 # than a hard one: it was imported at module scope for this single fitting
@@ -189,7 +189,7 @@ def _target_scale(values) -> float:
 
     Both Gaussian-process paths normalise by this, so both reject a
     non-finite scale the same way; ``float(np.std(...)) or 1.0`` does not,
-    because NaN is truthy (#714).
+    because NaN is truthy.
     """
     scale = float(np.std(np.asarray(values, dtype=float)))
     return scale if np.isfinite(scale) and scale != 0.0 else 1.0
@@ -263,7 +263,7 @@ def _gp_train(x, y, y_std, *, n_restarts_optimizer: int = 5, random_state: int =
     # and raises "array must not contain infs or NaNs" from three frames down,
     # naming neither the argument nor the caller. `fit_profile` masks its
     # primary data but appends `gp_anchor` points afterwards, so a non-finite
-    # anchor reaches this untouched (#714).
+    # anchor reaches this untouched.
     for name, values in (("x", x), ("y", y)):
         if not np.all(np.isfinite(values)):
             raise ValueError(
@@ -654,7 +654,7 @@ def calculate_toroidal_flux(B_phi: np.ndarray,
         region below a diverted X-point; combine it with an inside-the-LCFS
         test there.  Default: the whole grid [-].
     dA : np.ndarray, optional
-        Deprecated (#358).  Caller-supplied area elements of the old bare sum
+        Deprecated.  Caller-supplied area elements of the old bare sum
         $\sum_i B_{\varphi,i}\,\Delta A_i$; also taken from a two-argument call
         ``calculate_toroidal_flux(B_phi, dA)`` when ``B_phi`` is not 2-D or ``dA``
         is a scalar cell area (a 2-D area map must pass ``dA=`` by keyword).  Emits a ``DeprecationWarning`` [m^2].
@@ -1025,7 +1025,7 @@ def fit_profile(
     Non-finite points and non-positive ``y_std`` are dropped with a warning.
     The ``'linear'`` mode does not extrapolate unless asked: outside the data
     range it returns ``nan`` by default, and with ``extrapolate=True`` the
-    constant end value, reported with zero uncertainty (#359).  The square-root
+    constant end value, reported with zero uncertainty.  The square-root
     modes clip negative data to zero before squaring, biasing the fit where the
     data cross zero; they warn with the number of clipped points, and report
     zero uncertainty.
@@ -1086,7 +1086,7 @@ def fit_profile(
         if fitting_function.lower() == 'gp_sklearn':
             # Imported here, not at module scope: this branch is the only thing
             # in vaft.formula that needs scikit-learn, and importing it eagerly
-            # made it a hard dependency of the whole package (#426).
+            # made it a hard dependency of the whole package.
             try:
                 from sklearn.gaussian_process import GaussianProcessRegressor
                 from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
@@ -1161,7 +1161,7 @@ def fit_profile(
             if extrapolate:
                 return np.interp(x_arr, x_sorted, y_sorted)
             # numpy.interp holds the end values outside the data; a profile
-            # past the last channel is missing, not flat (#359).
+            # past the last channel is missing, not flat.
             return np.interp(x_arr, x_sorted, y_sorted, left=np.nan, right=np.nan)
 
         y_eval = fit_function(x_eval)

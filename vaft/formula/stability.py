@@ -36,7 +36,7 @@ from .utils import gradient
 #: reaches ``vaft.formula.__all__``. Stability limits, operational boundaries and transport figures.
 #: Declared so the package stops re-exporting this module's own imports --
 #: ``np``, ``warnings``, ``Union``, ``curve_fit`` -- as though they were
-#: formulas (#368).
+#: formulas.
 __all__ = [
     "ballooning_alpha_from_p_B_R",
     "ballooning_stability_criterion",
@@ -130,7 +130,7 @@ def beta_N_from_beta_a_B0_Ip(beta_percent: float,
     $\beta_N \lesssim 2.8$ means anything. The parameter names carry their
     units because this function used to take SI -- a fraction and amperes --
     and return $10^{-8}$ times the conventional number, which no rescaling of
-    the *output* fixes for a reader comparing against 2.8 (#349).
+    the *output* fixes for a reader comparing against 2.8.
 
     Physical interpretation
     -----------------------
@@ -180,7 +180,7 @@ def beta_pol_from_beta_tor(beta_tor: float,
 
     Limitations
     -----------
-    Until #363 the $1/\varepsilon^2$ was missing, so the result was right only
+    In earlier versions the $1/\varepsilon^2$ was missing, so the result was right only
     at $\varepsilon = 1$ and low by $\varepsilon^2$ everywhere else -- a factor
     of about 2 at the $\varepsilon \simeq 0.7$ of a spherical tokamak and more
     than 10 at a conventional $\varepsilon \simeq 0.3$. Round-tripping through
@@ -229,7 +229,7 @@ def beta_tor_from_beta_pol(beta_pol: float,
 
     Limitations
     -----------
-    Carried the same missing $\varepsilon^2$ as its inverse until #363.
+    Earlier versions carried the same missing $\varepsilon^2$ as its inverse.
 
     References
     ----------
@@ -360,7 +360,7 @@ def ballooning_alpha_from_p_B_R(p: Union[float, np.ndarray],
     Convention
     ----------
     Connor, Hastie and Taylor [1]_ define $\alpha$ with the $q^2$ and with $r$
-    the minor radius. Until #364 this omitted the $q^2$ entirely, so it returned
+    the minor radius. Earlier versions omitted the $q^2$ entirely, so it returned
     $\alpha/q^2$ -- an order of magnitude at $q \simeq 3$ -- while
     :func:`ballooning_stability_criterion` compared the result against
     $0.6\,s$ as though it were the standard $\alpha$.
@@ -447,7 +447,7 @@ def kink_stability_criterion(q_95: float,
     r"""Deprecated: heuristic margin against an unsourced $\beta_{N,crit} = 2.8\,q_{95}$; use the ``troyon`` boundary.
 
     Neither Troyon et al. [1]_ nor any other recorded source multiplies the
-    $\beta_N$ limit by $q_{95}$ (#350). The sourced limit is
+    $\beta_N$ limit by $q_{95}$. The sourced limit is
     ``vaft.formula.boundaries.get_boundary("troyon")``: Troyon's
     $(\beta A)_{max} \approx 2.2\,I_N$ (p. 214), i.e.
     $\beta_N \le 2.2\,\mu_0\cdot10^6 \approx 2.76$ %·m·T/MA with no $q_{95}$ factor.
@@ -477,7 +477,6 @@ def kink_stability_criterion(q_95: float,
     VAFT history and makes the limit rise with $q_{95}$, opposite to the
     observed trend.  :func:`beta_stability_boundary` uses the same form with
     0.028, i.e. the fraction rather than percent convention of $\beta_N$.
-    Tracked in #350.
 
     Limitations
     -----------
@@ -506,7 +505,7 @@ def sawtooth_stability_criterion(q_0: float,
     energy $\delta\hat W$, the fast-ion precession frequency, the ion diamagnetic
     frequency (Eqs. 13-15) and, through Eq. (15a), the shear $s_1$ at $q = 1$, with $\beta_{p1}$
     defined inside the $q = 1$ surface (Eq. 12). None reduces to a threshold
-    $0.3\,(1 - q_0)$ on the global $\beta_p$ (#350), so this has no drop-in
+    $0.3\,(1 - q_0)$ on the global $\beta_p$, so this has no drop-in
     replacement. Results are unchanged; a ``DeprecationWarning`` is emitted.
 
     $$\Delta = \beta_p - \beta_{p,crit}, \qquad \beta_{p,crit} = 0.3\,(1 - q_0)$$
@@ -535,8 +534,7 @@ def sawtooth_stability_criterion(q_0: float,
     Limitations
     -----------
     Uses the global $\beta_p$, not $\beta_{p,1}$ inside $q=1$; returns a
-    negative threshold for $q_0 > 1$, where sawteeth do not occur.  Tracked in
-    #350.
+    negative threshold for $q_0 > 1$, where sawteeth do not occur.
 
     References
     ----------
@@ -659,7 +657,7 @@ def beta_stability_boundary(beta_N: float,
                             q_95: float) -> Tuple[float, float]:
     r"""Deprecated: fraction-convention twin of :func:`kink_stability_criterion`; use the ``troyon`` boundary.
 
-    The $q_{95}$ factor has no source (#350). Since #349 $\beta_N$ is in
+    The $q_{95}$ factor has no source. $\beta_N$ is now in
     %·m·T/MA, where the sourced limit is
     ``vaft.formula.boundaries.get_boundary("troyon")`` ($\approx 2.76$).
     Results are unchanged; a ``DeprecationWarning`` is emitted.
@@ -686,7 +684,7 @@ def beta_stability_boundary(beta_N: float,
     :func:`kink_stability_criterion` (2.8 versus 0.028); the Troyon coefficient
     [1]_ is the only sourced part, the $q_{95}$ factor is not.
     :func:`plasma_stability_margins` builds on this function, so it lives in
-    the fraction convention.  Tracked in #350.
+    the fraction convention.
 
     References
     ----------
@@ -710,7 +708,7 @@ def plasma_stability_margins(beta_N: float,
     r"""Deprecated: beta, $q_{95}$ and density margins built on the unsourced $0.028\,q_{95}$ beta limit.
 
     The beta margin comes from :func:`beta_stability_boundary`, whose $q_{95}$
-    factor has no source (#350). Use ``vaft.formula.boundaries``:
+    factor has no source. Use ``vaft.formula.boundaries``:
     ``evaluate_boundary`` with ``"troyon"``, ``"low_q"`` and ``"greenwald"``
     gives each margin with its source and one sign convention. Results are
     unchanged; a ``DeprecationWarning`` is emitted.
@@ -1074,7 +1072,7 @@ def kadomtsev_mixing_radius(r, q):
 
 
 # ------------------------------------------------------------------
-# Local interchange criteria and the reduced internal kink (#1635)
+# Local interchange criteria and the reduced internal kink
 # ------------------------------------------------------------------
 
 def _finite(value, name: str) -> np.ndarray:
@@ -1542,7 +1540,7 @@ def rhostar_from_Te_a_Bt(Te_eV: float,
     of :func:`vaft.formula.equilibrium.normalized_larmor_radius_from_M_T_a_Bt`,
     which this delegates to so the two cannot drift.
 
-    Until #348 this multiplied by $a$ instead of dividing, omitted the constant
+    Earlier versions multiplied by $a$ instead of dividing, omitted the constant
     $\sqrt{2m_e/e} = 3.37\times10^{-6}$ m T eV$^{-1/2}$, and ignored an
     ``m_e`` argument it accepted -- so the result was neither dimensionless nor
     proportional to $\rho_*$ across devices, and no rescaling recovered it. The

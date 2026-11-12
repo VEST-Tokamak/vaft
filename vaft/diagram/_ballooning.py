@@ -1,4 +1,4 @@
-"""Clebsch labels, field-aligned and ballooning representations (#1075).
+"""Clebsch labels, field-aligned and ballooning representations.
 
 ``clebsch_field_line_label``
     a field line is the intersection of $\\psi$ = const and $\\alpha$ = const;

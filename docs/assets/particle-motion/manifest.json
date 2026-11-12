@@ -9,23 +9,23 @@
     },
     {
       "path": "vaft/diagram/_guiding_center.py",
-      "sha256": "e6b2e6d6c37ec715940c5d95a10d2f1588c7b07094812bcff8822e7a90681a92"
+      "sha256": "2fbae598521a72372f589f0e87919be944e3c09a3dbe645c90694ceea6c88028"
     },
     {
       "path": "vaft/diagram/_particle_references.py",
-      "sha256": "d12439035ba05a74a6326e3cf8e40cab7c20f053227a518f9ec4e1c8ff77de77"
+      "sha256": "574c8d15656642c91f30ea26aae7c7d83b7167de22b508d593e26393ab059ce5"
     },
     {
       "path": "vaft/diagram/_particle_states.py",
-      "sha256": "40ef132f30ecf3996db868c8d172d3d5414c064e600a44daded6315d6a1f3afe"
+      "sha256": "6beaa3c3094fe20f7f8af78540b5a5a2de9e309fd170f92f1f9f93ba32799b0f"
     },
     {
       "path": "vaft/diagram/_ripple.py",
-      "sha256": "2c48afd61f807305aff13349a0b38ba70a217396ce25b3f7d3bf9511ddda1406"
+      "sha256": "c1bdd2bca769f6aff7c8363c1e3190abd1aa16a9b9ca3091a21a0e82a161390e"
     },
     {
       "path": "vaft/formula/equilibrium.py",
-      "sha256": "7cf401ece844faca9dae29b6664d9def4814b1aaa656910695327ef7e6c5f593"
+      "sha256": "2581bf40aa7648c1bff1f3037a631c6ea075a3e7f914f4c11ff90f42c71937da"
     },
     {
       "path": "vaft/formula/particle.py",
@@ -41,7 +41,7 @@
     },
     {
       "path": "vaft/process/particle_fields.py",
-      "sha256": "e6b11b80a023b51fd684e770f826ababedb31773cbbea7befda93d36901a2164"
+      "sha256": "4982bbc68272e2ba2b102d6cc107b95b5a209026fdc700b992af0ce286c00047"
     },
     {
       "path": "workflow/particle_motion/run.py",

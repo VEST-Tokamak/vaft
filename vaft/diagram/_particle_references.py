@@ -1,4 +1,4 @@
-"""Provenance and freshness of the particle-motion references (#2045).
+"""Provenance and freshness of the particle-motion references.
 
 ``docs/assets/particle-motion`` publishes numbers the orbit code produced
 (``bounce_period_s``, ``gc_energy_residual_max``, ``rho_over_L_B_max`` ...)

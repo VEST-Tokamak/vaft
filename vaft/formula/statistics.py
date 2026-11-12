@@ -1,4 +1,4 @@
-"""Pure statistical kernels for residual and convergence diagnostics (issue #186).
+"""Pure statistical kernels for residual and convergence diagnostics.
 
 This module is the single source of truth for the mathematics used to judge how
 well a reconstruction reproduces its own inputs: residual magnitude, residual

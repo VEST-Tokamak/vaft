@@ -1,6 +1,6 @@
 r"""Canonical transport reference relations: diffusion, constitutive fluxes, Bohm and gyro-Bohm scales.
 
-Definitions only (issue #1112). A diffusivity here is either the definition of
+Definitions only. A diffusivity here is either the definition of
 one -- from a mean-square displacement or a velocity autocorrelation -- or a
 reference *scale* against which a measured or simulated transport coefficient
 is compared; none is a prediction of the anomalous transport of a plasma.
@@ -35,7 +35,7 @@ $$\Gamma = -D\,\partial_r n + nV, \qquad q = -n\chi\,\partial_r T$$
 $r$ is the radial coordinate the gradient is taken along, in metres, and an
 outward flux is positive; a positive $V$ is outward convection, so an inward
 pinch has $V < 0$. Converting a gradient in a flux label ($\rho$,
-$\psi_N$) to metres is the caller's job (#551 / #563). Temperatures are in
+$\psi_N$) to metres is the caller's job. Temperatures are in
 eV; a flux carries the factor $e$ that turns eV into joules.
 
 References

@@ -1,4 +1,4 @@
-"""Toroidicity and TF ripple, one concept per diagram (#1070).
+"""Toroidicity and TF ripple, one concept per diagram.
 
 ``trapped_and_passing_orbits``
     the $1/R$ mirror splits guiding-centre orbits into passing and trapped

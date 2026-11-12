@@ -1,4 +1,4 @@
-"""Field-aligned coordinates, flux tubes, shear and the ballooning eigenfunction (#1075, part 2).
+"""Field-aligned coordinates, flux tubes, shear and the ballooning eigenfunction.
 
 ``field_aligned_basis``
     on the unrolled flux surface, the field lines are the lines of constant
@@ -313,7 +313,7 @@ def ballooning_eigenfunction(*, labels: bool = True) -> Diagram:
 
 
 # ---------------------------------------------------------------------------
-# #1075 remainder: transits, boundary conditions, the X-point limit
+# transits, boundary conditions, the X-point limit
 # ---------------------------------------------------------------------------
 
 

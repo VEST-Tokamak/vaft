@@ -1,6 +1,6 @@
 r"""Turbulence reference relations: fluctuation-driven fluxes, drift-wave scales, shear, zonal flows.
 
-Two groups (issues #1112 and #1820). The first are definitions and reduced
+Two groups. The first are definitions and reduced
 estimates of fluctuation-driven transport -- the diamagnetic velocity and
 frequency, the E-cross-B velocity of a potential fluctuation, turbulent
 particle and heat fluxes as correlations, the cross-phase flux of one mode,
@@ -12,7 +12,7 @@ The second is the two-variable turbulence--zonal-flow predator--prey model
 (Lotka--Volterra form).
 
 The transparent reduced description of turbulence self-regulation by zonal
-flows (issue #1820): fluctuation intensity $N$ (the prey) grows at an
+flows: fluctuation intensity $N$ (the prey) grows at an
 effective linear rate and is sheared apart by the zonal flow; zonal-flow
 intensity $E$ (the predator) is driven by the turbulence through the
 Reynolds stress and decays at an effective damping rate.  The functions here
@@ -427,7 +427,7 @@ def predator_prey_response_lag(gamma_eff, gamma_zonal, *, approximation="lineari
     return _out(0.25 * np.asarray(predator_prey_period(gamma_eff, gamma_zonal), dtype=float))
 
 
-# ---------------------------------------------------------------- fluctuation-driven transport (#1112)
+# ---------------------------------------------------------------- fluctuation-driven transport
 
 
 def _vector3(value, name):

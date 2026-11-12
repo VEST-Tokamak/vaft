@@ -1,4 +1,4 @@
-"""Vendored Lucide icon sources (#2101): verbatim SVG child elements, not code.
+"""Vendored Lucide icon sources: verbatim SVG child elements, not code.
 
 Copied from the npm package ``lucide-static`` at the pinned version below; each entry is the
 icon's child elements exactly as published (whitespace collapsed), with its sha256 so an

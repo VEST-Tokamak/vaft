@@ -3,8 +3,7 @@ r"""Dimensional analysis: dimension matrices, Buckingham-Pi groups and similarit
 A power-law monomial $\Pi = \prod_j x_j^{a_j}$ of physical variables $x_j$ is
 dimensionless exactly when $D\mathbf a = 0$, where the columns of the
 dimension matrix $D$ hold the exponents of each variable's base dimensions.
-The admissible Buckingham-Pi groups therefore span $\ker D$ (issue #1621,
-Stage II).  Everything here is exact: dimensions and exponents are
+The admissible Buckingham-Pi groups therefore span $\ker D$.  Everything here is exact: dimensions and exponents are
 :class:`fractions.Fraction`, the null space comes from Gauss-Jordan
 elimination over the rationals, and no floating-point tolerance decides a
 rank.

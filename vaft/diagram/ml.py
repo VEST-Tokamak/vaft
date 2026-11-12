@@ -1,4 +1,4 @@
-"""Portable ML computational and scientific graphs (#2015).
+"""Portable ML computational and scientific graphs.
 
 Extraction is an observation for the supplied examples, never proof of all
 runtime paths. No tensors or weights are retained in a graph. Torch, Graphviz
