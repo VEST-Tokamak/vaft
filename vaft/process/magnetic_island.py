@@ -1,4 +1,4 @@
-"""An analytic magnetic island placed on an axisymmetric equilibrium (issue #886).
+"""An analytic magnetic island placed on an axisymmetric equilibrium.
 
 The equilibrium is the only source of plasma geometry. Nothing here takes a
 major radius, an elongation or a Shafranov shift: the resonant surface comes

@@ -1,4 +1,4 @@
-"""Asymptotic ordering quantities of measured plasma states (#1627 §2, for the #1629 atlas).
+"""Asymptotic ordering quantities of measured plasma states.
 
 The ordering contracts of :mod:`vaft.validation.orderings` read a state as a
 row keyed by the names in
@@ -9,7 +9,7 @@ equilibrium scalars, Thomson profiles, the plasma-current history -- with the
 else.
 
 Three builders, one per scope, because a global ``d_i/a`` and a profile
-``rho_s/L_Te`` are different quantities on different scales (#1627):
+``rho_s/L_Te`` are different quantities on different scales:
 
 * :func:`global_ordering_quantities` -- one number per state, on ``a`` or
   ``R0``;
@@ -20,7 +20,7 @@ Three builders, one per scope, because a global ``d_i/a`` and a profile
 
 :func:`ordering_table` applies the global and time-history builders row by row
 to a table of states; :func:`ordering_coverage` reports which quantities a
-table could assess, by the data-availability tiers of #1627.
+table could assess, by the data-availability tiers of :data:`COVERAGE_TIERS`.
 
 Notation
 --------
@@ -82,9 +82,9 @@ __all__ = [
     "time_history_ordering_quantities",
 ]
 
-#: Which ordering groups each #1627 data-availability tier can fill, and from what.
+#: Which ordering groups each data-availability tier can fill, and from what.
 #: Flow quantities sit in the ``profile`` group but need a rotation measurement,
-#: which #1627 counts as tier 3.
+#: which counts as tier 3.
 COVERAGE_TIERS: Mapping[str, tuple[str, ...]] = {
     "tier1_equilibrium_and_profiles": ("foundational", "global", "profile"),
     "tier2_time_history": ("time_history",),
@@ -596,7 +596,7 @@ def _state_quantity(name: str) -> bool:
 
 
 def ordering_coverage(states, points=None):
-    r"""The fraction of states (or profile points) with a finite value, per ordering quantity, by #1627 tier.
+    r"""The fraction of states (or profile points) with a finite value, per ordering quantity, by data-availability tier.
 
     $$f_q = \frac{\#\{k : q_k\ \text{finite}\}}{N}$$
 
@@ -726,7 +726,7 @@ def contract_population(contract, states, points=None):
     Parameters
     ----------
     contract : ApproximationContract
-        A #1627 ordering contract [-].
+        An ordering contract of :mod:`vaft.validation.orderings` [-].
     states : pandas.DataFrame
         One row per state [-].
     points : pandas.DataFrame, optional
@@ -854,7 +854,7 @@ def _area_mean(rho: np.ndarray, values: Optional[np.ndarray]) -> float:
 def ordering_inputs_from_ods(ods, time, *, time_tolerance=_TIME_TOLERANCE_S, z_eff=None,
                              ln_lambda=None, ion_mass_amu=1.0, plasma_onset=None,
                              use_ion_temperature=False):
-    r"""The ordering quantities of one ODS state, by name, for an adapter's advisory check (#1823).
+    r"""The ordering quantities of one ODS state, by name, for an adapter's advisory check.
 
     $$\left\{S,\ \frac{d_i}{a},\ \epsilon,\ \beta,\ \frac{\beta}{\epsilon},\
       \frac{\tau_{evol}}{\tau_A},\ \frac{\tau_{age}}{\tau_R}\right\}
@@ -927,7 +927,7 @@ def ordering_inputs_from_ods(ods, time, *, time_tolerance=_TIME_TOLERANCE_S, z_e
     outboard midplane) and ``r = rho_tor_norm a`` (circular approximation).
     The global ``n_e`` and ``T_e`` are cross-section means
     ``int f rho drho / int rho drho``. ``beta`` is IMAS ``beta_tor``, a
-    fraction. These are the conventions of the #1629 ordering atlas.
+    fraction. These are the conventions of the VEST ordering atlas.
 
     Defaults
     --------

@@ -17,7 +17,7 @@ Generic spectral analysis (PSD, spectral index, spectrogram) is *not* here --
 use :mod:`vaft.process.fluctuation` on any prepared channel.
 
 The forward direction is here too: :func:`synthetic_island_soft_x_rays` turns a
-prescribed magnetic island on an equilibrium into chord signals (issue #886),
+prescribed magnetic island on an equilibrium into chord signals,
 through :mod:`vaft.process.magnetic_island` and
 :mod:`vaft.process.line_of_sight`. It is machine-independent; VEST chords come
 from :func:`vaft.machine_mapping.soft_x_rays.sxr_sightlines`.
@@ -132,7 +132,7 @@ def sxr_offset_baseline(
 
     Convention
     ----------
-    The one implementation of the SXR constant-offset baseline (#2162 B3.11).
+    The one implementation of the SXR constant-offset baseline.
     The window rule, the NaN rule and the empty rule are all the caller's,
     stated in the call: the mapper takes an index range that raises when empty,
     :func:`sxr_baseline_correction` a quiet tail with a last-1000-sample

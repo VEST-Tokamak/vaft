@@ -1,7 +1,7 @@
-"""Analytic L-mode, H-mode and ITB plasma states on a fixed geometry (#1045).
+"""Analytic L-mode, H-mode and ITB plasma states on a fixed geometry.
 
 A lightweight preset and composition layer: prescribed kinetic profiles built
-from the #552 profile kernels, the pressures derived from them, and the
+from the analytic profile kernels of :mod:`vaft.formula.equilibrium`, the pressures derived from them, and the
 projection of any of them onto the ``(R, Z)`` grid of an existing equilibrium
 through its normalized flux.  Nothing here solves an equilibrium, a transport
 problem or a pedestal model, and nothing makes a state consistent with the
@@ -526,7 +526,7 @@ def compose_plasma_state(
     -------------
     Machine-independent.  A lightweight preset layer for demonstrations,
     tests and synthetic-diagnostic fixtures; the general synthetic kinetic
-    framework is #122.
+    framework is :func:`vaft.process.profile.generate_synthetic_kinetic_profiles`.
 
     Limitations
     -----------
@@ -770,7 +770,7 @@ def analytic_hmode_state(
     Limitations
     -----------
     The pedestal is prescribed: no EPED width or height, no peeling-ballooning
-    limit, and no bootstrap current (#550/#559).  The state is not
+    limit, and no bootstrap current (open: #559).  The state is not
     Grad-Shafranov consistent with any geometry.
 
     Provenance
@@ -1135,7 +1135,7 @@ def project_plasma_state(state: AnalyticPlasmaState, equilibrium, quantity: str 
     -----------
     The projected pressure is *not* the equilibrium's own pressure: the state
     was prescribed, and the geometry was solved for different sources.  Making
-    them agree is a new equilibrium solve (CHEASE refinement, #123).
+    them agree is a new equilibrium solve (CHEASE refinement).
 
     Provenance
     ----------

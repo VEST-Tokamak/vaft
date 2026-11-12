@@ -1,4 +1,4 @@
-"""Training, evaluation and threshold calibration (#669 sections 6-8)."""
+"""Training, evaluation and threshold calibration."""
 
 from __future__ import annotations
 

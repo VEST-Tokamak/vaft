@@ -1,4 +1,4 @@
-"""Opt-in declared data roles and observed entrypoint uses (#2047).
+"""Opt-in declared data roles and observed entrypoint uses.
 
 No project/machine policy is built in. The owning workflow supplies roles and
 permissions; this records declared history, not proof of arbitrary prior fits.

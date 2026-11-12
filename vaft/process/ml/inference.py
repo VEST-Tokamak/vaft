@@ -105,8 +105,7 @@ def predict(model, data):
     detector's own anomaly measure (larger is more anomalous).  An
     unavailable sample has NaN outputs and exceeds no threshold: missing
     data is not "no anomaly".  A score or an exceedance is a model output, not a
-    physical event: an ``IRE-like candidate``, never a reconnection onset
-    (#669 section 16).
+    physical event: an ``IRE-like candidate``, never a reconnection onset.
 
     Applicability
     -------------

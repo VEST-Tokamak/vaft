@@ -1,9 +1,9 @@
-"""Post-processing of DCON stability results read back from ``mhd_linear`` (#940).
+"""Post-processing of DCON stability results read back from ``mhd_linear``.
 
 The inputs are the rows of
 :func:`vaft.machine_mapping.mhd_linear.extract_dcon_stability`, so everything
-here works from the final ODS without reopening DCON's own files (#940's
-scientific-closure contract).
+here works from the final ODS without reopening DCON's own files: the ODS
+is the scientific closure of a run.
 
 Three questions, kept apart:
 
@@ -19,7 +19,7 @@ Three questions, kept apart:
 
 None of these is a verdict on the plasma. They locate where a solver's
 criterion is met; the stability atlas's interpretation layer decides what that
-means (#939).
+means.
 """
 
 from __future__ import annotations
@@ -305,7 +305,7 @@ def dcon_edge_scan(row: Mapping[str, Any]) -> Optional[dict[str, Any]]:
     if psilim is None:
         truncated_at_peak = None
     else:
-        # The one case the validator refuses to decide (#1774): the ends of the
+        # The one case the validator refuses to decide: the ends of the
         # bracket disagree on whether DCON truncated at the peak, so no bool.
         at_peak = {p is not None and math.isclose(float(psi[p]), psilim, rel_tol=0, abs_tol=1e-9)
                    for p in peaks.values()}
@@ -373,7 +373,7 @@ def _peak_search_start(psi, q, filled, n_tor: int, requested_psiedge) -> tuple[i
 
 
 def dcon_edge_comparison(full: Mapping[str, Any], truncated: Mapping[str, Any]) -> dict[str, Any]:
-    """Full-edge minus peak-dW-truncated least-stable W_t of one case (#792, #940).
+    """Full-edge minus peak-dW-truncated least-stable W_t of one case.
 
     Parameters
     ----------
@@ -434,7 +434,7 @@ def dcon_edge_comparison(full: Mapping[str, Any], truncated: Mapping[str, Any]) 
 
 #: The resolution the ideal and resistive populations are read at: the higher of
 #: the atlas's two DCON / RDCON / STRIDE resolutions (mpsi 512), for every row -- no
-#: QA cut is applied to the values themselves; QA stays a separate count (#1852).
+#: QA cut is applied to the values themselves; QA stays a separate count.
 #: The local criteria exist only from the atlas's reference DCON run (mpsi 256).
 #: The atlas's own ``ideal_unstable_full_edge`` is read at mpsi 256, so its counts
 #: can differ from these where the sign flips between resolutions.
@@ -562,7 +562,7 @@ def stability_atlas_populations(atlas_n, atlas_surfaces) -> StabilityAtlasPopula
 
     Applicability
     -------------
-    VEST-specific. The VEST Tier A stability atlas (#1429).
+    VEST-specific. The VEST Tier A stability atlas.
 
     Limitations
     -----------

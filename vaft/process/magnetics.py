@@ -93,11 +93,10 @@ from .signal_processing import (
 
 # ``vaft.database`` is imported inside the one function that needs it, not
 # here: vaft.database.raw imports Matplotlib at module scope as an
-# availability probe, and nothing about processing a waveform needs it.  Every
-# consumer of vaft.process used to pay for it (issue #249; the Matplotlib
-# chain is the one described in #268).  The ipywidgets slider closures that
-# also lived here were retired with issue #485 -- reading a processed signal
-# is what vaft.plot is for.
+# availability probe, and nothing about processing a waveform needs it, so no
+# consumer of vaft.process pays for Matplotlib.  This module holds no
+# ipywidgets slider closures either -- reading a processed signal is what
+# vaft.plot is for.
 
 __all__ = [
     "DEFAULT_VEST_MAGNETICS_PROCESSING",
@@ -300,7 +299,7 @@ class VestMagneticsProcessingConfig:
     flux_baseline_late_loop_numbers: tuple[int, ...] = (9, 10, 11)
     calibration_mode: str = "divide"
     flux_output_per_radian: bool = True
-    # Shot-era policy resolved from `vest.yaml` (issue #195). When
+    # Shot-era policy resolved from `vest.yaml`. When
     # `window_override` is None the legacy hardcoded thresholds below still
     # apply, so directly-constructed configs keep their historical behavior.
     window_override: tuple[int, int, int] | None = None
@@ -310,7 +309,7 @@ class VestMagneticsProcessingConfig:
     allow_zero_fallback: bool = False
 
     def __post_init__(self) -> None:
-        """Refuse a configuration no filter or window can honour (#2159, audit gap G8).
+        """Refuse a configuration no filter or window can honour.
 
         Checked here, at construction (and so at every ``dataclasses.replace``),
         rather than when ``firwin`` or an index fails deep inside a shot: the
@@ -468,8 +467,8 @@ def _linear_baseline(
     window_desc: str | None = None,
 ) -> np.ndarray:
     """The probe/flux-loop linear baseline: the canonical ``"polyfit"`` line of
-    :func:`~vaft.process.signal_processing.subtract_baseline` with the #639
-    guards, called with this module's shot/channel context (#2162)."""
+    :func:`~vaft.process.signal_processing.subtract_baseline` with its
+    degenerate-window guards, called with this module's shot/channel context."""
     context_parts = []
     if shot is not None:
         context_parts.append(f"shot {shot}")
@@ -729,7 +728,7 @@ def vest_flux_loop_flux_from_voltage(
     Limitations
     -----------
     Raises `DegenerateBaselineWindowError` when fewer than two valid baseline samples
-    are available in the configured window (issue #639), unless `allow_zero_fallback=True`
+    are available in the configured window, unless `allow_zero_fallback=True`
     is explicitly specified. The per-loop exception is by loop number, so a rewiring that
     changes which loop is which invalidates it.
 
@@ -850,7 +849,7 @@ def vest_flux_loop_legacy(
     Limitations
     -----------
     Inherits both. Raises `DegenerateBaselineWindowError` on degenerate baseline
-    windows (issue #639) unless `allow_zero_fallback=True`.
+    windows unless `allow_zero_fallback=True`.
 
     Provenance
     ----------
@@ -924,7 +923,7 @@ def vest_equilibrium_magnetics_detailed(
         a degenerate baseline window. Defaults to config.allow_zero_fallback [-].
     acquisition_report : dict, optional
         Filled with ``{probe name: SampleRateCheck}``: each probe record's timebase
-        against ``fast_sample_rate`` and the low-pass cutoff (#2159) [-].
+        against ``fast_sample_rate`` and the low-pass cutoff [-].
 
     Returns
     -------
@@ -960,7 +959,7 @@ def vest_equilibrium_magnetics_detailed(
     Limitations
     -----------
     Inherits every limitation of the per-channel chains. Raises `DegenerateBaselineWindowError`
-    if any channel has a degenerate baseline window (issue #639), unless
+    if any channel has a degenerate baseline window, unless
     `allow_zero_fallback=True` is opted into. With missing channels tolerated, an empty entry
     is indistinguishable from a genuinely zero record without checking its length.
 
@@ -1031,7 +1030,7 @@ def vest_equilibrium_magnetics_detailed(
                 data_probes.append(np.array([], dtype=float))
                 continue
             # The probe low pass is designed at the declared fast_sample_rate;
-            # compare it with this record's own timebase (#2159). Recorded,
+            # compare it with this record's own timebase. Recorded,
             # and fatal only when the cutoff exceeds the observed Nyquist.
             acquisition = check_declared_sample_rate(
                 source_time, cfg.fast_sample_rate, cutoff_hz=cfg.lowpass_cutoff
@@ -1076,7 +1075,7 @@ def vest_equilibrium_magnetics_detailed(
         # attenuates high frequencies as 1/f without removing them, so this
         # np.interp can fold content above the target Nyquist when the loop is
         # acquired faster than magnetics_time (native DAQ, shot >= 46404).
-        # Unverified whether it matters (#2147 audit finding 4, Phase D #2166).
+        # Unverified whether it matters (open: #2166).
         data_flux_loops.append(np.interp(magnetics_time, source_time, processed_full))
         flux_loop_voltage_time.append(source_time)
         flux_loop_voltage.append(voltage)
@@ -1215,7 +1214,7 @@ def mirnov_preprocess_signal(
        delayed by the group delay, on a record too short for ``filtfilt``).
        A band edge outside ``(0, Nyquist)`` skips its stage; that is recorded
        in ``report`` or, with no report, raised as a ``RuntimeWarning`` --
-       never silent (#2159).
+       never silent.
     3. Divide out the amplifier gain.
 
     Convention
@@ -1274,8 +1273,8 @@ def mirnov_preprocess_signal(
             continue
         cutoff = float(cutoff)
         if cutoff <= 0 or cutoff >= nyquist:
-            # Not applied -- the band edge lies outside (0, Nyquist). This used
-            # to be silent; the record now says so (#2159, audit gap G10).
+            # Not applied -- the band edge lies outside (0, Nyquist). The record
+            # says so; it is never silent.
             reason = f"cutoff {cutoff:g} Hz outside (0, {nyquist:g}) Hz at {float(sample_rate):g} Hz"
             if report is not None:
                 report[name] = {"status": "skipped", "cutoff_hz": cutoff, "reason": reason}
@@ -1787,7 +1786,7 @@ def rogowski_coil_ip(
     smoothing width and the two window lengths are numerical conveniences. The
     vessel resistance is **hard-coded and unused**: it is accepted for
     compatibility, the dimensional argument for it being a resistance rather than
-    an inductance is recorded in issue #214, and no code path reads it.
+    an inductance is cited under Provenance, and no code path reads it.
 
     Applicability
     -------------
@@ -1809,8 +1808,7 @@ def rogowski_coil_ip(
     # `define_baseline` takes the onset and offset in seconds and converts
     # them itself; handing it sample indices made it search the time axis for
     # a "time" of several thousand seconds and fit the record's last samples
-    # instead of the window around the discharge (cold review 0.7.0 process
-    # F5, #1888).
+    # instead of the window around the discharge.
     baseline_indices_rogowski = define_baseline(
         time, baseline_onset, baseline_onset_window, baseline_offset, baseline_offset_window
     )
@@ -1828,7 +1826,7 @@ def rogowski_coil_ip(
 
     # Convert flux loop signal to current reference
     # For example: flux_ref = flux_corr * (flux_loop_gain / effective_resistance)
-    # -- the divisor is in ohms, not henries; see issue #214.
+    # -- the divisor is in ohms, not henries.
     # We'll do the simplest version: flux_corr * flux_loop_gain
     flux_ref = flux_corr * flux_loop_gain
 
@@ -1927,7 +1925,7 @@ def b_field_pol_probe_field(
     vacuum-model residual of every stored VEST probe until it was removed.
 
     The linear baseline is fitted through the *finite* baseline samples only, and
-    fewer than two raises :class:`DegenerateBaselineWindowError` (issue #639)
+    fewer than two raises :class:`DegenerateBaselineWindowError`
     unless ``allow_zero_fallback`` is set.
 
     Defaults

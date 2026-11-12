@@ -1,4 +1,4 @@
-"""Toroidal current-density moments of an axisymmetric equilibrium (#943).
+"""Toroidal current-density moments of an axisymmetric equilibrium.
 
 Implementation module; :mod:`vaft.process.equilibrium` is the stable public
 import location, the same arrangement as ``_equilibrium_parametric``.
@@ -324,7 +324,7 @@ def derive_current_moments(equilibrium: Any, *, max_order: int = 4, j_tor: Any =
     disagreement beyond five percent -- typically a factor 2*pi or -1 from a
     wrongly declared convention -- is warned about, not corrected.  Current
     outside the LCFS, such as a halo or a vessel current, is excluded
-    by the weighting.  The Shafranov (magnetic) moments of #943 are a separate
+    by the weighting.  The Shafranov (magnetic) moments are a separate
     representation and are not computed here.
 
     Provenance
