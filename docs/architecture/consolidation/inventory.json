@@ -4,7 +4,7 @@
   "duplicate": 1,
   "intentional_specialization": 39,
   "legacy": 8,
-  "unverified": 382
+  "unverified": 383
  },
  "entry_modules": {
   "pipeline1": [
@@ -2910,6 +2910,56 @@
    "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_current_diffusion.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp, scipy.interpolate.RegularGridInterpolator (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(grid_rho, table_rho, table_psi)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(profile_psi, table_psi, table_rho)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(q_psi, table_psi, table_rho)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(thomson.psi_norm[finite], table_psi, table_rho)"
+    },
+    {
+     "call": "scipy.interpolate.RegularGridInterpolator",
+     "snippet": "RegularGridInterpolator((grid_r, grid_z), psi_rz)"
+    }
+   ],
+   "callers": [
+    "vaft.diagram._density_semantics.electron_density_semantics"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "vaft.diagram._density_semantics.density_semantics",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "diagram",
+   "primitives": [
+    "numpy.interp",
+    "scipy.interpolate.RegularGridInterpolator"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "unassessed",
+   "source_file": "vaft/diagram/_density_semantics.py"
   },
   {
    "algorithm_semantics": "calls numpy.trapezoid (not curated)",
@@ -7200,7 +7250,8 @@
     "vaft.plot.time.time_virial_equilibrium_quantities",
     "vaft.validation.equilibrium._virial_rows",
     "workflow.efit_uncertainty_calibration.weight_scan._virial",
-    "workflow.kinetic_state.export_virial_identity.export"
+    "workflow.kinetic_state.export_virial_identity.export",
+    "workflow.pipeline_improvement.build_comparison_tables.virial_row"
    ],
    "classification": "unverified",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -7552,7 +7603,10 @@
     "vaft.plot.backend.recipes._vacuum_channels",
     "vaft.validation.stage_evidence._eddy_metrics",
     "vaft.validation.vacuum_benchmark.run_benchmark_case",
-    "vaft.validation.wall_reduction.experimental_comparison.evaluate"
+    "vaft.validation.wall_reduction.experimental_comparison.evaluate",
+    "workflow.pipeline_improvement.build_comparison_tables.onset_qa_rows",
+    "workflow.pipeline_improvement.build_comparison_tables.onset_rows",
+    "workflow.pipeline_improvement.build_comparison_tables.vacuum_rows"
    ],
    "classification": "unverified",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -7713,40 +7767,6 @@
    "source_file": "vaft/omas/vest_upstream.py"
   },
   {
-   "algorithm_semantics": "calls numpy.interp (not curated)",
-   "assets": [],
-   "audit_scope": "preprocessing",
-   "call_sites": [
-    {
-     "call": "numpy.interp",
-     "snippet": "np.interp(edges, rho_eq[ok][order], volume[ok][order])"
-    }
-   ],
-   "callers": [
-    "vaft.omas.kinetic_state_inference.kinetic_state_stages.pressure_closure",
-    "vaft.omas.vest_upstream.build_composition_ods"
-   ],
-   "classification": "unverified",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.omas.vest_upstream._volume_weights_on_grid",
-   "operation": [
-    "resampling"
-   ],
-   "owning_layer": "omas",
-   "primitives": [
-    "numpy.interp"
-   ],
-   "production_reachability": "pipeline2",
-   "production_reachability_note": "",
-   "recommended_action": "triage in the owning B3/C slice",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "unassessed",
-   "source_file": "vaft/omas/vest_upstream.py"
-  },
-  {
    "algorithm_semantics": "calls vaft.machine_mapping.magnetics.known_magnetics_faults, vaft.machine_mapping.magnetics.vest_equilibrium_magnetics_channel_definitions (not curated)",
    "assets": [
     "MD.yaml",
@@ -7823,43 +7843,6 @@
    "source_file": "vaft/omas/vest_upstream.py"
   },
   {
-   "algorithm_semantics": "calls numpy.interp (not curated)",
-   "assets": [],
-   "audit_scope": "derived_numerics_not_triaged",
-   "call_sites": [
-    {
-     "call": "numpy.interp",
-     "snippet": "np.interp(np.clip(psi_norm, 0.0, 1.0).ravel(), table_psi, table_rho)"
-    },
-    {
-     "call": "numpy.interp",
-     "snippet": "np.interp(rho_2d, rho, profile)"
-    }
-   ],
-   "callers": [
-    "vaft.plot.backend.recipes.<module>"
-   ],
-   "classification": "unverified",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.plot.backend.recipes._build_core_profile_field",
-   "operation": [
-    "resampling"
-   ],
-   "owning_layer": "plot",
-   "primitives": [
-    "numpy.interp"
-   ],
-   "production_reachability": "not_statically_reached",
-   "production_reachability_note": "",
-   "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "low",
-   "source_file": "vaft/plot/backend/recipes.py"
-  },
-  {
    "algorithm_semantics": "butterworth_highpass(order 4, 200 Hz, zero_phase=True), sample rate inferred from median dt.",
    "assets": [],
    "audit_scope": "preprocessing",
@@ -7926,39 +7909,6 @@
    "source_file": "vaft/plot/backend/recipes.py"
   },
   {
-   "algorithm_semantics": "calls numpy.interp (not curated)",
-   "assets": [],
-   "audit_scope": "preprocessing",
-   "call_sites": [
-    {
-     "call": "numpy.interp",
-     "snippet": "np.interp(psi_norm_2d, psi_norm_1d[order], profile[order])"
-    }
-   ],
-   "callers": [
-    "vaft.plot.backend.recipes._build_field_2d_base"
-   ],
-   "classification": "unverified",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.plot.backend.recipes._mapped_field_values",
-   "operation": [
-    "resampling"
-   ],
-   "owning_layer": "plot",
-   "primitives": [
-    "numpy.interp"
-   ],
-   "production_reachability": "pipeline1,pipeline2",
-   "production_reachability_note": "",
-   "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "low",
-   "source_file": "vaft/plot/backend/recipes.py"
-  },
-  {
    "algorithm_semantics": "calls <attribute>.rolling (not curated)",
    "assets": [],
    "audit_scope": "preprocessing",
@@ -8013,39 +7963,6 @@
    "curated": false,
    "evidence": "",
    "implementation": "vaft.plot.backend.recipes._surface_at",
-   "operation": [
-    "resampling"
-   ],
-   "owning_layer": "plot",
-   "primitives": [
-    "numpy.interp"
-   ],
-   "production_reachability": "not_statically_reached",
-   "production_reachability_note": "",
-   "recommended_action": "plot-time transformation; does not feed stored products. Triage in B3 only where it restates a process helper.",
-   "related_issue": "",
-   "resolved_by": "",
-   "scientific_risk": "low",
-   "source_file": "vaft/plot/backend/recipes.py"
-  },
-  {
-   "algorithm_semantics": "calls numpy.interp (not curated)",
-   "assets": [],
-   "audit_scope": "derived_numerics_not_triaged",
-   "call_sites": [
-    {
-     "call": "numpy.interp",
-     "snippet": "np.interp(edges, rho_eq[ok][order], volume[ok][order])"
-    }
-   ],
-   "callers": [
-    "vaft.plot.backend.recipes._impurity_inputs"
-   ],
-   "classification": "unverified",
-   "configuration_source": "caller arguments / module literals (not curated)",
-   "curated": false,
-   "evidence": "",
-   "implementation": "vaft.plot.backend.recipes._volume_weights_at",
    "operation": [
     "resampling"
    ],
@@ -11046,7 +10963,7 @@
   {
    "algorithm_semantics": "calls numpy.interp (not curated)",
    "assets": [],
-   "audit_scope": "derived_numerics_not_triaged",
+   "audit_scope": "preprocessing",
    "call_sites": [
     {
      "call": "numpy.interp",
@@ -11054,6 +10971,7 @@
     }
    ],
    "callers": [
+    "vaft.diagram._density_semantics.density_semantics",
     "vaft.omas.formula_wrapper.compute_bremsstrahlung_power",
     "vaft.omas.formula_wrapper.compute_tau_E_engineering_parameters",
     "vaft.omas.process_wrapper.compute_core_profile_2d",
@@ -11061,6 +10979,7 @@
     "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods",
     "vaft.omas.process_wrapper.compute_volume_averaged_pressure",
     "vaft.omas.update.update_core_profiles_global_quantities_volume_average.convert_to_2d",
+    "vaft.plot.backend.recipes._mapped_field_values",
     "vaft.plot.twodim.equilibrium_2d_profiles",
     "vaft.process.equilibrium.calculate_diamagnetism",
     "vaft.process.equilibrium.calculate_reconstructed_diamagnetic_flux"
@@ -11077,9 +10996,9 @@
    "primitives": [
     "numpy.interp"
    ],
-   "production_reachability": "not_statically_reached",
+   "production_reachability": "pipeline1,pipeline2",
    "production_reachability_note": "",
-   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
    "resolved_by": "",
    "scientific_risk": "unassessed",
@@ -13682,6 +13601,76 @@
    "source_file": "vaft/process/profile.py"
   },
   {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(cell_rho, rho, profile)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(np.clip(psi_norm, 0.0, 1.0).ravel(), table_psi, table_rho)"
+    }
+   ],
+   "callers": [
+    "vaft.plot.backend.recipes._build_core_profile_field"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "vaft.process.profile.map_rho_tor_profile_to_rz",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "process",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "unassessed",
+   "source_file": "vaft/process/profile.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(edges, rho_eq[ok][order], volume[ok][order])"
+    }
+   ],
+   "callers": [
+    "vaft.process.profile.equilibrium_volume_weights"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "vaft.process.profile.volume_weights_on_grid",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "process",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "pipeline2",
+   "production_reachability_note": "",
+   "recommended_action": "triage in the owning B3/C slice",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "unassessed",
+   "source_file": "vaft/process/profile.py"
+  },
+  {
    "algorithm_semantics": "calls scipy.interpolate.CubicSpline (not curated)",
    "assets": [],
    "audit_scope": "derived_numerics_not_triaged",
@@ -15580,7 +15569,8 @@
    "callers": [
     "vaft.omas.kinetic_state_inference.kinetic_state_stages.data",
     "vaft.validation.equilibrium._thomson_pressure",
-    "vaft.validation.kinetic_state.match_thomson_pressure"
+    "vaft.validation.kinetic_state.match_thomson_pressure",
+    "workflow.pipeline_improvement.build_comparison_tables.thomson_row"
    ],
    "classification": "unverified",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -16509,8 +16499,10 @@
     }
    ],
    "callers": [
+    "workflow.kinetic_state.archive_to_ods.kinetic_efit_pressure_policies",
     "workflow.kinetic_state.archive_to_ods.kinetic_state_case",
-    "workflow.kinetic_state.archive_to_ods.romero_first_case"
+    "workflow.kinetic_state.archive_to_ods.romero_first_case",
+    "workflow.kinetic_state.archive_to_ods.state_table"
    ],
    "classification": "unverified",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -16984,6 +16976,92 @@
    "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/ordering_atlas/build_states.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(instant, channel.time, channel.coil_eddy)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(instant, channel.time, channel.measured)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(instant, ip_time, ip)"
+    }
+   ],
+   "callers": [
+    "workflow.pipeline_improvement.build_comparison_tables.process_shot"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "workflow.pipeline_improvement.build_comparison_tables.onset_qa_rows",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "workflow_study",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "low",
+   "source_file": "workflow/pipeline_improvement/build_comparison_tables.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(grid, channel.time, channel.coil_eddy)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(grid, channel.time, channel.measured)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(grid, channel.time, channel.usable.astype(float))"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(grid, ip_time, ip)"
+    }
+   ],
+   "callers": [
+    "workflow.pipeline_improvement.build_comparison_tables.process_shot"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "workflow.pipeline_improvement.build_comparison_tables.onset_rows",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "workflow_study",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "low",
+   "source_file": "workflow/pipeline_improvement/build_comparison_tables.py"
   },
   {
    "algorithm_semantics": "calls numpy.gradient, numpy.interp (not curated)",
