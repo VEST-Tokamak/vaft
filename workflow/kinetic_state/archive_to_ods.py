@@ -1,6 +1,6 @@
 """The matched kinetic-state archive snapshots as stored kinetic-state ODS.
 
-A workflow-side reconstruction, not package code: the archive notebooks, the
+A workflow-side reconstruction, not package code: the equilibrium-kinetic notebook, the
 plotting sample notebook and the tests import it by putting this directory on
 ``sys.path``.
 
@@ -304,7 +304,7 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
     cp = s["core_profiles"]
     eq_mag = s["magnetic_equilibrium"]
     eq = eq_mag if lineage == "magnetics" else s["electron_kinetic_equilibrium"]
-    rho = np.asarray(cp["rho_tor_norm"], float)
+    rho = _shared_profile_grid(s)
     psi_cp = np.asarray(cp["psi_Wb"], float)
     ne = np.asarray(cp["electron_density_m3"], float)
     te = np.asarray(cp["electron_temperature_eV"], float)
@@ -333,6 +333,8 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
         psi_mag = np.asarray(eq_mag["psi_Wb"], float)
         ts_psi = np.interp(ts_rho, np.asarray(eq_mag["rho_tor_norm"], float),
                            (psi_mag - psi_mag[0]) / (psi_mag[-1] - psi_mag[0]))
+    if "density_rho_tor_norm" in ts and not np.allclose(ts["density_rho_tor_norm"], ts["rho_tor_norm"]):
+        raise ValueError(f"shot {shot}: Thomson n_e and T_e are not at the same rho_tor_norm")
     ne_ts = np.asarray(ts["electron_density_m3"], float)
     te_ts = np.asarray(ts["electron_temperature_eV"], float)
     sne_ts = np.asarray(ts["electron_density_error_m3"], float)
@@ -448,6 +450,231 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
 def kinetic_state_ods(shot: int = 40326, lineage: str = "magnetics", **options: Any):
     """Just the ODS of :func:`kinetic_state_case`."""
     return kinetic_state_case(shot, lineage, **options).ods
+
+
+# ---------------------------------------------------------------------------
+# The electron-kinetic EFIT next to its pressure policies, and the state table
+# ---------------------------------------------------------------------------
+
+#: 1 sigma of the VEST T_i/T_e prior the electron-kinetic EFIT pressure constraint carries.
+TI_TE_RATIO_SIGMA = 0.5
+
+
+@dataclass(frozen=True)
+class KineticEfitAssessment:
+    """The archived verdicts on one electron-kinetic EFIT, normalised over both snapshot schemas.
+
+    Solver outcome (``manifest_*``), EFIT validity (``efit_status``) and the
+    kinetic admissibility gate are separate fields: a run can succeed and
+    converge and still fail admissibility.  ``chi2`` is the solver's own
+    weighted sum; its weights and degrees of freedom are not recorded, so it
+    is not comparable across shots.  ``r_w`` is the atlas ratio on the kinetic
+    equilibrium's own span, ``r_w_on_pair_span`` on the magnetic pair's common
+    psi span.  ``source_keys`` names the snapshot entries each value was read from.
+    """
+
+    efit_status: str
+    manifest_status: str
+    manifest_converged: bool
+    kinetic_admissible: str
+    kinetic_admissible_reasons: str
+    chi2: float
+    r_w: float
+    r_w_on_pair_span: float
+    c_p: float
+    ts_status: str
+    ts_points: int
+    ti_lineage: str
+    ti_te_ratio_assumed: float
+    pressure_constraint_encoding: str
+    source_keys: tuple
+
+
+def _shared_profile_grid(s: dict) -> np.ndarray:
+    """``core_profiles`` rho, refused unless the magnetic EFIT profiles share it (they are paired by index)."""
+    rho = np.asarray(s["core_profiles"]["rho_tor_norm"], float)
+    rho_eq = np.asarray(s["magnetic_equilibrium"]["rho_tor_norm"], float)
+    if rho.shape != rho_eq.shape or not np.allclose(rho, rho_eq, rtol=0.0, atol=1e-12):
+        raise ValueError("core_profiles and magnetic_equilibrium are not on one rho_tor_norm grid")
+    return rho
+
+
+def kinetic_efit_assessment(shot: int) -> KineticEfitAssessment:
+    """The archived electron-kinetic EFIT verdicts of ``shot``, as stored (nothing recomputed)."""
+    s = load_archive(shot)
+    if "electron_kinetic_assessment" in s:  # 39915: one record, atlas fields prefixed
+        a = s["electron_kinetic_assessment"]
+        return KineticEfitAssessment(
+            efit_status=str(a["atlas_efit_status"]), manifest_status=str(a["manifest_status"]),
+            manifest_converged=bool(a["manifest_converged"]),
+            kinetic_admissible=str(a["atlas_kinetic_admissible"]),
+            kinetic_admissible_reasons=str(a["atlas_kinetic_admissible_reasons"]),
+            chi2=float(a["manifest_chi2"]), r_w=float(a["atlas_r_w"]),
+            r_w_on_pair_span=float(a["atlas_r_w_on_pair_span"]), c_p=float(a["atlas_c_p"]),
+            ts_status=str(a["atlas_ts_status"]), ts_points=int(a["atlas_ts_points"]),
+            ti_lineage=str(a["ti_lineage"]), ti_te_ratio_assumed=float(a["ti_te_ratio_assumed"]),
+            pressure_constraint_encoding=str(a["pressure_constraint_encoding"]),
+            source_keys=("electron_kinetic_assessment",))
+    # 40326: the state atlas row (strings) and the solver manifest are separate records
+    a, m = s["state_assessment"]["electron_kinetic"], s["kinetic_manifest"]
+    if "kinetic_chi2" in a and not np.isclose(float(a["kinetic_chi2"]), float(m["chi2"]), rtol=1e-3):
+        raise ValueError(f"shot {shot}: the atlas chi2 {a['kinetic_chi2']!r} disagrees with the manifest {m['chi2']!r}")
+    return KineticEfitAssessment(
+        efit_status=str(a["efit_status"]), manifest_status=str(m["status"]),
+        manifest_converged=bool(m["converged"]), kinetic_admissible=str(a["kinetic_admissible"]),
+        kinetic_admissible_reasons=str(a["kinetic_admissible_reasons"]), chi2=float(m["chi2"]),
+        r_w=float(a["r_w"]), r_w_on_pair_span=float(a["r_w_on_pair_span"]), c_p=float(a["c_p"]),
+        ts_status=str(a["ts_status"]), ts_points=int(a["ts_points"]), ti_lineage=str(a["ti_lineage"]),
+        ti_te_ratio_assumed=float(a["ti_te_ratio_assumed"]), pressure_constraint_encoding=str(m["encoding"]),
+        source_keys=("state_assessment.electron_kinetic", "kinetic_manifest"))
+
+
+@dataclass
+class KineticEfitPressurePolicies:
+    """One electron-kinetic EFIT beside the pressure policies it can be compared with.
+
+    Three kinds of array, kept apart by name:
+
+    * archived: ``rho_kinetic``/``p_eq_kinetic`` and ``rho_magnetic``/``p_eq_magnetic``,
+      each on its **own** equilibrium's ``rho_tor_norm`` (an equal label is not the
+      same place; no pointwise difference without a remapping), and the Thomson
+      channels ``ts_*``;
+    * derived on the ``core_profiles`` grid ``rho``: ``p_prior = (1 + ratio) p_e``,
+      the continuous form of the EFIT's ``T_i = ratio T_e``, ``n_i = n_e`` prior (not
+      its actual constraint points), and ``p_counterfactual = p_e + e n_i T_e``, the
+      same temperature prior with the assumed C/O dilution, which the EFIT never saw;
+    * ``ts_p_input``/``ts_sigma_p_input``: the prior at the measured channels with the
+      shared ``T_e`` error and ``sigma(T_i/T_e) = TI_TE_RATIO_SIGMA``.
+
+    ``mapping_source`` is the archive key the channel coordinates come from,
+    ``mapping_lineage`` the equilibrium they were mapped through, and
+    ``mapping_native_to_equilibrium`` whether that is this kinetic EFIT.  39915
+    archives the magnetic mapping only, so its channels are **not** kinetic-native.
+    """
+
+    shot: int
+    time: float
+    rho_kinetic: np.ndarray
+    p_eq_kinetic: np.ndarray
+    rho_magnetic: np.ndarray
+    p_eq_magnetic: np.ndarray
+    rho: np.ndarray
+    p_e: np.ndarray
+    p_prior: np.ndarray
+    p_counterfactual: np.ndarray
+    ion_density_per_electron: np.ndarray
+    valid_charge: np.ndarray
+    ts_rho: np.ndarray
+    ts_n_e: np.ndarray
+    ts_t_e: np.ndarray
+    ts_sigma_n_e: np.ndarray
+    ts_sigma_t_e: np.ndarray
+    ts_p_input: np.ndarray
+    ts_sigma_p_input: np.ndarray
+    mapping_source: str
+    mapping_lineage: str
+    mapping_native_to_equilibrium: bool
+    assessment: KineticEfitAssessment
+    refusal: str
+
+
+def kinetic_efit_pressure_policies(shot: int) -> KineticEfitPressurePolicies:
+    """The electron-kinetic EFIT of ``shot`` and its pressure policies; see the class."""
+    from vaft.process.kinetic_closure import infer_ti_pressure_partition
+
+    s = load_archive(shot)
+    cp, eq, kin = s["core_profiles"], s["magnetic_equilibrium"], s["electron_kinetic_equilibrium"]
+    if not (kin["time_s"] == eq["time_s"] == cp["time_s"] == s["time_s"]):
+        raise ValueError(f"shot {shot}: the archived slices are not at one time")
+    rho = _shared_profile_grid(s)
+    if not np.isclose(float(kin["rho_tor_norm"][0]), rho[0]):
+        raise ValueError(f"shot {shot}: the kinetic EFIT and core_profiles grids do not share the axis point")
+    ne = np.asarray(cp["electron_density_m3"], float)
+    te = np.asarray(cp["electron_temperature_eV"], float)
+    comp = _composition(s, ne, rho, np.asarray(eq["volume_m3"], float))
+    assessment = kinetic_efit_assessment(shot)
+    ratio = assessment.ti_te_ratio_assumed
+    p_kin_eq = np.asarray(kin["pressure_Pa"], float)
+    refused = infer_ti_pressure_partition(
+        p_kin_eq[0], ne[0], te[0],
+        composition={"ion_density_per_electron": float(comp["nion"][0] / ne[0]),
+                     "composition_source": "assumed transient C/O"},
+        sigma_p_eq=np.nan, sigma_n_e=np.nan, sigma_t_e=np.nan, equilibrium_lineage="electron_kinetic")
+    if refused["eligible"] or "circular" not in str(refused["reason"]):
+        raise ValueError(f"shot {shot}: the electron-kinetic partition was expected to be refused: {refused!r}")
+
+    mapped = s["mapped_thomson"]
+    if isinstance(mapped.get("electron_kinetic"), dict):
+        ts, source, lineage = mapped["electron_kinetic"], "mapped_thomson.electron_kinetic", "electron_kinetic"
+    elif isinstance(mapped.get("magnetics"), dict):
+        ts, source, lineage = mapped["magnetics"], "mapped_thomson.magnetics", "magnetics"
+    else:  # one unkeyed mapping archived, through the magnetic EFIT
+        ts, source, lineage = mapped, "mapped_thomson", "magnetics"
+    if "density_rho_tor_norm" in ts and not np.allclose(ts["density_rho_tor_norm"], ts["rho_tor_norm"]):
+        raise ValueError(f"shot {shot}: Thomson n_e and T_e are not at the same rho_tor_norm")
+    ne_ts = np.asarray(ts["electron_density_m3"], float)
+    te_ts = np.asarray(ts["electron_temperature_eV"], float)
+    sne_ts = np.asarray(ts["electron_density_error_m3"], float)
+    ste_ts = np.asarray(ts["electron_temperature_error_eV"], float)
+    pe = E * ne * te
+    return KineticEfitPressurePolicies(
+        shot=shot, time=float(s["time_s"]),
+        rho_kinetic=np.asarray(kin["rho_tor_norm"], float), p_eq_kinetic=p_kin_eq,
+        rho_magnetic=np.asarray(eq["rho_tor_norm"], float), p_eq_magnetic=np.asarray(eq["pressure_Pa"], float),
+        rho=rho, p_e=pe, p_prior=(1 + ratio) * pe, p_counterfactual=pe + E * comp["nion"] * te,
+        ion_density_per_electron=comp["nion"] / ne, valid_charge=comp["valid_charge"],
+        ts_rho=np.asarray(ts["rho_tor_norm"], float), ts_n_e=ne_ts, ts_t_e=te_ts,
+        ts_sigma_n_e=sne_ts, ts_sigma_t_e=ste_ts, ts_p_input=(1 + ratio) * E * ne_ts * te_ts,
+        ts_sigma_p_input=E * np.sqrt(((1 + ratio) * te_ts * sne_ts) ** 2 + ((1 + ratio) * ne_ts * ste_ts) ** 2
+                                     + (ne_ts * te_ts * TI_TE_RATIO_SIGMA) ** 2),
+        mapping_source=source, mapping_lineage=lineage,
+        mapping_native_to_equilibrium=lineage == "electron_kinetic",
+        assessment=assessment, refusal=str(refused["reason"]))
+
+
+def state_table(shot: int) -> tuple[list[str], list[np.ndarray]]:
+    """The magnetic-lineage kinetic state of ``shot`` as CSV columns.
+
+    Column order and arithmetic are the original archive notebook's, so the file
+    is byte-identical to the one it wrote: every C and O charge-state density
+    (neutral q=0 included), NaN at invalid points.
+    """
+    s = load_archive(shot)
+    cp, eq = s["core_profiles"], s["magnetic_equilibrium"]
+    rho = _shared_profile_grid(s)
+    ne = np.asarray(cp["electron_density_m3"], float)
+    te = np.asarray(cp["electron_temperature_eV"], float)
+    peq = np.asarray(eq["pressure_Pa"], float)
+    comp = _composition(s, ne, rho, np.asarray(eq["volume_m3"], float))
+    ti, valid_ti, _ = _partition(peq, ne, te, comp, "magnetics")
+    pe = E * ne * te
+    pi = np.where(valid_ti, E * comp["nion"] * ti, np.nan)
+    nC = nO = 0.5 * comp["scale"] * ne
+    columns = ["rho_tor_norm", "p_eq_Pa", "p_e_Pa", "p_i_Pa", "p_kin_Pa",
+               "n_e_m3", "n_H_ion_m3", "n_C_element_m3", "n_O_element_m3",
+               "n_C_ion_m3", "n_O_ion_m3", "n_imp_ion_m3", "T_e_eV", "T_i_eV", "Z_eff",
+               "charge_state_valid", "T_i_valid"]
+    values = [rho, peq, pe, pi, pe + pi, ne, comp["nH"], nC, nO, comp["nC_ion"], comp["nO_ion"], comp["nimp"],
+              te, ti, comp["zeff"], comp["valid_charge"].astype(int), valid_ti.astype(int)]
+    for element, density, fractions in (("C", nC, comp["fractions"][0]), ("O", nO, comp["fractions"][1])):
+        for charge in range(fractions.shape[1]):
+            columns.append(f"n_{element}_q{charge}_m3")
+            values.append(density * fractions[:, charge])
+    return columns, values
+
+
+def write_state_table(shot: int, path) -> Path:
+    """Write :func:`state_table` as CSV to ``path`` (directories created)."""
+    import csv
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    columns, values = state_table(shot)
+    with path.open("w", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(columns)
+        writer.writerows(zip(*values))
+    return path
 
 
 # ---------------------------------------------------------------------------

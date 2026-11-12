@@ -3,6 +3,10 @@ base_dir: ${VAFT_FILEDB_DIR} # Base path for all output
 # hierarchy this pipeline is validated against; `filedb` resolves the canonical
 # OMAS-first grammar through vaft.database.filedb.FileDB.
 layout: filedb
+# Per-stage validation PNGs (filedb layout only). false leaves them out of the
+# run and of the worker's verdict; every stage product, manifest and status is
+# still built, and rerunning with true renders only the missing plots.
+validation_plots: true
 # Which analysis lineage this run produces, under `layout: filedb`. Every
 # product is filed under it, so an electron-EFIT or kinetic-EFIT campaign gets
 # its own identity by changing these rather than the resolver -- and can never

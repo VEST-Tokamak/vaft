@@ -39,6 +39,7 @@ from paths import (
     solver_module,
     stability_product,
     stage_scope,
+    validation_plots_enabled,
 )
 
 require_run_config_keys(workflow)
@@ -215,7 +216,10 @@ def replication_records(shots, stages=None):
     return records
 
 
-PLOTS_ENABLED = PATHS.layout == FILEDB
+PLOTS_ENABLED = validation_plots_enabled(config, PATHS.layout)
+# The CHEASE refinement sheet is drawn by the solver run itself, so it is not
+# subject to `validation_plots`: toggling the key must not rerun CHEASE.
+CHEASE_PLOTS = PATHS.layout == FILEDB
 EMPTY_VALIDATION_STAGES = {"chease", "eddy", "efit", "mhd_linear"}
 
 
@@ -516,6 +520,11 @@ checkpoint preflight_raw_dumps:
     params:
         required_fields=csv(REQUIRED_RAW_FIELDS),
         min_samples=RAW_MIN_SAMPLES
+    # Every per-shot job waits on this checkpoint, so it runs alone: reading the
+    # archives in parallel costs the run nothing and is ~0.3-0.8 s per shot serially.
+    # A callable, evaluated per job: a bare workflow.cores raises in a run without
+    # --cores (`snakemake --unlock`, which run_lane.sh and the worker issue).
+    threads: lambda wildcards: workflow.cores
     conda:
         CONDA if CONDA else None
     shell:
@@ -524,6 +533,7 @@ checkpoint preflight_raw_dumps:
         python {SCRIPT_DIR}/validate_raw_dumps.py \
             --required-fields "{params.required_fields}" \
             --min-samples {params.min_samples} \
+            --jobs {threads} \
             --eligible-output {output.eligible} \
             --excluded-output {output.excluded} \
             {input}
@@ -1219,7 +1229,7 @@ rule run_chease:
         refined=PATHS.shot_pattern("chease_refined"),
         status=PATHS.shot_pattern("chease_status"),
         runs=PATHS.shot_pattern("chease_runs"),
-        **({"plot_manifest": PATHS.shot_pattern("chease_plot_manifest")} if PLOTS_ENABLED else {})
+        **({"plot_manifest": PATHS.shot_pattern("chease_plot_manifest")} if CHEASE_PLOTS else {})
     log:
         PATHS.shot_pattern("log", "run_chease")
     params:
@@ -1242,7 +1252,7 @@ rule run_chease:
         preserve_boundary_limiter=bool_text(CHEASE_CONFIG.get("preserve_boundary_limiter", True)),
         create_plot=bool_text(CHEASE_CONFIG.get("create_plot", True)),
         plot_dir=lambda wildcards: (
-            PATHS.code_plot_dir(wildcards.shot, "chease") if PLOTS_ENABLED else ""
+            PATHS.code_plot_dir(wildcards.shot, "chease") if CHEASE_PLOTS else ""
         )
     conda:
         CONDA if CONDA else None

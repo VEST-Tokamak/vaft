@@ -221,6 +221,23 @@ def stage_scope(value) -> frozenset[str] | None:
     return frozenset(scope)
 
 
+def validation_plots_enabled(config, layout) -> bool:
+    """Whether a run builds the per-stage validation plots (issue #139).
+
+    Plots exist only under the ``filedb`` layout. ``validation_plots: false`` in
+    the run config leaves them out of ``rule all`` -- and out of the new-shot
+    worker's verdict -- so a bulk regeneration can build the stage products
+    first and render the PNGs in a later run of the same workflow with the key
+    left at its default. Every stage product, manifest and status file is built
+    either way; a validation plot carries no verdict (`vaft.database.worker.status`
+    judges it by presence only).
+    """
+    value = config.get("validation_plots", True)
+    if not isinstance(value, bool):
+        raise ValueError(f"validation_plots must be true or false, not {value!r}")
+    return layout == FILEDB and value
+
+
 class ScientificReference(NamedTuple):
     """A product a rule consults without Snakemake scheduling it.
 
