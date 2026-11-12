@@ -1,4 +1,4 @@
-# Plasma-free magnetic-response benchmark (issue #190)
+# Plasma-free magnetic-response benchmark
 
 Qualifies the VEST **active-coil / passive-wall / magnetic-sensor forward model**
 against measured plasma-free response. It answers a machine-model question, not
@@ -24,10 +24,11 @@ qualified here, the routine stage can use it.
   wall's own slowest L/R time has had time to forget that assumption. The
   margin is computed from the eigenvalues of the wall model in use, not guessed.
 - **Nothing is re-fitted to reduce the residual.** The optional
-  `--resistance-scale` varies one global factor for the #117 sensitivity study.
+  `--resistance-scale` varies one global factor for a sensitivity study of the
+  pf_passive resistance convention.
   Independently fitting hundreds of loop resistances against the same magnetic
   data used to validate them would make this an underconstrained fit.
-- Signal validity comes from the diagnostics stage (#189) and is **read, never
+- Signal validity comes from the diagnostics stage and is **read, never
   written**. A channel that disagrees with the forward model is evidence about
   the model.
 
@@ -49,10 +50,10 @@ python workflow/vacuum_benchmark/run_vacuum_benchmark.py --output benchmark.json
 
 Eligible cases are dedicated vacuum shots and plasma shots with a validated
 plasma-free interval; `plasma_free_interval` decides which, from the plasma onset of the
-shared timing policy (H-alpha by label, else the plasma-current principal pulse; issue #409),
+shared timing policy (H-alpha by label, else the plasma-current principal pulse),
 snapped to the `pf_active` grid, and records the choice under `plasma_free_evidence` (schema 4: the boundary,
 its source and the timing summary, which now says what fraction of the window the detector was actually above
-threshold — a fifth of the corpus's light windows are envelopes with gaps ([#752](https://github.com/VEST-Tokamak/vaft/issues/752));
+threshold — a fifth of the corpus's light windows are envelopes with gaps;
 the `legacy` block that schema 2 carried for the retired Ip detectors went in schema 3).
 An **eddy-free flat-top is not wanted** — the transient chain from coil
 excitation through wall current to magnetic response is the validation target.
@@ -84,6 +85,6 @@ review ran), and out of the aggregate's summary spreads, which name them under
 `flagged_channels`: a sensor finding, not a wall-model one. On the packaged 39915 that is
 C4-04, which follows the PF1 ramp its neighbours do not see.
 
-There are deliberately **no acceptance thresholds**. #190 is explicit that broad
-scientific bounds must wait until the VEST benchmark distribution has been
+There are deliberately **no acceptance thresholds**: broad
+scientific bounds wait, by design, until the VEST benchmark distribution has been
 inspected.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Choose the shots for the #1331 EFIT campaign.
+"""Choose the shots for the EFIT campaign (magnetics -> eddy -> EFIT -> kinetic EFIT with ``statistical_891``).
 
 Joins three sources that answer different questions, per shot:
 
@@ -11,7 +11,7 @@ Joins three sources that answer different questions, per shot:
 * one or more magnetics-quality tables from
   ``workflow/magnetics_quality/scan_magnetics_quality.py``.
 
-and labels each shot by the tiers #1331 set out:
+and labels each shot by tier:
 
 ``A``  Thomson, and magnetics like 39915's (few condemned probes, most of the
        outboard array usable) -- the calibration and kinetic set.

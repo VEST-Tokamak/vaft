@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Qualify the EFIT reconstruction cadence and constraint-averaging window (issue #468).
+"""Qualify the EFIT reconstruction cadence and constraint-averaging window.
 
 Two temporal controls, varied one at a time under one fixed, serialized EFIT
 numerical configuration:
 
 * the reconstruction cadence ``dt_EFIT`` -- the spacing of the slices;
 * the constraint-averaging half-window ``w`` -- each constraint is the box
-  average of the diagnostic samples inside ``[t_i - w, t_i + w]`` (#433).
+  average of the diagnostic samples inside ``[t_i - w, t_i + w]``.
 
 For every case the script forms the constraints, writes the k-files, runs
 EFIT once over all slices, and records per slice what the solver reported:
@@ -18,8 +18,9 @@ the equilibrium looks like.
 
 Everything else is held fixed and recorded: the scientific configuration
 (``EFITScientificConfig``, with its digest), the initialization policy, the
-diagnostic set and weights, the spatial tables.  #171 and #196 own those
-settings; this study does not scan them.
+diagnostic set and weights, the spatial tables.  The termination study
+(Open: #171) and the ICINIT temporal-continuation study (Open: #196) own
+those settings; this study does not scan them.
 
 Usage::
 
@@ -94,7 +95,7 @@ _DONE = re.compile(r"Done processing")
 def iterations_from_log(text: str) -> list[dict[str, Any]]:
     """Per-slice iteration count, last chi2 and last increment from EFIT's terminal log.
 
-    A view of :func:`vaft.code.efit.parse_iteration_history` (#1038), in time
+    A view of :func:`vaft.code.efit.parse_iteration_history`, in time
     order. The counter restarting at 1 delimits the slices, and a ``bound``
     error naming a time no slice has yet opens one -- a slice that collapsed
     before its first Picard step is a block with ``iterations_n == 0``, not an

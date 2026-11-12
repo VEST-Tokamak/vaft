@@ -20,11 +20,11 @@ ingest_external_diagnostics.py      archive        -> one IDS product per shot
   soft_x_rays/{shot}/digitizer_{daq}_{shot}.csv
   soft_x_rays/_geometry/                  line-of-sight tables and grids
   camera_visible/{shot}/{shot}_{frame:08d}.bmp + {shot}_bmp.txt
-  camera_visible_fluctuation/{shot}/      >= 50 kfps, reserved for issue #161
+  camera_visible_fluctuation/{shot}/      >= 50 kfps, reserved for the fluctuation analysis
   camera_visible_fluctuation/index.json   what is reserved and why
   hard_x_rays/{shot}/digitizer_hxr_{variant}_{daq}_{shot}.csv + provenance.json
-  hard_x_rays/_reference/                 placed by hand (#1160): unfolding model, acquisition scripts, paper
-  shotlog/input/{YYYY}/ShotLog_*.xlsx     each month's ShotLog record, byte-identical (#995)
+  hard_x_rays/_reference/                 placed by hand: unfolding model, acquisition scripts, paper
+  shotlog/input/{YYYY}/ShotLog_*.xlsx     each month's ShotLog record, byte-identical
   shotlog/input/supplementary/            real logs outside the monthly naming (ERC, KSTAR_Conference, ...)
   shotlog/input/other/                    copies, autosaves, forms, in-progress copies: kept, not read
   shotlog/output/                         session documents + batch manifest
@@ -68,7 +68,7 @@ occurrence split is closed off because lazy HSDS access reads occurrence 0 only.
 
 The operators' monthly ShotLog workbooks are not a diagnostic export, so they
 do not go through the inventory and consolidation scripts. `python -m vaft.cli
-shotlog` archives and reads them instead (issue #995):
+shotlog` archives and reads them instead:
 
 ```bash
 python -m vaft.cli shotlog archive --source "/path/to/1. ShotLog" --filedb "$VAFT_FILEDB_DIR" \
@@ -242,7 +242,8 @@ manifest; judge the archive by those, not by directory size.
   frames at 1024×1280) measures 2.75 GB.
 - Publishing needs the shot folder to exist on the server first, and `hstouch`
   returns 403 for a normal account, so provisioning is an admin action.
-- Shots 26576, 26757 and 29770, which issue #161 names as required, are not
+- Shots 26576, 26757 and 29770, which the fluctuation-analysis acceptance
+  list (#161) names as required, are not
   present in any local source. 27134 and 32308 are, at 50 kfps.
 - Seven camera directories have a `_bmp.txt` that is a filesystem index record
   rather than text; their frames cannot be dated and they are held for review.

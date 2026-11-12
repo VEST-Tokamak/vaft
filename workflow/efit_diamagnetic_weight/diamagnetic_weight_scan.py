@@ -1,13 +1,19 @@
-"""Is the diamagnetic constraint reachable at all, and does pressure follow? (#386)
+"""Is the diamagnetic constraint reachable at all, and does pressure follow?
+
+The packaged 39915 reconstruction puts the pressure roughly ninety times below
+what force balance requires while the diamagnetic loop, the one measurement
+that would pin pressure, carries effectively no weight (Open: #386).  This
+scan asks whether that is a weighting problem.
 
     PYTHONPATH=$PWD EFITHOME=~/git/efit/build-linux \\
         python workflow/efit_diamagnetic_weight/diamagnetic_weight_scan.py \\
             --output /scratch/dia-weight --shots 39915,41524,41672 --workers 8
 
-Why this is not #663 run again
-------------------------------
+Why this is not the constraint-information study run again
+----------------------------------------------------------
 
-#663 swept ``objective_scales["diamagnetic_flux"]`` from x1 to x10,000 on all
+The constraint-information study (``workflow/efit_constraint_information``)
+swept ``objective_scales["diamagnetic_flux"]`` from x1 to x10,000 on all
 three reference shots and concluded the family was inactive within a produced
 solution.  That conclusion cannot be read as a statement about the diagnostic,
 because the sweep never left the region where the row is inactive by
@@ -32,7 +38,7 @@ where it was.  Ten rungs, one decade apart, carry the processed row weight from
 ``uncertainty_mode="standard_deviation"`` is deliberately **not** used as a
 rung.  It replaces the legacy uncertainty for *every* family at once, so a run
 under it differs from the baseline on five axes and attributes nothing -- the
-same one-axis-at-a-time rule #588 established for the seed study.  Where each
+same one-axis-at-a-time rule the seed-sensitivity study follows.  Where each
 rung sits relative to the real measurement error is reported per slice instead,
 as ``sigma_ratio_to_stored``.
 
@@ -40,7 +46,7 @@ What is being asked
 -------------------
 
 Three questions, in order, and the third only matters if the first two answer
-the way #386 expects:
+the way the pressure deficit suggests:
 
 1. **Reachability.**  At what processed row weight does the diamagnetic
    residual first stop being ignored?  Reported as ``w_activation`` on the
@@ -48,18 +54,21 @@ the way #386 expects:
    still not move the boundary.
 2. **Consequence.**  Does the reconstructed pressure follow?  ``p_axis``,
    ``wmhd`` and ``betap`` on slices common to every rung -- population change
-   is reported separately and never mixed in, which is the correction #663 had
-   to publish about its own first pass.
+   is reported separately and never mixed in, which is the correction the
+   constraint-information study had to publish about its own first pass.
 3. **Direction.**  Does it move *toward* the independent kinetic measurement?
    On 39915 only, through ``thomson_pressure_check``, which is the one shot
    whose Thomson samples fall inside its EFIT window.
 
-The classification thresholds are #663's, unchanged and reused from its module,
+The classification thresholds are the constraint-information study's,
+unchanged and reused from its module,
 so the two studies compose rather than competing.
 
-Everything here is characterization.  No production default is changed:
-``uncertainty_scales`` ships at 1.0 for every family, and the baseline rung is
-today's configuration exactly.
+Everything here is characterization.  No production default is changed: the
+baseline rung is the legacy routine configuration (legacy weights, unit
+``uncertainty_scales``, no sigma floor) exactly, which was the production
+default until 2026-10-01; the current default is the statistical setting
+(``uncertainty_mode="standard_deviation"``), which this ladder does not use.
 """
 
 from __future__ import annotations
@@ -159,7 +168,7 @@ def _module(path: Path, name: str):
 
 
 def scientific_for(rung: Rung, profile_study: Any):
-    """The frozen #579/#663 configuration with one family's sigma scaled."""
+    """The frozen profile-model-study baseline configuration with one family's sigma scaled."""
     from vaft.code.efit.config import DIAGNOSTIC_GROUPS
 
     base = profile_study.fixed_scientific_config()
@@ -210,9 +219,9 @@ def _stored_measurement(
 
 
 def sign_convention(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """Did the signed measurement survive into DFLUX? (#386 question 2)
+    """Did the signed measurement survive into DFLUX?
 
-    ``diamagnetic_flux_sign`` has defaulted to ``"imas"`` since #385, so the
+    ``diamagnetic_flux_sign`` defaults to ``"imas"``, so the
     writer should pass the stored sign through untouched.  The regression that
     pins this covers 39915 alone, through the packaged sample; 41524 and 41672
     have never been checked.  Every rung writes a k-file for every slice
@@ -282,8 +291,8 @@ def diamagnetic_rows(
     The row is reconstructed from the a-file and the k-file, which EFIT always
     writes.  The m-file would carry ``fwtdia`` and ``chidflux`` directly, but
     it is NetCDF and this build ships with ``ENABLE_NETCDF=OFF``, so depending
-    on it would leave the study silently measuring nothing.  Where #663's
-    ``constraint_audit`` *is* available it is read as a cross-check and any
+    on it would leave the study silently measuring nothing.  Where the
+    constraint-information study's ``constraint_audit`` *is* available it is read as a cross-check and any
     disagreement is recorded rather than averaged away.
 
     ``cdflux`` is EFIT's exact forward flux (``beta_li.F90:787,832``), not the
@@ -293,8 +302,8 @@ def diamagnetic_rows(
     Both chi-squares are kept.  ``chi_squared`` is ``(residual/sigma)^2``, the
     m-file normalisation with the submitted weight divided out;
     ``chi_squared_reweighted`` is the solver's own contribution
-    ``(processed weight * residual)^2``.  #663 had to publish a correction for
-    treating those as one quantity.
+    ``(processed weight * residual)^2``.  The constraint-information study had
+    to publish a correction for treating those as one quantity.
     """
     from vaft.data import read_aeqdsk
 
@@ -399,7 +408,7 @@ def common_slice_change(
 ) -> dict[str, Any]:
     """Relative change on slices both runs produced, and nothing else.
 
-    #663's first pass reported a smaller aggregate residual at high weight and
+    The constraint-information study's first pass reported a smaller aggregate residual at high weight and
     had to correct itself: the smaller number was population selection, not a
     better fit.  Comparing only common slices is what makes that mistake
     impossible rather than merely unlikely.
@@ -433,7 +442,7 @@ def common_slice_change(
 
 
 #: A common-slice relative change below this is numerical noise, not a
-#: response.  #663 measured invariance at 1e-7 through its whole ladder and a
+#: response.  The constraint-information study measured invariance at 1e-7 through its whole ladder and a
 #: real but sub-threshold 0.5 % response at one slice, so the floor has to sit
 #: between those: 1e-3 separates them by three orders either way.
 RESPONSE_FLOOR = 1.0e-3
@@ -442,7 +451,7 @@ RESPONSE_FLOOR = 1.0e-3
 def branch_response(comparison: Mapping[str, Any]) -> bool:
     """Did the *equilibrium* move, as opposed to the population shrinking?
 
-    #663's ``material_response`` is the right predicate for "did removing this
+    The constraint-information study's ``material_response`` is the right predicate for "did removing this
     family change anything", and its thresholds are reused verbatim below.
     But it counts a 10-percentage-point acceptance change as a material
     response, and on this ladder acceptance falls simply because high weights
@@ -450,7 +459,7 @@ def branch_response(comparison: Mapping[str, Any]) -> bool:
     transition every time solutions were lost, which is the one confusion
     ``w_fail`` exists to prevent.
 
-    So the branch test keeps #663's geometry thresholds -- 5 mm of LCFS, 2 % of
+    So the branch test keeps that study's geometry thresholds -- 5 mm of LCFS, 2 % of
     area or volume, all measured on slices both runs produced -- and drops the
     acceptance term, which is reported separately as ``w_fail``.
     """
@@ -464,7 +473,7 @@ def branch_response(comparison: Mapping[str, Any]) -> bool:
 def classify_reachability(shot_block: Mapping[str, Any]) -> dict[str, Any]:
     """Where the ladder crosses from inactive to active to broken.
 
-    The three scales #663's interpretation asked for, measured rather than
+    The three scales the constraint-information study's interpretation asked for, measured rather than
     assumed: first response on the same branch, transition to another branch,
     and loss of solution.
     """
@@ -828,7 +837,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             item["geometry_versus_baseline"] = constraint_study.comparison(
                 runs[rung.name], runs[BASELINE], profile_study
             )
-            # Kept for comparability with #663, which classifies on it.
+            # Kept for comparability with the constraint-information study,
+            # which classifies on it.
             item["material_response"] = constraint_study.material_response(
                 item["geometry_versus_baseline"], excluded_family="diamagnetic_flux"
             )

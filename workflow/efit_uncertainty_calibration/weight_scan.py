@@ -1,8 +1,8 @@
-"""#891 stage 2: the weight scan with the diamagnetic flux fitted, judged per slice.
+"""Sigma-calibration stage 2 onward: the weight scan with the diamagnetic flux fitted, judged per slice.
 
 Every constraint time of the reference shots is reconstructed under each
 setting -- profile basis, probe/loop sigma and now the diamagnetic sigma
-(#1196 corrected its sign) -- and every slice is judged by ``criteria.py``:
+(fittable once its sign convention was corrected) -- and every slice is judged by ``criteria.py``:
 admissibility, per-family chi-square, virial beta_p and Grad-Shafranov
 residual decide ``good``; the Thomson pressure band, where Thomson exists, is
 reported beside it as physical consistency and never decides ``good`` or a
@@ -69,7 +69,7 @@ criteria = _module(HERE / "criteria.py", "weight_criteria")
 #: the row held inactive, as the first calibration did.
 DIAMAGNETIC_MULTIPLIERS = (1, 4, 16, 64, None)
 BASES = ((1, 1), (2, 1), (1, 2))
-#: The calibration's best region (#891, PR #1182): probes x16 with a 2 % floor
+#: The calibration's best region (the cold-started sigma ladder): probes x16 with a 2 % floor
 #: bring the probe chi2r near 1; loops already sit at 1.2-2.4 at x1.
 STAGE1_PROBE, STAGE1_LOOP, STAGE1_FLOOR = 16, 2, 0.02
 #: The psi convergence every stage runs at unless a setting names its own.
@@ -100,7 +100,7 @@ def working_settings() -> list[dict[str, Any]]:
     ]
 
 
-#: Stage 6 (#579, 2026-10-02): the model/weight sensitivity ensemble.  Not a
+#: Stage 6 (2026-10-02): the model/weight sensitivity ensemble.  Not a
 #: search for the best setting -- every configuration is judged on residual
 #: credibility, Thomson consistency and the stability of W, beta_p, l_i and q
 #: across the configurations, and Thomson never selects one.
@@ -136,7 +136,7 @@ def stage1_settings() -> list[dict[str, Any]]:
     return settings
 
 
-#: Stage 2 (#891): stage 1 left the probes at chi2r ~0.1 and the loops ~0.3,
+#: Stage 2: stage 1 left the probes at chi2r ~0.1 and the loops ~0.3,
 #: the diamagnetic row unsolvable at x1-x4, and the flat-top slices failing
 #: the 3 % Ip bound against a 5 % Ip sigma -- so both Ip sigmas are compared.
 STAGE2_PROBE = (4, 8)

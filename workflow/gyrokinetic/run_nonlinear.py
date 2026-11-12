@@ -1,9 +1,9 @@
-"""Nonlinear CGYRO on one Lane T state and surface, resumable across allocations (#1354).
+"""Nonlinear CGYRO on one Lane T state and surface, resumable across allocations.
 
 The state is resolved exactly as ``run_linear.py`` resolves it (Lane T's
-``resolve_transport_state``; same ``state_identity`` as #1482), and the local input is
+``resolve_transport_state``; same ``state_identity`` as the TGLF SAT-rule sensitivity runs), and the local input is
 the same TGLF-derived CGYRO input, so the saturated flux compares directly with the
-#1482 SAT0-3 ``Q/Q_GB`` on that surface.
+SAT0-3 ``Q/Q_GB`` of those runs on that surface.
 
 A production run is long: each invocation runs until ``--max-time`` (``a/c_s``) or the
 allocation's limit and leaves ``bin.cgyro.restart``; ``--restart`` continues it (CGYRO
@@ -13,7 +13,8 @@ few ``a/c_s`` to measure the cost per unit time before a production submission.
 The field model defaults to ``em-aperp``. Electrostatic runs with kinetic electrons carry a
 spurious high-frequency branch at low ``k_y`` (``|omega| ~ 200 c_s/a``, growing faster at
 lower ``k_y`` and with finer ``theta``; the ``omega_H`` mode) that finite beta removes. On
-39915 r/a 0.7 it grew alone at ``k_y = 0.1`` and drove the whole ES nonlinear run (#1484),
+39915 r/a 0.7 it grew alone at ``k_y = 0.1`` and drove the whole ES nonlinear run (run
+record: #1484),
 so an ES run whose ``n=1`` sits at ``k_y <= ES_MIN_KY`` is refused unless
 ``--allow-es-low-ky`` is given.
 
@@ -59,7 +60,7 @@ def _write_local_summary(workdir: Path, local) -> None:
 
 
 # Lowest n=1 k_y rho_s an electrostatic nonlinear run may use: the ES omega_H branch was
-# unstable at every k_y <= 0.2 checked on 39915 r/a 0.7 (job 768747, #1484).
+# unstable at every k_y <= 0.2 checked on 39915 r/a 0.7 (Slurm job 768747; run record #1484).
 ES_MIN_KY = 0.2
 
 

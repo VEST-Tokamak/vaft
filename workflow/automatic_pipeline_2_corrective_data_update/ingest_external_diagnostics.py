@@ -11,7 +11,7 @@ every pipeline stage produces.
 Two deliberate exclusions:
 
 ``legacy/camera_visible_fluctuation/``
-    Reserved for the pending FAST-camera fluctuation routine (issue #161).
+    Reserved for the FAST-camera fluctuation analysis.
     Routine ingest never touches it, so those acquisitions stay pristine as
     fixture input. ``--include-fluctuation`` overrides that for a deliberate
     one-off.
@@ -25,9 +25,7 @@ Two deliberate exclusions:
 Products land in the canonical ``omas/`` domain, resolved through
 ``FileDB.omas_product`` / ``FileDB.omas_manifest``. Each tree is a real
 ``OMASStage`` with a ``STAGE_REPLICATION`` entry, so these diagnostics publish
-on the same contract as every other stage (#599). They used to sit in an
-``ods/`` tree outside the ``FileDBDomain`` grammar, because no legal canonical
-path existed for them yet.
+on the same contract as every other stage.
 
 Run::
 
@@ -56,7 +54,7 @@ DIAGNOSTIC_TREES = {
     "camera_visible": "camera_visible",
     "camera_visible_fluctuation": "camera_visible",
     # Per-shot ShotLog records written by `python -m vaft.cli shotlog extract`
-    # (#995); the stage is `shotlog`, the IDS it publishes is pulse_schedule.
+    # -- the stage is `shotlog`, the IDS it publishes is pulse_schedule.
     "shotlog": "pulse_schedule",
 }
 

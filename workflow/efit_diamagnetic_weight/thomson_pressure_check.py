@@ -1,4 +1,4 @@
-"""Does the reconstruction agree with pressure it never used? (#386)
+"""Does the reconstruction agree with pressure it never used?
 
     PYTHONPATH=$PWD python \\
         workflow/efit_diamagnetic_weight/thomson_pressure_check.py \\
@@ -8,11 +8,12 @@ Runs no EFIT.  It reads reconstructions someone else produced and asks the one
 question the magnetics cannot answer about themselves: **is the pressure really
 missing, or is the fit simply not being told about it?**
 
-#386 records a reconstructed pressure roughly ninety times below what force
-balance requires, measured against the virial estimate -- but the virial
-estimate is built from the same magnetics as the reconstruction, and #649
-established that at VEST's aspect ratio its conditioning is bad enough that it
-cannot decide an accept/reject question on its own.  Thomson scattering is
+The packaged 39915 reconstruction puts the pressure roughly ninety times
+below what force balance requires (Open: #386), measured against the virial
+estimate -- but the virial estimate is built from the same magnetics as the
+reconstruction, and at VEST's aspect ratio its conditioning is bad enough that
+it cannot decide an accept/reject question on its own (which is why the
+virial checks no longer gate acceptance).  Thomson scattering is
 outside that loop entirely.
 
 39915 is the only shot in the reference set that can be asked.  Its ten Thomson
@@ -63,7 +64,8 @@ KEY = "independent_validation.thomson_pressure"
 #: Beyond this the electron pressure alone is so far above the reconstructed
 #: total that no unmeasured ion population can close the gap.  ln(3) is a
 #: threefold disagreement; the registry's own fail threshold is ln(2).
-#: This is the LOWER side (reconstruction below p_e, #386).  It is not the
+#: This is the LOWER side (reconstruction below p_e, the direction of the
+#: ~90x pressure deficit).  It is not the
 #: physical ceiling: with no fast ions, T_i <= T_e and n_i <= n_e the total is
 #: at most 2 p_e, which ``workflow/efit_uncertainty_calibration/criteria.py``
 #: grades as its own physical-consistency verdict (band [1, 2] p_e).

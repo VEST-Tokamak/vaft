@@ -102,8 +102,8 @@ run `vaft corrective-worker retry --shot N` to force it.
 ## 5. One writer per shot
 
 The routine worker and any regeneration of EFIT or the diagnostics write products
-of the same shots. `master.h5` writes are serialised per `(source, shot)` by a lock
-(#913), so they cannot corrupt each other, but two jobs deciding what a shot's
+of the same shots. `master.h5` writes are serialised per `(source, shot)` by a lock,
+so they cannot corrupt each other, but two jobs deciding what a shot's
 products should be is still one too many. While a regeneration owns a shot range:
 
 ```bash

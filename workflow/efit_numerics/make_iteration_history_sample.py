@@ -1,4 +1,4 @@
-"""Regenerate the packaged EFIT iteration histories of shot 39915 (#1038).
+"""Regenerate the packaged EFIT iteration histories of shot 39915.
 
     PYTHONPATH=$PWD EFITHOME=~/git/efit/vaft-install \\
         python workflow/efit_numerics/make_iteration_history_sample.py --workdir /scratch/ih
@@ -10,7 +10,7 @@ k-files, differing in ``NXITER`` and in the ``MXITER`` cap that moves with it:
 - ``39915_nxiter1.json`` -- the routine configuration (EFIT's default
   ``NXITER=1``, ``MXITER=100``);
 - ``39915_nxiter3.json`` -- ``NXITER=3`` with ``MXITER = 514 // 3``, the largest
-  cap that cannot overrun EFIT's compiled-in 515-entry iteration arrays (#171).
+  cap that cannot overrun EFIT's compiled-in 515-entry iteration arrays.
 
 The input is the packaged sample's own pipeline product
 (``vaft/data/samples/39915/source/pipeline-until-efit.json.gz``), whose
@@ -41,7 +41,7 @@ PRODUCT = REPOSITORY / "vaft/data/samples/39915/source/pipeline-until-efit.json.
 OUTPUT = REPOSITORY / "vaft/data/efit/iteration_history"
 SHOT = 39915
 #: EFIT indexes its per-iteration arrays by the cumulative counter against a
-#: compiled-in 515 with no clamp (#171).
+#: compiled-in 515 with no clamp.
 ITERATION_ARRAY_BOUND = 515
 CASES = {"nxiter1": None, "nxiter3": 3}
 

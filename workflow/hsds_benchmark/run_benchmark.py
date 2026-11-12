@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reproducible, read-only HSDS I/O benchmark for VAFT's access paths (#1869).
+"""Reproducible, read-only HSDS I/O benchmark for VAFT's access paths.
 
     python workflow/hsds_benchmark/run_benchmark.py --shots 39915,41524 \\
         --clients 1,2,4 --repeat 3 --output runs/hsds-bench

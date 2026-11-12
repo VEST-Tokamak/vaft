@@ -1,4 +1,4 @@
-"""Saturated nonlinear CGYRO flux vs TGLF SAT0-3 on the same surface (#1354).
+"""Saturated nonlinear CGYRO flux vs TGLF SAT0-3 on the same surface.
 
 Reads one nonlinear run directory (``run_nonlinear.py``), forms the gyro-Bohm energy
 flux time traces -- total, ions (all ion species) and electrons, summed over fields and
@@ -9,13 +9,14 @@ first and second halves are averaged separately as well: when they disagree by m
 ``--drift-tolerance``, the run is flagged ``not_stationary``.
 
 CGYRO's gyro-Bohm unit is TGLF's (``Q_GB = n_e T_e c_s (rho_s/a)^2``, deuterium ``c_s``,
-``rho_s`` from ``B_unit``), so ``Q/Q_GB`` compares directly with #1482's ``q_tot_gb``.
+``rho_s`` from ``B_unit``), so ``Q/Q_GB`` compares directly with the ``q_tot_gb`` column
+of the TGLF SAT-rule ``sensitivity.csv``.
 
 The locality QA (:func:`vaft.code.gacode.cgyro.locality_report`) is evaluated on the
 same window: ``rho*``, ``L_x/a``, the measured radial correlation length ``l_corr`` and
 ``epsilon_local = l_corr / min(L_Ti, L_Te, L_n, L_q)``, with box and locality verdicts.
 
-A bursty run (turbulence and zonal flows trading energy, #1484) is not stationary on
+A bursty run (turbulence and zonal flows trading energy, as 39915 r/a 0.7 was) is not stationary on
 any short window, so the window mean is quoted with a batch-means uncertainty: the window
 is cut into ``--blocks`` equal blocks, each block is averaged, and the spread of the
 block means gives the standard error of the window mean (blocks longer than the burst

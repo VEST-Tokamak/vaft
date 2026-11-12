@@ -1,13 +1,13 @@
-"""Lane V base table for the operational-space atlas (#1456, conference 2026-10-12).
+"""Lane V base table for the operational-space atlas (conference 2026-10-12).
 
-One row per state key of Lane K's State key contract v1 (#1454): the #1331 Tier A
-good + admissible EFIT slices, magnetics and electron_kinetic lineages. For each
-row it adds the operational-space coordinates, computed by VAFT from the row's own
+One row per state key of Lane K's State key contract v1 (``vaft.validation.kinetic_state``):
+the Tier A campaign's good + admissible EFIT slices, magnetics and electron_kinetic
+lineages. For each row it adds the operational-space coordinates, computed by VAFT from the row's own
 EFIT product, under the quantity names of ``vaft.formula.boundaries`` so the
 population renderer can check identity and unit:
 
     internal_inductance_li3   DD li_3 from vaft.omas.update.update_equilibrium_global_quantities_beta_li,
-                              which needs #1477 (the fix of #1462); see the cross-check below
+                              whose surface tracing skips open grid-edge branches; see the cross-check below
     normalized_beta           DD beta_normal from the same routine, % m T / MA
     toroidal_beta             100 * beta_t of vaft.process.equilibrium.derive_global_descriptors, %
     normalized_current        |I_p| [MA] / (a [m] |B_0| [T]), B_0 = vacuum_toroidal_field.b0 at r0
@@ -19,18 +19,18 @@ population renderer can check identity and unit:
     poloidal_beta             2 mu0 <p> / <B_p>_boundary^2 (derive_global_descriptors, beta_p_boundary_average)
     plasma_surface_area       LCFS surface area S (derive_global_descriptors), for L-H thresholds
     inverse_cylindrical_q     |I_p| R_geo / (5 a^2 kappa_a B_T(R_geo)), B_T(R_geo) = |b0| R_0 / R_geo,
-                              R_0 = resolve_reference_major_radius (the r0 leaf can be corrupt, #325)
+                              R_0 = resolve_reference_major_radius (the r0 leaf can be corrupt in the VEST database)
     internal_inductance_li1   <B_p^2>/B_pa^2, B_pa = mu0 |I_p| / Gamma (Strait 1994's l_i), <B_p^2> on the same grid
                               cells as li3_grid_integral, Gamma the boundary outline's circumference
     boundary_perimeter_m      Gamma [m]; grid_volume_m3 the volume of those grid cells [m^3]
-    volume_beta               100 * 2 mu0 int p dV / int B^2 dV, B the total equilibrium field (#1691 stage 1),
+    volume_beta               100 * 2 mu0 int p dV / int B^2 dV, B the total equilibrium field (volume-averaged beta_B),
                               from the summary's own helper so the atlas and the summary share one definition, %
     normalized_volume_beta    volume_beta a B_0 / |I_p| with the a and B_0 of normalized_current: Menard's <beta_N>
                               form with B_0 at r0 (Menard et al. take B_T at the geometric centre)
     aspect_ratio              R_geo / a (derive_global_descriptors)
 
-Before #1477 that routine returned li_3 up to 10x and beta_normal up to 4x on many
-Tier A slices (#1462: open grid-edge branches posed as flux surfaces). Every row is
+When that routine's surface tracing took open grid-edge branches for flux surfaces,
+it returned li_3 up to 10x and beta_normal up to 4x on many Tier A slices. Every row is
 therefore cross-checked against two independent paths: li3_grid_integral (2 int B_p^2 dV
 summed on the EFIT grid inside the boundary outline, through
 vaft.formula.equilibrium.li_3_from_Bp2_volume_integral) and beta_normal_descriptors
@@ -196,8 +196,9 @@ def _routine_diagnostic(ods, k: int):
 def _volume_beta(ods, k: int, a: float, b0: float):
     """(beta_B [-], <beta_N> [% m T/MA]) of slice k, on a copy; NaNs where the summary helper cannot form them.
 
-    The summary's own helper, imported rather than restated (#1691 forbids a second implementation of
-    beta_B). It needs ``profiles_1d.volume``, which an EFIT product does not store: the flux-surface
+    The summary's own helper, imported rather than restated, so beta_B has one
+    implementation and the atlas cannot drift from the summary. It needs ``profiles_1d.volume``,
+    which an EFIT product does not store: the flux-surface
     geometry is traced first, as the summary does, on a copy so the cached product the other columns read
     is unchanged.
     """
@@ -263,7 +264,7 @@ def _row(ods, t_s: float) -> dict:
     bn_desc = pick("beta_n")
     beta_b, beta_n_b = _volume_beta(ods, k, a, b0)
     crosscheck = _crosscheck(li3_routine, float(li3), bn_routine, bn_desc, routine_status)
-    # primary: the DD routine (post-#1477); where it wrote nothing, the independent path stands in, and says so
+    # primary: the DD routine; where it wrote nothing, the independent path stands in, and says so
     use_routine = np.isfinite(li3_routine) and np.isfinite(bn_routine)
     return {
         "base_status": "valid",

@@ -1,6 +1,11 @@
-# How a VEST EFIT fit terminates today (#171)
+# How a VEST EFIT fit terminates today
 
-Issue #171 asks for VEST's EFIT solver configuration to be characterized and
+Study record: #171 (characterize and explicitly define VEST's EFIT solver
+configuration). This README is a cumulative study record: its sections are in
+the order the studies were run, each section's counts are as measured at the
+time, and later sections say where a fix changed an earlier denominator.
+
+The goal is for VEST's EFIT solver configuration to be characterized and
 then stated explicitly instead of inherited. This directory is the
 characterization half. It changes nothing: it runs the routine configuration
 over each reference shot's full constraint window at the routine cadence and
@@ -76,15 +81,15 @@ The two conclusions that shape what should be scanned next:
 `ERROR = 1e-5`. The Grad-Shafranov error at exit is 0.008 to 0.3, three to
 four orders above it, and the loop leaves on the chi-square criterion after
 eleven iterations on all three shots. `ERRMIN` and `SAICON` — the two settings that decide this
-— were not written at all until #171's configuration work, so EFIT's own
+— were not written at all until the configuration work this study belongs to, so EFIT's own
 defaults of 1e-2 and 80 have been in force throughout. That is the mechanism,
 and it is now settable.
 
 **Termination is not the only thing failing.** Only 7 of 22, 5 of 21 and 19 of
 34 plasma slices produce an equilibrium at all; the rest end in the boundary
 finder or collapse to a null solution, neither of which a termination setting
-can fix. Those belong to initialization (#196) and to the
-computational domain (#459), and separating them from the termination
+can fix. Those belong to initialization (ICINIT temporal continuation,
+Open: #196) and to the computational domain (Open: #459), and separating them from the termination
 question is a precondition for scanning either. A scan that varied `ERRMIN`
 across slices that never produced an equilibrium would measure nothing.
 
@@ -112,7 +117,7 @@ termination setting can move that.
 The proposed envelope is derived from the machine, never fitted to a
 discharge — the same rule the Green-table work had to keep.
 `vest_acceptance_envelope` takes the limiter outline from the canonical static
-ODS (R 0.104–0.760 m at the time; 0.105–0.761 m since #965, Z ±1.185 m) and the grid, and sets `aminor_max` to half
+ODS (R 0.104–0.760 m at the time; 0.105–0.761 m since the inboard limiter face was moved off an EFIT grid column, Z ±1.185 m) and the grid, and sets `aminor_max` to half
 the limiter's radial extent, `aminor_min` to five grid cells (below which a
 boundary is not resolved), and the centre and centroid bounds to the limiter
 inset by `aminor_min`. It rejects none of the 38 reconstructions. The physics
@@ -121,7 +126,7 @@ are left exactly as they were: what those should be is a separate argument,
 and moving them alongside the geometry would confound the two.
 
 `write_mhdin` emits an `&incheck` block when an envelope is passed. Until
-#649 that was only ever exercised by a study: `regenerate_legacy_table.py`
+the virial-gate decision below, that was only ever exercised by a study: `regenerate_legacy_table.py`
 passed no envelope, so a generated table carried no `&incheck` at all, and the
 bundled table carried a hand-preserved legacy block with the bounds above. The
 generator now derives and passes it, and the bundled table carries the result,
@@ -151,7 +156,9 @@ failure **#21 fires on every slice that produces an equilibrium** — 7 of 7,
 | failures #5, #7, #8 | 21, 9, 11 slices | **none** |
 | failure #21 | every slice | every slice |
 
-### Measured again, with the virial gate ignored (issue #649)
+### Measured again, with the virial gate ignored
+
+Decision record: #649.
 
 The virial consistency checks are ill-conditioned at VEST's aspect ratio and
 cannot decide the question they are asked, so they no longer gate acceptance.
@@ -168,7 +175,7 @@ Rerunning with that policy and nothing else changed:
 Per shot: 4 of 7 on 39915, 2 of 5 on 41524, 12 of 19 on 41672. **These are the
 first accepted VEST reconstructions in this line of work.**
 
-## What the termination settings are worth (issue #171)
+## What the termination settings are worth
 
 Six of the parameters that decide when a VEST fit stops were EFIT's own
 defaults that VAFT never wrote. `termination_scan.py` sweeps the five that
@@ -192,7 +199,7 @@ for no acceptance at all, which measures the writer's own note that it moves a
 fit "from under a minute to about three"; `NXITER = 3` loses eight equilibria
 and drives thirty-nine slices into the iteration cap for 6.9x the runtime
 (seventeen, read correctly: 22 of the 39 stopped silently on EFIT's own
-criterion; see the #1038 section below).
+criterion; see the Picard-trajectory section below).
 
 `RELAX` was refined over 0.4 to 0.95 before being ruled out. It changes the
 iteration count monotonically -- 21.8 at 0.4 down to 10.2 at 0.95, which is
@@ -201,7 +208,7 @@ what dividing `errorm` should do -- and the entire acceptance difference is
 0.9 and 0.95. A non-monotonic one-slice difference is a threshold wobble, not
 an effect.
 
-So the answer #171 asked for is that the inherited defaults are already the
+So the answer to the characterization question is that the inherited defaults are already the
 right ones. That is now a measured claim rather than an unexamined
 inheritance, which was the point.
 
@@ -227,8 +234,10 @@ one slice reaching the cap. **The solver is converging, not being truncated** --
 it reaches the best fit it can and that best is above 80.
 
 Lowering chi-square therefore means changing what produces the residual: which
-constraint families carry independent information (#663), how much freedom the
-profile model has (#579), and the pressure deficit (#386). Raising `SAICON`
+constraint families carry independent information
+(`workflow/efit_constraint_information/`), how much freedom the profile model
+has (`workflow/efit_profile_models/`), and the pressure deficit (Open: #386,
+the packaged 39915 pressure profile sits ~90x below force balance). Raising `SAICON`
 above 80 was deliberately not scanned: it would reduce `#1` by definition
 without changing a single reconstruction, and whether 80 is the right bar for
 VEST is a physics argument rather than something a termination scan can settle.
@@ -240,10 +249,12 @@ side. The thirty-two rejected slices are on disk with their chi-square and
 their global quantities, so whether 80 is the right bar can be asked of the
 data that already exists.
 
-### Re-baselined with the envelope actually shipped (issue #852)
+### Re-baselined with the envelope actually shipped
+
+Record: #852.
 
 The three tables above were measured by a harness deriving its own envelope.
-Once the bundled table carried it (#849), the baseline was re-run unchanged.
+Once the bundled table carried it, the baseline was re-run unchanged.
 Two things had moved, and only one of them is the envelope:
 
 | shot | window [s] | plasma | a-files | **accepted** | iterations (med) | chi2 (med) | GS error (med) |
@@ -255,8 +266,8 @@ Two things had moved, and only one of them is the envelope:
 
 Against the 31 a-files and 18 accepted recorded above: **the yield itself
 doubled**, and that is not the envelope's doing. The seed moved inboard to
-0.32 m (#660), the vacuum cut rose to 15 kA (#708) and the coilset became
-twenty-six groups on a regenerated table (#708, #719) in between. The envelope
+0.32 m, the vacuum cut rose to 15 kA and the coilset became twenty-six groups
+on a regenerated table in between. The envelope
 decides acceptance; those three decide how many slices produce an equilibrium
 at all, and a reader comparing the two tables should not attribute the change
 to one cause.
@@ -281,8 +292,8 @@ well-posed fit-quality threshold rejects 13 of 31" — which is precisely what
 the termination scan is for, and it is now a meaningful scan.
 
 **What this does not say.** An accepted slice is not a correct one. Poloidal
-beta is still about 0.007 across all of them, and #386's pressure deficit is
-untouched by any of this. Acceptance now means "converged, with a geometry the
+beta is still about 0.007 across all of them, and the pressure deficit (Open:
+#386) is untouched by any of this. Acceptance now means "converged, with a geometry the
 machine can contain and a chi-square under threshold", which is what EFIT's
 criteria were always meant to mean, and no more.
 
@@ -298,23 +309,24 @@ delbp = |(sbpp - betap)/sbpp|                     ! rejected when >= delbp_diff 
 ```
 
 Across the 31 equilibria it runs 0.43 to 4.27, median **0.85** — eleven times
-its tolerance. That is not a tolerance that needs adjusting. It is issue #386:
+its tolerance. That is not a tolerance that needs adjusting. It is the
+pressure deficit (Open: #386):
 the reconstruction's beta_p is about 0.007 while the virial estimate from the
 measured diamagnetic flux is of order one, because under `legacy_weight` the
 diamagnetic constraint is emitted weightless and the fit never constrains
 pressure.
 
-This is the pressure deficit #386 records, and it is real. But `delbp` cannot
+This is the pressure deficit, and it is real. But `delbp` cannot
 measure it: `sbpp` is a difference of two terms near 0.8 leaving 0.01 to 0.2,
 negative on three slices, with a median cancellation of twelvefold; and the
 second branch divides by `alpha - 1`, which VEST measures at 0.22 to 0.51 and
-falling. Issue #649 records the analysis and the decision: at VEST's aspect
+falling. The decision (record: #649): at VEST's aspect
 ratio these two checks do not gate acceptance. The quantities are still
 computed and written to the a-file, so nothing is lost to anyone who wants
 them — only the automatic rejection stops.
 
-**#386 therefore no longer blocks acceptance**, though it remains an open
-defect and every accepted slice still carries essentially no pressure.
+**The pressure deficit therefore no longer blocks acceptance**, though it
+remains an open defect and every accepted slice still carries essentially no pressure.
 
 ## What the termination settings can and cannot do
 
@@ -340,7 +352,7 @@ Two consequences for any scan:
 1. **Termination scan** — now well posed. One criterion rejects the remaining
    13 slices, chi-square above `SAICON`, and the settings that bear on it are
    exactly the ones this issue names.
-2. **#386 in parallel** — the pressure deficit no longer blocks acceptance but
+2. **The pressure deficit in parallel** (Open: #386) — it no longer blocks acceptance but
    is still a defect: every accepted slice carries a poloidal beta of about
    0.007 against a virial estimate of order one.
 3. **Termination scan, in detail** — `ERRMIN` first, since it is the only active gate,
@@ -348,15 +360,19 @@ Two consequences for any scan:
    and `RELAX`. Keep `MXITER × NXITER` below 500: EFIT indexes its
    per-iteration diagnostic arrays by the cumulative counter against a
    compiled-in bound of 515 with no runtime clamp.
-3. **Then #196**, holding the pinned configuration fixed, on the slices this
+3. **Then ICINIT temporal continuation** (Open: #196), holding the pinned
+   configuration fixed, on the slices this
    baseline shows failing in initialization.
-4. **Then #468, #459 and #579**, each with the other two fixed.
+4. **Then cadence and averaging window (Open: #468), domain and grid (Open:
+   #459) and the profile model (Open: #579)**, each with the other two fixed.
 
-## The first-slice seed and the convergence basin (#588)
+## The first-slice seed and the convergence basin
+
+Study record: #588.
 
 `seed_basin.py` varies the seed and nothing else — no `ICINIT`, no termination
-setting — because #588 requires that seed geometry, temporal continuation and
-stopping criteria stay separable or nothing can be attributed. Three
+setting — because seed geometry, temporal continuation and stopping criteria
+must stay separable or nothing can be attributed. Three
 discharges, the routine seed as row one, one axis at a time.
 
 ### The seed could not be varied independently, and that is the first finding
@@ -366,7 +382,7 @@ discharges, the routine seed as row one, one axis at a time.
 `RCENTR`, which sets `BTOR = (B_t R)_measured / RCENTR`. A radial sweep
 therefore moved the seed, the normalisation and the vacuum toroidal field
 together. `ellipse_rzero` now drives `RELIP` alone, and setting it to `None`
-restores the old coupling, so the pre-#588 k-file is still reproducible
+restores the old coupling, so the k-file from before this split is still reproducible
 byte-for-byte. The results below are from the corrected sweep; the first one
 was discarded.
 
@@ -408,7 +424,8 @@ position 0 or 1 from the end, adjacent to where the fit starts working:
 The seed can move the boundary between the failing and working phases by a
 slice or two. It cannot touch the block. Across a threefold range in minor
 radius, a factor of two in elongation, ±10 cm radially and ±5 cm vertically,
-86 % of the collapse block is untouched. **That population belongs to #459**,
+86 % of the collapse block is untouched. **That population belongs to the
+computational domain and grid** (next section),
 with the 17 `findax` losses, not to initialization.
 
 ### Refining the region, and the new default
@@ -453,17 +470,20 @@ own hard-coded `RELIP = 0.4` into the ODS `code.parameters` tree, beside
 configuration — which is why the sweep varied anything at all — but nothing
 said so, so that is pinned too.
 
-### What this leaves for #196
+### What this leaves for temporal continuation
 
-Temporal continuation still has a case — a warm start might carry a converged
+Temporal continuation (ICINIT; Open: #196) still has a case — a warm start might carry a converged
 solution into the block from the working side, which is a different mechanism
-from re-seeding. But #588's premise, that the first slice must be seeded into
+from re-seeding. But this study's premise, that the first slice must be seeded into
 a good basin before continuation can help, is now answered: the basin is
 narrow and off-centre, and a better seed is available and justified.
 
-## The computational domain and the grid (#459)
+## The computational domain and the grid
 
-`domain_grid.py` runs #459's 2×2 over the three reference discharges: the
+Study record: #459 (the EFIT part of an open domain/grid umbrella that also
+covers CHEASE and TES).
+
+`domain_grid.py` runs a 2×2 over the three reference discharges: the
 routine box against a reduced one, at 129×129 against 129×257.
 
 ### What EFIT's grid contract actually is
@@ -493,8 +513,8 @@ in the documentation.
   arrays, is chosen from `nw` alone (`efit.F90:114-120`), so it does not grow
   with `nh`.
 
-`rleft` is 0.05 m in every case. #459's text quotes the current box as
-starting at R = 0; it never has, because the Green functions are singular on
+`rleft` is 0.05 m in every case. The box has never started at R = 0 (as the
+study's issue text assumed), because the Green functions are singular on
 the machine axis.
 
 ### The 2×2, over 82 plasma slices
@@ -513,18 +533,18 @@ shot, so once the box is reduced the grid changes nothing at all.
 **The reduced domain fails in the way the box predicts.** `findax` rejects a
 separatrix point that lands within two cells of the grid edge
 (`find_axis.F90:308-311`); bringing the edge in from |Z| = 1.5 m to 1.35 m
-takes those failures from 2 to 13. The proposal in #459 was to trim unused
+takes those failures from 2 to 13. The proposal under test was to trim unused
 vacuum volume, and on this evidence the volume is not unused.
 
 **The collapse block is untouched.** 29 slices collapse in every one of the
-four cases — the same 29 that #588 showed no seed can rescue. Initialization,
+four cases — the same 29 that the seed study above showed no seed can rescue. Initialization,
 the domain and the grid have now each been ruled out. That block is not a
 spatial-discretisation problem.
 
 The shots do not agree in detail: 41672 gains two accepted slices from the
 reduced domain while 39915 and 41524 lose five and four. A recommendation from
-three discharges would be premature, and #459 asks for full-discharge evidence
-across more of them before a default moves.
+three discharges would be premature: a default should not move without
+full-discharge evidence across more of them (Open: #459).
 
 ### How much the reconstruction itself moves
 
@@ -560,7 +580,7 @@ denominator was 22 where EFIT had processed 24.
 The parser now opens a slice when a solver error names a time the current
 slice does not have. **This changes the denominators of the earlier
 studies**: the reference set has 82 plasma slices, not 77, and case A here
-produces 46 equilibria where the merged #171 baseline reported 31. Both
+produces 46 equilibria where the termination baseline above reported 31. Both
 studies' *relative* comparisons stand, because every row was read by the same
 parser; the absolute counts in the baseline and seed reports predate the fix.
 
@@ -570,17 +590,21 @@ Case A is the routine box and the routine grid, and it still produces 46
 equilibria against the merged baseline's 31. The two runs differ in two things
 at once — a freshly generated Green table instead of the packaged one, and a
 freshly generated `mhdin.dat` geometry instead of the packaged one — so which
-is responsible is not established here. #194's A/B compared the tables alone
+is responsible is not established here. The Green-table A/B
+(`workflow/efit_tables/`) compared the tables alone
 on four slices and found no difference; this is the first evidence that
 something in that pair matters on the marginal slices, and it matters more
-than either lever #459 set out to test. It needs its own controlled A/B.
+than either lever tested here. It needs its own controlled A/B.
 
-## When has a fit stopped changing? NXITER × ERRMIN (#924)
+## When has a fit stopped changing? NXITER × ERRMIN
+
+Study record: #924.
 
 VEST stops on `ERRMIN = 1e-2`, and neither number EFIT reports can say whether
 that point is converged: the chi-square is the prescribed vessel current on
-stock EFIT (#918) and carries no magnetic information under legacy sigma
-(#891), and `terror`/`cerror` — stored as
+stock EFIT (Open: #918, the reported Ip chi-square adds the prescribed vessel
+current) and carries no magnetic information under legacy sigma, which
+weights the magnetic channels out, and `terror`/`cerror` — stored as
 `convergence.grad_shafranov_deviation_value` — is the last Picard step's flux
 increment, not a residual of the equation. `convergence_study.py` measures
 convergence directly: how far each equilibrium sits from the tightest
@@ -597,12 +621,13 @@ python workflow/efit_numerics/convergence_study.py --output /scratch/conv \
   routine; `MXITER = 514 // NXITER`, the largest cap whose cumulative counter
   cannot overrun EFIT's compiled per-iteration arrays (515).
 - Nine slices, ramp-up / peak / ramp-down on 39915, 41524 and 41672 (41672 @
-  331 ms is #664's reference). One EFIT call per slice, so no slice starts from
+  331 ms is the identifiability study's reference slice). One EFIT call per slice, so no slice starts from
   what a failed predecessor left.
 - The same cross on a 129 and a 257 table generated together, for the grid;
   the packaged 129 table against the generated one, as a control.
-- EFIT 3b5dae5 with the #918 research change, executable sha256 `4a4e645e…`.
-  On stock EFIT every `NXITER > 1` row measures #918 instead.
+- EFIT 3b5dae5 with the research change that stops the reported Ip chi-square
+  adding the prescribed vessel current (Open: #918), executable sha256
+  `4a4e645e…`. On stock EFIT every `NXITER > 1` row measures that defect instead.
 
 The recorded run is `test/data/efit_convergence_study.json` (2026-09-18,
 324 runs: 9 slices × 36 cases, 25 minutes serial). Distances below are to the per-slice reference.
@@ -629,8 +654,8 @@ Routine table, 129 grid; median / max over the slices that converged.
   but loses 39915 @ 327 to `bound`.
 - **NXITER > 1 buys nothing and loses slices.** It reaches the same fixed
   point, but fails in `bound` ("Number of contour points greater than max
-  allowed") on 3 to 7 of the 9 slices; `NXITER = 1` loses at most one. #171's
-  "NXITER 1 → 3 moves the boundary 2.8 mm" was two stopping points on the same
+  allowed") on 3 to 7 of the 9 slices; `NXITER = 1` loses at most one. The
+  termination study's "NXITER 1 → 3 moves the boundary 2.8 mm" was two stopping points on the same
   path, not two answers.
 
 ### Iteration error against grid error in the Grad–Shafranov residual
@@ -662,7 +687,7 @@ Edge residual (ψN ≥ 0.8), per slice, %:
 
 ### Why this does not end in a recommended stopping setting
 
-`recommend()` finds no setting within #924's initial tolerances (LCFS < 1 mm,
+`recommend()` finds no setting within the study's initial tolerances (LCFS < 1 mm,
 βp and li < 0.5 %, edge GS within 10 % of the floor) on every slice. The
 nearest is `NXITER = 1, ERRMIN = 1e-4`, excluded only because it loses
 39915 @ 327. But that is not the finding that matters. **Converging further
@@ -681,19 +706,19 @@ Most of the distance between the routine stop and the fixed point is a
 vertical drift of the whole plasma, always upward, and the magnetics neither
 resist it nor reward it: on 41672 @ 321 the fixed point sits 16 cm higher and
 fits the probes *worse*. Under legacy sigma the magnetic channels are
-weighted out (#891), so the fixed point is whatever Ip and the PF currents
+weighted out, so the fixed point is whatever Ip and the PF currents
 alone permit, and vertical position is nearly free. `ERRMIN` then decides how
 far the fit drifts before it stops. **A stopping criterion cannot be chosen
 until the objective constrains the direction the iteration moves in** — which
-makes this a question for the sigma contract (#891, #921), not for the
-numerics.
+makes this a question for the sigma contract (constraint uncertainty as the
+fit scale), not for the numerics.
 
 What does stand:
 
 - `NXITER > 1` should not be adopted for VEST; it only loses slices.
 - `ERRMIN` is the single lever, and its effect is large: at the routine
   `1e-2`, configuration-to-configuration differences below ~10 mm in LCFS or
-  ~2 % in βp (for example between profile models, #579, or weightings, #663)
+  ~2 % in βp (for example between profile models or weightings)
   are within iteration error and cannot be attributed.
 - The 129 grid is not the limiting error: its effect on the converged
   equilibrium is ~1 mm.
@@ -701,7 +726,7 @@ What does stand:
 ### Under `standard_deviation`, nothing converges
 
 The same `NXITER = 1` column was then rerun with `--uncertainty-mode
-standard_deviation`, i.e. with the σ #921 makes EFIT fit against:
+standard_deviation`, i.e. with the σ EFIT fits against in that mode:
 `ConstraintErrors` relative errors (probes 1 %, 10 %, 1 % by family, flux
 loops 10 % / 1 %, Ip 5 %, PF 1e-4). The legacy column was rerun beside it with
 the same commit and reproduced the recorded table exactly (81 of 81 runs).
@@ -727,10 +752,11 @@ slice whose last iterate can be read:
   slice and 130–270 % on every 41524 and 41672 slice under legacy weighting
   too, where it had no weight to hide behind; on 41524 and 41672 its sign is
   opposite to its neighbour C4-03. Whether that is calibration, sign or
-  position is for the wiring history (#956) to settle.
+  position is for VEST's magnetics wiring history (record: #956) to settle.
 
 So the order is: screen or repair C4-04, calibrate σ against the residuals the
-fit actually reaches (#891's calibration step, including absolute floors for
+fit actually reaches (the σ calibration step in
+`workflow/efit_uncertainty_calibration/`, including absolute floors for
 near-zero channels), and only then repeat this column. Until a statistical σ
 converges, the stopping criterion stays where it is and the legacy findings
 above are what can be used.
@@ -775,10 +801,11 @@ The runs are `NXITER = 1`, `ERRMIN` 1e-2 → 1e-4, on the packaged 129 table;
 The drift is not something a numerical switch can suppress. It is the vertical
 direction being unconstrained by an objective that either ignores the
 magnetics (legacy) or weights them against a σ the model cannot reach
-(statistical). The next step is the σ calibration (#891), with C4-04 out; the
+(statistical). The next step is the σ calibration
+(`workflow/efit_uncertainty_calibration/`), with C4-04 out; the
 drift and `FITDELZ` are then worth repeating on top of it.
 
-## The Picard trajectory as an object (#1038)
+## The Picard trajectory as an object
 
 The studies above each read EFIT's log for their own purpose. The per-step
 trajectory is now a library object: `EFITConfig(iteration_history="summary")`
@@ -806,13 +833,13 @@ What does decide it is EFIT's own line, `not converged, reached max
 iterations`. The log parser used to call every slice without an `iconvr=2`
 line `iterations_exhausted`. But `fit.F90` has one silent exit: an inner
 loop's first step drops the increment below `ERROR` with the chi-square at or
-below `SAIMIN` (`go to 2020`). In the #171 scan that is 22 of the 39
+below `SAIMIN` (`go to 2020`). In the termination scan above that is 22 of the 39
 "exhausted" `NXITER=3` slices (39915 @ 317 ms: 145 steps, increment 9.6e-6;
 one took it on the very last pass, at 301 steps).
 Those are now `no_exit_message`, and `convergence_study.converged()` counts
 them as stops on EFIT's criterion. So the `NXITER = 3` line of the settings
 table above ("drives thirty-nine slices into the iteration cap") was read
-through the old label: 17 of them ran out, 22 stopped. #924's finding that
+through the old label: 17 of them ran out, 22 stopped. The convergence study's finding that
 `NXITER>1` loses slices is unaffected -- those losses are `bound` errors.
 
 The two histories the notebook reads are regenerated by

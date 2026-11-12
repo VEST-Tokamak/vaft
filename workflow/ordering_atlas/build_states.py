@@ -1,4 +1,7 @@
-"""Assemble the VEST ordering-atlas tables for #1629 from the #1331 Tier A campaign.
+"""Assemble the VEST ordering-atlas tables from the Tier A EFIT campaign.
+
+The tables feed the ordering and model-applicability reference notebook: which
+asymptotic orderings and approximations hold across representative VEST states.
 
 Reads, never writes, the Tier A atlas (``state.csv``, ``core_profiles/``,
 ``ti_inferred.csv``), the confinement table and the campaign FileDB; writes
@@ -10,7 +13,7 @@ Every ordering quantity is computed by :mod:`vaft.process.ordering_state`.
 This script only *assembles inputs*, and every assembly choice it makes is a
 column or a manifest entry, never silent:
 
-* states are the atlas ``magnetics`` rows (criteria v2, #1521); geometry,
+* states are the atlas ``magnetics`` rows (criteria v2); geometry,
   field and current history come from the confinement table, joined on shot
   and EFIT time;
 * ``T_e``/``n_e`` are the atlas core-profile fits at the Thomson time nearest
@@ -22,7 +25,7 @@ column or a manifest entry, never silent:
   midplane);
 * ``T_i`` is the pressure-partition-inferred value of ``ti_inferred.csv``
   (its ``grid`` rows) **only on states whose Thomson verdict is consistent**
-  under criteria v2 (#1521, ``1 <= p/p_e <= 2``). Elsewhere the partition
+  under criteria v2 (``1 <= p/p_e <= 2``). Elsewhere the partition
   attributes ``p - p_e`` to the ions and gives ``T_i/T_e`` of 6 on average and
   up to ~200, which no ohmic VEST plasma carries; those states get
   ``t_i_source = inferred_inconsistent`` and no ion quantities. ``T_i`` is
@@ -41,8 +44,8 @@ column or a manifest entry, never silent:
 
 Why not ``vaft.database.summary()``: its presets carry neither the Thomson
 profile fits nor the EFIT ``q`` profile per slice, and its EFIT is the
-production product rather than the #1331 campaign's graded reconstructions;
-the campaign atlas is the population #1629 asks for, so it is assembled here
+production product rather than the campaign's graded reconstructions;
+the campaign atlas is the population the ordering notebook needs, so it is assembled here
 and the choice is recorded in the manifest.
 
 Usage (vestserver, a worktree on PYTHONPATH, never the production checkout)::
@@ -174,7 +177,7 @@ def _onset(filedb: Path, shot: int):
 
         from omas import load_omas_json
 
-        # the documented loader, never an ODS assignment (#118: assignment vivifies paths)
+        # the documented loader, never an ODS assignment (assignment vivifies missing paths)
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
             json.dump(_load_json(candidates[0]), handle)
         try:

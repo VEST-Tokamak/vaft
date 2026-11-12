@@ -1,7 +1,8 @@
 """The reference set the EFIT-quality studies run on, and the evidence for it.
 
-Issue #171 asks for a curated reference shot set, and #196, #468, #459 and
-#579 all inherit it. A set is only useful if each shot is there for a stated
+The EFIT solver-configuration study needs a curated reference shot set, and
+the temporal-continuation, cadence, domain/grid and profile-model studies all
+inherit it. A set is only useful if each shot is there for a stated
 reason and the reason is checked rather than remembered, so this script
 declares the set and then verifies every claim made about each shot against
 the files:

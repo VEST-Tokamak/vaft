@@ -1,4 +1,7 @@
-"""Full-discharge EFIT profile-model uncertainty study (issue #579).
+"""Full-discharge EFIT profile-model uncertainty study.
+
+It qualifies how much of a magnetics-only VEST reconstruction depends on the
+assumed P' and FF' profile model, over whole discharges.
 
 The first pass is deliberately a profile-model experiment, not a numerical
 tuning experiment.  It pins the qualified seed at ``RELIP=0.32 m``, writes
@@ -131,7 +134,8 @@ def prepare_vest_tables(source: Path, destination: Path) -> tuple[Path, dict[str
 
     The response tables are copied byte-for-byte.  Only ``mhdin.dat`` is
     regenerated from canonical geometry with the machine-derived geometric
-    bounds and the ill-conditioned virial gates disabled (#646/#649).
+    bounds (VEST's own envelope, not DIII-D's) and the virial gates, which are
+    ill-conditioned at VEST's aspect ratio, disabled.
     """
     from vaft.code.efit.efund import EFUNDConfig, write_mhdin
     from vaft.machine_mapping.efund_geometry import (
@@ -169,7 +173,7 @@ def prepare_vest_tables(source: Path, destination: Path) -> tuple[Path, dict[str
 
 
 def fixed_scientific_config():
-    """The frozen non-profile baseline for #579.
+    """The frozen non-profile baseline of the profile-model study.
 
     Optional termination values are stated even when they equal the executable
     defaults.  This makes the study reproducible against a future EFIT build.
@@ -183,7 +187,7 @@ def fixed_scientific_config():
     from vaft.code.efit.config import routine_constraint_config, routine_profile_config
 
     # The legacy routine profile and constraints the study was recorded with
-    # (#891 made the statistical setting the default on 2026-10-01).
+    # (the statistical uncertainty setting became the default on 2026-10-01).
     return EFITScientificConfig(
         profile=routine_profile_config(),
         initialization=EFITInitializationConfig(ellipse_rzero=0.32, icinit=2),
@@ -227,11 +231,11 @@ def _output_time_ms(path: Path) -> float | None:
 def _phase_map(constraints: Any, times: np.ndarray, current_cut: float) -> tuple[dict[int, dict[str, Any]], float]:
     """Per-slice phase, keyed by integer millisecond, with its inputs kept.
 
-    The rule moved to `vaft.validation.classify_equilibrium_regimes` (#76).
-    It used to be a slope test local to this study -- flat where
-    |dIp/dt| <= 0.15 * max|dIp/dt| -- and the study in
-    `workflow/efit_numerics/` used a level test instead, so the same slice
-    could land in different cohorts depending on which study asked.
+    The rule is the library's `vaft.validation.classify_equilibrium_regimes`.
+    A slope test local to this study -- flat where
+    |dIp/dt| <= 0.15 * max|dIp/dt| -- would disagree with the level test the
+    study in `workflow/efit_numerics/` uses, so the same slice could land in
+    different cohorts depending on which study asked.
 
     The library rule is the level one. Measured over the three reference
     discharges the two agree on 295 of 300 slices, and the level rule's
@@ -371,7 +375,7 @@ def _mfile_record(path: Path) -> dict[str, Any]:
     """Keep EFIT's diagnostic-resolved fit measures from the NetCDF m-file.
 
     The a-file total is dominated by VEST's plasma-current term and can print
-    identically for visibly different magnetic fits. Issue #579 therefore
+    identically for visibly different magnetic fits. The study therefore
     compares EFIT's own flux-loop and magnetic-probe contributions directly.
     """
     from vaft.data import read_meqdsk
@@ -696,7 +700,8 @@ def signed_change(
     `spread(..., absolute=True)` says how far a model moved something and
     never which way, so it cannot answer "does raising the order *lower*
     chi-square".  This is the same summary with the sign kept, plus the
-    counts the termination scan reported for exactly this reason (#171):
+    counts the termination scan (`workflow/efit_numerics/termination_scan.py`)
+    reported for exactly this reason:
     on the slices both configurations produced, how many went down, how many
     went up, and how many did not move.
 
@@ -708,7 +713,8 @@ def signed_change(
     `identical` counts exact equality and is a subset of `unchanged`.  It is
     kept separate because "the two configurations produced the same number on
     every slice" is a stronger and more useful statement than "they agreed to
-    within the file's precision", and #171 found configurations that did.
+    within the file's precision", and the termination scan found configurations
+    that did.
     """
     array = _numbers(values)
     record: dict[str, Any] = dict(spread(array))
@@ -847,7 +853,7 @@ def compare_runs(candidate: Mapping[str, Any], baseline: Mapping[str, Any]) -> d
             name: _relative_rms(
                 item["gfile"]["profiles"][name],
                 reference["gfile"]["profiles"][name],
-                start=(7 if name == "q" else 0),  # exclude psi_N <~ 0.05 (#317)
+                start=(7 if name == "q" else 0),  # psi_N <~ 0.05: EFIT q near the axis is outlier-prone
             )
             for name in ("pressure", "pprime", "ffprime", "f", "q", "jphi_reference_r")
         }
@@ -1071,7 +1077,8 @@ def summarize_ensemble(models: Mapping[str, Mapping[str, Any]]) -> dict[str, Any
     reconstruct at all, so a sigma taken over "whatever produced an
     equilibrium here" is a sigma over a different ensemble at every slice --
     the same selection effect that made `NXITER = 3` look like an improvement
-    in #171 when it had simply failed on the badly-fitted slices.
+    in the termination scan when it had simply failed on the badly-fitted
+    slices.
 
     Both populations are therefore reported and named.  `complete` is the
     headline: the times where every model in the roster produced an
@@ -1244,7 +1251,7 @@ def summarize_ensemble(models: Mapping[str, Mapping[str, Any]]) -> dict[str, Any
 
 
 def _ensemble_section(lines: list[str], payload: Mapping[str, Any], cell) -> None:
-    """The model-induced uncertainty #579 asks for, over a population it names."""
+    """The model-induced uncertainty the study asks for, over a population it names."""
     blocks = {
         shot: block["ensemble"]
         for shot, block in payload["shots"].items()
@@ -1666,8 +1673,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "fixed_scientific": base.to_dict(),
         "fixed_scientific_sha256": base.sha256,
         "models": [model.__dict__ for model in models],
-        # What actually labelled the slices, which is the library's level rule
-        # since #76 -- not the slope rule this study used to carry locally.
+        # What actually labelled the slices: the library's level rule, not a
+        # slope rule local to this study.
         "phase_rule": (
             "vaft.validation.classify_equilibrium_regimes under "
             "vest.yaml equilibrium_regime: vacuum below the policy current cut; "

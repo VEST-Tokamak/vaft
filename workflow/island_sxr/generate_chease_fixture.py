@@ -1,4 +1,4 @@
-"""Regenerate the CHEASE-refined Solov'ev equilibrium the #886 island notebook compares.
+"""Regenerate the CHEASE-refined Solov'ev equilibrium the island notebook compares.
 
     PYTHONPATH=$PWD CHEASE=/path/to/chease python workflow/island_sxr/generate_chease_fixture.py
 

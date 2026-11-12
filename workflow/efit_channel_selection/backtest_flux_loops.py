@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Back-test the routine EFIT flux-loop ``broken`` list against automatic evidence (issue #295, step 1).
+"""Back-test the retired routine EFIT flux-loop ``broken`` list against automatic evidence.
 
-The routine configuration zero-weights six flux loops on every shot through a
-hand-maintained combined-index list.  This lays the automatic evidence --
-intrinsic signal quality (#189) and plasma-free agreement with the passive-wall
-model (#190) -- beside that list, loop by loop and shot by shot, and records
+The routine configuration used to zero-weight six flux loops on every shot
+through a hand-maintained combined-index list; it now carries none, and
+channel decisions come from the diagnostics-stage assessment alone.  This lays the automatic evidence --
+intrinsic signal quality (the magnetics signal-quality layer) and plasma-free
+agreement with the passive-wall model (the vacuum benchmark) -- beside that list, loop by loop and shot by shot, and records
 where the two agree, where the automatic policy would reject a loop the list
 keeps, and where a historical exclusion is not reproduced.
 
@@ -22,9 +23,9 @@ Usage::
         --case 41524=/path/to/41524/diagnostics/omas.json.gz
 
 The list under test defaults to the one the routine ``config.yaml`` carried
-until issue #295 retired it (``HISTORICAL_MANUAL_LIST``); pass
+before it was retired (``HISTORICAL_MANUAL_LIST``); pass
 ``--manual-broken`` to test another.  As with the
-vacuum benchmark, the #190 population lives in the VEST database, so the case
+vacuum benchmark, the benchmark's shot population lives in the VEST database, so the case
 list is an argument and the invocation should be recorded with the output.
 """
 
@@ -57,8 +58,8 @@ UNREPRODUCED_EXCLUSION = "unreproduced_exclusion"
 AGREEMENTS = (AGREE_REJECT, AGREE_KEEP, FALSE_REJECTION, UNREPRODUCED_EXCLUSION, NOT_AVAILABLE)
 
 
-#: The list the routine configuration carried as ``constraints.broken`` until
-#: issue #295 retired it: combined one-based indexes after EFIT's 64 probes,
+#: The list the routine configuration carried as ``constraints.broken`` before
+#: it was retired: combined one-based indexes after EFIT's 64 probes,
 #: i.e. flux loops #3, #4, #5, #6, #12 and #14.  Kept here, and only here,
 #: as the record of what the evidence table was measured against.
 HISTORICAL_MANUAL_LIST = (65, 66, 67, 68, 72, 74)
@@ -67,7 +68,7 @@ HISTORICAL_MANUAL_LIST = (65, 66, 67, 68, 72, 74)
 def routine_manual_broken(config: Path = ROUTINE_CONFIG) -> list[int]:
     """The combined one-based indexes the routine pipeline hands to EFIT as broken.
 
-    Empty since #295: the configuration carries no list.  A value here would
+    Empty: the configuration carries no list.  A value here would
     mean the pipeline had grown a manual list again.
     """
     import yaml
