@@ -59,7 +59,7 @@ effective config → B3 slices → C1..C5 → D → E.
   that passes `info_file`; tests may.
 - **Acceptance:**
   - static and diagnostics ODS for 39915/41524/41672/42962 are array-identical (`equivalent`);
-  - `test_vest_yaml_boundaries.py` is green (it is non-core, so run it explicitly).
+  - `test_vest_yaml_boundaries.py` is green (core since #2196; it was non-core when this plan was written).
 
 ### B1 — canonical magnetics registry (#2158)
 

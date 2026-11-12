@@ -34,6 +34,7 @@ from vaft.validation.impa import (
 from .magnetics import PROBE_LENGTH, vfit_plasma_current
 from .registry import port_phi
 from .tf import vfit_tf_current
+from .effective_config import impa_shot_era
 from .utils import _deep_merge, _shot_block, _resolve_info_file_path, load_yaml, path_exists, set_path
 
 __all__ = [
@@ -166,24 +167,19 @@ def _channel_specs(config: Mapping[str, Any], shot: int) -> list[dict[str, Any]]
     if not specs:
         raise ValueError("The IMPA configuration defines no channels")
 
-    for era in (config.get("calibration") or {}).get("shot_era_overrides") or ():
-        if not int(era.get("min_shot", 0)) <= int(shot) <= int(era.get("max_shot", 0)):
-            continue
-        wired = era.get("channels")
-        if wired:
-            allowed = {int(field) for field in wired}
-            specs = [spec for spec in specs if int(spec["field"]) in allowed]
-        break
+    era, _ = impa_shot_era(config.get("calibration") or {}, int(shot))
+    wired = (era or {}).get("channels")
+    if wired:
+        allowed = {int(field) for field in wired}
+        specs = [spec for spec in specs if int(spec["field"]) in allowed]
     return specs
 
 
 def _resolve_gain(calibration: Mapping[str, Any], shot: int) -> float:
     """Return the Hall gain for ``shot``, honouring verified shot-era ranges."""
     gain = float(calibration.get("gain", -2.0 / 15.0))
-    for era in calibration.get("shot_era_overrides") or ():
-        if int(era.get("min_shot", 0)) <= int(shot) <= int(era.get("max_shot", 0)):
-            return float(era.get("gain", gain))
-    return gain
+    era, _ = impa_shot_era(calibration, int(shot))
+    return gain if era is None else float(era.get("gain", gain))
 
 
 def _bz_specs(config: Mapping[str, Any], shot: int) -> list[dict[str, Any]]:
@@ -194,14 +190,11 @@ def _bz_specs(config: Mapping[str, Any], shot: int) -> list[dict[str, Any]]:
         entry = dict(channels[key])
         entry["index"] = int(key)
         specs.append(entry)
-    for era in (config.get("calibration") or {}).get("shot_era_overrides") or ():
-        if not int(era.get("min_shot", 0)) <= int(shot) <= int(era.get("max_shot", 0)):
-            continue
-        wired = era.get("bz_channels")
-        if wired:
-            allowed = {int(field) for field in wired}
-            specs = [spec for spec in specs if int(spec["field"]) in allowed]
-        break
+    era, _ = impa_shot_era(config.get("calibration") or {}, int(shot))
+    wired = (era or {}).get("bz_channels")
+    if wired:
+        allowed = {int(field) for field in wired}
+        specs = [spec for spec in specs if int(spec["field"]) in allowed]
     return specs
 
 

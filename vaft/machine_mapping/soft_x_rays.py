@@ -21,6 +21,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from vaft.process.soft_x_rays import sxr_offset_baseline
+
 from .conventions import clock_angle_to_toroidal_angle
 from .utils import path_exists, resolve_data_root, set_path
 
@@ -777,11 +779,11 @@ def vfit_soft_x_rays_dynamic(
         signal = values[:, source_column].astype(float, copy=True)
         if baseline_range is not None:
             start, stop = baseline_range
-            baseline_values = signal[slice(start, stop)]
-            if baseline_values.size == 0:
+            # Checked here, not by the owner, to keep this error text.
+            if signal[slice(start, stop)].size == 0:
                 raise ValueError("baseline_range selects no SXR samples.")
-            baseline = np.mean(baseline_values)
-            signal = signal - baseline
+            # An index range, NaN-propagating (#2162 B3.11: the shared owner).
+            signal = sxr_offset_baseline(signal, slice(start, stop))
         signal = float(polarity) * float(brightness_scale) * signal
         brightness = signal.reshape(1, -1)
         prefix = f"soft_x_rays.channel.{idx}"

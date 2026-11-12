@@ -33,6 +33,7 @@ from __future__ import annotations
 from importlib import import_module
 
 _SUBMODULES = {
+    "acquisition": ".acquisition",
     "atomic": ".atomic",
     "particle": ".particle",
     "particle_fields": ".particle_fields",
@@ -97,6 +98,7 @@ _IMPORT_ORDER = (
     "equilibrium",
     "camera_geometry",
     "signal_processing",
+    "acquisition",
     "fluctuation",
     "soft_x_rays",
     "electromagnetics",

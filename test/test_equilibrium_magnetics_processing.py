@@ -582,7 +582,7 @@ def test_nan_contaminated_baseline_window_raises():
     ],
 )
 def test_a_probe_is_named_after_the_channel_it_reads_on_that_shot(shot, plus_006, minus_042):
-    """Names label DAQ channels (table.yaml, by field), so on a discharge they
+    """Names label DAQ channels (the registry name of each field code), so on a discharge they
     follow the wiring; the era inventory (shot 0) keeps the 2409 labels."""
     from omas import ODS
 

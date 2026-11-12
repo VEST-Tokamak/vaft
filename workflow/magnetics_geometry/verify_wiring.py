@@ -40,15 +40,25 @@ import warnings
 import numpy as np
 
 from vaft.machine_mapping.magnetics import (
-    _load_static_channels,
     equilibrium_magnetics_processing_config,
     known_magnetics_faults,
     magnetics_wiring_for_shot,
 )
+from vaft.machine_mapping.magnetics_registry import PROBE_KIND, resolve_equilibrium_magnetics_sensors
 from vaft.process.magnetics import vest_equilibrium_magnetics_detailed, vest_magnetics_time_window
 
 R_OUTBOARD = 0.796
-DISPUTED = {35: 0.06, 47: -0.42}
+#: The two positions whose field the 39437/39438 swap moves, by sensor id
+#: (#2158). Mapped to their canonical index because `MagneticsWiring.channels`
+#: is indexed by it.
+DISPUTED_IDS = ("bpol_C_z+0.060", "bpol_C_z-0.420")
+DISPUTED = {
+    record.index: record.z
+    for record in resolve_equilibrium_magnetics_sensors(None)
+    if record.id in DISPUTED_IDS
+}
+PLUS_006, MINUS_042 = DISPUTED
+assert list(DISPUTED.values()) == [0.06, -0.42], DISPUTED
 _PULSE = re.compile(r'"pulse_datetime"\s*:\s*"([^"]+)"')
 
 
@@ -88,9 +98,9 @@ def processed(fields: dict[str, Any], code: int, calibration: float, shot: int, 
 def outboard_column() -> dict[int, float]:
     """``{index: z}`` for every probe in the R = 0.796 m column."""
     return {
-        index: float(row["z"])
-        for index, row in enumerate(_load_static_channels())
-        if row["kind"] == "b_field_pol_probe" and abs(float(row["r"]) - R_OUTBOARD) < 1e-9
+        record.index: record.z
+        for record in resolve_equilibrium_magnetics_sensors(None)
+        if record.kind == PROBE_KIND and abs(record.r - R_OUTBOARD) < 1e-9
     }
 
 
@@ -114,8 +124,8 @@ def candidates(magnitudes: dict[int, float]) -> dict[str, dict[int, tuple[int, f
         for flipped in (False, True):
             sign = -1.0 if flipped else 1.0
             out[label + (" sign-flipped" if flipped else "")] = {
-                35: (plus_field, sign * magnitudes[35]),
-                47: (minus_field, -sign * magnitudes[47]),
+                PLUS_006: (plus_field, sign * magnitudes[PLUS_006]),
+                MINUS_042: (minus_field, -sign * magnitudes[MINUS_042]),
             }
     return out
 
@@ -137,7 +147,7 @@ def score_shot(shot: int, fields: dict[str, Any]) -> dict[str, Any]:
     magnitudes = {index: abs(float(wiring.channels[index]["calibration"])) for index in DISPUTED}
     # A +0.06 channel recorded as broken carries no layout information; the
     # -0.42 position then decides alone.
-    minus_only = ("b_field_pol_probe", 35) in known_magnetics_faults(shot)
+    minus_only = ("b_field_pol_probe", PLUS_006) in known_magnetics_faults(shot)
     scores = {}
     for label, assignment in candidates(magnitudes).items():
         residuals = []
@@ -168,9 +178,9 @@ def score_shot(shot: int, fields: dict[str, Any]) -> dict[str, Any]:
 
 
 def z006_health(shot, fields, wiring, signals, grid) -> dict[str, Any]:
-    channel = wiring.channels[35]
+    channel = wiring.channels[PLUS_006]
     signal, raw = processed(fields, int(channel["field_code"]), float(channel["calibration"]), shot, grid)
-    recorded = ("b_field_pol_probe", 35) in known_magnetics_faults(shot)
+    recorded = ("b_field_pol_probe", PLUS_006) in known_magnetics_faults(shot)
     if signal is None:
         return {"field": int(channel["field_code"]), "recorded_fault": recorded, "status": "absent"}
     prediction = neighbour_prediction(0.06, signals)

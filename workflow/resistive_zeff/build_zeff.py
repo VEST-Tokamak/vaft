@@ -235,8 +235,19 @@ def _graded_runs(times: list[float], product_times: np.ndarray) -> list[list[flo
     return [[float(product_times[k]) for k, _ in run] for run in runs]
 
 
-#: The inboard midplane flux loop Lane D uses for V_loop (#548).
-FLUX_LOOP_NAME = "Flux Loop - #10"
+#: The inboard midplane flux loop Lane D uses for V_loop (#548), by its
+#: vest.yaml registry id: its name and position are the registry's (#2164).
+FLUX_LOOP_ID = "fl_10"
+
+
+def _flux_loop_record(shot: int | None = None):
+    """The registry record of :data:`FLUX_LOOP_ID` for *shot* (the inventory without one)."""
+    from vaft.machine_mapping.magnetics_registry import resolve_equilibrium_magnetics_sensors
+
+    for record in resolve_equilibrium_magnetics_sensors(None if shot is None else int(shot)):
+        if record.id == FLUX_LOOP_ID:
+            return record
+    raise LookupError(f"the magnetics registry has no sensor {FLUX_LOOP_ID!r}")
 
 
 def _flux_loop(filedb: Path, shot: int):
@@ -244,10 +255,11 @@ def _flux_loop(filedb: Path, shot: int):
     path = filedb / "omas" / "diagnostics" / str(shot) / "output" / "diagnostics.json.gz"
     if not path.exists():
         return None
+    name = _flux_loop_record(shot).name
     with gzip.open(path, "rt") as handle:
         loops = json.load(handle).get("magnetics", {}).get("flux_loop", [])
     for loop in loops:
-        if loop.get("name") == FLUX_LOOP_NAME:
+        if loop.get("name") == name:
             flux = loop["flux"]
             return (np.asarray(flux["time"], dtype=float),
                     np.asarray(flux["data"], dtype=float))
@@ -269,8 +281,9 @@ def _flux_loop_variant(flux, loop):
     sign = np.sign(np.dot(np.gradient(on_grid, flux.time), np.gradient(flux.psi_boundary, flux.time)))
     if sign == 0:
         return None
+    record = _flux_loop_record()
     return replace(flux, psi_boundary=sign * on_grid,
-                   flux_normalization=f"measured {FLUX_LOOP_NAME} (R = 0.091 m), full Wb, "
+                   flux_normalization=f"measured {record.name} (R = {record.r:.3f} m), full Wb, "
                                       "sign aligned to psi_B")
 
 
@@ -459,7 +472,7 @@ def infer_window(shot: int, window: list[float], ods, args, loop=None, ip_trace=
         delta = (z_loop - est["zeff"]) if (z_loop is not None and est["zeff"] is not None) else None
         row.update(zeff_flux_loop=z_loop, delta_boundary_voltage_source=delta)
         sens.append({"t_start_s": window[0], "input": "boundary_voltage_source",
-                     "setting": FLUX_LOOP_NAME, "zeff": z_loop, "delta": delta,
+                     "setting": _flux_loop_record().name, "zeff": z_loop, "delta": delta,
                      "status": status})
     return row, slices, sens
 

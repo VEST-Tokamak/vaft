@@ -80,9 +80,13 @@ from scipy.signal import coherence, csd, find_peaks, savgol_filter
 
 from vaft.compat import cumtrapz_compat
 from vaft.formula.statistics import rms
+from vaft.process.acquisition import AcquisitionInconsistencyError, check_declared_sample_rate
 from .signal_processing import (
+    DegenerateBaselineWindowError,
     _filtfilt_min_length,
+    _polyfit_linear_baseline,
     apply_fir_filter,
+    fir_filter_coefficients,
     define_baseline,
     subtract_baseline,
 )
@@ -260,10 +264,6 @@ class UnsupportedMagneticsDaqModeError(NotImplementedError):
     """Raised for a magnetics acquisition era with no ported processing path."""
 
 
-class DegenerateBaselineWindowError(ValueError):
-    """Raised when a baseline window contains fewer than two valid samples."""
-
-
 @dataclass(frozen=True)
 class VestMagneticsProcessingConfig:
     """Default VEST magnetics processing settings used by legacy `vfit_equilibrium_magnetics`.
@@ -308,6 +308,83 @@ class VestMagneticsProcessingConfig:
     flux_baseline_samples: int | None = None
     daq_mode: str = "legacy"
     allow_zero_fallback: bool = False
+
+    def __post_init__(self) -> None:
+        """Refuse a configuration no filter or window can honour (#2159, audit gap G8).
+
+        Checked here, at construction (and so at every ``dataclasses.replace``),
+        rather than when ``firwin`` or an index fails deep inside a shot: the
+        rates must be positive and finite, the low-pass cutoff strictly below
+        the Nyquist frequency of ``fast_sample_rate``, the tap and sample
+        counts positive integers, and the windows ordered. ``daq_mode`` and its
+        baseline rules keep their own check where the chain is selected.
+        """
+        def number(name: str) -> float:
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, (int, float, np.integer, np.floating)):
+                raise ValueError(f"VestMagneticsProcessingConfig.{name} must be a number, not {value!r}")
+            if not np.isfinite(value):
+                raise ValueError(f"VestMagneticsProcessingConfig.{name} must be finite, not {value!r}")
+            return float(value)
+
+        def integer(name: str, *, minimum: int, value: object = None) -> int:
+            value = getattr(self, name) if value is None else value
+            if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or int(value) < minimum:
+                raise ValueError(
+                    f"VestMagneticsProcessingConfig.{name} must be an integer >= {minimum}, not {value!r}"
+                )
+            return int(value)
+
+        if number("time_end") <= number("time_start"):
+            raise ValueError("VestMagneticsProcessingConfig.time_end must exceed time_start")
+        integer("sample_count", minimum=2)
+        rate = number("fast_sample_rate")
+        if rate <= 0.0:
+            raise ValueError("VestMagneticsProcessingConfig.fast_sample_rate must be positive")
+        cutoff = number("lowpass_cutoff")
+        if not 0.0 < cutoff < 0.5 * rate:
+            raise ValueError(
+                f"VestMagneticsProcessingConfig.lowpass_cutoff {cutoff} Hz must lie in (0, {0.5 * rate}) Hz, "
+                f"the Nyquist band of fast_sample_rate {rate} Hz"
+            )
+        integer("lowpass_taps", minimum=1)
+        for name in (
+            "default_index_start", "default_index_end", "default_probe_baseline_end",
+            "late_index_start", "late_index_end", "late_probe_baseline_end",
+            "flux_baseline_first_start", "flux_baseline_first_end",
+            "flux_baseline_second_start", "flux_baseline_second_end",
+            "flux_baseline_late_start", "flux_baseline_late_end",
+            "late_shot_min", "transient_shot_min", "transient_shot_max",
+        ):
+            integer(name, minimum=0)
+        if self.calibration_mode not in {"divide", "multiply"}:
+            raise ValueError(
+                f"VestMagneticsProcessingConfig.calibration_mode must be 'divide' or 'multiply', "
+                f"not {self.calibration_mode!r}"
+            )
+        if self.window_override is not None:
+            window = tuple(self.window_override)
+            if len(window) != 3:
+                raise ValueError(
+                    "VestMagneticsProcessingConfig.window_override must be "
+                    "(index_start, index_end, probe_baseline_end)"
+                )
+            start, end, _baseline = (
+                integer("window_override", minimum=0, value=item) for item in window
+            )
+            if end < start:
+                raise ValueError("VestMagneticsProcessingConfig.window_override index_end precedes index_start")
+        if self.flux_baseline_window is not None:
+            window = tuple(self.flux_baseline_window)
+            if len(window) != 2 or not all(
+                isinstance(item, (int, float, np.integer, np.floating)) and not isinstance(item, bool)
+                and np.isfinite(item) for item in window
+            ) or not float(window[0]) < float(window[1]):
+                raise ValueError(
+                    "VestMagneticsProcessingConfig.flux_baseline_window must be two finite, increasing times"
+                )
+        if self.flux_baseline_samples is not None:
+            integer("flux_baseline_samples", minimum=1)
 
     def timebase(self) -> np.ndarray:
         return np.linspace(self.time_start, self.time_end, self.sample_count)
@@ -390,45 +467,24 @@ def _linear_baseline(
     channel: str | int | None = None,
     window_desc: str | None = None,
 ) -> np.ndarray:
-    indices = np.asarray(indices, dtype=int)
-    in_bounds = indices[(indices >= 0) & (indices < values.size)]
-    valid = in_bounds[np.isfinite(values[in_bounds]) & np.isfinite(time_axis[in_bounds])]
-    if valid.size < 2:
-        context_parts = []
-        if shot is not None:
-            context_parts.append(f"shot {shot}")
-        if channel is not None:
-            context_parts.append(f"channel {channel!r}")
-        context_str = f" [{', '.join(context_parts)}]" if context_parts else ""
-
-        if allow_zero_fallback:
-            warnings.warn(
-                f"Degenerate baseline window{context_str}: {valid.size} valid sample(s) available "
-                f"(requires >= 2). Falling back to zero baseline because allow_zero_fallback=True.",
-                UserWarning,
-                stacklevel=2,
-            )
-            return np.zeros(values.size, dtype=float)
-
-        prefix = f"for {', '.join(context_parts)}: " if context_parts else ""
-        time_span = (
-            f"[{time_axis[0]:.6g}, {time_axis[-1]:.6g}] s"
-            if time_axis.size > 0
-            else "[]"
-        )
-        req_desc = f" ({window_desc})" if window_desc else ""
-        if indices.size > 0:
-            index_range = f"[{indices.min()}, {indices.max()}] (count: {indices.size})"
-        else:
-            index_range = "[] (empty)"
-
-        raise DegenerateBaselineWindowError(
-            f"Degenerate baseline window {prefix}found {valid.size} valid sample(s) (requires >= 2). "
-            f"Requested indices{req_desc}: {index_range}. "
-            f"Signal sample count: {values.size}, time span: {time_span}."
-        )
-
-    return np.polyval(np.polyfit(time_axis[valid], values[valid], 1), time_axis)
+    """The probe/flux-loop linear baseline: the canonical ``"polyfit"`` line of
+    :func:`~vaft.process.signal_processing.subtract_baseline` with the #639
+    guards, called with this module's shot/channel context (#2162)."""
+    context_parts = []
+    if shot is not None:
+        context_parts.append(f"shot {shot}")
+    if channel is not None:
+        context_parts.append(f"channel {channel!r}")
+    return _polyfit_linear_baseline(
+        time_axis,
+        values,
+        indices,
+        nan_policy="omit",
+        allow_zero_fallback=allow_zero_fallback,
+        context=", ".join(context_parts) or None,
+        window_desc=window_desc,
+        stacklevel=2,
+    )
 
 
 def _validate_daq_mode(cfg: VestMagneticsProcessingConfig) -> None:
@@ -845,6 +901,7 @@ def vest_equilibrium_magnetics_detailed(
     config: VestMagneticsProcessingConfig | None = None,
     allow_missing: bool = False,
     allow_zero_fallback: bool | None = None,
+    acquisition_report: dict | None = None,
 ) -> VestEquilibriumMagneticsResult:
     """Process every magnetic channel of one VEST shot onto the output window.
 
@@ -865,6 +922,9 @@ def vest_equilibrium_magnetics_detailed(
     allow_zero_fallback : bool, optional
         Whether to fall back to zero baseline with a warning when a channel encounters
         a degenerate baseline window. Defaults to config.allow_zero_fallback [-].
+    acquisition_report : dict, optional
+        Filled with ``{probe name: SampleRateCheck}``: each probe record's timebase
+        against ``fast_sample_rate`` and the low-pass cutoff (#2159) [-].
 
     Returns
     -------
@@ -970,6 +1030,19 @@ def vest_equilibrium_magnetics_detailed(
                 )
                 data_probes.append(np.array([], dtype=float))
                 continue
+            # The probe low pass is designed at the declared fast_sample_rate;
+            # compare it with this record's own timebase (#2159). Recorded,
+            # and fatal only when the cutoff exceeds the observed Nyquist.
+            acquisition = check_declared_sample_rate(
+                source_time, cfg.fast_sample_rate, cutoff_hz=cfg.lowpass_cutoff
+            )
+            if acquisition_report is not None:
+                acquisition_report[channel_name] = acquisition
+            if acquisition.fatal:
+                raise AcquisitionInconsistencyError(
+                    f"shot {int(shot)} {channel_name}: probe low pass cannot be applied: "
+                    f"{acquisition.reason}"
+                )
             *_, processed_full, _ = b_field_pol_probe_field(
                 source_time,
                 source_data,
@@ -998,8 +1071,12 @@ def vest_equilibrium_magnetics_detailed(
             shot=shot,
             channel=channel_name,
         )
-        # anti-alias: the flux is the integral of an already low-passed loop
-        # voltage, so it is band-limited on the source grid.
+        # anti-alias: NOT band-limited. vest_flux_loop_voltage only calibrates
+        # the loop voltage -- no low-pass runs on it -- and the time integral
+        # attenuates high frequencies as 1/f without removing them, so this
+        # np.interp can fold content above the target Nyquist when the loop is
+        # acquired faster than magnetics_time (native DAQ, shot >= 46404).
+        # Unverified whether it matters (#2147 audit finding 4, Phase D #2166).
         data_flux_loops.append(np.interp(magnetics_time, source_time, processed_full))
         flux_loop_voltage_time.append(source_time)
         flux_loop_voltage.append(voltage)
@@ -1086,11 +1163,6 @@ def vest_equilibrium_magnetics_signals(
 vest_md_signals = vest_equilibrium_magnetics_signals
 
 
-def _firwin_order(sample_rate: float) -> int:
-    order = int(float(sample_rate) * 1e-3)
-    return order + 1 if order % 2 == 0 else order
-
-
 def mirnov_preprocess_signal(
     data: np.ndarray,
     *,
@@ -1099,6 +1171,7 @@ def mirnov_preprocess_signal(
     low_pass_cutoff: float | None = 90_000.0,
     amplifier_gain: float = 1.0,
     filter_order: int | None = None,
+    report: dict | None = None,
 ) -> np.ndarray:
     """Condition a Mirnov coil signal for mode analysis.
 
@@ -1115,17 +1188,34 @@ def mirnov_preprocess_signal(
     amplifier_gain : float, optional
         Gain divided out of the record [-].
     filter_order : int, optional
-        Filter order; derived from the sample rate when omitted [-].
+        Filter length in taps, odd; derived from the sample rate when
+        omitted [-].
+    report : dict, optional
+        Filled with ``high_pass``/``low_pass`` entries whose ``status`` is
+        ``applied``, ``skipped`` (cutoff outside ``(0, Nyquist)``, with the
+        reason), ``not_requested`` or ``not_applied`` (empty record) [-].
 
     Returns
     -------
     np.ndarray
         The conditioned record [V].
 
+    Raises
+    ------
+    ValueError
+        ``amplifier_gain`` is zero, or ``filter_order`` is even.
+
     Processing steps
     ----------------
     1. Remove the record's mean.
-    2. Band-pass it with a windowed filter.
+    2. Band-pass it: a Hann-window FIR high-pass then low-pass, each designed
+       by :func:`~vaft.process.signal_processing.fir_filter_coefficients` and
+       applied zero-phase by
+       :func:`~vaft.process.signal_processing.apply_fir_filter` (forward only,
+       delayed by the group delay, on a record too short for ``filtfilt``).
+       A band edge outside ``(0, Nyquist)`` skips its stage; that is recorded
+       in ``report`` or, with no report, raised as a ``RuntimeWarning`` --
+       never silent (#2159).
     3. Divide out the amplifier gain.
 
     Convention
@@ -1140,7 +1230,8 @@ def mirnov_preprocess_signal(
     The sample rate and the two band edges are acquisition-era values, the VEST
     Mirnov amplifier chain's own. The order is derived from the sample rate, one
     tap per millisecond, and forced odd, which is a numerical convenience keeping
-    the filter symmetric.
+    the filter symmetric; below 3 kHz it is held at the designer's minimum of
+    three taps.
 
     Applicability
     -------------
@@ -1158,22 +1249,45 @@ def mirnov_preprocess_signal(
     """
     values = np.asarray(data, dtype=float)
     if values.size == 0:
+        if report is not None:
+            for name in ("high_pass", "low_pass"):
+                report[name] = {"status": "not_applied", "reason": "empty record"}
         return values.copy()
     if amplifier_gain == 0:
         raise ValueError("amplifier_gain must be non-zero.")
 
+    if filter_order is not None and int(filter_order) % 2 == 0:
+        # fir_filter_coefficients would silently lengthen it by one tap.  An
+        # even order already failed in the high-pass stage (a Type II filter
+        # cannot pass Nyquist); refusing it up front keeps the two stages alike.
+        raise ValueError(f"filter_order must be odd (Type I FIR); got {filter_order!r}")
     processed = values - float(np.nanmean(values))
-    order = int(filter_order) if filter_order is not None else _firwin_order(sample_rate)
     nyquist = 0.5 * float(sample_rate)
 
-    for cutoff, pass_zero in ((high_pass_cutoff, False), (low_pass_cutoff, True)):
+    for name, cutoff, kind in (
+        ("high_pass", high_pass_cutoff, "highpass"),
+        ("low_pass", low_pass_cutoff, "lowpass"),
+    ):
         if cutoff is None:
+            if report is not None:
+                report[name] = {"status": "not_requested", "cutoff_hz": None}
             continue
         cutoff = float(cutoff)
         if cutoff <= 0 or cutoff >= nyquist:
+            # Not applied -- the band edge lies outside (0, Nyquist). This used
+            # to be silent; the record now says so (#2159, audit gap G10).
+            reason = f"cutoff {cutoff:g} Hz outside (0, {nyquist:g}) Hz at {float(sample_rate):g} Hz"
+            if report is not None:
+                report[name] = {"status": "skipped", "cutoff_hz": cutoff, "reason": reason}
+            else:
+                warnings.warn(f"Mirnov {name.replace('_', ' ')} not applied: {reason}", RuntimeWarning, stacklevel=2)
             continue
-        taps = signal.firwin(order, cutoff, fs=sample_rate, pass_zero=pass_zero, window="hann")
+        taps = fir_filter_coefficients(
+            cutoff, sample_rate, kind=kind, numtaps=filter_order, window="hann"
+        )
         processed = apply_fir_filter(taps, processed, short_record="causal")
+        if report is not None:
+            report[name] = {"status": "applied", "cutoff_hz": cutoff, "taps": int(taps.size)}
 
     return processed / float(amplifier_gain)
 

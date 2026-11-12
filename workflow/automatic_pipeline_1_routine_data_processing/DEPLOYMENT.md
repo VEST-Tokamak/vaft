@@ -882,11 +882,18 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   `transient_*`), the per-sample flux baselines (`flux_baseline_first/second/late_*`), and the output
   grid `time_start`, `time_end`, `sample_count` unless `window_override` is named alongside them (the
   era window is indices into that grid; moving the grid alone moved the native-DAQ window to
-  0.325-0.45 s). The remaining keys apply on every shot, by design, for parameter scans: the probe
-  filter `fast_sample_rate`, `lowpass_cutoff`, `lowpass_taps`, the conventions `calibration_mode`,
-  `flux_output_per_radian`, and the named era keys `window_override`, `flux_baseline_window`,
-  `flux_baseline_samples`, `allow_zero_fallback` (`daq_mode` is accepted and then checked against the
-  flux rule downstream). History: until #1541 the workflow's own `config.yaml` carried the full legacy
+  0.325-0.45 s). Since #2159 the acquisition itself -- `daq_mode` and the DAQ rate `fast_sample_rate`
+  -- is a machine fact: restating the era's value is inert, changing it is refused. The calibration
+  conventions `calibration_mode` and `flux_output_per_radian` change only when the block also carries
+  a non-empty `calibration_override_reason`, which the manifest records. An unknown key is a
+  `VestConfigurationError` naming the valid ones, and the result must pass
+  `VestMagneticsProcessingConfig` validation (cutoff below Nyquist, positive taps and rates). The
+  remaining keys apply on every shot, by design, for parameter scans: the probe filter
+  `lowpass_cutoff`, `lowpass_taps`, and the named era keys `window_override`, `flux_baseline_window`,
+  `flux_baseline_samples`, `allow_zero_fallback`. Every diagnostics manifest now records the effective
+  processing (`vest_magnetics_processing_effective`, its `_fingerprint` and `_provenance`) and, under
+  `configuration.vest_configuration`, every diagnostic's effective vest.yaml values with fingerprints,
+  the vest.yaml sha256 and the vaft version. History: until #1541 the workflow's own `config.yaml` carried the full legacy
   block and it *replaced* the era, running every shot from 46404 on through the slow-DAQ path; a legacy
   block left in a deployed run config forced the same from 10-02 to 10-06 (#1731). Leave `vest: {}`
   unless you are scanning, and check `vest_magnetics_processing_effective` when a product looks wrong.

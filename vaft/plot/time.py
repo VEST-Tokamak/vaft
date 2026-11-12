@@ -934,7 +934,7 @@ def _find_bpol_probe_outboard_indices(ods):
 
 def _find_bpol_probe_side_indices(ods):
     # find the indices of the bpol probe side
-    indices = np.where(np.abs(ods['magnetics.b_field_pol_probe.:.position.z']) > 0.8)
+    indices = np.where(np.abs(ods['magnetics.b_field_pol_probe.:.position.z']) > SIDE_PROBE_MIN_ABS_Z)
     return indices
 
 def _find_bpol_probe_all_indices(ods):

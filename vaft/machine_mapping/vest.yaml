@@ -2,69 +2,44 @@
 # –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 # 0: Default static configurations
 0:
-  magnetics:
-    flux_loop:
-      geometry:
-        loops:
-          - r: 0.45   # Major radius
-            z: 0.0    # Vertical position
-            area: 0.01
-            # No phi: a flux loop encircles the machine axis, so it has no
-            # scalar toroidal angle (issue #718).
-      channels:
-        - name: "FL1"
-          gain: 1.0
-          offset: 0.0
-          calibration_factor: 1.0
+  # The 75 equilibrium magnetic sensors (64 B-pol probes, 11 flux loops) are
+  # defined ONCE, in `diagnostics.equilibrium_magnetics.sensors` below (issue
+  # #2158). Until #2158 they were split over three files under
+  # `vaft/data/geometry/` (calibration, geometry, names) joined by list
+  # position; those files are now frozen, non-runtime fixtures under
+  # `test/data/legacy_magnetics/`, and nothing at runtime reads them.
+  #
+  # A `magnetics.flux_loop` placeholder (one loop at r 0.45, channel `FL1`)
+  # used to sit here; only the uncalled `get_static_info` could reach it. It
+  # was removed with #2158 (audit #2148 Q3). A 64-entry
+  # `b_field_pol_probe.channels` block before it carried a third, differently
+  # ordered description of the same probes; it was removed in issue #843,
+  # which it caused: it looks authoritative, so comparing it against the live
+  # geometry reads as the live geometry being wrong. The plasma-free vacuum
+  # benchmark then rejected the "correction" that comparison suggested, three
+  # probes out of five getting worse, which is what established that the live
+  # pairing -- now the `sensors` records -- is the right one.
 
-    # Poloidal probe geometry and calibration are NOT here.
-    #
-    # They live in two files under `vaft/data/geometry/`, and those are what
-    # the mapper reads:
-    #
-    #   MD.yaml                                 field_code + calibration
-    #   VEST_MagneticsGeometry_Full_ver_2302.yaml   field_code + r, z
-    #
-    # The two are joined by list position -- ODS probe `i` takes its signal and
-    # gain from entry `i` of the first and its position from entry `i` of the
-    # second -- and `test/test_magnetics_geometry_join.py` asserts they name the
-    # same probe at every index.
-    #
-    # MD.yaml is the 2409 wiring. Where a shot's wiring differs, the entries it
-    # changes are revised per shot in `diagnostics.equilibrium_magnetics.
-    # processing.wiring` below (issue #956); positions never move.
-    #
-    # A 64-entry `b_field_pol_probe.channels` block used to sit here carrying a
-    # third description: same probes, same values, but ordered differently, so
-    # it disagreed with the live pair at 11 of 64 positions. Nothing read it --
-    # `raw_database_info` is the only function that could, and it has no callers
-    # anywhere. It was removed in issue #843, which it caused: it looks
-    # authoritative, so comparing it against the live geometry reads as the live
-    # geometry being wrong. The plasma-free vacuum benchmark then rejected the
-    # "correction" that comparison suggested, three probes out of five getting
-    # worse, which is what established that the live pairing is the right one.
+  # The legacy `rogowski_coil` block was removed in issue #214.
+  #
+  # It was read by nothing -- its only consumers were the
+  # `process_static_geometry` / `process_static_channels` Rogowski branches,
+  # which issue #215 made raise because they wrote the non-canonical
+  # `rogowski_coil.coil.*` path. What it left behind was actively harmful:
+  #
+  #   * a second, unrevised copy of the FL10 coefficient (`effective_res:
+  #     2.8e-4`), wrong for every shot >= 17455, under a third name. Reading
+  #     that stale label as authoritative is what prompted #214;
+  #   * duplicates of `field: 109` / `fl_field: 25`, which the live
+  #     `plasma_current` block already owns;
+  #   * an invented winding geometry (r 0.45, turns 1, area 0.01) that
+  #     #215 explicitly declines to map, VEST having no authoritative
+  #     contour on record.
+  #
+  # The canonical sources are `plasma_current` below (channels, calibration,
+  # shot eras) and `magnetics.rogowski_coil` in the ODS (the sensors).
 
-    # The legacy `rogowski_coil` block was removed in issue #214.
-    #
-    # It was read by nothing -- its only consumers were the
-    # `process_static_geometry` / `process_static_channels` Rogowski branches,
-    # which issue #215 made raise because they wrote the non-canonical
-    # `rogowski_coil.coil.*` path. What it left behind was actively harmful:
-    #
-    #   * a second, unrevised copy of the FL10 coefficient (`effective_res:
-    #     2.8e-4`), wrong for every shot >= 17455, under a third name. Reading
-    #     that stale label as authoritative is what prompted #214;
-    #   * duplicates of `field: 109` / `fl_field: 25`, which the live
-    #     `plasma_current` block already owns;
-    #   * an invented winding geometry (r 0.45, turns 1, area 0.01) that
-    #     #215 explicitly declines to map, VEST having no authoritative
-    #     contour on record.
-    #
-    # The canonical sources are `plasma_current` below (channels, calibration,
-    # shot eras) and `magnetics.rogowski_coil` in the ODS (the sensors).
-
-  # Canonical raw-field-first diagnostic definitions.  Existing keys above
-  # remain for compatibility with legacy mapping readers.
+  # Canonical raw-field-first diagnostic definitions.
   diagnostics:
     plasma_current:
       source:
@@ -622,6 +597,144 @@
     # `>= 46403` to the new one. VAFT follows the two equilibrium
     # reconstruction paths that this preprocessing actually feeds.
     equilibrium_magnetics:
+      # The equilibrium magnetic sensor registry (issue #2158): the ONLY
+      # runtime definition of the 64 B-pol probes and 11 flux loops. Read by
+      # `vaft.machine_mapping.magnetics_registry`; every consumer (static and
+      # diagnostics ODS, raw-source records, constraint groups, EFUND
+      # projection, provenance) resolves sensors through it.
+      #
+      # Record order IS the canonical index: ODS b_field_pol_probe[i] is
+      # record i for i < 64 and ODS flux_loop[j] is record 64 + j, which is
+      # also the EFUND/EFIT order. `index` restates the position and the
+      # resolver rejects any record whose `index` is not its list position.
+      #
+      # Three identities, kept apart (#2148 audit section 2):
+      #   id          the physical sensor (a position); never changes with
+      #               wiring. `id_basis: table` -- the table.dat label agrees
+      #               with the column's geometric ladder, so the id is that
+      #               label; `id_basis: position` -- it does not (5 sensors,
+      #               audit Q4, unresolved), so the id is position-shaped and
+      #               the ladder name is only `ladder_candidate`.
+      #   field_code  the raw DAQ field read under the 2409 base wiring;
+      #               `processing.wiring` revises it per shot.
+      #   name        the DAQ label (table.dat) of the record's 2409 field.
+      #               ODS `name`/`identifier` carry the label of the field a
+      #               shot actually reads, so they follow the wiring
+      #               (39437/39438 swap indices 35 and 47); `aliases` lists the
+      #               labels a position carries under other eras' wiring.
+      # `calibration` is the 2409 value, applied as divide
+      # (VestMagneticsProcessingConfig.calibration_mode); `wiring` revisions
+      # replace it together with the field. r, z are metres; no toroidal
+      # position is stored (probe phi comes from EQUILIBRIUM_PROBE_CLOCK by
+      # family; flux loops are axisymmetric).
+      #
+      # Field 171 (index 36, calibration -0.004528986 here) is restated with
+      # the opposite sign (+0.004529) by `toroidal_mirnov_reference` below.
+      # Both are kept as they are; the conflict is #2148 audit Q1 and is NOT
+      # resolved by #2158.
+      sensors:
+        source:
+          # Values were migrated verbatim from these assets; their bytes are
+          # kept as frozen fixtures and test_magnetics_registry.py asserts
+          # field-by-field equality with them.
+          migrated_in: "#2158"
+          frozen_fixtures: test/data/legacy_magnetics
+          calibration:
+            asset: MD.yaml
+            sha256: 1f3566749fa22a9ed9bb86f60fdc11db4eba096b22a0af02046b59a5a89a2399
+            declared_source: VEST_MagneticsGeometry_Full_ver_2409.mat
+          geometry:
+            # The `2302` in the filename is not the content version: the file
+            # itself declares ver_2409.mat. R-Z is identical across every
+            # donor version (#1829), so no hardware revision is implied.
+            asset: VEST_MagneticsGeometry_Full_ver_2302.yaml
+            sha256: e9e016cba28aa5a5d9a4562a29c71aa5aca2534c4062323bcfab130276df6ac9
+            declared_source: VEST_MagneticsGeometry_Full_ver_2409.mat
+          names:
+            asset: table.yaml
+            sha256: bab62d66713ddaf6a6b788178fd6900fbde85c5329dff8c2ac9aa4476943a99d
+            declared_source: table.dat
+          wiring_layout: "2409"
+          calibration_operation: divide
+          id_basis:
+            table: "id from the table.dat label, which agrees with the column's geometric ladder"
+            position: "id from (column, z); the table.dat label disagrees with the ladder (#2148 Q4, unresolved)"
+        records:
+          - {id: bpol_H1-01, kind: b_field_pol_probe, index: 0, name: "MagneticFieldProbe_H1-01_Bz", aliases: [], r: 0.089, z: 0.54, field_code: 179, calibration: -0.0042, id_basis: table}
+          - {id: bpol_H1-02, kind: b_field_pol_probe, index: 1, name: "MagneticFieldProbe_H1-02_Bz", aliases: [], r: 0.089, z: 0.5, field_code: 180, calibration: 0.0048, id_basis: table}
+          - {id: bpol_H1-03, kind: b_field_pol_probe, index: 2, name: "MagneticFieldProbe_H1-03_Bz", aliases: [], r: 0.089, z: 0.46, field_code: 181, calibration: -0.0051, id_basis: table}
+          - {id: bpol_H1-04, kind: b_field_pol_probe, index: 3, name: "MagneticFieldProbe_H1-04_Bz", aliases: [], r: 0.089, z: 0.42, field_code: 182, calibration: 0.0051, id_basis: table}
+          - {id: bpol_H1-05, kind: b_field_pol_probe, index: 4, name: "MagneticFieldProbe_H1-05_Bz", aliases: [], r: 0.089, z: 0.38, field_code: 183, calibration: 0.0051, id_basis: table}
+          - {id: bpol_H1-06, kind: b_field_pol_probe, index: 5, name: "MagneticFieldProbe_H1-06_Bz", aliases: [], r: 0.089, z: 0.34, field_code: 184, calibration: -0.0051, id_basis: table}
+          - {id: bpol_H1-07, kind: b_field_pol_probe, index: 6, name: "MagneticFieldProbe_H1-07_Bz", aliases: [], r: 0.089, z: 0.3, field_code: 185, calibration: -0.0051, id_basis: table}
+          - {id: bpol_H1-08, kind: b_field_pol_probe, index: 7, name: "MagneticFieldProbe_H1-08_Bz", aliases: [], r: 0.089, z: 0.26, field_code: 186, calibration: -0.0051, id_basis: table}
+          - {id: bpol_H1-09, kind: b_field_pol_probe, index: 8, name: "MagneticFieldProbe_H1-09_Bz", aliases: [], r: 0.089, z: 0.22, field_code: 187, calibration: 0.0051, id_basis: table}
+          - {id: bpol_H2-01, kind: b_field_pol_probe, index: 9, name: "MagneticFieldProbe_H2-01_Bz", aliases: [], r: 0.089, z: 0.16, field_code: 188, calibration: -0.00524, id_basis: table}
+          - {id: bpol_H2-02, kind: b_field_pol_probe, index: 10, name: "MagneticFieldProbe_H2-02_Bz", aliases: [], r: 0.089, z: 0.12, field_code: 189, calibration: -0.00524, id_basis: table}
+          - {id: bpol_H2-03, kind: b_field_pol_probe, index: 11, name: "MagneticFieldProbe_H2-03_Bz", aliases: [], r: 0.089, z: 0.08, field_code: 190, calibration: 0.0051, id_basis: table}
+          - {id: bpol_H2-04, kind: b_field_pol_probe, index: 12, name: "MagneticFieldProbe_H2-04_Bz", aliases: [], r: 0.089, z: 0.04, field_code: 191, calibration: -0.0051, id_basis: table}
+          - {id: bpol_H2-05, kind: b_field_pol_probe, index: 13, name: "MagneticFieldProbe_H2-05_Bz", aliases: [], r: 0.089, z: 0.0, field_code: 192, calibration: -0.0051, id_basis: table}
+          - {id: bpol_H2-06, kind: b_field_pol_probe, index: 14, name: "MagneticFieldProbe_H2-06_Bz", aliases: [], r: 0.089, z: -0.04, field_code: 193, calibration: 0.0051, id_basis: table}
+          - {id: bpol_H2-07, kind: b_field_pol_probe, index: 15, name: "MagneticFieldProbe_H2-07_Bz", aliases: [], r: 0.089, z: -0.08, field_code: 194, calibration: -0.0051, id_basis: table}
+          - {id: bpol_H2-08, kind: b_field_pol_probe, index: 16, name: "MagneticFieldProbe_H2-08_Bz", aliases: [], r: 0.089, z: -0.12, field_code: 195, calibration: -0.0051, id_basis: table}
+          - {id: bpol_H2-09, kind: b_field_pol_probe, index: 17, name: "MagneticFieldProbe_H2-09_Bz", aliases: [], r: 0.089, z: -0.16, field_code: 196, calibration: -0.0051, id_basis: table}
+          - {id: bpol_H3-01, kind: b_field_pol_probe, index: 18, name: "MagneticFieldProbe_H3-01_Bz", aliases: [], r: 0.089, z: -0.22, field_code: 197, calibration: -0.0051, id_basis: table}
+          - {id: bpol_H3-02, kind: b_field_pol_probe, index: 19, name: "MagneticFieldProbe_H3-02_Bz", aliases: [], r: 0.089, z: -0.26, field_code: 198, calibration: -0.00524, id_basis: table}
+          - {id: bpol_H3-03, kind: b_field_pol_probe, index: 20, name: "MagneticFieldProbe_H3-03_Bz", aliases: [], r: 0.089, z: -0.3, field_code: 199, calibration: -0.0051, id_basis: table}
+          - {id: bpol_H3-04, kind: b_field_pol_probe, index: 21, name: "MagneticFieldProbe_H3-04_Bz", aliases: [], r: 0.089, z: -0.34, field_code: 200, calibration: -0.0051, id_basis: table}
+          - {id: bpol_H3-05, kind: b_field_pol_probe, index: 22, name: "MagneticFieldProbe_H3-05_Bz", aliases: [], r: 0.089, z: -0.38, field_code: 201, calibration: -0.0051, id_basis: table}
+          - {id: bpol_H3-06, kind: b_field_pol_probe, index: 23, name: "MagneticFieldProbe_H3-06_Bz", aliases: [], r: 0.089, z: -0.42, field_code: 202, calibration: 0.0051, id_basis: table}
+          - {id: bpol_H3-07, kind: b_field_pol_probe, index: 24, name: "MagneticFieldProbe_H3-07_Bz", aliases: [], r: 0.089, z: -0.46, field_code: 203, calibration: 0.0051, id_basis: table}
+          - {id: bpol_H3-08, kind: b_field_pol_probe, index: 25, name: "MagneticFieldProbe_H3-08_Bz", aliases: [], r: 0.089, z: -0.5, field_code: 204, calibration: 0.00524, id_basis: table}
+          - {id: bpol_H3-09, kind: b_field_pol_probe, index: 26, name: "MagneticFieldProbe_H3-09_Bz", aliases: [], r: 0.089, z: -0.54, field_code: 205, calibration: 0.0051, id_basis: table}
+          - {id: bpol_C1-06, kind: b_field_pol_probe, index: 27, name: "MagneticFieldProbe_C1-06_Bz", aliases: [], r: 0.796, z: 0.42, field_code: 92, calibration: -0.005007511, id_basis: table}
+          - {id: bpol_C1-05, kind: b_field_pol_probe, index: 28, name: "MagneticFieldProbe_C1-05_Bz", aliases: [], r: 0.796, z: 0.38, field_code: 91, calibration: -0.004547522, id_basis: table}
+          - {id: bpol_C1-04, kind: b_field_pol_probe, index: 29, name: "MagneticFieldProbe_C1-04_Bz", aliases: [], r: 0.796, z: 0.34, field_code: 90, calibration: 0.00450045, id_basis: table}
+          - {id: bpol_C1-03, kind: b_field_pol_probe, index: 30, name: "MagneticFieldProbe_C1-03_Bz", aliases: [], r: 0.796, z: 0.3, field_code: 89, calibration: -0.004524887, id_basis: table}
+          - {id: bpol_C1-02, kind: b_field_pol_probe, index: 31, name: "MagneticFieldProbe_C1-02_Bz", aliases: [], r: 0.796, z: 0.26, field_code: 88, calibration: 0.004438526, id_basis: table}
+          - {id: bpol_C1-01, kind: b_field_pol_probe, index: 32, name: "MagneticFieldProbe_C1-01_Bz", aliases: [], r: 0.796, z: 0.22, field_code: 87, calibration: -0.00452284, id_basis: table}
+          - {id: bpol_C2-01, kind: b_field_pol_probe, index: 33, name: "MagneticFieldProbe_C2-01_Bz", aliases: [], r: 0.796, z: 0.18, field_code: 93, calibration: 0.004545455, id_basis: table}
+          - {id: bpol_C2-03, kind: b_field_pol_probe, index: 34, name: "MagneticFieldProbe_C2-03_Bz", aliases: [], r: 0.796, z: 0.1, field_code: 169, calibration: 0.004595588, id_basis: table}
+          - {id: bpol_C_z+0.060, kind: b_field_pol_probe, index: 35, name: "MagneticFieldProbe_C4-05", aliases: ["MagneticFieldProbe_C2-04_Bz"], r: 0.796, z: 0.06, field_code: 225, calibration: 0.004543389, id_basis: position, ladder_candidate: C2-04}
+          - {id: bpol_C2-05, kind: b_field_pol_probe, index: 36, name: "MagneticFieldProbe_C2-05_Bz", aliases: [], r: 0.796, z: 0.02, field_code: 171, calibration: -0.004528986, id_basis: table}
+          - {id: bpol_C3-01, kind: b_field_pol_probe, index: 37, name: "MagneticFieldProbe_C3-01_Bz", aliases: [], r: 0.796, z: -0.02, field_code: 172, calibration: -0.00447828, id_basis: table}
+          - {id: bpol_C3-02, kind: b_field_pol_probe, index: 38, name: "MagneticFieldProbe_C3-02_Bz", aliases: [], r: 0.796, z: -0.06, field_code: 173, calibration: -0.004679457, id_basis: table}
+          - {id: bpol_C3-03, kind: b_field_pol_probe, index: 39, name: "MagneticFieldProbe_C3-03_Bz", aliases: [], r: 0.796, z: -0.1, field_code: 174, calibration: 0.00462963, id_basis: table}
+          - {id: bpol_C3-04, kind: b_field_pol_probe, index: 40, name: "MagneticFieldProbe_C3-04_Bz", aliases: [], r: 0.796, z: -0.14, field_code: 175, calibration: -0.00462963, id_basis: table}
+          - {id: bpol_C3-05, kind: b_field_pol_probe, index: 41, name: "MagneticFieldProbe_C3-05_Bz", aliases: [], r: 0.796, z: -0.18, field_code: 176, calibration: -0.00450045, id_basis: table}
+          - {id: bpol_C4-01, kind: b_field_pol_probe, index: 42, name: "MagneticFieldProbe_C4-01_Bz", aliases: [], r: 0.796, z: -0.22, field_code: 177, calibration: -0.004424779, id_basis: table}
+          - {id: bpol_C4-02, kind: b_field_pol_probe, index: 43, name: "MagneticFieldProbe_C4-02_Bz", aliases: [], r: 0.796, z: -0.26, field_code: 178, calibration: -0.004962779, id_basis: table}
+          - {id: bpol_C4-03, kind: b_field_pol_probe, index: 44, name: "MagneticFieldProbe_C4-03", aliases: [], r: 0.796, z: -0.3, field_code: 223, calibration: -0.004782401, id_basis: table}
+          - {id: bpol_C4-04, kind: b_field_pol_probe, index: 45, name: "MagneticFieldProbe_C4-04", aliases: [], r: 0.796, z: -0.34, field_code: 224, calibration: 0.004814636, id_basis: table}
+          - {id: bpol_C_z-0.380, kind: b_field_pol_probe, index: 46, name: "MagneticFieldProbe_C4-06", aliases: [], r: 0.796, z: -0.38, field_code: 226, calibration: -0.004520796, id_basis: position, ladder_candidate: C4-05}
+          - {id: bpol_C_z-0.420, kind: b_field_pol_probe, index: 47, name: "MagneticFieldProbe_C2-04_Bz", aliases: ["MagneticFieldProbe_C4-05"], r: 0.796, z: -0.42, field_code: 170, calibration: -0.00452284, id_basis: position, ladder_candidate: C4-06}
+          - {id: bpol_U-08, kind: b_field_pol_probe, index: 48, name: "MagneticFieldProbe_U-08_Bz", aliases: [], r: 0.1377, z: 0.8328, field_code: 81, calibration: 0.002200186, id_basis: table}
+          - {id: bpol_U-07, kind: b_field_pol_probe, index: 49, name: "MagneticFieldProbe_U-07_Bz", aliases: [], r: 0.1377, z: 0.8728, field_code: 80, calibration: -0.001800815, id_basis: table}
+          - {id: bpol_U-06, kind: b_field_pol_probe, index: 50, name: "MagneticFieldProbe_U-06_Bz", aliases: [], r: 0.1377, z: 0.9128, field_code: 79, calibration: 0.002034091, id_basis: table}
+          - {id: bpol_U-05, kind: b_field_pol_probe, index: 51, name: "MagneticFieldProbe_U-05_Bz", aliases: [], r: 0.1377, z: 0.9528, field_code: 78, calibration: 0.002026749, id_basis: table}
+          - {id: bpol_U-04, kind: b_field_pol_probe, index: 52, name: "MagneticFieldProbe_U-04_Bz", aliases: [], r: 0.1377, z: 0.9928, field_code: 77, calibration: 0.001973928, id_basis: table}
+          - {id: bpol_U-03, kind: b_field_pol_probe, index: 53, name: "MagneticFieldProbe_U-03_Bz", aliases: [], r: 0.1377, z: 1.0328, field_code: 76, calibration: -0.002194922, id_basis: table}
+          - {id: bpol_U-02, kind: b_field_pol_probe, index: 54, name: "MagneticFieldProbe_U-02_Bz", aliases: [], r: 0.1377, z: 1.0728, field_code: 75, calibration: 0.002022318, id_basis: table}
+          - {id: bpol_U-01, kind: b_field_pol_probe, index: 55, name: "MagneticFieldProbe_U-01_Bz", aliases: [], r: 0.1377, z: 1.1128, field_code: 74, calibration: -0.00227653, id_basis: table}
+          - {id: bpol_L-01, kind: b_field_pol_probe, index: 56, name: "MagneticFieldProbe_L-01_Bz", aliases: [], r: 0.1377, z: -0.8328, field_code: 66, calibration: -0.002000964, id_basis: table}
+          - {id: bpol_L-02, kind: b_field_pol_probe, index: 57, name: "MagneticFieldProbe_L-02_Bz", aliases: [], r: 0.1377, z: -0.8728, field_code: 67, calibration: 0.00229523, id_basis: table}
+          - {id: bpol_L-03, kind: b_field_pol_probe, index: 58, name: "MagneticFieldProbe_L-03_Bz", aliases: [], r: 0.1377, z: -0.9128, field_code: 68, calibration: -0.002299347, id_basis: table}
+          - {id: bpol_L-04, kind: b_field_pol_probe, index: 59, name: "MagneticFieldProbe_L-04_Bz", aliases: [], r: 0.1377, z: -0.9528, field_code: 69, calibration: 0.002237959, id_basis: table}
+          - {id: bpol_L-05, kind: b_field_pol_probe, index: 60, name: "MagneticFieldProbe_L-05_Bz", aliases: [], r: 0.1377, z: -0.9928, field_code: 70, calibration: 0.001956307, id_basis: table}
+          - {id: bpol_L_z-1.0328, kind: b_field_pol_probe, index: 61, name: "MagneticFieldProbe_L-07_Bz", aliases: [], r: 0.1377, z: -1.0328, field_code: 72, calibration: 0.00204412, id_basis: position, ladder_candidate: L-06}
+          - {id: bpol_L_z-1.0728, kind: b_field_pol_probe, index: 62, name: "MagneticFieldProbe_L-06_Bz", aliases: [], r: 0.1377, z: -1.0728, field_code: 71, calibration: 0.002093101, id_basis: position, ladder_candidate: L-07}
+          - {id: bpol_L-08, kind: b_field_pol_probe, index: 63, name: "MagneticFieldProbe_L-08_Bz", aliases: [], r: 0.1377, z: -1.1128, field_code: 73, calibration: 0.001943771, id_basis: table}
+          - {id: fl_03, kind: flux_loop, index: 64, name: "Flux Loop - #3", aliases: [], r: 0.592, z: 0.685, field_code: 18, calibration: -0.090909091, id_basis: table}
+          - {id: fl_04, kind: flux_loop, index: 65, name: "Flux Loop - #4", aliases: [], r: 0.792, z: 0.46, field_code: 19, calibration: 0.090909091, id_basis: table}
+          - {id: fl_05, kind: flux_loop, index: 66, name: "Flux Loop - #5", aliases: [], r: 0.792, z: -0.46, field_code: 20, calibration: -0.090909091, id_basis: table}
+          - {id: fl_06, kind: flux_loop, index: 67, name: "Flux Loop - #6", aliases: [], r: 0.592, z: -0.685, field_code: 21, calibration: 0.090909091, id_basis: table}
+          - {id: fl_09, kind: flux_loop, index: 68, name: "Flux Loop - #9", aliases: [], r: 0.138, z: -0.805, field_code: 24, calibration: 0.0909, id_basis: table}
+          - {id: fl_10, kind: flux_loop, index: 69, name: "Flux Loop - #10", aliases: [], r: 0.091, z: 0.04, field_code: 25, calibration: -0.0909, id_basis: table}
+          - {id: fl_11, kind: flux_loop, index: 70, name: "Flux Loop - #11", aliases: [], r: 0.138, z: 0.805, field_code: 26, calibration: -0.0909, id_basis: table}
+          - {id: fl_12, kind: flux_loop, index: 71, name: "Flux Loop - #12", aliases: [], r: 0.13, z: 0.696, field_code: 243, calibration: -0.042896525, id_basis: table}
+          - {id: fl_13, kind: flux_loop, index: 72, name: "Flux Loop - #13", aliases: [], r: 0.106, z: 0.62, field_code: 244, calibration: -0.044265417, id_basis: table}
+          - {id: fl_14, kind: flux_loop, index: 73, name: "Flux Loop - #14", aliases: [], r: 0.13, z: -0.696, field_code: 245, calibration: 0.043267582, id_basis: table}
+          - {id: fl_15, kind: flux_loop, index: 74, name: "Flux Loop - #15", aliases: [], r: 0.106, z: -0.62, field_code: 246, calibration: -0.041803016, id_basis: table}
       processing:
         # `index_start`/`index_end` select the canonical output window on the
         # 25 kHz (4e-5 s) equilibrium-magnetics grid: index 6500 = 0.26 s and
@@ -680,10 +793,15 @@
               flux_baseline_samples: 1750
               daq_mode: native_daq
         # Which raw DAQ field (and calibration sign) feeds each probe position
-        # (issue #956). The base is the shipped MD.yaml, the VFIT ver_2409
-        # layout; a revision replaces only the listed probe indices (the
-        # MD.yaml / geometry list position, pinned by r and z so a reordered
-        # asset fails loudly instead of rewiring the wrong probe).
+        # (issue #956). The base is the `sensors` records above, the VFIT
+        # ver_2409 layout; a revision replaces the field and calibration of
+        # only the listed sensors, named by their stable `id` (#2158). `r`/`z`
+        # on an entry are optional pins the resolver checks against the
+        # record, so an id typo cannot rewire a different probe. The legacy
+        # form `{index, r, z}` (canonical index, r/z required) is still
+        # accepted through a validated adapter. Names are not listed: a
+        # position's ODS label is the label of the field it reads, which must
+        # be the record's `name` or one of its `aliases`.
         #
         # Shots <= 39437 (last shot 2023-05-29) carry the older outboard
         # layout that VFIT ver_2302/2305 record: Z=+0.06 on field 170 and
@@ -706,8 +824,8 @@
             - to_shot: 39437
               layout: "pre-39438"
               probe_overrides:
-                - {index: 35, r: 0.796, z: 0.06, field_code: 170, calibration: 0.004539265}
-                - {index: 47, r: 0.796, z: -0.42, field_code: 225, calibration: -0.00452284}
+                - {id: bpol_C_z+0.060, r: 0.796, z: 0.06, field_code: 170, calibration: 0.004539265}
+                - {id: bpol_C_z-0.420, r: 0.796, z: -0.42, field_code: 225, calibration: -0.00452284}
         # Probe positions whose acquisition is known to be broken for a range
         # of shots (issue #956). The magnetics validation marks the whole
         # record invalid with this reason; data is kept, not dropped, and EFIT
@@ -739,19 +857,19 @@
         # repeated in each.
         known_faults:
           probes:
-            - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
           # Flux-loop faults are recorded only for the eras that have them.
           era_only_keys: [flux_loops]
           revisions:
             - to_shot: 36480
               probes:
-                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe acquisition broken: DC offset and gain unrelated to its neighbours (field 170)"}
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C_z+0.060, reason: "Z=+0.06 probe acquisition broken: DC offset and gain unrelated to its neighbours (field 170)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
             - from_shot: 36822
               to_shot: 36905
               probes:
-                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe acquisition saturated at the DAQ rail (field 170)"}
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C_z+0.060, reason: "Z=+0.06 probe acquisition saturated at the DAQ rail (field 170)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
             # Z=+0.06 (field 170 in the pre-39438 layout) fault windows found by
             # a per-shot neighbour-gain scan of every >=30 kA plasma shot in
             # 37400-39500 (#1896): the probe's least-squares gain against the
@@ -761,49 +879,50 @@
             - from_shot: 37586
               to_shot: 37800
               probes:
-                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) sign-flipped: gain -0.3 to -0.6 against its array neighbours, 37586-37800 (37559 and 37832 read 0.99-1.18) (#1896)"}
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C_z+0.060, reason: "Z=+0.06 probe (field 170) sign-flipped: gain -0.3 to -0.6 against its array neighbours, 37586-37800 (37559 and 37832 read 0.99-1.18) (#1896)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
             - from_shot: 38126
               to_shot: 38252
               probes:
-                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) gain 0.24-0.29 against its array neighbours, 38126-38252 (38068 and 38253 read 0.99-1.18) (#1896)"}
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C_z+0.060, reason: "Z=+0.06 probe (field 170) gain 0.24-0.29 against its array neighbours, 38126-38252 (38068 and 38253 read 0.99-1.18) (#1896)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
             - from_shot: 38254
               to_shot: 38622
               probes:
-                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) gain 1.5-2.6 against its array neighbours, 38254-38622 (38253 and 38672 read 0.99-1.18) (#1896)"}
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C_z+0.060, reason: "Z=+0.06 probe (field 170) gain 1.5-2.6 against its array neighbours, 38254-38622 (38253 and 38672 read 0.99-1.18) (#1896)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
             - from_shot: 38692
               to_shot: 38740
               probes:
-                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) gain 1.3-3.4 against its array neighbours, 38692-38740 (38675 and 38743 read 0.99-1.18) (#1896)"}
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C_z+0.060, reason: "Z=+0.06 probe (field 170) gain 1.3-3.4 against its array neighbours, 38692-38740 (38675 and 38743 read 0.99-1.18) (#1896)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
             - from_shot: 39040
               to_shot: 39098
               probes:
-                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) gain 1.2-1.5 against its array neighbours, 39040-39098 (39038 and 39107 read 0.99-1.18) (#1896)"}
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C_z+0.060, reason: "Z=+0.06 probe (field 170) gain 1.2-1.5 against its array neighbours, 39040-39098 (39038 and 39107 read 0.99-1.18) (#1896)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
             # Flux-loop acquisition faults (issue #1543), from a per-shot scan of
             # every loop's integrated amplitude against its siblings. A dead loop
             # reads 1e-5..2e-3 Wb/rad where the others read ~1e-2; the waveform
             # check does not condemn it (a small, live-looking signal), so it
-            # would reach EFIT at full weight without this record. `index`
-            # counts within flux_loop; r/z pin it.
+            # would reach EFIT at full weight without this record. Entries
+            # name the sensor `id` (#2158); the legacy `{index, r, z}` form,
+            # `index` counting within flux_loop, is still accepted.
             - from_shot: 44394
               to_shot: 44922
               probes:
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
               flux_loops:
-                - {index: 7, r: 0.13, z: 0.696, reason: "Flux loop #12 (field 243) dead: ~1e-3 of its siblings' amplitude from 44394 (44393 is the last good shot) to 44922 (44923 good again)"}
+                - {id: fl_12, reason: "Flux loop #12 (field 243) dead: ~1e-3 of its siblings' amplitude from 44394 (44393 is the last good shot) to 44922 (44923 good again)"}
             - from_shot: 44928
               to_shot: 45027
               probes:
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
               flux_loops:
-                - {index: 7, r: 0.13, z: 0.696, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
-                - {index: 8, r: 0.106, z: 0.62, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
-                - {index: 9, r: 0.13, z: -0.696, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
-                - {index: 10, r: 0.106, z: -0.62, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+                - {id: fl_12, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+                - {id: fl_13, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+                - {id: fl_14, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+                - {id: fl_15, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
             # Lower-inboard loops #14/#15 (issue #1793): an up-down mirror scan of
             # every plasma shot (loop 9 vs 7, 10 vs 8, minus the Z=+-0.805 pair)
             # finds them off during plasma only; and #12, #13, #15 flat zero from
@@ -811,39 +930,39 @@
             - from_shot: 46749
               to_shot: 47985
               probes:
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
               flux_loops:
-                - {index: 9, r: 0.13, z: -0.696, reason: "Flux loop #14 (field 245) off its up-down mirror #12 during plasma: -8 to -37 mWb per 100 kA beyond the Z=+-0.805 control pair, 46976-48392 (46748 last clean, no plasma shot 46749-46975; 48435 clean again); plasma-free baseline agrees, so a local current at the lower inboard limiter corner or a pickup, not a dead sensor (issue #1793)"}
-                - {index: 10, r: 0.106, z: -0.62, reason: "Flux loop #15 (field 246) off its up-down mirror #13 during plasma: -15 to -45 mWb per 100 kA, 46976-48038 (46748 last clean, no plasma shot 46749-46975; 48224 clean again); plasma-free baseline agrees (issue #1793)"}
+                - {id: fl_14, reason: "Flux loop #14 (field 245) off its up-down mirror #12 during plasma: -8 to -37 mWb per 100 kA beyond the Z=+-0.805 control pair, 46976-48392 (46748 last clean, no plasma shot 46749-46975; 48435 clean again); plasma-free baseline agrees, so a local current at the lower inboard limiter corner or a pickup, not a dead sensor (issue #1793)"}
+                - {id: fl_15, reason: "Flux loop #15 (field 246) off its up-down mirror #13 during plasma: -15 to -45 mWb per 100 kA, 46976-48038 (46748 last clean, no plasma shot 46749-46975; 48224 clean again); plasma-free baseline agrees (issue #1793)"}
             - from_shot: 47986
               to_shot: 48038
               probes:
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
               flux_loops:
-                - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
-                - {index: 9, r: 0.13, z: -0.696, reason: "Flux loop #14 (field 245) off its up-down mirror #12 during plasma: -8 to -37 mWb per 100 kA beyond the Z=+-0.805 control pair, 46976-48392 (46748 last clean, no plasma shot 46749-46975; 48435 clean again); plasma-free baseline agrees, so a local current at the lower inboard limiter corner or a pickup, not a dead sensor (issue #1793)"}
-                - {index: 10, r: 0.106, z: -0.62, reason: "Flux loop #15 (field 246) off its up-down mirror #13 during plasma: -15 to -45 mWb per 100 kA, 46976-48038 (46748 last clean, no plasma shot 46749-46975; 48224 clean again); plasma-free baseline agrees (issue #1793)"}
+                - {id: fl_06, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
+                - {id: fl_14, reason: "Flux loop #14 (field 245) off its up-down mirror #12 during plasma: -8 to -37 mWb per 100 kA beyond the Z=+-0.805 control pair, 46976-48392 (46748 last clean, no plasma shot 46749-46975; 48435 clean again); plasma-free baseline agrees, so a local current at the lower inboard limiter corner or a pickup, not a dead sensor (issue #1793)"}
+                - {id: fl_15, reason: "Flux loop #15 (field 246) off its up-down mirror #13 during plasma: -15 to -45 mWb per 100 kA, 46976-48038 (46748 last clean, no plasma shot 46749-46975; 48224 clean again); plasma-free baseline agrees (issue #1793)"}
             - from_shot: 48039
               to_shot: 48392
               probes:
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
               flux_loops:
-                - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
-                - {index: 9, r: 0.13, z: -0.696, reason: "Flux loop #14 (field 245) off its up-down mirror #12 during plasma: -8 to -37 mWb per 100 kA beyond the Z=+-0.805 control pair, 46976-48392 (46748 last clean, no plasma shot 46749-46975; 48435 clean again); plasma-free baseline agrees, so a local current at the lower inboard limiter corner or a pickup, not a dead sensor (issue #1793)"}
+                - {id: fl_06, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
+                - {id: fl_14, reason: "Flux loop #14 (field 245) off its up-down mirror #12 during plasma: -8 to -37 mWb per 100 kA beyond the Z=+-0.805 control pair, 46976-48392 (46748 last clean, no plasma shot 46749-46975; 48435 clean again); plasma-free baseline agrees, so a local current at the lower inboard limiter corner or a pickup, not a dead sensor (issue #1793)"}
             - from_shot: 48393
               to_shot: 48815
               probes:
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
               flux_loops:
-                - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
+                - {id: fl_06, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
             - from_shot: 48816
               probes:
-                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+                - {id: bpol_C4-04, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
               flux_loops:
-                - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
-                - {index: 7, r: 0.13, z: 0.696, reason: "Flux loop #12 (field 243) reads flat zero (|flux| < 0.3 mWb at the Ip peak while #9 and the Z=+-0.805 pair swing 10-46 mWb) from 48866 on; 48815 is the last live shot, 48816-48865 drove no PF current (issue #1793)"}
-                - {index: 8, r: 0.106, z: 0.62, reason: "Flux loop #13 (field 244) reads flat zero (|flux| < 0.3 mWb at the Ip peak while #9 and the Z=+-0.805 pair swing 10-46 mWb) from 48866 on; 48815 is the last live shot, 48816-48865 drove no PF current (issue #1793)"}
-                - {index: 10, r: 0.106, z: -0.62, reason: "Flux loop #15 (field 246) reads flat zero (|flux| < 0.3 mWb at the Ip peak while #9 and the Z=+-0.805 pair swing 10-46 mWb) from 48866 on; 48815 is the last live shot, 48816-48865 drove no PF current (issue #1793)"}
+                - {id: fl_06, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
+                - {id: fl_12, reason: "Flux loop #12 (field 243) reads flat zero (|flux| < 0.3 mWb at the Ip peak while #9 and the Z=+-0.805 pair swing 10-46 mWb) from 48866 on; 48815 is the last live shot, 48816-48865 drove no PF current (issue #1793)"}
+                - {id: fl_13, reason: "Flux loop #13 (field 244) reads flat zero (|flux| < 0.3 mWb at the Ip peak while #9 and the Z=+-0.805 pair swing 10-46 mWb) from 48866 on; 48815 is the last live shot, 48816-48865 drove no PF current (issue #1793)"}
+                - {id: fl_15, reason: "Flux loop #15 (field 246) reads flat zero (|flux| < 0.3 mWb at the Ip peak while #9 and the Z=+-0.805 pair swing 10-46 mWb) from 48866 on; 48815 is the last live shot, 48816-48865 drove no PF current (issue #1793)"}
 
     # Kinetic-profile construction policy (issue #420): the VEST decisions a
     # pipeline hands to the machine-independent vaft.process.profile and

@@ -68,9 +68,10 @@ any Snakefile: fluctuation Mirnov voltages are published raw.
 Each stage is listed as Snakefile rule → script → VAFT API → configuration →
 preprocessing.
 
-Workflow-local numerics: the only production script that computes anything is
-`P1/generate_constraints_ods.py`. Its `_box_averaged` (`:295-300`) is a cumsum box
-average, i.e. `legacy.box_average` evaluated at every sample.
+Workflow-local numerics: the only production script that computed anything was
+`P1/generate_constraints_ods.py`. Its `_box_averaged`, a cumsum box average, i.e.
+`legacy.box_average` evaluated at every sample, moved to
+`vaft.code.efit.legacy.box_average_series` in #2162 B3.10.
 
 ### `generate_raw_db_dump` (Snakefile:462)
 
