@@ -95,29 +95,32 @@ READS: Dict[str, Tuple[str, ...]] = {
     "transport": ("equilibrium", "core_profiles", "assumptions"),
 }
 
-#: what the reconstruction and the kinetic profiles are made from, as IMAS IDS, a line each: wall and axisymmetric
-#: coils; 3-D coils and heating; measurements. The 3-D coil excitation is ``coils_non_axisymmetric``, so it is drawn
+#: what the reconstruction and the kinetic profiles are made from, as IMAS IDS, a line each: wall, toroidal field and
+#: axisymmetric coils; 3-D coils and heating; magnetic and line-integrated measurements; profile measurements. The 3-D coil excitation is ``coils_non_axisymmetric``, so it is drawn
 #: here as machine data, not among the assumptions
 EXPERIMENT_TITLE = "IMAS Machine Configuration & Experimental Data IDS"
 EXPERIMENT_IDS: Tuple[Tuple[str, ...], ...] = (
-    ("wall", "pf_active", "pf_passive", "em_coupling"),
+    ("wall", "tf", "pf_active", "pf_passive", "em_coupling"),
     ("coils_non_axisymmetric", "nbi", "ec_launchers"),
-    ("magnetics", "thomson_scattering", "charge_exchange"),
+    ("magnetics", "interferometer"),
+    ("thomson_scattering", "charge_exchange"),
 )
-#: the representative quantities of each, as VAFT reads them (the wall, a geometry, carries none): coil and passive-loop currents (``coil.current``, ``loop.current``), the mutual
+#: the representative quantities of each, as VAFT reads them (the wall and NBI, for which VAFT reads only geometry,
+#: carry none): the vacuum toroidal field (``tf.b_field_tor_vacuum_r``), coil and passive-loop currents (``coil.current``, ``loop.current``), the mutual
 #: inductance matrices (``mutual_*``), 3-D coil currents, EC launched power and frequency (``beam.power_launched``,
 #: ``beam.frequency``), plasma current, poloidal field probes, flux loops and diamagnetic flux, Thomson and
-#: charge-exchange profiles. For NBI VAFT maps only the units, so the quantities are the data dictionary's
-#: ``unit.power_launched`` and ``unit.energy``.
+#: charge-exchange profiles, interferometer line densities.
 EXPERIMENT_QUANTITIES: Dict[str, str] = {
     "wall": "",
+    "tf": r"$R_0B_0$",
     "pf_active": r"$I_{\rm coil}$",
     "pf_passive": r"$I_{\rm eddy}$",
     "em_coupling": r"$M_{ij}$",
     "coils_non_axisymmetric": r"$I_{\rm 3D}$",
-    "nbi": r"$P_{\rm NBI}$, $E_b$",
+    "nbi": "",
     "ec_launchers": r"$P_{\rm EC}$, $f$",
     "magnetics": r"$I_p$, $B_p$, $\psi_p$, $\Phi_{\rm dia}$",
+    "interferometer": r"$\int n_e\,dl$",
     "thomson_scattering": r"$n_e$, $T_e$",
     "charge_exchange": r"$v_\phi$, $T_i$",
 }
@@ -324,7 +327,7 @@ def equilibrium_stability_transport(*, labels: bool = True, measurements: bool =
         efit_top = max(p[1] for p in efit.points)
         kin_x, kin_y, _, kin_h = b.model["boxes"]["core_profiles"]
         kin_x += dx
-        h, w = 1.95, 14.2
+        h, w = 2.4, 14.2
         cx, cy = 0.5 * (efit_x + kin_x), _TOP + 0.8 + 0.5 * h
         data = box(cx, cy, w, h, _experiment_text(), style=_EXPERIMENT_STYLE, role="node:experiment_data", latex=True)
         items += list(data.items)

@@ -111,14 +111,16 @@ def test_the_measurement_variant_feeds_the_reconstruction_and_the_profiles():
     assert ("experiment", "hub", "forward") in edges and ("theory", "hub", "both") in edges
     assert {("experiment_data", "experiment", "forward"), ("experiment_data", "core_profiles", "forward"),
             ("equilibrium", "core_profiles", "forward"), ("assumptions", "core_profiles", "forward")} <= edges
-    assert d.model["measurements"] == ("wall", "pf_active", "pf_passive", "em_coupling", "coils_non_axisymmetric",
-                                       "nbi", "ec_launchers", "magnetics", "thomson_scattering", "charge_exchange")
+    assert d.model["measurements"] == ("wall", "tf", "pf_active", "pf_passive", "em_coupling", "coils_non_axisymmetric",
+                                       "nbi", "ec_launchers", "magnetics", "interferometer", "thomson_scattering", "charge_exchange")
     data = next(i for i in d.scene.role("node:experiment_data") if isinstance(i, Label)).text
     assert "IMAS Machine Configuration \\& Experimental Data IDS" in data and "coils\\_non\\_axisymmetric" in data
     # each IDS carries its representative quantities
-    for q in ("$I_{\\rm coil}$", "$I_{\\rm eddy}$", "$M_{ij}$", "$I_{\\rm 3D}$", "$P_{\\rm NBI}$", "$P_{\\rm EC}$",
+    for q in ("$I_{\\rm coil}$", "$I_{\\rm eddy}$", "$M_{ij}$", "$I_{\\rm 3D}$", "$R_0B_0$", "$P_{\\rm EC}$",
+              "$\\int n_e\\,dl$",
               "$I_p$", "$T_e$", "$v_\\phi$"):
         assert q in data
+    assert "NBI" not in data  # VAFT reads only NBI geometry, so nbi carries no quantity
     # the 3-D coil excitation is coils_non_axisymmetric, machine data here, no longer an assumption
     assert "3-D coil excitation" not in data
     assert "3-D coil excitation" not in d.scene.role("input:assumptions")[1].text
