@@ -1,7 +1,8 @@
 """Public multi-machine databases mapped into common VAFT semantics (#1205).
 
 Source-specific readers (:mod:`.itpa_hmode`, :mod:`.tcv_lh`, :mod:`.itpa_tc26`) normalise
-published databases into canonical tables (:mod:`.schema`); profile databases
+published databases into canonical tables (:mod:`.schema`); licence-verified public
+equilibria (:mod:`.equilibria`, #2285) map into ODS; profile databases
 (:mod:`.itpa_profile`, PR08) map into ODS instead; VEST enters the same tables through
 :mod:`.vest_confinement`; :mod:`.analysis` and :mod:`vaft.plot.population`
 work on the canonical tables only.  Files are fetched on demand with a pinned
@@ -11,6 +12,16 @@ checksum (:mod:`._fetch`) and are never shipped with VAFT.
 from importlib import import_module
 
 __all__ = [
+    "EXCLUDED_EQUILIBRIUM_SOURCES",
+    "EquilibriumCompatibilityError",
+    "EquilibriumLicenceError",
+    "EquilibriumParseError",
+    "PUBLIC_EQUILIBRIUM_DEVICES",
+    "PUBLIC_EQUILIBRIUM_SOURCES",
+    "PublicEquilibrium",
+    "PublicEquilibriumSource",
+    "load_public_equilibrium",
+    "public_equilibrium_provenance",
     "MHD_STATE_COLUMNS",
     "PR08_MACHINES",
     "PROVENANCE_KINDS",
@@ -52,6 +63,16 @@ __all__ = [
 ]
 
 _EXPORT_MAP = {
+    "EXCLUDED_EQUILIBRIUM_SOURCES": (".equilibria", "EXCLUDED_EQUILIBRIUM_SOURCES"),
+    "EquilibriumCompatibilityError": (".equilibria", "EquilibriumCompatibilityError"),
+    "EquilibriumLicenceError": (".equilibria", "EquilibriumLicenceError"),
+    "EquilibriumParseError": (".equilibria", "EquilibriumParseError"),
+    "PUBLIC_EQUILIBRIUM_DEVICES": (".equilibria", "PUBLIC_EQUILIBRIUM_DEVICES"),
+    "PUBLIC_EQUILIBRIUM_SOURCES": (".equilibria", "PUBLIC_EQUILIBRIUM_SOURCES"),
+    "PublicEquilibrium": (".equilibria", "PublicEquilibrium"),
+    "PublicEquilibriumSource": (".equilibria", "PublicEquilibriumSource"),
+    "load_public_equilibrium": (".equilibria", "load_public_equilibrium"),
+    "public_equilibrium_provenance": (".equilibria", "public_equilibrium_provenance"),
     "MHD_STATE_COLUMNS": (".pr08_mhd_state", "MHD_STATE_COLUMNS"),
     "PR08_MACHINES": (".pr08_mhd_state", "PR08_MACHINES"),
     "PROVENANCE_KINDS": (".pr08_mhd_state", "PROVENANCE_KINDS"),
