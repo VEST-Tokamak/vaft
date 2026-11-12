@@ -2361,13 +2361,20 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
         (f"interferometer.channel.{index}.n_e_line.time", "interferometer.time"),
     )
     if time is None or time.size != signal_values.size:
-        time = np.arange(signal_values.size, dtype=float)
+        time = _untimed_axis(
+            signal_values.size, options, f"interferometer.channel.{index}.n_e_line.data"
+        )
 
     sample_rate = options.get("sample_rate")
     if sample_rate is None:
         steps = np.diff(time)
         positive = steps[steps > 0]
-        sample_rate = 1.0 / float(np.median(positive)) if positive.size else 1.0
+        if not positive.size:
+            raise ValueError(
+                f"interferometer.channel.{index} has no increasing time samples to "
+                "derive a sample rate from; pass sample_rate= in Hz"
+            )
+        sample_rate = 1.0 / float(np.median(positive))
     sample_rate = float(sample_rate)
     nyquist = sample_rate / 2.0
 
@@ -2376,6 +2383,14 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     if signal_values.size > 32 and 0.0 < highpass_cutoff < nyquist:
         fluctuation = butterworth_highpass(
             signal_values, highpass_cutoff, sample_rate, order=4, zero_phase=True
+        )
+    elif highpass_cutoff > 0.0:
+        # A cut-off the record cannot honour leaves the trend in, and the map is
+        # the raw trace's (issue #2270 B5); a cut-off <= 0 is the caller's opt-out.
+        _warn_at_caller(
+            f"interferometer_spectrogram: the {highpass_cutoff:g} Hz trend high-pass is not "
+            f"applied ({signal_values.size} samples, Nyquist {nyquist:g} Hz); the map is "
+            "of the unfiltered line density"
         )
 
     window_size = options.get("window_size") or options.get("nperseg")
@@ -2388,9 +2403,10 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
     time_resolution = options.get("time_resolution")
     time_resolution = int(time_resolution) if time_resolution else max(1, window_size // 40)
 
+    method = _spectrogram_method(options, "interferometer_spectrogram")
     result = _spectrogram_result(
         time, fluctuation,
-        method=_spectrogram_method(options, "interferometer_spectrogram"),
+        method=method,
         sample_rate=sample_rate, options=options,
         window_hint=window_size, resolution_hint=time_resolution,
     )
@@ -2399,7 +2415,7 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
         max_frequency=_display_ceiling(result, options),
         cmap=options.get("cmap", "turbo"),
         title=_channel_label(ods, "interferometer.channel.{i}.name", index, f"channel {index}"),
-        value_label="Fluctuation Magnitude",
+        value_label=_spectrogram_value_label("Fluctuation Magnitude", method),
     )
 
 
@@ -4676,44 +4692,15 @@ def _core_profile_slice_at(ods: Any, time_slice: int) -> int:
 def _rho_tor_of_psi_norm(ods: Any, time_slice: int) -> tuple[np.ndarray, np.ndarray]:
     """``(psi_N, rho_tor_norm)`` of one equilibrium slice, as an interpolation table.
 
-    The stored ``profiles_1d.rho_tor_norm`` when it is a real toroidal
-    coordinate, else the one integrated from ``q`` (``rho_tor_profile``).  The
-    ``sqrt(psi_N)`` proxy older files carry is refused like a missing leaf.
-    ``psi_N`` is normalised by the 1-D profile's own ends, so it runs 0 to 1
-    whatever the sign or per-radian convention of ``psi``.  Raises when the
-    slice cannot supply a toroidal coordinate: drawing the profile at
-    ``sqrt(psi_N)`` instead would place every value at the wrong radius.
+    :func:`vaft.process.profile.equilibrium_rho_tor_norm_table`, the one
+    resolver the views and analysis share (issue #2270): the stored
+    coordinate when it is authentic, else the one integrated from ``q``; the
+    ``sqrt(psi_N)`` proxy is refused.  Its ``CoordinateUnavailableError`` is a
+    ``ValueError``.
     """
-    from vaft.data._derived import is_rho_pol_proxy, rho_tor_profile
+    from vaft.process.profile import equilibrium_rho_tor_norm_table
 
-    base = f"equilibrium.time_slice.{time_slice}.profiles_1d"
-    psi = _array(ods, f"{base}.psi")
-    if psi is None or psi.size < 2 or not np.all(np.isfinite(psi)) or psi[-1] == psi[0]:
-        raise ValueError(
-            f"{base}.psi is required to map a core profile's rho_tor_norm grid "
-            "onto the poloidal plane"
-        )
-    psi_norm = (psi - psi[0]) / (psi[-1] - psi[0])
-    if np.any(np.diff(psi_norm) <= 0.0):
-        raise ValueError(f"{base}.psi is not monotonic from the axis to the boundary")
-    stored = _array(ods, f"{base}.rho_tor_norm")
-    if (
-        stored is not None and stored.size == psi.size and np.all(np.isfinite(stored))
-        # a coordinate at all: axis to edge, never turning back (an all-zero
-        # leaf from a failed slice would paint the plasma at Te(0))
-        and abs(stored[0]) < 1e-6 and abs(stored[-1] - 1.0) < 1e-6
-        and np.all(np.diff(stored) >= 0.0)
-        and not is_rho_pol_proxy(stored, psi_norm)
-    ):
-        return psi_norm, stored
-    q = _array(ods, f"{base}.q")
-    derived = rho_tor_profile(q, psi) if q is not None else None
-    if derived is None or derived.rho_tor_norm.size != psi.size:
-        raise ValueError(
-            f"{base} supplies no toroidal coordinate: rho_tor_norm is missing or the "
-            "sqrt(psi_N) proxy, and q cannot be integrated into toroidal flux"
-        )
-    return psi_norm, derived.rho_tor_norm
+    return equilibrium_rho_tor_norm_table(ods, int(time_slice))
 
 
 def _build_core_profile_field(
@@ -4760,25 +4747,28 @@ def _build_core_profile_field(
     span = float(psi_boundary) - float(psi_axis)
     if span == 0.0:
         raise ValueError("equilibrium psi_axis and psi_boundary are equal")
-    psi_norm = (psi_2d - float(psi_axis)) / span
     # The DD stores psi as (dim1, dim2) = (R, Z) and the model is (Z, R).  The
     # stored order is tested first so that a square grid -- every VEST grid --
     # is transposed too; "shape != (nz, nr)" never fires on one.
-    if psi_norm.shape == (grid_r.size, grid_z.size):
-        psi_norm = psi_norm.T
-    elif psi_norm.shape != (grid_z.size, grid_r.size):
+    psi_rz = psi_2d
+    if psi_rz.shape == (grid_r.size, grid_z.size):
+        psi_rz = psi_rz.T
+    elif psi_rz.shape != (grid_z.size, grid_r.size):
         raise ValueError(
             f"equilibrium.time_slice.{time_slice}.profiles_2d.0.psi has shape "
-            f"{psi_norm.shape}, which is neither (dim1, dim2) = "
+            f"{psi_rz.shape}, which is neither (dim1, dim2) = "
             f"{(grid_r.size, grid_z.size)} nor its transpose"
         )
     # The profile lives on rho_tor_norm; each cell knows only its psi_N.  The
     # slice's own rho_tor_norm(psi_N) carries one to the other -- sqrt(psi_N)
-    # is rho_pol, up to 0.15 away, so it cannot stand in for rho_tor_norm.
-    table_psi, table_rho = _rho_tor_of_psi_norm(ods, int(time_slice))
-    rho_2d = np.interp(np.clip(psi_norm, 0.0, 1.0).ravel(), table_psi, table_rho)
-    values = np.interp(rho_2d, rho, profile).reshape(psi_norm.shape)
-    values = np.where(psi_norm <= 1.0, values, np.nan)
+    # is rho_pol, up to 0.15 away.
+    # The mapping itself is the process layer's.
+    from vaft.process.profile import map_rho_tor_profile_to_rz
+
+    values = map_rho_tor_profile_to_rz(
+        psi_rz, float(psi_axis), float(psi_boundary), rho, profile,
+        flux_table=_rho_tor_of_psi_norm(ods, int(time_slice)),
+    )
     labels = {
         "temperature": "Electron Temperature [eV]",
         "density": "Electron Density [m^-3]",
@@ -6837,11 +6827,12 @@ def _impurity_weights(options: Mapping[str, Any]) -> tuple[dict[str, float], flo
 def _volume_weights_at(ods: Any, t: float, rho: np.ndarray) -> np.ndarray | None:
     """``dV`` per rho point from the equilibrium V(rho_tor_norm) of the same time, or ``None``.
 
-    The slice is matched BY TIME within :data:`_IMPURITY_SLICE_TOLERANCE`;
-    points beyond the equilibrium's rho range get ``dV = 0`` (``np.interp``
-    clamps), as in the Lane L atlas.
+    The slice is matched BY TIME within :data:`_IMPURITY_SLICE_TOLERANCE`; the
+    weighting is :func:`vaft.process.profile.equilibrium_volume_weights`
+    (issue #2270), which declines a constant V and a proxy radius it cannot
+    re-derive -- the caller then says the stand-in is used.
     """
-    if not np.isfinite(t) or not np.all(np.isfinite(rho)) or not _count(ods, "equilibrium.time_slice"):
+    if not np.isfinite(t) or not _count(ods, "equilibrium.time_slice"):
         return None
     times = slice_times(ods, "equilibrium.time_slice")
     if not np.isfinite(times).any():
@@ -6849,20 +6840,9 @@ def _volume_weights_at(ods: Any, t: float, rho: np.ndarray) -> np.ndarray | None
     index = int(np.nanargmin(np.abs(times - t)))
     if abs(times[index] - t) > _IMPURITY_SLICE_TOLERANCE:
         return None
-    base = f"equilibrium.time_slice.{index}.profiles_1d"
-    rho_eq, volume = _array(ods, f"{base}.rho_tor_norm"), _array(ods, f"{base}.volume")
-    if rho_eq is None or volume is None or rho_eq.shape != volume.shape:
-        return None
-    ok = np.isfinite(rho_eq) & np.isfinite(volume)
-    if not ok.any():
-        return None
-    order = np.argsort(rho_eq[ok])
-    edges = np.concatenate(([0.0], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
-    v = np.interp(edges, rho_eq[ok][order], volume[ok][order])
-    dv = np.clip(np.diff(v), 0.0, None)
-    # A constant or zero V(rho) weighs nothing; the caller then says the
-    # stand-in is used rather than the resolver failing on a NaN amplitude.
-    return dv if np.sum(dv) > 0.0 else None
+    from vaft.process.profile import equilibrium_volume_weights
+
+    return equilibrium_volume_weights(ods, index, rho)
 
 
 def _plasma_age(ods: Any, t: float, options: Mapping[str, Any]) -> tuple[float | None, str]:
@@ -10988,10 +10968,12 @@ def _mapped_field_values(ods: Any, recipe: FieldRecipe, spec: EquilibriumField, 
     edge = float(psi_1d[-1]) if edge is None else edge
     if axis == edge:
         return None
-    psi_norm_2d = (psi_2d - axis) / (edge - axis)
+    # The canonical flux-function projection (issue #2270); "edge" keeps the
+    # clamped profile everywhere and the view blanks beyond the boundary.
+    from vaft.process.equilibrium import psi_to_rz
+
     psi_norm_1d = (psi_1d - axis) / (edge - axis)
-    order = np.argsort(psi_norm_1d)
-    mapped = np.interp(psi_norm_2d, psi_norm_1d[order], profile[order])
+    mapped, psi_norm_2d = psi_to_rz(psi_norm_1d, profile, psi_2d, axis, edge, fill_outside="edge")
     return np.where(psi_norm_2d <= 1.0, mapped, np.nan)
 
 
@@ -11244,6 +11226,23 @@ SPECTROGRAM_PARAMETERS: dict[str, tuple[str, ...]] = {
     "cwt": ("frequency_range", "n_frequencies"),
 }
 
+#: What a pixel of each method's map is (issue #2270 B5): the three transforms
+#: are scaled differently, so the colour bar says which one it shows rather
+#: than one bare "Magnitude" for all three.
+SPECTROGRAM_VALUE_SCALES: dict[str, str] = {
+    # scipy's mode="magnitude" with its default density scaling,
+    # |X|/sqrt(fs sum w^2) -- the formula does not fit on a colour bar
+    "stft": "STFT amplitude density",
+    "hann_fft": "amplitude 2|X|/N",
+    "cwt": "CWT |W|",
+}
+
+
+def _spectrogram_value_label(label: str, method: str) -> str:
+    """``label`` with the method's scale, e.g. ``Magnitude (STFT |X|)``."""
+    return f"{label} ({SPECTROGRAM_VALUE_SCALES[method]})"
+
+
 #: The window both Fourier methods use when the caller names none.  The same
 #: number of samples either way, so switching method changes the algorithm
 #: and not, silently, the resolution as well.
@@ -11342,13 +11341,21 @@ def _spectrogram_result(
     if method == "stft":
         from vaft.process.fluctuation import compute_spectrogram
 
-        nperseg = int(options.get("nperseg") or window_hint or _SPECTROGRAM_WINDOW)
-        nperseg = max(2, min(nperseg, int(values.size)))
+        requested = int(options.get("nperseg") or window_hint or _SPECTROGRAM_WINDOW)
+        nperseg = max(2, min(requested, int(values.size)))
         noverlap = options.get("noverlap")
-        overlap = 0.5 if noverlap is None else float(noverlap) / nperseg
+        if noverlap is not None and not 0 <= int(noverlap) < requested:
+            # A named overlap the window cannot hold was clamped in silence
+            # (issue #2270 B5).
+            raise ValueError(
+                f"noverlap must be 0 <= noverlap < nperseg ({requested} samples); got {noverlap!r}"
+            )
+        # The overlap is a fraction of the window, so a window shortened to the
+        # record keeps the caller's fraction; a valid one is no longer capped.
+        overlap = 0.5 if noverlap is None else float(noverlap) / requested
         result = compute_spectrogram(
             time, values, sample_rate=sample_rate, nperseg=nperseg,
-            overlap=min(max(overlap, 0.0), 0.99),
+            overlap=overlap,
             window=options.get("window", "hann"),
             detrend=options.get("detrend", "constant"),
         )
@@ -11396,6 +11403,21 @@ class _SpectrogramResult:
     magnitude: np.ndarray
 
 
+def _untimed_axis(size: int, options: Mapping[str, Any], path: str) -> np.ndarray:
+    """A time axis in seconds for a signal stored without one, from ``sample_rate=``.
+
+    Refused without a rate: the index axis it used to fall back to was then
+    labelled seconds and its frequencies Hz.
+    """
+    rate = options.get("sample_rate")
+    if rate is None or not np.isfinite(float(rate)) or float(rate) <= 0.0:
+        raise ValueError(
+            f"{path} has no matching time base; pass sample_rate= in Hz so the "
+            "time and frequency axes are in seconds and hertz"
+        )
+    return np.arange(size, dtype=float) / float(rate)
+
+
 def _build_spectrogram(
     ods: Any, recipe: SpectrogramRecipe, **options: Any
 ) -> Spectrogram:
@@ -11414,7 +11436,11 @@ def _build_spectrogram(
     time = _first_time(ods, recipe.time_paths, i=index)
     timed = time is not None and time.size == signal.size
     if not timed:
-        time = np.arange(signal.size, dtype=float)
+        # Sample indices drawn as seconds and cycles per sample as Hz (issue
+        # #2270 B5): without a time base the axes need the caller's rate.
+        time = _untimed_axis(
+            signal.size, options, " or ".join(path.format(i=index) for path in candidates)
+        )
 
     time_range = options.get("time_range")
     if time_range is not None:
@@ -11425,7 +11451,12 @@ def _build_spectrogram(
     if sample_rate is None:
         steps = np.diff(time)
         positive = steps[steps > 0]
-        sample_rate = 1.0 / float(np.median(positive)) if positive.size else 1.0
+        if not positive.size:
+            raise ValueError(
+                f"{recipe.signal_path.format(i=index)} has no increasing time samples "
+                "to derive a sample rate from; pass sample_rate= in Hz"
+            )
+        sample_rate = 1.0 / float(np.median(positive))
     method = _spectrogram_method(options, options.get("_plot_name"))
     result = _spectrogram_result(
         time, signal, method=method, sample_rate=float(sample_rate), options=options
@@ -11436,7 +11467,7 @@ def _build_spectrogram(
         max_frequency=ceiling,
         cmap=options.get("cmap", "hot_r"),
         title=_channel_label(ods, recipe.label_path, index, f"channel {index}"),
-        value_label=recipe.value_label,
+        value_label=_spectrogram_value_label(recipe.value_label, method),
         **_spectrogram_ridge(result, options, ceiling),
     )
     request = _mode_overlay_request(options)
@@ -11657,6 +11688,13 @@ def _with_mode_overlay(
     )
 
 
+#: Options only a spectrogram reads; a power spectrum refuses them.
+_SPECTROGRAM_ONLY_OPTIONS = (
+    "method", "window_size", "time_resolution", "n_frequencies", "frequency_range",
+    "max_frequency", "track", "max_jump", "overlap",
+)
+
+
 def _build_power_spectrum(
     ods: Any, recipe: PowerSpectrumRecipe, **options: Any
 ) -> PowerSpectrum:
@@ -11668,6 +11706,18 @@ def _build_power_spectrum(
     of ``B`` -- integrate first if you want a field spectrum.
     """
     from vaft.process.fluctuation import compute_psd, fit_power_law_spectrum
+
+    # Spectrogram options the global schema accepts but a Welch PSD has no use
+    # for were dropped in silence (issue #2270 B5): refused by name instead.
+    foreign = sorted(
+        key for key in _SPECTROGRAM_ONLY_OPTIONS if options.get(key) is not None and options[key] is not False
+    )
+    if foreign:
+        raise ValueError(
+            f"the power spectrum of {recipe.signal_path} is a Welch PSD and takes no "
+            f"{', '.join(foreign)}; its analysis options are sample_rate, window, nperseg, "
+            "noverlap, detrend and time_range"
+        )
 
     requested = options.get("channel")
     if requested is None:
@@ -14354,17 +14404,13 @@ def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
     figure should not pay for them again per trace.
 
     What the IDS carries is the perturbed flux on a ``(psi_n, m)`` grid plus
-    the equilibrium geometry; :func:`vaft.process.perturbation.resonant_delta`
+    the equilibrium geometry; :func:`vaft.process.perturbation.resonant_table`
     turns the jump across each rational surface into the resonance parameter,
-    and the closed forms in :mod:`vaft.formula.stability` take it from there.
+    the resonant flux, its phase and the island width.
     Reproduces GPEC's own ``w_isl`` to about a per cent on the DIII-D
     reference.
     """
-    from vaft.formula.stability import (
-        island_width_from_resonant_flux,
-        resonant_flux_from_delta,
-    )
-    from vaft.process.perturbation import resonant_delta
+    from vaft.process.perturbation import resonant_table
 
     cell = _mhd_linear_eigenfunction_cell(ods, **options)
     n_tor = int(cell["n_tor"])
@@ -14382,47 +14428,9 @@ def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
     if real is None or imaginary is None:
         raise ValueError(f"mhd_linear ODS carries a grid but no perturbed flux for n={n_tor}")
     field = np.asarray(real, dtype=float) + 1j * np.asarray(imaginary, dtype=float)
-    psi_n, harmonics = cell["psi_n"], cell["m"]
-    if field.shape != (psi_n.size, harmonics.size):
-        raise ValueError(
-            f"the perturbed flux has shape {field.shape}, but the declared (psi, m) "
-            f"grid is {(psi_n.size, harmonics.size)}"
-        )
-
-    rows: list[dict[str, Any]] = []
-    for surface in surfaces:
-        m_pol = int(round(n_tor * surface["q"]))
-        column = int(np.argmin(np.abs(harmonics - m_pol)))
-        if int(harmonics[column]) != m_pol:
-            # The resonant harmonic is outside the mapped band, so this
-            # surface has no column to take a jump in.
-            continue
-        jump = resonant_delta(
-            psi_n, field[:, column],
-            psi_rational=surface["psi_n"], area=surface["area"],
-            dq_dpsi_norm=surface["dq_dpsi_n"], chi1=chi1,
-            m_pol=m_pol, n_tor=n_tor,
-        )
-        flux = resonant_flux_from_delta(jump.delta, surface["geometric_factor"], n_tor)
-        rows.append({
-            "psi_n": surface["psi_n"],
-            "q": surface["q"],
-            "m_pol": m_pol,
-            "delta": jump.delta,
-            "Phi_res": complex(flux),
-            # The island's phase reference (C-20). GPEC reports it as
-            # arg(I_res), and I_res is not mapped -- but it does not need to
-            # be: `gpec/gpout.f:1689-1691` builds both from the same jump,
-            # I_res = -Delta*chi1*j_c/m and Phi_res = -G*Delta/n, and the two
-            # scale factors are real and of one sign, so the two arguments are
-            # analytically the same number. This one is derived from the
-            # fitted jump rather than read, so it carries the derivation's own
-            # accuracy -- degrees, not the exactness of the identity.
-            "phase": float(np.angle(flux)),
-            "w_isl": float(island_width_from_resonant_flux(
-                flux, surface["area"], surface["q"], surface["dq_dpsi_n"], m_pol, chi1,
-            )),
-        })
+    # The derivation itself is the process layer's (issue #2270); the view
+    # reads the IDS and the recorded geometry around it.
+    rows = resonant_table(cell["psi_n"], cell["m"], field, surfaces, chi1=chi1, n_tor=n_tor)
     if not rows:
         raise ValueError(
             f"none of the {len(surfaces)} rational surfaces recorded for n={n_tor} "
