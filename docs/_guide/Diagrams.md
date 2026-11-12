@@ -13,8 +13,9 @@ related:
   api: [diagram, formula, plot]
 ---
 
-`vaft.diagram` draws **concepts**: topology, coordinate systems, workflows. It does not draw data. The
-three layers split the work:
+`vaft.diagram` draws **concepts**: topology, coordinate systems, workflows. It does not draw data, with
+one deliberate exception: `electron_density_semantics` carries a measured sample through
+`vaft.process` and the `vaft.plot` view models to show how its representations differ (below). The three layers split the work:
 
 | Layer | Owns | Example |
 | --- | --- | --- |
@@ -1992,6 +1993,107 @@ from the outboard midplane.
 ![Geometry to mesh]({{ '/assets/diagrams/geometry_to_mesh.svg' | relative_url }})
 ![Logical to physical mapping]({{ '/assets/diagrams/logical_to_physical_mapping.svg' | relative_url }})
 ![Physical to flux mapping]({{ '/assets/diagrams/physical_to_flux_mapping.svg' | relative_url }})
+
+## One measured sample in four representations: electron density
+
+`electron_density_semantics` is the one figure on this page drawn from shot data rather than a model: the
+packaged VEST kinetic slice, shot 48224 at $t = 300\,\mathrm{ms}$
+(`vaft/data/kineticEfit/ods_48224_300ms.json`, git blob `7b5c7730`). It shows two things at once: the
+responsibility boundaries of VAFT's scientific plotting (the top strip, in keywords only), and one quantity, $n_e$, carried
+through them into four representations (the panels). The figure computes no physics itself: channel
+positions come from `vaft.process.profile.equilibrium_mapping_thomson_scattering`, the 2-D state from
+`vaft.process.equilibrium.psi_to_rz` masked by `vaft.process.equilibrium.plasma_cell_weights`, and the
+panels take every data value, error bar and validity flag from `vaft.plot.models.Profile1D` and
+`vaft.plot.models.Field2D` view models under the display policy `vaft.plot.display.resolve_display` returns;
+the overlaid geometry (boundary, wall, axis) comes from the same model.
+
+```python
+d = vaft.diagram.electron_density_semantics()      # the packaged 48224 slice at 0.300 s
+d.model.views["rho"]                                # a vaft.plot Profile1D: stored profile + Thomson traces
+d.model.views["map"]                                # a vaft.plot Field2D: the flux-surface-mapped n_e
+d.model.thomson.status                              # usable / no_sample / rejected / outside_lcfs per channel
+d.model.metadata["architecture_edges"]              # (from, to, kind) responsibility boundaries
+```
+
+### The architecture strip, and what of it is implemented
+
+| Box | In `vaft.plot` | In this figure |
+| --- | --- | --- |
+| Scientific identity | `subject / view / [quantity]` of `vaft.plot.registry`: `electron_density_profile` (`Profile1D`), `electron_density_field` (`Field2D`) | the same identities |
+| Data representation | each spec declares its IDS and `required_paths` | `thomson_scattering` (measured), `core_profiles` (stored state), `equilibrium` (coordinates, mapping) and the machine `wall`: sources of different status, not interchangeable measurements |
+| Semantic adapter | `vaft.plot.backend.recipes` builds the view model from an ODS | time alignment, coordinate mapping, uncertainty and validity, plus the provenance in `metadata`; the extensions listed below are this figure's |
+| Typed view model | `Profile1D`, `Field2D`, `Series` with `yerr` and `valid_mask` | three `Profile1D`, one `Field2D` |
+| Display policy | `resolve_display`: `m^-3` shown in `10^18 m^-3`, scaled axis | the same `DisplaySpec` on every view |
+| Graphical presentation | `FigureFormat` (screen, single/double column, slide, poster) and `Theme` (technical, minimal, monochrome), applied by the matplotlib renderers | a `vaft.diagram` TikZ scene; neither Plotly nor this figure reads `FigureFormat` |
+
+The arrows are responsibility boundaries, not a runtime order. What this figure's adapter adds and the
+recipes do not yet offer: the core profile against $\psi_N$
+(`electron_density_profile(coordinate="psi_norm")` falls back to the sample index), Thomson $\sigma_n$ and
+validity in the traces (`thomson_scattering_profile_electron_density` returns $R$ and $n_e$ without
+`yerr`), the $Z = 0$ cut, and the boundary-outline mask. On the equilibrium's grid and inside the boundary the map
+equals `electron_density_field` to rounding; that recipe masks by $\psi_N \le 1$ only, which also admits cells
+beyond the plasma where $\psi$ falls below its axis value near the coils. The figure itself names none of
+this: it keeps the concepts, and this page and the Methods text carry the implementation.
+
+### The panels
+
+| Panel | View model | Status |
+| --- | --- | --- |
+| (a) $n_e(\rho_{\mathrm{tor},N})$ | `Profile1D` | Thomson points (measured), stored profile |
+| (b) $n_e(\psi_N)$ | `Profile1D` | the same, reparameterized by the equilibrium's flux table |
+| (c) $n_e(R, Z=0)$ | `Profile1D` | Thomson points at their native $R$; the $Z = 0$ row of (d) |
+| (d) $n_e(R, Z)$ | `Field2D` | the stored profile mapped through $\psi(R, Z)$: derived, not a 2-D measurement |
+
+**Caption.** *One physical quantity, multiple scientific representations.* Top: the responsibility
+boundaries of scientific plotting in VAFT. A scientific identity (here the electron density $n_e$) and its
+IMAS data representation (Thomson scattering, core profiles, equilibrium) both feed a semantic adapter,
+which aligns time, maps coordinates and carries uncertainty and validity. It produces scientific view
+models (1-D profiles, a midplane cut, a 2-D field), on which a scientific display policy (unit, scaling,
+notation) and a graphical presentation (layout, style, backend) act separately, neither changing what is
+plotted. Bottom: VEST shot 48224 at 300 ms; every panel uses the same time-matched Thomson sample, core
+profile and EFIT equilibrium. Points: Thomson scattering $n_e \pm \sigma_n$, where $\sigma_n$ is each
+channel's reported measurement uncertainty; it is not the uncertainty of the stored profile or of the
+mapping. Channels with no usable sample at this time (Polychrometer 6 and 7) are not drawn. Solid line: the stored core-profile
+density, against the normalized toroidal-flux radius $\rho_{\mathrm{tor},N}$ (a) and, through the
+equilibrium's $\rho_{\mathrm{tor},N}(\psi_N)$ relation, against the normalized poloidal flux $\psi_N$ (b);
+an inboard and an outboard channel at the same flux surface land at the same abscissa there. (d): that
+profile mapped onto the equilibrium flux $\psi(R, Z)$ inside the plasma boundary (red), assuming $n_e$
+constant on flux surfaces -- a derived representation, not a 2-D measurement -- inside the VEST wall
+(grey); the white plus marks the magnetic axis. (c): the $Z = 0$ row of (d) (dashed) with the Thomson
+channels at their measured major radius; $R_{\mathrm{axis}}$ is the magnetic axis radius.
+
+Rules the figure keeps, each one tested:
+
+- every IDS slice is matched to the requested time within `time_tolerance` (0.5 ms), never by index;
+- a channel is drawn only when it is usable, and its status stays in `thomson.status`: a negative IMAS `validity` or `validity_timed`
+  rejects it, a non-finite value has no sample, a position outside the boundary is flagged;
+- (c) draws a channel at its native $R$ only when $|Z| \le$ `midplane_tolerance` (1 mm). A channel further
+  off is omitted there and listed in `metadata["off_midplane_channels"]`; it still appears in (a), (b)
+  and (d), and is never relabelled as a midplane point;
+- a $\rho_{\mathrm{tor},N}$ table that is the legacy $\sqrt{\psi_N}$ proxy (#276) is refused;
+- (a) is the `electron_density_profile` recipe's series; on the equilibrium's own grid (`refine=1`) the map
+  is the `electron_density_field` recipe's values inside the boundary, and the published figure reads
+  $\psi$ bilinearly at three times that resolution (`refine=3`);
+- every slice, including the equilibrium the channels are mapped through, is the one at the requested
+  time; a `grid.psi` that does not normalize onto $[0, 1]$ against that slice (another flux convention)
+  is set aside for `grid.rho_tor_norm`;
+- a channel outside the boundary outline is flagged even where $\psi_N < 1$ near the coils;
+- an asymmetric `data_error_lower` is kept as such; values beyond the fixed VEST axis and colour ranges
+  raise a warning rather than being silently clamped;
+- `metadata` reports how far the stored profile is documented as a fit to these points, rather than
+  assuming it. `electrons.density_fit.measured` holds all five usable values, at $\rho_{\mathrm{tor},N}$
+  positions up to 0.057 from this equilibrium's mapping, so the stored fit used a mapping of its own.
+  A $\rho_{\mathrm{tor},N}$ integrated from this slice's $q$ would differ from the stored table by up to
+  0.037, near the axis, where $q_0 = 8.07$ is an outlier (#317).
+
+`python -m vaft.diagram.build` regenerates the canonical SVG. The vector PDF (byte-for-byte
+reproducible) and the TikZ source come from the same call:
+
+```bash
+python -c "import vaft.diagram as d; f = d.electron_density_semantics(); [f.save(f'electron_density_semantics.{e}') for e in ('svg', 'pdf', 'tex')]"
+```
+
+![Electron density in four representations]({{ '/assets/diagrams/electron_density_semantics.svg' | relative_url }})
 
 ## Physics workflows: derivation, inference and solver coupling
 

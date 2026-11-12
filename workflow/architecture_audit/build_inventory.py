@@ -166,6 +166,7 @@ PRIMITIVES.update(
         "vaft.machine_mapping.utils.calibrate_vest_signal": "calibration",
         "vaft.code.efit.legacy.smooth": "smoothing",
         "vaft.process.soft_x_rays.sxr_baseline_correction": "baseline",
+        "vaft.process.soft_x_rays.sxr_offset_baseline": "baseline",
     }
 )
 
@@ -300,10 +301,12 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("vaft/process/signal_processing.py", "vaft.process.signal_processing.resample_to_time"): {
         "classification": "canonical",
-        "algorithm_semantics": "anti-alias (when downsampling) then linear np.interp per finite run; explicit extrapolation policy (#425/#626).",
+        "algorithm_semantics": "anti-alias (when downsampling) then linear np.interp per finite run; explicit extrapolation policy (#425/#626); unfiltered='nan' (default, B3.12) makes every target sample drawn from a run too short to filter NaN instead of a possibly aliased value, 'keep' leaves it for a mask-reading caller.",
         "scientific_risk": "low",
         "recommended_action": "keep as the resampling owner; direct np.interp in mappers stays where the source is already band-limited (documented per site).",
-        "related_issue": "#425",
+        "related_issue": "#425, #2162",
+        "resolved_by": "#2162 (B3.12)",
+        "evidence": "test/test_resample_short_run_alias.py: 20 kHz tone and 1-100 kHz chirp on a 900-sample run (kept: folded at full amplitude; default: NaN); AST guard that only a mask-reading caller passes 'keep'; 4-shot capture leaf-identical.",
     },
     ("vaft/process/signal_processing.py", "vaft.process.signal_processing.subtract_baseline"): {
         "classification": "canonical",
@@ -464,14 +467,14 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("vaft/machine_mapping/barometry.py", "vaft.machine_mapping.barometry.vfit_barometry_dynamic"): {
         "classification": "intentional_specialization",
-        "algorithm_semantics": "medfilt despike then resample_to_time.",
+        "algorithm_semantics": "medfilt despike then resample_to_time (a run too short to anti-alias is stored NaN since B3.12).",
         "scientific_risk": "low",
         "recommended_action": "keep.",
-        "related_issue": "",
+        "related_issue": "#2162",
     },
     ("vaft/machine_mapping/langmuir_probes.py", "vaft.machine_mapping.langmuir_probes.vfit_langmuir_probes_dynamic"): {
         "classification": "intentional_specialization",
-        "algorithm_semantics": "resample_to_time with its anti-alias filter and return_filter_mask=True: target samples touched by a run too short to filter get validity -1 (#915).",
+        "algorithm_semantics": "resample_to_time with its anti-alias filter, return_filter_mask=True and unfiltered='keep': target samples touched by a run too short to filter keep their value and get validity -1 (#915).",
         "scientific_risk": "low",
         "recommended_action": "keep: resampling already delegates to resample_to_time (anti-alias inside).",
         "related_issue": "#2162",
@@ -488,11 +491,21 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
         "resolved_by": "#2159 (declared-vs-observed sample-rate status)",
     },
     ("vaft/process/soft_x_rays.py", "vaft.process.soft_x_rays.sxr_baseline_correction"): {
-        "classification": "canonical",
-        "algorithm_semantics": "SXR reference-window baseline subtraction.",
+        "classification": "intentional_specialization",
+        "algorithm_semantics": "quiet-tail offset: sxr_offset_baseline over time >= baseline_start, last-1000-sample fallback (VEST SXR viewer).",
         "scientific_risk": "low",
-        "recommended_action": "keep; plot/soft_x_rays._baseline_correct delegates (B3).",
+        "recommended_action": "keep (the viewer's window rule over the shared owner).",
         "related_issue": "#2162",
+        "resolved_by": "#2162 (B3.11)",
+        "evidence": "test/test_sxr_baseline_owner.py: bit-identical to the frozen develop copy (matrix and trace, NaN, fallback).",
+    },
+    ("vaft/process/soft_x_rays.py", "vaft.process.soft_x_rays.sxr_offset_baseline"): {
+        "classification": "canonical",
+        "algorithm_semantics": "per-channel mean over a selection (bool mask or slice) along the last axis, subtracted; skip_nan and on_empty ('raise' | 'keep' | 'tail' with tail_samples) are explicit.",
+        "scientific_risk": "low",
+        "recommended_action": "keep as the single SXR constant-offset owner.",
+        "related_issue": "#2162",
+        "resolved_by": "#2162 (B3.11)",
     },
     # ---- code / plot duplicates ---------------------------------------------
     ("vaft/code/efit/legacy.py", "vaft.code.efit.legacy.smooth"): {
@@ -638,6 +651,7 @@ CURATED.update(
             "scientific_risk": "medium",
             "recommended_action": "C2: grouping from the registry 'family' instead of r/z thresholds.",
             "related_issue": "#2164",
+            "resolved_by": "#2164 (C2, #2188: equilibrium_sensor_families; 194/194 k-files byte-identical)",
         },
         ("vaft/plot/backend/recipes.py", "vaft.plot.backend.recipes._build_interferometer_spectrogram"): {
             "classification": "intentional_specialization",
@@ -649,11 +663,12 @@ CURATED.update(
         },
         ("vaft/plot/soft_x_rays.py", "vaft.plot.soft_x_rays._baseline_correct"): {
             "classification": "intentional_specialization",
-            "algorithm_semantics": "subtract nanmean over a caller time range (no fallback): a display offset.",
+            "algorithm_semantics": "display offset: sxr_offset_baseline over a closed caller time range, NaN-skipping, no-op when empty.",
             "scientific_risk": "low",
-            "recommended_action": "kept in B3.7 with the reason at the definition (sxr_baseline_correction is a tail window with a last-1000-samples fallback, not a drop-in); B3.11 decides the single SXR baseline owner.",
+            "recommended_action": "keep (the plot's window rule over the shared owner).",
             "related_issue": "#2162",
-            "evidence": "semantics differ: arbitrary range mean vs tail window with fallback.",
+            "resolved_by": "#2162 (B3.11)",
+            "evidence": "test/test_sxr_baseline_owner.py: bit-identical to the frozen develop copy.",
         },
         ("vaft/compat.py", "vaft.compat.cumtrapz_compat"): {
             "classification": "canonical",
@@ -775,11 +790,13 @@ CURATED.update(
             "evidence": "test/test_box_average_series.py: bit-identical to the frozen workflow helper; per-sample box_average to 1e-12 relative.",
         },
         ("vaft/machine_mapping/soft_x_rays.py", "vaft.machine_mapping.soft_x_rays.vfit_soft_x_rays_dynamic"): {
-            "classification": "duplicate",
-            "algorithm_semantics": "np.mean baseline over an index range (baseline_range) per channel: a fourth SXR baseline variant beside process.soft_x_rays.sxr_baseline_correction, plot.soft_x_rays._baseline_correct and the rolling detrend.",
+            "classification": "intentional_specialization",
+            "algorithm_semantics": "index-range offset per channel: sxr_offset_baseline over signal[start:stop], NaN-propagating; an empty range raises.",
             "scientific_risk": "low",
-            "recommended_action": "B3: one SXR baseline owner with explicit window semantics (index range, time range, tail with fallback).",
+            "recommended_action": "keep (the mapper's window rule over the shared owner). The rolling detrend in sxr_electron_temperature is a Te trend, not a detector offset, and stays separate.",
             "related_issue": "#2162",
+            "resolved_by": "#2162 (B3.11)",
+            "evidence": "test/test_sxr_baseline_owner.py: bit-identical to the frozen develop copy, error text included.",
         },
         ("workflow/resistive_zeff/build_zeff.py", "workflow.resistive_zeff.build_zeff._ip_trace"): {
             "classification": "unverified",
@@ -808,11 +825,29 @@ LAYER_DEFAULTS: dict[str, dict[str, str]] = {
     },
 }
 
-#: Uncurated readers of the external magnetics YAMLs (or of their loaders).
+#: Uncurated callers of a public magnetics adapter that used to read the split
+#: YAMLs (MAGNETICS_LOADERS). Since #2181 every such adapter reads the
+#: vest.yaml registry, so the caller already consumes the canonical source.
 ASSET_CONSUMER_DEFAULTS = {
-    "classification": "legacy",
-    "scientific_risk": "medium",
-    "recommended_action": "B1/C: read the registry resolver instead; see the consumer migration map in magnetics_reconciliation.md.",
+    "classification": "canonical",
+    "scientific_risk": "low",
+    "recommended_action": (
+        "none: the adapter it calls reads the vest.yaml sensor registry since #2181 (old vs new outputs "
+        "identical over 47 shots; Phase D #2191: 50 shots, 0 mismatches)."
+    ),
+    "resolved_by": "#2158 (#2181)",
+}
+
+#: Readers of sql_table.txt, the raw-database name table: a separate contract,
+#: not a second sensor inventory (magnetics_reconciliation.md Q6).
+SQL_TABLE_DEFAULTS = {
+    "classification": "intentional_specialization",
+    "scientific_risk": "low",
+    "recommended_action": (
+        "keep: sql_table.txt is the raw-database field-name table (a separate contract); #2181 checks "
+        "it against all 75 registry labels."
+    ),
+    "resolved_by": "#2158 (#2181, documented as a separate contract)",
 }
 
 #: Uncurated, statically unreached numerics outside machine_mapping: geometry,
@@ -1188,7 +1223,7 @@ def build_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
         curated = CURATED.get(key, {})
         asset_only = row["operation"] <= {"magnetics_asset_consumer", "magnetics_asset_read"}
         if asset_only:
-            defaults = ASSET_CONSUMER_DEFAULTS
+            defaults = SQL_TABLE_DEFAULTS if row["assets"] <= {SQL_TABLE} else ASSET_CONSUMER_DEFAULTS
             scope = "magnetics_asset_consumer"
         else:
             defaults = LAYER_DEFAULTS.get(layer, {})
@@ -1223,7 +1258,7 @@ def build_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
             ),
             "related_issue": curated.get("related_issue", ""),
             "evidence": curated.get("evidence", ""),
-            "resolved_by": curated.get("resolved_by", ""),
+            "resolved_by": curated.get("resolved_by", defaults.get("resolved_by", "")),
             "curated": bool(curated),
             "audit_scope": scope,
         }
