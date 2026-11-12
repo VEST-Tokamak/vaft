@@ -2248,9 +2248,9 @@ vaft.diagram.cross_domain_scientific_architecture()
 ![Equilibrium, MHD and transport: the scientific architecture]({{ '/assets/diagrams/cross_domain_scientific_architecture.svg' | relative_url }})
 
 **Simplified: inputs and outputs.** The same architecture read only for what goes in, what is computed and what
-comes out. The shared physics analysis input -- the `equilibrium` IDS, the measured kinetic profiles in
-`core_profiles` and external assumptions (physics closure and fitting method, mode numbers and wall model, 3-D coil excitation) -- feeds the
-MHD stability model (ideal & resistive energy principle, 3-D plasma response: DCON, GPEC, RDCON), which reads the equilibrium
+comes out. The shared plasma state -- the `equilibrium` IDS, the measured kinetic profiles in
+`core_profiles` and assumptions (physics closure and fitting method, mode numbers and wall model, 3-D coil excitation) -- feeds the
+MHD stability model (ideal & resistive energy principle, perturbed equilibria: DCON, RDCON, GPEC), which reads the equilibrium
 and the assumptions, and the transport model (classical, neoclassical, turbulent: Braginskii, Sauter, Redl, NEO,
 TGLF, CGYRO), which reads all three. Each writes its results as IDS: the stability IDS `mhd_linear` and `ntms`; the
 transport IDS `core_transport`, an updated `core_profiles` and `gyrokinetics_local`. Codes, IDS and assumptions are

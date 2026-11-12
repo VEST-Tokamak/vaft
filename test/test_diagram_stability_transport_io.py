@@ -28,7 +28,7 @@ def test_outputs_are_the_ids_the_architecture_figure_writes():
 
 def test_codes_are_the_architecture_figure_operations():
     d = vaft.diagram.stability_transport_io()
-    assert d.model["codes"]["mhd_stability"] == ("DCON", "GPEC", "RDCON")
+    assert d.model["codes"]["mhd_stability"] == ("DCON", "RDCON", "GPEC")
     assert d.model["codes"]["transport"] == ("Braginskii", "Sauter, Redl", "NEO", "TGLF", "CGYRO")
     assert len(d.model["codes"]["mhd_stability"]) == len(C.OPERATIONS["mhd"])
     assert len(d.model["codes"]["transport"]) == len(C.OPERATIONS["transport"])
@@ -62,7 +62,7 @@ def test_labels_flag_and_registration():
     assert "IMAS Transport IDS" in _text(full, "output:transport")
     assert "MHD Stability Model" in _text(full, "node:mhd_stability")
     assert "Transport Model" in _text(full, "node:transport")
-    assert any("Shared Physics Analysis Input" in i.text for i in full.scene.role("group:inputs") if isinstance(i, Label))
+    assert any("Shared Plasma State" in i.text for i in full.scene.role("group:inputs") if isinstance(i, Label))
     with pytest.raises(ValueError):
         vaft.diagram.stability_transport_io(labels="yes")
     assert build.CANONICAL["stability_transport_io.svg"] == ("stability_transport_io", {})
@@ -84,7 +84,7 @@ def test_the_combined_figure_pairs_the_equilibrium_with_the_io_view():
     assert "{\\small CHEASE}" in d.scene.role("node:fixed_boundary")[1].text
     assert "{\\small TokaMaker, TES}" in d.scene.role("node:free_boundary")[1].text
     assert not d.scene.role("node:data_driven") and not d.scene.role("node:modelling")
-    assert "{\\small DCON, GPEC, RDCON}" in d.scene.role("node:mhd_stability")[1].text
+    assert "{\\small DCON, RDCON, GPEC}" in d.scene.role("node:mhd_stability")[1].text
     assert "color" not in d.scene.role("node:transport")[1].text
     moved = d.scene.role("node:transport")[0].points
     original = b.scene.role("node:transport")[0].points

@@ -34,7 +34,7 @@ from ._vaft_concepts import _MODE_OFFSET, _check_labels, _record, box, integrate
 
 #: the two calculations: (key, the cross-domain section they summarize, title, the physics they cover)
 CALCULATIONS: Tuple[Tuple[str, str, str, Tuple[str, ...]], ...] = (
-    ("mhd_stability", "mhd", "MHD Stability Model", ("ideal & resistive energy principle,", "3-D plasma response")),
+    ("mhd_stability", "mhd", "MHD Stability Model", ("ideal & resistive energy principle,", "perturbed equilibria")),
     ("transport", "transport", "Transport Model", ("classical, neoclassical, turbulent",)),
 )
 #: the title of each calculation's output card
@@ -52,7 +52,21 @@ def _codes(section: str) -> Tuple[str, ...]:
 
 
 #: the codes behind each calculation, printed in the style of the equilibrium panel's routes
-CODES: Dict[str, Tuple[str, ...]] = {key: _codes(section) for key, section, _, _ in CALCULATIONS}
+#: the order the codes are listed in where it differs from the cross-domain figure's: ideal, then resistive
+#: stability, then the perturbed equilibrium built on the ideal one
+_CODE_ORDER = {"mhd_stability": ("DCON", "RDCON", "GPEC")}
+
+
+def _ordered(key: str, codes: Tuple[str, ...]) -> Tuple[str, ...]:
+    order = _CODE_ORDER.get(key)
+    if order is None:
+        return codes
+    if sorted(order) != sorted(codes):
+        raise ValueError(f"the code order of {key} {order} does not match the codes {codes}")
+    return order
+
+
+CODES: Dict[str, Tuple[str, ...]] = {key: _ordered(key, _codes(section)) for key, section, _, _ in CALCULATIONS}
 #: the IDS each calculation writes, with representative quantities: (ids, quantities)
 OUTPUTS: Dict[str, Tuple[Tuple[str, str], ...]] = {
     key: tuple((ids, quantities) for ids, quantities, _ in IMAS[section]) for key, section, _, _ in CALCULATIONS}
@@ -67,7 +81,7 @@ ASSUMPTIONS: Tuple[str, ...] = tuple(line for section in ("transport", "mhd") fo
 SHARED_INPUTS: Tuple[Tuple[str, str, str, str], ...] = (
     ("equilibrium", "Equilibrium", "equilibrium", r"$\psi$, $p$, $J_\phi$, $q$"),
     ("core_profiles", "Kinetic Profiles", "core_profiles", r"$n_i$, $n_e$, $T_e$, $T_i$, $Z_{\rm eff}$, $v_\phi$"),
-    ("assumptions", "External Assumptions", "", "; ".join(ASSUMPTIONS)),
+    ("assumptions", "Assumptions", "", "; ".join(ASSUMPTIONS)),
 )
 #: which shared inputs each calculation reads (the measured profiles enter transport only)
 READS: Dict[str, Tuple[str, ...]] = {
@@ -123,10 +137,10 @@ def _output_text(key: str) -> str:
 def stability_transport_io(*, labels: bool = True, derived_profiles: bool = False) -> Diagram:
     r"""Shared inputs consumed by MHD stability and transport, and the IDS each writes.
 
-    Top: the shared physics analysis input -- the ``equilibrium`` IDS, the measured kinetic
+    Top: the shared plasma state -- the ``equilibrium`` IDS, the measured kinetic
     profiles in ``core_profiles`` and external assumptions (physics closure and fitting method, mode
     numbers and wall model, 3-D coil excitation). Middle: MHD stability (ideal
-    & resistive energy principle, 3-D plasma response) reads the equilibrium and the
+    & resistive energy principle, perturbed equilibria) reads the equilibrium and the
     assumptions; transport (classical, neoclassical, turbulent) reads all
     three. The codes sit beneath each, in the style the equilibrium panel
     gives its routes. Bottom: the IDS each calculation writes -- ``mhd_linear`` and
@@ -162,7 +176,7 @@ def stability_transport_io(*, labels: bool = True, derived_profiles: bool = Fals
                              "concept frame", role="group:inputs", closed=True))
     if labels:
         items.append(Label((gx1 - 0.3, _TOP) if derived_profiles else (gx0 + 0.3, _TOP),
-                           "\\textbf{Shared Physics Analysis Input}", "concept group title,fill=white,inner sep=2pt",
+                           "\\textbf{Shared Plasma State}", "concept group title,fill=white,inner sep=2pt",
                            anchor="east" if derived_profiles else "west", role="group:inputs"))
     for (key, title, ids, detail), x, w in zip(SHARED_INPUTS, xs, _INPUT_W):
         text = "\\textbf{" + escape_latex(title) + "}"
