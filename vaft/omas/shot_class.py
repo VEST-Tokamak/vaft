@@ -1,4 +1,4 @@
-"""What kind of shot a product records, decided from the shared timing (issue #409).
+"""What kind of shot a product records, decided from the shared timing.
 
 Three classes, decided in this order and with the deciding check on record:
 
@@ -13,7 +13,7 @@ Three classes, decided in this order and with the deciding check on record:
   saw a window (a flash without current);
 * ``Vacuum`` -- none of those.
 
-A current pulse is refused as a discharge (issue #1733) when its accepted peak
+A current pulse is refused as a discharge when its accepted peak
 is below ``min_plasma_current`` (2 kA), or when the light is usable but dark
 (``halpha_dark_with_ip_pulse``) and the pulse is still on at the end of the
 analysis span (``offset_at_record_end``; the span is ``plasma_timing``'s
@@ -25,8 +25,8 @@ shot's own noise floor, so a few kA of PF pickup or a drifting Rogowski passes
 it.  A census of 1,565 production products (47514-48944 and every 10th shot
 of 39000-47513) put 66 of 924 ``Plasma`` labels in the dark-and-unended group:
 59 below 10 kA of pickup (48927: 3.3 kA, the regression shot) and 7 drifting
-records, among them the #1373 Rogowski square-wave faults 43690 and 45780; a
-#1373 record that does end inside the span is not caught by this rule.  Lit pulses that
+records, among them the Rogowski square-wave faults 43690 and 45780 (Open:
+#1373); such a record that does end inside the span is not caught by this rule.  Lit pulses that
 end are 782 and keep their label down to 2 kA, below which nothing behaves
 like a discharge.  A refused pulse falls through to ``BD failure`` or
 ``Vacuum`` with the refusal on ``flags``.
@@ -79,7 +79,7 @@ DECIDED_NONE = "none"
 
 PRESSURE_BASE = "barometry.gauge.0.pressure"
 
-#: The smallest accepted current peak that counts as a discharge [A] (#1733).
+#: The smallest accepted current peak that counts as a discharge [A].
 MIN_PLASMA_CURRENT_A = 2000.0
 
 #: The timing flags a class record repeats, so a reader need not open the timing.

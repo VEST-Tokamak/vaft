@@ -1,4 +1,4 @@
-"""Interactive entry points over native IMAS input (issues #261, #482).
+"""Interactive entry points over native IMAS input.
 
 The twins of :func:`vaft.omas.plot_equilibrium_interactive` and
 :func:`vaft.omas.plot_diagnostics_time_interactive`.  Neither is a view:

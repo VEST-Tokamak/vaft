@@ -1,4 +1,4 @@
-"""Representative peaks of the plasma phase, from an ODS, with their provenance (issue #409).
+"""Representative peaks of the plasma phase, from an ODS, with their provenance.
 
 :mod:`vaft.omas.plasma_timing` says *when* there is a plasma;
 :mod:`vaft.omas.discharge_timing` says when the machine acted.  This module
@@ -18,7 +18,7 @@ that is not configured simply does not appear.  The rules come from the
 ``plasma_features`` block of ``vest.yaml``
 (:func:`vaft.machine_mapping.utils.resolve_plasma_features_policy`), keyed
 by signal: impurity lines never borrow the H-alpha values.  The diamagnetic
-value is signed (positive for a paramagnetic plasma, #1196); ``ip_ramp_end`` is
+value is signed (positive for a paramagnetic plasma); ``ip_ramp_end`` is
 reserved and never required.  Nothing here writes the ODS.
 """
 
