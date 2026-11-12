@@ -10,7 +10,10 @@
 # Run on a compute node (sbatch -c 2): the preflight re-read touches every raw dump.
 set -euo pipefail
 OUT=$(readlink -f "$1"); shift
-. "${REGEN_ROOT:-$HOME/regen2147}/env.sh"
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=site.sh
+. "$HERE/site.sh"
+regen_cluster_env
 WF=$REGEN_SRC/workflow/automatic_pipeline_1_routine_data_processing
 mkdir -p "$OUT"
 declare -A OWNER

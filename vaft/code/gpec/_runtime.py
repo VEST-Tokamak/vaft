@@ -21,8 +21,8 @@ from .._executables import (
     missing_home_message,
 )
 from ..execution import (
-    RUNTIME_MEMORY_LIMIT,
     RUNTIME_QUEUE_TIMEOUT,
+    RUNTIME_TIMEOUT,
     ExecutionRequest,
     ExecutionResult,
     ResourceRequest,
@@ -377,8 +377,9 @@ class GPECLimitStop(subprocess.TimeoutExpired):
 
     @property
     def is_time_limit(self) -> bool:
-        """True for a plain time limit; False for a memory stop or a never-admitted launch."""
-        return self.execution.runtime_status not in (RUNTIME_MEMORY_LIMIT, RUNTIME_QUEUE_TIMEOUT)
+        """True for a plain time limit; False for a memory stop, a never-admitted
+        launch, a cancel or a node failure."""
+        return self.execution.runtime_status == RUNTIME_TIMEOUT
 
 
 def limit_stop_reason(exc: subprocess.TimeoutExpired) -> str:
