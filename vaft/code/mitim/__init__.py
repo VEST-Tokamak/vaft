@@ -1,11 +1,13 @@
-"""MITIM-fusion integration layer: installation, availability, execution, provenance (#1588).
+"""MITIM-fusion integration layer: installation, availability, execution, provenance.
 
 MITIM (https://github.com/pabloprf/MITIM-fusion) is an optional external code
 that runs in its own isolated interpreter (``install/install_mitim.sh``); VAFT
 never imports ``mitim_tools``. Importing this package needs neither MITIM nor
-GACODE. Stage A1 provides the availability probe, the per-run MITIM
-configuration, the driver runner and a NEO smoke capability; PORTALS flux
-matching follows in later stages of #1588.
+GACODE. It provides the availability probe, the per-run MITIM configuration,
+the driver runner, a NEO smoke capability, MITIM-vs-VAFT TGLF local-input and
+NEO flux comparisons, MITIM TGLF runs, and the PORTALS synthetic closed loop
+with a manufactured source. Open: #1588 (flux-matched transport on measured
+profiles).
 """
 
 from .availability import STATUSES, MITIMAvailability, mitim_availability

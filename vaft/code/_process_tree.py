@@ -8,7 +8,7 @@ wait can then hang until they exit. :class:`ProcessTree` stops the whole tree:
 * POSIX: the child stays in the caller's process group, so every signal sent
   to that group -- a terminal's Ctrl-C and Ctrl-Z, a supervisor's ``SIGSTOP``
   or ``SIGKILL``, Snakemake stopping a job -- still reaches the solver exactly
-  as it did before (#1016). :meth:`ProcessTree.terminate` finds the tree by
+  as it would without VAFT. :meth:`ProcessTree.terminate` finds the tree by
   parent id and -- on Linux -- by the :data:`TREE_ENV` token every descendant
   inherits, which also finds one whose parent already exited (a launcher
   script that died of Ctrl-C while its background job ignored it). It freezes
@@ -86,7 +86,7 @@ class Terminated(BaseException):
 
         The process then ends by the signal, as it would have without VAFT in
         the way. Inside an enclosing :func:`forward_termination` block (a scan
-        waiting on one of several jobs, #1018) this returns instead, so the
+        waiting on one of several jobs) this returns instead, so the
         caller's ``raise`` hands the signal to that block, which stops its
         other jobs before redelivering it itself.
         """

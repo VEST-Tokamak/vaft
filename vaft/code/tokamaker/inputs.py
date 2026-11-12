@@ -198,7 +198,7 @@ def _coil_currents_from_ods(
 
     from vaft.machine_mapping.pf_active import require_acquired_pf_currents
 
-    # A circuit published as NaN was not acquired (#1568); never solve with it.
+    # A circuit published as NaN was not acquired; never solve with it.
     require_acquired_pf_currents(ods, None, "TokaMaker's coil currents")
     pf = ods["pf_active"]
     pf_time = np.asarray(pf["time"], dtype=float)

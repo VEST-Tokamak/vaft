@@ -4,7 +4,7 @@
 (``SlurmBackend`` turns ``memory_mb`` into ``--mem``). Nothing tells a
 long-running Python loop that it is about to be killed by the kernel's or
 Slurm's OOM killer, which ends the process without a traceback, a flushed file
-or a status record. This module gives such a loop three things (#1146):
+or a status record. This module gives such a loop three things:
 
 * :func:`rss_mb` and :func:`peak_rss_mb`, the current and peak resident set
   size of this process;

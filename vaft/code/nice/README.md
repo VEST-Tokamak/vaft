@@ -1,7 +1,7 @@
 # NICE adapter
 
 > **Experimental.** No VEST reference slice reconstructs yet: 0 of 34 in the
-> issue #666 study (see `vaft/validation/studies/nice_issue_666/README.md`). Nothing in the
+> validation study (Open: #666; see `vaft/validation/studies/nice_issue_666/README.md`). Nothing in the
 > routine pipeline calls this adapter, and no production default depends on it.
 
 NICE is open source under the LGPL-3.0 at
@@ -91,7 +91,7 @@ warning, and does not reject an otherwise complete numerically converged
 equilibrium. VacTH initializer residuals are preserved separately and never
 presented as final-equilibrium residuals.
 
-For issue #666's current stage, `scientifically_usable`/`ok` mean **numerical
+At the adapter's current stage, `scientifically_usable`/`ok` mean **numerical
 stage success**: exit status zero, a finite valid equilibrium, a real (not
 VacTH sentinel) convergence record, and final relative residual at or below
 `epsStopRecon`. Diagnostic-table sign, residual quality, magnetic cost, Ip
@@ -105,7 +105,7 @@ Eigen 3 and SuiteSparse in Release mode. Force-include `upstream_compat.h`
 pinned source. GCC 16 compiles it, but its bundled Triangle path did not finish
 the reference reconstruction, so it is not the recorded validation compiler.
 
-The issue #666 validation artifacts live in `vaft/validation/studies/nice_issue_666`.
+The validation artifacts live in `vaft/validation/studies/nice_issue_666`.
 They intentionally retain failed slices: a zero exit status is not considered
 a successful equilibrium unless NICE writes its native equilibrium and
 convergence tables and does not report an invalid plasma.
@@ -126,8 +126,8 @@ python -m vaft.code.nice.validate_reference \
 ```
 
 The committed study predates develop's EFIT changes: the per-channel
-decisions API (#296), EFIT-conformant sigma (#891), the regenerated Green
-table (#701) and the 26-group coil set (#708). The conditioner now builds
+decisions API, EFIT-conformant sigma (``max(SERROR*|m|, BIT*VBIT)``), the
+regenerated Green table and the 26-group coil set. The conditioner now builds
 the same channel set through the decisions API, but a re-run's EFIT side
 will not reproduce the September numbers.
 

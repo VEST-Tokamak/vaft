@@ -64,7 +64,7 @@ def build_tokamaker_mesh(
         )
     for name, cond in vessel.items():
         if config.vessel_currents:
-            # imposed wall currents (#1534): a one-turn coil per region, its
+            # imposed wall currents: a one-turn coil per region, its
             # loop-by-loop distribution set at solve time
             gs_mesh.define_region(name, cond["dx"], "coil", nTurns=1.0, coil_set=name)
         else:

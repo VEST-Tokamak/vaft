@@ -1,4 +1,4 @@
-"""CGYRO: the GACODE suite's local delta-f continuum gyrokinetic solver (#1354).
+"""CGYRO: the GACODE suite's local delta-f continuum gyrokinetic solver.
 
     GACODEProfile -> TGLFInput(r/a) -> CGYROInput -> input.cgyro -> CGYRO -> CgyroOutputs
                                                                               |
@@ -9,7 +9,7 @@ the two codes see one surface and a CGYRO-TGLF comparison isolates the model, no
 projection. CGYRO's own ``PROFILE_MODEL=2`` projection is the oracle the renaming is
 held against (:func:`compare_with_oracle`).
 
-Formalism (#1353 §14): delta-f, local flux tube, continuum, closed flux surface, Miller
+Formalism: delta-f, local flux tube, continuum, closed flux surface, Miller
 geometry, kinetic electrons; the field model and linear/nonlinear regime come from the
 configuration and are recorded with every run (:func:`formalism`).
 

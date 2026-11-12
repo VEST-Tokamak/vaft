@@ -1,4 +1,4 @@
-"""PORTALS/powertorch synthetic closed loop (#1588 stage C1).
+"""PORTALS/powertorch synthetic closed loop.
 
 A flux-matching solver is only trustworthy if it returns a profile it was built
 to reach. This drives MITIM with a *manufactured* problem: the electron source is
@@ -8,7 +8,7 @@ transport model, the solver starts from perturbed gradients, and the recovered
 MITIM's own geometry (``V'`` and its volume integral), so any residual at the
 true profile is MITIM's discretisation, which the result reports.
 
-Sign convention (#1588 section 11): ``R = Q_model - Q_required``. MITIM's
+Sign convention: ``R = Q_model - Q_required``. MITIM's
 ``powerstate`` uses ``S = P_target - P_transport = -R``. A start steeper than the
 truth carries more flux than required, so ``R > 0`` there; the result reports
 ``R`` at the start so the convention is checked on every run.
@@ -107,7 +107,8 @@ def run_portals_closed_loop(
         ``chi_i`` [m^2/s], evaluated in-memory by powertorch and flux-matched by its
         root solver. ``"tglf_neo"``: a full PORTALS run (TGLF + NEO, Bayesian
         optimisation) with ``predicted_roa`` = ``r_over_a``; TGLF and NEO settings as
-        given (#1744/#1757 alignment: NKY 12, NMODES 2, USE_MHD_RULE, ROTATION_MODEL 1).
+        given (the settings MITIM's and VAFT's TGLF/NEO fluxes were cross-checked with:
+        NKY 12, NMODES 2, USE_MHD_RULE, ROTATION_MODEL 1).
     perturbation
         ``analytic``: the solver starts from the true a/L_Te times (1 + perturbation).
         ``tglf_neo``: the same, as PORTALS's initial-relaxation ``perturbation_base`` on

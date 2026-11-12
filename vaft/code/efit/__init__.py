@@ -14,7 +14,7 @@ Submodules:
 * ``kfile``    -- constraints-ODS and k-file generation
 * ``magnetic`` -- the core magnetic EFIT adapter (``EFITConfig``, ``run_efit``, ...)
 * ``termination`` -- what EFIT's log says about how each slice ended (``parse_slices``)
-* ``iteration_history`` -- each slice's Picard trajectory (``EFITIterationHistory``, #1038)
+* ``iteration_history`` -- each slice's Picard trajectory (``EFITIterationHistory``)
 * ``kinetic``  -- kinetic-pressure constraint mode (``KineticEFITConfig``, ``run_kinetic_efit``, ...)
 
 Kinetic pressure is an EFIT constraint mode, not a separate code adapter, so

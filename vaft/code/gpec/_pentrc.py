@@ -737,7 +737,7 @@ def _run_pentrc(
     stall = _stall_line(log_path) if returncode == STALL_EXIT_CODE else None
     if stall is not None:
         # Stopped by the cap, not by PENTRC: the energy LSODE kept failing and
-        # PENTRC kept going, which would have run to the timeout (#1929).
+        # PENTRC kept going, which would have run to the timeout.
         record.status = "failed"
         record.outputs = ()
         record.reason = (
@@ -840,7 +840,7 @@ def run_pentrc(
     )
     skipped_for_another_reason = record.status == "skipped" and record.reason != "run_mode=prepare_only"
     if Path(record.workdir).is_dir() and not skipped_for_another_reason:
-        # A closure on the GPEC displacement, one species per run (#1734); no
+        # A closure on the GPEC displacement, one species per run; no
         # record when the cell holds no pentrc.in to show what it was.
         from ._formalism import resolve_plasma_formalism
 

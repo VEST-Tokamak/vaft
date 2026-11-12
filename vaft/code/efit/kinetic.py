@@ -37,7 +37,7 @@ Design rules honoured here:
 * Thomson-only shots (no IDS/charge_exchange ion data) fall back to the
   statistical ``Ti = ratio * Te``, where the ratio is VEST policy resolved
   from ``vest.yaml`` (``diagnostics.core_profiles.ti_te_ratio``; currently an
-  assumed Ti = Te, #1331) by
+  assumed Ti = Te) by
   :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`.
   Control it via ``ti_te_ratio`` (``'auto'`` default / float / ``None`` =
   strict).  The radial coordinate the profiles are fitted in is resolved the
@@ -118,7 +118,7 @@ def _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma=None, *, ods=None, shot=
 
     ``'auto'`` / ``'vest'`` -> the VEST policy value
     (``vest.yaml`` ``diagnostics.core_profiles.ti_te_ratio``; currently an
-    assumed Ti = Te with sigma 0.5, #1331 -- ``vaft.process.profile.fit_ti_te_ratio``
+    assumed Ti = Te with sigma 0.5; ``vaft.process.profile.fit_ti_te_ratio``
     is the estimator the earlier, superseded value was derived with).  A float
     is used as-is.  ``ti_te_ratio_sigma=None`` falls back to the policy sigma.
 
@@ -131,7 +131,7 @@ def _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma=None, *, ods=None, shot=
     dilution-aware prior exists.
 
     The policy is read through :mod:`vaft.machine_mapping`; the processing
-    layer holds no VEST number (issue #420).
+    layer holds no VEST number.
     """
     resolved = None
     if isinstance(ti_te_ratio, str):
@@ -240,7 +240,7 @@ class KineticEFITConfig:
     # from the Thomson/CX points; the ``spline`` encoding reads
     # ``core_profiles.pressure_thermal``, which already carries it.
     ion_density_ratio: Optional[Callable[[np.ndarray], np.ndarray]] = None
-    #: Ordering quantities of the state being reconstructed (#1823), by
+    #: Ordering quantities of the state being reconstructed, by
     #: ``vaft.validation.orderings.ORDERING_QUANTITIES`` name, e.g.
     #: ``vaft.process.ordering_state.ordering_inputs_from_ods(ods, t).state``.
     #: Advisory only: passed to every PLASMA-scale run's ``EFITConfig`` and
@@ -713,7 +713,7 @@ def kinetic_pressure_points(
     if enc == "spline":
         psi_n, p = _spline_pressure(ods, time_ms)
         # An assumed Ti/Te is at least as uncertain as the ratio says: with
-        # Ti = Te +/- 0.5 Te that is 25 % of p, above the fixed 15 % (#1414).
+        # Ti = Te +/- 0.5 Te that is 25 % of p, above the fixed 15 %.
         ratio_fraction = _ratio_pressure_fraction(ods, _nearest_profile_index(ods, time_ms))
         s0 = max(SPLINE_SIG_FRAC, ratio_fraction or 0.0) * float(p[0])
         rpress = [float(-x) for x in psi_n]        # negative => psi_N abscissa
@@ -865,7 +865,7 @@ def build_kinetic_core_profiles(
     Thomson-only slices (``ti_te_fallback=True`` and no usable ion fit): the ion
     temperature falls back to ``Ti = ti_te_ratio * Te``. The default
     ``ti_te_ratio='auto'`` resolves to the statistical VEST policy value in
-    ``vest.yaml`` (currently an assumed Ti = Te, #1331; see
+    ``vest.yaml`` (currently an assumed Ti = Te; see
     :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`) and
     -- unlike the legacy ``Ti=Te`` fallback -- also writes
     ``pressure_thermal = e*ne*(1+ratio)*Te``, so the kinetic-EFIT spline

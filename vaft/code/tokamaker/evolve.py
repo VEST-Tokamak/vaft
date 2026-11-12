@@ -13,7 +13,8 @@ Two modes share the loop:
   are merged into a multi-slice ``equilibrium`` IDS.
 - **vacuum** (``evolve_vacuum=True``): ``vac_solve()`` per slice with no
   plasma and no targets — the wall responds to the coil waveforms alone
-  (the issue-#190 vacuum-window benchmark drive).
+  (the drive of the plasma-free vacuum-window benchmark,
+  :mod:`vaft.validation.vacuum_benchmark`).
 
 Per slice the net toroidal current of every vessel region is recorded, and
 optional ``evolve_field_probes`` get B/psi evaluations (used to compare

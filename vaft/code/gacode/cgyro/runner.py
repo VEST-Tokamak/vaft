@@ -103,7 +103,7 @@ def run_cgyro(
     state_key
         Recorded in the provenance; overrides the key given at staging time.
     ordering_state
-        Further ordering quantities of this surface (#1823), by
+        Further ordering quantities of this surface, by
         ``vaft.validation.orderings.ORDERING_QUANTITIES`` name -- a mode's
         ``omega_over_ion_gyrofrequency`` or ``k_par_over_k_perp``, a measured
         ``sonic_mach_number``. A finite caller value takes precedence over what
@@ -216,7 +216,7 @@ def run_cgyro_case(
 
 
 def local_ordering_state(local) -> dict[str, float]:
-    r"""The ordering quantities a CGYRO local input fixes by itself (#1823).
+    r"""The ordering quantities a CGYRO local input fixes by itself.
 
     $$\frac{\rho_i}{L_{T_i}} = \frac{\rho_s}{a}\,\frac{\sqrt{\tau_i\,\mu_i}}{Z_i}\,\frac{a}{L_{T_i}},
       \qquad \frac{\lambda_D}{L_{T_e}} = \frac{\lambda_{De}}{\rho_s}\,\frac{\rho_s}{a}\,\frac{a}{L_{T_e}}$$

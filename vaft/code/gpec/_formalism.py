@@ -1,10 +1,10 @@
-"""The plasma formalism of each GPEC-suite run (#1734, Phase C1 of #1723).
+"""The plasma formalism of each GPEC-suite run.
 
 Every scientifically distinct GPEC-suite run is given a
-:class:`vaft.code.formalism.PlasmaFormalism` (#1727), derived from what the run
+:class:`vaft.code.formalism.PlasmaFormalism`, derived from what the run
 was actually prepared with -- the namelists in its own directory -- never entered
 by hand.  The classification follows the Phase A audit
-(``docs/_guide/Plasma_models.md`` section 3, #1725):
+(``docs/_guide/Plasma_models.md`` section 3):
 
 * **DCON**, ``kin_flag=f``: ideal-MHD energy principle -- ``fluid`` /
   ``ideal_mhd``, ``ideal_stability``, ``static``.

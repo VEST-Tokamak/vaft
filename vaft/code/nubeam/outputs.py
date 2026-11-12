@@ -364,7 +364,7 @@ class NUBEAMOutputs:
     #: Beam conditions this case ran with, from the Plasma State. These are
     #: modelling inputs chosen for the run, not machine description: energy
     #: and power enter through the `profiles` file. Kept apart from the
-    #: geometry for that reason (issue #490 section 5).
+    #: geometry for that reason.
     beam_conditions: Mapping[str, Any] = field(default_factory=dict)
     power_balance: tuple[NUBEAMPowerBalance, ...] = ()
     #: Count of ``xpprof`` out-of-bounds interpolation warnings in step.log.

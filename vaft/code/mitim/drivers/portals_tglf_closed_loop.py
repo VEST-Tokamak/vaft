@@ -1,4 +1,4 @@
-"""PORTALS (TGLF + NEO) synthetic closed loop with a manufactured source (#1588 C1b).
+"""PORTALS (TGLF + NEO) synthetic closed loop with a manufactured source.
 
 Runs in the MITIM interpreter; imports MITIM, NumPy/SciPy and the standard library.
 
