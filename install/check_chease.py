@@ -68,7 +68,7 @@ BUILD_REMEDIATION = (
 SAMPLE = "efit/g039915.00319"
 
 #: Upstream CHEASE accepts NIDEAL 1 through 10 and quits in `cotrol` on
-#: anything outside it. 6 is upstream's own default, and since #717 it is
+#: anything outside it. 6 is upstream's own default, and it is
 #: VAFT's too -- so the smoke run below passes no override at all and this
 #: constant only names the value in the diagnostic when a build refuses it.
 UPSTREAM_NIDEAL = 6
@@ -204,7 +204,7 @@ def check_reference_run(prefix: Optional[str], *, skip: bool) -> tuple[CheckResu
     log = workdir / "chease.log"
     text = log.read_text(encoding="utf-8", errors="replace") if log.is_file() else ""
     if "WRONG VALUE FOR NIDEAL" in text:
-        # The default is inside upstream's documented range since #717, so a
+        # The default is inside upstream's documented range, so a
         # build that still rejects it disagrees with upstream rather than with
         # VAFT -- worth saying plainly instead of reporting a generic exit.
         return (

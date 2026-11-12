@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install MITIM-fusion into its own isolated Python environment for VAFT (#1588).
+# Install MITIM-fusion into its own isolated Python environment for VAFT.
 #
 # Usage:
 #   bash install/install_mitim.sh [--prefix PATH] [--version 5.3.0] [--python python3.12] [--conda]
@@ -106,7 +106,7 @@ if [[ "${TAG}" != "v${VERSION}" || -n "$(git -C "${SOURCE}" status --porcelain)"
 fi
 "${INTERPRETER}" -m pip install -e "${SOURCE}"
 # PORTALS (mitim_tools.gacode_tools.utils) imports fortranformat, which MITIM 5.3.0
-# does not declare. Found on tdst once the user site was excluded (#1588).
+# does not declare. Found on the tdst cluster once the user site was excluded.
 "${INTERPRETER}" -m pip install fortranformat
 
 REPORT="$(probe)"
