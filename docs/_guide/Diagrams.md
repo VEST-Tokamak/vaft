@@ -2248,16 +2248,18 @@ vaft.diagram.cross_domain_scientific_architecture()
 ![Equilibrium, MHD and transport: the scientific architecture]({{ '/assets/diagrams/cross_domain_scientific_architecture.svg' | relative_url }})
 
 **Simplified: inputs and outputs.** The same architecture read only for what goes in, what is computed and what
-comes out. Shared inputs -- the `equilibrium` IDS, the measured kinetic profiles in `core_profiles` and external
-assumptions (closures, mode numbers and wall model, 3-D coil excitation) -- feed MHD stability (ideal and resistive
-stability, plasma response: DCON, GPEC, RDCON), which reads the equilibrium and the assumptions, and transport
-(classical, neoclassical, turbulent: Braginskii, Sauter / Redl, NEO, TGLF, CGYRO), which reads all three. Each
-writes its results as IDS: `mhd_linear` and `ntms`; `core_transport`, an updated `core_profiles` and
-`gyrokinetics_local`. Codes, IDS and assumptions are read from the architecture figure's definitions, so the two
-cannot drift apart. `equilibrium_stability_transport()` puts it to the right of the research modes around the
-IMAS equilibrium IDS (`integrated_scientific_framework("equilibrium", frame=False, analysis=False,
-references=False, ids_key=True)`), on one canvas at one scale and with no panel letters; an arrow hands the
-equilibrium from left to right. Neither carries arrow annotations: what each calculation reads is in the model.
+comes out. The shared physics analysis input -- the `equilibrium` IDS, the measured kinetic profiles in
+`core_profiles` and external assumptions (closures, mode numbers and wall model, 3-D coil excitation) -- feeds the
+MHD stability model (ideal & resistive energy principle, 3-D plasma response: DCON, GPEC, RDCON), which reads the equilibrium
+and the assumptions, and the transport model (classical, neoclassical, turbulent: Braginskii, Sauter, Redl, NEO,
+TGLF, CGYRO), which reads all three. Each writes its results as IDS: the stability IDS `mhd_linear` and `ntms`; the
+transport IDS `core_transport`, an updated `core_profiles` and `gyrokinetics_local`. Codes, IDS and assumptions are
+read from the architecture figure's definitions, so the two cannot drift apart. `equilibrium_stability_transport()`
+puts it to the right of four equilibrium routes around the IMAS equilibrium IDS -- experimental reconstruction
+(EFIT), theory (Solov'ev; Guazzotto & Freidberg), fixed-boundary (CHEASE) and free-boundary models (TokaMaker, TES)
+(`integrated_scientific_framework("equilibrium", frame=False, analysis=False, references=False, ids_key=True,
+boundary_models=True)`) -- on one canvas at one scale and with no panel letters; an arrow hands the equilibrium
+from left to right. Neither carries arrow annotations: what each calculation reads is in the model.
 
 ```python
 vaft.diagram.stability_transport_io()

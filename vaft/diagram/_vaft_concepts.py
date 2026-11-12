@@ -743,6 +743,14 @@ EQUILIBRIUM_ROUTES: Dict[str, str] = {
     "experiment": "EFIT", "modelling": "CHEASE, TokaMaker", "theory": "Solov'ev, Guazzotto & Freidberg",
     "data_driven": "neural / surrogate equilibrium models",
 }
+#: the equilibrium example with modelling split by boundary condition and no data-driven mode: (key, title, colour,
+#: representative routes), in the corner order of :data:`ACTIVITIES`
+EQUILIBRIUM_MODELS: Tuple[Tuple[str, str, str, str], ...] = (
+    ("experiment", "Experimental Reconstruction", "absfluid", "EFIT"),
+    ("theory", "Theory", "abskinetic", "Solov'ev, Guazzotto & Freidberg"),
+    ("fixed_boundary", "Fixed-boundary Model", "driftred", "CHEASE"),
+    ("free_boundary", "Free-boundary Model", "islandblue", "TokaMaker, TES"),
+)
 #: compact references of the tokamak example
 EQUILIBRIUM_REFERENCES: Tuple[str, ...] = (
     "EFIT: Lao et al., Nucl. Fusion 25, 1611 (1985)",
@@ -761,12 +769,17 @@ _COMMUNICATION = ("point_to_point", "common_model", "equilibrium")
 _MODE_OFFSET = 3.5
 
 
-def _research_modes(items: List, example: bool) -> Dict[str, Box]:
-    """The four research modes at the corners, as every common-model figure places them; boxes appended to items."""
+def _research_modes(items: List, example: bool, boundary_models: bool = False) -> Dict[str, Box]:
+    """The four research modes at the corners, as every common-model figure places them; boxes appended to items.
+
+    ``boundary_models`` places :data:`EQUILIBRIUM_MODELS` at the corners instead.
+    """
     d = _MODE_OFFSET
+    modes = (EQUILIBRIUM_MODELS if boundary_models else
+             tuple((k, t, c, EQUILIBRIUM_ROUTES[k]) for k, t, c in ACTIVITIES))
     nodes: Dict[str, Box] = {}
-    for (key, text, colour), (x, y) in zip(ACTIVITIES, [(-d, d), (d, d), (-d, -d), (d, -d)]):
-        body = _titled(text, EQUILIBRIUM_ROUTES[key]) if example else f"\\textbf{{{escape_latex(text)}}}"
+    for (key, text, colour, routes), (x, y) in zip(modes, [(-d, d), (d, d), (-d, -d), (d, -d)]):
+        body = _titled(text, routes) if example else f"\\textbf{{{escape_latex(text)}}}"
         b = box(x, y, 4.5, 1.45 if example else 1.0, body,
                 style=f"concept actor,fill={colour}!18,draw={colour}!80", role=f"node:{key}", latex=True)
         nodes[key] = b
@@ -782,7 +795,7 @@ def _common_hub(items: List, edges: List, nodes: Dict[str, Box], example: bool, 
                 "\\textbf{Common Data Model (IMAS)}\\\\{\\small shared standardized representation}")
     hub = box(0.0, 0.0, 5.6, 1.85 if ids_key else 1.4, hub_text, style="concept hub", role="node:hub", latex=True)
     items += list(hub.items)
-    for k, _, _ in ACTIVITIES:
+    for k in nodes:
         _edge(items, edges, nodes[k], hub, k, "hub", both=True)
     return hub
 
@@ -855,7 +868,8 @@ EQUILIBRIUM_ANALYSIS: Tuple[Tuple[str, str], ...] = (
 
 
 def integrated_scientific_framework(domain: Optional[str] = None, *, labels: bool = True, frame: bool = True,
-                                    analysis: bool = True, references: bool = True, ids_key: bool = False) -> Diagram:
+                                    analysis: bool = True, references: bool = True, ids_key: bool = False,
+                                    boundary_models: bool = False) -> Diagram:
     r"""The research modes and their common state inside one integrated framework, serving analysis (#1698).
 
     The four research modes and the Common Data Model (IMAS) sit exactly as in
@@ -876,16 +890,22 @@ def integrated_scientific_framework(domain: Optional[str] = None, *, labels: boo
     the closing note; ``analysis=False`` drops the Analysis node, leaving the
     research modes around their shared state; ``references=False`` drops the
     route references; ``ids_key=True`` (equilibrium only) names the IDS key,
-    ``equilibrium``, in the hub -- together, the form the left half of
+    ``equilibrium``, in the hub; ``boundary_models=True`` (equilibrium only)
+    replaces the four research modes by :data:`EQUILIBRIUM_MODELS` --
+    experimental reconstruction (EFIT), theory (Solov'ev; Guazzotto &
+    Freidberg), fixed-boundary (CHEASE) and free-boundary models (TokaMaker,
+    TES) -- together, the form the left half of
     :func:`~vaft.diagram.equilibrium_stability_transport` takes.
     """
     labels = _check_labels(labels)
     if domain not in _FRAMEWORK_DOMAINS:
         raise ValueError(f"domain must be one of {_FRAMEWORK_DOMAINS}, not {domain!r}")
-    if not all(isinstance(v, bool) for v in (frame, analysis, references, ids_key)):
-        raise ValueError("frame, analysis, references and ids_key must be True or False")
-    if ids_key and domain != "equilibrium":
-        raise ValueError('ids_key needs domain="equilibrium"')
+    if not all(isinstance(v, bool) for v in (frame, analysis, references, ids_key, boundary_models)):
+        raise ValueError("frame, analysis, references, ids_key and boundary_models must be True or False")
+    if (ids_key or boundary_models) and domain != "equilibrium":
+        raise ValueError('ids_key and boundary_models need domain="equilibrium"')
+    if boundary_models and references:
+        raise ValueError("boundary_models needs references=False: the references are those of the research modes")
     if analysis is False and frame:
         raise ValueError("analysis=False needs frame=False: the framework boundary encloses the analysis")
     example = domain == "equilibrium"
@@ -904,7 +924,7 @@ def integrated_scientific_framework(domain: Optional[str] = None, *, labels: boo
                            "concept group title", anchor="north west", role="framework"))
         items.append(Label((frame_x - 0.25, frame_top - 0.2), "connects, runs, compares and reproduces research",
                            "concept annotation", anchor="north east", role="framework"))
-    nodes = _research_modes(items, example)
+    nodes = _research_modes(items, example, boundary_models)
     hub = _common_hub(items, edges, nodes, example, ids_key)
     outputs: Tuple[str, ...] = ()
     if analysis:
@@ -927,12 +947,13 @@ def integrated_scientific_framework(domain: Optional[str] = None, *, labels: boo
         items.append(Label((0.0, frame_bottom - (2.75 if example else 0.3)), note, "note", anchor="north", role="note"))
     return Diagram("integrated_scientific_framework", Scene(tuple(items)),
                    model={"framework": "integrated", "domain": domain, "framework_frame": frame,
-                          "activities": tuple(k for k, _, _ in ACTIVITIES),
+                          "activities": tuple(nodes),
                           "shared_state": "equilibrium" if example else "common_data_model",
                           "analysis": "analysis" if analysis else None, "outputs": outputs,
                           "analysis_categories": tuple(k for k, _ in EQUILIBRIUM_ANALYSIS) if example and analysis
                           else (),
-                          "routes": dict(EQUILIBRIUM_ROUTES) if example else {}, "edges": tuple(edges)})
+                          "routes": ({k: r for k, _, _, r in EQUILIBRIUM_MODELS} if boundary_models else
+                                     dict(EQUILIBRIUM_ROUTES) if example else {}), "edges": tuple(edges)})
 
 
 #: interfaces and the interaction each one is for: (key, name, use, planned)

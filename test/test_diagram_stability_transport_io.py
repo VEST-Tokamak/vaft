@@ -29,7 +29,7 @@ def test_outputs_are_the_ids_the_architecture_figure_writes():
 def test_codes_are_the_architecture_figure_operations():
     d = vaft.diagram.stability_transport_io()
     assert d.model["codes"]["mhd_stability"] == ("DCON", "GPEC", "RDCON")
-    assert d.model["codes"]["transport"] == ("Braginskii", "Sauter / Redl", "NEO", "TGLF", "CGYRO")
+    assert d.model["codes"]["transport"] == ("Braginskii", "Sauter, Redl", "NEO", "TGLF", "CGYRO")
     assert len(d.model["codes"]["mhd_stability"]) == len(C.OPERATIONS["mhd"])
     assert len(d.model["codes"]["transport"]) == len(C.OPERATIONS["transport"])
     for key, codes in d.model["codes"].items():
@@ -58,7 +58,11 @@ def test_labels_flag_and_registration():
     # no annotations beside the arrows: what each calculation reads lives in the model
     full = vaft.diagram.stability_transport_io()
     assert not any(i.role.startswith(("reads:", "writes:")) for i in full.scene.items)
-    assert all("IMAS Output IDS" in _text(full, f"output:{k}") for k in full.model["calculations"])
+    assert "IMAS Stability IDS" in _text(full, "output:mhd_stability")
+    assert "IMAS Transport IDS" in _text(full, "output:transport")
+    assert "MHD Stability Model" in _text(full, "node:mhd_stability")
+    assert "Transport Model" in _text(full, "node:transport")
+    assert any("Shared Physics Analysis Input" in i.text for i in full.scene.role("group:inputs") if isinstance(i, Label))
     with pytest.raises(ValueError):
         vaft.diagram.stability_transport_io(labels="yes")
     assert build.CANONICAL["stability_transport_io.svg"] == ("stability_transport_io", {})
@@ -68,15 +72,18 @@ def test_labels_flag_and_registration():
 def test_the_combined_figure_pairs_the_equilibrium_with_the_io_view():
     d = vaft.diagram.equilibrium_stability_transport()
     a = vaft.diagram.integrated_scientific_framework("equilibrium", frame=False, analysis=False, references=False,
-                                                     ids_key=True)
+                                                     ids_key=True, boundary_models=True)
     b = vaft.diagram.stability_transport_io()
     # the left half is drawn as is, the hub naming its IDS key; the right is the same drawing moved right, at the same scale (one font size)
     for role in ("node:hub", "node:experiment"):
         assert d.scene.role(role) == a.scene.role(role)
     assert not d.scene.role("references")
     # code names look like the equilibrium routes: the same size, upright and black
-    route = d.scene.role("node:modelling")[1].text
-    assert "{\\small CHEASE, TokaMaker}" in route
+    assert d.model["equilibrium"]["activities"] == ("experiment", "theory", "fixed_boundary", "free_boundary")
+    assert "Experimental Reconstruction" in d.scene.role("node:experiment")[1].text
+    assert "{\\small CHEASE}" in d.scene.role("node:fixed_boundary")[1].text
+    assert "{\\small TokaMaker, TES}" in d.scene.role("node:free_boundary")[1].text
+    assert not d.scene.role("node:data_driven") and not d.scene.role("node:modelling")
     assert "{\\small DCON, GPEC, RDCON}" in d.scene.role("node:mhd_stability")[1].text
     assert "color" not in d.scene.role("node:transport")[1].text
     moved = d.scene.role("node:transport")[0].points

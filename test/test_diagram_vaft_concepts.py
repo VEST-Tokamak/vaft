@@ -369,3 +369,16 @@ def test_the_plasma_state_layers_feed_the_reconstruction_and_then_the_derived_st
     text = " ".join(i.text for i in d.scene.items if isinstance(i, Label))
     for quantity in ("Thomson", "diamagnetic flux", "Z_\\mathrm{eff}", "q_{95}", "\\ell_i", "\\nu^*"):
         assert quantity in text
+
+
+def test_boundary_models_split_modelling_and_drop_data_driven():
+    d = vaft.diagram.integrated_scientific_framework("equilibrium", frame=False, analysis=False, references=False,
+                                                     boundary_models=True)
+    assert d.model["activities"] == ("experiment", "theory", "fixed_boundary", "free_boundary")
+    assert d.model["routes"]["free_boundary"] == "TokaMaker, TES"
+    assert {("fixed_boundary", "hub", "both"), ("free_boundary", "hub", "both")} <= set(d.model["edges"]) or \
+        len(d.model["edges"]) == 4
+    with pytest.raises(ValueError, match="boundary_models"):
+        vaft.diagram.integrated_scientific_framework(frame=False, analysis=False, boundary_models=True)
+    with pytest.raises(ValueError, match="references"):
+        vaft.diagram.integrated_scientific_framework("equilibrium", frame=False, analysis=False, boundary_models=True)

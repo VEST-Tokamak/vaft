@@ -34,9 +34,11 @@ from ._vaft_concepts import _MODE_OFFSET, _check_labels, _record, box, integrate
 
 #: the two calculations: (key, the cross-domain section they summarize, title, the physics they cover)
 CALCULATIONS: Tuple[Tuple[str, str, str, Tuple[str, ...]], ...] = (
-    ("mhd_stability", "mhd", "MHD Stability", ("ideal and resistive stability,", "plasma response")),
-    ("transport", "transport", "Transport", ("classical, neoclassical, turbulent",)),
+    ("mhd_stability", "mhd", "MHD Stability Model", ("ideal & resistive energy principle,", "3-D plasma response")),
+    ("transport", "transport", "Transport Model", ("classical, neoclassical, turbulent",)),
 )
+#: the title of each calculation's output card
+_OUTPUT_TITLE = {"mhd_stability": "IMAS Stability IDS", "transport": "IMAS Transport IDS"}
 
 
 def _codes(section: str) -> Tuple[str, ...]:
@@ -44,7 +46,8 @@ def _codes(section: str) -> Tuple[str, ...]:
     names = []
     for op in OPERATIONS[section]:
         plain = [line for line in op.lines if not line.startswith("\\itshape")]
-        names.append(plain[0] if plain else op.title)
+        # a code family named "A / B" in the cross-domain figure is listed with the others' commas
+        names.append((plain[0] if plain else op.title).replace(" / ", ", "))
     return tuple(names)
 
 
@@ -102,16 +105,16 @@ def _calc_text(key: str, title: str, physics: Tuple[str, ...]) -> str:
 
 def _output_text(key: str) -> str:
     rows = ["{\\small\\texttt{" + escape_latex(ids) + "}: " + quantities + "}" for ids, quantities in OUTPUTS[key]]
-    return "\\textbf{IMAS Output IDS}\\\\" + "\\\\".join(rows)
+    return "\\textbf{" + _OUTPUT_TITLE[key] + "}\\\\" + "\\\\".join(rows)
 
 
 def stability_transport_io(*, labels: bool = True) -> Diagram:
     r"""Shared inputs consumed by MHD stability and transport, and the IDS each writes.
 
-    Top: the shared inputs -- the ``equilibrium`` IDS, the measured kinetic
+    Top: the shared physics analysis input -- the ``equilibrium`` IDS, the measured kinetic
     profiles in ``core_profiles`` and external assumptions (closures, mode
     numbers and wall model, 3-D coil excitation). Middle: MHD stability (ideal
-    and resistive stability, plasma response) reads the equilibrium and the
+    & resistive energy principle, 3-D plasma response) reads the equilibrium and the
     assumptions; transport (classical, neoclassical, turbulent) reads all
     three. The codes sit beneath each, in the style the equilibrium panel
     gives its routes. Bottom: the IDS each calculation writes -- ``mhd_linear`` and
@@ -135,7 +138,7 @@ def stability_transport_io(*, labels: bool = True) -> Diagram:
     items.append(Polyline.of([(gx0, _GROUP_BOTTOM), (gx1, _GROUP_BOTTOM), (gx1, _TOP), (gx0, _TOP)],
                              "concept frame", role="group:inputs", closed=True))
     if labels:
-        items.append(Label((gx0 + 0.3, _TOP), "\\textbf{Shared inputs}",
+        items.append(Label((gx0 + 0.3, _TOP), "\\textbf{Shared Physics Analysis Input}",
                            "concept group title,fill=white,inner sep=2pt", anchor="west", role="group:inputs"))
     for (key, title, ids, detail), x, w in zip(SHARED_INPUTS, xs, _INPUT_W):
         text = "\\textbf{" + escape_latex(title) + "}"
@@ -179,12 +182,12 @@ def stability_transport_io(*, labels: bool = True) -> Diagram:
 def equilibrium_stability_transport(*, labels: bool = True) -> Diagram:
     r"""The equilibrium as a common representation, and what stability and transport do with it.
 
-    Left, the four research modes -- experiment (EFIT), modelling (CHEASE,
-    TokaMaker), theory (Solov'ev; Guazzotto & Freidberg) and data-driven
-    models -- exchanging with the IMAS equilibrium IDS, its key
-    ``equilibrium`` named, as in ``integrated_scientific_framework(
-    "equilibrium", frame=False, analysis=False, references=False,
-    ids_key=True)``. Right, the :func:`stability_transport_io` view. Both are
+    Left, four equilibrium routes -- experimental reconstruction (EFIT),
+    theory (Solov'ev; Guazzotto & Freidberg), fixed-boundary (CHEASE) and
+    free-boundary models (TokaMaker, TES) -- exchanging with the IMAS
+    equilibrium IDS, its key ``equilibrium`` named, as in
+    ``integrated_scientific_framework("equilibrium", frame=False,
+    analysis=False, references=False, ids_key=True, boundary_models=True)``. Right, the :func:`stability_transport_io` view. Both are
     drawn on one canvas at one scale, so their fonts and box styles match; an
     arrow from the equilibrium IDS to the shared inputs marks that the same
     equilibrium is the input downstream. No panel letters: the two halves read
@@ -192,7 +195,7 @@ def equilibrium_stability_transport(*, labels: bool = True) -> Diagram:
     """
     labels = _check_labels(labels)
     a = integrated_scientific_framework("equilibrium", labels=labels, frame=False, analysis=False, references=False,
-                                        ids_key=True)
+                                        ids_key=True, boundary_models=True)
     b = stability_transport_io(labels=labels)
     items: List = list(a.scene.items) + list(b.scene.transformed(offset=(_PANEL_DX, 0.0)).items)
     # the hand-off: from the right of the hub, out between the panels, up into the shared inputs at the level of
