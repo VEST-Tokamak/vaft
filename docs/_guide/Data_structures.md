@@ -206,7 +206,7 @@ The underlying primitive is scale-free: it compares the trace's variance and its
 divided by the trace's mean absolute level, against relative thresholds, so it needs no knowledge
 of the signal's units. A trace held at any non-zero level with noise far below that level is
 inactive; the converse caveat is that a zero-mean noise trace has no level to be small against
-and reads active at any amplitude, so apply a known noise floor before asking (issue #463).
+and reads active at any amplitude, so apply a known noise floor before asking.
 
 ```python
 import vaft
@@ -412,24 +412,22 @@ end depends on the shape you wrote, and the shapes are not equivalent.
 The low-level `vaft.imas.omas_imas.save_omas_imas` returns the paths it actually wrote, and that list is the
 only machine-readable
 evidence a caller gets. A discarded `code.parameters` is simply absent from it: no exception, no
-return code, one `WARNING: … is not part of IMAS` line on stderr that a pipeline log buries. This is
-how [#380](https://github.com/VEST-Tokamak/vaft/issues/380) lost 4096 paths of EFIT provenance
-between the local product and its HSDS replica without anything reporting a failure.
+return code, one `WARNING: … is not part of IMAS` line on stderr that a pipeline log buries. In this
+way 4096 paths of EFIT provenance were once lost between the local product and its HSDS replica
+without anything reporting a failure.
 
 What can be written is decided at the write, by `vaft.imas.code_parameters.as_entry_payload`: the
 leaves an entry can carry are kept, anything it cannot is left on the local product, and a
 `parameters_cache_omitted` leaf names what stayed behind. So an EFIT product's declared COCOS index
 travels and its per-slice parser cache does not, from the same field, and a reader of the entry is
-told which — where before, a nested block took every leaf beside it down in silence
-([#642](https://github.com/VEST-Tokamak/vaft/issues/642)).
+told which — rather than a nested block taking every leaf beside it down in silence.
 
 The cache stays behind because it cannot be carried, not merely because it is large: the XML encoder
 has no array representation, so an array put through the envelope returns as the repr of its
 elements joined by spaces. Present, named and useless is worse than absent and declared.
 
 `vaft.omas.load` still promotes a *flat, leaf-only* block back to a `CodeParameters` on the way out
-of a stage product ([#478](https://github.com/VEST-Tokamak/vaft/issues/478)); that now decides what a
-local reader sees rather than whether the block survives.
+of a stage product; that decides what a local reader sees, not whether the block survives.
 
 | You write | Reaches an entry | Comes back as |
 |---|---|---|
@@ -460,11 +458,11 @@ through `ast.literal_eval`, so the EFIT case label `"039915.00316"` returns as t
 arbitrary values* therefore belong inside a payload the XML loader cannot parse — which in this
 repository means JSON.
 
-The last two rows used to read "**nothing**": promotion was all-or-nothing on the block, so an EFIT
-product lost the COCOS index it declares on the way to a replica — the leaf was not nested, it was
-merely standing next to something that is
-([#642](https://github.com/VEST-Tokamak/vaft/issues/642)). Replicas written before that fix carry no
-`equilibrium.code.parameters` at all and need re-replicating for their declaration to appear.
+**Compatibility with older replicas.** Promotion was once all-or-nothing on the block, so the last two
+rows reached an entry as nothing at all: an EFIT product lost the COCOS index it declares on the way
+to a replica — the leaf was not nested, it was merely standing next to something that is. Replicas
+written under that rule carry no `equilibrium.code.parameters` at all and need re-replicating for
+their declaration to appear.
 
 ### Writing it
 
@@ -486,7 +484,7 @@ role it plays and the reason that data may stop at the FileDB.
 
 ### Budgeting a large payload
 
-Stage products are gzipped (`vaft.database.filedb.OMAS_PRODUCT_SUFFIX` is `.json.gz` since #813),
+Stage products are gzipped (`vaft.database.filedb.OMAS_PRODUCT_SUFFIX` is `.json.gz`),
 and nothing anywhere guards their size. **Do not budget against the file on disk.** A
 `code.parameters` payload is quote-heavy XML-escaped text, which is exactly what gzip is best at, so
 a payload that inflates several-fold on escaping can leave the product barely larger — the file size
@@ -650,7 +648,7 @@ shots on that clock is meaningless: breakdown happens tens of milliseconds later
 from shot to shot. VAFT therefore lets you re-reference an entire ODS to a physical event.
 
 Four conventions are defined. Every origin is a *measured* event on the DAQ clock, found by the shared
-timing modules with provenance (issue #409):
+timing modules with provenance:
 
 | `convention` | $t=0$ at | found by |
 |---|---|---|
@@ -736,16 +734,16 @@ vaft.omas.find_bt(ods)                 # mean toroidal field over the plasma win
 
 **The unit is the one main discharge.** Both detectors keep only the segment holding their own
 maximum (`principal_only` in the `plasma_timing` policy), so a window is one run and its extent is a
-duration. Before [#842](https://github.com/VEST-Tokamak/vaft/issues/842) the light rule returned the
-*envelope* of every accepted segment, so a record of scattered flashes reported one long window that
-was mostly gap — and opened it at the first flash, which the plasma current said was the discharge in
-only 11 of 35 shots. A record whose brightest feature is a spike the segment tests refused now yields
+duration. The alternative — the *envelope* of every accepted segment, which the light rule once
+returned — reports, for a record of scattered flashes, one long window that is mostly gap, and opens it
+at the first flash, which the plasma current confirmed as the discharge in only 11 of 35 fragmented-light
+shots (`test/test_onset_corpus.py`). A record whose brightest feature is a spike the segment tests refused now yields
 no light window at all rather than a window built from lesser bursts.
 
 `plasma_timing(ods).duty_cycle` is how much of a window is above threshold; the shot overview carries
 it as `pulse_duty_cycle` beside `pulse_duration_s`, and the onset corpus keeps it per detector. It is
 1 everywhere in the corpus today, which is the point: it is the check that the unit has not slipped
-back ([#752](https://github.com/VEST-Tokamak/vaft/issues/752)).
+back.
 
 The records behind them carry the evidence: `vaft.omas.plasma_timing.plasma_timing(ods)` (the window, its
 source, the light/current agreement) and `vaft.omas.discharge_timing.discharge_timing(ods)` (every coil's

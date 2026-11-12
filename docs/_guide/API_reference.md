@@ -75,7 +75,7 @@ flowchart TD
 | `vaft.gui` | Browser GUI over the plot catalog and interactive controls | [Browser GUI]({{ site.baseurl }}/workflows/gui/) | [API]({{ site.baseurl }}/reference/api/gui/) |
 | `vaft`, `vaft.compat`, `vaft.ods_access`, `vaft.spectroscopy` (deprecated alias of `vaft.data.atomic`/`vaft.data.spectroscopy`, removed in 0.10.0) | Top level and small utilities | | [API]({{ site.baseurl }}/reference/api/core/) |
 
-Atomic and spectroscopic concerns follow the same layering as the rest of the package (#1711).
+Atomic and spectroscopic concerns follow the same layering as the rest of the package.
 Identity is data: `vaft.data.atomic` owns elements, isotopes, charge states and species notation
 (`AtomicSpecies`, `parse_species`), and `vaft.data.spectroscopy` owns spectral-line identity and the
 IMAS `processed_line.label` codec (`SpectralLineIdentity`, `parse_line_label`, `parse_emission_term`).
@@ -279,7 +279,7 @@ vaft.omas.compute_magnetic_shear(ods, time_slice)
 ```
 
 `compute_tau_E_exp` and `compute_power_balance` are the legacy *modelled* budget (Spitzer heating,
-modelled radiation). The experimental Ohmic chain is a submodule of its own (#1905):
+modelled radiation). The experimental Ohmic chain is a submodule of its own:
 
 <!-- docs-snippet: skip fragment (needs an ODS with equilibrium and measured magnetics) -->
 ```python
@@ -557,10 +557,10 @@ result = run_tes(inputs, TESConfig(timeout=600, backend=LocalBackend()))
 
 A timeout is returned (`timed_out=True`), not raised. A program the operating system refuses to
 start raises `ExecutableNotLaunchable`; a missing working directory stays a `FileNotFoundError`.
-A timeout, a `KeyboardInterrupt` or a `SIGTERM`/`SIGHUP` stops the program's whole process tree
-(#1016); the interrupt and the signal are then raised again rather than turned into a result.
+A timeout, a `KeyboardInterrupt` or a `SIGTERM`/`SIGHUP` stops the program's whole process tree,
+so no orphaned solver rank keeps running; the interrupt and the signal are then raised again rather than turned into a result.
 
-**Timeout results (#1016).** Every adapter below returns its own result object on a timeout; none
+**Timeout results.** Every adapter below returns its own result object on a timeout; none
 raises. The result says:
 
 | Field | On a timeout |
@@ -614,7 +614,7 @@ launchers still start the ranks themselves. TokaMaker runs in-process and has no
 
 ### Python tasks
 
-`python_task_request(module, args, workdir=..., ...)` (#1147) builds the request for an in-repo Python
+`python_task_request(module, args, workdir=..., ...)` builds the request for an in-repo Python
 task, `<python> -m <module> <args...>`, that runs the same way under `LocalBackend` and under
 `SlurmBackend` on a shared filesystem. The interpreter is `interpreter=`, else `$VAFT_PYTHON` (for a
 batch node that sees the environment at another path), else `sys.executable`. `spec=` is written as
@@ -640,7 +640,7 @@ with tempfile.TemporaryDirectory() as unit_dir:
     print(result.returncode, result.stdout.strip())  # 0 {"shot":39915}
 ```
 
-**Overriding resources (#1016).** Every configuration with a `backend` also takes
+**Overriding resources.** Every configuration with a `backend` also takes
 `resources: ResourceRequest | None`. `None` keeps the adapter's own declaration above; a value
 replaces it whole (threads, tasks and memory, so a scheduler sizes the job from it). The thread
 count follows one precedence:
@@ -671,7 +671,7 @@ result = run_efit(inputs, EFITConfig(resources=ResourceRequest(threads_per_task=
 
 ### Running under Slurm
 
-`SlurmBackend` (#1017) runs the same adapter call as a cluster job. Only the `backend=` argument
+`SlurmBackend` runs the same adapter call as a cluster job. Only the `backend=` argument
 changes:
 
 <!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
@@ -739,7 +739,7 @@ such as EFUND or a single EFIT slice, so prefer an explicit `backend=` for those
 ### Submitting without waiting
 
 `run` blocks. For a scan or campaign that should keep many cases in flight, every backend also
-accepts `submit` (#1018), through `submit_request(backend, request)`, which falls back to running
+accepts `submit`, through `submit_request(backend, request)`, which falls back to running
 eagerly for a backend that only has `run`:
 
 | Call | What it does |
@@ -835,7 +835,7 @@ two ssh round trips and two rsyncs, so keep short runs (EFUND, one EFIT slice) o
 
 `ResourceRequest.memory_mb` only asks a scheduler for memory, and `LocalBackend` ignores it. When a
 long Python loop outgrows its allocation, the kernel's or Slurm's OOM killer ends the process with no
-traceback and no status record. `vaft.code.resources` (#1146) lets the loop notice first and stop at a
+traceback and no status record. `vaft.code.resources` lets the loop notice first and stop at a
 point of its own choosing:
 
 ```python
@@ -891,7 +891,8 @@ saw, a lower bound on the true peak inside the block; `peak_rss_mb()` is the pro
 `task_info` and the peak with `getrusage`, whose `ru_maxrss` is in bytes there and in KiB on Linux.
 Windows reads `GetProcessMemoryInfo`. `psutil` is used when it is installed and no native reading is
 available, and `ps -o rss=` is the last resort; psutil is never required. The guard stops the Python
-process only; it does not limit `LocalBackend` children (see #1016).
+process only; it does not limit `LocalBackend` children, which the request's timeout bounds by stopping
+their whole process tree.
 
 # `vaft.data`
 

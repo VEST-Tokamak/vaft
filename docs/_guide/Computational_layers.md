@@ -17,7 +17,7 @@ related:
 VAFT computes in three layers that are each useful on their own: **Formula**, **Process** and
 **Code**. An optional fourth notion, the **Actor**, is a contract for comparing several realizations
 of the *same* scientific operation. Most VAFT calculations do not need one. This page fixes the
-vocabulary (issue #1078, under the umbrella #1077) so that contributors put new work in the right
+vocabulary so that contributors put new work in the right
 place. How these layers fit with data, validation, orchestration and the other architecture views is
 mapped on [Scientific architecture]({{ '/reference/scientific-architecture/' | relative_url }}).
 
@@ -132,7 +132,7 @@ used or explicitly referenced.
 
 ## Where this fits: ownership and maturation
 
-This page is the zoomed view of one band of a larger picture (#1645). That picture is drawn by
+This page is the zoomed view of one band of a larger picture: scientific ownership. That picture is drawn by
 `vaft.diagram.scientific_ownership_architecture()` and described in
 [Diagrams]({{ '/reference/diagrams/' | relative_url }}). It separates five things:
 
@@ -145,7 +145,7 @@ This page is the zoomed view of one band of a larger picture (#1645). That pictu
   by membership, and neither executes anything.
 
 Logic leaves a workflow when it is reused or copied elsewhere, needs its own tests, defines a stable
-operation, or enters routine production (#1642). It is then promoted by what it means. A pure relation goes
+operation, or enters routine production. It is then promoted by what it means. A pure relation goes
 to Formula, a native transformation to Process and a solver operation to Code. A scientific assessment goes
 to validation, retrieval and persistence to the database, and a learned task to its owning domain with a
 learned implementation. Study-specific orchestration stays in the workflow.
@@ -156,7 +156,7 @@ learned implementation. Study-specific orchestration stays in the workflow.
 
 This page is the vocabulary only. No Actor protocol, implementation registry, scheduler, workflow
 engine, persistence, or Run/Study API exists yet, and no existing Code adapter is being migrated.
-The follow-up issues are #1079 (a minimal Actor protocol and implementation registry), #1080 (optional
+Open: #1079 (a minimal Actor protocol and implementation registry), #1080 (optional
 shared inputs/outputs and the provenance, assumptions and validity metadata), and two prototypes
 in scientifically different domains, #1081 (`equilibrium_reconstruction`) and #1082 (`plasma_response`).
 Code-centric and Process-centric use stay normal and supported throughout.

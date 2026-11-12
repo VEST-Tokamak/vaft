@@ -16,8 +16,7 @@ guide:
 
 The reduced vessel-wall contract is owned by VFIT
 ([VEST-Tokamak/vfit#8](https://github.com/VEST-Tokamak/vfit/issues/8)); this
-page describes the VAFT implementation
-([#473](https://github.com/VEST-Tokamak/vaft/issues/473)). The principle in one
+page describes the VAFT implementation, `vaft.process.wall_modes`. The principle in one
 line: **local eigenbasis, global electromagnetic dynamics**.
 
 Every function of `vaft.process.wall_modes` is documented under the processing
@@ -77,15 +76,15 @@ A non-diagonal or non-positive resistance, an inductance block that is not
 positive definite, a condition number above 1e12, an inductance asymmetric by
 more than 1e-6 (relative), and a near-degenerate pair of decay times inside a
 segment (relative gap below 1e-6; pass `on_cluster="warn"` to record instead).
-The packaged coupling asset has been exactly reciprocal since #373 (its
-`provenance` record names the repair); an artifact materialized before that
+The packaged coupling asset is exactly reciprocal (its `provenance` record
+names the repair); an artifact materialized from the earlier, uncorrected asset
 carries a 1.27e-3 asymmetry and must be re-mapped:
 `compute_wall_mode_basis_ods(ods, remap_em_coupling=True)`.
 
 ## Provenance
 
 `basis.provenance` records the segmentation version and digest, the resistance
-calibration in force (#308), the input asymmetry, the normalization, sign rule
+calibration in force (provisional; Open: #308, the 3-zone recalibration), the input asymmetry, the normalization, sign rule
 and mode order; `basis.digest()` fingerprints the modes. With
 `record=True` the identity is appended to `em_coupling.code.parameters` as
 `wall_mode_*` lines — never under `pf_passive`, whose loops are compared
@@ -96,5 +95,5 @@ shipped; `to_npz` / `from_npz` exist for export.
 
 `wall_time_constants` in the plasma-free benchmark now reads the same pencil
 at full rank, so the QA and the basis cannot report two different walls.
-TokaMaker's `eig_wall` (#232) remains an independent global reference on its
-own mesh (6.88 ms vs 7.19 ms here; meshing W11 since #965 moves it by 1 µs).
+TokaMaker's `eig_wall` remains an independent global reference on its
+own mesh (6.88 ms vs 7.19 ms here; including the 0.1 mm tungsten segment W11 in its mesh moves it by 1 µs).

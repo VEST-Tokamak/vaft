@@ -119,12 +119,13 @@ Raw signals consumed, by DAQ field code:
 | 207, 241, 209, 171 | The four toroidal Mirnov reference probes |
 
 Probe and flux-loop channels come from the sensor registry in `vest.yaml`
-(`diagnostics.equilibrium_magnetics.sensors`, #2158; read by
+(`diagnostics.equilibrium_magnetics.sensors`, read by
 `vaft.machine_mapping.magnetics_registry`), which defines each of the 75 sensors once with a stable `id`;
 `vest.yaml` revises their field and calibration per shot only where the wiring changed (`equilibrium_magnetics.processing.wiring`:
 through shot 39437 the Z = +0.06 and Z = -0.42 outboard probes read fields 170 and 225, the reverse
 of the 2409 layout) and records channels known to be broken (`known_faults`: the Z = +0.06 probe up
-to 36480 and for 36822-36905, and probe C4-04 at Z = -0.34 on every shot, #977), which the magnetics
+to 36480 and for 36822-36905, and probe C4-04 at Z = -0.34 on every shot, because it contradicts both its array and the vacuum
+model; Open: #977, sensor diagnosis pending), which the magnetics
 validation marks invalid. Both are in
 `vest_processing_provenance(shot)`. Shot-number-dependent behaviour that silently changes results:
 
@@ -383,8 +384,9 @@ See [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) for how the reconstruct
 machine Cartesian metres (IMAS `phi` counter-clockwise from above, through
 `vaft.machine_mapping.conventions.cylindrical_to_cartesian`). Each layer names
 its subsystem in `group`, a `/` path such as `machine/pf_active/PF1/0`.
-Surfaces, grids and fields are not layers; they belong to the scientific mesh
-work (#909, #1100).
+Surfaces, grids and fields are not layers; they belong to scientific mesh
+infrastructure that does not exist yet (Open: #909, solver-neutral geometry and
+unstructured meshes; Open: #1100, CAD-derived 3-D machine geometry and IMAS wall/GGD).
 
 | Tool | Role | Entry point | Install |
 |---|---|---|---|
@@ -493,7 +495,7 @@ fluctuation band, fitted against toroidal angle at one instant. That is
 
 Shot 39915 cannot supply one: it falls in the 35521-44155 gap where no toroidal array recorded, and
 its only fluctuation-capable probe is one channel (DAQ field 171, equilibrium probe 36), which is
-not two positions (issues #724, #825). The fit is shown on the repository-only fluctuation sample
+not two positions. The fit is shown on the repository-only fluctuation sample
 45531 instead, which carries the three-angle outboard array (IMAS phi 315/225/135 deg) around its
 0.294-0.308 s discharge. It loads from a Git checkout; an installed wheel raises
 `FileNotFoundError`, because only 39915 ships inside the package:

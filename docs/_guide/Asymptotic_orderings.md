@@ -17,7 +17,7 @@ Some dimensionless numbers say how well a plasma performs, or where it sits in s
 ($\beta_N$, $\rho_*$, $\nu_*$). Others are the small or large parameters a model's derivation expands
 in. A Lundquist number tests whether resistive diffusion is slow compared with Alfvénic dynamics.
 $d_i/L$, $\rho_i/L$, a Knudsen number or $\Omega\tau$ each test a different reduction. This page covers
-the second kind: **asymptotic ordering parameters** (#1627). The question they answer is which reduced
+the second kind: **asymptotic ordering parameters** (`vaft.formula.ordering`). The question they answer is which reduced
 models the scale separation of a given state justifies.
 
 The kernels are in [`vaft.formula.ordering`]({{ '/reference/formula/ordering/' | relative_url }}). Their
@@ -66,20 +66,21 @@ than assuming it. Every time comes from a formula kernel; only the pulse length 
   - $d_i/a \approx 0.3$, so Hall corrections are not globally negligible.
 
 The axis also places the sound crossing time $a/c_s$ and the inverse thermal-ion transit and bounce
-frequencies (#1739). They show where neoclassical and drift-kinetic dynamics sit between $\tau_A$ and the
+frequencies. They show where neoclassical and drift-kinetic dynamics sit between $\tau_A$ and the
 evolution time. Drift precession has no formula kernel, and $\tau_E$ needs an energy inventory the state
 does not carry, so neither is drawn. `spatial_scale_orderings` places the lengths of the same state on one
 axis: the Larmor radii, $\rho_s$, $d_i$, the banana width, an illustrative gradient length, $a$, $R_0$ and
 $qR_0$.
 
 These numbers come from an illustrative state, not a measured discharge. Answering the same questions
-across the VEST database is the ordering atlas of #1629.
+across the VEST database is the ordering atlas in
+`notebooks/vest_ordering_and_model_applicability.ipynb`.
 
 ## Ordering contracts
 
 Whether an ordering holds depends on the model that assumes it. The contracts are registered in
 `vaft.validation.orderings.CONTRACTS` as `ApproximationContract` objects of
-`vaft.validation.applicability` (#1639). They are evaluated with `evaluate_contract` for one state and
+`vaft.validation.applicability`. They are evaluated with `evaluate_contract` for one state and
 `evaluate_population` for a table, whose columns are the names in `ORDERING_QUANTITIES`.
 
 ![ordering contracts]({{ '/assets/diagrams/ordering_contract_map.svg' | relative_url }})
@@ -199,8 +200,8 @@ is the result, and `margin_label` only names its band.
 
 ## Which codes consume which contracts
 
-A contract says what a model assumes. A run's `vaft.code.formalism.PlasmaFormalism` record (#1727) says which
-model the run used. `vaft.validation.model_contracts` joins the two (#1823).
+A contract says what a model assumes. A run's `vaft.code.formalism.PlasmaFormalism` record says which
+model the run used. `vaft.validation.model_contracts` joins the two.
 Every mode with its record and its contracts is tabulated, generated from the registry, in [Plasma models: a guide]({{ '/reference/plasma-model-guide/' | relative_url }}), §9.
 
 `contracts_for(formalism)` maps a record to the contracts it consumes, as `(contract, role)` pairs. It reads
@@ -250,7 +251,8 @@ fixed background. Comparing its fluxes with experiment still assumes $\tau_{tran
 ordering makes turbulence-driven profile evolution $\rho_*^{-2}$ slower than the turbulence. It says nothing
 about evolution driven by the current ramp or actuators, which dominates VEST's ~10 ms discharges. The registry
 books the separate contract only when the run's fluxes drive a transport solver, as in a PORTALS-type
-flux-matching loop (#1588, not yet in VAFT). This is a bookkeeping choice. The record has no
+flux-matching loop (Open: #1588, a flux-matched transport workflow; `vaft.code.mitim.portals`
+so far runs only manufactured closed-loop checks of the solver). This is a bookkeeping choice. The record has no
 field that says so. A workflow therefore passes `contracts_for(..., transport_coupled=True)`, or sets
 `AdapterMode.transport_coupled`. No VAFT mode sets it today, so the figure has no coupling column.
 
@@ -266,7 +268,7 @@ field that says so. A workflow therefore passes `contracts_for(..., transport_co
   a reason.
 - **Every physics adapter in `vaft/code` has a mode.** A test enforces this. FLARE traces field lines through a
   given equilibrium and perturbation, and solves no plasma model. MITIM is a driver: the NEO and TGLF runs it
-  launches are those modes, and its PORTALS loop (#1588) will be the first `transport_coupled` workflow. Both
+  launches are those modes, and a PORTALS flux-matching workflow (Open: #1588) will be the first `transport_coupled` workflow. Both
   are listed with a reason and no record.
 
 `advisory_ordering_check(formalism, state, points)` evaluates those contracts on a run's input:
@@ -302,8 +304,10 @@ caller or from the stored profile, never from an assumption; without it the resi
 `UNASSESSED`. The plasma age needs the caller's onset time. The kinetic EFIT chain passes
 `KineticEFITConfig.ordering_state` to every PLASMA-scale run's `EFITConfig`.
 
-**Not yet wired.** No production workflow passes `ordering_state` yet, so a routine EFIT or GPEC record lists
-the consumed contracts with every ordering `UNASSESSED` until its stage calls the builder (#1823).
+**Partly wired.** The GPEC-suite drivers (`run_gpec_suite.py` in pipeline 1 and the stability-atlas scan) build an
+advisory state from each g-file with `vaft.code.gpec.ordering_state_for_case`. The routine EFIT pipeline passes no
+`ordering_state`, so its record lists the consumed contracts with every ordering `UNASSESSED` until its stage calls
+the builder.
 CGYRO's two local quantities are in GACODE's units: $\rho_s$ is deuterium-normalised in $B_{unit}$. That is an
 order-one difference from the local field, inside the order-unity thresholds.
 

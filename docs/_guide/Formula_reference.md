@@ -69,12 +69,12 @@ Every function whose result depends on a sign, normalisation, COCOS or unit choi
   `vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor` settles which family an ODS holds -- a declared
   COCOS index first, the data probes only for an unlabelled file.  `vaft.omas.equilibrium_psi_to_weber`
   moves a legacy Wb/rad ODS to the DD's weber in place and declares COCOS 11; the packaged 39915
-  sample is stored that way since issue #478.
+  sample is stored that way.
 - **Engineering units.** The confinement scalings, $n_G$, $\beta_N$ and the Verdoolaege dimensionless
   parameters are defined in MA, MW, $10^{19}$ m$^{-3}$ and percent; each page states what is converted
   internally and what is not.
 - **Several definitions of one quantity.** Three $\nu_*$ and three $\rho_*$ definitions coexist
-  (tracked in [#353](https://github.com/VEST-Tokamak/vaft/issues/353)); each page names its own.
+  (consolidating them is Open: [#353](https://github.com/VEST-Tokamak/vaft/issues/353)); each page names its own.
 
 {% assign constants = site.data.formula_catalog.categories | where: "name", "constants" | first %}
 ## Constants

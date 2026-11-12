@@ -27,7 +27,7 @@ formula / process
     Entries are matched by the object their ``module`` and ``name`` resolve
     to, so an entry that describes a different function of the same name does
     not count.  Classes, constants and submodules are API, not catalog
-    entries; they belong to the API reference (#162).
+    entries; they belong to the API reference.
 plot
     every function in ``vaft.plot.__all__`` is either a registered renderer
     (and then a ``plots`` entry) or, when its name starts with ``plot_`` (it
@@ -35,7 +35,7 @@ plot
     offers beyond ``__all__`` (the legacy cross-shot statistics, served
     without a warning) is an ``entry_points`` entry too.  What remains of
     ``__all__`` -- view models, ``render_*`` bodies, ``*_model`` builders,
-    helpers -- is support API for #162.  Every registered spec, whatever its
+    helpers -- is support API, documented by the API reference.  Every registered spec, whatever its
     status, is a ``plots`` entry.
 plot thumbnails
     ``vaft.plot.docs_thumbnails.check`` without the samples: every rendered
@@ -49,7 +49,7 @@ diagram
     declares and every ``*.svg`` committed under ``docs/assets/diagrams`` is an
     asset entry; every builder has at least one asset.
 
-python API (#162)
+python API
     every public module found **on disk** either declares ``__all__`` and
     belongs to a page of ``docs/api_inventory.yml``, or is listed there as
     ``undeclared``; a stale ``undeclared`` entry fails too.  Every name in an
@@ -57,7 +57,7 @@ python API (#162)
     described by exactly one entry of ``api_catalog.yml`` (matched by object
     identity; constants by exported name).
 
-source spans (#1069)
+source spans
     every rendered source span is the whole definition of the object its row
     names, resolved here from the row: its file, its first line (the first
     decorator) where ``ast`` finds a def or class of its name, the end of its
@@ -330,7 +330,7 @@ def check_diagram(snapshot: dict, root: Path) -> list[str]:
 
 
 # --------------------------------------------------------------------------
-# the Python API reference (#162)
+# the Python API reference
 # --------------------------------------------------------------------------
 
 
@@ -356,7 +356,7 @@ def check_api(snapshot: dict, root: Path) -> list[str]:
     scripts = list(inventory.get("scripts") or [])
 
     def is_script(name: str) -> bool:
-        # issue studies run with `python -m` and are never imported (#1756), as in vaft._api_catalog.is_script
+        # validation studies run with `python -m` and are never imported, as in vaft._api_catalog.is_script
         return any(name == prefix or (prefix != "vaft" and name.startswith(prefix + ".")) for prefix in scripts)
 
     def on_a_page(name: str) -> bool:
@@ -427,7 +427,7 @@ def check_api(snapshot: dict, root: Path) -> list[str]:
 
 
 # --------------------------------------------------------------------------
-# source spans (#1069)
+# source spans
 # --------------------------------------------------------------------------
 
 

@@ -16,8 +16,8 @@ related:
 A VAFT result is trusted for six different reasons, and they fail independently. A reconstruction
 can fit every probe and still be unidentified. A solve can converge and still violate an ordering
 its model assumed. A datum can be valid and still be extrapolated. This page fixes the vocabulary for
-those questions (issue #1639) and the evaluation of one of them, approximation applicability
-(#1628, with the ordering quantities from #1627).
+those questions and the evaluation of one of them, approximation applicability, from the ordering
+quantities of `vaft.formula.ordering` and `vaft.process.ordering_state`.
 
 ## The rule this page protects
 
@@ -45,7 +45,7 @@ different domains can be laid side by side. `compose()` returns **one status per
 one overall score. For example, *fit = pass, independent validation = not available* is a
 different statement from *independent validation = fail*.
 
-**Rules carried over from #253 and #337:**
+**Rules shared with the rest of the validation layer:**
 - A metric is not a verdict, and a verdict is not a policy. Whether a result may be *used* is
   decided by the workflow.
 - Missing evidence is not failure.
@@ -53,8 +53,8 @@ different statement from *independent validation = fail*.
 
 **Fitted data is not independent validation.** Every piece of evidence can carry a role from
 `EVIDENCE_ROLES`, such as `used_for_inference` or `independent_validation`.
-- VAFT's EFIT fits the diamagnetic flux by default (`EFITConfig.use_diamagnetic_flux`; #891,
-  #1440). So when the reconstruction fitted the flux -- the report's
+- VAFT's EFIT fits the diamagnetic flux by default (`EFITConfig.use_diamagnetic_flux` defaults
+  to `True`). So when the reconstruction fitted the flux -- the report's
   `diagnostic_fit.diamagnetic_flux` records `fit_role: fitted`, i.e. the constraint's weight was
   non-zero, whatever grade the entry received -- every check in `DIAMAGNETIC_CHECKS` moves off the
   V axis automatically.
@@ -74,9 +74,9 @@ different statement from *independent validation = fail*.
 | pilot | where | what it shows |
 | --- | --- | --- |
 | A: equilibrium reconstruction | `evidence_from_equilibrium_report` | the `validate_equilibrium` report on the axes; fit quality and plausibility (I), solution consistency (N) and independent validation (V) stay apart |
-| A: the #891/#1331 study criteria | `evidence_from_efit_criteria` | criteria v2 (#1521); Thomson stays on V and never enters fit quality |
+| A: the EFIT σ-calibration study criteria (`workflow/efit_uncertainty_calibration/criteria.py`, policy in `vaft.validation._efit_study_criteria`) | `evidence_from_efit_criteria` | criteria version 2 (`CRITERIA_VERSION`); Thomson stays on V and never enters fit quality |
 | B: virial closures | the virial checks inside pilot A | identity residual (N), leave-one-identity-out (V), closure conditioning (I) |
-| C: current moments (#943) | `successive_discrepancy` | relative change of an observable along the moment order |
+| C: current moments | `successive_discrepancy` | relative change of an observable along the moment order |
 | D: asymptotic validity | `vaft.validation.applicability` | ordering margins and contracts, below |
 
 **How the mappings are chosen.**
@@ -109,9 +109,9 @@ $$m = \log_{10}(x_0/x) \quad (x \ll x_0), \qquad m = \log_{10}(x/x_0) \quad (x \
 - $m \le 0$: violated.
 - The default $x_0 = 1$ is where the expansion parameter reaches order unity. This is the only
   cutoff applied without a source. Any other threshold must name its source in `threshold_source`,
-  or the assumption refuses to construct (#1639 §12).
+  or the assumption refuses to construct (`OrderingAssumption` raises `ValueError`).
 
-**Statuses.** They come second, from the same vocabulary as the operational-space renderer (#1664):
+**Statuses.** They come second, from the same vocabulary as the operational-space renderer (`vaft.plot.operational_space`):
 
 | status | meaning |
 | --- | --- |
@@ -129,23 +129,24 @@ there for anyone who wants to see how close a state is.
 - `evaluate_population(contract, table)` keeps every row and every individual check.
 - `as_evidence(result)` places a result on the A axis.
 
-The strongest applicability evidence pairs the ordering with the convergence it predicts (#1639
-§12): `successive_discrepancy([Q_reduced, ..., Q_full])`.
+The strongest applicability evidence pairs the ordering with the convergence it predicts,
+measured by `successive_discrepancy([Q_reduced, ..., Q_full])`: where the ordering holds, the change between
+successive orders shrinks.
 
 ## Ownership
 
 | concern | owner |
 | --- | --- |
-| ordering quantities ($S$, $d_i/L$, $Kn$, $\Omega_c/\nu$, …) | `vaft.formula` / `vaft.process` (#1627) |
-| which orderings a model assumes (the contracts) | declared beside the model (#1627 for ordering families, #1628 for formulas, codes, workflows) |
+| ordering quantities ($S$, $d_i/L$, $Kn$, $\Omega_c/\nu$, …) | `vaft.formula` / `vaft.process` |
+| which orderings a model assumes (the contracts) | declared beside the model (`vaft.validation.orderings.CONTRACTS` for ordering families, `vaft.validation.model_contracts` for code modes) |
 | margin, status and composition semantics | `vaft.validation.applicability` (this page) |
 | the credibility axes and `Evidence` | `vaft.validation.credibility` (this page) |
-| drawing statuses on a diagram | `vaft.plot.operational_space` (#1664) |
+| drawing statuses on a diagram | `vaft.plot.operational_space` |
 | acceptance policy (what a study accepts) | the workflow or notebook |
-| sensitivity, Jacobians, uncertainty propagation | #1642, opt-in |
-| the VEST population study | `notebooks/vest_ordering_and_model_applicability.ipynb` (#1629) |
+| sensitivity, Jacobians, uncertainty propagation | `vaft.formula.sensitivity`, `vaft.validation.sensitivity`, opt-in (below) |
+| the VEST population study | `notebooks/vest_ordering_and_model_applicability.ipynb` |
 
-## Sensitivity, linearization and uncertainty (#1642)
+## Sensitivity, linearization and uncertainty
 
 The domain that owns an operation owns its derivatives. EFIT's native response matrix stays in
 `vaft.code.efit.linearization`, and a process's Jacobian stays beside the process. Two shared
@@ -162,13 +163,13 @@ There is no `sensitivity` package, and nothing in this section runs unless it is
 | `monte_carlo_propagation(f, μ, Σ, samples, seed)` | formula | one model call per sample: opt-in only; failed draws are counted as `rejected` |
 | `singular_value_spectrum(J, column_scale)` | formula | SVD of $JD$, never of $J^{\mathsf T}J$ |
 | `linearity_ratio(f, x, δ, J)` | formula | share of a finite response the Jacobian misses |
-| `propagate_formula_uncertainty(formula, inputs, covariance= \| std=)` | formula | one public formula by parameter name: the kernels above plus a $\pm1\sigma$ linearity check (#1874) |
+| `propagate_formula_uncertainty(formula, inputs, covariance= \| std=)` | formula | one public formula by parameter name: the kernels above plus a $\pm1\sigma$ linearity check |
 | `Jacobian(provenance, kind, perturbation, inputs, outputs, matrix \| jvp)` | validation | explicit or matrix-free |
 | `compare_jacobians(reference, candidate, tolerance=)` | validation | one derivative verified by another |
 | `compare_linear_to_monte_carlo(J Σ Jᵀ, sampled, tolerance=)` | validation | local-to-global escalation test |
-| `scan_evidence(report)` | validation | a targeted scan (#1663) as model-form evidence |
+| `scan_evidence(report)` | validation | a targeted scan (the stage-6 EFIT sensitivity ensemble of `weight_scan.py`) as model-form evidence |
 
-### Propagating through one formula (#1874)
+### Propagating through one formula
 
 A formula can state how uncertainty passes through it. Its docstring then has an `Uncertainty propagation`
 section: the input order, the Jacobian, what is held fixed, and where first order stops being valid. It may
@@ -242,7 +243,7 @@ assessment for the caller or `vaft.validation`, and crossing a soft boundary is 
 - A comparison over Monte Carlo draws that rejected any sample is never better than `warn`: the
   sampled covariance is then conditioned on the model succeeding.
 
-`test/test_sensitivity_contract.py` demonstrates the #1642 acceptance points at unit-test cost:
+`test/test_sensitivity_contract.py` demonstrates the contract's three acceptance points at unit-test cost:
 
 1. **A derivative checked by another method.** The exact Green's-function field (an analytic
    derivative already in VAFT, $B = \nabla\times\psi$) matches the finite-difference derivative of
@@ -265,17 +266,15 @@ assessment for the caller or `vaft.validation`, and crossing a soft boundary is 
 
 ### Workflow graduation audit
 
-#1642 §21 asks which workflow-held logic is reusable. These are the candidates found so far. None
-is moved by this change; each move belongs to the owning lane.
+Which workflow-held logic is reusable library code? These are the candidates found so far. None
+has been moved; each move belongs to the domain that owns the logic.
 
 | workflow logic | what is reusable | owning API |
 | --- | --- | --- |
-| `workflow/efit_identifiability/identifiability_study.py` (#664) | column scaling, null space, singular classes, direction linearity | already partly in `vaft.code.efit.analyze_efit_identifiability`; the generic SVD is `singular_value_spectrum` |
-| `workflow/efit_uncertainty_calibration/weight_scan.py` stage 6 and `sensitivity_report.py` (#1663) | targeted scan over σ and basis; model-form spread | stays a study; read through `scan_evidence` |
+| `workflow/efit_identifiability/identifiability_study.py` | column scaling, null space, singular classes, direction linearity | already partly in `vaft.code.efit.analyze_efit_identifiability`; the generic SVD is `singular_value_spectrum` |
+| `workflow/efit_uncertainty_calibration/weight_scan.py` stage 6 and `sensitivity_report.py` | targeted scan over σ and basis; model-form spread | stays a study; read through `scan_evidence` |
 | `workflow/confinement_scaling/closures.py` | bootstrap over shots | `vaft.process.confinement.bootstrap_confinement_scaling` (already graduated) |
 | `vaft.process.confinement.dimensionless_confinement_indices` | inline central-difference $J\Sigma J^{\mathsf T}$ | could call the formula kernels; left untouched (Lane D) |
 
-Two notes on this table:
-- "Already graduated" means only that the library function exists. `closures.py` keeps its own
-  bootstrap loop.
-- `sensitivity_report.py` and the stage-6 grid exist only on the #1663 branch for now.
+"Already graduated" means only that the library function exists. `closures.py` keeps its own
+bootstrap loop.

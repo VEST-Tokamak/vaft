@@ -6,7 +6,7 @@ category: guide
 layout: post
 permalink: /reference/scientific-architecture/
 guide:
-  architecture: "The top-level map of how VAFT is organized as scientific software, connecting the contracts that the other reference pages define (issue #1803). It defines no new abstraction."
+  architecture: "The top-level map of how VAFT is organized as scientific software, connecting the contracts that the other reference pages define. It defines no new abstraction."
   prerequisites: None. Each section links to the page that owns its details.
   expected: Where a new API or scientific operation belongs, where side effects and mutable state are expected, which architecture view answers which question, and which concepts exist today versus are planned.
 related:
@@ -48,7 +48,7 @@ from is in [Software dependencies]({{ '/reference/software-dependencies/' | rela
 
 ## Scientific ownership
 
-The normative high-level model is the scientific-ownership and maturation architecture (#1645),
+The normative high-level model is the scientific-ownership and maturation architecture,
 drawn by `vaft.diagram.scientific_ownership_architecture()`:
 
 ![Scientific ownership and maturation]({{ '/assets/diagrams/scientific_ownership_architecture.svg' | relative_url }})
@@ -97,7 +97,7 @@ Ask the questions in this order:
 9. Is it orchestration for one study? → keep it in the **workflow or notebook**.
 
 Logic written in a workflow graduates to its semantic owner once it is reused or copied elsewhere,
-needs its own tests, defines a stable operation, or enters routine production (#1642, drawn under #1645). The
+needs its own tests, defines a stable operation, or enters routine production. The
 [workflow graduation audit]({{ '/reference/credibility-applicability/' | relative_url }}#workflow-graduation-audit)
 lists the candidates found so far.
 
@@ -180,11 +180,11 @@ interoperability representations may evolve independently of that semantic contr
 | | Representation |
 | --- | --- |
 | Current implementation | Many scientific APIs consume or produce an OMAS `ODS` ([Fusion data structure and IMAS concepts]({{ '/reference/imas-concepts/' | relative_url }})) |
-| Target architecture (#1127–#1133) | `DD` (a logical Data Entry, possibly holding several semantic IDS instances) and `DDView` (one selected scientific state) become the ordinary VAFT data model; `ODS`/`ODC` and native IMAS interfaces become interoperability projections |
+| Target architecture (Open: #1127, #1133) | `DD` (a logical Data Entry, possibly holding several semantic IDS instances) and `DDView` (one selected scientific state) become the ordinary VAFT data model; `ODS`/`ODC` and native IMAS interfaces become interoperability projections |
 
 `ODS` is therefore today's representation, not the permanent centre of the architecture.
-The DD core is developed outside `develop` (#1127), and the documentation moves from ODS-first to
-DD/DDView-first usage under #1133.
+The DD core is developed outside `develop` (Open: #1127), and moving the documentation from ODS-first to
+DD/DDView-first usage is not done yet (Open: #1133).
 
 Machine differences are absorbed at the mapping boundary
 ([Data access and IMAS]({{ '/workflows/data-access-imas/' | relative_url }})). Everything above it sees
@@ -213,16 +213,16 @@ A box in a diagram does not mean a public Python class exists. This table says w
 | --- | --- |
 | Formula, Process, Code adapters | implemented |
 | Data and database | implemented |
-| Validation | implemented, still expanding (#1639) |
-| Scientific contract interoperability (identity, units, conventions) | audited; implementation in progress (#2160) |
+| Validation | implemented (`vaft.validation`), still expanding |
+| Scientific contract interoperability (identity, units, conventions) | audited; implementation in progress (Open: #2160) |
 | Declarative production pipelines | implemented |
 | Dependency explorer, pipeline lineage explorer, scientific ontology explorer | implemented on `develop` |
-| Learned-model infrastructure | partial, evolving (#669) |
-| Actor | terminology defined; no protocol or registry yet (#1077) |
-| `DD` / `DDView` / `DDCollection` | target architecture, under development outside `develop` (#1127–#1133) |
-| Study | planned (#1165) |
-| Research | planned (#1170) |
-| Common sensitivity, linearization and uncertainty contracts | evolving (#1642) |
+| Learned-model infrastructure | partial, evolving (Open: #669) |
+| Actor | terminology defined; no protocol or registry yet (Open: #1077) |
+| `DD` / `DDView` / `DDCollection` | target architecture, under development outside `develop` (Open: #1127, #1133) |
+| Study | planned (Open: #1165) |
+| Research | planned (Open: #1170) |
+| Common sensitivity, linearization and uncertainty contracts | implemented (`vaft.validation.sensitivity`, `vaft.formula.sensitivity`), evolving |
 
 ## Non-goals
 

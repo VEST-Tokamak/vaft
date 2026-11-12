@@ -1,4 +1,4 @@
-# The published VAFT Python API (issue #162).
+# The published VAFT Python API.
 #
 # `python -m vaft._api_catalog` documents every public module (no `_` in its
 # dotted name) that declares `__all__`: `__all__` is the module's own statement
@@ -12,8 +12,8 @@
 #     exists -- the list is stale;
 #   * a public module belongs to no page below.
 #
-# `scripts` lists module prefixes that are scripts rather than API: issue
-# studies run with `python -m` (#1756).  The catalog and the coverage check
+# `scripts` lists module prefixes that are scripts rather than API: the
+# validation studies, run with `python -m`.  The catalog and the coverage check
 # skip them and never import them -- they import optional solver toolkits
 # at module level.
 #
@@ -23,7 +23,7 @@ pages:
   - slug: core
     title: Top level and utilities
     # vaft.spectroscopy is a deprecated alias of vaft.data.atomic and
-    # vaft.data.spectroscopy (#1711), listed here until its removal in 0.10.0.
+    # vaft.data.spectroscopy, listed here until its removal in 0.10.0.
     modules: [vaft, vaft.compat, vaft.ods_access, vaft.spectroscopy, vaft.version]
   - slug: database
     title: vaft.database

@@ -86,7 +86,7 @@ flux-surface averaged into the cylindrical profile that $q$ is computed from.
 ### Dimensionless similarity
 
 The $\nu_*$ and $\rho_*$ here are the Verdoolaege engineering forms. The other definitions VAFT carries
-are tracked in #353 and are not declared equivalent.
+are not declared equivalent to them (Open: #353, consolidating the $\nu_*$ and $\rho_*$ definitions).
 
 ![dimensionless similarity]({{ '/assets/diagrams/reduction_graph_dimensionless_similarity.svg' | relative_url }})
 
