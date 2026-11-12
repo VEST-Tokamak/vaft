@@ -998,7 +998,12 @@ def pipeline_comparison_onset_scatter(points: pd.DataFrame, *, sources: Mapping[
 
 
 #: The four quality checks of :func:`pipeline_comparison_quality_checks`, one per panel.
-QUALITY_CHECK_TITLES = ("Input check", "Fit check", "Force-balance check", "Consistency check")
+QUALITY_CHECK_TITLES = (
+    "Magnetic-input consistency",
+    "Magnetic-fit consistency",
+    "Force-balance consistency",
+    "External-diagnostic consistency",
+)
 
 
 def pipeline_comparison_quality_checks(onset_points: pd.DataFrame, points: pd.DataFrame, virial: pd.DataFrame,
@@ -1006,7 +1011,10 @@ def pipeline_comparison_quality_checks(onset_points: pd.DataFrame, points: pd.Da
                                        sources: Mapping[str, str] = ONSET_SOURCES, limits_by_panel=None,
                                        titles: Sequence[str] = QUALITY_CHECK_TITLES, show: bool = False,
                                        figsize: tuple[float, float] = (10.4, 11.0), panel_labels: bool = True):
-    """Four quality checks, legacy against current, as one 2×2: input, fit, force balance, consistency.
+    """Four consistency assessments, legacy against current, as one 2×2.
+
+    Panels assess magnetic-input, magnetic-fit, force-balance, and
+    external-diagnostic consistency, respectively.
 
     (a) every probe the input QA accepts, its measurement against the vacuum
     (coil + eddy) model at ``t_ms`` before the plasma onset; the rejects are
