@@ -11,6 +11,7 @@ pipeline-1 Snakefile.  The end-to-end run on 39915 lives in
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 
 import numpy as np
@@ -91,7 +92,7 @@ def test_the_children_import_this_checkout_and_cannot_reach_hsds(capture, tmp_pa
     assert sorted(key for key in env if key.startswith(("HS_", "H5PYD_"))) == ["HS_ENDPOINT"]
     assert env["HS_ENDPOINT"] == capture.UNROUTABLE_HSDS_ENDPOINT
     assert env["HOME"] == str(tmp_path / "home")
-    assert env["PYTHONPATH"].split(":")[0] == str(ROOT)
+    assert env["PYTHONPATH"].split(os.pathsep)[0] == str(ROOT)
     assert env["VAFT_FILEDB_DIR"] == str(tmp_path / "filedb")
     assert env["PATH"] == "/bin"
 
