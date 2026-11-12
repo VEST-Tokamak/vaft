@@ -134,10 +134,20 @@ with neither the runtime nor a prediction.
 
 What that answer can and cannot be: the ONNX distribution ships the normalisation
 moments (`xm`/`xsigma`) but **not** the per-input training bounds, which exist only
-inside the upstream Julia `.bson`. So the measure is a standard-deviation distance,
-not a containment test, and every audit reports `bounds_available = False` to say
-so. Read `in_domain` as "nothing is far from what this model was trained on", never
-as a guarantee.
+inside the upstream Julia `.bson`. Out of the box the measure is therefore a
+standard-deviation distance, not a containment test, and the audit reports
+`bounds_available = False` to say so. Read `in_domain` as "nothing is far from what
+this model was trained on", never as a guarantee.
+
+To test containment, export the bounds once with
+`workflow/tglf_nn/export_training_bounds.jl` (Julia with BSON; Flux is not needed).
+It writes a copy of the ONNX families with an `xbounds.txt` beside each: upstream's
+training data range, clipped at `xm ± 3.3 xsigma`. Point `TURBULENTTRANSPORTHOME` at
+that copy; when the depot holds the same family without bounds, the exported copy is
+chosen. Audits then report `bounds_available = True`,
+`contained`, `bound_violations` and `bound_violations_at_data_edge` (the edge is where
+the training data ended, not the clip), and `run_surrogate` refuses an input outside
+the training range even when it is within the z threshold (`applicable`).
 
 Upstream publishes ONNX for only 14 of its ~100 families, all of them
 spherical-tokamak; the rest are Julia `.bson` and cannot be read from Python.
