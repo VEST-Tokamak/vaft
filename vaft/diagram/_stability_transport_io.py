@@ -98,7 +98,7 @@ READS: Dict[str, Tuple[str, ...]] = {
 #: what the reconstruction and the kinetic profiles are made from, as IMAS IDS: coils and wall on the first line,
 #: heating and current drive and the measurements on the second. The 3-D coil excitation is ``coils_non_axisymmetric``, so it is drawn here as
 #: machine data, not among the assumptions
-EXPERIMENT_TITLE = "Machine Configuration & Experimental Data"
+EXPERIMENT_TITLE = "IMAS Machine Configuration & Experimental Data IDS"
 EXPERIMENT_IDS: Tuple[Tuple[str, ...], ...] = (
     ("wall", "pf_active", "pf_passive", "em_coupling", "coils_non_axisymmetric"),
     ("nbi", "ec_launchers", "magnetics", "thomson_scattering", "charge_exchange"),
@@ -268,7 +268,7 @@ def equilibrium_stability_transport(*, labels: bool = True, measurements: bool =
     styles mean.
 
     ``measurements=True`` adds what the reconstruction is made from: one
-    Machine Configuration & Experimental Data box of IMAS IDS above the panels
+    IMAS Machine Configuration & Experimental Data IDS box above the panels
     (``wall``, ``pf_active``, ``pf_passive``, ``em_coupling``,
     ``coils_non_axisymmetric``; ``nbi``, ``ec_launchers``, ``magnetics``,
     ``thomson_scattering``, ``charge_exchange``), consumed by the

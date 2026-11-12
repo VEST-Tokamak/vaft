@@ -114,7 +114,7 @@ def test_the_measurement_variant_feeds_the_reconstruction_and_the_profiles():
     assert d.model["measurements"] == ("wall", "pf_active", "pf_passive", "em_coupling", "coils_non_axisymmetric",
                                        "nbi", "ec_launchers", "magnetics", "thomson_scattering", "charge_exchange")
     data = next(i for i in d.scene.role("node:experiment_data") if isinstance(i, Label)).text
-    assert "Machine Configuration \\& Experimental Data" in data and "coils\\_non\\_axisymmetric" in data
+    assert "IMAS Machine Configuration \\& Experimental Data IDS" in data and "coils\\_non\\_axisymmetric" in data
     # the 3-D coil excitation is coils_non_axisymmetric, machine data here, no longer an assumption
     assert "3-D coil excitation" not in data
     assert "3-D coil excitation" not in d.scene.role("input:assumptions")[1].text
