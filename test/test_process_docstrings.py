@@ -373,6 +373,13 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # profile: rho_tor_norm is never sqrt(psi_N); psi_N normalised by the
+    # slice's own ends or the matched equilibrium's axis/boundary flux
+    "equilibrium_rho_tor_norm_table", "map_rho_tor_profile_to_rz",
+    "core_profiles_grid_coordinate",
+    # profile/perturbation: V tabulated on the toroidal radius, never
+    # the sqrt(psi_N) proxy; phase = arg(Phi_res), m takes the sign of q
+    "volume_weights_on_grid", "equilibrium_volume_weights", "resonant_table",
     # signal_processing: zero-phase, so no filtered waveform lags another
     "apply_fir_filter",
     # gyrokinetics: |phi|^2 is a proxy, ky = 0 is zonal, positive lag = zonal

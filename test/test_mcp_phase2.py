@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from vaft.mcp import _atlas
@@ -303,7 +304,7 @@ def test_a_shot_without_a_sample_needs_the_database_switch(monkeypatch):
     import vaft.database
 
     monkeypatch.delenv("VAFT_MCP_DATABASE", raising=False)
-    monkeypatch.setattr(vaft.database, "load", lambda *a, **k: pytest.fail("database contacted"))
+    monkeypatch.setattr(vaft.database, "open", lambda *a, **k: pytest.fail("database contacted"))
     with pytest.raises(ValueError, match="VAFT_MCP_DATABASE=1"):
         tools.inspect_dataset(shot=1)
     with pytest.raises(ValueError, match="VAFT_MCP_DATABASE=1"):
@@ -317,11 +318,168 @@ def test_a_database_failure_reports_its_class_and_never_its_text(monkeypatch):
         raise PermissionError("403 for user hs_user at http://hsds.internal:5101 password=hunter22")
 
     monkeypatch.setenv("VAFT_MCP_DATABASE", "1")
-    monkeypatch.setattr(vaft.database, "load", refuse)
+    monkeypatch.setattr(vaft.database, "open", refuse)
     with pytest.raises(ValueError) as caught:
         tools.inspect_dataset(shot=1, database_source="main")
     text = str(caught.value)
     assert "PermissionError" in text and "hunter22" not in text and "hsds.internal" not in text
+
+
+SECRET = "GET http://hsds.internal:5101/?domain=/main/1/x.h5 user=hs_user 403"
+
+
+class _Dataset:
+    """An h5pyd dataset that serves ``value``, or raises a remote-looking ``OSError`` on read."""
+
+    def __init__(self, value, fail=False):
+        self.value = np.asarray(value)
+        self.shape, self.dtype, self.fail = self.value.shape, self.value.dtype, fail
+
+    def __getitem__(self, selection):
+        if self.fail:
+            raise OSError(SECRET)
+        return self.value[selection]
+
+
+class _File(dict):
+    def __init__(self, name, datasets):
+        super().__init__({name: dict(datasets)})
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+class _H5pyd:
+    def __init__(self, files):
+        self.files, self.opened = files, []
+
+    def File(self, uri, mode):
+        self.opened.append(self.files[uri])
+        return self.files[uri]
+
+    def Folder(self, path, mode=None):
+        return [uri.rsplit("/", 1)[-1] for uri in self.files] + ["master.h5"]
+
+
+def _hsds(failing=()):
+    """Shot 1 in ``main`` as HSDS IMAS images; a dataset named in ``failing`` raises on read."""
+    def ids(name, datasets):
+        return f"hdf5://main/1/{name}.h5", _File(name, {
+            key: _Dataset(value, fail=f"{name}/{key}" in failing) for key, value in datasets.items()})
+
+    return _H5pyd(dict([
+        ids("dataset_description", {"ids_properties&version_put&data_dictionary": np.asarray(b"3.41.0")}),
+        ids("magnetics", {"time": np.linspace(0.0, 0.4, 5), "ip[]&AOS_SHAPE": [1],
+                          "ip[]&data": [np.arange(5.0)]}),
+        ids("equilibrium", {"time": [0.30, 0.31], "time_slice[]&AOS_SHAPE": [2],
+                            "time_slice[]&global_quantities&ip": [1.0e5, 1.1e5]}),
+    ]))
+
+
+@pytest.fixture
+def lazy_database(monkeypatch):
+    """``vaft.database.open`` over a fake HSDS, eager ``load`` forbidden; returns the fake's builder."""
+    import vaft.database
+    from vaft.database.lazy_ods import HSDSODS, HSDSStore
+
+    state = {}
+
+    def serve(failing=()):
+        state["module"] = _hsds(failing)
+        return state["module"]
+
+    def open_lazy(shot, source=None, **kwargs):
+        store = HSDSStore(shot, source, h5pyd_module=state["module"])
+        return HSDSODS(store=store, consistency_check=True)
+
+    monkeypatch.setenv("VAFT_MCP_DATABASE", "1")
+    monkeypatch.setattr(vaft.database, "load", lambda *a, **k: pytest.fail("eager load of the whole shot"))
+    monkeypatch.setattr(vaft.database, "open", open_lazy)
+    serve()
+    return serve
+
+
+def _closed(module):
+    """Whether every IDS file the call opened was closed again (and at least one was opened)."""
+    return bool(module.opened) and all(handle.closed for handle in module.opened)
+
+
+def test_a_database_shot_is_read_lazily_and_its_handles_closed(lazy_database):
+    module = lazy_database()
+    result = _json(tools.inspect_dataset(shot=1, database_source="main"))
+    assert result["dataset"]["loader"] == "vaft.database.open"
+    assert result["dataset"]["data_dictionary"] == "3.41.0"
+    assert {row["ids"]: row["times"] for row in result["items"]} == {
+        "dataset_description": None, "equilibrium": 2, "magnetics": 5}
+    assert _closed(module)
+    assert _json(tools.list_equilibrium_times(shot=1, database_source="main"))["times_s"] == [0.30, 0.31]
+    value = _json(tools.inspect_data_path("equilibrium.time_slice.*.global_quantities.ip", shot=1,
+                                          database_source="main", time=0.31))
+    assert value["value"] == 1.1e5 and value["matched"]["slice"] == 1
+    # a structure node comes back as plain data, readable after the handles closed
+    node = _json(tools.inspect_data_path("equilibrium.time_slice.0", shot=1, database_source="main"))
+    assert node["value"] == {"children": ["global_quantities"]}
+    absent = _json(tools.inspect_data_path("magnetics.flux_loop.0.flux.data", shot=1, database_source="main"))
+    assert absent["present"] is False
+
+
+@pytest.mark.parametrize("failing, call", [
+    ("magnetics/time", lambda: tools.inspect_dataset(shot=1, database_source="main")),
+    ("magnetics/ip[]&data", lambda: tools.inspect_data_path("magnetics.ip.0.data", shot=1, database_source="main")),
+    ("equilibrium/time", lambda: tools.list_equilibrium_times(shot=1, database_source="main")),
+    # the summary's updaters absorb exceptions: the bulk read before them must not
+    ("equilibrium/time_slice[]&global_quantities&ip",
+     lambda: tools.get_equilibrium_summary(shot=1, database_source="main")),
+])
+def test_a_remote_read_failure_inside_a_tool_reports_its_class_and_never_its_text(lazy_database, failing, call):
+    module = lazy_database(failing=(failing,))
+    with pytest.raises(ValueError) as caught:
+        call()
+    text = str(caught.value)
+    assert "could not be read: OSError" in text
+    assert "hsds.internal" not in text and "hs_user" not in text
+    assert _closed(module)
+
+
+def test_an_ids_whose_index_fails_is_reported_not_answered_absent(lazy_database, monkeypatch):
+    # h5pyd reports a failed link lookup as KeyError (and ``in`` as False);
+    # read as "absent", a 403 would answer present: false instead of an error.
+    module = lazy_database()
+    magnetics = module.files["hdf5://main/1/magnetics.h5"]
+
+    def unreachable(*args):
+        raise KeyError(SECRET)
+
+    monkeypatch.setattr(magnetics, "keys", unreachable, raising=False)  # this file only
+    monkeypatch.setattr(magnetics, "items", unreachable, raising=False)
+    with pytest.raises(ValueError) as caught:
+        tools.inspect_data_path("magnetics.ip.0.data", shot=1, database_source="main")
+    text = str(caught.value)
+    assert "could not be read: HSDSIndexError" in text and "hsds.internal" not in text
+    assert _closed(module)
+
+
+def test_a_failure_at_the_first_read_closes_what_it_opened(lazy_database):
+    module = lazy_database(failing=("dataset_description/ids_properties&version_put&data_dictionary",))
+    with pytest.raises(ValueError, match="is unavailable: OSError") as caught:
+        tools.inspect_dataset(shot=1, database_source="main")
+    assert "hsds.internal" not in str(caught.value)
+    assert _closed(module)
+
+
+def test_a_vaft_error_on_a_database_shot_is_not_relabelled_a_read_failure(lazy_database, monkeypatch):
+    module = lazy_database()
+
+    def broken(ods, ids):
+        raise RuntimeError("a bug in VAFT")
+
+    monkeypatch.setattr(tools, "_times", broken)
+    with pytest.raises(RuntimeError, match="a bug in VAFT"):
+        tools.inspect_dataset(shot=1, database_source="main")
+    with pytest.raises(tools.ToolInputError, match="time-slice index"):
+        tools.inspect_data_path("equilibrium.time_slice.*.global_quantities.ip", shot=1, database_source="main")
+    assert _closed(module)
 
 
 def test_artifacts_resolve_only_inside_their_directory(tmp_path, monkeypatch):

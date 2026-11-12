@@ -422,3 +422,19 @@ def test_a_chease_run_that_raised_still_fails_the_rule(tmp_path, monkeypatch):
     assert code == 1
     assert status.read_text(encoding="utf-8").startswith("failed:")
     assert runs["records"][0]["status"] == "error"
+
+
+def test_the_workflow_unlocks_without_a_core_count(tmp_path):
+    # run_lane.sh and the worker's unlock_if_stale call `snakemake --unlock`
+    # without --cores; a rule whose threads read a bare workflow.cores made that
+    # raise, and the lane then judged a finished chunk failed (#2147 bench c2).
+    env = dict(os.environ)
+    for name in ("VAFT_FILEDB_DIR", "VAFT_DATA_DIR", "EFIT", "CHEASE", "GPECHOME"):
+        env.setdefault(name, str(tmp_path / name.lower()))
+    result = subprocess.run(
+        [sys.executable, "-m", "snakemake", "--snakefile", str(WORKFLOW / "Snakefile"),
+         "--configfile", str(_config(tmp_path)), "--directory", str(tmp_path), "--unlock"],
+        capture_output=True, text=True, env=env, cwd=WORKFLOW,
+    )
+    assert result.returncode == 0, result.stderr[-2000:]
+    assert "requires a total number of cores" not in result.stdout + result.stderr

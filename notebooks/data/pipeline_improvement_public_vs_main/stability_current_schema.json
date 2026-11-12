@@ -1,0 +1,528 @@
+{
+ "key": [
+  "shot",
+  "time_efit_s",
+  "efit_lineage",
+  "n_tor"
+ ],
+ "key_contract": "provisional (shot, time_efit_s, efit_lineage) per lane log #1448, until lane K publishes its State key contract",
+ "efit_label": "#1331 criteria label of the magnetics-only EFIT at this time: good | admissible. Unreconstructible slices are never present.",
+ "efit_lineage": "magnetics-only (statistical_891 magnetic EFIT from the campaign FileDB the labels were computed on) | electron-kinetic (electron EFIT; label inherited from the magnetics-only slice at exactly the same time)",
+ "equilibrium_input": "EFIT g-file refined by CHEASE with pipeline 1's run_chease_refinement.py defaults (target_psin 0.993, nw 513)",
+ "energies": "DCON least-stable normalized eigenvalues (not Joules). Positive = stable.",
+ "edge_treatments": "dcon_full_* = psiedge 1 (full edge, psihigh 0.994); dcon_trunc_* = psiedge 0.95 (truncated at the dW_edge peak). Never combine. Full-edge W_t is psihigh-sensitive (#141, #792).",
+ "resolution": "{r} = 256 is the reported value; 512 is the convergence check (#141).",
+ "delta_prime": "Diagonal classical \u0394\u2032 (RDCON/STRIDE PEST3 matching matrix). two_resolution_consistent = same sign and within 20% between mpsi 256 and 512 (heuristic: the median change of #141 mid-radius surfaces). Raw extrema use every surface; *_qa use consistent surfaces at any position; *_qa_interior also require an interior surface; *_delta_prime_max is the deprecated v1 alias of *_qa_interior. Position, shear and q_min distance are annotations, never exclusions. RDCON and STRIDE are never combined. RDCON \u0394\u2032 also moves ~3% between compiler builds (#1448).",
+ "status": [
+  "VALID_STABLE",
+  "VALID_UNSTABLE",
+  "MARGINAL",
+  "NUMERICALLY_UNRESOLVED",
+  "INVALID_EQUILIBRIUM",
+  "SOLVER_FAILURE",
+  "NOT_APPLICABLE",
+  "NOT_CHECKED",
+  "RESOLVED"
+ ],
+ "status_semantics": "dcon_*_status: VALID_* when mpsi 256 and 512 agree in the sign of W_t, NUMERICALLY_UNRESOLVED when they disagree (or W_t = 0), NOT_CHECKED when the 512 run is missing/failed. No magnitude band: a small negative W_t with a robust sign is ideal-unstable (#142). {s}_status keeps its v1 meaning (RESOLVED = a two-resolution-consistent interior surface exists); {s}_qa_status is the v2 form (any position). Neither is a stability verdict (#939; RMATCH out of scope, #797). INVALID_EQUILIBRIUM: the source g-file or its CHEASE refinement is missing; layer 2-3 columns are then empty. MARGINAL is reserved, not produced.",
+ "layers": "1 raw solver output; 2 numerical QA annotations (sign_class, two_resolution_consistent, position, shear, q_min distance, *_qa summaries); 3 universal physical criteria (ideal_unstable_*_edge = sign of W_t, *_classical_tearing_drive = \u0394\u2032 > 0 at any surface, D_I > 0, D_R > 0, C_A < 0); 4 interpretation (#939) is not produced here and never overwrites 1-3.",
+ "coverage": "DCON (full and truncated edge, mpsi 256/512) n = 1..6; RDCON and STRIDE n = 1, 2 only (NOT_APPLICABLE for n >= 3).",
+ "local_criteria": "max_D_I > 0 ideal interchange, max_D_R > 0 resistive interchange, min_C_A < 0 ballooning (evaluated surfaces only); from DCON at mpsi 256 with mer_flag/bal_flag recorded.",
+ "zero_crossings": "Confirmed Newcomb zero crossings from dcon.out (termbycross_flag=f).",
+ "csv_types": "booleans are written True/False, missing values as empty fields; use the column dictionary for types.",
+ "rules": [
+  "no cross-n combination",
+  "no DCON/RDCON combined scalar",
+  "do not drop the efit_label/efit_lineage columns"
+ ],
+ "provenance": {
+  "atlas_version": 2,
+  "vaft_commit_build": "8c1f8c0f1",
+  "vaft_dirty_build": false,
+  "gpec_builds": {
+   "/home/user1/git/GPEC": "e68d7ac2 (stock)",
+   "/home/user1/work/lane-n-gpec": "e68d7ac2 + rdcon/gal.f i2.2->i3.3 format patch (only for jobs the stock build crashed on)"
+  }
+ },
+ "column_dictionary": {
+  "shot": {
+   "type": "int",
+   "unit": "",
+   "meaning": "VEST shot"
+  },
+  "time_efit_s": {
+   "type": "float",
+   "unit": "s",
+   "meaning": "EFIT slice time"
+  },
+  "efit_lineage": {
+   "type": "str",
+   "unit": "",
+   "meaning": "magnetics-only | electron-kinetic"
+  },
+  "efit_label": {
+   "type": "str",
+   "unit": "",
+   "meaning": "#1331 label: good | admissible"
+  },
+  "efit_setting": {
+   "type": "str",
+   "unit": "",
+   "meaning": "EFIT preset the label belongs to"
+  },
+  "efit_config_sha256": {
+   "type": "str",
+   "unit": "",
+   "meaning": "magnetic EFIT configuration hash recorded by the campaign for this slice"
+  },
+  "kinetic_chi2": {
+   "type": "float",
+   "unit": "",
+   "meaning": "electron-EFIT chi2 (electron-kinetic rows only)"
+  },
+  "n_tor": {
+   "type": "int",
+   "unit": "",
+   "meaning": "toroidal mode number"
+  },
+  "equilibrium_status": {
+   "type": "str",
+   "unit": "",
+   "meaning": "ok | missing_source | chease_failed"
+  },
+  "dcon_{t}_{r}_W_t": {
+   "type": "float",
+   "unit": "DCON-normalized",
+   "meaning": "least-stable total energy eigenvalue; >0 stable"
+  },
+  "dcon_{t}_{r}_W_p": {
+   "type": "float",
+   "unit": "DCON-normalized",
+   "meaning": "plasma energy at the least-stable mode"
+  },
+  "dcon_{t}_{r}_W_v": {
+   "type": "float",
+   "unit": "DCON-normalized",
+   "meaning": "vacuum energy at the least-stable mode"
+  },
+  "dcon_{t}_{r}_W_v_imag_ratio": {
+   "type": "float",
+   "unit": "",
+   "meaning": "|Im W_v / Re W_v| (should be ~0)"
+  },
+  "dcon_{t}_{r}_m_dominant": {
+   "type": "int",
+   "unit": "",
+   "meaning": "dominant poloidal harmonic of the least-stable eigenfunction"
+  },
+  "dcon_{t}_{r}_psilim": {
+   "type": "float",
+   "unit": "",
+   "meaning": "effective edge psi_N (post-truncation for trunc)"
+  },
+  "dcon_{t}_{r}_qlim": {
+   "type": "float",
+   "unit": "",
+   "meaning": "q at psilim"
+  },
+  "dcon_{t}_{r}_n_zero_crossings": {
+   "type": "int",
+   "unit": "",
+   "meaning": "confirmed Newcomb zero crossings in dcon.out"
+  },
+  "dcon_{t}_status": {
+   "type": "str",
+   "unit": "",
+   "meaning": "#142 status of treatment t (full | trunc) from mpsi 256 + 512"
+  },
+  "ideal_stable_full_edge": {
+   "type": "bool",
+   "unit": "",
+   "meaning": "only when dcon_full_status is VALID_*"
+  },
+  "ideal_stable_truncated_edge": {
+   "type": "bool",
+   "unit": "",
+   "meaning": "only when dcon_trunc_status is VALID_*"
+  },
+  "max_D_I": {
+   "type": "float",
+   "unit": "",
+   "meaning": "max Mercier D_I (DCON, mpsi 256, full edge); >0 ideal-interchange unstable"
+  },
+  "max_D_R": {
+   "type": "float",
+   "unit": "",
+   "meaning": "max resistive interchange D_R; >0 unstable"
+  },
+  "min_C_A": {
+   "type": "float",
+   "unit": "",
+   "meaning": "min ballooning C_A over evaluated surfaces; <0 unstable"
+  },
+  "dcon_{t}_sign_class": {
+   "type": "str",
+   "unit": "",
+   "meaning": "layer 2: robust_stable | robust_unstable | numerically_unresolved | not_checked | unavailable"
+  },
+  "ideal_unstable_{t}_edge": {
+   "type": "bool",
+   "unit": "",
+   "meaning": "layer 3: W_t < 0 at mpsi 256 (sign only; robustness in dcon_{t}_sign_class)"
+  },
+  "derived_ideal_unstable_any_n": {
+   "type": "str",
+   "unit": "",
+   "meaning": "derived per slice: the n:edge pairs with ideal_unstable_*_edge true; same on every n row of the slice"
+  },
+  "{s}_status": {
+   "type": "str",
+   "unit": "",
+   "meaning": "v1 meaning: RESOLVED (a consistent interior surface) | NUMERICALLY_UNRESOLVED | NOT_CHECKED | SOLVER_FAILURE | NOT_APPLICABLE | INVALID_EQUILIBRIUM; not a tearing verdict"
+  },
+  "{s}_qa_status": {
+   "type": "str",
+   "unit": "",
+   "meaning": "v2: as {s}_status, but RESOLVED when any surface at any position is two-resolution consistent"
+  },
+  "{s}_n_rational_surfaces": {
+   "type": "int",
+   "unit": "",
+   "meaning": "rational surfaces in the mpsi 256 run"
+  },
+  "{s}_n_positive_delta_prime_raw": {
+   "type": "int",
+   "unit": "",
+   "meaning": "surfaces with \u0394\u2032 > 0 (every surface)"
+  },
+  "{s}_n_positive_delta_prime_qa": {
+   "type": "int",
+   "unit": "",
+   "meaning": "two-resolution-consistent surfaces with \u0394\u2032 > 0"
+  },
+  "{s}_n_positive_delta_prime_summary": {
+   "type": "int",
+   "unit": "",
+   "meaning": "DEPRECATED v1: consistent interior surfaces with \u0394\u2032 > 0"
+  },
+  "{s}_n_resolved_surfaces": {
+   "type": "int",
+   "unit": "",
+   "meaning": "DEPRECATED v1 name of {s}_n_two_resolution_consistent"
+  },
+  "{s}_first_surface_m": {
+   "type": "int",
+   "unit": "",
+   "meaning": "m of the innermost rational surface"
+  },
+  "{s}_delta_prime_max_{raw,qa,qa_interior}_{m,psi_n,q,position}": {
+   "type": "int|float|str",
+   "unit": "",
+   "meaning": "where the corresponding maximum sits"
+  },
+  "{s}_delta_prime_max_raw": {
+   "type": "float",
+   "unit": "1 (PEST3 normalization)",
+   "meaning": "layer 1: max diagonal \u0394\u2032 over every surface; _m/_psi_n/_q/_position locate it"
+  },
+  "{s}_delta_prime_max_qa": {
+   "type": "float",
+   "unit": "1 (PEST3 normalization)",
+   "meaning": "layer 2: max over two-resolution-consistent surfaces, any position"
+  },
+  "{s}_delta_prime_max_qa_interior": {
+   "type": "float",
+   "unit": "1 (PEST3 normalization)",
+   "meaning": "layer 2: max over consistent interior surfaces"
+  },
+  "{s}_delta_prime_first_surface": {
+   "type": "float",
+   "unit": "1 (PEST3 normalization)",
+   "meaning": "\u0394\u2032 of the innermost rational surface"
+  },
+  "{s}_classical_tearing_drive": {
+   "type": "bool",
+   "unit": "",
+   "meaning": "layer 3: \u0394\u2032 > 0 at any rational surface (classical drive, not a tearing verdict; #939). False when the run completed with no rational surface; empty when the run failed or was not done"
+  },
+  "{s}_classical_tearing_drive_qa": {
+   "type": "bool",
+   "unit": "",
+   "meaning": "layer 3 restricted to two-resolution-consistent surfaces"
+  },
+  "{s}_n_two_resolution_consistent": {
+   "type": "int",
+   "unit": "",
+   "meaning": "surfaces passing the mpsi 256/512 heuristic"
+  },
+  "{s}_delta_prime_max": {
+   "type": "float",
+   "unit": "1 (PEST3 normalization)",
+   "meaning": "DEPRECATED v1 alias of {s}_delta_prime_max_qa_interior; removed in v3"
+  },
+  "{s}_n_summary_surfaces": {
+   "type": "int",
+   "unit": "",
+   "meaning": "DEPRECATED v1: consistent interior surfaces"
+  },
+  "{s}_gpec_build": {
+   "type": "str",
+   "unit": "",
+   "meaning": "GPEC build(s) that ran this solver for the row"
+  },
+  "delta_prime": {
+   "type": "float",
+   "unit": "1 (PEST3 normalization)",
+   "meaning": "surface table: diagonal \u0394\u2032 at mpsi 256"
+  },
+  "two_resolution_consistent": {
+   "type": "bool",
+   "unit": "",
+   "meaning": "surface table: same sign and <= 20 % relative change between mpsi 256 and 512 (heuristic); 'resolved' is its deprecated name"
+  },
+  "sign_agreement": {
+   "type": "bool",
+   "unit": "",
+   "meaning": "surface table: mpsi 256 and 512 agree in sign"
+  },
+  "delta_prime_absolute_change": {
+   "type": "float",
+   "unit": "1 (PEST3 normalization)",
+   "meaning": "surface table: |\u0394\u2032(256) - \u0394\u2032(512)|"
+  },
+  "ordinal_position": {
+   "type": "str",
+   "unit": "",
+   "meaning": "surface table: first | interior | last (QA annotation, never an exclusion)"
+  },
+  "shear_psi": {
+   "type": "float",
+   "unit": "",
+   "meaning": "surface table: d ln q / d ln psi_N at the surface (weak near q_min)"
+  },
+  "psi_n_from_qmin": {
+   "type": "float",
+   "unit": "",
+   "meaning": "surface table: psi_N(surface) - psi_N(q_min)"
+  },
+  "q_minus_qmin": {
+   "type": "float",
+   "unit": "",
+   "meaning": "surface table: q(surface) - q_min"
+  },
+  "psi_n_to_edge": {
+   "type": "float",
+   "unit": "",
+   "meaning": "surface table: distance in psi_N to the end of the solver profile grid"
+  },
+  "D_I": {
+   "type": "float",
+   "unit": "",
+   "meaning": "surface table, RDCON only: D_I at the surface"
+  },
+  "D_R": {
+   "type": "float",
+   "unit": "",
+   "meaning": "surface table, RDCON only: D_R = D_I + (H - 1/2)^2"
+  },
+  "H": {
+   "type": "float",
+   "unit": "",
+   "meaning": "surface table, RDCON only: Glasser H"
+  },
+  "C_A": {
+   "type": "float",
+   "unit": "",
+   "meaning": "surface table, RDCON only: ballooning C_A"
+  }
+ },
+ "column_patterns": {
+  "{t}": "full | trunc",
+  "{r}": "256 | 512",
+  "{s}": "rdcon | stride"
+ },
+ "atlas_n_columns": [
+  "atlas_version",
+  "ballooning_evaluated",
+  "ballooning_unstable",
+  "dcon_full_256_W_p",
+  "dcon_full_256_W_t",
+  "dcon_full_256_W_v",
+  "dcon_full_256_W_v_imag_ratio",
+  "dcon_full_256_edge_treatment",
+  "dcon_full_256_first_zero_crossing_psi_n",
+  "dcon_full_256_m_dominant",
+  "dcon_full_256_n_zero_crossings",
+  "dcon_full_256_psilim",
+  "dcon_full_256_qlim",
+  "dcon_full_256_status_raw",
+  "dcon_full_512_W_p",
+  "dcon_full_512_W_t",
+  "dcon_full_512_W_v",
+  "dcon_full_512_W_v_imag_ratio",
+  "dcon_full_512_edge_treatment",
+  "dcon_full_512_first_zero_crossing_psi_n",
+  "dcon_full_512_m_dominant",
+  "dcon_full_512_n_zero_crossings",
+  "dcon_full_512_psilim",
+  "dcon_full_512_qlim",
+  "dcon_full_512_status_raw",
+  "dcon_full_sign_class",
+  "dcon_full_status",
+  "dcon_gpec_build",
+  "dcon_trunc_256_W_p",
+  "dcon_trunc_256_W_t",
+  "dcon_trunc_256_W_v",
+  "dcon_trunc_256_W_v_imag_ratio",
+  "dcon_trunc_256_edge_treatment",
+  "dcon_trunc_256_first_zero_crossing_psi_n",
+  "dcon_trunc_256_m_dominant",
+  "dcon_trunc_256_n_zero_crossings",
+  "dcon_trunc_256_psilim",
+  "dcon_trunc_256_qlim",
+  "dcon_trunc_256_status_raw",
+  "dcon_trunc_512_W_p",
+  "dcon_trunc_512_W_t",
+  "dcon_trunc_512_W_v",
+  "dcon_trunc_512_W_v_imag_ratio",
+  "dcon_trunc_512_edge_treatment",
+  "dcon_trunc_512_first_zero_crossing_psi_n",
+  "dcon_trunc_512_m_dominant",
+  "dcon_trunc_512_n_zero_crossings",
+  "dcon_trunc_512_psilim",
+  "dcon_trunc_512_qlim",
+  "dcon_trunc_512_status_raw",
+  "dcon_trunc_sign_class",
+  "dcon_trunc_status",
+  "derived_ideal_unstable_any_n",
+  "efit_config_sha256",
+  "efit_label",
+  "efit_lineage",
+  "efit_setting",
+  "equilibrium_status",
+  "ideal_interchange_unstable",
+  "ideal_stable_full_edge",
+  "ideal_stable_truncated_edge",
+  "ideal_unstable_full_edge",
+  "ideal_unstable_trunc_edge",
+  "kinetic_chi2",
+  "max_D_I",
+  "max_D_R",
+  "mercier_evaluated",
+  "min_C_A",
+  "n_tor",
+  "psi_n_at_max_D_I",
+  "psi_n_at_max_D_R",
+  "psi_n_at_min_C_A",
+  "rdcon_classical_tearing_drive",
+  "rdcon_classical_tearing_drive_qa",
+  "rdcon_delta_prime_first_surface",
+  "rdcon_delta_prime_max",
+  "rdcon_delta_prime_max_qa",
+  "rdcon_delta_prime_max_qa_interior",
+  "rdcon_delta_prime_max_qa_interior_m",
+  "rdcon_delta_prime_max_qa_interior_position",
+  "rdcon_delta_prime_max_qa_interior_psi_n",
+  "rdcon_delta_prime_max_qa_interior_q",
+  "rdcon_delta_prime_max_qa_m",
+  "rdcon_delta_prime_max_qa_position",
+  "rdcon_delta_prime_max_qa_psi_n",
+  "rdcon_delta_prime_max_qa_q",
+  "rdcon_delta_prime_max_raw",
+  "rdcon_delta_prime_max_raw_m",
+  "rdcon_delta_prime_max_raw_position",
+  "rdcon_delta_prime_max_raw_psi_n",
+  "rdcon_delta_prime_max_raw_q",
+  "rdcon_first_surface_m",
+  "rdcon_gpec_build",
+  "rdcon_m_at_delta_prime_max",
+  "rdcon_n_positive_delta_prime_qa",
+  "rdcon_n_positive_delta_prime_raw",
+  "rdcon_n_positive_delta_prime_summary",
+  "rdcon_n_rational_surfaces",
+  "rdcon_n_resolved_surfaces",
+  "rdcon_n_summary_surfaces",
+  "rdcon_n_two_resolution_consistent",
+  "rdcon_psi_n_at_delta_prime_max",
+  "rdcon_q_at_delta_prime_max",
+  "rdcon_qa_status",
+  "rdcon_status",
+  "resistive_interchange_unstable",
+  "shot",
+  "slice_dir",
+  "stride_classical_tearing_drive",
+  "stride_classical_tearing_drive_qa",
+  "stride_delta_prime_first_surface",
+  "stride_delta_prime_max",
+  "stride_delta_prime_max_qa",
+  "stride_delta_prime_max_qa_interior",
+  "stride_delta_prime_max_qa_interior_m",
+  "stride_delta_prime_max_qa_interior_position",
+  "stride_delta_prime_max_qa_interior_psi_n",
+  "stride_delta_prime_max_qa_interior_q",
+  "stride_delta_prime_max_qa_m",
+  "stride_delta_prime_max_qa_position",
+  "stride_delta_prime_max_qa_psi_n",
+  "stride_delta_prime_max_qa_q",
+  "stride_delta_prime_max_raw",
+  "stride_delta_prime_max_raw_m",
+  "stride_delta_prime_max_raw_position",
+  "stride_delta_prime_max_raw_psi_n",
+  "stride_delta_prime_max_raw_q",
+  "stride_first_surface_m",
+  "stride_gpec_build",
+  "stride_m_at_delta_prime_max",
+  "stride_n_positive_delta_prime_qa",
+  "stride_n_positive_delta_prime_raw",
+  "stride_n_positive_delta_prime_summary",
+  "stride_n_rational_surfaces",
+  "stride_n_resolved_surfaces",
+  "stride_n_summary_surfaces",
+  "stride_n_two_resolution_consistent",
+  "stride_psi_n_at_delta_prime_max",
+  "stride_q_at_delta_prime_max",
+  "stride_qa_status",
+  "stride_status",
+  "time_efit_s",
+  "vaft_commit_build",
+  "vaft_dirty_build"
+ ],
+ "atlas_surfaces_columns": [
+  "C_A",
+  "D_I",
+  "D_R",
+  "H",
+  "delta_prime",
+  "delta_prime_absolute_change",
+  "delta_prime_imag",
+  "delta_prime_mpsi512",
+  "delta_prime_relative_change",
+  "efit_label",
+  "efit_lineage",
+  "efit_setting",
+  "gpec_build",
+  "in_summary",
+  "kinetic_chi2",
+  "m",
+  "n_tor",
+  "ordinal_position",
+  "position",
+  "psi_n_from_qmin",
+  "psi_n_s",
+  "psi_n_to_edge",
+  "q_minus_qmin",
+  "q_s",
+  "resolved",
+  "run_dir",
+  "shear_psi",
+  "shot",
+  "sign_agreement",
+  "solver",
+  "time_efit_s",
+  "two_resolution_consistent"
+ ],
+ "rows": {
+  "atlas_n": 900,
+  "atlas_surfaces": 6970
+ }
+}
