@@ -328,7 +328,6 @@ __all__ = [
     "electron_density_semantics",
     "Diagram",
     "DiagramRow",
-    "side_by_side",
     "DiagramToolchainError",
 ]
 
