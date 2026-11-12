@@ -2523,24 +2523,14 @@ def _append_record_fields(
 def _volume_weights_on_grid(solution: ODS, index: int, rho: np.ndarray) -> np.ndarray | None:
     """``dV`` per ``rho_tor_norm`` point from the equilibrium's own ``V(rho)`` at ``index``.
 
-    The composition normalisation is an ``n_e dV`` mean, so it needs the volume
-    element of the surface each point sits on.  Points beyond the equilibrium's
-    ``rho`` range are clamped by ``np.interp`` and so get ``dV = 0``.
+    :func:`vaft.process.profile.equilibrium_volume_weights` (issue #2270):
+    the composition normalisation is an ``n_e dV`` mean, so it needs the volume
+    element of the surface each point sits on; ``None`` when the slice cannot
+    weight the grid, and the composition then uses its stated stand-in.
     """
-    from vaft.ods_access import path_value
+    from vaft.process.profile import equilibrium_volume_weights
 
-    base = f"equilibrium.time_slice.{index}.profiles_1d"
-    rho_eq = path_value(solution, f"{base}.rho_tor_norm", None)
-    volume = path_value(solution, f"{base}.volume", None)
-    if rho_eq is None or volume is None or rho.size < 2:
-        return None
-    rho_eq, volume = np.asarray(rho_eq, dtype=float), np.asarray(volume, dtype=float)
-    ok = np.isfinite(rho_eq) & np.isfinite(volume)
-    if not ok.any():
-        return None
-    order = np.argsort(rho_eq[ok])
-    edges = np.concatenate(([0.0], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
-    return np.clip(np.diff(np.interp(edges, rho_eq[ok][order], volume[ok][order])), 0.0, None)
+    return equilibrium_volume_weights(solution, index, rho)
 
 
 def _plasma_onset(diagnostics_product: str | Path | None) -> tuple[float | None, str]:
