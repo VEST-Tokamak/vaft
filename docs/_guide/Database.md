@@ -218,7 +218,7 @@ vaft hsds configure
 
 | Field | Value |
 | --- | --- |
-| Server endpoint | sent with the account (see [Contact]({{ site.baseurl }}/contact/)) |
+| Server endpoint | sent with the account (see [Contact]({{ site.baseurl }}/reference/contacts/)) |
 | Username / Password | `reader` / `test` (read-only public account) |
 
 This writes `~/.hscfg` with mode `0600`; `h5pyd` reads a `.hscfg` in the working directory instead
