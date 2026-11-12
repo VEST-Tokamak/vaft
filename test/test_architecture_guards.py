@@ -690,6 +690,7 @@ _RESOLVER_ARGUMENTS = {
     "entry": lambda: {"id": "fl_01"},
     "kind": lambda: "flux_loop",
     "context": lambda: "architecture guard",
+    "generation": lambda: 2,
 }
 
 #: Extra keyword arguments for one resolver, when the generic values above do

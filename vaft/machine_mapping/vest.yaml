@@ -1936,6 +1936,86 @@ impa:
     pitch_tolerance: 0.015
 
 
+# --------------------------------------------------------------------------- #
+# Machine history that is not one diagnostic's processing configuration
+# (issue #2267). These shot boundaries used to be Python literals, some of
+# them copied into two or three modules; this is now their only home. Read by
+# vaft.machine_mapping.machine_history, which validates the block. Shot
+# bounds are inclusive, like every `revisions` table in this file.
+machine_history:
+  # Static machine eras: one per machine access that changed a conductor the
+  # static product carries (issue #956). Each boundary is the first shot after
+  # a multi-day gap in the raw `pulse_datetime`, when the vessel could be
+  # opened:
+  #   43017  passive wall 1512 -> 2409 (+15 SUS316LN elements at Z = -1.164 m);
+  #          43016 is 2024-07-05, 43017 is 2024-07-15.
+  #   45968  PF6/PF7 rebuilt, coil geometry 1906 -> 2507; 45950-45967 run every
+  #          ~12 minutes on 2025-06-30 and 45968 follows on 2025-07-07 (VFIT's
+  #          own selection is `shot > 45967`). The PF boundary was 45958 before
+  #          #956, with no recorded source.
+  #
+  # PRODUCT IDENTITY: `name` is the static product's `machine_version`, and
+  # stage products and HSDS sources are keyed by it. Renaming an era, or
+  # moving a boundary, re-keys stored products, so the names and boundaries
+  # are pinned by test/test_machine_history.py: editing this table alone fails
+  # CI on purpose. (#2159 audit gap G14 kept the table in code for this
+  # reason; #2267 moved it here and kept the guard as a test.)
+  #
+  # The eras must tile every shot: the first has no `from_shot`, the last no
+  # `to_shot`, and each `from_shot` is the previous `to_shot + 1`.
+  # `reference_shot` is the shot the static product is built from and must
+  # lie inside its own era.
+  machine_eras:
+    - name: vest-pre-43017-pf1906
+      to_shot: 43016
+      pf_geometry: "1906"
+      wall_geometry: "1512"
+      reference_shot: 43016
+    - name: vest-43017-45967-pf1906
+      from_shot: 43017
+      to_shot: 45967
+      pf_geometry: "1906"
+      wall_geometry: "2409"
+      reference_shot: 43017
+    - name: vest-45968-plus-pf2507
+      from_shot: 45968
+      pf_geometry: "2507"
+      wall_geometry: "2409"
+      reference_shot: 45968
+
+  daq:
+    # Fast-DAQ trigger offset [s]: a fast record starts at zero on its own
+    # clock, and this is added to place it on the discharge clock. Applied by
+    # the raw loader to every fast record (`vaft.database.raw`) and by the
+    # filterscope mapper to records whose axis ends before 0.1 s
+    # (`vaft.machine_mapping.spectrometer_uv.legacy_time_shift_s`); both used
+    # to hold their own copy of these ranges.
+    fast_trigger_offset:
+      offset_s: 0.24
+      revisions:
+        - {from_shot: 41446, to_shot: 41451, offset_s: 0.26}
+        - {from_shot: 41660, offset_s: 0.26}
+    # Raw waveform-table generation, used ONLY when the database cannot be
+    # asked (`vaft.database.raw.vest_check_table`). The live answer comes from
+    # the database: these ranges are wrong for 617 shots, because the
+    # shotDataWaveform_2 and _3 tables overlap (issue #761). The last shot of
+    # generation 2 is also where the archive time convention changes for
+    # archives that carry nothing but a shot number
+    # (`vaft.database.raw.V2_LAST_SHOT`).
+    waveform_table_fallback:
+      generation: 1
+      revisions:
+        - {from_shot: 29350, to_shot: 42190, generation: 2}
+        - {from_shot: 42191, generation: 3}
+
+  soft_x_rays:
+    # The 455xx SXR CSV campaign has no SXR entry in the legacy trigger
+    # settings. Within these shots the SXR record may inherit the HXR trigger
+    # start, because paired SXR/HXR records in the later campaign share the
+    # same 285 ms trigger start (`vaft.machine_mapping.soft_x_rays`).
+    hxr_trigger_fallback: {from_shot: 45531, to_shot: 45540}
+
+
 # Recorded faults of diagnostics that have no IMAS validity node (issue #1543),
 # read by vaft.machine_mapping.diagnostic_faults.known_diagnostic_faults. A
 # record documents; it does not alter a mapped value. Each entry is pinned by

@@ -34,6 +34,12 @@ from vaft.machine_mapping.impa import (
     resolve_impa_config,
 )
 from vaft.machine_mapping.langmuir_probes import LangmuirProbeEraGapError, langmuir_probes
+from vaft.machine_mapping.machine_history import (
+    VestMachineEra,
+    machine_era,
+    machine_era_for_shot,
+    machine_eras,
+)
 from vaft.machine_mapping.magnetics import (
     FLUCTUATION_MIRNOV_FIRST_SHOT,
     LIMITER_SHUNT_CHANNELS,
@@ -83,57 +89,13 @@ from vaft.process.acquisition import AcquisitionInconsistencyError, summarize_sa
 from vaft.process.magnetics import VestMagneticsProcessingConfig
 
 
-@dataclass(frozen=True)
-class VestMachineEra:
-    name: str
-    first_shot: int | None
-    last_shot: int | None
-    pf_geometry: str
-    reference_shot: int
-    wall_geometry: str = "1512"
-
-    def contains(self, shot: int) -> bool:
-        return (self.first_shot is None or shot >= self.first_shot) and (
-            self.last_shot is None or shot <= self.last_shot
-        )
-
-
-# One era per machine access that changed a conductor the static product
-# carries (issue #956). Each boundary is the first shot after a multi-day gap
-# in the raw `pulse_datetime`, which is when the vessel could be opened:
-#   43017  passive wall 1512 -> 2409 (+15 SUS316LN elements at Z = -1.164 m);
-#          43016 is 2024-07-05, 43017 is 2024-07-15.
-#   45968  PF6/PF7 rebuilt, coil geometry 1906 -> 2507; 45950-45967 run every
-#          ~12 minutes on 2025-06-30 and 45968 follows on 2025-07-07.
-# The PF boundary was 45958 before #956, with no recorded source, which split
-# off a ten-shot 45958-45966 era and a 45967 legacy boundary; both are gone.
-# Code-owned on purpose (#2159, audit gap G14): an era names the static
-# product's geometry assets and product identity (``machine_version``), which
-# stage products and HSDS sources are keyed by, so it changes with a code
-# release and its tests, not with a vest.yaml edit. The shot-era *processing*
-# policy stays in vest.yaml.
-VEST_MACHINE_ERAS = (
-    VestMachineEra("vest-pre-43017-pf1906", None, 43016, "1906", 43016, "1512"),
-    VestMachineEra("vest-43017-45967-pf1906", 43017, 45967, "1906", 43017, "2409"),
-    VestMachineEra("vest-45968-plus-pf2507", 45968, None, "2507", 45968, "2409"),
-)
-
-
-def machine_era_for_shot(shot: int) -> VestMachineEra:
-    """Return the explicit VEST machine era for a shot."""
-    for era in VEST_MACHINE_ERAS:
-        if era.contains(int(shot)):
-            return era
-    raise ValueError(f"No VEST machine era is defined for shot {shot}")
-
-
-def machine_era(name: str) -> VestMachineEra:
-    """Resolve a configured machine-era name."""
-    for era in VEST_MACHINE_ERAS:
-        if era.name == name:
-            return era
-    choices = ", ".join(item.name for item in VEST_MACHINE_ERAS)
-    raise ValueError(f"Unknown VEST machine era {name!r}; expected one of: {choices}")
+# The static machine eras (wall and PF geometry, and the ``machine_version``
+# stage products and HSDS sources are keyed by) live in vest.yaml's
+# ``machine_history.machine_eras`` (issue #2267; they were code-owned under
+# #2159 audit gap G14). The names and boundaries are pinned by
+# test/test_machine_history.py, so product identity still changes only with a
+# reviewed code-and-test change, never with a vest.yaml edit alone.
+VEST_MACHINE_ERAS = machine_eras()
 
 
 def sha256_file(path: str | Path) -> str:
