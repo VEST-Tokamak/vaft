@@ -92,23 +92,26 @@ It writes four things:
 
 ## Matched single-state inference archives
 
-The executed notebooks
-[`self_consistent_kinetic_inference_vest_39915.ipynb`](../../notebooks/self_consistent_kinetic_inference_vest_39915.ipynb)
-and [`self_consistent_kinetic_inference_vest_40326.ipynb`](../../notebooks/self_consistent_kinetic_inference_vest_40326.ipynb)
+Sections 2-4 of the executed notebook
+[`equilibrium_kinetic_consistency_and_inference.ipynb`](../../notebooks/equilibrium_kinetic_consistency_and_inference.ipynb)
 use compact, offline inputs in [`archive_data`](archive_data). The snapshots
 preserve selected equilibrium and core-profile arrays, separately mapped
 Thomson points with their 1σ errors, transient C/O charge-state results, and
 SHA-256 hashes of the campaign source products. Optional replay of the
-39915 charge-state calculation needs the hash-pinned OpenADAS tables locally.
+charge-state calculation needs the hash-pinned OpenADAS tables locally.
 
-Both notebooks show magnetic-EFIT pressure partition, 2×2 and 4×1
-`vaft.plot` panels, and the electron-kinetic-EFIT branch. The 40326 kinetic
+Both cases go through one workflow: magnetic-EFIT pressure partition, the
+canonical `plot_kinetic_overview_state` figure, and the electron-kinetic-EFIT
+branch beside its pressure policies (`kinetic_efit_pressure_policies`, with the
+archived verdicts normalised by `kinetic_efit_assessment` and the Thomson
+mapping recorded per equilibrium; 39915 archives the magnetic mapping only). The 40326 kinetic
 EFIT is admissible; the 39915 kinetic EFIT has a negative edge pressure and
 is shown as a rejected comparison. `T_i` inferred from independent magnetic
 pressure is distinct from the `T_i=T_e` prior used by kinetic EFIT. The
 pressure sum `p_e+p_i=p_eq` is a closure identity. Thomson measurements used
 as fit input are shown with errors but do not independently validate their
-own fit. The notebooks do not write poster assets.
+own fit. The notebook does not write poster assets; `write_state_table` writes the
+CSV state table to `$VAFT_KINETIC_STATE_OUTPUT` (a temporary directory by default).
 
 The composite view is the public plot `vaft.omas.plot_kinetic_overview_state`
 ([#1837](https://github.com/VEST-Tokamak/vaft/issues/1837)), which reads stored

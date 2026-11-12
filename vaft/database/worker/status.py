@@ -143,6 +143,9 @@ class PipelineHarvester:
         #: The stages `rule all` requests (config ``stages``); ``None`` is all.
         #: A stage outside it is never scheduled, so it is never judged either.
         self.scope = module.stage_scope(config.get("stages"))
+        #: The Snakefile's PLOTS_ENABLED: a run built without validation plots is
+        #: not judged on them.
+        self.plots = module.validation_plots_enabled(config, self.paths.layout)
 
     def in_scope(self, stage: str) -> bool:
         return self.scope is None or stage in self.scope
@@ -192,7 +195,7 @@ class PipelineHarvester:
 
     def plot_targets(self, shot: int) -> list[StageTarget]:
         """The Snakefile's ``validation_plot_products`` for one shot."""
-        if self.paths.layout != self._module.FILEDB:
+        if not self.plots:
             return []
         from vaft.database.production_qa import stage_plot_filenames
 
