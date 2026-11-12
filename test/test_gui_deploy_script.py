@@ -42,7 +42,7 @@ def test_install_never_starts_without_a_filled_env_file(tmp_path):
 
 def test_install_starts_once_the_account_is_filled_in(tmp_path):
     env_file = tmp_path / "missing.env"
-    env_file.write_text("HS_ENDPOINT=http://127.0.0.1:5101\nHS_USERNAME=gui-test-reader\nHS_PASSWORD=filled\n")
+    env_file.write_text("HS_ENDPOINT=http://127.0.0.1:5101\nHS_USERNAME=gui-test-reader\nHS_PASSWORD=filled\nVAFT_GUI_ORIGINS=gui.test.invalid\n")
     result = _run("install", SHA, "--dry-run", tmp_path=tmp_path)
     assert "+ systemctl enable --now vaft-gui-test" in result.stdout
 
@@ -143,7 +143,7 @@ def _real(env, *args):
 
 def test_publish_then_remove_round_trips_the_site(sandbox):
     root, env, log = sandbox
-    result = _real(env, "nginx", "10.0.0.0/8", "147.46.36.0/24")
+    result = _real(env, "nginx", "10.0.0.0/8", "192.0.2.0/24")
     assert result.returncode == 0, result.stderr
     site = (root / "site.conf").read_text()
     lines = site.splitlines()

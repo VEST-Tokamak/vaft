@@ -298,7 +298,11 @@ installed directory.
 | `vaft-gui-proxy.conf` | `/etc/nginx/snippets/`; the websocket proxy settings the site includes |
 
 The service's `--allow-websocket-origin` must name the host the browser opens (without a port
-for the default 80/443). The page loads Panel's fonts and assets from public CDNs, so readers
+for the default 80/443): set `VAFT_GUI_ORIGINS` (space-separated) in the env file; a hosted
+server refuses to start without one. **Upgrading** a deployment from before this: add
+`VAFT_GUI_ORIGINS=<host names>` to `/etc/vaft-gui.env` and `/etc/vaft-gui-test.env`. The repository keeps no server
+name or address: `nginx-vaft-gui.conf` says `gui.example.org`, replaced with the real name when
+installing. The page loads Panel's fonts and assets from public CDNs, so readers
 need internet access; the server does not.
 
 Hosted, one process holds every reader's session, and each session keeps the IDS it has read in

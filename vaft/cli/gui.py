@@ -40,7 +40,8 @@ def main(argv: Iterable[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=5006, help="port to serve on (default: %(default)s)")
     parser.add_argument(
         "--allow-websocket-origin", action="append", default=[], metavar="HOST[:PORT]",
-        help="extra origin the browser may connect from (repeatable)",
+        help="extra origin the browser may connect from (repeatable; $VAFT_GUI_ORIGINS adds "
+             "whitespace-separated ones, so a site keeps its host names out of unit files)",
     )
     parser.add_argument(
         "--auth", choices=("auto", "password", "hsds", "none"), default="auto",
@@ -64,6 +65,13 @@ def main(argv: Iterable[str] | None = None) -> int:
     if args.hosted and args.auth in ("auto", "password") and not os.environ.get("VAFT_GUI_PASSWORD"):
         # serve() refuses too; said here without a traceback.
         print("vaft gui: a hosted server needs its password set: export VAFT_GUI_PASSWORD", file=sys.stderr)
+        return 1
+    origins = [*args.allow_websocket_origin, *os.environ.get("VAFT_GUI_ORIGINS", "").split()]
+    if args.hosted and not origins:
+        # Behind a proxy the browser's origin is the public host name; without it every
+        # websocket is refused while the page itself loads.
+        print("vaft gui: a hosted server needs the host name readers open: --allow-websocket-origin "
+              "or $VAFT_GUI_ORIGINS", file=sys.stderr)
         return 1
 
     from ..gui import require_panel
@@ -98,7 +106,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         address=args.address,
         port=args.port,
         show=args.show,
-        websocket_origin=args.allow_websocket_origin,
+        websocket_origin=origins,
         auth=args.auth,
         hosted=args.hosted,
         prefix=args.prefix,

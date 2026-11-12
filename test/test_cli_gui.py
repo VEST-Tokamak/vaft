@@ -84,8 +84,11 @@ def test_hosted_passes_through_and_refuses_files(monkeypatch, capsys):
     calls = []
     monkeypatch.setattr("vaft.gui.app.serve", lambda **kwargs: calls.append(kwargs))
     monkeypatch.setenv("VAFT_GUI_PASSWORD", "team")
-    assert gui_cli.main(["--hosted", "--prefix", "/gui", "--shot", "39915", "--no-show"]) == 0
+    monkeypatch.setenv("VAFT_GUI_ORIGINS", "gui.example.org 192.0.2.7")
+    assert gui_cli.main(["--hosted", "--prefix", "/gui", "--shot", "39915", "--no-show",
+                         "--allow-websocket-origin", "other.example.org"]) == 0
     assert calls[-1]["hosted"] is True and calls[-1]["prefix"] == "/gui"
+    assert calls[-1]["websocket_origin"] == ["other.example.org", "gui.example.org", "192.0.2.7"]
     with pytest.raises(SystemExit):
         gui_cli.main(["--hosted", "--file", "eq.json"])
     assert "opens no files" in capsys.readouterr().err
@@ -106,6 +109,7 @@ def test_hosted_with_hsds_accounts_needs_no_shared_password(monkeypatch, capsys)
     monkeypatch.setattr("vaft.gui.app.serve", lambda **kwargs: calls.append(kwargs))
     monkeypatch.delenv("VAFT_GUI_PASSWORD", raising=False)
     monkeypatch.setenv("HS_ENDPOINT", "http://127.0.0.1:5101")
+    monkeypatch.setenv("VAFT_GUI_ORIGINS", "gui.example.org")
     assert gui_cli.main(["--hosted", "--auth", "hsds", "--no-show"]) == 0
     assert calls[-1]["auth"] == "hsds"
     monkeypatch.delenv("HS_ENDPOINT")
@@ -113,3 +117,11 @@ def test_hosted_with_hsds_accounts_needs_no_shared_password(monkeypatch, capsys)
     monkeypatch.chdir("/")
     assert gui_cli.main(["--hosted", "--auth", "hsds", "--no-show"]) == 1
     assert "HS_ENDPOINT" in capsys.readouterr().err
+
+
+def test_a_hosted_server_without_an_origin_does_not_start(monkeypatch, capsys):
+    """Behind a proxy every websocket would be refused; say so instead of serving a dead page."""
+    monkeypatch.setenv("VAFT_GUI_PASSWORD", "team")
+    monkeypatch.delenv("VAFT_GUI_ORIGINS", raising=False)
+    assert gui_cli.main(["--hosted", "--no-show"]) == 1
+    assert "VAFT_GUI_ORIGINS" in capsys.readouterr().err
