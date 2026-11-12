@@ -1,4 +1,4 @@
-"""The application shell (#1174): workspaces, the shared selection, status; never served."""
+"""The application shell: workspaces, the shared selection, status; never served."""
 
 from __future__ import annotations
 

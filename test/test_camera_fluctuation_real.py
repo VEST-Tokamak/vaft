@@ -1,4 +1,4 @@
-"""Issue #161 on real VEST data: shot 32308, camera and the paper's own probe.
+"""The camera fluctuation chain on real VEST data: shot 32308, camera and the paper's own probe.
 
 The published reference shots are 26757, 26576, 29770 and 27134. Three of them
 hold no camera data anywhere, and 27134 — the one that does — has no magnetics

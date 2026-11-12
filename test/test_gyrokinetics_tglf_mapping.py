@@ -1,6 +1,6 @@
-"""TGLF -> gyrokinetics_local, per TGLF_MAPPING_AUDIT (#1591 PR-B).
+"""TGLF -> gyrokinetics_local, per TGLF_MAPPING_AUDIT.
 
-Uses the real #1482 runs (39915 r/a 0.7; SAT0 ES and SAT2 with A_parallel). The local
+Uses real TGLF runs (39915 r/a 0.7; SAT0 ES and SAT2 with A_parallel). The local
 input is rebuilt from each run's own ``input.tglf``, so the mapping sees exactly the
 numbers TGLF solved with.
 """

@@ -1,4 +1,4 @@
-"""The GACODE runtime and the NEO adapter (issue #550).
+"""The GACODE runtime and the NEO adapter.
 
 Everything here runs without GACODE installed. Executable resolution is checked
 against launchable stubs written by `test/external_code_stubs.py`, which travel
@@ -648,7 +648,7 @@ def test_a_spitzer_run_with_a_non_finite_coefficient_is_not_solved(tmp_path):
 
 
 # --------------------------------------------------------------------------
-# Execution backend (#671)
+# Execution backend
 # --------------------------------------------------------------------------
 
 
@@ -692,7 +692,7 @@ def test_the_memory_reservation_reaches_the_backend(installation, tmp_path):
 
 
 def test_run_gacode_returns_its_timeout(installation, tmp_path):
-    """#1016: a stop is returned (returncode None), with the reason in the log."""
+    """A stop is returned (returncode None), with the reason in the log."""
     from external_code_stubs import RecordingBackend
     from vaft.code.execution import ExecutionResult
 

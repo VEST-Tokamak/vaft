@@ -1,4 +1,4 @@
-"""Opt-in HSDS I/O instrumentation (#1869): records inside record_io, changes nothing outside it."""
+"""Opt-in HSDS I/O instrumentation: records inside record_io, changes nothing outside it."""
 
 from __future__ import annotations
 

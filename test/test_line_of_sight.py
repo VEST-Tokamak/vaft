@@ -1,4 +1,4 @@
-"""Exact path-length operators for chord-integrated diagnostics (#886)."""
+"""Exact path-length operators for chord-integrated diagnostics."""
 
 from __future__ import annotations
 

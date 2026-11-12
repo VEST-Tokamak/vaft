@@ -1,4 +1,4 @@
-"""The radial coordinate of a kinetic profile is a choice, made explicitly (issue #420).
+"""The radial coordinate of a kinetic profile is a choice, made explicitly.
 
 Before this change the mappers returned normalized poloidal flux under the
 name "rho", the fitters consumed it without saying so, and one docstring
@@ -256,9 +256,9 @@ def test_core_profiles_evaluates_each_fit_in_its_own_coordinate(shot_ods):
 
 
 def test_core_profiles_marks_grid_psi_as_post_1292_weber(shot_ods):
-    """The per-slice line says grid.psi is Wb from the fixed path (#1338).
+    """The per-slice line says grid.psi is Wb from the fixed path.
 
-    Products written before #1292 stored grid.psi 2*pi too large and nothing else
+    Products written before the #1292 fix stored grid.psi 2*pi too large and nothing else
     in them differs, so the token is the only way a reader can tell. It is a
     plain ``key=value`` token in the string ``code.parameters``, which is what
     survives replication.
@@ -399,7 +399,7 @@ def test_the_default_pipeline_differs_from_the_pre_change_one_on_purpose(shot_od
 
 
 def test_a_stored_sqrt_psi_proxy_grid_is_re_derived_not_trusted(shot_ods):
-    """A pre-#276 equilibrium stores sqrt(psi_N) under rho_tor_norm.
+    """An older equilibrium stores sqrt(psi_N) under rho_tor_norm.
 
     Evaluating a rho_tor_norm fit on that proxy would put the profile at the
     wrong radius.  The grid builder re-derives the coordinate from the slice's
@@ -489,7 +489,7 @@ def test_an_existing_producer_name_is_not_overwritten(shot_ods):
 
 
 def test_rho_tor_n_definition_names_the_normalized_flux_it_integrates(shot_ods):
-    # #602: the published definition is what the catalog, the reference page and
+    # The published definition is what the catalog, the reference page and
     # every provenance record show; it must name psi_n, the variable actually
     # integrated, and say why no COCOS is needed.
     _, geq = shot_ods
@@ -521,7 +521,7 @@ def test_rho_tor_n_definition_names_the_normalized_flux_it_integrates(shot_ods):
 
 
 def test_unavailable_rho_tor_n_records_publish_the_same_definition(shot_ods):
-    # Every refusal branch shares the derived record's definition (#602).
+    # Every refusal branch shares the derived record's definition.
     import dataclasses
 
     from vaft.process._equilibrium_parametric import as_equilibrium

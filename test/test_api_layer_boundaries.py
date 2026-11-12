@@ -34,7 +34,7 @@ def test_legacy_process_alias_warns_and_preserves_result():
 
 
 def test_vaft_process_reaches_no_verdicts():
-    """The boundary rule #253 §2 states, made executable (issue #337).
+    """The process/validation boundary rule, made executable.
 
     `vaft.process` transforms, infers and checks its own preconditions. Whether
     a datum or a result is *credible* is a verdict, and verdicts live in
@@ -76,7 +76,7 @@ def test_the_renamed_equilibrium_precondition_keeps_its_old_name_working():
 
 
 def test_the_moved_impa_grading_keeps_its_old_names_working():
-    """Both process-side names delegate to `vaft.validation.impa` and warn (#339).
+    """Both process-side names delegate to `vaft.validation.impa` and warn.
 
     Their arguments are a whole processed shot, so the delegation is what is
     asserted here; `test_validation_impa.py` covers the answers.
@@ -94,7 +94,7 @@ def test_the_moved_impa_grading_keeps_its_old_names_working():
 
 
 def test_the_moved_cocos_check_keeps_its_old_name_working():
-    """`validate_cocos` is a verdict, so it lives in `vaft.validation.cocos` (#337)."""
+    """`validate_cocos` is a verdict, so it lives in `vaft.validation.cocos`."""
     from vaft.data.equilibrium import EquilibriumData
     from vaft.process import cocos as process_cocos
     from vaft.validation.cocos import validate_cocos
@@ -114,7 +114,7 @@ def test_the_moved_cocos_check_keeps_its_old_name_working():
 
 
 def test_the_validation_layer_has_one_status_vocabulary():
-    """#253 §4: findings and verdicts are different shapes, not rival vocabularies.
+    """Findings and verdicts are different shapes, not rival vocabularies.
 
     `ValidationReport` is a findings list with severities; `ValidationStatus` is
     the verdict vocabulary. They meet at `ValidationReport.status`, which is what
@@ -249,7 +249,7 @@ def test_shadowed_entrypoints_explain_themselves():
             getattr(machine_mapping, name)
 
 
-# --- deprecated aliases carry their removal release (#2168, register L5, L6, P9, P10) ---
+# --- deprecated aliases carry their removal release -------------------------------------
 
 _ALIAS_REMOVAL = "0.11.0"
 

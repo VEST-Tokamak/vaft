@@ -1,4 +1,4 @@
-"""Advisory ordering checks in adapter run provenance (#1823 follow-up): EFIT, GPEC suite, CGYRO."""
+"""Advisory ordering checks in adapter run provenance: EFIT, GPEC suite, CGYRO."""
 
 from __future__ import annotations
 

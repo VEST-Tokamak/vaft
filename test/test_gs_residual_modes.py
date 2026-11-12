@@ -1,7 +1,7 @@
-"""Mode-resolved Grad-Shafranov residual on nested flux surfaces (#948).
+"""Mode-resolved Grad-Shafranov residual on nested flux surfaces.
 
-The projection shares its angle with the Fourier surface representation
-(#945): projecting R or Z itself must give that surface's own R and Z
+The projection shares its angle with the Fourier surface representation:
+projecting R or Z itself must give that surface's own R and Z
 coefficients, which pins the angle, the phase and the normalization at once.
 An exact Solov'ev equilibrium must have a residual at discretization level.
 """

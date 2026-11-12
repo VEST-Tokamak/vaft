@@ -76,7 +76,7 @@ def test_summary_sources_lists_the_catalog(capsys):
     # listing has to say that rather than let a missing shot read as a gap.
     impa = next(line for line in printed.splitlines() if line.startswith("impa"))
     assert "sparse" in impa
-    # The transitional per-configuration TGLF sources under `main` (#1900) are
+    # The transitional per-configuration TGLF sources under `main` are
     # sparse by design; every other `main`/`public` line is a complete source.
     lines = [line for line in printed.splitlines() if line.startswith(("main", "public"))]
     assert all("complete" in line for line in lines if "/tglf-" not in line.split()[0])
@@ -148,7 +148,7 @@ def test_the_plot_listing_survives_a_locale_console(tmp_path, handler):
     """A cp1252 console (the Windows leg, or a ``text=True`` pipe there) cannot
     encode the listing's box-drawing glyphs; the command must still exit 0 with
     the listing, glyphs replaced, rather than die in ``print`` (0.8.0 release
-    PR #1391, Windows leg: the plotting sample notebook's ``vaft plot --list``
+    Windows leg: the plotting sample notebook's ``vaft plot --list``
     cell raised CalledProcessError)."""
     import os
     import subprocess

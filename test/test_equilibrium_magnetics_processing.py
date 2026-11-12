@@ -1,4 +1,4 @@
-"""Shot-era equilibrium-magnetics acquisition policy (issue #195).
+"""Shot-era equilibrium-magnetics acquisition policy.
 
 The pre-43685 expectations below duplicate the legacy hardcoded thresholds
 on `VestMagneticsProcessingConfig` on purpose: they prove the migration to
@@ -172,7 +172,7 @@ def test_physical_time_flux_baseline_is_sample_rate_independent():
 
 
 # --------------------------------------------------------------------------
-# Probe wiring history (issues #195 section 5, #956)
+# Probe wiring history
 # --------------------------------------------------------------------------
 
 
@@ -225,7 +225,7 @@ def test_an_override_names_the_position_it_rewires():
         (36822, True),
         (36905, True),
         (36906, False),
-        # #1896 neighbour-gain windows: first and last bad plasma shot of each
+        # Neighbour-gain windows: first and last bad plasma shot of each
         (37559, False),
         (37586, True),
         (37800, True),
@@ -257,7 +257,7 @@ def test_the_z_plus_006_probe_is_recorded_broken_where_the_scan_found_it(shot, f
 @pytest.mark.parametrize("shot", [29350, 36480, 36481, 36822, 36905, 36906, 37586, 38126, 38254, 38692, 39040, 39437, 39915, 41524, 41672, 48000])
 def test_c4_04_is_recorded_broken_on_every_shot(shot):
     """Anticorrelated with the vacuum model on every reference shot and 70% of
-    a statistical-sigma chi-square (#977, #924). Revisions replace ``probes``
+    a statistical-sigma chi-square. Revisions replace ``probes``
     rather than extend it, so an era with its own faults must repeat the entry;
     the parametrization crosses both such eras and the base."""
     faults = known_magnetics_faults(shot)
@@ -267,7 +267,7 @@ def test_c4_04_is_recorded_broken_on_every_shot(shot):
 
 def test_39204_is_processed_with_the_layout_of_its_neighbours():
     """VFIT's `shot == 39204 -> ver_2310` override does not survive the raw
-    signals (#956); 39204 is no longer refused."""
+    signals; 39204 is no longer refused."""
     require_supported_magnetics_geometry(39204)
     assert magnetics_wiring_for_shot(39204).channels == magnetics_wiring_for_shot(39203).channels
 
@@ -370,7 +370,7 @@ def test_configs_built_from_vest_yaml_are_always_self_consistent(shot):
 
 
 # ---------------------------------------------------------------------------
-# Degenerate baseline window error handling (issue #639)
+# Degenerate baseline window error handling
 # ---------------------------------------------------------------------------
 
 def test_b_field_pol_probe_degenerate_baseline_raises():
@@ -601,8 +601,8 @@ ROUTINE_CONFIG = (
     / "workflow" / "automatic_pipeline_1_routine_data_processing" / "config.yaml"
 )
 
-#: The ``vest.magnetics.processing`` block the routine config carried until
-#: #1541: the dataclass defaults, restated. Kept here as the regression input.
+#: The ``vest.magnetics.processing`` block the routine config once carried:
+#: the dataclass defaults, restated. Kept here as the regression input.
 LEGACY_ROUTINE_BLOCK = {
     "time_start": 0.0, "time_end": 0.99996, "sample_count": 25000, "fast_sample_rate": 250000.0,
     "lowpass_cutoff": 2500.0, "lowpass_taps": 251, "default_index_start": 6000, "default_index_end": 8500,
@@ -624,7 +624,7 @@ def _routine_magnetics_override():
 
 
 def test_the_routine_config_leaves_magnetics_processing_to_the_era():
-    """With the workflow config loaded, the stage gets no override at all (#1541)."""
+    """With the workflow config loaded, the stage gets no override at all."""
     import json
 
     from vaft.omas.vest_upstream import magnetics_processing_for_shot
@@ -636,7 +636,7 @@ def test_the_routine_config_leaves_magnetics_processing_to_the_era():
 
 @pytest.mark.parametrize("shot", [39916, 44043, 47946, 48927])
 def test_the_legacy_routine_block_keeps_the_shots_acquisition_era(shot):
-    """The old block, applied as an override, must not move a shot off its era (#1541).
+    """The old block, applied as an override, must not move a shot off its era.
 
     It restates the dataclass defaults; applied as a replacement it ran every
     native-DAQ shot through the slow-DAQ path with the wrong baselines.
@@ -706,7 +706,7 @@ RAW_ROOT = Path(os.environ.get("VAFT_TEST_RAW_ROOT", "/srv/vest.filedb/raw"))
 
 
 def test_47946_flux_loops_reproduce_the_era_values_with_the_legacy_block():
-    """Value-level regression on a native-DAQ shot (#1541), where the raw dump exists.
+    """Value-level regression on a native-DAQ shot, where the raw dump exists.
 
     Era-correct flux loop #3/#4 at 0.33 s are -77.2/-117.2 mWb; the products
     processed with the legacy block as a replacement stored +57.4/+77.5 mWb.
@@ -733,7 +733,7 @@ def test_47946_flux_loops_reproduce_the_era_values_with_the_legacy_block():
 
 # ---------------------------------------------------------------------------
 # The two-sided baseline is taken around the discharge, not at the record's end
-# (cold review 0.7.0 process F5, #1888)
+# (cold review 0.7.0 process F5)
 # ---------------------------------------------------------------------------
 
 _F5_TIME = np.arange(0.0, 1.0, 4e-5)

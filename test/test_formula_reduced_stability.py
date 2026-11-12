@@ -1,4 +1,4 @@
-"""Local interchange criteria and the reduced internal kink (#1635): values, limits and identities."""
+"""Local interchange criteria and the reduced internal kink: values, limits and identities."""
 
 import numpy as np
 import pytest

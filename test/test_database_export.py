@@ -1,4 +1,4 @@
-"""``vaft.database.export``: one staging, many portable backends (issue #450).
+"""``vaft.database.export``: one staging, many portable backends.
 
 HSDS is replaced by a real local IMAS HDF5 entry served through a fake
 ``hsget``, so every backend converts genuine IMAS data offline.

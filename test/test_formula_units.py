@@ -1,4 +1,4 @@
-"""Unit scale factors of vaft.formula.units (#2163): exact, explicit, never guessed."""
+"""Unit scale factors of vaft.formula.units: exact, explicit, never guessed."""
 from __future__ import annotations
 
 import math

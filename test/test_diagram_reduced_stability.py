@@ -1,4 +1,4 @@
-"""Reduced stability diagnostic diagrams (#1635): the taxonomy and the Suydam / Mercier chart."""
+"""Reduced stability diagnostic diagrams: the taxonomy and the Suydam / Mercier chart."""
 
 import numpy as np
 import pytest

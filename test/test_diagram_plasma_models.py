@@ -1,4 +1,4 @@
-"""Plasma-model guide figures (#1739 Phase E2): read from the formalism records, not hand-listed."""
+"""Plasma-model guide figures: read from the formalism records, not hand-listed."""
 
 import pytest
 

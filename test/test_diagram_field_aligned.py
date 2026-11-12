@@ -1,4 +1,4 @@
-"""Field-aligned coordinates part 2 (#1075): eigenmode, k_x(theta), basis, shear, flux tube."""
+"""Field-aligned coordinates part 2: eigenmode, k_x(theta), basis, shear, flux tube."""
 
 import math
 
@@ -101,7 +101,7 @@ def test_flux_tube_steps_and_labels_off():
                     if isinstance(i, Label) and i.role not in ("axes", "ticks")]
 
 
-# --- #1075 remainder: transits, boundary conditions, X-point limit ---------------------------------
+# --- transits, boundary conditions, X-point limit ---------------------------------
 
 
 def test_each_transit_revisits_the_outboard_point_with_less_of_the_mode():

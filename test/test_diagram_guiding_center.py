@@ -1,4 +1,4 @@
-"""Guiding-centre invariant diagrams (#1092): the orbit is the invariants', and P_phi is visibly constant."""
+"""Guiding-centre invariant diagrams: the orbit is the invariants', and P_phi is visibly constant."""
 
 import numpy as np
 import pytest

@@ -1,4 +1,4 @@
-"""Slab parity and harmonic coupling (#1071): contours of the formula's flux, spectra by FFT."""
+"""Slab parity and harmonic coupling: contours of the formula's flux, spectra by FFT."""
 
 import math
 

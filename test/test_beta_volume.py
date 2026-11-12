@@ -1,4 +1,4 @@
-"""The volume beta and its normalized form (#1691).
+"""The volume beta and its normalized form.
 
 ``beta_B = 2 mu0 <p>_V / <B^2>_V`` divides by the total field energy inside the
 plasma (Troyon 1984; Menard et al. 2004), not by the vacuum field at one radius

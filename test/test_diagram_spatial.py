@@ -1,4 +1,4 @@
-"""The spatial vocabulary (#1101): coordinates, geometry, meshes, mappings and topology."""
+"""The spatial vocabulary: coordinates, geometry, meshes, mappings and topology."""
 
 import math
 

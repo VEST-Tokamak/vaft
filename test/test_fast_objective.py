@@ -1,4 +1,4 @@
-"""The two levers that make #308's objective affordable.
+"""The two levers that make the wall-calibration objective (Open: #308) affordable.
 
 Measured on the packaged 39915 product with all 74 usable channels, one
 objective evaluation cost ~7.2 s, of which ~97% was `compute_point_response_ods`
@@ -7,7 +7,7 @@ objective evaluation cost ~7.2 s, of which ~97% was `compute_point_response_ods`
 
 Lever 1 caches the geometry response across re-solves. Lever 2 decomposes the
 symmetric-definite pencil with `eigh` instead, which the loader's reciprocity
-fix (#347) made admissible. Neither may change a number beyond round-off.
+fix made admissible. Neither may change a number beyond round-off.
 
 On what the eigh tests do and do not cover: the *propagator* is checked entry
 by entry against `eig` on a pencil spanning four decades of resistance -- the
@@ -64,7 +64,7 @@ def _real_shot(shot: int) -> ODS:
     finally:
         Path(plain_path).unlink(missing_ok=True)
     # Re-map em_coupling so the frozen pipeline product carries the mapper's
-    # current, exactly reciprocal matrices (#347, #373).
+    # current, exactly reciprocal matrices.
     del ods["em_coupling"]
     em.em_coupling(ods, shot=shot)
     return ods
@@ -190,7 +190,7 @@ def test_eigh_and_eig_agree_on_the_real_machine_to_round_off(shot_39915):
     assert not np.any(np.max(diff, axis=0) > 1e-6 * peak)
 
 
-# --- review of PR #377: the three propagator-level findings, pinned ---
+# --- three propagator-level review findings, pinned ---
 
 
 def test_auto_falls_back_to_eig_exactly_when_r_is_coupled():
@@ -231,7 +231,7 @@ def test_a_response_for_a_different_equal_sized_selection_is_refused(shot_39915)
     selection; this one is the case that got through: two probe selections of
     the same size but different channels. Before the response carried its
     positions, this contracted silently with an 81% error against the correct
-    forward model -- exactly the #308 hazard, since validity windows differ per
+    forward model -- exactly the wall-calibration hazard, since validity windows differ per
     shot and era."""
     solved = benchmark_wall_currents(shot_39915)
     interval = plasma_free_interval(shot_39915)

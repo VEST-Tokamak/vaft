@@ -1,4 +1,4 @@
-"""Contract for the cross-platform bootstrap under ``install/`` (issue #225).
+"""Contract for the cross-platform bootstrap under ``install/``.
 
 These tests keep three promises the student-facing bootstrap makes:
 
@@ -72,7 +72,7 @@ POWERSHELL_SCRIPTS = (
 )
 
 #: Commands that would obtain or move an external checkout for the operator.
-#: Issue #226 keeps source acquisition a separate, explicit act: provenance is
+#: Source acquisition is a separate, explicit act: provenance is
 #: something the operator states, not something a script infers.
 ACQUISITIVE = (
     re.compile(r"git\s+clone"),
@@ -154,13 +154,13 @@ checker = _load_checker()
 #: The external Fortran codes that keep a directory of their own under
 #: `install/`, because a build recipe is more than one file: it carries its
 #: own README, reference cases and validation notes. This is not the axis
-#: #225's flatness rule is about -- that one forbids splitting the *bootstrap*
+#: the flatness rule is about -- that one forbids splitting the *bootstrap*
 #: by platform or by role, which is what a student would have to navigate.
 EXTERNAL_CODE_DIRECTORIES = ("gacode", "genray", "nubeam", "tes")
 
 
 def test_install_directory_is_flat_and_complete():
-    """Issue #225 requires a flat install/ with one entry point per platform.
+    """The install/ directory is flat, with one entry point per platform.
 
     Flat means no `install/linux/`, no `install/checkers/`: the bootstrap a
     student runs first is one directory of scripts. A per-code build recipe is
@@ -178,7 +178,7 @@ def test_install_directory_is_flat_and_complete():
         "_external_code_common.py",
         "README.md",
         "check_vaft_environment.py",
-        # Not a code checker: vaft-nn is a model registry, not a build (#669).
+        # Not a code checker: vaft-nn is a model registry, not a build.
         "check_vaft_nn.py",
     )
     for name in expected:
@@ -1237,7 +1237,7 @@ def test_uninstall_reverses_exactly_what_the_bootstrap_creates():
 
 
 # ---------------------------------------------------------------------------
-# External Fortran codes (issue #226)
+# External Fortran codes
 # ---------------------------------------------------------------------------
 
 
@@ -1261,7 +1261,7 @@ def _load_external_checker(name):
 def test_external_code_tooling_never_obtains_or_moves_a_checkout():
     """Which revision was built is a statement the operator makes.
 
-    Issue #226 keeps source acquisition separate from building so that
+    Source acquisition stays separate from building so that
     provenance, access and revision selection stay decisions a person takes.
     A script that fetches or switches revisions on their behalf destroys that.
     """
@@ -1376,7 +1376,7 @@ def test_the_vaft_bootstrap_never_builds_fortran():
 
 
 def test_gpec_build_never_requires_x11():
-    """Issue #226 excludes xdraw: the Windows target is the CLI workflow."""
+    """No xdraw: the Windows target is the CLI workflow."""
     text = _executable_source(INSTALL / "install_gpec_windows.ps1")
     assert "mkbin" in text, "build the executables target rather than everything"
     assert "xdraw" not in text
@@ -1560,7 +1560,7 @@ def test_external_code_checkers_share_the_vaft_vocabulary():
 
 
 def test_external_code_checkers_report_every_layer():
-    """Issue #226 asks each layer to answer for itself, not just the binary."""
+    """Each layer answers for itself, not just the binary."""
     expected = {
         "check_chease.py": ("toolchain", "source", "build record", "executables", "discovery", "run"),
         # EFIT installs two roles from one build, so both are checked; the
@@ -1661,7 +1661,7 @@ def test_readme_routes_every_platform_for_every_external_code():
 #
 # NUBEAM's entry point lives in install/nubeam/ rather than install/, beside
 # the macOS recipe it mirrors, because the two share the reference cases and
-# the validation scripts. The rules issue #226 sets for install/ apply to it
+# the validation scripts. The install/ rules apply to it
 # all the same, so they are asserted here rather than assumed.
 # ---------------------------------------------------------------------------
 
@@ -3102,7 +3102,7 @@ def test_efit_installer_takes_the_hard_stack_limit_when_the_ask_exceeds_it():
 
 
 # ---------------------------------------------------------------------------
-# Cold review 0.7.0 install residue (issue #1888)
+# Cold review 0.7.0 install residue
 # ---------------------------------------------------------------------------
 
 
@@ -3582,7 +3582,7 @@ def test_nubeam_uninstall_refuses_entries_that_only_look_inside_the_tree(tmp_pat
 
 
 def test_plasma_state_verdict_cannot_be_carried_by_a_good_median_alone():
-    """Review of PR #1921, F1: the median passed with half the headline 100% wrong.
+    """Regression guard: the median passed with half the headline 100% wrong.
 
     A candidate writing zeros for six headline profiles and matching the other
     seven at 3% had a 3% median and exited 0; one judged on the single headline
@@ -3635,7 +3635,7 @@ def test_plasma_state_verdict_cannot_be_carried_by_a_good_median_alone():
 @posix_only
 @requires_bash
 def test_nubeam_uninstall_does_not_follow_a_symlinked_component(tmp_path):
-    """Review of PR #1921, F2: `rm -rf <root>/build/sym/sub` followed the link.
+    """Regression guard: `rm -rf <root>/build/sym/sub` followed the link.
 
     A planted `build/sym -> /elsewhere` plus a manifest entry under it passed
     both lexical guards; rm -rf then removed /elsewhere/sub. When the
@@ -3658,7 +3658,7 @@ def test_nubeam_uninstall_does_not_follow_a_symlinked_component(tmp_path):
 
 @posix_only
 def test_load_probe_reads_only_what_the_loader_prints(tmp_path):
-    """Review of PR #1921, F3: a benign stdout line matched a loader needle.
+    """Regression guard: a benign stdout line matched a loader needle.
 
     The needles were scanned over stdout as well, so a program greeting the
     console with "input symbol not found in namelist, using default" failed

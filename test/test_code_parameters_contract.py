@@ -1,15 +1,15 @@
-"""What `code.parameters` may hold, measured through the Access Layer (#561).
+"""What `code.parameters` may hold, measured through the Access Layer.
 
 `code.parameters` is a `STR_0D` in the Data Dictionary -- one string, XML by
-IMAS habit -- and #380 found the consequence the hard way: 4096 paths of EFIT
-collection provenance reached the local FileDB product and never reached the
-HSDS replica.  #478 found the same loss for a flat block and fixed it the other
-way, with `vaft.database._local._promote_code_parameters`.  Neither issue wrote
-down what the field actually supports, and #527 now wants to embed a versioned
-DCON payload in it, so this module measures every shape end to end rather than
-arguing from either precedent.
+IMAS habit -- and that has a consequence: 4096 paths of EFIT collection
+provenance in a nested block reached the local FileDB product and never
+reached the HSDS replica.  A flat block was lost the same way, and is now
+promoted back by `vaft.database._local._promote_code_parameters`.  Neither
+fix wrote down what the field actually supports, and the `mhd_linear`
+envelope embeds a versioned DCON payload in it, so this module measures every
+shape end to end rather than arguing from either precedent.
 
-The mechanism, which is not what either issue assumed:
+The mechanism, which is not what either fix assumed:
 
 * **In memory nothing is wrong.**  omas builds a `CodeParameters` object for
   any sub-path written under `code.parameters`, however deep, and serializes
@@ -184,10 +184,10 @@ def test_an_envelope_of_several_fragments_comes_back_a_string(tmp_path):
 
 
 def test_a_flat_block_reaches_the_entry_from_either_side(tmp_path):
-    """Two halves, and since #642 either of them is enough.
+    """Two halves, and either of them is enough.
 
     `vaft.omas.load` promotes a flat, leaf-only branch back to a
-    `CodeParameters` (#478), and the write does the same for the block it is
+    `CodeParameters`, and the write does the same for the block it is
     given.  So a flat declaration now survives even a path that never went
     through the loader -- an ODS handed straight to `vaft.imas.save`, say.
 
@@ -213,7 +213,7 @@ def test_a_flat_block_reaches_the_entry_from_either_side(tmp_path):
 
 
 def test_a_nested_block_stays_local_and_the_entry_says_so(tmp_path):
-    """#380's loss, and the note that replaced the silence (#642).
+    """A nested block stays local, and the entry says so.
 
     A per-slice parser cache cannot be a parameters string: the XML encoder
     has no array representation, so carrying it would return every array as
@@ -240,7 +240,7 @@ def test_a_nested_block_stays_local_and_the_entry_says_so(tmp_path):
 
 
 def test_a_flat_leaf_beside_a_nested_block_now_reaches_the_entry(tmp_path):
-    """The defect #642 was opened for: the COCOS index went down with the cache.
+    """Regression guard for #642: the COCOS index went down with the cache.
 
     `vaft.omas.general` writes the declared COCOS index as a flat leaf of
     `equilibrium.code.parameters`; the EFIT mappers write their per-slice
@@ -282,7 +282,7 @@ def test_the_declaration_reaches_a_replica_of_a_real_product(tmp_path):
 def test_the_write_reports_the_field_it_wrote(tmp_path):
     """The list of written paths is the only machine-readable evidence there is.
 
-    A field that reached the entry appears in it.  Before #642 a mixed block
+    A field that reached the entry appears in it.  A mixed block once
     was absent from that list, from the entry, and from any exception -- which
     is why the loss survived a year of replication.
     """
@@ -351,7 +351,7 @@ def test_values_inside_the_envelope_are_reinterpreted_on_the_way_back(tmp_path):
     assert json.loads(from_json)["label"] == label
 
 
-# --- the mhd_linear envelope (#527 builds on this) --------------------------
+# --- the mhd_linear envelope --------------------------------------------------
 
 
 def test_the_mhd_linear_envelope_survives_the_product_leg_as_a_string(tmp_path):
@@ -371,7 +371,7 @@ def test_the_mhd_linear_envelope_survives_the_product_leg_as_a_string(tmp_path):
 
 
 def test_a_fragment_carrying_the_close_tag_would_corrupt_the_envelope():
-    """The splice hazard #527's payload has to respect.
+    """The splice hazard an embedded payload has to respect.
 
     `vaft.machine_mapping.mhd_linear._append_code_parameters` extends the field
     by string surgery on the trailing `</parameters>`.  A fragment whose own

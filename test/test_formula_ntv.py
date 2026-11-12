@@ -1,4 +1,4 @@
-"""Neoclassical orbit scales and NTV relations (#1111): orderings, conventions and signs."""
+"""Neoclassical orbit scales and NTV relations: orderings, conventions and signs."""
 
 import numpy as np
 import pytest

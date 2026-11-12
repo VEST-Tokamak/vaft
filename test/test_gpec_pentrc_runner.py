@@ -790,7 +790,7 @@ def test_a_pentrc_that_does_not_finish_is_a_failed_record_not_an_exception(
 
 
 def test_a_pentrc_memory_stop_says_so(cell, tmp_path, monkeypatch):
-    """#1460: a memory stop is not "did not finish within N s"."""
+    """A memory stop is not "did not finish within N s"."""
     from vaft.code.execution import ExecutionResult
     from vaft.code.gpec import _pentrc, _runtime
 
@@ -974,7 +974,7 @@ def test_preparing_only_needs_no_timeout(cell, tmp_path):
 
 @pytest.mark.skipif(IS_WINDOWS, reason="POSIX shell stub")
 def test_a_stalled_pentrc_is_stopped_with_a_stall_reason_and_a_capped_log(cell, tmp_path):
-    """#1929: a stalled energy LSODE fills the log until the timeout; the cap stops it."""
+    """A stalled energy LSODE fills the log until the timeout; the cap stops it."""
     config = _config(
         tmp_path, timeout=120.0,
         pentrc_log=gpec.PENTRCLogLimits(max_bytes=20_000, stall_lines=2_000),

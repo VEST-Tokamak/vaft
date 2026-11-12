@@ -1,4 +1,4 @@
-"""Regression coverage for VEST limiter-current monitor mapping (issue #134)."""
+"""Regression coverage for VEST limiter-current monitor mapping."""
 
 from __future__ import annotations
 

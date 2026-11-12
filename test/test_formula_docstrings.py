@@ -1,4 +1,4 @@
-"""Every public formula documents itself under the issue #248 contract.
+"""Every public formula documents itself under the formula docstring contract.
 
 The contract is parsed by :mod:`vaft.formula._docstring`; this file enforces
 it and holds the three policy lists that are physics judgement rather than
@@ -26,9 +26,9 @@ from vaft.formula._docstring import (
 
 #: Identities and bookkeeping: no literature source adds anything.
 DEFINITIONAL = frozenset({
-    # The share of a finite response a Jacobian misses (#1642): a ratio of norms.
+    # The share of a finite response a Jacobian misses: a ratio of norms.
     "linearity_ratio",
-    # The operational-boundary data model (#1067): evaluation and registry
+    # The operational-boundary data model: evaluation and registry
     # plumbing. The physics and its sources live on each registered entry.
     "boundary_value",
     "evaluate_boundary",
@@ -38,7 +38,7 @@ DEFINITIONAL = frozenset({
     "same_quantity",
     "get_boundary",
     "list_boundaries",
-    # A change of coordinates onto the Hugill plane (#1068); q_cyl carries its own source.
+    # A change of coordinates onto the Hugill plane; q_cyl carries its own source.
     "hugill_coordinates",
     # Freidberg's q* of an elongated tokamak, Eq. (13.160): a coordinate, its source is in the docstring.
     "kink_coordinates",
@@ -46,9 +46,9 @@ DEFINITIONAL = frozenset({
     "cylindrical_kink_coordinates",
     "iter_q95_coordinates",
     "start_q95_coordinates",
-    # The spherical-tokamak Hugill coordinates of Sykes et al. (2000), #1602; the source is in the docstring.
+    # The spherical-tokamak Hugill coordinates of Sykes et al. (2000); the source is in the docstring.
     "hugill_coordinates_st",
-    # A parameterization with no physics of its own (#552).
+    # A parameterization with no physics of its own.
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",
     "aspect_ratio_from_a_R",
@@ -92,31 +92,31 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
-    # diamagnetic-flux sign: B_phi0 * Phi_dia > 0 is paramagnetic, one signed frame, no abs() (#684)
+    # diamagnetic-flux sign: B_phi0 * Phi_dia > 0 is paramagnetic, one signed frame, no abs()
     "beta_p_diamagnetic_from_flux_circular",
     "beta_p_diamagnetic_from_flux_elliptic",
-    # DD clockwise poloidal_angle (#288, #293); beta_N units (#349); vacuum B0 at r0;
-    # li_3 vs li_1 and its R0 (#403)
+    # DD clockwise poloidal_angle; beta_N units; vacuum B0 at r0;
+    # li_3 vs li_1 and its R0
     "probe_axis",
     "project_poloidal_field",
     "beta_normal_from_beta_tor",
     "beta_toroidal_from_p_B0",
     "li_3_from_Bp2_volume_integral",
-    # positive-when-holds criteria vs GGJ's negative-when-stable indices; toroidal-flux well (#1635)
+    # positive-when-holds criteria vs GGJ's negative-when-stable indices; toroidal-flux well
     "suydam_criterion",
     "mercier_criterion_circular",
     "ggj_ideal_interchange_index",
     "ggj_resistive_interchange_index",
     "magnetic_well_from_specific_volume",
     "bussac_internal_kink_energy",
-    # moves by (2 pi)^2 with the flux label: psi must be per radian (#1637)
+    # moves by (2 pi)^2 with the flux label: psi must be per radian
     "ballooning_alpha_from_volume",
-    # the growth rate is in Alfven units v_A/(qR); Dirichlet ends on the extended angle (#1075)
+    # the growth rate is in Alfven units v_A/(qR); Dirichlet ends on the extended angle
     "s_alpha_ballooning_eigenmode",
     "ballooning_radial_wavenumber",
-    # toroidal shift of the generalized SFL family: signed q, paired with the PEST angle (#1074)
+    # toroidal shift of the generalized SFL family: signed q, paired with the PEST angle
     "sfl_toroidal_angle_shift",
-    # SOL blobs (#1211): one paper's Gaussian size convention; prefactors differ between papers
+    # SOL blobs: one paper's Gaussian size convention; prefactors differ between papers
     "blob_reference_size",
     "blob_reference_velocity",
     "blob_collisionality",
@@ -126,13 +126,13 @@ CONVENTION_SENSITIVE = frozenset({
     "blob_regime_velocities",
     "blob_density_perturbation",
     "blob_crossover_size",
-    # NBI: per-component energy in eV, path density not volumetric, signed tangency radius (#1136)
+    # NBI: per-component energy in eV, path density not volumetric, signed tangency radius
     "beam_particle_rate_from_power_energy",
     "neutral_beam_optical_depth",
     "beam_birth_probability_density",
     "shine_through_fraction",
     "injected_toroidal_angular_momentum_rate",
-    # cold-plasma waves: signed Omega_s, Stix sign convention, +-roots are not mode names (#1113)
+    # cold-plasma waves: signed Omega_s, Stix sign convention, +-roots are not mode names
     "plasma_frequency",
     "stix_parameters",
     "dielectric_tensor",
@@ -140,17 +140,17 @@ CONVENTION_SENSITIVE = frozenset({
     "perpendicular_refractive_index_squared",
     "cma_coordinates",
     "propagation_regime",
-    # orbit scales on explicit speeds and collision frequencies, not a nu_* convention (#1111)
+    # orbit scales on explicit speeds and collision frequencies, not a nu_* convention
     "transit_frequency",
     "deeply_trapped_bounce_frequency",
     "trapped_particle_effective_collision_frequency",
     "banana_width",
     "collisions_per_transit",
     "neoclassical_regime_boundaries",
-    # NTV: toroidal omega_E (not omega_tor) and psi = R A_phi sign (#1111)
+    # NTV: toroidal omega_E (not omega_tor) and psi = R A_phi sign
     "ntv_precession_frequency",
     "nonambipolar_torque_density",
-    # scrape-off layer (#951): closure, sheath-edge vs upstream density, kappa_0, midplane vs target widths
+    # scrape-off layer: closure, sheath-edge vs upstream density, kappa_0, midplane vs target widths
     "ion_sound_speed",
     "sheath_particle_flux",
     "ion_saturation_current_density",
@@ -161,7 +161,7 @@ CONVENTION_SENSITIVE = frozenset({
     "eich_integral_width",
     "radiative_condensation_growth_rate",
     "radiative_thermal_instability_growth_rate",
-    # normalized-flux profile kernels: which psi_N, and df/dpsi_N not df/dpsi (#552)
+    # normalized-flux profile kernels: which psi_N, and df/dpsi_N not df/dpsi
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",
     "modified_tanh_profile",
@@ -189,7 +189,7 @@ CONVENTION_SENSITIVE = frozenset({
     "rhoN_from_phi",
     "rho_tor_from_phi",
     "toroidal_flux_from_q_psi",
-    # li_3 vs li_1, and the radius li_3 was normalised by (#782)
+    # li_3 vs li_1, and the radius li_3 was normalised by
     "internal_inductance_from_li_3_R0",
     "li_3_from_internal_inductance_R0",
     "q_from_phi",
@@ -290,7 +290,7 @@ CONVENTION_SENSITIVE = frozenset({
     "green_psi_exact",
     "green_br_bz_exact",
     "green_r",
-    # Romero's transformer (#781): full-weber flux, V = -dpsi/dt, and the
+    # Romero's transformer: full-weber flux, V = -dpsi/dt, and the
     # sign of psi_C - psi_B.
     "resistive_voltage_from_R_p_I_p_I_ni",
     "internal_inductance_rate_from_I_p_V_R_V_C",
@@ -305,7 +305,7 @@ CONVENTION_SENSITIVE = frozenset({
     "fractional_abundances",
     "line_cooling_coefficient",
     # Neoclassical: the Coulomb-logarithm and collisionality conventions
-    # differ from the three already in the package (issue #353), and the
+    # differ from the three already in the package, and the
     # bootstrap current carries the Wb-per-radian and COCOS sign choice.
     "coulomb_logarithm_electron_sauter",
     "coulomb_logarithm_ion_sauter",
@@ -319,8 +319,8 @@ CONVENTION_SENSITIVE = frozenset({
     "redl_bootstrap_coefficients",
     "sauter_bootstrap_current",
     "redl_bootstrap_current",
-    # startup (#783): pascal-vs-torr, kelvin-vs-eV, molecular-vs-atomic, and a
-    # field magnitude where the flux kernels disagree on sign (#354).
+    # startup: pascal-vs-torr, kelvin-vs-eV, molecular-vs-atomic, and a
+    # field magnitude where the flux kernels disagree on sign.
     "neutral_density_from_pressure",
     "atomic_inventory_from_molecular_gas",
     "townsend_ionization_coefficient",
@@ -330,27 +330,27 @@ CONVENTION_SENSITIVE = frozenset({
     "electron_cyclotron_resonance_radius",
     "breakdown_margin",
     "lloyd_figure_of_merit",
-    # the lumped circuit (#783 3.6-3.8): transverse vs parallel resistivity,
+    # the lumped circuit: transverse vs parallel resistivity,
     # the resistivity the ring resistance must be fed, the li normalisation,
     # and the sign of the loop voltage against the current.
     "resistivity_from_n_e_nu_e",
     "plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa",
     "plasma_inductance_circular_from_R0_a_li",
     "plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p",
-    # burn-through (#783 3.9): atoms not molecules, and plasma-local densities
+    # burn-through: atoms not molecules, and plasma-local densities
     # rather than vessel averages.
     "neutral_density_after_ionization_from_n_0_n_e_V_p_V_V",
     "ionization_fraction_from_n_e_n_D0",
-    # #782: Romero's full-weber V_B = -dpsi_B/dt, and the one-half on dL_i/dt.
+    # Romero's full-weber V_B = -dpsi_B/dt, and the one-half on dL_i/dt.
     "boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j",
     "internal_inductive_voltage_terms_from_L_i_I_p",
-    # cylindrical q, not q95, on the Hugill y axis (#1068)
+    # cylindrical q, not q95, on the Hugill y axis
     "hugill_coordinates",
 })
 
 #: Fitted coefficients or scalings: the source dataset must be named.
 EMPIRICAL = frozenset({
-    # Makowski 2012 fit of the Eich profile integral (#951)
+    # Makowski 2012 fit of the Eich profile integral
     "eich_integral_width",
     "greenwald_density",
     "confinement_time_from_engineering_parameters",
@@ -379,7 +379,7 @@ EMPIRICAL = frozenset({
     "townsend_coefficients_for_gas",
     "townsend_breakdown_field_for_gas",
     "romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau",
-    # Bohm 1949: the 1/16 coefficient is an arc-discharge observation (#1112)
+    # Bohm 1949: the 1/16 coefficient is an arc-discharge observation
     "bohm_diffusivity_from_T_B",
 })
 

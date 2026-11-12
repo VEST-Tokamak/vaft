@@ -1,4 +1,4 @@
-"""The diamagnetic-flux sign convention, end to end (issues #385, #1196).
+"""The diamagnetic-flux sign convention, end to end.
 
 One convention, EFIT's own: DFLUX is signed, and the reconstruction is fitted
 against ``cdflux = integral (B_t - B_tv) dA`` signed with B_t.  In VEST's
@@ -6,9 +6,9 @@ positive toroidal field a *paramagnetic* plasma is therefore a positive flux,
 and a diamagnetic one negative.  Pinned here:
 
 * the mapper keeps the donor's sign (`VEST_DiamagneticFlux.m` returns
-  ``DiaFlux - Baseline2``); the port once negated it, and #385 read the
+  ``DiaFlux - Baseline2``); the port once negated it, and a reconstruction check read the
   negated value as a diamagnetic plasma.  The packaged samples were corrected
-  in place (#1196) and must equal a fresh mapping of their raw source;
+  in place and must equal a fresh mapping of their raw source;
 * the k-file writer passes the stored, signed measurement through (it used to
   take the absolute value, inherited from a magnitude-only donor fitter);
 * the reconstructed-flux kernel is EFIT's definition, so its sign follows the
@@ -74,7 +74,7 @@ def _measured_at_slice(sample, index=SLICE):
 # --- the mapper ----------------------------------------------------------------
 
 def test_the_mapper_keeps_the_donor_sign():
-    """No negation between the triple integration and the stored flux (#1196),
+    """No negation between the triple integration and the stored flux,
     and the product says which convention it was mapped under."""
     from vaft.machine_mapping import magnetics
 
@@ -192,9 +192,9 @@ def test_the_measured_loop_and_the_reconstruction_agree_in_sign(sample):
     """Both paramagnetic, within 20 % of each other in size, and the loop
     implies an ordinary ohmic beta_p.
 
-    Under the negated flux #385/#386 read the loop as a beta_p ~ 1.44 plasma
+    Under the negated flux the loop read as a beta_p ~ 1.44 plasma
     the reconstruction did not reproduce -- a '~90x pressure deficit'.  With
-    the sign corrected (#1196) the loop's diamagnetic beta_p is ~0.18 against
+    the sign corrected the loop's diamagnetic beta_p is ~0.18 against
     the reconstruction's 0.034: a factor of a few, not two orders.
     """
     from vaft.formula.equilibrium import virial_beta_pd_from_S_mu_rt

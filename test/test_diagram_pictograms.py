@@ -1,4 +1,4 @@
-"""Semantic vector pictograms (#2101): registry, restricted SVG conversion, placement, renderers, provenance."""
+"""Semantic vector pictograms: registry, restricted SVG conversion, placement, renderers, provenance."""
 
 import hashlib
 import math

@@ -1,7 +1,7 @@
-"""The plasma formalism of each GPEC-suite run (#1734, Phase C1 of #1723).
+"""The plasma formalism of each GPEC-suite run.
 
 Derived from the prepared namelists, never entered by hand; the classification is
-the Phase A audit's (``docs/_guide/Plasma_models.md`` section 3, #1725).
+the Phase A audit's (``docs/_guide/Plasma_models.md`` section 3).
 """
 
 from __future__ import annotations
@@ -198,7 +198,7 @@ def test_the_suite_attaches_a_formalism_to_every_prepared_cell(tmp_path, monkeyp
 
 
 def test_the_record_travels_with_mhd_linear(tmp_path):
-    """Phase A deferred this to #1734: the ODS provenance carries the formalism too."""
+    """The ODS provenance carries the formalism too."""
     pytest.importorskip("omas")
     from omas import ODS
 

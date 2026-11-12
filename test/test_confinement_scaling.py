@@ -268,7 +268,7 @@ class ConfinementScalingTests(unittest.TestCase):
             ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux(np.nan, 0.002)
 
     def test_every_scaling_declares_its_energy_and_power_basis(self):
-        # Issue #1713's assignments.
+        # The declared energy and power basis of each scaling.
         expected = {"ITER89P": "global", "ITER97L": "thermal", "H98y2": "thermal",
                     "NSTX2006H": "thermal", "NSTX2006L": "global"}
         for name, basis in expected.items():

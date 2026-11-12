@@ -3,7 +3,7 @@
 Both diagnostics used to have no HSDS publication contract at all: neither was
 an `OMASStage`, neither owned a `STAGE_REPLICATION` entry, and their products
 sat outside the `FileDBDomain` grammar so `FileDB.resolve` could not address
-them (#599).
+them.
 
 They own IDS no other stage claims, so both publish into the baseline source.
 The high-frame-rate camera set is the exception: it owns the *same* IDS as
@@ -122,7 +122,7 @@ def test_the_split_is_by_source_not_by_occurrence():
     """Lazy HSDS access reads occurrence 0 only.
 
     Separating the lineages by occurrence would leave the fluctuation product
-    unreadable through the path #161's analysis would use.
+    unreadable through the path the fluctuation analysis uses.
     """
     for stage in ("camera_visible", "camera_visible_fluctuation"):
         assert sources.replication_for_stage(stage).occurrence == 0

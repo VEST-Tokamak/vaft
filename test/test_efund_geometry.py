@@ -1,4 +1,4 @@
-"""The canonical-to-EFUND projection (issue #194).
+"""The canonical-to-EFUND projection.
 
 Invariant under test: canonical static geometry -> EFUND input, in the
 em_coupling order, with the F-coil groups the k-file already selects.
@@ -40,7 +40,7 @@ def geometry(static):
 
 @pytest.fixture(scope="module")
 def packaged_mhdin():
-    # The legacy namelist, moved aside by #708 when the shipped one grew to
+    # The legacy namelist, moved aside when the shipped one grew to
     # describe every circuit. It is kept precisely for the comparison below:
     # the same machine, written by other hands.
     return f90nml.read(str(data_path("efit/legacy/mhdin.dat")))
@@ -48,7 +48,7 @@ def packaged_mhdin():
 
 def test_counts_are_the_legacy_table_counts_with_the_canonical_pf1(geometry):
     assert geometry.counts() == {
-        # #708: every circuit the machine has, not only the five the reference
+        # Every circuit the machine has, not only the five the reference
         # era energised. All 530 filaments of the asset, in 26 current groups.
         "nfcoil": 530,
         "nfsum": 26,
@@ -235,7 +235,7 @@ def test_packaged_pf_groups_agree_on_centroids_and_turns_but_not_discretization(
     self-consistent. It lumps each coil where the projection resolves
     filaments, which is the one thing it must disagree about.
 
-    Matched by name and not by position: since #708 the projection describes
+    Matched by name and not by position: the projection describes
     every circuit the machine has, so its rows are a superset of the legacy
     file's sixteen and in a different order. Comparing them by index would
     hold PF2 against PF5.

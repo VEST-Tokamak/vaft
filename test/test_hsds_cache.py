@@ -1,4 +1,4 @@
-"""The local HSDS domain cache is bounded and manageable (#1759, #964).
+"""The local HSDS domain cache is bounded and manageable.
 
 Offline: HSDS is replaced by a fake that writes small HDF5 files, and every
 cache lives under ``tmp_path``.

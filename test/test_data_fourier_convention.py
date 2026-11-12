@@ -1,4 +1,4 @@
-"""Declared toroidal Fourier conventions and their explicit conversion (#2163)."""
+"""Declared toroidal Fourier conventions and their explicit conversion."""
 from __future__ import annotations
 
 import numpy as np

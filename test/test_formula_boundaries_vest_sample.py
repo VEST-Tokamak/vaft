@@ -1,4 +1,4 @@
-"""Density-limit boundaries evaluated from the packaged VEST sample (#1297 step 5, #636).
+"""Density-limit boundaries evaluated from the packaged VEST sample.
 
 This is the executable version of the recipe handed to lane D: take R_geo, B_T,
 a, kappa_a and I_p from a reconstructed equilibrium, then draw the Greenwald

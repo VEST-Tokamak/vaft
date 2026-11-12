@@ -1,4 +1,4 @@
-"""Canonical field configurations and reconnection topology (#1063): the drawn fields are the formulas'."""
+"""Canonical field configurations and reconnection topology: the drawn fields are the formulas'."""
 
 import math
 

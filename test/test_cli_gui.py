@@ -1,4 +1,4 @@
-"""``vaft gui``: parsing, the missing-Panel message and argument pass-through (#1086)."""
+"""``vaft gui``: parsing, the missing-Panel message and argument pass-through."""
 
 from __future__ import annotations
 

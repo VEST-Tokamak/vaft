@@ -1,4 +1,4 @@
-"""Impurity-mixture algebra (#1565 Stage A): the issue's reference values, conservation and round trips."""
+"""Impurity-mixture algebra: the reference values, conservation and round trips."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def _plasma_zeff(fractions, charges, main_fraction, main_charge=1.0):
     return z_eff_from_n_s_Z_s(n, z, n_e=1.0)
 
 
-# --- the #1565 reference case: C6+:O8+ = 1:1, Z_eff = 2 ---------------------
+# --- the reference case: C6+:O8+ = 1:1, Z_eff = 2 ---------------------------
 
 
 def test_reference_moments():
@@ -165,7 +165,7 @@ def test_a_mixture_no_more_charged_than_the_main_ion_cannot_raise_zeff():
         solve_impurity_mixture_for_target_zeff(1.5, [1.0], [1.0])
 
 
-# --- dilution (#1565 comment) --------------------------------------------------
+# --- dilution -------------------------------------------------------------------
 
 
 def test_dilution_from_zeff_matches_the_species_route():
@@ -179,7 +179,7 @@ def test_dilution_from_zeff_matches_the_species_route():
 
 
 def test_same_zeff_different_dilution():
-    """A Z_eff scan is not a dilution scan (#1565 comment)."""
+    """A Z_eff scan is not a dilution scan."""
     assert main_ion_fraction_from_zeff(2.0, 6.0) == pytest.approx(0.8)
     assert main_ion_fraction_from_zeff(2.0, 50 / 7) == pytest.approx(36 / 43)
 

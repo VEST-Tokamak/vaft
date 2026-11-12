@@ -1,4 +1,4 @@
-"""Classical fast-ion slowing down and multi-species collision times (#1606): limits, coefficients, closed forms."""
+"""Classical fast-ion slowing down and multi-species collision times: limits, coefficients, closed forms."""
 
 from __future__ import annotations
 

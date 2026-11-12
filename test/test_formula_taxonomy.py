@@ -1,4 +1,4 @@
-"""Reduced-representation taxonomy (#1626): vocabulary, parsing, catalog exposure and filters."""
+"""Reduced-representation taxonomy: vocabulary, parsing, catalog exposure and filters."""
 
 import pytest
 

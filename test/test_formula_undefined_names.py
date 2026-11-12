@@ -1,14 +1,14 @@
-"""Every name a vaft.formula function uses has to exist (issue #753).
+"""Every name a vaft.formula function uses has to exist.
 
 `cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e` referenced `e`,
-`epsilon_0`, `m_e` and `c` -- module-level constants that #368 had moved into
+`epsilon_0`, `m_e` and `c` -- module-level constants that had been moved into
 `constants.py` under their upper-case names. It was the one caller left behind,
 so it raised `NameError` on every call, which is another way of saying nothing
 had ever executed it.
 
 The check that catches this is ruff's F821, and it was silently off: a star
 import makes ruff abandon undefined-name analysis for the whole module, and
-#711's `from .virial import *` compatibility shim had switched it off for the
+the `from .virial import *` compatibility shim had switched it off for the
 4000-line formula module. Both halves are pinned here -- the physics, so the
 correction cannot be reverted to a plausible-looking wrong constant, and the
 coverage, so the next shim cannot turn the check off again.
@@ -90,7 +90,7 @@ def test_no_formula_module_references_an_undefined_name():
 
 
 def test_the_virial_compatibility_shim_still_re_exports_without_a_star_import():
-    """#711's shim kept working when the star import became explicit.
+    """The virial shim kept working when the star import became explicit.
 
     `from vaft.formula.equilibrium import virial_*` has to keep resolving, and
     the names must stay out of this module's `__all__` so the catalog attributes

@@ -1,4 +1,4 @@
-"""Canonical transport concept diagrams (#1112): structure from roles and the model, not pixels."""
+"""Canonical transport concept diagrams: structure from roles and the model, not pixels."""
 
 import numpy as np
 import pytest

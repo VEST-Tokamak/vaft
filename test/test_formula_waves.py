@@ -1,4 +1,4 @@
-"""Cold-plasma waves (#1113): Stix parameters, dispersion roots, conventions and classification."""
+"""Cold-plasma waves: Stix parameters, dispersion roots, conventions and classification."""
 
 import numpy as np
 import pytest

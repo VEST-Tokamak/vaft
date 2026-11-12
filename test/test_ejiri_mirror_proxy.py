@@ -1,4 +1,4 @@
-"""The Ejiri mirror proxy: the process half of issue #676.
+"""The Ejiri mirror proxy: the process layer.
 
 The two relations live in ``vaft.formula.startup`` and are tested there. What is
 pinned here is the geometry read off a field line: the synthetic fields below are
@@ -221,7 +221,7 @@ def test_the_inboard_limiter_is_the_nearest_crossing_inboard_of_the_start():
 
 
 # ---------------------------------------------------------------------------
-# Cold review of #958
+# Cold-review findings
 # ---------------------------------------------------------------------------
 
 def test_a_start_one_step_from_the_wall_reads_as_no_confinement():

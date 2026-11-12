@@ -65,7 +65,7 @@ def test_this_file_lists_the_submodules_the_package_does():
     It exists so a reordering on the package side is caught rather than
     mirrored.  That only works if a divergence fails here saying so: without
     this, adding a submodule surfaced three files away as an opaque set
-    difference between two large name sets (#711).
+    difference between two large name sets.
     """
     assert _IMPORT_ORDER == vaft.formula._IMPORT_ORDER, (
         "this file's copy of the submodule order has drifted from the package's; "
@@ -183,7 +183,7 @@ def test_a_shadowed_name_resolves_to_the_last_submodule_that_defined_it(
 def test_only_one_name_is_exported_by_more_than_one_submodule():
     """Shadowing used to be accidental; now it is a single deliberate case.
 
-    Before #368 no submodule declared ``__all__``, so every re-imported name --
+    At one time no submodule declared ``__all__``, so every re-imported name --
     ``gradient`` reaching stability from utils, ``MU0``/``QE``/``ME`` reaching
     green and stability from constants -- was re-exported by each module that
     imported it, and resolution depended on import order rather than on where
@@ -243,17 +243,17 @@ def test_dir_lists_the_public_surface():
 
 
 def test_importing_the_catalog_alone_loads_only_its_parser():
-    # The discovery layer (issue #248) is opt-in: reaching it must not drag a
+    # The discovery layer is opt-in: reaching it must not drag a
     # single physics submodule in until a formula is actually looked up.
     assert _import_in_subprocess("import vaft.formula.catalog") == {
         "vaft.formula.catalog",
         "vaft.formula._docstring",
-        "vaft.formula._taxonomy",  # the Reduction vocabulary (#1626): tuples, no physics
+        "vaft.formula._taxonomy",  # the Reduction vocabulary: tuples, no physics
     }
 
 
 # ---------------------------------------------------------------------------
-# The star export publishes formulas, not the modules' own imports (issue #368)
+# The star export publishes formulas, not the modules' own imports
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize(
@@ -271,7 +271,7 @@ def test_a_re_imported_name_is_not_a_formula(name):
     "old_name", ["e", "eV_to_J", "m_e", "epsilon_0", "k_B", "c", "h"],
 )
 def test_a_leaked_duplicate_constant_is_gone(old_name):
-    """`vaft.formula.e` was the elementary charge (#368); the one-release shim
+    """`vaft.formula.e` was the elementary charge; the one-release shim
     that mapped it onto `QE` was promised gone in 0.8.0, and is."""
     assert old_name not in vaft.formula.__all__
     with pytest.raises(AttributeError, match=f"no attribute '{old_name}'"):

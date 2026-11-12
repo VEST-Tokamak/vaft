@@ -200,7 +200,7 @@ class DimensionlessScalingTests(unittest.TestCase):
 
 
 class EngineeringToDimensionlessTests(unittest.TestCase):
-    """The engineering-exponent transformation (issue #352).
+    """The engineering-exponent transformation.
 
     It returned a bare ``None`` on the degenerate branch, so every caller --
     all of which unpack a 5-tuple -- failed on the unpack with a ``TypeError``
@@ -245,7 +245,7 @@ class EngineeringToDimensionlessTests(unittest.TestCase):
         return np.linalg.solve(matrix, vector)
 
     def test_ipb98_reproduces_the_published_dimensionless_form(self):
-        """#351: IPB98(y,2) is rho*^-2.70 beta^-0.90 nu*^-0.01 (ITER PB 1999)."""
+        """IPB98(y,2) is rho*^-2.70 beta^-0.90 nu*^-0.01 (ITER PB 1999)."""
         mu_rho, mu_beta, mu_nu, mu_M, mu_kappa = (
             dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(**self.IPB98)
         )
@@ -263,7 +263,7 @@ class EngineeringToDimensionlessTests(unittest.TestCase):
             dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(**e)
         )
         np.testing.assert_allclose([mu_rho, mu_beta, mu_nu], [x, y, z], atol=1e-12)
-        # The pre-#351 closed form gave (8.4, -4.2, 0.7) here.
+        # Regression guard for #351: the old closed form gave (8.4, -4.2, 0.7) here.
         self.assertAlmostEqual(mu_rho, -1.9, places=12)
 
     def test_random_exponents_match_the_dimensional_analysis(self):
@@ -297,7 +297,7 @@ class EngineeringToDimensionlessTests(unittest.TestCase):
         self.assertAlmostEqual(a_n, e["a_n"], places=12)
 
     def test_check_and_verify_compute_the_same_residual(self):
-        """#351: the two Kadomtsev checks used to disagree (-0.15 vs 16.4)."""
+        """Regression guard for #351: the two Kadomtsev checks disagreed (-0.15 vs 16.4)."""
         rng = np.random.default_rng(548)
         for a_I, a_B, a_P, a_n, a_R in rng.uniform(-1.5, 2.5, size=(50, 5)):
             if abs(1 + a_P) < 0.05:

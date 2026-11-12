@@ -1,7 +1,7 @@
-"""DCON's two edge treatments, read back from real GPEC output (#792).
+"""DCON's two edge treatments, read back from real GPEC output.
 
 The fixtures under ``test/data/gpec/dcon_edge_792/`` are trimmed copies of two
-real DCON runs. Equilibrium: shot 39915 at 319 ms, a "good" slice of the #1331
+real DCON runs. Equilibrium: shot 39915 at 319 ms, a "good" slice of the
 ``statistical_891`` campaign, CHEASE-refined by the pipeline's
 ``run_chease_refinement.py``. Run: GPEC e68d7ac2 on vestserver, n=1, packaged
 templates, with ``bal_flag=t``.

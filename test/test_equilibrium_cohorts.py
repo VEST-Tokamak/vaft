@@ -1,6 +1,6 @@
-"""What failed, in which operating regime (#76).
+"""What failed, in which operating regime.
 
-The join of #820's regime labels and #845's termination evidence. These pin
+The join of the regime labels and the EFIT termination evidence. These pin
 the join rule -- by time, never by position -- and the three ways it is
 allowed to be incomplete.
 """
@@ -148,7 +148,7 @@ def test_every_mode_is_one_of_the_declared_ones():
 
 
 def test_the_cohorts_say_whether_failures_sort_by_phase():
-    """The question #76 exists to ask, on the shape 46742 actually showed."""
+    """Whether failures sort by operating phase, on the shape 46742 actually showed."""
     currents = [20_000, 60_000, 100_000, 98_000, 95_000, 60_000, 30_000, 5_000]
     limloc = ["IN" if value >= 90_000 else "" for value in currents]
     ods = _reconstruction(currents, limloc=limloc)

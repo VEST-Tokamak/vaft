@@ -1,9 +1,9 @@
 """The probe projection rule, in one place, read the way the IMAS DD reads it.
 
-Issue #288 found VAFT storing ``pi/2`` and projecting with ``(cos, +sin)`` --
-two errors that cancelled.  #293 fixed the stored angle; this module is where
+VAFT once stored ``pi/2`` and projected with ``(cos, +sin)`` --
+two errors that cancelled.  The stored angle is now 3*pi/2; this module is where
 the projection lives so that no consumer can carry the other half of the
-mistake on its own (a downstream solver did, after #293 moved the angle).
+mistake on its own (a downstream solver did, after the angle moved).
 """
 
 import math

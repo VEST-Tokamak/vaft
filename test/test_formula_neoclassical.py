@@ -9,7 +9,7 @@ coefficient fits, the collisionality convention and the current assembly.
 
 The fixtures in `test/data/gacode/neo_reg18/` are a real NEO run of that case,
 GACODE 6357db30, whose `out.neo.prec` reproduced the shipped reference value
-exactly. Nothing here needs GACODE installed (issue #550).
+exactly. Nothing here needs GACODE installed.
 """
 
 from __future__ import annotations
@@ -250,7 +250,7 @@ def test_redl_is_closer_than_sauter_to_neo_on_the_vest_state(vest):
     what makes it the defensible default for a spherical tokamak.
 
     This is a physics-model comparison, not a solver check: a Sauter-NEO gap of
-    this size is a real property of the model, not a failure (issue #550).
+    this size is a real property of the model, not a failure.
     """
     arguments = vest.current_arguments()
     reference = vest.neo_bootstrap_current
@@ -296,7 +296,7 @@ def test_the_models_separate_at_spherical_tokamak_shape(reg18):
     """At VEST's trapped fraction the two fits no longer agree.
 
     The 1999 fit is an extrapolation there and the 2021 refit is not, so the
-    growing gap is the documented reason `redl_*` exists (issue #550).
+    growing gap is the documented reason `redl_*` exists.
     """
     arguments = reg18.current_arguments()
     conventional = abs(
@@ -366,7 +366,7 @@ def test_sauter_electron_coulomb_log_differs_from_the_nrl_one_by_its_constant():
     """The two conventions differ by exactly 31.3 - 30.9, and no more.
 
     Mixing them is the failure this pins: the collisionality fits here were
-    built on the Sauter constant (issue #353).
+    built on the Sauter constant.
     """
     from vaft.formula.equilibrium import coulomb_logarithm_from_n_T
 

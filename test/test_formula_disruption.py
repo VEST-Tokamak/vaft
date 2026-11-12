@@ -1,4 +1,4 @@
-"""Disruption reference relations (#1041): the formulas evaluated against independent numbers and each other."""
+"""Disruption reference relations: the formulas evaluated against independent numbers and each other."""
 
 import math
 

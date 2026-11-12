@@ -1,4 +1,4 @@
-"""Clebsch labels and ballooning representation (#1075): the drawn physics is the formulas'."""
+"""Clebsch labels and ballooning representation: the drawn physics is the formulas'."""
 
 import math
 

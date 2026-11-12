@@ -1,4 +1,4 @@
-"""The VEST data platform diagram (#1550): content from the declarative constants, layout as specified."""
+"""The VEST data platform diagram: content from the declarative constants, layout as specified."""
 
 import re
 

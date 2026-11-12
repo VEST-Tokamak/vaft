@@ -1,4 +1,4 @@
-"""VDE diagrams (#1042): scraping lowers the edge q, the branches and timescales are the formulas'."""
+"""VDE diagrams: scraping lowers the edge q, the branches and timescales are the formulas'."""
 
 import numpy as np
 import pytest

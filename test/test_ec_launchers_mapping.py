@@ -1,4 +1,4 @@
-"""VEST 6 kW 2.45 GHz ECH power mapping into `ec_launchers` (issue #165).
+"""VEST 6 kW 2.45 GHz ECH power mapping into `ec_launchers`.
 
 The forward (field 27) and reflected (field 28) detector voltages go through
 the legacy log-detector calibration, whose exponent explodes on negative-going
@@ -234,7 +234,7 @@ def test_a_spike_is_masked_before_resampling_not_smeared_into_power(monkeypatch)
 
 
 # --------------------------------------------------------------------------- #
-# Launch condition from the EC officer's CAD (issue #266)
+# Launch condition from the EC officer's CAD
 # --------------------------------------------------------------------------- #
 
 

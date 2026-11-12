@@ -1,4 +1,4 @@
-"""Registry/config regression tests for the outboard fluctuation-Mirnov array (issue #155)."""
+"""Registry/config regression tests for the outboard fluctuation-Mirnov array."""
 
 from unittest.mock import patch
 
@@ -150,7 +150,7 @@ def _synthetic_fluctuation_raw_loader():
     VEST clock angle the configuration stores.  A physical mode number is
     defined on the physical toroidal coordinate; injecting against the
     clockwise-positive clock angle would make this test a round trip through
-    one frame rather than a statement about a mode (issue #718).
+    one frame rather than a statement about a mode.
     """
     by_field = {int(c["field"]): c for c in fluctuation_mirnov_channel_definitions()}
     time = np.arange(0.2, 0.4, 1.0 / NATIVE_SAMPLE_RATE)
@@ -200,7 +200,7 @@ def _map_synthetic_fluctuation_shot(shot=44740, tstart=0.26, tend=0.36, loader=N
 def test_toroidal_mode_recovered_end_to_end_through_the_mapper():
     """Synthetic raw source -> mapper -> ODS -> semantic discovery -> phase fit.
 
-    This is issue #155 requirements 7, 8 and 10 in one path: the probes are
+    Three requirements in one path: the probes are
     found by geometry rather than by index, the voltage that comes back is at
     the native acquisition rate, and the injected toroidal mode number
     survives the round trip.
@@ -227,7 +227,7 @@ def test_toroidal_mode_recovered_end_to_end_through_the_mapper():
         angles.append(float(get_path(payload, f"{base}.position.phi")))
 
     # Cropped to the analysis window, but never resampled onto the 25 kHz
-    # equilibrium grid (issue #136).
+    # equilibrium grid.
     assert time.size == round((0.36 - 0.26) * NATIVE_SAMPLE_RATE)
     assert np.isclose(np.median(np.diff(time)), 1.0 / NATIVE_SAMPLE_RATE)
     # The IMAS toroidal angles, not the 45/135/225 clock angles the identifiers
@@ -476,7 +476,7 @@ def test_reversing_the_angular_handedness_reverses_the_fitted_mode_number():
     reflection, ``phi = -clock + C``, not an offset.  Fitting one set of
     measured phases against the two frames therefore returns ``n`` and ``-n``.
 
-    Issue #718 changed which frame the mapper writes, so this is the behaviour
+    The mapper's output frame once changed, so this is the behaviour
     that changed under it; pinning it here stops a future edit from flipping
     the sign of every published mode number silently.  The IMAS answer is the
     correct one -- the legacy clock frame is left-handed with respect to the

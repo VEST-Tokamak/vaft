@@ -1,4 +1,4 @@
-"""Two EFIT roles, one root, one lineage (issue #194)."""
+"""Two EFIT roles, one root, one lineage."""
 
 from __future__ import annotations
 

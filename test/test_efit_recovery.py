@@ -1,4 +1,4 @@
-"""The Gaussian recovery backend, outside the constraint builder (issue #296)."""
+"""The Gaussian recovery backend, outside the constraint builder."""
 
 from __future__ import annotations
 

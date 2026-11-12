@@ -1,8 +1,8 @@
-"""The plasma formalism of each GACODE-suite run (#1735, Phase C2 of #1723).
+"""The plasma formalism of each GACODE-suite run.
 
 NEO, TGLF, TGLF-NN and CGYRO share VAFT's GACODE plumbing but not their physics. Each
 record is derived from the ``KEY=VALUE`` input the run was written with. The
-cross-model tests at the end pin the distinctions #1735 section 21 says must not
+cross-model tests at the end pin the distinctions that must not
 collapse.
 """
 

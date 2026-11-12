@@ -227,7 +227,7 @@ def test_stack_limit_wraps_only_where_ulimit_can_act(monkeypatch):
 
 
 def test_runtime_status_is_derived_from_timed_out_and_kept_consistent():
-    """#1016: every backend result names how the run ended."""
+    """Every backend result names how the run ended."""
     from vaft.code.execution import timeout_reason
 
     assert ExecutionResult(returncode=0).runtime_status == "completed"
@@ -263,7 +263,7 @@ def test_a_local_timeout_reports_runtime_status(tmp_path):
     assert (result.timed_out, result.runtime_status) == (True, "timeout")
 
 
-# -- python_task_request (#1147) ------------------------------------------------
+# -- python_task_request ------------------------------------------------
 
 _TASK = """
 import json, os, sys
@@ -357,7 +357,7 @@ def test_python_task_request_refuses_bad_input(tmp_path):
         python_task_request("m", workdir=tmp_path / "missing")
     with pytest.raises(TypeError, match="propagate"):
         python_task_request("m", workdir=tmp_path, propagate="PYTHONPATH")
-# -- submit / wait / cancel (#1018) ----------------------------------------------
+# -- submit / wait / cancel ----------------------------------------------
 
 
 def _request(tmp_path: Path, code: str, **request) -> ExecutionRequest:
@@ -470,7 +470,7 @@ def test_wait_handles_first_completed(tmp_path):
 
 
 def test_memory_admission_stops_waiting_once_cancelled(tmp_path, monkeypatch):
-    """Cold review #1018: a cancelled request does not wait out admission_wait_s."""
+    """A cancelled request does not wait out admission_wait_s."""
     from vaft.code._memory_gate import MemoryLedger
 
     ledger = MemoryLedger(tmp_path, floor_mb=0.0)
@@ -482,7 +482,7 @@ def test_memory_admission_stops_waiting_once_cancelled(tmp_path, monkeypatch):
     assert time.monotonic() - started < 5
 
 
-# -- config-level resources and thread precedence (#1016) ----------------------
+# -- config-level resources and thread precedence ----------------------
 
 _CONFIGS_WITH_BACKEND = (
     ("vaft.code.base", "CodeConfig"),

@@ -1,5 +1,5 @@
 """``generate_chease_ods.py`` embeds `chease_runs.json`'s comparison metrics
-onto the refined ODS (issue #172), so the ODS itself -- not only the g-files
+onto the refined ODS, so the ODS itself -- not only the g-files
 -- carries what the ``chease`` validation stage needs.
 """
 
@@ -84,7 +84,7 @@ def test_runs_summary_is_embedded_onto_equilibrium_code_parameters(tmp_path):
         "q_rms_rel": 0.01,
         "current_rel_diff": 0.002,
     }
-    # The solver settings travel with the product (#885): the mesh sets the
+    # The solver settings travel with the product: the mesh sets the
     # local force balance, so two products must be distinguishable by it.
     assert parameters["records_summary"] == [
         {"input": "g039915.00319", "status": "completed", "solver": SOLVER},

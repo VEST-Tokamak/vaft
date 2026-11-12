@@ -1,4 +1,4 @@
-"""Power balance and slice qualification for confinement scaling (#548, Lane D)."""
+"""Power balance and slice qualification for confinement scaling (Lane D)."""
 
 import numpy as np
 import pytest
@@ -273,7 +273,7 @@ def _lane_d_module(name):
 
 
 def test_builder_decision_columns_use_the_primary_selection():
-    """accepted/selected in table.csv are the #1490 primary selection, the one every result quotes.
+    """accepted/selected in table.csv are the primary selection, the one every result quotes.
 
     The builder used to apply the sensitivity thresholds (0.5 / 0.05) while the
     README, fit.py and the notebooks call 0.20 / 1.0 the primary selection
@@ -331,7 +331,7 @@ def test_lane_d_text_io_never_uses_the_locale_encoding():
     assert not offenders, "\n".join(offenders)
 
 
-# --- #1905: the shared Ohmic confinement contract -------------------------------------------------------------
+# --- the shared Ohmic confinement contract -------------------------------------------------------------
 
 def test_inductive_voltage_splits_into_current_and_profile_terms():
     t = np.linspace(0.30, 0.31, 11)
@@ -359,7 +359,7 @@ def test_missing_li3_rate_is_held_only_when_asked_and_always_flagged():
 
 @pytest.mark.parametrize("shot, time_s, tau_ms", [(39917, 0.321, 2.33143), (42962, 0.333, 2.26342)])
 def test_reference_series_reproduce_from_their_inputs(shot, time_s, tau_ms):
-    """#1905 Sec. 8: the frozen Tier A inputs give back every derived column of the atlas build."""
+    """The frozen Tier A inputs give back every derived column of the atlas build."""
     import pathlib
 
     import pandas as pd

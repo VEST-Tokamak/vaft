@@ -1,4 +1,4 @@
-"""The database helpers quieten the HTTP stack, never the root logger (#1936).
+"""The database helpers quieten the HTTP stack, never the root logger.
 
 ``is_connect``, ``exist_shot``, the processed-registry reader and the ODS/IDS
 loaders used to call

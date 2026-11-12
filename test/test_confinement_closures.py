@@ -1,4 +1,4 @@
-"""Errors in variables, Kadomtsev completion and closures (#548 Sec. 6-8; Lane D)."""
+"""Errors in variables, Kadomtsev completion and closures."""
 
 import numpy as np
 import pytest
@@ -159,7 +159,7 @@ def test_restricted_leverage_has_one_fewer_degree_of_freedom():
     assert np.sum(free.leverage) == pytest.approx(len(free.coef), abs=1e-9)
 
 
-# --- per-row response error (#579 EFIT model-form spread, #548) ------------------------
+# --- per-row response error (EFIT model-form spread) ------------------------------
 
 
 def test_per_row_response_error_reduces_to_the_closed_form_when_constant():

@@ -1,4 +1,4 @@
-"""The Routine Diagnostics workspace (#1348): registry-driven, processed-first; never served."""
+"""The Routine Diagnostics workspace: registry-driven, processed-first; never served."""
 
 from __future__ import annotations
 

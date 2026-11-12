@@ -1,4 +1,4 @@
-"""Fixed-boundary CHEASE equilibria synthesized from 0D descriptors (#120).
+"""Fixed-boundary CHEASE equilibria synthesized from 0D descriptors.
 
 The boundary constructor, the source model and the refusal states are tested
 offline; the solves need a CHEASE binary and are skipped without one, like the
@@ -157,7 +157,7 @@ def test_default_run_does_not_write_into_the_working_directory(tmp_path, monkeyp
 
 
 def test_a_stopped_solve_is_a_timeout_not_a_non_convergence(tmp_path, monkeypatch):
-    """#1016: CHEASE returns a timeout; synthesis names it rather than 'non_converged'."""
+    """CHEASE returns a timeout; synthesis names it rather than 'non_converged'."""
     import vaft.code.chease_synthesis as module
     from vaft.code.chease import CHEASEConfig, CHEASEResult
 
@@ -173,7 +173,7 @@ def test_a_stopped_solve_is_a_timeout_not_a_non_convergence(tmp_path, monkeypatc
     assert not result.ok and result.chease.runtime_status == "timeout"
 
 
-# --- barrier-profile sources (#1166 scope B) ------------------------------------
+# --- barrier-profile sources ----------------------------------------------------
 
 
 def _hmode_pressure():

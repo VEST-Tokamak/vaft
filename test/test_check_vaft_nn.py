@@ -1,4 +1,4 @@
-"""install/check_vaft_nn.py: the vaft-nn registry, reported layer by layer (#669)."""
+"""install/check_vaft_nn.py: the vaft-nn registry, reported layer by layer."""
 
 from __future__ import annotations
 

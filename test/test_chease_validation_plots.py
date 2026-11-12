@@ -1,4 +1,4 @@
-"""CHEASE refinement validation (issue #172).
+"""CHEASE refinement validation.
 
 CHEASE refines an EFIT equilibrium at fixed boundary; the refined ODS carries
 only the *refined* result (`GEQDSK.to_omas()` writes just `equilibrium`), so
@@ -208,7 +208,7 @@ def test_refinement_summary_requires_embedded_comparison_metrics():
 def test_the_embedded_comparison_survives_a_round_trip_through_the_loader(tmp_path, suffix):
     """`vaft.omas.load` promotes `code.parameters`; this payload must not move.
 
-    The stage products moved to gzipped JSON (#813), and the readers that
+    The stage products moved to gzipped JSON, and the readers that
     followed them moved from `omas.load_omas_json` to `vaft.omas.load` -- which
     is not a pure rename: it also runs
     `vaft.database._local._promote_code_parameters`, turning a *flat branch*

@@ -1,4 +1,4 @@
-"""The Grad-Shafranov problem (#1052): the source formulas, and a toy flux whose topology is found, not drawn."""
+"""The Grad-Shafranov problem: the source formulas, and a toy flux whose topology is found, not drawn."""
 
 import math
 

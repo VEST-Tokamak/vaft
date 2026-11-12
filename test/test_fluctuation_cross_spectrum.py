@@ -1,4 +1,4 @@
-"""Cross-spectrum, coherence and ridge tracking between two fluctuation records (#1005).
+"""Cross-spectrum, coherence and ridge tracking between two fluctuation records.
 
 The numbers are checked against signals whose answer is known by construction:
 a lag of ``dt`` between two tones is a phase of ``-2 pi f dt`` at that tone,

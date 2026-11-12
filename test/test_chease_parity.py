@@ -11,8 +11,8 @@ the ones that workflow already produced: edge-zeroing, FFT boundary smoothing,
 Two things the donor did are deliberately *not* reproduced, because they were
 conventions rather than physics:
 
-  * ``NIDEAL=11``, which upstream CHEASE rejects outright (#717). The adapter
-    now selects NIDEAL from its GEQDSK output contract (6, #516); the writer
+  * ``NIDEAL=11``, which upstream CHEASE rejects outright. The adapter
+    now selects NIDEAL from its GEQDSK output contract (6); the writer
     still emits 11 through the deprecated raw override.
   * sampling q at ``sqrt(0.95)``, which constrains the surface at
     ``psi_norm = 0.9747`` rather than the conventional q95 surface at 0.95.
@@ -101,7 +101,7 @@ def test_the_default_nideal_is_one_upstream_chease_accepts():
     Upstream CHEASE validates the range in ``cotrol.f90`` (0 to 10) and quits
     before doing any equilibrium work on anything outside it, so the previous
     default of 11 meant a bare ``CHEASEConfig()`` could not run at all against
-    a CHEASE built from the public repository. See #717. Since #516 a caller
+    a CHEASE built from the public repository. A caller
     names the output, not the number.
     """
     import warnings
@@ -118,7 +118,7 @@ def test_the_default_nideal_is_one_upstream_chease_accepts():
 
 
 def test_an_output_the_adapter_cannot_read_is_refused():
-    """NIDEAL=9 and friends write files nothing here reads (#516)."""
+    """NIDEAL=9 and friends write files nothing here reads."""
     with pytest.raises(ValueError, match="not supported"):
         ch.CHEASEConfig(output="gyrokinetic")
 
@@ -149,9 +149,9 @@ def test_namelist_epslon_default_and_jsk95_nideal_on_request():
     """jsk95 parity is a property of the writer, not of the default.
 
     ``NIDEAL=11`` is what the VEST jsk95 workflow runs, against the CHEASE
-    revision that group uses. It stopped being the default in #717 because
+    revision that group uses. It is not the default because
     upstream rejects it, but asking for it must still emit it -- that is the
-    parity claim this file exists to defend. Asking is deprecated (#516), so
+    parity claim this file exists to defend. Asking is deprecated, so
     it warns.
     """
     with pytest.warns(FutureWarning, match="deprecated"):
@@ -363,7 +363,7 @@ def test_resolve_executable_config_env_precedence(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# (i) Comparison figure: migrated out of the pyplot shim into vaft.plot (#139)
+# (i) Comparison figure: migrated out of the pyplot shim into vaft.plot
 # ---------------------------------------------------------------------------
 def _plottable_geqdsk(n: int = 33, *, scale: float = 1.0):
     geq = _fake_geqdsk(n)
@@ -414,7 +414,7 @@ def test_comparison_model_keeps_the_four_profile_comparisons_and_the_geometry():
 
 
 def test_comparison_metrics_is_public_and_reports_current_diff():
-    # Issue #172: promoted out of the private surface so the chease validation
+    # Promoted out of the private surface so the chease validation
     # stage can reuse it, extended with an Ip/CURRENT comparison.
     original = _plottable_geqdsk()
     refined = _plottable_geqdsk(scale=1.1)
@@ -455,7 +455,7 @@ def test_comparison_plot_is_rendered_by_vaft_plot_and_saved(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# (e) What CHEASE receives is visible to the caller (#885)
+# (e) What CHEASE receives is visible to the caller
 # ---------------------------------------------------------------------------
 
 def test_the_materialized_input_is_the_expeq_content_in_source_units(tmp_path):
@@ -518,7 +518,7 @@ def test_edge_conditioning_is_reported_where_it_changed_the_profile(tmp_path):
     assert m.psi_norm[changed].min() > 0.97  # the edge, and only the edge
     assert np.all(m.pprime[changed] == 0.0)
     assert np.all(m.pprime[~m.edge_modified] == m.pprime_resampled[~m.edge_modified])
-    # The separatrix sample itself is examined too (#996), so a reversal there
+    # The separatrix sample itself is examined too, so a reversal there
     # is zeroed instead of reaching EXPEQ as -|p'|, and the record shows it.
     assert m.edge_modified[-1] and m.pprime[-1] == 0.0
 
@@ -543,7 +543,7 @@ def test_a_q_constraint_on_axis_is_not_reported_as_a_surface(tmp_path):
 
 
 def test_the_solver_mesh_defaults_and_overrides_reach_the_namelist():
-    """``nw`` is the output box; the solve's own mesh is NS x NT (#885)."""
+    """``nw`` is the output box; the solve's own mesh is NS x NT."""
     text = "".join(ch._namelist_lines(ch.CHEASEConfig(), _WRITER_PARAMS))
     assert "NS=150, NT=150," in text
     assert "NPSI=200, NCHI=100," in text
@@ -559,7 +559,7 @@ def test_the_solver_mesh_defaults_and_overrides_reach_the_namelist():
 
 
 def test_a_run_carries_what_it_handed_chease(tmp_path):
-    """A scan sees only CHEASEResults, so the result must say what went in (#887).
+    """A scan sees only CHEASEResults, so the result must say what went in.
 
     A stub that exits 0 without writing an EQDSK is a failed run, and a run
     CHEASE returns from keeps its materialized input even when it failed --

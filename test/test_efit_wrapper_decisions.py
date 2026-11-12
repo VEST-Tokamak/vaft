@@ -1,4 +1,4 @@
-"""The routine constraint wrapper forms decisions; it detects nothing (issue #296)."""
+"""The routine constraint wrapper forms decisions; it detects nothing."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def test_an_unassessed_product_is_refused_when_required_and_warned_otherwise(cap
 def test_trailing_probes_get_no_decision_and_a_condemned_loop_is_rejected():
     """68 probes in the IDS, 64 in EFIT's geometry: the trailing four are not
     submitted, and the flux loop the assessment condemned is rejected on the
-    assessment alone -- there is no list to consult (#295)."""
+    assessment alone -- there is no list to consult."""
     ods = _array(n=68)
     _assess(ods, bad_loop=1)
     decisions = MODULE._decisions_for(ods, [0.30], require_assessment=True)

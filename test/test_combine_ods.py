@@ -64,7 +64,7 @@ def test_combine_ods_preserves_code_parameters_metadata_while_pruning_siblings()
 
 
 def test_combine_ods_prunes_every_invalid_leaf_in_one_merge_attempt():
-    # Regression for #82: the transactional retry path used to copy and
+    # Regression guard for #82: the transactional retry path used to copy and
     # re-apply the whole merge once per invalid leaf discovered, so a source
     # ODS with N invalid locations cost N+1 full-tree merge attempts. The
     # number of ODS.copy() calls -- one for sanitizing the input, one for the

@@ -1,4 +1,4 @@
-"""The EFUND adapter: config, input writer, output contract, manifest (issue #194).
+"""The EFUND adapter: config, input writer, output contract, manifest.
 
 Everything here runs without the binary; the one test that needs ``efund``
 is marked ``integration`` and skips when ``$EFITHOME`` resolves no such role.
@@ -119,7 +119,7 @@ def test_namelist_carries_the_counts_and_the_geometry_in_efund_order(geometry):
     assert list(namelist) == ["machinein", "in5", "in3"]
     machine = namelist["machinein"]
     assert machine["device"] == "VEST"
-    # #708: every circuit, so all 530 filaments in 26 groups.
+    # Every circuit, so all 530 filaments in 26 groups.
     assert (machine["nfcoil"], machine["nfsum"], machine["nsilop"], machine["magpri"]) == (530, 26, 11, 64)
     assert (machine["necoil"], machine["nesum"], machine["nvesel"], machine["nvsum"], machine["nacoil"]) == (
         0,
@@ -256,8 +256,8 @@ def test_packaged_tables_are_big_endian_and_frame_as_their_counts_say():
     skip_unless_materialized(path)
     assert fortran_byte_order(path) == ">"
     arrays = read_fortran_arrays(path)
-    # nsilop x nfsum and magpri x nfsum; nfsum is 26 since #708 put every
-    # circuit in the table, and these records are sized by it.
+    # nsilop x nfsum and magpri x nfsum; nfsum is 26 because every
+    # circuit is in the table, and these records are sized by it.
     assert [array.size for array in arrays] == [11 * 26, 64 * 26]
 
 
@@ -387,7 +387,7 @@ def test_table_identity_distinguishes_manifested_from_legacy_directories(geometr
 
 
 def test_the_packaged_table_directory_now_records_its_provenance():
-    """Reversed by #695, which is the whole point of that change.
+    """The packaged table directory records its provenance.
 
     This asserted `unrecorded` for as long as `vaft/data/efit` held tables of
     unknown origin. They are now the output of a recorded EFUND run over the
@@ -436,15 +436,15 @@ def test_efund_generates_a_complete_small_table_for_the_legacy_era(static, tmp_p
     assert manifest_out["efund"]["executable"]["sha256"]
     assert manifest_out["table"]["files"]["rv3333.ddd"]["size"] == result.expected["rv3333.ddd"]
     arrays = read_fortran_arrays(result.files["rfcoil.ddd"])
-    # nsilop x nfsum and magpri x nfsum; nfsum is 26 since #708 put every
-    # circuit in the table, and these records are sized by it.
+    # nsilop x nfsum and magpri x nfsum; nfsum is 26 because every
+    # circuit is in the table, and these records are sized by it.
     assert [array.size for array in arrays] == [11 * 26, 64 * 26]
     assert np.all(np.isfinite(arrays[0])) and np.any(arrays[0] != 0.0)
     assert path.is_file()
 
 
 def test_efund_launches_through_the_backend_single_threaded(geometry, tmp_path):
-    """#671: EFUND's timeout still becomes a failed result naming the limit."""
+    """EFUND's timeout still becomes a failed result naming the limit."""
     from external_code_stubs import RecordingBackend
     from vaft.code.execution import ExecutionResult
 

@@ -1,4 +1,4 @@
-"""The #1178 coil operating-space result: schema, refusals and the long form (#1886)."""
+"""The coil operating-space result: schema, refusals and the long form."""
 
 from __future__ import annotations
 

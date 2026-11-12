@@ -482,7 +482,7 @@ def test_every_caller_of_run_model_passes_everything_it_requires(study):
 
 
 def test_equilibria_without_an_mfile_are_counted_rather_than_summarized_as_none(study):
-    """An EFIT built without netCDF answers none of #579's questions, quietly.
+    """An EFIT built without netCDF answers none of the profile-model study's questions, quietly.
 
     It writes a-files and g-files, every slice classifies, geometry and
     profiles compare -- and every chi-square is `None`, because this study
@@ -541,7 +541,7 @@ def test_every_model_was_measured_against_the_same_thing(study, table):
 
 
 def test_the_chi_square_does_not_respond_to_the_profile_model(table):
-    """#579's first question, answered in the negative and in the mechanism.
+    """The profile-model study's (open, #579) first question, answered in the negative and in the mechanism.
 
     EFIT's objective for VEST is the plasma-current term -- the magnetics are
     handed uncertainties four orders above their signal and contribute ~1e-9
@@ -632,7 +632,7 @@ def test_the_free_edge_is_the_only_lever_that_moves_the_collapse_block(table):
     """Twelve null solutions become equilibria; the seed and grid moved none.
 
     It is not free: acceptance falls and the boundary lands 68 mm away. The
-    assertion is that the block moves at all, which is what #459 needs.
+    assertion is that the block moves at all, which is what the open domain study (#459) needs.
     """
     recovered = collapsed_before = collapsed_after = 0
     for block in table["shots"].values():
@@ -787,7 +787,7 @@ def test_the_per_shot_checkpoint_can_be_written_into_a_directory_that_does_not_e
 
 
 def test_a_tstep_below_the_millisecond_keys_is_refused(study, capsys):
-    """Cold review 0.7.0 efit-workflows F9 (#1888).
+    """Cold review 0.7.0 efit-workflows F9.
 
     Slices are keyed by whole millisecond, so 0.4 ms over 300-302 ms gives
     six requests and three keys. The study refuses the step instead of
@@ -798,6 +798,6 @@ def test_a_tstep_below_the_millisecond_keys_is_refused(study, capsys):
     assert exc.value.code == 2
     assert "whole millisecond" in capsys.readouterr().err
     with pytest.raises(SystemExit):
-        study.main(["--tstep", "0.0015"])  # PR #1920 review F1: between the keys
+        study.main(["--tstep", "0.0015"])  # between the keys
     assert "whole number of milliseconds" in capsys.readouterr().err
     assert study.whole_millisecond_tstep("0.002") == 0.002

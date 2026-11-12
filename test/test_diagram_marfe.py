@@ -1,4 +1,4 @@
-"""MARFE (#1209): Drake's condensation condition from vaft.formula.sol, a prescribed band on the equilibrium."""
+"""MARFE: Drake's condensation condition from vaft.formula.sol, a prescribed band on the equilibrium."""
 
 import math
 

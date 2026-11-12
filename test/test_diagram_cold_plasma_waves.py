@@ -1,4 +1,4 @@
-"""Cold-plasma wave diagrams (#1113): every boundary is a zero or pole of the Stix parameters."""
+"""Cold-plasma wave diagrams: every boundary is a zero or pole of the Stix parameters."""
 
 import numpy as np
 import pytest
@@ -91,7 +91,7 @@ def test_labels_off_and_determinism():
         vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=0.0)
 
 
-# --- #1113 section A and E: omega-k, n^2-X, n^2-Y, oblique -----------------------------------------
+# --- omega-k, n^2-X, n^2-Y, oblique -----------------------------------------
 
 
 def test_omega_k_branches_start_on_their_cutoffs():

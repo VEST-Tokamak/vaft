@@ -1,6 +1,6 @@
 """Unit tests for `vaft.database.raw.list_shots` and its compatibility wrappers.
 
-Issue #126: shots must be selectable by shot-number range, date range, or
+Shots must be selectable by shot-number range, date range, or
 their intersection, querying the SQL `shot` table directly with no HSDS/FileDB
 scan and no waveform payload touched. These tests fake the DB_POOL/connection/
 cursor chain so query construction and result normalization are verified

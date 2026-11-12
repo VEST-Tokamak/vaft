@@ -1,4 +1,4 @@
-"""CGYRO adapter: input translation, output parsing, run verdicts (#1354).
+"""CGYRO adapter: input translation, output parsing, run verdicts.
 
 No GACODE is needed. The launcher is replaced by a fake that writes CGYRO-shaped files in
 the layouts ``f2py/pygacode/cgyro/data.py`` reads, and the translation is held against

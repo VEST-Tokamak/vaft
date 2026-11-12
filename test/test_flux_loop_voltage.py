@@ -1,4 +1,4 @@
-"""Flux-loop terminal-voltage persistence in the magnetics IDS (issue #209)."""
+"""Flux-loop terminal-voltage persistence in the magnetics IDS."""
 
 from __future__ import annotations
 
@@ -170,7 +170,7 @@ def test_legacy_flux_is_the_documented_voltage_composition():
     composition is checked over the path a real shot takes.  It used to run on
     2000 samples, which the default windows (3499:5000 and 11999:15000) miss
     entirely; the baseline was then silently zero and this asserted a shape the
-    shipped code never produces.  Issue #639 turned that silence into
+    shipped code never produces.  That silence is now
     `DegenerateBaselineWindowError`, and the zero-baseline formula now has its
     own test below, which opts into it explicitly.
     """
@@ -201,7 +201,7 @@ def test_a_zero_baseline_exposes_the_raw_integration_formula():
 
     The shape the previous version of the test above got by accident, from a
     record too short for its own baseline window.  `allow_zero_fallback=True`
-    is how the shipped code offers it now (issue #639), and it warns rather
+    is how the shipped code offers it now, and it warns rather
     than passing silently.
     """
     time = np.linspace(0.0, 0.1, 2_000)
@@ -218,7 +218,7 @@ def test_a_zero_baseline_exposes_the_raw_integration_formula():
 
 
 def test_a_record_too_short_for_its_baseline_window_refuses():
-    """The failure this file's own fixture used to hide (issue #639).
+    """The failure this file's own fixture used to hide.
 
     `test_equilibrium_magnetics_processing` covers the error's shape; what is
     pinned here is that the legacy flux-loop entry point reaches it, so no
@@ -263,7 +263,7 @@ def test_voltage_validity_is_quantity_specific(mapped):
         assert validity == (0 if index in PRESENT_LOOPS else -2)
         assert has_flux == (index in PRESENT_LOOPS)
         if has_flux:
-            # Flux validity stays unset: signal-quality classification is #189,
+            # Flux validity stays unset: signal-quality classification is a separate step,
             # and a valid acquired voltage does not imply a valid flux.
             assert "validity" not in ods[f"magnetics.flux_loop.{index}.flux"]
 
@@ -296,7 +296,7 @@ def test_flux_loop_voltage_round_trips_through_omas(mapped):
 
 
 def test_flux_loop_voltage_reports_under_its_own_manifest_key():
-    """Native flux-loop timing is not filed under the Mirnov key (#209 review)."""
+    """Native flux-loop timing is not filed under the Mirnov key."""
     from vaft.machine_mapping.utils import (
         DiagnosticsTimePolicy,
         DiagnosticsTimePolicyTable,
@@ -367,7 +367,7 @@ def test_deprecated_voltage_plot_reads_the_stored_voltage(mapped):
 
 
 def test_deprecated_voltage_plot_falls_back_for_older_ods(mapped):
-    """ODSs mapped before #209 keep the historical -d(flux)/dt rendering."""
+    """ODSs mapped before voltages were stored keep the historical -d(flux)/dt rendering."""
     import copy
 
     import matplotlib
