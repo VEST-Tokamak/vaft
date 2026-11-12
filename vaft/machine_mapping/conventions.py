@@ -168,6 +168,7 @@ __all__ = [
     "IP_SIGN_VEST_TO_IMAS",
     "SignTransformation",
     "equilibrium_orientation_is_resolved",
+    "unresolved_orientation_assumptions",
     "expected_q_sign",
     "port_toroidal_angle",
     "sign_transformations",
@@ -398,6 +399,19 @@ def equilibrium_orientation_is_resolved() -> bool:
     certain.
     """
     return all(item.confirmed for item in sign_transformations())
+
+
+def unresolved_orientation_assumptions() -> tuple[str, ...]:
+    """One line per unconfirmed VEST sign transformation, for result provenance (#2165).
+
+    Empty once both are confirmed.  A downstream result built on VEST data
+    carries these forward unchanged, whatever its own checks say: a faithful
+    COCOS conversion or a converged solve cannot confirm a polarity (#288).
+    """
+    return tuple(
+        f"VEST {item.quantity} sign {item.sign:+d} to IMAS is unconfirmed (#288): {item.needed_to_confirm}"
+        for item in sign_transformations() if not item.confirmed
+    )
 
 
 # ---------------------------------------------------------------------------
