@@ -1,4 +1,4 @@
-"""The validation verdict table: every registered check, one row each (roadmap #1242 C2).
+"""The validation verdict table: every registered check, one row each.
 
 ``equilibrium_table_validation`` tabulates what :mod:`vaft.validation` concluded
 about one equilibrium slice.  It adds no physics and no tolerance: the statuses
@@ -147,7 +147,7 @@ def test_the_graded_value_is_the_one_the_check_reported(sample, table):
         physical["pressure_consistency"]["log_ratio"]
     )
     fit = _quiet(V.validate_magnetic_fit, sample, time_slice=index)
-    # The fit z is reported but not graded on 39915 (#891 unknown uncertainty
+    # The fit z is reported but not graded on 39915 (unknown uncertainty
     # model): it is named in the note, never shown as a Value a reader would grade.
     bpol = rows["diagnostic_fit.bpol_probe"]
     assert _status(bpol) == "not_available" and bpol[value].missing
@@ -161,7 +161,7 @@ def test_the_graded_value_is_the_one_the_check_reported(sample, table):
 
 def test_not_available_rows_carry_their_reason(table):
     unavailable = [row for row in table.rows if _status(row) == "not_available"]
-    # 39915: no solver convergence record, the #891 unknown uncertainty model
+    # 39915: no solver convergence record, the unknown uncertainty model
     # on all six fit checks, no core_profiles and no Thomson scattering.
     assert len(unavailable) == 9
     for row in unavailable:

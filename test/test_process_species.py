@@ -1,4 +1,4 @@
-"""Canonical species/population state and physics-specific projections (#1567, validation cases A-E)."""
+"""Canonical species/population state and physics-specific projections (validation cases A-E)."""
 
 from __future__ import annotations
 
@@ -103,7 +103,7 @@ def test_a_bundled_ion_keeps_its_mean_square_charge_and_refuses_an_atomic_projec
         project_species_state(state, "atomic")
 
 
-# --- Case C: several elements (the #1565 VEST mixture) ------------------------------------
+# --- Case C: several elements (the VEST impurity mixture) ------------------------------------
 
 
 def test_case_c_vest_mixture_explicit_and_effective_agree_on_moments_not_identity():
@@ -227,8 +227,8 @@ def test_a_radial_composition_gives_one_component_per_charge_state(tmp_path):
 
 
 def test_a_resolved_bundled_ion_builds_its_component_on_the_radial_charge_moments():
-    # cold review 0.8.0 delta-absorb-17 species F2: an ODS-resolved composition labels a bundled
-    # ion with one scalar <Z> (#1769) and carries <Z>(rho), <Z^2>(rho) beside it
+    # An ODS-resolved composition labels a bundled
+    # ion with one scalar <Z> and carries <Z>(rho), <Z^2>(rho) beside it
     z1 = np.linspace(3.0, 6.0, 6)
     z2 = z1**2 + 0.5 * z1 * (6.0 - z1)          # <Z>^2 <= <Z^2> <= Z_n <Z>, a real spread
     ods = _ods([_ion("H", 1.0, 1.008, 1.0, 0.9),

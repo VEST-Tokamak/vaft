@@ -1,4 +1,4 @@
-"""The array review (#977): a B-probe its own array contradicts is condemned.
+"""The array review: a B-probe its own array contradicts is condemned.
 
 Probes sharing a radius form an array ordered by height. A healthy array reads
 a field that varies smoothly along it; a probe that departs from the
@@ -206,9 +206,9 @@ def _reference_ods(shot: int):
 @pytest.mark.parametrize("shot", sorted(REFERENCE_CONDEMNED))
 def test_the_array_margin_holds_on_the_reference_shots(shot):
     """Every probe the review condemns sits well above the fraction, every
-    survivor well below it (#977: 0.35 and up against 0.24 and down).
+    survivor well below it (0.35 and up against 0.24 and down).
 
-    The array review's own margin, so the raw-rail check (#2192) is off here:
+    The array review's own margin, so the raw-rail check is off here:
     it condemns C4-04 first on 41524/41672, whose raw record sits at the rail,
     and a condemned probe is left out of the array.  The next test pins that.
     """
@@ -232,7 +232,7 @@ def test_the_array_margin_holds_on_the_reference_shots(shot):
 
 @pytest.mark.parametrize("shot", sorted(REFERENCE_CONDEMNED))
 def test_the_raw_rail_takes_c4_04_out_of_the_array_and_changes_no_other_verdict(shot):
-    """#2192 on the reference shots: where C4-04's raw record is at the rail it is
+    """The raw-rail check on the reference shots: where C4-04's raw record is at the rail it is
     condemned as ``raw_rail`` before the array review and no longer votes; the
     array review then condemns exactly the other probes it did before."""
     ods = _reference_ods(shot)

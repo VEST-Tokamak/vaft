@@ -1,4 +1,4 @@
-"""Uncertainty and validity rendering contract (issue #256, phase C).
+"""Uncertainty and validity rendering contract.
 
 Plotting renders what the source stored and never invents it: it does not
 estimate uncertainty, does not compute validity, and does not label a band as a
@@ -307,7 +307,7 @@ def test_a_negative_scalar_with_usable_samples_is_not_an_invalid_channel():
     assert not partly.is_invalid_channel
     assert nothing.is_invalid_channel
     assert bare.is_invalid_channel
-    # The stored mask is authoritative (#424): an all-false mask condemns the
+    # The stored mask is authoritative: an all-false mask condemns the
     # trace whatever the scalar says, and nothing assessed is drawn.
     assert Series(x=x, y=x, validity=0, valid_mask=np.zeros(4, dtype=bool)).is_invalid_channel
     assert Series(x=x, y=x, validity=None, valid_mask=np.zeros(4, dtype=bool)).is_invalid_channel

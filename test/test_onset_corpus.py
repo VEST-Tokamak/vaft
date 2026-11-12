@@ -1,4 +1,4 @@
-"""The plasma-onset corpus of issue #409: the raw-database study behind the rules, as data.
+"""The plasma-onset corpus: the raw-database study behind the rules, as data.
 
 ``test/data/onset_corpus.json`` is written by ``workflow/plasma_onset/scan_corpus.py``
 from the raw database; it records, for every shot in the scanned range, the
@@ -107,7 +107,7 @@ def test_the_raw_and_ods_readers_share_one_agreement_vocabulary(table):
 
 
 def test_every_judged_window_reports_how_much_of_it_was_active(table):
-    """The extent of a window is not how long the plasma was there (#752).
+    """The extent of a window is not how long the plasma was there.
 
     A window is the envelope of its segments, so a record of two brief flashes
     tens of milliseconds apart reports a long window that is mostly gap.  The
@@ -126,7 +126,7 @@ def test_every_judged_window_reports_how_much_of_it_was_active(table):
 
 
 def test_no_light_window_is_an_envelope_over_gaps_any_more(table):
-    """Both detectors now answer the same question (#842).
+    """Both detectors answer the same question.
 
     The light rule used to return the envelope of every accepted segment, so a
     record of scattered flashes reported one long window that was mostly gap --
@@ -134,7 +134,7 @@ def test_no_light_window_is_an_envelope_over_gaps_any_more(table):
     discharge in only 11 of 35 shots.  Both rules are principal-pulse rules
     now, so every window is one run and every duty cycle is 1.
 
-    The three records #752 was opened for are the check: 40002, 40263 and
+    The three records that exposed the gap are the check: 40002, 40263 and
     40365 reported windows of 45, 18 and 21 ms at duty 0.07-0.19, over
     scattered bursts with no plasma current at all.  None of them is a light
     window any more.
@@ -156,7 +156,7 @@ def test_every_window_is_one_run_now(table):
 
     This is what makes the extent of a window a duration again: with one
     segment, `duration_s`, the summed active time and the largest segment are
-    the same number (#842).  Before, a fifth of the light windows had gaps and
+    the same number.  Before, a fifth of the light windows had gaps and
     the hollowest was 4 % above threshold.
     """
     duty = table["summary"]["duty_cycle"]

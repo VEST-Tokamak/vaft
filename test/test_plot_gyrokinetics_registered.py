@@ -1,4 +1,4 @@
-"""Registered gyrokinetic / turbulent-transport plots (#1591 PR-C)."""
+"""Registered gyrokinetic / turbulent-transport plots."""
 
 from __future__ import annotations
 
@@ -122,7 +122,7 @@ def test_single_ky_runs_merge_into_one_scan_and_foreign_runs_are_refused():
 
 def test_an_unconverged_initial_value_mode_is_not_drawn_unless_asked():
     """growth_rate_tolerance is written only for a converged run; a run stopped at
-    MAX_TIME holds a last-step value, not an eigenvalue (the ES low-ky points of #1484)."""
+    MAX_TIME holds a last-step value, not an eigenvalue (as the ES low-ky points did)."""
     from vaft.machine_mapping.gyrokinetics import merge_linear_scan
 
     one = make_gyrokinetics_local(None)

@@ -1,4 +1,4 @@
-"""One acquired channel is one measurement (issues #724, #825).
+"""One acquired channel is one measurement.
 
 DAQ field 171 used to be published twice in ``magnetics.b_field_pol_probe``: as
 equilibrium probe 36 (``MagneticFieldProbe_C2-05_Bz``, outboard family, 5:30)
@@ -68,7 +68,7 @@ def _ods():
 # ---------------------------------------------------------------------------
 
 def test_one_waveform_under_two_angles_is_not_an_array():
-    """The #724 shape: the same samples at 195 and 75 degrees."""
+    """Regression guard for #724: the same samples published at 195 and 75 degrees."""
     ods = _ods()
     waveform = _mode(195.0)
     _probe(ods, 0, 195.0, waveform, name="MagneticFieldProbe_C2-05_Bz")
@@ -186,7 +186,7 @@ def test_the_reference_era_array_is_the_three_named_positions():
 
 @pytest.mark.parametrize("shot", [39915, 41524, 41672])
 def test_the_packaged_equilibrium_samples_offer_no_toroidal_fit(shot):
-    """They sit in the 35521-44155 gap, and now say so (#724, #825)."""
+    """They sit in the 35521-44155 gap, and say so."""
     ods = vaft.omas.sample_ods(shot)
     count = len(ods["magnetics.b_field_pol_probe"])
     assert count == 64

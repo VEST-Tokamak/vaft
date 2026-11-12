@@ -1,4 +1,4 @@
-"""The VAFT MCP tools answer exactly what the VAFT APIs they wrap answer (#1423).
+"""The VAFT MCP tools answer exactly what the VAFT APIs they wrap answer.
 
 These call the tool functions directly, so they need no ``mcp`` SDK: the
 protocol round trip is ``test_mcp_server.py``.  Parity is semantic -- the
@@ -79,7 +79,7 @@ def test_the_tool_set_is_the_curated_read_only_list():
 
 
 def test_no_tool_parameter_names_a_data_representation():
-    """The schema is semantic: no ODS/IDS/representation knob leaks into it (#1423)."""
+    """The schema is semantic: no ODS/IDS/representation knob leaks into it."""
     import inspect
 
     for tool in tools.TOOLS:
@@ -348,7 +348,7 @@ def test_boundaries_are_the_registry_without_callables():
     assert described["target"]["unit"] == entry.target.unit
     assert [q["name"] for q in described["inputs"]] == [q.name for q in entry.inputs]
     assert "function" not in described or described["function"] is None
-    # #1691: "kind" stays the entry's class, the reference semantics are reported beside it
+    # "kind" stays the entry's class, the reference semantics are reported beside it
     troyon = _body(tools.describe_boundary("troyon"))
     assert troyon["kind"] == "Boundary" and troyon["reference_kind"] == "stability_reference"
     rows = {r["key"]: r for r in _json(tools.list_boundaries())["items"]}

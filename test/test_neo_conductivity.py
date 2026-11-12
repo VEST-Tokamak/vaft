@@ -1,6 +1,6 @@
 """NEO's parallel conductivity: the second run, its mapping, and what it agrees with.
 
-Issue #744, closing #550's mapping audit. NEO reports no conductivity from a
+NEO reports no conductivity from a
 transport solve; ``vgen`` obtains one by running the same case again with a unit
 parallel electric field and every gradient switched off, so that ``jpar`` is the
 response to the field alone (``vgen/src/vgen_compute_neo.f90:240-260``).

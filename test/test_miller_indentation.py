@@ -1,4 +1,4 @@
-"""Inboard indentation (bean shaping) in the Miller parameterization (#941).
+"""Inboard indentation (bean shaping) in the Miller parameterization.
 
 ``indentation`` adds ``b sin^2(theta) cos(theta)`` to R. It has to leave every
 existing surface alone at b = 0, keep the four cardinal points where they
@@ -101,10 +101,10 @@ def test_indentation_is_opt_in():
 
 
 def test_default_fit_is_unchanged_by_the_indentation_work():
-    """Pinned from origin/develop before #941.
+    """Pinned from origin/develop before indentation was added (#941).
 
-    Bit-identical to develop on the same machine (checked when #941 was
-    written); across platforms the optimizer's arithmetic moves the last
+    Bit-identical to develop on the same machine (checked when indentation was
+    added); across platforms the optimizer's arithmetic moves the last
     digits by ~3e-9, so the pin is 1e-7 -- far below any algorithmic change.
     """
     rng = np.random.default_rng(7)

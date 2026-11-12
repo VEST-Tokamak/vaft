@@ -1,4 +1,4 @@
-"""``vaft.setup()`` and ``vaft setup``: explicit, non-scientific, idempotent (#1203)."""
+"""``vaft.setup()`` and ``vaft setup``: explicit, non-scientific, idempotent."""
 
 from __future__ import annotations
 

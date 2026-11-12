@@ -1,4 +1,4 @@
-"""Resonant-field coil response: the verified operator and stages A-D (#1884).
+"""Resonant-field coil response: the verified operator and stages A-D.
 
 Synthetic operators test the algebra; ``test/data/gpec/resonant_diiid_like_1884/basis.json``
 (13 GPEC runs plus 6 confirmations on upstream's *artificial* DIII-D-like
@@ -141,7 +141,7 @@ def test_the_builder_reports_rms_per_window_and_never_zero_for_a_failure():
     assert result.provenance["phi_res_rms_edge"]["window"] == [0.9, 1.0]
 
 
-# ------------------------------------------------- the GPEC reference (#1884)
+# ------------------------------------------------- the GPEC reference
 
 DATA = json.loads((Path(__file__).parent / "data" / "gpec" / "resonant_diiid_like_1884" / "basis.json").read_text())
 SAMPLES = {row["sample_id"]: row for row in DATA["samples"]}

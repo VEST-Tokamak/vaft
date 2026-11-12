@@ -1,4 +1,4 @@
-"""The plasma window from an ODS with its provenance (issue #409, PR-ii).
+"""The plasma window from an ODS with its provenance.
 
 The packaged shots pin the numbers the raw-database corpus study produced;
 the synthetic products walk the source hierarchy -- slow H-alpha, fast
@@ -42,7 +42,7 @@ from vaft.process.onset import active_window
 
 from _plasma_timing_fixtures import DT, RNG, current, grid, light, pickup_only, pipeline_ods, synthetic_ods
 
-# Corpus numbers (ms) from the 205-shot study on issue #409.
+# Corpus numbers (ms) from the 205-shot onset study (#409).
 PACKAGED = {
     39915: dict(onset=0.3065, offset=0.3308),
     41672: dict(onset=0.3125, offset=0.3517),
@@ -224,7 +224,7 @@ def test_an_invalidated_node_is_skipped_by_scalar_and_by_timed_validity():
 
 
 def test_a_held_tail_after_the_span_does_not_veto_the_channel():
-    """The scalar is the worst state reached (#424): a channel invalid only
+    """The scalar is the worst state reached: a channel invalid only
     after the analysis span reads -2 there, and used to fail on that scalar
     although every sample the timing reads is usable."""
     t = grid()
@@ -307,8 +307,8 @@ def test_pre_ionization_light_is_not_the_discharge_but_is_still_recorded():
     its window there and report the pair as one window with a gap, which put
     the onset 16 ms before the plasma current and raised
     `halpha_leads_ip_large` -- a disagreement the corpus showed 64 times and
-    that vanished entirely when both rules became principal-pulse rules
-    (#842).  The early light is not lost: the segments the rule sets aside are
+    that vanished entirely when both rules became principal-pulse rules.
+    The early light is not lost: the segments the rule sets aside are
     recorded, so a reader can still see what else the record held.
     """
     t = grid()
@@ -535,7 +535,7 @@ def test_the_omas_layer_reads_only_and_the_process_layer_knows_no_diagnostic():
     # The bar is on the code, not on the prose: the detectors may not name a
     # diagnostic, a policy file or the layers above them in anything that
     # runs, but their docstrings must say where the VEST values they are
-    # called with live (#571), so the docstrings are stripped before the
+    # called with live, so the docstrings are stripped before the
     # check rather than exempting the module from it.
     onset_tree = ast.parse(Path(onset.__file__).read_text(encoding="utf-8"))
     for node in ast.walk(onset_tree):

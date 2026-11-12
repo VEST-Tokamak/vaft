@@ -1,4 +1,4 @@
-"""The plasma-free vacuum benchmark as plots (issue #190, plotting roadmap #1242 C3).
+"""The plasma-free vacuum benchmark as plots.
 
 ``magnetics_table_vacuum_benchmark`` and ``magnetics_overview_vacuum_benchmark``
 show one :func:`~vaft.validation.vacuum_benchmark.run_benchmark_case`;

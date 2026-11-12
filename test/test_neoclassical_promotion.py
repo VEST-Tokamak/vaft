@@ -1,6 +1,6 @@
-"""Promoting a NEO result to the database (issue #742, #550 phase 8).
+"""Promoting a NEO result to the database.
 
-Three things are asserted here, and they are the issue's own acceptance criteria:
+Three things are asserted here:
 
 * the qualification rule is evaluated **from an ODS**, never from a shot list, and
   it refuses what the converter refuses rather than restating its rules;
@@ -176,7 +176,7 @@ def test_the_product_reads_ion_nuclear_charge_from_the_source_state(state, tmp_p
 @requires_sample
 def test_an_unqualified_state_is_refused_rather_than_promoted_with_a_caveat(tmp_path):
     """The rule gates the write. A product built from a rejected input is the thing
-    #550 defers, and a manifest field saying so would not stop anyone querying it."""
+    to keep out of the database, and a manifest field saying so would not stop anyone querying it."""
     from vaft.omas.vest_upstream import build_neoclassical_ods
 
     with pytest.raises(ValueError, match="does not qualify"):
@@ -204,7 +204,7 @@ def test_the_manifest_is_json_and_the_readiness_survives_it(tmp_path):
 
 @requires_sample
 def test_the_native_result_is_written_beside_the_product_not_inside_it(tmp_path):
-    """#527: preserve the solver-native result; #742: never make it the query contract."""
+    """Preserve the solver-native result; never make it the query contract."""
     from vaft.code.gacode.neo.outputs import NeoOutputs
     from vaft.omas.vest_upstream import build_neoclassical_ods, write_neoclassical_product
 
@@ -283,7 +283,7 @@ def test_it_does_not_publish_into_the_source_that_owns_the_kinetic_profiles():
     """core_profiles has two writers per source family; only a source split keeps neoclassical apart.
 
     The corrective composition, ti_inferred and resistive_zeff stages overlay the
-    measured core_profiles in the same source on purpose (#1842); neoclassical must
+    measured core_profiles in the same source on purpose; neoclassical must
     still publish to a source none of them writes.
     """
     from vaft.database.sources import STAGE_REPLICATION
@@ -416,7 +416,7 @@ def test_the_rule_does_not_claim_the_ion_temperature_was_measured(state):
 
 
 # --------------------------------------------------------------------------
-# cold review (#800): what each fix must keep true
+# what each fix must keep true
 # --------------------------------------------------------------------------
 
 
@@ -462,7 +462,7 @@ def test_a_vacuum_field_shorter_than_the_slice_list_is_not_stretched_over_it():
     """One value applies to every slice; two do not apply to a third.
 
     Clamping to the last entry is how slice 0's b0 came to answer for every slice
-    in PR #696 -- a factor of two there, silent in both cases.
+    in one earlier mapping -- a factor of two there, silent in both cases.
     """
     from omas import ODS
     from vaft.database._summary import extract_neoclassical

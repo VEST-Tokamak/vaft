@@ -1,4 +1,4 @@
-"""Several canonical plots composed into one figure (issue #1467)."""
+"""Several canonical plots composed into one figure."""
 
 from __future__ import annotations
 

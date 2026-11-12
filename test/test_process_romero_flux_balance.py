@@ -1,4 +1,4 @@
-"""Romero's balance over a sampled discharge (#781, child B machinery).
+"""Romero's balance over a sampled discharge.
 
 The histories are analytic, so every derivative and integral has a reference.
 What is pinned is the docstring's claim about what each residual measures:

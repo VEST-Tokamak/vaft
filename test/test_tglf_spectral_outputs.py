@@ -1,6 +1,6 @@
-"""TGLF spectral diagnostics: parsed in the layouts TGLF's writers use (#1591).
+"""TGLF spectral diagnostics: parsed in the layouts TGLF's writers use.
 
-Fixtures are real TGLF runs from the #1482 sensitivity campaign (39915 @ 0.317 s,
+Fixtures are real TGLF runs from the TGLF SAT x field sensitivity campaign (39915 @ 0.317 s,
 magnetics lineage, r/a 0.7, GACODE b493397): SAT0 electrostatic and SAT2 with A_parallel.
 Each check ties a parsed array back to a property of the Fortran writer it came from
 (``tglf/src/tglf_inout.f90``) rather than to the parser's own assumptions.

@@ -1,4 +1,4 @@
-"""The #1639 credibility taxonomy and the applicability evaluation (Lane AP).
+"""The credibility taxonomy and the applicability evaluation.
 
 Pure Python and NumPy/pandas on synthetic states: no ODS is read and no solver
 runs.  The import-isolation tests run in a clean interpreter, because what they
@@ -38,7 +38,7 @@ from vaft.validation.credibility import (
 from vaft.validation.model import CATEGORIES
 from vaft.validation.registry import CHECKS
 
-# A toy contract.  Its quantities and thresholds are illustrative, not #1627's.
+# A toy contract.  Its quantities and thresholds are illustrative, not the registry's.
 IDEAL = ApproximationContract(
     name="toy_ideal_mhd",
     physical_model="ideal single-fluid MHD",
@@ -445,7 +445,7 @@ def test_evidence_is_json_ready_and_takes_one_reason_whole():
 
 
 # ---------------------------------------------------------------------------
-# performance contract (#1639 s15)
+# performance contract
 # ---------------------------------------------------------------------------
 
 def test_the_new_modules_import_no_plotting_database_or_solver_layer():

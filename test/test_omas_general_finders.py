@@ -1,4 +1,4 @@
-"""The general onset finders on the shared timings, and the time-convention memo (issue #409, PR-v).
+"""The general onset finders on the shared timings, and the time-convention memo.
 
 ``find_breakdown_onset``, ``find_pulse_duration``, ``find_ip_onset``,
 ``find_vloop_onset`` and ``find_pf_active_onset`` used to carry their own
@@ -191,7 +191,7 @@ def test_the_approach_flag_reaches_the_memo():
 
 
 # ---------------------------------------------------------------------------
-# Review findings on PR #530
+# Review findings on the general finders
 # ---------------------------------------------------------------------------
 
 

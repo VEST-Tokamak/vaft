@@ -1,4 +1,4 @@
-"""Analytic psi_N profile kernels: generalized parabolic and Groebner's mtanh (#552).
+"""Analytic psi_N profile kernels: generalized parabolic and Groebner's mtanh.
 
 The catalog and docstring suites only look these up; this file calls them.
 The mtanh tests pin the parameter semantics VAFT adopts -- full width,

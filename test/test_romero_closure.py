@@ -1,4 +1,4 @@
-"""Romero's first-order closure (#781, child C): rates and integration.
+"""Romero's first-order closure: rates and integration.
 
 Two of the three state equations are exact identities already in
 vaft.formula.transformer, so the rates are pinned against those; the third is

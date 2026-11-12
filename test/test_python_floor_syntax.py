@@ -93,7 +93,7 @@ def test_every_source_parses_with_the_floor_grammar():
 def test_no_source_compiles_with_a_syntax_warning():
     """An invalid escape such as ``"\\p"`` is a SyntaxWarning today and is
     scheduled to become a SyntaxError; a docstring holding LaTeX needs ``r\"\"\"``.
-    Found on the Python 3.14 bring-up (#1009)."""
+    Found on the Python 3.14 bring-up."""
     offenders = []
     # Tests too: a regex in pytest.raises(match="...") is where "\\s" hides.
     for path in [*_sources(), *sorted((REPOSITORY / "test").rglob("*.py"))]:

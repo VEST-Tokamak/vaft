@@ -1,4 +1,4 @@
-"""The new-shot pipeline worker (issue #58).
+"""The new-shot pipeline worker.
 
 Detection, settling, classification, scheduling, restart recovery and retry
 are exercised against a fake SQL source and a fake runner that writes the
@@ -144,16 +144,16 @@ class FakeRunner:
                     status = "no_output"
                 elif behaviour == "vacuum" and target.stage not in ("raw", "diagnostics", "eddy"):
                     # The constraint step refuses a sub-15 kA shot by failing,
-                    # so nothing from EFIT on is ever written (#205).
+                    # so nothing from EFIT on is ever written.
                     failed = True
                     continue
                 elif behaviour == "eddy_no_output" and target.stage == "eddy":
-                    # An unrecorded PF circuit (#1568): eddy records no_output
+                    # An unrecorded PF circuit: eddy records no_output
                     # and replication records skipped.
                     status = "skipped" if target.kind == "replication" else "no_output"
                 elif behaviour == "eddy_no_output" and target.stage in ("efit", "chease"):
                     # Unscoped, the constraint step records the eddy result as
-                    # `EFIT not applicable` (#205's carrier): EFIT and CHEASE
+                    # `EFIT not applicable`: EFIT and CHEASE
                     # end no_output and their replication records skipped.
                     status = "skipped" if target.kind == "replication" else "no_output"
                 elif behaviour == "efit_no_output" and target.stage in ("efit", "chease"):
@@ -431,9 +431,9 @@ def _scope_pipeline(tmp_path, stages):
 
 
 def test_a_shot_failing_at_the_constraint_step_is_given_up(setup, tmp_path):
-    """A constraint-step fault (before #205: every vacuum shot) is retried until given up.
+    """A constraint-step fault (once every vacuum shot) is retried until given up.
 
-    Since #205 a vacuum shot records EFIT as not applicable instead (EFIT
+    A vacuum shot now records EFIT as not applicable instead (EFIT
     ``no_output``, replication ``skipped``: the partial case above); a
     ``Plasma`` shot whose current never reaches CUTIP still fails like this.
     """
@@ -538,11 +538,11 @@ def test_an_efit_no_output_that_replication_refuses_is_failed_and_retried(setup,
     [(["raw", "diagnostics", "eddy"], S.PARTIAL), (None, S.PARTIAL)],
 )
 def test_an_eddy_with_an_unrecorded_pf_circuit(setup, tmp_path, stages, verdict):
-    """#1568: inside a diagnostics/eddy scope the shot is partial and not retried.
+    """Inside a diagnostics/eddy scope the shot is partial and not retried.
 
     Unscoped, the EFIT constraint step carries the eddy result on as `EFIT not
-    applicable` (#205), so the shot is partial there too rather than failing
-    until `gave_up` (cold review 0.8.0 delta-absorb-16 F1).
+    applicable`, so the shot is partial there too rather than failing
+    until `gave_up`.
     """
     _, make_worker, _ = setup
     _scope_pipeline(tmp_path, stages)
@@ -702,7 +702,7 @@ def test_the_snakemake_command(setup, tmp_path):
     for flag in ("--keep-going", "--rerun-incomplete"):
         assert flag in command
     assert command[command.index("--scheduler") + 1] == "greedy"
-    # No forced `--resources hsds=1` since #913: the pipeline config decides.
+    # No forced `--resources hsds=1`: the pipeline config decides.
     assert "--resources" not in command
     assert command[command.index("--directory") + 1] == str(WORKFLOW)
     assert not any(flag.startswith("--force") for flag in command)

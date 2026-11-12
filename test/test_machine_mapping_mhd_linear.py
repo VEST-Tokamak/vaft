@@ -263,7 +263,7 @@ def test_defaults_to_dcon_module_when_unspecified(tmp_path):
     assert extras[1]["module"] == "dcon"
 
 
-# --- regressions found in review of the #170 implementation --------------------
+# --- regressions found in review of the ntms/mhd_linear writer -----------------
 
 def test_an_unreadable_output_warns_rather_than_silently_looking_unrun(tmp_path):
     """The readers are stricter than the old best-effort scalar extraction, so a
@@ -390,7 +390,7 @@ def test_a_run_without_solutions_bin_writes_no_eigenfunction_paths(tmp_path):
 def test_the_mapped_eigenfunction_survives_a_save_load_round_trip(tmp_path):
     """Written with `consistency_check` on, and still valid coming back.
 
-    Issue #170's acceptance criterion is that `mhd_linear` carries no subtree
+    The requirement is that `mhd_linear` carries no subtree
     written with validation disabled; a round trip is what makes that claim
     testable rather than asserted.
     """

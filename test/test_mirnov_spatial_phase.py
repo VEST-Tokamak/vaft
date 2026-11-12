@@ -1,4 +1,4 @@
-"""Issue #485: the toroidal phase of a fluctuation band, read around the torus.
+"""The toroidal phase of a fluctuation band, read around the torus.
 
 The measurement is a phase per probe at one instant; the fit is a line of
 slope ``-n`` through those points.  The plot draws the measurement always
@@ -157,7 +157,7 @@ def _two_position_ods():
 
 
 def test_the_packaged_shot_offers_no_toroidal_fit(sample):
-    """39915 sits in the 35521-44155 gap: no toroidal array recorded (#724, #825).
+    """39915 sits in the 35521-44155 gap: no toroidal array recorded.
 
     It used to offer two positions -- field 171 published twice, 120 degrees
     apart, the same samples under both -- and fit a signal against itself.
@@ -402,7 +402,7 @@ def test_each_band_is_paired_with_its_own_fit_by_colour():
 
 
 # ---------------------------------------------------------------------------
-# One poloidal position (issue #816)
+# One poloidal position
 # ---------------------------------------------------------------------------
 
 
@@ -410,7 +410,7 @@ def _positioned_ods(rows):
     """Probes at explicit ``(r, z, phi_deg)``, each carrying one n=1 band.
 
     Each probe records its own phase of the mode, so no two entries are copies
-    of one acquisition -- which the fit refuses to count twice (#724, #825).
+    of one acquisition -- which the fit refuses to count twice.
     """
     from omas import ODS
 

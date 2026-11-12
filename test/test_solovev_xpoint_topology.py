@@ -1,9 +1,9 @@
-"""Prescribed X-point topology through the Solov'ev constraint path (#938).
+"""Prescribed X-point topology through the Solov'ev constraint path.
 
 The constraint solve used to be hard-wired to the five-term up-down symmetric
 basis, so an X-point could only come from :func:`solovev_example`'s private
-Cerfon-Freidberg solve.  These tests hold the generalized path to what #938
-asks of a diverted analytic equilibrium: the prescribed null is a saddle, not
+Cerfon-Freidberg solve.  These tests hold the generalized path to what
+a diverted analytic equilibrium needs: the prescribed null is a saddle, not
 just a stationary point; the separatrix passes through it; a single null has
 no mirrored twin; and the gridded record recovers the null within a
 resolution-dependent error.
@@ -195,7 +195,7 @@ def test_gridded_xpoint_recovery_improves_with_resolution():
 
 
 #: solovev_example's coefficients at its defaults, from the private solve it
-#: used before #938 routed it through solve_solovev_constraints.
+#: used before it was routed through solve_solovev_constraints.
 PRE_938_COEFFICIENTS = {
     "limited": [0.099795655024286, -0.197076838872786, 0.013834966156041, -0.035043003112827,
                 0.001643722252377, 0.001431757655644, 5.1316827437e-05] + [0.0]*5,

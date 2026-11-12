@@ -1,4 +1,4 @@
-"""Per-rational-surface `eta`/`massden` for rmatch (#716).
+"""Per-rational-surface `eta`/`massden` for rmatch.
 
 The packaged `rmatch.in` supplies one scalar where RMATCH reads an array of
 one value per rational surface (`match.f:99`, guarded at `:183`), so it stops
@@ -19,7 +19,7 @@ from vaft.code.gpec._solvers import (
 from vaft.data.resources import data_path
 from vaft.process.equilibrium import resistive_layer_at, resistive_layer_parameters
 
-#: The NRL parallel Spitzer inputs, stated: omitting them is deprecated (#1188).
+#: The NRL parallel Spitzer inputs, stated: omitting them is refused.
 _SPITZER = {"z_eff": 2.0, "ln_lambda": 17.0}
 
 
@@ -84,7 +84,7 @@ def test_a_profile_that_reaches_zero_temperature_is_reported_not_clipped():
 
 
 def test_omitting_the_spitzer_inputs_is_refused():
-    """#1188: Z_eff and ln(Lambda) are physics inputs, not hidden defaults;
+    """Z_eff and ln(Lambda) are physics inputs, not hidden defaults;
     the fallbacks warned from 0.7.0 and were removed in 0.9.0."""
     psi_norm, t_e, n_e = _profiles()
     with pytest.raises(TypeError, match=r"resistive_layer_at called without z_eff, ln_lambda;.*#1188"):
@@ -184,8 +184,7 @@ def test_the_feature_is_off_until_all_three_profiles_are_given():
     [({}, "z_eff and ln_lambda"), ({"z_eff": 2.0}, "ln_lambda"), ({"ln_lambda": 17.0}, "z_eff")],
 )
 def test_kinetic_profiles_without_the_spitzer_inputs_are_refused_by_name(given, missing):
-    """No silent Z_eff = 2 / ln Lambda = 17 below the GPEC adapter (#1188;
-    cold review 0.8.0 delta-absorb-13-physics F4): the eta written to rmatch.in
+    """No silent Z_eff = 2 / ln Lambda = 17 below the GPEC adapter: the eta written to rmatch.in
     must come from a value the caller stated."""
     psi_norm, t_e, n_e = _profiles()
     with pytest.raises(ValueError, match=rf"explicit {missing} .*#1188"):

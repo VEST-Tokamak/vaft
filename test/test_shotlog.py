@@ -1,4 +1,4 @@
-"""The ShotLog port: parsing, the modern card, per-shot records, FileDB (#995)."""
+"""The ShotLog port: parsing, the modern card, per-shot records, FileDB."""
 
 from __future__ import annotations
 
@@ -126,7 +126,7 @@ def test_the_card_reads_values_beside_labels_not_the_next_label(modern):
     assert (gas["window_ms"], gas["valve_voltage_V"], gas["species"]) == ([300, 302], 90, "H2")
     assert first["planned_configuration"]["probe_positions"]["TP"]["positions_m"] == [0.7]
     assert first["planned_configuration"]["heating_and_current_drive"]["nbi_duration_ms"] == 3
-    # No header or label text ever lands in a value slot (the #995 defect).
+    # No header or label text ever lands in a value slot (the donor parser's defect).
     raws = {item["raw"] for item in first["planned_configuration"]["timing"]}
     assert not raws & {"TS", "RF (9 dBm)", "ECH (8 GHz)", "Remarks", "Low Field Side"}
 

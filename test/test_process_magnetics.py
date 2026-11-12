@@ -1,4 +1,4 @@
-"""Unit tests for toroidal mode analysis and phase fitting sign conventions (Issue #638).
+"""Unit tests for toroidal mode analysis and phase fitting sign conventions.
 
 Verifies that:
 1. `toroidal_mode_analysis` and `toroidal_phase_fit_at_time` yield identical mode

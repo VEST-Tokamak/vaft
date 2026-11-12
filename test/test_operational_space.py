@@ -1,4 +1,4 @@
-"""Operational-space projections, boundary compatibility and the population renderer (#944, #1425)."""
+"""Operational-space projections, boundary compatibility and the population renderer."""
 
 from __future__ import annotations
 
@@ -290,7 +290,7 @@ def test_the_lh_plane_draws_martin_and_refuses_ryter_on_unit():
     assert "1e19" in plan.omitted[0][1]
 
 
-# --- cold review of #1478 ------------------------------------------------------------------
+# --- cold-review findings ------------------------------------------------------------------
 
 
 def test_kink_coordinates_propagate_nan_and_reject_bad_finite_values():
@@ -356,7 +356,7 @@ def test_marker_shapes_keep_their_group_across_subsets():
         assert _legend_marker(ax, label) == _legend_marker(ax2, label)
 
 
-# --- inline boundary style, trajectories, category colours (#1456) -------------------------------------
+# --- inline boundary style, trajectories, category colours --------------------------------------------
 
 
 def test_inline_style_names_the_limit_its_side_and_its_basis():
@@ -444,7 +444,7 @@ def test_format_sizes_the_canvas_and_is_refused_beside_a_callers_axes():
         operational_space_population(_hugill_table(), "hugill", format="screen", ax=ax0)
 
 
-# --- edge-q proxies from global shape (#1456) ---------------------------------------------------------
+# --- edge-q proxies from global shape ----------------------------------------------------------------
 
 
 def test_menard_qstar_is_freidbergs_with_the_1_plus_kappa_squared_shape_factor():
@@ -540,7 +540,7 @@ def test_a_derived_boundary_says_derived_and_murakami_is_a_historical_reference(
     assert abs(x_stable - x_line) > 0.08 * ax.get_window_extent().width
 
 
-# --- applicability status (#1628, plotting side) -------------------------------------------------
+# --- applicability status (plotting side) -------------------------------------------------------
 
 
 def _wesson_table(machine_class=None):
@@ -652,7 +652,7 @@ def test_conventional_aspect_ratio_current_limits_are_outside_for_a_spherical_sh
     assert status == "UNASSESSED" and "no calibration range" in reasons[-1]
 
 
-# --- spherical-tokamak Hugill diagram (#1602) ----------------------------------------------------
+# --- spherical-tokamak Hugill diagram -----------------------------------------------------------
 
 
 def test_st_hugill_coordinates_put_the_greenwald_and_sykes_densities_on_their_lines():
@@ -697,7 +697,7 @@ def test_st_hugill_diagram_curves_are_the_registered_boundaries():
     assert chart.parameters["boundaries"] == ("sykes_2000_st_hugill", "greenwald_hugill_st", "murakami_hugill")
 
 
-# --- Wesson + Cheng-Furth-Boozer references (#1603) ----------------------------------------------
+# --- Wesson + Cheng-Furth-Boozer references -----------------------------------------------------
 
 
 def test_the_pair_shows_both_references_on_their_own_planes_and_keeps_the_data():
@@ -788,7 +788,7 @@ def test_murakami_is_a_dashed_reference_on_the_st_plane_in_the_default_style_too
     assert not [line for line in ax2.get_lines() if line.get_linestyle() == "--"]
 
 
-# --- the Troyon plane's references (#1691) -------------------------------------------------------
+# --- the Troyon plane's references --------------------------------------------------------------
 
 
 def _troyon_table():
@@ -949,7 +949,7 @@ def test_the_discharge_diamond_is_named_only_on_the_axis_it_is_drawn_on():
     assert not [l for l in ax.get_lines() if l.get_marker() == "D"]
 
 
-# --- aspect-ratio-robust beta views (#1691 stage 2B) ---------------------------------
+# --- aspect-ratio-robust beta views -------------------------------------------------
 
 
 def _beta_table(n=24, seed=3):

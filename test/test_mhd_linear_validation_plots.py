@@ -1,4 +1,4 @@
-"""Linear MHD stability validation plots (issue #139).
+"""Linear MHD stability validation plots.
 
 The plot set is deliberately minimal: `n_tor` and DCON's `energy_perturbed`
 drive the energy figure, while the run-coverage figure is built from the stage
@@ -397,7 +397,7 @@ def test_delta_prime_and_solver_status_reach_the_metrics_from_the_manifest(tmp_p
     runs = metrics["solver_runs"]
     # The manifest keeps the *full* per-surface Delta-prime detail. The index
     # itself is no longer manifest-only -- it reaches `ntms.deltaw` and is
-    # plotted from there (#170) -- but the manifest is still where a reader
+    # plotted from there -- but the manifest is still where a reader
     # finds it per solver cell, which `ntms` does not record.
     assert runs["t=316/rdcon/n=1"]["modes"]["1"]["variable"] == "Delta_prime"
     assert runs["t=316/rdcon/n=1"]["modes"]["1"]["value"] == 1.23
@@ -414,7 +414,7 @@ def test_metrics_work_without_a_manifest(tmp_path):
     metrics = manifest["metrics"]
     assert "solver_runs" not in metrics
     assert metrics["modes"]["1"][0]["energy_perturbed"] == pytest.approx(-0.4)
-    # Issue #173 phase 1's coverage plot needs the stage manifest; without one
+    # The run-coverage plot needs the stage manifest; without one
     # it degrades to skipped rather than failing the whole stage.
     coverage = next(row for row in manifest["plots"] if row["name"] == "mhd_linear_run_coverage")
     assert coverage["status"] == "skipped"
@@ -429,7 +429,7 @@ def test_the_figure_is_written_and_non_empty(tmp_path):
     assert target.stat().st_size > 10_000
 
 
-# --- issue #173 phase 1: run coverage -----------------------------------------
+# --- run coverage -----------------------------------------------------------
 
 def test_run_coverage_plot_is_written_from_the_manifest_independent_of_the_ods(tmp_path):
     """The coverage plot is built entirely from `modules_modes`; an ODS with no

@@ -1,4 +1,4 @@
-"""The validation layer's architectural contract (issue #253).
+"""The validation layer's architectural contract.
 
 `vaft.validation` evaluates the credibility of data and computational results;
 it does not generate them, it does not render them, and it does not decide
@@ -63,7 +63,7 @@ def test_verification_is_a_validation_category_not_a_separate_namespace():
 
 #: Per-stage evidence: still owned by this package, resolved silently.
 EVIDENCE_NAMES = ("STAGE_METRICS", "STAGE_PRECONDITIONS", "_efit_metrics")
-#: The stage-QA artifact contract: moved to `vaft.database.production_qa` (#338),
+#: The stage-QA artifact contract: moved to `vaft.database.production_qa`,
 #: reachable here only through a deprecation warning.
 ARTIFACT_NAMES = (
     "STAGE_VALIDATION_PLOTS",
@@ -81,7 +81,7 @@ def test_every_historical_import_site_still_resolves():
     """The two package migrations must not break the workflow or its callers.
 
     `vaft/validation.py` became a package, and then the artifact half of it moved
-    to `vaft.database.production_qa` (#338). Every name a caller ever imported
+    to `vaft.database.production_qa`. Every name a caller ever imported
     from `vaft.validation` still resolves -- but the moved ones say so.
     """
     import importlib
@@ -114,7 +114,7 @@ def test_every_historical_import_site_still_resolves():
 
 
 def test_the_artifact_executor_never_imports_machine_mapping():
-    """The cycle #338 exists to avoid, asserted on the one file that could close it.
+    """The import cycle the move avoids, asserted on the one file that could close it.
 
     `vaft.machine_mapping.magnetics` imports `vaft.database` at module scope. If
     `vaft.database.production_qa` imported it back, the database layer would
@@ -152,7 +152,7 @@ def test_stage_evidence_pulls_in_no_database_or_plotting():
 
 
 def test_the_validity_interpretation_layer_reads_no_data_model():
-    """`vaft.validation.validity` states what the validity nodes mean (#424).
+    """`vaft.validation.validity` states what the validity nodes mean.
 
     It must import nothing that can read an ODS or an IDS, so that a native
     IMAS accessor and the OMAS one cannot disagree about the meaning: they
@@ -207,7 +207,7 @@ def test_a_report_of_statuses_serializes_deterministically():
 
 
 def test_a_metric_needs_no_status():
-    """#253 §6: a calculated number is not automatically a validation result.
+    """A calculated number is not automatically a validation result.
 
     Nothing in the vocabulary forces a metric provider to produce a verdict, so
     a plain float and a compact mapping are both complete answers.
@@ -329,7 +329,7 @@ def test_a_projection_that_would_not_resolve_in_time_is_refused(probe):
 
 
 def test_valid_fraction_is_a_metric_not_a_verdict(probe):
-    """#253 §7: how much of the record survives is evidence; what fraction is
+    """How much of the record survives is evidence; what fraction is
     enough is the consumer's policy and is deliberately not encoded here.
     """
     ods, base = probe
@@ -380,7 +380,7 @@ def test_a_successful_run_flag_says_nothing_about_source_validity(probe):
 
 
 def test_the_issue_studies_are_not_imported_by_the_validation_package():
-    """``vaft.validation.studies`` (#1756) holds per-issue scripts that import
+    """``vaft.validation.studies`` holds per-issue scripts that import
     optional solver toolkits at module level.  Importing the validation core
     must never reach them, and the subpackage must not be an eager attribute."""
     leaked = _in_subprocess(

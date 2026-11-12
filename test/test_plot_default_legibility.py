@@ -6,10 +6,10 @@ correctly, so nothing in the suite noticed.
 
 * A geometry view went straight to `axes.legend`, bypassing the shared policy
   that replaces a legend with a count note past `LEGEND_MAX_ENTRIES`. Forty
-  soft X-ray sight lines drew forty legend entries over the drawing (#764).
+  soft X-ray sight lines drew forty legend entries over the drawing.
 * A spectrogram is analysed to Nyquist. For a diagnostic sampled far above its
   physics band that put the content in the bottom few percent of the axis, so
-  the default render read as an empty map (#765).
+  the default render read as an empty map.
 """
 
 from __future__ import annotations
@@ -261,7 +261,7 @@ class TestSpectrogramDefaultReachesTheModel:
         assert model.frequency[-1] > 4.9e4
 
 
-# --- 3-D views keep their axis labels on the canvas (issue #1317) -------------
+# --- 3-D views keep their axis labels on the canvas --------------------------
 
 def _inside(figure, text) -> bool:
     figure.draw_without_rendering()

@@ -1,4 +1,4 @@
-"""Plasma-free magnetic-response benchmark for the VEST wall model (issue #190).
+"""Plasma-free magnetic-response benchmark for the VEST wall model.
 
 The synthetic cases are built so the answer is known by construction: the
 "measured" signals are synthesized *from* the same forward model the benchmark
@@ -6,7 +6,7 @@ evaluates, so a residual that does not vanish means the benchmark reads the ODS
 differently from how the builder wrote it -- not that the physics is hard.
 
 The separation these tests defend is that this layer asks only "does the
-measurement agree with the vacuum model?".  It reads the signal validity #189
+measurement agree with the vacuum model?".  It reads the signal validity the quality layer
 established and never writes it, and it never re-fits anything to make its own
 residual smaller.
 """
@@ -142,7 +142,7 @@ def _synthesize(ods: ODS, *, scale: float = 1.0) -> ODS:
     )
 
     positions = [(r, z) for _n, r, z in PROBES] + [(r, z) for _n, r, z in LOOPS]
-    # The same response path the forward model takes (issue #239): a fixture
+    # The same response path the forward model takes: a fixture
     # built on the other implementation would test the ~1e-7 gap between two
     # Green's-function paths rather than the model.
     psi, b_z, b_r = compute_point_response_matrices_ods(
@@ -151,7 +151,7 @@ def _synthesize(ods: ODS, *, scale: float = 1.0) -> ODS:
     for position, (r, z) in enumerate(positions):
         if position < len(PROBES):
             # The DD's own convention: `poloidal_angle` runs clockwise from +R,
-            # so the sensitive axis is (cos, -sin) in (R, Z) -- issue #288. The
+            # so the sensitive axis is (cos, -sin) in (R, Z). The
             # fixture has to synthesize with the projection the model uses, or
             # it is testing two conventions against each other rather than the
             # forward chain.
@@ -236,7 +236,7 @@ def test_every_usable_channel_is_evaluated(vacuum_shot):
 # ---------------------------------------------------------------------------
 
 def test_the_wall_decay_time_scales_inversely_with_its_resistance(vacuum_shot):
-    """The quantity #190 is most sensitive to, and #117 has not settled."""
+    """The wall resistance: the quantity the benchmark is most sensitive to, and one not yet settled."""
     nominal = wall_time_constants(vacuum_shot)
     scaled = wall_time_constants(
         benchmark_wall_currents(vacuum_shot, resistance_scale=4.0)
@@ -373,7 +373,7 @@ def test_the_source_ods_is_never_modified_by_a_benchmark_run(vacuum_shot, tmp_pa
 # ---------------------------------------------------------------------------
 
 def test_a_model_disagreement_never_invalidates_the_source_measurement(vacuum_shot):
-    """#253 §10: native validity may only be written by validation whose subject
+    """Native validity may only be written by validation whose subject
     is the datum itself.  A channel disagreeing with a forward model is
     evidence about the *model*.
     """
@@ -457,7 +457,7 @@ def packaged_case():
 
 
 def test_the_packaged_shot_reproduces_its_plasma_free_magnetic_response(packaged_case):
-    """The real evidence #190 asks for, on the one shot the package ships.
+    """The real evidence the benchmark exists for, on the one shot the package ships.
 
     Not a tuned bound: the assertion is that the passive-wall term explains most
     of what the coils alone cannot, across the full usable channel set, driven
@@ -466,12 +466,12 @@ def test_the_packaged_shot_reproduces_its_plasma_free_magnetic_response(packaged
     summary = packaged_case["metrics"]["summary"]
 
     # 73, not 74: the packaged artifact now carries the quality layer's
-    # verdicts (#189), and H3-08 -- 2.7 T on a 0.04 T population -- is
+    # verdicts, and H3-08 -- 2.7 T on a 0.04 T population -- is
     # rejected by the IDS validity before the benchmark ever sees it.
     assert summary["evaluated"] == 73, "every usable B-probe and flux loop"
     assert summary["excluded"] == 0
     # The window now runs to the plasma onset of the light (0.3063 s), not to
-    # the PF-pickup crossing 14 ms earlier (#409), so it covers the strongly
+    # the PF-pickup crossing 14 ms earlier, so it covers the strongly
     # driven stretch the old window left out: median improvement 0.78 and
     # median correlation 0.977 over it (0.8+ / 0.99+ over the short window).
     assert summary["improvement"]["median"] > 0.75
@@ -480,7 +480,7 @@ def test_the_packaged_shot_reproduces_its_plasma_free_magnetic_response(packaged
 
 
 def test_the_benchmark_evaluates_far_more_than_the_routine_qa_subset(packaged_case):
-    """#139's compact per-family subset is right for per-shot QA and too small
+    """The routine QA's compact per-family subset is right for per-shot QA and too small
     to qualify a machine model: one channel per family cannot separate a sensor
     problem from a wall-model one.
     """
@@ -531,11 +531,11 @@ def test_the_packaged_case_needs_no_plasma_and_declares_its_evidence(packaged_ca
 
 
 def test_the_nominal_wall_resistance_beats_a_doubled_one_on_real_data(packaged_case):
-    """Evidence for #117, which the benchmark exists to supply.
+    """Evidence on the wall resistance, which the benchmark exists to supply.
 
-    #117 has shown that the stored `pf_passive.loop.*.resistance` values are not
-    reproduced by a naive `rho * 2 pi R_mean / area`. This does not settle that,
-    but it does say the stored values are approximately right rather than out by
+    The stored `pf_passive.loop.*.resistance` values are not reproduced by a
+    naive `rho * 2 pi R_mean / area`, and why is not settled. This test does not
+    settle it either, but it does say the stored values are approximately right rather than out by
     a factor: agreement is best at the declared resistance and degrades on both
     sides of it. A scan over the packaged shot reads
 
@@ -550,8 +550,7 @@ def test_the_nominal_wall_resistance_beats_a_doubled_one_on_real_data(packaged_c
     ==========  =================  ======================
 
     Only the doubled point is asserted here, to keep the test to one extra
-    solve. One shot is not a qualification of the VEST wall model -- #190 says
-    so explicitly -- but a benchmark that could *not* see this would be
+    solve. One shot is not a qualification of the VEST wall model -- but a benchmark that could *not* see this would be
     absorbing the error rather than measuring it.
     """
     from vaft.omas.sample import sample_ods
@@ -571,10 +570,10 @@ def test_the_packaged_case_surfaces_the_channels_the_wall_model_fails_on(package
 
     A negative improvement means adding the wall response made agreement
     worse.  Two channels still show it on this shot -- an outboard probe and
-    an inboard flux loop -- and #190 exists to make them visible instead of
+    an inboard flux loop -- and the benchmark exists to make them visible instead of
     averaging them away.  What is no longer here is the anticorrelated
     channel this test used to find: that was H3-08, a probe reading 2.7 T on
-    a 0.04 T population, and the quality layer (#189) now rejects it through
+    a 0.04 T population, and the quality layer now rejects it through
     the artifact's own validity before the benchmark sees it.  A sensor
     fault is not a wall-model finding, and the benchmark should not have to
     rediscover one.
@@ -701,7 +700,7 @@ def test_a_shot_the_legacy_detector_cut_before_its_solenoid_is_driven_now():
     discharge detector (retired with evidence schema 3) fired on PF pickup
     ~0.8 ms *before* the solenoid, so the nominal plasma-free window carried
     0.3 % of the shot's coil drive.  With the interval ending at the light's
-    onset (#409) the window holds the whole PF ramp.  The undriven branch
+    onset the window holds the whole PF ramp.  The undriven branch
     itself is kept alive by the synthetic case above."""
     import vaft
     import vaft.omas

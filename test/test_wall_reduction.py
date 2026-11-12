@@ -1,4 +1,4 @@
-"""Reduced wall dynamics and response-ranked selection (vaft #494, vfit #10).
+"""Reduced wall dynamics and response-ranked selection.
 
 Synthetic systems whose answers are closed forms; the packaged machine lives
 in test_wall_reduction_packaged.py.  The question these tests fix is the one

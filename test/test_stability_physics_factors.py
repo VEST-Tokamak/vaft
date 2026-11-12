@@ -1,4 +1,4 @@
-"""Three stability kernels that dropped a factor (issues #348, #363, #364).
+"""Regression guards for #348, #363 and #364: three stability kernels that dropped a factor.
 
 Each was wrong by a factor rather than a detail, and none had a single test
 calling it -- which is why all three survived. The negative controls here keep
@@ -24,7 +24,7 @@ EPSILON = 0.7
 Q95 = 3.0
 
 
-# --- #348 -------------------------------------------------------------------
+# --- #348: rho* is rho_e / a, not rho_e * a -----------------------------------
 
 def test_rho_star_is_dimensionless_and_carries_the_right_constant():
     r"""rho_e/a with rho_e = sqrt(2 m_e e T_e)/(e B), constant sqrt(2 m_e/e)."""
@@ -35,7 +35,7 @@ def test_rho_star_is_dimensionless_and_carries_the_right_constant():
 
 
 def test_rho_star_agrees_with_the_equilibrium_definition():
-    """One definition, so the two cannot drift apart (this is what #353 wants)."""
+    """One definition, so the two cannot drift apart."""
     Te, a, B = 500.0, 0.28, 0.2
     assert rhostar_from_Te_a_Bt(Te, a, B) == pytest.approx(
         normalized_larmor_radius_from_M_T_a_Bt(ME, Te, a, B)
@@ -51,7 +51,7 @@ def test_rho_star_falls_when_the_machine_grows():
     assert old_expression * 1.0 > old_expression * 0.1, "the old form rose with a"
 
 
-# --- #363 -------------------------------------------------------------------
+# --- #363: beta_p conversion uses q / epsilon, not q -------------------------
 
 def test_beta_p_uses_q_over_epsilon_not_q_alone():
     beta_t = 0.05
@@ -82,7 +82,7 @@ def test_a_non_positive_inverse_aspect_ratio_is_refused(bad):
         beta_pol_from_beta_tor(0.05, Q95, bad)
 
 
-# --- #364 -------------------------------------------------------------------
+# --- #364: ballooning alpha carries q^2 ---------------------------------------
 
 def _parabolic_pressure(n: int = 41):
     R = np.linspace(0.4, 0.9, n)

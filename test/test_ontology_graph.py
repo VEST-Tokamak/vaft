@@ -1,4 +1,4 @@
-"""The generated scientific ontology behind /reference/ontology/ (#1702).
+"""The generated scientific ontology behind /reference/ontology/.
 
 These pin the ontology's contract rather than its current coverage: identity
 is strict (aliases resolve, families never merge, unknown terms are audited,

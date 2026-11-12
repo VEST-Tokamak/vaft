@@ -1,4 +1,4 @@
-"""Effective VEST configuration: resolution, overrides, provenance and identity (#2159)."""
+"""Effective VEST configuration: resolution, overrides, provenance and identity."""
 
 from __future__ import annotations
 

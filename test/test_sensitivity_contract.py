@@ -1,6 +1,6 @@
-"""The #1642 sensitivity contract: generic kernels and their interpretation (Lane AP).
+"""The sensitivity contract: generic kernels and their interpretation.
 
-The acceptance demonstrations of #1642 at the cost of a unit test:
+The contract's demonstrations at the cost of a unit test:
 
 * an analytic derivative already in VAFT (the exact Green's-function field,
   ``B = curl(psi)``) validated against a finite-difference one;
@@ -109,7 +109,7 @@ def test_linearity_ratio_is_zero_for_a_linear_map_and_grows_with_curvature():
 
 
 # ---------------------------------------------------------------------------
-# a derivative validated against another (#1642 acceptance)
+# a derivative validated against another
 # ---------------------------------------------------------------------------
 
 
@@ -166,7 +166,7 @@ def test_matrix_free_and_explicit_jacobians_agree():
 
 
 # ---------------------------------------------------------------------------
-# local against sampled, and where the local Jacobian breaks (#1642 s16)
+# local against sampled, and where the local Jacobian breaks
 # ---------------------------------------------------------------------------
 
 NAMES = ("i_p", "b_t", "p_net")
@@ -219,7 +219,7 @@ def test_linear_propagation_holds_far_from_the_singularity_and_fails_near_it():
 
 
 # ---------------------------------------------------------------------------
-# targeted scans (#1663) and layering
+# targeted scans and layering
 # ---------------------------------------------------------------------------
 
 

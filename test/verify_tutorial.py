@@ -16,7 +16,7 @@ TUTORIAL = ROOT / "tutorial"
 
 # Session 01 is a beginner's walkthrough of the everyday VAFT workflow, so it
 # follows the workflow itself rather than the analysis-session structure the
-# later sessions share (issue #185). Its headings are pinned per-session here.
+# later sessions share. Its headings are pinned per-session here.
 SESSION_01_HEADINGS = [
     "What is VAFT",
     "Imports",

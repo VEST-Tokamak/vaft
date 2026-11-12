@@ -651,7 +651,7 @@ def test_window_report_renders_through_vaft_plot(tmp_path):
 
 
 # --------------------------------------------------------------------------
-# Execution backend (#671 follow-up): NICE launches through vaft.code.execution
+# Execution backend: NICE launches through vaft.code.execution
 # --------------------------------------------------------------------------
 
 

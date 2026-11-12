@@ -1,4 +1,4 @@
-"""The reduced-wall order study on the packaged VEST wall (vaft #494, vfit #10).
+"""The reduced-wall order study on the packaged VEST wall.
 
 Pins are the study's own findings at loose factors, so a regression in the
 basis, the projection or the integrator shows -- not a tuning of the wall.

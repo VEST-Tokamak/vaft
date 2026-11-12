@@ -1,4 +1,4 @@
-"""The per-issue studies under ``vaft.validation.studies`` run as modules (#1756).
+"""The per-issue studies under ``vaft.validation.studies`` run as modules.
 
 Each script used to be a ``PYTHONPATH=. python validation/<folder>/<script>.py``
 path run, which imports whichever ``vaft`` is first on the path.  Now every

@@ -1,6 +1,6 @@
 """What compute_magnetic_energy integrates, over what, and whether it writes.
 
-Found while fixing the voltage-consumption path (#652): the default total is
+Found while fixing the voltage-consumption path: the default total is
 dominated by the vacuum toroidal field over the plasma volume, the flux mask
 admitted cells outside the boundary, and the call wrote B fields into the
 caller's ODS.  The poloidal part is pinned against an independent route --

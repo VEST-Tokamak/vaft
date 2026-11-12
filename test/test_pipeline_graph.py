@@ -1,4 +1,4 @@
-"""The production pipelines' lineage graphs behind /reference/pipeline-graph/ (#1647).
+"""The production pipelines' lineage graphs behind /reference/pipeline-graph/.
 
 The generator dry-runs both canonical Snakefiles; these tests pin that what it
 reports is Snakemake's topology, PipelinePaths' artifact identity and
@@ -111,7 +111,7 @@ def test_execution_edges_are_snakemake_rule_dependencies(snapshot):
         ("routine:generate_efit_ods", "routine:replicate_efit_to_hsds"),
         ("corrective:generate_thomson_ods", "corrective:generate_core_profiles_ods"),
         ("corrective:generate_core_profiles_ods", "corrective:generate_composition_ods"),
-        # the kinetic lineages read the composed product, not the measured one (#1842)
+        # the kinetic lineages read the composed product, not the measured one
         ("corrective:generate_composition_ods", "corrective:generate_kinetic_efit_ods"),
         ("corrective:generate_composition_ods", "corrective:generate_ti_inferred_ods"),
         ("corrective:generate_ti_inferred_ods", "corrective:generate_resistive_zeff_ods"),

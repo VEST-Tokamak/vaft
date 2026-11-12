@@ -1,4 +1,4 @@
-"""The scikit-learn backend: a one-class SVM trained in sklearn, stored as ONNX (#973 section 15)."""
+"""The scikit-learn backend: a one-class SVM trained in sklearn, stored as ONNX."""
 
 from __future__ import annotations
 

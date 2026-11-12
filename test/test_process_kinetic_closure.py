@@ -1,4 +1,4 @@
-"""Dilution-aware pressure assembly and the classical fast-ion baseline (#1606)."""
+"""Dilution-aware pressure assembly and the classical fast-ion baseline."""
 
 from __future__ import annotations
 
@@ -98,10 +98,10 @@ def _ti_records(ods):
 @pytest.mark.parametrize("dilution", ["species", "none"])
 @pytest.mark.parametrize("spelling", ["no record (measured)", "legacy fallback", "policy record", "lane K inferred"])
 def test_only_a_measured_ti_record_outranks_the_callers_ratio(sample_48224, spelling, dilution):
-    """A stored T_i the product assumed (Ti = Te, #1414) or inferred (lane K) is not a
+    """A stored T_i the product assumed (Ti = Te) or inferred is not a
     measurement: the caller's ratio applies and the provenance says so.  Before
     this guard every stored array won, p_i was halved against a ratio of 2 and
-    ``provenance["ti"]`` carried no status (cold review 0.8.0 delta-absorb-19 F1)."""
+    ``provenance["ti"]`` carried no status."""
     base = "core_profiles.profiles_1d.0"
     te = np.asarray(sample_48224[f"{base}.electrons.temperature"], dtype=float)
     record = _ti_records(sample_48224)[spelling]

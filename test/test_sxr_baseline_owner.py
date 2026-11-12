@@ -1,4 +1,4 @@
-"""One owner for the SXR constant-offset baselines (#2162 B3.11).
+"""One owner for the SXR constant-offset baselines.
 
 Before the consolidation the soft-X-ray chain removed a constant per-channel
 offset in three places, each with its own window rule:
