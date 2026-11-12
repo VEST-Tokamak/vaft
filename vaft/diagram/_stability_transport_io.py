@@ -95,14 +95,34 @@ READS: Dict[str, Tuple[str, ...]] = {
     "transport": ("equilibrium", "core_profiles", "assumptions"),
 }
 
-#: what the reconstruction and the kinetic profiles are made from, as IMAS IDS: coils and wall on the first line,
-#: heating and current drive and the measurements on the second. The 3-D coil excitation is ``coils_non_axisymmetric``, so it is drawn here as
-#: machine data, not among the assumptions
+#: what the reconstruction and the kinetic profiles are made from, as IMAS IDS, a line each: wall and axisymmetric
+#: coils; 3-D coils and heating; measurements. The 3-D coil excitation is ``coils_non_axisymmetric``, so it is drawn
+#: here as machine data, not among the assumptions
 EXPERIMENT_TITLE = "IMAS Machine Configuration & Experimental Data IDS"
 EXPERIMENT_IDS: Tuple[Tuple[str, ...], ...] = (
-    ("wall", "pf_active", "pf_passive", "em_coupling", "coils_non_axisymmetric"),
-    ("nbi", "ec_launchers", "magnetics", "thomson_scattering", "charge_exchange"),
+    ("wall", "pf_active", "pf_passive", "em_coupling"),
+    ("coils_non_axisymmetric", "nbi", "ec_launchers"),
+    ("magnetics", "thomson_scattering", "charge_exchange"),
 )
+#: the representative quantities of each, as VAFT reads them: limiter and vessel outline
+#: (``description_2d.*.outline``), coil and passive-loop currents (``coil.current``, ``loop.current``), the mutual
+#: inductance matrices (``mutual_*``), 3-D coil currents, EC launched power and frequency (``beam.power_launched``,
+#: ``beam.frequency``), plasma current, poloidal field probes, flux loops and diamagnetic flux, Thomson and
+#: charge-exchange profiles. For NBI VAFT maps only the units, so the quantities are the data dictionary's
+#: ``unit.power_launched`` and ``unit.energy``.
+EXPERIMENT_QUANTITIES: Dict[str, str] = {
+    "wall": r"$(R,Z)_{\rm wall}$",
+    "pf_active": r"$I_{\rm coil}$",
+    "pf_passive": r"$I_{\rm eddy}$",
+    "em_coupling": r"$M_{ij}$",
+    "coils_non_axisymmetric": r"$I_{\rm 3D}$",
+    "nbi": r"$P_{\rm NBI}$, $E_b$",
+    "ec_launchers": r"$P_{\rm EC}$, $f$",
+    "magnetics": r"$I_p$, $B_p$, $\psi_p$, $\Phi_{\rm dia}$",
+    "thomson_scattering": r"$T_e$, $n_e$",
+    "charge_exchange": r"$T_i$, $v_\phi$",
+}
+assert set(EXPERIMENT_QUANTITIES) == {i for line in EXPERIMENT_IDS for i in line}
 #: what the kinetic profiles are made from inside the shared input, when they are drawn as derived
 PROFILE_SOURCES: Tuple[str, ...] = ("equilibrium", "assumptions")
 
@@ -242,7 +262,9 @@ _EXPERIMENT_STYLE = "draw=black!60,line width=1.0pt,rounded corners=3pt,fill=bla
 
 
 def _experiment_text() -> str:
-    rows = ["{\\small\\ttfamily " + " $\\cdot$ ".join(escape_latex(i) for i in line) + "}" for line in EXPERIMENT_IDS]
+    # each IDS as the output boxes print theirs: the name in typewriter, a colon, its quantities
+    rows = ["{\\small " + " $\\cdot$ ".join("\\texttt{" + escape_latex(i) + "}: " + EXPERIMENT_QUANTITIES[i] for i in line)
+            + "}" for line in EXPERIMENT_IDS]
     return "\\textbf{" + escape_latex(EXPERIMENT_TITLE) + "}\\\\" + "\\\\".join(rows)
 
 
@@ -302,7 +324,7 @@ def equilibrium_stability_transport(*, labels: bool = True, measurements: bool =
         efit_top = max(p[1] for p in efit.points)
         kin_x, kin_y, _, kin_h = b.model["boxes"]["core_profiles"]
         kin_x += dx
-        h, w = 1.45, 14.2
+        h, w = 1.95, 14.2
         cx, cy = 0.5 * (efit_x + kin_x), _TOP + 0.8 + 0.5 * h
         data = box(cx, cy, w, h, _experiment_text(), style=_EXPERIMENT_STYLE, role="node:experiment_data", latex=True)
         items += list(data.items)
