@@ -272,6 +272,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_concept_pictograms.py",
     "test_diagram_current_diffusion.py",
     "test_diagram_cylindrical_modes.py",
+    "test_diagram_density_semantics.py",
     "test_diagram_disruption.py",
     "test_diagram_divertor_footprint.py",
     "test_diagram_docs_pictograms.py",
@@ -332,6 +333,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
     "test_stability_atlas_population.py",
+    # Legacy archive vs current pipeline: the DCON/RDCON text readers against one
+    # real run's netCDF, slice pairing by time, paired statistics, renderers.
+    "test_gpec_text_output.py",
+    "test_pipeline_comparison.py",
     "test_stability_rdcon_stride_benchmark.py",
     "test_stability_validation.py",
     # GPEC adapter records: how a solver stop is worded and recorded --
