@@ -1,12 +1,13 @@
-"""Records for the self-consistent equilibrium / kinetic-profile iteration (#123).
+"""Records for the self-consistent equilibrium / kinetic-profile iteration.
 
 The iteration in :mod:`vaft.code.chease_kinetic_iteration` composes three
-existing pieces -- the #122 synthetic kinetic profiles, a CHEASE-compatible
+existing pieces -- the synthetic kinetic profiles of
+:mod:`vaft.data.synthetic_kinetic_profiles`, a CHEASE-compatible
 pressure source built from them, and a fixed-boundary CHEASE solve -- and
 repeats until the kinetic pressure and the equilibrium pressure agree.  These
 records keep what that iteration is told apart from what it computes:
 
-* :class:`EquilibriumKineticSpec` -- the closure mode, the #122 kinetic spec
+* :class:`EquilibriumKineticSpec` -- the closure mode, the synthetic kinetic spec
   (re-applied unchanged to every equilibrium), the current / q policy and the
   convergence criteria;
 * :class:`CurrentPolicy` -- the non-pressure Grad-Shafranov source, which
@@ -121,7 +122,7 @@ class CurrentPolicy:
     * ``"analytic_ffprime_shape"`` -- ``FF' = -A dg/dpsi_N`` for the declared
       ``current_profile`` ``g``, an
       :class:`~vaft.data.analytic_plasma_state.AnalyticProfile` in the role of
-      ``F^2/2`` above its edge value (the #1166 scope-B convention of
+      ``F^2/2`` above its edge value (the barrier-profile source convention of
       :class:`vaft.code.chease_synthesis.ZeroDimensionalEquilibriumSpec`),
       with ``A`` carried over as above.
 
@@ -181,7 +182,7 @@ class CurrentPolicy:
 class ConvergenceCriteria:
     """Tolerances, the iteration cap and the failure detectors.
 
-    Every residual is on the kinetic grid (the #122 spec's ``psi_norm``, the
+    Every residual is on the kinetic grid (the kinetic spec's ``psi_norm``, the
     same in every iteration).  A tolerance of ``None`` disables that
     criterion; a state is ``converged`` only when every enabled one holds:
 
@@ -285,7 +286,7 @@ class EquilibriumKineticSpec:
     ``closure`` is one of :data:`CLOSURE_MODES`:
 
     * ``"equilibrium_pressure"`` -- the equilibrium pressure is authoritative;
-      ``kinetic`` must use ``pressure_constraint="equilibrium"`` so the #122
+      ``kinetic`` must use ``pressure_constraint="equilibrium"`` so the synthetic-profile
       generator decomposes ``p_eq`` into kinetic channels.  One pass, no
       CHEASE solve.
     * ``"kinetic_pressure"`` -- the kinetic pressure is authoritative;

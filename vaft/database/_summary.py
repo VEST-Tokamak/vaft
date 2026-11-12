@@ -37,11 +37,11 @@ EQUILIBRIUM_GLOBAL_COLUMNS = (
     # for continuity with the CHEASE history summaries. These are *different
     # definitions* of a quantity that shares a name, not two estimates of one:
     # they differ by the exact geometric factor R0*L_pol^2/(2V) -- 26% on the
-    # packaged reference. See issue #318.
+    # packaged reference.
     "beta_pol_circumference",
     "beta_tor",
     "beta_normal",
-    # #1691: the volume beta 2 mu0 <p>_V / <B^2>_V over the total field with the
+    # The volume beta 2 mu0 <p>_V / <B^2>_V over the total field with the
     # real F(psi) (Troyon's beta, Menard's aspect-ratio-robust normalization) and
     # its normalized form; a different definition from beta_tor/beta_normal, which
     # divide by the vacuum b0 at one radius.
@@ -81,7 +81,7 @@ EQUILIBRIUM_GLOBAL_COLUMNS = (
     "virial_li_lao",
     "virial_beta_bongard",
     "virial_li_bongard",
-    # #546: the three pairwise closures, the identity residuals evaluated on
+    # The three pairwise closures, the identity residuals evaluated on
     # the equilibrium's own volume integrals, and the conditioning that says
     # whether the RT-dependent ones mean anything. Report-only: no threshold
     # here gates anything.
@@ -118,7 +118,8 @@ EQUILIBRIUM_GLOBAL_PATHS = (
     # the virial mu_i columns are built on it; without it they are NaN.
     "magnetics",
     # beta_pol and li_3 divide by R_0, and the VEST database's
-    # equilibrium.vacuum_toroidal_field.r0 is not trustworthy (#325). The
+    # equilibrium.vacuum_toroidal_field.r0 is not trustworthy: b0*r0 disagrees
+    # with tf by 1.15-2.1x on affected shots. The
     # resolver cross-checks it against tf, so tf has to be loaded or the check
     # is blind and the corrupt value is used silently.
     "tf",
@@ -161,7 +162,7 @@ CORE_PROFILES_PATHS = (
     "tf",
 )
 
-#: The neoclassical product's queryable face (#550 phase 8). Deliberately small:
+#: The neoclassical product's queryable face. Deliberately small:
 #: what a campaign question asks of a bootstrap-current profile is how much current
 #: there is, where it sits, and over how much of the radius the solver was asked --
 #: and the last of those is what stops a partial run reading as a small current.
@@ -177,7 +178,7 @@ NEOCLASSICAL_COLUMNS = (
     "points_solved",
     "b0_T",
     "has_core_transport",
-    # The NEO core_transport slice this bootstrap current corresponds to (#1655).
+    # The NEO core_transport slice this bootstrap current corresponds to.
     # Flux descriptors are filled only when ``transport_match_status`` is
     # ``matched``; every other status names why there is no correspondence.
     "source",
@@ -244,7 +245,7 @@ TURBULENT_TRANSPORT_COLUMNS = (
     "gamma_e_peak_abs_m2_s",
 )
 
-# One row per classical core_transport entry and time slice (#1654). The entry holds
+# One row per classical core_transport entry and time slice. The entry holds
 # one formulation and one EFIT lineage, and each slice names its resolved state, so a
 # row never mixes states, lineages or formulations. Flux columns read only
 # ``energy.flux``; the model's diffusivities are reported as ``chi_*`` coefficients
@@ -327,7 +328,8 @@ EFIT_RELIABILITY_COLUMNS = (
     "equilibrium_lineage",
     # Which EFIT configuration produced the row: chi-square, weight and the
     # iteration counts mean different things under the routine legacy weights
-    # and the statistical default of 2026-10-01 (#891), so rows of both must
+    # and the statistical default of 2026-10-01 (constraint uncertainty as the
+    # only continuous fit scale, binary inclusion weights), so rows of both must
     # not be read as one population.  "name@sha12", or "unrecorded".
     "efit_configuration",
 )
@@ -355,7 +357,7 @@ SHOT_OVERVIEW_COLUMNS = (
     # The window is the envelope of the detector's segments, so its extent is
     # not how long the plasma was there.  Reported beside the duration rather
     # than folded into it: changing what `pulse_duration_s` means would move a
-    # published column under its readers (#752).
+    # published column under its readers.
     "pulse_duty_cycle",
     "max_ip_kA",
     "mean_b_t_T",
@@ -417,7 +419,8 @@ def _extract_time(eq_slice, eq_times, index: int) -> float:
 
 
 def _extract_q_min(eq_slice) -> float:
-    # q_min is a structure in the DD; its signed min-|q| is q_min.value (#277).
+    # q_min is a structure in the DD; its value is the q of smallest magnitude,
+    # kept with its sign, in q_min.value.
     return _as_float(_safe_get(eq_slice, "global_quantities.q_min.value", np.nan))
 
 
@@ -448,7 +451,7 @@ def _virial_values(outputs: dict, index: int) -> dict[str, float]:
 
 
 def _virial_structured_values(values: dict) -> dict[str, float]:
-    """Flatten the #546 closure structure into the sheet's flat columns.
+    """Flatten the virial closure structure into the sheet's flat columns.
 
     The wrapper returns nested blocks; a spreadsheet row is flat. Missing
     blocks yield NaN rather than a KeyError, so a row computed by an older
@@ -532,7 +535,7 @@ def _beta_pol_circumference(eq_slice) -> float:
 
 
 def _beta_volume(ods, index: int, eq_slice, minor_radius: float, b0: float) -> tuple[float, float]:
-    """The volume beta and its normalized form (#1691), or NaNs where they cannot be formed.
+    """The volume beta and its normalized form, or NaNs where they cannot be formed.
 
     ``beta_B = 2 mu0 int p dV / int B^2 dV``: the pressure integral from the 1-D
     profiles, the field integral over the inside of the boundary outline with
@@ -587,11 +590,11 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
 
     The stored ``b0`` drifts by up to 101% within a shot while ``f`` at the
     boundary -- the vacuum ``R*B_phi``, since no poloidal current flows outside
-    the plasma -- holds flat to under 1% (issue #325). ``beta_tor`` and
+    the plasma -- holds flat to under 1%. ``beta_tor`` and
     ``beta_normal`` are computed from ``b0`` per time slice and ``vacuum_b0_T``
     reports it, so all three inherit that drift.
 
-    #325 fixes the producer, but only for data ingested after it. The shots
+    The producer is fixed, but only for data ingested after the fix. The shots
     already in HSDS keep their corrupt ``b0``, and re-ingesting them is not in
     scope, so the history sheet normalizes on the way past. This is a
     legacy-data repair, not the fix.
@@ -626,13 +629,13 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
 
     stored = _safe_get(ods, "equilibrium.vacuum_toroidal_field.b0")
     # The magnitude comes from |f_edge| because the stored b0's magnitude is
-    # what drifts (#325); the sign is the stored b0's, so this repair changes
+    # what drifts; the sign is the stored b0's, so this repair changes
     # magnitudes only and the sheet's vacuum_b0_T keeps the sign it always had.
     # f and b0 transform identically under a COCOS change (both TOR in OMAS's
     # table), so they cannot "follow different COCOS": a file whose f_edge and
     # b0 disagree in sign is internally inconsistent under every COCOS. Which of
     # the two is physical is not decided here -- the disagreement is logged and
-    # the stored sign kept (#692).
+    # the stored sign kept.
     sign = 1.0
     stored_has_sign = False
     try:
@@ -787,7 +790,8 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
             "time_s": _extract_time(eq_slice, eq_times, index),
             "ip_kA": _as_float(_safe_get(eq_slice, "global_quantities.ip")) / 1e3,
             # Column is labeled Wb: convert from the storage convention
-            # (Wb for DD-conformant files, Wb/rad for legacy ones; issue #236).
+            # (Wb for DD-conformant files, Wb/rad for legacy ones written before
+            # the native writer followed the DD).
             "psi_axis_Wb": _as_float(_safe_get(eq_slice, "global_quantities.psi_axis"))
             * ods_psi_to_wb_per_radian_factor(ods, index) * TWO_PI,
             "q_axis": _as_float(_safe_get(eq_slice, "global_quantities.q_axis")),
@@ -849,7 +853,7 @@ def _producer(ods, prefix: str) -> tuple[str | None, str | None]:
 
 
 def _neoclassical_transport(ods, time_s: float) -> dict:
-    """The NEO core_transport slice that corresponds to one bootstrap slice (#1655).
+    """The NEO core_transport slice that corresponds to one bootstrap slice.
 
     The correspondence is unambiguous only when all of these hold, and every
     failure is a named status rather than a fallback:
@@ -944,8 +948,8 @@ def extract_neoclassical(ods, shot: int) -> list[dict]:
     """Summarize a mapped neoclassical result, one row per core_profiles slice.
 
     Reads the canonical product -- `core_profiles.j_bootstrap` as the NEO mapping
-    wrote it -- and never a native `out.neo.*` file: #550 phase 8 is explicit that
-    the standardized product is the long-term query contract, and a summary that
+    wrote it -- and never a native `out.neo.*` file: the standardized product is
+    the long-term query contract, and a summary that
     parsed solver output would be a second, divergent one.
 
     The profile is NaN outside the surfaces NEO solved. That is carried into the
@@ -981,8 +985,8 @@ def extract_neoclassical(ods, shot: int) -> list[dict]:
         if field is not None:
             values = np.asarray(field, dtype=float).reshape(-1)
             # One stored value genuinely applies to every slice; anything shorter
-            # than the slice list does not, and clamping to its last entry is how
-            # slice 0's field came to answer for every slice in PR #696.
+            # than the slice list does not, and clamping to its last entry would
+            # let slice 0's field answer for every slice.
             if values.size == 1:
                 b0 = float(values[0])
             elif cp_index < values.size:
@@ -1170,7 +1174,7 @@ def _classical_parameters(text) -> dict | None:
 
 
 def extract_classical_transport(ods, shot: int) -> list[dict]:
-    """Summarize classical ``core_transport`` entries by entry and time slice (#1654).
+    """Summarize classical ``core_transport`` entries by entry and time slice.
 
     An entry is classical when its identifier is index -1 *and* name ``classical``:
     a negative index is private, so the index alone identifies nothing. Each row
@@ -1308,7 +1312,7 @@ def _bootstrap_current_kA(ods, cp_index: int, current, rho, solved) -> float:
     )
 
 
-#: What the confinement columns of the ``core_profiles`` preset mean (#1905).
+#: What the confinement columns of the ``core_profiles`` preset mean.
 #: Two definitions live side by side and are never merged: the legacy modelled
 #: budget keeps ``p_loss_MW`` / ``tau_e_s`` as they always were, and the
 #: experimental Ohmic chain of :func:`vaft.omas.confinement.ohmic_confinement_ods`
@@ -1526,10 +1530,10 @@ def _efit_collection(ods) -> dict:
     """The EFIT collection payload, parsed out of the one string that replicates.
 
     ``equilibrium.code.parameters`` is a `STR_0D`, so this is where the EFIT
-    stage puts the provenance that has to survive an entry (#380).  Everything
-    else it writes under that field is a local parser cache that is left behind
-    on purpose (#642), which is why the lineage below reads the string rather
-    than the cache it used to read.
+    stage puts the provenance that has to survive an entry.  Everything else it
+    writes under that field is a local parser cache that is deliberately not
+    replicated, which is why the lineage below reads the string rather than the
+    cache.
     """
     raw = _safe_get(ods, "equilibrium.code.parameters", None)
     if not isinstance(raw, str):
@@ -1607,8 +1611,8 @@ _SLICE_TIME_TOLERANCE_S = 1.0e-6
 
 #: Recorded in place of a lineage field a replica cannot carry.  A field that
 #: cannot be filled is named rather than dropped: an absent key reads the same
-#: as an artifact nobody hashed, which is how three of these went missing from
-#: every summary for a year (#728).
+#: as an artifact nobody hashed, so a field that cannot be filled would
+#: otherwise go missing from every summary unnoticed.
 _UNAVAILABLE = "not replicated"
 
 #: Recorded when the payload says that run produced no such artifact.  The

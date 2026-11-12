@@ -1,4 +1,4 @@
-"""The unified equilibrium validation report (issue #72; #253 §13-§16).
+"""The unified equilibrium validation report.
 
 One call, :func:`validate_equilibrium`, answers four separately queryable
 questions about a reconstructed equilibrium:
@@ -8,7 +8,8 @@ questions about a reconstructed equilibrium:
     continuity, the COCOS convention, and the solver's own convergence.
 ``diagnostic_fit``
     Does the reconstruction reproduce the measurements it was fitted to?
-    Per family, per scalar constraint, and globally, from #69's residuals.
+    Per family, per scalar constraint, and globally, from the normalized
+    constraint residuals of :mod:`vaft.omas.efit_quality`.
 ``physical_validity``
     Does the result satisfy force balance and look like a plasma?  Virial and
     Shafranov quantities, the consistency of two beta_p definitions, the q and
@@ -17,16 +18,16 @@ questions about a reconstructed equilibrium:
     Does it agree with measurements it never used?  Kinetic pressure from
     ``core_profiles`` or Thomson scattering, and the diamagnetic stored energy.
 
-This module **composes** and never calculates (#253 §16).  Every number comes
+This module **composes** and never calculates.  Every number comes
 from a canonical provider -- :mod:`vaft.omas.efit_quality`,
 :mod:`vaft.omas.process_wrapper`, :mod:`vaft.process.equilibrium`,
 :mod:`vaft.process.cocos`, :mod:`vaft.formula.equilibrium`,
 :mod:`vaft.formula.statistics` -- and the module's own work is to select, map,
 compare and grade.  What is stable about each check -- unit, provider,
 tolerance, the rule that yields its status -- lives once in
-:mod:`vaft.validation.registry`, so results stay compact (#253 §4).
+:mod:`vaft.validation.registry`, so results stay compact.
 
-Report shape (#253 §15)::
+Report shape::
 
     {
         "schema_version": 1,
@@ -44,7 +45,7 @@ is JSON-serializable and deterministic; non-finite floats serialize as
 ``null``.  Nothing here imports a plotting backend, and the input ODS is never
 mutated: the one provider that writes into its argument runs on a copy.
 
-Statuses (#253 §4): ``not_available`` means the evidence was never produced,
+Statuses: ``not_available`` means the evidence was never produced,
 ``indeterminate`` that it does not decide (a near-singular denominator, a
 missing boundary), and neither is a ``pass``.  Aggregation keeps that: a
 category with one failing slice fails, and one that could only be assessed
@@ -95,7 +96,7 @@ _ELEMENTARY_CHARGE = 1.602176634e-19
 #: Names a per-slice virial row must carry finite for the closure to be decided.
 _VIRIAL_REQUIRED = ("s_1", "s_2", "s_3", "alpha", "B_pa", "beta_p", "li")
 #: A closure denominator below this is reported as near-singular. Report-only:
-#: the number is a readable round figure, not a qualified threshold (#546 §7).
+#: the number is a readable round figure, not a qualified threshold.
 _VIRIAL_DENOMINATOR_WARN = 0.1
 #: Fraction of the RT denominator that must survive the sign cancellation in
 #: its integrand before RT/R0 is treated as meaning anything. Also report-only.
@@ -272,7 +273,7 @@ def _equilibrium_data(ods: Any, index: int):
 # ---------------------------------------------------------------------------
 
 def verify_structure(equilibrium: Any, *, time_slice: int) -> dict[str, Any]:
-    """Numerical and structural checks for one slice (#72 §1).
+    """Numerical and structural checks for one slice (verification).
 
     Composes :func:`vaft.process.equilibrium.check_equilibrium_requirements`
     -- the algorithms' own precondition, which knows the grid/psi shape and
@@ -360,7 +361,7 @@ def verify_structure(equilibrium: Any, *, time_slice: int) -> dict[str, Any]:
 
 
 def verify_continuity(equilibrium: Any, *, time_slice: int | Sequence[int] | None = None) -> dict[str, Any]:
-    """Time-slice continuity across the selected slices (#72 §1).
+    """Time-slice continuity across the selected slices (verification).
 
     A whole-IDS check: the slice times must be finite and strictly increasing
     (``fail`` otherwise), and the plasma current should neither change sign
@@ -442,7 +443,7 @@ def verify_convention(equilibrium: Any, *, time_slice: int) -> dict[str, Any]:
 
 
 def verify_convergence(equilibrium: Any, *, time_slice: int) -> dict[str, Any]:
-    """The solver's own convergence evidence for one slice (#70).
+    """The solver's own convergence evidence for one slice.
 
     Composes :func:`vaft.omas.efit_quality.convergence_metrics` with the
     native ``code.output_flag`` and ``convergence.result`` readers of
@@ -473,7 +474,7 @@ def verify_convergence(equilibrium: Any, *, time_slice: int) -> dict[str, Any]:
         within_acceptance_tolerance=bool(error.get("within_acceptance_tolerance")),
         iterations=_float(iterations.get("iterations")),
         iteration_cap=_float(iterations.get("iteration_cap")),
-        # None where the step count cannot decide it (#1038): not "no cap".
+        # None where the step count cannot decide it: not "no cap".
         hit_iteration_cap=iterations.get("hit_cap"),
         chi_squared_total=_float(error.get("chi_squared_total")),
     )
@@ -502,7 +503,7 @@ def verify_convergence(equilibrium: Any, *, time_slice: int) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def validate_magnetic_fit(equilibrium: Any, *, time_slice: int) -> dict[str, dict[str, Any]]:
-    """Constraint-fit assessment for one slice, per check (#72 §2, #69).
+    """Constraint-fit assessment for one slice, per check (diagnostic fit).
 
     Everything is read from :func:`vaft.omas.efit_quality.fit_quality_metrics`:
     the per-family normalized residual RMS, the scalar constraints' normalized
@@ -522,7 +523,7 @@ def validate_magnetic_fit(equilibrium: Any, *, time_slice: int) -> dict[str, dic
     # Every check below grades a residual in units of the submitted sigma.
     # Under the legacy weighting that sigma is the reciprocal of a hand-chosen
     # weight, several thousand times the signal, so each z and chi-square is
-    # small by construction and a pass would say nothing (#891).  Until the
+    # small by construction and a pass would say nothing.  Until the
     # constraints carry a statistical uncertainty -- recorded, not inferred --
     # the grade is not available; the physical-unit fields are still reported.
     model = metrics.get("uncertainty_model", "unknown")
@@ -646,7 +647,7 @@ def _virial_identity_check(row: Mapping[str, Any]) -> dict[str, Any]:
     """Do the three relations close on the equilibrium's own volume integrals?
 
     The one piece of virial evidence that inverts nothing, so no closure
-    denominator can spoil it (#546 §6). Graded on the RMS of the normalized
+    denominator can spoil it. Graded on the RMS of the normalized
     residuals; the three are reported individually because which one fails is
     the informative part.
     """
@@ -693,7 +694,7 @@ def _virial_identity_check(row: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _virial_pair_consistency(row: Mapping[str, Any]) -> dict[str, Any]:
-    """Each pairwise closure scored on the identity it did not use (#546 §5).
+    """Each pairwise closure scored on the identity it did not use.
 
     Solving two relations and testing the third is what stops any one
     historical formulation being treated as the virial theorem itself. A
@@ -749,7 +750,7 @@ def _virial_pair_consistency(row: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _virial_conditioning(row: Mapping[str, Any]) -> dict[str, Any]:
-    """Can these closures be inverted here at all? (#546 §10)
+    """Can these closures be inverted here at all?
 
     Never fails. A vanishing denominator is a property of the inversion, not of
     the equilibrium -- the identities may hold perfectly while every closure
@@ -968,7 +969,7 @@ def _physical_slice(ods: Any, index: int, virial_row: Mapping[str, Any],
 
 
 def validate_physical(equilibrium: Any, *, time_slice: int, diagnostics: Any | None = None) -> dict[str, dict[str, Any]]:
-    """Force-balance and plausibility checks for one slice (#72 §3).
+    """Force-balance and plausibility checks for one slice (physical validity).
 
     The virial quantities come from
     :func:`vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods`,
@@ -1095,7 +1096,8 @@ def thomson_pressure_samples(equilibrium: Any, time_slice: int, diagnostics: Any
     """The Thomson channels of one slice, placed on its flux surfaces.
 
     The sampler behind the ``thomson_pressure`` check, public so a dataset built
-    from the same comparison (#1430) cannot drift from the grade.  The Thomson
+    from the same comparison (the matched Thomson-EFIT pressure dataset of
+    :mod:`vaft.validation.kinetic_state`) cannot drift from the grade.  The Thomson
     sample is the one nearest the slice *time*, accepted within ``tolerance``
     (default: half the equilibrium's median cadence, at least 1 ms); each
     channel's ``(R, Z)`` is mapped through the slice's 2-D psi to psi_N and the
@@ -1247,7 +1249,7 @@ def _diamagnetic_energy(ods: Any, index: int, virial: Mapping[str, Any], dia_row
 
 def _virial_measured_mu_i(virial: Mapping[str, Any]) -> dict[str, Any]:
     """The RT-free closure on the measured mu_i against the same closure on the
-    equilibrium-derived one (#546 §14).
+    equilibrium-derived one.
 
     pair_13 is used because it is the only closure that does not involve
     RT/R0, so a disagreement here is about the diamagnetism and not about a
@@ -1310,7 +1312,7 @@ def _independent_slice(ods: Any, index: int, *, kinetic_profiles: Any | None, di
 
 def validate_independent(equilibrium: Any, *, time_slice: int, kinetic_profiles: Any | None = None,
                          diagnostics: Any | None = None) -> dict[str, dict[str, Any]]:
-    """Agreement with measurements the reconstruction never used, one slice (#72 §4).
+    """Agreement with measurements the reconstruction never used, one slice (independent validation).
 
     ``kinetic_profiles`` is an ODS carrying ``core_profiles`` (the equilibrium
     ODS itself when omitted); ``diagnostics`` one carrying
@@ -1405,7 +1407,7 @@ def validate_equilibrium(
     checks: Iterable[str] = EQUILIBRIUM_CATEGORIES,
     time_slice: int | Sequence[int] | None = None,
 ) -> dict[str, Any]:
-    """The unified equilibrium validation report (#72).
+    """The unified equilibrium validation report.
 
     Parameters
     ----------

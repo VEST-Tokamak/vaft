@@ -1,4 +1,4 @@
-"""Opt-in I/O instrumentation for HSDS access (#1869).
+"""Opt-in I/O instrumentation for HSDS access.
 
 Nothing here runs unless a caller enters :func:`record_io`. Inside it, every
 HTTP request made through :class:`requests.Session` -- which is how h5pyd talks

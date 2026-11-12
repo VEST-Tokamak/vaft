@@ -1,4 +1,4 @@
-"""Server-only configuration for the new-shot pipeline worker (issue #58).
+"""Server-only configuration for the new-shot pipeline worker.
 
 Every operational setting -- where state lives, how often SQL is polled, which
 workflow runs and how -- comes from a deployment's own YAML file.  Nothing here
@@ -70,7 +70,7 @@ class WorkerConfig:
     #: given the pipeline config.  ``None`` uses the raw-field classifier.
     classifier: str | None = None
     #: Also record ``vaft.omas.shot_class`` from the diagnostics product.  For
-    #: reference only -- it does not gate any stage until #57 lands.
+    #: reference only -- the worker gates no stage on it.
     record_shot_class: bool = False
     #: The per-shot stages to run and judge, e.g. ``(raw, diagnostics, eddy)``.
     #: Written into each run's config as ``stages``, which narrows ``rule all``
@@ -264,7 +264,8 @@ def _read_yaml(path: Path, what: str) -> dict[str, Any]:
 def load_pipeline_config(config: WorkerConfig) -> dict[str, Any]:
     """The configuration Snakemake will actually run with.
 
-    The Snakefile loads its own ``config.yaml`` (by the Snakefile's path, #1530)
+    The Snakefile loads its own ``config.yaml`` (by the Snakefile's path, so it
+    is found whatever ``--directory`` the run uses)
     and Snakemake merges ``--configfile`` over it, so a key the deployment's
     file leaves out falls back to the workflow's.  The worker reproduces that merge, so the runner,
     the harvester and the checks below all see what Snakemake sees.

@@ -469,7 +469,9 @@ def export_summary(df, path, *, mode="replace", key_columns=None, replace_groups
 
 def __getattr__(name: str):
     # Composing two sources is an explicit request, never something `load` does
-    # on its own (issue #305); the helper is exposed here so asking for it is as
+    # on its own: each source answers for itself, so a shot missing from the
+    # optional `impa` source is not mistaken for an incomplete baseline. The
+    # helper is exposed here so asking for it is as
     # easy as asking for one source, not so that anything does it implicitly.
     if name == "compose":
         value = getattr(import_module(".composition", __name__), "compose")
@@ -479,7 +481,8 @@ def __getattr__(name: str):
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module
-    # Plot adapters (issue #63) and their dd_*/extract_* twins (umbrella #434):
+    # Plot adapters and their dd_*/extract_* twins (the Data Dictionary paths a
+    # plot reads, and its undrawn view model):
     # resolved lazily so importing vaft.database pulls in neither the
     # plotting stack nor Matplotlib.
     if name.startswith(("plot_", "extract_", "dd_")) or name in ("available_plots", "stored_ids"):

@@ -1,4 +1,4 @@
-"""The new-shot pipeline worker's cycle (issue #58).
+"""The new-shot pipeline worker's cycle.
 
 One cycle: recover what a crash left behind, detect new SQL shots, settle and
 classify them, run the routine pipeline for a batch, and harvest each shot's
@@ -267,7 +267,8 @@ class PipelineWorker:
         ]
         for row in unsupported:
             # A classifier asked for a stage subset the routine pipeline cannot
-            # request on its own yet (#57).  Refuse rather than run everything.
+            # request on its own (only the whole pipeline or raw alone).  Refuse
+            # rather than run everything.
             self.state.conclude(
                 row["shot"],
                 state=S.GAVE_UP,
@@ -387,7 +388,7 @@ class PipelineWorker:
         self.state.finish_run(run_id, exit_code=result.exit_code, outcome=outcome_label)
 
     def _record_shot_class(self, shot: int) -> None:
-        """Reference-only physics class from the diagnostics product (#57 will gate on it)."""
+        """Reference-only physics class from the diagnostics product; no stage is gated on it."""
         try:
             from vaft.omas import load
             from vaft.omas.shot_class import shot_class

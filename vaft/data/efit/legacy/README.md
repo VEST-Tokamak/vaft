@@ -1,6 +1,7 @@
 # The legacy VEST `mhdin.dat`
 
-The namelist that shipped beside the packaged Green tables until issue #708,
+The namelist that shipped beside the packaged Green tables until the shipped
+one was generated from the machine's coilset configuration,
 describing the PF set as **16 lumped conductors** where the canonical static
 geometry resolves **530 filaments**, and declaring `nfsum = 16` where the
 table now carries 26 current groups.

@@ -1,4 +1,4 @@
-"""Which operating regime each reconstructed slice belongs to (issue #76).
+"""Which operating regime each reconstructed slice belongs to.
 
 Reconstruction outcomes are only interpretable against the state the plasma
 was in.  Claims of the shape "high-current shots do not converge" or "ramp-up
@@ -13,7 +13,7 @@ Two things the labels deliberately do **not** do:
 
 * ``unknown`` is never a negative answer.  A slice whose current cannot be
   read is ``unknown``, not ``vacuum``; a boundary EFIT did not name is
-  ``unknown``, not ``limited``.  #76 asks for exactly this separation, and it
+  ``unknown``, not ``limited``.  The separation is deliberate: it
   is the difference between "we looked and there was no X-point" and "we never
   looked".
 * An event is ``unknown`` unless the caller supplied annotations for the
@@ -32,7 +32,8 @@ Where the topology can and cannot be read
 arrives in the a-file parser cache under ``code.parameters``.  That cache is a
 nested sub-path of a ``STR_0D`` and so **stops at the local product**: a
 reconstruction that has round-tripped through the Access Layer no longer
-carries it (#380, #642).
+carries it (the Access Layer declines a nested ``code.parameters`` block;
+see :mod:`vaft.imas.code_parameters`).
 
 The consequence is deliberate and visible rather than silent.  Such a slice
 classifies as topology ``unknown`` with reason ``limloc_absent``, never as
@@ -276,7 +277,7 @@ def _describe(
     events: Sequence[tuple[float, float, str]] | None,
     policy: EquilibriumRegimePolicy,
 ) -> RegimeLabels:
-    """The descriptors added for #1891, on top of phase and topology."""
+    """The current and ramp-rate bins, eddy fraction, era and event descriptors, on top of phase and topology."""
     readable = np.isfinite(current)
     magnitude_rate = float(np.sign(current) * rate) if readable and np.isfinite(rate) else None
     eddy_current = float(eddy) if np.isfinite(eddy) else None

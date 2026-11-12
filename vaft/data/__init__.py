@@ -227,7 +227,7 @@ _EXPORT_MAP = {
     "StationaryPoint": (".equilibrium", "StationaryPoint"),
     "StrikePoint": (".equilibrium", "StrikePoint"),
     "Topology": (".equilibrium", "Topology"),
-    # Defined in `vaft.validation.model` since #337 and re-exported by
+    # Defined in `vaft.validation.model` and re-exported by
     # `.equilibrium`; the entries stay so `from vaft.data import ValidationReport`
     # keeps resolving.
     "ValidationIssue": (".equilibrium", "ValidationIssue"),

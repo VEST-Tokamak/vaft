@@ -1,4 +1,4 @@
-"""The shared vocabulary of the validation layer (issue #253).
+"""The shared vocabulary of the validation layer.
 
 Deliberately small.  This module owns *what an assessment can say*, not how any
 particular assessment is computed: the calculations stay with their domain
@@ -22,8 +22,7 @@ consumer (FileDB stage QA, EFIT constraint weighting), not to this layer.
 
 Two shapes, not two vocabularies
 --------------------------------
-This module holds two things that are easy to mistake for rivals and are not
-(issue #337):
+This module holds two things that are easy to mistake for rivals and are not:
 
 :class:`ValidationStatus`
     A **verdict**.  One value summarizing what an assessment concluded.
@@ -104,7 +103,7 @@ class ValidationIssue:
 class ValidationReport:
     """The findings from one assessment, in the order they were made.
 
-    Kept deliberately thin (#253 §4): no units, no tolerance, no provenance.
+    Kept deliberately thin: no units, no tolerance, no provenance.
     Those are invariant per check rather than per instance and belong in
     documentation or a registry, not repeated on every result.
     """
@@ -150,8 +149,9 @@ class ValidationReport:
 #: :mod:`vaft.validation`.
 #:
 #: This is a classification, not a contract -- no domain is required to
-#: implement every category.  Magnetics signal quality (issue #189) is purely
-#: ``source_validity``; the vacuum-model benchmark (issue #190) is purely
+#: implement every category.  Magnetics signal quality
+#: (:mod:`vaft.validation.magnetics`) is purely ``source_validity``; the
+#: vacuum-model benchmark (:mod:`vaft.validation.vacuum_benchmark`) is purely
 #: ``diagnostic_fit``; neither has anything to say about the others.
 CATEGORIES = (
     "verification",

@@ -1,12 +1,12 @@
-"""IMPA source validity: is a processed internal-probe-array shot credible? (issue #339)
+"""IMPA source validity: is a processed internal-probe-array shot credible?
 
 One question, asked of a shot :func:`vaft.process.impa.process_impa` has
 already transformed: **can its measurements be trusted, and if not, why?**
 That is source validity -- the same question :mod:`vaft.validation.magnetics`
-answers for the magnetic probes (#189) -- so it lives here and speaks
+answers for the magnetic probes -- so it lives here and speaks
 :class:`~vaft.validation.model.ValidationStatus`.  The fitting and
 compensation kernels it grades stay in :mod:`vaft.process.impa`; this module
-computes no field, radius or coupling of its own (#253 §1).
+computes no field, radius or coupling of its own.
 
 Three layers, kept apart:
 
@@ -29,11 +29,11 @@ shot, is ``-1``; a shot accepted with warnings is ``1``; a clean one ``0``.
 That ``1`` reads as *certified* in the Data Dictionary, which
 :mod:`vaft.validation.magnetics` documents and deliberately caps in its own
 scalar; changing it here would change every stored IMPA product, so it is
-kept and tracked separately rather than smuggled into this move.
+kept.
 
 **The manifest keeps its spelling.**  Stage manifests have always recorded the
 calibration verdict as ``valid`` / ``warning`` / ``invalid``, and the
-replication gate (#305) reads ``invalid`` as *rejected*.  Those strings are now
+replication gate reads ``invalid`` as *rejected*.  Those strings are
 a serialization of :class:`ValidationStatus` produced only by
 :func:`manifest_label`, not a vocabulary any caller reasons in.
 """
@@ -269,8 +269,10 @@ def validate_impa(
     Defaults
     --------
     The residual, spacing, coupling and goodness-of-fit thresholds are
-    hard-coded, and two of them disagree with the values ``vest.yaml`` carries,
-    which is tracked in #625. The channel count and the radial bounds are
+    hard-coded.  ``max_normalized_rmse`` matches ``vest.yaml``
+    ``impa.quality`` (0.15); ``pitch_tolerance`` does not (0.01 m here, 0.015 m
+    there), and the VEST mapper does not pass the configured value, so 0.01 m is
+    what every shot is graded with. The channel count and the radial bounds are
     machine-specific.
 
     Limitations
@@ -282,7 +284,7 @@ def validate_impa(
     Provenance
     ----------
     Moved from ``vaft.process.impa.grade_impa_quality`` (formerly
-    ``validate_impa``) under issue #339, verdicts unchanged; ``vest.yaml``
+    ``validate_impa``), verdicts unchanged; ``vest.yaml``
     ``impa.quality`` carries the configured thresholds.
     """
     checks: dict[str, ValidationStatus] = {}

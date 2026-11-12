@@ -1,7 +1,7 @@
 """Reduced-wall order study: full versus reduced wall, and both versus the
-measured magnetics (vaft #494, VEST-Tokamak/vfit#10).
+measured magnetics (VEST-Tokamak/vfit#10).
 
-The segment-wise eigenbasis (:mod:`vaft.process.wall_modes`, #473) can
+The segment-wise eigenbasis (:mod:`vaft.process.wall_modes`) can
 represent the wall current in any number of modes; this module answers how
 many, and which.  Three layers, kept apart on purpose:
 
@@ -13,7 +13,7 @@ many, and which.  Three layers, kept apart on purpose:
 2. **representation order** (:func:`representation_order`): the smallest
    order meeting a set of response tolerances, per rule and per metric, so
    an application that only needs the flux loops can read its own answer.
-3. **measurement ↔ model** (:func:`experimental_comparison`): the #190
+3. **measurement ↔ model** (:func:`experimental_comparison`): the
    plasma-free benchmark path (:mod:`vaft.validation.vacuum_benchmark`)
    evaluated for the full wall and for reduced walls side by side, so the
    reader can tell a vessel-model error (both disagree with the data alike)
@@ -166,7 +166,7 @@ def observation_set(
     """Wall-column response matrices at every observation the study scores.
 
     ``probe`` and ``flux_loop`` are the usable magnetics selected exactly as
-    the #190 benchmark selects them (:func:`vaft.omas.vacuum_magnetics.vacuum_response`),
+    the plasma-free benchmark selects them (:func:`vaft.omas.vacuum_magnetics.vacuum_response`),
     with the probe angle projected by the one shared rule; ``boundary_*`` is
     a ring of ``ring_points`` on the limiter outline shrunk by ``ring_shrink``
     toward its centroid (where a plasma boundary lives); ``grid_psi`` is
@@ -397,7 +397,7 @@ def experimental_comparison(
     dt_sub: float = 5.0e-5,
     **system_options: Any,
 ) -> dict[str, Any]:
-    """The #190 benchmark for the full wall and for reduced walls, side by side.
+    """The plasma-free benchmark for the full wall and for reduced walls, side by side.
 
     ``selections`` maps a name to a retained basis: a ``keep`` tuple for the
     eigenbasis, or an R-orthonormal matrix ``V`` (an enrichment).  The full

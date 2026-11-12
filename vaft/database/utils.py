@@ -191,7 +191,7 @@ def ensure_imas_hdf5_userblock(path: Union[str, Path], entry_dir: Union[str, Pat
 
 # The HTTP stack logs every request at INFO/DEBUG. These helpers used to lower
 # the *root* logger to WARNING, which silenced INFO logging for the whole
-# process -- for the hosted GUI, for every session at once (#1936). Only the
+# process -- for the hosted GUI, for every session at once. Only the
 # two noisy libraries are quietened now, and only when nobody configured them.
 _NOISY_HTTP_LOGGERS = ("h5pyd", "urllib3")
 

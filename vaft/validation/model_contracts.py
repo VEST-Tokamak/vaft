@@ -1,8 +1,8 @@
-"""Which ordering contracts a calculation consumes, from its plasma formalism (#1823).
+"""Which ordering contracts a calculation consumes, from its plasma formalism.
 
-The ordering contracts of :mod:`vaft.validation.orderings` (#1627) say what a
+The ordering contracts of :mod:`vaft.validation.orderings` say what a
 model assumes; the :class:`vaft.code.formalism.PlasmaFormalism` record of a run
-(#1727) says which model the run used. This module joins the two:
+says which model the run used. This module joins the two:
 
 * :func:`contracts_for` maps a formalism to the contracts it consumes, as
   ``(contract, role)`` pairs. The role says *how the assumption enters the
@@ -16,7 +16,7 @@ model assumes; the :class:`vaft.code.formalism.PlasmaFormalism` record of a run
   added to the formalism record: the mapping reads its fields as they are.
 * :data:`ADAPTER_MODES` lists the scientifically distinct modes of VAFT's code
   adapters with their formalism, following the audit of
-  ``docs/_guide/Plasma_models.md`` (#1725). A mode whose backend builds its own
+  ``docs/_guide/Plasma_models.md``. A mode whose backend builds its own
   record (CGYRO) is taken from that builder, so the two cannot disagree.
 * :func:`advisory_ordering_check` evaluates those contracts on a run's input
   state -- the rows :mod:`vaft.process.ordering_state` builds -- with
@@ -536,7 +536,7 @@ def _json_label(label: Any) -> Any:
 def ordering_provenance(formalism, state: Optional[Mapping[str, Any]] = None, points: Any = None, *,
                         transport_coupled: bool = False,
                         notes: Sequence[str] = ()) -> Optional[Dict[str, Any]]:
-    """The advisory ordering check of one run, as a JSON-ready provenance record (#1823).
+    """The advisory ordering check of one run, as a JSON-ready provenance record.
 
     :func:`advisory_ordering_check` on ``state`` and ``points``, reduced to
     plain values an adapter can store in its run provenance: the contracts the

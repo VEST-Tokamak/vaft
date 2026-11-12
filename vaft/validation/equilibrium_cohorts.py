@@ -1,12 +1,12 @@
-"""What failed, in which operating regime (issue #76).
+"""What failed, in which operating regime.
 
-Two halves of this question already exist and have never met. #820 put a
-stated rule on *what state the plasma was in* -- phase, topology, the current
-and rate the labels were derived from. #845 made *how each slice ended*
-readable from the library -- the exit path, the criteria ``chkerr`` refused it
-on, the solver routines that gave up and the ones that only warned.
+Two halves of this question exist separately. :mod:`vaft.validation.equilibrium_regime`
+puts a stated rule on *what state the plasma was in* -- phase, topology, the
+current and rate the labels were derived from. EFIT's own log, parsed by the
+library, says *how each slice ended* -- the exit path, the criteria ``chkerr``
+refused it on, the solver routines that gave up and the ones that only warned.
 
-Joining them is what lets the issue's own question be asked: do failure modes
+Joining them is what lets the question be asked: do failure modes
 sort by operating regime, or is "high-current shots do not converge" a claim
 that dissolves when the cohorts are drawn properly?
 

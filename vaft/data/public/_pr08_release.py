@@ -1,4 +1,4 @@
-"""The public PR08 release as crawled from its directory index (#1736).
+"""The public PR08 release as crawled from its directory index.
 
 Generated on 2026-10-06 from ``https://tokamak-profiledb.ccfe.ac.uk/PR08/itpa_pr08/``.
 A discharge is a ``pr08_<machine>_<shot>_0d.dat`` file, the 0D file the PR08 manual

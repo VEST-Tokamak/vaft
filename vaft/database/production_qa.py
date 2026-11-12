@@ -1,4 +1,4 @@
-"""Post-generation validation plots for the FileDB pipeline (issue #139).
+"""Post-generation validation plots for the FileDB pipeline.
 
 Each production stage owes a small, fixed set of *validation plots*: production
 QA artifacts, not publication figures, whose job is to make bad calibration,
@@ -6,7 +6,7 @@ timing, geometry or reconstruction obvious at a glance.  This module is the one
 declarative source of truth for which figures a stage owes, and the one executor
 that renders and persists them.
 
-It is a **database-layer** concern (#253 §11, #338): the question it answers is
+It is a **database-layer** concern: the question it answers is
 whether an artifact is complete and fit to publish -- every required figure
 present, hashed, and recorded in a manifest next to the product it validates.
 The scientific question of whether the product is *credible* is answered
@@ -159,7 +159,7 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
         ),
         ValidationPlot("equilibrium_overview_verification"),
         # The stage's artifact keeps its content and name: the four time
-        # histories, which plot_equilibrium_overview no longer draws (#261).
+        # histories, which plot_equilibrium_overview does not draw.
         ValidationPlot(
             "equilibrium_overview_histories", filename="equilibrium_overview.png", required=False
         ),
@@ -174,7 +174,7 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
             plot="mhd_linear_time_energy_perturbed",
             filename="stability_energy_perturbed.png",
         ),
-        # The resistive half of the suite (#170). DCON's energy above is the
+        # The resistive half of the suite. DCON's energy above is the
         # ideal result; this is what RDCON and STRIDE actually compute, and it
         # has no slot under `toroidal_mode` -- it lives in `ntms`.
         #
@@ -186,8 +186,8 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
             filename="stability_delta_prime.png",
             required=False,
         ),
-        # Issue #173 phase 1: which (module, mode, time) cells actually ran and
-        # succeeded, independent of the #170 IDS-contract work -- its data is
+        # Which (module, mode, time) cells actually ran and succeeded,
+        # independent of how the results are stored in the IDS -- its data is
         # the stage manifest's `modules_modes` table, not the ODS, so it is a
         # "raw" plot (see `mhd_linear_run_coverage_model`) even though this
         # stage's other plot is ODS-driven.
@@ -207,7 +207,7 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
             required=False,
         ),
     ),
-    # The corrective (Thomson lineage) stages, #1842. Every figure is optional: most
+    # The corrective (Thomson lineage) stages. Every figure is optional: most
     # shots carry no Thomson upload, and a stage that finds its data missing records
     # `unavailable` with an empty-bodied product, which is a normal result and must
     # not make a figure a stage failure. A figure whose data is present but which
@@ -471,14 +471,14 @@ _COVERAGE_STATUS_STYLE: dict[str, dict[str, Any]] = {
 
 
 def mhd_linear_run_coverage_model(manifest: Mapping[str, Any]):
-    """Build the DCON/RDCON/STRIDE run-coverage view model (issue #173 phase 1).
+    """Build the DCON/RDCON/STRIDE run-coverage view model.
 
     One panel per solver module; within a panel, one point per ``(time,
     n_tor)`` cell the workflow attempted, colored by the manifest's own
     ``status`` (``success``/``missing``/``failed``/``no_output``) -- this is
     "did the run happen and produce usable output", not a physics
-    comparison, so it is independent of how the #170 data-model work settles
-    DCON's delta-W against RDCON/STRIDE's Delta-prime.
+    comparison, so it is independent of where the IDS stores DCON's delta-W
+    (``mhd_linear``) and RDCON/STRIDE's Delta-prime (``ntms``).
     """
     from vaft.plot import LineSeries, Panels, Series
 
@@ -612,7 +612,8 @@ def empty_stage_plot_manifest(stage: str, reason: str) -> dict[str, Any]:
     Same shape :func:`render_stage_plots` writes for an empty product: every
     declared plot ``skipped`` with ``reason``, and ``status: empty``. Used when
     the product cannot even be loaded for plotting -- an eddy stage that
-    recorded ``no_output`` has no passive currents to compose (#1568).
+    recorded ``no_output`` (for example because a PF circuit was not
+    recorded) has no passive currents to compose.
     """
     return {
         "schema_version": 1,

@@ -1,4 +1,4 @@
-"""Per-stage validation evidence for the FileDB pipeline (issues #139, #338).
+"""Per-stage validation evidence for the FileDB pipeline.
 
 What a production stage's data product *shows* -- the preconditions that say
 whether it is empty for a legitimate reason, and the quantitative metrics that
@@ -8,7 +8,7 @@ back its validation figures.  Every function here composes a domain provider
 or persists anything.
 
 That is the whole reason this module is separate from
-:mod:`vaft.database.production_qa` (#253 §11).  Which figures a stage *owes*,
+:mod:`vaft.database.production_qa`.  Which figures a stage *owes*,
 what they are called on disk and how they are written are questions about the
 artifact, and belong to the database layer.  Whether the stage's product is
 credible enough to be worth a figure is a question about the science, and
@@ -26,7 +26,8 @@ from typing import Any
 import numpy as np
 
 # Iterating an OMAS AOS yields its integer keys rather than its entries, so
-# everything here counts and indexes positionally (issue #118).
+# everything here counts and indexes positionally; ``path_count`` also counts
+# without materializing the container it counts.
 from vaft.ods_access import path_count as _ods_count
 
 __all__ = [
@@ -48,7 +49,7 @@ def _no_equilibrium_slices(source: Any) -> str | None:
 def _plasma_timing_or_reason(source: Any):
     """``(timing, None)`` when the shot has a plasma window, else ``(None, reason)``.
 
-    The window comes from the shared plasma-timing policy (#409): the light
+    The window comes from the shared plasma-timing policy: the light
     when usable, the current otherwise, never a raw magnetic crossing.  Any
     failure to read the product is a reason, not an exception -- the
     precondition's contract is to report, and the stage records the reason.
@@ -259,7 +260,7 @@ def _eddy_metrics(source: Any, **_context: Any) -> dict[str, Any]:
 
     onset, _boundary_source = plasma_free_boundary(timing)
     # The validation window is the pre-plasma stretch, so that is the interval
-    # the channel selection asks about too (#189): a probe that fails after
+    # the channel selection asks about too: a probe that fails after
     # breakdown is still a good witness before it.
     channels = synthetic_vacuum_magnetics(
         source, validity_window=(float("-inf"), onset)
@@ -326,7 +327,7 @@ def _chease_metrics(source: Any, **_context: Any) -> dict[str, Any]:
 
 
 def _diagnostics_metrics(source: Any, **_context: Any) -> dict[str, Any]:
-    """Magnetics signal-quality QA for the diagnostics stage (issue #189).
+    """Magnetics signal-quality QA for the diagnostics stage.
 
     Quantitative, so a channel that degraded between shots is visible without
     opening a figure.  Deliberately report-only: none of these numbers gates

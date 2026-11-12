@@ -4,8 +4,8 @@ A complex toroidal harmonic ``C_n`` does not say which reconstruction it belongs
 to.  ``Re(C e^{-i n phi})`` and ``Re(C e^{+i n phi})`` are different fields,
 and a coefficient normalised as a plain sample mean is half the one normalised
 as a peak amplitude.  VAFT uses several conventions on purpose, each matching
-the code it talks to; until #2163 they were recorded only in docstrings.  This
-module names them, so two coefficients can be compared or converted only when
+the code it talks to.  A convention recorded only in a docstring cannot be
+checked; this module names them, so two coefficients can be compared or converted only when
 both say how they were made.
 
 A convention here fixes the coefficient of a **real** field ``f(phi)``:

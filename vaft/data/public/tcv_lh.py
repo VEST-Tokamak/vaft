@@ -22,8 +22,9 @@ What the file says, and what it does not
   2.50 s on 53 of 92 rows, and ``ILH = 0`` rows carry one too.)
 * ``PLH`` is the Martin 2008 scaling computed by the source (it matches
   ``0.0488 n20^0.717 B^0.803 S^0.941`` to 0.4 %, without isotope correction).
-  VAFT has no L-H threshold formula yet (#670, #1066), so the source value is
-  carried with that provenance rather than recomputed.
+  The reader does not recompute it with VAFT's own Martin 2008 entry
+  (``martin_2008_lh`` in :mod:`vaft.formula.boundaries`); the source value is
+  carried with that provenance.
 * ``nRyter`` is the Ryter (2014) density of minimum threshold power, also
   computed by the source; the density branch is assigned against it.
 * ``A`` / ``Z`` are the fuelling species the source assigns, not the plasma's

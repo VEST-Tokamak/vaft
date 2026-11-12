@@ -291,7 +291,7 @@ def _publish_staged_shot(
     shot: int,
     finalize_master: Optional[Callable[[Path], None]] = None,
 ) -> list[str]:
-    """Upload a staged shot under its master lock, merging the stored master (#913)."""
+    """Upload a staged shot under its master lock, merging the stored master."""
     from ._master_lock import shot_master_lock
 
     with shot_master_lock(source, shot):
@@ -686,7 +686,7 @@ def save_ods(
         )
         # One writer of this shot's master at a time on this host, and the
         # master replaced is "what is there *now*, plus this write" -- never a
-        # copy read before the payload went up (#913). Without the merge a
+        # copy read before the payload went up. Without the merge a
         # plain save (the corrective updaters') replaced the master with one
         # naming only its own IDS.
         from ._master_lock import shot_master_lock
@@ -695,7 +695,7 @@ def save_ods(
         # lock: the master image is stamped with the stored master's revision
         # at publish time, so publishing it after another writer replaced the
         # master would label this write's master as that writer's -- and the
-        # reader would trust it, and lose the other writer's IDS (#913).
+        # reader would trust it, and lose the other writer's IDS.
         with shot_master_lock(source, shot):
             _publish_staged_shot(shot_dir, source, shot, finalize_master)
             if derived_mode != "none":
@@ -737,7 +737,7 @@ def save_ods(
 
 
 # --------------------------------------------------------------------------- #
-# Deprecated compatibility shims (issue #38)
+# Deprecated compatibility shims: old call names kept as aliases that warn
 # --------------------------------------------------------------------------- #
 
 def load(shot, source: Optional[str] = None, **kwargs):

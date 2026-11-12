@@ -1,4 +1,4 @@
-"""Per-issue validation studies: scripts and notes, not library API (#1756).
+"""Per-issue validation studies: scripts and notes, not library API.
 
 Each folder records how one issue was investigated -- the scripts that were
 run, the summaries that were written -- next to the validation layer they

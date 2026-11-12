@@ -1,4 +1,4 @@
-"""Public multi-machine databases mapped into common VAFT semantics (#1205).
+"""Public multi-machine databases mapped into common VAFT semantics.
 
 Source-specific readers (:mod:`.itpa_hmode`, :mod:`.tcv_lh`, :mod:`.itpa_tc26`) normalise
 published databases into canonical tables (:mod:`.schema`); profile databases

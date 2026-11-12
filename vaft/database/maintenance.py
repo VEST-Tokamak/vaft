@@ -1,4 +1,4 @@
-"""One-off repairs to already-published HSDS shots (issue #305).
+"""One-off repairs to already-published HSDS shots.
 
 IMPA channels used to be appended to the baseline `magnetics` product, so shots
 published before the split carry them inside `main`.  Nothing downstream is
@@ -184,7 +184,8 @@ def strip_impa_from_source(
     from ._master_lock import shot_master_lock
 
     # The capture, the write and the safety-net merge under one hold of the
-    # shot's master lock, as replication does (#913).
+    # shot's master lock, as replication does, so a concurrent writer of the
+    # same shot cannot drop this write's master links, nor this write theirs.
     with shot_master_lock(name, shot), tempfile.TemporaryDirectory(prefix="vaft-strip-impa-") as workdir:
         previous_master = _fetch_remote_master(
             name, shot, Path(workdir) / "master.previous.h5"
@@ -251,7 +252,7 @@ MASTER_UNREADABLE = "unreadable"
 
 
 def audit_master_link(shot: int, *, source: str | None = None, repair: bool = False) -> dict[str, Any]:
-    """Does the shot's ``master.h5`` link every IDS file stored beside it (#913)?
+    """Does the shot's ``master.h5`` link every IDS file stored beside it?
 
     ``links_missing`` is the state concurrent writers of one shot used to
     leave: the files are on HSDS but a reader resolving the shot from its

@@ -4,7 +4,7 @@ The canonical resolver is deliberately pure: resolving a path never creates a
 directory or touches an existing artifact.  The old shot-first layout is
 available only through explicitly named read-only APIs.
 
-The grammar (#77)::
+The grammar::
 
     raw/{shot}/
     legacy/{diagnostic}/{shot}/
@@ -84,28 +84,28 @@ class OMASStage(str, Enum):
     EFIT = "efit"
     CORE_PROFILES = "core_profiles"
     # The measured core_profiles plus the VEST impurity composition, n_i and
-    # Z_eff(rho) (#1842). Same IDS as CORE_PROFILES in the same source, on
+    # Z_eff(rho). Same IDS as CORE_PROFILES in the same source, on
     # purpose: it replaces the measured product in `main` once it exists, and
     # the measured one stays when it does not.
     COMPOSITION = "composition"
     # The composed profiles plus an ion temperature inferred from the magnetic
-    # pressure partition on the slices that have none measured (#1842). Another
+    # pressure partition on the slices that have none measured. Another
     # overlay on the same IDS: it replaces the composed product in `main` only
     # when it exists.
     TI_INFERRED = "ti_inferred"
-    # The window Z_eff of Lane Z's Romero estimator, stored beside the composition
-    # Z_eff and never over it (#1842). The last overlay on `core_profiles`.
+    # The window Z_eff of the resistive (Romero) estimator, stored beside the
+    # composition Z_eff and never over it. The last overlay on `core_profiles`.
     RESISTIVE_ZEFF = "resistive_zeff"
     ELECTRON_EFIT = "electron_efit"
     KINETIC_EFIT = "kinetic_efit"
     CHEASE = "chease"
     MHD_LINEAR = "mhd_linear"
     GPEC_IDEAL = "gpec_ideal"
-    # NEO's neoclassical transport on a qualified kinetic state (#550 phase 8).
+    # NEO's neoclassical transport on a qualified kinetic state.
     # Owns core_transport outright and re-owns core_profiles, which is why it has
     # its own source rather than a place in the baseline.
     NEOCLASSICAL = "neoclassical"
-    # TGLF's result for one named configuration (`tglf-sat<n>-<field>`, #1900).
+    # TGLF's result for one named configuration (`tglf-sat<n>-<field>`).
     # Owns core_transport only -- never core_profiles or equilibrium, which stay
     # with the stages that produced the state it ran on. One product per
     # (family, configuration), so alternative configurations of one state
@@ -119,7 +119,7 @@ class OMASStage(str, Enum):
     # separated here and given distinct destinations in STAGE_REPLICATION.
     CAMERA_VISIBLE_FLUCTUATION = "camera_visible_fluctuation"
     # The operation ShotLog: planned timing read from the monthly workbooks
-    # archived under legacy/shotlog, published as pulse_schedule (#995).
+    # archived under legacy/shotlog, published as pulse_schedule.
     SHOTLOG = "shotlog"
 
 
@@ -289,7 +289,7 @@ class ArtifactClass(str, Enum):
 
 
 #: Extension every finalized OMAS stage product carries. One constant so a
-#: move to compressed products is a single edit rather than a search (#813).
+#: move to compressed products is a single edit rather than a search.
 #:
 #: Gzipped JSON rather than the HDF5 the bulk-numeric stages use below. The
 #: two were measured against each other on real products: a 58.0 MB diagnostics
@@ -313,7 +313,7 @@ OMAS_PRODUCT_SUFFIX = ".json.gz"
 #: soft X-ray shot is 128 channels by ~39k samples, one camera shot a stack of
 #: megapixel frames -- and OMAS's JSON writer spends roughly six bytes of text
 #: per float. HDF5 also carries a dtype and a compression filter, which JSON
-#: cannot, and is what HSDS stores natively (#599).
+#: cannot, and is what HSDS stores natively.
 OMAS_PRODUCT_SUFFIXES: dict[str, str] = {
     "soft_x_rays": ".h5",
     "camera_visible": ".h5",
@@ -540,7 +540,7 @@ class FileDB:
             diagnostic = _component(subdomain, "legacy diagnostic")
             if shot is None:
                 # Diagnostic-scoped holdings that belong to no single shot --
-                # the ShotLog's monthly workbooks cover hundreds (#995). Only an
+                # the ShotLog's monthly workbooks cover hundreds. Only an
                 # artifact class may stand in for the shot: it can never be
                 # mistaken for one, because a shot directory is always digits.
                 if artifact_value is None:
@@ -1161,7 +1161,7 @@ def audit_legacy_filedb(
 
 
 # ---------------------------------------------------------------------------
-# Relocating a canonical tree onto the lineage-bearing grammar (#77 / #527).
+# Relocating a canonical tree onto the lineage-bearing grammar.
 # ---------------------------------------------------------------------------
 
 

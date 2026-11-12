@@ -1,11 +1,11 @@
-"""Population V&V of the kinetic-state atlas: input contract, evidence tables, summaries (#1835).
+"""Population V&V of the kinetic-state atlas: input contract, evidence tables, summaries.
 
 :mod:`vaft.validation.kinetic_state` computes the per-slice comparison of
 Thomson and EFIT pressure under the atlas state key ``(shot, time_efit_s,
-efit_lineage)`` (#1430, #1454). This module takes the *population* those rows
+efit_lineage)``. This module takes the *population* those rows
 form -- the atlas ``state`` and ``profiles`` tables and the virial-identity
-table keyed by the same state -- and does two things the V&V notebook used to
-do inline with ``assert``:
+table keyed by the same state -- and does two things a V&V notebook would
+otherwise do inline with ``assert``:
 
 **A. The population input contract** (:func:`assemble_kinetic_population`).
 The tables are joined under explicit checks, and every finding is a row of an
@@ -34,7 +34,8 @@ successful joins. Three things are kept apart throughout:
 * **Virial evidence.** The direct identity residuals E1/E2/E3 and their RMS,
   the volume-integral and pair-13 closure values of beta_p and l_i, and the
   study's ``virial_status`` verdict stay separate fields. Nothing here grades:
-  no threshold, no aggregate score (#547 owns virial thresholds).
+  no threshold, no aggregate score (Open: #547 -- no qualified virial
+  threshold exists yet).
 
 FileDB traversal and snapshot production stay in ``workflow/kinetic_state``;
 this module reads tables only.
@@ -71,12 +72,12 @@ __all__ = [
     "population_evidence_summary",
 ]
 
-#: The atlas state key (#1454): one row per reconstructed slice and lineage.
+#: The atlas state key: one row per reconstructed slice and lineage.
 STATE_KEY = ("shot", "time_efit_s", "efit_lineage")
 
 #: Validation role of a lineage. The magnetics reconstruction never saw the
 #: Thomson data, so comparing them is held-out validation; the electron-kinetic
-#: reconstruction was fitted to Thomson, so agreement is fit consistency (#1430).
+#: reconstruction was fitted to Thomson, so agreement is fit consistency.
 VALIDATION_ROLES: Mapping[str, str] = {
     lineage: ("held_out_thomson" if lineage in INDEPENDENT_LINEAGES else "thomson_constrained_consistency")
     for lineage in LINEAGES
@@ -268,7 +269,7 @@ def assemble_kinetic_population(
     Parameters
     ----------
     state, profiles : pandas.DataFrame or path
-        The atlas ``state`` and ``profiles`` tables (state key contract v1, #1454).
+        The atlas ``state`` and ``profiles`` tables (state key contract v1).
     virial : pandas.DataFrame or path, optional
         The virial-identity table keyed by the state key and carrying the EFIT
         product it was computed from; ``None`` records every virial value as

@@ -1,4 +1,4 @@
-"""Move the OMAS stage products already on disk onto their declared shape (#813).
+"""Move the OMAS stage products already on disk onto their declared shape.
 
 Two things changed about what a stage product is, and a deployment written
 before them holds products that no longer match either:
@@ -15,7 +15,7 @@ holds the right ``pf_passive`` -- the same projection
 :func:`vaft.database.replication._project` has always applied on the way to
 HSDS, which is why no replica changes and nothing has to be re-uploaded.
 
-This is modelled on ``filedb relocate`` (#758) and keeps its contract: a dry run
+This is modelled on ``filedb relocate`` and keeps its contract: a dry run
 by default, a JSON report with disjoint buckets, a non-zero exit when the plan
 is not safe to apply, and a refusal that names what it refuses rather than
 resolving it. One guarantee does not carry over. ``relocate`` renames
@@ -82,8 +82,8 @@ PROJECTIONS: dict[str, tuple[str, ...]] = {
     "eddy": STAGE_REPLICATION["eddy"].ids,
 }
 
-#: What a product written before #813 was called. Only ever `.json`: the three
-#: HDF5 stages were introduced already declaring `.h5` (#599), so they have
+#: What a product written before the move to gzipped JSON was called. Only ever
+#: `.json`: the three HDF5 stages were introduced already declaring `.h5`, so they have
 #: nothing to move.
 LEGACY_SUFFIX = ".json"
 

@@ -13,7 +13,7 @@ from typing import Any, Mapping
 
 import numpy as np
 
-# The findings model moved to the validation layer (issue #337): a report of
+# The findings model lives in the validation layer: a report of
 # objections is an assessment, and `vaft.validation.model` is where the one
 # status vocabulary lives.  Re-exported here because this module and
 # `vaft.data` have always been where callers imported it from.
@@ -94,7 +94,7 @@ class EquilibriumConvention:
     of them had an image in the converted convention (every one was in the other
     storage family of a family-crossing conversion).  ``identified`` is then
     empty, but the data still supports no index in this record's family, so the
-    record stays contradicted rather than looking clean (#601)."""
+    record stays contradicted rather than looking clean."""
 
     @property
     def ambiguous(self) -> bool:
@@ -188,7 +188,7 @@ class EquilibriumData:
     A default-constructed record carries no convention at all, and the field
     calculations then fall back to the historical weber-per-radian form, which
     is *not* :data:`vaft.data.cocos.VAFT_INTERNAL_COCOS`; that mismatch is
-    tracked in #603.  Nothing enforces agreement between a psi array and the
+    unresolved (Open: #603).  Nothing enforces agreement between a psi array and the
     convention beside it, so a record rebuilt field-by-field can be made to lie.
 
     Units of the remaining fields: ``r``, ``z``, ``magnetic_axis``, ``lcfs``,
@@ -251,7 +251,7 @@ class MillerSurface:
     kappa: float
     delta: float
     #: Squareness.  Zero is the five-parameter Miller surface, so a caller
-    #: that never sets it gets exactly the surface it got before (#867).
+    #: that never sets it gets exactly the five-parameter surface.
     zeta: float = 0.0
     radial_value: float | None = None
     radial_coordinate: str = "psi_n"
@@ -261,7 +261,7 @@ class MillerSurface:
     q: float | None = None
     magnetic_shear: float | None = None
     alpha: float | None = None
-    #: Inboard indentation, the bean-shaping coefficient of #941.  Last, so
+    #: Inboard indentation, the bean-shaping coefficient.  Last, so
     #: positional construction is unchanged; zero is the surface without it.
     indentation: float = 0.0
 
@@ -307,7 +307,7 @@ SOLOVEV_CONSTRAINT_KINDS = (
 
 @dataclass(frozen=True)
 class GuazzottoFreidbergEquilibrium:
-    """An analytic Guazzotto-Freidberg (2021, Part 1) equilibrium in normalized form (#1148).
+    """An analytic Guazzotto-Freidberg (2021, Part 1) equilibrium in normalized form.
 
     ``psi(x, y) = sum_j coefficients[j] * Y_j(h_n y) * X_j(x)`` solves
     ``(1 + eps_hat x) psi_xx + psi_yy/(1 + eps**2) = -alpha**2 (1 + eps_hat nu x) psi``
@@ -317,7 +317,7 @@ class GuazzottoFreidbergEquilibrium:
     eigenvalue ``alpha`` fixes the flux on axis once ``R0``, ``B0`` and ``beta0``
     (or ``q0``) are chosen; see :func:`guazzotto_freidberg_to_equilibrium`.
 
-    Part 2 (#1149) adds an edge current pedestal ``current_pedestal`` (f_J),
+    Part 2 adds an edge current pedestal ``current_pedestal`` (f_J),
     for which ``coefficients`` expand ``psi_J = psi + f_J/(1 - f_J)``;
     toroidal flow at axis Mach number ``mach_number`` with
     ``adiabatic_index`` 2 or inf, which changes the source to
@@ -353,7 +353,7 @@ class GuazzottoFreidbergEquilibrium:
 
 @dataclass(frozen=True)
 class CurrentMomentRepresentation:
-    """Toroidal current density reduced to its total, centroid and central moments (#943).
+    """Toroidal current density reduced to its total, centroid and central moments.
 
     ``central_moments[(p, q)]`` is the *normalized central* moment
     ``mu_pq = (1/I_p) * integral (R - R_c)**p (Z - Z_c)**q J_phi dA`` in
@@ -380,7 +380,7 @@ class CurrentMomentRepresentation:
 
 @dataclass(frozen=True)
 class FourierSurface:
-    """A closed contour as a truncated Fourier series in a uniform arc-length angle (#945).
+    """A closed contour as a truncated Fourier series in a uniform arc-length angle.
 
     ``R(theta) = sum_m r_cos[m] cos(m theta) + r_sin[m] sin(m theta)`` and the
     same for ``Z``, for ``m = 0 .. modes``.  ``theta = 2 pi s / L`` is arc
@@ -458,7 +458,7 @@ class FourierSequenceResult:
 
 @dataclass(frozen=True)
 class SolovevFit:
-    """A Solov'ev model fitted to an existing equilibrium, with its fidelity (#1166).
+    """A Solov'ev model fitted to an existing equilibrium, with its fidelity.
 
     ``status`` is ``"accepted"``, ``"poor_fidelity"`` (a valid model that
     misses the equilibrium by more than the tolerance), ``"not_representable"``
@@ -475,7 +475,7 @@ class SolovevFit:
 
 @dataclass(frozen=True)
 class MXHChebyshevRepresentation:
-    """Flux surfaces as MXH shapes with shifted-Chebyshev radial profiles (Xie & Li 2026; #1166).
+    """Flux surfaces as MXH shapes with shifted-Chebyshev radial profiles (Xie & Li 2026).
 
     ``profiles[name] = (edge_value, coefficients)`` for ``h``, ``v``,
     ``kappa``, ``a``, ``c0`` and ``c1..cM``, ``s1..sM``; each profile is
@@ -498,7 +498,7 @@ class MXHChebyshevRepresentation:
 
 @dataclass(frozen=True)
 class GradShafranovResidualModes:
-    """The Grad-Shafranov residual projected onto poloidal harmonics, surface by surface (#948).
+    """The Grad-Shafranov residual projected onto poloidal harmonics, surface by surface.
 
     Row ``i`` is the surface at ``radial_values[i]``; ``cos[i, m]`` and
     ``sin[i, m]`` are the residual's harmonics in T/m with the arc-length angle
@@ -560,8 +560,8 @@ class SolovevEquilibrium:
     f_boundary: float = 1.0
     #: Sign of F(psi) = R B_phi.  ``None`` derives it from ``f_boundary`` (and
     #: +1 for a zero ``f_boundary``); an explicit sign that contradicts a
-    #: non-zero ``f_boundary`` is refused, since ``bt0`` follows ``f_boundary``
-    #: (#1307).  Breaking change in 0.8.0: through 0.7.x this defaulted to +1
+    #: non-zero ``f_boundary`` is refused, since ``bt0`` follows
+    #: ``f_boundary``.  Breaking change in 0.8.0 (#1307): through 0.7.x this defaulted to +1
     #: and overrode the sign of ``f_boundary``; pass a signed ``f_boundary``
     #: instead.
     f_sign: int | None = None
@@ -588,7 +588,7 @@ def _resolve_solovev_f_sign(f_boundary: float, f_sign: int | None, *, allow_zero
 
     ``f_boundary`` is the one source of truth for the sign of B_phi: the record's
     ``bt0`` is ``f_boundary/rref``.  ``f_sign=None`` takes ``sign(f_boundary)``;
-    an explicit sign must be +1 or -1 and agree with it (#1307).  A zero
+    an explicit sign must be +1 or -1 and agree with it.  A zero
     ``f_boundary`` is refused unless *allow_zero*, in which case the sign is the
     explicit one, or +1.
 

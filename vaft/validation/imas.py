@@ -1,4 +1,4 @@
-"""Adapter between validation evidence and native IMAS/OMAS status fields (issue #253).
+"""Adapter between validation evidence and native IMAS/OMAS status fields.
 
 The Data Dictionary already encodes several *different* kinds of status, and
 VAFT reuses them rather than inventing a competing convention.  They are not
@@ -15,15 +15,15 @@ constraint ``chi_squared``   a fit metric, not a status at all
 
 This module owns the *schema coupling* -- it is the only place in the
 validation layer that knows an IDS path.  Validation results themselves never
-carry one (#253 §9), so a Data Dictionary change lands here instead of leaking
+carry one, so a Data Dictionary change lands here instead of leaking
 through every result object.  What the nodes *mean* is not decided here
 either: :func:`read_validity_record` extracts them into a
 :class:`~vaft.validation.validity.ValidityRecord`, and every reader below is a
 one-liner over :mod:`vaft.validation.validity`, the access-free interpretation
-layer (#424).  A native-IMAS accessor builds the same record from an IDS
+layer.  A native-IMAS accessor builds the same record from an IDS
 handle and cannot disagree with this one about what it means.
 
-Path access here goes through :mod:`vaft.ods_access` (issue #118) rather than a
+Path access here goes through :mod:`vaft.ods_access` rather than a
 bare read: probing a channel that carries no ``validity`` would otherwise
 materialize an integer leaf holding NaN, which fails the next
 consistency-checked load.  That is not hypothetical -- it is how this module
@@ -156,8 +156,8 @@ def signal_matches_root_time(source: Any, base: str) -> bool:
     """Whether ``base`` holds a waveform the length of its IDS root time.
 
     The one predicate for "this channel has a measurement on the diagnostics
-    grid": the constraint builder's missing-channel placeholder (#145) and
-    the acceptance policy (#296) must agree on it, or a channel could be a
+    grid": the constraint builder's missing-channel placeholder and
+    the acceptance policy (:mod:`vaft.validation.efit_channels`) must agree on it, or a channel could be a
     placeholder to one and a rejection to the other.  Stricter than
     :func:`resolve_signal_waveform` in that the node's own time axis does not
     count; the diagnostics grid is the root's.
@@ -275,7 +275,7 @@ def valid_fraction(
 
     A metric, not a verdict: it says how much of the record survives
     ``min_validity``, and the consumer decides what fraction it requires.  That
-    threshold is policy and belongs to the consumer, not here (#253 §7).
+    threshold is policy and belongs to the consumer, not here.
 
     ``nan`` when the window selects no samples.  See
     :func:`vaft.validation.validity.usable_fraction`.

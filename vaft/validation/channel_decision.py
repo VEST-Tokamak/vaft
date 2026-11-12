@@ -1,13 +1,14 @@
-"""The per-channel, per-slice decision an equilibrium code consumes (issue #296).
+"""The per-channel, per-slice decision an equilibrium code consumes.
 
 An EFIT constraint is a number, an uncertainty and a weight.  Whether a
 magnetic channel may supply that number at a given reconstruction time is a
-*decision* that belongs upstream -- to the signal-quality layer (#189), the
-acceptance policy (#295) and any recovery backend (#297) -- and the adapter
-that writes constraints should only translate it.  Before this contract the
-adapter re-derived the decision from three unrelated inputs (a caller list,
-the projected validity, and a Gaussian fit of its own), and the product could
-express only "enabled / disabled / missing" through two numbers.
+*decision* that belongs upstream -- to the signal-quality layer, the
+acceptance policy and any recovery backend (a physics-constrained GP
+backend is Open: #297) -- and the adapter that writes constraints only
+translates it.  The adapter does not re-derive the decision from unrelated
+inputs (a caller list, the projected validity, a Gaussian fit of its own),
+and the product records one of the states below rather than only
+"enabled / disabled / missing" encoded in two numbers.
 
 A :class:`ChannelDecision` says, for one channel on the consumer's time grid:
 
@@ -20,7 +21,8 @@ A :class:`ChannelDecision` says, for one channel on the consumer's time grid:
     weight zero -- the measurement is not a constraint at this slice;
 ``missing``
     no measurement exists; the adapter keeps its deterministic zero-weight
-    placeholder (#145) and writes nothing;
+    placeholder, so a missing channel never shifts the constraint indexing,
+    and writes nothing;
 ``recovered``
     a backend supplied a value, with its own uncertainty and weight factor
     and a provenance naming the backend.
@@ -270,7 +272,8 @@ def decision_from_codes(
 
     ``codes`` are the Data Dictionary validity codes resampled onto the
     consumer's grid of ``n_slices`` instants (``None`` when the datum was
-    never assessed: everything usable, the #424 default).  A code at or above
+    never assessed: everything usable, the default of
+    :mod:`vaft.validation.validity`).  A code at or above
     ``min_validity`` is usable; ``suspect_code`` below the floor becomes
     ``suspect`` only when a ``suspect_weight_factor`` is configured, else it
     is rejected like any other code below the floor.

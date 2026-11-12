@@ -1,9 +1,9 @@
-"""Verification of linear MHD stability results: DCON, RDCON and STRIDE (issue #142).
+"""Verification of linear MHD stability results: DCON, RDCON and STRIDE.
 
 ``validate_stability`` asks *was the calculation performed as intended?* of
 one DCON run and/or one PEST3 matching run (RDCON or STRIDE), optionally
 against a second run of the same case at a different equilibrium resolution.
-It answers in the validation layer's one vocabulary (#253, #337):
+It answers in the validation layer's one vocabulary:
 :class:`~vaft.validation.model.ValidationStatus` per check, aggregated with
 :func:`vaft.validation.equilibrium.aggregate_status`.
 
@@ -18,10 +18,10 @@ so it still turns a pass into ``indeterminate``. Without that split the packaged
 It does **not** say whether a plasma is stable. That is a physical criterion
 applied to the solver's numbers (the sign of W_t, Δ′ > 0 at a surface, D_I > 0,
 D_R > 0, C_A < 0) and lives with the consumer, for example the Tier A stability
-atlas's layer 3 (#1429). Keeping the two apart is the #142 requirement that
-numerical health and physical interpretation are reported separately.
+atlas's layer 3. Keeping the two apart means numerical health and physical
+interpretation are reported separately.
 
-Rules, not invented tolerances (#142):
+Rules, not invented tolerances:
 
 * ``dcon_energies``: the least-stable energies must exist and be finite. With
   ``vac_flag`` off (DCON's default when ``dcon.in`` omits it) DCON computes no
@@ -62,7 +62,8 @@ Rules, not invented tolerances (#142):
   and n. Surfaces pair by m and by ψ_N within 1e-3 (a matching heuristic: the
   rational surface moves with the grid, not by more), one to one; a surface
   found at only one resolution counts as unmatched. The 20 % bound is the
-  atlas heuristic, the median change of #141's mid-radius surfaces, and is
+  atlas heuristic, the median change of the mid-radius surfaces in the
+  resolution study of #141 (provenance), and is
   labelled as such. ``pass`` only when every surface is consistent;
   ``indeterminate`` otherwise, and when either run's Δ′ matrix is unusable.
 
@@ -92,8 +93,9 @@ __all__ = [
     "validate_stability",
 ]
 
-#: Heuristic (labelled, #142): the atlas's two-resolution consistency bound, the
-#: median mpsi 256/512 change of #141's mid-radius RDCON surfaces.
+#: Heuristic, labelled as such: the atlas's two-resolution consistency bound, the
+#: median mpsi 256/512 change of the mid-radius RDCON surfaces in the #141
+#: resolution study (provenance).
 SELF_CONSISTENCY_RTOL = 0.20
 
 _PROVIDER_DCON = "vaft.code.gpec.read_dcon_output"
@@ -105,7 +107,8 @@ def _spec(key: str, unit: str, provider: str, method: str) -> CheckSpec:
 
 
 #: What is stable about each check (unit, provider, rule). Rules only: none of
-#: these has a calibrated tolerance yet (#141 follow-up).
+#: these has a calibrated tolerance yet (Open: #141, validated DCON/RDCON
+#: numerical settings).
 STABILITY_CHECKS: dict[str, CheckSpec] = {
     spec.key: spec
     for spec in (
@@ -145,7 +148,8 @@ SURFACE_MATCH_PSI_ATOL = 1e-3
 
 #: Floor of the bracket on q(psiedge) in ``dcon_edge``. VAFT's cubic spline
 #: and DCON's ``sq`` spline share the nodes but not the boundary condition
-#: (not-a-knot vs ``"extrap"``, ``direct.f:194``); on the #792 profile they
+#: (not-a-knot vs ``"extrap"``, ``direct.f:194``); on the ``dcon_edge_792``
+#: test-fixture profile they
 #: differ by ~1e-5 at psi_N 0.93, and this is one order above that.
 Q_AT_PSIEDGE_ATOL = 1e-4
 

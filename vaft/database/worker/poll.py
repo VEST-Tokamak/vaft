@@ -1,4 +1,4 @@
-"""Where the worker learns about new shots: the VEST SQL ``shot`` table (issue #58).
+"""Where the worker learns about new shots: the VEST SQL ``shot`` table.
 
 A shot row appears in SQL before its waveforms, which the DAQ then writes one
 complete field per row.  A shot's upload is taken as finished -- and the
