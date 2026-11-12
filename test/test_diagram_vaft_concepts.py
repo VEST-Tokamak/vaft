@@ -315,6 +315,41 @@ def test_the_framework_encloses_the_network_and_feeds_analysis(domain):
         assert not re.search(r"DCON|RDCON|delta-W|Delta-prime|Stability", text)
 
 
+def test_the_equilibrium_panel_keeps_only_the_modes_and_their_shared_state():
+    framed = vaft.diagram.integrated_scientific_framework("equilibrium")
+    d = vaft.diagram.integrated_scientific_framework("equilibrium", frame=False, analysis=False)
+    modes = d.model["activities"]
+    # the modes and the shared state are the framed figure's, unchanged
+    for role in [f"node:{k}" for k in modes] + ["node:hub"]:
+        assert d.scene.role(role) == framed.scene.role(role)
+    assert not d.scene.role("framework") and not d.scene.role("note") and not d.scene.role("node:analysis")
+    assert d.model["framework_frame"] is False and d.model["outputs"] == () and d.model["analysis"] is None
+    assert d.model["analysis_categories"] == ()
+    assert {(a, b) for a, b in _edges(d)} == {(k, "hub") for k in modes}
+    # the references sit just below the lower modes
+    lowest_mode = min(_box_role_bounds(d, f"node:{k}")[2] for k in modes)
+    assert lowest_mode - 0.8 < d.scene.role("references")[0].at[1] < lowest_mode
+    assert not vaft.diagram.integrated_scientific_framework("equilibrium", frame=False, analysis=False,
+                                                            references=False).scene.role("references")
+    # frame=False alone keeps the analysis node
+    plain = vaft.diagram.integrated_scientific_framework("equilibrium", frame=False)
+    assert plain.model["outputs"] == ("analysis",) and not plain.scene.role("framework")
+
+
+def test_the_ids_key_names_the_equilibrium_ids():
+    d = vaft.diagram.integrated_scientific_framework("equilibrium", frame=False, analysis=False, ids_key=True)
+    assert "\\ttfamily equilibrium" in d.scene.role("node:hub")[1].text
+    with pytest.raises(ValueError, match="ids_key"):
+        vaft.diagram.integrated_scientific_framework(frame=False, analysis=False, ids_key=True)
+
+
+def test_the_analysis_goes_only_with_the_frame():
+    with pytest.raises(ValueError, match="analysis=False needs frame=False"):
+        vaft.diagram.integrated_scientific_framework("equilibrium", analysis=False)
+    with pytest.raises(ValueError, match="frame"):
+        vaft.diagram.integrated_scientific_framework("equilibrium", frame="no")
+
+
 def test_the_framework_rejects_an_unknown_domain():
     with pytest.raises(ValueError, match="domain"):
         vaft.diagram.integrated_scientific_framework("transport")

@@ -2247,6 +2247,26 @@ vaft.diagram.cross_domain_scientific_architecture()
 
 ![Equilibrium, MHD and transport: the scientific architecture]({{ '/assets/diagrams/cross_domain_scientific_architecture.svg' | relative_url }})
 
+**Simplified: inputs and outputs.** The same architecture read only for what goes in, what is computed and what
+comes out. Shared inputs -- the `equilibrium` IDS, the measured kinetic profiles in `core_profiles` and external
+assumptions (closures, mode numbers and wall model, 3-D coil excitation) -- feed MHD stability (ideal and resistive
+stability, plasma response: DCON, GPEC, RDCON), which reads the equilibrium and the assumptions, and transport
+(classical, neoclassical, turbulent: Braginskii, Sauter / Redl, NEO, TGLF, CGYRO), which reads all three. Each
+writes its results as IDS: `mhd_linear` and `ntms`; `core_transport`, an updated `core_profiles` and
+`gyrokinetics_local`. Codes, IDS and assumptions are read from the architecture figure's definitions, so the two
+cannot drift apart. `equilibrium_stability_transport()` puts it to the right of the research modes around the
+IMAS equilibrium IDS (`integrated_scientific_framework("equilibrium", frame=False, analysis=False,
+references=False, ids_key=True)`), on one canvas at one scale and with no panel letters; an arrow hands the
+equilibrium from left to right. Neither carries arrow annotations: what each calculation reads is in the model.
+
+```python
+vaft.diagram.stability_transport_io()
+vaft.diagram.equilibrium_stability_transport()
+```
+
+![Stability and transport: inputs and outputs]({{ '/assets/diagrams/stability_transport_io.svg' | relative_url }})
+![Equilibrium to stability and transport]({{ '/assets/diagrams/equilibrium_stability_transport.svg' | relative_url }})
+
 **Technical: solvers, inputs and outputs.** Each method sits with the inputs it reads beside it; an input read by
 two methods (coil currents and machine geometry for TokaMaker and EFIT, the kinetic profiles for Sauter/Redl and
 the resolver) is drawn once. Shared measurements, assumptions and machine configuration feed three alternative
