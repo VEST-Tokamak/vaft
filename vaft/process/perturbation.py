@@ -110,6 +110,8 @@ __all__ = [
     "resonant_delta",
     "resonant_geometric_factor",
     "resonant_metrics",
+    "RESONANT_SURFACE_FIELDS",
+    "resonant_table",
     "RESONANT_RESPONSE_COLUMNS",
     "RESONANT_STATISTICS",
     "resonant_windows",
@@ -2482,6 +2484,123 @@ def resonant_delta(
         delta=complex(delta),
         offset=float(span),
     )
+
+
+#: What :func:`resonant_table` needs to know about each rational surface.
+RESONANT_SURFACE_FIELDS = ("psi_n", "q", "area", "dq_dpsi_n", "geometric_factor")
+
+
+def resonant_table(psi_norm, m_pol, field, surfaces, *, chi1: float, n_tor: int) -> list[dict]:
+    """The resonant response of one mode at every rational surface its spectrum covers.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Radial grid of the spectral field [-].
+    m_pol : array_like
+        Poloidal harmonics of the spectral field, one per column [-].
+    field : array_like
+        ``J b . grad psi`` on ``(psi_norm, m_pol)``, complex -- GPEC's
+        ``Jbgradpsi`` [T].
+    surfaces : sequence of mapping
+        One mapping per rational surface with the keys in
+        :data:`RESONANT_SURFACE_FIELDS`: ``psi_n`` [-], ``q`` [-], ``area``
+        [m^2], ``dq_dpsi_n`` [-] and ``geometric_factor`` [T].
+    chi1 : float
+        The equilibrium's poloidal flux normalization [-].
+    n_tor : int
+        Toroidal mode number [-].
+
+    Returns
+    -------
+    list of dict
+        One row per surface whose resonant harmonic ``m = round(n q)`` is a
+        column of ``field``, in the order given, with ``psi_n`` [-], ``q`` [-],
+        ``m_pol`` [-], ``delta`` (complex) [-], ``Phi_res`` (complex) [T],
+        ``phase`` = ``arg(Phi_res)`` [rad] and ``w_isl`` [-].
+
+    Raises
+    ------
+    ValueError
+        ``field`` is not shaped ``(psi_norm.size, m_pol.size)``, or a surface's
+        jump cannot be measured (:func:`resonant_delta`).
+
+    Processing steps
+    ----------------
+    1. ``m = round(n q)`` per surface; a surface whose harmonic is outside the
+       mapped band is skipped.
+    2. ``Delta`` from the jump in the radial derivative of that column
+       (:func:`resonant_delta`).
+    3. ``Phi_res = -G Delta / n``
+       (:func:`vaft.formula.stability.resonant_flux_from_delta`) and its
+       argument as the island phase.
+    4. ``w_isl`` from ``Phi_res``
+       (:func:`vaft.formula.stability.island_width_from_resonant_flux`).
+
+    Convention
+    ----------
+    The phase is ``arg(Phi_res)``.  GPEC reports ``arg(I_res)``; both are built
+    from the same jump with real scale factors of one sign
+    (``gpec/gpout.f:1689-1691``), so the two arguments are the same number,
+    here carrying the derivation's accuracy rather than the identity's.  ``m``
+    takes the sign of ``q``, so a column must use the same sign convention.
+
+    Applicability
+    -------------
+    Machine-independent.  Any ideal-response spectral field with its
+    rational-surface geometry.
+
+    Limitations
+    -----------
+    Each surface costs two one-sided cubic fits; a coarse radial grid near a
+    surface makes :func:`resonant_delta` refuse it.  Surfaces outside the
+    mapped harmonic band are dropped silently; compare the row count with the
+    input when that matters.
+
+    Provenance
+    ----------
+    .. [2270] VAFT issue #2270: moved from the plot layer's
+       ``_gpec_resonant_table``, which reproduces GPEC's own ``w_isl`` to about
+       a per cent on the DIII-D reference.
+    """
+    from vaft.formula.stability import island_width_from_resonant_flux, resonant_flux_from_delta
+
+    psi_norm = np.asarray(psi_norm, dtype=float)
+    harmonics = np.asarray(m_pol)
+    field = np.asarray(field, dtype=complex)
+    if field.shape != (psi_norm.size, harmonics.size):
+        raise ValueError(
+            f"the perturbed flux has shape {field.shape}, but the declared (psi, m) "
+            f"grid is {(psi_norm.size, harmonics.size)}"
+        )
+    n_tor = int(n_tor)
+    rows: list[dict] = []
+    for surface in surfaces:
+        m = int(round(n_tor * surface["q"]))
+        column = int(np.argmin(np.abs(harmonics - m)))
+        if int(harmonics[column]) != m:
+            # The resonant harmonic is outside the mapped band, so this
+            # surface has no column to take a jump in.
+            continue
+        jump = resonant_delta(
+            psi_norm, field[:, column],
+            psi_rational=surface["psi_n"], area=surface["area"],
+            dq_dpsi_norm=surface["dq_dpsi_n"], chi1=chi1,
+            m_pol=m, n_tor=n_tor,
+        )
+        flux = resonant_flux_from_delta(jump.delta, surface["geometric_factor"], n_tor)
+        rows.append({
+            "psi_n": surface["psi_n"],
+            "q": surface["q"],
+            "m_pol": m,
+            "delta": jump.delta,
+            "Phi_res": complex(flux),
+            "phase": float(np.angle(flux)),
+            "w_isl": float(island_width_from_resonant_flux(
+                flux, surface["area"], surface["q"], surface["dq_dpsi_n"], m, chi1,
+            )),
+        })
+    return rows
 
 
 def resonant_geometric_factor(delta, phi_res, n_tor: int) -> np.ndarray:

@@ -1348,7 +1348,19 @@ def cross_spectrum(
     for name in ("x", "y"):
         source_time, values = (time_x, values_x) if name == "x" else (time_y, values_y)
         if name in resampled:
-            values = resample_to_time(source_time, values, grid, extrapolate="error")
+            finite = np.isfinite(values)
+            values, covered = resample_to_time(
+                source_time, values, grid, extrapolate="error", return_filter_mask=True
+            )
+            # A run too short to anti-alias comes back NaN (#2162 B3.12); welch
+            # would turn that into a coherence of 0 at every frequency, a
+            # plausible wrong answer, so it is refused here as at the other
+            # cross-spectral entry points.
+            if not np.all(covered[finite]):
+                raise ValueError(
+                    f"{name}: anti-alias filter did not cover every source sample; "
+                    "a longer finite uninterrupted record is required"
+                )
         elif source_time.size != grid.size:
             # The record that keeps its own samples is cut to the overlap, the
             # cut recorded in ``time_range``, never extended.

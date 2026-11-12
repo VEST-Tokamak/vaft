@@ -97,6 +97,10 @@ REMOVED: dict[str, tuple[str, str]] = {
     # electromagnetics only probed whether numba imported; nothing used it.
     # numba is now the optional `accel` extra (#1007/#1013).
     'NUMBA_AVAILABLE': ('vaft.process.electromagnetics', 'retired'),
+    # The VEST probe chain's private copy of the low pass -> integrate -> baseline
+    # steps, causal where the donor is zero-phase; b_field_pol_probe_field is the
+    # one implementation now.
+    'vest_b_field_pol_probe_legacy': ('vaft.process.magnetics', 'retired'),
     'ODC': ('omas', 'attr'),
     'ODS': ('omas', 'attr'),
     'ODX': ('omas', 'attr'),
@@ -402,6 +406,10 @@ def test_each_dropped_name_is_reachable_where_the_map_says_it_is(name):
 #: `vaft.process.statistical_analysis.logger`.
 _OWNED_BUT_DROPPED = frozenset({"logger"})
 
+#: Owned functions withdrawn on purpose after the narrowing, each with a
+#: ``'retired'`` entry in REMOVED saying what replaced it.
+_OWNED_AND_RETIRED = frozenset({"vest_b_field_pol_probe_legacy"})
+
 
 def test_the_dropped_names_are_the_ones_no_submodule_defines():
     """Nothing owned was dropped, apart from the names listed above and the
@@ -410,7 +418,7 @@ def test_the_dropped_names_are_the_ones_no_submodule_defines():
     owned = {name for name, entry in inventory.items() if entry["owned"]}
     retired_policy = {name for name, (_, kind) in REMOVED.items() if kind == "policy"}
 
-    assert (owned & set(REMOVED)) == _OWNED_BUT_DROPPED | retired_policy
+    assert (owned & set(REMOVED)) == _OWNED_BUT_DROPPED | retired_policy | _OWNED_AND_RETIRED
 
 
 def test_every_submodule_now_declares_what_it_exports():

@@ -80,7 +80,16 @@ from scipy.signal import coherence, csd, find_peaks, savgol_filter
 
 from vaft.compat import cumtrapz_compat
 from vaft.formula.statistics import rms
-from .signal_processing import define_baseline, subtract_baseline
+from vaft.process.acquisition import AcquisitionInconsistencyError, check_declared_sample_rate
+from .signal_processing import (
+    DegenerateBaselineWindowError,
+    _filtfilt_min_length,
+    _polyfit_linear_baseline,
+    apply_fir_filter,
+    fir_filter_coefficients,
+    define_baseline,
+    subtract_baseline,
+)
 
 # ``vaft.database`` is imported inside the one function that needs it, not
 # here: vaft.database.raw imports Matplotlib at module scope as an
@@ -110,7 +119,6 @@ __all__ = [
     "rogowski_coil_ip",
     "toroidal_mode_analysis",
     "toroidal_phase_fit_at_time",
-    "vest_b_field_pol_probe_legacy",
     "vest_equilibrium_magnetics_detailed",
     "vest_equilibrium_magnetics_signals",
     "vest_flux_loop_flux_from_voltage",
@@ -118,6 +126,7 @@ __all__ = [
     "vest_flux_loop_voltage",
     "vest_magnetics_time_window",
     "vest_md_signals",
+    "vest_probe_lowpass_taps",
 ]
 
 # Naming convention for function name: {diagnostics_name}_{processing_quantity}
@@ -255,10 +264,6 @@ class UnsupportedMagneticsDaqModeError(NotImplementedError):
     """Raised for a magnetics acquisition era with no ported processing path."""
 
 
-class DegenerateBaselineWindowError(ValueError):
-    """Raised when a baseline window contains fewer than two valid samples."""
-
-
 @dataclass(frozen=True)
 class VestMagneticsProcessingConfig:
     """Default VEST magnetics processing settings used by legacy `vfit_equilibrium_magnetics`.
@@ -303,6 +308,83 @@ class VestMagneticsProcessingConfig:
     flux_baseline_samples: int | None = None
     daq_mode: str = "legacy"
     allow_zero_fallback: bool = False
+
+    def __post_init__(self) -> None:
+        """Refuse a configuration no filter or window can honour (#2159, audit gap G8).
+
+        Checked here, at construction (and so at every ``dataclasses.replace``),
+        rather than when ``firwin`` or an index fails deep inside a shot: the
+        rates must be positive and finite, the low-pass cutoff strictly below
+        the Nyquist frequency of ``fast_sample_rate``, the tap and sample
+        counts positive integers, and the windows ordered. ``daq_mode`` and its
+        baseline rules keep their own check where the chain is selected.
+        """
+        def number(name: str) -> float:
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, (int, float, np.integer, np.floating)):
+                raise ValueError(f"VestMagneticsProcessingConfig.{name} must be a number, not {value!r}")
+            if not np.isfinite(value):
+                raise ValueError(f"VestMagneticsProcessingConfig.{name} must be finite, not {value!r}")
+            return float(value)
+
+        def integer(name: str, *, minimum: int, value: object = None) -> int:
+            value = getattr(self, name) if value is None else value
+            if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or int(value) < minimum:
+                raise ValueError(
+                    f"VestMagneticsProcessingConfig.{name} must be an integer >= {minimum}, not {value!r}"
+                )
+            return int(value)
+
+        if number("time_end") <= number("time_start"):
+            raise ValueError("VestMagneticsProcessingConfig.time_end must exceed time_start")
+        integer("sample_count", minimum=2)
+        rate = number("fast_sample_rate")
+        if rate <= 0.0:
+            raise ValueError("VestMagneticsProcessingConfig.fast_sample_rate must be positive")
+        cutoff = number("lowpass_cutoff")
+        if not 0.0 < cutoff < 0.5 * rate:
+            raise ValueError(
+                f"VestMagneticsProcessingConfig.lowpass_cutoff {cutoff} Hz must lie in (0, {0.5 * rate}) Hz, "
+                f"the Nyquist band of fast_sample_rate {rate} Hz"
+            )
+        integer("lowpass_taps", minimum=1)
+        for name in (
+            "default_index_start", "default_index_end", "default_probe_baseline_end",
+            "late_index_start", "late_index_end", "late_probe_baseline_end",
+            "flux_baseline_first_start", "flux_baseline_first_end",
+            "flux_baseline_second_start", "flux_baseline_second_end",
+            "flux_baseline_late_start", "flux_baseline_late_end",
+            "late_shot_min", "transient_shot_min", "transient_shot_max",
+        ):
+            integer(name, minimum=0)
+        if self.calibration_mode not in {"divide", "multiply"}:
+            raise ValueError(
+                f"VestMagneticsProcessingConfig.calibration_mode must be 'divide' or 'multiply', "
+                f"not {self.calibration_mode!r}"
+            )
+        if self.window_override is not None:
+            window = tuple(self.window_override)
+            if len(window) != 3:
+                raise ValueError(
+                    "VestMagneticsProcessingConfig.window_override must be "
+                    "(index_start, index_end, probe_baseline_end)"
+                )
+            start, end, _baseline = (
+                integer("window_override", minimum=0, value=item) for item in window
+            )
+            if end < start:
+                raise ValueError("VestMagneticsProcessingConfig.window_override index_end precedes index_start")
+        if self.flux_baseline_window is not None:
+            window = tuple(self.flux_baseline_window)
+            if len(window) != 2 or not all(
+                isinstance(item, (int, float, np.integer, np.floating)) and not isinstance(item, bool)
+                and np.isfinite(item) for item in window
+            ) or not float(window[0]) < float(window[1]):
+                raise ValueError(
+                    "VestMagneticsProcessingConfig.flux_baseline_window must be two finite, increasing times"
+                )
+        if self.flux_baseline_samples is not None:
+            integer("flux_baseline_samples", minimum=1)
 
     def timebase(self) -> np.ndarray:
         return np.linspace(self.time_start, self.time_end, self.sample_count)
@@ -385,45 +467,24 @@ def _linear_baseline(
     channel: str | int | None = None,
     window_desc: str | None = None,
 ) -> np.ndarray:
-    indices = np.asarray(indices, dtype=int)
-    in_bounds = indices[(indices >= 0) & (indices < values.size)]
-    valid = in_bounds[np.isfinite(values[in_bounds]) & np.isfinite(time_axis[in_bounds])]
-    if valid.size < 2:
-        context_parts = []
-        if shot is not None:
-            context_parts.append(f"shot {shot}")
-        if channel is not None:
-            context_parts.append(f"channel {channel!r}")
-        context_str = f" [{', '.join(context_parts)}]" if context_parts else ""
-
-        if allow_zero_fallback:
-            warnings.warn(
-                f"Degenerate baseline window{context_str}: {valid.size} valid sample(s) available "
-                f"(requires >= 2). Falling back to zero baseline because allow_zero_fallback=True.",
-                UserWarning,
-                stacklevel=2,
-            )
-            return np.zeros(values.size, dtype=float)
-
-        prefix = f"for {', '.join(context_parts)}: " if context_parts else ""
-        time_span = (
-            f"[{time_axis[0]:.6g}, {time_axis[-1]:.6g}] s"
-            if time_axis.size > 0
-            else "[]"
-        )
-        req_desc = f" ({window_desc})" if window_desc else ""
-        if indices.size > 0:
-            index_range = f"[{indices.min()}, {indices.max()}] (count: {indices.size})"
-        else:
-            index_range = "[] (empty)"
-
-        raise DegenerateBaselineWindowError(
-            f"Degenerate baseline window {prefix}found {valid.size} valid sample(s) (requires >= 2). "
-            f"Requested indices{req_desc}: {index_range}. "
-            f"Signal sample count: {values.size}, time span: {time_span}."
-        )
-
-    return np.polyval(np.polyfit(time_axis[valid], values[valid], 1), time_axis)
+    """The probe/flux-loop linear baseline: the canonical ``"polyfit"`` line of
+    :func:`~vaft.process.signal_processing.subtract_baseline` with the #639
+    guards, called with this module's shot/channel context (#2162)."""
+    context_parts = []
+    if shot is not None:
+        context_parts.append(f"shot {shot}")
+    if channel is not None:
+        context_parts.append(f"channel {channel!r}")
+    return _polyfit_linear_baseline(
+        time_axis,
+        values,
+        indices,
+        nan_policy="omit",
+        allow_zero_fallback=allow_zero_fallback,
+        context=", ".join(context_parts) or None,
+        window_desc=window_desc,
+        stacklevel=2,
+    )
 
 
 def _validate_daq_mode(cfg: VestMagneticsProcessingConfig) -> None:
@@ -505,112 +566,49 @@ def vest_magnetics_time_window(shot: int, config: VestMagneticsProcessingConfig 
     return cfg.timebase()[index_start : index_end + 1]
 
 
-def vest_b_field_pol_probe_legacy(
-    time: np.ndarray,
-    raw: np.ndarray,
-    calibration: float,
-    *,
-    shot: int,
-    config: VestMagneticsProcessingConfig | None = None,
-    allow_zero_fallback: bool | None = None,
-    channel: str | int | None = None,
-) -> np.ndarray:
-    """Poloidal field at a VEST probe, from its raw record.
+def _calibration_gain(calibration: float, mode: str) -> float:
+    """The multiplicative gain equivalent to a VEST calibration and its mode."""
+    if mode == "divide":
+        return 1.0 / float(calibration)
+    if mode == "multiply":
+        return float(calibration)
+    raise ValueError(f"Unsupported VEST magnetics calibration mode: {mode}")
+
+
+def vest_probe_lowpass_taps(config: VestMagneticsProcessingConfig | None = None) -> np.ndarray:
+    """FIR coefficients of the VEST B-pol probe anti-alias low pass.
 
     Parameters
     ----------
-    time : array_like
-        Time base [s].
-    raw : array_like
-        Raw digitizer record [V].
-    calibration : float
-        Calibration factor for the probe [-].
-    shot : int
-        Shot number, which selects the baseline era [-].
     config : VestMagneticsProcessingConfig, optional
-        Processing settings [-].
-    allow_zero_fallback : bool, optional
-        Whether to fall back to zero baseline with a warning when the baseline window
-        is degenerate (fewer than 2 valid samples). Defaults to config.allow_zero_fallback [-].
-    channel : str or int, optional
-        Channel identifier for diagnostic error reporting [-].
+        Processing settings; the shipped defaults when omitted [-].
 
     Returns
     -------
     np.ndarray
-        Poloidal field at the probe [T].
-
-    Processing steps
-    ----------------
-    1. Low-pass the raw record on its native fast grid.
-    2. Calibrate it.
-    3. Integrate in time, carrying Faraday's minus sign.
-    4. Fit a linear baseline over the era's leading samples and subtract it.
-
-    Convention
-    ----------
-    The low pass comes **before** the integration and is an anti-alias step: the
-    record is conditioned on the fast acquisition grid below the output window's
-    Nyquist frequency, so resampling onto that window afterwards does not fold
-    high-frequency content into the result.
-
-    The baseline is the era's **leading** samples, a count rather than a physical
-    window, so it means a different interval at a different rate.
-
-    The window and baseline indices are legacy acquisition-era policy, not a
-        signal-quality decision: which samples apply depends on the shot number,
-        and the eras are recorded in ``vest.yaml`` rather than inferred from the
-        data.
+        ``lowpass_taps`` window-method coefficients at ``lowpass_cutoff`` on the
+        ``fast_sample_rate`` grid [-].
 
     Defaults
     --------
-    The cut-off, the tap count and the baseline length are acquisition-era values
-    tied to the VEST fast grid and its output window.
+    251 taps at 2.5 kHz on the 250 kHz grid are acquisition-era values tied to
+    the VEST fast grid: the donor's ``vest_filter(250e3, 2.5e3, 1)``, an
+    order-``round(fs * 1e-3)`` Hamming window design.
 
     Applicability
     -------------
-    VEST-specific.  Written for the VEST poloidal probe chain, its digitizer rates
-    and its shot eras.
-
-    Limitations
-    -----------
-    Assumes the leading samples precede the discharge. Raises `DegenerateBaselineWindowError`
-    if fewer than two valid baseline samples are available (issue #639), unless
-    `allow_zero_fallback=True` is opted into.
+    VEST-specific.  The probe digitizer rate and the output window's Nyquist
+    frequency fix the design.
 
     Provenance
     ----------
-    .. [1] The legacy VEST magnetics workflow, whose stage order and baseline
-       indices are preserved; ``vest.yaml`` ``magnetics`` for the era table.
+    .. [1] VFIT ``Function/vest_filter.m`` and
+       ``Function/VEST_MagneticSignalProcessing.m``.
     """
     cfg = config or DEFAULT_VEST_MAGNETICS_PROCESSING
-    fallback = cfg.allow_zero_fallback if allow_zero_fallback is None else bool(allow_zero_fallback)
-    _, _, baseline_end = cfg.window_for_shot(int(shot))
-    time = np.asarray(time, dtype=float)
-    raw = np.asarray(raw, dtype=float)
-    if time.size <= 1 or raw.size <= 1:
-        raise ValueError("VEST poloidal-field processing requires at least two samples")
-
-    lowpass = signal.firwin(
-        cfg.lowpass_taps,
-        cfg.lowpass_cutoff,
-        pass_zero="lowpass",
-        fs=cfg.fast_sample_rate,
+    return signal.firwin(
+        cfg.lowpass_taps, cfg.lowpass_cutoff, pass_zero="lowpass", fs=cfg.fast_sample_rate
     )
-    filtered = signal.lfilter(lowpass, 1, raw)
-    calibrated = _calibrated_signal(filtered, float(calibration), cfg.calibration_mode)
-    integrated = -cumtrapz_compat(calibrated, x=time, initial=0)
-    baseline_indices = np.arange(min(baseline_end, integrated.size))
-    baseline = _linear_baseline(
-        time,
-        integrated,
-        baseline_indices,
-        allow_zero_fallback=fallback,
-        shot=int(shot),
-        channel="b_field_pol_probe" if channel is None else channel,
-        window_desc=f"leading 0:{baseline_end} samples",
-    )
-    return integrated - baseline
 
 
 def vest_flux_loop_voltage(
@@ -903,6 +901,7 @@ def vest_equilibrium_magnetics_detailed(
     config: VestMagneticsProcessingConfig | None = None,
     allow_missing: bool = False,
     allow_zero_fallback: bool | None = None,
+    acquisition_report: dict | None = None,
 ) -> VestEquilibriumMagneticsResult:
     """Process every magnetic channel of one VEST shot onto the output window.
 
@@ -923,6 +922,9 @@ def vest_equilibrium_magnetics_detailed(
     allow_zero_fallback : bool, optional
         Whether to fall back to zero baseline with a warning when a channel encounters
         a degenerate baseline window. Defaults to config.allow_zero_fallback [-].
+    acquisition_report : dict, optional
+        Filled with ``{probe name: SampleRateCheck}``: each probe record's timebase
+        against ``fast_sample_rate`` and the low-pass cutoff (#2159) [-].
 
     Returns
     -------
@@ -977,6 +979,8 @@ def vest_equilibrium_magnetics_detailed(
         channel_rows = [channel_rows[int(index)] for index in indices]
 
     magnetics_time = vest_magnetics_time_window(shot, cfg)
+    _, _, probe_baseline_end = cfg.window_for_shot(int(shot))
+    probe_lowpass = vest_probe_lowpass_taps(cfg)
     data_flux_loops: list[np.ndarray] = []
     data_probes: list[np.ndarray] = []
     flux_loop_voltage_time: list[np.ndarray] = []
@@ -1013,18 +1017,45 @@ def vest_equilibrium_magnetics_detailed(
 
         if kind == "b_field_pol_probe":
             channel_name = str(channel.get("name", f"b_field_pol_probe_{field_code}"))
-            processed_full = vest_b_field_pol_probe_legacy(
+            source_time = np.asarray(source_time, dtype=float)
+            source_data = np.asarray(source_data, dtype=float)
+            if allow_missing and source_data.size < _filtfilt_min_length(np.size(probe_lowpass)):
+                # A truncated record cannot be low-passed zero-phase; a causal
+                # fallback would delay it, so it is a missing channel instead.
+                warnings.warn(
+                    f"shot {int(shot)} {channel_name}: {source_data.size} samples are "
+                    "too few for the zero-phase probe low pass; treated as missing",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                data_probes.append(np.array([], dtype=float))
+                continue
+            # The probe low pass is designed at the declared fast_sample_rate;
+            # compare it with this record's own timebase (#2159). Recorded,
+            # and fatal only when the cutoff exceeds the observed Nyquist.
+            acquisition = check_declared_sample_rate(
+                source_time, cfg.fast_sample_rate, cutoff_hz=cfg.lowpass_cutoff
+            )
+            if acquisition_report is not None:
+                acquisition_report[channel_name] = acquisition
+            if acquisition.fatal:
+                raise AcquisitionInconsistencyError(
+                    f"shot {int(shot)} {channel_name}: probe low pass cannot be applied: "
+                    f"{acquisition.reason}"
+                )
+            *_, processed_full, _ = b_field_pol_probe_field(
                 source_time,
                 source_data,
-                calibration,
-                shot=shot,
-                config=cfg,
+                np.array([_calibration_gain(calibration, cfg.calibration_mode)]),
+                probe_lowpass,
+                baseline_indices=np.arange(min(probe_baseline_end, source_data.size)),
                 allow_zero_fallback=fallback,
+                shot=int(shot),
                 channel=channel_name,
             )
-            # anti-alias: vest_b_field_pol_probe_legacy low-passes at 2.5 kHz on
-            # the 250 kHz source grid, below the 25 kHz target's Nyquist.
-            data_probes.append(np.interp(magnetics_time, source_time, processed_full))
+            # anti-alias: b_field_pol_probe_field low-passes at 2.5 kHz on the
+            # 250 kHz source grid, below the 25 kHz target's Nyquist.
+            data_probes.append(np.interp(magnetics_time, source_time, processed_full[:, 0]))
             continue
 
         source_time = np.asarray(source_time, dtype=float)
@@ -1040,8 +1071,12 @@ def vest_equilibrium_magnetics_detailed(
             shot=shot,
             channel=channel_name,
         )
-        # anti-alias: the flux is the integral of an already low-passed loop
-        # voltage, so it is band-limited on the source grid.
+        # anti-alias: NOT band-limited. vest_flux_loop_voltage only calibrates
+        # the loop voltage -- no low-pass runs on it -- and the time integral
+        # attenuates high frequencies as 1/f without removing them, so this
+        # np.interp can fold content above the target Nyquist when the loop is
+        # acquired faster than magnetics_time (native DAQ, shot >= 46404).
+        # Unverified whether it matters (#2147 audit finding 4, Phase D #2166).
         data_flux_loops.append(np.interp(magnetics_time, source_time, processed_full))
         flux_loop_voltage_time.append(source_time)
         flux_loop_voltage.append(voltage)
@@ -1128,11 +1163,6 @@ def vest_equilibrium_magnetics_signals(
 vest_md_signals = vest_equilibrium_magnetics_signals
 
 
-def _firwin_order(sample_rate: float) -> int:
-    order = int(float(sample_rate) * 1e-3)
-    return order + 1 if order % 2 == 0 else order
-
-
 def mirnov_preprocess_signal(
     data: np.ndarray,
     *,
@@ -1141,6 +1171,7 @@ def mirnov_preprocess_signal(
     low_pass_cutoff: float | None = 90_000.0,
     amplifier_gain: float = 1.0,
     filter_order: int | None = None,
+    report: dict | None = None,
 ) -> np.ndarray:
     """Condition a Mirnov coil signal for mode analysis.
 
@@ -1157,17 +1188,34 @@ def mirnov_preprocess_signal(
     amplifier_gain : float, optional
         Gain divided out of the record [-].
     filter_order : int, optional
-        Filter order; derived from the sample rate when omitted [-].
+        Filter length in taps, odd; derived from the sample rate when
+        omitted [-].
+    report : dict, optional
+        Filled with ``high_pass``/``low_pass`` entries whose ``status`` is
+        ``applied``, ``skipped`` (cutoff outside ``(0, Nyquist)``, with the
+        reason), ``not_requested`` or ``not_applied`` (empty record) [-].
 
     Returns
     -------
     np.ndarray
         The conditioned record [V].
 
+    Raises
+    ------
+    ValueError
+        ``amplifier_gain`` is zero, or ``filter_order`` is even.
+
     Processing steps
     ----------------
     1. Remove the record's mean.
-    2. Band-pass it with a windowed filter.
+    2. Band-pass it: a Hann-window FIR high-pass then low-pass, each designed
+       by :func:`~vaft.process.signal_processing.fir_filter_coefficients` and
+       applied zero-phase by
+       :func:`~vaft.process.signal_processing.apply_fir_filter` (forward only,
+       delayed by the group delay, on a record too short for ``filtfilt``).
+       A band edge outside ``(0, Nyquist)`` skips its stage; that is recorded
+       in ``report`` or, with no report, raised as a ``RuntimeWarning`` --
+       never silent (#2159).
     3. Divide out the amplifier gain.
 
     Convention
@@ -1182,7 +1230,8 @@ def mirnov_preprocess_signal(
     The sample rate and the two band edges are acquisition-era values, the VEST
     Mirnov amplifier chain's own. The order is derived from the sample rate, one
     tap per millisecond, and forced odd, which is a numerical convenience keeping
-    the filter symmetric.
+    the filter symmetric; below 3 kHz it is held at the designer's minimum of
+    three taps.
 
     Applicability
     -------------
@@ -1200,25 +1249,45 @@ def mirnov_preprocess_signal(
     """
     values = np.asarray(data, dtype=float)
     if values.size == 0:
+        if report is not None:
+            for name in ("high_pass", "low_pass"):
+                report[name] = {"status": "not_applied", "reason": "empty record"}
         return values.copy()
     if amplifier_gain == 0:
         raise ValueError("amplifier_gain must be non-zero.")
 
+    if filter_order is not None and int(filter_order) % 2 == 0:
+        # fir_filter_coefficients would silently lengthen it by one tap.  An
+        # even order already failed in the high-pass stage (a Type II filter
+        # cannot pass Nyquist); refusing it up front keeps the two stages alike.
+        raise ValueError(f"filter_order must be odd (Type I FIR); got {filter_order!r}")
     processed = values - float(np.nanmean(values))
-    order = int(filter_order) if filter_order is not None else _firwin_order(sample_rate)
     nyquist = 0.5 * float(sample_rate)
 
-    for cutoff, pass_zero in ((high_pass_cutoff, False), (low_pass_cutoff, True)):
+    for name, cutoff, kind in (
+        ("high_pass", high_pass_cutoff, "highpass"),
+        ("low_pass", low_pass_cutoff, "lowpass"),
+    ):
         if cutoff is None:
+            if report is not None:
+                report[name] = {"status": "not_requested", "cutoff_hz": None}
             continue
         cutoff = float(cutoff)
         if cutoff <= 0 or cutoff >= nyquist:
+            # Not applied -- the band edge lies outside (0, Nyquist). This used
+            # to be silent; the record now says so (#2159, audit gap G10).
+            reason = f"cutoff {cutoff:g} Hz outside (0, {nyquist:g}) Hz at {float(sample_rate):g} Hz"
+            if report is not None:
+                report[name] = {"status": "skipped", "cutoff_hz": cutoff, "reason": reason}
+            else:
+                warnings.warn(f"Mirnov {name.replace('_', ' ')} not applied: {reason}", RuntimeWarning, stacklevel=2)
             continue
-        taps = signal.firwin(order, cutoff, fs=sample_rate, pass_zero=pass_zero, window="hann")
-        if processed.size > 3 * taps.size:
-            processed = signal.filtfilt(taps, 1.0, processed)
-        else:
-            processed = signal.lfilter(taps, 1.0, processed)
+        taps = fir_filter_coefficients(
+            cutoff, sample_rate, kind=kind, numtaps=filter_order, window="hann"
+        )
+        processed = apply_fir_filter(taps, processed, short_record="causal")
+        if report is not None:
+            report[name] = {"status": "applied", "cutoff_hz": cutoff, "taps": int(taps.size)}
 
     return processed / float(amplifier_gain)
 
@@ -1791,6 +1860,11 @@ def b_field_pol_probe_field(
     baseline_type='linear',
     baseline_onset_window=500,
     baseline_offset_window=100,
+    *,
+    baseline_indices=None,
+    allow_zero_fallback: bool = False,
+    shot: int | None = None,
+    channel: str | int | None = None,
 ):
     """Poloidal field from raw probe records, filtered before integration.
 
@@ -1802,8 +1876,8 @@ def b_field_pol_probe_field(
         Raw records, one column per probe [V].
     gain : array_like
         Gain per probe [-].
-    lowpass_param : Any
-        Low-pass specification applied before integration [-].
+    lowpass_param : array_like
+        FIR coefficients of the low pass applied before integration [-].
     baseline_onset : float, optional
         Time at which the signals begin to deviate [s].
     baseline_offset : float, optional
@@ -1814,32 +1888,53 @@ def b_field_pol_probe_field(
         Samples before the onset to include in the fit [-].
     baseline_offset_window : int, optional
         Samples after the offset to include [-].
+    baseline_indices : array_like of int, optional
+        The baseline samples, given directly; replaces the onset/offset windows
+        when supplied [-].
+    allow_zero_fallback : bool, optional
+        Whether a linear baseline with fewer than two finite samples falls back
+        to zero with a warning instead of raising [-].
+    shot : int, optional
+        Shot number, for error reporting only [-].
+    channel : str or int, optional
+        Channel identifier, for error reporting only [-].
 
     Returns
     -------
     tuple of np.ndarray
-        The field per probe in tesla, together with the intermediate stages the
-        caller may want to inspect [-].
+        The gained record, the filtered record, its time integral, the field per
+        probe in tesla and the fitted baseline, each shaped ``(samples, probes)``
+        [-].
 
     Processing steps
     ----------------
     1. Apply the per-probe gain.
-    2. Low-pass each column.
+    2. Low-pass each column, zero-phase.
     3. Integrate in time, carrying the minus sign.
-    4. Fit and subtract the two-sided baseline per column.
+    4. Fit and subtract the baseline per column.
 
     Convention
     ----------
-    **Gain first, then filter**, which is the order this routine is named for and
-    differs from the VEST chain's. The leading minus is Faraday's, applied as the
-    caller's system defines it rather than asserted; see this module's conventions.
+    **Gain first, then filter.**  Both are linear, so the order changes nothing
+    but rounding. The leading minus is Faraday's, applied as the caller's system
+    defines it rather than asserted; see this module's conventions.
 
     Filtering before integration matters: integrating first would accumulate the
-    noise the filter is there to remove.
+    noise the filter is there to remove.  The filter is zero-phase
+    (:func:`vaft.process.signal_processing.apply_fir_filter`): a causal one
+    delays the field by its group delay against the coil currents it is
+    compared with -- 0.5 ms for the VEST 251-tap design, which doubled the
+    vacuum-model residual of every stored VEST probe until it was removed.
+
+    The linear baseline is fitted through the *finite* baseline samples only, and
+    fewer than two raises :class:`DegenerateBaselineWindowError` (issue #639)
+    unless ``allow_zero_fallback`` is set.
 
     Defaults
     --------
-    The onset, offset and window lengths are machine-specific VEST values.
+    The onset, offset and window lengths are machine-specific VEST values. The
+    VEST equilibrium chain (:func:`vest_equilibrium_magnetics_detailed`) passes
+    ``baseline_indices`` instead: the era's leading samples from ``vest.yaml``.
 
     Applicability
     -------------
@@ -1847,17 +1942,24 @@ def b_field_pol_probe_field(
 
     Limitations
     -----------
-    Assumes the record is quiet either side of the baseline window. This is the
-    routine the fluctuation module points at as the canonical path from pickup
-    voltage to field, and a spectrum taken before this step is a derivative
-    spectrum, not a field one.
+    Assumes the record is quiet in the baseline window. A record shorter than
+    ``3 * len(lowpass_param) + 1`` samples raises ``ValueError``; there is no
+    causal fallback, since that would bring the delay back. This is the routine
+    the fluctuation module points at as the canonical path from pickup voltage
+    to field, and a spectrum taken before this step is a derivative spectrum,
+    not a field one.
 
     Provenance
     ----------
-    .. [1] The legacy VEST probe chain, kept here in a machine-independent form;
+    .. [1] The legacy VEST probe chain, VFIT
+       ``Function/VEST_MagneticSignalProcessing.m``: ``filtfilt`` low pass,
+       ``-cumtrapz``, ``polyfit`` baseline over the leading samples;
        :mod:`vaft.process.fluctuation` for why the integration must precede a
        spectral index.
     """
+    time = np.asarray(time, dtype=float)
+    raw = np.asarray(raw, dtype=float)
+    gain = np.atleast_1d(np.asarray(gain, dtype=float))
     if raw.ndim == 1:
         raw = raw[:, np.newaxis]
 
@@ -1866,17 +1968,20 @@ def b_field_pol_probe_field(
         raise ValueError("Length of gain must match the number of signals (columns in raw).")
     if time.shape[0] != m:
         raise ValueError("Length of time must match number of samples (rows in raw).")
+    if m <= 1:
+        raise ValueError("Poloidal-field processing requires at least two samples")
 
     # Apply gain at the start
     raw = raw * gain
 
-    # Seconds, not indices: see rogowski_coil_ip (cold review 0.7.0 process F5).
-    baseline_indices = define_baseline(
-        time, baseline_onset, baseline_onset_window, baseline_offset, baseline_offset_window
-    )
+    if baseline_indices is None:
+        # Seconds, not indices: see rogowski_coil_ip (cold review 0.7.0 process F5).
+        baseline_indices = define_baseline(
+            time, baseline_onset, baseline_onset_window, baseline_offset, baseline_offset_window
+        )
+    baseline_indices = np.asarray(baseline_indices, dtype=int)
 
-    # Apply low-pass filter
-    filtered_raw = signal.lfilter(lowpass_param, [1.0], raw, axis=0)
+    filtered_raw = apply_fir_filter(lowpass_param, raw, axis=0)
 
     # Integrate to get flux (negative sign if your system defines it so)
     integrated_flux = -cumtrapz_compat(filtered_raw, x=time, initial=0, axis=0)
@@ -1885,13 +1990,25 @@ def b_field_pol_probe_field(
     field = np.empty_like(integrated_flux)
     baselines = np.empty_like(integrated_flux)
     for i in range(n):
-        flux_corrected, baseline = subtract_baseline(
-            time, integrated_flux[:, i], baseline_indices, fitting_opt=baseline_type
-        )
-        field[:, i] = flux_corrected
+        if baseline_type == 'linear':
+            baseline = _linear_baseline(
+                time,
+                integrated_flux[:, i],
+                baseline_indices,
+                allow_zero_fallback=allow_zero_fallback,
+                shot=shot,
+                channel="b_field_pol_probe" if channel is None else channel,
+                window_desc=f"{baseline_indices.size} baseline samples",
+            )
+            field[:, i] = integrated_flux[:, i] - baseline
+        else:
+            field[:, i], baseline = subtract_baseline(
+                time, integrated_flux[:, i], baseline_indices, fitting_opt=baseline_type
+            )
         baselines[:, i] = baseline
 
     return raw, filtered_raw, integrated_flux, field, baselines
+
 
 def flux_loop_flux(
     time,

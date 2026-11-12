@@ -651,18 +651,18 @@ def inspect_dataset(
     import numpy as np
 
     dataset = _dataset(shot, artifact, database_source)
-    ods = dataset.data
-    rows = []
-    for ids in sorted(str(k) for k in ods.keys()):
-        times = _times(ods, ids)
-        finite = times[np.isfinite(times)] if times is not None else None
-        rows.append({
-            "ids": ids,
-            "times": None if times is None else int(times.size),
-            "time_first_s": float(finite.min()) if finite is not None and finite.size else None,
-            "time_last_s": float(finite.max()) if finite is not None and finite.size else None,
-        })
-    return _finish({"dataset": dataset.provenance, "total": len(rows), "items": rows})
+    with dataset.reading() as ods:
+        rows = []
+        for ids in sorted(str(k) for k in ods.keys()):
+            times = _times(ods, ids)
+            finite = times[np.isfinite(times)] if times is not None else None
+            rows.append({
+                "ids": ids,
+                "times": None if times is None else int(times.size),
+                "time_first_s": float(finite.min()) if finite is not None and finite.size else None,
+                "time_last_s": float(finite.max()) if finite is not None and finite.size else None,
+            })
+        return _finish({"dataset": dataset.provenance, "total": len(rows), "items": rows})
 
 
 def _slice_index(times, time: float, tolerance: float | None) -> tuple[int, float, float]:
@@ -688,6 +688,9 @@ def _slice_index(times, time: float, tolerance: float | None) -> tuple[int, floa
         )
     return index, float(times[index]), tolerance
 
+
+#: What get_equilibrium_summary reads of a database shot, fetched in bulk before the summary runs.
+SUMMARY_PREFETCH = ("equilibrium", "magnetics.time", "magnetics.diamagnetic_flux", "tf")
 
 #: Arrays of structures with one entry per ``<ids>.time``, where '*' may stand for the slice.
 TIME_INDEXED = ("equilibrium.time_slice", "core_profiles.profiles_1d", "core_sources.source.0.profiles_1d",
@@ -721,33 +724,33 @@ def inspect_data_path(
         raise ToolInputError("path is one dotted Data Dictionary path with at most one '*'")
     points = _clamp(max_points, MAX_POINTS, "max_points")
     dataset = _dataset(shot, artifact, database_source)
-    ods = dataset.data
-    matched = None
-    if "*" in text:
-        if time is None:
-            raise ToolInputError("a '*' in path is a time-slice index: pass time (s) to pick the slice")
-        head = text.split("*", 1)[0].rstrip(".")
-        if head not in TIME_INDEXED:
-            raise ToolInputError(f"'*' stands for a time slice only under: {', '.join(TIME_INDEXED)}")
-        times = _times(ods, head.split(".", 1)[0])
-        from vaft.ods_access import path_count
+    with dataset.reading() as ods:
+        matched = None
+        if "*" in text:
+            if time is None:
+                raise ToolInputError("a '*' in path is a time-slice index: pass time (s) to pick the slice")
+            head = text.split("*", 1)[0].rstrip(".")
+            if head not in TIME_INDEXED:
+                raise ToolInputError(f"'*' stands for a time slice only under: {', '.join(TIME_INDEXED)}")
+            times = _times(ods, head.split(".", 1)[0])
+            from vaft.ods_access import path_count
 
-        if times is None or path_count(ods, head) != times.size:
-            raise ToolInputError(f"{head} does not have one entry per {head.split('.', 1)[0]}.time here")
-        index, actual, tol = _slice_index(times, float(time), tolerance)
-        text = text.replace("*", str(index), 1)
-        matched = {"requested_time_s": float(time), "time_s": actual, "tolerance_s": tol, "slice": index}
-    elif time is not None:
-        raise ToolInputError("time selects a slice only through a '*' in path")
-    present = path_exists(ods, text)
-    value = path_value(ods, text, None) if present else None
-    if present and hasattr(value, "keys") and not isinstance(value, dict):
-        value = {"children": sorted(str(k) for k in value.keys())}
-    elif present and isinstance(value, (list, tuple)):
-        value = np.asarray(value) if all(isinstance(v, (int, float)) for v in value) else value
-    payload = {"dataset": dataset.provenance, "path": text, "present": present, "matched": matched, "value": value}
-    data, converter = bounded_json(payload, budget=points, max_bytes=MAX_EXTRACT_BYTES, max_items=MAX_EXTRACT_ITEMS)
-    return _finish(data, converter=converter, converted=True)
+            if times is None or path_count(ods, head) != times.size:
+                raise ToolInputError(f"{head} does not have one entry per {head.split('.', 1)[0]}.time here")
+            index, actual, tol = _slice_index(times, float(time), tolerance)
+            text = text.replace("*", str(index), 1)
+            matched = {"requested_time_s": float(time), "time_s": actual, "tolerance_s": tol, "slice": index}
+        elif time is not None:
+            raise ToolInputError("time selects a slice only through a '*' in path")
+        present = path_exists(ods, text)
+        value = path_value(ods, text, None) if present else None
+        if present and hasattr(value, "keys") and not isinstance(value, dict):
+            value = {"children": sorted(str(k) for k in value.keys())}
+        elif present and isinstance(value, (list, tuple)):
+            value = np.asarray(value) if all(isinstance(v, (int, float)) for v in value) else value
+        payload = {"dataset": dataset.provenance, "path": text, "present": present, "matched": matched, "value": value}
+        data, converter = bounded_json(payload, budget=points, max_bytes=MAX_EXTRACT_BYTES, max_items=MAX_EXTRACT_ITEMS)
+        return _finish(data, converter=converter, converted=True)
 
 
 def list_equilibrium_times(
@@ -759,19 +762,20 @@ def list_equilibrium_times(
     import numpy as np
 
     dataset = _dataset(shot, artifact, database_source)
-    times = _times(dataset.data, "equilibrium")
-    if times is None:
-        raise ToolInputError("this dataset holds no equilibrium times")
-    finite = times[np.isfinite(times)]
-    notes = [f"$.times_s ({times.size} times, kept {MAX_LIMIT})"] if times.size > MAX_LIMIT else []
-    payload = {
-        "dataset": dataset.provenance,
-        "count": int(times.size),
-        "time_first_s": float(finite.min()) if finite.size else None,
-        "time_last_s": float(finite.max()) if finite.size else None,
-        "times_s": [float(t) if np.isfinite(t) else None for t in times[:MAX_LIMIT]],
-    }
-    return _finish(payload, converter=Bounded(max_items=MAX_LIMIT), notes=notes)
+    with dataset.reading():
+        times = _times(dataset.data, "equilibrium")
+        if times is None:
+            raise ToolInputError("this dataset holds no equilibrium times")
+        finite = times[np.isfinite(times)]
+        notes = [f"$.times_s ({times.size} times, kept {MAX_LIMIT})"] if times.size > MAX_LIMIT else []
+        payload = {
+            "dataset": dataset.provenance,
+            "count": int(times.size),
+            "time_first_s": float(finite.min()) if finite.size else None,
+            "time_last_s": float(finite.max()) if finite.size else None,
+            "times_s": [float(t) if np.isfinite(t) else None for t in times[:MAX_LIMIT]],
+        }
+        return _finish(payload, converter=Bounded(max_items=MAX_LIMIT), notes=notes)
 
 
 def get_equilibrium_summary(
@@ -803,29 +807,33 @@ def get_equilibrium_summary(
     if tolerance is not None and (not math.isfinite(float(tolerance)) or float(tolerance) <= 0):
         raise ToolInputError(f"tolerance must be a positive finite number of seconds, got {tolerance!r}")
     dataset = _dataset(shot, artifact, database_source)
-    times = _times(dataset.data, "equilibrium")
-    count = len(times) if times is not None else 0
-    if count > MAX_SUMMARY_SLICES:
-        raise ToolInputError(f"{count} equilibrium slices; the summary is limited to {MAX_SUMMARY_SLICES} per call "
-                             f"(use inspect_data_path for single quantities)")
-    rows = extract_equilibrium_global(dataset.data, dataset.shot)
-    if not rows:
-        raise ToolInputError("this dataset holds no equilibrium time slices")
-    times = np.array([np.nan if r.get("time_s") is None else float(r["time_s"]) for r in rows])
-    matched = None
-    notes: list[str] = []
-    if time is not None:
-        index, actual, tol = _slice_index(times, float(time), tolerance)
-        selected = [rows[index]]
-        matched = {"requested_time_s": float(time), "time_s": actual, "tolerance_s": tol}
-    else:
-        limit = _clamp(limit, MAX_SLICES, "limit")
-        selected = rows[:limit]
-        if len(rows) > limit:
-            notes.append(f"$.slices ({len(rows)} slices, kept {limit})")
-    payload = {"dataset": dataset.provenance, "matched": matched, "count": len(rows), "slices": selected}
-    data, converter = bounded_json(payload, budget=MAX_POINTS, max_bytes=MAX_EXTRACT_BYTES, max_items=MAX_SLICES)
-    return _finish(data, converter=converter, notes=notes, converted=True)
+    with dataset.reading():
+        times = _times(dataset.data, "equilibrium")
+        count = len(times) if times is not None else 0
+        if count > MAX_SUMMARY_SLICES:
+            raise ToolInputError(f"{count} equilibrium slices; the summary is limited to {MAX_SUMMARY_SLICES} per call "
+                                 f"(use inspect_data_path for single quantities)")
+        # The summary's updaters absorb their own exceptions, so read what they
+        # need up front, where a failed remote read is an error, not a blank column.
+        dataset.prefetch(*SUMMARY_PREFETCH)
+        rows = extract_equilibrium_global(dataset.data, dataset.shot)
+        if not rows:
+            raise ToolInputError("this dataset holds no equilibrium time slices")
+        times = np.array([np.nan if r.get("time_s") is None else float(r["time_s"]) for r in rows])
+        matched = None
+        notes: list[str] = []
+        if time is not None:
+            index, actual, tol = _slice_index(times, float(time), tolerance)
+            selected = [rows[index]]
+            matched = {"requested_time_s": float(time), "time_s": actual, "tolerance_s": tol}
+        else:
+            limit = _clamp(limit, MAX_SLICES, "limit")
+            selected = rows[:limit]
+            if len(rows) > limit:
+                notes.append(f"$.slices ({len(rows)} slices, kept {limit})")
+        payload = {"dataset": dataset.provenance, "matched": matched, "count": len(rows), "slices": selected}
+        data, converter = bounded_json(payload, budget=MAX_POINTS, max_bytes=MAX_EXTRACT_BYTES, max_items=MAX_SLICES)
+        return _finish(data, converter=converter, notes=notes, converted=True)
 
 
 # ---------------------------------------------------------------------------

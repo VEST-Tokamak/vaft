@@ -78,7 +78,7 @@ def test_families_are_groups_not_aliases():
         for member in family.members:
             assert member != family.name
     beta = taxonomy.resolve_family("beta")
-    assert set(beta.members) == {"beta_n", "beta_p", "beta_t"}
+    assert set(beta.members) == {"beta_n", "beta_n_volume", "beta_p", "beta_t"}
     assert taxonomy.resolve_family("w").name == "energy"
     with pytest.raises(KeyError, match="unknown quantity family"):
         taxonomy.resolve_family("beta_n")

@@ -76,6 +76,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Layer boundaries. Source-level architecture checks -- no solves, no I/O.
     "contracts/test_machine_mapping_boundaries.py",
     "test_api_layer_boundaries.py",
+    "test_architecture_guards.py",
+    # Phase A audit inventories regenerate from the tree and must match (#2174; ~11 s).
+    "test_architecture_audit_inventory.py",
     "test_code_parameters_writers.py",
     "test_no_bare_downsample.py",
     "test_no_pyplot_outside_plot.py",
@@ -108,6 +111,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_layout_contract.py",
     "test_line_abscissa.py",
     "test_machine_geometry_registry.py",
+    # Magnetics missing-channel reasons (#2164): two synthetic-dump diagnostics
+    # builds, no solver, ~15 s.
+    "test_magnetics_missing_channel_reasons.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
     "test_panels_suptitle_placement.py",
@@ -123,6 +129,16 @@ CORE_MODULES: tuple[str, ...] = (
     "test_raw_sources.py",
     "test_selection_validity.py",
     "test_spectrogram_methods.py",
+    # VEST configuration loading, merge and revision rules, the effective
+    # configuration with its overrides and fingerprint, and declared-versus-
+    # observed sample-rate checks (#2159): tmp YAML, the packaged vest.yaml
+    # and synthetic records, no raw data, ~10 s. The revision-overlap and
+    # shot-boundary checks across every vest.yaml diagnostic joined in #2168:
+    # 33 s before B2's parse cache, ~1-2 s serial after it.
+    "test_acquisition_checks.py",
+    "test_vest_config_loading.py",
+    "test_vest_effective_config.py",
+    "test_vest_yaml_boundaries.py",
     # Predicted mode-frequency tracks and the Mirnov mode_overlay (#460):
     # analytic fixtures only, a few seconds.
     "test_mode_frequency_overlay.py",
@@ -256,6 +272,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_concept_pictograms.py",
     "test_diagram_current_diffusion.py",
     "test_diagram_cylindrical_modes.py",
+    "test_diagram_density_semantics.py",
     "test_diagram_disruption.py",
     "test_diagram_divertor_footprint.py",
     "test_diagram_docs_pictograms.py",
@@ -316,6 +333,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
     "test_stability_atlas_population.py",
+    # Legacy archive vs current pipeline: the DCON/RDCON text readers against one
+    # real run's netCDF, slice pairing by time, paired statistics, renderers.
+    "test_gpec_text_output.py",
+    "test_pipeline_comparison.py",
     "test_stability_rdcon_stride_benchmark.py",
     "test_stability_validation.py",
     # GPEC adapter records (#1460): how a solver stop is worded and recorded --
@@ -360,12 +381,27 @@ CORE_MODULES: tuple[str, ...] = (
     "test_class_shot_checklist.py",
     "test_diagnostic_faults.py",
     "test_efit_not_applicable.py",
+    # SXR constant-offset baselines, one owner (#2162 B3.11). Synthetic, ~3 s.
+    "test_sxr_baseline_owner.py",
+    # Canonical API ownership matrix is true of the code (#2162 12A, B3.9). AST, ~8 s.
+    "test_api_ownership.py",
+    # Box average at every sample, one owner (#2162 B3.10).
+    "test_box_average_series.py",
     "test_flux_loop_known_faults.py",
     "test_magnetic_decomposition.py",
     "test_magnetics_geometry_registry.py",
+    # The vest.yaml equilibrium magnetic sensor registry (#2158): schema,
+    # frozen-fixture equality and pre-#2158 output identity, ~30 s.
+    "test_magnetics_registry.py",
     "test_plasma_current_quality.py",
     "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
+    # PF coil-current filter (#2162 B3.5): the named composition held to a frozen
+    # copy of _legacy_pf_filter, coefficients and phase. Synthetic, ~3 s.
+    "test_pf_current_filter.py",
+    # Short-run anti-alias correction (#2162 B3.12): a run too short for the
+    # anti-alias filter is not decimated into an alias. Analytic tones, ~2 s.
+    "test_resample_short_run_alias.py",
     # Impurity composition (lane L, #1565): the mixture algebra against the
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
     # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
@@ -400,6 +436,12 @@ CORE_MODULES: tuple[str, ...] = (
     # the ordering-margin evaluation on synthetic states, plus two clean-interpreter
     # import checks that keep both off the default processing path. Under 10 s.
     "test_validation_credibility.py",
+    # Scientific contract interoperability (#2163): unit scale factors, declared
+    # Fourier conventions and the identity/unit/COCOS/Fourier compatibility
+    # assessment, Cases A, B, C and E of #2160. Metadata and NumPy; under 5 s.
+    "test_data_fourier_convention.py",
+    "test_formula_units.py",
+    "test_scientific_compatibility.py",
     # Sensitivity contract (lane AP, #1642): finite differences against the
     # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map; per-formula
     # propagation and analytic Jacobians of the pilot formulas (#1874). ~3 s.
@@ -430,6 +472,10 @@ CORE_MODULES: tuple[str, ...] = (
     # Ordering spaces and margins (#1627 §3): the space registry, the margin bands and both plots
     # on a synthetic population. Under 5 s.
     "test_plot_ordering_space.py",
+    # Small preprocessing duplicates (#2162 B3.2-B3.7): each canonical owner held
+    # to a frozen copy of the code it replaced, and the two kept with a reason.
+    # Synthetic records, ~5 s.
+    "test_preprocessing_duplicates.py",
     # Adapter-mode ordering contracts (#1823): formalism mapping, registry vs the GPEC resolver and CGYRO,
     # and the advisory check. Under 5 s.
     "test_validation_model_contracts.py",
@@ -443,6 +489,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Ordering summary layer (lane AP, #1627 §2 / #1629): each builder against
     # its textbook definition; missing inputs stay NaN. Pure NumPy, ~3 s.
     "test_ordering_state.py",
+    # Preprocessing consolidation (#2162): each canonical owner held to frozen
+    # copies of the helpers it replaced, on synthetic records. Pure NumPy, ~2 s.
+    "test_baseline_consolidation.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
@@ -459,12 +508,8 @@ CORE_MODULES: tuple[str, ...] = (
 #                                  half of the same contract is
 #                                  test_plot_backend_boundaries.py, which is
 #                                  here.
-#   test_vest_yaml_boundaries.py   despite the name, revision-overlap checks
-#                                  across shot ranges -- shot-data validation,
-#                                  not an architectural boundary, and 18% of
-#                                  the gate. It belongs to the full suite.
 #
-# Both still run on the main gate and on the push to develop.
+# It still runs on the main gate and on the push to develop.
 
 
 def core_paths() -> tuple[Path, ...]:

@@ -78,9 +78,9 @@ def test_every_strict_alias_resolves_to_exactly_one_canonical_concept(snapshot):
 
 
 def test_family_membership_is_not_synonymy(snapshot):
-    assert len({ontology.resolve_term(term) for term in ("beta_n", "beta_p", "beta_t")}) == 3
+    assert len({ontology.resolve_term(term) for term in ("beta_n", "beta_n_volume", "beta_p", "beta_t")}) == 4
     members = {source for source, target in _edges(snapshot, "member_of") if target == "concept_family:beta"}
-    assert members == {"concept:beta_n", "concept:beta_p", "concept:beta_t"}
+    assert members == {"concept:beta_n", "concept:beta_n_volume", "concept:beta_p", "concept:beta_t"}
     assert ontology.resolve_term("beta") is None  # a family name is not a concept
 
 

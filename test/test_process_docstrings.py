@@ -49,9 +49,11 @@ DEFINITIONAL = frozenset({
     "describe_time_grid",
     "detrend_moving_average",
     "butterworth_lowpass",
+    "butterworth_highpass",
     "butterworth_bandpass",
     "fir_filter",
     "fir_filter_coefficients",
+    "apply_fir_filter",
     "is_signal_active",
     "signal_on_offset",
     "process_signal",
@@ -225,7 +227,6 @@ PIPELINE = frozenset({
     "rogowski_coil_ip",
     "toroidal_mode_analysis",
     "toroidal_phase_fit_at_time",
-    "vest_b_field_pol_probe_legacy",
     "vest_equilibrium_magnetics_detailed",
     "vest_flux_loop_flux_from_voltage",
     "vest_flux_loop_legacy",
@@ -378,6 +379,15 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # profile (#2270): rho_tor_norm is never sqrt(psi_N); psi_N normalised by the
+    # slice's own ends or the matched equilibrium's axis/boundary flux
+    "equilibrium_rho_tor_norm_table", "map_rho_tor_profile_to_rz",
+    "core_profiles_grid_coordinate",
+    # profile/perturbation (#2270 P2): V tabulated on the toroidal radius, never
+    # the sqrt(psi_N) proxy; phase = arg(Phi_res), m takes the sign of q
+    "volume_weights_on_grid", "equilibrium_volume_weights", "resonant_table",
+    # signal_processing (#2135): zero-phase, so no filtered waveform lags another
+    "apply_fir_filter",
     # gyrokinetics (#1820): |phi|^2 is a proxy, ky = 0 is zonal, positive lag = zonal
     # after turbulence, c1/c2 carry the intensity normalisation
     "zonal_turbulence_intensity",
@@ -549,7 +559,6 @@ CONVENTION_SENSITIVE = frozenset({
     "solve_eddy_currents",
     "toroidal_mode_analysis",
     "toroidal_phase_fit_at_time",
-    "vest_b_field_pol_probe_legacy",
     "vest_equilibrium_magnetics_detailed",
     "vest_equilibrium_magnetics_signals",
     "vest_flux_loop_flux_from_voltage",
@@ -588,6 +597,7 @@ CONVENTION_SENSITIVE = frozenset({
     "sxr_baseline_correction",
     "sxr_cwt_spectrogram",
     "sxr_electron_temperature",
+    "sxr_offset_baseline",
     "sxr_subtract_vacuum_reference",
     "sxr_te_pairs_from_ods",
     "toroidal_ring",
@@ -692,7 +702,9 @@ CONVENTION_SENSITIVE = frozenset({
     "line_average_density",
     "smooth",
     "butterworth_lowpass",
+    "butterworth_highpass",
     "butterworth_bandpass",
+    "pf_current_filter",
     "fir_filter",
     "fir_filter_coefficients",
     "detrend_moving_average",

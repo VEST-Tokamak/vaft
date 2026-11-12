@@ -109,7 +109,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "sol": 19,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951), MARFE (#1209), blobs (#1211)
         "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
         "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
-        "boundaries": 15,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068), +threshold line and quantity identity (#1425), +Freidberg kink coordinates (#1456), +Menard q*, ITER and START q95 estimates (#1580), +spherical-tokamak Hugill coordinates (#1602), +margin uncertainty (#1874)
+        "boundaries": 16,  # +unit factor between two units of one quantity (#2163), operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068), +threshold line and quantity identity (#1425), +Freidberg kink coordinates (#1456), +Menard q*, ITER and START q95 estimates (#1580), +spherical-tokamak Hugill coordinates (#1602), +margin uncertainty (#1874)
         "impurity": 9,  # mixture moments, target-Z_eff solver, reduce/expand pseudo-impurity, dilution (#1565)
         "dimensional": 7,  # dimension matrix, exact null space, Pi groups, basis change, similarity constraints (#1621)
         "sensitivity": 6,  # FD Jacobian, J Sigma J^T, Monte Carlo, SVD, linearity (#1642), per-formula propagation (#1874)
@@ -122,6 +122,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "turbulence": 16,  # predator-prey (5, #1820) + fluctuation fluxes, drift, shear, Reynolds stress (11, #1112)
         "transport": 9,  # random-walk/TGK diffusivity, constitutive fluxes, classical/Bohm/gyro-Bohm scales (#1112)
         "regularized_profiles": 3,  # explicit opt-in module, outside the star namespace
+        "units": 3,  # explicit opt-in unit scale factors (#2163), outside the star namespace
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 

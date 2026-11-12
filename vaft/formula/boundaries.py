@@ -81,6 +81,7 @@ __all__ = [
     "boundary_curve",
     "threshold_curve",
     "same_quantity",
+    "quantity_conversion_factor",
     "get_boundary",
     "list_boundaries",
     "hugill_coordinates",
@@ -113,12 +114,20 @@ class BoundaryQuantity:
     ``name`` is the identity, for example ``line_average_density`` versus
     ``edge_density``. Two quantities with the same unit but different names
     are not interchangeable.
+
+    ``concept`` names the canonical quantity of :mod:`vaft.plot.taxonomy` (or
+    a quantity subject such as ``plasma_current``) when this quantity means
+    exactly that concept, and stays ``None`` otherwise: Troyon's total-field
+    ``normalized_beta`` is close to, not equal to, ``beta_n``. It links the two
+    vocabularies and changes neither ``name`` nor :func:`same_quantity`
+    (#2163).
     """
 
     name: str
     symbol: str
     unit: str
     definition: str = ""
+    concept: Optional[str] = None
 
     def __post_init__(self):
         if not self.name or not self.unit:
@@ -929,6 +938,49 @@ def same_quantity(a: BoundaryQuantity, b: BoundaryQuantity) -> bool:
     return a.name == b.name and a.unit == b.unit
 
 
+def quantity_conversion_factor(a: BoundaryQuantity, b: BoundaryQuantity) -> float:
+    r"""Factor that turns a value of quantity ``a`` into the same quantity in ``b``'s unit.
+
+    $$x_b = c\,x_a,\qquad c = s(u_a)/s(u_b)$$
+
+    Parameters
+    ----------
+    a : BoundaryQuantity
+        The quantity a value is held in [-].
+    b : BoundaryQuantity
+        The same quantity, possibly in another unit [-].
+
+    Returns
+    -------
+    float
+        The scale factor between the two units, 1 when they are equal; 10 for
+        ``line_average_density`` in ``1e20 m^-3`` to ``1e19 m^-3`` [-].
+
+    Raises
+    ------
+    ValueError
+        The names differ: a different quantity has no conversion, whatever
+        its unit.
+    vaft.formula.units.IncompatibleUnitsError
+        The units cannot convert.
+
+    Convention
+    ----------
+    Identity first, unit second (#2163). :func:`same_quantity` stays the
+    stricter test a plotted axis needs; this one says how two units of one
+    quantity relate, through :func:`vaft.formula.units.unit_conversion_factor`.
+
+    References
+    ----------
+    .. [1] BIPM, The International System of Units (SI), 9th edition (2019).
+    """
+    if a.name != b.name:
+        raise ValueError(f"{a.name!r} and {b.name!r} are different quantities; no unit conversion relates them")
+    from .units import unit_conversion_factor
+
+    return unit_conversion_factor(a.unit, b.unit)
+
+
 def threshold_curve(boundary: Boundary, axis: BoundaryQuantity, values, target_axis: str = "y") -> BoundaryCurve:
     r"""A threshold boundary drawn as a straight line across a 2-D projection.
 
@@ -1109,13 +1161,12 @@ def list_boundaries(family: Optional[str] = None) -> tuple:
 
 _PLASMA_CURRENT_MA = BoundaryQuantity(
     "plasma_current", "|I_p|", "MA",
-    "Magnitude of the total toroidal plasma current; the sign convention (COCOS) is dropped.",
-)
-_MINOR_RADIUS = BoundaryQuantity("minor_radius", "a", "m", "Plasma minor radius (half the midplane width).")
+    "Magnitude of the total toroidal plasma current; the sign convention (COCOS) is dropped.")
+_MINOR_RADIUS = BoundaryQuantity("minor_radius", "a", "m", "Plasma minor radius (half the midplane width).",
+                                 concept="minor_radius")
 _LINE_AVERAGE_DENSITY = BoundaryQuantity(
     "line_average_density", r"\bar n_e", "1e19 m^-3",
-    "Line-averaged electron density along a (near-)central chord; not the volume average.",
-)
+    "Line-averaged electron density along a (near-)central chord; not the volume average.", concept="line_averaged_density")
 
 _register(Boundary(
     key="greenwald",
@@ -1149,8 +1200,7 @@ _register(Boundary(
 
 _GREENWALD_FRACTION = BoundaryQuantity(
     "greenwald_fraction", "f_G", "-",
-    "Line-averaged electron density over the Greenwald density I_p/(pi a^2).",
-)
+    "Line-averaged electron density over the Greenwald density I_p/(pi a^2).", concept="greenwald_fraction")
 
 _register(Boundary(
     key="greenwald_fraction_unity",
@@ -1231,7 +1281,7 @@ _register(Boundary(
 # density in 1e19 m^-3 against B_T/R_0 in T/m, slope one on log-log axes), not as a
 # printed formula; Greenwald 2002 (Sec. 1.2.1, p. R29) states it as n_M = B_T/R.
 _TOROIDAL_FIELD = BoundaryQuantity("toroidal_field", "B_T", "T", "Vacuum toroidal field at the major radius R_0, magnitude.")
-_MAJOR_RADIUS = BoundaryQuantity("major_radius", "R_0", "m", "Major radius.")
+_MAJOR_RADIUS = BoundaryQuantity("major_radius", "R_0", "m", "Major radius.", concept="major_radius")
 _MURAKAMI_SOURCES = (
     BoundarySource("M. Murakami, J. D. Callen and L. A. Berry, Nucl. Fusion 16 (1976) 347", equation="Fig. 1 and Table I",
                    doi="10.1088/0029-5515/16/2/020",
@@ -1353,8 +1403,7 @@ def _giacomin_2022_edge_density_limit(mass_number, minor_radius, separatrix_powe
 _EDGE_DENSITY = BoundaryQuantity(
     "edge_density", "n_e,edge", "1e20 m^-3",
     "Edge electron density at the MARFE onset: Thomson-scattering average over rho_pol 0.85-0.95; "
-    "not the line-averaged or separatrix density.",
-)
+    "not the line-averaged or separatrix density.", concept="edge_density")
 
 _register(Boundary(
     key="giacomin_edge",
@@ -1366,8 +1415,8 @@ _register(Boundary(
         BoundaryQuantity("separatrix_power", "P_SOL", "MW",
                          "Power crossing the separatrix: total coupled power minus core radiated power."),
         _MAJOR_RADIUS,
-        BoundaryQuantity("edge_safety_factor_95", "q95", "-", "Safety factor at the 95 % flux surface."),
-        BoundaryQuantity("elongation", "kappa", "-", "Plasma elongation."),
+        BoundaryQuantity("edge_safety_factor_95", "q95", "-", "Safety factor at the 95 % flux surface.", concept="q95"),
+        BoundaryQuantity("elongation", "kappa", "-", "Plasma elongation.", concept="elongation"),
         _TOROIDAL_FIELD,
     ),
     form="function",
@@ -1670,8 +1719,7 @@ _LOSS_POWER = BoundaryQuantity(
 )
 _LINE_AVERAGE_DENSITY_1E20 = BoundaryQuantity(
     "line_average_density", r"\bar n_e", "1e20 m^-3",
-    "Line-averaged electron density along a (near-)central chord; not the volume average.",
-)
+    "Line-averaged electron density along a (near-)central chord; not the volume average.", concept="line_averaged_density")
 _PLASMA_SURFACE_AREA = BoundaryQuantity("plasma_surface_area", "S", "m^2", "Area of the last closed flux surface.")
 _ASPECT_RATIO = BoundaryQuantity("aspect_ratio", "R/a", "-", "Major over minor radius.")
 
@@ -2133,7 +2181,7 @@ _KINK_Q_STAR = BoundaryQuantity(
     "Freidberg (2008) Eq. (13.160): 2 pi a^2 kappa B0 / (mu0 R0 I), the G(kappa) ~ 1 form of Eq. (13.158). "
     "Not the (1 + kappa^2)/2 definition of Eq. (13.171).",
 )
-_ELONGATION = BoundaryQuantity("elongation", "kappa", "-", "Plasma elongation.")
+_ELONGATION = BoundaryQuantity("elongation", "kappa", "-", "Plasma elongation.", concept="elongation")
 _FREIDBERG_SOURCE = dict(citation="J. P. Freidberg, Plasma Physics and Fusion Energy, Cambridge University Press (2008)",
                          doi="10.1017/CBO9780511755705")
 _FREIDBERG_APPLICABILITY = dict(
@@ -2267,13 +2315,14 @@ _KINK_Q_STAR_CYL = BoundaryQuantity(
     "Menard et al. (2004) cylindrical safety factor pi a^2 B_T0 (1 + kappa^2)/(mu0 R0 I_P) "
     "(Freidberg Eq. 13.171). Not q95, not q_a, not Freidberg's Eq. (13.160).",
 )
-_Q95 = BoundaryQuantity("edge_safety_factor_95", "q95", "-", "Safety factor at the 95 % flux surface.")
+_Q95 = BoundaryQuantity("edge_safety_factor_95", "q95", "-", "Safety factor at the 95 % flux surface.", concept="q95")
 _Q95_ITER_ESTIMATE = BoundaryQuantity(
     "edge_safety_factor_95_estimate_iter", "q_{95,ITER}", "-",
     "q95 from the ITER design-guideline formula (Post et al. 1991, Table 1-2) evaluated on global shape "
     "and engineering parameters; an estimate, not an equilibrium q95.",
 )
-_TRIANGULARITY = BoundaryQuantity("triangularity", "delta", "-", "Plasma triangularity (average of upper and lower).")
+_TRIANGULARITY = BoundaryQuantity("triangularity", "delta", "-", "Plasma triangularity (average of upper and lower).",
+                                  concept="triangularity")
 _MENARD_2004_SOURCE = BoundarySource(
     "J. E. Menard et al., Phys. Plasmas 11 (2004) 639 (preprint PPPL-3908)",
     equation="p. 9 of PPPL-3908: q* = eps (1 + kappa^2) pi a B_T0 / mu0 I_P; Fig. 3d",

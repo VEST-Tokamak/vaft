@@ -902,3 +902,174 @@ def test_probes_beyond_efits_geometry_are_not_counted_in_an_efit_family(monkeypa
     assert "not_in_efit" not in (families[0], families[1])
     assert metrics["families"]["not_in_efit"]["expected"] == 2
     assert metrics["efit_probe_count"] == 2
+
+
+# ---------------------------------------------------------------------------
+# #2192: a raw DAQ record stuck at the rail
+# ---------------------------------------------------------------------------
+
+QUANTUM = 10.0 / 2**16  # one step of VEST's +/-5 V, 16-bit probe digitizer
+N_RAW = 2500
+
+
+def _raw(level: float = 0.0, *, dither_quanta: int = 2, seed: int = 2192) -> np.ndarray:
+    """A raw probe record quantized to the converter's step, dithering about ``level``."""
+    rng = np.random.default_rng(seed)
+    codes = np.round(level / QUANTUM) + rng.integers(-dither_quanta, dither_quanta + 1, N_RAW)
+    return codes * QUANTUM
+
+
+def _with_raw(ods: ODS, index: int, raw: np.ndarray) -> ODS:
+    base = f"magnetics.b_field_pol_probe.{index}.voltage"
+    ods[f"{base}.time"] = np.linspace(0.26, 0.36, raw.size, endpoint=False)
+    ods[f"{base}.data"] = np.asarray(raw, dtype=float)
+    ods[f"{base}.validity"] = 0
+    return ods
+
+
+def _what_processing_makes_of_a_constant():
+    """A rail-stuck record after integration and baseline removal: ~1e-11 T of
+    last-bit texture, which the processed-signal detectors rightly pass."""
+    rng = np.random.default_rng(46406)
+    return 1.0e-11 * rng.standard_normal(N_TIME)
+
+
+@pytest.mark.parametrize("level", [-5.0, 5.0 - QUANTUM])
+def test_a_raw_record_stuck_at_either_rail_is_condemned_for_the_whole_record(level):
+    """46406 H3-08 / U-06: -5 V for the whole window, ~0 T after processing."""
+    ods = _with_raw(_ods(probes={0: _what_processing_makes_of_a_constant()}), 0, np.full(N_RAW, level))
+    assert "flatline" not in _reasons(_only(_ods(probes={0: _what_processing_makes_of_a_constant()})))
+
+    quality = _only(ods)
+
+    assert quality.validity == VALIDITY_INVALID
+    assert quality.valid_fraction == 0.0
+    assert "raw_rail" in _reasons(quality)
+    assert "rail for the whole analysis window" in quality.reason
+    assert quality.metrics["raw_rail_level"] == pytest.approx(level)
+    assert quality.metrics["raw_rail_departure_quanta"] <= 1.0
+
+
+def test_a_rail_record_one_archive_rounding_away_is_still_at_the_rail():
+    """The archive keeps 0.1 mV: the positive end code reads 4.9998 V, 1.3 steps in."""
+    ods = _with_raw(_ods(probes={0: _clean()}), 0, np.full(N_RAW, 4.9998))
+    assert "raw_rail" in _reasons(_only(ods))
+
+
+def test_a_quiet_probe_near_zero_volts_is_not_a_rail():
+    """Negative control: L-04 on the vacuum shot 46406 dithers over 5 steps about 0 V."""
+    ods = _with_raw(_ods(probes={0: _clean(scale=1e-4)}), 0, _raw(-2.4e-4))
+    quality = _only(ods)
+    assert "raw_rail" not in _reasons(quality)
+    assert quality.validity == VALIDITY_VALID
+    assert quality.metrics["raw_rail_departure_quanta"] > 30000
+
+
+def test_a_genuine_slow_drift_toward_the_rail_is_not_a_rail():
+    """Negative control: a record drifting 50 mV toward -5 V leaves the rail by
+    hundreds of steps and is information, not a dead channel."""
+    drift = np.linspace(-4.95, -5.0, N_RAW)
+    ods = _with_raw(_ods(probes={0: _clean()}), 0, np.round(drift / QUANTUM) * QUANTUM)
+    quality = _only(ods)
+    assert "raw_rail" not in _reasons(quality)
+    assert quality.metrics["raw_rail_departure_quanta"] > 300
+
+
+def test_a_record_that_rails_partway_is_left_to_the_other_detectors():
+    """An amplifier that saturates at 0.33 s measured before it: the whole-window
+    rule must not condemn it (the processed detectors judge it per sample)."""
+    raw = _raw(0.1)
+    raw[int(0.7 * N_RAW):] = -5.0
+    quality = _only(_with_raw(_ods(probes={0: _clean()}), 0, raw))
+    assert "raw_rail" not in _reasons(quality)
+
+
+def test_a_flat_record_off_the_rail_is_not_a_rail():
+    """Out of scope by construction: C1-01 on 46406 sits flat at -4.84 V, 1,070
+    steps inside the rail. The criterion is the rail, not flatness."""
+    quality = _only(_with_raw(_ods(probes={0: _clean()}), 0, _raw(-4.8366, dither_quanta=4)))
+    assert "raw_rail" not in _reasons(quality)
+
+
+def test_a_kind_without_a_configured_rail_is_not_judged():
+    ods = _with_raw(_ods(probes={0: _clean()}), 0, np.full(N_RAW, -5.0))
+    config = MagneticsQualityConfig(raw_rail_voltage={})
+    quality = _only(ods, config=config)
+    assert "raw_rail" not in _reasons(quality)
+    assert "raw_rail_departure_quanta" not in quality.metrics
+
+
+def test_a_flux_loop_voltage_is_calibrated_and_never_judged_against_the_rail():
+    ods = _ods(loops={0: _clean()})
+    ods["magnetics.flux_loop.0.voltage.data"] = np.full(N_RAW, -5.0)
+    quality = _only(ods)
+    assert "raw_rail" not in _reasons(quality)
+    assert "raw_rail_departure_quanta" not in quality.metrics
+
+
+def test_the_rail_check_can_be_switched_off_and_needs_a_record_long_enough():
+    ods = _with_raw(_ods(probes={0: _clean()}), 0, np.full(N_RAW, -5.0))
+    assert "raw_rail" not in _reasons(_only(ods, config=MagneticsQualityConfig(raw_rail_tolerance_quanta=None)))
+    short = _with_raw(_ods(probes={0: _clean()}), 0, np.full(999, -5.0))
+    assert "raw_rail" not in _reasons(_only(short))
+
+
+def test_the_pure_rail_detector_agrees_with_its_definition():
+    from vaft.validation.magnetics import at_raw_rail, raw_rail_departure
+
+    assert raw_rail_departure(np.full(10, -5.0), 5.0) == 0.0
+    assert raw_rail_departure(np.array([-5.0, -4.9]), 5.0) == pytest.approx(0.1)
+    assert raw_rail_departure(np.array([np.nan, 5.0]), 5.0) == 0.0
+    assert np.isnan(raw_rail_departure(np.array([np.nan]), 5.0))
+    kwargs = dict(rail=5.0, quantum=QUANTUM, tolerance_quanta=2.0, min_samples=16)
+    mostly_missing = np.r_[np.full(16, -5.0), np.full(500, np.nan)]
+    assert at_raw_rail(mostly_missing, **kwargs)  # NaNs are not counted and do not break it
+    assert at_raw_rail(np.full(16, -5.0), **kwargs)
+    assert not at_raw_rail(np.full(15, -5.0), **kwargs)
+    assert not at_raw_rail(np.r_[np.full(99, -5.0), -5.0 + 3 * QUANTUM], **kwargs)
+
+
+def test_a_rail_stuck_probe_does_not_vote_in_its_family():
+    """A 0 T reading would drag the family median its neighbours are judged by."""
+    ods = _one_family(_ods(probes=_waveforms(0.05, 0.05, 0.05, 0.05, 5.0e-4)))
+    report = validate_magnetics_signals(_with_raw(ods, 4, np.full(N_RAW, -5.0)))
+    assert "raw_rail" in _reasons(report[4])
+    assert all(q.metrics["amplitude_over_family_median"] == pytest.approx(1.0, rel=0.05) for q in report[:4])
+
+
+def test_efit_drops_a_rail_stuck_probe_through_validity_alone():
+    """The existing validity -> weight path: FWTMP2 = 0 for the dead probe, 1 for its neighbour."""
+    ods = _with_raw(_ods(probes={0: _what_processing_makes_of_a_constant(), 1: _clean(seed=7)}),
+                    0, np.full(N_RAW, -5.0))
+    project_validity(ods, validate_magnetics_signals(ods))
+    equilibrium = ods["equilibrium"]
+    equilibrium["time"] = np.array([TIME[100], TIME[400]])
+    for slice_index in (0, 1):
+        for channel in (0, 1):
+            equilibrium[f"time_slice.{slice_index}.constraints.bpol_probe.{channel}.measured"] = 1.0e-11
+            equilibrium[f"time_slice.{slice_index}.constraints.bpol_probe.{channel}.weight"] = 1.0
+
+    assert apply_validity_exclusions(ods, equilibrium) == {("b_field_pol_probe", 0): [0, 1]}
+    assert equilibrium["time_slice.0.constraints.bpol_probe.0.weight"] == 0.0
+    assert equilibrium["time_slice.1.constraints.bpol_probe.1.weight"] == 1.0
+
+
+@pytest.mark.parametrize("shot", [40600, 41524, 41672, 42962, 45531])
+def test_on_the_packaged_shots_only_c4_04_sits_at_the_rail(shot):
+    """Real raw records: on these packaged shots the one rail-stuck probe is
+    C4-04 (on 39915 it is not at the rail), already condemned (#977, its
+    recorded fault), so no channel's validity changes.  Metrics do: C4-04 no
+    longer votes in the family and array reviews, which moves the other
+    probes' family ratios by up to ~12 % and their array fractions by <0.02."""
+    import vaft
+    import vaft.omas
+
+    try:
+        path = vaft.data.sample(shot, "omas")
+    except (ValueError, FileNotFoundError):  # repository-only artifact
+        pytest.skip(f"sample {shot} is not available in this checkout")
+    ods = vaft.omas.load(path)
+    railed = [q.name for q in validate_magnetics_signals(ods) if "raw_rail" in _reasons(q)]
+    assert railed == ["MagneticFieldProbe_C4-04"]
+    without = validate_magnetics_signals(ods, config=MagneticsQualityConfig(raw_rail_tolerance_quanta=None))
+    assert [q.validity for q in validate_magnetics_signals(ods)] == [q.validity for q in without]

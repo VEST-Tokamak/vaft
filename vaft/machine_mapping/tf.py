@@ -9,7 +9,7 @@ from scipy import signal
 from scipy.ndimage import median_filter, uniform_filter1d
 
 from vaft.database import raw as raw_db
-from vaft.process.signal_processing import smooth
+from vaft.process.signal_processing import apply_fir_filter, smooth
 
 from .utils import (
     build_window_time_axis,
@@ -192,7 +192,9 @@ def vfit_tf_current_detailed(
         np.asarray(time_tf, dtype=float), data_raw_tf, processing.get("excursion_repair")
     )
 
-    tf_current_waveform = signal.lfilter(taps, 1, data_raw_tf)
+    # Zero-phase, as the donor's VEST_TFwaveform.m filtfilt: a causal 26-tap
+    # filter at 25 kHz would delay the TF current by 0.5 ms.
+    tf_current_waveform = apply_fir_filter(taps, data_raw_tf)
     tf_current_waveform = smooth(tf_current_waveform, int(processing["smoothing_window"]))
     return np.asarray(time_tf, dtype=float), np.asarray(tf_current_waveform, dtype=float), repaired
 

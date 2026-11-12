@@ -125,7 +125,8 @@ import numpy as np
 from scipy import ndimage, optimize, signal
 
 from vaft.formula.statistics import rms
-from vaft.process.signal_processing import _filtfilt_min_length
+from vaft.process.acquisition import AcquisitionInconsistencyError, check_declared_sample_rate
+from vaft.process.signal_processing import apply_fir_filter
 # The shot verdict lives in the validation layer (#339); it imports no kernel
 # back at run time, so this cannot cycle.
 from vaft.validation.impa import ImpaAssessment
@@ -378,10 +379,7 @@ def impa_lowpass(values: np.ndarray, cutoff_hz: float, sample_rate: float) -> np
     """
     values = np.asarray(values, dtype=float)
     taps = signal.firwin(_FIR_TAPS, cutoff_hz, pass_zero="lowpass", fs=sample_rate)
-    # The shared length rule; this check used to stop three samples short (#893).
-    if values.shape[-1] >= _filtfilt_min_length(taps.size):
-        return signal.filtfilt(taps, 1, values, axis=-1)
-    return signal.lfilter(taps, 1, values, axis=-1)
+    return apply_fir_filter(taps, values, axis=-1, short_record="causal")
 
 
 def _apply_baseline(values: np.ndarray, baseline: str, baseline_samples: int) -> np.ndarray:
@@ -1691,6 +1689,14 @@ def process_impa(
     raw = np.atleast_2d(np.asarray(raw, dtype=float))
     i_tf = np.asarray(i_tf, dtype=float)
     n_channels = raw.shape[0]
+    # The low pass is designed at the declared rate; say whether the record
+    # agrees (#2159, #432). Report-only, except a cutoff the acquired data
+    # cannot carry.
+    acquisition = check_declared_sample_rate(
+        time, config.sample_rate, cutoff_hz=config.signal_lowpass_hz
+    )
+    if acquisition.fatal:
+        raise AcquisitionInconsistencyError(f"IMPA low pass cannot be applied: {acquisition.reason}")
     if channel_valid is None:
         channel_valid = np.ones(n_channels, dtype=bool)
     channel_valid = np.asarray(channel_valid, dtype=bool)
@@ -1841,6 +1847,7 @@ def process_impa(
         "gain": float(config.gain),
         "signal_lowpass_hz": float(config.signal_lowpass_hz),
         "sample_rate": float(config.sample_rate),
+        "acquisition": acquisition.as_dict(),
         "baseline": config.baseline,
         "tf_turns": int(config.tf_turns),
         "geometry_method": geometry.method,

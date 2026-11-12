@@ -9,6 +9,35 @@ __all__ = ["__version__"]
 # ────────────────────────────────────────────────────────
 # unreleased
 # - (develop since v0.9.0; one line per merged change, newest first)
+# - Deprecated aliases now name their removal release, vaft 0.11.0: the
+#   minor after the release that first dates the removal (as the 0.6.0
+#   vaft.plot legacy names were dated for 0.7.0; vaft.spectroscopy gave
+#   two). vaft.machine_mapping.magnetics.vfit_md and
+#   vest_md_channel_definitions, plain aliases until now, warn on every
+#   access through the module (the direct `from
+#   vaft.machine_mapping.magnetics import ...` included) and on the first
+#   through the package; use vfit_equilibrium_magnetics and
+#   vest_equilibrium_magnetics_channel_definitions. The signal_processing
+#   aliases (VEST_CoilCurrentNoiseReduction, vfit_signal_startend,
+#   vfit_signal_start_end, signal_onoffset) and
+#   machine_mapping.utils.process_signal, warning since 0.6.0, say the
+#   same release. Nothing is removed (#2168)
+# - Every measured-waveform FIR low pass is zero-phase through the new
+#   vaft.process.signal_processing.apply_fir_filter, as the legacy VEST
+#   workflow's filtfilt: B-pol probes, TF current and the plasma-current
+#   reference comparison were causal and lagged the PF coil currents by
+#   0.5 ms, doubling the vacuum-model residual of every stored probe.
+#   BREAKING: vaft.process.magnetics.vest_b_field_pol_probe_legacy is
+#   removed; b_field_pol_probe_field (now zero-phase, with baseline_indices,
+#   allow_zero_fallback, shot and channel) is the one probe chain, with
+#   vest_probe_lowpass_taps for the VEST design. In the equilibrium
+#   magnetics run a probe record too short for the zero-phase pass is a
+#   missing channel (with allow_missing) instead of failing the shot;
+#   workflow/magnetics_geometry/verify_wiring.py uses the shot-era
+#   processing config (probe baseline 1750 samples from 43685) instead of
+#   the default. PF, IMPA and Mirnov keep their causal short-record
+#   fallback. Stored magnetics, TF and derived products need
+#   regeneration (#2135)
 # 0.9.0
 # - development line 2026-10-09 .. 2026-10-21 merged into main: 162 pull
 #   requests (first-parent merges on develop since the v0.8.0 forward-port);

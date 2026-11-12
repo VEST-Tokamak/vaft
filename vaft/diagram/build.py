@@ -300,6 +300,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "geometry_to_mesh.svg": ("geometry_to_mesh", {}),
     "logical_to_physical_mapping.svg": ("logical_to_physical_mapping", {}),
     "physical_to_flux_mapping.svg": ("physical_to_flux_mapping", {}),
+    # one measured sample in four representations: VEST 48224 at 300 ms (#2253)
+    "electron_density_semantics.svg": ("electron_density_semantics", {}),
 }
 
 
