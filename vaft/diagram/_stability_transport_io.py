@@ -95,13 +95,13 @@ READS: Dict[str, Tuple[str, ...]] = {
     "transport": ("equilibrium", "core_profiles", "assumptions"),
 }
 
-#: what the reconstruction and the kinetic profiles are made from, as IMAS IDS: machine configuration on the first
-#: line, measurements on the second. The 3-D coil excitation is ``coils_non_axisymmetric``, so it is drawn here as
+#: what the reconstruction and the kinetic profiles are made from, as IMAS IDS: coils and wall on the first line,
+#: heating and current drive and the measurements on the second. The 3-D coil excitation is ``coils_non_axisymmetric``, so it is drawn here as
 #: machine data, not among the assumptions
 EXPERIMENT_TITLE = "Machine Configuration & Experimental Data"
 EXPERIMENT_IDS: Tuple[Tuple[str, ...], ...] = (
     ("wall", "pf_active", "pf_passive", "em_coupling", "coils_non_axisymmetric"),
-    ("magnetics", "thomson_scattering", "charge_exchange"),
+    ("nbi", "ec_launchers", "magnetics", "thomson_scattering", "charge_exchange"),
 )
 #: what the kinetic profiles are made from inside the shared input, when they are drawn as derived
 PROFILE_SOURCES: Tuple[str, ...] = ("equilibrium", "assumptions")
@@ -270,8 +270,8 @@ def equilibrium_stability_transport(*, labels: bool = True, measurements: bool =
     ``measurements=True`` adds what the reconstruction is made from: one
     Machine Configuration & Experimental Data box of IMAS IDS above the panels
     (``wall``, ``pf_active``, ``pf_passive``, ``em_coupling``,
-    ``coils_non_axisymmetric``; ``magnetics``, ``thomson_scattering``,
-    ``charge_exchange``), consumed by the
+    ``coils_non_axisymmetric``; ``nbi``, ``ec_launchers``, ``magnetics``,
+    ``thomson_scattering``, ``charge_exchange``), consumed by the
     reconstruction and by the kinetic profiles. It mixes configuration and
     measurement, so it takes a plain outline rather than a kind. The reconstruction then only writes the equilibrium IDS, and the
     kinetic profiles are drawn as made from the equilibrium and the external
@@ -302,7 +302,7 @@ def equilibrium_stability_transport(*, labels: bool = True, measurements: bool =
         efit_top = max(p[1] for p in efit.points)
         kin_x, kin_y, _, kin_h = b.model["boxes"]["core_profiles"]
         kin_x += dx
-        h, w = 1.45, 13.4
+        h, w = 1.45, 14.2
         cx, cy = 0.5 * (efit_x + kin_x), _TOP + 0.8 + 0.5 * h
         data = box(cx, cy, w, h, _experiment_text(), style=_EXPERIMENT_STYLE, role="node:experiment_data", latex=True)
         items += list(data.items)

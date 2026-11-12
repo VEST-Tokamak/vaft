@@ -2261,7 +2261,7 @@ puts it to the right of four equilibrium routes around the IMAS equilibrium IDS 
 boundary_models=True)`) -- on one canvas at one scale and with no panel letters; an arrow hands the equilibrium
 from left to right. Neither carries arrow annotations: what each calculation reads is in the model. With
 `measurements=True` a Machine Configuration & Experimental Data box of IMAS IDS (`wall`, `pf_active`,
-`pf_passive`, `em_coupling`, `coils_non_axisymmetric`, `magnetics`, `thomson_scattering`, `charge_exchange`;
+`pf_passive`, `em_coupling`, `coils_non_axisymmetric`, `nbi`, `ec_launchers`, `magnetics`, `thomson_scattering`, `charge_exchange`;
 the 3-D coil excitation is `coils_non_axisymmetric`, so it is no longer among the assumptions) sits above both halves and feeds the reconstruction, which then only writes the equilibrium IDS, and the kinetic
 profiles, which are drawn as made from the equilibrium and the external assumptions as well.
 
