@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -187,10 +188,11 @@ def _require_toolchain() -> dict:
     return found
 
 
-def _run(cmd, cwd: Path, what: str) -> None:
+def _run(cmd, cwd: Path, what: str, env: Optional[dict] = None) -> None:
     # utf-8 with replacement, not the locale codec: a stray byte in a TeX message must not turn the report
     # into a UnicodeDecodeError
-    proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                          env=None if env is None else {**os.environ, **env})
     if proc.returncode != 0:
         log = cwd / "diagram.log"
         detail = log.read_text(encoding="utf-8", errors="replace")[-3000:] if log.exists() else proc.stdout[-3000:]
@@ -301,7 +303,9 @@ def render_pdf(document: str, target: Path) -> None:
         (cwd / "diagram.tex").write_text(document.replace("\\def\\pgfsysdriver{pgfsys-dvisvgm.def}\n", "")
                                          .replace(_VAFTIMAGE_DVISVGM, _VAFTIMAGE_PDF), encoding="utf-8")
         _stage_images(document, cwd)
-        _run([pdflatex, "-interaction=nonstopmode", "-halt-on-error", "diagram.tex"], cwd, "pdflatex")
+        # a fixed epoch stamps the creation date and the trailer /ID, so one source gives one PDF (#2253)
+        _run([pdflatex, "-interaction=nonstopmode", "-halt-on-error", "diagram.tex"], cwd, "pdflatex",
+             env={"SOURCE_DATE_EPOCH": "0", "FORCE_SOURCE_DATE": "1"})
         shutil.copyfile(cwd / "diagram.pdf", target)
 
 

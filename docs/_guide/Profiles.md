@@ -406,7 +406,7 @@ state = build_consistent_state(sample_geqdsk(), decompose, time=0.319)
 state.status, state.initial.metrics["closure_max_relative"], len(state.iterations)
 ```
 
-See `notebooks/self_consistent_equilibrium_kinetic_iteration.ipynb` for the `kinetic_pressure` loop
+See `notebooks/equilibrium_kinetic_consistency_and_inference.ipynb` (section 5) for the `kinetic_pressure` loop
 on 39915.
 
 ## Plotting
