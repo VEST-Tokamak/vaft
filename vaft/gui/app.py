@@ -1,9 +1,9 @@
-"""The reference browser application: pick sources, a plot and its controls (#1086).
+"""The reference browser application: pick sources, a plot and its controls.
 
 It is deliberately small -- a source picker, the plot catalog of those
 sources, the controls the chosen plot declares or a composition of several
-plots (#1467), the reproducible figure options and their Python/CLI
-reproduction (#1421), and export -- and exists to prove the layer: the same ``vaft gui`` works on a workstation,
+plots, the reproducible figure options and their Python/CLI
+reproduction, and export -- and exists to prove the layer: the same ``vaft gui`` works on a workstation,
 over SSH port forwarding and on a cluster node, with every list and control
 coming from the plot-discovery API rather than from this module.
 """
@@ -145,11 +145,11 @@ class BrowserApp:
         self.load_button = pn.widgets.Button(label="Load", color="primary")
         self._source_inputs = pn.Column(self.sample)
 
-        # -- plot, or several composed into one figure (#1467)
+        # -- plot, or several composed into one figure
         self.mode = pn.widgets.RadioButtonGroup(options=_MODE_LABELS, value="plot")
         self.plot = pn.widgets.Select(label="Plot", groups={"": []}, disabled=True)
         # What the selector lists: the discovery catalog, searched and with or
-        # without the plots this source cannot draw (#1172).
+        # without the plots this source cannot draw.
         self.search = pn.widgets.TextInput(
             name="", placeholder="Search plots: ip, psi, profile ...", sizing_mode="stretch_width",
         )
@@ -179,7 +179,7 @@ class BrowserApp:
         )
         self.compose_box = pn.Column(*self.composer.widgets(), visible=False, sizing_mode="stretch_width")
 
-        # -- the figure: reproducible options (#1421) and the preview size
+        # -- the figure: reproducible options and the preview size
         self.options_form = FigureOptionsForm(on_change=lambda form: self._on_options())
         self.width = pn.widgets.IntInput(label="Preview width [px]", value=None, start=50, step=50, placeholder="fit")
         self.height = pn.widgets.IntInput(label="Preview height [px]", value=None, start=50, step=50, placeholder="fit")
@@ -192,7 +192,7 @@ class BrowserApp:
             callback=self._export, filename="figure.png", label="Download figure",
             color="success", disabled=True,
         )
-        # A movie of the plot's sequence (#1400): offered only when the plot
+        # A movie of the plot's sequence: offered only when the plot
         # has the slice control the player walks.  Frames per second is how
         # fast the states are shown -- never the acquisition rate -- and the
         # step is the only decimation: every state is otherwise one frame.
@@ -622,7 +622,7 @@ class BrowserApp:
         self._clear_error()
         self._refresh()
 
-    # -- figure options (#1421) -----------------------------------------------
+    # -- figure options -------------------------------------------------------
     def _on_options(self) -> None:
         self._clear_error()
         form = self.options_form
@@ -669,7 +669,7 @@ class BrowserApp:
             return False
         return True
 
-    # -- composition (#1467) --------------------------------------------------
+    # -- composition ----------------------------------------------------------
     def _on_mode(self, event: Any) -> None:
         composing = event.new == "compose"
         self.plot_box.visible, self.compose_box.visible = not composing, composing
@@ -722,7 +722,7 @@ class BrowserApp:
         self.download_times.filename = f"{stem}_frames.json"
 
     def _offer_video(self) -> None:
-        """The video formats, and their fields, only for a plot with a sequence (#1400)."""
+        """The video formats, and their fields, only for a plot with a sequence."""
         states = len(self.session.sequence_states()) if self.session.state is not None else 0
         offered = list(EXPORT_FORMATS) + (list(VIDEO_FORMATS) if states > 1 else [])
         if list(self.export_format.options) != offered:
@@ -1003,7 +1003,7 @@ def session_page(*, hosted: bool = False, **app_options: Any) -> Callable[[], An
     """The page factory :func:`serve` hands Panel: one :class:`Shell` per browser session.
 
     Every session gets its own shell, explorer, loaded data and selection;
-    nothing a reader opens is visible to another (#1863).  When Bokeh
+    nothing a reader opens is visible to another.  When Bokeh
     discards the session -- the tab closed, or never connected and past the
     server's unused-session lifetime -- the shell is closed, which releases
     its figures, its loaded data and any uploaded files.

@@ -1,4 +1,4 @@
-"""The Routine Diagnostics workspace (#1348): processed diagnostics, by diagnostic.
+"""The Routine Diagnostics workspace: processed diagnostics, by diagnostic.
 
 The reader picks a *diagnostic* -- plasma current, flux loops, Thomson
 scattering -- not a SQL field or an IDS path, and sees the canonical VAFT

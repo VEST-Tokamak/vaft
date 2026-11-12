@@ -1,4 +1,4 @@
-"""Bounded, JSON-safe conversion of VAFT result objects for the MCP adapter (#1423).
+"""Bounded, JSON-safe conversion of VAFT result objects for the MCP adapter.
 
 Discovery objects (catalog specs, plot capabilities, boundaries) and extracted
 view models are frozen dataclasses holding tuples, read-only mappings and

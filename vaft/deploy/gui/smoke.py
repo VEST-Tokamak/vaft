@@ -1,4 +1,4 @@
-"""Smoke checks for a hosted ``vaft gui`` (#1862): ``python -m vaft.deploy.gui.smoke URL``.
+"""Smoke checks for a hosted ``vaft gui``: ``python -m vaft.deploy.gui.smoke URL``.
 
 Run against a deployed instance -- through its nginx route, or an SSH tunnel to
 its port -- after an install, an upgrade or a rollback.  Each check prints one

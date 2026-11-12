@@ -1,4 +1,4 @@
-"""What the reader has selected, shared by every workspace (#1174).
+"""What the reader has selected, shared by every workspace.
 
 The application shell hosts several workspaces; each keeps its own widgets,
 but the scientific context -- which database namespace, which entries are

@@ -1,4 +1,4 @@
-"""Inspect, prune and clear the local HSDS domain cache (#1759, #964).
+"""Inspect, prune and clear the local HSDS domain cache.
 
 ``vaft cache info`` reports the location, used size, cap and which setting the
 cap came from; ``list`` shows cached domains; ``prune`` evicts least-recently

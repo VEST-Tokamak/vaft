@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install, publish or remove the isolated vaft gui TEST instance (#1862).
+# Install, publish or remove the isolated vaft gui TEST instance.
 #
 #   sudo bash test-instance.sh install <40-hex commit>   # step B: user, venv, env file, unit
 #   sudo bash test-instance.sh nginx <cidr> [<cidr>...]  # step D: conf.d zone + include, allow ranges

@@ -180,7 +180,7 @@ def configure(
 
 
 def _report_cache(out) -> None:
-    """Say where downloaded domains are kept and how large they may grow (#1759)."""
+    """Say where downloaded domains are kept and how large they may grow."""
     from vaft.database import hsds_cache
 
     try:

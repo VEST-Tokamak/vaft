@@ -1,4 +1,4 @@
-# systemd unit for an ISOLATED TEST INSTANCE of the hosted `vaft gui` (#1862).
+# systemd unit for an ISOLATED TEST INSTANCE of the hosted `vaft gui`.
 #
 # It runs next to a production `vaft-gui.service` without touching it: its own
 # user, venv, environment file, state directory, port (5016) and URL prefix
@@ -42,7 +42,8 @@ Restart=on-failure
 RestartSec=5
 
 # A test instance must never starve production or HSDS: smaller caps than
-# vaft-gui.service. Capacity limits proper come from #1863's measurements.
+# vaft-gui.service. These are placeholders, not measured capacity limits;
+# Open: #1863 (set them from measured concurrent-session memory and latency).
 MemoryMax=8G
 TasksMax=256
 
