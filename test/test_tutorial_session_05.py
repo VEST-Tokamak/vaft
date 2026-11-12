@@ -31,8 +31,8 @@ MAX_OUTPUT_BYTES = 200_000
 MAX_IMAGE_BYTES = 2_000_000
 IMAGE_MIME_TYPES = ("image/png", "image/jpeg", "image/svg+xml")
 
-#: The offline run draws 33 figures and diagrams; the floor leaves a margin.
-FIGURE_FLOOR = 30
+#: The offline run draws 30 figures and diagrams; the floor leaves a margin.
+FIGURE_FLOOR = 27
 
 #: Every solver the session can launch; each must sit under ``if READY[...]``.
 SOLVER_CALLS = ("run_gpec_suite_case", "scan_chease")
@@ -221,7 +221,7 @@ def test_the_session_climbs_from_surfaces_to_driven_response(book):
         _first_code_index(book, "find_rational_surfaces("),
         _first_code_index(book, "scan_chease("),
         _first_code_index(book, 'modules=("dcon",)'),
-        _first_code_index(book, "vaft.diagram.tearing_layer_matching()"),
+        _first_code_index(book, '"kinked inward"'),
         _first_code_index(book, 'modules=("rdcon",)'),
         _first_code_index(book, "plot_coil_3d_geometry_topview"),
         _first_code_index(book, "CoilExcitation.from_mode"),
@@ -234,10 +234,45 @@ def test_the_session_climbs_from_surfaces_to_driven_response(book):
 
 def test_the_diagrams_are_the_canonical_ones_so_they_render_without_tex(book):
     """With no TeX, a diagram is served from its committed asset only when it
-    was built with the canonical arguments; any other call would refuse."""
-    calls = re.findall(r"vaft\.diagram\.(\w+)\(([^)]*)\)", _executable(book))
-    assert calls
-    assert all(arguments.strip() == "" for _name, arguments in calls), calls
+    was built with the canonical arguments; any other call would refuse.
+
+    Every ``vaft.diagram.<builder>(...)`` call must match a
+    :data:`vaft.diagram.build.CANONICAL` entry exactly; a keyword bound to the
+    loop variable of a comprehension over a literal tuple is expanded.
+    ``side_by_side`` only lays rendered diagrams out and is not a builder.
+    """
+    from vaft.diagram import build
+
+    canonical = {(builder, repr(sorted(kwargs.items()))) for builder, kwargs in build.CANONICAL.values()}
+    tree = ast.parse(_executable(book))
+    loops = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.GeneratorExp, ast.ListComp)):
+            for generator in node.generators:
+                if isinstance(generator.target, ast.Name):
+                    try:
+                        loops[generator.target.id] = ast.literal_eval(generator.iter)
+                    except ValueError:   # a comprehension over runtime data, not a diagram variant
+                        continue
+    checked = 0
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Attribute) and node.func.value.attr == "diagram"):
+            continue
+        name = node.func.attr
+        if name == "side_by_side":
+            continue
+        assert not node.args, (name, "positional arguments")
+        variants = [{}]
+        for keyword in node.keywords:
+            if isinstance(keyword.value, ast.Name) and keyword.value.id in loops:
+                variants = [dict(v, **{keyword.arg: value}) for v in variants for value in loops[keyword.value.id]]
+            else:
+                variants = [dict(v, **{keyword.arg: ast.literal_eval(keyword.value)}) for v in variants]
+        for kwargs in variants:
+            assert (name, repr(sorted(kwargs.items()))) in canonical, (name, kwargs)
+            checked += 1
+    assert checked > 15
 
 
 # ---------------------------------------------------------------------------
@@ -314,11 +349,23 @@ def test_model_excitations_are_not_presented_as_hardware_scenarios(book):
     assert "Hardware feasibility" in text
 
 
-def test_the_two_reconstructions_are_compared_and_the_solver_gap_named(book, executed):
-    text = _markdown(book)
-    assert "#1246" in text
-    printed = "".join(output.get("text", "") for output in _cell(executed, "s05-two-reconstructions").outputs)
-    assert "in the g-file" in printed and "in the sample ODS" in printed
+def test_one_reconstruction_feeds_the_session_and_the_solver_gap_is_named(book):
+    """The sample ODS's EFIT is the only equilibrium source; the legacy g-files are not read."""
+    assert "#1246" in _markdown(book)
+    executable = _executable(book)
+    assert "vaft.omas.sample_ods(SHOT)" in executable
+    assert 'data_path("efit' not in executable and 'data_path(f"efit' not in executable
+
+
+def test_concept_diagrams_sit_with_the_physics_before_any_data(book):
+    """Concept diagrams belong to Physical Context; workflow diagrams stay with their step."""
+    load = next(i for i, cell in enumerate(book.cells)
+                if cell.cell_type == "markdown" and cell.source.startswith("## Load / Prepare Data"))
+    for name in ("sfl_coordinate_validity", "rational_surface", "kink_mode", "s_alpha_ballooning",
+                 "tearing_layer_matching", "delta_prime"):
+        assert _first_code_index(book, f"vaft.diagram.{name}()") < load, name
+    for name in ("chease_coupling", "dcon_rdcon_stability", "gpec_plasma_response"):
+        assert _first_code_index(book, f"vaft.diagram.{name}()") > load, name
 
 
 def test_the_actuator_alias_step_is_taught_beside_the_sensor_one(book):

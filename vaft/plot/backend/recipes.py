@@ -13961,9 +13961,12 @@ def _build_ntms_overview_delta_prime(ods: Any, **options: Any) -> Panels:
     the solver's mapped record (:func:`vaft.machine_mapping.mhd_linear.extract_rdcon_stability`),
     so the surfaces of the two panels are the same surfaces by construction.
 
-    No verdict is drawn: the sign line at ``Delta' = 0`` is a reference, and
-    off-diagonal coupling (the full matrix stays in ``code.parameters``) is not
-    shown.
+    The points are the diagonal; the bottom title names the **least-stable
+    coupled mode** -- the eigenvalue of the full ``Delta'`` matrix with the
+    largest real part, and the surface that dominates its eigenvector -- because
+    the off-diagonal coupling can make that eigenvalue positive while every
+    diagonal entry is negative.  Without a matrix the title falls back to the
+    largest diagonal entry and says so.
     """
     from vaft.machine_mapping.mhd_linear import extract_rdcon_stability
 
@@ -14011,10 +14014,26 @@ def _build_ntms_overview_delta_prime(ods: Any, **options: Any) -> Panels:
                                 label=label, style={"marker": "o", "color": color, "linestyle": "none"}))
     pulse = _get(ods, "dataset_description.data_entry.pulse", "")
     solver_name = str(row["solver"]).upper()
+    matrix = row.get("delta_prime_matrix")
+    m_values = [int(surface["m"]) for surface in row["surfaces"]]
+    matrix = None if matrix is None else np.asarray(matrix, dtype=complex)
+    if matrix is not None and matrix.ndim == 2 and matrix.shape == (len(m_values), len(m_values)) \
+            and np.all(np.isfinite(matrix)):
+        eigenvalues, eigenvectors = np.linalg.eig(matrix)
+        k = int(np.argmax(eigenvalues.real))
+        least = float(eigenvalues[k].real)
+        m_least = m_values[int(np.argmax(np.abs(eigenvectors[:, k])))]
+        what = "least-stable coupled mode: max Re eig($\\Delta'$)"
+    else:
+        diagonal = [float(np.real(surface["delta_prime"])) for surface in surfaces]
+        k = int(np.argmax(diagonal))
+        least, m_least = diagonal[k], int(surfaces[k]["m"])
+        what = "largest diagonal $\\Delta'$ (no matrix)"
+    verdict = "tearing drive" if least > 0 else "stable"
     top = LineSeries(series=tuple(q_series), x_label="$\\psi_N$", y_label="q",
                      title=f"Rational surfaces q = m/{n_value} matched by {solver_name}")
-    bottom = LineSeries(series=tuple(dp_series), x_label="$\\psi_N$", y_label="Re $\\Delta'$",
-                        title="Classical tearing index per surface (positive: classical tearing drive)")
+    bottom = LineSeries(series=tuple(dp_series), x_label="$\\psi_N$", y_label="Re $\\Delta'$ (diagonal)",
+                        title=f"{what} = {least:+.3g} (dominant m/n = {m_least}/{n_value}): {verdict}")
     return Panels(models=(top, bottom), nrows=2, ncols=1, share_x=True,
                   suptitle=f"{solver_name} n={n_value} — shot {pulse}".rstrip(" —shot"))
 

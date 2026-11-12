@@ -63,11 +63,33 @@ SHOT, TIME_MS, N_TOR = 39915, 319, 1
 #: (q_edge 3.01..2.71) is unstable at mpsi 256 and 512 with the same dominant m.
 #: x2.8 sits inside that window: W_t ~ -1.2, m = 3 -- an m/n = 3/1 external kink.
 UNSTABLE_CURRENT_SCALE = 2.8
+
+#: CHEASE's mesh, explicit so the tutorial can print it: NS x NT bicubic Hermite
+#: elements on the boundary-fitted (sigma, theta) solver mesh, the NPSI x NCHI
+#: flux-coordinate mapping, and the NRBOX x NZBOX (R, Z) box the EQDSK is written
+#: on. NS = NT = 200 is the 2026-11-12 choice: see the residual scan in the notebook's Step 2.
+CHEASE_MESH = {"ns": 200, "nt": 200, "npsi": 200, "nchi": 100, "nw": 513}
 UNSTABLE_LABEL = "high_ip"
 DCON_RESOLUTIONS = (256, 512)
 RDCON_RESOLUTIONS = (256, 512, 1024)
 GPEC_RESOLUTION = 256
 COIL_SETS = ("UP", "LOW")
+#: The MID set alone at each of these n, phase 0: the session's first GPEC look,
+#: one coil set and three toroidal harmonics (six sectors make n = 3 only as
+#: the alternating, cosine-phase pattern).
+MID_MODES = (1, 2, 3)
+#: Every GPEC product carries GPEC's own flux-surface mesh R(psi_N, theta),
+#: z(psi_N, theta) -- the only way from the spectral field back to real space --
+#: thinned radially to every MESH_STRIDE-th surface (the spectral field keeps
+#: its full grid; a reader interpolates the field onto the mesh's psi_N).
+MESH_STRIDE = 8
+MESH_THETA_STRIDE = 4
+#: Significant digits the GPEC spectral field and mesh are stored with. Measured
+#: 2026-11-12: 6 digits and every 4th mesh angle shrink MID n=3 from 10.3 to
+#: 2.4 MB, and the derived resonant fields still match GPEC's own to 0.33 %.
+#: The CHEASE equilibria keep full precision: the GS residual differentiates psi
+#: twice on a 1 mm grid, where rounding shows up as noise.
+GPEC_DIGITS = 6
 COIL_AMPLITUDE_A = 200.0
 COIL_PHASE_DEG = 0.0
 #: Short scratch root: the GPEC suite reads paths into 128-character Fortran strings.
@@ -129,7 +151,7 @@ def run_chease(scratch: Path, executable: Path, source: Path) -> dict[str, Any]:
     from vaft.data import read_geqdsk
     from vaft.process.equilibrium import as_equilibrium, derive_global_descriptors
 
-    config = CHEASEConfig(executable=str(executable), create_plot=False)
+    config = CHEASEConfig(executable=str(executable), create_plot=False, **CHEASE_MESH)
     variations = [
         EquilibriumVariation(label="stable"),
         EquilibriumVariation(label=UNSTABLE_LABEL, plasma_current_scale=UNSTABLE_CURRENT_SCALE),
@@ -165,7 +187,8 @@ def run_chease(scratch: Path, executable: Path, source: Path) -> dict[str, Any]:
 
 
 # ----------------------------------------------------------------- GPEC suite
-def _suite_config(gpec_home: Path, modules: tuple[str, ...], mpsi: int, con_flag: bool | None, coil=None):
+def _suite_config(gpec_home: Path, modules: tuple[str, ...], mpsi: int, con_flag: bool | None, coil=None,
+                  n_tor: int = N_TOR):
     from vaft.code import gpec
 
     options = {}
@@ -174,7 +197,7 @@ def _suite_config(gpec_home: Path, modules: tuple[str, ...], mpsi: int, con_flag
     return gpec.GPECSuiteConfig(
         gpec_home=gpec_home,
         modules=modules,
-        modes=(N_TOR,),
+        modes=(n_tor,),
         mpsi=mpsi,
         verify_outputs=True,
         timeout=3600.0,
@@ -268,45 +291,81 @@ def run_rdcon(scratch: Path, gpec_home: Path, geqdsk: Path) -> dict[str, Any]:
     return products
 
 
+def _with_thinned_mesh(ods: Any, gpec_dir: Path, n_tor: int) -> dict[str, int]:
+    """Add GPEC's flux-surface mesh to the mapped ODS, keeping every MESH_STRIDE-th surface."""
+    from vaft.machine_mapping.gpec_ideal import gpec_ideal
+
+    gpec_ideal(ods, str(gpec_dir), {"include_geometry": True, "mode": n_tor, "modes": [n_tor]})
+    system = ods["mhd_linear.time_slice.0.toroidal_mode.0.plasma.coordinate_system"]
+    psi_n = np.asarray(system["grid.dim1"], dtype=float)
+    theta = np.asarray(system["grid.dim2"], dtype=float)
+    keep = np.unique(np.r_[np.arange(0, psi_n.size, MESH_STRIDE), psi_n.size - 1])
+    keep_theta = np.unique(np.r_[np.arange(0, theta.size, MESH_THETA_STRIDE), theta.size - 1])
+    system["grid.dim1"] = psi_n[keep]
+    system["grid.dim2"] = theta[keep_theta]
+    rounded = np.vectorize(lambda x: float(f"%.{GPEC_DIGITS}g" % x))
+    system["r"] = rounded(np.asarray(system["r"], dtype=float)[np.ix_(keep, keep_theta)])
+    system["z"] = rounded(np.asarray(system["z"], dtype=float)[np.ix_(keep, keep_theta)])
+    field = ods["mhd_linear.time_slice.0.toroidal_mode.0.plasma.b_field_perturbed.coordinate1"]
+    for part in ("real", "imaginary"):
+        field[part] = rounded(np.asarray(field[part], dtype=float))
+    return {"mesh_radial_points": int(keep.size), "mesh_poloidal_angles": int(keep_theta.size),
+            "stored_digits": GPEC_DIGITS}
+
+
+def _gpec_product(root: Path, geqdsk: Path, gpec_home: Path, coil_set: str, n_tor: int, coil_config) -> dict[str, Any]:
+    from vaft.code import gpec
+    from vaft.machine_mapping.coils_non_axisymmetric_geometry import CoilExcitation
+    from vaft.omas import compute_gpec_resonant_table
+    from vaft.omas.vest_upstream import build_gpec_ideal_ods
+
+    excitation = CoilExcitation.from_mode(
+        coil_set, COIL_AMPLITUDE_A, n_tor, COIL_PHASE_DEG,
+        sector_angles_deg=coil_config.coil_sets[coil_set].sector_angles_deg,
+    )
+    coil = gpec.CoilInputSpec.from_excitation(excitation)
+    result = _run_case(root, geqdsk, _suite_config(gpec_home, ("dcon", "gpec"), GPEC_RESOLUTION, False, coil, n_tor))
+    runs = {r.module: r for r in result.records}
+    label = f"{coil_set} n={n_tor}"
+    _require(runs["gpec"].status == "completed", f"GPEC {label}: {runs['gpec'].status} {runs['gpec'].reason}")
+    native = gpec.read_gpec_netcdf(runs["gpec"].workdir, mode=n_tor)
+    _require(native.profile is not None and native.profile.Phi_res is not None,
+             f"GPEC {label}: no total resonant field (Phi_res) in the profile output")
+    ods, _ = build_gpec_ideal_ods(shot=SHOT, time_values=[TIME_MS], workdir=root / "run", modes=(n_tor,))
+    mesh = _with_thinned_mesh(ods, Path(runs["gpec"].workdir), n_tor)
+    table = compute_gpec_resonant_table(ods)
+    native_total = np.abs(np.asarray(native.profile.Phi_res)).ravel()
+    mapped_total = np.array([abs(r["Phi_res"]) for r in table["rows"]])
+    return {
+        "ods": ods,
+        "check": {
+            "coil_set": coil_set,
+            "n_tor": n_tor,
+            "currents_a": [float(c) for c in excitation.currents_a],
+            "dcon_W_t": float(np.real(gpec.read_dcon_output(runs["dcon"].workdir, mode=n_tor).total1)),
+            "energy_vacuum": float(native.control.energy_vacuum),
+            "energy_plasma": float(native.control.energy_plasma),
+            "n_rational_surfaces": len(table["rows"]),
+            "abs_phi_res_native": [float(x) for x in native_total],
+            "abs_phi_res_derived": [float(x) for x in mapped_total],
+            "abs_phi_res_vacuum": [float(abs(r["Phi_res_vacuum"])) for r in table["rows"]],
+            **mesh,
+        },
+    }
+
+
 def run_gpec(scratch: Path, gpec_home: Path, geqdsk: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     from vaft.code import gpec
     from vaft.machine_mapping.coils_non_axisymmetric_geometry import CoilExcitation, load_vest_3d_coil_config
-    from vaft.omas import compute_gpec_resonant_table
-    from vaft.omas.vest_upstream import build_gpec_ideal_ods
 
     coil_config = load_vest_3d_coil_config()
     products: dict[str, Any] = {}
     evidence: dict[str, Any] = {}
+    for n_tor in MID_MODES:
+        products[f"gpec_MID_n{n_tor}"] = _gpec_product(
+            scratch / f"gpec-MID-n{n_tor}", geqdsk, gpec_home, "MID", n_tor, coil_config)
     for name in COIL_SETS:
-        excitation = CoilExcitation.from_mode(
-            name, COIL_AMPLITUDE_A, N_TOR, COIL_PHASE_DEG,
-            sector_angles_deg=coil_config.coil_sets[name].sector_angles_deg,
-        )
-        coil = gpec.CoilInputSpec.from_excitation(excitation)
-        root = scratch / f"gpec-{name}"
-        result = _run_case(root, geqdsk, _suite_config(gpec_home, ("dcon", "gpec"), GPEC_RESOLUTION, False, coil))
-        runs = {r.module: r for r in result.records}
-        _require(runs["gpec"].status == "completed", f"GPEC {name}: {runs['gpec'].status} {runs['gpec'].reason}")
-        native = gpec.read_gpec_netcdf(runs["gpec"].workdir, mode=N_TOR)
-        _require(native.profile is not None and native.profile.Phi_res is not None,
-                 f"GPEC {name}: no total resonant field (Phi_res) in the profile output")
-        ods, _ = build_gpec_ideal_ods(shot=SHOT, time_values=[TIME_MS], workdir=root / "run", modes=(N_TOR,))
-        table = compute_gpec_resonant_table(ods)
-        native_total = np.abs(np.asarray(native.profile.Phi_res)).ravel()
-        mapped_total = np.array([abs(r["Phi_res"]) for r in table["rows"]])
-        products[f"gpec_{name}"] = {
-            "ods": ods,
-            "check": {
-                "currents_a": [float(c) for c in excitation.currents_a],
-                "dcon_W_t": float(np.real(gpec.read_dcon_output(runs["dcon"].workdir, mode=N_TOR).total1)),
-                "energy_vacuum": float(native.control.energy_vacuum),
-                "energy_plasma": float(native.control.energy_plasma),
-                "n_rational_surfaces": len(table["rows"]),
-                "abs_phi_res_native": [float(x) for x in native_total],
-                "abs_phi_res_derived": [float(x) for x in mapped_total],
-                "abs_phi_res_vacuum": [float(abs(r["Phi_res_vacuum"])) for r in table["rows"]],
-            },
-        }
+        products[f"gpec_{name}"] = _gpec_product(scratch / f"gpec-{name}", geqdsk, gpec_home, name, N_TOR, coil_config)
     # The packaged template's con_flag=t, kept as evidence: GPEC then writes
     # only the vacuum resonant field.  Not published as a product.
     root = scratch / "gpec-UP-con_flag_t"
@@ -365,10 +424,15 @@ def fingerprint(args: argparse.Namespace) -> dict[str, Any]:
         "gpec": _revision(Path(args.gpec_home).resolve()),
         "configuration": {
             "unstable_current_scale": UNSTABLE_CURRENT_SCALE,
+            "chease_mesh": dict(CHEASE_MESH),
             "dcon_resolutions": list(DCON_RESOLUTIONS),
             "rdcon_resolutions": list(RDCON_RESOLUTIONS),
             "gpec_resolution": GPEC_RESOLUTION,
             "coil_sets": list(COIL_SETS),
+            "mid_modes": list(MID_MODES),
+            "mesh_stride": MESH_STRIDE,
+            "mesh_theta_stride": MESH_THETA_STRIDE,
+            "gpec_digits": GPEC_DIGITS,
             "coil_amplitude_a": COIL_AMPLITUDE_A,
             "coil_phase_deg": COIL_PHASE_DEG,
             "dcon": {"con_flag": False, "termbycross_flag": False},

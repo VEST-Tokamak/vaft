@@ -1545,7 +1545,26 @@ def ntms_overview_delta_prime(
     --------
     ntms_time_delta_prime : the same diagonal against time, per surface.
     """
-    return render_panels(model, ax=ax, show=show, **style)
+    import matplotlib.transforms as transforms
+
+    figure, axes = render_panels(model, ax=ax, show=False, **style)
+    bottom = np.ravel(axes)[-1]
+    # The two half-planes stay labelled at the zero line whatever scale or
+    # limits the caller sets afterwards (symlog is the usual one).
+    limits = bottom.get_ylim()
+    bottom.axhspan(0.0, 1e30, color="tab:red", alpha=0.06, zorder=0, linewidth=0)
+    bottom.axhspan(-1e30, 0.0, color="tab:blue", alpha=0.05, zorder=0, linewidth=0)
+    bottom.set_ylim(limits)
+    blended = transforms.blended_transform_factory(bottom.transAxes, bottom.transData)
+    bottom.annotate("$\\Delta' > 0$: unstable (tearing drive)", xy=(0.01, 0.0), xycoords=blended,
+                    xytext=(0, 4), textcoords="offset points", va="bottom", fontsize=8, color="tab:red")
+    bottom.annotate("$\\Delta' < 0$: stable", xy=(0.01, 0.0), xycoords=blended,
+                    xytext=(0, -4), textcoords="offset points", va="top", fontsize=8, color="tab:blue")
+    if show:
+        import matplotlib.pyplot as plt
+
+        plt.show()
+    return figure, axes
 
 
 _CONSTRAINT_IDS = ("equilibrium",)

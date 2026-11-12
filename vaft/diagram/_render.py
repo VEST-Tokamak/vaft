@@ -448,3 +448,65 @@ class Diagram:
 
     def __repr__(self) -> str:
         return f"<vaft.diagram.Diagram {self.name!r}: {len(self.scene.items)} items>"
+
+
+_SVG_OPEN = re.compile(r"<svg\b[^>]*>", re.S)
+_SVG_ID = re.compile(r"""\bid=(['"])([^'"]+)\1""")
+_SVG_REFERENCE = re.compile(r"""(['"(])#([^'")\s]+)""")
+
+
+class DiagramRow:
+    """Several diagrams side by side in one SVG, for a notebook cell.
+
+    Each panel keeps its own drawing and scale; only its element ids are
+    prefixed, because the glyph and clip ids of separately rendered SVGs
+    collide once they share a document.  Displays itself inline in Jupyter
+    through ``_repr_svg_``; ``svg`` is the combined text.
+    """
+
+    def __init__(self, diagrams, *, gap_pt: float = 18.0):
+        self.diagrams = tuple(diagrams)
+        if not self.diagrams:
+            raise ValueError("side_by_side needs at least one diagram")
+        self.gap_pt = float(gap_pt)
+        self.name = "+".join(getattr(d, "name", "diagram") for d in self.diagrams)
+        self._svg: Optional[str] = None
+
+    @property
+    def svg(self) -> str:
+        if self._svg is None:
+            panels, x, height = [], 0.0, 0.0
+            for index, diagram in enumerate(self.diagrams):
+                text = diagram.svg
+                opening = _SVG_OPEN.search(text)
+                if opening is None:
+                    raise ValueError(f"{getattr(diagram, 'name', 'diagram')} produced no <svg> element")
+                attributes = dict(re.findall(r"""([\w:]+)=['"]([^'"]*)['"]""", opening.group(0)))
+                width = float(re.sub(r"[a-z]+$", "", attributes["width"]))
+                panel_height = float(re.sub(r"[a-z]+$", "", attributes["height"]))
+                view_box = attributes.get("viewBox", f"0 0 {width} {panel_height}")
+                body = text[opening.end():text.rindex("</svg>")]
+                prefix = f"p{index}-"
+                ids = {match[1] for match in _SVG_ID.findall(body)}
+                body = _SVG_ID.sub(lambda m: f"id={m.group(1)}{prefix}{m.group(2)}{m.group(1)}", body)
+                body = _SVG_REFERENCE.sub(
+                    lambda m: f"{m.group(1)}#{prefix}{m.group(2)}" if m.group(2) in ids else m.group(0), body)
+                panels.append(f"<svg x='{x:.3f}' y='0' width='{width:.3f}' height='{panel_height:.3f}' "
+                              f"viewBox='{view_box}'>{body}</svg>")
+                x += width + self.gap_pt
+                height = max(height, panel_height)
+            total = x - self.gap_pt
+            self._svg = (
+                "<svg version='1.1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' "
+                f"width='{total:.3f}pt' height='{height:.3f}pt' viewBox='0 0 {total:.3f} {height:.3f}'>"
+                + "".join(panels) + "</svg>"
+            )
+        return self._svg
+
+    def _repr_svg_(self) -> str:
+        return self.svg
+
+
+def side_by_side(*diagrams, gap_pt: float = 18.0) -> DiagramRow:
+    """Lay rendered diagrams out in one row: ``side_by_side(a, b, c)`` shows them as one figure."""
+    return DiagramRow(diagrams, gap_pt=gap_pt)

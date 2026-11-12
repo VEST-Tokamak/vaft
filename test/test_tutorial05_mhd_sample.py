@@ -117,7 +117,8 @@ def test_the_manifest_is_complete_and_matches_the_files(manifest):
         assert manifest["inputs"][key], key
     expected = {f"chease_{c}" for c in ("stable", "high_ip")} \
         | {f"dcon_{c}_mpsi{m}" for c in ("stable", "high_ip") for m in (256, 512)} \
-        | {f"rdcon_stable_mpsi{m}" for m in (256, 512, 1024)} | {"gpec_UP", "gpec_LOW"}
+        | {f"rdcon_stable_mpsi{m}" for m in (256, 512, 1024)} | {"gpec_UP", "gpec_LOW"} \
+        | {f"gpec_MID_n{n}" for n in (1, 2, 3)}
     assert set(manifest["products"]) == expected
     on_disk = {path.name for path in SAMPLE_DIR.iterdir()} - {"manifest.yaml"}
     assert on_disk == {record["path"] for record in manifest["products"].values()}
@@ -156,12 +157,13 @@ def test_rdcon_delta_prime_comes_back_from_ntms(manifest):
 def test_gpec_resonant_table_is_recovered_from_the_mapped_ids(manifest):
     import vaft
 
-    for name in ("UP", "LOW"):
+    for name, surfaces in (("UP", 6), ("LOW", 6), ("MID_n1", 6), ("MID_n2", 12), ("MID_n3", 18)):
         table = vaft.omas.compute_gpec_resonant_table(mhd_stability_sample(f"gpec_{name}"))
         check = manifest["products"][f"gpec_{name}"]["check"]
         total = [abs(row["Phi_res"]) for row in table["rows"]]
         vacuum = [abs(row["Phi_res_vacuum"]) for row in table["rows"]]
-        assert len(total) == check["n_rational_surfaces"] == 6
+        assert table["n_tor"] == check["n_tor"]
+        assert len(total) == check["n_rational_surfaces"] == surfaces
         # The derived jump reproduces GPEC's own; 1 % leaves room for a weak near-axis surface.
         np.testing.assert_allclose(total, check["abs_phi_res_native"], rtol=1e-2)
         np.testing.assert_allclose(vacuum, check["abs_phi_res_vacuum"], rtol=1e-9)
@@ -179,3 +181,16 @@ def test_the_delta_prime_overview_renders_from_a_sample(manifest):
     import matplotlib.pyplot as plt
 
     plt.close(figure)
+
+
+def test_every_gpec_product_carries_its_flux_surface_mesh(manifest):
+    """The real-space figures need GPEC's own R(psi_N, theta), z(psi_N, theta)."""
+    for key in ("gpec_UP", "gpec_LOW", "gpec_MID_n1", "gpec_MID_n2", "gpec_MID_n3"):
+        mesh = mhd_stability_sample(key)["mhd_linear.time_slice.0.toroidal_mode.0.plasma.coordinate_system"]
+        psi = np.asarray(mesh["grid.dim1"], dtype=float)
+        theta = np.asarray(mesh["grid.dim2"], dtype=float)
+        check = manifest["products"][key]["check"]
+        assert np.asarray(mesh["r"]).shape == (psi.size, theta.size) == (check["mesh_radial_points"],
+                                                                          check["mesh_poloidal_angles"])
+        assert theta[0] == 0.0 and theta[-1] == pytest.approx(1.0)
+        assert np.all(np.diff(psi) > 0)

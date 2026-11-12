@@ -379,6 +379,8 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # #2278: Hamada harmonics are not a fixed-phi section until zeta is shifted by q(theta_H - theta_PEST)
+    "spectral_field_on_mesh",
     # profile (#2270): rho_tor_norm is never sqrt(psi_N); psi_N normalised by the
     # slice's own ends or the matched equilibrium's axis/boundary flux
     "equilibrium_rho_tor_norm_table", "map_rho_tor_profile_to_rz",

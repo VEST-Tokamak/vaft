@@ -327,6 +327,8 @@ __all__ = [
     "physical_to_flux_mapping",
     "electron_density_semantics",
     "Diagram",
+    "DiagramRow",
+    "side_by_side",
     "DiagramToolchainError",
 ]
 
@@ -568,6 +570,8 @@ _LOCATIONS = {
     "electron_density_semantics": "._density_semantics",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
+    "DiagramRow": "._render",
+    "side_by_side": "._render",
 }
 
 

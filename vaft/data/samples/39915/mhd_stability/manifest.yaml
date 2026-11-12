@@ -4,8 +4,8 @@ status: validated
 shot: 39915
 time_ms: 319
 parent_manifest: ../manifest.yaml
-built: '2026-11-11T07:50:17+00:00'
-build_seconds: 316
+built: '2026-11-12T05:54:55+00:00'
+build_seconds: 771
 regenerate: PYTHONPATH=$PWD python workflow/tutorial_05_mhd_samples/build_mhd_stability_sample.py
   --chease <CHEASE executable> --gpec-home <GPECHOME>
 source:
@@ -15,12 +15,12 @@ source:
     slice at 319 ms, exported with vaft.data.eqdsk.from_omas; the legacy 2023 g-file
     vaft/data/efit/g039915.00319 is no longer the source
 vaft:
-  commit: fae05cd427773da3da750423a4e825cbec81900b
+  commit: 67f8731ef00f8c63e74052409d63fbdf4ae5ee0c
   dirty: true
 inputs:
   source_sample_sha256: 70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb
   source_time_ms: 319
-  script_sha256: f47d1cfee422fa8f3d709fd3f92c004f8676388dbc71c99fea718bf4766e9289
+  script_sha256: 98d149cf815e777ba9a242e30ec90735037a41ad39b3c1e735b6a9d61fd59127
   chease:
     commit: 0b2a7d22eebd36943479e26f79a73e1de0ee2c7d
     dirty: true
@@ -29,6 +29,12 @@ inputs:
     dirty: false
   configuration:
     unstable_current_scale: 2.8
+    chease_mesh:
+      ns: 200
+      nt: 200
+      npsi: 200
+      nchi: 100
+      nw: 513
     dcon_resolutions:
     - 256
     - 512
@@ -40,6 +46,13 @@ inputs:
     coil_sets:
     - UP
     - LOW
+    mid_modes:
+    - 1
+    - 2
+    - 3
+    mesh_stride: 8
+    mesh_theta_stride: 4
+    gpec_digits: 6
     coil_amplitude_a: 200.0
     coil_phase_deg: 0.0
     dcon:
@@ -64,8 +77,8 @@ conventions:
 evidence:
   con_flag_true_UP:
     gpec_status: completed
-    dcon_W_t: 7.504103138276313
-    energy_vacuum: 0.008310125367962011
+    dcon_W_t: 7.509126706730821
+    energy_vacuum: 0.008310153278779138
     total_resonant_field_written: false
 products:
   chease_stable:
@@ -77,27 +90,27 @@ products:
       variation:
         plasma_current_scale: 1.0
       comparison_to_efit:
-        q_rms_rel: 0.003999989807557972
-        pressure_rms_rel: 0.029018410422801007
-        pprime_rms_rel: 0.009129846423001183
-        ffprim_rms_rel: 0.009130067370727038
-        psi_axis_abs_diff: 0.001272494225
+        q_rms_rel: 0.004000097191929113
+        pressure_rms_rel: 0.029018788855987555
+        pprime_rms_rel: 0.009130085157720878
+        ffprim_rms_rel: 0.009130306111998575
+        psi_axis_abs_diff: 0.001272493807
         psi_boundary_abs_diff: 0.00133002065
-        current_abs_diff: 2279.2447799999936
-        current_rel_diff: 0.028854516007317497
+        current_abs_diff: 2279.2602399999887
+        current_rel_diff: 0.02885471172601399
         boundary_r_rms: 0.0
         boundary_z_rms: 0.0
         boundary_rz_rms: 0.0
         boundary_points: 87.0
-      q_axis: 2.292907617
-      q_edge: 8.378491536
-      q95: 6.638349674799999
-      beta_n: 0.04554383905725437
-      ip_a: 76711.67572
+      q_axis: 2.292908148
+      q_edge: 8.378491893
+      q95: 6.638349673999997
+      beta_n: 0.04554360939020139
+      ip_a: 76711.66026
       target_psin: 0.993
     validation: passed
-    sha256: 6152e2770416e675014897b1330b1955a29aa4109cb648b7481624deee445fc3
-    size: 2462850
+    sha256: fab97b3c61c97f0f11b2e2a8fefc007a685adf5587e89c72d799e39b26340396
+    size: 2462262
   chease_high_ip:
     path: equilibrium_chease_high_ip.json.gz
     ids:
@@ -107,87 +120,87 @@ products:
       variation:
         plasma_current_scale: 2.8
       comparison_to_efit:
-        q_rms_rel: 0.6189201314512163
-        pressure_rms_rel: 7.07157846947991
-        pprime_rms_rel: 1.8568700581010624
-        ffprim_rms_rel: 1.8568694211177696
-        psi_axis_abs_diff: 0.006557493617000001
+        q_rms_rel: 0.6189201629344864
+        pressure_rms_rel: 7.071578386442
+        pprime_rms_rel: 1.856869911841344
+        ffprim_rms_rel: 1.8568692748716402
+        psi_axis_abs_diff: 0.006557493948000001
         psi_boundary_abs_diff: 0.00133002065
-        current_abs_diff: 0.0013000000035390258
-        current_rel_diff: 5.877709901477247e-09
+        current_abs_diff: 0.001400000008288771
+        current_rel_diff: 6.329841452604358e-09
         boundary_r_rms: 0.0
         boundary_z_rms: 0.0
         boundary_rz_rms: 0.0
         boundary_points: 87.0
-      q_axis: 1.159676902
-      q_edge: 2.90597649
-      q95: 2.3084273907999995
-      beta_n: 0.1313116851965781
-      ip_a: 221174.5787
+      q_axis: 1.159676981
+      q_edge: 2.905976062
+      q95: 2.3084269523999996
+      beta_n: 0.1313110479644661
+      ip_a: 221174.576
       target_psin: 0.993
     validation: passed
-    sha256: f7df7038a15af132b2da5b7ca46b898d5bcd16d82def733288e3ab310d8c3ce0
-    size: 2455421
+    sha256: 5b341831a9559415b32f30ecf3e3479686af75022dd462efbde782d7779aee16
+    size: 2454117
   dcon_stable_mpsi256:
     path: dcon_stable_mpsi256.json.gz
     ids:
     - mhd_linear
     stage: dcon
     check:
-      W_t: 7.460801682354968
-      W_p: 3.197760453055869
-      W_v: 0.31266869540302084
+      W_t: 7.4657039864494035
+      W_p: 3.1988231128393863
+      W_v: 0.31273766589986857
       m_pol_dominant: 8
       edge_treatment: full_edge
       solver_status: stable
     validation: passed
-    sha256: ec3b02a21369a875e4e9759023023d6fe2d61e25c3bd80ac13ae387d615539b2
-    size: 353446
+    sha256: 3f29ceb4f5e12aaea15a62e9acf55a8a11607707e7aa0228ee45616813880180
+    size: 349191
   dcon_stable_mpsi512:
     path: dcon_stable_mpsi512.json.gz
     ids:
     - mhd_linear
     stage: dcon
     check:
-      W_t: 7.464034083446581
-      W_p: 3.2005082681415167
-      W_v: 0.3126686954026546
+      W_t: 7.4631360608768995
+      W_p: 3.1956315444008476
+      W_v: 0.31273766589989704
       m_pol_dominant: 8
       edge_treatment: full_edge
       solver_status: stable
     validation: passed
-    sha256: eeb6c1ef7d43db8c9008c9ffebdeb556f71f6b028592cfe72346df895794a1b9
-    size: 368638
+    sha256: 52061ab24fdde0049cd2345cee565ca8ef05f084f273a0908f81a09dae4ccce4
+    size: 355325
   dcon_high_ip_mpsi256:
     path: dcon_high_ip_mpsi256.json.gz
     ids:
     - mhd_linear
     stage: dcon
     check:
-      W_t: -1.1795389870818178
-      W_p: -17.421434848119343
-      W_v: 1.8194735423271369
+      W_t: -1.1789944961478023
+      W_p: -17.421326020310847
+      W_v: 1.8194697006171958
       m_pol_dominant: 3
       edge_treatment: full_edge
       solver_status: completed
     validation: passed
-    sha256: 949b01ec1354d219a6b361f6cca4bad050a3726699b5cb1caa7adf94467f3da0
-    size: 258944
+    sha256: 14db949ba8cc9624dfe5b87fcacfeb930eea8b5462fa022eac887679651509d7
+    size: 249261
   dcon_high_ip_mpsi512:
     path: dcon_high_ip_mpsi512.json.gz
     ids:
     - mhd_linear
     stage: dcon
     check:
-      W_t: -1.1795920953425112
-      W_p: -17.418606933366565
-      W_v: 1.8194735423273298
+      W_t: -1.1793142317642336
+      W_p: -17.420169192752283
+      W_v: 1.8194697006172293
       m_pol_dominant: 3
       edge_treatment: full_edge
       solver_status: completed
     validation: passed
-    sha256: 44aa577e5645957a0bd6e3edbd138c16fb8d83f6276def2c250772dfd131c4ec
-    size: 290135
+    sha256: 7da35a15675c16cf354de4eb8e1493cd57cbfe1e57c747a10b8f24664717a32a
+    size: 284228
   rdcon_stable_mpsi256:
     path: rdcon_stable_mpsi256.json.gz
     ids:
@@ -198,26 +211,26 @@ products:
       solver_status: stable
       surfaces:
       - m: 3
-        psi_n: 0.5450616405951495
-        delta_prime_real: -5.799311498203565
+        psi_n: 0.5450648416144267
+        delta_prime_real: -6.097909276918614
       - m: 4
-        psi_n: 0.7597133644334979
-        delta_prime_real: -8.263342301571242
+        psi_n: 0.7597245238084698
+        delta_prime_real: -6.438169322938052
       - m: 5
-        psi_n: 0.8620059961182442
-        delta_prime_real: -10.33374246563676
+        psi_n: 0.8620099518221898
+        delta_prime_real: -12.001723741370824
       - m: 6
-        psi_n: 0.9226909275954263
-        delta_prime_real: -20.304307140128003
+        psi_n: 0.9226937550648573
+        delta_prime_real: -14.30260326925054
       - m: 7
-        psi_n: 0.9628513729464399
-        delta_prime_real: -26.500979323442834
+        psi_n: 0.9628505008346226
+        delta_prime_real: -21.298296215411938
       - m: 8
-        psi_n: 0.9913010684092416
-        delta_prime_real: -20.40727311217438
+        psi_n: 0.9913033096378423
+        delta_prime_real: -36.29991689195981
     validation: passed
-    sha256: 1118b0f314cba3f73d015d8c0889f3bb50b7f4d889ed2e6451330defe7b95d34
-    size: 17499
+    sha256: fb22f0624109750544c96b4227214aaa8745caea79e6f7dcf2c449131e170f6e
+    size: 17424
   rdcon_stable_mpsi512:
     path: rdcon_stable_mpsi512.json.gz
     ids:
@@ -228,25 +241,25 @@ products:
       solver_status: stable
       surfaces:
       - m: 3
-        psi_n: 0.5450624962161636
-        delta_prime_real: -18.720940746959364
+        psi_n: 0.5450633914184835
+        delta_prime_real: -20.763604547127272
       - m: 4
-        psi_n: 0.7597143898473087
-        delta_prime_real: -12.820610527996905
+        psi_n: 0.7597228273265091
+        delta_prime_real: -2.9243435176381496
       - m: 5
-        psi_n: 0.862003299629787
-        delta_prime_real: -10.739988335601481
+        psi_n: 0.8620109258427917
+        delta_prime_real: -6.219254677596796
       - m: 6
-        psi_n: 0.9226904648906242
-        delta_prime_real: -15.45443493922312
+        psi_n: 0.9226905603745594
+        delta_prime_real: -14.35789364603113
       - m: 7
-        psi_n: 0.962850934087836
-        delta_prime_real: -9.548135073771391
+        psi_n: 0.9628501580113784
+        delta_prime_real: -28.145153946652044
       - m: 8
-        psi_n: 0.9912999593782696
-        delta_prime_real: -36.347559628270574
+        psi_n: 0.991304395805851
+        delta_prime_real: -29.60974203245496
     validation: passed
-    sha256: 654a96041e604e4dcd24af445b721e6ae9b3313a72afffafacf1d45f3daff654
+    sha256: 5f5e18712b49893422ac96589363c163c385207faa7b6710043b6ccc48c42fee
     size: 31416
   rdcon_stable_mpsi1024:
     path: rdcon_stable_mpsi1024.json.gz
@@ -258,26 +271,221 @@ products:
       solver_status: stable
       surfaces:
       - m: 3
-        psi_n: 0.5450590264263264
-        delta_prime_real: -37.23880574355587
+        psi_n: 0.5450622074619786
+        delta_prime_real: 31.462967783256076
       - m: 4
-        psi_n: 0.7597155604536167
-        delta_prime_real: -16.60419926252598
+        psi_n: 0.7597225740616158
+        delta_prime_real: 0.10983137837720847
       - m: 5
-        psi_n: 0.8620036170884788
-        delta_prime_real: -11.239704195486183
+        psi_n: 0.8620094815581696
+        delta_prime_real: -6.338703158657438
       - m: 6
-        psi_n: 0.922689932404225
-        delta_prime_real: -24.056240962694346
+        psi_n: 0.9226911390088794
+        delta_prime_real: -15.909724489068026
       - m: 7
-        psi_n: 0.9628516083729977
-        delta_prime_real: -29.613963318567585
+        psi_n: 0.9628522880946573
+        delta_prime_real: -28.24914345315915
       - m: 8
-        psi_n: 0.9913002462689882
-        delta_prime_real: 266.3634358911072
+        psi_n: 0.9913043145774039
+        delta_prime_real: 410.1201540425434
     validation: passed
-    sha256: 94d85459941830b3e9cdce3dca2a6dcf652a30b1aa33f6a0eb4aae4b1915cf05
-    size: 58358
+    sha256: 5d9374e46eb266dba88c643fbd309bb7a309311356876e3318eeb03498ca8c89
+    size: 58344
+  gpec_MID_n1:
+    path: gpec_MID_n1.json.gz
+    ids:
+    - coils_non_axisymmetric
+    - mhd_linear
+    stage: gpec
+    check:
+      coil_set: MID
+      n_tor: 1
+      currents_a:
+      - 200.0
+      - 100.00000000000003
+      - -99.99999999999997
+      - -200.0
+      - -100.00000000000009
+      - 100.00000000000003
+      dcon_W_t: 7.4657039864494035
+      energy_vacuum: 0.08052773744612254
+      energy_plasma: 0.07442852405354573
+      n_rational_surfaces: 6
+      abs_phi_res_native:
+      - 0.00014498619147416372
+      - 0.00012812942917403555
+      - 0.00011512146728849822
+      - 0.0001097761290678384
+      - 0.00011550917751355126
+      - 0.0001296688153492043
+      abs_phi_res_derived:
+      - 0.00014500745844917012
+      - 0.00012814681039047702
+      - 0.00011505662889022579
+      - 0.00010976652770756442
+      - 0.00011551190745317818
+      - 0.0001299377216081468
+      abs_phi_res_vacuum:
+      - 0.00022227779373328653
+      - 0.00023558924549686117
+      - 0.00024049478619183172
+      - 0.0002433860073466779
+      - 0.0002453765219330363
+      - 0.00024680864499492205
+      mesh_radial_points: 237
+      mesh_poloidal_angles: 129
+      stored_digits: 6
+    validation: passed
+    sha256: 438af1ec220db90cbcc7191ada2d8780a7e42f0e2d664d742df4a1fd44997560
+    size: 769747
+  gpec_MID_n2:
+    path: gpec_MID_n2.json.gz
+    ids:
+    - coils_non_axisymmetric
+    - mhd_linear
+    stage: gpec
+    check:
+      coil_set: MID
+      n_tor: 2
+      currents_a:
+      - 200.0
+      - -99.99999999999997
+      - -100.00000000000009
+      - 200.0
+      - -99.99999999999984
+      - -99.99999999999997
+      dcon_W_t: 5.378643453992685
+      energy_vacuum: 0.07303294826177444
+      energy_plasma: 0.06513814382837159
+      n_rational_surfaces: 12
+      abs_phi_res_native:
+      - 1.5019991004775247e-05
+      - 3.677638278315e-05
+      - 3.8240070245027703e-05
+      - 3.7071593148813335e-05
+      - 3.6312060560356874e-05
+      - 3.797278005337238e-05
+      - 3.85790482746801e-05
+      - 4.0537379507771497e-05
+      - 4.523742190938423e-05
+      - 5.0527265330676815e-05
+      - 5.916250944943667e-05
+      - 7.174390777674861e-05
+      abs_phi_res_derived:
+      - 1.4988592617183615e-05
+      - 3.676922189349971e-05
+      - 3.8211816094092055e-05
+      - 3.7064436655396604e-05
+      - 3.632303510657636e-05
+      - 3.793750957980947e-05
+      - 3.844756720948685e-05
+      - 4.0525618904219035e-05
+      - 4.528544937900679e-05
+      - 5.052357298556031e-05
+      - 5.910995619710169e-05
+      - 7.192097679044696e-05
+      abs_phi_res_vacuum:
+      - 6.236921780414496e-05
+      - 0.0001262643663464817
+      - 0.0001521547735705021
+      - 0.00016643101390359492
+      - 0.00017551283954869061
+      - 0.00018178914481843013
+      - 0.00018637953978619559
+      - 0.00018987460613607417
+      - 0.00019261085124829737
+      - 0.00019481650472467446
+      - 0.00019661364182189142
+      - 0.00019809947391800567
+      mesh_radial_points: 406
+      mesh_poloidal_angles: 129
+      stored_digits: 6
+    validation: passed
+    sha256: 53b4d18e151b6ec36bc47f7b7ed33686f5342bb984b2291e1bcce0407cee117e
+    size: 1442058
+  gpec_MID_n3:
+    path: gpec_MID_n3.json.gz
+    ids:
+    - coils_non_axisymmetric
+    - mhd_linear
+    stage: gpec
+    check:
+      coil_set: MID
+      n_tor: 3
+      currents_a:
+      - 200.0
+      - -200.0
+      - 200.0
+      - -200.0
+      - 200.0
+      - -200.0
+      dcon_W_t: 3.755655610510546
+      energy_vacuum: 0.22211769913644472
+      energy_plasma: 0.20693560393700983
+      n_rational_surfaces: 18
+      abs_phi_res_native:
+      - 1.4016563288972775e-07
+      - 1.1859250372908376e-05
+      - 1.9194330424064083e-05
+      - 2.1842326634939794e-05
+      - 2.2557419618975917e-05
+      - 2.397316230295779e-05
+      - 2.567474332778006e-05
+      - 2.6510873727921765e-05
+      - 2.86013506546688e-05
+      - 2.8784859723514612e-05
+      - 3.0477000686534874e-05
+      - 3.201833410134972e-05
+      - 3.446630185627797e-05
+      - 3.72107573100175e-05
+      - 4.209673771914909e-05
+      - 5.031129471084365e-05
+      - 6.033148739662617e-05
+      - 7.37163881178923e-05
+      abs_phi_res_derived:
+      - 1.4027940507197646e-07
+      - 1.1842014649573671e-05
+      - 1.9189494554516983e-05
+      - 2.1825689827854044e-05
+      - 2.250005807086254e-05
+      - 2.396718933919113e-05
+      - 2.5682819927274062e-05
+      - 2.6530625007940393e-05
+      - 2.856885382332447e-05
+      - 2.8799037998918194e-05
+      - 3.0507497993341054e-05
+      - 3.200696493999942e-05
+      - 3.4407537703758605e-05
+      - 3.724114087265481e-05
+      - 4.209173640566836e-05
+      - 5.0353363672109934e-05
+      - 6.013084612194249e-05
+      - 7.391771178759865e-05
+      abs_phi_res_vacuum:
+      - 1.8347302005844975e-06
+      - 5.874244962008729e-05
+      - 0.00010246624945798894
+      - 0.00013186656459274605
+      - 0.00015258213118478389
+      - 0.00016780948284426651
+      - 0.00017939420844078968
+      - 0.00018844240579914478
+      - 0.00019566650258434653
+      - 0.00020153885803973819
+      - 0.0002063839615615637
+      - 0.0002104313532666433
+      - 0.00021385923078902016
+      - 0.00021678318808424142
+      - 0.00021929981802159155
+      - 0.00022148389916510473
+      - 0.0002233919847873597
+      - 0.00022506703036759886
+      mesh_radial_points: 610
+      mesh_poloidal_angles: 129
+      stored_digits: 6
+    validation: passed
+    sha256: 64979b96198a19b5e2da7d68ee4d9eadc0fa26b52dd03004314434a2283411d5
+    size: 2410907
   gpec_UP:
     path: gpec_UP.json.gz
     ids:
@@ -285,6 +493,8 @@ products:
     - mhd_linear
     stage: gpec
     check:
+      coil_set: UP
+      n_tor: 1
       currents_a:
       - 193.18516525781365
       - 51.76380902050415
@@ -292,34 +502,37 @@ products:
       - -193.18516525781365
       - -51.76380902050413
       - 141.42135623730948
-      dcon_W_t: 7.460801682354968
-      energy_vacuum: 0.00831012536796201
-      energy_plasma: 0.00763888653603512
+      dcon_W_t: 7.4657039864494035
+      energy_vacuum: 0.00831015327877914
+      energy_plasma: 0.007638850595677786
       n_rational_surfaces: 6
       abs_phi_res_native:
-      - 2.0534838805798376e-05
-      - 2.3092943092573997e-05
-      - 2.4031542108654967e-05
-      - 2.7015533676387748e-05
-      - 3.0287405786132523e-05
-      - 3.5198951844817216e-05
+      - 2.0510275648001767e-05
+      - 2.2705336469291496e-05
+      - 2.4614244533571623e-05
+      - 2.6764215383841066e-05
+      - 3.0302686897511312e-05
+      - 3.542190338752973e-05
       abs_phi_res_derived:
-      - 2.0544222058579375e-05
-      - 2.3102418520195168e-05
-      - 2.4046514465448337e-05
-      - 2.7024902573553325e-05
-      - 3.027230069113697e-05
-      - 3.517168597762877e-05
+      - 2.0521517817390975e-05
+      - 2.2711247716388302e-05
+      - 2.4605740270010864e-05
+      - 2.6763429039121993e-05
+      - 3.0303851459316672e-05
+      - 3.5478432025140395e-05
       abs_phi_res_vacuum:
-      - 5.411139635532359e-05
-      - 6.312760037183918e-05
-      - 6.65994636595051e-05
-      - 6.819322702571985e-05
-      - 6.895046203333407e-05
-      - 6.9301133334232e-05
+      - 5.411160576217959e-05
+      - 6.312801818267177e-05
+      - 6.65995889259696e-05
+      - 6.819334870553805e-05
+      - 6.895036932461226e-05
+      - 6.930115739585127e-05
+      mesh_radial_points: 237
+      mesh_poloidal_angles: 129
+      stored_digits: 6
     validation: passed
-    sha256: 01453f0c0aee5324b4ec41a55e6556ac3cafaff211ac790bc60558b408b643f0
-    size: 1378440
+    sha256: 258430fad98a92ff9114c8f049e55258633678ebb061822215987432c9a618a4
+    size: 778684
   gpec_LOW:
     path: gpec_LOW.json.gz
     ids:
@@ -327,6 +540,8 @@ products:
     - mhd_linear
     stage: gpec
     check:
+      coil_set: LOW
+      n_tor: 1
       currents_a:
       - 193.18516525781365
       - 51.76380902050415
@@ -334,34 +549,37 @@ products:
       - -193.18516525781365
       - -51.76380902050413
       - 141.42135623730948
-      dcon_W_t: 7.460801682354968
-      energy_vacuum: 0.006569885586780541
-      energy_plasma: 0.0059923421796703735
+      dcon_W_t: 7.4657039864494035
+      energy_vacuum: 0.0065698878673239895
+      energy_plasma: 0.005992295368814048
       n_rational_surfaces: 6
       abs_phi_res_native:
-      - 1.8281515925744858e-05
-      - 2.0664130716788146e-05
-      - 2.159847872709869e-05
-      - 2.4171348017191416e-05
-      - 2.704649613835889e-05
-      - 3.134456683506867e-05
+      - 1.8259987115529235e-05
+      - 2.03319213600501e-05
+      - 2.211594936419619e-05
+      - 2.3955325000380334e-05
+      - 2.705536119270266e-05
+      - 3.154587046323678e-05
       abs_phi_res_derived:
-      - 1.8289517089904587e-05
-      - 2.0672258785391236e-05
-      - 2.1612044412987904e-05
-      - 2.4179718879425545e-05
-      - 2.703276871365959e-05
-      - 3.131967581406612e-05
+      - 1.8269653286047868e-05
+      - 2.0336756109620718e-05
+      - 2.210781104542959e-05
+      - 2.3954684855861567e-05
+      - 2.70564569572021e-05
+      - 3.159674742131898e-05
       abs_phi_res_vacuum:
-      - 4.9168383984833826e-05
-      - 5.7192264807901915e-05
-      - 6.0230707764515016e-05
-      - 6.15895793699855e-05
-      - 6.220483198464423e-05
-      - 6.245924143241229e-05
+      - 4.9168189752052166e-05
+      - 5.7192152027967876e-05
+      - 6.0230604094023215e-05
+      - 6.158958537497441e-05
+      - 6.22049624835233e-05
+      - 6.245927880496648e-05
+      mesh_radial_points: 237
+      mesh_poloidal_angles: 129
+      stored_digits: 6
     validation: passed
-    sha256: 2d0337a4cc4b5cba16d9117adb5f4f3380e1df88f1d58d0ddb1e5a62db76a4cd
-    size: 1377709
+    sha256: fefec8be8225e16c7bd5114593bc5f074349575ba0a84b021fa1fb62d03798d2
+    size: 778109
 not_distributed:
 - euler.bin
 - psi_in.bin

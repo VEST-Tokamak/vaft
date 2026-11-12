@@ -76,6 +76,7 @@ import numpy as np
 
 __all__ = [
     "align_surfaces_by_q",
+    "spectral_field_on_mesh",
     "AlignedSurface",
     "amplification_ratio",
     "chirikov",
@@ -3300,3 +3301,122 @@ def toroidal_phase_audit(stored, sampled, phi_rad, *, n_tor: int) -> ToroidalPha
         sample_count=int(positions),
         phi_sample_count=int(phi.size),
     )
+
+
+def spectral_field_on_mesh(
+    psi_norm,
+    m_pol,
+    coefficients,
+    mesh_psi_norm,
+    mesh_theta_norm,
+    mesh_r,
+    q,
+    *,
+    n_tor: int,
+    phi_rad: float = 0.0,
+    jacobian: str = "hamada",
+) -> np.ndarray:
+    r"""A field's poloidal harmonics summed back to real space on a flux-surface mesh.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Radial grid of the spectrum, strictly increasing [-].
+    m_pol : array_like
+        Poloidal mode numbers of the spectrum's columns [-].
+    coefficients : array_like
+        Complex harmonics, shape ``(psi_norm.size, m_pol.size)``, in the
+        run's own straight-field-line angles -- for GPEC the mapped
+        ``J b.grad(psi)`` [T].
+    mesh_psi_norm : array_like
+        Radial labels of the mesh, within ``psi_norm``'s range [-].
+    mesh_theta_norm : array_like
+        The run's own poloidal angle on the mesh, one circuit normalised to
+        ``0 ... 1`` [-].
+    mesh_r : array_like
+        Major radius of the mesh points, shape
+        ``(mesh_psi_norm.size, mesh_theta_norm.size)`` [m].
+    q : array_like
+        Safety factor at ``mesh_psi_norm`` [-].
+    n_tor : int
+        Toroidal mode number of the spectrum [-].
+    phi_rad : float
+        Machine toroidal angle of the section [rad].
+    jacobian : str
+        The run's ``jac_type``; ``"hamada"`` or ``"pest"`` [-].
+
+    Returns
+    -------
+    np.ndarray
+        ``Re sum_m c_m(psi) exp(i (m theta - n zeta))`` at every mesh point,
+        shape ``(mesh_psi_norm.size, mesh_theta_norm.size)``, in the units of
+        ``coefficients`` [T].
+
+    Raises
+    ------
+    ValueError
+        Shapes disagree, ``psi_norm`` is not strictly increasing, or the mesh
+        reaches outside the spectrum's radial range.
+
+    Convention
+    ----------
+    The harmonics are ``c_m exp(i (m theta_J - n zeta_J))`` in the run's
+    straight-field-line pair ``(theta_J, zeta_J)``.  Every such pair keeps
+    ``zeta - q theta`` constant along a field line, and PEST's toroidal angle
+    is the machine angle, so at machine angle ``phi`` the run's toroidal angle
+    is ``zeta_J = phi + q (theta_J - theta_PEST)``.  A section at fixed
+    ``phi`` is therefore not a section at fixed ``zeta_J``: for a Hamada run
+    the two differ by ``q`` times the Hamada-PEST angle difference, which is
+    up to about a radian at the edge.
+
+    Applicability
+    -------------
+    Machine-independent. One toroidal harmonic of a DCON-family run whose
+    jacobian is ``hamada`` or ``pest``, the two
+    :func:`vaft.process.equilibrium.pest_angle_from_jacobian_angle` converts
+    from ``R`` alone.
+
+    Processing steps
+    ----------------
+    1. Interpolate each harmonic's real and imaginary parts onto
+       ``mesh_psi_norm``.
+    2. On each surface, relabel the mesh angle into the PEST angle and form
+       ``zeta_J = phi + q (theta_J - theta_PEST)``.
+    3. Sum ``c_m exp(i (m theta_J - n zeta_J))`` over ``m`` and keep the real
+       part.
+
+    Provenance
+    ----------
+    .. [1] W. D. D'haeseleer et al., *Flux Coordinates and Magnetic Field Structure*, Springer, 1991, ch. 6 (straight-field-line coordinate pairs).
+    .. [2] GPEC v1.5.5 ``gpec_profile_output`` ``b_n`` against ``b_n_fun``, Tutorial 05 VEST case, 2026-11-12: the sign convention reproduced GPEC's real-space field to 1e-2; see ``test/test_spectral_field_on_mesh.py``.
+    """
+    from vaft.process.equilibrium import pest_angle_from_jacobian_angle
+
+    psi_norm = np.asarray(psi_norm, dtype=float)
+    m_pol = np.asarray(m_pol, dtype=float)
+    coefficients = np.asarray(coefficients, dtype=complex)
+    mesh_psi_norm = np.asarray(mesh_psi_norm, dtype=float)
+    mesh_theta_norm = np.asarray(mesh_theta_norm, dtype=float)
+    mesh_r = np.asarray(mesh_r, dtype=float)
+    q = np.asarray(q, dtype=float)
+    if coefficients.shape != (psi_norm.size, m_pol.size):
+        raise ValueError(f"coefficients {coefficients.shape} against ({psi_norm.size}, {m_pol.size})")
+    if mesh_r.shape != (mesh_psi_norm.size, mesh_theta_norm.size) or q.shape != mesh_psi_norm.shape:
+        raise ValueError("mesh_r must be (mesh_psi_norm, mesh_theta_norm) and q must match mesh_psi_norm")
+    if not np.all(np.diff(psi_norm) > 0):
+        raise ValueError("psi_norm must be strictly increasing")
+    if mesh_psi_norm.min() < psi_norm[0] - 1e-12 or mesh_psi_norm.max() > psi_norm[-1] + 1e-12:
+        raise ValueError("the mesh reaches outside the spectrum's radial range")
+    local = np.stack(
+        [np.interp(mesh_psi_norm, psi_norm, coefficients[:, j].real)
+         + 1j * np.interp(mesh_psi_norm, psi_norm, coefficients[:, j].imag) for j in range(m_pol.size)],
+        axis=1,
+    )
+    theta_j = 2.0 * np.pi * mesh_theta_norm
+    out = np.empty(mesh_r.shape)
+    for k in range(mesh_psi_norm.size):
+        theta_pest = pest_angle_from_jacobian_angle(mesh_theta_norm, mesh_r[k], jacobian)
+        zeta_j = phi_rad + q[k] * (theta_j - theta_pest)
+        phase = np.outer(theta_j, m_pol) - n_tor * zeta_j[:, None]
+        out[k] = np.real(np.exp(1j * phase) @ local[k])
+    return out

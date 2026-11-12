@@ -84,26 +84,25 @@ Where does a given m matter most? At its rational surface.
 
 ## 39915 at 319 ms
 
-- $q$ from about 2 on axis to about 13 at the boundary
-- eleven $n = 1$ rational surfaces, crowding at the edge (1--2 % of $\psi_N$ apart)
-- the $m = 2$ surface sits almost on the axis
+- the EFIT reconstruction of sessions 03--04, from the sample ODS
+- $q$ from about 2.3 on axis to about 8.4 at the boundary
+- six $n = 1$ rational surfaces, $m = 3$--$8$, crowding at the edge
+- magnetics-only: almost no pressure ($p_{\max} \approx 30$ Pa)
 
-Two reconstructions of the same instant agree in the interior, disagree at
-the edge ($q \approx 13$ vs $8$), and the legacy files 2 ms apart disagree on
-whether $q = 3$ exists at all.
+CHEASE re-solves it on a fixed boundary at $\psi_N = 0.993$; every solver reads that.
 
 ::: {.notes}
 [4 min]
 
 NARRATE:
-The session runs on the packaged legacy g-file, the one the solvers are
-validated on. It is a different reconstruction from the sample ODS of sessions
-03 and 04; the notebook plots both. A stability answer on a core mode inherits
-the core-q uncertainty of the reconstruction.
+DCON cannot trace the sample ODS's reconstruction directly (issue 1246); its
+CHEASE refinement traces cleanly, so CHEASE sits in front of every solver. The
+refinement keeps EFIT's profiles and boundary: what the magnetics did not
+constrain, the core q above all, is as uncertain after it as before.
 
 WARN:
-DCON cannot yet map the sample ODS's reconstruction (issue 1246); that is why
-the legacy file is used, not because it is better.
+The GS residual compares numerical self-consistency on each file's own grid.
+It does not rank which equilibrium is closer to the discharge.
 
 TRANSITION:
 DCON on this equilibrium.
@@ -112,7 +111,8 @@ DCON on this equilibrium.
 ## DCON: $\delta W$ and the eigenfunction
 
 - energy eigenvalues $W_p$, $W_v$, $W_t$; the least-stable total, `total1`, decides
-- $n = 1$ in about 10 s; cost rises steeply with $n$
+- 39915: $W_t \approx +7.5$ at `mpsi` 256 and 512 -- ideally stable
+- synthetic $I_p \times 2.8$ ($q_{\mathrm{edge}} \approx 2.9$): $W_t \approx -1.2$, $m = 3$ -- an external kink
 - read the eigenfunction as a spectrum of $\xi_m(\psi)$
 - local limits: Mercier, $s$--$\alpha$ ballooning (off in the packaged namelist)
 
@@ -120,8 +120,10 @@ DCON on this equilibrium.
 [4 min]
 
 NARRATE:
-In lab mode DCON reports n=1 ideally stable on this equilibrium. Show the
-eigenfunction and point at the several m traces peaking near their surfaces.
+The real equilibrium is n=1 stable. Raising the current walks q_edge down
+through the rationals; just below q_edge = 3 the boundary can move with the
+field-line pitch and the m = 3 harmonic grows to the edge. Pressure scans do
+nothing here: there is almost no pressure to scale.
 
 WARN:
 A criterion DCON never evaluated is written as exactly zero, which is also its
@@ -136,8 +138,9 @@ Ideal stability says nothing about reconnection.
 $$\Delta' = \Big[\tfrac{1}{\tilde\psi}\tfrac{d\tilde\psi}{dr}\Big]_{r_s^-}^{r_s^+}$$
 
 - ideal outer regions, resistive inner layer, matched
-- $m = 3$--$5$: $\Delta' < 0$; from $m = 6$ outward: positive and growing
-- the near-axis $m = 2$ value is a resolution statement, not physics
+- $m = 5$--$7$: $\Delta' < 0$ at `mpsi` 256, 512 and 1024
+- $m = 3, 4$ and the edge $m = 8$ change sign with `mpsi` -- and with CHEASE's mesh
+- coupled: the least-stable eigenvalue of the full matrix is **positive** ($+1.9$, $+2.9$, $+410$)
 - DCON stable and $\Delta' > 0$ can both be true
 
 ::: {.notes}
@@ -203,7 +206,7 @@ $$b(\Delta\phi) = b_{\mathrm{UP}} + b_{\mathrm{LOW}}\,e^{i\Delta\phi},
 
 - one set's phase rotates the answer; nothing changes in amplitude
 - the relative phase matters: two lobes at $\theta = \pm 90^\circ$, in phase favour even $m$, in antiphase odd $m$
-- so it chooses the driven surfaces: $q = 2, 4$ or $q = 3, 5$
+- so it chooses the driven surfaces: $q = 4, 6$ or $q = 3, 5$
 - two runs give the whole scan, checked against direct Biot--Savart
 
 ::: {.notes}
@@ -230,16 +233,18 @@ $$\delta\mathbf B_{\mathrm{total}} = \delta\mathbf B_{\mathrm{vacuum}} + \delta\
 
 - linear, about the axisymmetric equilibrium; $\delta B/B_0$ of order a percent here
 - screening and amplification; resonant **and** non-resonant response
-- packaged chain today: the **vacuum** resonant field per surface (Open: #1243, total response)
-- vacuum islands overlap easily at VEST's crowded edge
+- MID alone at $n = 1, 2, 3$: ladders $n + 6k$; 6, 12, 18 rational surfaces
+- `con_flag=f`: GPEC writes the **total** resonant field on every surface
+- the plasma screens, more strongly with $n$: about $1/2$, $1/4$, and under $1/10$ in the core at $n = 3$
+- the best relative coil phase moves by about a quarter turn with the response
 
 ::: {.notes}
 [5 min]
 
 NARRATE:
-Two GPEC runs, UP alone and LOW alone, about three minutes each. The scan is
-the vacuum-approximation answer and is labelled as one. Whether the plasma lets
-that field in is exactly what the total response decides.
+Two GPEC runs, UP alone and LOW alone, about three minutes each; linearity
+gives the whole relative-phase scan for both the vacuum and the total field.
+A phasing chosen on the vacuum field would be the wrong one here.
 
 WARN:
 Model excitation space is not the VEST hardware space: channels, limits,
