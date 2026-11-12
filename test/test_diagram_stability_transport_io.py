@@ -80,7 +80,7 @@ def test_the_combined_figure_pairs_the_equilibrium_with_the_io_view():
     assert not d.scene.role("references")
     # code names look like the equilibrium routes: the same size, upright and black
     assert d.model["equilibrium"]["activities"] == ("experiment", "theory", "fixed_boundary", "free_boundary")
-    assert "Experimental Reconstruction" in d.scene.role("node:experiment")[1].text
+    assert "Reconstruction" in d.scene.role("node:experiment")[1].text
     assert "{\\small CHEASE}" in d.scene.role("node:fixed_boundary")[1].text
     assert "{\\small TokaMaker, TES}" in d.scene.role("node:free_boundary")[1].text
     assert not d.scene.role("node:data_driven") and not d.scene.role("node:modelling")
@@ -114,7 +114,7 @@ def test_the_measurement_variant_feeds_the_reconstruction_and_the_profiles():
     assert d.model["measurements"] == ("wall", "pf_active", "pf_passive", "em_coupling",
                                        "magnetics", "thomson_scattering", "charge_exchange")
     card = next(i for i in d.scene.role("node:measurement") if isinstance(i, Label)).text
-    assert "Experimental Measurement \\& Machine Model" in card and "thomson\\_scattering" in card
+    assert "\\textbf{Experiment}" in card and "thomson\\_scattering" in card
     for role in ("edge:measurement->experiment", "edge:measurement->core_profiles",
                  "edge:equilibrium->core_profiles", "edge:assumptions->core_profiles"):
         assert d.scene.role(role)

@@ -2249,20 +2249,20 @@ vaft.diagram.cross_domain_scientific_architecture()
 
 **Simplified: inputs and outputs.** The same architecture read only for what goes in, what is computed and what
 comes out. The shared physics analysis input -- the `equilibrium` IDS, the measured kinetic profiles in
-`core_profiles` and external assumptions (closures, mode numbers and wall model, 3-D coil excitation) -- feeds the
+`core_profiles` and external assumptions (physics closure and fitting method, mode numbers and wall model, 3-D coil excitation) -- feeds the
 MHD stability model (ideal & resistive energy principle, 3-D plasma response: DCON, GPEC, RDCON), which reads the equilibrium
 and the assumptions, and the transport model (classical, neoclassical, turbulent: Braginskii, Sauter, Redl, NEO,
 TGLF, CGYRO), which reads all three. Each writes its results as IDS: the stability IDS `mhd_linear` and `ntms`; the
 transport IDS `core_transport`, an updated `core_profiles` and `gyrokinetics_local`. Codes, IDS and assumptions are
 read from the architecture figure's definitions, so the two cannot drift apart. `equilibrium_stability_transport()`
-puts it to the right of four equilibrium routes around the IMAS equilibrium IDS -- experimental reconstruction
+puts it to the right of four equilibrium routes around the IMAS equilibrium IDS -- reconstruction
 (EFIT), theory (Solov'ev; Guazzotto & Freidberg), fixed-boundary (CHEASE) and free-boundary models (TokaMaker, TES)
 (`integrated_scientific_framework("equilibrium", frame=False, analysis=False, references=False, ids_key=True,
 boundary_models=True)`) -- on one canvas at one scale and with no panel letters; an arrow hands the equilibrium
 from left to right. Neither carries arrow annotations: what each calculation reads is in the model. With
-`measurements=True` an Experimental Measurement & Machine Model card of IMAS IDS (machine: `wall`, `pf_active`,
+`measurements=True` an Experiment card of IMAS IDS (machine: `wall`, `pf_active`,
 `pf_passive`, `em_coupling`; measurement: `magnetics`, `thomson_scattering`, `charge_exchange`) sits above both
-halves and feeds the experimental reconstruction, which then only writes the equilibrium IDS, and the kinetic
+halves and feeds the reconstruction, which then only writes the equilibrium IDS, and the kinetic
 profiles, which are drawn as made from the equilibrium and the external assumptions as well.
 
 ```python

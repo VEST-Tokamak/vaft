@@ -56,16 +56,17 @@ CODES: Dict[str, Tuple[str, ...]] = {key: _codes(section) for key, section, _, _
 #: the IDS each calculation writes, with representative quantities: (ids, quantities)
 OUTPUTS: Dict[str, Tuple[Tuple[str, str], ...]] = {
     key: tuple((ids, quantities) for ids, quantities, _ in IMAS[section]) for key, section, _, _ in CALCULATIONS}
-#: a chip's lines carry no title in the cross-domain figure (its row says what it is); here one is named
-_ASSUMPTION_PREFIX = {"tr_closures": "closures "}
+#: chips named by their role here rather than by their quantities: the transport closures' Z_eff is a kinetic
+#: profile in this figure, and what remains of the chip is the closure and how the profiles are fitted
+_ASSUMPTION_TEXT = {"tr_closures": ("physics closure, fitting method",)}
 #: the external assumptions, gathered from the inputs each downstream section takes besides measured profiles
-ASSUMPTIONS: Tuple[str, ...] = tuple(_ASSUMPTION_PREFIX.get(chip.key, "") + line
-                                     for section in ("transport", "mhd") for chip in INPUTS[section]
-                                     if chip.kind != "measured" for line in chip.lines)
+ASSUMPTIONS: Tuple[str, ...] = tuple(line for section in ("transport", "mhd") for chip in INPUTS[section]
+                                     if chip.kind != "measured"
+                                     for line in _ASSUMPTION_TEXT.get(chip.key, chip.lines))
 #: the shared inputs: (key, title, IDS name or "", detail)
 SHARED_INPUTS: Tuple[Tuple[str, str, str, str], ...] = (
-    ("equilibrium", "Equilibrium", "equilibrium", r"$\psi(R,Z)$, $q$, geometry"),
-    ("core_profiles", "Kinetic Profiles", "core_profiles", r"$n_i$, $n_e$, $T_e$, $T_i$, $v_\phi$"),
+    ("equilibrium", "Equilibrium", "equilibrium", r"$\psi$, $p$, $J_\phi$, $q$"),
+    ("core_profiles", "Kinetic Profiles", "core_profiles", r"$n_i$, $n_e$, $T_e$, $T_i$, $Z_{\rm eff}$, $v_\phi$"),
     ("assumptions", "External Assumptions", "", "; ".join(ASSUMPTIONS)),
 )
 #: which shared inputs each calculation reads (the measured profiles enter transport only)
@@ -83,12 +84,12 @@ MEASUREMENT_MACHINE: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
 PROFILE_SOURCES: Tuple[str, ...] = ("equilibrium", "assumptions")
 
 # layout [cm], centred on x = 0 and spanning the height of the equilibrium panel (modes at +-3.5, 1.45 high)
-_HALF = 5.75
+_HALF = 6.0
 _TOP = _MODE_OFFSET + 0.725  # level with the top of the upper research modes
 _INPUT_H = 1.9
 _INPUT_Y = _TOP - 0.3 - 0.5 * _INPUT_H
 #: input card widths, left to right: the assumptions card is the widest, its clauses being the longest
-_INPUT_W = (3.4, 3.4, 4.3)
+_INPUT_W = (3.4, 3.6, 4.6)
 #: the extra half width the input group takes when arrows run between its cards
 _PROFILE_WIDEN = 0.6
 _GROUP_BOTTOM = _INPUT_Y - 0.5 * _INPUT_H - 0.25
@@ -123,7 +124,7 @@ def stability_transport_io(*, labels: bool = True, derived_profiles: bool = Fals
     r"""Shared inputs consumed by MHD stability and transport, and the IDS each writes.
 
     Top: the shared physics analysis input -- the ``equilibrium`` IDS, the measured kinetic
-    profiles in ``core_profiles`` and external assumptions (closures, mode
+    profiles in ``core_profiles`` and external assumptions (physics closure and fitting method, mode
     numbers and wall model, 3-D coil excitation). Middle: MHD stability (ideal
     & resistive energy principle, 3-D plasma response) reads the equilibrium and the
     assumptions; transport (classical, neoclassical, turbulent) reads all
@@ -215,13 +216,13 @@ def stability_transport_io(*, labels: bool = True, derived_profiles: bool = Fals
 def _measurement_text() -> str:
     rows = ["{\\small " + group + ": " + ", ".join("\\texttt{" + escape_latex(i) + "}" for i in ids) + "}"
             for group, ids in MEASUREMENT_MACHINE]
-    return "\\textbf{Experimental Measurement \\& Machine Model}\\\\" + "\\\\".join(rows)
+    return "\\textbf{Experiment}\\\\" + "\\\\".join(rows)
 
 
 def equilibrium_stability_transport(*, labels: bool = True, measurements: bool = False) -> Diagram:
     r"""The equilibrium as a common representation, and what stability and transport do with it.
 
-    Left, four equilibrium routes -- experimental reconstruction (EFIT),
+    Left, four equilibrium routes -- reconstruction (EFIT),
     theory (Solov'ev; Guazzotto & Freidberg), fixed-boundary (CHEASE) and
     free-boundary models (TokaMaker, TES) -- exchanging with the IMAS
     equilibrium IDS, its key ``equilibrium`` named, as in
@@ -233,7 +234,7 @@ def equilibrium_stability_transport(*, labels: bool = True, measurements: bool =
     as one flow.
 
     ``measurements=True`` adds what the reconstruction is made from: an
-    Experimental Measurement & Machine Model card of IMAS IDS (machine:
+    Experiment card of IMAS IDS (machine:
     ``wall``, ``pf_active``, ``pf_passive``, ``em_coupling``; measurement:
     ``magnetics``, ``thomson_scattering``, ``charge_exchange``) above the
     panels, consumed by the experimental reconstruction and by the kinetic

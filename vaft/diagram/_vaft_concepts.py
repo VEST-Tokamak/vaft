@@ -746,7 +746,7 @@ EQUILIBRIUM_ROUTES: Dict[str, str] = {
 #: the equilibrium example with modelling split by boundary condition and no data-driven mode: (key, title, colour,
 #: representative routes), in the corner order of :data:`ACTIVITIES`
 EQUILIBRIUM_MODELS: Tuple[Tuple[str, str, str, str], ...] = (
-    ("experiment", "Experimental Reconstruction", "absfluid", "EFIT"),
+    ("experiment", "Reconstruction", "absfluid", "EFIT"),
     ("theory", "Theory", "abskinetic", "Solov'ev, Guazzotto & Freidberg"),
     ("fixed_boundary", "Fixed-boundary Model", "driftred", "CHEASE"),
     ("free_boundary", "Free-boundary Model", "islandblue", "TokaMaker, TES"),
@@ -896,7 +896,7 @@ def integrated_scientific_framework(domain: Optional[str] = None, *, labels: boo
     route references; ``ids_key=True`` (equilibrium only) names the IDS key,
     ``equilibrium``, in the hub; ``boundary_models=True`` (equilibrium only)
     replaces the four research modes by :data:`EQUILIBRIUM_MODELS` --
-    experimental reconstruction (EFIT), theory (Solov'ev; Guazzotto &
+    reconstruction (EFIT), theory (Solov'ev; Guazzotto &
     Freidberg), fixed-boundary (CHEASE) and free-boundary models (TokaMaker,
     TES) -- together, the form the left half of
     :func:`~vaft.diagram.equilibrium_stability_transport` takes. The modes
