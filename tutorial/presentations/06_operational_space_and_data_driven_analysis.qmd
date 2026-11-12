@@ -116,10 +116,10 @@ The survey is q_a from another machine; VEST plots q95.
 
 ## Validity before physics: $\beta_N$
 
-- magnetics-only reconstructions: $\beta_N$ 0.06--0.12, no pressure constraint (#386)
+- magnetics-only reconstructions: $\beta_N$ 0.06--0.12, no pressure constraint (Open: #386)
 - the kinetically constrained 48224: the highest, $\beta_t$ between the electron-only and $T_i = T_e$ Thomson estimates
 - a pooled $\beta_N$ column mixes two quantities under one name
-- `kink_stability_criterion` uses $2.8\,q_{95}$: unsourced (#350), not drawn
+- `kink_stability_criterion` uses $2.8\,q_{95}$: unsourced and deprecated, not drawn
 
 ::: {.notes}
 [4 min]
@@ -143,7 +143,7 @@ code base is not evidence; its own docstring records the defect.
 NARRATE:
 Only references whose domain includes a small ohmic spherical tokamak are
 candidates. A database H factor is a distribution, and needs validated
-power balance (#548).
+power balance (Open: #548).
 :::
 
 # Statistics and its traps
@@ -174,7 +174,8 @@ describes how the machine was run. A pooled fit mixes the two.
 
 NARRATE:
 The join is only as good as the slice cadence. A general event contract and
-pre-event join are #1234; stability labels in aggregate, #940 and #1084.
+pre-event join are still missing (Open: #1234); so are stability labels in aggregate
+(Open: #940, #1084).
 :::
 
 # Learning from the database
