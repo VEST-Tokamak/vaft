@@ -184,3 +184,60 @@ def test_without_global_psi_the_map_is_normalised_by_the_profile_ends():
     del ods["equilibrium.time_slice.0.global_quantities"]
     # the grid runs to psi_N = 1.2; normalising by its extrema moved every cell
     assert _te_at_psi_n(ods, 0.25) == pytest.approx(75.0, abs=0.5)
+
+
+# --- issue #2253: the boundary outline decides what is plasma -----------------
+
+
+def test_the_packaged_kinetic_map_stays_inside_the_boundary_outline():
+    """psi falls below psi_axis near the coils of 48224: psi_N <= 1 there painted 1,245 exterior cells."""
+    from matplotlib.path import Path
+
+    ods = vo.sample_ods(48224)
+    outline = np.column_stack([
+        np.asarray(ods["equilibrium.time_slice.0.boundary.outline.r"]),
+        np.asarray(ods["equilibrium.time_slice.0.boundary.outline.z"]),
+    ])
+    for quantity in ("density", "temperature"):
+        model = getattr(vo, f"extract_electron_{quantity}_field")(ods)
+        values = np.asarray(model.values)
+        z, r = np.meshgrid(model.z, model.r, indexing="ij")
+        finite = np.isfinite(values)
+        assert finite.any()
+        assert np.abs(z[finite]).max() < 0.6  # was 1.4 m
+        cell = max(np.diff(model.r).max(), np.diff(model.z).max())
+        # every painted cell centre lies within two cells of the outline (the
+        # sign of radius= follows the outline's orientation, so both are tried)
+        points = np.column_stack([r[finite], z[finite]])
+        near = Path(outline).contains_points(points, radius=2 * cell)
+        near |= Path(outline).contains_points(points, radius=-2 * cell)
+        assert near.all()
+
+
+def _with_outline(ods, r_max):
+    base = "equilibrium.time_slice.0.boundary.outline"
+    ods[f"{base}.r"] = np.array([0.0, r_max, r_max, 0.0])
+    ods[f"{base}.z"] = np.array([-1.0, -1.0, 1.0, 1.0])
+    return ods
+
+
+def test_cells_below_the_axis_flux_inside_the_outline_keep_the_axis_value():
+    ods = _one_slice({"rho_tor_norm": PSI_N_1D})
+    # psi_N < 0 on R < 0.1 -- inside the outline below
+    ods["equilibrium.time_slice.0.profiles_2d.0.psi"] = np.repeat(
+        0.1 * (np.linspace(0.0, 1.2, 121) - 0.1)[:, None], 5, axis=1)
+    _with_outline(ods, 1.0)
+    model = vo.extract_electron_temperature_field(ods)
+    r = np.asarray(model.r, dtype=float)
+    values = np.asarray(model.values)
+    assert np.all(values[:, r < 0.09] == pytest.approx(100.0))  # the axis value, not a hole
+    assert np.all(np.isnan(values[:, r > 1.0 + 1e-2]))  # outside the outline
+
+
+def test_cells_with_psi_n_below_one_outside_the_outline_are_blank():
+    ods = _with_outline(_one_slice({"rho_tor_norm": PSI_N_1D}), 0.5)
+    model = vo.extract_electron_temperature_field(ods)
+    r = np.asarray(model.r, dtype=float)
+    values = np.asarray(model.values)
+    assert np.all(np.isnan(values[:, r > 0.5 + 1e-2]))
+    assert np.all(np.isfinite(values[:, r < 0.5 - 1e-2]))
