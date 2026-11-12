@@ -2259,7 +2259,11 @@ puts it to the right of four equilibrium routes around the IMAS equilibrium IDS 
 (EFIT), theory (Solov'ev; Guazzotto & Freidberg), fixed-boundary (CHEASE) and free-boundary models (TokaMaker, TES)
 (`integrated_scientific_framework("equilibrium", frame=False, analysis=False, references=False, ids_key=True,
 boundary_models=True)`) -- on one canvas at one scale and with no panel letters; an arrow hands the equilibrium
-from left to right. Neither carries arrow annotations: what each calculation reads is in the model.
+from left to right. Neither carries arrow annotations: what each calculation reads is in the model. With
+`measurements=True` an Experimental Measurement & Machine Model card of IMAS IDS (machine: `wall`, `pf_active`,
+`pf_passive`, `em_coupling`; measurement: `magnetics`, `thomson_scattering`, `charge_exchange`) sits above both
+halves and feeds the experimental reconstruction, which then only writes the equilibrium IDS, and the kinetic
+profiles, which are drawn as made from the equilibrium and the external assumptions as well.
 
 ```python
 vaft.diagram.stability_transport_io()

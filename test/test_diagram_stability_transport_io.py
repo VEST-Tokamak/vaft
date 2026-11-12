@@ -102,3 +102,30 @@ def test_the_combined_figure_pairs_the_equilibrium_with_the_io_view():
     # no analysis node: the downstream use of the equilibrium is panel b
     assert not d.scene.role("node:analysis") and not d.scene.role("node:simulation_input")
     assert build.CANONICAL["equilibrium_stability_transport.svg"] == ("equilibrium_stability_transport", {})
+
+
+def test_the_measurement_variant_feeds_the_reconstruction_and_the_profiles():
+    d = vaft.diagram.equilibrium_stability_transport(measurements=True)
+    edges = set(d.model["edges"])
+    # the reconstruction only writes the equilibrium; the other routes still exchange with it
+    assert ("experiment", "hub", "forward") in edges and ("theory", "hub", "both") in edges
+    assert {("measurement", "experiment", "forward"), ("measurement", "core_profiles", "forward"),
+            ("equilibrium", "core_profiles", "forward"), ("assumptions", "core_profiles", "forward")} <= edges
+    assert d.model["measurements"] == ("wall", "pf_active", "pf_passive", "em_coupling",
+                                       "magnetics", "thomson_scattering", "charge_exchange")
+    card = next(i for i in d.scene.role("node:measurement") if isinstance(i, Label)).text
+    assert "Experimental Measurement \\& Machine Model" in card and "thomson\\_scattering" in card
+    for role in ("edge:measurement->experiment", "edge:measurement->core_profiles",
+                 "edge:equilibrium->core_profiles", "edge:assumptions->core_profiles"):
+        assert d.scene.role(role)
+    # the default figure is unchanged: no measurement card, the reconstruction exchanges both ways
+    plain = vaft.diagram.equilibrium_stability_transport()
+    assert not plain.scene.role("node:measurement") and plain.model["measurements"] == ()
+    assert ("experiment", "hub", "both") in plain.model["edges"]
+    with pytest.raises(ValueError):
+        vaft.diagram.equilibrium_stability_transport(measurements="yes")
+    with pytest.raises(ValueError):
+        vaft.diagram.stability_transport_io(derived_profiles=1)
+    with pytest.raises(ValueError, match="one_way"):
+        vaft.diagram.integrated_scientific_framework("equilibrium", frame=False, analysis=False, references=False,
+                                                     boundary_models=True, one_way=("modelling",))

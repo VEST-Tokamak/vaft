@@ -787,8 +787,12 @@ def _research_modes(items: List, example: bool, boundary_models: bool = False) -
     return nodes
 
 
-def _common_hub(items: List, edges: List, nodes: Dict[str, Box], example: bool, ids_key: bool = False) -> Box:
-    """The shared state at the centre, exchanging with every research mode; ``ids_key`` also names the IDS key."""
+def _common_hub(items: List, edges: List, nodes: Dict[str, Box], example: bool, ids_key: bool = False,
+                one_way: Tuple[str, ...] = ()) -> Box:
+    """The shared state at the centre, exchanging with every research mode; ``ids_key`` also names the IDS key.
+
+    The modes in ``one_way`` only write to the shared state.
+    """
     hub_text = ("\\textbf{IMAS Equilibrium IDS}" + ("\\\\{\\small\\ttfamily equilibrium}" if ids_key else "") +
                 "\\\\[3pt]$\\Delta^{*}\\psi = -\\mu_0 R^2 p'(\\psi) - FF'(\\psi)$"
                 if example else
@@ -796,7 +800,7 @@ def _common_hub(items: List, edges: List, nodes: Dict[str, Box], example: bool, 
     hub = box(0.0, 0.0, 5.6, 1.85 if ids_key else 1.4, hub_text, style="concept hub", role="node:hub", latex=True)
     items += list(hub.items)
     for k in nodes:
-        _edge(items, edges, nodes[k], hub, k, "hub", both=True)
+        _edge(items, edges, nodes[k], hub, k, "hub", both=k not in one_way)
     return hub
 
 
@@ -869,7 +873,7 @@ EQUILIBRIUM_ANALYSIS: Tuple[Tuple[str, str], ...] = (
 
 def integrated_scientific_framework(domain: Optional[str] = None, *, labels: bool = True, frame: bool = True,
                                     analysis: bool = True, references: bool = True, ids_key: bool = False,
-                                    boundary_models: bool = False) -> Diagram:
+                                    boundary_models: bool = False, one_way: Tuple[str, ...] = ()) -> Diagram:
     r"""The research modes and their common state inside one integrated framework, serving analysis (#1698).
 
     The four research modes and the Common Data Model (IMAS) sit exactly as in
@@ -895,7 +899,9 @@ def integrated_scientific_framework(domain: Optional[str] = None, *, labels: boo
     experimental reconstruction (EFIT), theory (Solov'ev; Guazzotto &
     Freidberg), fixed-boundary (CHEASE) and free-boundary models (TokaMaker,
     TES) -- together, the form the left half of
-    :func:`~vaft.diagram.equilibrium_stability_transport` takes.
+    :func:`~vaft.diagram.equilibrium_stability_transport` takes. The modes
+    named in ``one_way`` only write to the shared state (a reconstruction
+    produces the equilibrium; it does not read one).
     """
     labels = _check_labels(labels)
     if domain not in _FRAMEWORK_DOMAINS:
@@ -925,7 +931,9 @@ def integrated_scientific_framework(domain: Optional[str] = None, *, labels: boo
         items.append(Label((frame_x - 0.25, frame_top - 0.2), "connects, runs, compares and reproduces research",
                            "concept annotation", anchor="north east", role="framework"))
     nodes = _research_modes(items, example, boundary_models)
-    hub = _common_hub(items, edges, nodes, example, ids_key)
+    if not isinstance(one_way, tuple) or not set(one_way) <= set(nodes):
+        raise ValueError(f"one_way must be a tuple of the modes {tuple(nodes)}, not {one_way!r}")
+    hub = _common_hub(items, edges, nodes, example, ids_key, one_way)
     outputs: Tuple[str, ...] = ()
     if analysis:
         body = "\\textbf{Analysis}"
