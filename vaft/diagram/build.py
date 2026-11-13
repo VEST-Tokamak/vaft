@@ -297,6 +297,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # equilibrium, MHD and transport joined through shared state representations
     "cross_domain_scientific_architecture.svg": ("cross_domain_scientific_architecture", {}),
     "cross_domain_scientific_workflows.svg": ("cross_domain_scientific_workflows", {}),
+    "stability_transport_io.svg": ("stability_transport_io", {}),
+    "equilibrium_stability_transport.svg": ("equilibrium_stability_transport", {"measurements": True}),
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),
     "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),

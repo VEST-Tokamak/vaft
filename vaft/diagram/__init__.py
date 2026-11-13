@@ -70,7 +70,8 @@ inference (#1601): ``parameter_inference_overview`` and
 ``vacuum_field_proxies``, ``derived_mhd_parameters``, ``synthetic_diagnostics``,
 ``coordinate_cocos_conversions`` and ``power_balance_confinement``; equilibrium, MHD and transport
 joined through shared state representations: ``cross_domain_scientific_architecture`` (conceptual)
-and ``cross_domain_scientific_workflows`` (technical); the spatial
+and ``cross_domain_scientific_workflows`` (technical), with ``stability_transport_io`` as their
+simplified input-output view and ``equilibrium_stability_transport`` pairing it with the equilibrium; the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
 ``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
@@ -328,6 +329,8 @@ __all__ = [
     "power_balance_confinement",
     "cross_domain_scientific_architecture",
     "cross_domain_scientific_workflows",
+    "stability_transport_io",
+    "equilibrium_stability_transport",
     "tokamak_top_view",
     "cocos_orientation",
     "machine_and_equilibrium_geometry",
@@ -574,6 +577,8 @@ _LOCATIONS = {
     "power_balance_confinement": "._workflow_specs",
     "cross_domain_scientific_architecture": "._cross_domain_concept",
     "cross_domain_scientific_workflows": "._cross_domain",
+    "stability_transport_io": "._stability_transport_io",
+    "equilibrium_stability_transport": "._stability_transport_io",
     "tokamak_top_view": "._spatial",
     "cocos_orientation": "._spatial",
     "machine_and_equilibrium_geometry": "._spatial",

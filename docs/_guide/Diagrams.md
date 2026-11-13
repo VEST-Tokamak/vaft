@@ -2247,6 +2247,33 @@ vaft.diagram.cross_domain_scientific_architecture()
 
 ![Equilibrium, MHD and transport: the scientific architecture]({{ '/assets/diagrams/cross_domain_scientific_architecture.svg' | relative_url }})
 
+**Simplified: inputs and outputs.** The same architecture read only for what goes in, what is computed and what
+comes out. The shared plasma state -- the `equilibrium` IDS, the measured kinetic profiles in
+`core_profiles` and assumptions (physics closure and fitting method, mode numbers and wall model) -- feeds the
+MHD stability model (ideal & resistive energy principle, perturbed equilibria: DCON, RDCON, GPEC), which reads the equilibrium
+and the assumptions, and the transport model (classical, neoclassical, turbulent: Braginskii, Sauter, Redl, NEO,
+TGLF, CGYRO), which reads all three. Each writes its results as IDS: the stability IDS `mhd_linear` and `ntms`; the
+transport IDS `core_transport`, an updated `core_profiles` and `gyrokinetics_local`. Codes, IDS and assumptions are
+read from the architecture figure's definitions, so the two cannot drift apart. `equilibrium_stability_transport()`
+puts it to the right of four equilibrium routes around the IMAS equilibrium IDS -- reconstruction
+(EFIT), theory (Solov'ev; Guazzotto & Freidberg), fixed-boundary (CHEASE) and free-boundary models (TokaMaker, TES)
+(`integrated_scientific_framework("equilibrium", frame=False, analysis=False, references=False, ids_key=True,
+boundary_models=True)`) -- on one canvas at one scale and with no panel letters; an arrow hands the equilibrium
+from left to right. Neither carries arrow annotations: what each calculation reads is in the model. With
+`measurements=True` an IMAS Machine Configuration & Experimental Data IDS box (`wall`, `tf`, `pf_active`,
+`pf_passive`, `em_coupling`, `coils_non_axisymmetric`, `nbi`, `ec_launchers`, `magnetics`, `interferometer`, `thomson_scattering`, `charge_exchange`,
+each with its representative quantities -- $R_0B_0$, coil, eddy and 3-D coil currents, mutual inductances, EC power,
+$I_p$, $B_p$, $\psi_p$, $\Phi_{\rm dia}$, $\int n_e\,dl$, $n_e$, $T_e$, $v_\phi$, $T_i$ (none for the wall and NBI); the 3-D coil excitation is `coils_non_axisymmetric`, so it is no longer among the assumptions) sits above both halves and feeds the reconstruction, which then only writes the equilibrium IDS, and the kinetic
+profiles, which are drawn as made from the equilibrium and the external assumptions as well.
+
+```python
+vaft.diagram.stability_transport_io()
+vaft.diagram.equilibrium_stability_transport(measurements=True)  # the drawn figure
+```
+
+![Stability and transport: inputs and outputs]({{ '/assets/diagrams/stability_transport_io.svg' | relative_url }})
+![Equilibrium to stability and transport]({{ '/assets/diagrams/equilibrium_stability_transport.svg' | relative_url }})
+
 **Technical: solvers, inputs and outputs.** Each method sits with the inputs it reads beside it; an input read by
 two methods (coil currents and machine geometry for TokaMaker and EFIT, the kinetic profiles for Sauter/Redl and
 the resolver) is drawn once. Shared measurements, assumptions and machine configuration feed three alternative
