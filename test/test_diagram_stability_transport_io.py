@@ -101,7 +101,7 @@ def test_the_combined_figure_pairs_the_equilibrium_with_the_io_view():
     assert not any(i.role.startswith("panel:") for i in d.scene.items)  # one flow, no panel letters
     # no analysis node: the downstream use of the equilibrium is panel b
     assert not d.scene.role("node:analysis") and not d.scene.role("node:simulation_input")
-    assert build.CANONICAL["equilibrium_stability_transport.svg"] == ("equilibrium_stability_transport", {})
+    assert build.CANONICAL["equilibrium_stability_transport.svg"] == ("equilibrium_stability_transport", {"measurements": True})
 
 
 def test_the_measurement_variant_feeds_the_reconstruction_and_the_profiles():

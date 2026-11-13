@@ -2268,7 +2268,7 @@ profiles, which are drawn as made from the equilibrium and the external assumpti
 
 ```python
 vaft.diagram.stability_transport_io()
-vaft.diagram.equilibrium_stability_transport()
+vaft.diagram.equilibrium_stability_transport(measurements=True)  # the drawn figure
 ```
 
 ![Stability and transport: inputs and outputs]({{ '/assets/diagrams/stability_transport_io.svg' | relative_url }})
