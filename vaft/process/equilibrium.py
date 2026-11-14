@@ -3252,6 +3252,11 @@ def calculate_q_profile_from_psi(
     -------------
     Machine-independent. Works for any 2D tokamak poloidal flux map.
 
+    Semantics
+    ---------
+    consumes: psi
+    produces: q, q0, q95
+
     Provenance
     ----------
     .. [1] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293,

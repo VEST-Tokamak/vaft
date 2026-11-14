@@ -11,8 +11,9 @@ It is a generated view, not a second scientific database.  Every node and
 edge comes from a registry that already owns the fact, and records which:
 
 * :mod:`vaft.plot.taxonomy` -- the controlled vocabulary: canonical subjects
-  and their kinds, strict aliases, canonical quantities, and families (a
-  family is membership, never synonymy: ``beta_n`` is not ``beta_p``);
+  and their kinds, strict aliases, canonical quantities, families (a
+  family is membership, never synonymy: ``beta_n`` is not ``beta_p``) and
+  approximations (a proxy estimates a quantity, never equals it);
 * :mod:`vaft.plot.registry` -- each plot's subject, quantity, IDS and the
   Data Dictionary paths it reads (through :mod:`vaft.plot.backend.dd`, which
   supplies canonical spellings, units, coordinates and lifecycle);
@@ -27,7 +28,10 @@ edge comes from a registry that already owns the fact, and records which:
 * the ``Semantics`` sections of :mod:`vaft.formula` and :mod:`vaft.process`
   docstrings -- the quantities a function consumes and produces, in the vocabulary;
 * :mod:`vaft.validation.orderings` -- the physical models' approximation
-  contracts, the ordering quantities they assume and the kernels computing them.
+  contracts, the ordering quantities they assume and the kernels computing them;
+* :mod:`vaft.formula.boundaries` -- published and derived operational
+  boundaries and design guidelines, the quantity each bounds, its inputs, and
+  the domain its source established it on (machine class, ranges, assumptions).
 
 **Identity is strict.**  A term becomes a concept only through
 :func:`resolve_term`, which accepts a canonical name or a registered alias
@@ -73,6 +77,7 @@ KINDS = {
     "convention": "a COCOS convention",
     "model": "a physical model's approximation contract: the orderings it assumes",
     "ordering_quantity": "a dimensionless ordering quantity a model's validity is judged by",
+    "boundary": "a published or derived operational boundary or guideline, with the domain it was established on",
 }
 
 #: The relation vocabulary. Every edge is one of these and nothing else.
@@ -84,14 +89,17 @@ RELATIONS = {
     "part_of": "a Data Dictionary path belongs to its IDS; a diagnostic system belongs to a larger one",
     "mapped_by": "a diagnostic is mapped into IMAS by a VAFT function",
     "visualized_by": "a concept is drawn by a canonical plot",
-    "reads": "a plot reads a Data Dictionary path",
+    "reads": "a plot or a data routine reads a Data Dictionary path",
     "assessed_by": "a concept is assessed by a named validation check",
     "provided_by": "a check or an ordering quantity is computed by a VAFT function",
     "uses_convention": "a code or data format uses a COCOS convention",
     "implemented_by": "an external code is integrated through a VAFT adapter",
     "produces": "an external code's result is mapped into an IDS; a formula or process computes a quantity",
-    "consumes": "a formula or process takes a quantity as input",
+    "consumes": "a formula, process or boundary takes a quantity as input",
     "derived_from": "a quantity is reduced from another by a step VAFT performs outside a formula",
+    "bounds": "a boundary or guideline limits a quantity, on the domain its source established it on",
+    "approximates": "a proxy estimates a quantity under its own assumptions; never identity",
+    "applies": "a data routine evaluates a formula on inputs it selects from data",
     "assumes": "a physical model is valid only where an ordering quantity is small or large",
 }
 
@@ -104,7 +112,7 @@ VIEWS = {
     "representations": ("concept", "diagnostic", "machine", "ids", "dd_path", "api"),
     "implementations": ("concept", "diagnostic", "machine", "code", "plot", "api", "ids"),
     "assessment": ("concept", "diagnostic", "validation", "api", "convention", "code", "data_format",
-                   "model", "ordering_quantity"),
+                   "model", "ordering_quantity", "boundary"),
 }
 
 #: Taxonomy subject kind -> ontology node kind.
@@ -256,6 +264,11 @@ def _taxonomy(graph: _Graph) -> None:
     for canonical, aliases in sorted(quantities.items()):
         graph.node(f"concept:{canonical}", "concept", canonical, origin, concept_kind="quantity",
                    aliases=sorted(aliases))
+    for proxy, quantity in sorted(taxonomy.APPROXIMATIONS.items()):
+        source, target = resolve_term(proxy, quantities_only=True), resolve_term(quantity, quantities_only=True)
+        if source is None or target is None or source == target:
+            raise OntologyError(f"APPROXIMATIONS pairs {proxy} with {quantity}: both must be distinct quantities")
+        graph.edge(source, target, "approximates", origin)
     for family in taxonomy.FAMILIES.values():
         family_id = f"concept_family:{family.name}"
         graph.node(family_id, "concept_family", family.name, origin, aliases=sorted(family.aliases))
@@ -296,6 +309,7 @@ def _plots(graph: _Graph) -> None:
     from vaft.plot.backend import dd
 
     origin = "vaft.plot.registry"
+    rescaled: list[tuple[str, str]] = []
     for spec in sorted(registry.specs(status=None), key=lambda s: s.name):
         plot_id = f"plot:{spec.name}"
         graph.node(plot_id, "plot", spec.name, origin, view=spec.view, domain=spec.domain,
@@ -309,6 +323,7 @@ def _plots(graph: _Graph) -> None:
         elif quantity_id and quantity_id != subject_id:
             graph.edge(quantity_id, plot_id, "visualized_by", origin)
         data_paths = []
+        transformed = False
         for path in dd.dd_paths(spec.name):
             node = _dd(graph, path.canonical, origin)
             if node is None:
@@ -316,15 +331,28 @@ def _plots(graph: _Graph) -> None:
             graph.edge(plot_id, node, "reads", origin)
             if path.role == "data":
                 data_paths.append(node)
+            elif path.role == "divisor":
+                transformed = True
         # The one unambiguous representation rule: a plot of a single quantity
-        # that reads exactly one quantity path shows where that quantity lives.
+        # that reads exactly one quantity path, as stored, shows where that
+        # quantity lives.  A path the plot divides by another (B_t from
+        # tf.b_field_tor_vacuum_r, which is R0 B0 in T m) stores a different
+        # quantity: the plotted one is derived from whatever that path represents.
         if spec.quantity:
             drawn = quantity_id  # an unresolved quantity never falls back to the subject
         else:
             drawn = subject_id if subject_id.startswith("concept:") else None
         concept_kind = graph.nodes[drawn]["facets"].get("concept_kind") if drawn else None
         if drawn and concept_kind == "quantity" and len(set(data_paths)) == 1:
-            graph.edge(drawn, data_paths[0], "represented_by", origin)
+            if transformed:
+                rescaled.append((drawn, data_paths[0]))
+            else:
+                graph.edge(drawn, data_paths[0], "represented_by", origin)
+    for drawn, path in rescaled:
+        stored = sorted(e["source"] for e in graph.edges.values()
+                        if e["kind"] == "represented_by" and e["target"] == path and e["source"] != drawn)
+        for source in stored:
+            graph.edge(drawn, source, "derived_from", origin)
 
 
 def _diagnostics(graph: _Graph) -> None:
@@ -540,6 +568,138 @@ def _semantics(graph: _Graph) -> None:
                     graph.edge(api, target, relation, origin)
 
 
+#: Data Dictionary paths that store exactly one vocabulary quantity, as stored, where the plot rule
+#: cannot see it because no single-quantity plot reads the path alone.  ``quantity -> paths``.  The
+#: tests hold each path to the Data Dictionary's own unit and definition.
+DECLARED_REPRESENTATIONS = {
+    # "Vacuum toroidal field at R0 [T]": B0 itself, whereas tf/b_field_tor_vacuum_r is R0 B0 [T m]
+    "b_t": ("equilibrium/vacuum_toroidal_field/b0", "core_profiles/vacuum_toroidal_field/b0"),
+}
+
+
+def _declared_representations(graph: _Graph) -> None:
+    origin = "vaft._ontology_graph"
+    for quantity, paths in DECLARED_REPRESENTATIONS.items():
+        target = resolve_term(quantity, quantities_only=True)
+        if target is None:
+            raise OntologyError(f"DECLARED_REPRESENTATIONS names {quantity}, which is no quantity of the vocabulary")
+        for path in paths:
+            node = _dd(graph, path, origin)
+            if node is None:
+                raise OntologyError(f"DECLARED_REPRESENTATIONS names {path}, which is not in the Data Dictionary")
+            graph.edge(target, node, "represented_by", origin)
+
+
+#: Data-facing routines outside the formula and process catalogs: the formulas
+#: (``"category.name"``) each *applies* and the Data Dictionary paths it *reads*
+#: to select their inputs.  Their ``Semantics`` section says what they consume
+#: and produce.  The tests check that each routine calls every formula and
+#: names every path listed here.
+DATA_ROUTINES = {
+    "vaft.omas.edge_q.edge_q_estimate": {
+        "applies": (
+            "equilibrium.estimated_q95",
+            "equilibrium.normalized_plasma_current",
+            "equilibrium.q_star_cylindrical",
+            "equilibrium.q_star_kink",
+        ),
+        # source="equilibrium": the boundary shape (or its outline), I_p and R0 B0 of each time slice;
+        # source="magnetics": the measured I_p and the tf field R0 B0; q_95 is returned beside the estimate
+        "reads": (
+            "equilibrium/time_slice(:)/boundary/minor_radius",
+            "equilibrium/time_slice(:)/boundary/geometric_axis/r",
+            "equilibrium/time_slice(:)/boundary/elongation",
+            "equilibrium/time_slice(:)/boundary/triangularity",
+            "equilibrium/time_slice(:)/boundary/outline/r",
+            "equilibrium/time_slice(:)/boundary/outline/z",
+            "equilibrium/time_slice(:)/global_quantities/ip",
+            "equilibrium/time_slice(:)/global_quantities/q_95",
+            "equilibrium/vacuum_toroidal_field/b0",
+            "equilibrium/vacuum_toroidal_field/r0",
+            "magnetics/ip(:)/data",
+            "tf/b_field_tor_vacuum_r/data",
+        ),
+    },
+}
+
+
+def _data_routines(graph: _Graph) -> None:
+    """The ``Semantics`` sections of :data:`DATA_ROUTINES`, held to the same contract."""
+    from vaft._semantics import parse_semantics
+    from vaft.process._docstring import parse_docstring
+
+    origin = "vaft.omas"
+    for dotted, declared in DATA_ROUTINES.items():
+        module, _, name = dotted.rpartition(".")
+        function = getattr(importlib.import_module(module), name)
+        semantics, errors = parse_semantics(parse_docstring(function.__doc__).section("Semantics"))
+        if errors or semantics is None:
+            raise OntologyError(f"{dotted} is listed in DATA_ROUTINES but its Semantics section "
+                                f"is {'missing' if not errors else '; '.join(errors)}")
+        api = _api(graph, dotted, origin, "data routine")
+        for key in declared["applies"]:
+            graph.edge(api, _formula_api(graph, key, origin), "applies", origin)
+        for path in declared["reads"]:
+            node = _dd(graph, path, origin)
+            if node is None:
+                raise OntologyError(f"{dotted} reads {path}, which is not in the Data Dictionary")
+            graph.edge(api, node, "reads", origin)
+        for relation, terms in (("consumes", semantics.consumes), ("produces", semantics.produces)):
+            for term in terms:
+                target = resolve_term(term, quantities_only=True)
+                if target is None:
+                    raise OntologyError(f"{dotted} Semantics {relation} {term!r}, which is no quantity of the "
+                                        "vocabulary (vaft.plot.taxonomy)")
+                graph.edge(api, target, relation, origin)
+
+
+def _boundaries(graph: _Graph) -> None:
+    """Operational boundaries and guidelines: what each bounds, from what, and where it holds.
+
+    A boundary quantity reaches the vocabulary only through the ``concept`` it
+    declares (#2163), never through its name: ``concept=None`` is a statement
+    (|I_p| in MA is a magnitude, not the signed ``plasma_current``), so such a
+    quantity gets no edge and is listed on the boundary as ``unlinked``.
+    """
+    from vaft.formula import boundaries
+
+    origin = "vaft.formula.boundaries"
+
+    def concept(quantity) -> Optional[str]:
+        if quantity.concept is None:
+            return None
+        resolved = resolve_term(quantity.concept, quantities_only=True)
+        if resolved is None:
+            raise OntologyError(f"boundary quantity {quantity.name} declares concept {quantity.concept}, "
+                                "which the vocabulary lacks")
+        return resolved
+
+    for key in boundaries.list_boundaries():
+        entry = boundaries.get_boundary(key)
+        if not isinstance(entry, boundaries.Boundary):
+            continue  # a window pairs two boundaries; it bounds nothing of its own
+        node_id = f"boundary:{key}"
+        applicability = entry.applicability
+        unlinked = [q.name for q in (entry.target, *entry.inputs) if q.concept is None]
+        graph.node(node_id, "boundary", key, origin, family=entry.family, boundary_kind=entry.kind,
+                   form=entry.form, allowed_side=entry.allowed_side, hardness=entry.hardness,
+                   coefficient=entry.coefficient if entry.form == "threshold" else None,
+                   source_origin=entry.origin, basis=entry.basis, event=entry.event,
+                   bounded_quantity=entry.target.name, unit=entry.target.unit, unlinked=unlinked,
+                   machine_class=applicability.machine_class,
+                   ranges={name: list(bounds) for name, bounds in sorted(applicability.ranges.items())} or None,
+                   assumptions=list(applicability.assumptions),
+                   references=[source.citation + (f", doi:{source.doi}" if source.doi else "")
+                               for source in entry.sources])
+        target = concept(entry.target)
+        if target:
+            graph.edge(node_id, target, "bounds", origin)
+        for quantity in entry.inputs:
+            source = concept(quantity)
+            if source:
+                graph.edge(node_id, source, "consumes", origin)
+
+
 def _orderings(graph: _Graph) -> None:
     """Approximation contracts, the ordering quantities they assume and their kernels."""
     from vaft.validation import orderings
@@ -602,18 +762,22 @@ def ontology_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
     graph = _Graph()
     _taxonomy(graph)
     _plots(graph)
+    _declared_representations(graph)
     _diagnostics(graph)
     _validation(graph)
     _conventions(graph)
     _external_codes(graph)
     _reductions(graph)
     _semantics(graph)
+    _data_routines(graph)
     _orderings(graph)
+    _boundaries(graph)
     _ambiguous_aliases(graph)
     _views(graph)
 
     import vaft.data.cocos as cocos_module
     import vaft.formula._taxonomy as reduction_module
+    import vaft.formula.boundaries as boundaries_module
     import vaft.plot.taxonomy as taxonomy_module
     import vaft.validation.orderings as orderings_module
     import vaft.validation.registry as validation_module
@@ -624,6 +788,7 @@ def ontology_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
         _ROOT / "vaft" / "machine_mapping" / "vest.yaml", _ROOT / "vaft" / "_ecosystem.py",
         _ROOT / "vaft" / "plot" / "registry.py", _ROOT / "vaft" / "plot" / "backend" / "dd.py",
         Path(reduction_module.__file__).resolve(), Path(orderings_module.__file__).resolve(),
+        Path(boundaries_module.__file__).resolve(),
     ]
     nodes = sorted(graph.nodes.values(), key=lambda n: n["id"])
     for node in nodes:
