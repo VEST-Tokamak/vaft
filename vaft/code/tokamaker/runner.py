@@ -23,6 +23,8 @@ from typing import Any
 
 import numpy as np
 
+from vaft.formula.constants import MU0
+
 from ._oft import get_oft_env, import_oft
 from .config import TokaMakerConfig, TokaMakerInputs, TokaMakerResult
 from .mesh import build_tokamaker_mesh
@@ -349,6 +351,19 @@ def _initial_current_density(equilibrium, points):
     return current
 
 
+def _seed_rhs_source(equilibrium, points):
+    """Native ``vac_solve`` source [mu0 A/m^2] for the physical Jphi seed.
+
+    OFT stores every current in mu0-scaled units: ``set_coil_currents``
+    multiplies the amperes by mu0 before the vacuum solve, but the optional
+    ``rhs_source`` of ``vac_solve`` is integrated as given. Passing the
+    physical density in A/m^2 therefore made the seed flux 1/mu0 (~8e5)
+    times too large, which put the seeded axis and limiting point in the
+    wrong place and ended VEST solves with "Matrix solve failed for targets".
+    """
+    return MU0 * _initial_current_density(equilibrium, points)
+
+
 def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig, *, refinement=None,
                   verify_refinement: bool = False) -> TokaMakerResult:
     """Execute a forward solve and collect the produced outputs.
@@ -423,8 +438,9 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig, *, refinemen
             mygs.set_targets(Ip=seed_ip)
         if config.init_equilibrium is not None:
             # curr_source in init_psi is an assembled FE load, not nodal J.
-            # vac_solve(rhs_source=...) integrates physical density natively.
-            seed = mygs.vac_solve(rhs_source=_initial_current_density(config.init_equilibrium, mygs.r[:, :2]))
+            # vac_solve(rhs_source=...) integrates a nodal source natively, in
+            # the solver's mu0-scaled current units (see _seed_rhs_source).
+            seed = mygs.vac_solve(rhs_source=_seed_rhs_source(config.init_equilibrium, mygs.r[:, :2]))
             psi = seed.get_psi(normalized=False) if hasattr(seed, "get_psi") else seed
             mygs.set_psi(psi, update_bounds=True)
         else:
