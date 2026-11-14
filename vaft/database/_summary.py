@@ -204,6 +204,9 @@ NEOCLASSICAL_COLUMNS = (
 
 #: ``core_transport_identifier`` index of a neoclassical model (data dictionary).
 NEOCLASSICAL_MODEL_INDEX = 5
+#: Closed-form neoclassical entries share identifier 5 but are no NEO flux product;
+#: equal to ``vaft.machine_mapping.neoclassical.CHANG_HINTON_CODE_NAME``.
+_CLOSED_FORM_NEOCLASSICAL_PRODUCERS = ("vaft.process.transport_state.chang_hinton_heat_flux",)
 
 NEOCLASSICAL_PATHS = (
     "core_profiles",
@@ -855,7 +858,8 @@ def _neoclassical_transport(ods, time_s: float) -> dict:
     failure is a named status rather than a fallback:
 
     - the slice time is known (``bootstrap_time_unknown``);
-    - exactly one ``core_transport`` model is neoclassical, identifier 5
+    - exactly one ``core_transport`` model is neoclassical, identifier 5, not
+      counting a closed-form entry VAFT evaluated itself (Chang-Hinton)
       (``no_neoclassical_model`` / ``ambiguous_models``; never the first);
     - exactly one of its slices is within 1 us of that time
       (``no_slice_at_time`` / ``ambiguous_slices``; never the nearest);
@@ -881,6 +885,8 @@ def _neoclassical_transport(ods, time_s: float) -> dict:
         index for index in range(count)
         if _as_float(_stored_value(ods, f"core_transport.model.{index}.identifier.index"))
         == NEOCLASSICAL_MODEL_INDEX
+        and _stored_value(ods, f"core_transport.model.{index}.code.name")
+        not in _CLOSED_FORM_NEOCLASSICAL_PRODUCERS
     ]
     if not models:
         return {**out, "transport_match_status": "no_neoclassical_model"}

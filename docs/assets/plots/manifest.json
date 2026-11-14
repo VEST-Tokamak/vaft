@@ -1322,6 +1322,18 @@
       "shot": 48224,
       "status": "rendered"
     },
+    "transport_hierarchy_overview": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "transport_hierarchy_profile_electron_energy_flux": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "transport_hierarchy_profile_ion_energy_flux": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
     "turbulent_transport_overview": {
       "reason": "no packaged sample carries the data this plot needs",
       "status": "no_sample"

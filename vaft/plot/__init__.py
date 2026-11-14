@@ -364,6 +364,11 @@ from .renderers.gyrokinetics import (
     turbulent_transport_profile_energy_flux,
     turbulent_transport_profile_particle_flux,
 )
+from .renderers.transport_hierarchy import (
+    transport_hierarchy_overview,
+    transport_hierarchy_profile_electron_energy_flux,
+    transport_hierarchy_profile_ion_energy_flux,
+)
 from .renderers.panels import (
     chease_overview_profile_validity,
     chease_overview_refinement_summary,

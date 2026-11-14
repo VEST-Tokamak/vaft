@@ -21,6 +21,9 @@ import pytest
 
 from vaft.formula.neoclassical import (
     BootstrapCoefficients,
+    ChangHintonCoefficients,
+    chang_hinton_ion_heat_coefficients,
+    chang_hinton_ion_heat_flux,
     coulomb_logarithm_electron_sauter,
     coulomb_logarithm_ion_sauter,
     electron_collisionality_sauter,
@@ -677,3 +680,162 @@ def test_the_two_spitzer_conventions_diverge_at_higher_charge():
     mine = sauter_spitzer_conductivity(T_e, Z_eff, ln_Lambda)
     theirs = 1.0 / spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e, Z_eff, ln_Lambda)
     assert 1.15 < mine / theirs < 1.45
+
+
+# --------------------------------------------------------------------------
+# Chang-Hinton ion heat flux, against NEO's own compute_CH
+# --------------------------------------------------------------------------
+
+#: Stored runs that carry their input.gacode, so the Shafranov-shift derivative
+#: NEO used can be rebuilt; reg18 (conventional, carbon), VEST 48224 with hydrogen
+#: only (Z_eff = 1, K1 = 0) and with carbon at Z_eff = 2 (K1 active).
+CHANG_HINTON_RUNS = ("neo_reg18", "neo_vest_48224_profile", "neo_vest_48224_carbon")
+
+#: Where each run's geometry lives. The hydrogen-only VEST run stored no
+#: input.gacode; its carbon twin is the same equilibrium (asserted below by
+#: `test_vest_chang_hinton_runs_share_one_geometry`), so the shift is read there.
+_GEOMETRY_SOURCE = {"neo_vest_48224_profile": "neo_vest_48224_carbon"}
+
+
+def _chang_hinton_against_neo(name: str):
+    """VAFT's SI Chang-Hinton flux and NEO's `out.neo.theory` value, both in W/m^2.
+
+    Every input is NEO's own (out.neo.equil, expnorm, species); only the shift is
+    rebuilt, from the run's input.gacode through the TGLF local-input derivative
+    (`bound_deriv` then spline -- GACODE's own order), because NEO does not write it.
+    """
+    from vaft.code.gacode import tglf
+    from vaft.code.gacode._input_gacode import read_input_gacode
+    from vaft.code.gacode.neo.outputs import collect_neo_outputs
+    from vaft.formula.constants import AMU, QE
+
+    directory = FIXTURES / name
+    run = collect_neo_outputs(directory)
+    eq, norm = run.equilibrium, run.normalisation
+    r = np.atleast_1d(run.grid.r_over_a)
+    a = norm.a_meters
+    v_norm = norm.velocity_norm_times_a  # sqrt(T_norm/m_D) [m/s], despite the name
+    ions = run.species_charge > 0
+    main = int(np.flatnonzero(ions)[np.argmax(eq["density"][ions][:, 0])])
+    electrons = eq["density"][~ions][0]
+    z_eff = (eq["density"][ions] * run.species_charge[ions, None] ** 2).sum(axis=0) / electrons
+    profile = read_input_gacode(FIXTURES / _GEOMETRY_SOURCE.get(name, name) / "input.gacode")
+    shift = np.array([tglf.prepare_tglf_input(profile, float(x)).drmajdx_loc for x in r])
+    # NEO's nu(is) is in units of v_norm/a; Hinton-Hazeltine's nu_ii is (4/3)/sqrt(2 pi) of it.
+    nu_ii = eq["collision_rate"][main] * v_norm / a * (4.0 / 3.0) / np.sqrt(2.0 * np.pi)
+    flux = chang_hinton_ion_heat_flux(
+        n_i=eq["density"][main] * norm.density_norm * 1e19,
+        T_i=eq["temperature"][main] * norm.temperature_norm * 1e3,
+        A_i=3.34358e-27 * run.species_mass[main] / AMU,
+        Z_i=run.species_charge[main],
+        B=norm.b_unit,
+        q=eq["q"],
+        R=eq["rmaj_over_a"] * a,
+        epsilon=r / eq["rmaj_over_a"],
+        nu_ii=nu_ii,
+        Z_eff=np.maximum(z_eff, 1.0),
+        dlnT_i_dr=-eq["dlntdr"][main] / a,
+        dln_n_i_dr=-eq["dlnndr"][main] / a,
+        shift=shift,
+    )
+    scale = norm.density_norm * 1e19 * norm.temperature_norm * 1e3 * QE * v_norm
+    return np.atleast_1d(flux), np.atleast_1d(run.theory["chang_hinton_ion_energy_flux"]) * scale, z_eff
+
+
+@pytest.mark.parametrize("name", CHANG_HINTON_RUNS)
+def test_chang_hinton_reproduces_neo(name):
+    """The SI flux equals NEO's `compute_CH` at every solved surface.
+
+    1e-4 rather than NEO's eight printed figures: NEO's own constants are rounded
+    (``charge_norm_fac = 1.6022``, ``mass_deuterium = 3.34358``) and b_unit is read
+    back from e16.8, which together leave a uniform 1.4e-5 offset.
+    """
+    ours, neo, _ = _chang_hinton_against_neo(name)
+    assert ours == pytest.approx(neo, rel=1e-4)
+
+
+def test_vest_chang_hinton_runs_share_one_geometry():
+    """The hydrogen and carbon VEST runs solve the same surfaces of one equilibrium."""
+    hydrogen = np.loadtxt(FIXTURES / "neo_vest_48224_profile" / "out.neo.equil")
+    carbon = np.loadtxt(FIXTURES / "neo_vest_48224_carbon" / "out.neo.equil")
+    # r/a, q, rho_star and R/a: the first five columns bar dphi0/dr.
+    np.testing.assert_allclose(hydrogen[:, [0, 2, 3, 4]], carbon[:, [0, 2, 3, 4]], rtol=1e-7)
+
+
+def test_chang_hinton_fixtures_exercise_the_impurity_terms():
+    """Guard the fixtures: one VEST run at Z_eff = 1 (K1 = 0) and one at 2."""
+    _, _, hydrogen = _chang_hinton_against_neo("neo_vest_48224_profile")
+    _, _, carbon = _chang_hinton_against_neo("neo_vest_48224_carbon")
+    assert hydrogen == pytest.approx(1.0, abs=1e-6)
+    assert carbon == pytest.approx(2.0, abs=1e-6)
+
+
+def test_chang_hinton_without_impurity_has_no_k1_and_the_banana_limit():
+    """At Z_eff = 1 K1 vanishes; at nu* -> 0, epsilon -> 0 K2 -> k0 = 0.66,
+    Hinton and Hazeltine's banana-regime ion coefficient."""
+    k1, k2 = chang_hinton_ion_heat_coefficients(1e-8, 0.0, 1.0)
+    assert isinstance(chang_hinton_ion_heat_coefficients(0.1, 0.1, 1.0), ChangHintonCoefficients)
+    assert k1 == 0.0
+    assert k2 == pytest.approx(0.66, rel=1e-3)
+
+
+def test_chang_hinton_collisions_reduce_k2():
+    """K2 falls monotonically from banana into Pfirsch-Schlueter collisionality."""
+    k2 = chang_hinton_ion_heat_coefficients(0.3, np.array([0.01, 0.1, 1.0, 10.0]), 1.0).K2
+    assert np.all(np.diff(k2) < 0.0)
+
+
+def _ch_flux(**overrides):
+    arguments = dict(n_i=1e19, T_i=10.0, A_i=1.0, Z_i=1.0, B=0.3, q=3.0, R=0.4,
+                     epsilon=0.4, nu_ii=1e5, Z_eff=2.0, dlnT_i_dr=-5.0, dln_n_i_dr=-2.0)
+    arguments.update(overrides)
+    return chang_hinton_ion_heat_flux(**arguments)
+
+
+def test_chang_hinton_flux_runs_down_the_temperature_gradient():
+    assert _ch_flux(Z_eff=1.0) > 0.0
+    assert _ch_flux(Z_eff=1.0, dlnT_i_dr=5.0) < 0.0
+    assert _ch_flux(dlnT_i_dr=0.0, dln_n_i_dr=0.0) == 0.0
+
+
+def test_chang_hinton_field_enters_as_its_magnitude_and_inverse_square():
+    assert _ch_flux(B=-0.3) == pytest.approx(_ch_flux(B=0.3))
+    assert _ch_flux(B=0.6) == pytest.approx(_ch_flux(B=0.3) / 4.0)
+
+
+@pytest.mark.parametrize("bad", [dict(epsilon=1.2), dict(Z_eff=0.5), dict(n_i=0.0),
+                                 dict(B=0.0), dict(q=0.0), dict(nu_ii=-1.0),
+                                 dict(dlnT_i_dr=np.nan)])
+def test_chang_hinton_rejects_input_outside_its_domain(bad):
+    with pytest.raises(ValueError):
+        _ch_flux(**bad)
+
+
+# reg18 is left out on purpose: it runs ROTATION_MODEL=2, under which NEO re-solves the
+# ion densities and their gradients (n_H/n_e 0.818 against the profile's 0.801, a/L_n
+# 0.73 against 0.69), so its compute_CH is evaluated on a different plasma from the
+# input.gacode one. The formula-level test above covers reg18 from NEO's own inputs.
+@pytest.mark.parametrize("name", ("neo_vest_48224_carbon",))
+def test_chang_hinton_process_wrapper_reproduces_neo_from_the_profile(name):
+    """The whole wrapper, not just the formula: a TGLF local input built from the run's
+    own input.gacode, through `chang_hinton_heat_flux` (its nu_ii, ln Lambda, main ion,
+    species-list Z_eff, B_unit and gradient signs), against NEO's `compute_CH`.
+
+    Half a percent: the local input interpolates the profile, NEO evaluates it on its
+    own grid; the observed residual on 48224 is 0.03-0.3 %.
+    """
+    from vaft.code.gacode import tglf
+    from vaft.code.gacode._input_gacode import read_input_gacode
+    from vaft.code.gacode.neo.outputs import collect_neo_outputs
+    from vaft.formula.constants import QE
+    from vaft.process.transport_state import chang_hinton_heat_flux
+
+    run = collect_neo_outputs(FIXTURES / name)
+    norm = run.normalisation
+    scale = norm.density_norm * 1e19 * norm.temperature_norm * 1e3 * QE * norm.velocity_norm_times_a
+    neo = np.atleast_1d(run.theory["chang_hinton_ion_energy_flux"]) * scale
+    profile = read_input_gacode(FIXTURES / name / "input.gacode")
+    ours = np.array([next(iter(chang_hinton_heat_flux(
+        tglf.prepare_tglf_input(profile, float(r)))["ion_energy_flux_W_m2"].values()))
+        for r in np.atleast_1d(run.grid.r_over_a)])
+    assert ours == pytest.approx(neo, rel=5e-3)

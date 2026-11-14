@@ -77,8 +77,10 @@ from omas import ODS
 from vaft.ods_access import path_count
 
 __all__ = [
+    "CHANG_HINTON_CODE_NAME",
     "NEOCLASSICAL_MODEL_INDEX",
     "core_profiles_from_neo",
+    "core_transport_from_chang_hinton",
     "core_transport_from_neo",
 ]
 
@@ -87,6 +89,16 @@ __all__ = [
 NEOCLASSICAL_MODEL_INDEX = 5
 NEOCLASSICAL_MODEL_NAME = "neoclassical"
 NEOCLASSICAL_MODEL_DESCRIPTION = "Neoclassical transport, from the NEO drift-kinetic solver"
+
+#: The closed-form neoclassical entry's producer. It shares identifier 5 with NEO
+#: (it is the same physics model, evaluated differently), so the producer name is
+#: what keeps the two entries apart: NEO's mapper never reuses it, and the
+#: neoclassical database summary does not count it as a NEO flux product.
+CHANG_HINTON_CODE_NAME = "vaft.process.transport_state.chang_hinton_heat_flux"
+CHANG_HINTON_MODEL_DESCRIPTION = (
+    "Neoclassical transport, closed form: Chang-Hinton ion heat flux with the Z_eff "
+    "correction (conductive main-ion flux only)"
+)
 
 #: NEO's energy flux is the *total* one (``neo_run.f90:95`` assigns
 #: ``neo_dke_out(is,2) = eflux(is)``, documented ``Q_is/Q_norm total``), so the
@@ -812,12 +824,17 @@ def _nuclear_charge(
 
 
 def _model_position(ods: ODS) -> int:
-    """Index of the neoclassical entry in ``core_transport.model``, appending if new."""
+    """Index of NEO's neoclassical entry in ``core_transport.model``, appending if new.
+
+    A closed-form neoclassical entry (:data:`CHANG_HINTON_CODE_NAME`) carries the same
+    identifier but is not NEO's, and is never overwritten here.
+    """
     count = path_count(ods, "core_transport.model")
     for index in range(count):
         if (
             ods.get(f"core_transport.model.{index}.identifier.index", None)
             == NEOCLASSICAL_MODEL_INDEX
+            and ods.get(f"core_transport.model.{index}.code.name", None) != CHANG_HINTON_CODE_NAME
         ):
             return index
     return count
@@ -888,3 +905,161 @@ def _write_provenance(
         ods[path] = existing.rstrip()[: -len("</parameters>")] + fragment + "</parameters>"
     else:
         ods[path] = existing + fragment
+
+
+def _chang_hinton_envelope(model: Any, slices: list) -> str:
+    import json
+    import xml.etree.ElementTree as ET
+
+    root = ET.Element("parameters")
+    node = ET.SubElement(root, "chang_hinton")
+    ET.SubElement(node, "formulation").text = json.dumps(model, sort_keys=True)
+    ET.SubElement(node, "energy_flux", flux_multiplier="0",
+                  definition="conductive main-ion heat flux only; the closed form evaluates "
+                             "no particle flux, so the convective part is absent, not zero")
+    for time_s, identity in slices:
+        ET.SubElement(node, "slice", time=repr(float(time_s)), state_identity=identity or "")
+    return ET.tostring(root, encoding="unicode")
+
+
+def _chang_hinton_slices(text: Any) -> list:
+    import xml.etree.ElementTree as ET
+
+    if not text:
+        return []
+    try:
+        node = ET.fromstring(str(text)).find("chang_hinton")
+    except ET.ParseError:
+        return []
+    if node is None:
+        return []
+    return [(float(entry.get("time", "nan")), entry.get("state_identity") or None)
+            for entry in node.findall("slice")]
+
+
+def core_transport_from_chang_hinton(
+    ods: ODS,
+    records: Any,
+    profile: Any,
+    *,
+    time: float,
+    state_identity: str,
+) -> dict[str, Any]:
+    """Write closed-form (Chang-Hinton) neoclassical ion heat fluxes into ``core_transport``.
+
+    The entry is neoclassical (identifier 5), like NEO's, and is told apart from it
+    by ``code.name`` = :data:`CHANG_HINTON_CODE_NAME`; a second call for the same
+    state and time rewrites the same slice.
+
+    Parameters
+    ----------
+    ods
+        The ODS to write into.
+    records
+        Per-surface results of
+        :func:`vaft.process.transport_state.chang_hinton_heat_flux`, in any order.
+        A surface without a finite flux is dropped and named.
+    profile
+        The GACODE profile the records were built from, for the ``r/a`` to
+        ``rho_tor_norm`` bridge.
+    time
+        The slice time [s]; a different state already stored at that time is
+        refused, never overwritten.
+    state_identity
+        The resolved state's identity; without one nothing is written.
+
+    Returns
+    -------
+    dict
+        ``{"model": int | None, "profile_index": int | None, "written": [...],
+        "skipped": [...]}``.
+    """
+    import math
+
+    from vaft.machine_mapping.turbulence import _rho_tor_norm
+
+    written: list[str] = []
+    skipped: list[str] = []
+    result = {"model": None, "profile_index": None, "written": written, "skipped": skipped}
+    if not state_identity:
+        skipped.append("everything (no state_identity: rows from different states at one "
+                       "time could not be told apart)")
+        return result
+    usable = []
+    for record in records:
+        fluxes = record.get("ion_energy_flux_W_m2") or {}
+        if len(fluxes) != 1 or not all(math.isfinite(float(v)) for v in fluxes.values()):
+            skipped.append(f"r/a = {record.get('r_over_a')} (no finite single main-ion flux)")
+            continue
+        usable.append(record)
+    if not usable:
+        skipped.append("everything (no surface carried a finite result)")
+        return result
+    keys = {next(iter(record["ion_energy_flux_W_m2"])) for record in usable}
+    if len(keys) != 1:
+        skipped.append(f"everything (the surfaces disagree on the main ion: {sorted(keys)})")
+        return result
+    key = keys.pop()
+    z_ion = float(key.split("=", 1)[1])
+    usable.sort(key=lambda record: float(record["r_over_a"]))
+    radii = np.array([float(record["r_over_a"]) for record in usable])
+    if np.any(np.diff(radii) <= 0.0):
+        skipped.append("everything (two records share one surface)")
+        return result
+    grid = _rho_tor_norm(profile, radii)
+    if grid is None:
+        skipped.append("everything (the profile carries no rmin/rho pair, so r/a cannot be "
+                       "expressed as rho_tor_norm)")
+        return result
+
+    count = path_count(ods, "core_transport.model")
+    model = next((index for index in range(count)
+                  if ods.get(f"core_transport.model.{index}.identifier.index", None)
+                  == NEOCLASSICAL_MODEL_INDEX
+                  and ods.get(f"core_transport.model.{index}.code.name", None)
+                  == CHANG_HINTON_CODE_NAME), count)
+    prefix = f"core_transport.model.{model}"
+    slices = _chang_hinton_slices(ods.get(f"{prefix}.code.parameters", None)) if model < count else []
+    matches = [i for i, (t, _) in enumerate(slices) if abs(t - float(time)) <= _TIME_TOLERANCE_S]
+    if matches:
+        profile_index = matches[0]
+        if slices[profile_index][1] != state_identity:
+            skipped.append(f"everything (time {time} s already holds state "
+                           f"{slices[profile_index][1]!r}; a second state is not overwritten)")
+            return result
+    else:
+        profile_index = len(slices)
+        slices.append((float(time), state_identity))
+
+    _ensure_aos(ods, "core_transport.model", model)
+    ods[f"{prefix}.identifier.index"] = NEOCLASSICAL_MODEL_INDEX
+    ods[f"{prefix}.identifier.name"] = NEOCLASSICAL_MODEL_NAME
+    ods[f"{prefix}.identifier.description"] = CHANG_HINTON_MODEL_DESCRIPTION
+    ods[f"{prefix}.flux_multiplier"] = FLUX_MULTIPLIER
+    ods[f"{prefix}.code.name"] = CHANG_HINTON_CODE_NAME
+    ods[f"{prefix}.code.repository"] = "https://github.com/VEST-Tokamak/vaft"
+    try:
+        from vaft import __version__
+
+        ods[f"{prefix}.code.version"] = str(__version__)
+    except ImportError:  # pragma: no cover - the package always defines it
+        pass
+    ods[f"{prefix}.code.parameters"] = _chang_hinton_envelope(usable[0].get("model"), slices)
+    base = f"{prefix}.profiles_1d.{profile_index}"
+    _ensure_aos(ods, f"{prefix}.profiles_1d", profile_index)
+    ods[f"{base}.time"] = float(time)
+    ods[f"{base}.grid_flux.rho_tor_norm"] = grid
+    ods[f"{base}.ion.0.energy.flux"] = np.array(
+        [float(record["ion_energy_flux_W_m2"][key]) for record in usable])
+    ods[f"{base}.ion.0.z_ion"] = z_ion
+    ods[f"{base}.ion.0.element.0.z_n"] = z_ion
+    written.append("ion.0.energy.flux")
+    skipped += [
+        "electrons.energy.flux (no closed-form electron neoclassical heat flux is evaluated)",
+        "particles.flux (not evaluated, not zero)",
+        "impurity ions (the closed form covers the main ion only)",
+    ]
+    # Each slice carries its own time, as the classical and NEO entries' do.
+    ods["core_transport.ids_properties.homogeneous_time"] = 0
+    result.update(model=model, profile_index=profile_index)
+    return result

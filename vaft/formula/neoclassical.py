@@ -1,4 +1,4 @@
-r"""Analytic neoclassical transport formulas: Sauter and Redl.
+r"""Analytic neoclassical transport formulas: Sauter, Redl and Chang-Hinton.
 
 Bootstrap current and parallel conductivity from fitted analytic models, as an
 independent reference for the drift-kinetic solvers driven through
@@ -22,6 +22,12 @@ whose pieces are :func:`sauter_neoclassical_conductivity` (or its Redl
 counterpart) and :func:`sauter_bootstrap_current` (or its Redl counterpart).
 They are kept apart because an inductive electric field is a state a caller may
 or may not have.
+
+Neither Sauter nor Redl carries a particle or heat flux.  The closed-form
+neoclassical *heat* flux here is Chang and Hinton's ion conductivity,
+:func:`chang_hinton_ion_heat_flux`, with the impurity (``Z_eff``) correction and
+the finite-aspect-ratio geometry factors NEO's own ``neo_theory.f90`` evaluates
+for comparison with its drift-kinetic solution.
 
 Notation
 --------
@@ -59,6 +65,7 @@ References
        (erratum).
 .. [3] A. Redl, C. Angioni, E. Belli and O. Sauter, Phys. Plasmas 28 (2021)
        022502.
+.. [4] C. S. Chang and F. L. Hinton, Phys. Fluids 25 (1982) 1493.
 """
 
 from __future__ import annotations
@@ -67,10 +74,13 @@ from typing import NamedTuple, Union
 
 import numpy as np
 
-from .constants import COLLISIONALITY_COEF
+from .constants import AMU, COLLISIONALITY_COEF, QE
 
 __all__ = [
     "BootstrapCoefficients",
+    "ChangHintonCoefficients",
+    "chang_hinton_ion_heat_coefficients",
+    "chang_hinton_ion_heat_flux",
     "banana_width",
     "collisions_per_transit",
     "deeply_trapped_bounce_frequency",
@@ -1630,3 +1640,241 @@ def neoclassical_regime_boundaries(epsilon: Numeric):
     epsilon = _validate_epsilon(epsilon)
     return _maybe_scalar(epsilon**1.5), _maybe_scalar(np.ones_like(epsilon))
 
+
+
+class ChangHintonCoefficients(NamedTuple):
+    """The two dimensionless coefficients of the Chang-Hinton ion heat flux.
+
+    ``K2`` multiplies the ion temperature gradient alone; ``K1`` is the impurity
+    correction, zero at ``Z_eff = 1``, and multiplies both the temperature and the
+    density gradient.  Each field is an array when any input was an array.
+    """
+
+    K1: Numeric
+    K2: Numeric
+
+
+def _chang_hinton_geometry(epsilon: np.ndarray, shift: np.ndarray):
+    """Chang-Hinton's <1/B^2> and 1/<B^2> (normalised to B_0) and F_2, Eq. (A11)."""
+    inverse_mean = (
+        1.0 + 1.5 * (epsilon**2 + epsilon * shift) + 0.375 * epsilon**3 * shift
+    ) / (1.0 + 0.5 * epsilon * shift)
+    root = np.sqrt(1.0 - epsilon**2)
+    mean_inverse = (root * (1.0 + 0.5 * epsilon * shift)) / (
+        1.0 + (shift / epsilon) * (root - 1.0)
+    )
+    f2 = (0.5 / np.sqrt(epsilon)) * (inverse_mean - mean_inverse)
+    return inverse_mean, f2
+
+
+def chang_hinton_ion_heat_coefficients(
+    epsilon: Numeric, nu_star_i: Numeric, Z_eff: Numeric, shift: Numeric = 0.0
+) -> ChangHintonCoefficients:
+    r"""Chang-Hinton ion heat-conductivity coefficients $K_1$ and $K_2$.
+
+    $$K_2 = \frac{\left[k_0(1+1.54\alpha) + (1.88\sqrt\epsilon - 1.54\epsilon)
+      (1+3.75\alpha)\right]\langle B_0^2/B^2\rangle}{1 + a_0\sqrt{\mu_*} + b_0\mu_*}
+      + \frac{k_0\,\epsilon^{3/2}(c_0^2/b_0)\,\mu_* F_2
+      \left(1 + 1.33\alpha\frac{1+0.6\alpha}{1+1.79\alpha}\right)}{1 + c_0\epsilon^{3/2}\mu_*}$$
+
+    $$K_1 = -\alpha\,\frac{0.83 + 0.42\alpha}{0.58 + \alpha}\,
+      \frac{c_0\,\mu_*\epsilon^{3/2} F_2}{1 + c_0\,\mu_*\epsilon^{3/2}},\qquad
+      \alpha = Z_\mathrm{eff} - 1,\quad \mu_* = (1 + 1.54\alpha)\,\nu_{*i}$$
+
+    with $(k_0, a_0, b_0, c_0) = (0.66, 1.03, 0.31, 0.74)$.
+
+    Parameters
+    ----------
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R$ of the surface, in (0, 1) [-].
+    nu_star_i : float or np.ndarray
+        Ion collisionality $\nu_{ii} |q| R / (\epsilon^{3/2} v_{ti})$ with
+        $v_{ti} = \sqrt{T_i/m_i}$, non-negative [-].
+    Z_eff : float or np.ndarray
+        Effective charge, at least 1 [-].
+    shift : float or np.ndarray
+        Shafranov-shift derivative $\mathrm{d}R_0/\mathrm{d}r$ of the surface centre,
+        default 0 [-].
+
+    Returns
+    -------
+    ChangHintonCoefficients
+        ``(K1, K2)`` [-].
+
+    Raises
+    ------
+    ValueError
+        ``epsilon`` outside (0, 1), a negative or non-finite collisionality,
+        ``Z_eff`` below 1, or a non-finite shift.
+
+    Convention
+    ----------
+    The collisionality is NEO's: $v_{ti} = \sqrt{T_i/m_i}$ (``neo_make_profiles.f90``,
+    no factor two) and the Hinton-Hazeltine $\nu_{ii} = 1/\tau_i$, Braginskii's ion
+    collision time.  With $v_{ti} = \sqrt{2T_i/m_i}$ the same plasma has a
+    $\sqrt2$ smaller $\nu_{*i}$, which moves the flux by several percent on VEST.
+    Sauter's $\nu_{*i}$ (:func:`ion_collisionality_sauter`) is a third
+    normalisation; none of them is interchangeable.
+
+    Validity
+    --------
+    Empirical fit.  Chang and Hinton fitted the coefficients to numerical
+    solutions of the drift-kinetic equation over banana, plateau and
+    Pfirsch-Schlueter collisionality, for a shifted-circle equilibrium; the
+    impurity terms assume a single heavy impurity in the Pfirsch-Schlueter limit.
+    At spherical-tokamak aspect ratio it is an extrapolation of the
+    geometry factors, and NEO's drift-kinetic solution is the reference.
+
+    References
+    ----------
+    .. [1] C. S. Chang and F. L. Hinton, Phys. Fluids 25 (1982) 1493,
+           Eqs. (A10)-(A11).
+    .. [2] E. A. Belli and J. Candy, Plasma Phys. Control. Fusion 50 (2008)
+           095010; GACODE ``neo/src/neo_theory.f90`` ``compute_CH``.
+    """
+    epsilon = _validate_epsilon(epsilon)
+    nu = _validate_non_negative("nu_star_i", nu_star_i)
+    z = np.asarray(Z_eff, dtype=float)
+    if np.any(~np.isfinite(z)) or np.any(z < 1.0):
+        raise ValueError(f"Z_eff must be finite and >= 1. Got {Z_eff!r}")
+    shift_array = np.asarray(shift, dtype=float)
+    if np.any(~np.isfinite(shift_array)):
+        raise ValueError(f"shift must be finite. Got {shift!r}")
+    k0, a0, b0, c0 = 0.66, 1.03, 0.31, 0.74
+    alpha = z - 1.0
+    mu = (1.0 + 1.54 * alpha) * nu
+    inverse_mean, f2 = _chang_hinton_geometry(epsilon, shift_array)
+    eps32 = epsilon**1.5
+    k1 = (
+        -alpha * (0.83 + 0.42 * alpha) / (0.58 + alpha)
+        * (c0 * mu * eps32 * f2) / (1.0 + c0 * mu * eps32)
+    )
+    k2 = (
+        (k0 * (1.0 + 1.54 * alpha) + (1.88 * np.sqrt(epsilon) - 1.54 * epsilon) * (1.0 + 3.75 * alpha))
+        * inverse_mean / (1.0 + a0 * np.sqrt(mu) + b0 * mu)
+        + k0 * eps32 * (c0**2 / b0) * mu * f2
+        * (1.0 + 1.33 * alpha * (1.0 + 0.6 * alpha) / (1.0 + 1.79 * alpha))
+        / (1.0 + c0 * eps32 * mu)
+    )
+    return ChangHintonCoefficients(K1=_maybe_scalar(k1), K2=_maybe_scalar(k2))
+
+
+def chang_hinton_ion_heat_flux(
+    n_i: Numeric,
+    T_i: Numeric,
+    A_i: Numeric,
+    Z_i: Numeric,
+    B: Numeric,
+    q: Numeric,
+    R: Numeric,
+    epsilon: Numeric,
+    nu_ii: Numeric,
+    Z_eff: Numeric,
+    dlnT_i_dr: Numeric,
+    dln_n_i_dr: Numeric,
+    shift: Numeric = 0.0,
+) -> Numeric:
+    r"""Chang-Hinton neoclassical conductive heat flux of the main ion species.
+
+    $$q_i = -\left(\frac{q}{\epsilon}\right)^2\sqrt{\epsilon}\,\rho_i^2\,\nu_{ii}\,
+      n_i T_i\left[(K_1 + K_2)\frac{\mathrm{d}\ln T_i}{\mathrm{d}r}
+      + K_1\frac{\mathrm{d}\ln n_i}{\mathrm{d}r}\right],\qquad
+      \rho_i^2 = \frac{2 m_i T_i}{(Z_i e B)^2},\quad
+      \nu_{*i} = \frac{\nu_{ii}\,|q| R}{\epsilon^{3/2}\sqrt{T_i/m_i}}$$
+
+    with $K_1, K_2$ from :func:`chang_hinton_ion_heat_coefficients`.
+
+    Parameters
+    ----------
+    n_i : float or np.ndarray
+        Main-ion density, positive [m^-3].
+    T_i : float or np.ndarray
+        Main-ion temperature, positive [eV].
+    A_i : float or np.ndarray
+        Main-ion mass in atomic mass units, positive [-].
+    Z_i : float or np.ndarray
+        Main-ion charge, positive [-].
+    B : float or np.ndarray
+        Field magnitude that defines $\rho_i$, non-zero; its sign is ignored [T].
+    q : float or np.ndarray
+        Safety factor, non-zero [-].
+    R : float or np.ndarray
+        Major radius of the surface centre, positive [m].
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R$, in (0, 1) [-].
+    nu_ii : float or np.ndarray
+        Main-ion self-collision frequency $1/\tau_i$, e.g. the reciprocal of
+        :func:`vaft.formula.kinetic.ion_collision_time_from_T_i_n_species` with the
+        main ion alone as field species, positive [s^-1].
+    Z_eff : float or np.ndarray
+        Effective charge, at least 1 [-].
+    dlnT_i_dr : float or np.ndarray
+        Radial logarithmic ion-temperature gradient, finite [m^-1].
+    dln_n_i_dr : float or np.ndarray
+        Radial logarithmic ion-density gradient, finite [m^-1].
+    shift : float or np.ndarray
+        Shafranov-shift derivative $\mathrm{d}R_0/\mathrm{d}r$, default 0 [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Conductive ion heat flux $q_i$, positive down a falling temperature
+        [W m^-2].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input, a non-positive density, temperature, mass, charge,
+        major radius or collision frequency, a zero field or safety factor, or an
+        ``epsilon`` / ``Z_eff`` that :func:`chang_hinton_ion_heat_coefficients`
+        refuses.
+
+    Convention
+    ----------
+    The conductive part only: the total energy flux adds $\tfrac52 T_i\Gamma_i$,
+    which NEO includes and this model does not evaluate.  The poloidal gyroradius
+    is formed as $(q/\epsilon)\rho_i$, which equals $m_i v/(Z_i e B_\theta)$ exactly
+    when $B$ is GACODE's $B_\mathrm{unit}$ ($q = r B_\mathrm{unit}/\psi'$); with the
+    vacuum toroidal field it is off by $B_\mathrm{unit}/B_T$, about two on VEST,
+    i.e. a factor four in the flux.  NEO's ``neo_theory.f90`` uses $B_\mathrm{unit}$.
+
+    Validity
+    --------
+    Empirical fit.  Inherits the domain of
+    :func:`chang_hinton_ion_heat_coefficients`: a fit to drift-kinetic solutions
+    for shifted circles, extrapolated at low aspect ratio; electrons and the
+    impurity's own heat flux are not described.
+
+    References
+    ----------
+    .. [1] C. S. Chang and F. L. Hinton, Phys. Fluids 25 (1982) 1493.
+    .. [2] F. L. Hinton and R. D. Hazeltine, Rev. Mod. Phys. 48 (1976) 239
+           (the collision frequency $\nu_{ii} = 1/\tau_i$).
+    .. [3] GACODE ``neo/src/neo_theory.f90`` ``compute_CH``, the form NEO reports
+           beside its drift-kinetic flux.
+    """
+    density = _validate_positive("n_i", n_i)
+    temperature = _validate_positive("T_i", T_i) * QE
+    mass = _validate_positive("A_i", A_i) * AMU
+    charge = _validate_positive("Z_i", Z_i)
+    field = np.abs(np.asarray(B, dtype=float))
+    _validate_positive("|B|", field)
+    safety = np.asarray(q, dtype=float)
+    _validate_positive("|q|", np.abs(safety))
+    major = _validate_positive("R", R)
+    eps = _validate_epsilon(epsilon)
+    nu = _validate_positive("nu_ii", nu_ii)
+    grad_t = np.asarray(dlnT_i_dr, dtype=float)
+    grad_n = np.asarray(dln_n_i_dr, dtype=float)
+    for name, value in (("dlnT_i_dr", grad_t), ("dln_n_i_dr", grad_n)):
+        if np.any(~np.isfinite(value)):
+            raise ValueError(f"{name} must be finite. Got {value!r}")
+    thermal_speed = np.sqrt(temperature / mass)  # NEO's v_t, no factor two
+    nu_star = nu * np.abs(safety) * major / (eps**1.5 * thermal_speed)
+    k1, k2 = chang_hinton_ion_heat_coefficients(eps, nu_star, Z_eff, shift)
+    rho_squared = 2.0 * mass * temperature / (charge * QE * field) ** 2
+    flux = -(
+        (safety / eps) ** 2 * np.sqrt(eps) * rho_squared * nu * density * temperature
+        * ((np.asarray(k1) + np.asarray(k2)) * grad_t + np.asarray(k1) * grad_n)
+    )
+    return _maybe_scalar(flux)

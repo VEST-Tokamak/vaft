@@ -60,8 +60,10 @@ __all__ = [
     "assess_neo_readiness",
     "assess_tglf_readiness",
     "inferred_ti_supported",
+    "CHANG_HINTON_MODEL",
     "CLASSICAL_MODEL",
     "ClassicalHeatFluxes",
+    "chang_hinton_heat_flux",
     "classical_heat_fluxes",
     "surface_toroidal_field",
     "physics_parameters",
@@ -1900,3 +1902,110 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> ClassicalHeatFluxes:
         gamma1_perp=gamma1, b_tesla=b,
         model=dict(CLASSICAL_MODEL),
     )
+
+
+CHANG_HINTON_MODEL = {
+    "formulation": "Chang-Hinton closed-form neoclassical ion heat flux with the Z_eff "
+                   "impurity correction (vaft.formula.neoclassical.chang_hinton_ion_heat_flux)",
+    "terms": "conductive q_i of the main ion only; no electron channel, no particle flux, "
+             "no 5/2 T Gamma convection, no impurity heat flux",
+    "collision_frequency": "nu_ii = 1/tau_i (Braginskii, main ion against itself), "
+                           "lnLambda in GACODE's electron form "
+                           "(vaft.formula.equilibrium.coulomb_logarithm_from_n_T), as NEO",
+    "geometry": "epsilon = rmin/rmaj, q, dR_0/dr from the TGLF local input; rho_i on "
+                "GACODE's B_unit, so (q/epsilon) rho_i is the poloidal gyroradius",
+    "main_ion": "the densest positive species, Z_eff from the species list (NEO's own rules)",
+    "reference": "C. S. Chang and F. L. Hinton, Phys. Fluids 25 (1982) 1493; the formula "
+                 "reproduces NEO's neo_theory.f90 compute_CH from NEO's inputs, and this "
+                 "wrapper from a profile within 0.5 percent (test_formula_neoclassical.py)",
+}
+
+
+def chang_hinton_heat_flux(local: Any) -> dict[str, Any]:
+    """The closed-form neoclassical ion heat flux at one surface, from a TGLF local input.
+
+    Parameters
+    ----------
+    local : TGLFInput
+        From :func:`assess_tglf_readiness`, supplying n_e, T_e, every ion's n/n_e
+        and charge, the main ion's T_i/T_e, a/L_T, a/L_n and mass, q, r/a, R/a,
+        dR/dr and B_unit at the surface [-].
+
+    Returns
+    -------
+    dict
+        ``r_over_a``; ``ion_energy_flux_W_m2`` keyed ``z=<charge>`` for the main ion;
+        ``K1``, ``K2``, ``nu_star_i``, ``nu_ii_s``, ``coulomb_logarithm``,
+        ``b_unit_T`` and ``model`` (:data:`CHANG_HINTON_MODEL`) [W/m^2].
+
+    Convention
+    ----------
+    A positive flux runs down the temperature gradient, the sign the classical,
+    TGLF and NEO mappers use.  The collision frequency, Coulomb logarithm, main-ion
+    choice (the densest positive species) and Z_eff (from the species list, never a
+    ``z_eff`` column) are NEO's, so at a surface NEO also solves this agrees with the
+    closed form NEO prints beside its drift-kinetic flux (``out.neo.theory``) to a
+    fraction of a percent; the residual is the profile interpolation of the inputs.  Writes nothing; :func:`vaft.machine_mapping.neoclassical.
+    core_transport_from_chang_hinton` projects the records.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Conductive ion flux of the main (lowest-charge) ion only; the electron
+    neoclassical heat flux has no closed form here, and Sauter / Redl carry no heat
+    flux at all.  The Chang-Hinton fit was built for shifted circles at conventional
+    aspect ratio; at spherical-tokamak epsilon it is an extrapolation and NEO is the
+    reference.
+
+    Provenance
+    ----------
+    .. [1] C. S. Chang and F. L. Hinton, Phys. Fluids 25 (1982) 1493.
+    .. [2] GACODE ``neo/src/neo_theory.f90`` ``compute_CH`` and
+       ``neo_make_profiles.f90`` (collision frequency and Coulomb logarithm).
+    """
+    from scipy import constants as c
+
+    from vaft.formula.constants import AMU
+    from vaft.formula.equilibrium import coulomb_logarithm_from_n_T
+    from vaft.formula.kinetic import ion_collision_time_from_T_i_n_species
+    from vaft.formula.neoclassical import (
+        chang_hinton_ion_heat_coefficients,
+        chang_hinton_ion_heat_flux,
+    )
+
+    norm = local.normalisation
+    ne = float(norm.electron_density)
+    te_ev = float(norm.electron_temperature) / c.e
+    a = float(norm.minor_radius)
+    charges = np.asarray(local.zs, dtype=float)[1:]
+    fractions = np.asarray(local.as_, dtype=float)[1:]
+    # NEO's main ion is the densest positive species; its Z_eff is the species list's.
+    main = int(np.argmax(fractions)) + 1
+    z_i = float(local.zs[main])
+    mass_number = float(local.mass[main]) * _MASS_DEUTERIUM_KG / AMU
+    n_i = float(local.as_[main]) * ne
+    ti_ev = float(local.taus[main]) * te_ev
+    lnl = float(coulomb_logarithm_from_n_T(ne, te_ev))
+    tau_i = float(ion_collision_time_from_T_i_n_species(ti_ev, mass_number, z_i, [n_i], [z_i], lnl))
+    nu_ii = 1.0 / tau_i
+    rmaj = float(local.rmaj_loc) * a
+    epsilon = float(local.rmin_loc) / float(local.rmaj_loc)
+    q = float(local.q_loc)
+    zeff = max(float(np.sum(fractions * charges**2)), 1.0)
+    shift = float(local.drmajdx_loc)
+    b_unit = abs(float(norm.b_unit))
+    flux = float(chang_hinton_ion_heat_flux(
+        n_i, ti_ev, mass_number, z_i, b_unit, q, rmaj, epsilon, nu_ii, zeff,
+        -float(local.rlts[main]) / a, -float(local.rlns[main]) / a, shift))
+    nu_star = nu_ii * abs(q) * rmaj / (epsilon**1.5 * np.sqrt(ti_ev * c.e / (mass_number * AMU)))
+    k1, k2 = chang_hinton_ion_heat_coefficients(epsilon, nu_star, zeff, shift)
+    return {
+        "r_over_a": float(local.rho),
+        "ion_energy_flux_W_m2": {f"z={z_i:g}": flux},
+        "K1": float(k1), "K2": float(k2), "nu_star_i": float(nu_star), "nu_ii_s": nu_ii,
+        "coulomb_logarithm": lnl, "b_unit_T": b_unit, "z_eff": zeff,
+        "model": dict(CHANG_HINTON_MODEL),
+    }

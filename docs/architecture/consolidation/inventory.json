@@ -6141,6 +6141,7 @@
    "callers": [
     "vaft.machine_mapping.classical.core_transport_from_classical",
     "vaft.machine_mapping.gyrokinetics._core_transport_from_cgyro",
+    "vaft.machine_mapping.neoclassical.core_transport_from_chang_hinton",
     "vaft.machine_mapping.turbulence._core_transport_from_tglf"
    ],
    "classification": "unverified",
