@@ -650,9 +650,9 @@ def _frame_1d(axis, key, ticks, tick_text, x_label):
         xx = axis.x(v)
         items += [Polyline.of([(xx, axis.y0), (xx, axis.y0 - 0.06)], "black!55,line width=0.45pt", f"xtick:{key}"),
                   _text(xx, axis.y0 - 0.1, text, f"xticklabel:{key}", "scriptsize", "north", "black!75")]
-    items.append(_text(axis.x1 + 0.08, axis.y0, x_label, f"xlabel:{key}", "scriptsize", "west"))
-    items.append(Label((axis.x0 - 0.5, 0.5 * (axis.y0 + axis.y1)), r"$n_e\;$" + axis.unit,
-                       "concept plain,font=\\scriptsize,inner sep=0.7pt,rotate=90", "south", f"ylabel:{key}"))
+    items.append(_text(axis.x1 + 0.12, axis.y0, x_label, f"xlabel:{key}", "footnotesize", "west"))
+    # no rotated y title: with its unit it was longer than the axis and reached the panel title; the
+    # quantity and unit stand on the title line instead (``view:<key>:unit``)
     return items
 
 
@@ -759,20 +759,21 @@ ARCHITECTURE_EDGES = (
     ("model", "panels", "representation"),
 )
 
-_ARCH_TOP = (5.9, 6.95)       # upper strip row [cm]
-_ARCH_BOTTOM = (4.75, 5.8)    # lower strip row [cm]
-_ARCH_COLUMNS = {"a": (-8.80, -4.65), "b": (-4.1, -0.6), "c": (-0.05, 4.4), "d": (4.95, 8.80)}
+_ARCH_TOP = (5.9, 7.0)        # upper strip row [cm]
+_ARCH_BOTTOM = (4.7, 5.8)     # lower strip row [cm]
+#: column widths fit the widest bold heading with the same inset on both sides; 0.6 cm gaps
+_ARCH_COLUMNS = {"a": (-8.80, -4.20), "b": (-3.60, -0.40), "c": (0.20, 4.10), "d": (4.70, 8.80)}
 
 
 def _arch_box(column, rows, key, lines, style="concept leaf"):
     (x0, x1), (y0, y1) = _ARCH_COLUMNS[column], rows
     items = [_rect(x0, y0, x1, y1, style, f"arch:{key}")]
-    y = y1 - 0.24
+    y = y1 - 0.33  # first baseline: lines are placed on their baselines, so descenders do not shift them
     for k, line in enumerate(lines):
         size = "footnotesize" if k == 0 else "scriptsize"
         items.append(_text(x0 + 0.14, y, line, f"arch:{key}:{'head' if k == 0 else 'line'}", size,
-                           color=None if k == 0 else "black!78"))
-        y -= 0.35 if k == 0 else 0.29
+                           anchor="base west", color=None if k == 0 else "black!78"))
+        y -= 0.33 if k == 0 else 0.28
     return items
 
 
@@ -857,9 +858,12 @@ def _scene(m: DensitySemantics) -> Scene:
     for key, centre, head, desc in _ROWS:
         view = views[key]
         items.append(_rect(_LEFT[0], centre - _ROW_HALF, _LEFT[1], centre + _ROW_HALF, "concept leaf", f"view:{key}"))
-        items.append(_text(_LEFT[0] + 0.15, centre + _ROW_HALF - 0.24, head, f"view:{key}:title", "footnotesize"))
         axis = _Axis(centre, view.x_limits)
         axis.unit = _unit_tex(view.y_unit)
+        items.append(_text(_LEFT[0] + 0.15, centre + _ROW_HALF - 0.33, head, f"view:{key}:title", "footnotesize",
+                           "base west"))
+        items.append(_text(_LEFT[1] - 0.15, centre + _ROW_HALF - 0.33, r"$n_e\;$" + axis.unit, f"view:{key}:unit",
+                           "footnotesize", "base east", "black!75"))
         if key in ("rho", "psi"):
             items += _frame_1d(axis, key, (0.0, 0.5, 1.0), ("$0$", "$0.5$", "$1$"),
                                r"$\rho_{\mathrm{tor},N}$" if key == "rho" else r"$\psi_N$")
@@ -871,7 +875,7 @@ def _scene(m: DensitySemantics) -> Scene:
             ax = axis.x(view.metadata["magnetic_axis_r"])
             items.append(Polyline.of([(ax, axis.y0), (ax, axis.y1)], "black!40,densely dotted,line width=0.5pt",
                                      "mid:axis"))
-            items.append(_text(ax - 0.05, axis.y0 + 0.03, r"$R_{\mathrm{axis}}$", "mid:axis:label", "scriptsize",
+            items.append(_text(ax - 0.05, axis.y0 + 0.03, r"$R_{\mathrm{axis}}$", "mid:axis:label", "footnotesize",
                                "south east", "black!60"))
             cut = _series(view, "Z = 0 cut of the mapped field")
             items += _curve(axis, cut.x, cut.y, _MAPPED, "curve:mid")
@@ -879,8 +883,8 @@ def _scene(m: DensitySemantics) -> Scene:
 
     # (d): the Field2D view, equal R and Z scale
     items.append(_rect(_RIGHT[0], -2.90 - _ROW_HALF, _RIGHT[1], 2.90 + _ROW_HALF, "concept leaf", "view:map"))
-    items.append(_text(_RIGHT[0] + 0.15, 2.90 + _ROW_HALF - 0.24, r"\textbf{(d)} $n_e(R,Z)$", "view:map:title",
-                       "footnotesize"))
+    items.append(_text(_RIGHT[0] + 0.15, 2.90 + _ROW_HALF - 0.33, r"\textbf{(d)} $n_e(R,Z)$", "view:map:title",
+                       "footnotesize", "base west"))
     items += _map_cells(views["map"])
     lcfs = [_map_xy(a, b) for a, b in zip(m.lcfs_r, m.lcfs_z)]
     items.append(Polyline.of(np.round(lcfs, 4), _LCFS_STYLE, "map:lcfs", closed=True))
@@ -907,9 +911,9 @@ def _scene(m: DensitySemantics) -> Scene:
         yy = _map_xy(0.0, v)[1]
         items += [Polyline.of([(x0, yy), (x0 - 0.06, yy)], "black!55,line width=0.45pt", "map:ytick"),
                   _text(x0 - 0.1, yy, f"${v:g}$", "map:yticklabel", "scriptsize", "east", "black!75")]
-    items.append(_text(0.5 * (x0 + x1), y0 - 0.45, r"$R\;[\mathrm{m}]$", "map:xlabel", "scriptsize", "north"))
+    items.append(_text(0.5 * (x0 + x1), y0 - 0.42, r"$R\;[\mathrm{m}]$", "map:xlabel", "footnotesize", "north"))
     items.append(Label((x0 - 0.75, 0.5 * (y0 + y1)), r"$Z\;[\mathrm{m}]$",
-                       "concept plain,font=\\scriptsize,inner sep=0.7pt,rotate=90", "south", "map:ylabel"))
+                       "concept plain,font=\\footnotesize,inner sep=0.7pt,rotate=90", "south", "map:ylabel"))
     # colour bar: the same quantized levels, the same unit as the 1-D axes
     bx, bottom, top = x1 + 0.55, y0, y1
     for level in range(_COLOR_BINS):
@@ -922,22 +926,22 @@ def _scene(m: DensitySemantics) -> Scene:
     for v in (0.0, 4.0, 8.0, 12.0):
         yy = bottom + (top - bottom) * v / _COLOR_TOP
         items.append(_text(bx + 0.32, yy, f"${v:g}$", "map:colorbar:tick", "scriptsize", color="black!75"))
-    items.append(Label((bx + 1.05, 0.5 * (bottom + top)), r"$n_e\;$" + _unit_tex(m.display.unit),
-                       "concept plain,font=\\scriptsize,inner sep=0.7pt,rotate=90", "north", "map:colorbar:label"))
+    items.append(Label((bx + 0.95, 0.5 * (bottom + top)), r"$n_e\;$" + _unit_tex(m.display.unit),
+                       "concept plain,font=\\footnotesize,inner sep=0.7pt,rotate=90", "north", "map:colorbar:label"))
 
     # legend: measured, stored and equilibrium-derived kept apart; the rest is the caption's
     ly, ly2 = -4.62, -4.98
     items.append(Polyline.of([(-8.6, ly - 0.15), (-8.6, ly + 0.15)], _ERROR, "legend:ts:error"))
     items.append(_dot(-8.6, ly, _POINT, "legend:ts"))
     items.append(_text(-8.35, ly, r"Thomson $n_e \pm \sigma_n$", "legend:measured", "footnotesize"))
-    items.append(Polyline.of([(-3.3, ly), (-2.7, ly)], _WALL_STYLE, "legend:wall"))
-    items.append(_text(-2.55, ly, r"VEST wall (limiter)", "legend:wall:text", "footnotesize"))
-    items.append(Polyline.of([(-3.3, ly2), (-2.7, ly2)], _LCFS_STYLE, "legend:lcfs"))
-    items.append(_text(-2.55, ly2, r"plasma boundary (LCFS)", "legend:lcfs:text", "footnotesize"))
-    items.append(Polyline.of([(1.45, ly), (2.05, ly)], _PROFILE, "legend:profile"))
-    items.append(_text(2.2, ly, r"stored density profile", "legend:stored", "footnotesize"))
-    items.append(Polyline.of([(1.45, ly2), (2.05, ly2)], _MAPPED, "legend:mapped"))
-    items.append(_text(2.2, ly2, r"equilibrium-mapped density", "legend:derived", "footnotesize"))
+    items.append(Polyline.of([(-5.2, ly), (-4.6, ly)], _PROFILE, "legend:profile"))
+    items.append(_text(-4.45, ly, r"stored density profile", "legend:stored", "footnotesize"))
+    items.append(Polyline.of([(-5.2, ly2), (-4.6, ly2)], _MAPPED, "legend:mapped"))
+    items.append(_text(-4.45, ly2, r"equilibrium-mapped density", "legend:derived", "footnotesize"))
+    items.append(Polyline.of([(0.45, ly), (1.05, ly)], _WALL_STYLE, "legend:wall"))
+    items.append(_text(1.2, ly, r"VEST wall (limiter)", "legend:wall:text", "footnotesize"))
+    items.append(Polyline.of([(0.45, ly2), (1.05, ly2)], _LCFS_STYLE, "legend:lcfs"))
+    items.append(_text(1.2, ly2, r"plasma boundary (LCFS)", "legend:lcfs:text", "footnotesize"))
     return Scene(tuple(items))
 
 
