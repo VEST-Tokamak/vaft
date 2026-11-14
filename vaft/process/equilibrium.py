@@ -3254,7 +3254,7 @@ def calculate_q_profile_from_psi(
 
     Semantics
     ---------
-    consumes: psi
+    consumes: psi, poloidal_current_function
     produces: q, q0, q95
 
     Provenance

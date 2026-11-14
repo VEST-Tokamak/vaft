@@ -57,7 +57,7 @@ package, so it cannot be read offline.
 **Identity is strict.** `ip` and `I_p` are registered aliases of `plasma_current` and resolve to
 it; `beta_n`, `beta_p` and `beta_t` are three concepts in one family, not synonyms. A proxy *approximates* a quantity and stays a
 separate concept: `estimated_q95`, from an empirical scaling, approximates `q95` of a reconstructed
-equilibrium, and is never resolved to it. A term that
+equilibrium, and is never resolved to it. `f` and `fpol` are aliases of `poloidal_current_function` (F = R B_φ), which the q-profile process consumes with `psi`. A term that
 no registry resolves is never turned into a new concept by guessing: it is listed below as
 unresolved, with where it came from, so a gap in the vocabulary is visible. Ids are namespaced, so
 an alias may share its bare spelling with a node of another kind (`tf` is an alias of the toroidal

@@ -177,6 +177,9 @@ _QUANTITY_ALIAS_PAIRS = (
     ("b_field_tor_vacuum_r", "b_t_vacuum_r"),
     # the safety-factor profile q(psi), as the validation registry names it
     ("q_profile", "q"),
+    # F = R B_phi [T m], the poloidal current (diamagnetic) function: profiles_1d/f, the g-file FPOL
+    ("f", "poloidal_current_function"),
+    ("fpol", "poloidal_current_function"),
 )
 
 

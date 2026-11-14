@@ -545,6 +545,10 @@ def test_q95_is_reached_from_the_reconstructed_flux_through_the_q_profile(snapsh
     produces, consumes = _edges(snapshot, "produces"), _edges(snapshot, "consumes")
     routine = "api:vaft.process.equilibrium.calculate_q_profile_from_psi"
     assert (routine, "concept:psi") in consumes
+    # q needs F = R B_phi as well as psi (q = F/(2 pi) oint dl_p / (R^2 B_p))
+    assert (routine, "concept:poloidal_current_function") in consumes
+    assert ("concept:poloidal_current_function", "dd:equilibrium/time_slice(:)/profiles_1d/f") in \
+        _edges(snapshot, "represented_by")
     assert {(routine, "concept:q"), (routine, "concept:q95")} <= produces
     assert ("concept:q95", "concept:q") in _edges(snapshot, "derived_from")
     assert ("concept:q", "validation:physical_validity.q_profile") in _edges(snapshot, "assessed_by")
