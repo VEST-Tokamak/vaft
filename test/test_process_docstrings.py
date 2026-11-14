@@ -411,6 +411,8 @@ CONVENTION_SENSITIVE = frozenset({
     "model_resistance",
     # transport_state (#1435): a positive flux runs down the gradient, as the TGLF/NEO mappers
     "classical_heat_fluxes",
+    # transport_state: Chang-Hinton on NEO's collisionality, main-ion and B_unit conventions
+    "chang_hinton_heat_flux",
     # transport_state (#1426): a run surface's input must not depend on the gap fill
     "inferred_ti_supported",
     # profile_gradient (#551): midplane r_minor (not the contour half-width), the

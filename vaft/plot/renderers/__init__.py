@@ -11,6 +11,7 @@ from . import fields, geometry, gyrokinetics, images, lines, panels, profiles, s
 # the Matplotlib bodies that take ``ax=``/``format=``/``theme=``.
 from . import tables
 from . import edge_q
+from . import transport_hierarchy
 from .fields import render_field_2d
 from .geometry import draw_geometry_layer, render_geometry_layers
 from .images import render_image_2d, render_image_sequence
@@ -42,4 +43,5 @@ __all__ = [
     "spectra",
     "spectrograms",
     "tables",
+    "transport_hierarchy",
 ]

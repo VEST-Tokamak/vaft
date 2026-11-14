@@ -35,6 +35,7 @@ NEUTRAL = frozenset({
     "gyrokinetics_spectrum_energy_flux", "gyrokinetics_spectrum_particle_flux",
     "gyrokinetics_profile_eigenfunction", "gyrokinetics_overview",
     "turbulent_transport_profile_energy_flux", "turbulent_transport_profile_particle_flux",
+    "transport_hierarchy_profile_electron_energy_flux", "transport_hierarchy_profile_ion_energy_flux",
     "nbi_profile_electron_heating", "nbi_profile_ion_heating", "nbi_profile_current_drive",
     "interferometer_spectrogram", "passive_structure_time_current",
     "impa_time_field", "impa_time_voltage", "impa_profile_field",

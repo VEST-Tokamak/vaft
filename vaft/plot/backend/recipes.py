@@ -6345,6 +6345,208 @@ RECIPES["turbulent_transport_overview"] = PanelRecipe(
     share_x=True,
     suptitle="Turbulent transport (core_transport, anomalous models)",
 )
+
+
+# --- transport hierarchy: classical, neoclassical, turbulent on one axis -------
+#
+# One series per core_transport model entry of one state. The family comes from
+# the DD identifier (5 neoclassical, 6 anomalous) or VAFT's private classical
+# entry (-1 named "classical"); closed forms are told from solvers by code.name.
+
+_TH_FAMILIES = {-1: "classical", 5: "neoclassical", 6: "turbulent"}
+_TH_COLOURS = {"classical": 0, "neoclassical": 1, "turbulent": 3}
+_TH_CLOSED_FORM = {
+    "vaft.process.transport_state.classical_heat_fluxes": "Braginskii",
+    "vaft.process.transport_state.chang_hinton_heat_flux": "Chang-Hinton",
+}
+_TH_MARKERS = {"NEO": "o", "TGLF": "s", "CGYRO": "D"}
+#: Default slice-matching window: the campaign's EFIT-to-profiles pairing (0.5 ms).
+_TH_TIME_TOLERANCE_S = 5e-4
+
+
+def _th_models(obj: Any) -> list[tuple[int, str]]:
+    found = []
+    for m in range(_count(obj, "core_transport.model")):
+        index = _get(obj, f"core_transport.model.{m}.identifier.index")
+        try:
+            index = int(index)
+        except (TypeError, ValueError):
+            continue
+        if index == -1 and _get(obj, f"core_transport.model.{m}.identifier.name") != "classical":
+            continue  # a private -1 that is not VAFT's classical entry
+        if index in _TH_FAMILIES:
+            found.append((m, _TH_FAMILIES[index]))
+    return found
+
+
+def _th_main_ion(obj: Any, base: str) -> int | None:
+    """The lowest positive charge among the slice's ions (ion.0 when none is stated)."""
+    count = _count(obj, f"{base}.ion")
+    if not count:
+        return None
+    charges = []
+    for k in range(count):
+        z = _get(obj, f"{base}.ion.{k}.z_ion", None)
+        charges.append(np.inf if z is None else float(np.ravel(z)[0]))
+    return int(np.argmin(charges)) if np.isfinite(min(charges)) else 0
+
+
+def _th_available(channel: str):
+    def available(obj: Any) -> str | None:
+        families = set()
+        for m, family in _th_models(obj):
+            base = f"core_transport.model.{m}.profiles_1d"
+            for t in range(_count(obj, base)):
+                ion = None if channel == "electrons" else _th_main_ion(obj, f"{base}.{t}")
+                if channel != "electrons" and ion is None:
+                    continue
+                path = (f"{base}.{t}.electrons.energy.flux" if channel == "electrons"
+                        else f"{base}.{t}.ion.{ion}.energy.flux")
+                if _has(obj, path):
+                    families.add(family)
+        if not families:
+            return (f"no classical (-1), neoclassical (5) or anomalous (6) core_transport model "
+                    f"carries a {'electron' if channel == 'electrons' else 'main-ion'} energy flux")
+        return None
+    return available
+
+
+def _th_label(obj: Any, m: int, family: str) -> tuple[str, bool, str]:
+    """``(label, closed_form, code)`` for one model entry."""
+    code = str(_get(obj, f"core_transport.model.{m}.code.name") or f"model {m}")
+    if code in _TH_CLOSED_FORM:
+        return f"{family}: {_TH_CLOSED_FORM[code]}", True, code
+    tokens = [code]
+    if family == "turbulent":
+        from vaft.code.gacode.result_identity import parameters as result_parameters
+        identity = result_parameters(_get(obj, f"core_transport.model.{m}.code.parameters")) or {}
+        config = identity.get("configuration", {}) or {}
+        if "SAT_RULE" in config:
+            tokens.append(f"SAT{int(config['SAT_RULE'])}")
+        if "USE_BPER" in config:
+            tokens.append("EM" if config["USE_BPER"] else "ES")
+    return f"{family}: {' '.join(tokens)}", False, code
+
+
+def _th_builder(channel: str):
+    word = "electron" if channel == "electrons" else "main-ion"
+
+    def builder(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
+        time = options.get("time")
+        tolerance = options.get("time_tolerance")
+        tolerance = _TH_TIME_TOLERANCE_S if tolerance is None else float(tolerance)
+        labelled = _labelled(entries)
+        if time is None:
+            for _label, obj in labelled:
+                for m, _family in _th_models(obj):
+                    stored = _get(obj, f"core_transport.model.{m}.profiles_1d.0.time", None)
+                    if stored is not None:
+                        time = float(stored)
+                        break
+                if time is not None:
+                    break
+        series, models, unmatched = [], {}, {}
+        for entry_label, obj in labelled:
+            for m, family in sorted(_th_models(obj), key=lambda item: list(_TH_COLOURS).index(item[1])):
+                label, closed_form, code = _th_label(obj, m, family)
+                if entry_label:
+                    label = f"{entry_label} {label}"
+                if label in models or label in unmatched:
+                    # Two entries the label cannot tell apart (other settings differ):
+                    # never let the second overwrite the first's metadata.
+                    label = f"{label} [model {m}]"
+                base = f"core_transport.model.{m}.profiles_1d"
+                times = np.array([_get(obj, f"{base}.{t}.time", np.nan)
+                                  for t in range(_count(obj, base))], dtype=float)
+                matches = (np.flatnonzero(np.abs(times - time) <= tolerance)
+                           if time is not None else np.array([], dtype=int))
+                if matches.size != 1:
+                    unmatched[label] = ("no slice" if matches.size == 0 else "several slices") + \
+                        f" within {tolerance:g} s of {time}"
+                    continue
+                t = int(matches[0])
+                profile = f"{base}.{t}"
+                rho = _array(obj, f"{profile}.grid_flux.rho_tor_norm")
+                ion = None
+                if channel == "electrons":
+                    y = _array(obj, f"{profile}.electrons.energy.flux")
+                else:
+                    ion = _th_main_ion(obj, profile)
+                    y = None if ion is None else _array(obj, f"{profile}.ion.{ion}.energy.flux")
+                if rho is None or y is None:
+                    continue
+                if rho.shape != y.shape:
+                    raise ValueError(f"{label}: energy flux and grid_flux differ in shape")
+                colour = palette(_TH_COLOURS[family])
+                if closed_form:
+                    style = {"color": colour, "linestyle": "-", "linewidth": 1.8}
+                else:
+                    style = {"color": colour, "linestyle": "none",
+                             "marker": _TH_MARKERS.get(code, "^"), "markersize": 6.5,
+                             "markeredgecolor": "white", "markeredgewidth": 0.6, "zorder": 3}
+                series.append(Series(x=rho, y=y, label=label, style=style))
+                models[label] = {
+                    "family": family, "identifier_index": int(_get(obj, f"core_transport.model.{m}.identifier.index")),
+                    "code": code, "closed_form": closed_form, "model_index": m, "slice_index": t,
+                    "slice_time": float(times[t]), "surfaces": int(rho.size),
+                    "ion": None if ion is None else {
+                        "index": ion, "z_ion": _get(obj, f"{profile}.ion.{ion}.z_ion", None)},
+                    "flux_multiplier": _get(obj, f"core_transport.model.{m}.flux_multiplier", None),
+                }
+        if not series:
+            raise ValueError(f"no {word} energy flux from a classical, neoclassical or turbulent model "
+                             "at the requested time")
+        magnitudes = np.concatenate([np.abs(item.y[np.isfinite(item.y)]) for item in series])
+        peak = float(magnitudes.max()) if magnitudes.size else 0.0
+        # Four decades of logarithmic range below the peak; linear (and signed) beneath.
+        linthresh = 10.0 ** np.floor(np.log10(peak * 1e-4)) if peak > 0 else 1.0
+        return Profile1D(
+            series=tuple(series), coordinate_label=r"$\rho_{tor,N}$",
+            y_label=f"{word} energy flux", y_unit="W.m^-2",
+            title=f"{word.capitalize()} energy flux",
+            metadata={"time": time, "time_tolerance": tolerance, "models": models,
+                      "unmatched": unmatched,
+                      "y_scale": {"scale": "symlog", "linthresh": float(linthresh)}},
+        )
+    return builder
+
+
+def _th_reads(channel: str) -> tuple[str, ...]:
+    base = "core_transport.model.{i}"
+    flux = ((f"{base}.profiles_1d.{{j}}.electrons.energy.flux",) if channel == "electrons" else
+            (f"{base}.profiles_1d.{{j}}.ion.{{k}}.energy.flux", f"{base}.profiles_1d.{{j}}.ion.{{k}}.z_ion"))
+    return (f"{base}.identifier.index", f"{base}.identifier.name", f"{base}.code.name",
+            f"{base}.code.parameters", f"{base}.flux_multiplier", f"{base}.profiles_1d.{{j}}.time",
+            f"{base}.profiles_1d.{{j}}.grid_flux.rho_tor_norm", *flux)
+
+
+RECIPES["transport_hierarchy_profile_electron_energy_flux"] = CallableRecipe(
+    builder=_th_builder("electrons"),
+    description="Classical, neoclassical and turbulent electron energy flux of one state against "
+                "rho_tor_norm; closed forms as lines, solver surfaces as markers.",
+    available=_th_available("electrons"),
+    reads=_th_reads("electrons"),
+    backend=NEUTRAL,
+    multi_entry=True,
+    time_axis=OWN_TIME,
+)
+RECIPES["transport_hierarchy_profile_ion_energy_flux"] = CallableRecipe(
+    builder=_th_builder("ions"),
+    description="Classical, neoclassical and turbulent main-ion energy flux of one state against "
+                "rho_tor_norm; closed forms as lines, solver surfaces as markers.",
+    available=_th_available("ions"),
+    reads=_th_reads("ions"),
+    backend=NEUTRAL,
+    multi_entry=True,
+    time_axis=OWN_TIME,
+)
+RECIPES["transport_hierarchy_overview"] = PanelRecipe(
+    members=("transport_hierarchy_profile_electron_energy_flux",
+             "transport_hierarchy_profile_ion_energy_flux"),
+    ncols=2,
+    share_x=True,
+    suptitle="Classical, neoclassical and turbulent transport",
+)
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
     description="Wall, coils, passive structure and diagnostic positions; equilibrium_section selects the same-shot EFIT section.",

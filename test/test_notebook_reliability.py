@@ -312,6 +312,51 @@ def test_neo_notebook_explains_itself_without_a_run(headless_matplotlib, monkeyp
     assert not guardless, guardless
 
 
+def test_transport_hierarchy_notebook_draws_the_closed_forms_without_a_run(
+    headless_matplotlib, monkeypatch, tmp_path, capsys
+):
+    """Without GACODE the overlay still exists: the two closed forms are pure VAFT.
+
+    NEO and TGLF report what they would show and skip; the classical and
+    Chang-Hinton entries are written to core_transport, survive a save/reload,
+    and the registered recipe draws them -- the figure is written as PNG and PDF.
+    """
+    import vaft
+
+    sample = Path(vaft.data.data_path("kineticEfit/ods_48224_300ms.json"))
+    if not sample.exists():  # pragma: no cover - repository-only asset
+        pytest.skip("the packaged 48224 kinetic sample is a repository-only asset")
+    for name in ("GACODEHOME", "GACODE_ROOT", "GACODE_PLATFORM",
+                 "TURBULENTTRANSPORTHOME", "TURBULENTTRANSPORT_ROOT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("JULIA_DEPOT_PATH", str(tmp_path / "empty-depot"))
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+    monkeypatch.setenv("VAFT_NOTEBOOK_OUTPUT_DIR", str(tmp_path / "figures"))
+
+    book = nbformat.read(
+        NOTEBOOKS / "transport_hierarchy_classical_neoclassical_turbulent.ipynb", as_version=4)
+    namespace = _run_every_cell(book, "hierarchy")
+
+    assert namespace["HAVE_GACODE"] is False
+    assert namespace["HAVE_NEO_RUN"] is False and namespace["HAVE_TGLF_RUN"] is False
+    assert namespace["RUN_DIR"] is None
+    assert namespace["STATE"].resolved
+    reloaded = namespace["RELOADED"]
+    identifiers = [reloaded[f"core_transport.model.{m}.identifier.index"]
+                   for m in range(len(reloaded["core_transport.model"]))]
+    assert identifiers == [-1, 5]
+    for suffix in ("png", "pdf"):
+        assert (tmp_path / "figures" / f"transport_hierarchy_48224_300ms.{suffix}").stat().st_size > 0
+    printed = capsys.readouterr().out
+    assert "Would run NEO" in printed and "Would run TGLF" in printed
+    # Solver containers are read only behind the flag that says a run happened.
+    # (section 6 reads NEO's grid only once the reloaded ODS holds a NEO entry).
+    guardless = [cell.source for cell in book.cells
+                 if cell.cell_type == "code" and "outputs_native" in cell.source
+                 and not any(flag in cell.source for flag in ("HAVE_NEO_RUN", "HAVE_TGLF_RUN", "NEO_ENTRY"))]
+    assert not guardless, guardless
+
+
 def _tglf_notebook():
     return nbformat.read(NOTEBOOKS / "turbulent_transport_with_tglf.ipynb", as_version=4)
 
