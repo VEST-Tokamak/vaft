@@ -66,7 +66,10 @@ that identifies two different subjects is dropped and listed as unresolved. A co
 a Data Dictionary path (*represented by*) only where that is unambiguous: a plot of that single
 quantity that reads exactly one quantity path, as stored. A plot that rescales the path draws a
 different quantity: `b_t` divides `tf/b_field_tor_vacuum_r` (R0 B0, in T m) by `tf/r0`, so `b_t` is
-*derived from* `b_t_vacuum_r`, which that path represents. A path that stores a quantity as it is but
+*derived from* `b_t_vacuum_r`, which that path represents. A path under the IDS entry of a diagnostic or machine system that measures or derives a
+quantity stores a *measurement* of it: the edge is *measured by*, not *represented by*. The plasma current is
+measured by `magnetics/ip(:)/data` and represented by `equilibrium/time_slice(:)/global_quantities/ip`, the
+same quantity reconstructed by EFIT, which is in turn *constrained by* the measured path. A path that stores a quantity as it is but
 that no single-quantity plot reads alone is declared in `DECLARED_REPRESENTATIONS` and checked against
 the Data Dictionary's unit and definition: `equilibrium/vacuum_toroidal_field/b0`, the vacuum field at
 R0 in T, represents `b_t`.
