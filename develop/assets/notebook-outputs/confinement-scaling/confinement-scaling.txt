@@ -1,0 +1,5 @@
+{
+  "rows": 12,
+  "mean_tau_exp_ms": 2.65,
+  "mean_H_IPB89": 1.0246
+}

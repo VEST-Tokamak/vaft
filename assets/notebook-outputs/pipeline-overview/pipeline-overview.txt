@@ -1,0 +1,32 @@
+[
+  {
+    "stage": "Raw DAQ",
+    "workflow": "routine",
+    "output": "archived raw dump"
+  },
+  {
+    "stage": "Diagnostics IDS",
+    "workflow": "routine",
+    "output": "mapped OMAS/IMAS data"
+  },
+  {
+    "stage": "EFIT + CHEASE",
+    "workflow": "routine",
+    "output": "equilibrium"
+  },
+  {
+    "stage": "Profiles",
+    "workflow": "corrective",
+    "output": "core_profiles"
+  },
+  {
+    "stage": "DCON/RDCON/GPEC",
+    "workflow": "routine",
+    "output": "mhd_linear"
+  },
+  {
+    "stage": "History tables",
+    "workflow": "summary",
+    "output": "multi-shot reports"
+  }
+]
