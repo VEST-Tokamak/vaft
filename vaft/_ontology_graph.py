@@ -86,6 +86,8 @@ RELATIONS = {
     "measures": "a diagnostic measures a quantity directly",
     "derives": "a diagnostic's processing derives a quantity",
     "represented_by": "a concept or diagnostic is stored in an IDS or a Data Dictionary path",
+    "measured_by": "a quantity is stored as a measurement: at a path under the IDS entry of a diagnostic or machine "
+                   "system that measures or derives it (a reconstructed or modelled value stays represented_by)",
     "part_of": "a Data Dictionary path belongs to its IDS; a diagnostic system belongs to a larger one",
     "mapped_by": "a diagnostic is mapped into IMAS by a VAFT function",
     "visualized_by": "a concept is drawn by a canonical plot",
@@ -100,6 +102,7 @@ RELATIONS = {
     "bounds": "a boundary or guideline limits a quantity, on the domain its source established it on",
     "approximates": "a proxy estimates a quantity under its own assumptions; never identity",
     "applies": "a data routine evaluates a formula on inputs it selects from data",
+    "constrained_by": "a reconstruction code fits or imposes a measured Data Dictionary path as a constraint",
     "assumes": "a physical model is valid only where an ordering quantity is small or large",
 }
 
@@ -405,6 +408,34 @@ def _diagnostics(graph: _Graph) -> None:
             graph.edge(node_id, api, "mapped_by", origin)
 
 
+def _measurements(graph: _Graph) -> None:
+    """Tell a measured value from a reconstructed one by where it is stored.
+
+    A ``represented_by`` edge from a quantity to a Data Dictionary path becomes
+    ``measured_by`` when the path lies under the IDS entry (``ids_path``) of a
+    diagnostic or machine system that ``measures`` or ``derives`` that quantity:
+    ``magnetics/ip(:)/data`` under ``magnetics.ip`` for the plasma current, but
+    not ``equilibrium/.../global_quantities/ip``, the same quantity reconstructed.
+    One quantity, two sources; nothing is inferred from the path's name.
+    """
+    origin = "vaft.machine_mapping.registry"
+    systems: dict[str, list[str]] = {}
+    for (source, target, kind) in list(graph.edges):
+        if kind in ("measures", "derives"):
+            ids_path = graph.nodes[source]["facets"].get("ids_path")
+            if ids_path:
+                systems.setdefault(target, []).append(ids_path.replace(".", "/"))
+    for (source, target, kind), edge in list(graph.edges.items()):
+        if kind != "represented_by" or source not in systems or not target.startswith("dd:"):
+            continue
+        plain = target[3:].replace("(:)", "")
+        if any(plain == prefix or plain.startswith(prefix + "/") for prefix in systems[source]):
+            del graph.edges[(source, target, kind)]
+            graph.edge(source, target, "measured_by", origin)
+            for previous in edge["origins"]:
+                graph.edge(source, target, "measured_by", previous)
+
+
 def _validation(graph: _Graph) -> None:
     from vaft.validation.registry import CHECKS
 
@@ -468,6 +499,11 @@ def _external_codes(graph: _Graph) -> None:
         graph.node(adapter_id, "api", code.adapter, origin, role="code adapter",
                    api_url=f"/reference/api/code/#module-{code.adapter}")
         graph.edge(node_id, adapter_id, "implemented_by", origin)
+        for path in code.constrained_by:
+            dd_node = _dd(graph, path, origin)
+            if dd_node is None:
+                raise OntologyError(f"{code.id} is constrained by {path}, which is not in the Data Dictionary")
+            graph.edge(node_id, dd_node, "constrained_by", origin)
         for entry in code.standardized:
             ids = entry.ids
             if entry.via.startswith("stage:"):
@@ -764,6 +800,7 @@ def ontology_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
     _plots(graph)
     _declared_representations(graph)
     _diagnostics(graph)
+    _measurements(graph)
     _validation(graph)
     _conventions(graph)
     _external_codes(graph)

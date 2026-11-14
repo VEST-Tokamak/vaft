@@ -205,8 +205,8 @@ def test_dd_paths_are_canonical_and_carry_the_dd_resolvers_metadata(snapshot):
         info = dd.resolve(path, cross_check=False)
         assert node["facets"].get("units", "") == info.units
         assert node["facets"].get("data_type", "") == info.data_type
-    represented = _edges(snapshot, "represented_by")
-    assert ("concept:plasma_current", "dd:magnetics/ip(:)/data") in represented
+    measured = _edges(snapshot, "measured_by")
+    assert ("concept:plasma_current", "dd:magnetics/ip(:)/data") in measured
 
 
 def test_validation_and_conventions_come_from_their_registries(snapshot):
@@ -473,7 +473,7 @@ def test_a_path_a_plot_rescales_is_not_a_representation_of_the_plotted_quantity(
     """tf.b_field_tor_vacuum_r is R0 B0 [T m]; the b_t plot divides it by tf.r0."""
     represented = _edges(snapshot, "represented_by")
     assert ("concept:b_t", "dd:tf/b_field_tor_vacuum_r/data") not in represented
-    assert ("concept:b_t_vacuum_r", "dd:tf/b_field_tor_vacuum_r/data") in represented
+    assert ("concept:b_t_vacuum_r", "dd:tf/b_field_tor_vacuum_r/data") in _edges(snapshot, "measured_by")
     assert ("concept:b_t", "concept:b_t_vacuum_r") in _edges(snapshot, "derived_from")
 
 
@@ -592,3 +592,45 @@ def test_a_declared_representation_matches_the_data_dictionary(snapshot):
                 assert info.units == "T" and info.documentation.startswith("Vacuum toroidal field at R0")
     # the stored product R0 B0 is still not b_t
     assert ("concept:b_t", "dd:tf/b_field_tor_vacuum_r/data") not in represented
+
+
+def test_efit_is_constrained_by_the_measured_paths_its_kfile_reads(snapshot):
+    """Meaning, not lineage: the measured paths EFIT fits, declared in _ecosystem and held to the k-file."""
+    import inspect
+
+    from vaft import _ecosystem
+    from vaft.code.efit import kfile
+
+    constrained = {target for source, target in _edges(snapshot, "constrained_by") if source == "code:efit"}
+    efit = next(code for code in _ecosystem.EXTERNAL_CODES if code.id == "efit")
+    assert constrained == {f"dd:{path}" for path in efit.constrained_by}
+    for path in kfile.REQUIRED_CONSTRAINT_INPUTS:  # "magnetics.ip.0.data" -> magnetics/ip(:)/data
+        canonical = ontology.canonical_dd(path.replace(".", "/").replace("/0/", "(0)/"))
+        canonical = canonical.replace("(0)", "(:)")
+        assert f"dd:{canonical}" in constrained, path
+    source = inspect.getsource(kfile)
+    for path in efit.constrained_by:
+        parts = [p.replace("(:)", "") for p in path.split("/")[1:]]
+        assert all(p in source for p in parts), f"{path} is declared but the k-file never reads it"
+    # the measured current and the reconstructed current stay distinct paths of one concept
+    assert ("concept:plasma_current", "dd:magnetics/ip(:)/data") in _edges(snapshot, "measured_by")
+
+
+def test_a_measured_value_and_a_reconstructed_value_of_one_quantity_are_told_apart(snapshot):
+    """One quantity, two sources: the diagnostic's path is measured_by, the equilibrium's represented_by."""
+    measured, represented = _edges(snapshot, "measured_by"), _edges(snapshot, "represented_by")
+    ip = "concept:plasma_current"
+    assert (ip, "dd:magnetics/ip(:)/data") in measured and (ip, "dd:magnetics/ip(:)/data") not in represented
+    assert (ip, "dd:equilibrium/time_slice(:)/global_quantities/ip") in represented
+    assert ("concept:electron_density", "dd:thomson_scattering/channel(:)/n_e/data") in measured
+    assert ("concept:electron_density", "dd:core_profiles/profiles_1d(:)/electrons/density") in represented
+    # every measured_by path lies under the IDS entry of a system that measures or derives the quantity
+    nodes = _nodes(snapshot)
+    systems = {}
+    for source, target in _edges(snapshot, "measures") | _edges(snapshot, "derives"):
+        ids_path = nodes[source]["facets"].get("ids_path")
+        if ids_path:
+            systems.setdefault(target, set()).add(ids_path.replace(".", "/"))
+    for quantity, path in measured:
+        plain = path[3:].replace("(:)", "")
+        assert any(plain == p or plain.startswith(p + "/") for p in systems[quantity]), (quantity, path)
