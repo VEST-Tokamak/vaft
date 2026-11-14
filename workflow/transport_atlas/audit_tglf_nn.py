@@ -199,6 +199,47 @@ def inferred_ti_for(profiles: Any, time_s: float, tolerance: float) -> tuple[Opt
             "method": fields.get("method", "equilibrium_pressure_partition")}, ""
 
 
+def resolve_state(driver: Any, filedb: Path, record: Mapping[str, Any], scenario: Mapping[str, Any], *,
+                  rho_max: float, load) -> tuple[dict[str, Any], dict[str, Any], Any]:
+    """Resolve one population state under one T_i scenario: ``(ident, state_row, state)``.
+
+    ``state`` is ``None`` when a product is missing or the scenario has no T_i for the
+    slice; ``state_row`` then says why. The single definition the audit and the
+    native-vs-NN comparison (``compare_tglf_nn.py``) share, so both see the same input.
+    """
+    key = record["key"]
+    ident = {"shot": key.shot, "time_efit_s": key.time_efit_s, "efit_lineage": key.efit_lineage,
+             "efit_quality": record["efit_quality"], "subsets": " ".join(record["subsets"]),
+             "scenario": scenario["name"]}
+    cp_path, cp_manifest = driver.core_profiles_product(filedb, key.shot)
+    eq_path, eq_manifest = driver.product(filedb, key.efit_lineage, key.shot)
+    missing = [name for name, path, manifest in (("core_profiles", cp_path, cp_manifest),
+                                                 ("equilibrium", eq_path, eq_manifest))
+               if path is None or manifest.get("status") not in (None, "success")]
+    if missing:
+        return ident, {**ident, "status": "missing_product", "reasons": " ".join(missing)}, None
+    inferred_ti = None
+    if scenario["profile_ti_dir"] is not None:
+        ti_path = Path(scenario["profile_ti_dir"]) / f"{key.shot}.json.gz"
+        if not ti_path.is_file():
+            return ident, {**ident, "status": "missing_product", "reasons": "profile_ti"}, None
+        inferred_ti, why = inferred_ti_for(load(ti_path), key.time_efit_s, DEFAULT_TIME_TOLERANCE_S)
+        if inferred_ti is None:
+            return ident, {**ident, "status": "no_inferred_ti", "reasons": why}, None
+    ods = driver.compose(load(eq_path), load(cp_path))
+    state = resolve_transport_state(
+        ods, key, efit_quality=record["efit_quality"], quality_source="confinement_table",
+        ti_te_ratio=scenario["ti_te_ratio"], inferred_ti=inferred_ti, rho_max=rho_max,
+        inputs={"core_profiles": {"path": str(cp_path)}, "equilibrium": {"path": str(eq_path)}},
+    )
+    row = {**ident, "status": state.status, "reasons": " ".join(state.reasons),
+           "ti_lineage": state.ti.get("lineage"), "ti_method": state.ti.get("method"),
+           "ti_te_ratio": state.ti.get("ratio"), "ti_source": state.ti.get("source"),
+           "ti_fill_points": (state.ti.get("fill") or {}).get("points", 0),
+           "z_eff": state.settings.get("z_eff"), "impurity": state.settings.get("impurity")}
+    return ident, row, state
+
+
 # --------------------------------------------------------------------------- audit
 
 
@@ -459,40 +500,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     audit_rows, state_rows = [], []
     for scenario in plan:
         for record in states:
-            key = record["key"]
-            ident = {"shot": key.shot, "time_efit_s": key.time_efit_s, "efit_lineage": key.efit_lineage,
-                     "efit_quality": record["efit_quality"], "subsets": " ".join(record["subsets"]),
-                     "scenario": scenario["name"]}
-            cp_path, cp_manifest = driver.core_profiles_product(args.filedb, key.shot)
-            eq_path, eq_manifest = driver.product(args.filedb, key.efit_lineage, key.shot)
-            missing = [name for name, path, manifest in (("core_profiles", cp_path, cp_manifest),
-                                                         ("equilibrium", eq_path, eq_manifest))
-                       if path is None or manifest.get("status") not in (None, "success")]
-            if missing:
-                state_rows.append({**ident, "status": "missing_product", "reasons": " ".join(missing)})
-                continue
-            inferred_ti = None
-            if scenario["profile_ti_dir"] is not None:
-                ti_path = Path(scenario["profile_ti_dir"]) / f"{key.shot}.json.gz"
-                if not ti_path.is_file():
-                    state_rows.append({**ident, "status": "missing_product", "reasons": "profile_ti"})
-                    continue
-                inferred_ti, why = inferred_ti_for(cached(ti_path), key.time_efit_s, DEFAULT_TIME_TOLERANCE_S)
-                if inferred_ti is None:
-                    state_rows.append({**ident, "status": "no_inferred_ti", "reasons": why})
-                    continue
-            ods = driver.compose(cached(eq_path), cached(cp_path))
-            state = resolve_transport_state(
-                ods, key, efit_quality=record["efit_quality"], quality_source="confinement_table",
-                ti_te_ratio=scenario["ti_te_ratio"], inferred_ti=inferred_ti, rho_max=args.rho_max,
-                inputs={"core_profiles": {"path": str(cp_path)}, "equilibrium": {"path": str(eq_path)}},
-            )
-            state_rows.append({**ident, "status": state.status, "reasons": " ".join(state.reasons),
-                               "ti_lineage": state.ti.get("lineage"), "ti_method": state.ti.get("method"),
-                               "ti_te_ratio": state.ti.get("ratio"), "ti_source": state.ti.get("source"),
-                               "ti_fill_points": (state.ti.get("fill") or {}).get("points", 0),
-                               "z_eff": state.settings.get("z_eff"), "impurity": state.settings.get("impurity")})
-            if not state.resolved:
+            ident, state_row, state = resolve_state(driver, args.filedb, record, scenario,
+                                                    rho_max=args.rho_max, load=cached)
+            state_rows.append(state_row)
+            if state is None or not state.resolved:
                 continue
             for row in audit_state(state, args.surfaces, models, threshold=threshold):
                 audit_rows.append({**ident, "ti_lineage": state.ti.get("lineage"), **row})
