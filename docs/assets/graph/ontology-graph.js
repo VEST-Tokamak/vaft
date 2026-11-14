@@ -11,13 +11,14 @@
     concept: '#4e79a7', concept_family: '#a0cbe8', diagnostic: '#f28e2b', machine: '#ffbe7d',
     code: '#59a14f', data_format: '#8cd17d', plot: '#b07aa1', api: '#9c755f', ids: '#e15759',
     dd_path: '#ff9da7', validation: '#76b7b2', convention: '#edc948', model: '#d37295',
-    ordering_quantity: '#bab0ac'
+    ordering_quantity: '#bab0ac', boundary: '#59a14f'
   };
   var KIND_LABEL = {
     concept: 'Scientific concepts', concept_family: 'Families', diagnostic: 'Diagnostics', machine: 'Machine systems',
     code: 'External codes', data_format: 'Data formats', plot: 'Plots', api: 'API functions', ids: 'IMAS IDS',
     dd_path: 'Data Dictionary paths', validation: 'Validation checks', convention: 'Conventions',
-    model: 'Physical models', ordering_quantity: 'Ordering quantities'
+    model: 'Physical models', ordering_quantity: 'Ordering quantities',
+    boundary: 'Operational boundaries'
   };
   var VIEW_LABEL = {
     concepts: 'Concepts (concepts, families, diagnostics, codes)',
@@ -89,6 +90,7 @@
         { selector: 'node.on-validation', style: { 'shape': 'round-triangle' } },
         { selector: 'node.on-model', style: { 'shape': 'round-pentagon' } },
         { selector: 'node.on-ordering_quantity', style: { 'shape': 'round-tag' } },
+        { selector: 'node.on-boundary', style: { 'shape': 'round-rectangle' } },
         { selector: 'edge.on-member_of', style: { 'line-style': 'dashed', 'target-arrow-shape': 'none' } },
         { selector: 'edge.on-part_of, edge.on-reads', style: { 'line-style': 'dotted', 'opacity': 0.5 } }
       ];
@@ -191,7 +193,9 @@
       ['units', 'coordinates', 'data_type', 'lifecycle', 'dd_version', 'view', 'domain', 'category', 'family',
         'availability', 'mapping_status', 'ids_path', 'unit', 'measure', 'tolerance', 'cocos', 'psi_unit', 'roles', 'mode',
         'maturity', 'role', 'physical_model', 'definition', 'scale', 'scope', 'group', 'reduction_input',
-        'reduction_output', 'reduction_kind', 'locality', 'physical_role'].forEach(function (key) {
+        'reduction_output', 'reduction_kind', 'locality', 'physical_role', 'bounded_quantity', 'boundary_kind',
+        'form', 'allowed_side', 'coefficient', 'hardness', 'source_origin', 'basis', 'event',
+        'machine_class', 'unlinked'].forEach(function (key) {
         if (f[key] === undefined) return;
         var value = Array.isArray(f[key]) ? f[key].join(', ') : String(f[key]);
         facts.push('<li><span class="vg-meta">' + v.escape(key.replace(/_/g, ' ')) + ':</span> ' + v.escape(value) + '</li>');
