@@ -592,3 +592,25 @@ def test_a_declared_representation_matches_the_data_dictionary(snapshot):
                 assert info.units == "T" and info.documentation.startswith("Vacuum toroidal field at R0")
     # the stored product R0 B0 is still not b_t
     assert ("concept:b_t", "dd:tf/b_field_tor_vacuum_r/data") not in represented
+
+
+def test_efit_is_constrained_by_the_measured_paths_its_kfile_reads(snapshot):
+    """Meaning, not lineage: the measured paths EFIT fits, declared in _ecosystem and held to the k-file."""
+    import inspect
+
+    from vaft import _ecosystem
+    from vaft.code.efit import kfile
+
+    constrained = {target for source, target in _edges(snapshot, "constrained_by") if source == "code:efit"}
+    efit = next(code for code in _ecosystem.EXTERNAL_CODES if code.id == "efit")
+    assert constrained == {f"dd:{path}" for path in efit.constrained_by}
+    for path in kfile.REQUIRED_CONSTRAINT_INPUTS:  # "magnetics.ip.0.data" -> magnetics/ip(:)/data
+        canonical = ontology.canonical_dd(path.replace(".", "/").replace("/0/", "(0)/"))
+        canonical = canonical.replace("(0)", "(:)")
+        assert f"dd:{canonical}" in constrained, path
+    source = inspect.getsource(kfile)
+    for path in efit.constrained_by:
+        parts = [p.replace("(:)", "") for p in path.split("/")[1:]]
+        assert all(p in source for p in parts), f"{path} is declared but the k-file never reads it"
+    # the measured current and the reconstructed current stay distinct paths of one concept
+    assert ("concept:plasma_current", "dd:magnetics/ip(:)/data") in _edges(snapshot, "represented_by")

@@ -100,6 +100,7 @@ RELATIONS = {
     "bounds": "a boundary or guideline limits a quantity, on the domain its source established it on",
     "approximates": "a proxy estimates a quantity under its own assumptions; never identity",
     "applies": "a data routine evaluates a formula on inputs it selects from data",
+    "constrained_by": "a reconstruction code fits or imposes a measured Data Dictionary path as a constraint",
     "assumes": "a physical model is valid only where an ordering quantity is small or large",
 }
 
@@ -468,6 +469,11 @@ def _external_codes(graph: _Graph) -> None:
         graph.node(adapter_id, "api", code.adapter, origin, role="code adapter",
                    api_url=f"/reference/api/code/#module-{code.adapter}")
         graph.edge(node_id, adapter_id, "implemented_by", origin)
+        for path in code.constrained_by:
+            dd_node = _dd(graph, path, origin)
+            if dd_node is None:
+                raise OntologyError(f"{code.id} is constrained by {path}, which is not in the Data Dictionary")
+            graph.edge(node_id, dd_node, "constrained_by", origin)
         for entry in code.standardized:
             ids = entry.ids
             if entry.via.startswith("stage:"):

@@ -35,7 +35,7 @@ fact and says which (*From* in the detail panel):
 | `vaft.machine_mapping.registry` | each VEST diagnostic, its IDS, what it measures and derives, and its mapping function |
 | `vaft.validation.registry` | named checks, what they check and the function that computes them |
 | `vaft.data.cocos` | the COCOS convention of each code and data format |
-| `vaft._ecosystem` | external codes, their adapters and the IDS their results are mapped into |
+| `vaft._ecosystem` | external codes, their adapters, the IDS their results are mapped into, and the measured Data Dictionary paths a reconstruction code is *constrained by* (EFIT's k-file inputs) |
 | `vaft.formula._taxonomy` (#1626) | which quantity a formula reduces to which, through the vocabulary concept each reduction quantity declares; each formula's `Reduction` section (input and output representation, reduction kind, locality, physical role) as facets |
 | `Semantics` sections of formula and process docstrings | the vocabulary quantities a function consumes and produces, where nothing else connects it; an unknown term fails generation |
 | `vaft.validation.orderings` (#1627) | each physical model's approximation contract, the ordering quantities it assumes small or large, and the formula kernels that compute them |
