@@ -205,8 +205,9 @@ certify the shape error. Coil halves use the adapter's bounding rectangles;
 the inverse uses individual finite winding rectangles.
 
 The initial current density is sampled from the target volume sources on native
-nodes, then `vac_solve(rhs_source=Jphi)` assembles and solves that source on the
-native mesh. This is a starting state, not a fixed boundary constraint; the
+nodes, then `vac_solve(rhs_source=mu0*Jphi)` assembles and solves that source on the
+native mesh (OFT holds currents in mu0-scaled units; coil currents are scaled by
+`set_coil_currents`, the `rhs_source` is not). This is a starting state, not a fixed boundary constraint; the
 nonlinear solve subsequently determines its own LCFS. No direct plasma Green
 integration enters native fitting or initialization. `init_psi(curr_source=...)`
 is inappropriate here: that argument is an already assembled FE load vector.
