@@ -1,4 +1,4 @@
-"""Canonical slab field configurations and reconnection topology (#1063).
+"""Canonical slab field configurations and reconnection topology.
 
 ``slab_field_configuration``
     the field direction on stacked $x$ = const sheets: uniform, sheared

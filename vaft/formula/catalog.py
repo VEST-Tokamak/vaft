@@ -1,6 +1,6 @@
 """Searchable catalog of the formula layer, read out of the docstrings.
 
-This module is the optional discovery layer requested by issue #248.  It is
+This module is the optional discovery layer of the formula API.  It is
 *not* imported when ``vaft.formula`` or one of its submodules loads; it is
 pulled in the first time anything touches ``vaft.formula.describe``,
 ``vaft.formula.search``, ``vaft.formula.list_formulas``,
@@ -17,7 +17,7 @@ time, and the docstrings they already carry are the only source of truth.
 
 A :class:`FormulaSpec` renders as plain text (``str``/``render``) at a
 terminal and as Markdown (``to_markdown``, ``_repr_markdown_``) in Jupyter, so
-a notebook shows the docstring's equation instead of restating it (#889).
+a notebook shows the docstring's equation instead of restating it.
 
 ``python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml`` writes
 the deterministic YAML snapshot the documentation site renders, in the same
@@ -64,7 +64,7 @@ from ._taxonomy import (
 from .._semantics import Semantics, parse_semantics
 
 #: Where :func:`vaft.formula._propagation.jacobian` records an analytic Jacobian.  Read by
-#: name so describing a formula never imports the propagation layer (#1874).
+#: name so describing a formula never imports the propagation layer.
 _JACOBIAN_ATTRIBUTE = "__vaft_jacobian__"
 
 
@@ -91,7 +91,7 @@ __all__ = [
 _CATALOG_ORDER = _IMPORT_ORDER + tuple(_CATALOG_ONLY_SUBMODULES)
 CATEGORIES: tuple[str, ...] = tuple(key for key in _CATALOG_ORDER if key != "constants")
 
-SCHEMA_VERSION = 6  # +reduction (#1626), +semantics (#1702), +uncertainty propagation (#1874)
+SCHEMA_VERSION = 6  # +reduction, +semantics, +uncertainty propagation
 _GENERATOR = "python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml"
 
 #: A displayed equation of the description, ``$$...$$``, possibly over several lines.
@@ -513,7 +513,7 @@ def _reduction(parsed: ParsedDocstring) -> tuple[Reduction | None, tuple[str, ..
 
 
 def _propagation(fn, parsed: ParsedDocstring) -> tuple[str, ...]:
-    """An analytic Jacobian is a contract only when the docstring states it (#1874)."""
+    """An analytic Jacobian is a contract only when the docstring states it."""
     if _analytic_jacobian(fn) is not None and not parsed.flags.get("uncertainty_propagation", False):
         return ("an analytic Jacobian is attached but there is no Uncertainty propagation section",)
     return ()
@@ -655,7 +655,7 @@ def parameter_representation(name: str, parameter: str, *, quantity: str | None 
     wrong quantity.  A ``Semantics`` section is not mapped onto parameters
     either, because it declares no positional correspondence.  Pair the result with
     :func:`~vaft.data.representation.assess_compatibility` before calling the
-    formula; the formula itself is unchanged and checks nothing (#2163).
+    formula; the formula itself is unchanged and checks nothing.
     """
     from vaft.data.representation import EvidenceLevel, Representation
 
@@ -688,7 +688,7 @@ def list_formulas(
     """Specs of every formula, or of one category, in category-then-name order.
 
     Passing a category imports only that submodule. The keyword filters keep
-    only formulas whose ``Reduction`` section (#1626) has that value; any
+    only formulas whose ``Reduction`` section has that value; any
     filter excludes formulas without one. Values outside the vocabulary of
     :mod:`vaft.formula._taxonomy` raise ``ValueError``.
     """

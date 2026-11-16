@@ -1,14 +1,14 @@
 r"""Collisional closures of a multi-species plasma: collision times, energy exchange and classical diffusivities.
 
-The thermal half of the analytic kinetic closure (issue #1606).  The
+The thermal half of the analytic kinetic closure.  The
 composition it needs -- species densities from Z_eff and an impurity model,
-main-ion dilution -- is :mod:`vaft.formula.impurity` (#1565); the per-species
+main-ion dilution -- is :mod:`vaft.formula.impurity`; the per-species
 thermal pressure is :func:`vaft.formula.equilibrium.ion_pressure`; the
 Coulomb logarithm is the caller's
 (:func:`vaft.formula.equilibrium.coulomb_logarithm_from_n_T`).  This module
 adds the collision times a thermal model of several ion species needs, and the
 Braginskii perpendicular heat diffusivities built on them (the classical
-transport baseline, #1435/#1899).
+transport baseline).
 
 Notation
 --------

@@ -1,6 +1,6 @@
-"""Animated diagrams: one scientific model over a trajectory of its states (issues #1049, #1053).
+"""Animated diagrams: one scientific model over a trajectory of its states.
 
-A diagram's static form stays the TikZ -> SVG path of #890.  Its dynamic form
+A diagram's static form stays the TikZ -> SVG path.  Its dynamic form
 draws the same :class:`~vaft.diagram._scene.Scene` -- built by the same
 model for every state -- with Matplotlib, frame by frame, and hands the frames
 to the animation result of :mod:`vaft.plot._animation`: the same

@@ -1,4 +1,4 @@
-"""The Grad--Shafranov problem: regions, boundaries, topology and problem classes (#1052).
+"""The Grad--Shafranov problem: regions, boundaries, topology and problem classes.
 
 ``grad_shafranov_domain_decomposition``
     one flux function, three sources: plasma (force balance), vacuum
