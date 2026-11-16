@@ -1,4 +1,4 @@
-"""Non-mutating dotted-path access for ODS objects and plain mappings (issue #118).
+"""Non-mutating dotted-path access for ODS objects and plain mappings.
 
 An OMAS ``ODS`` creates paths on access.  ``ods["missing.path"]`` does not
 raise: it materializes an empty placeholder at that path, leaves it there, and
@@ -58,7 +58,7 @@ native IMAS walk), and :func:`path_value`, :func:`path_exists`,
 :func:`path_count` and :func:`get_path` route to it.  So a helper written
 against this module -- the EFIT quality tables in ``vaft.omas.efit_quality``,
 say -- reads an IMAS entry as it reads an ODS, and a computed view built on
-such helpers runs natively (issue #439).  A raw native IMAS object is refused
+such helpers runs natively.  A raw native IMAS object is refused
 by name rather than read as empty: the path grammar looks alike, but an
 ``IDSToplevel`` does not answer it.
 

@@ -1,4 +1,4 @@
-"""Population renderers for the #1644 cohort tables: tables in, figures out, no ODS."""
+"""Population renderers for the equilibrium-quality cohort tables: tables in, figures out, no ODS."""
 
 from __future__ import annotations
 

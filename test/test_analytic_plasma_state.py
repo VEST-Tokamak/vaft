@@ -1,4 +1,4 @@
-"""Analytic L-/H-mode/ITB plasma states on a fixed geometry (#1045)."""
+"""Analytic L-/H-mode/ITB plasma states on a fixed geometry."""
 
 from __future__ import annotations
 

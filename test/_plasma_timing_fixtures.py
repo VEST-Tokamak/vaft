@@ -1,4 +1,4 @@
-"""Synthetic plasma-timing products shared by the #409 tests.
+"""Synthetic plasma-timing products shared by the plasma-timing tests.
 
 Not a test module (the leading underscore keeps pytest from collecting it):
 the builders here make an ODS on the analysis grid with an H-alpha-like

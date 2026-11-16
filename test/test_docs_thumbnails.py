@@ -98,7 +98,7 @@ def test_a_manifest_entry_for_an_unknown_plot_is_a_problem(assets):
 
 
 def test_a_newly_registered_plot_without_an_entry_only_warns(assets):
-    """A plot registered after the last render must not break the docs build (#1270)."""
+    """A plot registered after the last render must not break the docs build."""
     name = _first_rendered(assets)
     _rewrite(assets, lambda plots: plots.pop(name))
     (assets / f"{name}.png").unlink()

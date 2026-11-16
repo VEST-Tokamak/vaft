@@ -1,4 +1,4 @@
-"""CGYRO -> IMAS gyrokinetics_local / core_transport mapping (#1354 stage 3)."""
+"""CGYRO -> IMAS gyrokinetics_local / core_transport mapping."""
 
 from __future__ import annotations
 

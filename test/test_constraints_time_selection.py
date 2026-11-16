@@ -1,4 +1,4 @@
-"""EFIT constraint times from the shared plasma range and the detected window (issue #409).
+"""EFIT constraint times from the shared plasma range and the detected window.
 
 The script used to take a fixed 0.28-0.38 s and keep the samples above 20 kA;
 it now intersects the configured ``plasma_analysis`` range with the plasma
@@ -166,7 +166,7 @@ def test_the_provenance_comment_survives_the_constraint_builder():
     assert bare["ids_properties.comment"] == "constraint equilibrium"
 
 
-# --- the vacuum cut (#76) ---------------------------------------------------
+# --- the vacuum cut ---------------------------------------------------
 
 
 def _ip_ods(values, dt: float = DT):
@@ -251,7 +251,7 @@ def test_a_homogeneous_time_product_is_still_judged_by_the_cut():
     The cut used to read `magnetics.ip.0.time` by name and, finding none,
     kept every instant -- exactly where the window selector two steps earlier
     had resolved the same node through `magnetics.time` (cold review 0.7.0
-    data F10, #1888).  Both steps now go through the same resolver.
+    data F10).  Both steps now go through the same resolver.
     """
     from omas import ODS
 

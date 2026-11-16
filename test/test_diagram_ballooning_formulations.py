@@ -1,4 +1,4 @@
-"""The ballooning-formulation hierarchy (#1637): reduction chain, implementations, shared normalisation."""
+"""The ballooning-formulation hierarchy: reduction chain, implementations, shared normalisation."""
 
 import pytest
 

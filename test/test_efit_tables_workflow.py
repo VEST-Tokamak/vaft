@@ -1,4 +1,4 @@
-"""The Green-table workflow tools (issue #194): comparison and A/B bookkeeping.
+"""The Green-table workflow tools: comparison and A/B bookkeeping.
 
 The tools are path-run scripts; they are imported here by file so their
 pure parts stay covered without EFIT or EFUND.
@@ -49,7 +49,7 @@ def test_a_table_compared_with_itself_is_identical_everywhere(compare_tables):
     for file_key in ("ep", "ec", "rfcoil", "rv"):
         for label, delta in tables[file_key]["by_record"].items():
             assert delta.get("identical"), (file_key, label)
-    # Since #695 the packaged directory carries the manifest of the EFUND run
+    # The packaged directory carries the manifest of the EFUND run
     # that produced it, so every EFIT run records which table it consumed.
     assert report["a"]["identity"]["provenance"] == "manifest"
     assert report["a"]["identity"]["identity"]
@@ -68,7 +68,7 @@ def _in3(groups):
 
 
 def test_pf_groups_are_not_paired_when_the_group_counts_differ(compare_tables):
-    """Cold review 0.7.0 efit-workflows F17 (#1888).
+    """Cold review 0.7.0 efit-workflows F17.
 
     A group number is a position in ``fcid``. B inserts a group in the
     middle, so pairing by position would set A's group 2 against the new
@@ -123,7 +123,7 @@ def test_log_parser_keeps_a_slice_that_collapsed_before_its_first_step(ab_efit_t
     # The blocks are paired with the k-files by position, so a slice that
     # printed no Picard step must still be a block: charged to the slice
     # before it, it would shift every later slice's numbers onto the wrong
-    # k-file (#1038 moved this parser onto vaft.code.efit).
+    # k-file. The parser lives in vaft.code.efit.
     text = (
         " t= 316 it=  1 chi2= 1.0E+03 ... err= 1.0E-01\n"
         " ERROR in bound at r=  0, t=   317: First and last contour points are too far apart\n"
@@ -136,7 +136,7 @@ def test_log_parser_keeps_a_slice_that_collapsed_before_its_first_step(ab_efit_t
 
 
 def test_ab_arm_pairs_log_blocks_with_kfiles_by_printed_time(ab_efit_table):
-    """Cold review 0.7.0 efit-workflows F5 (#1888): the A/B arm has the same pairing."""
+    """Cold review 0.7.0 efit-workflows F5: the A/B arm has the same pairing."""
     text = (
         " r=  0 t=   318 it=  1 chi2=7.09E+02 zm= 1.19E-07 err=3.905E+00 dz= 1.192E-07 chigam= 0.00E+00\n"
         " r=  0 t=   320 it=  1 chi2=7.32E+02 zm= 9.81E-04 err=3.867E+00 dz=-2.799E-03 chigam= 0.00E+00\n"

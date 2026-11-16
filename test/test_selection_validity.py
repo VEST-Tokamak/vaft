@@ -232,3 +232,43 @@ def test_an_animation_keeps_flagged_states_in_its_sequence(sample):
     )
     assert len(list(movie.frames())) == 2
     assert movie.metadata["style"]["validity"] == "mask"
+
+
+# -- #2253: a channel profile carries the channels' stored uncertainty -----------------------
+
+
+@pytest.mark.parametrize("quantity", ["n_e", "t_e"])
+def test_a_thomson_profile_carries_each_channels_error_upper(quantity):
+    ods = sample_ods(48224)
+    name = {"n_e": "thomson_scattering_profile_electron_density",
+            "t_e": "thomson_scattering_profile_electron_temperature"}[quantity]
+    (trace,) = build_model(name, normalize_entries(ods), time=0.300).series
+    assert trace.yerr is not None and np.shape(trace.yerr) == np.shape(trace.y)
+    position = int(np.argmin(np.abs(np.asarray(ods["thomson_scattering.time"]) - 0.300)))
+    expected = {}
+    for channel in range(len(ods["thomson_scattering.channel"])):
+        base = f"thomson_scattering.channel.{channel}.{quantity}"
+        y = float(np.asarray(ods[f"{base}.data"])[position])
+        if np.isfinite(y):
+            expected[y] = float(np.asarray(ods[f"{base}.data_error_upper"])[position])
+    finite = np.isfinite(trace.y)
+    scale = np.nanmax(np.abs(trace.y)) / max(abs(v) for v in expected)  # display unit scaling
+    for y, err in zip(np.asarray(trace.y)[finite], np.asarray(trace.yerr)[finite]):
+        match = min(expected, key=lambda value: abs(value * scale - y))
+        assert err == pytest.approx(expected[match] * scale, rel=1e-9)
+
+
+def test_a_stored_error_lower_makes_the_thomson_spread_asymmetric():
+    import copy
+
+    ods = copy.deepcopy(sample_ods(48224))
+    upper = np.asarray(ods["thomson_scattering.channel.0.n_e.data_error_upper"])
+    ods["thomson_scattering.channel.0.n_e.data_error_lower"] = 0.5 * upper
+    (trace,) = build_model("thomson_scattering_profile_electron_density", normalize_entries(ods)).series
+    yerr = np.asarray(trace.yerr)
+    assert yerr.shape == (2, np.size(trace.y))
+    lower, high = yerr
+    finite = np.isfinite(high)
+    # channel 0 is halved below; every other channel falls back to its upper bound
+    assert int((lower[finite] < high[finite]).sum()) == 1
+    assert int(np.isclose(lower[finite], high[finite]).sum()) == int(finite.sum()) - 1

@@ -157,7 +157,7 @@ def test_an_index_still_selects_a_line(filterscope_ods):
 
 
 def test_an_index_no_channel_holds_is_refused(filterscope_ods):
-    """It used to draw an empty figure and report nothing (issue #290)."""
+    """It used to draw an empty figure and report nothing."""
     with pytest.raises(ValueError, match="index 99"):
         _drawn(filterscope_ods, line_index=99)
 

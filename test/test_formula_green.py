@@ -42,7 +42,7 @@ def test_the_3d_kernel_reduces_to_the_ring_kernel_at_zero_toroidal_separation():
 
     A point source replaces the ring kernel's ``4*R*R0`` with
     ``4*R*R0*sin^2(dphi/2)``; this expression adds the second to the first, so
-    they agree only where the sine vanishes (issue #356). Pinning that keeps a
+    they agree only where the sine vanishes. Pinning that keeps a
     future correction honest about what it is allowed to change.
     """
     radius = np.array([0.9, 1.3, 1.7])

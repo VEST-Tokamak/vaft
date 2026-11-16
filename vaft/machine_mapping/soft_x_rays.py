@@ -24,6 +24,7 @@ import yaml
 from vaft.process.soft_x_rays import sxr_offset_baseline
 
 from .conventions import clock_angle_to_toroidal_angle
+from .machine_history import sxr_hxr_trigger_fallback_shots
 from .utils import path_exists, resolve_data_root, set_path
 
 # ``sample_v3.py`` records a waveform relative to its digitizer trigger and
@@ -67,8 +68,15 @@ PACKAGED_GEOMETRY_TABLE = "geometry/line_of_sight_endpoints.csv"
 PACKAGED_TRIGGER_SETTINGS = "legacy/diagnostic-trigger-settings.yaml"
 # The 455xx SXR CSV campaign has no SXR entry in the legacy settings table.
 # It is allowed to inherit HXR timing because paired SXR/HXR records in the
-# later campaign have the same 285 ms trigger start.
-HXR_FALLBACK_SHOT_RANGE = range(45531, 45541)
+# later campaign have the same 285 ms trigger start. The shots are vest.yaml's
+# ``machine_history.soft_x_rays.hxr_trigger_fallback`` (issue #2267);
+# ``HXR_FALLBACK_SHOT_RANGE`` is derived from it on access.
+
+
+def __getattr__(name: str):
+    if name == "HXR_FALLBACK_SHOT_RANGE":
+        return sxr_hxr_trigger_fallback_shots()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 @dataclass(frozen=True)
@@ -328,7 +336,7 @@ def resolve_sxr_time_alignment(
     hxr = entry.get("HXR")
     if (
         allow_hxr_fallback
-        and int(shot) in HXR_FALLBACK_SHOT_RANGE
+        and int(shot) in sxr_hxr_trigger_fallback_shots()
         and isinstance(hxr, Mapping)
         and hxr.get("start_time_ms") is not None
     ):

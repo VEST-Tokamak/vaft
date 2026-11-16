@@ -1,4 +1,4 @@
-"""The main-chamber gauge changed from a PKR 251 to an IKR 251 at 46993 (#1543)."""
+"""The main-chamber gauge changed from a PKR 251 to an IKR 251 at 46993."""
 
 from __future__ import annotations
 
