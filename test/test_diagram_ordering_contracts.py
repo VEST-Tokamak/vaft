@@ -1,4 +1,4 @@
-"""The ordering contract map (#1627): every cell is a registered assumption."""
+"""The ordering contract map: every cell is a registered assumption."""
 
 import pytest
 

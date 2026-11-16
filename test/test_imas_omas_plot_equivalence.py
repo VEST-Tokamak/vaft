@@ -1,4 +1,4 @@
-"""Equivalence at the data boundary (issue #63, decision 1).
+"""Equivalence at the data boundary.
 
 The OMAS and the IMAS adapters must turn the same shot into the same view
 models before anything reaches a renderer.  Shot 39915 is packaged in both

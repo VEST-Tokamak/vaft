@@ -84,9 +84,22 @@ from datetime import datetime
 from pathlib import Path
 from typing import IO, Any, Mapping, Optional, Sequence
 
-from . import _process_tree
+from . import _process_tree, policy as _policy
+from .accounting import (
+    NODE_FAIL_STATES,
+    OUT_OF_MEMORY_STATES,
+    USAGE_RECORD,
+    parse_usage_record,
+    usage_record_lines,
+)
 from ._executables import ExecutableNotLaunchable
 from .execution import (
+    RUNTIME_CANCELLED,
+    RUNTIME_COMPLETED,
+    RUNTIME_MEMORY_LIMIT,
+    RUNTIME_NODE_FAIL,
+    RUNTIME_QUEUE_TIMEOUT,
+    RUNTIME_TIMEOUT,
     THREAD_ENV_VARIABLES,
     ExecutionRequest,
     ExecutionResult,
@@ -252,6 +265,7 @@ def _job_script(
     """
     quote = shlex.quote
     status, started = f"{scratch}/returncode", f"{scratch}/started"
+    usage = quote(f"{scratch}/{USAGE_RECORD}")
     lines = ["#!/bin/bash", *[str(line) for line in setup_lines]]
     lines += [
         f"cd {quote(str(workdir))} || exit 1",
@@ -279,13 +293,18 @@ def _job_script(
             lines.append(f'export {variable}="${{{variable}:-{int(threads)}}}"')
     command = " ".join(quote(str(part)) for part in request.command)
     source = quote(str(stdin)) if stdin is not None else "/dev/null"
+    # The job cgroup's CPU time and memory peak, sampled as the program starts
+    # and ends (also at the TERM of a cancel or a time limit): sacct's TotalCPU
+    # does not survive a cancel, this record does (vaft.code.accounting).
+    lines += usage_record_lines(usage)
     lines += [
+        "vaft_usage_sample",
         f"date +%s > {quote(started)}",
         # The termination record carries the node's own clock and, where
         # Slurm provides it, the job's end time, so a walltime kill can be
         # told from a cancel without accounting and without comparing
         # clocks across hosts.
-        f'terminated() {{ echo "{_TERMINATED} $(date +%s) ${{SLURM_JOB_END_TIME:-}}" > {quote(status)}; }}',
+        f'terminated() {{ echo "{_TERMINATED} $(date +%s) ${{SLURM_JOB_END_TIME:-}}" > {quote(status)}; vaft_usage_sample; }}',
         # Backgrounded so a TERM at the time limit or on scancel runs the
         # trap now rather than after the program exits.
         "trap 'terminated; kill -TERM $child 2>/dev/null; wait $child; exit 143' TERM",
@@ -296,7 +315,7 @@ def _job_script(
         "wait $child",
         "rc=$?",
         # The program may die of the TERM before this shell handles its own.
-        f'if [ "$rc" -eq 143 ]; then terminated; else echo "$rc" > {quote(status)}; fi',
+        f'if [ "$rc" -eq 143 ]; then terminated; else vaft_usage_sample; echo "$rc" > {quote(status)}; fi',
         "exit $rc",
         "",
     ]
@@ -311,7 +330,7 @@ def _job_outcome(
     exit_code: Optional[int],
     began: bool,
     walltime_kill: bool,
-) -> tuple[Optional[int], bool, bool, bool]:
+) -> tuple[Optional[int], bool, bool, bool, str]:
     """How a finished batch job ended, from the records a backend collected.
 
     Shared with :mod:`vaft.code.remote`. ``recorded`` is the job script's own
@@ -322,8 +341,14 @@ def _job_outcome(
     whether a ``terminated`` record looks like the time limit rather than a
     cancel.
 
-    Returns ``(returncode, timed_out, never_started, cancelled)``; the last is
-    ``cancelled`` corrected for a program that exited before the cancel landed.
+    Returns ``(returncode, timed_out, never_started, cancelled, runtime_status)``;
+    ``cancelled`` is corrected for a program that exited before the cancel
+    landed. A job the scheduler ended ``OUT_OF_MEMORY``, ``CANCELLED`` by
+    someone else, or for a node failure did not exit on its own either: it is
+    ``timed_out`` with ``runtime_status`` ``memory_limit``, ``cancelled`` or
+    ``node_fail`` -- unless the program's own exit was recorded first, except
+    that a non-zero exit under ``OUT_OF_MEMORY`` is the OOM killer's (the batch
+    shell survived the program and recorded its 137).
     """
     terminated = recorded is not None and recorded.startswith(_TERMINATED)
     exited = recorded is not None and not terminated
@@ -333,6 +358,25 @@ def _job_outcome(
     never_started = cancelled and not began
     if not timed_out and state is None and terminated:
         timed_out = walltime_kill
+    status = ""
+    if not timed_out and exited and state in OUT_OF_MEMORY_STATES and int(recorded) != 0:
+        # The cgroup OOM killer took the program; the batch shell survived and
+        # recorded its 137. Still the memory limit, not an exit of its own.
+        status, timed_out = RUNTIME_MEMORY_LIMIT, True
+    if not timed_out and not exited:
+        if state in OUT_OF_MEMORY_STATES:
+            status = RUNTIME_MEMORY_LIMIT
+        elif state == "CANCELLED":
+            status = RUNTIME_CANCELLED
+        elif state in NODE_FAIL_STATES:
+            status = RUNTIME_NODE_FAIL
+        timed_out = bool(status)
+    if never_started:
+        status = RUNTIME_QUEUE_TIMEOUT
+    elif timed_out and not status:
+        status = RUNTIME_TIMEOUT
+    elif not timed_out:
+        status = RUNTIME_COMPLETED
     if timed_out:
         returncode: Optional[int] = None
     elif exited:
@@ -341,7 +385,86 @@ def _job_outcome(
         returncode = exit_code or 0
     else:
         returncode = exit_code or (143 if terminated else 1)
-    return returncode, timed_out, never_started, cancelled
+    return returncode, timed_out, never_started, cancelled, status
+
+
+#: How long a job sbatch accepted without a parseable id counts as active [s].
+UNPARSED_ACTIVE_S = 3600.0
+
+
+def _step_record(pid: int) -> str:
+    """The audit id of an srun step this host launched: host, pid and launch time."""
+    import socket
+
+    return f"srun:{socket.gethostname()}:{pid}:{int(time.time())}"
+
+
+def _unparsed_record() -> str:
+    return f"unparsed:{int(time.time())}"
+
+
+def _record_live(record: str) -> bool:
+    """Whether an audit id that squeue cannot answer for still counts as active.
+
+    An srun step counts while its client process lives on this host -- the
+    same pid *and* a process started no later than the record, so a recycled
+    pid is not mistaken for it; a step recorded on another host cannot be seen
+    from here and does not count. An sbatch that printed no id counts for
+    :data:`UNPARSED_ACTIVE_S`.
+    """
+    import socket
+
+    parts = record.split(":")
+    if parts[0] == "unparsed" and len(parts) == 2 and parts[1].isdigit():
+        return time.time() - int(parts[1]) < UNPARSED_ACTIVE_S
+    if parts[0] != "srun" or len(parts) != 4 or not (parts[2].isdigit() and parts[3].isdigit()):
+        return False
+    host, pid, recorded = parts[1], int(parts[2]), int(parts[3])
+    if host != socket.gethostname() or os.name == "nt":  # os.kill(pid, 0) terminates on Windows
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        pass
+    started = _process_start(pid)
+    return started is None or started <= recorded + 5
+
+
+def _etime_seconds(text: str) -> int:
+    """Seconds in a ps ``etime`` field, ``[[dd-]hh:]mm:ss``."""
+    days, _, clock = text.rpartition("-")
+    seconds = 0
+    for part in clock.split(":"):
+        seconds = seconds * 60 + int(part)
+    return seconds + 86400 * int(days or 0)
+
+
+def _process_start(pid: int) -> Optional[float]:
+    """Epoch a process started, from /proc or psutil; ``None`` when this host cannot tell."""
+    try:
+        import psutil
+
+        return float(psutil.Process(pid).create_time())
+    except Exception:  # noqa: BLE001 - psutil absent or the process just ended
+        pass
+    try:  # macOS has no /proc; ps reports the elapsed time on both
+        elapsed = subprocess.run(
+            ["ps", "-o", "etime=", "-p", str(pid)], capture_output=True, text=True, timeout=10
+        ).stdout.strip()
+        if elapsed:
+            return time.time() - _etime_seconds(elapsed)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        pass
+    try:
+        fields = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
+        ticks = os.sysconf("SC_CLK_TCK")
+        boot = next(float(line.split()[1]) for line in Path("/proc/stat").read_text().splitlines()
+                    if line.startswith("btime"))
+        return boot + int(fields[19]) / ticks
+    except (OSError, ValueError, IndexError, StopIteration):
+        return None
 
 
 def _job_note(
@@ -444,6 +567,13 @@ class SlurmBackend:
         step before it is killed [s].
     keep_scratch : bool
         Keep the job script and captured streams even after a clean exit [n/a].
+    cluster : str, optional
+        Name the execution policy (:mod:`vaft.code.policy`) knows this cluster
+        by; default ``$VAFT_SLURM_CLUSTER``, ``$SLURM_CLUSTER_NAME`` or
+        ``"slurm"`` [n/a].
+    approval : str, optional
+        Approval id a policy that requires one checks; default
+        ``$VAFT_EXECUTION_APPROVAL`` [n/a].
     """
 
     #: How long a finished job's status file and accounting may lag behind
@@ -465,6 +595,8 @@ class SlurmBackend:
         poll_interval: float = 10.0,
         step_grace: float = 30.0,
         keep_scratch: bool = False,
+        cluster: Optional[str] = None,
+        approval: Optional[str] = None,
     ) -> None:
         if mode not in _MODES:
             raise ValueError(f"mode must be one of {_MODES}, got {mode!r}")
@@ -485,6 +617,8 @@ class SlurmBackend:
         self.poll_interval = float(poll_interval)
         self.step_grace = float(step_grace)
         self.keep_scratch = keep_scratch
+        self.cluster = cluster or os.environ.get("VAFT_SLURM_CLUSTER") or os.environ.get("SLURM_CLUSTER_NAME") or "slurm"
+        self.approval = approval
 
     @classmethod
     def from_environment(cls, environ: Optional[Mapping[str, str]] = None) -> "SlurmBackend":
@@ -573,12 +707,15 @@ class SlurmBackend:
 
         environment = _step_environment(request)
         log_path = Path(request.log_path) if request.log_path is not None else None
+        # srun outside an allocation creates one: the policy decides that too.
+        gate = self._gate(request) if not os.environ.get("SLURM_JOB_ID") else _policy.SubmissionGate(None, None)
         started = time.monotonic()
-        if log_path is None:
-            return self._step(argv, request, environment, None, started)
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        with log_path.open("w", encoding="utf-8") as log:
-            return self._step(argv, request, environment, log, started)
+        with gate:
+            if log_path is None:
+                return self._step(argv, request, environment, None, started, gate)
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("w", encoding="utf-8") as log:
+                return self._step(argv, request, environment, log, started, gate)
 
     def _step(
         self,
@@ -587,6 +724,7 @@ class SlurmBackend:
         environment: dict[str, str],
         log: Optional[IO[str]],
         started: float,
+        gate: Optional["_policy.SubmissionGate"] = None,
     ) -> ExecutionResult:
         try:
             process = subprocess.Popen(
@@ -602,6 +740,8 @@ class SlurmBackend:
             )
         except OSError as error:
             raise ExecutableNotLaunchable(f"cannot launch {argv[0]}: {error}") from error
+        if gate is not None:
+            gate.submitted(os.environ.get("SLURM_JOB_ID") or _step_record(process.pid), argv)
         timed_out = False
         try:
             stdout, stderr = process.communicate(request.stdin, timeout=request.timeout)
@@ -671,8 +811,20 @@ class SlurmBackend:
     def _run_batch(self, request: ExecutionRequest) -> ExecutionResult:
         return self._finish_batch(self._start_batch(request))
 
+    def _gate(self, request: ExecutionRequest) -> "_policy.SubmissionGate":
+        """The execution policy's decision on ``request``, before any side effect (vaft.code.policy)."""
+        return _policy.open_gate(
+            cluster=self.cluster, cpus=_cpus(request), mem_mb=request.resources.memory_mb,
+            partition=self.partition, options=[*self._sizing(request), *self._placement(), *self.extra_args],
+            approval_id=self.approval, active_jobs=self._active_jobs,
+        )
+
     def _start_batch(self, request: ExecutionRequest) -> "_BatchJob":
         sbatch = self._tool("sbatch")
+        with self._gate(request) as gate:
+            return self._start_gated_batch(request, sbatch, gate)
+
+    def _start_gated_batch(self, request: ExecutionRequest, sbatch: str, gate: "_policy.SubmissionGate") -> "_BatchJob":
         workdir = Path(request.workdir).resolve()
         scratch = workdir / SCRATCH_DIRECTORY / _scratch_name(request.label)
         scratch.mkdir(parents=True)
@@ -700,7 +852,13 @@ class SlurmBackend:
         ]
 
         started = time.monotonic()
-        job_id, cluster = self._submit(argv)
+        try:
+            job_id, cluster = self._submit(argv)
+        except ExecutableNotLaunchable as error:
+            if "printed no job id" in str(error):
+                gate.submitted(_unparsed_record(), argv)  # sbatch accepted something: keep it on record
+            raise
+        gate.submitted(job_id, argv)
         clusters = ["-M", cluster] if cluster else []
         return _BatchJob(request, tuple(argv), job_id, clusters, scratch, log_path, started)
 
@@ -734,7 +892,7 @@ class SlurmBackend:
         state, exit_code = self._accounting(job_id, clusters)
 
         terminated = recorded is not None and recorded.startswith(_TERMINATED)
-        returncode, timed_out, never_started, cancelled = _job_outcome(
+        returncode, timed_out, never_started, cancelled, runtime_status = _job_outcome(
             cancelled=cancelled,
             recorded=recorded,
             state=state,
@@ -742,6 +900,7 @@ class SlurmBackend:
             began=bool(begin),
             walltime_kill=self._walltime_kill(recorded or "", scratch, request),
         )
+        usage = parse_usage_record(_read(scratch / USAGE_RECORD), _cpus(request))
         # The program's own run time, from the node's clock at start and at
         # the TERM that stopped it; ``elapsed_s`` below counts from submission.
         run_s: Optional[float] = None
@@ -786,8 +945,9 @@ class SlurmBackend:
             launcher=tuple(argv),
             log_path=log_path,
             job_id=job_id,
-            runtime_status="queue_timeout" if never_started else "",
+            runtime_status=runtime_status,
             run_s=run_s,
+            usage=usage,
         )
 
     def _slurm(self, argv: list[str], *, environment: Optional[dict[str, str]] = None) -> subprocess.CompletedProcess:
@@ -813,6 +973,30 @@ class SlurmBackend:
                 raise ExecutableNotLaunchable(f"sbatch rejected the job for {argv[-1]}: {message}")
             time.sleep(self.poll_interval)
         raise AssertionError("unreachable")  # pragma: no cover
+
+    def _active_jobs(self, job_ids: Sequence[str]) -> Optional[int]:
+        """How many of ``job_ids`` are queued or running; ``None`` if squeue cannot say.
+
+        Every federation member (``-M all``), so a job accepted by another
+        member still counts against the policy's ``max_concurrent``.
+        """
+        if not job_ids:
+            return 0
+        # A step this host launched with srun (no batch id) counts while its client lives.
+        local = [job for job in job_ids if job.startswith(("srun:", "unparsed:"))]
+        alive = sum(1 for job in local if _record_live(job))
+        batch = set(job_ids) - set(local)
+        if not batch:
+            return alive
+        squeue = self._tool("squeue")
+        listed = self._slurm([squeue, "-M", "all", "-h", "-u", _policy._requester(), "-o", "%i"])
+        if listed.returncode != 0:
+            # -M needs slurmdbd; a cluster without federation answers plainly.
+            listed = self._slurm([squeue, "-h", "-u", _policy._requester(), "-o", "%i"])
+            if listed.returncode != 0:
+                return None
+        live = {line.strip() for line in listed.stdout.splitlines() if line.strip()}
+        return alive + len(live & batch)
 
     def _live(self, job_id: str, clusters: list[str]) -> Optional[bool]:
         """True while the job is live, False once it is not, None if unknown."""

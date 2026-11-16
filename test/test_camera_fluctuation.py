@@ -1,4 +1,4 @@
-"""Issue #161: the published FAST-camera fluctuation chain, on synthetic cubes.
+"""The published FAST-camera fluctuation chain, on synthetic cubes.
 
 The published method is specified across a thesis, a paper and one surviving
 MATLAB script that disagree in places, so these tests pin what was actually

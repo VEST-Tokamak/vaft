@@ -1,4 +1,4 @@
-"""Per-component diagnostics time windows (issue #244).
+"""Per-component diagnostics time windows.
 
 The processed diagnostics product used to force every mapped signal onto one
 grid, ``0.26 <= t < 0.36 s``. That window is right for equilibrium magnetics
@@ -52,12 +52,12 @@ def test_configured_policy_splits_analysis_from_full_discharge():
     for component in ("magnetics", "pf_active", "spectrometer_uv", "impa"):
         assert policies[component].name == "analysis"
         assert (policies[component].tstart, policies[component].tend) == (0.26, 0.36)
-    # ec_power is the `ec_launchers` mapping (#165): the ECH pulse starts
+    # ec_power is the `ec_launchers` mapping: the ECH pulse starts
     # before breakdown, so it takes the full-discharge window.
     for component in ("tf", "barometry", "ec_power"):
         assert policies[component].name == "full_discharge"
         assert (policies[component].tstart, policies[component].tend) == (0.0, 1.0)
-    # The shared plasma-analysis range (#409) is a window no component maps
+    # The shared plasma-analysis range is a window no component maps
     # onto: the EFIT constraint times and the diamagnetic-flux window search
     # inside it, and the stretch before it is the baseline.
     shared = policies.windows["plasma_analysis"]
@@ -427,7 +427,7 @@ def test_every_mapped_component_reports_its_coverage(full_record_diagnostics):
 
 
 # ---------------------------------------------------------------------------
-# Discharge-timing policy (#409 PR-v)
+# Discharge-timing policy
 # ---------------------------------------------------------------------------
 
 
@@ -472,7 +472,7 @@ def test_discharge_timing_configuration_errors_are_caught_at_load(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Plasma-features policy (#409 PR-vi)
+# Plasma-features policy
 # ---------------------------------------------------------------------------
 
 

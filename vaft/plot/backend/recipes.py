@@ -1380,6 +1380,8 @@ def _core_profile_field_reads(quantity: str) -> tuple[str, ...]:
         "equilibrium.time_slice.{i}.profiles_1d.psi",
         "equilibrium.time_slice.{i}.profiles_1d.q",
         "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
+        "equilibrium.time_slice.{i}.boundary.outline.r",
+        "equilibrium.time_slice.{i}.boundary.outline.z",
         "core_profiles.time",
         "core_profiles.profiles_1d.{i}.time",
         f"core_profiles.profiles_1d.{{i}}.electrons.{quantity}",
@@ -4688,6 +4690,82 @@ def _core_profile_slice_at(ods: Any, time_slice: int) -> int:
     return nearest
 
 
+def _equilibrium_slice_at_core_profile(ods: Any, profile_slice: int) -> int | None:
+    """The ``equilibrium.time_slice`` index stored at ``core_profiles.profiles_1d[profile_slice]``'s time.
+
+    The mirror of :func:`_core_profile_slice_at`, under the same rule: matched
+    by time, refused (``None``) when the nearest slice lies further away than
+    half the coarser of the two slice spacings, or when either side stores no
+    time -- an index is never taken for an instant here.
+    """
+    profile_times = slice_times(ods, "core_profiles.profiles_1d")
+    equilibrium_times = slice_times(ods, "equilibrium.time_slice")
+    instant = profile_times[profile_slice] if 0 <= profile_slice < profile_times.size else np.nan
+    stored = np.flatnonzero(np.isfinite(equilibrium_times))
+    if stored.size == 0 or not np.isfinite(instant):
+        return None
+    nearest = int(stored[int(np.argmin(np.abs(equilibrium_times[stored] - instant)))])
+    spacings = [
+        float(np.median(steps))
+        for steps in (
+            np.diff(np.sort(times[np.isfinite(times)]))
+            for times in (profile_times, equilibrium_times)
+        )
+        if steps.size and np.median(steps) > 0.0
+    ]
+    if spacings and abs(float(equilibrium_times[nearest]) - float(instant)) > 0.5 * max(spacings):
+        return None
+    return nearest
+
+
+#: How far outside [0, 1] a core profile's ``grid.psi`` may normalise against
+#: its equilibrium and still be read as psi_N (rounding at the axis and edge).
+_GRID_PSI_NORM_TOLERANCE = 0.02
+
+
+def _core_profile_psi_norm(ods: Any, profile_slice: int, size: int) -> np.ndarray | None:
+    """psi_N of ``core_profiles.profiles_1d[profile_slice]`` from its ``grid.psi`` (#2253).
+
+    Normalised by ``psi_axis``/``psi_boundary`` of the equilibrium slice stored
+    at the profile's time (:func:`_equilibrium_slice_at_core_profile`), else by
+    the ends of that slice's ``profiles_1d.psi``.  ``None`` -- the caller then
+    draws a sample index under that name -- when there is no ``grid.psi`` of
+    the profile's length or no equilibrium at its time.  A ``grid.psi`` that
+    normalises off [0, 1] is in another convention (Wb/rad against Wb, #278)
+    or belongs to another equilibrium; it is refused with a warning, never
+    drawn as psi_N.
+    """
+    grid_psi = _array(ods, f"core_profiles.profiles_1d.{profile_slice}.grid.psi")
+    if grid_psi is None or grid_psi.size != size or not np.all(np.isfinite(grid_psi)):
+        return None
+    eq_slice = _equilibrium_slice_at_core_profile(ods, int(profile_slice))
+    if eq_slice is None:
+        return None
+    base = f"equilibrium.time_slice.{eq_slice}"
+    psi_axis = _get(ods, f"{base}.global_quantities.psi_axis")
+    psi_boundary = _get(ods, f"{base}.global_quantities.psi_boundary")
+    if psi_axis is None or psi_boundary is None:
+        psi_1d = _array(ods, f"{base}.profiles_1d.psi")
+        if psi_1d is None or psi_1d.size < 2:
+            return None
+        psi_axis, psi_boundary = float(psi_1d[0]), float(psi_1d[-1])
+    span = float(psi_boundary) - float(psi_axis)
+    if span == 0.0 or not np.isfinite(span):
+        return None
+    psi_norm = (grid_psi - float(psi_axis)) / span
+    if psi_norm.min() < -_GRID_PSI_NORM_TOLERANCE or psi_norm.max() > 1.0 + _GRID_PSI_NORM_TOLERANCE:
+        warnings.warn(
+            f"core_profiles.profiles_1d.{profile_slice}.grid.psi normalises to "
+            f"[{psi_norm.min():.3g}, {psi_norm.max():.3g}] against {base} "
+            f"(psi_axis = {float(psi_axis):g}, psi_boundary = {float(psi_boundary):g}), "
+            "not [0, 1]; it is not drawn as psi_N",
+            UserWarning,
+            stacklevel=4,
+        )
+        return None
+    return psi_norm
+
+
 def _rho_tor_of_psi_norm(ods: Any, time_slice: int) -> tuple[np.ndarray, np.ndarray]:
     """``(psi_N, rho_tor_norm)`` of one equilibrium slice, as an interpolation table.
 
@@ -4761,13 +4839,29 @@ def _build_core_profile_field(
     # The profile lives on rho_tor_norm; each cell knows only its psi_N.  The
     # slice's own rho_tor_norm(psi_N) carries one to the other -- sqrt(psi_N)
     # is rho_pol, up to 0.15 away (issue #335, the last instance of #276).
-    # The mapping itself is the process layer's (issue #2270).
+    # The mapping itself is the process layer's (issue #2270); it masks by the
+    # flux threshold alone.
     from vaft.process.profile import map_rho_tor_profile_to_rz
 
     values = map_rho_tor_profile_to_rz(
         psi_rz, float(psi_axis), float(psi_boundary), rho, profile,
         flux_table=_rho_tor_of_psi_norm(ods, int(time_slice)),
     )
+    # The boundary outline decides what is plasma (#2253): psi_N <= 1 also
+    # holds where psi falls below psi_axis near the coils, which painted the
+    # core density on 1,245 exterior cells up to |Z| = 1.4 m of shot 48224.
+    # plasma_cell_weights works on the DD's (R, Z) order; the model is (Z, R).
+    outline_r = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.r")
+    outline_z = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.z")
+    if (
+        outline_r is not None and outline_z is not None and outline_r.size == outline_z.size
+        and int((np.isfinite(outline_r) & np.isfinite(outline_z)).sum()) >= 3
+    ):
+        from vaft.process.equilibrium import plasma_cell_weights
+
+        psi_norm = (psi_rz - float(psi_axis)) / span
+        plasma = plasma_cell_weights(grid_r, grid_z, psi_norm.T, outline_r, outline_z).T >= 0.5
+        values = np.where(plasma, values, np.nan)
     labels = {
         "temperature": "Electron Temperature [eV]",
         "density": "Electron Density [m^-3]",
@@ -8174,6 +8268,24 @@ def _uncertainty_of(ods: Any, y_path: str, index: int | None = None, size: int =
     return np.vstack([np.abs(lower), np.abs(upper)])
 
 
+def _channel_profile_spread(upper: Sequence[float], lower: Sequence[float], order: np.ndarray):
+    """One point per channel's ``_error_upper``/``_error_lower``, as ``Series.yerr``.
+
+    ``None`` when no channel stores an upper bound -- plotting never invents a
+    spread.  A point whose channel stores none keeps NaN (no bar, not a zero
+    bar).  The lower bound is used where stored and falls back to the upper
+    one, as in :func:`_uncertainty_of`; with no lower bound anywhere the
+    spread is symmetric.
+    """
+    upper_array = np.abs(np.asarray(upper, dtype=float)[order])
+    lower_array = np.abs(np.asarray(lower, dtype=float)[order])
+    if not np.isfinite(upper_array).any():
+        return None
+    if not np.isfinite(lower_array).any():
+        return upper_array
+    return np.vstack([np.where(np.isfinite(lower_array), lower_array, upper_array), upper_array])
+
+
 def _slice_uncertainty(ods: Any, y_path: str, indices, size: int):
     """Gather ``<node>_error_upper`` across time slices into one array."""
     values = []
@@ -9666,6 +9778,8 @@ def _equilibrium_trace(
         if x is not None and x.size != y.size:
             x = None
         x = _declared_coordinate_form(recipe, coordinate, x)
+        if x is None and coordinate == "psi_norm" and recipe.slice_container == "core_profiles.profiles_1d":
+            x = _core_profile_psi_norm(ods, time_slice, y.size)
         resolved = coordinate
     elif coordinate == "r_major":
         radial = _radial_arrays(ods, time_slice, y.size, cache)
@@ -10503,6 +10617,7 @@ def _build_profile_1d(
             selection = _selection_option(options)
             indices = _resolve_selection(ods, recipe.y_path, selection)
             x_values, y_values = [], []
+            upper_errors, lower_errors = [], []
             valid_points: list[bool] = []
             coordinate_path = _profile_coordinate(recipe, coordinate)
             for index in indices:
@@ -10520,6 +10635,20 @@ def _build_profile_1d(
                 x_values.append(float(np.asarray(x, dtype=float).ravel()[0]))
                 position = min(time_slice, y_flat.size - 1) if y_flat.size else 0
                 y_values.append(float(y_flat[position]) if y_flat.size else np.nan)
+                # The channel's stored uncertainty at the same sample (#2253):
+                # <node>_error_upper, and _error_lower when stored beside it.
+                upper, lower = (
+                    _array(ods, f"{recipe.y_path}_error_{side}".format(i=index))
+                    for side in ("upper", "lower")
+                )
+                upper_errors.append(
+                    float(upper[position]) if upper is not None and upper.size == y_flat.size and y_flat.size
+                    else np.nan
+                )
+                lower_errors.append(
+                    float(lower[position]) if lower is not None and lower.size == y_flat.size and y_flat.size
+                    else np.nan
+                )
                 # Each point carries its channel's flag at the sampled position,
                 # so a stated validity= can demote or mask it (issue #1380): a
                 # condemned channel the preset lets through is not drawn as valid.
@@ -10548,6 +10677,7 @@ def _build_profile_1d(
                         y=np.asarray(y_values)[order],
                         label=entry_label,
                         entry=entry_label,
+                        yerr=_channel_profile_spread(upper_errors, lower_errors, order),
                         valid_mask=None if flags.all() else flags,
                         style={"marker": "o", "linestyle": "-"},
                     )

@@ -571,7 +571,7 @@ def test_process_impa_rejects_a_reference_with_a_different_channel_count():
 
 
 def test_impa_code_defaults_match_canonical_values():
-    """Verify code defaults agree with hardware specs and vest.yaml (#624, #625)."""
+    """Verify code defaults agree with hardware specs and vest.yaml."""
     config = ImpaProcessingConfig()
     assert config.gain == pytest.approx(-2.0 / 15.0)
 

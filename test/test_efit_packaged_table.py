@@ -1,6 +1,6 @@
-"""The table VAFT ships, and the claim that it knows where it came from (#695).
+"""The table VAFT ships, and the claim that it knows where it came from.
 
-Until #695 the packaged Green tables had no recoverable origin: which EFUND
+The packaged Green tables once had no recoverable origin: which EFUND
 build produced them, from which input, was not answerable. They are now the
 output of a recorded run over the canonical static geometry, and the manifest
 that says so sits beside them. These tests hold that shipped directory to the
@@ -59,7 +59,7 @@ def test_the_packaged_table_records_its_own_provenance(manifest):
     # Every static asset it was projected from, by hash.
     assets = manifest["machine"]["static_inputs"]
     assert set(assets) >= {"static_geometry", "pf_geometry"}
-    # Tables built before #2158 hash the magnetics YAMLs; later ones hash the registry.
+    # Older tables hash the split magnetics YAMLs; newer ones hash the registry.
     assert "magnetics_geometry" in assets or "magnetics_registry" in assets
     for name, record in assets.items():
         assert len(record["sha256"]) == 64, name
@@ -85,9 +85,9 @@ def test_the_manifest_describes_the_files_that_are_there(manifest):
 
 
 def test_the_shipped_namelist_now_matches_the_tables(manifest):
-    """Reversed by #708, and it had to be.
+    """The shipped namelist and the tables describe the same conductors.
 
-    Until #708 the shipped `mhdin.dat` was the legacy 16-lumped-conductor file
+    The shipped `mhdin.dat` was once the legacy 16-lumped-conductor file
     while the tables beside it were built from 302 filaments -- inert, because
     EFIT takes the coil response from the tables and only `nfsum` from the
     namelist, and the two agreed on that one number.
@@ -130,7 +130,7 @@ def test_the_legacy_namelist_is_preserved_as_an_independent_reference():
 
 
 def test_the_shipped_acceptance_envelope_is_the_machine_s_own(static_ods):
-    """#649: the bounds EFIT rejects against are derived, not DIII-D's.
+    """The bounds EFIT rejects against are derived, not DIII-D's.
 
     The packaged `&incheck` used to be `EFITAcceptanceEnvelope`'s class
     defaults -- a 25 cm minor-radius floor and a 75 cm ceiling against a
@@ -162,7 +162,7 @@ def test_the_shipped_acceptance_envelope_is_the_machine_s_own(static_ods):
     assert bundled["dbpli_diff"] == IGNORE_CRITERION
     # And the floor is the resolved-cell one, well under VEST's own minor radius.
     assert bundled["aminor_min"] < 10.0
-    assert bundled["aminor_max"] == pytest.approx(32.8)   # (0.761 - 0.105) / 2 since #965
+    assert bundled["aminor_max"] == pytest.approx(32.8)   # (0.761 - 0.105) / 2, the limiter faces
 
 
 def test_the_shipped_namelist_no_longer_matches_the_recorded_efund_input(manifest):
@@ -183,7 +183,7 @@ def test_the_shipped_namelist_no_longer_matches_the_recorded_efund_input(manifes
     assert "EFUND never reads" in note
 
 
-# --- machine era (#805) -----------------------------------------------------
+# --- machine era -----------------------------------------------------
 
 
 def test_the_table_says_which_machine_era_it_was_built_for(manifest):
@@ -203,7 +203,7 @@ def test_a_directory_with_no_manifest_makes_no_era_claim(tmp_path):
 
 
 def test_a_table_from_another_era_is_refused(tmp_path):
-    """#805: the mismatch that reconstructed shot 46742 against wrong coils.
+    """Regression guard for #805: the mismatch that reconstructed shot 46742 against wrong coils.
 
     The packaged table is `vest-pre-43017-pf1906`. Shot 46742 is
     `vest-45968-plus-pf2507`, where twenty-four filaments belong to PF6
@@ -241,7 +241,7 @@ def test_the_matching_era_is_not_refused(tmp_path, manifest):
 
 
 def test_a_generated_table_directory_is_runnable(monkeypatch):
-    """#805: EFUND's output alone is not a table EFIT can read.
+    """EFUND's output alone is not a table EFIT can read.
 
     EFIT also reads a limiter contour from the table directory, and EFUND does
     not write it. A generated directory without it fails in `read_limiter.f90`
@@ -281,20 +281,20 @@ def test_a_generated_table_directory_is_runnable(monkeypatch):
         shutil.rmtree(root, ignore_errors=True)
 
 
-# --- identity reproducibility (#793) ----------------------------------------
+# --- identity reproducibility -----------------------------------------------
 
 
 def test_the_identity_is_decided_by_the_table_and_not_by_the_run():
-    """#793: the same inputs must produce the same identity.
+    """Regression guard for #793: the same inputs must produce the same identity.
 
     `table.identity` exists so two runs can be compared. It could not be:
     `mhdout.dat` was in the digest, and it carries an uninitialised Fortran
     value. `KUBICS` is 4 in the input and came back 83664424 from the run that
-    built the #695 table and 4890152 from the run that built the #708 one --
+    built one table and 4890152 from the run that built the next --
     an order of magnitude apart, from the same input.
 
     So any check of the form "regenerate and confirm the identity is
-    unchanged" failed for a reason with nothing to do with the table. #708 had
+    unchanged" failed for a reason with nothing to do with the table. The ten-circuit table had
     to fall back to comparing `ep129129.ddd` byte for byte, which worked only
     because that one file happens to have no `nfsum` term.
     """
@@ -325,5 +325,5 @@ def test_the_excluded_file_is_still_recorded(manifest):
 
     hashes = {name: record["sha256"] for name, record in manifest["table"]["files"].items()}
     assert manifest["table"]["identity"] == _table_digest(hashes)
-    # The shipped manifest says why, so a reader does not have to find #793.
+    # The shipped manifest says why, so a reader does not have to look it up.
     assert "KUBICS" in manifest["extra"]["identity_excludes_mhdout"]

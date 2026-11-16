@@ -4,7 +4,7 @@ A non-axisymmetric coil set with ``K`` independently driven groups is described
 by one complex phasor per group, ``c_k = A_k exp(+i phi_k)``.  On a *fixed*
 plasma and kinetic background, the signed toroidal torque PENTRC computes from
 the GPEC displacement that excitation drives may -- or may not -- be a
-Hermitian quadratic form of the phasors (issue #1887):
+Hermitian quadratic form of the phasors:
 
     T(c) = c^H Q c,        Q = Q^H.
 
@@ -830,7 +830,7 @@ def ntv_operating_space(
     provenance: Mapping[str, object],
     qualification: TorqueMatrixQualification | None = None,
 ):
-    """Direct NTV torques (and a qualified model) as a #1178 coil operating-space result.
+    """Direct NTV torques (and a qualified model) as a coil operating-space result.
 
     Parameters
     ----------

@@ -4,7 +4,7 @@ HDF5 stores strings as bytes; JSON has no bytes type. OMAS's consistency
 checker is what normally reconciles the two, and `vaft.database._local.load_ods`
 deliberately runs without it so a non-conformant artifact still opens. That left
 the container leaking into the data: the same ODS came back with `str` from JSON
-and `numpy.bytes_` from HDF5 (#734).
+and `numpy.bytes_` from HDF5.
 
 The leak is not cosmetic. `replicate_stage` validates a publication by comparing
 the replica against the product it sent; with the product read through this

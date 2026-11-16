@@ -1,4 +1,4 @@
-"""What the browser shows, kept apart from the widgets that show it (#1086).
+"""What the browser shows, kept apart from the widgets that show it.
 
 A :class:`BrowserSession` holds one loaded source, its plot catalog and the
 plot currently drawn.  Everything scientific is delegated to public VAFT
@@ -85,7 +85,7 @@ def sample_shots() -> tuple[int, ...]:
     return tuple(available_samples())
 
 
-#: The longest movie the browser export draws (#1400).
+#: The longest movie the browser export draws, in frames.
 MAX_VIDEO_FRAMES = 600
 
 
@@ -109,17 +109,17 @@ class BrowserSession:
         self.plot: str | None = None
         self.renderer: str | None = None
         self.interactive: Any = None
-        #: A composed figure (#1467) instead of one plot: its composition and
+        #: A composed figure instead of one plot: its composition and
         #: what ``compose`` returned.
         self.composition: Any = None
         self._composed: Any = None
-        #: The reader's explicit figure options (#1421); empty = all inherited.
+        #: The reader's explicit figure options; empty = all inherited.
         from vaft.plot import FigureOptions
 
         self.figure_options: Any = FigureOptions()
         self._catalog: Any = None
         #: Every plot the registry supports for these sources, the unavailable
-        #: ones with the discovery record's reason (#1172).
+        #: ones with the discovery record's reason.
         self._everything: Any = None
         #: Database mode: one growing ODS per shot, the IDS it holds, and the
         #: IDS the shot stores at all.
@@ -532,7 +532,7 @@ class BrowserSession:
     def _animation(
         self, *, fps: float, step: int, dpi: int | None, format: str | None, theme: str | None,
     ) -> Any:
-        """``plot_*(..., animation=True)`` over the on-screen plot's sequence (#1400).
+        """``plot_*(..., animation=True)`` over the on-screen plot's sequence.
 
         Every other option is the reader's, as an image export takes them;
         the slice control's value is replaced by its states, every
@@ -577,7 +577,7 @@ class BrowserSession:
         self, fmt: str = "mp4", *, fps: float = 10.0, step: int = 1, dpi: int | None = None,
         format: str | None = None, theme: str | None = None,
     ) -> bytes:
-        """The on-screen plot over its sequence as an ``fmt`` movie (#1400).
+        """The on-screen plot over its sequence as an ``fmt`` movie.
 
         The frames are the plot's states, every ``step``-th one, shown at
         ``fps`` -- presentation only: each frame's physical time is in
