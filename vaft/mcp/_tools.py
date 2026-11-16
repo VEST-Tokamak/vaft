@@ -1,4 +1,4 @@
-"""The read-only VAFT MCP tools as plain Python functions (#1423).
+"""The read-only VAFT MCP tools as plain Python functions.
 
 Each function answers one MCP tool call by delegating to an existing public
 VAFT API -- ``vaft.help``, the formula and process catalogs, the validation
@@ -575,7 +575,7 @@ def list_boundaries(family: str | None = None) -> dict[str, Any]:
         rows.append({
             "key": key,
             "kind": type(entry).__name__,
-            # limit, stability_reference, experimental_envelope, ...: only a limit has a forbidden side (#1691)
+            # limit, stability_reference, experimental_envelope, ...: only a limit has a forbidden side
             "reference_kind": getattr(entry, "kind", ""),
             "family": getattr(entry, "family", ""),
             "target": getattr(target, "name", ""),
@@ -599,7 +599,7 @@ def describe_boundary(key: str) -> dict[str, Any]:
     except KeyError as error:
         raise ToolInputError(_message(error)) from None
     converter = Bounded()
-    # "kind" stays the entry's class; the Boundary field of that name is reported as "reference_kind" (#1691)
+    # "kind" stays the entry's class; the Boundary field of that name is reported as "reference_kind"
     described = {**converter(entry)}
     reference_kind = described.pop("kind", getattr(entry, "kind", ""))
     return _finish({"kind": type(entry).__name__, "reference_kind": reference_kind, **described},

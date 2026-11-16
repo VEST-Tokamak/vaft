@@ -1,10 +1,9 @@
 """Processing namespace for VAFT's scientific and numerical kernels.
 
 Submodules are imported on demand.  ``from vaft.process.signal_processing
-import smooth`` costs scipy and nothing else; it used to cost the entire
-subtree -- omas, Matplotlib, ipywidgets, uncertainties, pandas, statsmodels --
-because importing any submodule first executes this file, and this file used to
-star-import all fifteen of them (issue #249).
+import smooth`` costs scipy and nothing else, not the entire subtree -- omas, Matplotlib,
+ipywidgets, uncertainties, pandas, statsmodels.  Importing any submodule first
+executes this file, so this file imports none of them eagerly.
 
 ``from vaft.process import *`` still works.  Reading ``__all__`` is what pulls
 the whole subtree in: the module-level ``__getattr__`` below is consulted for
@@ -22,7 +21,7 @@ old surface and ``test/test_process_lazy_namespace.py`` checks that each
 dropped name is still reachable from the module that really provides it.
 
 The discovery layer -- ``describe``, ``search``, ``list_processes``,
-``categories`` and the ``catalog`` submodule they live in (issue #252) -- is
+``categories`` and the ``catalog`` submodule they live in -- is
 resolved the same way, on first access, and is never part of ``__all__``: the
 star import does not touch it, and neither does importing a processing
 submodule.
@@ -116,64 +115,64 @@ _IMPORT_ORDER = (
     "camera_fluctuation",
     "line_of_sight",
     "magnetic_island",
-    # The FLARE interoperability half of #1099; nothing it exports collides.
+    # FLARE field-line interoperability; nothing it exports collides.
     "field_line_topology",
-    # A subpackage (#669); it imports NumPy only, its ML frameworks on first use.
+    # A subpackage; it imports NumPy only, its ML frameworks on first use.
     "ml",
     "transients",
-    # The reduced NBI reference layer (#1136); nothing it exports collides.
+    # The reduced NBI reference layer; nothing it exports collides.
     "nbi",
-    # Coordinate, gradient coordinate and reference length kept apart (#551);
+    # Coordinate, gradient coordinate and reference length kept apart;
     # nothing it exports collides.
     "profile_gradients",
-    # Resistive Z_eff from the transformer balance (#1214); nothing it exports
+    # Resistive Z_eff from the transformer balance; nothing it exports
     # collides.
     "resistive_zeff",
-    # One resolved plasma state shared by TGLF, NEO and classical (#1428);
+    # One resolved plasma state shared by TGLF, NEO and classical;
     # nothing it exports collides.
     "transport_state",
-    # Confinement power balance and slice qualification (#548); nothing it
+    # Confinement power balance and slice qualification; nothing it
     # exports collides.
     "confinement",
-    # One resolved impurity composition behind every Z_eff (#1565); nothing it
+    # One resolved impurity composition behind every Z_eff; nothing it
     # exports collides.
     "impurity",
-    # Canonical species/population state and its projections (#1567); nothing it
+    # Canonical species/population state and its projections; nothing it
     # exports collides.
     "species",
-    # Dilution-aware pressure and the classical fast-ion baseline (#1606); nothing
+    # Dilution-aware pressure and the classical fast-ion baseline; nothing
     # it exports collides.
     "kinetic_closure",
-    # Turbulence-zonal-flow intensities, cycle metrics and the predator-prey fit
-    # (#1820); nothing it exports collides.
+    # Turbulence-zonal-flow intensities, cycle metrics and the predator-prey fit;
+    # nothing it exports collides.
     "gyrokinetics",
-    # Z_eff(rho) -> R_p -> Z_eff^res,equiv (#1566); nothing it exports collides.
+    # Z_eff(rho) -> R_p -> Z_eff^res,equiv; nothing it exports collides.
     "zeff_projection",
-    # Predicted mode-frequency tracks from rotation at q = m/n (#460); nothing
+    # Predicted mode-frequency tracks from rotation at q = m/n; nothing
     # it exports collides.
     "mode_frequency",
-    # DCON local-criterion and edge-scan post-processing from the ODS payload
-    # (#940); nothing it exports collides.
+    # DCON local-criterion and edge-scan post-processing from the ODS payload;
+    # nothing it exports collides.
     "mhd_stability",
-    # Equilibrium context for core low-n MHD (#1798): q landmarks, rational
+    # Equilibrium context for core low-n MHD: q landmarks, rational
     # crossings, low-shear regions, boundary topology; nothing it exports collides.
     # The module is q_profile_context so that its key never shadows the
-    # core_q_context function it exports (#1838).
+    # core_q_context function it exports.
     "q_profile_context",
-    # Asymptotic ordering quantities of measured states (#1627 §2, #1629);
+    # Asymptotic ordering quantities of measured states;
     # nothing it exports collides.
     "ordering_state",
     # Quadratic coil-response model of a signed NTV torque and its
-    # qualification (#1887); solver-free, nothing it exports collides.
+    # qualification; solver-free, nothing it exports collides.
     "ntv_coil_response",
-    # The common coil operating-space result of #1178 (schema settled on
-    # #1886); nothing it exports collides.
+    # The common coil operating-space result shared by the coil-response
+    # models; nothing it exports collides.
     "coil_operating_space",
-    # Verified linear resonant-field operator Phi = H conj(c) and its optima
-    # (#1884); nothing it exports collides.
+    # Verified linear resonant-field operator Phi = H conj(c) and its optima;
+    # nothing it exports collides.
     "resonant_coil_response",
-    # Equilibrium-native Mercier / GGJ interchange indices, DCON's formulas
-    # (#1902); nothing it exports collides.
+    # Equilibrium-native Mercier / GGJ interchange indices, DCON's formulas;
+    # nothing it exports collides.
     "local_mhd_criteria",
 )
 
@@ -184,7 +183,8 @@ _ATTRIBUTE_ONLY = ("cocos",)
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in
 #: ``_SUBMODULES``: joining that map would put ``catalog`` into ``__all__`` and
-#: make the star import load it, which is exactly what #252 forbids.
+#: make the star import load it, and the discovery layer stays out of the
+#: star import.
 _CATALOG_NAMES = frozenset(
     {"catalog", "ProcessSpec", "describe", "search", "list_processes", "categories"}
 )
@@ -279,8 +279,7 @@ def __getattr__(name: str):
         # No submodule exports a private or dunder name, so there is nothing
         # to hunt for: answering `hasattr(vaft.process, "__wrapped__")` (what
         # inspect, pickle and doctest probe) by importing every submodule cost
-        # the whole package for a guaranteed "no" (cold review 0.7.0 process
-        # F6, #1888).
+        # the whole package for a guaranteed "no".
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
     value = _resolve(name)

@@ -1,4 +1,4 @@
-"""IMPA is separated from the baseline at the machine-description level (#305).
+"""IMPA is separated from the baseline at the machine-description level.
 
 The absence of IMPA from the static and diagnostics products held by accident
 before this: the magnetics geometry asset simply never listed the array's field

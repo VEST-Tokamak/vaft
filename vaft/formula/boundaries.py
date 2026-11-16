@@ -2320,6 +2320,7 @@ _Q95_ITER_ESTIMATE = BoundaryQuantity(
     "edge_safety_factor_95_estimate_iter", "q_{95,ITER}", "-",
     "q95 from the ITER design-guideline formula (Post et al. 1991, Table 1-2) evaluated on global shape "
     "and engineering parameters; an estimate, not an equilibrium q95.",
+    concept="estimated_q95",
 )
 _TRIANGULARITY = BoundaryQuantity("triangularity", "delta", "-", "Plasma triangularity (average of upper and lower).",
                                   concept="triangularity")
@@ -2616,6 +2617,7 @@ _Q95_START_ESTIMATE = BoundaryQuantity(
     "edge_safety_factor_95_estimate_start", "q_{95,START}", "-",
     "q95 from the START low-aspect-ratio scaling of Akers et al. (2000) on global shape and engineering "
     "parameters; an estimate, not an equilibrium q95.",
+    concept="estimated_q95",
 )
 _AKERS_2000_SOURCE = BoundarySource(
     "R. J. Akers et al., Nucl. Fusion 40 (2000) 1223",

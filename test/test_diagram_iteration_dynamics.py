@@ -1,4 +1,4 @@
-"""Iteration behaviour, branch bifurcation and branch selection (#1093): computed, not sketched."""
+"""Iteration behaviour, branch bifurcation and branch selection: computed, not sketched."""
 
 import numpy as np
 import pytest

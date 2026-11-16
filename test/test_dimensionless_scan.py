@@ -1,4 +1,4 @@
-"""The #1900 item-4 scan: which inputs move with which dimensionless parameter, and the table.
+"""The TGLF dimensionless-parameter scan: which inputs move with which dimensionless parameter, and the table.
 
 No TGLF is needed. The solver records are written by hand, the way ``_run_one``
 writes them.

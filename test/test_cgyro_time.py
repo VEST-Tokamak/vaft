@@ -1,4 +1,4 @@
-"""CGYRO temporal domains, per-run scales and synchronized native/SI views (#2040)."""
+"""CGYRO temporal domains, per-run scales and synchronized native/SI views."""
 
 import hashlib
 import json

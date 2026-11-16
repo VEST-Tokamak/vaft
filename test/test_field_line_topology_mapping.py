@@ -1,4 +1,4 @@
-"""The two IMAS stand-ins for field-line tracing products (issue #1099).
+"""The two IMAS stand-ins for field-line tracing products.
 
 The Data Dictionary has no home for field-line tracing, so these writers use
 structures whose meaning only partly matches.  What is pinned here is mostly
@@ -523,7 +523,7 @@ def test_a_product_without_status_columns_is_refused(tmp_path):
 def test_the_writer_serves_vests_own_startup_tracer_unchanged():
     """The writer is written against the quantity, not against FLARE.
     ``vaft.process.equilibrium.connection_length_map`` is the VEST startup
-    tracer (#783); it produces the same thing on the same kind of grid, and
+    tracer; it produces the same thing on the same kind of grid, and
     a breakdown study is what plasma_initiation is actually for."""
     from vaft.plot.backend.recipes import RECIPES
     from vaft.process.equilibrium import connection_length_map

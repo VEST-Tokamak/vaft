@@ -380,7 +380,7 @@ def test_migration_audit_detects_preexisting_target_collisions(tmp_path):
 
 
 def test_production_pipeline_resolves_every_path_through_filedb():
-    """PR #121 folded workflow/main into pipeline 1, which is now the only
+    """Pipeline 1 is the only
     maintained production DAG. It must keep resolving paths through the
     canonical resolver rather than reconstructing the legacy server's layout.
     """
@@ -403,14 +403,14 @@ def test_production_pipeline_resolves_every_path_through_filedb():
 
 
 def test_stage_product_names_come_from_the_resolver_not_the_caller():
-    """One authority for a stage product's file name (issue #137).
+    """One authority for a stage product's file name.
 
     Three spellings of the EFIT product were in circulation: the issue text's
     `{shot}_efit.json.gz`, pipeline 1's `efit.json`, and the retired
     workflow/main's `{stage}.json.gz`. A caller that appends its own file name
     is how a fourth appears.
 
-    The container has since moved to `.json.gz` (#813), which makes the name
+    The container has since moved to `.json.gz`, which makes the name
     coincide with the retired workflow/main spelling. That is a coincidence of
     encoding, not a return to that grammar: the path around it is the canonical
     lineage one, and it is still the resolver that produces it.
@@ -476,7 +476,7 @@ def test_pipeline_paths_do_not_rebuild_stage_product_names():
 
 
 def test_the_legacy_audit_still_expects_uncompressed_shot_first_products():
-    """The legacy tree's containers must not follow the canonical one (#813).
+    """The legacy tree's containers must not follow the canonical one.
 
     `_DEFAULT_EXPECTED_PRODUCTS` describes the *pre-canonical* shot-first tree,
     whose products were written as plain JSON and are never rewritten -- that
@@ -496,7 +496,7 @@ def test_the_legacy_audit_still_expects_uncompressed_shot_first_products():
 
 
 def test_only_hdf5_stages_can_be_written_with_a_compression_filter():
-    """`vaft.omas.save` raises on `compression=` with a JSON target (#813).
+    """`vaft.omas.save` raises on `compression=` with a JSON target.
 
     The filter is an HDF5 dataset property; gzipped JSON is already compressed
     and has nowhere to put one. The single caller that passes `compression=` is
@@ -527,7 +527,7 @@ def test_only_hdf5_stages_can_be_written_with_a_compression_filter():
         sys.path.remove(str(ingest))
 
     # Only a tree whose storage asks for a filter is constrained; the ShotLog's
-    # pulse_schedule product is small JSON and asks for none (#995).
+    # pulse_schedule product is small JSON and asks for none.
     compressed = [tree for tree in module.DIAGNOSTIC_TREES if module._storage(tree)]
     assert compressed, "no ingested tree requests compression; this guard is vacuous"
     for tree in compressed:

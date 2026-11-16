@@ -1,4 +1,4 @@
-"""The four global scalars a g-file does not carry, in the IMAS DD definitions (#238).
+"""The four global scalars a g-file does not carry, in the IMAS DD definitions.
 
 `beta_pol`, `beta_tor`, `beta_normal` and `li_3` were supplied by OMFIT's own
 flux-surface solve and were empty once VAFT derived equilibria itself. What makes
@@ -74,7 +74,7 @@ def test_the_betas_of_a_uniform_pressure_plasma_are_closed_form():
 def test_the_two_beta_pol_conventions_differ_by_an_exact_geometric_factor():
     """Not a numerical disagreement. `beta_pol_DD / beta_pol_circ` is
     `2V / (R0 L_pol^2)` identically, for any inputs -- which is what makes them
-    two definitions rather than two estimates (issue #318)."""
+    two definitions rather than two estimates."""
     for volume, r0, ip, length_pol, p_average in (
         (2.5, 1.7, 1.2e6, 5.0, 1.0e4),
         (1.0, 0.4, 8.0e4, 2.5, 3.0e1),
@@ -159,7 +159,7 @@ def test_the_dd_beta_pol_is_written_and_the_divergence_is_documented(reference, 
 
 def test_beta_tor_uses_the_dd_reference_field_and_says_so(reference, derived):
     """`B0` is `vacuum_toroidal_field.b0`, as the DD requires. That does not
-    reproduce the reference, whose reference field is unidentified (#238); the
+    reproduce the reference, whose reference field is unidentified; the
     gap is asserted rather than tuned away."""
     ratio = _derived(derived, "beta_tor") / _stored(reference, "beta_tor")
     assert 1.02 < ratio < 1.06, "beta_tor's known, documented divergence moved"

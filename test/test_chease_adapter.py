@@ -174,9 +174,9 @@ def test_run_chease_preserves_source_limiter_from_a_file_path(tmp_path):
 
     source_path = data_path("efit/g039915.00319")
     # The settings run_chease_refinement.py uses and this repository's real
-    # shot-39915 validation confirmed converge. Since #717 these are also
+    # shot-39915 validation confirmed converge. These are also
     # CHEASEConfig's defaults -- `nideal` was the last one that differed, and
-    # since #516 the adapter selects it from `output` -- but they stay spelled
+    # the adapter selects it from `output` -- but they stay spelled
     # out here so the test says what it exercises rather than inheriting it
     # silently.
     config = CHEASEConfig(
@@ -220,7 +220,7 @@ def test_chease_input_is_byte_identical_from_a_gfile_and_from_its_own_ods(tmp_pa
     vacuum toroidal field twice, at nine significant digits each -- `BCENTR`,
     and `FPOL[-1]/RCENTR` -- and for g039915.00319 the two spellings do not
     round to the same double (1.498058780E-01 vs 1.498058775E-01). `to_omas()`
-    canonicalizes on the FPOL one (issue #325), so while `_write_expeq` read
+    canonicalizes on the FPOL one, so while `_write_expeq` read
     `BCENTR` the ODS route's B0EXP came out 3.3e-9 relative away from the
     g-file route's, dragging CURRT and both EXPEQ profile blocks with it and
     leaving the refined equilibria disagreeing far more loosely than the
@@ -482,7 +482,7 @@ def test_solver_output_is_read_as_utf8_rather_than_at_the_host_locale(monkeypatc
 
 
 def test_chease_launches_through_the_backend_and_returns_its_timeout(tmp_path):
-    """#671/#1016: a backend timeout is a failed result, not an exception."""
+    """A backend timeout is a failed result, not an exception."""
     from external_code_stubs import RecordingBackend
     from vaft.code.chease import CHEASEConfig, prepare_chease_inputs, run_chease
     from vaft.code.execution import ExecutionResult

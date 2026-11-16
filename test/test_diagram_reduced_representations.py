@@ -1,4 +1,4 @@
-"""Reduced-representation diagrams (#1626): drawn from the catalog's Reduction metadata."""
+"""Reduced-representation diagrams: drawn from the catalog's Reduction metadata."""
 
 import numpy as np
 import pytest
