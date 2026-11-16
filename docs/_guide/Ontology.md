@@ -36,9 +36,9 @@ fact and says which (*From* in the detail panel):
 | `vaft.validation.registry` | named checks, what they check and the function that computes them |
 | `vaft.data.cocos` | the COCOS convention of each code and data format |
 | `vaft._ecosystem` | external codes, their adapters, the IDS their results are mapped into, and the measured Data Dictionary paths a reconstruction code is *constrained by* (EFIT's k-file inputs) |
-| `vaft.formula._taxonomy` (#1626) | which quantity a formula reduces to which, through the vocabulary concept each reduction quantity declares; each formula's `Reduction` section (input and output representation, reduction kind, locality, physical role) as facets |
+| `vaft.formula._taxonomy` | which quantity a formula reduces to which, through the vocabulary concept each reduction quantity declares; each formula's `Reduction` section (input and output representation, reduction kind, locality, physical role) as facets |
 | `Semantics` sections of formula and process docstrings | the vocabulary quantities a function consumes and produces, where nothing else connects it; an unknown term fails generation |
-| `vaft.validation.orderings` (#1627) | each physical model's approximation contract, the ordering quantities it assumes small or large, and the formula kernels that compute them |
+| `vaft.validation.orderings` | each physical model's approximation contract, the ordering quantities it assumes small or large, and the formula kernels that compute them |
 | `vaft.formula.boundaries` | each published or derived operational boundary or design guideline, the quantity it *bounds* and the quantities it takes, through the vocabulary concept each boundary quantity declares, with the machine class, ranges, assumptions and references its source established it on |
 | `DATA_ROUTINES` of `vaft._ontology_graph` | data-facing routines that select inputs from an ODS: the Data Dictionary paths each *reads*, the formulas it *applies*, and its `Semantics` section, such as `vaft.omas.edge_q.edge_q_estimate` |
 
@@ -47,11 +47,11 @@ an edge only through the vocabulary concept its quantity declares (`s_hat` is `m
 and `j_phi_field` are both `j_tor` in two representations); a composite such as `q_features` declares
 none and is listed as unresolved, so the remaining gap is visible rather than assumed.
 
-Not consumed yet: of the machine-readable applicability contracts (#1628), the operational-boundary
+Not consumed yet (Open: #1628, machine-readable applicability and assumption audits): of those contracts, the operational-boundary
 registry of `vaft.formula.boundaries` is read (above); contracts declared beside formulas, codes and
 workflows do not exist yet. A boundary quantity reaches a concept only through the concept it declares:
 a magnitude such as \|I_p\| in MA declares none, so it is not linked to the signed `plasma_current`
-and the boundary lists it as *unlinked*. Learned-model metadata (#669) lives in an external model checkout rather than in the
+and the boundary lists it as *unlinked*. Learned-model metadata (Open: #669, a VAFT-native model registry) lives in an external model checkout rather than in the
 package, so it cannot be read offline.
 
 **Identity is strict.** `ip` and `I_p` are registered aliases of `plasma_current` and resolve to

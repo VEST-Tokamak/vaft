@@ -71,7 +71,7 @@ skipped, with the reason, in `attrs["skipped"]`.
 `equilibrium_global` and `core_profiles` describe their respective time
 slices. `neoclassical` summarizes bootstrap current from canonical
 `core_profiles`, one row per slice. Each row also carries the NEO `core_transport`
-slice that corresponds to it (#1655):
+slice that corresponds to it:
 
 - **Status column.** `transport_match_status` names the result.
 - **When the descriptors fill.** The flux descriptors (`q_e`/`q_i`/`gamma_e` point counts, finite `rho_tor_norm` coverage, |peak|, `transport_rho_grid_*`) are filled only when the status is `matched`.
@@ -109,9 +109,10 @@ provenance. `configuration_status=not_standardized` makes that limit explicit.
 The current TGLF mapper reuses its anomalous model slot and does not persist
 SAT/field settings there, so comparisons across settings need the upstream
 run record until that mapping contract is extended.
-`classical_transport` summarizes the classical (Braginskii) baseline of #1435
-once `vaft.machine_mapping.classical.core_transport_from_classical` has written it
-to `core_transport` (#1654). The data dictionary has no classical identifier, so
+`classical_transport` summarizes the classical (Braginskii) baseline of
+`vaft.process.transport_state.classical_heat_fluxes` once
+`vaft.machine_mapping.classical.core_transport_from_classical` has written it
+to `core_transport`. The data dictionary has no classical identifier, so
 the entry uses the private index `-1` with the name `classical`, and both are
 required. One entry holds one formulation and one EFIT lineage, and every time
 slice names its resolved `state_identity` in `code.parameters`. Rows therefore
@@ -135,7 +136,7 @@ What each source field means, and where it goes:
 | `model` (`CLASSICAL_MODEL`) | Formulation text | `code.parameters` | `formulation_sha256` |
 
 Some quantities never appear at all:
-- **Reference scale.** The order-of-magnitude `nu rho^2` reference scale (#780/#1112) is not a product of #1435 and is never written or summarized.
+- **Reference scale.** The order-of-magnitude `nu rho^2` reference scale (`vaft.formula.transport.classical_diffusivity_from_nu_rho`) is not a product of the classical-flux model and is never written or summarized.
 - **Undefined surfaces.** A surface below 10 eV, where the electron Coulomb logarithm is undefined, is dropped and named rather than filled.
 - **Missing versus zero.** Missing data shows as zero points and NaN peaks. A stored zero is a physical zero.
 
@@ -153,8 +154,8 @@ summary row: q_e_peak_abs_W_m2 42.1, q_i_peak_abs_W_m2 181.5,
 
 The negative inner electron flux is real: VEST's hollow `T_e` makes the inner
 gradient point outward, and the peak columns report magnitudes.
-`power_balance` likewise awaits the stored-energy and loss-power definitions
-tracked in issues #1282 and #548.
+`power_balance` has no summary yet: it awaits validated stored-energy and
+loss-power definitions (Open: #548).
 
 | Back-end | Module | What a shot looks like | What you get back |
 | --- | --- | --- | --- |
@@ -283,21 +284,18 @@ be declared in `VAFT_HSDS_EXTRA_SOURCES`.
 ### Transitional TGLF configuration sources
 
 TGLF results depend on the saturation rule (SAT0–SAT3) and the field model
-(`es`, `em-bper`, `em-bper-bpar`), and no configuration is the default
-([#1482](https://github.com/VEST-Tokamak/vaft/issues/1482)). Each
+(`es`, `em-bper`, `em-bper-bpar`), and no configuration is the default. Each
 configuration is therefore stored as its own sparse source beneath the
 reconstruction its state was mapped on, so alternative configurations of one
-state coexist instead of overwriting one another
-([#1900](https://github.com/VEST-Tokamak/vaft/issues/1900)). The
+state coexist instead of overwriting one another. The
 `turbulent_transport` stage owns `core_transport` only. Its FileDB product is
 `omas/turbulent_transport/{family}/tglf-sat<n>-<field>/{shot}/`, and
 `replication_for_stage("turbulent_transport", family=..., product="tglf-sat3-em-bper")`
 names its destination. There is no default configuration: a call without
 `product` is refused.
 
-These sources are **transitional**. In the self-describing occurrence model of
-[#1128](https://github.com/VEST-Tokamak/vaft/issues/1128) and
-[#1129](https://github.com/VEST-Tokamak/vaft/issues/1129), each one becomes a
+These sources are **transitional**. Once IDS occurrences are self-describing
+(Open: #1128; the VEST IDS-instance catalog is Open: #1129), each one becomes a
 named `core_transport` occurrence. The builder already writes the future name
 into `ids_properties.name`, so migration renames nothing:
 
@@ -319,7 +317,7 @@ travels in `core_transport.model[:].code.parameters` and in the stage manifest.
 Coexistence holds across configurations and lineages. Alternative Ti
 assumptions of one state (a different `--ti-te-ratio`, `--use-inferred-ti` or
 `--rho-max` gives a different state identity on the same path) are refused, not
-stored side by side, until #1128/#1129: writing a product whose state
+stored side by side, until that occurrence catalog exists: writing a product whose state
 identities differ from the stored one raises, and rewriting the same states is
 allowed.
 
@@ -516,7 +514,7 @@ from the supplied object and rejects a conflicting explicit `representation`.
 A write **adds** to the shot rather than replacing it. A shot's `master.h5` links every IDS file stored
 beside it, and a reader resolves the shot through those links. Each write therefore replaces the
 master with the stored one plus its own IDS. It re-reads the stored master immediately before
-replacing it, and holds a per-shot lock while it does (issue #913). Two writes of one shot on the same
+replacing it, and holds a per-shot lock while it does. Two writes of one shot on the same
 host can no longer drop each other's links, and different shots never wait for each other. The lock
 lives in `$VAFT_HSDS_LOCK_DIR` (default `/tmp/vaft-hsds-locks`); if this account cannot create files
 there, the writer locks in a per-user directory under the temp root and warns once. It does not
@@ -672,7 +670,7 @@ directory instead of the SQL table; it is described in the Pipelines guide and i
 `workflow/automatic_pipeline_2_corrective_data_update/DEPLOYMENT.md`. The rest of this section is the routine worker.
 
 On the VEST server, `vaft pipeline-worker run` polls the SQL `shot` table and runs the routine
-Snakemake pipeline on each new shot as soon as its upload has finished (issue #58). The upload
+Snakemake pipeline on each new shot as soon as its upload has finished. The upload
 counts as finished when either condition holds:
 
 - the shot's field inventory contains every field the previous shot had, and nothing new has
