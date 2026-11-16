@@ -1,4 +1,4 @@
-"""GENRAY electron-cyclotron ray tracing: ``ec_launchers + equilibrium + core_profiles -> waves`` (#264).
+"""GENRAY electron-cyclotron ray tracing: ``ec_launchers + equilibrium + core_profiles -> waves``.
 
 GENRAY is an optional external executable (``$GENRAYHOME/bin/xgenray``, built
 by ``install/install_genray.sh``). Importing this package never needs it.

@@ -251,14 +251,14 @@ class FlareConfig:
     #: How the driver is launched; ``None`` runs it locally
     #: (:mod:`vaft.code.execution`).
     backend: Optional["ExecutionBackend"] = None
-    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: Compute resources for each launch. ``None`` keeps the adapter's
     #: own declaration; a value replaces it, and its ``threads_per_task`` is
     #: set in the launch environment over ``env`` and the inherited one.
     resources: Optional["ResourceRequest"] = None
 
     def __post_init__(self) -> None:
         # The driver starts ``processes`` ranks itself; a scheduler told a
-        # different count would size the job wrong (#1016). Refuse, not pick.
+        # different count would size the job wrong. Refuse, not pick.
         if self.resources is not None and not isinstance(self.resources, ResourceRequest):
             raise TypeError(f"resources must be a ResourceRequest or None, got {type(self.resources).__name__}")
         if self.resources is not None and int(self.resources.ntasks) != int(self.processes or 1):
@@ -279,7 +279,7 @@ class FlareResult(RunOutcome):
     stdout: str = ""
     stderr: str = ""
 
-    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"`` (#1016).
+    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"``.
     runtime_status: str = "completed"
     #: Wall time from launch to exit or stop [s].
     elapsed_s: Optional[float] = None
@@ -370,8 +370,8 @@ def run_flare(
     FlareResult
         The return code, the command as run, and the captured streams. A run
         that outlived ``config.timeout`` comes back with ``returncode=None``,
-        ``runtime_status="timeout"`` and the reason at the end of ``stderr``
-        (#1016; it used to raise ``subprocess.TimeoutExpired``).
+        ``runtime_status="timeout"`` and the reason at the end of ``stderr``;
+        no ``subprocess.TimeoutExpired`` is raised.
 
     Raises
     ------
@@ -445,7 +445,7 @@ def run_flare(
         raise
     stderr = completed.stderr
     if completed.timed_out:
-        # A result with returncode=None, not an exception (#1016).
+        # A result with returncode=None, not an exception.
         reason = timeout_reason(f"FLARE {task}", completed, config.timeout)
         stderr = f"{stderr}\n{reason}" if stderr else reason
     return FlareResult(

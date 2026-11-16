@@ -113,7 +113,7 @@ def run_nice(inputs: NiceInputs, config: NiceConfig) -> NiceResult:
     stdout_file.write_text(stdout, encoding="utf-8")
     stderr_file.write_text(stderr, encoding="utf-8")
     timed_out = execution.timed_out
-    # returncode=None and runtime_status="timeout" on a stop (#1016; it was 124).
+    # returncode=None and runtime_status="timeout" on a stop.
     returncode = None if timed_out else int(execution.returncode)
     manifest = dict(inputs.manifest)
     manifest["nice_executable"] = str(exe)
