@@ -1,4 +1,4 @@
-"""Plotly rendering of the view models (issue #491).
+"""Plotly rendering of the view models.
 
 The modules here draw the same :mod:`vaft.plot.models` the Matplotlib
 renderers draw, with the same semantics -- labels, units, the validity and
@@ -9,7 +9,7 @@ Matplotlib, and Plotly itself is imported only when a figure is asked for.
 :data:`PLOTLY_MODELS` lists the model kinds covered; a spec whose model is
 not among them is refused by :func:`vaft.plot.backends.renderer_for`.
 3-D machine-coordinate geometry (:class:`~vaft.plot.models.Geometry3DLayers`)
-is drawn as ``Scatter3d`` scenes (issue #1087); 2-D geometry, images,
+is drawn as ``Scatter3d`` scenes; 2-D geometry, images,
 animations, power spectra and the camera overlays are not covered yet.
 """
 

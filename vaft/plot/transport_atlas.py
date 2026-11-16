@@ -1,4 +1,4 @@
-"""Renderers for the (shot, t, rho) transport atlas table (#1427).
+"""Renderers for the (shot, t, rho) transport atlas table.
 
 These draw the table that ``workflow/transport_atlas/build_atlas.py`` writes: one
 row per (shot, time_efit_s, efit_lineage, r_over_a) surface, with TGLF, NEO and
@@ -90,7 +90,8 @@ LABELS: dict[str, tuple[str, str]] = {
     "qi_model_W_m2": (r"$Q_i^{\mathrm{model}}$", r"W m$^{-2}$"),
 }
 
-#: Marker per EFIT lineage (lane K's State key contract v1 spellings, #1454).
+#: Marker per EFIT lineage (the spellings of
+#: :data:`vaft.process.transport_state.EFIT_LINEAGES`).
 MARKERS = {"magnetics": "o", "electron_kinetic": "s"}
 QUALITIES = ("good", "admissible")
 DIRECTION_COLORS = {"electron": "#2a78d6", "ion": "#d6402a"}

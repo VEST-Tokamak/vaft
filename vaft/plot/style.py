@@ -1,6 +1,6 @@
 """Figure and axes plumbing shared by every canonical renderer.
 
-The renderer contract from issue #62 is:
+The renderer contract every canonical renderer honours is:
 
 * ``ax=None`` -- when omitted a figure is created, otherwise the caller's axes
   are used and no new figure appears;
@@ -63,7 +63,7 @@ _POLICY_LEGEND_GID = "vaft-legend"
 #: Handles drawn for a trace that stands beside a measurement in a role (a
 #: reconstruction under a channel).  The legend threshold counts the
 #: measurements only, so an overlay never halves the channel count at which
-#: the legend gives way to a note (issue #261).
+#: the legend gives way to a note.
 _ROLE_GID = "vaft-role"
 _COUNT_NOTE_GID = "vaft-legend-count"
 
@@ -71,7 +71,7 @@ _COUNT_NOTE_GID = "vaft-legend-count"
 def trace_labels(series_list, *, panel_title: str | None = None) -> tuple[list[str], str | None]:
     """Legend text for each trace, and a legend title, from structured identity.
 
-    The rule states each thing once (issue #256 section 9): a figure from one
+    The rule states each thing once: a figure from one
     entry carries its shot in the title, so traces are labelled by channel
     alone; several entries of one channel put the shot in each entry and the
     channel in the legend title; several of each spell both.  A hand-built
@@ -99,14 +99,14 @@ def trace_labels(series_list, *, panel_title: str | None = None) -> tuple[list[s
             label = f"{s.entry} \u00b7 {s.channel}" if s.channel else s.entry
         # A trace that stands for its channel in another role -- the
         # reconstruction of a measurement -- is named by that role beside the
-        # channel, so the legend tells the two apart (issue #261 section 9).
+        # channel, so the legend tells the two apart.
         if s.role:
             label = f"{label} ({s.role})" if (s.channel or len(entries) > 1) else s.role
         labels.append(label)
     title = next(iter(channels)) if len(entries) > 1 and one_shared_channel else None
     if title is not None and panel_title and title == panel_title:
         # In a subplots layout the panel is already titled by its channel; a
-        # legend repeating that title says nothing (issue #260 section 16).
+        # legend repeating that title says nothing.
         title = None
     return labels, title
 
@@ -152,7 +152,7 @@ def apply_legend(
     among unlabelled ones does, which is why the geometry views pass it.
 
     Traces drawn in a role beside a measurement (a reconstruction under each
-    channel, issue #261) are legend entries but do not count toward the
+    channel) are legend entries but do not count toward the
     threshold, so an overlay never halves the channel count at which the
     legend gives way to a note.
 
@@ -258,10 +258,9 @@ def finalize(
     """Apply the shared closing steps and honor the ``show`` contract.
 
     ``tight_layout`` is for a figure the renderer created; a caller-supplied
-    ``ax=`` belongs to the caller's figure, whose layout is theirs (issue #260
-    section 8), so renderers pass ``tight_layout=ax is None``.  ``pad`` is
+    ``ax=`` belongs to the caller's figure, whose layout is theirs, so renderers pass ``tight_layout=ax is None``.  ``pad`` is
     the layout padding in font units when a presentation format sets one
-    (issue #689); ``None`` keeps Matplotlib's default.
+    (:mod:`vaft.plot.presentation`); ``None`` keeps Matplotlib's default.
     """
     if tight_layout:
         placed = _place_suptitle(figure, pad)
@@ -386,7 +385,7 @@ def _contain_3d_axes(figure: Figure, *, passes: int = 3) -> None:
 
     ``tight_layout`` measures a 3-D axes by its 2-D box, not by the text the
     projection throws outside it, so the z label of a default machine view
-    hung 14-33 px past the right edge (issue #1317).  This measures what was
+    can hang 14-33 px past the right edge.  This measures what was
     actually drawn -- the axes' tight bbox and its three axis labels -- and
     shrinks the axes' position by the overflow on each side, a few passes,
     because shrinking the cube also moves the labels.  2-D axes are left as
@@ -444,7 +443,7 @@ def save_figure(
     close a figure, which keeps rendering confined to this package.
     ``figure_options`` supplies the export fields of a
     :class:`vaft.plot.FigureOptions` -- ``dpi`` and ``transparent`` -- the one
-    place they act (issue #1421); an explicit savefig keyword still wins.
+    place they act; an explicit savefig keyword still wins.
     """
     import matplotlib
 
@@ -460,7 +459,7 @@ def save_figure(
     savefig_kwargs.setdefault("bbox_inches", "tight")
     # Vector output keeps its text as text: TrueType fonts embedded in a PDF
     # (not Type 3 outlines) and SVG text left as text, which journals and
-    # editors expect (issue #1421).  Read when the file is written, so set here.
+    # editors expect.  Read when the file is written, so set here.
     with matplotlib.rc_context({"pdf.fonttype": 42, "ps.fonttype": 42, "svg.fonttype": "none"}):
         figure.savefig(path, **savefig_kwargs)
     if close:
@@ -537,7 +536,7 @@ def draw_series(
     """Draw one :class:`~vaft.plot.models.Series`, honouring validity and error.
 
     Returns whether the trace contributed a legend entry.  Four states are kept
-    distinct, and none of them is silently hidden by default (issue #256):
+    distinct, and none of them is silently hidden by default:
 
     ``valid``
         drawn normally;
@@ -584,13 +583,14 @@ def draw_series(
 
     # ``markersize_scale`` sizes markers against the presentation format's own
     # (``lines.markersize`` in force), so a small marker stays small on every
-    # format (issue #1957: error bars that must stand out of their points).
+    # format (the kinetic state's Thomson points, whose error bars must stand
+    # out of their markers).
     scale = options.pop("markersize_scale", None)
     if scale is not None and "markersize" not in options and "ms" not in options:
         options["markersize"] = float(scale) * float(plt.rcParams["lines.markersize"])
 
     # A recipe says what a colour means; the theme in force says what it is
-    # (issue #709).  Resolved before the invalid demotion so precedence is
+    # (vaft.plot.intent).  Resolved before the invalid demotion so precedence is
     # unchanged: a recipe's colour still wins over the invalid grey.
     options = resolve_style(options)
     if active_theme() is not None and _scatter_like(series, options):

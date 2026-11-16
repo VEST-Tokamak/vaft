@@ -1,4 +1,4 @@
-"""Helpers shared by :mod:`vaft.plot.pyvista` and :mod:`vaft.plot.k3d` (issue #1087).
+"""Helpers shared by :mod:`vaft.plot.pyvista` and :mod:`vaft.plot.k3d`.
 
 Neither library is imported here until a ``require_*`` call asks for it.
 """

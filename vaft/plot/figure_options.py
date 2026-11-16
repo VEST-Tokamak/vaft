@@ -1,6 +1,6 @@
-"""Reproducible figure-level overrides on top of a format and a theme (issue #1421).
+"""Reproducible figure-level overrides on top of a format and a theme.
 
-#689 settles how a canonical plot looks: the *format* says how large
+The format and theme of :mod:`vaft.plot.presentation` settle how a canonical plot looks: the *format* says how large
 everything is, the *theme* which graphical language it speaks.
 :class:`FigureOptions` holds what a reader explicitly changes on top of
 that -- a title, axis limits or scales, legend placement, ticks and grid,
@@ -10,9 +10,9 @@ plot keeps deciding.  So the options store intent, never a resolved default,
 and :meth:`FigureOptions.to_dict` writes only what was set -- a figure
 reproduced later picks up any improvement to the canonical defaults.
 
-The boundary of #1421: a setting reused for another shot of the same plot
+The boundary of these options: a setting reused for another shot of the same plot
 belongs here; a one-off nudge of one artist belongs to a finishing tool
-(Pylustrator, #1202).  Nothing here edits arbitrary ``rcParams``.
+(Pylustrator).  Nothing here edits arbitrary ``rcParams``.
 
 How the options are applied:
 
@@ -524,7 +524,7 @@ def draw_norm(values: Any) -> Any:
 
     A contour set's levels are placed when it is drawn, so a norm set
     afterwards would re-colour the old levels; the field renderer asks here
-    instead (issue #1421).
+    instead.
     """
     options = _DRAWING.get()
     if options is None or options.norm is None:
