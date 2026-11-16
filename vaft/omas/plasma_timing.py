@@ -1,4 +1,4 @@
-"""The plasma window of a discharge, from an ODS, with its provenance (issue #409).
+"""The plasma window of a discharge, from an ODS, with its provenance.
 
 The generic detectors in :mod:`vaft.process.onset` answer *when does this
 waveform become active* about one array.  This module decides *which* of the
@@ -22,8 +22,8 @@ block of ``vest.yaml`` through
 here writes the ODS.  Both detectors measure a *positive* excess over the
 baseline: the stored H-alpha intensity is positive-going (the mapper negates
 the raw record) and the stored plasma current is positive-going under the
-present VEST convention; a sign migration of either node (#275) must be
-matched here.
+present VEST convention; a sign migration of either node must be matched
+here (Open: #275, COCOS 11 normalization on import).
 
 A missing H-alpha channel is a normal operating state, recorded as the
 ``fallback_reason`` of a timing found from the current; a disagreement between
@@ -465,7 +465,7 @@ def halpha_usability(
     metrics["valid_fraction"] = fraction
     # The scalar is the worst state reached; a channel condemned outright has
     # no usable sample anywhere, and one that was good early and bad late is
-    # judged by how much of the span its timed validity leaves (#424).
+    # judged by how much of the span its timed validity leaves.
     checks["validity"] = not is_condemned_channel(ods, base, min_validity=VALIDITY_SUSPECT) and (
         fraction >= float(limits["min_valid_fraction"])
     )
@@ -643,7 +643,7 @@ class PlasmaTiming:
         two brief flashes tens of milliseconds apart it spans both and the
         quiet between them.  ``onset`` and ``offset`` alone cannot say which
         of the two a window is, and consumers read their difference as a
-        duration (issue #752).
+        duration.
         """
         window = self.chosen
         return None if window is None else window.duty_cycle

@@ -1,4 +1,4 @@
-"""ODS-aware plot discovery: OMAS inputs in, the shared catalog out (issue #262).
+"""ODS-aware plot discovery: OMAS inputs in, the shared catalog out.
 
 The instance-level answers live in :mod:`vaft.plot.backend.discovery`; this
 module only turns an ``ODS``/``ODC``/list into entries and labels.
