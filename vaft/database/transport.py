@@ -147,7 +147,7 @@ def _run(
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
         raise HSDSCommandError(command, result.returncode, detail)
-    # Opt-in (#1869): a no-op unless vaft.database.instrumentation.record_io is active.
+    # Opt-in: a no-op unless vaft.database.instrumentation.record_io is active.
     from .instrumentation import record_subprocess
 
     record_subprocess(command, remote_uri, time.perf_counter() - started, total_size)

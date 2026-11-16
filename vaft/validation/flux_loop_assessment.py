@@ -1,22 +1,23 @@
-"""Per-loop evidence for EFIT flux-loop channel selection (issue #295, step 1).
+"""Per-loop evidence for EFIT flux-loop channel selection.
 
-The routine EFIT configuration carries a hand-maintained ``broken`` list that
-silently zero-weights six flux loops on every shot.  Before that list can be
-deleted, the automatic evidence has to be laid beside it, loop by loop and
-shot by shot, so that each historical exclusion is either reproduced with a
-reason or shown to be unjustified.  This module assembles that evidence; it
-does not delete anything and it does not bake a verdict into a default.
+Flux-loop selection rests on automatic evidence laid out loop by loop and
+shot by shot, so that each exclusion is either reproduced with a reason or
+shown to be unjustified -- including the six loops a former hand-maintained
+``broken`` list zero-weighted on every shot, a list the routine pipeline no
+longer carries.  This module assembles that evidence; it does not bake a
+verdict into a default.
 
-Two classes of evidence, kept apart as #253 §10 requires:
+Two classes of evidence, kept apart because only one of them describes the
+loop alone:
 
 ``source_validity``
-    What the magnetics signal-quality layer (#189) found in the waveform
+    What the magnetics signal-quality layer found in the waveform
     itself: the projected validity, how much of the assessment window it
     leaves usable, and the events behind it.  This is the only evidence that
     may reject a loop on its own.
 ``model_agreement``
     How the measured flux compares with the passive-wall forward model over a
-    validated plasma-free interval (#190).  A disagreement is evidence about
+    validated plasma-free interval.  A disagreement is evidence about
     the model as much as about the loop, so by default it is *report-only*:
     it can mark a loop ``suspect`` once a threshold is set in the policy, and
     it rejects a loop only when the policy says so explicitly *and* the wall
@@ -67,7 +68,7 @@ STATES = (USABLE, SUSPECT, REJECT_FOR_EFIT, NOT_AVAILABLE)
 @dataclass(frozen=True)
 class FluxLoopPolicy:
     """The thresholds that turn evidence into a state.  All of them are policy
-    (#253 §7) and every record repeats the values it was judged under.
+    and every record repeats the values it was judged under.
 
     ``min_valid_fraction_in_window``
         A loop must leave *more* than this fraction of the assessment window
@@ -153,7 +154,7 @@ def _source_block(
     """The intrinsic evidence for one loop.
 
     The validity the diagnostics stage projected into the IDS is the
-    authoritative source verdict (#189: consumers read it, they do not
+    authoritative source verdict (consumers read it, they do not
     rediscover it), so when ``projected`` is assessed the usable fraction is
     taken from it.  The fresh assessment in ``quality`` supplies the events and
     is the fallback for a product that carries no projection.

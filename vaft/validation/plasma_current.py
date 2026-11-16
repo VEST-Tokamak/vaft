@@ -1,4 +1,4 @@
-"""Is the plasma-current Rogowski recording a current at all? (#1373, #1543)
+"""Is the plasma-current Rogowski recording a current at all?
 
 A Rogowski coil that has no plasma, no coil drive and no induced structure
 current inside its contour must read zero.  VEST's discharge, its PF swing and
@@ -9,12 +9,13 @@ cannot be a plasma, and no baseline choice can turn such a record into one.
 
 Shots 45780-45796 are the example that motivated this: field 109 toggles
 between about +100 and -100 kA as a square wave for the whole second, and the
-linear baseline then extrapolates that into a 1.7 MA "plasma" (#1373).
+linear baseline then extrapolates that into a 1.7 MA "plasma".
 
 Only that categorical evidence becomes validity here.  Softer symptoms -- a
 post-discharge tail, a slope in the baseline window -- are physically possible
 (the inner Rogowski links the induced current of the structure around the CS),
-so they are reported as metrics and never fail the channel (#189).
+so they are reported as metrics and never fail the channel: a threshold not
+justified across the VEST population does not become a hard gate.
 """
 
 from __future__ import annotations
@@ -44,8 +45,8 @@ class PlasmaCurrentQualityConfig:
     ``max_off_discharge_p2p`` is the robust (0.5-99.5 percentile) peak-to-peak
     the quiet stretches may show, in amperes.  Healthy shots reach about
     50 kA there (spikes and the slow tail of the induced current); the square-
-    wave fault reaches about 200 kA.  The value is set from the population
-    scan recorded in #1543 and #1373.
+    wave fault reaches about 200 kA.  Provenance: the value is set from the
+    population scan recorded on #1543 and #1373.
     """
 
     quiet_windows: tuple[tuple[float, float], ...] = ((0.0, 0.20), (0.45, 1.0))

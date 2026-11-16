@@ -81,8 +81,8 @@ DB5_DEFINITIONS: dict[str, str] = {
     "m_eff_source": "source",
 }
 
-#: Source columns read when present: the global stored energy and confinement time
-#: (#1713). A file without them still reads; the canonical columns stay NaN.
+#: Source columns read when present: the global (not thermal) stored energy and
+#: confinement time. A file without them still reads; the canonical columns stay NaN.
 _OPTIONAL_SOURCE_COLUMNS = ("WTOT", "TAUTOT")
 
 _NUMERIC_SOURCE_COLUMNS = (

@@ -1,14 +1,14 @@
-"""Kinetic state of a reconstructed slice: Thomson against EFIT pressure (#1430).
+"""Kinetic state of a reconstructed slice: Thomson against EFIT pressure.
 
-The conference atlas lanes (#1454) share one row identity,
+The kinetic-state atlas tables share one row identity,
 ``(shot, time_efit_s, efit_lineage)``, and every row carries the EFIT quality
 label of the magnetics slice at that time.  This module computes the
 slice-level quantities those rows hold; the population, file layout and
 schemas live in ``workflow/kinetic_state``.
 
 It sits in the validation layer because what it produces is a comparison of a
-reconstruction against a measurement it never used (#1430 treats the
-magnetics-only ratio as held-out kinetic validation), and because the
+reconstruction against a measurement it never used (the magnetics-only
+ratio is held-out kinetic validation), and because the
 transport-readiness rule that follows it has its precedent here
 (:func:`vaft.validation.neoclassical.input_readiness`).  It composes providers
 and computes ratios; it grades nothing.
@@ -52,10 +52,11 @@ mapping it through this slice puts the fit at the wrong pressure (cold review
 
 Inferred ion temperature
 ------------------------
-:func:`infer_ti_pressure_partition` is #1426's closure,
+:func:`infer_ti_pressure_partition` is the pressure-partition closure,
 ``T_i = (p_eq - e n_e T_e) / (e sum n_i)``, with the ion density from
 :func:`ion_composition`.  It is an *inferred* quantity and a separate lineage:
-the machine's Ti/Te policy (#1414) is not replaced, and a pressure that was
+the machine's configured Ti/Te policy (``vest.yaml`` ``ti_te_ratio``) is
+not replaced, and a pressure that was
 itself fitted with an assumed Ti/Te is refused as circular.
 """
 
@@ -90,7 +91,7 @@ __all__ = [
     "state_time",
 ]
 
-#: Version of the state key contract (#1454).  A change to the row identity, a
+#: Version of the state key contract.  A change to the row identity, a
 #: column's meaning or the matching rule bumps it.
 CONTRACT_VERSION = "1"
 
@@ -239,7 +240,7 @@ def match_thomson_pressure(equilibrium: Any, thomson: Any, *, time_s: float,
     ``slice_tolerance_s`` bounds how far the equilibrium slice may sit from
     ``time_s``; ``ts_tolerance_s`` how far the Thomson sample may sit from that
     slice (default: half the equilibrium cadence, at least 1 ms).  The contract
-    (#1454) fixes the latter to the *magnetics* EFIT cadence for both lineages,
+    fixes the latter to the *magnetics* EFIT cadence for both lineages,
     so a caller with a one-slice kinetic equilibrium passes it explicitly.
 
     Returns a dict with ``ts_status`` in ``matched | unmatched | invalid``:
@@ -452,11 +453,11 @@ def integrated_pressure_ratio(equilibrium: Any, index: int, rho_tor_norm: np.nda
 
 
 # ---------------------------------------------------------------------------
-# ion temperature from the pressure partition (#1426)
+# ion temperature from the pressure partition
 # ---------------------------------------------------------------------------
 
-# The lineage rule and the flag vocabularies now live with the kernel in
-# vaft.process.kinetic_closure (#1842); these names stay importable from here.
+# The lineage rule and the flag vocabularies live with the kernel in
+# vaft.process.kinetic_closure; these names stay importable from here.
 from vaft.process.kinetic_closure import INDEPENDENT_LINEAGES, TI_FLAGS, TI_NOTES  # noqa: E402,F401
 
 
@@ -494,8 +495,8 @@ def pressure_sigma(pressure: np.ndarray, neighbours: Sequence[np.ndarray] = (), 
     shot at the *same* normalized flux (the caller picks them by time, within
     1 ms).  The spread is the sample standard deviation over all of them; the
     result is ``max(spread, floor * pressure)`` pointwise.  ``floor`` defaults
-    to 0.17, the KPPCUR model-form uncertainty on the pressure-weighted area
-    found in #874.  Returns ``(sigma, basis)`` with ``basis`` either
+    to 0.17, borrowed from the ~17 % profile-model spread of the EFIT plasma
+    area (provenance: #874); no pressure uncertainty has been measured.  Returns ``(sigma, basis)`` with ``basis`` either
     ``"ensemble(n=k)"`` when the spread exceeds the floor anywhere, or
     ``"floor"``.  A neighbour value that is not finite is left out of the
     spread at that point, and a point with fewer than two finite values keeps
@@ -520,7 +521,7 @@ def pressure_sigma(pressure: np.ndarray, neighbours: Sequence[np.ndarray] = (), 
 
 
 def infer_ti_pressure_partition(*args: Any, **kwargs: Any) -> dict[str, Any]:
-    """Moved to :func:`vaft.process.kinetic_closure.infer_ti_pressure_partition` (#1842).
+    """Moved to :func:`vaft.process.kinetic_closure.infer_ti_pressure_partition`.
 
     The same inference, unchanged; this name only warns and delegates so existing
     callers keep working.  The lineage guard moved with it.
