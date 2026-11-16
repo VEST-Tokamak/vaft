@@ -1,4 +1,4 @@
-"""Canonical turbulence concept diagrams (#1112): structure from roles and the model, not pixels."""
+"""Canonical turbulence concept diagrams: structure from roles and the model, not pixels."""
 
 import math
 

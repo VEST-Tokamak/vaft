@@ -97,11 +97,11 @@ def _write_raw_dump(path: Path, shot: int, n_samples: int) -> None:
 def _gate_excluded(ods, times, kind):
     """Channels the diagnostics-stage quality gate marks unusable at the first time.
 
-    EFIT zeroes their weight through ``apply_validity_exclusions`` (#189), so
+    EFIT zeroes their weight through ``apply_validity_exclusions``, so
     a channel present in the IDS but condemned there is excluded exactly like
     a missing one.  Read from the projected validity, as that function does,
-    rather than restated: the gate's verdicts move (a known fault in
-    vest.yaml, #988; the array review, #1003), and this test is about missing
+    rather than restated: the gate's verdicts move (a known fault in vest.yaml, the array review),
+    and this test is about missing
     channels, not about which synthetic waveforms the gate accepts.
     """
     from vaft.validation.magnetics import unusable_channels_at
@@ -162,7 +162,7 @@ def full_constraints_input_ods(tmp_path_factory):
     # Any trailing toroidal-Mirnov probes are intentionally outside EFIT's
     # dprobe/mhdin geometry and must not enter constraint construction. 43016
     # has none of its own: 207/209/241 end at 35520 and field 171 is published
-    # once, as equilibrium probe 36 (#825). The clamp test appends one.
+    # once, as equilibrium probe 36. The clamp test appends one.
     assert len(ods["magnetics.b_field_pol_probe"]) == _efit_bpol_probe_count() + len(
         toroidal_mirnov_reference_channels(SHOT)
     )
@@ -181,7 +181,7 @@ def _build_kfile_config(nbcoil: int) -> EFITScientificConfig:
     # A trivial coil constraint matrix of the right shape, so generate_kfile's
     # own unrelated shape guard doesn't block a test that isn't exercising
     # PF-coil constraints. The shape comes from the constraint tree rather than
-    # a literal: it is the coilset's size, and #708 changed that.
+    # a literal: it is the coilset's size, which can change.
     return routine_scientific_config(
         profile=routine_profile_config(kppcur=2, kffcur=2),
         constraints=routine_constraint_config(
@@ -223,7 +223,7 @@ def test_constraints_and_kfile_survive_missing_channels(
     ods["equilibrium.time"] = times
     gated_probes = _gate_excluded(ods, times, "b_field_pol_probe") - set(missing_probes)
     gated_flux = _gate_excluded(ods, times, "flux_loop") - set(missing_flux)
-    # C4-04 is a known fault on every shot (#988, issue #977); the gate must
+    # C4-04 is a known fault on every shot; the gate must
     # carry it, and enough channels must survive for the test to mean anything.
     assert 45 in gated_probes or 45 in missing_probes
     assert n_probes - len(gated_probes) - len(missing_probes) >= n_probes // 2
@@ -240,7 +240,7 @@ def test_constraints_and_kfile_survive_missing_channels(
     assert len(EQ["time_slice.0.constraints.bpol_probe"]) == n_probes
     assert len(EQ["time_slice.0.constraints.flux_loop"]) == n_flux
     # The profile model is the k-file configuration's choice, made later; the
-    # constraints product does not claim one (#869).
+    # constraints product does not claim one.
     stored_in1 = EQ["code.parameters.time_slice.0.IN1"]
     for key in ("KFFCUR", "KPPCUR", "KFFFNC", "KPPFNC", "FCURBD", "PCURBD", "FWTBP", "IVESEL", "IFITVS"):
         assert key not in stored_in1, key
@@ -329,10 +329,10 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraint
     not part of EFIT's B-pol fitting set (`magpri` in dprobe.dat/mhdin.dat is
     64), so they must not be materialized into the equilibrium constraint IDS.
 
-    How many trail the 64 is a fact about the shot, not a constant. #857 gates
+    How many trail the 64 is a fact about the shot, not a constant. The registry gates
     each reference channel at its `last_operational_shot`: fields 207, 209 and
     241 end at 35520, and field 171 is published once, as equilibrium probe
-    36, never as a trailing twin (#825). So 43016 has no trailing channel of
+    36, never as a trailing twin. So 43016 has no trailing channel of
     its own; the count is still derived from that table rather than assumed.
     A trailing entry is appended here -- the shape a pre-35521 shot's phase
     references or a post-44156 shot's fluctuation array takes -- because the
@@ -393,7 +393,7 @@ def test_kfile_clamps_bpol_probe_to_the_real_machine_probe_count(full_constraint
 
 def test_constraints_and_kfile_without_a_diamagnetic_flux(full_constraints_input_ods, tmp_path):
     """A shot whose diamagnetic loop carried nothing has no diamagnetic_flux
-    node (#993). It is fitted without that row: no measured value is
+    node. It is fitted without that row: no measured value is
     invented, and the k-file switches the row off."""
     ods = copy.deepcopy(full_constraints_input_ods)
     assert "magnetics.diamagnetic_flux.0.data" in ods
@@ -423,7 +423,7 @@ def test_constraints_and_kfile_without_a_diamagnetic_flux(full_constraints_input
 
 
 def test_constraints_without_a_tf_waveform_refuse_by_name(full_constraints_input_ods, tmp_path):
-    """42675 (#1799): the raw dump had no TF coil current, so the diagnostics
+    """42675: the raw dump had no TF coil current, so the diagnostics
     product had no ``tf``. OMAS answers a read of the missing path with an
     empty ODS, and the builder failed deep inside as ``float * ODS``. It now
     refuses before reading anything, naming the input."""
@@ -460,7 +460,7 @@ def test_diamagnetic_baseline_window_reads_back_what_the_mapping_writes():
 
 
 def test_slices_whose_box_reaches_a_diamagnetic_anchor_are_the_anchored_ones():
-    """42914 (#1799): window 0.3175-0.3345 s, slices 0.319..0.335 at 1 ms with a
+    """42914: window 0.3175-0.3345 s, slices 0.319..0.335 at 1 ms with a
     0.5 ms half-width box. 0.335 averages the zeroed tail only; 0.334's box ends
     on the anchor sample. Neither is a measurement."""
     from vaft.code.efit.kfile import diamagnetic_anchored_slices
@@ -480,7 +480,7 @@ def test_slices_whose_box_reaches_a_diamagnetic_anchor_are_the_anchored_ones():
 
 
 def test_a_slice_past_the_diamagnetic_anchor_is_fitted_without_the_row(full_constraints_input_ods, tmp_path):
-    """42914/45663 (#1799): a slice past the baseline window's end measured a
+    """42914/45663: a slice past the baseline window's end measured a
     diamagnetic flux of 0 by construction, so its relative sigma was 0 and the
     k-file writer refused the shot under standard_deviation. The row is now
     left out on that slice and kept on the others."""
@@ -517,7 +517,7 @@ def test_a_slice_past_the_diamagnetic_anchor_is_fitted_without_the_row(full_cons
 
 
 def test_the_profile_basis_arguments_are_deprecated_and_ignored():
-    """FFCUR/PPCUR no longer reach any record; passing them says so (#869)."""
+    """FFCUR/PPCUR no longer reach any record; passing them says so."""
     from omas import ODS
 
     from vaft.code.efit.kfile import MissingConstraintInputError

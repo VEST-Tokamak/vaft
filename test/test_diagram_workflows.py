@@ -1,4 +1,4 @@
-"""The physics-workflow spine (#1585): specs that name real APIs, real formulas and real IDS."""
+"""The physics-workflow spine: specs that name real APIs, real formulas and real IDS."""
 
 import inspect
 import re
@@ -228,7 +228,7 @@ def test_inference_figures_draw_only_implemented_closures_and_name_no_code():
         assert all(n.api for n in spec.nodes if n.kind == "inferred")  # nothing future is drawn
         drawn = " ".join(f"{n.label} {n.symbols or ''}" for n in spec.nodes).lower()
         assert not re.search(r"\b(tglf|cgyro|neo|chease|efit)\b", drawn)  # "neoclassical" is physics, not a code
-    assert graph.node("gamma").kind == "prior"  # gamma_E = 0 is an assumption, not an inference (#553)
+    assert graph.node("gamma").kind == "prior"  # gamma_E = 0 is an assumption, not an inference
 
 
 def test_references_are_optional_numbered_by_first_use_and_listed():
@@ -247,10 +247,13 @@ def test_references_are_optional_numbered_by_first_use_and_listed():
 
 
 def test_every_transport_route_starts_from_the_state_and_external_codes_are_optional():
-    """#1901: no route feeds another; NEO, TGLF and CGYRO are optional external codes, each with its own writer."""
+    """No route feeds another; NEO, TGLF and CGYRO are optional external codes, each with its own writer."""
     spec = WORKFLOWS["transport_hierarchy"]
-    routes = ("classical", "neo_fit", "neo_code", "turb_ql", "turb_gk")
-    assert {(src, dst) for src, dst, _ in spec.edges if dst in routes} == {("state", r) for r in routes}
+    resolved = ("classical", "neo_code", "turb_ql", "turb_gk")
+    routes = resolved + ("neo_fit",)
+    # Sauter/Redl reads the ODS (compute_bootstrap_current(ods, ...)), not the resolved state built from it
+    assert {(src, dst) for src, dst, _ in spec.edges if dst in routes + ("state",)} == \
+        {("state", r) for r in resolved} | {("source", "neo_fit"), ("source", "state")}
     for key in ("neo_code", "turb_ql", "turb_gk"):
         assert spec.node(key).kind == "solver" and "optional" in spec.node(key).symbols, key
     for key in ("classical", "neo_fit"):
@@ -262,6 +265,23 @@ def test_every_transport_route_starts_from_the_state_and_external_codes_are_opti
     assert ("window", "ct_cgyro") in spec.side
     for key in ("ct_classical", "ct_neo", "ct_tglf", "ct_cgyro"):
         assert "model[k]" in spec.node(key).ids and "identifier.index" in spec.node(key).ids, key
+
+
+@pytest.mark.parametrize("key", ["transport_hierarchy", "neo_neoclassical"])
+def test_only_the_steps_drawn_from_the_source_read_the_ods(key):
+    """Sauter / Redl and the resolver read the ODS; everything downstream of the resolved state reads its outputs."""
+    spec = WORKFLOWS[key]
+
+    def first_parameter(node_key):
+        return next(iter(inspect.signature(W.resolve(spec.node(node_key).api)).parameters))
+
+    from_source = {dst for src, dst, _ in spec.edges if src == "source"}
+    assert from_source == {"state", "neo_fit" if key == "transport_hierarchy" else "fits"}
+    assert all(first_parameter(k) == "ods" for k in from_source)
+    from_state = {dst for src, dst, _ in spec.edges if src == "state"}
+    assert from_state and all(first_parameter(k) != "ods" for k in from_state if spec.node(k).api)
+    # the fits are returned, not written: nothing leaves them
+    assert not [e for e in spec.edges if e[0] in from_source - {"state"}]
 
 
 def test_the_comparison_separates_the_shared_state_from_two_input_paths():
@@ -281,7 +301,7 @@ def test_the_eddy_model_is_a_forward_solve_checked_against_vacuum_magnetics():
 
 
 def test_vacuum_products_are_returned_and_the_vessel_write_is_drawn():
-    """#1901: the evaluators return dicts; the only IDS write is the vessel currents they solve when absent."""
+    """The evaluators return dicts; the only IDS write is the vessel currents they solve when absent."""
     spec = WORKFLOWS["vacuum_field_proxies"]
     assert spec.node("vessel").kind == "standardized" and spec.node("vessel").ids.startswith("pf_passive.")
     assert ("pf", "vessel", "if absent") in spec.edges and ("vessel", "field", "") in spec.edges
@@ -349,7 +369,7 @@ def test_every_platform_science_box_has_a_diagram_or_a_tracked_gap():
 
 
 # --------------------------------------------------------------------------
-# kind pictograms in the shared legend (#2114)
+# kind pictograms in the shared legend
 # --------------------------------------------------------------------------
 
 

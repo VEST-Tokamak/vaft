@@ -6,7 +6,7 @@ of each Eq. 23 quantity and the ``2*pi`` flux exponent -- and identifies the
 conventions they support.  The verdict, *whether a given equilibrium is
 consistent with the convention it claims*, is
 :func:`vaft.validation.cocos.validate_cocos`: a check is validation, not
-processing (#253, #337).  ``validate_cocos`` here is a deprecated alias.
+processing.  ``validate_cocos`` here is a deprecated alias.
 
 Sauter & Medvedev 2013 Eq. 23 gives six relations that any equilibrium in a given
 COCOS must satisfy, in terms of the signs of the plasma current and the vacuum
@@ -129,7 +129,7 @@ def cocos_consistency_signs(equilibrium: Any) -> dict[str, int | None]:
     A bulk slope is the sign of the overall trend, not of every point: a
     non-monotonic pressure profile still reports one sign.  Because the stored
     ``pprime`` takes precedence, the fallback rarely runs in practice; that the
-    two paths can disagree for a hand-built equilibrium is tracked in #605.
+    two paths can disagree for a hand-built equilibrium is open (#605).
 
     Provenance
     ----------

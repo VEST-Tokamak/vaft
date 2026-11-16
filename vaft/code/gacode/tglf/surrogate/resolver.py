@@ -50,6 +50,11 @@ MODELS_COMPATIBILITY_ENVS = ("TURBULENTTRANSPORT_ROOT",)
 #: Files that must sit beside an ONNX ensemble for it to be usable.
 METADATA_FILES = ("xnames.txt", "ynames.txt", "xm.txt", "xsigma.txt", "ym.txt", "ysigma.txt")
 
+#: Read when present: the training min/max per input, exported from the Julia ``.bson``
+#: by ``workflow/tglf_nn/export_training_bounds.jl`` (#2274). It changes what the audit
+#: concludes, so it is part of the model's digest.
+OPTIONAL_METADATA_FILES = ("xbounds.txt",)
+
 #: Device tokens the upstream naming convention uses.
 KNOWN_DEVICES = frozenset(
     {
@@ -211,6 +216,10 @@ def _artifact_digests(directory: Path) -> dict[str, str]:
     members.update(
         {name: _digest(directory / name) for name in METADATA_FILES}
     )
+    members.update(
+        {name: _digest(directory / name) for name in OPTIONAL_METADATA_FILES
+         if (directory / name).is_file()}
+    )
     return members
 
 
@@ -282,21 +291,43 @@ def _disambiguate(
     data or different TGLF settings behind an unchanged family name. Picking the first
     match would therefore silently choose a model.
 
-    Copies whose bytes agree are the same model and the extras are recorded; copies
-    whose bytes differ are different models sharing a name, and that is refused with
-    both locations named so the caller can choose one.
+    Copies whose network and moments agree (the ONNX members and
+    :data:`METADATA_FILES`) are the same model and the extras are recorded; copies that
+    differ there are different models sharing a name, and that is refused with both
+    locations named so the caller can choose one.  A copy that only *adds* the optional
+    files (an exported ``xbounds.txt``) is the same network, and it is the one chosen:
+    it carries more of what the model is, and it is what the exporter wrote it for.
     """
-    primary, origin = matches[0]
+
+    def mandatory(directory: Path) -> dict[str, str]:
+        digests = _artifact_digests(directory)
+        return {k: v for k, v in digests.items() if k not in OPTIONAL_METADATA_FILES}
+
+    def optional_count(directory: Path) -> int:
+        return sum((directory / name).is_file() for name in OPTIONAL_METADATA_FILES)
+
+    # Stable: among equal copies the search order still decides, unless one carries more.
+    ordered = sorted(matches, key=lambda match: -optional_count(match[0]))
+    primary, origin = ordered[0]
     identity = _identify(primary, origin, env=env)
+    reference = mandatory(primary)
     others = []
-    for directory, _ in matches[1:]:
-        if _artifact_digests(directory) != dict(identity.sha256):
+    for directory, _ in ordered[1:]:
+        if mandatory(directory) != reference:
             raise ModelResolutionError(
                 f"{name!r} resolves to more than one model and the copies are not the "
                 f"same bytes: {_describe(primary)} and {_describe(directory)}. Upstream "
                 f"versions the networks behind a stable family name, so choosing for "
                 f"you would pick a model silently. Pass model_dir= or an explicit "
                 f"directory path to say which one."
+            )
+        theirs = {k: v for k, v in _artifact_digests(directory).items() if k in OPTIONAL_METADATA_FILES}
+        ours = {k: v for k, v in identity.sha256.items() if k in OPTIONAL_METADATA_FILES}
+        if theirs and theirs != ours:
+            raise ModelResolutionError(
+                f"{name!r}: two copies of the same network carry different training "
+                f"bounds ({_describe(primary)} and {_describe(directory)}); pass an "
+                f"explicit directory path to say which export to use."
             )
         others.append(str(directory))
     return identity if not others else replace(identity, alternatives=tuple(others))
@@ -349,6 +380,15 @@ def load_metadata(identity: ModelIdentity) -> SurrogateMetadata:
         )
 
     try:
+        bounds = None
+        if (directory / "xbounds.txt").is_file():
+            bounds = numbers("xbounds.txt")
+            if bounds.size % 2:
+                raise ModelContractError(
+                    f"{identity.name}: xbounds.txt holds {bounds.size} numbers; it needs "
+                    f"one 'min max' pair per input"
+                )
+            bounds = bounds.reshape(-1, 2)
         return SurrogateMetadata(
             xnames=tuple(words("xnames.txt")),
             ynames=tuple(words("ynames.txt")),
@@ -356,6 +396,7 @@ def load_metadata(identity: ModelIdentity) -> SurrogateMetadata:
             xsigma=numbers("xsigma.txt"),
             ym=numbers("ym.txt"),
             ysigma=numbers("ysigma.txt"),
+            xbounds=bounds,
         )
     except ValueError as exc:
         raise ModelContractError(

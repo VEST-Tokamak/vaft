@@ -278,6 +278,11 @@ def edge_q_estimate(
     -------
     EdgeQEstimate
         The proxies and the provenance of every input.
+
+    Semantics
+    ---------
+    consumes: plasma_current, b_t, minor_radius, major_radius, elongation, triangularity
+    produces: estimated_q95, normalized_current
     """
     from vaft.formula.equilibrium import (
         estimated_q95,

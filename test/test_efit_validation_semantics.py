@@ -1,4 +1,4 @@
-"""The canonical EFIT channel conventions, made explicit (issue #186).
+"""The canonical EFIT channel conventions, made explicit.
 
 `vaft.omas.efit_quality`, `vaft.validation` and the EFIT plot recipes used to
 derive their own channel masks and their own chi-square channel set, so the same

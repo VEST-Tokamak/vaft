@@ -28,8 +28,8 @@ Environment=HOME=/var/lib/vaft-gui
 # The venv's bin first: VAFT reads HSDS through h5pyd's hsget/hsls there.
 Environment=PATH=/opt/vaft-gui/bin:/usr/bin:/bin
 Environment=MPLCONFIGDIR=/var/lib/vaft-gui/.cache/matplotlib
-ExecStart=/opt/vaft-gui/bin/vaft gui --hosted --auth hsds --prefix /gui --port 5006 --no-show \
-    --allow-websocket-origin vest.hsds.snu.ac.kr
+# The browser origins (the public host name) come from VAFT_GUI_ORIGINS in the env file.
+ExecStart=/opt/vaft-gui/bin/vaft gui --hosted --auth hsds --prefix /gui --port 5006 --no-show
 Restart=on-failure
 RestartSec=5
 

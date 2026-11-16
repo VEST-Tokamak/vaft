@@ -1,4 +1,4 @@
-"""Onset and active-window primitives on plain arrays (issue #409).
+"""Onset and active-window primitives on plain arrays.
 
 Every detector here answers one question about one waveform -- *when does it
 become active, and on what evidence* -- and returns an :class:`OnsetRecord`.
@@ -195,7 +195,7 @@ class PulseWindow:
         The window is the *envelope* of its segments, so on a record of two
         brief flashes tens of milliseconds apart this is a small fraction of
         :attr:`duration_s` -- and a consumer reading the extent as a duration
-        has no other way to tell (issue #752).
+        has no other way to tell.
         """
         if not self.found:
             return None
@@ -924,8 +924,7 @@ def _degenerate(t, y, method, baseline, spread, peak, threshold, ref_mask, sigma
     to the fraction-of-peak term, which is still a threshold when the record
     rises above its baseline at all.  Only a flat reference *and* no excess
     above it -- the idle coil -- is refused, so that a clean pulse whose quiet
-    lead is quantised to one code is not reported like an idle channel (cold
-    review 0.7.0 process F7, #1888).
+    lead is quantised to one code is not reported like an idle channel.
     """
     flags: list[str] = []
     if int(np.count_nonzero(ref_mask)) < 2:
@@ -1495,13 +1494,14 @@ def active_window(
     collapse fallback rather than by the threshold.  The threshold is scaled
     from the amplitude the detector *accepted* -- the largest segment, not the
     largest sample in the search stretch -- because a spike the segment tests
-    refused would otherwise set the level the pulse has to fall below (#726).
+    refused would otherwise set the level the pulse has to fall below.
 
     And the window is the *envelope* of its segments, which for a record of two
     brief blips tens of milliseconds apart is mostly gap: three corpus records
     report windows that are 7 to 19 % above threshold.  ``multiple_segments``
     says a window has gaps but not how much of it is gap, and the extent is
-    consumed as a duration -- tracked in issue #752.
+    consumed as a duration; :attr:`PulseWindow.active_s` reports the time
+    actually above threshold.
 
     Provenance
     ----------
@@ -1637,7 +1637,7 @@ def _active_window(
         # morphology test and simply is not the principal pulse -- VEST's
         # pre-ionization light before breakdown, say.  They are recorded rather
         # than dropped, so a reader can still see what else the record held
-        # without re-running the detector (#842).
+        # without re-running the detector.
         discarded = [seg for seg in merged if seg is not chosen[0]]
         if discarded:
             evidence["discarded_segments"] = [
@@ -1657,7 +1657,7 @@ def _active_window(
     # coil-firing impulse -- holds the record's maximum: scaling the end
     # threshold from it asks the pulse to fall below a level set by noise the
     # detector had already thrown away, which on the corpus left thirteen
-    # windows unable to end at all (#726).
+    # windows unable to end at all.
     accepted_peak = max(float(y[a:b].max()) - baseline for a, b in segments)
     evidence["accepted_peak"] = accepted_peak
     # Offset against the trailing reference, when there is a quiet one.
@@ -1698,7 +1698,7 @@ def _active_window(
         i_peak_last = seg0 + int(np.argmax(y[seg0:seg1]))
         stop = _extend_forward(above_end, i_peak_last, quiet)
         if stop <= i_peak_last:
-            # Defensive since #726 scaled the threshold from the accepted
+            # Defensive, because the threshold is scaled from the accepted
             # amplitude: the largest accepted segment is above a fraction of
             # its own peak by construction, and the drop loop leaves that one
             # or a later one at least as large.  Kept because "the window ends
@@ -2206,7 +2206,7 @@ def robust_peak(
     ``polarity`` decides the sign of the answer: with ``negative`` or
     ``absolute`` the reported ``value`` is still the record's own signed sample,
     not the score, so a VEST diamagnetic flux keeps its stored sign (positive
-    for a paramagnetic plasma, #1196).  ``value`` is the *smoothed* sample; the raw one is in the
+    for a paramagnetic plasma).  ``value`` is the *smoothed* sample; the raw one is in the
     evidence.
 
     Applicability

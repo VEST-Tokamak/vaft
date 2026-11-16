@@ -1,10 +1,11 @@
-"""Where the MCP adapter gets data from: the private source seam (#1423, #188 Phase 2).
+"""Where the MCP adapter gets data from: the private source seam.
 
 The MCP protocol names a dataset semantically: a shot number, or a local
 artifact by its path relative to a directory the server's user chose.  How
-that dataset is opened is decided here and nowhere else, so a later
-DD/DDView-backed loader (#1127, #1132, #1135) replaces this module without
-changing any tool schema.  Three kinds of dataset resolve:
+that dataset is opened is decided here and nowhere else, so a
+DD/DDView-backed loader, which VAFT does not have yet (Open: #1127, #1132,
+#1135), can replace this module without changing any tool schema.  Three
+kinds of dataset resolve:
 
 * a packaged reference shot (:func:`vaft.omas.sample.sample_ods`), offline;
 * a local artifact under ``VAFT_ARTIFACT_DIR`` -- a g-file, OMAS JSON, IMAS
