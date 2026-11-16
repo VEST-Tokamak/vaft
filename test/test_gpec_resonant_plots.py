@@ -242,7 +242,7 @@ def test_a_run_whose_surfaces_are_all_outside_the_band_is_an_error(tmp_path):
 
 
 def test_a_run_without_the_resonant_pair_names_it_not_chi1(tmp_path):
-    """#1243: con_flag=t turns GPEC's singfld_flag off, so the profile output has
+    """con_flag=t turns GPEC's singfld_flag off, so the profile output has
     no Phi_res/Delta. The figure used to blame chi1, which was there."""
     import xarray as xr
 

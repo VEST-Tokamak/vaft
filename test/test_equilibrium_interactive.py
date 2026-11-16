@@ -1,4 +1,4 @@
-"""Interactive equilibrium exploration (issue #261 §14-17).
+"""Interactive equilibrium exploration.
 
 One selected slice, shared by the time marker, the 2-D flux, the profiles and
 the global quantities; every selection snaps to a stored slice; the
@@ -174,7 +174,7 @@ def test_redrawing_leaves_the_figure_as_it_found_it(shot):
         result.navigator.select_index(index)
         result.figure.canvas.draw()
         if len(result.axes) != panels:
-            continue  # a slice drawing another panel set is laid out afresh (#476)
+            continue  # a slice drawing another panel set is laid out afresh
         assert result.axes[0].get_position(original=True).width == pytest.approx(width)
     result.navigator.select_index(result.navigator.usable[0])
     assert len(result.figure.axes) == count

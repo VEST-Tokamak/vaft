@@ -234,7 +234,7 @@ def test_the_formula_and_process_extremum_helpers_are_one_implementation():
 def test_triangularity_agrees_with_the_process_contour_shape_parameters():
     # vaft.process computes the same two numbers against the geometric centre;
     # passing that centre as R0 must reproduce them exactly, or the package
-    # holds two definitions of one quantity again (#365).
+    # holds two definitions of one quantity again.
     from vaft.process.equilibrium import contour_shape_parameters
 
     theta = np.linspace(0.0, 2 * np.pi, 1001)
@@ -509,7 +509,7 @@ def test_q_from_phi_is_exact_for_full_weber_psi_and_says_so():
     assert q_from_phi(psi_wb, phi)[1:-1] == pytest.approx(q0, rel=1e-12)
     assert q_from_phi(psi_wb / (2 * np.pi), phi)[1:-1] == pytest.approx(2 * np.pi * q0, rel=1e-12)
 
-    # A per-radian flux is taken when the caller says so (#354).
+    # A per-radian flux is taken when the caller says so.
     assert q_from_phi(psi_wb / (2 * np.pi), phi, psi_per_radian=True)[1:-1] == pytest.approx(
         q0, rel=1e-12
     )
@@ -659,7 +659,7 @@ def test_kink_safety_factor_rejects_an_unknown_shape():
 
 def test_current_limit_from_q_inverts_the_cylindrical_safety_factor():
     # q_cyl = 2 pi a^2 B0 / (mu0 R0 I_p): the current must come back in amperes
-    # and reproduce q_95 when put back in (#362 added the missing 1/R0).
+    # and reproduce q_95 when put back in (the 1/R0 once missing).
     a, B0, R0, q_95 = 0.4, 0.2, 0.45, 3.0
     I_p = current_limit_from_q(q_95, a, B0, R0)
     assert I_p == pytest.approx(2 * np.pi * a**2 * B0 / (MU0 * R0 * q_95), rel=1e-12, abs=0.0)
@@ -820,7 +820,7 @@ def test_both_bremsstrahlung_forms_default_to_a_Z_eff_of_two():
 
 
 def test_the_canonical_bremsstrahlung_form_refuses_a_positional_Z_eff():
-    # The whole point of #760: with three positional floats, a call written in
+    # Regression guard for #760: with three positional floats, a call written in
     # the order the old name advertised was accepted and returned a number 27
     # orders of magnitude wrong.  Keyword-only Z_eff makes that unrepresentable.
     with pytest.raises(TypeError):
@@ -853,9 +853,9 @@ def test_pressure_form_bremsstrahlung_matches_its_documented_coefficient():
 
 
 def test_cyclotron_power_density_matches_its_closed_form():
-    # Regression for #753: the body referred to four undefined lower-case
-    # names, so the function raised NameError on every call until #368's
-    # constants move was finished off.
+    # Regression guard for #753: the body referred to four undefined lower-case
+    # names, so the function raised NameError on every call until the constants
+    # move was finished off.
     from vaft.formula.constants import C_LIGHT, EPS0, ME
 
     n_e, B_t, T_eV = 1e19, 0.2, 1000.0
@@ -991,10 +991,10 @@ def test_collisionality_from_nu_ii_is_linear_in_the_collision_frequency():
 
 
 def test_kadomtsev_constraint_matches_its_closed_form():
-    # alpha_K = (1 + a_P)(mu_rho + 2 mu_beta - 4 mu_nu) - 2 a_P (#351).
+    # alpha_K = (1 + a_P)(mu_rho + 2 mu_beta - 4 mu_nu) - 2 a_P.
     mu_rho, mu_beta, mu_nu, a_P = 0.4, 0.2, 0.1, 0.5
     expected = (1 + a_P) * (mu_rho + 2 * mu_beta - 4 * mu_nu) - 2 * a_P
-    # The FutureWarning that announced the #351 change was dropped in 0.9.0.
+    # The FutureWarning that announced the IPB98 dimensionless-form change was dropped in 0.9.0.
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         got = verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P)
@@ -1014,7 +1014,7 @@ def test_kadomtsev_constraint_vanishes_for_a_pure_dimensionless_scaling():
 
 
 # --------------------------------------------------------------------------
-# Closed-form diamagnetic estimates (#684)
+# Closed-form diamagnetic estimates
 # --------------------------------------------------------------------------
 
 def test_diamagnetic_beta_p_is_one_without_diamagnetic_flux():

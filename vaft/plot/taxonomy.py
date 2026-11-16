@@ -173,6 +173,13 @@ _QUANTITY_ALIAS_PAIRS = (
     ("energy_mhd", "w_mhd"),
     ("magnetic_energy", "w_mag"),
     ("total_energy", "w_tot"),
+    # R0 B0 [T m], the IMAS tf leaf; not the field b_t [T], which is derived from it by dividing by r0
+    ("b_field_tor_vacuum_r", "b_t_vacuum_r"),
+    # the safety-factor profile q(psi), as the validation registry names it
+    ("q_profile", "q"),
+    # F = R B_phi [T m], the poloidal current (diamagnetic) function: profiles_1d/f, the g-file FPOL
+    ("f", "poloidal_current_function"),
+    ("fpol", "poloidal_current_function"),
 )
 
 
@@ -235,6 +242,16 @@ _UNALIASED_QUANTITIES = (
     "triangularity",
     "zeff",
 )
+
+#: Proxies and the quantity each approximates: ``proxy -> quantity``.  This is
+#: never identity (the two stay distinct concepts, and neither is an alias of the
+#: other): a value of the proxy is an estimate of the quantity, made under the
+#: proxy's own assumptions, not a value of it.  ``estimated_q95`` is q95 from an
+#: empirical scaling on global shape and engineering parameters, whereas ``q95``
+#: is the safety factor of a reconstructed equilibrium at psi_N = 0.95.
+APPROXIMATIONS: dict[str, str] = {
+    "estimated_q95": "q95",
+}
 
 #: Every canonical quantity name: the alias targets and the unaliased ones.
 CANONICAL_QUANTITIES: frozenset[str] = frozenset(QUANTITY_ALIASES.values()) | frozenset(_UNALIASED_QUANTITIES)

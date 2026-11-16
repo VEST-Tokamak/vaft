@@ -1,4 +1,4 @@
-"""Compact representations of existing equilibria (#1166).
+"""Compact representations of existing equilibria.
 
 ``fit_solovev`` is the linear inverse of the Solov'ev family: an exact
 Solov'ev input must come back exactly, and a reconstruction that is not a

@@ -1,4 +1,4 @@
-"""The dependency and external-code catalog, for the documentation site (#1648).
+"""The dependency and external-code catalog, for the documentation site.
 
 ``python -m vaft._ecosystem_catalog --output docs/_data/ecosystem.yml`` writes
 what ``/reference/software-dependencies/`` and ``/reference/external-codes/``

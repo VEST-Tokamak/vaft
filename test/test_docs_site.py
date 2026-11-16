@@ -70,7 +70,7 @@ def site(tmp_path_factory):
 
     generators = yaml.safe_load((source / "generators.yml").read_text(encoding="utf-8"))["generators"]
     environment = dict(os.environ, PYTHONPATH=str(ROOT))
-    # Source links are pinned to the generating commit (#1069), as docs/build.py records it.
+    # Source links are pinned to the generating commit, as docs/build.py records it.
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(ROOT), check=True,
                             capture_output=True, text=True).stdout.strip()
     # The copied docs may carry a provenance receipt from an earlier local
@@ -270,7 +270,7 @@ def test_a_thumbnail_missing_from_the_page_is_caught(site, tmp_path):
 
 
 # --------------------------------------------------------------------------
-# source navigation (#1069)
+# source navigation
 # --------------------------------------------------------------------------
 
 

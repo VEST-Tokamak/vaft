@@ -263,6 +263,10 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
     "software_dependency_ecosystem.svg": ("software_dependency_ecosystem", {}),
     "external_code_integration.svg": ("external_code_integration", {}),
+    # computation contracts, workflow execution and provenance (#2150)
+    **{f"{name}.svg": (name, {}) for name in (
+        "scientific_computation_contract", "computation_record_layers", "workflow_specification_and_run",
+        "imas_scientific_workflow_example")},
     "pictogram_catalog.svg": ("pictogram_catalog", {}),
     # the physics-workflow spine, level 2 below the platform overview (#1585)
     **{f"{name}.svg": (name, {}) for name in (
@@ -290,6 +294,11 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "synthetic_diagnostics.svg": ("synthetic_diagnostics", {}),
     "coordinate_cocos_conversions.svg": ("coordinate_cocos_conversions", {}),
     "power_balance_confinement.svg": ("power_balance_confinement", {}),
+    # equilibrium, MHD and transport joined through shared state representations
+    "cross_domain_scientific_architecture.svg": ("cross_domain_scientific_architecture", {}),
+    "cross_domain_scientific_workflows.svg": ("cross_domain_scientific_workflows", {}),
+    "stability_transport_io.svg": ("stability_transport_io", {}),
+    "equilibrium_stability_transport.svg": ("equilibrium_stability_transport", {"measurements": True}),
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),
     "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),

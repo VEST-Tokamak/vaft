@@ -1,4 +1,4 @@
-"""The relative footprint proxy and the surface areas that integrate it (#1099).
+"""The relative footprint proxy and the surface areas that integrate it.
 
 Tested against closed forms rather than against the legacy implementation,
 because the legacy is what the migration exists to replace: it multiplied the

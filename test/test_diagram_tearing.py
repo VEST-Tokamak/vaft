@@ -1,4 +1,4 @@
-"""Tearing diagrams: one concept each, and the drawn slopes are the formula's index (#1039)."""
+"""Tearing diagrams: one concept each, and the drawn slopes are the formula's index."""
 
 import numpy as np
 import pytest
