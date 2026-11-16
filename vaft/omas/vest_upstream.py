@@ -34,6 +34,12 @@ from vaft.machine_mapping.impa import (
     resolve_impa_config,
 )
 from vaft.machine_mapping.langmuir_probes import LangmuirProbeEraGapError, langmuir_probes
+from vaft.machine_mapping.machine_history import (
+    VestMachineEra,
+    machine_era,
+    machine_era_for_shot,
+    machine_eras,
+)
 from vaft.machine_mapping.magnetics import (
     FLUCTUATION_MIRNOV_FIRST_SHOT,
     LIMITER_SHUNT_CHANNELS,
@@ -83,57 +89,13 @@ from vaft.process.acquisition import AcquisitionInconsistencyError, summarize_sa
 from vaft.process.magnetics import VestMagneticsProcessingConfig
 
 
-@dataclass(frozen=True)
-class VestMachineEra:
-    name: str
-    first_shot: int | None
-    last_shot: int | None
-    pf_geometry: str
-    reference_shot: int
-    wall_geometry: str = "1512"
-
-    def contains(self, shot: int) -> bool:
-        return (self.first_shot is None or shot >= self.first_shot) and (
-            self.last_shot is None or shot <= self.last_shot
-        )
-
-
-# One era per machine access that changed a conductor the static product
-# carries (issue #956). Each boundary is the first shot after a multi-day gap
-# in the raw `pulse_datetime`, which is when the vessel could be opened:
-#   43017  passive wall 1512 -> 2409 (+15 SUS316LN elements at Z = -1.164 m);
-#          43016 is 2024-07-05, 43017 is 2024-07-15.
-#   45968  PF6/PF7 rebuilt, coil geometry 1906 -> 2507; 45950-45967 run every
-#          ~12 minutes on 2025-06-30 and 45968 follows on 2025-07-07.
-# The PF boundary was 45958 before #956, with no recorded source, which split
-# off a ten-shot 45958-45966 era and a 45967 legacy boundary; both are gone.
-# Code-owned on purpose (#2159, audit gap G14): an era names the static
-# product's geometry assets and product identity (``machine_version``), which
-# stage products and HSDS sources are keyed by, so it changes with a code
-# release and its tests, not with a vest.yaml edit. The shot-era *processing*
-# policy stays in vest.yaml.
-VEST_MACHINE_ERAS = (
-    VestMachineEra("vest-pre-43017-pf1906", None, 43016, "1906", 43016, "1512"),
-    VestMachineEra("vest-43017-45967-pf1906", 43017, 45967, "1906", 43017, "2409"),
-    VestMachineEra("vest-45968-plus-pf2507", 45968, None, "2507", 45968, "2409"),
-)
-
-
-def machine_era_for_shot(shot: int) -> VestMachineEra:
-    """Return the explicit VEST machine era for a shot."""
-    for era in VEST_MACHINE_ERAS:
-        if era.contains(int(shot)):
-            return era
-    raise ValueError(f"No VEST machine era is defined for shot {shot}")
-
-
-def machine_era(name: str) -> VestMachineEra:
-    """Resolve a configured machine-era name."""
-    for era in VEST_MACHINE_ERAS:
-        if era.name == name:
-            return era
-    choices = ", ".join(item.name for item in VEST_MACHINE_ERAS)
-    raise ValueError(f"Unknown VEST machine era {name!r}; expected one of: {choices}")
+# The static machine eras (wall and PF geometry, and the ``machine_version``
+# stage products and HSDS sources are keyed by) live in vest.yaml's
+# ``machine_history.machine_eras`` (issue #2267; they were code-owned under
+# #2159 audit gap G14). The names and boundaries are pinned by
+# test/test_machine_history.py, so product identity still changes only with a
+# reviewed code-and-test change, never with a vest.yaml edit alone.
+VEST_MACHINE_ERAS = machine_eras()
 
 
 def sha256_file(path: str | Path) -> str:
@@ -2888,6 +2850,41 @@ def _magnetic_efit_lineage(efit_product: str | Path) -> str | None:
     return "magnetics" if any(pair == ("efit", "magnetic") for pair in zip(parts, parts[1:])) else None
 
 
+#: What :func:`build_ti_inferred_ods` writes: the partition point by point, or one
+#: smooth ``T_i/T_e(rho)`` fitted to it (#1842 ``inferred_profile``).
+TI_INFERRED_FORMS = ("pointwise", "profile")
+
+#: Thomson channels assumed independent when a product carries no channel list.
+DEFAULT_THOMSON_CHANNELS = 5
+
+
+def _thomson_channel_count(ods: ODS, time_s: float) -> tuple[int, str]:
+    """Independent radial measurements behind the profile at ``time_s``: the valid Thomson channels.
+
+    Counts the channels whose ``t_e`` is positive and finite at the sample nearest
+    ``time_s`` (the channels the profile was fitted to, as the kinetic-state stages
+    count them). Returns ``(count, "thomson")``, or ``(DEFAULT_THOMSON_CHANNELS,
+    "default")`` when the product carries no usable channel.
+    """
+    from vaft.ods_access import path_value
+
+    times = path_value(ods, "thomson_scattering.time", None)
+    if times is not None and _path_present(ods, "thomson_scattering.channel"):
+        times = np.atleast_1d(np.asarray(times, dtype=float))
+        it = int(np.argmin(np.abs(times - time_s)))
+        count = 0
+        for i in range(len(ods["thomson_scattering.channel"])):
+            data = path_value(ods, f"thomson_scattering.channel.{i}.t_e.data", None)
+            if data is None:
+                continue
+            data = np.atleast_1d(np.asarray(data, dtype=float))
+            if it < data.size and np.isfinite(data[it]) and data[it] > 0:
+                count += 1
+        if count > 0:
+            return count, "thomson"
+    return DEFAULT_THOMSON_CHANNELS, "default"
+
+
 def _thomson_relative_errors(ods: ODS, time_s: float) -> tuple[float, float]:
     """Median relative one-sigma of ``n_e`` and ``T_e`` over the valid channels nearest ``time_s``.
 
@@ -2944,6 +2941,7 @@ def build_ti_inferred_ods(
     window_s: float = TI_INFERENCE_WINDOW_S,
     equilibrium_tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
     run: int = 1,
+    ti_form: str = "pointwise",
 ) -> tuple[ODS, dict[str, Any]]:
     """Give the electron-only slices an ion temperature inferred from the magnetic pressure partition.
 
@@ -2964,12 +2962,25 @@ def build_ti_inferred_ods(
     are left alone.  A slice with no composition is skipped rather than inferred
     with ``n_i = n_e``: the ion density is half of the formula.  The stage reads
     the *composed* product and must never be read by the kinetic EFIT stages.
+
+    ``ti_form`` chooses what is written.  ``"pointwise"`` (default) keeps the
+    partition point by point, NaN where ``p_i`` carries no information.
+    ``"profile"`` smooths the significant points into one ``T_i/T_e(rho)``
+    polynomial of order 0-2 chosen by BIC
+    (:func:`vaft.process.kinetic_closure.fit_ti_te_ratio_profile`, the
+    ``inferred_profile`` mode of #1842) and writes ``T_i = ratio * T_e`` on the
+    whole grid, with ``method=equilibrium_pressure_partition_profile`` and the
+    order, coefficients and fitted span in the record.  Outside that span the
+    ratio is extrapolated, and the record says so.
     """
+    if ti_form not in TI_INFERRED_FORMS:
+        raise ValueError(f"ti_form must be one of {TI_INFERRED_FORMS}; got {ti_form!r}")
     from vaft.machine_mapping.core_profiles import classify_ti_record, inferred_ti_text, ti_record_fields
     from vaft.ods_access import path_value
     from vaft.process.kinetic_closure import (
         TI_FLAGS,
         assemble_pressure,
+        fit_ti_te_ratio_profile,
         infer_kinetic_closure,
         infer_ti_pressure_partition,
     )
@@ -2984,7 +2995,7 @@ def build_ti_inferred_ods(
     }
     manifest["configuration"].update(
         floor=float(floor), window_s=float(window_s),
-        equilibrium_tolerance_ms=float(equilibrium_tolerance_ms),
+        equilibrium_tolerance_ms=float(equilibrium_tolerance_ms), ti_form=ti_form,
     )
     if not Path(core_profiles_product).exists():
         raise FileNotFoundError(f"the core_profiles product is missing: {core_profiles_product}")
@@ -3017,6 +3028,8 @@ def build_ti_inferred_ods(
     skipped: list[dict[str, Any]] = []
     flag_totals: dict[str, int] = {}
     ratios: list[float] = []
+    orders: dict[int, int] = {}
+    written: list[float] = []
 
     def infer_slice(index: int, time_s: float) -> None:
         base = f"core_profiles.profiles_1d.{index}"
@@ -3074,16 +3087,43 @@ def build_ti_inferred_ods(
             raise _SliceSkipped(f"no point has a positive, significant p_i (flags: {', '.join(seen) or 'none'})")
 
         rho = np.asarray(electron["rho_tor_norm"], dtype=float)
-        t_i = np.full(rho.shape, np.nan)
-        t_i[inside] = result["t_i"]
-        record = "; ".join([
-            inferred_ti_text("equilibrium_pressure_partition"),
+        lineage_fields = [
             f"equilibrium_lineage={lineage}", "equilibrium_occurrence=0",
             f"equilibrium_time_s={float(eq_times_ms[nearest]) * 1e-3:.6f}",
             f"sigma_p_eq_basis={basis}", f"valid_points={int(valid.sum())}/{valid.size}",
-            f"rho_valid={float(rho[inside][valid].min()):.4g}:{float(rho[inside][valid].max()):.4g}",
-            "not measured",
-        ])
+        ]
+        if ti_form == "profile":
+            n_independent, n_source = _thomson_channel_count(ods, time_s)
+            try:
+                fit = fit_ti_te_ratio_profile(
+                    rho[inside], result["ti_te"], result["sigma_t_i"], t_e, rho,
+                    n_independent=n_independent,
+                )
+            except ValueError as error:
+                raise _SliceSkipped(f"no T_i/T_e profile: {error}")
+            t_i = fit["ratio"] * np.asarray(electron["t_e"], dtype=float)
+            record = "; ".join([
+                inferred_ti_text("equilibrium_pressure_partition_profile"),
+                f"ti_te_order={fit['order']}",
+                "ti_te_coefficients=" + ",".join(f"{c:.4g}" for c in fit["coefficients"]),
+                f"n_independent={n_independent}", f"n_independent_source={n_source}",
+                *lineage_fields,
+                f"rho_valid={fit['rho_span'][0]:.4g}:{fit['rho_span'][1]:.4g}",
+                "extrapolated_outside_rho_valid=1",
+                *(["axis_extrapolated=1"] if fit["warnings"] else []),
+                "not measured",
+            ])
+            orders[fit["order"]] = orders.get(fit["order"], 0) + 1
+            written.append(float(np.nanmedian(fit["ratio"][inside])))
+        else:
+            t_i = np.full(rho.shape, np.nan)
+            t_i[inside] = result["t_i"]
+            record = "; ".join([
+                inferred_ti_text("equilibrium_pressure_partition"),
+                *lineage_fields,
+                f"rho_valid={float(rho[inside][valid].min()):.4g}:{float(rho[inside][valid].max()):.4g}",
+                "not measured",
+            ])
         for k in range(len(ods[f"{base}.ion"])):
             ods[f"{base}.ion.{k}.temperature"] = t_i
             ods[f"{base}.ion.{k}.temperature_fit.parameters"] = record
@@ -3124,9 +3164,16 @@ def build_ti_inferred_ods(
     manifest["slices"] = {**counts, "total": int(times.size)}
     manifest["skipped_slices"] = skipped[:20]
     manifest["inference"] = {
-        "method": "equilibrium_pressure_partition", "equilibrium_lineage": lineage,
+        "method": ("equilibrium_pressure_partition_profile" if ti_form == "profile"
+                   else "equilibrium_pressure_partition"),
+        "equilibrium_lineage": lineage,
+        **({"ti_te_orders": {str(k): v for k, v in sorted(orders.items())}} if ti_form == "profile" else {}),
         "flags": {f: flag_totals.get(f, 0) for f in (*TI_FLAGS, "sigma_unavailable")},
-        "ti_te_median": float(np.median(ratios)) if ratios else None,
+        # the pointwise partition's median; in profile mode also the written profile's
+        ("pointwise_ti_te_median" if ti_form == "profile" else "ti_te_median"):
+            float(np.median(ratios)) if ratios else None,
+        **({"profile_ti_te_median": float(np.median(written)) if written else None}
+           if ti_form == "profile" else {}),
     }
     if counts["inferred"]:
         manifest["status"] = "success"

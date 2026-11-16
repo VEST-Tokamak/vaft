@@ -406,7 +406,7 @@ def _backend_case(tmp_path):
 
 
 def test_efit_hands_stdin_and_one_thread_to_the_backend(tmp_path):
-    """#671: the k-file list goes on stdin, and EFIT runs single-threaded."""
+    """The k-file list goes on stdin, and EFIT runs single-threaded."""
     from external_code_stubs import RecordingBackend
     from vaft.code.execution import ExecutionResult
 

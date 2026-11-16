@@ -1,7 +1,7 @@
 # Verification and validation Atlas snapshot
 
 This directory contains the Tier A Atlas state, equilibrium-quality, and confinement tables
-recaptured from `user1@147.46.36.244:/home/user1/runs/campaign/atlas` on 2026-10-14.
+recaptured from the production server's campaign Atlas directory on 2026-10-14.
 The state Atlas was generated on 2026-10-02. `snapshot_manifest.json` records
 the source paths, producer revisions, row counts, and SHA-256 of every copied
 table. Snapshot format v2 also records compute settings, a clean code revision,

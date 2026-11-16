@@ -1,4 +1,4 @@
-"""The breakdown chain: prefill, Townsend avalanche, Lloyd threshold (#783).
+"""The breakdown chain: prefill, Townsend avalanche, Lloyd threshold.
 
 The contract half of the coverage -- summary, units, ordered parameters,
 references, policy-list membership -- is already gated by
@@ -88,8 +88,8 @@ def test_the_threshold_is_the_published_torr_expression_evaluated_in_pascal():
 
 
 def test_the_rounded_si_coefficients_disagree_where_it_matters():
-    """Why the torr values are pinned rather than the rounded SI ones issue
-    #783 quotes: four significant figures is not enough near the domain edge,
+    """Why the torr values are pinned rather than rounded SI
+    conversions: four significant figures is not enough near the domain edge,
     which is exactly where a spherical tokamak's prefill sits."""
     rounded = lambda p, L: 93.76 * p / np.log(3.825 * p * L)  # noqa: E731
 
@@ -252,7 +252,7 @@ def test_the_margin_is_linear_in_the_drive_and_unity_at_threshold():
 
 
 def test_a_flux_convention_cannot_flip_the_margin():
-    """The two flux-to-voltage kernels disagree on sign (#354). An avalanche
+    """The two flux-to-voltage kernels disagree on sign. An avalanche
     does not care, and neither does this."""
     threshold = lloyd_breakdown_field(VEST_PREFILL_PA, 400.0)
     assert breakdown_margin(-VEST_DRIVE_V_PER_M, threshold) == pytest.approx(
@@ -355,7 +355,7 @@ def test_a_scalar_call_returns_a_float_and_an_array_call_broadcasts():
 
 
 # ==========================================================================
-# After the avalanche: a current channel, and whether it can close (#783)
+# After the avalanche: a current channel, and whether it can close
 # ==========================================================================
 
 def test_the_generic_inversion_reproduces_the_lloyd_wrapper_exactly():
@@ -580,7 +580,7 @@ def test_flux_closure_margin_matches_the_legacy_gauss_constant():
 
 
 # ==========================================================================
-# Before the avalanche: the Ejiri mirror proxy (#676)
+# Before the avalanche: the Ejiri mirror proxy
 # ==========================================================================
 
 def test_ejiri_alpha_takes_the_stricter_of_its_two_loss_channels():
@@ -648,7 +648,7 @@ def test_ejiri_f3_rejects_a_negative_slope():
 
 
 # ==========================================================================
-# The Hirshman inductance behind the low-aspect-ratio vertical field (#783)
+# The Hirshman inductance behind the low-aspect-ratio vertical field
 # ==========================================================================
 
 def test_the_vertical_field_reduces_to_the_circular_form_at_unit_elongation():
@@ -812,7 +812,7 @@ def test_an_unknown_minor_radius_convention_is_rejected():
 
 
 # ==========================================================================
-# Cold review of #851
+# Cold-review findings
 # ==========================================================================
 
 def test_the_generic_inversion_accepts_array_coefficients():
@@ -940,7 +940,7 @@ def test_a_missing_toroidal_field_is_not_silently_a_zero_radius():
 
 
 # ------------------------------------------------------------------
-# The Lloyd figure of merit and its empirical thresholds (#888)
+# The Lloyd figure of merit and its empirical thresholds
 # ------------------------------------------------------------------
 
 
@@ -967,7 +967,7 @@ def test_the_empirical_thresholds_are_the_vfit_lines():
 
 
 # ==========================================================================
-# The lumped plasma circuit (#783 3.2, 3.6-3.8)
+# The lumped plasma circuit
 # ==========================================================================
 
 #: NRL's electron-ion momentum-transfer rate, SI density and T_e in eV [s^-1].
@@ -983,7 +983,7 @@ def test_resistivity_is_its_definition():
 
 
 def test_resistivity_from_the_nrl_rate_is_the_transverse_spitzer_value():
-    # The trap #783's 3.6 walks into: m_e nu_ei / (n e^2) with NRL's nu_ei is
+    # The trap a naive derivation walks into: m_e nu_ei / (n e^2) with NRL's nu_ei is
     # eta_perp = 1.03e-4 lnL T^-3/2, not the parallel resistivity the toroidal
     # current sees, which is smaller by Spitzer-Harm's 0.51 at Z = 1.
     n_e, ln_lambda, T_eV = 1.0e19, 15.0, 100.0
@@ -1152,7 +1152,7 @@ def test_current_derivative_rejects_a_non_physical_input(kwargs):
 
 
 # ==========================================================================
-# Burn-through: the radiation-ionisation barrier (#783 3.9)
+# Burn-through: the radiation-ionisation barrier
 # ==========================================================================
 
 V_P, V_V, P_RI, N_0 = 0.3, 1.0, 1.0e-31, 4.0e18

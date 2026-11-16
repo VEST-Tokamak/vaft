@@ -1,6 +1,6 @@
 """Tests for calculating the safety factor profile q(psi) from psi map and F(psi).
 
-Verifies Issue #647:
+Verifies:
 - Benchmark against analytic Solov'ev on-axis limit q_0 = |F_0| / (R_0 * sqrt(psi_RR * psi_ZZ))
 - Benchmark against high-precision 1D adaptive contour quadrature across multiple flux surfaces
 - Convergence with grid resolution

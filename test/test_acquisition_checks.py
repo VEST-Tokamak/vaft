@@ -1,4 +1,4 @@
-"""Declared sample rates checked against the acquired timebase (#2159, audit gaps G9/G10)."""
+"""Declared sample rates checked against the acquired timebase (audit gaps G9/G10)."""
 
 from __future__ import annotations
 
@@ -153,7 +153,7 @@ def test_the_probe_chain_refuses_a_cutoff_the_record_cannot_carry():
 
 
 def test_a_fatal_acquisition_loses_only_its_component(tmp_path, monkeypatch):
-    """The stage leaves magnetics out with the reason and keeps its siblings (#989 rule)."""
+    """The stage leaves magnetics out with the reason and keeps its siblings."""
     from vaft.omas import vest_upstream
 
     shot = 43017

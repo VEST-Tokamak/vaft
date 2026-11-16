@@ -1,243 +1,65 @@
 #!/bin/bash
-# run_lane.sh <lane dir> <shots file> [cores]
-# One lane = one FileDB root (<lane dir>/filedb, seen as /srv/vest.filedb through srvns) processed
-# in sequential chunks of CHUNK shots, each one `snakemake --cores N --scheduler greedy` over the
-# UNCHANGED pipeline-1 Snakefile at the pinned SHA. Lanes never share a FileDB root, so the
-# run-scoped preflight/IMPA-selection checkpoints of two lanes cannot race.
+# run_lane.sh <lane dir>       (the Slurm job of one lane; also runs by hand on any host)
+# The site's half of a lane: the pinned environment, the srvns namespace that shows the lane's
+# FileDB as /srv/vest.filedb, the packaged base-era Green table staged inside that FileDB, and
+# the before/after-chunk hooks. Everything else -- chunks, resume, Snakemake, the chunk verdict,
+# CPU/memory measurement -- is `python -m vaft.database.campaign run-lane`, which runs the same
+# way without a scheduler.
 #
-# Resumable: a chunk is listed in <lane dir>/done_chunks.txt only when Snakemake finished it (exit 0,
-# or exit 1 with nothing but per-shot rule errors under --keep-going) and every shot of it had its
-# raw dump; anything else stops the lane with exit 1 for a look. Rerunning continues; Snakemake
-# skips finished products. A STOP file in <lane dir> ends the lane after the current chunk.
-# One run_lane per lane at a time (flock).
-set -uo pipefail
-LANE=$(readlink -f "${1:?lane dir}"); SHOTS_FILE=$(readlink -f "${2:?shots file}"); CORES=${3:-${SLURM_CPUS_PER_TASK:-8}}
-. "${REGEN_ROOT:-$HOME/regen2147}/env.sh"          # sets REGEN_ROOT/REGEN_SRC/REGEN_ENV, isolates HOME + HSDS
+# CORES (default $SLURM_CPUS_PER_TASK), MEM_MB (default $SLURM_MEM_PER_NODE): what the lane books.
+# MAX_CHUNKS=N runs at most N pending chunks; ALLOW_MISSING_RAW=1 closes chunks with absent raw.
+# SOLVER_RSS_KILL_GB (64): one watched solver above it, or all of them above MEM_MB - 8 GB, is
+# killed (the stock RDCON grows to 60-210 GB on msing >= 25 cases before aborting anyway).
+set -euo pipefail
+LANE=$(readlink -f "${1:?lane dir}")
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=site.sh
+. "$HERE/site.sh"
+regen_cluster_env
 WF=$REGEN_SRC/workflow/automatic_pipeline_1_routine_data_processing
 CONFIG=${REGEN_CONFIG:-$REGEN_ROOT/regen-config.yaml}
-FILEDB=$LANE/filedb; WORK=$LANE/work; META=$FILEDB/pipeline/preflight/metadata
-mkdir -p "$FILEDB/raw" "$WORK" "$LANE/chunks" "$LANE/logs"
-log() { echo "$(date '+%F %T') $*" | tee -a "$LANE/lane.log"; }
-
-exec 9>"$LANE/.lock"
-flock -w 60 9 || { log "another run_lane holds $LANE/.lock; not starting (job ${SLURM_JOB_ID:-none})"; exit 0; }
-export TMPDIR=${TMPDIR:-/tmp}/regen2147-${SLURM_JOB_ID:-$$}; mkdir -p "$TMPDIR"
-trap 'rm -rf "$TMPDIR"' EXIT
-
-# The lane belongs to one pin and one chunk size for its whole life.
-[ -f "$LANE/PIN_SHA" ] || echo "$REGEN_SHA" > "$LANE/PIN_SHA"
-[ "$(cat "$LANE/PIN_SHA")" = "$REGEN_SHA" ] \
-  || { log "lane is pinned at $(cat "$LANE/PIN_SHA"), env.sh resolves $REGEN_SHA: refusing"; exit 2; }
-CHUNK=${CHUNK:-$(cat "$LANE/chunk_size" 2>/dev/null || echo 500)}
-[ -f "$LANE/chunk_size" ] || echo "$CHUNK" > "$LANE/chunk_size"
-[ "$(cat "$LANE/chunk_size")" = "$CHUNK" ] || { log "lane was split with CHUNK=$(cat "$LANE/chunk_size"), not $CHUNK"; exit 2; }
-log "lane start config=$CONFIG sha=$REGEN_SHA cores=$CORES chunk=$CHUNK host=$(hostname) job=${SLURM_JOB_ID:-none}"
+CORES=${CORES:-${SLURM_CPUS_PER_TASK:-8}}
+MEM_MB=${MEM_MB:-${SLURM_MEM_PER_NODE:-65536}}
+FILEDB=$LANE/filedb
+mkdir -p "$FILEDB"
+# One job per lane: a duplicate (a resubmit racing a queued job) waits a minute, then leaves.
+# The lane runner holds <lane>/.lock itself; this one also covers the staging below.
+exec 8>"$LANE/.site.lock"
+flock -w 60 8 || { echo "another job holds $LANE/.site.lock; not starting" >&2; exit 0; }
 python -c "import vaft,sys; sys.exit(0 if vaft.__file__.startswith('$REGEN_SRC/') else 3)" \
-  || { log "vaft.__file__ outside $REGEN_SRC"; exit 3; }
-
-# Split once (into a temporary dir, published only when complete): chunk names must keep meaning
-# the same shots across resumes.
-if ! ls "$LANE"/chunks/shots.[0-9][0-9][0-9] >/dev/null 2>&1; then
-  rm -rf "$LANE/chunks.tmp"; mkdir -p "$LANE/chunks.tmp"
-  split -l "$CHUNK" -d -a 3 "$SHOTS_FILE" "$LANE/chunks.tmp/shots." || { log "split failed"; exit 2; }
-  mv "$LANE"/chunks.tmp/shots.* "$LANE/chunks/" && rmdir "$LANE/chunks.tmp"
-fi
+  || { echo "vaft.__file__ outside $REGEN_SRC" >&2; exit 3; }
 
 # The packaged base-era Green table, staged inside the FileDB when the run config points
 # efit.table_dir there, so base-era k-files name a /srv/vest.filedb path rather than this host's
-# worktree (byte-identical to vaft/data/efit at the pin; checked below).
+# worktree (byte-identical to vaft/data/efit at the pin; checked).
 BASE_TABLE=$(python - "$CONFIG" <<'PY'
 import sys, yaml
 d = (yaml.safe_load(open(sys.argv[1])) or {}).get("efit", {}).get("table_dir", "")
 print(d[len("/srv/vest.filedb/"):].rstrip("/") if d.startswith("/srv/vest.filedb/") else "")
 PY
-) || { log "cannot read efit.table_dir from $CONFIG"; exit 2; }
+)
 if [ -n "$BASE_TABLE" ]; then
   if [ ! -d "$FILEDB/$BASE_TABLE" ]; then
     mkdir -p "$(dirname "$FILEDB/$BASE_TABLE")"
-    rm -rf "$FILEDB/$BASE_TABLE.tmp"
+    rm -rf "${FILEDB:?}/${BASE_TABLE:?}.tmp"
     cp -a "$REGEN_SRC/vaft/data/efit" "$FILEDB/$BASE_TABLE.tmp" && mv "$FILEDB/$BASE_TABLE.tmp" "$FILEDB/$BASE_TABLE"
   fi
   for t in "$REGEN_SRC"/vaft/data/efit/*; do
     [ -f "$t" ] || continue
-    cmp -s "$t" "$FILEDB/$BASE_TABLE/$(basename "$t")" || { log "$BASE_TABLE/$(basename "$t") differs from the pin's vaft/data/efit"; exit 2; }
+    cmp -s "$t" "$FILEDB/$BASE_TABLE/$(basename "$t")" \
+      || { echo "$BASE_TABLE/$(basename "$t") differs from the pin's vaft/data/efit" >&2; exit 2; }
   done
 fi
 
-# Real CPU use comes from the job's cgroup (cgroup v2, proctrack/cgroup): `pestat`'s CPUload is
-# a load average, and sacct TotalCPU is lost when a job is cancelled. Every CGROUP_SAMPLE_S the
-# job cgroup's cumulative cpu.stat and memory.current/peak go to <lane>/logs/<chunk>.cgroup.tsv,
-# and each chunk's line in lane.log carries cpu_util = CPU-seconds / (wall x booked cores),
-# the chunk's sampled memory maximum and the job's memory.peak so far.
-JOB_CG=
-if [ -r /proc/self/cgroup ]; then
-  cg=/sys/fs/cgroup$(sed -n 's/^0:://p' /proc/self/cgroup)
-  while [ -n "$cg" ] && [ "$cg" != /sys/fs/cgroup ]; do
-    case "$(basename "$cg")" in job_*) JOB_CG=$cg; break ;; esac
-    cg=$(dirname "$cg")
-  done
-fi
-cg_usage_us() { [ -n "$JOB_CG" ] && awk '$1 == "usage_usec" {print $2}' "$JOB_CG/cpu.stat" 2>/dev/null; }
-cg_sample() {  # epoch usage_usec user_usec system_usec memory.current memory.peak
-  [ -n "$JOB_CG" ] || return 0
-  printf "%s\t%s\t%s\t%s\t%s\t%s\n" "$(date +%s)" \
-    "$(awk '$1 == "usage_usec" {print $2}' "$JOB_CG/cpu.stat")" \
-    "$(awk '$1 == "user_usec" {print $2}' "$JOB_CG/cpu.stat")" \
-    "$(awk '$1 == "system_usec" {print $2}' "$JOB_CG/cpu.stat")" \
-    "$(cat "$JOB_CG/memory.current" 2>/dev/null)" "$(cat "$JOB_CG/memory.peak" 2>/dev/null)"
-}
-[ -n "$JOB_CG" ] && log "cgroup $JOB_CG" || log "no job cgroup found: cpu_util not measured"
-
-ALLOC_MB=${SLURM_MEM_PER_NODE:-65536}
-# Runaway guard limits: one solver above KILL_MB, or the lane's solvers together above the
-# allocation minus 8 GB (the largest is stopped first).
-KILL_MB=$(( ${SOLVER_RSS_KILL_GB:-64} * 1024 )); [ "$KILL_MB" -gt $(( ALLOC_MB / 2 )) ] && KILL_MB=$(( ALLOC_MB / 2 ))
-TOTAL_MB=$(( ALLOC_MB - 8192 ))
-
-touch "$LANE/done_chunks.txt"
-# MAX_CHUNKS=N: this invocation runs at most N not-yet-done chunks, then exits (e.g. to finish only
-# an interrupted chunk). Unset: every remaining chunk.
-started=0
-for f in "$LANE"/chunks/shots.[0-9][0-9][0-9]; do
-  c=$(basename "$f")
-  grep -qx "$c" "$LANE/done_chunks.txt" && continue
-  [ -f "$LANE/STOP" ] && { log "STOP before $c"; exit 0; }
-  if [ -n "${MAX_CHUNKS:-}" ] && [ "$started" -ge "$MAX_CHUNKS" ]; then
-    log "MAX_CHUNKS=$MAX_CHUNKS reached before $c"; exit 0
-  fi
-  started=$((started + 1))
-  # Raw: hard links into this lane's root (same filesystem, no extra space), staged in .tmp and
-  # published only when both files are there. A shot without its dump and manifest is left out
-  # (the raw rule would otherwise try VEST SQL) and keeps the chunk from being marked done.
-  : > "$LANE/chunks/$c.run"; missing=0
-  while read -r s; do
-    [ -z "$s" ] && continue
-    src=$REGEN_ROOT/raw/$s dst=$FILEDB/raw/$s
-    dump=vest_${s}_daq_raw.json.gz man=vest_${s}_daq_manifest.json
-    if [ ! -f "$dst/$dump" ] || [ ! -f "$dst/$man" ]; then
-      if [ -f "$src/$dump" ] && [ -f "$src/$man" ]; then
-        rm -rf "$dst" "$dst.tmp"
-        cp -al "$src" "$dst.tmp" && mv "$dst.tmp" "$dst" || { rm -rf "$dst.tmp"; log "$c: cannot link raw for $s"; }
-      fi
-    fi
-    if [ -f "$dst/$dump" ] && [ -f "$dst/$man" ]; then
-      echo "$s" >> "$LANE/chunks/$c.run"
-    else
-      missing=$((missing + 1))
-      grep -qx "$c $s" "$LANE/missing_raw.txt" 2>/dev/null || echo "$c $s" >> "$LANE/missing_raw.txt"
-      log "$c: no raw dump+manifest for $s, left out"
-    fi
-  done < "$f"
-  if [ ! -s "$LANE/chunks/$c.run" ]; then
-    log "$c: no shot with raw, nothing to run"
-    [ "${ALLOW_MISSING_RAW:-0}" = 1 ] && echo "$c" >> "$LANE/done_chunks.txt"
-    continue
-  fi
-  cfg=$LANE/chunks/$c.yaml
-  { cat "$CONFIG"; echo "cores: $CORES"; echo "shots:"; sed 's/^/- /' "$LANE/chunks/$c.run"; } > "$cfg"
-  # The checkpoints' outputs are run-scoped and newer than every (hard-linked) raw dump, so under
-  # --rerun-triggers mtime the previous chunk's verdict would be reused for this chunk's shots.
-  rm -f "$META"/{eligible,excluded,impa}_shots.json "$LANE/chunks/$c".{eligible,excluded,impa}_shots.json
-  t0=$(date +%s); u0=$(cg_usage_us); log "$c start ($(wc -l < "$LANE/chunks/$c.run") shots)"
-  ( while :; do cg_sample; sleep "${CGROUP_SAMPLE_S:-30}"; done ) >> "$LANE/logs/$c.cgroup.tsv" 9>&- &
-  CG_SAMPLER=$!
-  attempt=$LANE/logs/$c.attempt-$(date +%Y%m%d%H%M%S).log
-  SM=(python -m snakemake --snakefile "$WF/Snakefile" --configfile "$cfg" --directory "$WORK")
-  # A time-limit kill leaves the lock behind; we hold the lane lock, so no live Snakemake owns it.
-  "$REGEN_ROOT/srvns" "$FILEDB" "${SM[@]}" --unlock > "$attempt" 2>&1
-  # Memory: the Snakefile declares none, so cap it here. GPEC cells (DCON/RDCON `match` peaks
-  # 12-25 GB) are booked at GPEC_MEM_MB, CHEASE at 4 GB; running jobs stay under the allocation - 8 GB.
-  "$REGEN_ROOT/srvns" "$FILEDB" nice -n 5 "${SM[@]}" --cores "$CORES" --scheduler greedy \
-      --keep-going --rerun-incomplete --rerun-triggers mtime --printshellcmds --nocolor \
-      --resources mem_mb="$TOTAL_MB" \
-      --set-resources "run_gpec_module:mem_mb=${GPEC_MEM_MB:-24000}" "run_chease:mem_mb=4000" \
-      >> "$attempt" 2>&1 9>&- &
-  SM_PID=$!
-  # RSS sampler + runaway guard over this lane's own process tree (descendants of SM_PID; tdst has
-  # no Slurm RSS accounting). The stock RDCON on msing >= 25 cases grows to 60-210 GB before it
-  # aborts in gal.f anyway, which otherwise takes the allocation (and its Snakemake) with it.
-  # Before a kill the process is re-read from /proc, so a reused PID is never hit.
-  ( descends() { local p=$1; while [ "$p" -gt 1 ]; do [ "$p" = "$SM_PID" ] && return 0
-      p=$(awk '{print $4}' "/proc/$p/stat" 2>/dev/null) || return 1; [ -n "$p" ] || return 1; done; return 1; }
-    rss_mb() { awk '/^VmRSS:/ {print int($2 / 1024)}' "/proc/$1/status" 2>/dev/null; }
-    while kill -0 "$SM_PID" 2>/dev/null; do
-      total=0 big_pid= big_mb=0 big_comm=
-      while read -r pid rss comm; do
-        descends "$pid" || continue
-        case "$comm" in dcon|rdcon|match|rmatch|stride|gpec|chease|efit.bin|efund.bin|ld-linux*) ;; *) continue ;; esac
-        mb=$(( rss / 1024 )); total=$(( total + mb ))
-        echo "$(date +%s) $pid $rss $comm $(readlink "/proc/$pid/cwd" 2>/dev/null)" >> "$LANE/logs/$c.rss"
-        [ "$mb" -gt "$big_mb" ] && { big_pid=$pid big_mb=$mb big_comm=$comm; }
-      done < <(ps -u "$(id -u)" -o pid=,rss=,comm=)
-      if [ -n "$big_pid" ] && { [ "$big_mb" -gt "$KILL_MB" ] || [ "$total" -gt "$TOTAL_MB" ]; }; then
-        now=$(rss_mb "$big_pid")
-        if [ "$(cat "/proc/$big_pid/comm" 2>/dev/null)" = "$big_comm" ] && [ -n "$now" ] && [ "$now" -ge $(( big_mb / 2 )) ]; then
-          kill -KILL "$big_pid" 2>/dev/null && log "$c: killed $big_comm pid $big_pid at ${now} MB RSS (lane solvers ${total} MB; limits ${KILL_MB}/${TOTAL_MB} MB) ($(readlink "/proc/$big_pid/cwd" 2>/dev/null))"
-        fi
-      fi
-      sleep 5
-    done ) 9>&- &
-  SAMPLER=$!
-  wait "$SM_PID"
-  rc=$?
-  kill "$SAMPLER" "$CG_SAMPLER" 2>/dev/null
-  cg_sample >> "$LANE/logs/$c.cgroup.tsv"
-  cp "$attempt" "$LANE/logs/$c.snakemake.log"      # the latest attempt is what harvest.py reads
-  wall=$(( $(date +%s) - t0 )); u1=$(cg_usage_us); cpu=
-  if [ -n "$u0" ] && [ -n "$u1" ] && [ "$wall" -gt 0 ]; then
-    cpu=$(awk -v a="$u0" -v b="$u1" -v w="$wall" -v n="$CORES" \
-      'BEGIN {printf " cpu_s=%.0f cpu_util=%.3f", (b - a) / 1e6, (b - a) / 1e6 / (w * n)}')
-    # memory.current sampled over this chunk; memory.peak is the whole job's so far.
-    cpu="$cpu chunk_mem_max_gb=$(awk -F'\t' -v t="$t0" '$1 >= t && $5 > m {m = $5} END {printf "%.1f", m / 2^30}' "$LANE/logs/$c.cgroup.tsv")"
-    cpu="$cpu job_mem_peak_gb=$(awk '{printf "%.1f", $1 / 2^30}' "$JOB_CG/memory.peak" 2>/dev/null)"
-  fi
-  log "$c exit=$rc wall=${wall}s$cpu log=$(basename "$attempt")"
-  for j in eligible_shots excluded_shots impa_shots; do
-    [ -f "$META/$j.json" ] && cp -p "$META/$j.json" "$LANE/chunks/$c.$j.json"
-  done
-  if [ "$rc" -ne 0 ]; then
-    # Under --keep-going a failed shot exits 1 with "Error in rule" and the run ends with
-    # "Exiting because a job execution failed" + "WorkflowError: At least one job did not complete
-    # successfully."; that is a per-shot outcome. A lock, any other WorkflowError, a failed
-    # run-scoped rule, a missing checkpoint verdict or a killed Snakemake (which just stops) is not.
-    odd_workflow_error=$(grep -A1 "^WorkflowError" "$attempt" | grep -vE "^WorkflowError:?$|^At least one job did not complete successfully|^--$")
-    if ! grep -q "^Error in rule" "$attempt" \
-       || ! grep -q "Exiting because a job execution failed" "$attempt" \
-       || grep -qE "LockException|Directory cannot be locked|SyntaxError|MissingInputException|^Traceback" "$attempt" \
-       || grep -qE "^Error in rule (generate_static_ods|generate_efit_table|preflight_raw_dumps|select_impa_shots|plot_static):" "$attempt" \
-       || [ -n "$odd_workflow_error" ] \
-       || [ ! -f "$LANE/chunks/$c.eligible_shots.json" ]; then
-      log "$c: Snakemake failed as a whole (rc=$rc); lane stopped, see $attempt"; exit 1
-    fi
-  fi
-  # Solver scratch: DCON's euler.bin and the vacuum vmat.bin are ~98 % of the GPEC tree (~5 GB per
-  # MHD shot) and only feed later solves of the same chunk, all finished now. They are not
-  # Snakemake outputs and no stage product reads them, but a later rerun of an ideal-GPEC cell
-  # alone needs its DCON cell rerun first (euler.bin). Size, mtime and path stay in pruned.tsv
-  # (PRUNE_HASH=1 adds sha256: ~10 s per MHD shot of serial reading, so off by default).
-  # PRUNE_SOLVER_SCRATCH=2 also drops the rest of the solver work trees (GPEC netCDF/native JSON/
-  # contour files, CHEASE run dirs; ~1.2 GB per MHD shot with ideal GPEC, ~0.5 GB without) once
-  # the chunk's stage products (omas/mhd_linear, omas/gpec_ideal, omas/chease) are built; logs,
-  # run.json and status files stay. Reruns of a stability cell then start from its solver again.
-  if [ "${PRUNE_SOLVER_SCRATCH:-1}" != 0 ]; then
-    while read -r s; do
-      if [ "${PRUNE_SOLVER_SCRATCH:-1}" = 2 ]; then
-        find "$FILEDB"/gpec/magnetic/chease/*/"$s"/n=*/work "$FILEDB/chease/magnetic/$s/output/work" \
-          -type f ! -name '*.log' -printf "%s\t%TY-%Tm-%Td %TH:%TM\t%p\n" 2>/dev/null
-      else
-        find "$FILEDB"/gpec/magnetic/chease/*/"$s"/n=*/work -type f \( -name euler.bin -o -name vmat.bin \) \
-          -printf "%s\t%TY-%Tm-%Td %TH:%TM\t%p\n" 2>/dev/null
-      fi | while IFS=$'\t' read -r size mtime path; do
-          sha=-; [ "${PRUNE_HASH:-0}" = 1 ] && sha=$(sha256sum < "$path" | cut -d' ' -f1)
-          printf "%s\t%s\t%s\t%s\t%s\n" "$c" "$size" "$mtime" "$sha" "${path#"$FILEDB"/}" >> "$LANE/pruned.tsv"
-          rm -f "$path"
-        done
-    done < "$LANE/chunks/$c.run"
-  fi
-  if [ "$missing" -gt 0 ] && [ "${ALLOW_MISSING_RAW:-0}" != 1 ]; then
-    log "$c: $missing shot(s) without raw (missing_raw.txt); chunk left open for a rerun (ALLOW_MISSING_RAW=1 to close)"
-    continue
-  fi
-  echo "$c" >> "$LANE/done_chunks.txt"
-done
-log "lane done"
+KILL_MB=$(( ${SOLVER_RSS_KILL_GB:-64} * 1024 )); [ "$KILL_MB" -gt $(( MEM_MB / 2 )) ] && KILL_MB=$(( MEM_MB / 2 ))
+TOTAL_MB=$(( MEM_MB - 8192 ))
+args=(--cores "$CORES" --workflow-dir "$WF" --config "$CONFIG" --filedb "$FILEDB" --base-dir /srv/vest.filedb
+      --pin "$REGEN_SHA" --mem-mb "$TOTAL_MB" --guard-kill-mb "$KILL_MB" --guard-total-mb "$TOTAL_MB"
+      --prefix "$REGEN_ROOT/srvns $FILEDB nice -n 5"
+      --before-chunk "$HERE/stage_raw.sh" --after-chunk "$HERE/prune_scratch.sh")
+[ -n "${MAX_CHUNKS:-}" ] && args+=(--max-chunks "$MAX_CHUNKS")
+[ "${ALLOW_MISSING_RAW:-0}" = 1 ] && args+=(--allow-missing-inputs)
+export TMPDIR=${TMPDIR:-/tmp}/vaft-lane-${SLURM_JOB_ID:-$$}
+mkdir -p "$TMPDIR"
+trap 'rm -rf "${TMPDIR:?}"' EXIT
+python -m vaft.database.campaign run-lane "$LANE" "${args[@]}"

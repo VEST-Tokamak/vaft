@@ -1,4 +1,4 @@
-"""vaft.plot.gyrokinetics draws on synthetic CGYRO-shaped data (#1354 stage 4)."""
+"""vaft.plot.gyrokinetics draws on synthetic CGYRO-shaped data."""
 
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ def test_a_supplied_axes_is_used():
 
 
 # --------------------------------------------------------------------------
-# native TGLF views (#1591), on real VEST runs
+# native TGLF views, on real VEST runs
 # --------------------------------------------------------------------------
 
 from pathlib import Path

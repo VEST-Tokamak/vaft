@@ -13,7 +13,7 @@ on:
     paths:
       - 'docs/**'
       - 'notebooks/**'
-      # Every vaft module is documented by the generated API reference (#162).
+      # Every vaft module is documented by the generated API reference.
       - 'vaft/**'
       - '.github/workflows/docs.yml'
   push:
@@ -21,7 +21,7 @@ on:
     paths:
       - 'docs/**'
       - 'notebooks/**'
-      # Every vaft module is documented by the generated API reference (#162).
+      # Every vaft module is documented by the generated API reference.
       - 'vaft/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
@@ -65,7 +65,7 @@ jobs:
 
       - name: Install VAFT
         # [architecture] is Grimp, which the dependency explorer's generator
-        # needs (#1646); it is named explicitly rather than relied on via [dev].
+        # needs; it is named explicitly rather than relied on via [dev].
         run: python -m pip install -e ".[dev,architecture]"
 
       - name: Choose the ref each track is built from
@@ -153,7 +153,7 @@ jobs:
 
       - name: Install VAFT
         # [architecture] is Grimp, which the dependency explorer's generator
-        # needs (#1646); it is named explicitly rather than relied on via [dev].
+        # needs; it is named explicitly rather than relied on via [dev].
         run: python -m pip install -e ".[dev,architecture]"
 
       - name: Choose the ref each track is built from

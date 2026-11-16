@@ -1,9 +1,9 @@
-"""How well the flux-surface trace converges, and what that costs beta_pol (#317, #318).
+"""How well the flux-surface trace converges, and what that costs beta_pol.
 
-#318 asks whether `int p dV`, `V` and `L_pol` converge with flux-surface
+The question is whether `int p dV`, `V` and `L_pol` converge with flux-surface
 resolution, because the two `beta_pol` conventions differ by
 `R0 L_pol^2 / (2V)` and a definition is only as good as the geometry under it.
-#317 asks how far the packaged reference can be trusted near the axis.
+A second question is how far the packaged reference can be trusted near the axis.
 
 Both are answered against a Solov'ev equilibrium with a *prescribed elliptical
 boundary*, so `V`, the cross-section area and the perimeter are known in closed
@@ -121,7 +121,7 @@ def test_volume_and_area_converge_at_second_order(model):
 
 
 def test_the_perimeter_does_not_converge_with_the_grid(model):
-    """The finding #318 wanted: `L_pol` is not limited by the cell size.
+    """The finding: `L_pol` is not limited by the cell size.
 
     It reaches ~2e-5 by N=129 and then stops improving -- a traced polygon's
     perimeter is set by where marching squares puts its vertices. Anything
@@ -139,7 +139,7 @@ def test_the_perimeter_does_not_converge_with_the_grid(model):
 
 def test_the_pressure_integral_inherits_the_volume_convergence(model):
     """`int p dV` is what both `beta_pol` definitions integrate, so it is the
-    third quantity #318 asks about. It adds no error of its own: `p` is a flux
+    third quantity in question. It adds no error of its own: `p` is a flux
     function evaluated on the level grid, and the only geometry in the integral
     is `V(psi_n)`. Refining the map therefore moves it by what it moves the
     volume, and no more.
@@ -162,7 +162,7 @@ def test_the_pressure_integral_inherits_the_volume_convergence(model):
     )
 
 
-# --- how far apart the two beta_pol conventions actually sit (#318) -----------
+# --- how far apart the two beta_pol conventions actually sit -----------
 
 #: ``shot -> (V, L_pol, R0, 2V/(R0 L_pol^2))`` measured against the live HSDS
 #: database with this branch's code, first equilibrium slice of each shot.
@@ -181,9 +181,9 @@ GEOMETRY_FACTOR_SURVEY = {
 
 #: Three of the eight resolve to an R_0 that is not 0.4 and is *kept*, because
 #: their stored ``b0*r0`` agrees with ``tf``'s ``B*R``: the pair is internally
-#: consistent, just quoted at a different radius. The resolver added in #238
+#: consistent, just quoted at a different radius. The resolver
 #: compares the product rather than ``r0`` itself precisely so it can tell those
-#: apart from the corruption in #325 -- but it means ``beta_pol`` is normalized
+#: apart from the b0 corruption (#325) -- but it means ``beta_pol`` is normalized
 #: at a shot-dependent radius even when nothing is wrong, which is its own
 #: comparability problem.
 SHOTS_WITH_A_CONSISTENT_NON_STANDARD_R0 = (39513, 40328, 45531, 45538)
@@ -197,7 +197,7 @@ def test_the_survey_is_self_consistent():
 
 
 def test_the_two_beta_pol_conventions_are_far_apart_and_shot_dependent():
-    """#318's cross-shot question. The DD and EFIT `beta_pol` differ by exactly
+    """The cross-shot question. The DD and EFIT `beta_pol` differ by exactly
     `2V/(R0 L_pol^2)`, and that factor is **not** a constant to correct for:
     across eight VEST shots it runs 0.45 to 0.98, so the two definitions disagree
     by anywhere from 2% to 122% depending on the discharge.
@@ -227,7 +227,7 @@ def test_small_plasmas_are_where_the_conventions_diverge_most():
 def test_a_consistent_r0_is_kept_even_when_it_is_not_the_machine_radius():
     """Half the survey stores an `r0` other than 0.4 that the resolver keeps,
     because `b0*r0` agrees with `tf` -- the pair is right, just quoted at another
-    radius. Distinguishing that from #325's corruption is the whole reason the
+    radius. Distinguishing that from the b0 corruption (#325) is the whole reason the
     resolver compares the product and not `r0`.
 
     The consequence is worth stating: `beta_pol` is then normalized at a
@@ -243,7 +243,7 @@ def test_a_consistent_r0_is_kept_even_when_it_is_not_the_machine_radius():
     assert all(0.15 < GEOMETRY_FACTOR_SURVEY[shot][2] < 0.45 for shot in kept)
 
 
-# --- what the packaged reference is worth, and where it is not (#317) ---------
+# --- what the packaged reference is worth, and where it is not ---------
 
 #: The engine's agreement with a **second, independent** OMFIT dataset: shot
 #: 39915 as the HSDS database holds it, a 37-leaf `profiles_1d` on a 513x513 map.
@@ -252,7 +252,7 @@ def test_a_consistent_r0_is_kept_even_when_it_is_not_the_machine_radius():
 #: These sit 10-40x below the same comparison against the packaged 129x129
 #: kineticEfit reference (`volume`/`area` 4.7e-3 there), which is what says the
 #: discrepancy documented in `test_equilibrium_derived_profiles` is grid
-#: resolution rather than method -- the question #317 was opened to settle.
+#: resolution rather than method -- the near-axis question.
 HSDS_513_AGREEMENT = {
     "volume": 1.0e-4,
     "area": 1.3e-4,
@@ -282,7 +282,7 @@ def test_the_two_references_place_the_resolution_story_consistently():
 
 
 def test_an_outlier_q_on_axis_is_reported_and_not_repaired():
-    """#317's open question. `Phi = integral(q dpsi)` carries `q[0]` into
+    """The near-axis question. `Phi = integral(q dpsi)` carries `q[0]` into
     `rho_tor_norm` and every kinetic profile mapped onto it, and EFIT's axis value
     is often unreliable -- 8.07 against a neighbourhood of 1.89 on the packaged
     kineticEfit reference.
@@ -373,7 +373,7 @@ def test_a_smooth_q_profile_is_not_flagged():
 
 
 def test_an_open_grid_edge_branch_round_the_axis_is_not_taken_for_the_surface():
-    """Issue #1462: outside a limited plasma psi turns back, so a level inside the
+    """Outside a limited plasma psi turns back, so a level inside the
     boundary also traces an open branch from grid edge to grid edge round the
     whole plasma. Closed by its end chord it contains the axis, and it is longer
     than the real surface, so length-wins took it -- a 10 m^3 surface inside a

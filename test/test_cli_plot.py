@@ -1,4 +1,4 @@
-"""``vaft plot``: the canonical plots from the command line (issue #477)."""
+"""``vaft plot``: the canonical plots from the command line."""
 
 from __future__ import annotations
 
@@ -307,7 +307,7 @@ def test_an_option_the_command_itself_sets_is_refused_by_name(key, capsys):
 
 
 # ---------------------------------------------------------------------------
-# --out on the --sample/--file/--request path takes the same shapes (review of #1924, R3)
+# --out on the --sample/--file/--request path takes the same shapes
 # ---------------------------------------------------------------------------
 
 def _sample_request_rendering(monkeypatch, result):
@@ -346,7 +346,7 @@ def test_sample_out_refuses_an_interactive_figure_with_one_line(monkeypatch, tmp
 
 
 def test_figure_options_dpi_reaches_an_animation(monkeypatch, tmp_path):
-    """``--figure-options '{"dpi": 72}'`` sets the frame dpi; it used to be dropped (review of #1924, R5)."""
+    """``--figure-options '{"dpi": 72}'`` sets the frame dpi instead of being dropped."""
     from vaft.plot import save_rendered
 
     class Movie(_FakeAnimation):

@@ -1,4 +1,4 @@
-"""The dependency and external-code catalog (#1648) cannot drift from the repository.
+"""The dependency and external-code catalog cannot drift from the repository.
 
 Every fact :mod:`vaft._ecosystem` states is held against its owner here:
 package names and extras against ``pyproject.toml`` (and no version is

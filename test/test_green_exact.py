@@ -1,4 +1,4 @@
-"""Analytic/synthetic validation of the exact Green's-function API (#219).
+"""Analytic/synthetic validation of the exact Green's-function API.
 
 Covers ``vaft.formula.green``: ``greens_function_exact`` (all modes),
 ``green_psi_exact`` / ``green_br_bz_exact``, rectangular-coil
@@ -354,7 +354,7 @@ def test_point_response_matrices_invalid_groups_raise():
 
 @pytest.mark.perf
 def test_point_response_matrix_performance_budget():
-    """75 sensors x 965 sources psi+Bz+Br in < 50 ms (issue #219)."""
+    """75 sensors x 965 sources psi+Bz+Br in < 50 ms."""
     import time
 
     obs_r, obs_z = _random_points(75)
@@ -367,7 +367,7 @@ def test_point_response_matrix_performance_budget():
 
 
 # ---------------------------------------------------------------------------
-# Legacy path singularities (issue #356)
+# Legacy path singularities
 #
 # `green_br_bz` and `elliptic_integral` divided without guards and reported a
 # near-singular modulus with a bare `print`, which no caller can filter or turn
