@@ -1,4 +1,4 @@
-"""TF ripple formulas (#1070): the analytic limits the issue asks for."""
+"""TF ripple formulas: their analytic limits."""
 
 import numpy as np
 import pytest

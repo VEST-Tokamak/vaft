@@ -1,4 +1,4 @@
-"""The processing docstring contract (issue #252).
+"""The processing docstring contract.
 
 A formula answers *what is this quantity, where is it from, when is it
 valid?*  A processing routine answers *how is this input turned into this
@@ -82,7 +82,7 @@ SECTION_VOCABULARY: tuple[str, ...] = (
     "Warnings",
 )
 
-#: The sections issue #252 adds on top of numpydoc.
+#: The sections the processing contract adds on top of numpydoc.
 CUSTOM_SECTIONS: tuple[str, ...] = (
     "Processing steps",
     "Input semantics",

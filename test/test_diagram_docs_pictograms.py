@@ -1,6 +1,6 @@
-"""Semantic pictograms in the documentation-facing concept diagrams (#2113).
+"""Semantic pictograms in the documentation-facing concept diagrams.
 
-The registry and placement helpers are tested in ``test_diagram_pictograms.py`` (#2101). Here: each
+The registry and placement helpers are tested in ``test_diagram_pictograms.py``. Here: each
 of the four figures draws exactly its mapped symbols, pictograms only add ``symbol:`` polylines,
 the scientific content stays as it was (``full`` ecosystem untouched, no icon on quality metadata,
 the lifecycle still from ``vaft._ecosystem``), and the documents that embed the figures still do.

@@ -1,4 +1,4 @@
-"""Software identity and content hashing for ML artifacts (#669 section 7)."""
+"""Software identity and content hashing for ML artifacts."""
 
 from __future__ import annotations
 

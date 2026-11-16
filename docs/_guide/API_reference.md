@@ -550,7 +550,7 @@ result = run_tes(inputs, TESConfig(timeout=600, backend=LocalBackend()))
 | Name | Role |
 | --- | --- |
 | `ExecutionRequest` | command, working directory, environment overlay, stdin, timeout, optional merged log file, resources |
-| `ExecutionResult` | return code (`None` on timeout), captured output, `timed_out`, `runtime_status` (`completed`, `timeout`, `queue_timeout`), elapsed time, `launcher` (the argv actually run), `log_path`, `job_id` (scheduler backends) |
+| `ExecutionResult` | return code (`None` when stopped), captured output, `timed_out`, `runtime_status` (`completed`, `timeout`, `queue_timeout`, `memory_limit`, `cancelled`, `node_fail`), elapsed time, `launcher` (the argv actually run), `log_path`, `job_id` (scheduler backends), `usage` (`ResourceUsage`: CPU seconds, utilization, peak memory, when measured) |
 | `ResourceRequest` | `ntasks`, `threads_per_task`, `memory_mb`; the local backend applies only the thread count |
 | `ExecutionBackend`, `LocalBackend`, `SlurmBackend`, `RemoteHost`, `RemoteSlurmBackend`, `resolve_backend` | the protocol, the local, Slurm and ssh+Slurm implementations, and the config lookup (falls back to `$VAFT_EXECUTION_BACKEND`: `local`, `slurm` or `remote`) |
 | `ExecutableNotLaunchable` | raised when the operating system refuses to start the program |
@@ -566,10 +566,10 @@ raises. The result says:
 | Field | On a timeout |
 | --- | --- |
 | `status` | `"failed"` (a property: `"completed"` when `ok`, else `"failed"`) |
-| `runtime_status` | `"timeout"`: the program ran past its limit and was stopped. `"queue_timeout"`: a scheduler job cancelled by `max_wait` before it started |
+| `runtime_status` | `"timeout"`: the program ran past its limit and was stopped. `"queue_timeout"`: a scheduler job cancelled by `max_wait` before it started. `"memory_limit"`: the memory limit stopped it (locally, or a job that ended `OUT_OF_MEMORY`). `"cancelled"`: someone else `scancel`led the job. `"node_fail"`: `NODE_FAIL`, `PREEMPTED` or `BOOT_FAIL` |
 | `returncode` | `None` |
 | `elapsed_s` | wall time from launch to stop [s] (set on every run, not only a timeout); for a Slurm batch job, from submission, queue wait included |
-| `timed_out` | `True` for either timeout kind (a property) |
+| `timed_out` | `True` for every status but `completed`: the program did not exit on its own (a property) |
 
 A stop well short of `timeout` (a scheduler's `max_wait` cancelling a running job) reports the time
 actually run: a batch job's own start and termination stamps (`ExecutionResult.run_s`), so a long
@@ -799,6 +799,22 @@ then `sacct` over ssh with a growing interval, and rsyncs back what the fetch po
 result is the one a local run returns: the same timeout and `queue_timeout` statuses, the same
 `ExecutableNotLaunchable` for a refused submission, and `run_s` taken from the scheduler's start and
 end stamps. `KeyboardInterrupt`, `SIGTERM` and `SIGHUP` `scancel` the job and are then raised again.
+
+**Resource usage and submission policy.** Both Slurm backends' job script samples the job's own cgroup
+(`cpu.stat`, `memory.peak`) as the program starts and ends, also at the TERM of a cancel or a time
+limit, so `ExecutionResult.usage` (`vaft.code.accounting.ResourceUsage`) carries the CPU seconds,
+`utilization` (CPU-seconds / (wall × booked CPUs)) and peak memory even of a job that `sacct`'s
+`TotalCPU` reports as 0 after a cancel. With `VAFT_EXECUTION_POLICY` naming a policy file
+(`vaft.code.policy`), every `sbatch` is checked first against the cluster's limits (CPUs, memory,
+partitions, concurrent jobs) and, where the cluster requires it, a recorded approval
+(`VAFT_EXECUTION_APPROVAL` or `approval=`; the tighter of the two limits applies); a refusal raises
+`SubmissionRefused` before anything reaches the scheduler, and every refusal and submission is appended
+to the policy's audit log with the requester, the approval and the job id. Backends name the cluster
+with `cluster=` (default `$VAFT_SLURM_CLUSTER`, then `$SLURM_CLUSTER_NAME`, or the remote host).
+`memory.peak` counts page cache: on a node that does not constrain RAM it can exceed the booked
+memory while resident memory stays far below it. `UsageMeter` measures any command this process
+launches and waits for, with or without a scheduler: the job cgroup inside a Slurm job, else
+`getrusage` of the children; both report the largest single process's resident peak.
 
 **Paths.** The two machines share no filesystem, so the working directory, `log_path`, every
 `command` argument (`--home=/opt/gpec` included) and every path-valued `env` entry go through

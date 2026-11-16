@@ -1,4 +1,4 @@
-"""The connection-length map read back out of the IDS stand-in (issue #1099).
+"""The connection-length map read back out of the IDS stand-in.
 
 Everything here goes through the writer, because what is under test is
 whether ``plasma_initiation.b_field_lines`` carries enough to draw the figure

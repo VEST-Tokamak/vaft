@@ -1,4 +1,4 @@
-"""Composing `main` with a sparse optional source is explicit (issue #305).
+"""Composing `main` with a sparse optional source is explicit.
 
 Reading one source returns one source. That is what keeps a missing entry
 meaningful: absence from `impa` says no IMPA product was published, and nothing

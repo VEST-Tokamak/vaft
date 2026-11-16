@@ -1,4 +1,4 @@
-"""The seed-basin study (#588): its bookkeeping, and the result it recorded.
+"""The seed-basin study: its bookkeeping, and the result it recorded.
 
 The study runs EFIT; what is pinned here is the classification and comparison
 it rests on, plus the finding, so a later change that quietly reverses either
@@ -147,10 +147,10 @@ def test_the_sweep_actually_varied_the_seed(table):
 
 
 def test_the_collapse_block_does_not_answer_to_the_seed(table):
-    """#588's answer: the leading collapse is not an initialization problem.
+    """The study's answer: the leading collapse is not an initialization problem.
 
     If a future change makes the seed recover the collapse block, this test
-    fails and the conclusion handed to #459 must be revisited — which is
+    fails and the conclusion handed to the open domain study (#459) must be revisited — which is
     exactly what it is here for.
     """
     total = recoverable = 0
@@ -197,7 +197,7 @@ def test_the_seed_centre_moves_without_moving_the_toroidal_field():
     assert moved.seed_rzero == 0.30
     assert moved.rzero == 0.4
 
-    # `None` still means "follow `rzero`", which is how the pre-#588 k-file is
+    # `None` still means "follow `rzero`", which is how the k-file from before the separate RELIP seed is
     # reproduced exactly -- see the byte-level comparison in test_efit_config.
     assert EFITInitializationConfig(ellipse_rzero=None).seed_rzero == 0.4
 
@@ -206,7 +206,7 @@ def test_the_seed_centre_moves_without_moving_the_toroidal_field():
 
 
 def test_the_basin_is_asymmetric_about_the_routine_seed(table):
-    """#588's answer: today's seed sits near the outboard edge.
+    """The study's answer: today's seed sits near the outboard edge.
 
     Inboard of 0.4 the sweep gains slices on every shot; outboard it loses
     them, badly. If that reverses, the recommendation has to be revisited.
@@ -271,7 +271,7 @@ def test_the_report_renders_from_the_committed_table(module, table):
 
 
 def test_a_tstep_below_the_millisecond_keys_is_refused(module, capsys):
-    """Cold review 0.7.0 efit-workflows F9 (#1888).
+    """Cold review 0.7.0 efit-workflows F9.
 
     Slices are keyed by whole millisecond, so 0.4 ms over 300-302 ms gives
     six requests and three keys. The study refuses the step instead of
@@ -282,6 +282,6 @@ def test_a_tstep_below_the_millisecond_keys_is_refused(module, capsys):
     assert exc.value.code == 2
     assert "whole millisecond" in capsys.readouterr().err
     with pytest.raises(SystemExit):
-        module.main(["--tstep", "0.0015"])  # PR #1920 review F1: between the keys
+        module.main(["--tstep", "0.0015"])  # between the keys
     assert "whole number of milliseconds" in capsys.readouterr().err
     assert module.whole_millisecond_tstep("0.002") == 0.002
