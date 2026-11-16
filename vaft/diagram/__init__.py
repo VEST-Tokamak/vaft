@@ -52,7 +52,9 @@ against integrated pairs plus the research community and ownership:
 ``fusion_research_ecosystem`` and ``scientific_ownership_architecture``; the VEST data platform
 (#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the software
 and external-code ecosystem (#1648): ``software_dependency_ecosystem`` and
-``external_code_integration``; the semantic pictogram gallery (#2101):
+``external_code_integration``; computation contracts and workflow execution (#2150):
+``scientific_computation_contract``, ``computation_record_layers``,
+``workflow_specification_and_run`` and ``imas_scientific_workflow_example``; the semantic pictogram gallery (#2101):
 ``pictogram_catalog`` (the symbols themselves live in :mod:`vaft.diagram.pictograms`); the physics-workflow
 spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
 ``resistive_zeff_inference``, ``magnetic_efit``, ``kinetic_efit``,
@@ -66,7 +68,10 @@ inference (#1601): ``parameter_inference_overview`` and
 ``machine_model_history``, ``signal_processing``, ``quality_validation``,
 ``fault_anomaly_detection``, ``shot_classification`` and ``event_detection``; derived physics (#1901):
 ``vacuum_field_proxies``, ``derived_mhd_parameters``, ``synthetic_diagnostics``,
-``coordinate_cocos_conversions`` and ``power_balance_confinement``; the spatial
+``coordinate_cocos_conversions`` and ``power_balance_confinement``; equilibrium, MHD and transport
+joined through shared state representations: ``cross_domain_scientific_architecture`` (conceptual)
+and ``cross_domain_scientific_workflows`` (technical), with ``stability_transport_io`` as their
+simplified input-output view and ``equilibrium_stability_transport`` pairing it with the equilibrium; the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
 ``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
@@ -287,6 +292,10 @@ __all__ = [
     "vest_data_platform_overview",
     "software_dependency_ecosystem",
     "external_code_integration",
+    "scientific_computation_contract",
+    "computation_record_layers",
+    "workflow_specification_and_run",
+    "imas_scientific_workflow_example",
     "pictogram_catalog",
     "plasma_parameter_inference",
     "romero_transformer_balance",
@@ -318,6 +327,10 @@ __all__ = [
     "synthetic_diagnostics",
     "coordinate_cocos_conversions",
     "power_balance_confinement",
+    "cross_domain_scientific_architecture",
+    "cross_domain_scientific_workflows",
+    "stability_transport_io",
+    "equilibrium_stability_transport",
     "tokamak_top_view",
     "cocos_orientation",
     "machine_and_equilibrium_geometry",
@@ -527,6 +540,10 @@ _LOCATIONS = {
     "vest_data_platform_overview": "._platform",
     "software_dependency_ecosystem": "._ecosystem",
     "external_code_integration": "._ecosystem",
+    "scientific_computation_contract": "._computation_contract",
+    "computation_record_layers": "._computation_contract",
+    "workflow_specification_and_run": "._workflow_execution",
+    "imas_scientific_workflow_example": "._workflow_execution",
     "pictogram_catalog": ".pictograms",
     "plasma_parameter_inference": "._workflow_specs",
     "romero_transformer_balance": "._workflow_specs",
@@ -558,6 +575,10 @@ _LOCATIONS = {
     "synthetic_diagnostics": "._workflow_specs",
     "coordinate_cocos_conversions": "._workflow_specs",
     "power_balance_confinement": "._workflow_specs",
+    "cross_domain_scientific_architecture": "._cross_domain_concept",
+    "cross_domain_scientific_workflows": "._cross_domain",
+    "stability_transport_io": "._stability_transport_io",
+    "equilibrium_stability_transport": "._stability_transport_io",
     "tokamak_top_view": "._spatial",
     "cocos_orientation": "._spatial",
     "machine_and_equilibrium_geometry": "._spatial",

@@ -1,4 +1,4 @@
-"""``vaft hsds configure`` and the ``.hscfg`` checks never expose a secret (#969).
+"""``vaft hsds configure`` and the ``.hscfg`` checks never expose a secret.
 
 Everything runs against a temporary HOME; no real credential file is read.
 """

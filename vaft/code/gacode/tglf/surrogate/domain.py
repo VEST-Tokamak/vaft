@@ -25,6 +25,7 @@ from .._types import TGLFConfig
 from ..inputs import TGLFInput, tglf_parameters
 from ._types import (
     DEFAULT_DOMAIN_THRESHOLD,
+    UPSTREAM_BOUND_CLIP_SIGMA,
     DomainAudit,
     ModelContractError,
     ModelIdentity,
@@ -159,11 +160,12 @@ def audit_training_domain(
     Needs no ONNX runtime and runs no network, so "does this model apply to this
     plasma" is answerable before, and independently of, any prediction.
 
-    The measure is a standard-deviation distance, not containment: the ONNX
-    distribution ships the normalisation moments but not the per-input bounds, which
-    exist only inside the upstream Julia artifacts.  :attr:`DomainAudit.bounds_available`
-    carries that caveat with the result so a caller never reads ``in_domain`` as a
-    guarantee it cannot be.
+    Two measures.  The standard-deviation distance from the training moments is always
+    computed (:attr:`DomainAudit.in_domain`).  When an ``xbounds.txt`` exported from the
+    upstream Julia artifact sits beside the ensemble, containment in the true training
+    min/max is tested as well (:attr:`DomainAudit.contained`); without it
+    :attr:`DomainAudit.bounds_available` is False, so ``in_domain`` is never read as a
+    containment guarantee it cannot be.  :attr:`DomainAudit.applicable` combines both.
     """
     values, assumed = build_features(local, metadata, config=config)
     return audit_features(values, assumed, identity, metadata, threshold=threshold)
@@ -191,6 +193,37 @@ def audit_features(
         name for name in sorted(scores, key=lambda key: -abs(scores[key]))
         if abs(scores[name]) > threshold
     )
+    positions: dict[str, float] = {}
+    outside: tuple[str, ...] = ()
+    at_data_edge: tuple[str, ...] = ()
+    inconsistent: tuple[str, ...] = ()
+    if metadata.xbounds is not None:
+        bounds = np.asarray(metadata.xbounds, dtype=float)
+        low, high = bounds[:, 0], bounds[:, 1]
+        width = high - low
+        xm = np.asarray(metadata.xm, dtype=float)
+        xsigma = np.asarray(metadata.xsigma, dtype=float)
+        # bounds that exclude their own training mean describe other data: not trusted
+        inconsistent = tuple(name for name, m, lo, hi in zip(metadata.xnames, xm, low, high)
+                             if not lo <= m <= hi)
+        for name, value, lo, hi, span in zip(metadata.xnames, values, low, high, width):
+            # A degenerate range (one training value) is inside only at that value.
+            if span > 0:
+                positions[name] = float((value - lo) / span)
+            else:
+                positions[name] = 0.5 if value == lo else (-np.inf if value < lo else np.inf)
+        excess = {name: max(-p, p - 1.0) for name, p in positions.items() if name not in inconsistent}
+        outside = tuple(
+            name for name in sorted(excess, key=lambda key: -excess[key]) if excess[name] > 0.0
+        )
+        index = {name: i for i, name in enumerate(metadata.xnames)}
+
+        def data_edge(name: str) -> bool:
+            i = index[name]
+            edge = low[i] if positions[name] < 0.0 else high[i]
+            return abs(abs((edge - xm[i]) / xsigma[i]) - UPSTREAM_BOUND_CLIP_SIGMA) > 1e-3
+
+        at_data_edge = tuple(name for name in outside if data_edge(name))
     return DomainAudit(
         model=identity.name,
         z_scores=scores,
@@ -198,4 +231,9 @@ def audit_features(
         violations=violations,
         max_abs_z=float(np.max(np.abs(z))) if z.size else 0.0,
         assumed=tuple(assumed),
+        bounds_available=metadata.xbounds is not None,
+        bound_violations=outside,
+        bound_positions=positions,
+        bound_violations_at_data_edge=at_data_edge,
+        bounds_inconsistent=inconsistent,
     )

@@ -1,4 +1,4 @@
-"""The cadence/window study harness (issue #468) and the k-file's sub-millisecond time (#468)."""
+"""The cadence/window study harness (open, #468) and the k-file's sub-millisecond time."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ ERROR in bound at r=  0, t=   320: First and last contour points are too far apa
 
 
 def test_log_blocks_are_paired_with_kfiles_by_printed_time_not_position():
-    """Cold review 0.7.0 efit-workflows F5 (#1888).
+    """Cold review 0.7.0 efit-workflows F5.
 
     Three k-files, and slice 319 printed nothing (below the current cut).
     Pairing by position handed 320's block -- three steps and a bound error
@@ -60,7 +60,7 @@ def test_log_blocks_are_paired_with_kfiles_by_printed_time_not_position():
 
 
 def test_the_printed_millisecond_rule_has_one_definition():
-    """PR #1920 review F5: the scripts use the library's rule, not a private copy."""
+    """The scripts use the library's rule, not a private copy."""
     from vaft.code.efit.iteration_history import printed_ms
 
     assert printed_ms(0.306999) == 307  # >= 0.999 ms remainder rounds up
@@ -220,7 +220,7 @@ def test_below_cut_slices_are_counted_against_the_configured_cut_on_the_magnitud
 
 
 def test_tstep_must_be_a_whole_number_of_milliseconds():
-    """PR #1920 review F1: 1.5 ms passed the "below 1 ms" guard and mispaired every other slice."""
+    """Regression guard: 1.5 ms passed the "below 1 ms" guard and mispaired every other slice."""
     import argparse
 
     import pytest

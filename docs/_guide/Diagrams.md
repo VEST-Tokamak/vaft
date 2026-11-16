@@ -1809,6 +1809,41 @@ The content is the data at the top of each section of `vaft.diagram._research_co
 `CREDIBILITY_*`, `MODALITY_*`, `REPRESENTATION_*`, `ECOSYSTEM_*`, `PRESENTATION_*`, `OWNERSHIP_*`), so a
 figure is changed by editing data.
 
+## Computation contracts, workflow execution and provenance
+
+How one computation, one workflow and one run are recorded (#2150). These figures sit one level below
+`scientific_workflow`, `scientific_provenance_chain`, `scientific_credibility` and `external_code_integration`,
+which stay the higher-level references. They share one grammar: a solid arrow carries scientific data, a dashed
+arrow configuration or metadata, a dotted arrow a provenance or evidence reference, and a dashed box is planned.
+Each edge's meaning is recorded in `Diagram.model["edges"]`; each node records its implementation status
+(`model["status"]`), and each node that stands for code cites the source it was drawn from (`model["evidence"]`, a
+qualified name in a Python source, a line in a Snakefile), while generic placeholders are listed in `model["generic"]`. A test
+resolves every citation by name, so a renamed or removed definition fails it.
+
+```python
+vaft.diagram.scientific_computation_contract()
+vaft.diagram.workflow_specification_and_run()
+vaft.diagram.computation_record_layers()
+vaft.diagram.imas_scientific_workflow_example()
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `scientific_computation_contract` | One computation's scientific inputs (IDS or ODS, or typed data such as arrays, GEQDSK and k-files) and outputs: a standardized IDS or ODS subset beside the native and typed results that keep the solver-specific science. The scientific configuration (assumptions, model and numerical choices, units and conventions: what changes the result) and the execution settings (executable, backend and resources, timeout: what does not) arrive separately; the configuration may travel as the IDS `code.parameters` string. Execution settings stay out of the configuration hash; the code version is recorded beside it, as part of the run's identity. The execution record is separate metadata, kept per adapter today. Not every Process or Code reads or writes IDS |
+| `workflow_specification_and_run` | One specification (identity and version, components and dependencies, I/O expectations, parameter definitions) instantiated by an orchestrator (Snakemake or Python) into many runs. Each run leaves scientific outputs (scientific data) and, as part of its record, logs and structured provenance: three different artifact classes. No record yet links a run to the workflow definition's identity (replication records carry only the VAFT package version), so that reference is drawn fainter as planned (`model["planned_edges"]`) |
+| `computation_record_layers` | What one run leaves behind, in three layers kept apart: scientific identity (input and content digests, code version, configuration, conventions; each digest states its scope; partial, since some adapters hash their configuration (EFIT, GACODE, TokaMaker, MITIM) and others do not), observed execution (backend, job ID, runtime and resources, exit status as the execution-success precondition, logs; nondeterministic and kept out of the identity; uniform persistence planned in #1019) and scientific assessment (convergence, uncertainty, physical checks, advisory applicability, validation: separate axes, not one score) |
+| `imas_scientific_workflow_example` | The routine pipeline's EFIT → CHEASE → MHD-stability chain as implemented. Mapping and processing (diagnostics, eddy currents) give the input IDSs: magnetics, pf_active and the vacuum toroidal field, pf_passive from the eddy stage, the diamagnetic flux when present. The constraints stage reads them into `equilibrium.constraints`, and k-files are written from those with the EFIT scientific configuration; EFIT reads the k-files (geometry through the Green table, recorded apart from the scientific SHA-256), writes native g-files, and an equilibrium IDS is built from its outputs. CHEASE reads the native g-files, not the IDS; the stability codes read the refined g-files, and each IDS product is built from native files (`mhd_linear`, with `ntms` when RDCON or STRIDE fill it and `coils_non_axisymmetric` from ideal GPEC). The recorded digests (EFIT g-file SHA-256, CHEASE input/output SHA-256, stability `input_equilibrium_sha256`) feed `verify_chain`, a library check not yet wired into the pipeline. Each stage also leaves sidecar records that are not scientific IDS |
+
+The optional single-run qualification figure the issue proposed is not built:
+`scientific_credibility(organization="integrated")` already draws independent assessment axes ending in a
+profile rather than one score, and the assessment layer of `computation_record_layers` carries the single-run
+view.
+
+![Scientific computation contract]({{ '/assets/diagrams/scientific_computation_contract.svg' | relative_url }})
+![Workflow specification and runs]({{ '/assets/diagrams/workflow_specification_and_run.svg' | relative_url }})
+![Computation record layers]({{ '/assets/diagrams/computation_record_layers.svg' | relative_url }})
+![IMAS/VAFT scientific workflow example]({{ '/assets/diagrams/imas_scientific_workflow_example.svg' | relative_url }})
+
 ## The VEST data platform
 
 The VEST data platform as a database-centred scientific workflow (#1550), laid out as a cross about the
@@ -2128,6 +2163,8 @@ vaft.diagram.derived_mhd_parameters()
 vaft.diagram.synthetic_diagnostics()
 vaft.diagram.coordinate_cocos_conversions()
 vaft.diagram.power_balance_confinement()
+vaft.diagram.cross_domain_scientific_architecture()
+vaft.diagram.cross_domain_scientific_workflows()
 ```
 
 ### Architecture coverage: every science box of the platform figure
@@ -2165,6 +2202,227 @@ to exist.
 | Simulation | Transport: Classical (Braginskii) | `transport_hierarchy` | classical transport has a private identifier.index |
 | Simulation | Transport: Neoclassical (NEO / Sauter & Redl) | `transport_hierarchy`, `neo_neoclassical`, `neoclassical_model_comparison` | Sauter / Redl results have no core_transport writer |
 | Simulation | Transport: Turbulent (TGLF / CGYRO) | `transport_hierarchy`, `tglf_cgyro_local_transport` | the TGLF-NN surrogate has no IMAS writer |
+
+### Cross-domain integration: equilibrium, MHD and transport
+
+Two figures at two levels of abstraction, drawn from the same sources. The conceptual one is for a manuscript;
+the technical one substantiates it solver by solver. Every card of the conceptual figure names the technical
+elements it summarizes (`vaft.diagram._cross_domain_concept`), and a test holds the two to each other: each
+technical input, method and result is summarized exactly once, under the same name, and alternatives and data
+flows agree.
+
+**Conceptual: the scientific architecture.** Shared data & metadata feed alternative equilibrium formulations;
+the equilibrium state they write is shared by stability and plasma response (DCON, GPEC on perturbed
+equilibria, RDCON) and by transport, which branch
+from it rather than follow one another. The left panel separates *experimental data* (magnetic diagnostics; kinetic diagnostics
+and profiles -- $T_e$, $n_e$ from Thomson scattering, $T_i$, $v_\phi$ from charge-exchange or ion Doppler
+spectroscopy) from *metadata*
+(machine and diagnostic configuration, assumptions and parameters, conventions and provenance). Each downstream
+section opens with a row of the inputs it takes from them besides the equilibrium -- kinetic profiles ($T_e$,
+$n_e$, $T_i$; no $v_\phi$, since no rotation reaches the TGLF and CGYRO runs) and closures ($Z_\mathrm{eff}$,
+$\gamma_E$) for transport, mode numbers,
+wall model and 3-D excitation for MHD -- each chip in the style and with the The four equilibrium formulations -- reconstruction (EFIT), analytic Grad-Shafranov, fixed-boundary model
+(CHEASE) and free-boundary model (TokaMaker) -- are peers in one dash-dot enclosure: each produces an equilibrium state, and no
+arrow runs between them (CHEASE accepts any GEQDSK or ODS equilibrium; the technical figure draws the coupling's
+use of it, on a reconstruction). The same enclosure groups the neoclassical alternatives (Sauter / Redl, NEO) and
+the turbulent ones (TGLF, CGYRO): different methods for the same scientific output, each code its own card under
+the group's physics title. Each card names its code and, in italics, the physical model it rests on; its pictogram
+names the primary computational approach -- *analytical model / formula* (the analytic Grad-Shafranov solutions,
+the Braginskii closures, the Sauter / Redl fitted formulas) or *numerical method / solver* (EFIT, TokaMaker,
+CHEASE, DCON, RDCON, GPEC, NEO, TGLF -- a reduced quasilinear gyrofluid model, labelled *gyrofluid*, not
+gyrokinetic -- and CGYRO). The
+assumption cards name general inputs ($Z_\mathrm{eff}$, $\gamma_E$): $T_i$ appears with the kinetic profiles, and
+each run's actual values (an inferred or assumed $T_i$, $\gamma_E = 0$ for TGLF and CGYRO) stay in its configuration
+and provenance. Each downstream section ends with the IMAS IDS its operations write and representative
+quantities (`core_profiles` $j_\mathrm{bs}$, $\sigma_\parallel$ are NEO's), then the MHD quantities kept in the
+solver's own form on a line keyed *native*. A solid arrow means *provides input to* -- a scientific dependency
+VAFT supports, not a fixed pipeline or a validated workflow; the open-headed arrow into the equilibrium state means
+*writes*. The qualifications -- one IDS format holding distinct
+plasma states, each model checking its own inputs, the transport resolver taking a reconstructed equilibrium only
+-- belong to the caption and the technical figure.
+
+```python
+vaft.diagram.cross_domain_scientific_architecture()
+```
+
+![Equilibrium, MHD and transport: the scientific architecture]({{ '/assets/diagrams/cross_domain_scientific_architecture.svg' | relative_url }})
+
+**Simplified: inputs and outputs.** The same architecture read only for what goes in, what is computed and what
+comes out. The shared plasma state -- the `equilibrium` IDS, the measured kinetic profiles in
+`core_profiles` and assumptions (physics closure and fitting method, mode numbers and wall model) -- feeds the
+MHD stability model (ideal & resistive energy principle, perturbed equilibria: DCON, RDCON, GPEC), which reads the equilibrium
+and the assumptions, and the transport model (classical, neoclassical, turbulent: Braginskii, Sauter, Redl, NEO,
+TGLF, CGYRO), which reads all three. Each writes its results as IDS: the stability IDS `mhd_linear` and `ntms`; the
+transport IDS `core_transport`, an updated `core_profiles` and `gyrokinetics_local`. Codes, IDS and assumptions are
+read from the architecture figure's definitions, so the two cannot drift apart. `equilibrium_stability_transport()`
+puts it to the right of four equilibrium routes around the IMAS equilibrium IDS -- reconstruction
+(EFIT), theory (Solov'ev; Guazzotto & Freidberg), fixed-boundary (CHEASE) and free-boundary models (TokaMaker, TES)
+(`integrated_scientific_framework("equilibrium", frame=False, analysis=False, references=False, ids_key=True,
+boundary_models=True)`) -- on one canvas at one scale and with no panel letters; an arrow hands the equilibrium
+from left to right. Neither carries arrow annotations: what each calculation reads is in the model. With
+`measurements=True` an IMAS Machine Configuration & Experimental Data IDS box (`wall`, `tf`, `pf_active`,
+`pf_passive`, `em_coupling`, `coils_non_axisymmetric`, `nbi`, `ec_launchers`, `magnetics`, `interferometer`, `thomson_scattering`, `charge_exchange`,
+each with its representative quantities -- $R_0B_0$, coil, eddy and 3-D coil currents, mutual inductances, EC power,
+$I_p$, $B_p$, $\psi_p$, $\Phi_{\rm dia}$, $\int n_e\,dl$, $n_e$, $T_e$, $v_\phi$, $T_i$ (none for the wall and NBI); the 3-D coil excitation is `coils_non_axisymmetric`, so it is no longer among the assumptions) sits above both halves and feeds the reconstruction, which then only writes the equilibrium IDS, and the kinetic
+profiles, which are drawn as made from the equilibrium and the external assumptions as well.
+
+```python
+vaft.diagram.stability_transport_io()
+vaft.diagram.equilibrium_stability_transport(measurements=True)  # the drawn figure
+```
+
+![Stability and transport: inputs and outputs]({{ '/assets/diagrams/stability_transport_io.svg' | relative_url }})
+![Equilibrium to stability and transport]({{ '/assets/diagrams/equilibrium_stability_transport.svg' | relative_url }})
+
+**Technical: solvers, inputs and outputs.** Each method sits with the inputs it reads beside it; an input read by
+two methods (coil currents and machine geometry for TokaMaker and EFIT, the kinetic profiles for Sauter/Redl and
+the resolver) is drawn once. Shared measurements, assumptions and machine configuration feed three alternative
+equilibrium routes (analytic Grad-Shafranov, a TokaMaker free-boundary model, EFIT reconstruction) and the
+CHEASE refinement of a reconstruction, which all write the IMAS `equilibrium` representation. MHD stability and
+response (DCON, GPEC, RDCON) and transport (classical, two neoclassical and two turbulent models) are
+complementary consumers of an equilibrium, and no edge joins them. Each element is drawn from nodes of the
+workflow specs on this page (`vaft.diagram._cross_domain`), so its API and IDS are the ones those figures name; a
+test resolves every API and checks every IDS leaf against the installed Data Dictionary.
+
+```python
+vaft.diagram.cross_domain_scientific_workflows()
+```
+
+![Cross-domain integration: equilibrium, MHD and transport]({{ '/assets/diagrams/cross_domain_scientific_workflows.svg' | relative_url }})
+
+The four relations are drawn apart, also in grayscale: a quantity *consumed by* a calculation is a solid arrow;
+*alternative methods* for a related quantity share a dash-dot enclosure (the three equilibrium routes,
+Sauter/Redl and NEO, TGLF and CGYRO, but never DCON, GPEC and RDCON, which compute different things); a result
+*mapped to an IMAS IDS* sits under the operation that wrote it in the solid IMAS band, and a result *kept in
+native form* in the dashed native band, so no arrow is needed for either. Every flow arrow is short: none crosses
+another or passes through a box, which a test checks. The figure is laid out for a landscape page (about
+240 mm wide); the conceptual figure fits the 180 mm column. What the technical figure deliberately does not
+claim:
+
+- **A shared representation is not a shared state.** The four `equilibrium` entries hold an analytic, a modelled,
+  a reconstructed and a refined equilibrium. Only a reconstructed entry, magnetic or kinetic, carries the
+  experimental state the transport resolver keys on (`TransportStateKey`: shot, EFIT time, EFIT lineage).
+- **Some restrictions are enforced, others are conventions.** The transport resolver refuses anything but a
+  reconstructed slice of good or admissible quality (`TransportStateKey`, `efit_quality`); CHEASE accepts any
+  GEQDSK or ODS equilibrium, and refining a reconstruction is how the coupling uses it, not a check.
+- **MHD analyses are complementary, not independent.** GPEC reads DCON's ideal eigenfunctions (`euler.bin`,
+  checked as a prerequisite in `vaft.code.gpec`), so that edge is drawn; RDCON runs on its own.
+- **One state identity keys runs; it does not merge results.** NEO, classical, TGLF and CGYRO read
+  `resolve_transport_state`; `run_identity` folds `ResolvedTransportState.identity` (`state_identity`) into every
+  run's hash, and the transport atlas joins its NEO, TGLF and classical rows on it. The IDS entries stay
+  separate, and the NEO `core_transport` writer records no identity. The Sauter/Redl closures read the ODS
+  directly, have no `core_transport` writer and are kept native.
+- **Some inputs are assumptions.** $T_i$ (when not measured), $Z_\mathrm{eff}$, the impurity and $\gamma_E = 0$
+  are recorded closures, drawn as assumptions, not as measurements.
+- **A mapping is not an exact quantity match.** DCON's normalized $\delta W$ sits in `energy_perturbed`, which the
+  Data Dictionary documents in joules (the mapper states the mismatch in `code.parameters`); `ntms` receives only
+  the diagonal $\Delta'$; GPEC's vacuum part and resonant quantities are not written; classical transport uses a
+  private `identifier.index`; NEO's $j_\mathrm{bs}$ and $\sigma_\parallel$ go to `core_profiles`.
+- **CGYRO is drawn as linear eigenmodes.** Nonlinear writers exist (`core_transport_from_cgyro` and the
+  `non_linear` part of `gyrokinetics_local_from_cgyro`, each given a saturation window), but no nonlinear result
+  is a benchmark, so neither route is drawn; TGLF's `gyrokinetics_local` writer is omitted because no stage
+  stores that IDS (#2020).
+- **An edge is an implemented interface, not a record of execution.** The figure names no device and says
+  nothing about how often a route runs.
+
+| Element | Domain | Kind | Method | Drawn from | API | IDS leaf | Note |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Shape, profile class | equilibrium | model assumption / prior |  | `analytic_mhd_equilibrium.shape` |  |  |  |
+| Targets | equilibrium | measured |  | `tokamaker_coupling.targets` |  |  |  |
+| Profile shape | equilibrium | model assumption / prior |  | `tokamaker_coupling.profiles` |  |  |  |
+| Coil currents | equilibrium | measured |  | `tokamaker_coupling.coils`, `magnetic_efit.pf` |  |  |  |
+| Machine | equilibrium | machine geometry / static data |  | `tokamaker_coupling.geometry`, `magnetic_efit.geometry` |  |  |  |
+| Magnetics | equilibrium | measured |  | `magnetic_efit.magnetics` |  |  |  |
+| Kinetic profiles | equilibrium | measured |  | `kinetic_efit.ts` |  |  | kinetic EFIT only: Thomson pressure points constrain the reconstruction |
+| Vessel currents | equilibrium | derived |  | `magnetic_efit.eddy` | `vaft.process.electromagnetics.solve_eddy_currents` |  | modelled from the coil currents and magnetics, then fitted alongside them |
+| Profile basis | equilibrium | model choice / convention |  | `magnetic_efit.basis` |  |  | the polynomial terms the reconstruction is allowed |
+| COCOS | equilibrium | model choice / convention |  | `chease_coupling.cocos_in` |  |  |  |
+| Analytic Grad-Shafranov | equilibrium | solver / model | Solov'ev, Cerfon-Freidberg, Guazzotto-Freidberg | `analytic_mhd_equilibrium.solovev`, `analytic_mhd_equilibrium.gf` | `vaft.process.solve_solovev_constraints`, `vaft.process.solve_guazzotto_freidberg` |  |  |
+| Free-boundary model | equilibrium | solver / model | TokaMaker | `tokamaker_coupling.solve` | `vaft.code.tokamaker.run_tokamaker` |  |  |
+| Reconstruction | equilibrium | solver / model | EFIT | `magnetic_efit.efit`, `kinetic_efit.efit` | `vaft.code.efit.run_efit`, `vaft.code.efit.run_kinetic_efit` |  |  |
+| Fixed-boundary model | equilibrium | solver / model | CHEASE | `chease_coupling.chease` | `vaft.code.chease.run_chease` |  | accepts any GEQDSK or ODS equilibrium; the coupling applies it to a reconstruction (by convention, not enforced, unlike the transport resolver) |
+| analytic | equilibrium | standardized IMAS |  | `analytic_mhd_equilibrium.equilibrium` | `vaft.data.eqdsk.to_omas` | `equilibrium.time_slice.:.profiles_2d.:.psi` | reaches IMAS through EquilibriumData -> GEQDSK -> to_omas; the Solov'ev fit is not written |
+| free-boundary model | equilibrium | standardized IMAS |  | `tokamaker_coupling.equilibrium` |  | `equilibrium.time_slice.:.profiles_2d.:.psi` | a modelled state: measured coil currents with assumed profile shapes |
+| reconstructed | equilibrium | standardized IMAS |  | `magnetic_efit.equilibrium` | `vaft.code.efit.gfile_to_omas` | `equilibrium.time_slice.:.profiles_2d.:.psi` | the experimental state; the transport resolver keys on its time and lineage |
+| refined | equilibrium | standardized IMAS |  | `chease_coupling.equilibrium` | `vaft.code.chease.refine_equilibrium` | `equilibrium.time_slice.:.profiles_2d.:.psi` | the reconstructed boundary and profiles re-solved at fixed boundary |
+| Mode numbers, wall | mhd | model choice / convention |  | `dcon_rdcon_stability.modes`, `dcon_rdcon_stability.wall` |  |  |  |
+| Resistive layers | mhd | derived |  | `dcon_rdcon_stability.layer` | `vaft.code.gpec._solvers.write_rmatch_resistive_layers` |  |  |
+| 3-D coils | mhd | machine geometry / static data |  | `gpec_plasma_response.coil_geometry` | `vaft.machine_mapping.coils_non_axisymmetric.coils_non_axisymmetric` |  |  |
+| Excitation | mhd | model assumption / prior |  | `gpec_plasma_response.excitation` | `vaft.machine_mapping.coils_non_axisymmetric_geometry.CoilExcitation.from_mode` |  |  |
+| Ideal stability | mhd | solver / model | DCON | `dcon_rdcon_stability.dcon` | `vaft.code.gpec.run_gpec_suite_case` |  |  |
+| Resistive stability | mhd | solver / model | RDCON | `dcon_rdcon_stability.rdcon` | `vaft.code.gpec.run_gpec_suite_case` |  |  |
+| Plasma response | mhd | solver / model | GPEC | `gpec_plasma_response.gpec` | `vaft.code.gpec.run_gpec_suite_case` |  |  |
+| Ideal mode | mhd | standardized IMAS |  | `dcon_rdcon_stability.mhd_linear` | `vaft.machine_mapping.mhd_linear.mhd_linear` | `mhd_linear.time_slice.:.toroidal_mode.:.energy_perturbed` | a dimensionless eigenvalue in a field documented in J; the mismatch is stated in code.parameters |
+| Tearing index | mhd | standardized IMAS |  | `dcon_rdcon_stability.ntms` | `vaft.machine_mapping.mhd_linear.mhd_linear` | `ntms.time_slice.:.mode.:.deltaw.:.value` | the classical single-surface value only |
+| Perturbed field | mhd | standardized IMAS |  | `gpec_plasma_response.mhd_linear` | `vaft.machine_mapping.gpec_ideal.gpec_ideal` | `mhd_linear.time_slice.:.toroidal_mode.:.plasma.b_field_perturbed.coordinate1.real` | the total and plasma fields; the vacuum part (total minus plasma) is not written |
+| Energy split | mhd | native result |  | `dcon_rdcon_stability.dw` | `vaft.code.gpec.read_dcon_output` |  |  |
+| Matching data | mhd | native result |  | `dcon_rdcon_stability.dprime` | `vaft.code.gpec.read_pest3_matching_output` |  |  |
+| Resonant response | mhd | native result |  | `gpec_plasma_response.resonant` | `vaft.code.gpec.read_gpec_netcdf` |  |  |
+| Equilibrium | transport | reconstructed |  | `neoclassical_model_comparison.state` |  |  |  |
+| Closures | transport | model assumption / prior |  | `plasma_parameter_inference.zeff`, `plasma_parameter_inference.ti_ratio` | `vaft.machine_mapping.core_profiles.vest_core_profiles_policy` |  | a T_i stored in the ODS (measured or a recorded ratio) and Z_eff from the ODS or the caller |
+| Kinetic profiles | transport | measured |  | `tglf_cgyro_local_transport.cp` |  |  |  |
+| Closures | transport | model assumption / prior |  | `plasma_parameter_inference.ti_ratio`, `plasma_parameter_inference.zeff`, `tglf_cgyro_local_transport.rotation` | `vaft.machine_mapping.core_profiles.vest_core_profiles_policy` |  |  |
+| Resolved local state | transport | derived |  | `transport_hierarchy.state` | `vaft.process.transport_state.resolve_transport_state`, `vaft.process.transport_state.ResolvedTransportState.identity` |  |  |
+| Neoclassical | transport | derived | Sauter / Redl | `transport_hierarchy.neo_fit` | `vaft.omas.neoclassical.compute_bootstrap_current` |  |  |
+| Neoclassical | transport | solver / model | NEO | `transport_hierarchy.neo_code` | `vaft.code.gacode.neo.runner.run_neo_pair` |  |  |
+| Classical | transport | derived | Braginskii | `transport_hierarchy.classical` | `vaft.process.transport_state.classical_heat_fluxes` |  |  |
+| Turbulent | transport | solver / model | TGLF | `transport_hierarchy.turb_ql` | `vaft.code.gacode.tglf.run_tglf` |  |  |
+| Gyrokinetic | transport | solver / model | CGYRO | `tglf_cgyro_local_transport.cgyro` | `vaft.code.gacode.cgyro.run_cgyro` |  |  |
+| Closed-form result | transport | native result |  | `transport_hierarchy.neo_fit` | `vaft.omas.neoclassical.compute_bootstrap_current` |  | returned to the caller; no core_transport writer |
+| Neoclassical fluxes | transport | standardized IMAS |  | `transport_hierarchy.ct_neo`, `neoclassical_model_comparison.mapping` | `vaft.machine_mapping.neoclassical.core_transport_from_neo`, `vaft.machine_mapping.neoclassical.core_profiles_from_neo` | `core_transport.model.:.profiles_1d.:.electrons.energy.flux` | fluxes in core_transport (identifier.index 5); j_bs and sigma_par in core_profiles |
+| Classical fluxes | transport | standardized IMAS |  | `transport_hierarchy.ct_classical` | `vaft.machine_mapping.classical.core_transport_from_classical` | `core_transport.model.:.profiles_1d.:.electrons.energy.flux` | a private identifier.index (-1): the DD has no classical entry |
+| Turbulent fluxes | transport | standardized IMAS |  | `transport_hierarchy.ct_tglf` | `vaft.machine_mapping.turbulence.core_transport_from_tglf` | `core_transport.model.:.profiles_1d.:.electrons.energy.flux` |  |
+| Linear eigenmodes | transport | standardized IMAS |  | `tglf_cgyro_local_transport.gk_local` | `vaft.machine_mapping.gyrokinetics.gyrokinetics_local_from_cgyro` | `gyrokinetics_local.linear.wavevector.:.eigenmode.:.growth_rate_norm` | the writer exists; no pipeline stage stores gyrokinetics_local yet (#2020) |
+
+| From | To | Connection |
+| --- | --- | --- |
+| `an_shape` | `analytic` | consumed by (data flow) |
+| `tm_targets` | `tokamaker` | consumed by (data flow) |
+| `tm_profiles` | `tokamaker` | consumed by (data flow) |
+| `eq_coils` | `tokamaker` | consumed by (data flow) |
+| `eq_coils` | `efit` | consumed by (data flow) |
+| `eq_machine` | `tokamaker` | consumed by (data flow) |
+| `eq_machine` | `efit` | consumed by (data flow) |
+| `ef_magnetics` | `efit` | consumed by (data flow) |
+| `ef_kinetic` | `efit` | consumed by (data flow) |
+| `ef_eddy` | `efit` | consumed by (data flow) |
+| `ef_basis` | `efit` | consumed by (data flow) |
+| `ch_cocos` | `chease` | consumed by (data flow) |
+| `eq_reconstructed` | `chease` | consumed by (data flow) |
+| `analytic` | `eq_analytic` | mapped to an IMAS IDS |
+| `tokamaker` | `eq_model` | mapped to an IMAS IDS |
+| `efit` | `eq_reconstructed` | mapped to an IMAS IDS |
+| `chease` | `eq_refined` | mapped to an IMAS IDS |
+| `hub` | `mhd` | consumed by (data flow) |
+| `eq_reconstructed` | `state` | consumed by (data flow) |
+| `dcon_in` | `dcon` | consumed by (data flow) |
+| `rdcon_in` | `rdcon` | consumed by (data flow) |
+| `gpec_coils` | `gpec` | consumed by (data flow) |
+| `gpec_drive` | `gpec` | consumed by (data flow) |
+| `dcon` | `gpec` | consumed by (data flow) |
+| `dcon` | `ml_dcon` | mapped to an IMAS IDS |
+| `rdcon` | `ntms_rdcon` | mapped to an IMAS IDS |
+| `gpec` | `ml_gpec` | mapped to an IMAS IDS |
+| `dcon` | `dcon_native` | kept in native form |
+| `rdcon` | `rdcon_native` | kept in native form |
+| `gpec` | `gpec_native` | kept in native form |
+| `sr_geometry` | `sauter_redl` | consumed by (data flow) |
+| `sr_closures` | `sauter_redl` | consumed by (data flow) |
+| `tr_profiles` | `sauter_redl` | consumed by (data flow) |
+| `tr_profiles` | `state` | consumed by (data flow) |
+| `tr_closures` | `state` | consumed by (data flow) |
+| `state` | `neo` | consumed by (data flow) |
+| `state` | `classical` | consumed by (data flow) |
+| `state` | `tglf` | consumed by (data flow) |
+| `state` | `cgyro` | consumed by (data flow) |
+| `sauter_redl` | `sr_native` | kept in native form |
+| `neo` | `ct_neo` | mapped to an IMAS IDS |
+| `classical` | `ct_classical` | mapped to an IMAS IDS |
+| `tglf` | `ct_tglf` | mapped to an IMAS IDS |
+| `cgyro` | `gk_cgyro` | mapped to an IMAS IDS |
+| `analytic`, `tokamaker`, `efit` | | alternative methods, related quantity |
+| `sauter_redl`, `neo` | | alternative methods, related quantity |
+| `tglf`, `cgyro` | | alternative methods, related quantity |
 
 ### Plasma parameter inference: ion temperature and species
 
@@ -2420,18 +2678,24 @@ Follow-up TODOs (implementation or IMAS mapping):
 
 ### Neoclassical transport: closed-form fits and drift-kinetic solution
 
-The same resolved local state through the Sauter and Redl fits and the drift-kinetic solver NEO, so the two can be compared at one state.
+One equilibrium and profile set, read directly by the Sauter and Redl fits and, through the resolved local state, by the drift-kinetic solver NEO. Only NEO's result is written to IMAS; the fits are returned for comparison.
 
 ![Neoclassical transport: closed-form fits and drift-kinetic solution]({{ '/assets/diagrams/neo_neoclassical.svg' | relative_url }})
 
 | Node | Kind | Variables | API | IDS |
 | --- | --- | --- | --- | --- |
-| Resolved local state | derived | $T_s,\ n_s,\ q,\ \epsilon,\ f_t$ | `vaft.process.transport_state.resolve_transport_state` |  |
-| Sauter / Redl fits | derived |  | `vaft.formula.neoclassical.redl_bootstrap_current` |  |
+| Equilibrium and profiles | reconstructed | $\psi,\ q,\ F,\ B_0;\ n_e,\ T_e,\ T_i$ |  | `{equilibrium.time_slice[:], equilibrium.vacuum_toroidal_field, core_profiles.profiles_1d[:]}` |
+| Resolved local state | derived | $T_s,\ n_s,\ Z_s,\ q,\ \kappa,\ \delta$ | `vaft.process.transport_state.resolve_transport_state` |  |
+| Sauter / Redl fits | derived |  | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
 | NEO input | code input |  | `vaft.code.gacode.neo.prepare_neo_case` |  |
 | NEO drift-kinetic solve | solver / model |  | `vaft.code.gacode.neo.run_neo` |  |
 | Fluxes, bootstrap current | native result | $\Gamma_s,\ Q_s,\ \langle j_{\mathrm{bs}}B\rangle$ | `vaft.code.gacode.neo.collect_neo_outputs` |  |
-| Neoclassical transport | standardized IMAS | $\Gamma_s,\ Q_s,\ j_{\mathrm{bs}}$ |  | `core_transport.model[:].profiles_1d[:]` |
+| Neoclassical transport | standardized IMAS | $\Gamma_s,\ Q_s\ (\mathrm{core\_transport});\ j_{\mathrm{bs}}\ (\mathrm{core\_profiles})$ |  | `core_transport.model[:].profiles_1d[:]; core_profiles.profiles_1d[:].j_bootstrap` |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- The Sauter / Redl fits have no IMAS writer: they are returned, and vaft.validation.neoclassical.bootstrap_models compares them with the stored core_profiles j_bootstrap (see the Sauter / Redl against NEO diagram).
+- The two routes do not see identical inputs: the fits need a stored ion temperature and assume n_i = n_e unless an impurity is given, while the resolved state can fill T_i from the Ti/Te policy and defaults to Z_eff = 2 with carbon.
 
 ### Local turbulent transport: quasilinear and gyrokinetic
 
@@ -2578,12 +2842,13 @@ Follow-up TODOs (implementation or IMAS mapping):
 
 ### Transport hierarchy: classical, neoclassical, turbulent
 
-One resolved local state and five independently computed routes; none feeds another. 'Always available' means the route needs no external code, not that its physics applies everywhere. Each route with a writer lands in its own core_transport.model entry, found by its identifier.index and code name -- the array position k is assigned at write time.
+Five independently computed routes from one equilibrium and profile set; none feeds another. Four read the resolved local state; the Sauter / Redl closures read the IMAS data directly. 'Always available' means the route needs no external code, not that its physics applies everywhere. Each route with a writer lands in its own core_transport.model entry, found by its identifier.index and code name -- the array position k is assigned at write time.
 
 ![Transport hierarchy: classical, neoclassical, turbulent]({{ '/assets/diagrams/transport_hierarchy.svg' | relative_url }})
 
 | Node | Kind | Variables | API | IDS |
 | --- | --- | --- | --- | --- |
+| Equilibrium and profiles | reconstructed | $\psi,\ q,\ F;\ n_e,\ T_e,\ T_i\ (\mathrm{one\ time\ slice})$ |  | `{equilibrium.time_slice[:], core_profiles.profiles_1d[:]}` |
 | Resolved local state | derived | $T_s,\ n_s,\ a/L_{T,n},\ q,\ \hat s,\ \hat\nu$ | `vaft.process.transport_state.resolve_transport_state` |  |
 | Classical: Braginskii | derived | $\mathrm{perpendicular\ conductive}\ q_{\perp,e},\ q_{\perp,i}, \mathrm{strongly\ magnetized}:\ \kappa_\perp \propto nT/(m\Omega^2\tau), \mathrm{software:\ always\ available}$ | `vaft.process.transport_state.classical_heat_fluxes` |  |
 | Neoclassical closures: Sauter / Redl | derived | $j_{\mathrm{bs}};\ \sigma_\parallel\ \mathrm{from\ a\ separate\ conductivity\ call};\ \mathrm{no}\ \Gamma_s,\ Q_s, \mathrm{software:\ always\ available}$ | `vaft.omas.neoclassical.compute_bootstrap_current` |  |
@@ -2613,6 +2878,7 @@ Follow-up TODOs (implementation or IMAS mapping):
 - core_transport.model[k]: k is the array position the writer finds or appends (matching identifier.index and code.name); it is not the identifier.index.
 - A nonlinear CGYRO run writes no fluxes without a saturation window: choosing it is the caller's judgement.
 - The TGLF-NN surrogate (vaft.code.gacode.tglf.surrogate) refuses VEST inputs as out of domain and has no IMAS writer.
+- NEO's bootstrap current and conductivity go to core_profiles (core_profiles_from_neo), which this figure does not draw.
 
 ### Sauter / Redl against NEO at one state
 

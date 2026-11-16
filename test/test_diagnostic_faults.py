@@ -1,4 +1,4 @@
-"""Recorded faults of diagnostics without an IMAS validity node (#1543)."""
+"""Recorded faults of diagnostics without an IMAS validity node."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def test_h_gamma_rails_from_46993():
 
 
 def test_the_gauge_change_is_a_calibration_not_a_fault_record():
-    """46993 is the IKR 251 replacement, resolved in barometry_main (#1543)."""
+    """46993 is the IKR 251 replacement, resolved in barometry_main."""
     assert all(f["ids"] != "barometry" for f in known_diagnostic_faults(48224))
 
 

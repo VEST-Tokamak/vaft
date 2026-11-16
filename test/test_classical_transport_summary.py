@@ -1,4 +1,4 @@
-"""Classical core_transport projection and the ``classical_transport`` summary (#1654).
+"""Classical core_transport projection and the ``classical_transport`` summary.
 
 The packaged 48224 kinetic ODS supplies one real resolved state; everything else is
 synthetic records written through the mapper. No solver runs.
@@ -259,7 +259,7 @@ def test_an_envelope_slice_without_an_identity_is_not_recorded():
 
 
 def test_the_projection_is_unchanged_by_the_typed_result(resolved):
-    """#1899: the typed result and its as_record() project to identical core_transport."""
+    """The typed result and its as_record() project to identical core_transport."""
     state, records = resolved
     typed, plain = ODS(consistency_check=False), ODS(consistency_check=False)
     for ods, given in ((typed, records), (plain, [r.as_record() for r in records])):

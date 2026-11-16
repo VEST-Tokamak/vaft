@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Harvest a regen2147 lane: per-shot stage outcomes, failure classes, per-rule wall time, volume.
+"""Harvest a regeneration lane: per-shot stage outcomes, failure classes, per-rule wall time, volume.
 
 usage: harvest.py <lane dir> [<lane dir> ...] --out summary.json
 Reads only the lane (real paths; products embed /srv/vest.filedb through srvns).

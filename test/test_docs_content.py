@@ -96,7 +96,7 @@ def test_front_matter_values_are_not_truncated_by_a_hash_comment():
 
 
 def test_the_inference_page_does_not_call_the_merged_zeff_chain_unmerged():
-    # cold review 0.8.0 delta-absorb-17 species-docs F5: PR #1659 (resolve_radial_composition with
+    # cold review 0.8.0 delta-absorb-17 species-docs F5: the resistive Z_eff chain (resolve_radial_composition with
     # normalization="resistive_closure") merged before the page landed
     page = (DOCS / "_guide" / "Plasma_parameter_inference.md").read_text(encoding="utf-8")
     assert "Not on `develop` yet" not in page and "in progress" not in page.lower()
@@ -115,7 +115,7 @@ def test_navigation_ids_and_urls_are_unique():
 
 
 def test_navigation_sections_are_distinct_and_populated():
-    """Thematic sections (#2234): unique ids and titles, none empty, flat items."""
+    """Thematic sections: unique ids and titles, none empty, flat items."""
     sections = _data("navigation.yml")["sections"]
     for field in ("id", "title"):
         values = [section[field] for section in sections]
@@ -170,7 +170,7 @@ def test_page_migrations_are_unique_and_canonical():
     migrations = _data("page_migrations.yml")
     legacy = [m["legacy_url"] for m in migrations]
     assert len(legacy) == len(set(legacy)), "duplicate legacy_url in page_migrations.yml"
-    # A renamed hub child (a per-module reference page, #1838) is canonical too,
+    # A renamed hub child (a per-module reference page) is canonical too,
     # when a page claims it: hubs link their children, the sidebar does not.
     hub_children = {
         front["permalink"]
@@ -427,8 +427,8 @@ def test_visual_baselines_still_point_at_canonical_pages():
 def test_visual_specs_parse(spec):
     """Every Playwright spec must at least parse.
 
-    Nothing in CI runs the visual suite, so a spec that does not parse (the
-    #1804 merge dropped a closing ``});`` in ``graphs.spec.js``) only surfaces
+    Nothing in CI runs the visual suite, so a spec that does not parse (a
+    merge once dropped a closing ``});`` in ``graphs.spec.js``) only surfaces
     when someone runs ``npm run test:visual`` by hand, and then it takes every
     test in that file down with it.  ``node --check`` is the cheapest gate.
     """

@@ -1,4 +1,4 @@
-"""beta_N is quoted in %·m·T/MA, the only convention Troyon's 2.8 lives in (#349).
+"""beta_N is quoted in %·m·T/MA, the only convention Troyon's 2.8 lives in.
 
 `beta_N_from_beta_a_B0_Ip` evaluated `beta * a * B0 / I_p` literally, with beta
 documented as a fraction and I_p in amperes. That is 1e-8 times the conventional

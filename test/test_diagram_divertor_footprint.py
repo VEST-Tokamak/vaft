@@ -1,4 +1,4 @@
-"""Divertor heat footprint (#1209): geometry from the equilibrium, profile from vaft.formula.sol."""
+"""Divertor heat footprint: geometry from the equilibrium, profile from vaft.formula.sol."""
 
 import numpy as np
 import pytest

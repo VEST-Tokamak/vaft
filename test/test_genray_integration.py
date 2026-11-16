@@ -1,4 +1,4 @@
-"""GENRAY with the real executable (#264). Skips cleanly without ``$GENRAYHOME``.
+"""GENRAY with the real executable. Skips cleanly without ``$GENRAYHOME``.
 
 Two runs: upstream's EC ITER regression case against its gold ``genray.nc``
 (needs ``$GENRAY_SOURCE_DIR`` for the case files), and a VEST 48224 case built

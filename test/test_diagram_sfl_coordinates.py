@@ -1,4 +1,4 @@
-"""Straight-field-line coordinates (#1074): one equilibrium, one family of angles."""
+"""Straight-field-line coordinates: one equilibrium, one family of angles."""
 
 import math
 

@@ -1,4 +1,4 @@
-"""Equilibrium-aware phenomena (#1209): prescribed physics drawn on an equilibrium's own surfaces."""
+"""Equilibrium-aware phenomena: prescribed physics drawn on an equilibrium's own surfaces."""
 
 import math
 

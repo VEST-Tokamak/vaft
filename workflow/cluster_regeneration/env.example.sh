@@ -1,6 +1,6 @@
 # Copy to $REGEN_ROOT/env.sh and adapt the tool paths; every job sources it.
 # Resolves the current pin ($REGEN_ROOT/{src,env} symlinks written by setup_env.sh).
-REGEN_ROOT=${REGEN_ROOT:-$HOME/regen2147}
+REGEN_ROOT=${REGEN_ROOT:?set REGEN_ROOT (site.example.env)}
 export REGEN_ROOT
 REGEN_SRC=$(readlink -f "$REGEN_ROOT/src")
 REGEN_ENV=$(readlink -f "$REGEN_ROOT/env")
@@ -15,14 +15,14 @@ export PYTHONNOUSERSITE=1 MPLBACKEND=Agg
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1
 # Inputs
 export VAFT_DATA_DIR=$REGEN_SRC/vaft/data
-# vestserver's production EFIT (3b5dae5 ipfix) with its own glibc 2.35 loader; sha256 of
-# efit.bin/efund.bin in ~/opt/efit-bundle/SHA256SUMS == vestserver ~/efit-ipfix-install.
+# The production server's EFIT build (3b5dae5 ipfix) with its own glibc 2.35 loader; sha256 of
+# efit.bin/efund.bin in $EFITHOME/SHA256SUMS == the server's install.
 export EFITHOME=${EFITHOME:-$HOME/opt/efit-bundle}
 export EFIT=$EFITHOME/bin/efit
-# CHEASE fb46366 and GPEC e68d7ac2 (dcon/match/rdcon/rmatch/stride/gpec), built on tdst with
-# system gfortran 11.5 like vestserver's (11.4); GPEC deps RPATHed to ~/opt/gpec-deps.
+# CHEASE fb46366 and GPEC e68d7ac2 (dcon/match/rdcon/rmatch/stride/gpec), built on the cluster
+# with system gfortran 11.5 like the server's (11.4); GPEC deps RPATHed beside them.
 # RDCON is the STOCK build (gal.f i2.2 crashes at msing >= 25) -- the same stock binary
-# vestserver's pipeline GPECHOME (~/git/GPEC) carries; the patched one is Lane N's only.
+# the server's pipeline GPECHOME carries; a patched RDCON is a separate study's.
 export CHEASEHOME=${CHEASEHOME:-$HOME/git/CHEASE/vaft-install} GPECHOME=${GPECHOME:-$HOME/git/GPEC-upstream/vaft-install}
 export CHEASE=$CHEASEHOME/bin/chease
 # HSDS isolation: unroutable endpoint, no credentials, private HOME (no ~/.hscfg).
@@ -30,8 +30,8 @@ export HS_ENDPOINT=http://127.0.0.1:9 HS_USERNAME= HS_PASSWORD= HS_API_KEY=
 export HOME=$REGEN_ROOT/home
 mkdir -p "$HOME"
 export VAFT_FILEDB_DIR=/srv/vest.filedb
-# CPU-kernel parity with vestserver (i9-14900K, AVX2): same OpenBLAS kernel family and no
-# AVX-512 numpy loops, so floating-point results match vestserver's bit for bit where the
+# CPU-kernel parity with the production server (an AVX2 CPU): same OpenBLAS kernel family and no
+# AVX-512 numpy loops, so floating-point results match the server's bit for bit where the
 # Python stack matches (REGEN_CPU_PARITY=0 to run native kernels).
 if [ "${REGEN_CPU_PARITY:-1}" = 1 ]; then
   export OPENBLAS_CORETYPE=Haswell

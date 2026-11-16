@@ -1,4 +1,4 @@
-"""On-disk model artifacts: manifest, hashes, export (#669 sections 7, 11, 12).
+"""On-disk model artifacts: manifest, hashes, export.
 
 An artifact directory holds the backend's weights, the normalisation moments
 and ``manifest.json``.  The manifest pins the SHA-256 and size of every other
@@ -29,7 +29,7 @@ from ._types import (
 
 __all__ = ["export_model", "load_model_artifact", "save_model_artifact"]
 
-#: Manifest layout version; provisional until the first published model (#669 section 11).
+#: Manifest layout version; provisional until the first published model.
 MANIFEST_SCHEMA_VERSION = 0
 MANIFEST = "manifest.json"
 NORMALIZATION = "normalization.npz"

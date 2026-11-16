@@ -1,4 +1,4 @@
-"""The domain and grid study (#459): its guards, and the result it recorded.
+"""The domain and grid study (open, #459): its guards, and the result it recorded.
 
 The study runs EFIT; what is pinned here is the bookkeeping it rests on and
 the findings, so a later change that quietly reverses either fails loudly.
@@ -110,14 +110,14 @@ def test_the_cases_are_a_two_by_two_and_the_cells_follow_from_them(module):
     assert grids["A"] != grids["C"] and domains["A"] != domains["B"]
 
     # The routine box is 9.0 x 23.4 mm: 2.6 times taller than it is wide, which
-    # is the anisotropy #459 asks about.
+    # is the anisotropy the open domain study (#459) asks about.
     width, height = module.cell_size(module.CASES["A"])
     assert width == pytest.approx((1.2 - 0.05) / 128 * 1e3)
     assert height / width == pytest.approx(2.61, abs=0.01)
     # Doubling nh roughly squares that away.
     assert module.cell_size(module.CASES["C"])[1] / width == pytest.approx(1.30, abs=0.01)
 
-    # `rleft` is 0.05 m in every case. #459's text quotes the current box as
+    # `rleft` is 0.05 m in every case. The domain study's statement (#459) quotes the current box as
     # starting at R = 0, and it never has: the Green functions are singular on
     # the machine axis.
     assert all(domain[0] == 0.05 for domain in domains.values())
@@ -160,7 +160,7 @@ def test_a_ratio_is_withheld_when_there_is_nothing_to_be_relative_to(module):
 
 
 def test_the_phases_come_from_the_current_and_not_from_the_clock(module):
-    """The rule now lives in `vaft.validation` (#76); this is its local spelling.
+    """The rule now lives in `vaft.validation`; this is its local spelling.
 
     Two things follow from the move. The labels are the library's, so this
     study and the profile-model study can no longer classify the same slice
@@ -198,7 +198,7 @@ def test_every_case_was_run_against_a_table_that_matches_it(table):
 
 
 def test_neither_the_domain_nor_the_grid_recovers_a_slice(table):
-    """#459's answer for EFIT, and the reason the losses go back to the solver.
+    """The domain study's (#459) answer for EFIT, and the reason the losses go back to the solver.
 
     If a future change makes a smaller box or a finer grid recover the block,
     this fails and the conclusion has to be revisited -- which is what it is
@@ -265,7 +265,7 @@ def test_the_report_renders_from_the_committed_table(module, table):
 
 
 def test_a_tstep_below_the_millisecond_keys_is_refused(module, capsys):
-    """Cold review 0.7.0 efit-workflows F9 (#1888).
+    """Cold review 0.7.0 efit-workflows F9.
 
     Slices are keyed by whole millisecond, so 0.4 ms over 300-302 ms gives
     six requests and three keys. The study refuses the step instead of
@@ -276,6 +276,6 @@ def test_a_tstep_below_the_millisecond_keys_is_refused(module, capsys):
     assert exc.value.code == 2
     assert "whole millisecond" in capsys.readouterr().err
     with pytest.raises(SystemExit):
-        module.main(["--tstep", "0.0015"])  # PR #1920 review F1: between the keys
+        module.main(["--tstep", "0.0015"])  # between the keys
     assert "whole number of milliseconds" in capsys.readouterr().err
     assert module.whole_millisecond_tstep("0.002") == 0.002
