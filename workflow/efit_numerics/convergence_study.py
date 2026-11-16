@@ -1,14 +1,16 @@
-"""When has a VEST EFIT reconstruction stopped changing? (#924)
+"""When has a VEST EFIT reconstruction stopped changing?
 
     python workflow/efit_numerics/convergence_study.py --output /scratch/conv \\
         --tables-generated-129 /tables/129 --tables-generated-257 /tables/257 \\
         --table /scratch/conv/efit_convergence_study.json
 
-VEST stops on ``ERRMIN = 1e-2`` (#171), and neither number EFIT reports can say
+VEST stops on ``ERRMIN = 1e-2`` (EFIT's default, never written by VAFT until
+the termination study measured it), and neither number EFIT reports can say
 whether that is converged:
 
-- the chi-square is the prescribed vessel current on stock EFIT (#918) and
-  holds no magnetic information under legacy sigma (#891);
+- the chi-square is the prescribed vessel current on stock EFIT (Open: #918,
+  the reported Ip chi-square adds the prescribed vessel current) and holds no
+  magnetic information under legacy sigma, which weights the magnetics out;
 - ``terror``/``cerror`` -- stored by VAFT as
   ``convergence.grad_shafranov_deviation_value`` -- is the iteration increment
   ``max|psi - psi_previous| / |delta psi|``, not a test of the Grad-Shafranov
@@ -25,7 +27,7 @@ Design
 ``NXITER`` x ``ERRMIN`` on the routine 129x129 grid, a fixed handful of slices,
 everything else routine.  ``MXITER`` is ``(515 - 1) // NXITER``: EFIT indexes
 its per-iteration arrays by the cumulative counter against a compiled-in 515
-with no clamp (#171), so that is the largest cap that cannot overrun them.
+with no clamp, so that is the largest cap that cannot overrun them.
 
 Two references per slice, because they answer different questions:
 
@@ -39,7 +41,7 @@ Two references per slice, because they answer different questions:
 The recommendation is judged on iteration error only: the grid is not a
 setting being chosen here.
 
-Run it only on an EFIT whose reported Ip chi-square matches its solve (#918).
+Run it only on an EFIT whose reported Ip chi-square matches its solve (Open: #918).
 On stock EFIT every ``NXITER > 1`` stop test compares against a
 vessel-inflated ``saiold`` and the scan measures that defect instead.
 """
@@ -69,8 +71,8 @@ REFERENCE_SET = REPOSITORY / "test" / "data" / "efit_reference_set.json"
 DEFAULT_TABLE = REPOSITORY / "test" / "data" / "efit_convergence_study.json"
 
 #: Ramp-up (or first plasma slice), peak Ip, ramp-down on each reference shot,
-#: picked from the defect-free NXITER=1 run of #171.  41672 @ 331 ms is also
-#: #664's reference slice.
+#: picked from the defect-free NXITER=1 run of the termination scan.  41672 @
+#: 331 ms is also the identifiability study's reference slice.
 SLICES: dict[int, tuple[float, ...]] = {
     39915: (0.315, 0.320, 0.327),
     41524: (0.327, 0.331, 0.334),
@@ -78,7 +80,7 @@ SLICES: dict[int, tuple[float, ...]] = {
 }
 INNER_ITERATIONS = (1, 3, 5, 10)
 ERROR_MINIMUM = (1.0e-2, 1.0e-3, 1.0e-4)
-#: EFIT's compiled per-iteration array bound (#171).
+#: EFIT's compiled per-iteration array bound (indexed by the cumulative counter, no clamp).
 ITERATION_ARRAY_BOUND = 515
 ROUTINE_GRID = 129
 FINE_GRID = 257
@@ -97,7 +99,7 @@ FINE_SETTINGS = tuple((n, e) for n in INNER_ITERATIONS for e in ERROR_MINIMUM)
 PACKAGED = "packaged"
 GENERATED = "generated"
 
-#: #924's initial tolerances on iteration error.  Part of the result, not a
+#: The study's initial tolerances on iteration error.  Part of the result, not a
 #: constant of nature: the summary reports every distance, so a reader can
 #: re-judge against their own.
 TOLERANCES = {
@@ -208,7 +210,7 @@ def grad_shafranov_metrics(mapping: Mapping[str, Any]) -> dict[str, Any]:
     ``whole`` is the RMS of ``delta_star - source`` over every plasma point
     over the RMS of the source; ``core`` and ``edge`` are medians of the
     per-surface relative residual inside ``CORE_PSI_NORM`` and beyond
-    ``EDGE_PSI_NORM``.  These are the #171 definitions, kept so the two
+    ``EDGE_PSI_NORM``.  These are the termination study's definitions, kept so the two
     studies stay comparable.
     """
     from vaft.process.equilibrium import grad_shafranov_residual
@@ -347,8 +349,8 @@ def compare(record: Mapping[str, Any], reference: Mapping[str, Any]) -> dict[str
 
 #: The exits that are EFIT stopping on its own criterion: the chi-square exit
 #: it announces, and the silent one an inner loop's first step takes when the
-#: increment falls below ERROR (``go to 2020`` in fit.F90). Before #1038 the
-#: parser reported the second as ``iterations_exhausted``. This study's stored
+#: increment falls below ERROR (``go to 2020`` in fit.F90). The log parser once
+#: reported the second as ``iterations_exhausted``. This study's stored
 #: runs have none (its NXITER > 1 losses are ``bound`` errors), but a rerun
 #: must not drop one. Scope: a free-boundary, non-vacuum run -- a vacuum or
 #: fixed-boundary slice also ends with no exit line.
@@ -516,7 +518,8 @@ def analyse(slices: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 #: (measured, reconstructed, weight, sigma) m-file variables of each magnetic family.
 #: Ip, the PF currents and the diamagnetic flux follow meqdsk's
 #: EFIT_K_TO_M_TRANSFORMS; their chi-square is recomputed from the sigma
-#: here rather than read from EFIT's chipasma/chifcc/chidflux (#891).
+#: here rather than read from EFIT's chipasma/chifcc/chidflux, so every family
+#: is judged the same way, against the sigma EFIT actually fitted against.
 MAGNETIC_FAMILIES = {
     "probe": ("expmpi", "cmpr2", "fwtmp2", "sigmpi"),
     "loop": ("silopt", "csilop", "fwtsi", "sigsil"),
@@ -575,7 +578,7 @@ def magnetic_fit(variables: Mapping[str, Any]) -> dict[str, Any]:
 def rigid_vertical_shift(moved: Mapping[str, Any], reference: Mapping[str, Any]) -> dict[str, float]:
     """The rigid vertical translation that best maps one boundary onto another [mm].
 
-    #924 found the routine-to-fixed-point distance to be almost all one upward
+    The convergence study found the routine-to-fixed-point distance to be almost all one upward
     translation; this measures it directly rather than from the grid-snapped
     axis.  ``dz_mm`` is the shift that minimizes the RMS boundary distance,
     ``lcfs_rms_mm`` the distance before it and ``after_shift_mm`` after.
@@ -818,11 +821,12 @@ def _scientific(
         constraints = replace(constraints, uncertainty_scales=scales)
     scientific = replace(scientific, constraints=constraints)
     # The routine reference: the production configuration's own numerics
-    # (EFIT's defaults where it sets none), for comparison only (#891).
+    # (EFIT's defaults where it sets none), for comparison with the sigma cases only.
     if case.get("routine"):
         return scientific
-    # A case may pin the profile basis and the chi-square target too (#891,
-    # #1027); a case that does not leaves the routine values.
+    # A case may pin the profile basis and the chi-square target too, as the
+    # sigma-calibration cases do while a statistical sigma still fails to
+    # converge (Open: #1027); a case that does not leaves the routine values.
     if "kppcur" in case or "kffcur" in case:
         scientific = replace(scientific, profile=replace(
             scientific.profile,
@@ -884,8 +888,8 @@ def run_case(built, *, shot: int, times: Sequence[float], case: Mapping[str, Any
         record = {
             "case": dict(case),
             "time_ms": time_ms,
-            # The library parser's classification, so this study and #171's
-            # count the same thing: `iconvr=2`, `iterations_exhausted`,
+            # The library parser's classification, so this study and the
+            # termination scan count the same thing: `iconvr=2`, `iterations_exhausted`,
             # `no_exit_message` or `solver_error`; None means the log never
             # mentions the slice.
             "exit_path": entry.get("exit_path"),

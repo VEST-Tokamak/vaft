@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Uncertainty band of the Thomson electron-pressure peaking, per slice (#579).
+"""Uncertainty band of the Thomson electron-pressure peaking, per slice.
 
     python workflow/efit_uncertainty_calibration/thomson_peaking_band.py \\
         --filedb ~/runs/campaign/filedb --slices model_spread.csv --output peaking_band.csv
@@ -146,7 +146,7 @@ def peaking_band(thomson, equilibrium, time_s: float, *, draws: int = 200, seed:
     return result
 
 
-#: The #891 working setting, whose member geometry is preferred.
+#: The sigma-calibration working setting, whose member geometry is preferred.
 WORKING_SETTING = "p2f1_probe_x3.62_loop_x2.15_dia_x16_ip_x4_floor2pct_psiexit"
 
 

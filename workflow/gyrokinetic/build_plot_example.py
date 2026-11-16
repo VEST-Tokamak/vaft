@@ -1,4 +1,4 @@
-"""The registered gyrokinetic plot family on one real Lane Y state (#1591 docs example).
+"""The registered gyrokinetic plot family on one real Lane Y state (the documentation example).
 
 For one Lane T state and a few surfaces, builds the IMAS inputs the registered plots
 read, from products that already exist (nothing is run):
@@ -6,7 +6,7 @@ read, from products that already exist (nothing is run):
 - ``gyrokinetics_local`` from CGYRO: the per-``k_y`` linear runs of ``run_linear.py``
   (each run's own ``gyrokinetics_local.json``) merged into one scan per surface with
   :func:`~vaft.machine_mapping.gyrokinetics.merge_linear_scan`;
-- ``gyrokinetics_local`` from TGLF: the #1482 sensitivity run of the same state,
+- ``gyrokinetics_local`` from TGLF: the SAT-rule sensitivity run of the same state,
   surface and field model, through
   :func:`~vaft.machine_mapping.gyrokinetics.gyrokinetics_local_from_tglf`;
 - ``core_transport`` from TGLF, one ODS per SAT rule across the surfaces, through Lane
@@ -104,7 +104,7 @@ def _state(rl, args):
 
 
 def _tglf_run(args, key, sat: int, field: str, r_over_a: float, local: Any) -> Optional[Path]:
-    """The #1482 run of this state, surface, SAT rule and field model, if its input is
+    """The SAT-rule sensitivity run of this state, surface, SAT rule and field model, if its input is
     the rebuilt local input; a run built from different numbers stops the example."""
     ms = round(key.time_efit_s * 1000)
     run = (args.sat_runs / f"{key.shot}-{ms}-{key.efit_lineage}" / f"tglf-sat{sat}-{TGLF_FIELD[field]}"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""EFIT outcomes by operating regime over a FileDB (#1891). Read-only.
+"""EFIT outcomes by operating regime over a FileDB. Read-only.
 
     python workflow/efit_cohorts/run_efit_cohorts.py --filedb-root /srv/vest.filedb \\
         --output ~/runs/cohorts-1891 [--shots shots.txt] [--source production]

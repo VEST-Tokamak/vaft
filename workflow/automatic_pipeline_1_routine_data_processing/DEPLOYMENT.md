@@ -2,9 +2,9 @@
 
 Operator procedure for bringing the `main` and `chease-mhd-stability` namespaces
 online. Written against HSDS 0.9.0.alpha0 and h5pyd 0.24.0, the version VAFT pins
-(`pyproject.toml`) and the production vestserver client since 2026-09-29 (#969,
-#1272). Do not upgrade to h5pyd 1.x: against this server it silently drops HDF5
-attributes (#1271).
+(`pyproject.toml`) and the production vestserver client since 2026-09-29. Do not
+upgrade to h5pyd 1.x: against this server it silently drops HDF5 attributes
+(Open: #1271, which blocks the 1.x upgrade).
 
 Every check in step 1 and step 3 is read-only. The first command that changes
 anything on the server is in step 2.
@@ -13,8 +13,8 @@ anything on the server is in step 2.
 
 ## Corrections worth reading first
 
-**A deployment written before #813 must be migrated before its next pipeline
-run.** Stage products are now resolved as `{stage}.json.gz`, and a tree written
+**A deployment whose stage products are uncompressed `{stage}.json` must be
+migrated before its next pipeline run.** Stage products are now resolved as `{stage}.json.gz`, and a tree written
 earlier holds `{stage}.json`. The resolver asks for a name that is not there, so
 Snakemake sees no output for any stage of any shot and rebuilds every one of
 them from raw -- `run_efit_reconstruction` and `run_chease` included, which is
@@ -188,7 +188,7 @@ except ReadOnlySourceError:
 
 # A stage that is one solve's result goes to one source per stability product,
 # so it has no destination until the product is named.
-# TGLF's result goes to one transitional source per configuration (#1900).
+# TGLF's result goes to one transitional source per configuration.
 PER_PRODUCT = {"mhd_linear": ("dcon-peeling", "dcon-kink", "rdcon", "stride"),
                "turbulent_transport": s.tglf_configurations()}
 
@@ -306,8 +306,8 @@ date and silently skips.
 
 `gpec.modules` defaults to `[dcon, rdcon, stride, gpec]`. The fourth is
 ideal-GPEC, which costs **~2 hours per shot** and which `build_mhd_linear` waits
-on, because it depends on every configured (code, mode). It is issue #95 scope
-and is **not replicated** — `STAGE_REPLICATION` marks `gpec_ideal` as
+on, because it depends on every configured (code, mode). How it coexists with
+DCON is undecided (Open: #95), and it is **not replicated** — `STAGE_REPLICATION` marks `gpec_ideal` as
 `deferred_to: "#95"` — so including it gates the whole stability branch behind
 work that never reaches HSDS. Over a 5000-shot range that is the difference
 between weeks and years.
@@ -446,7 +446,7 @@ impossible once the upstream file has been archived off the host.
 ### Relocating a canonical root written before the lineage segments
 
 A canonical tree written before `family`/`refinement`/`product` became path
-segments (#527) resolves to nothing afterwards, and nothing warns about it: the
+segments resolves to nothing afterwards, and nothing warns about it: the
 resolver asks for `efit/magnetic/{shot}` and returns a path, the data is at
 `efit/{shot}`, and the path is simply empty. Deployments created before that
 change need their subtrees moved once.
@@ -488,7 +488,7 @@ it rather than parsing the JSON.
 
 ### Migrating stored products onto their declared container
 
-A deployment written before #813 holds products the resolver no longer asks for
+A deployment written before stage products were gzipped holds products the resolver no longer asks for
 (`eddy.json` where it now wants `eddy.json.gz`) and eddy products carrying the
 whole diagnostics product they were solved against. **Do this before the
 deployment's next pipeline run.** On the new code every shot's Snakemake target
@@ -727,7 +727,7 @@ Expect two logged attempts, a `state: "failed"` record, and a non-zero exit.
 
 A release that moves a machine-era boundary changes what the mapper builds for
 the shots on the moved side, and nothing re-runs them on its own. 0.8.0 is such
-a release (#956/#961): the wall-2409 loops now start at shot 43017
+a release: the wall-2409 loops now start at shot 43017
 (`WALL_GEOMETRY_2409_FIRST_SHOT`) and the PF-2507 geometry at 45968 rather than
 45958 (`PF_GEOMETRY_2507_FIRST_SHOT`), so every diagnostics, eddy, EFIT and
 downstream product for a shot **>= 43017** built before 0.8.0 differs from what
@@ -775,7 +775,8 @@ widen.
 
 `static` is not shot-replicated — it is versioned by machine era and its geometry
 travels inside the diagnostics product. `gpec_ideal` has a declared destination
-but no rule; it remains issue #95 and refuses with a message naming it.
+but no rule; its place is undecided (Open: #95) and it refuses with a message naming
+that issue.
 
 Expect a shot's presence to differ by stage. A vacuum shot appears in `main` with
 diagnostics and eddy and no equilibrium; a shot whose EFIT never converged keeps
@@ -841,8 +842,8 @@ the corrective updaters' one-time bootstrap of their shot registry, which opens
 
 ## 10. Running the new-shot worker
 
-`vaft pipeline-worker` watches the VEST SQL `shot` table and runs this pipeline on each new shot
-(issue #58). It only calls Snakemake, so everything above still applies, including section 7's
+`vaft pipeline-worker` watches the VEST SQL `shot` table and runs this pipeline on each new shot.
+It only calls Snakemake, so everything above still applies, including section 7's
 requirement that one shot is replicated before replication is enabled for all of them.
 
 ### Configure
@@ -864,11 +865,11 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
 - **The worker reproduces Snakemake's config merge.** Snakemake merges `pipeline_config` over the
   workflow's own `config.yaml`, and the worker checks and harvests against that same merged result.
   The Snakefile locates that `config.yaml` by its own path, so the merge holds for any `--directory`.
-  Before #1530 it resolved against `--directory`, and a run directory with a partial config silently
-  ran on code defaults: EFIT off, `args 65`, no eddy plasma filament.
+  (Earlier versions resolved it against `--directory`, and a run directory with a partial config
+  silently ran on code defaults: EFIT off, `args 65`, no eddy plasma filament.)
 - **A run config that omits `efit.run` inherits `true`.** That is the other side of the merge: the
-  workflow's `config.yaml` sets `efit: {run: true}`, so since #1687 a `pipeline_config` that leaves
-  the key out submits EFIT, where the code default `false` used to apply. With `EFIT` unset the parse
+  workflow's `config.yaml` sets `efit: {run: true}`, so a `pipeline_config` that leaves
+  the key out submits EFIT; the code default `false` does not apply. With `EFIT` unset the parse
   fails loudly (the path is expanded at load); with it set, EFIT simply starts running. Set `efit.run`
   explicitly in every deployed run config -- the worker redeployed on 10-06 pins `efit: {run: false}`
   in its `pipeline.yaml` for that reason.
@@ -882,7 +883,7 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   `transient_*`), the per-sample flux baselines (`flux_baseline_first/second/late_*`), and the output
   grid `time_start`, `time_end`, `sample_count` unless `window_override` is named alongside them (the
   era window is indices into that grid; moving the grid alone moved the native-DAQ window to
-  0.325-0.45 s). Since #2159 the acquisition itself -- `daq_mode` and the DAQ rate `fast_sample_rate`
+  0.325-0.45 s). The acquisition itself -- `daq_mode` and the DAQ rate `fast_sample_rate`
   -- is a machine fact: restating the era's value is inert, changing it is refused. The calibration
   conventions `calibration_mode` and `flux_output_per_radian` change only when the block also carries
   a non-empty `calibration_override_reason`, which the manifest records. An unknown key is a
@@ -893,9 +894,9 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   `flux_baseline_samples`, `allow_zero_fallback`. Every diagnostics manifest now records the effective
   processing (`vest_magnetics_processing_effective`, its `_fingerprint` and `_provenance`) and, under
   `configuration.vest_configuration`, every diagnostic's effective vest.yaml values with fingerprints,
-  the vest.yaml sha256 and the vaft version. History: until #1541 the workflow's own `config.yaml` carried the full legacy
+  the vest.yaml sha256 and the vaft version. History: the workflow's own `config.yaml` once carried the full legacy
   block and it *replaced* the era, running every shot from 46404 on through the slow-DAQ path; a legacy
-  block left in a deployed run config forced the same from 10-02 to 10-06 (#1731). Leave `vest: {}`
+  block left in a deployed run config forced the same from 2026-10-02 to 10-06. Leave `vest: {}`
   unless you are scanning, and check `vest_magnetics_processing_effective` when a product looks wrong.
 - **`stages` narrows what the worker runs and judges.** Omitted, every run requests `rule all`, the
   whole pipeline. `stages: [raw, diagnostics, eddy]` requests only those stages' products, plots and
@@ -904,8 +905,8 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   15 kA) then ends `completed` instead of failing every run until `gave_up`. `raw` is always in;
   a stage whose upstream is left out is refused at start-up. The worker writes the list into each
   run's config as `stages`, so a manual run can use the same key. This is a decision made before the
-  run; a stage that runs and declines a shot is #205's skip semantics.
-- **EFIT on a vacuum shot is a result (#205).** When the plasma current stays below the 15 kA cut
+  run; a stage that runs and declines a shot records that in its own product (next item).
+- **EFIT on a vacuum shot is a result.** When the plasma current stays below the 15 kA cut
   over the whole diagnostics window (the product stores `magnetics.ip.0` on the plasma-analysis
   grid, 0.26-0.36 s on the routine configuration, not the whole shot), the constraint step writes
   an `EFIT not applicable` product instead of failing; the reason quotes the `vaft.omas.shot_class` label, which does not decide (it reads
@@ -915,7 +916,7 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   `partial`, not retried. A shot whose current reaches 15 kA somewhere but at no selected
   instant still fails: the constraint window missed the discharge. So does one whose H-alpha saw a
   window while the current stayed low (possibly a dead Ip channel), and one whose plasma-current
-  Rogowski the diagnostics stage condemned (`magnetics.rogowski_coil.0.current.validity`, #1373):
+  Rogowski the diagnostics stage condemned (`magnetics.rogowski_coil.0.current.validity`):
   a dead sensor reads below the cut on every shot. Vacuum shots the worker gave up
   on before this change stay `gave_up`; `vaft pipeline-worker retry --shot N` runs them again.
   - Optional branches outside the stage chain (IMPA with `impa.enable: true`) are not scoped; they
@@ -951,7 +952,7 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
 
 4. **Run.** One `snakemake` process runs in this directory with `--keep-going --rerun-incomplete
    --scheduler greedy`. HSDS concurrency is the pipeline config's `hsds.concurrency`; replications of
-     one shot no longer race for its `master.h5` (#913, section 11).
+     one shot no longer race for its `master.h5` (section 11).
    - A manual run holding the directory lock makes the worker **busy**: it tries again next cycle
      and does not count an attempt.
    - The worker runs `--unlock` only when no live Snakemake process is working in the workflow
@@ -965,7 +966,7 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    | Shot state | Meaning |
    | --- | --- |
    | `completed` | Every declared product succeeded. |
-   | `partial` | Every product exists, but some are intentionally incomplete (a vacuum shot's EFIT, a no-output stability cell, …). Snakemake will not rebuild them, so they are not retried. A solver stage that finished `no_output` by design -- EFIT ran and no slice survived, CHEASE had nothing to refine or every slice failed, or the stage is switched off -- has its replication recorded `skipped`, so the shot's other stages stay published and the shot is not retried. `no_output` because the executable is missing, an input is missing or the stage errored still fails, and so does `no_output` over IDS an earlier run already published to the shot (retire those first). An eddy stage whose shot has a PF circuit that was never recorded (#1568) records `no_output` the same way, with its validation-plot manifest `empty`; inside `stages: [raw, diagnostics, eddy]` the shot is `partial`, and an unscoped run carries it through the constraint step as `EFIT not applicable: eddy produced no output: ...` (#205's carrier), so the shot is `partial` there too instead of being retried to `gave_up`. |
+   | `partial` | Every product exists, but some are intentionally incomplete (a vacuum shot's EFIT, a no-output stability cell, …). Snakemake will not rebuild them, so they are not retried. A solver stage that finished `no_output` by design -- EFIT ran and no slice survived, CHEASE had nothing to refine or every slice failed, or the stage is switched off -- has its replication recorded `skipped`, so the shot's other stages stay published and the shot is not retried. `no_output` because the executable is missing, an input is missing or the stage errored still fails, and so does `no_output` over IDS an earlier run already published to the shot (retire those first). An eddy stage whose shot has a PF circuit that was never recorded records `no_output` the same way, with its validation-plot manifest `empty`; inside `stages: [raw, diagnostics, eddy]` the shot is `partial`, and an unscoped run carries it through the constraint step as `EFIT not applicable: eddy produced no output: ...` (the not-applicable carrier), so the shot is `partial` there too instead of being retried to `gave_up`. |
    | `excluded` | The classifier, the raw preflight or an operator ruled the shot out. |
    | `failed` | A declared product is missing. The shot is retried on the next cycle, and Snakemake rebuilds only what is missing. |
    | `gave_up` | The shot has used `max_attempts` runs and waits for an operator. |
@@ -980,7 +981,7 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    - The EFIT k-file stage, re-run on the regenerated constraints, moves the shot's earlier
      k/g/a/m-files to `<shot's efit dir>/{kfile,gfile,afile,mfile}/superseded/<UTC stamp>/` (and
      what EFIT left in the run directory itself to `superseded/<stamp>/`) so they are never run or
-     collected as this run's (#1786). That record is bounded: only the newest superseded
+     collected as this run's. That record is bounded: only the newest superseded
      generation is kept per shot (`generate_kfile.py --keep-superseded N`, default 1, which never
      deletes the tree just moved aside); older stamps are deleted and listed in the stage's log
      (`Pruned ... superseded generation(s)`). A generation is 22-28 MB per shot, ~100 GB over a
@@ -1051,15 +1052,15 @@ vaft pipeline-worker run --once              # a single cycle, e.g. to test a co
   reused as is.
 - **The watermark assumes VEST numbers shots in acquisition order.** A row inserted later below the
   watermark is not detected.
-- **Monitoring.** Monitoring code (#1347) reads the same file through
+- **Monitoring.** Monitoring code reads the same file through
   `vaft.database.worker.read_worker_state`.
 
 ---
 
-## 11. One writer per shot master (#913)
+## 11. One writer per shot master
 
 Every HSDS write of a shot replaces its `master.h5` with the stored master plus the write's own IDS.
-Before #913 two overlapping writes of one shot both read the old master, and whichever replaced it
+Without a lock, two overlapping writes of one shot both read the old master, and whichever replaced it
 last dropped the other's links. On 2026-09-17 this hid six IDS of shots 39241 and 39620 behind
 replication records that said `passed: true`.
 

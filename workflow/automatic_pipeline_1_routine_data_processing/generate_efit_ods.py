@@ -54,12 +54,12 @@ def efit_collection_parameters(
 
     `mapping_source_revision` is the revision of the m-file mapper that built
     this product. It is also written into the per-slice parser cache, but that
-    cache stays on the local product (#642), and a revision read back from the
+    cache stays on the local product (it does not replicate), and a revision read back from the
     reader's own constant would describe the reader rather than the run -- so
-    it is recorded here, where it replicates (#728).
+    it is recorded here, where it replicates.
 
     `efit_preset` is the record the k-file stage wrote when a named EFIT
-    configuration built the k-files (#891).  The k-file stage writes one on
+    configuration built the k-files.  The k-file stage writes one on
     every run since 2026-10-01; a product from before presets existed has none,
     and then the payload is exactly what it was.  A record also
     states the uncertainty model the constraints were fitted under, which is
@@ -144,7 +144,7 @@ def main() -> int:
     kfiles = tuple(Path(line) for line in kfile_manifest_paths(manifest_text))
     preset = _preset_record(args.kfile_manifest)
     if kfile_manifest_not_applicable_reason(manifest_text) is not None:
-        # EFIT does not apply to the shot (#205): nothing was submitted, so
+        # EFIT does not apply to the shot: nothing was submitted, so
         # nothing is collected; the manifest says no_output with the reason.
         result = None
     else:
@@ -164,8 +164,8 @@ def main() -> int:
         # serialized string. Writing it as a nested tree looks right locally and
         # is dropped entirely on the way through the Access Layer -- 4096 paths
         # of collection provenance vanished between the FileDB product and its
-        # HSDS replica before this was a string (issue #380). CHEASE has always
-        # serialized this field; EFIT now does the same.
+        # HSDS replica while it was a tree. CHEASE serializes this field the
+        # same way.
         #
         # Arbitrary case and path keys stay inside the JSON rather than becoming
         # ODS path components: a numeric label such as `039915.00316` is not a

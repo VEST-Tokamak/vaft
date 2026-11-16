@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build (or re-pin) a regeneration environment on the cluster (#2147). Site settings: site.sh.
+# Build (or re-pin) a regeneration environment on the cluster. Site settings: site.sh.
 #   PIN=<develop SHA or ref> bash $REGEN_ROOT/setup_env.sh
 #   PIN=<sha> PIN_BRANCH=ops/<name> ...   a pin that is not on develop: a reviewed ops branch
 #                                          (e.g. a frozen pin plus cherry-picked fixes)
@@ -16,7 +16,7 @@ PIN=${PIN:?set PIN=<develop sha or ref>}
 PY=${REGEN_PYTHON:?set REGEN_PYTHON (a Python 3.14 with uv beside it)}
 UV=$(dirname "$PY")/uv
 REPO=$ROOT/repo
-# Versions matched to the production server's environment (the #2191 qualification env); omas is the
+# Versions matched to the production server's environment (the env the consolidation was qualified in on raw data); omas is the
 # pyproject pin (==0.95.2), not vaft-ml's 0.94.2.
 PINS="numpy==2.5.3 scipy==1.18.1 snakemake==9.27.0 snakemake-executor-plugin-cluster-generic"
 
