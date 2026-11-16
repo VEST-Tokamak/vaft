@@ -1,4 +1,4 @@
-"""Research-infrastructure concept diagrams (#1636, #1638, #1640, #1641, #1643, #1645): topology, not pixels."""
+"""Research-infrastructure concept diagrams: topology, not pixels."""
 
 import re
 
@@ -178,7 +178,7 @@ def test_ad_hoc_links_exist_only_in_the_fragmented_figures():
                        if isinstance(i, (Arrow, Polyline))), name
 
 
-# -- #1636 experimental research infrastructure -------------------------------------------------------------------
+# -- experimental research infrastructure ----------------------------------------------------------------------
 
 def test_fragmented_research_is_silos_of_ad_hoc_paths_without_a_hub():
     d = vaft.diagram.experimental_research_infrastructure("fragmented")
@@ -215,7 +215,7 @@ def test_integrated_research_meets_in_three_distinct_capabilities():
         "fragmented").model["sources"])
 
 
-# -- #1638 scientific credibility --------------------------------------------------------------------------------
+# -- scientific credibility ------------------------------------------------------------------------------------
 
 def test_unqualified_inference_loses_the_named_evidence_at_plausible_steps():
     d = vaft.diagram.scientific_credibility("fragmented")
@@ -260,7 +260,7 @@ def test_the_credibility_references_sit_in_the_notes():
         assert "[" + source + "]" in notes
 
 
-# -- #1640 research modality and portability ---------------------------------------------------------------------
+# -- research modality and portability -------------------------------------------------------------------------
 
 def test_locked_in_software_copies_the_science_into_every_modality():
     d = vaft.diagram.research_modality_architecture("fragmented")
@@ -296,7 +296,7 @@ def test_interfaces_are_siblings_over_one_core_and_future_bindings_are_not_inter
             "machine_mapping"} == set(d.model["core"])
 
 
-# -- #1641 scientific representation ------------------------------------------------------------------------------
+# -- scientific representation ---------------------------------------------------------------------------------
 
 def test_fragmented_representation_separates_four_layers_in_every_holder():
     d = vaft.diagram.scientific_representation("fragmented")
@@ -330,7 +330,7 @@ def test_the_layered_model_keeps_meaning_names_formats_and_storage_apart():
     assert d.model["format_examples"] == ("HDF5",)
 
 
-# -- #1643 the research ecosystem --------------------------------------------------------------------------------
+# -- the research ecosystem ------------------------------------------------------------------------------------
 
 def test_the_detailed_ecosystem_connects_roles_activities_states_and_contexts():
     d = vaft.diagram.fusion_research_ecosystem()
@@ -373,7 +373,7 @@ def test_the_presentation_ecosystem_is_a_projection_of_the_detailed_one():
     assert slide.model["reference"] == "VEST" and slide.scene.role("reference")
 
 
-# -- #1645 scientific ownership ----------------------------------------------------------------------------------
+# -- scientific ownership --------------------------------------------------------------------------------------
 
 def test_ownership_bands_and_responsibility_boundaries():
     d = vaft.diagram.scientific_ownership_architecture()

@@ -1,6 +1,6 @@
-"""Slide/poster formats, font fallback and the norm/panel/export figure options (issue #1421).
+"""Slide/poster formats, font fallback and the norm/panel/export figure options.
 
-The follow-up to #1483: what the conference figures need on top of the
+What the conference figures need on top of the
 library part -- presentation formats for a projector and a poster, a font
 stack that degrades quietly on a host without Helvetica, and the remaining
 reproducible options from the issue (colour normalisation, panel marks,

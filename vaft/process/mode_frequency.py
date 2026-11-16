@@ -3,7 +3,7 @@
 A magnetic perturbation with toroidal mode number ``n`` that is carried by the
 plasma at its resonant surface ``|q| = |m/n|`` is seen in the laboratory frame
 at ``f = n f_phi``, where ``f_phi`` is the toroidal rotation frequency of that
-surface (issue #460).  The functions here turn an equilibrium (which locates
+surface.  The functions here turn an equilibrium (which locates
 the surface) and a toroidal-rotation profile (which says how fast it turns)
 into that prediction, as a time track that any fluctuation view -- a Mirnov,
 soft X-ray, ECE or reflectometry spectrogram -- can draw over its own map.
@@ -325,7 +325,7 @@ def _rotation_slices(ods: Any, ion_index: int) -> list[_RotationSlice]:
                     continue
                 if coordinate == "rho_tor_norm" and _is_proxy_grid(ods, base, grid):
                     # The sqrt(psi_N) proxy older files wrote under this name
-                    # (#276) is a poloidal radius: it is read at the root's
+                    # is a poloidal radius: it is read at the root's
                     # rho_pol_norm, never at its rho_tor_norm.
                     coordinate, proxy = "rho_pol_norm", True
                 else:

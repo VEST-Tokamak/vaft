@@ -1,4 +1,4 @@
-"""Volume-based ballooning normalisations (#1637): exact reduction to the s-alpha (CHT) definitions."""
+"""Volume-based ballooning normalisations: exact reduction to the s-alpha (CHT) definitions."""
 
 import numpy as np
 import pytest

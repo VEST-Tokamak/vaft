@@ -376,6 +376,17 @@ def test_tglf_notebook_explains_itself_without_a_run(
     assert len(namespace["parameters"]) > 100
     assert namespace["TI_TE_AT_HALF_RADIUS"] == pytest.approx(0.0866, abs=5e-4)
 
+    # Section 11 reads a committed snapshot, so its population verdict is offline too:
+    # the answer follows T_i (none contained at 0.17, nearly all at T_i = T_e for the
+    # DIII-D-inclusive SAT3 family), and the MAST-U-only family crosses data edges.
+    table = namespace["population_table"]
+    best = "sat3_em_d3d+mastu+nstx_azf-1"
+    assert table("primary", "ratio_0.17")["contained_surfaces"].sum() == 0
+    assert table("primary", "ratio_1").loc[best, "contained_surfaces"] == 180
+    assert table("primary", "ratio_1").loc[best, "surfaces_past_data_edge"] == 0
+    assert table("primary", "ratio_1").loc["sat3_em_mastu_azf-1", "surfaces_past_data_edge"] > 100
+    assert (namespace["POPULATION"]["clip_only_surfaces"] >= 0).all()
+
     printed = capsys.readouterr().out
     assert "GACODEHOME" in printed
     assert "TURBULENTTRANSPORTHOME" in printed

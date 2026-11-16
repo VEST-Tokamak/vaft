@@ -1,4 +1,4 @@
-"""Layout contract: overlay, subplots, grouped (issue #260).
+"""Layout contract: overlay, subplots, grouped.
 
 Layout arranges an already-resolved channel set and never changes it.  The
 figure's structure -- return type, axes count and order -- is a function of the
@@ -166,7 +166,7 @@ def test_grouped_applies_to_multi_channel_plots_only(shots):
 
 def _with_impa(ods):
     # Channel 70 of the old sample was an IMPA probe; IMPA is its own stage
-    # since #305, and composed onto 65 poloidal probes IMPA Bz 03 is index 67.
+    # and composed onto 65 poloidal probes IMPA Bz 03 is index 67.
     from _synthetic_inputs import make_impa_composed
 
     return make_impa_composed(ods)
@@ -213,7 +213,7 @@ def test_a_composite_member_cannot_take_a_layout(shots):
 
 
 # ---------------------------------------------------------------------------
-# Overviews draw the members the input holds, in declared order (#476)
+# Overviews draw the members the input holds, in declared order
 # ---------------------------------------------------------------------------
 
 def test_the_diagnostics_overview_draws_only_the_members_the_shot_holds(shots):

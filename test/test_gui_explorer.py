@@ -1,4 +1,4 @@
-"""The discovery-driven plot explorer (#1172): availability, labels, search; never served."""
+"""The discovery-driven plot explorer: availability, labels, search; never served."""
 
 from __future__ import annotations
 

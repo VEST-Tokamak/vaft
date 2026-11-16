@@ -369,10 +369,10 @@ def test_signature_markers_mean_what_they_say():
 #: Fences that run everywhere except on native Windows, where a platform
 #: limitation outside VAFT stops them.  Keyed by (page, a line the fence's
 #: source contains) rather than by line number: prose added above a fence
-#: (the #1090 README diagrams moved this one from 261 to 276) must not turn
+#: (a README diagram once moved this one from 261 to 276) must not turn
 #: a documented limitation back into a red leg.  The entry is the limitation,
 #: so a fix upstream can retire it.
-#: Empty since the README rewrite (#1777) dropped the README.ko.md
+#: Empty since the README rewrite dropped the README.ko.md
 #: ``vaft.imas.save(ods, "./shot")`` fence, the one fence imas_core could not
 #: close on native Windows (al_close_pulse, ALBackendException; the 0.6.2 notes);
 #: the imas.save fences that remain (Database.md, Data_structures.md,

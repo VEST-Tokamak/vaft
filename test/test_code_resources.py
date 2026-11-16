@@ -1,4 +1,4 @@
-"""The in-process memory guard (#1146): RSS, the effective budget, clean stop.
+"""The in-process memory guard: RSS, the effective budget, clean stop.
 
 Budget resolution is tested against fake ``SLURM_*`` environments and fake
 cgroup trees written under ``tmp_path``, never against the host's own limits.

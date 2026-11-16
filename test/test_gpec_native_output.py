@@ -2,7 +2,7 @@
 
 These live in `vaft.code.gpec` (`DconOutput` for DCON; `Pest3MatchingOutput`
 shared by RDCON/STRIDE) and are what `vaft.machine_mapping.mhd_linear` reads
-from (see issue #170) -- exercised directly here, independent of the
+from -- exercised directly here, independent of the
 IDS-populating layer, so a JSON round-trip or netCDF-reading regression is
 caught at the source.
 """
@@ -287,7 +287,7 @@ def test_read_pest3_matching_output_rejects_unknown_solver(tmp_path):
         read_pest3_matching_output(tmp_path, solver="dcon", mode=1)
 
 
-# --- regressions found in review of the #170 implementation --------------------
+# --- regressions found in review of the native-output reader --------------------
 
 def test_eigenvalues_are_selected_by_mode_label_not_array_position():
     """The netCDF's `mode` coordinate labels the eigenvalues; DCON's

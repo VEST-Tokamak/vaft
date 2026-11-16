@@ -1,4 +1,4 @@
-"""Local MHD stability criteria evaluated from one reconstructed equilibrium (#1902).
+"""Local MHD stability criteria evaluated from one reconstructed equilibrium.
 
 Mercier's ideal-interchange index ``D_I`` and the Glasser-Greene-Johnson
 resistive-interchange index ``D_R`` with its geodesic coefficient ``H``, from
@@ -493,7 +493,7 @@ def interchange_comparison(profile: InterchangeProfile, psi_n: Sequence[float], 
 
 @dataclass(frozen=True)
 class SurfaceCurvature:
-    """Field-line curvature and local shear along flux surfaces (#1902)."""
+    """Field-line curvature and local shear along flux surfaces."""
 
     #: Normalized flux of each traced surface [-].
     psi_n: np.ndarray
@@ -836,7 +836,7 @@ def curvature_map(
 
 @dataclass(frozen=True)
 class SAlphaProfile:
-    """Per-surface s-alpha ballooning coordinates and the model's first-stability boundary (#1902)."""
+    """Per-surface s-alpha ballooning coordinates and the model's first-stability boundary."""
 
     psi_n: np.ndarray
     #: Volume-radius shear, ``d ln q / d ln r_V`` [-].
@@ -925,7 +925,7 @@ def s_alpha_profile(
        (:func:`mercier_ggj_profile`); the enclosed volume from the traced
        contour by Pappus' theorem.
     2. ``s = shear_from_volume`` and ``alpha = ballooning_alpha_from_volume``
-       (#1720 normalisation) with per-radian flux oriented outward.
+       (volume-radius normalisation) with per-radian flux oriented outward.
     3. The first and second stability boundaries at each ``s`` from
        :func:`vaft.formula.stability.s_alpha_marginal_alpha`.
 

@@ -1,4 +1,4 @@
-"""The canonical API ownership matrix is true of the code (#2162 deliverable 12A).
+"""The canonical API ownership matrix is true of the code.
 
 ``docs/architecture/consolidation/api_ownership.json`` is curated by hand; this
 test is what keeps it honest.  For every row it checks that:

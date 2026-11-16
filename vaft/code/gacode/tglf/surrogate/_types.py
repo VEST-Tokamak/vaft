@@ -9,11 +9,12 @@ choose to look at.  The types here exist to make that structural: a
 :func:`~vaft.code.gacode.tglf.surrogate.inference.run_surrogate` refuses by default
 when the audit says the input is outside the model's training distribution.
 
-One honest limitation is recorded rather than papered over.  The true per-input
-training bounds live inside the upstream Julia ``.bson`` artifacts; the ONNX
-distribution ships only the normalisation moments (``xm``/``xsigma``).  So the measure
-here is a standard-deviation distance, not a min/max containment test, and
-:attr:`DomainAudit.bounds_available` says so on every audit.
+Two measures are kept apart.  The ONNX distribution ships the normalisation moments
+(``xm``/``xsigma``), so every audit carries a standard-deviation distance.  The true
+per-input training bounds -- upstream's data range, clipped at ``xm +/- 3.3 xsigma``
+-- live only inside the upstream Julia ``.bson`` artifacts; when they have been exported beside the ensemble as ``xbounds.txt``
+(``workflow/tglf_nn/export_training_bounds.jl``, #2274) the audit also tests
+containment, and :attr:`DomainAudit.bounds_available` says which kind of audit it is.
 """
 
 from __future__ import annotations
@@ -27,6 +28,12 @@ import numpy as np
 #: to infer the statistic from the number.
 DOMAIN_MEASURE = "standard-deviation distance from the model's training mean (xm/xsigma)"
 
+#: Upstream stores its ``xbounds`` as the training data range clipped at
+#: ``xm +/- 3.3 xsigma`` (measured on all 14 ONNX families of TurbulentTransport.jl
+#: 1.2.0: 46-89 % of the edges sit at exactly |z| = 3.3). An edge inside that clip is
+#: where the training data actually ended; an edge at it says only "3.3 sigma".
+UPSTREAM_BOUND_CLIP_SIGMA = 3.3
+
 #: Distance beyond which an input is reported as outside the training distribution.
 #: A proxy, not a bound -- see the module docstring.
 DEFAULT_DOMAIN_THRESHOLD = 3.0
@@ -34,6 +41,7 @@ DEFAULT_DOMAIN_THRESHOLD = 3.0
 __all__ = [
     "DEFAULT_DOMAIN_THRESHOLD",
     "DOMAIN_MEASURE",
+    "UPSTREAM_BOUND_CLIP_SIGMA",
     "DomainAudit",
     "ModelContractError",
     "ModelIdentity",
@@ -138,6 +146,10 @@ class SurrogateMetadata:
     xsigma: np.ndarray
     ym: np.ndarray
     ysigma: np.ndarray
+    #: Training min/max per input, shape ``(len(xnames), 2)``, in the same space as the
+    #: features (log10 for ``*_log10`` inputs); ``None`` when no ``xbounds.txt`` sits
+    #: beside the ensemble, which is every upstream ONNX distribution.
+    xbounds: Optional[np.ndarray] = None
 
     def __post_init__(self) -> None:
         for label, names, moments in (
@@ -155,6 +167,18 @@ class SurrogateMetadata:
                 "an input normalisation sigma is zero, so no z-score is defined for "
                 "that channel; the model directory is unusable for a domain audit"
             )
+        if self.xbounds is not None:
+            bounds = np.asarray(self.xbounds, dtype=float)
+            if bounds.shape != (len(self.xnames), 2):
+                raise ModelContractError(
+                    f"xbounds has shape {bounds.shape} for {len(self.xnames)} inputs; "
+                    f"expected one 'min max' row per input"
+                )
+            if not np.all(np.isfinite(bounds)) or np.any(bounds[:, 0] > bounds[:, 1]):
+                raise ModelContractError(
+                    "xbounds holds a non-finite entry or a min above its max; the "
+                    "training range cannot be read from it"
+                )
 
     @property
     def requires_base_model_outputs(self) -> tuple[str, ...]:
@@ -184,9 +208,25 @@ class DomainAudit:
         rather than refused: the native run writes the same default, and a surrogate
         that rejected what TGLF accepts would no longer be a surrogate of it.
     bounds_available
-        False for every ONNX artifact upstream publishes.  True min/max bounds exist
-        only inside the Julia ``.bson``, so :attr:`z_scores` is a proxy for containment
-        and this flag is what stops it being read as one.
+        Whether upstream's training bounds were available (an ``xbounds.txt`` exported
+        from the Julia ``.bson``: the data range, clipped at ``xm +/- 3.3 xsigma``).  False for the ONNX distribution as published; then
+        :attr:`z_scores` is only a proxy for containment and this flag is what stops it
+        being read as one.
+    bound_violations
+        Channels outside the training bounds, furthest first; empty when the bounds
+        are unavailable.
+    bound_positions
+        Per input channel, ``(x - min) / (max - min)``: inside the training range on
+        ``[0, 1]``, below it negative, above it beyond one.  Empty without bounds.
+    bound_violations_at_data_edge
+        The subset of :attr:`bound_violations` whose crossed edge lies inside upstream's
+        ``xm +/- 3.3 xsigma`` clip (:data:`UPSTREAM_BOUND_CLIP_SIGMA`): the input is past
+        where the training *data* ended, which the z-score alone cannot see.  The other
+        violations crossed the clip itself and restate the z-score at 3.3 sigma.
+    bounds_inconsistent
+        Inputs whose training mean ``xm`` lies outside their own bounds -- the bounds
+        and the moments then describe different data.  Their bounds are not used for
+        containment; the z-score still applies.
     """
 
     model: str
@@ -197,17 +237,46 @@ class DomainAudit:
     assumed: tuple[str, ...] = ()
     measure: str = DOMAIN_MEASURE
     bounds_available: bool = False
+    bound_violations: tuple[str, ...] = ()
+    bound_positions: Mapping[str, float] = field(default_factory=dict)
+    bound_violations_at_data_edge: tuple[str, ...] = ()
+    bounds_inconsistent: tuple[str, ...] = ()
 
     @property
     def in_domain(self) -> bool:
+        """Every input within :attr:`threshold` standard deviations of the training mean."""
         return not self.violations
+
+    @property
+    def contained(self) -> Optional[bool]:
+        """Every input inside the training bounds; ``None`` when the bounds are unavailable."""
+        return None if not self.bounds_available else not self.bound_violations
+
+    @property
+    def applicable(self) -> bool:
+        """In domain by the z-score and, where the bounds are known, inside them.
+
+        This is what a prediction is qualified on: either test failing is enough to
+        refuse, and an unknown containment does not count against the input.
+        """
+        return self.in_domain and self.contained is not False
 
     def summary(self) -> str:
         """One line a refusal message or a log can carry verbatim."""
+        bounds = ""
+        if self.bound_violations:
+            outside = ", ".join(
+                f"{name} at {self.bound_positions[name]:+.2f} of range"
+                for name in self.bound_violations[:4]
+            )
+            more = "" if len(self.bound_violations) <= 4 else f" and {len(self.bound_violations) - 4} more"
+            bounds = f"; {len(self.bound_violations)} outside the training range ({outside}{more})"
+        elif self.bounds_available:
+            bounds = "; inside the training range on every input"
         if self.in_domain:
             return (
                 f"{self.model}: within {self.threshold:g} sigma on every input "
-                f"(worst |z| = {self.max_abs_z:.2f})"
+                f"(worst |z| = {self.max_abs_z:.2f}){bounds}"
             )
         worst = ", ".join(
             f"{name} z={self.z_scores[name]:+.1f}" for name in self.violations[:4]
@@ -215,7 +284,7 @@ class DomainAudit:
         more = "" if len(self.violations) <= 4 else f" and {len(self.violations) - 4} more"
         return (
             f"{self.model}: {len(self.violations)} of {len(self.z_scores)} inputs beyond "
-            f"{self.threshold:g} sigma ({worst}{more})"
+            f"{self.threshold:g} sigma ({worst}{more}){bounds}"
         )
 
 
@@ -242,7 +311,7 @@ class SurrogatePrediction:
     @property
     def qualified(self) -> bool:
         """Whether this prediction rests on an input the model was trained for."""
-        return self.domain.in_domain
+        return self.domain.applicable
 
     def relative_spread(self) -> dict[str, float]:
         """Ensemble spread as a fraction of the mean, per channel.

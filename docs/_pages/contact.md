@@ -34,7 +34,7 @@ Answer the prompts with the public reader account (username `reader`, password `
 
 ```text
 Configuring HSDS credentials in /home/you/.hscfg
-Server endpoint: http://147.46.36.244:5101
+Server endpoint: <endpoint sent with your account>
 Username: reader
 Password (input hidden, Enter keeps it):
 API key (input hidden, Enter keeps it):

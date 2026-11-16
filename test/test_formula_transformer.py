@@ -1,4 +1,4 @@
-"""Romero's exact plasma-transformer identities (#781, child A).
+"""Romero's exact plasma-transformer identities.
 
 Every identity here is exact, so the tests pin them against each other and
 against the one analytic equilibrium that has a closed form -- a uniform
