@@ -1,6 +1,6 @@
 """`core_sources` IDS mapping for NUBEAM results.
 
-Architecture (issue #170, and the precedent in :mod:`vaft.machine_mapping.mhd_linear`):
+Architecture (following the precedent of :mod:`vaft.machine_mapping.mhd_linear`):
 this module is the IDS-populating layer only. It never reopens a NUBEAM output
 file -- it reads the solver-native container owned by :mod:`vaft.code.nubeam`
 and copies across only what has a defensible home in IMAS.

@@ -1,4 +1,4 @@
-"""Field-line tracing results in the IDS the owner chose for them (issue #1099).
+"""Field-line tracing results in the IDS the owner chose for them.
 
 The Data Dictionary has no home for field-line tracing. Searching 3.41 for
 one turned up three near misses and no match, so rather than force the
@@ -22,7 +22,7 @@ rather than approximate it.
 
 :func:`write_b_field_lines` is written against the *quantity*, not against
 FLARE: :func:`vaft.process.equilibrium.connection_length_map`, the VEST
-startup tracer (issue #783), produces the same thing on the same kind of grid
+startup tracer, produces the same thing on the same kind of grid
 and writes through it unchanged. That is the structure's own subject -- its
 siblings are Townsend fields and prefill pressure -- so a breakdown study is
 the case it fits best, and an RMP footprint is the one it is being borrowed

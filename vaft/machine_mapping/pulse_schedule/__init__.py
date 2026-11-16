@@ -1,4 +1,4 @@
-"""``pulse_schedule`` for VEST, from the operation ShotLog (#995).
+"""``pulse_schedule`` for VEST, from the operation ShotLog.
 
 The IDS names the package, as every mapping in ``vaft.machine_mapping`` is
 named for the IDS it fills. Its source is the ShotLog -- the operators' monthly
