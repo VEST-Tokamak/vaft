@@ -1,4 +1,4 @@
-"""The RDCON vs STRIDE Δ′ benchmark rules (#143)."""
+"""The RDCON vs STRIDE Δ′ benchmark rules."""
 
 from __future__ import annotations
 

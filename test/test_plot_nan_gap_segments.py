@@ -1,4 +1,4 @@
-"""A polyline broken by NaN is drawn as separate runs, whatever rewrites line data (#1314).
+"""A polyline broken by NaN is drawn as separate runs, whatever rewrites line data.
 
 The camera overlays mark a field-line sample behind the camera or outside the
 lens model as NaN.  A ``Line2D`` breaks at NaN only while the NaN is still in

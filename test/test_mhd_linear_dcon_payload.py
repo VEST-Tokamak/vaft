@@ -1,6 +1,6 @@
-"""DCON's stability payload in mhd_linear.code.parameters (#940), on real GPEC output.
+"""DCON's stability payload in mhd_linear.code.parameters, on real GPEC output.
 
-The fixtures are the #792 reference: real DCON (GPEC e68d7ac2) for shot 39915 at
+The fixtures are the DCON reference case: real DCON (GPEC e68d7ac2) for shot 39915 at
 319 ms, n=1, with ``bal_flag=t``, full edge and peak-dW truncated.
 """
 
@@ -90,7 +90,7 @@ def test_malformed_fragments_warn_instead_of_raising():
         assert extract_dcon_stability(ods) == []
 
 
-# --- cold review of #1598: duplicates, evaluation flags, stable keys, malformed input ---------
+# --- duplicates, evaluation flags, stable keys, malformed input ---------------------------------
 
 import dataclasses  # noqa: E402
 

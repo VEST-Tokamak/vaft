@@ -43,9 +43,9 @@ def test_magnetics_mapping_preserves_raw_mirnov_voltage():
     voltage_data = np.asarray(get_path(payload, "magnetics.b_field_pol_probe.0.voltage.data"))
 
     # Shot 44740 is >= FLUCTUATION_MIRNOV_FIRST_SHOT, so the 30-channel
-    # outboard fluctuation array (issue #155) is appended after the equilibrium
+    # outboard fluctuation array is appended after the equilibrium
     # probes. It is also past the bound on fields 207/209/241, and field 171 is
-    # published once, as equilibrium probe 36 (#825): 64 + 0 + 30.
+    # published once, as equilibrium probe 36: 64 + 0 + 30.
     assert len(get_path(payload, "magnetics.b_field_pol_probe")) == 94
     assert field_data.size == mapped_time.size
     assert voltage_time.size == NATIVE_SAMPLES
@@ -55,7 +55,7 @@ def test_magnetics_mapping_preserves_raw_mirnov_voltage():
     # No phase-reference entry survives this shot. Fields 207/209/241 are
     # bounded at 35520 and are absent from the 44740 archive; field 171 *is* in
     # that archive, and it is published exactly once -- as equilibrium probe 36,
-    # which the logs class it as (issues #724, #825).
+    # which the logs class it as.
     count = len(get_path(payload, "magnetics.b_field_pol_probe"))
     identifiers = [
         str(get_path(payload, f"magnetics.b_field_pol_probe.{index}.identifier"))
@@ -87,7 +87,7 @@ def test_magnetics_mapping_preserves_raw_mirnov_voltage():
     assert get_path(payload, "magnetics.b_field_pol_probe.64.identifier") == "OutMirnov_45_L1-01"
     assert get_path(payload, "magnetics.b_field_pol_probe.64.position.z") == 0.4
     # The identifier says 45, which is the VEST clock angle (1:30). Its IMAS
-    # toroidal angle is the reflection of that, 315 deg -- issue #718.
+    # toroidal angle is the reflection of that, 315 deg.
     assert np.isclose(
         get_path(payload, "magnetics.b_field_pol_probe.64.position.phi"), np.radians(315.0)
     )
@@ -130,7 +130,7 @@ def test_fluctuation_mirnov_omitted_before_first_operational_shot():
 
     # The un-gated inventory static: 64 equilibrium probes and the three
     # phase references whose fields no equilibrium probe reads (field 171 is
-    # probe 36, #825); no fluctuation array before 44156.
+    # probe 36); no fluctuation array before 44156.
     assert len(get_path(payload, "magnetics.b_field_pol_probe")) == 67
 
 
@@ -275,7 +275,7 @@ def test_mirnov_plot_helpers_return_figures(monkeypatch, tmp_path):
 
 
 def test_an_unnamed_channel_gets_a_positional_label_not_its_ids_path():
-    """Issue #118: the fallback used to be unreachable.
+    """Regression guard for #118: the fallback used to be unreachable.
 
     Reading a missing `name` returned an auto-vivified placeholder rather than
     raising, and `str()` of one is the IDS path -- so an unnamed channel was
@@ -296,7 +296,7 @@ def test_an_unnamed_channel_gets_a_positional_label_not_its_ids_path():
 
 
 def test_counting_an_absent_probe_group_returns_zero_without_creating_it():
-    """The count is unchanged; only the side effect is gone (issue #118)."""
+    """The count is unchanged; only the side effect is gone."""
     from omas import ODS
 
     from vaft.plot.mirnov import _channel_count

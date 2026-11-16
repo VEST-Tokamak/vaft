@@ -1,4 +1,4 @@
-"""The startup tutorial's plots (issue #888).
+"""The startup tutorial's plots.
 
 ECH launched power and Rogowski currents as line plots, every spectral line at
 once, the vacuum startup proxies against time (several shots overlaid), the

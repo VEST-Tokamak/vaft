@@ -255,7 +255,7 @@ def test_the_measured_mu_i_reaches_the_closures_on_their_own_convention():
         if not np.isfinite(measured):
             continue
         # The packaged loop and the reconstruction are both paramagnetic,
-        # negative in the volume convention (#1196), and that agreement is only
+        # negative in the volume convention, and that agreement is only
         # readable because both are on one convention.
         assert measured < 0 and row["mui"] < 0
         # The two closures must differ by exactly what their two mu_i differ by,
@@ -330,7 +330,7 @@ def test_one_report_publishes_one_mu_i_convention():
     )
     # Both are the volume convention, so both are comparable with the
     # equilibrium's own -- which is the point of publishing them. Loop and
-    # reconstruction are both paramagnetic (#1196).
+    # reconstruction are both paramagnetic.
     assert energy < 0 and equilibrium < 0
 
 
@@ -338,7 +338,7 @@ def test_the_measured_conversion_takes_its_magnitude_from_F_and_its_sign_from_th
     """Each stored field contributes only what it is good for.
 
     `vacuum_toroidal_field.b0` is uniformly positive across the history but its
-    magnitude drifts up to 39% within a single shot (#325). `profiles_1d.f` is
+    magnitude drifts up to 39% within a single shot. `profiles_1d.f` is
     the reverse: a stable magnitude with a sign that differs between sources
     for the same shot. So the conversion takes |F_boundary| for the magnitude
     and `VEST_TOROIDAL_FIELD_SIGN` for the direction, and the measurement's own
@@ -382,7 +382,7 @@ def test_the_measured_conversion_takes_its_magnitude_from_F_and_its_sign_from_th
         measured_values.append(measured)
         checked += 1
     assert checked >= 8
-    # A paramagnetic loop gives a negative volume mu_i (#1196), and the trend
+    # A paramagnetic loop gives a negative volume mu_i, and the trend
     # b0's drift was hiding is monotone across this discharge.
     assert max(measured_values) < 0
     assert abs(measured_values[-1]) > 1.7 * abs(measured_values[0])
@@ -566,8 +566,8 @@ def test_the_diamagnetic_beta_p_negation_is_constrained():
         row["s_1"], row["s_2"], -entry["mui_measured"], row["rt"] / entry["R_0"]
     )
     # This is the assertion that catches a dropped sign. On this slice the
-    # published value is +0.174 (+1.440 before #1196 corrected the loop's
-    # sign); without the negation it is +1.440 -- still positive, so the sign
+    # published value is +0.174 (+1.440 before the loop's sign was
+    # corrected); without the negation it is +1.440 -- still positive, so the sign
     # check below cannot tell the two apart.
     assert entry["beta_p_diamagnetic"] == pytest.approx(expected, rel=1e-9)
     # A physical floor only: an ohmic, paramagnetic measurement still gives a
@@ -589,7 +589,7 @@ def test_a_slice_without_profiles_still_converts_the_measured_flux_from_tf():
     """The measured route exists for callers with a boundary and a flux loop but
     no p(psi)/F(psi). Requiring F_boundary made it unreachable for them unless
     the slice carried an axis toroidal field, and then it converted with the
-    axis field rather than the vacuum one (#862). The tf IDS measures the same vacuum R*B_phi from the coil current,
+    axis field rather than the vacuum one. The tf IDS measures the same vacuum R*B_phi from the coil current,
     so the answer must match the one F gave, not merely be finite."""
     ods = sample_ods()
     with_f = vaft.omas.compute_virial_equilibrium_quantities_ods(copy.deepcopy(ods))
@@ -612,8 +612,8 @@ def test_a_slice_without_profiles_still_converts_the_measured_flux_from_tf():
 def test_a_slice_without_profiles_does_not_report_a_zero_volume_mu_i():
     """With no profiles_1d.f the wrapper keeps a constant F from the magnetic
     axis so the field grids stay usable, and every mu_i built from that F is
-    zero by construction. A finite zero would pass for an answer (#36 finding
-    2), so it must be NaN."""
+    zero by construction. A finite zero would pass for an answer, so it
+    must be NaN."""
     rows = vaft.omas.compute_virial_equilibrium_quantities_ods(
         _without_profiles(sample_ods())
     )

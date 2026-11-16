@@ -292,7 +292,7 @@ def test_the_reducers_stay_inside_the_submodule():
     assert code.gpec.torque_profile is gpec.torque_profile
 
 
-# -------------------------------------------------------------- ownership (#1883)
+# -------------------------------------------------------------- ownership
 
 _READER_NAMES = (
     "PROFILE_VARIABLES", "TORQUE_GRIDS", "TORQUE_LONG_NAME", "TORQUE_METHODS", "TORQUE_QUANTITIES",
@@ -319,7 +319,7 @@ def test_one_reader_implementation_behind_every_import_path():
 
 
 def test_the_code_root_gains_no_unqualified_reducer():
-    """torque_profile/energy_profile stay GPEC-qualified (#1883)."""
+    """torque_profile/energy_profile stay GPEC-qualified."""
     import vaft.code
 
     for name in ("torque_profile", "energy_profile"):

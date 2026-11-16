@@ -1,4 +1,4 @@
-"""Rendering must stay inside ``vaft.plot`` (issue #63 acceptance criterion).
+"""Rendering must stay inside ``vaft.plot``.
 
 Only ``vaft.plot`` may import ``matplotlib.pyplot``.  Other namespaces build the
 typed view models and delegate.  ``matplotlib.path.Path`` is geometry, not
@@ -14,7 +14,7 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1] / "vaft"
 RENDERING_HOME = PACKAGE_ROOT / "plot"
 
 #: Modules still awaiting their adapter slice.  This list must only shrink.
-#: ``vaft.code.chease`` was migrated to ``vaft.plot`` view models in issue #139.
+#: ``vaft.code.chease`` already draws through ``vaft.plot`` view models.
 ALLOWLIST = {
     "data/vfit.py",
 }

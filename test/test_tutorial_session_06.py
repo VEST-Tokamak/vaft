@@ -1,4 +1,4 @@
-"""Contract for Tutorial 06: operational space and data-driven analysis (issue #1091).
+"""Contract for Tutorial 06: operational space and data-driven analysis.
 
 The session builds its population offline from the six packaged VEST samples
 through the canonical summary presets, and in lab mode from
@@ -121,7 +121,7 @@ def test_no_cell_dumps_a_data_object(executed):
 
 
 def test_the_tables_come_from_the_canonical_presets(book):
-    # Since #2110 the offline tables come from the same call the database
+    # The offline tables come from the same call the database
     # summary makes, run on in-memory ODS, so the presets' extractors, columns
     # and sort are the database's own.
     executable = _executable(book)
@@ -141,7 +141,7 @@ def test_the_database_path_is_gated_by_the_mode(book, executed):
         raise AssertionError("the database summary is not inside `if LAB:`")
     assert "Offline: the database population needs lab mode" in _printed_by(executed, "s06-lab-population")
     # The database path is a shot_range summary; the offline cells may call the
-    # same function on in-memory ODS (odss=, #2110) without touching the database.
+    # same function on in-memory ODS (odss=) without touching the database.
     outside = _strip_comments(
         "\n".join(_source(cell) for cell in _code_cells(book) if cell.id != "s06-lab-population"))
     assert "vaft.database.summary(shot_range=" not in outside

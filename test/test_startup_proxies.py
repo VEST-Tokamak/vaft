@@ -1,4 +1,4 @@
-"""Startup proxies, midplane profiles, vacuum field lines on the camera, and the summary (issue #888).
+"""Startup proxies, midplane profiles, vacuum field lines on the camera, and the summary.
 
 Every helper here is a reading of an evaluator that already exists -- the
 point response, the cached vacuum map, the connection-length trace, the
@@ -373,7 +373,7 @@ def test_the_ec_power_is_the_nan_aware_median_around_the_onset():
 
 
 # ---------------------------------------------------------------------------
-# compute_ejiri_mirror_proxy_ods (issue #676)
+# compute_ejiri_mirror_proxy_ods
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="module")

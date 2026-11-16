@@ -1,4 +1,4 @@
-"""Contracts of the legacy Pipeline 3 summary wrappers (issues #151/#181).
+"""Contracts of the legacy Pipeline 3 summary wrappers.
 
 These scripts still provide their own workbook interfaces, although the
 verification notebook now reads the Tier A Atlas snapshot instead.
@@ -90,7 +90,7 @@ def test_summary_preset_is_the_only_schema_source():
     """The scripts must not reintroduce a hand-maintained column constant.
 
     A duplicated `EXPECTED_COLUMNS` is exactly what drifted out of sync with the
-    generated sheets in issue #151.
+    generated sheets once.
     """
     offenders = []
     for stem in SCRIPTS:

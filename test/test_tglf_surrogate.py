@@ -1,4 +1,4 @@
-"""The TGLF-NN surrogate backend (issue #553, increment 2).
+"""The TGLF-NN surrogate backend.
 
 Three things are under test, and only the first needs a network to exist at all:
 
@@ -423,7 +423,7 @@ def test_the_summary_names_the_offending_inputs(tmp_path):
 
 
 def test_importing_the_surrogate_does_not_import_onnxruntime():
-    """Issue #553 section 11: the ML runtime stays optional and unimported."""
+    """The ML runtime stays optional and unimported."""
     import subprocess
     import sys
 
@@ -500,7 +500,7 @@ def test_the_saturation_rule_the_run_asked_for_is_recorded_against_the_models_ow
     """Fidelity, not domain: SAT_RULE is no input channel, so the audit cannot see it.
 
     A SAT3-trained network standing in for a SAT1 run is a real mismatch and belongs in
-    the provenance (issue #553 sections 12-13) -- but not in ``qualified``, which is
+    the provenance -- but not in ``qualified``, which is
     about whether the *input* was one the model was trained for.
     """
     import shutil
@@ -515,7 +515,7 @@ def test_the_saturation_rule_the_run_asked_for_is_recorded_against_the_models_ow
     mismatched = run_surrogate(local_input(), target, config=TGLFConfig(sat_rule=1))
     assert mismatched.provenance["sat_rule_matches_model"] is False
     assert mismatched.qualified is True
-    # The plasma-formalism record (#1735) names the trained variant, never the request.
+    # The plasma-formalism record names the trained variant, never the request.
     record = mismatched.provenance["plasma_formalism"]
     assert record["extensions"]["sat_rule"] == 2 and record["field_model"] == "electromagnetic"
     assert record["solver"] == "tglf-nn" and record["extensions"]["realization"] == "learned_surrogate"
@@ -542,7 +542,7 @@ def test_relative_spread_does_not_report_zero_where_the_ratio_is_undefined():
 # --------------------------------------------------------------------------
 # against the real upstream models, when the machine has them
 #
-# These are the tests that answer issue #553 section 16 -- whether a public model
+# These are the tests that answer whether a public model
 # qualifies for VEST -- and they are the reason the audit exists. They need artifacts
 # VAFT does not vendor, so they skip rather than fail when those are absent.
 # --------------------------------------------------------------------------
@@ -624,7 +624,7 @@ def test_upstreams_own_sample_is_in_domain_for_the_model_trained_on_it():
 @requires_upstream
 @requires_sample
 def test_no_public_model_has_the_ces_sample_in_domain_and_the_temperature_ratio_is_why(vest_local):
-    """Issue #553 section 16: a number is not qualification -- on ONE slice.
+    """A number is not qualification -- on ONE slice.
 
     Every public TGLF-NN family was trained where the ions are about as hot as the
     electrons. This sample (48224, 300 ms, r/a = 0.5) carries a CES-measured ion
@@ -634,7 +634,7 @@ def test_no_public_model_has_the_ces_sample_in_domain_and_the_temperature_ratio_
 
     This is a statement about this slice and its T_i, not about VEST: the pipeline
     assumes T_i = T_e where no T_i is measured, and the magnetics pressure partition
-    gives T_i/T_e near or above one (#1842). The population verdict, under each T_i
+    gives T_i/T_e near or above one. The population verdict, under each T_i
     scenario, is ``workflow/transport_atlas/audit_tglf_nn.py``'s.
     """
     from vaft.code.gacode.tglf.surrogate.resolver import load_metadata as _load

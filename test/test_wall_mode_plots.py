@@ -1,4 +1,4 @@
-"""Plot contracts for the wall eigenmode views (vaft #473)."""
+"""Plot contracts for the wall eigenmode views."""
 
 import matplotlib
 
@@ -27,7 +27,7 @@ def test_the_mode_shape_colours_only_the_chosen_segment(packaged):
     model = RECIPES["passive_structure_geometry_wall_mode"].builder(ods, basis=basis, segment="W1", mode=0)
     assert isinstance(model, GeometryLayers)
     coloured = [layer for layer in model.layers if isinstance(layer.style.get("color"), tuple)]
-    # The recipe says what the colour means (issue #709); the default meaning is the grey it always was.
+    # The recipe says what the colour means; the default meaning is the grey it always was.
     from vaft.plot.intent import resolve_color
 
     grey = [layer for layer in model.layers if resolve_color(layer.style.get("color"), None) == "0.75"]

@@ -1,4 +1,4 @@
-"""Which ordering contracts a calculation consumes, from its plasma formalism (#1823)."""
+"""Which ordering contracts a calculation consumes, from its plasma formalism."""
 
 from __future__ import annotations
 
@@ -94,7 +94,7 @@ def test_cgyro_modes_are_the_backends_own_records():
     assert adapter_mode("gacode:cgyro_nonlinear").formalism.regime == "nonlinear"
 
 
-# -- the registry against the GPEC-suite resolver (#1734): same contracts from the real namelists --
+# -- the registry against the GPEC-suite resolver: same contracts from the real namelists --
 
 def _cell(tmp_path: Path, name: str, **overrides: str) -> Path:
     from vaft.data.resources import data_path
@@ -257,7 +257,7 @@ def test_tglf_modes_follow_the_adapters_transport_switch():
 
 
 def test_every_physics_adapter_in_vaft_code_has_a_mode():
-    """#1823 acceptance: every adapter is in the registry, classified or explicitly not."""
+    """Every adapter is in the registry, classified or explicitly not."""
     from pathlib import Path
 
     import vaft.code as code

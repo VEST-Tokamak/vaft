@@ -1,4 +1,4 @@
-"""The Tier A stability atlas: slice selection and the atlas builder's rules (#1429)."""
+"""The Tier A stability atlas: slice selection and the atlas builder's rules."""
 
 from __future__ import annotations
 
@@ -134,7 +134,7 @@ def test_summary_uses_resolved_interior_surfaces_only(build):
     assert summary["rdcon_n_resolved_surfaces"] == 4
     assert summary["rdcon_n_summary_surfaces"] == 2
     assert summary["rdcon_delta_prime_max"] == 40.0 and summary["rdcon_m_at_delta_prime_max"] == 4
-    # Δ′ never gets a stable/unstable label (#939).
+    # Δ′ never gets a stable/unstable label.
     assert summary["rdcon_status"] == "RESOLVED" and summary["rdcon_qa_status"] == "RESOLVED"
 
 
@@ -264,7 +264,7 @@ REFERENCE = Path(__file__).resolve().parent / "data" / "gpec" / "dcon_edge_792"
 
 
 def test_dcon_columns_on_real_gpec_output(build):
-    # The #792 reference: real DCON (GPEC e68d7ac2) for 39915@319 ms, n=1.
+    # The DCON reference: real DCON (GPEC e68d7ac2) for 39915@319 ms, n=1.
     full = build.dcon_columns({"status": "stable", "run_dir": str(REFERENCE / "full_edge"), "n": 1}, "dcon_full_256")
     assert full["dcon_full_256_W_t"] == pytest.approx(2.6923316420322827, rel=1e-9)
     assert full["dcon_full_256_edge_treatment"] == "full_edge"
@@ -346,7 +346,7 @@ def test_duplicate_kinetic_entries_are_refused(select):
 
 def test_rdcon_n2_gets_the_measured_memory_budget(batch):
     reserve, limit = batch.memory_policy("rdcon", 2)
-    assert reserve >= 24_600 and limit > reserve  # measured peak 24.6 GB at mpsi 512 (#1460)
+    assert reserve >= 24_600 and limit > reserve  # measured peak 24.6 GB at mpsi 512
     assert batch.memory_policy("dcon", 2) == (2_800, 8_000)
     # DCON n=6, mpsi 512: 9.4 GB at mpert 99 (39915@319 ms); 39906@319 ms
     # (mpert 132) passed 21.7 GB. The budget must clear the larger one.
@@ -357,7 +357,7 @@ def test_rdcon_n2_gets_the_measured_memory_budget(batch):
     assert batch.memory_policy("rdcon", 3) == batch.MEMORY_MB_RDCON_HIGH_N
 
 
-# --- atlas v2 (#1429 comment 2026-10-02): raw, QA and physical layers -------------------
+# --- atlas v2: raw, QA and physical layers -----------------------------------------------
 
 
 def _paired(build, values, check_factor=1.0):

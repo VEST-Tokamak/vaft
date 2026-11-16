@@ -1,6 +1,6 @@
-"""The ``optimize`` extra (#1877): Optuna is opt-in and never reached by an import.
+"""The ``optimize`` extra: Optuna is opt-in and never reached by an import.
 
-The contract this file pins is the packaging one from #1875/#1877, not an
+The contract this file pins is the packaging one, not an
 optimizer: the extra exists with a bounded version range, Optuna is neither a
 core dependency nor an implicit ``[dev]`` requirement, and no VAFT module
 imports it at module level -- the suite must stay runnable, and meaningful,

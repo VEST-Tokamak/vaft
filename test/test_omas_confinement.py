@@ -1,4 +1,4 @@
-"""The ODS-facing experimental Ohmic confinement chain (#1905 PR 2)."""
+"""The ODS-facing experimental Ohmic confinement chain."""
 
 from __future__ import annotations
 

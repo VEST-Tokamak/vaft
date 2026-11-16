@@ -1,10 +1,10 @@
-"""The eleven stability kernels that nothing called (#711 follow-up).
+"""The eleven stability kernels that nothing called.
 
 `test_formula_docstrings` and `test_formula_catalog` parametrize over every
 formula in the package, which makes the suite look complete while never
 evaluating one: they only `getattr` the function.  Eleven of the nineteen in
 `vaft.formula.stability` had no caller anywhere in `test/`, and the three
-beside them had just been found to have dropped factors (#363, #364, #348).
+beside them had just been found to have dropped factors.
 
 So these check numbers, against the definitions the docstrings state and
 against independent arithmetic, not merely that a call returns without
@@ -105,7 +105,7 @@ def test_the_sawtooth_threshold_goes_negative_above_unit_q0_where_sawteeth_do_no
     assert margin == pytest.approx(0.5 - 0.06)
 
     # Documented limitation, pinned so a fix has to change it: above q_0 = 1 the
-    # threshold is negative, so every poloidal beta "exceeds" it (#350).
+    # threshold is negative, so every poloidal beta "exceeds" it.
     with pytest.warns(DeprecationWarning):
         _, crit_above = sawtooth_stability_criterion(1.4, 0.5)
     assert crit_above < 0.0
