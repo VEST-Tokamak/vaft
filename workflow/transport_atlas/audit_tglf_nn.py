@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """TGLF-NN training-domain audit over the validated confinement population.
 
-#834 (#553 increment 2) asked whether any public TGLF-NN family applies to VEST, and
+An earlier audit asked whether any public TGLF-NN family applies to VEST, and
 answered on one slice (48224 at 300 ms, r/a = 0.5, CES-measured T_i). This driver asks
 the same question of the population the confinement scaling is built on: every state
 of the Tier A confinement table (``vaft/data/confinement/vest_tier_a_confinement.csv``),
@@ -22,8 +22,8 @@ routine T_i. So every state is audited under several T_i *scenarios*:
   resolver's ``inferred_ti``); n_e, T_e and the composition closure are the FileDB
   product's, as in every other scenario, so the scenarios differ in T_i alone;
 * ``ratio_<r>`` for each ``--ratios`` value, e.g. 1.0 (the pipeline's T_i = T_e
-  assumption) and 0.17 (the superseded pressure-matching value that #834's sample
-  reflects).
+  assumption) and 0.17 (the superseded pressure-matching value that the single-slice
+  audit's sample reflects).
 
 A measured T_i, when a slice has one, is used under every scenario; the row's
 ``ti_lineage`` says which T_i was used.
@@ -37,7 +37,7 @@ Output (``--out``)::
     audit.csv       one row per state x surface x scenario x family
     states.csv      one row per state x scenario: resolution status and T_i lineage
     summary.csv     in-domain fraction per subset x scenario x family; with exported
-                    training bounds (#2274) also containment and its binding inputs
+                    training bounds also containment and its binding inputs
     coverage.csv    with exported bounds only: per input, the fraction of surfaces
                     inside / below / above the training range and the position on it
     MANIFEST.json   inputs, models (sha256), settings, code revision, counts
@@ -273,7 +273,7 @@ def audit_state(state: Any, surfaces: Iterable[float], models, *, threshold: flo
 
 
 def _containment(audit: Any) -> dict[str, Any]:
-    """Containment in the true training range, when the model carries one (#2274).
+    """Containment in the true training range, when the model carries one.
 
     ``min_bound_margin`` is the smallest distance to a bound over the inputs, as a
     fraction of each input's training range: positive inside, negative outside. The

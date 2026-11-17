@@ -1,4 +1,4 @@
-# Export the TGLF-NN training bounds (xbounds) beside each ONNX family (issue #2274, phase A).
+# Export the TGLF-NN training bounds (xbounds) beside each ONNX family.
 #
 # The ONNX distribution of TurbulentTransport.jl carries the normalisation moments
 # (xm/xsigma) but not the per-input training bounds; those live only inside the Julia

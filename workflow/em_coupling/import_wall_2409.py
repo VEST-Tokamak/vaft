@@ -90,7 +90,7 @@ MATERIAL_SUS, NEW_GROUP = 2, 11
 #: 950 loops (VFIT's self-term is ~13 % higher and is excluded).
 DONOR_AGREEMENT = 0.01
 #: A shot in each PF geometry era on wall 2409, to build that era's coil
-#: geometry: the eras' reference shots (vest.yaml ``machine_history``, #2267).
+#: geometry: the eras' reference shots (vest.yaml ``machine_history``).
 def _pf_reference_shots() -> dict[str, int]:
 
     return {era.pf_geometry: era.reference_shot for era in machine_eras() if era.wall_geometry == "2409"}
