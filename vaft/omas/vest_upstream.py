@@ -2856,7 +2856,8 @@ def _magnetic_efit_lineage(efit_product: str | Path) -> str | None:
 
 
 #: What :func:`build_ti_inferred_ods` writes: the partition point by point, or one
-#: smooth ``T_i/T_e(rho)`` fitted to it (#1842 ``inferred_profile``).
+#: smooth ``T_i/T_e(rho)`` fitted to it (the same fit as the kinetic-state
+#: stages' ``ion_temperature="inferred_profile"`` mode).
 TI_INFERRED_FORMS = ("pointwise", "profile")
 
 #: Thomson channels assumed independent when a product carries no channel list.
@@ -2973,7 +2974,8 @@ def build_ti_inferred_ods(
     ``"profile"`` smooths the significant points into one ``T_i/T_e(rho)``
     polynomial of order 0-2 chosen by BIC
     (:func:`vaft.process.kinetic_closure.fit_ti_te_ratio_profile`, the
-    ``inferred_profile`` mode of #1842) and writes ``T_i = ratio * T_e`` on the
+    estimator behind ``ion_temperature="inferred_profile"`` in
+    :mod:`vaft.omas.kinetic_state_inference`) and writes ``T_i = ratio * T_e`` on the
     whole grid, with ``method=equilibrium_pressure_partition_profile`` and the
     order, coefficients and fitted span in the record.  Outside that span the
     ratio is extrapolated, and the record says so.
