@@ -2424,7 +2424,7 @@ def equilibrium_rho_tor_norm_table(ods, time_slice=0):
     1 whatever the COCOS sign or per-radian storage of ``psi``.  The table is
     the slice's own map between the poloidal and the toroidal radius; reading
     ``rho_tor_norm`` as ``sqrt(psi_norm)`` instead is ``rho_pol_norm``, up to
-    0.15 away on VEST equilibria.
+    0.15 away on the packaged VEST equilibria.
 
     Applicability
     -------------
