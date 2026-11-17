@@ -1814,7 +1814,7 @@ figure is changed by editing data.
 
 ## Computation contracts, workflow execution and provenance
 
-How one computation, one workflow and one run are recorded (#2150). These figures sit one level below
+How one computation, one workflow and one run are recorded. These figures sit one level below
 `scientific_workflow`, `scientific_provenance_chain`, `scientific_credibility` and `external_code_integration`,
 which stay the higher-level references. They share one grammar: a solid arrow carries scientific data, a dashed
 arrow configuration or metadata, a dotted arrow a provenance or evidence reference, and a dashed box is planned.
@@ -1834,10 +1834,10 @@ vaft.diagram.imas_scientific_workflow_example()
 | --- | --- |
 | `scientific_computation_contract` | One computation's scientific inputs (IDS or ODS, or typed data such as arrays, GEQDSK and k-files) and outputs: a standardized IDS or ODS subset beside the native and typed results that keep the solver-specific science. The scientific configuration (assumptions, model and numerical choices, units and conventions: what changes the result) and the execution settings (executable, backend and resources, timeout: what does not) arrive separately; the configuration may travel as the IDS `code.parameters` string. Execution settings stay out of the configuration hash; the code version is recorded beside it, as part of the run's identity. The execution record is separate metadata, kept per adapter today. Not every Process or Code reads or writes IDS |
 | `workflow_specification_and_run` | One specification (identity and version, components and dependencies, I/O expectations, parameter definitions) instantiated by an orchestrator (Snakemake or Python) into many runs. Each run leaves scientific outputs (scientific data) and, as part of its record, logs and structured provenance: three different artifact classes. No record yet links a run to the workflow definition's identity (replication records carry only the VAFT package version), so that reference is drawn fainter as planned (`model["planned_edges"]`) |
-| `computation_record_layers` | What one run leaves behind, in three layers kept apart: scientific identity (input and content digests, code version, configuration, conventions; each digest states its scope; partial, since some adapters hash their configuration (EFIT, GACODE, TokaMaker, MITIM) and others do not), observed execution (backend, job ID, runtime and resources, exit status as the execution-success precondition, logs; nondeterministic and kept out of the identity; uniform persistence planned in #1019) and scientific assessment (convergence, uncertainty, physical checks, advisory applicability, validation: separate axes, not one score) |
+| `computation_record_layers` | What one run leaves behind, in three layers kept apart: scientific identity (input and content digests, code version, configuration, conventions; each digest states its scope; partial, since some adapters hash their configuration (EFIT, GACODE, TokaMaker, MITIM) and others do not), observed execution (backend, job ID, runtime and resources, exit status as the execution-success precondition, logs; nondeterministic and kept out of the identity; recorded per adapter, not yet persisted uniformly (Open: #1019, uniform execution-record persistence)) and scientific assessment (convergence, uncertainty, physical checks, advisory applicability, validation: separate axes, not one score) |
 | `imas_scientific_workflow_example` | The routine pipeline's EFIT → CHEASE → MHD-stability chain as implemented. Mapping and processing (diagnostics, eddy currents) give the input IDSs: magnetics, pf_active and the vacuum toroidal field, pf_passive from the eddy stage, the diamagnetic flux when present. The constraints stage reads them into `equilibrium.constraints`, and k-files are written from those with the EFIT scientific configuration; EFIT reads the k-files (geometry through the Green table, recorded apart from the scientific SHA-256), writes native g-files, and an equilibrium IDS is built from its outputs. CHEASE reads the native g-files, not the IDS; the stability codes read the refined g-files, and each IDS product is built from native files (`mhd_linear`, with `ntms` when RDCON or STRIDE fill it and `coils_non_axisymmetric` from ideal GPEC). The recorded digests (EFIT g-file SHA-256, CHEASE input/output SHA-256, stability `input_equilibrium_sha256`) feed `verify_chain`, a library check not yet wired into the pipeline. Each stage also leaves sidecar records that are not scientific IDS |
 
-The optional single-run qualification figure the issue proposed is not built:
+There is no separate single-run qualification figure:
 `scientific_credibility(organization="integrated")` already draws independent assessment axes ending in a
 profile rather than one score, and the assessment layer of `computation_record_layers` carries the single-run
 view.
@@ -2073,7 +2073,8 @@ Rules the figure keeps, each one tested:
 - (c) draws a channel at its native $R$ only when $|Z| \le$ `midplane_tolerance` (1 mm). A channel further
   off is omitted there and listed in `metadata["off_midplane_channels"]`; it still appears in (a), (b)
   and (d), and is never relabelled as a midplane point;
-- a $\rho_{\mathrm{tor},N}$ table that is the legacy $\sqrt{\psi_N}$ proxy (#276) is refused;
+- a $\rho_{\mathrm{tor},N}$ table that is the legacy $\sqrt{\psi_N}$ proxy (a normalized poloidal radius
+  written into the toroidal-flux field) is refused;
 - (a) is the `electron_density_profile` recipe's series; on the equilibrium's own grid (`refine=1`) the map
   is the `electron_density_field` recipe's values inside the boundary, and the published figure reads
   $\psi$ bilinearly at three times that resolution (`refine=3`);
@@ -2087,7 +2088,8 @@ Rules the figure keeps, each one tested:
   assuming it. `electrons.density_fit.measured` holds all five usable values, at $\rho_{\mathrm{tor},N}$
   positions up to 0.057 from this equilibrium's mapping, so the stored fit used a mapping of its own.
   A $\rho_{\mathrm{tor},N}$ integrated from this slice's $q$ would differ from the stored table by up to
-  0.037, near the axis, where $q_0 = 8.07$ is an outlier (#317).
+  0.037, near the axis, where $q_0 = 8.07$ is an outlier against neighbouring values near 1.9: this
+  kinetic-EFIT reference equilibrium is not reliable inside about $\psi_N < 0.05$.
 
 `python -m vaft.diagram.build` regenerates the canonical SVG. The vector PDF (byte-for-byte
 reproducible) and the TikZ source come from the same call:
