@@ -1,7 +1,7 @@
 """VEST machine history that is not one diagnostic's processing configuration.
 
-The ``machine_history`` block of ``vest.yaml`` (issue #2267) holds the shot
-boundaries that used to be Python literals:
+The ``machine_history`` block of ``vest.yaml`` holds the shot boundaries the
+mappers depend on, so they are configuration rather than Python literals:
 
 * the static machine eras -- passive-wall and PF-coil geometry versions, and
   the ``machine_version`` name stage products are keyed by;

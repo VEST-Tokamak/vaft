@@ -24,7 +24,7 @@ DEFAULT_REFERENCE_ODS = DEFAULT_STATIC_GEOMETRY
 DEFAULT_WALL_2409_ADDITIONS = data_path("geometry/VEST_passive_wall_2409.npz")
 # The first shot on wall 2409 (the access in which the fifteen SUS316LN
 # elements at Z = -1.164 m went in) is vest.yaml's
-# ``machine_history.machine_eras`` (issue #2267);
+# ``machine_history.machine_eras``;
 # ``WALL_GEOMETRY_2409_FIRST_SHOT`` is derived from it on access.
 
 
