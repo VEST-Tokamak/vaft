@@ -235,7 +235,7 @@ $$\delta\mathbf B_{\mathrm{total}} = \delta\mathbf B_{\mathrm{vacuum}} + \delta\
 - screening and amplification; resonant **and** non-resonant response
 - MID alone at $n = 1, 2, 3$: ladders $n + 6k$; 6, 12, 18 rational surfaces
 - `con_flag=f`: GPEC writes the **total** resonant field on every surface
-- the plasma screens, more strongly with $n$: about $1/2$, $1/4$, and under $1/10$ in the core at $n = 3$
+- the plasma screens, more strongly with $n$: about $1/2$, $1/4$, and down to $0.08$ at $n = 3$
 - the best relative coil phase moves by about a quarter turn with the response
 
 ::: {.notes}

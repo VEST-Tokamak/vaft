@@ -301,5 +301,5 @@ and Session 01 must not contradict it. The existing
 [plotting sample notebook](../notebooks/plotting_sample_using_vaft_plot_module.ipynb)
 remains a specialized reference with broader research-oriented examples.
 
-Session 05 is being rebuilt around the full CHEASE -> DCON/RDCON -> GPEC chain
-(#2278); its status stays `draft` until that review is done.
+Session 05 runs the full CHEASE -> DCON/RDCON -> GPEC chain on validated IMAS
+samples (#2278); lab mode reproduces the samples with the solvers installed.

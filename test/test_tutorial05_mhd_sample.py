@@ -194,3 +194,27 @@ def test_every_gpec_product_carries_its_flux_surface_mesh(manifest):
                                                                           check["mesh_poloidal_angles"])
         assert theta[0] == 0.0 and theta[-1] == pytest.approx(1.0)
         assert np.all(np.diff(psi) > 0)
+
+
+def test_the_delta_prime_title_names_the_least_stable_coupled_mode(monkeypatch):
+    """The coupled eigenvalue can be positive while every diagonal entry is negative."""
+    import vaft.machine_mapping.mhd_linear as mapping
+    import vaft.plot
+    from vaft.machine_mapping.mhd_linear import extract_rdcon_stability
+
+    ods = mhd_stability_sample("rdcon_stable_mpsi512")
+    [row] = extract_rdcon_stability(ods)
+    eigenvalues, vectors = np.linalg.eig(np.asarray(row["delta_prime_matrix"], dtype=complex))
+    k = int(np.argmax(eigenvalues.real))
+    m_lead = row["surfaces"][int(np.argmax(np.abs(vectors[:, k])))]["m"]
+    assert all(s["delta_prime"].real < 0 for s in row["surfaces"]) and eigenvalues[k].real > 0
+    title = vaft.plot.extract("ntms_overview_delta_prime", ods).models[1].title
+    assert "coupled" in title and f"{eigenvalues[k].real:+.3g}" in title
+    assert f"m/n = {m_lead}/1" in title and title.endswith("tearing drive")
+
+    # Without a matrix the title falls back to the largest diagonal entry and says so.
+    monkeypatch.setattr(mapping, "extract_rdcon_stability",
+                        lambda o: [dict(r, delta_prime_matrix=None) for r in extract_rdcon_stability(o)])
+    title = vaft.plot.extract("ntms_overview_delta_prime", ods).models[1].title
+    largest = max(s["delta_prime"].real for s in row["surfaces"])
+    assert "no matrix" in title and f"{largest:+.3g}" in title and title.endswith("stable")

@@ -299,8 +299,8 @@ def mhd_stability_sample(product: str, *, verify: bool = False):
     """Load one precomputed Tutorial 05 MHD-stability product as an OMAS ODS.
 
     ``product`` is a key of :func:`mhd_stability_manifest`'s ``products``:
-    ``chease_stable``, ``chease_pressure_x6``, ``dcon_<case>_mpsi<N>``,
-    ``rdcon_stable_mpsi<N>``, ``gpec_UP``/``gpec_LOW``.  The ODS carries the
+    ``chease_stable``, ``chease_high_ip``, ``dcon_<case>_mpsi<N>``,
+    ``rdcon_stable_mpsi<N>``, ``gpec_UP``/``gpec_LOW`` and ``gpec_MID_n1``/``n2``/``n3``.  The ODS carries the
     same IDS a live run maps (``equilibrium``; ``mhd_linear``; ``mhd_linear`` +
     ``ntms``; ``mhd_linear`` + ``coils_non_axisymmetric``), so every reader and
     plot downstream is the one a live run uses.  ``verify=True`` re-hashes the
