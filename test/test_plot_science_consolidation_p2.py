@@ -1,5 +1,4 @@
-"""Issue #2270 P2: equilibrium volume weighting and the GPEC resonant table now live
-in ``vaft.process``.
+"""Equilibrium volume weighting and the GPEC resonant table live in ``vaft.process``.
 
 The volume weights had two copies -- the impurity views' ``_volume_weights_at``
 and ``vaft.omas.vest_upstream._volume_weights_on_grid`` (the composition stage

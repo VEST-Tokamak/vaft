@@ -678,7 +678,7 @@ def test_the_ensemble_disagrees_with_itself_where_it_was_never_trained(vest_loca
 
 
 # --------------------------------------------------------------------------
-# the true training range, when it has been exported beside the ensemble (#2274)
+# the true training range, when it has been exported beside the ensemble
 # --------------------------------------------------------------------------
 
 

@@ -1,7 +1,8 @@
 """The cross-domain figures: equilibrium, MHD and transport joined through shared representations.
 
 The technical figure (``cross_domain_scientific_workflows``) draws every element from the workflow
-spine (#1585), names real APIs and Data Dictionary leaves, and makes only the claims the
+spine (``vaft/diagram/_workflow_specs.py``: the physics workflows from measured state to
+standardized IMAS results), names real APIs and Data Dictionary leaves, and makes only the claims the
 implementation supports: a shared IDS is not a shared state, MHD and transport are complementary, and
 only the models that read the resolved state share its identity. The conceptual figure
 (``cross_domain_scientific_architecture``) summarizes it, and every card names the technical elements
@@ -473,7 +474,7 @@ def test_downstream_inputs_are_the_shared_data_and_metadata_they_come_from():
             assert {X.ELEMENT[d].domain for d in reads} == {domain}, (chip.key, reads)
     transport = {c.kind for c in C.INPUTS["transport"]}
     assert {"measured", "prior"} <= transport  # kinetic profiles and modelling assumptions, explicitly
-    # no rotation: TGLF and CGYRO run with gamma_E = 0 (tglf/inputs.py, #553), so v_phi is no transport input
+    # no rotation: TGLF and CGYRO run with gamma_E = 0 (tglf/inputs.py), so v_phi is no transport input
     measured = " ".join(line for c in C.INPUTS["transport"] if c.kind == "measured" for line in c.lines)
     assert "v_" not in measured and {"T_e", "n_e"} <= set(measured.replace("$", "").replace(",", " ").split())
     # the closures chip names the general inputs only: Z_eff and gamma_E, no T_i (a kinetic profile) and no value

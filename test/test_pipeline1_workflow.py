@@ -427,7 +427,7 @@ def test_a_chease_run_that_raised_still_fails_the_rule(tmp_path, monkeypatch):
 def test_the_workflow_unlocks_without_a_core_count(tmp_path):
     # run_lane.sh and the worker's unlock_if_stale call `snakemake --unlock`
     # without --cores; a rule whose threads read a bare workflow.cores made that
-    # raise, and the lane then judged a finished chunk failed (#2147 bench c2).
+    # raise, and a cluster-regeneration lane then judged a finished chunk failed.
     env = dict(os.environ)
     for name in ("VAFT_FILEDB_DIR", "VAFT_DATA_DIR", "EFIT", "CHEASE", "GPECHOME"):
         env.setdefault(name, str(tmp_path / name.lower()))

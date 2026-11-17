@@ -1,4 +1,4 @@
-"""Computation contracts, workflow execution and provenance diagrams (#2150): semantics and evidence, not pixels."""
+"""Computation contracts, workflow execution and provenance diagrams: semantics and evidence, not pixels."""
 
 import ast
 import re
