@@ -1,8 +1,8 @@
 """Public multi-machine databases mapped into common VAFT semantics.
 
 Source-specific readers (:mod:`.itpa_hmode`, :mod:`.tcv_lh`, :mod:`.itpa_tc26`) normalise
-published databases into canonical tables (:mod:`.schema`); licence-verified public
-equilibria (:mod:`.equilibria`, #2285) map into ODS; profile databases
+published databases into canonical tables (:mod:`.schema`); public equilibria whose
+data licence was verified at the file level (:mod:`.equilibria`) map into ODS; profile databases
 (:mod:`.itpa_profile`, PR08) map into ODS instead; VEST enters the same tables through
 :mod:`.vest_confinement`; :mod:`.analysis` and :mod:`vaft.plot.population`
 work on the canonical tables only.  Files are fetched on demand with a pinned

@@ -1,4 +1,4 @@
-"""Licence-verified public equilibria for multi-machine comparison (#2285).
+"""Licence-verified public equilibria for multi-machine comparison.
 
 Each external equilibrium here is one pinned artefact whose *data* licence was
 read at the file (or Zarr group) level, not inferred from a software licence or

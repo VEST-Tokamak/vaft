@@ -813,8 +813,9 @@ def _daq_trigger_time_correction(shot: int) -> float:
     """
     Correct time array for DAQ trigger delay.
 
-    The offset is vest.yaml's ``machine_history.daq.fast_trigger_offset``
-    (issue #2267).
+    The offset is vest.yaml's ``machine_history.daq.fast_trigger_offset``, the
+    one per-shot-range table this loader shares with the filterscope mapper
+    (:func:`vaft.machine_mapping.spectrometer_uv.legacy_time_shift_s`).
 
     Args:
         shot: Shot number
