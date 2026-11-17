@@ -137,9 +137,33 @@ def _declared_units(table: pd.DataFrame, units: Optional[Mapping[str, str]]) -> 
     return declared
 
 
-def _axis_mismatch(column: str, quantity: _b.BoundaryQuantity, declared: Mapping[str, str]) -> Optional[str]:
+def _declared_quantities(table: pd.DataFrame) -> dict:
+    """``{column: quantity name}`` a table declares in ``attrs["quantities"]`` (summary presets do)."""
+    return dict(getattr(table, "attrs", {}).get("quantities", {}) or {})
+
+
+def _column_for(table: pd.DataFrame, name: str) -> str:
+    """The column that *is* quantity ``name``: one of that name, else the one column declared as it.
+
+    A summary-preset frame keeps its own column names (``beta_normal``) and
+    declares their quantities in ``attrs["quantities"]``; this finds the column
+    without renaming. With no match, or two, ``name`` is returned and the
+    caller reports it missing.
+    """
+    if name in table.columns:
+        return name
+    matches = [column for column, quantity in _declared_quantities(table).items()
+               if quantity == name and column in table.columns]
+    return matches[0] if len(matches) == 1 else name
+
+
+def _axis_mismatch(column: str, quantity: _b.BoundaryQuantity, declared: Mapping[str, str],
+                   quantities: Optional[Mapping[str, str]] = None) -> Optional[str]:
     """Why this column cannot stand for the axis quantity, or None when it can."""
-    if column != quantity.name:
+    declared_quantity = (quantities or {}).get(column)
+    if declared_quantity is not None and declared_quantity != quantity.name:
+        return f"column {column!r} is declared as {declared_quantity!r}, not the projection's {quantity.name!r}"
+    if column != quantity.name and declared_quantity != quantity.name:
         return f"column {column!r} is not the projection's {quantity.name!r}"
     unit = declared.get(column, "-" if quantity.unit == "-" else None)
     if unit is None:
@@ -188,10 +212,12 @@ def population_overlay(table: pd.DataFrame, projection, *, x: Optional[str] = No
         Curves to draw, and ``(key, reason)`` for each requested boundary left off.
     """
     proj = _projection(projection)
-    x = x or proj.x.name
-    y = y or proj.y.name
+    x = x or _column_for(table, proj.x.name)
+    y = y or _column_for(table, proj.y.name)
     declared = _declared_units(table, units)
-    reasons = [r for r in (_axis_mismatch(x, proj.x, declared), _axis_mismatch(y, proj.y, declared)) if r]
+    quantities = _declared_quantities(table)
+    reasons = [r for r in (_axis_mismatch(x, proj.x, declared, quantities),
+                           _axis_mismatch(y, proj.y, declared, quantities)) if r]
     requested = requested_boundaries(proj, boundaries)
     if reasons:
         return OverlayPlan(proj.key, (), tuple((key, "; ".join(reasons)) for key in requested))
@@ -212,10 +238,11 @@ def population_overlay(table: pd.DataFrame, projection, *, x: Optional[str] = No
     for key in requested:
         entry = _b.get_boundary(key)
         for q in getattr(entry, "inputs", ()):
-            if q.name in fixed or q.name not in table.columns or q.name in (x, y):
+            column = _column_for(table, q.name)
+            if q.name in fixed or column not in table.columns or column in (x, y):
                 continue
-            if _axis_mismatch(q.name, q, declared) is None:
-                values = _finite(table, q.name)[plotted]
+            if _axis_mismatch(column, q, declared, quantities) is None:
+                values = _finite(table, column)[plotted]
                 if np.isfinite(values).any():
                     fixed[q.name] = float(np.nanmedian(values))
     return overlay_plan(proj, requested, x_range=span(x, x_range), y_range=span(y, y_range), fixed=fixed,
@@ -1034,8 +1061,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     if boundary_style not in ("shade", "inline"):
         raise ValueError(f"boundary_style must be 'shade' or 'inline', not {boundary_style!r}")
     proj = _projection(projection)
-    x = x or proj.x.name
-    y = y or proj.y.name
+    x = x or _column_for(table, proj.x.name)
+    y = y or _column_for(table, proj.y.name)
     missing = [c for c in (x, y, color, marker) if c and c not in table.columns]
     if missing:
         raise KeyError(f"table has no column(s) {missing}; columns are {list(table.columns)}")
