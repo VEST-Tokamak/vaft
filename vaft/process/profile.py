@@ -2424,7 +2424,7 @@ def equilibrium_rho_tor_norm_table(ods, time_slice=0):
     1 whatever the COCOS sign or per-radian storage of ``psi``.  The table is
     the slice's own map between the poloidal and the toroidal radius; reading
     ``rho_tor_norm`` as ``sqrt(psi_norm)`` instead is ``rho_pol_norm``, up to
-    0.15 away on VEST equilibria (issues #276, #335).
+    0.15 away on VEST equilibria.
 
     Applicability
     -------------
@@ -2563,8 +2563,8 @@ def map_rho_tor_profile_to_rz(
         resolved.append((x, y))
     (rho, profile), (table_psi, table_rho) = resolved
     # The plain ratio, not psi_normalised: its guard turns a non-finite span
-    # into NaN, where this map has always clamped (issue #2270 keeps the views
-    # bit-identical).  The formula is the same one.
+    # into NaN, where this map has always clamped, and the views drawn with it
+    # must stay bit-identical.  The formula is the same one.
     psi_norm = (np.asarray(psi_rz, dtype=float) - float(psi_axis)) / (
         float(psi_boundary) - float(psi_axis)
     )
@@ -2813,7 +2813,7 @@ def equilibrium_volume_weights(ods, time_slice, rho_tor_norm):
     if psi is not None and psi.shape == rho_eq.shape and np.all(np.isfinite(psi)):
         # The derivation reads optional paths with OMAS item access, which
         # creates them; it runs on a private copy of the leaves it needs so the
-        # caller's ODS is never written (cold review #2270 P2).
+        # caller's ODS is never written.
         grid = _equilibrium_grid_at_index(_profiles_1d_copy(ods, int(time_slice)), 0)
         if grid is not None:
             if not grid.rho_tor_norm_trusted:

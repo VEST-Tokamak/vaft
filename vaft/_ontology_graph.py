@@ -693,7 +693,7 @@ def _boundaries(graph: _Graph) -> None:
     """Operational boundaries and guidelines: what each bounds, from what, and where it holds.
 
     A boundary quantity reaches the vocabulary only through the ``concept`` it
-    declares (#2163), never through its name: ``concept=None`` is a statement
+    declares, never through its name: ``concept=None`` is a statement
     (|I_p| in MA is a magnitude, not the signed ``plasma_current``), so such a
     quantity gets no edge and is listed on the boundary as ``unlinked``.
     """

@@ -90,7 +90,7 @@ def _ods_get(ods: Any, path: str, default: Any = None) -> Any:
     ``ods[path]`` on an absent path materializes an empty branch -- a missing
     time-dependent leaf such as ``vacuum_toroidal_field.b0`` comes back as
     ``[None]``, which ``np.asarray`` turns into ``[0.]``: an ODS with no vacuum
-    field read as B0 = 0.0 and kept the phantom node (#2285). The path is
+    field read as B0 = 0.0 and kept the phantom node. The path is
     walked one key at a time through :func:`vaft.ods_access.path_value`, which
     never creates; a trailing integer past an ODS leaf indexes the array, as
     in ``b0.2``.

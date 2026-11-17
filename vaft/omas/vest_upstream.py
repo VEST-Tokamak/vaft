@@ -2527,7 +2527,7 @@ def _append_record_fields(
 def _volume_weights_on_grid(solution: ODS, index: int, rho: np.ndarray) -> np.ndarray | None:
     """``dV`` per ``rho_tor_norm`` point from the equilibrium's own ``V(rho)`` at ``index``.
 
-    :func:`vaft.process.profile.equilibrium_volume_weights` (issue #2270):
+    :func:`vaft.process.profile.equilibrium_volume_weights`:
     the composition normalisation is an ``n_e dV`` mean, so it needs the volume
     element of the surface each point sits on; ``None`` when the slice cannot
     weight the grid, and the composition then uses its stated stand-in.
