@@ -16,211 +16,164 @@ Sessions 01--05 went deeper into one discharge. Session 06 asks:
 > Where in operational and MHD-stability space do the reconstructed VEST states lie ---
 > and which statements about limits does the evidence support?
 
-$$\text{history} \rightarrow \text{summary contracts} \rightarrow \text{population}
-\rightarrow \text{reference boundaries} \rightarrow \text{stability join} \rightarrow \text{classification}$$
+A: database $\rightarrow$ summary row $\;\cdot\;$ B: equilibrium $\rightarrow \beta, l_i, q, I_N$ $\;\cdot\;$
+C: stability limits and sources $\;\cdot\;$ D: summary tables $\;\cdot\;$ E: operating space and stability
 
 ::: {.notes}
 [2 min]
 
 NARRATE:
-Everything runs offline from two repository-only sample collections,
-vest_operational_history and vest_tier_a, read with vaft.data.data_path. Their
-manifests carry the hashes the notebook checks before any number is shown.
-
-TRANSITION:
-Start with the longest record: the shot history.
+The session follows the order of the analysis itself: how a row is computed,
+what the physics behind each column is, which limits exist and where they come
+from, what the tables hold, and only then the synthesis on the planes.
+Everything runs offline from the vest_tier_a and vest_operational_history
+sample collections, whose manifests pin every file's hash.
 :::
 
-## Four things drawn on one plane
+# A. Computational workflow
 
-| term | evidence it needs |
+## From the database to a summary row
+
+- `open(shot, paths=...)`: read-only, lazy, inside a `with` block --- few leaves of many shots
+- `load(shot)`: eager, materialised --- one shot to modify or run codes on
+- a **preset** fixes the IDS read, the extractor, the columns, the key and the grain
+- `summary(odss=...)` runs the same extractor offline; `attrs["skipped"]` names what failed
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+Show the VEST data platform schematic. 48224 is skipped by shot_overview because
+its sample carries no plasma current; a skipped shot is better than a silent row
+of NaN.
+:::
+
+## The physics chain inside `equilibrium_global`
+
+| column | formula (`vaft.formula.equilibrium`) |
 | --- | --- |
-| observed envelope | the population itself |
-| accessible operating space | engineering limits, scans |
-| empirical / theoretical boundary | source, domain, quantity definitions |
-| solver classification | the solver, its inputs, its numerical QA |
-
-An empty region is not by itself an operating limit.
-
-::: {.notes}
-[3 min]
-
-NARRATE:
-Keep the four apart for the whole session. Most mistakes in operational-space
-plots are one of these being read as another.
-:::
-
-# Operational history and summary contracts
-
-## The archived history is history, not a preset
-
-- 2257 shots, 38000--45767; 1932 with max $I_p \geq 2$ kA; 1382 with a legacy EFIT ODS
-- no pulse date, no `shot_class`, no onset source: shot number $\neq$ calendar time
-- the 32 Tier A shots occupy two narrow bands of shot numbers
-
-::: {.notes}
-[4 min]
-
-NARRATE:
-Compare the archived columns with the shot_overview contract column by column.
-The 2 kA cut borrows the pickup threshold of shot_class; it is not a
-classification.
-:::
-
-## A preset is a definition
-
-| preset | reads | grain / key |
-| --- | --- | --- |
-| `shot_overview` | spectrometer_uv, magnetics, tf, barometry, dataset_description | shot |
-| `equilibrium_global` | equilibrium, magnetics, tf | `(shot, eq_index, time_s)` |
-| `core_profiles` | equilibrium, core_profiles, magnetics, tf | `(shot, cp_index, time_s)` |
-
-`summary(odss=...)` runs the same extractor offline; `attrs["skipped"]` names the
-shots it could not build (48224: no plasma current, `PlasmaTimingError`).
-
-::: {.notes}
-[4 min]
-
-NARRATE:
-shot_overview takes its window from plasma_timing (H-alpha first, I_p as a
-cross-check) and classifies Plasma / BD failure / Vacuum. Always print skipped.
-
-TRANSITION:
-Offline extraction is one of three access paths.
-:::
-
-## Lazy, eager, offline
-
-- `open(shot, paths=...)`: read-only, lazy, inside a `with` block; few leaves of many shots
-- `load(shot)`: eager, materialised; one shot to modify or run codes on
-- `summary(shot_range=...)`: lazy per shot, only the preset's IDS
-- `summary(odss=...)`: no database at all
-
-Database calls run only in lab mode, read-only.
-
-::: {.notes}
-[2 min]
-
-NARRATE:
-The same shot number in two sources is two reconstructions; every population
-row therefore carries its lineage.
-:::
-
-# The Tier A population
-
-## Grain, joins and names
-
-- 150 states from 32 shots: 133 magnetics + 17 electron-kinetic, good or admissible
-- five tables, five grains: shot, state, state $\times n$, state $\times n \times$ solver $\times$ surface
-- join on `(shot, round(t * 1e6), lineage)`, `validate="one_to_one"`: 150 / 0 / 0
-- two "internal inductance" columns differ by 1.00--1.51$\times$: a name is not a definition
-
-::: {.notes}
-[4 min]
-
-NARRATE:
-The atlas spells the lineages magnetics-only and electron-kinetic; map them
-explicitly and refuse unknown labels. Joining a per-state table to atlas_n
-without reducing it first multiplies every state by six.
-:::
-
-## Reconstructed, selected, sparse
-
-- $q_{95}$, $l_i$, $\beta_p$, $W_\mathrm{MHD}$ are EFIT outputs: joint inference, not two measured axes
-- `efit_quality` (trustworthy equilibrium) $\neq$ `selected` (usable power balance)
-- Thomson density on 64/133 states; scalings only there
-- H (selected, median): ITER89P 0.75, H98y2 0.72, NSTX2006L 0.24
+| $W_\mathrm{MHD}$ | `thermal_energy_from_p_V`: $\tfrac32\int p\,dV$ |
+| $\beta_t$, $\beta_p$ | `beta_toroidal_from_p_B0`, `beta_poloidal_from_pressure_integral` |
+| $\beta_N$ | `beta_normal_from_beta_tor`: $100\,\beta_t a B_0/I_p$ |
+| $l_i(3)$ | `li_3_from_Bp2_volume_integral`: $2\int B_p^2 dV/(\mu_0^2 I_p^2 R_0)$ |
+| $I_N$ | `normalized_plasma_current`: $I_p/(aB_0)$ |
 
 ::: {.notes}
 [3 min]
 
 NARRATE:
-One state per shot versus all slices changes every distribution; say which
-population a statistic describes.
+The extractor recomputes these from the reconstructed profiles with one
+definition for every shot, B0 and R0 from vacuum_toroidal_field (R0 = 0.4 m).
 :::
 
-# Operating space
+# B. Physical workflow
 
-## Field conventions and quantity identities
+## Recompute a row from its integrals
 
-- $I_N$, $q^*$, Hugill: vacuum $B_T$ at $R_\mathrm{geo}$; stored $\beta_N$: $B_T$ at $R_0 = 0.4$ m
-- $\beta_N(R_\mathrm{geo}) = \beta_N(R_0)\,R_\mathrm{geo}/R_0$, factor 0.73--1.14
-- $q_{95} \neq q_\psi \neq q(a) \neq q^*$; DCON `qlim` sits at $\psi_N = 0.994$
-- Wesson and Cheng panels: reference only; Strait $4\,l_i(1)$ never on an $l_i(3)$ axis
+- 42962, one slice: $\int p\,dV$ over $V(\psi)$, $\int B_p^2\,dV$ on the grid inside the LCFS
+- $W$, $\beta_t$, $\beta_p$, $\beta_N$, $I_N$ reproduce the summary exactly; $l_i(3)$ to 0.7 %
+- measured $\rightarrow$ reconstructed $\rightarrow$ derived: $\beta_p$ and $l_i$ are a joint inference
+- $q_{95}$ is a flux-surface quantity; $q^*$, $q_\mathrm{cyl}$, $I_N$ are algebraic in $I_p, a, \kappa, R, B$
 
 ::: {.notes}
-[4 min]
+[5 min]
 
 NARRATE:
-vaft.plot.operational_space draws a boundary only where the column's quantity
-and unit match the axis, and reports what it omitted.
+Show plasma_state_provenance and derived_mhd_parameters, then the reduced
+pictures: current_profile_shapes (l_i), q_profile_landmarks (q0, qmin, q95, qa),
+shaping_family (kappa, delta).
 :::
 
-## Reading the planes
+# C. Stability limits
 
-- $q^* I_N = 5\kappa/A$ (4.4--6.7): the $q^*$--$I_N$ plane is mostly shape
-- the kink boundary is OUTSIDE its calibration for a spherical tokamak; the rest are UNASSESSED
-- the Troyon plane re-expresses $\beta_N$; it adds no independent measurement
-- spherical-tokamak Hugill (Sykes 2000) is the native density plane for VEST
+## Every limit has a kind, a basis and a source
+
+| limit | basis | source | plane |
+| --- | --- | --- | --- |
+| $q^* \geq (1+\kappa)/2$ | ideal MHD, analytic | Freidberg 2008 | $q^*$--$I_N$ |
+| $q^*_\mathrm{ST} \geq 1$ | ideal MHD, numerical | Menard 2004 | $q^*_\mathrm{cyl}$--$I_N$ |
+| $q_{95} \geq 2.1$ | design guideline | ITER 1991 | $q_{95}$--$l_i$ |
+| $l_i(3)$--$q_\psi$ | empirical (JET) | Wesson 1989 | $q_\psi$--$l_i(3)$ |
+| $l_i$--$q(a)$ | theory (cylinder) | Cheng 1987 | $q(a)$--$l_i$ |
+| $\beta_N \approx 2.8$ | ideal MHD, numerical | Troyon 1984 | $\beta_N$--$l_i$, $\beta_T$--$I_N$ |
+| $\beta_N \leq 4\,l_i(1)$ | empirical envelope | Strait 1994 | $l_i(1)$ only |
+| $\bar n R/B$, $n_G$ | empirical | Murakami 1976, Greenwald 1988, Sykes 2000 | Hugill (ST) |
 
 ::: {.notes}
-[4 min]
+[6 min]
+
+NARRATE:
+The notebook reads this table from vaft.formula.boundaries, with the equation
+number of each source and the machine class it was derived for. Walk through
+the schematics: stability_diagnostic_taxonomy, internal_external_kink, li_qa
+(both sources), troyon, hugill and hugill_st, then dcon_rdcon_stability,
+delta_prime and interchange_criteria for the solver-derived classification.
+:::
+
+# D. Summary tables
+
+## History, presets and the Tier A population
+
+- archive: 2257 shots, 38000--45767; no date, no `shot_class` --- shot number $\neq$ time
+- presets on the samples: one row per shot / EFIT slice / profile slice
+- Tier A: 150 states from 32 shots (133 magnetics + 17 electron-kinetic), good or admissible
+- stored `li` is $l_i(1)$ and `betap` the boundary-averaged $\beta_p$ ($B_{pa}=\mu_0 I_p/L_{pol}$): DD axes use $l_i(3)$, $\beta_p^{DD}$
+- `efit_quality` $\neq$ `selected`; Thomson density on 64/133 states
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+Five tables, five grains; uniqueness is checked at each one before any join.
+The 32 Tier A shots sit in two narrow bands of shot numbers.
+:::
+
+# E. Operating space and stability
+
+## The planes
+
+- one current (EFIT) and one field convention ($B_T$ at $R_\mathrm{geo}$; $\beta_N\cdot R_\mathrm{geo}/R_0$)
+- $q^* I_N = 5\kappa/A$: the $q^*$--$I_N$ plane is mostly shape
+- Freidberg: OUTSIDE its calibration; Menard: declared for STs, no tested range
+- Wesson and Cheng: reference only (DCON `qlim` sits at $\psi_N = 0.994$)
+- the Troyon plane re-expresses $\beta_N$; Hugill uses the ST form
+
+::: {.notes}
+[5 min]
 
 NARRATE:
 Read the applicability line before the boundary. Unless a boundary is
 SUPPORTED, it is a reference, not a VEST limit.
 :::
 
-# Stability
-
 ## Layers stay separate
 
-1. raw: $W_t$ per $n$ and edge; $\Delta'$ per surface
-2. QA: sign at two resolutions (`sign_class`, `two_resolution_consistent`)
-3. criterion: $W_t<0$; $\Delta'>0$; $D_I>0$; $D_R>0$; $C_A<0$
-4. interpretation: not produced --- $\Delta'>0$ is a classical drive, not a tearing verdict
-
-Not assessed is never stable.
-
-::: {.notes}
-[3 min]
-
-NARRATE:
-A state can be ideal-stable at every n, carry a QA-supported Delta-prime and be
-Mercier-stable at once. Keep all three flags.
-:::
-
-## What the atlas says
-
 - DCON full edge: 129 stable / 13 unstable / 8 unresolved; truncated edge: 146 / 3 / 1
-- $\Delta'>0$ raw on most states, QA-supported on 9 (RDCON) and 38 (STRIDE); a failed run is not assessed, never a drive
+- $\Delta'>0$ raw on most states, QA-supported on 9 (RDCON) and 38 (STRIDE)
+- a failed run is not assessed, never a drive; $\Delta'>0$ is not a tearing verdict
 - $D_R>0$ on 124, $D_I>0$ on 1, $C_A<0$ on 12
-- magnitudes are not growth rates; no "marginal" band without a derived threshold
 
 ::: {.notes}
 [5 min]
 
 NARRATE:
-The edge treatment decides most ideal verdicts; report both. The gap between
-raw and QA-supported drive is a statement about numerics, not tearing. The
-legacy pipeline-3 sheets collapsed all of this into one label with fixed
-magnitude cut-offs, which is why they are not plotted.
+Join on (shot, EFIT time in microseconds, lineage), one-to-one: 150/0/0. The
+edge treatment decides most ideal verdicts; report both. Magnitudes are not
+growth rates.
 :::
 
 ## Takeaways
 
-- presets are definitions; print `skipped`
-- archived tables are history; shot number $\neq$ time
-- lazy for many shots, eager for one, `odss=` offline
+- a summary row is computed: preset, extractor, physics chain, `skipped`
+- every column has an integral definition and a normalisation; names are not definitions
+- every limit has a kind, a basis, a source and a domain
 - envelope $\neq$ limit; boundaries only on their own quantity, with applicability
-- join at the native grain and print the report
 - ideal, resistive, local and QA are separate layers
 
 ::: {.notes}
 [2 min]
 
 NARRATE:
-End of the course. Session 01 opened one discharge; session 06 put it among the
-others. Regression, similarity, events and learning are optional extensions on
-top of a population defined this carefully.
+End of the course. Regression, similarity, events and learning are optional
+extensions on top of a population defined this carefully.
 :::

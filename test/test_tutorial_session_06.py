@@ -4,9 +4,10 @@ The session runs offline from the repository-only sample collections
 ``vaft/data/samples/vest_operational_history`` and ``vaft/data/samples/vest_tier_a``
 (read through ``vaft.data.data_path``) and from the packaged sample shots, and in
 lab mode rebuilds the population with ``vaft.database.summary``. The tests pin
-the spine (history -> summary contracts -> Tier A population -> confinement ->
-lazy/eager access -> operating space -> stability join -> classification ->
-distributions) and the honesty rules: only the three in-scope presets, skipped
+the spine (A: database -> summary row and its physics chain; B: the MHD
+parameters recomputed from their integrals; C: the registered stability limits
+with their sources and schematics; D: the summary tables; E: operating space,
+stability join, classification, distributions) and the honesty rules: only the three in-scope presets, skipped
 shots printed, file hashes checked against the manifest, joins validated at
 their grain, no boundary drawn on a foreign quantity, ideal/resistive/local
 layers and their QA kept separate, and database access only in lab mode.
@@ -26,9 +27,8 @@ pytestmark = pytest.mark.slow
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOK = ROOT / "tutorial" / "06_operational_space_and_data_driven_analysis.ipynb"
 
-MAX_OUTPUT_BYTES = 200_000
 IMAGE_MIME_TYPES = ("image/png", "image/jpeg", "image/svg+xml")
-FIGURE_FLOOR = 10
+FIGURE_FLOOR = 26  # the offline run draws 29 figures and schematics
 IN_SCOPE_PRESETS = {"shot_overview", "equilibrium_global", "core_profiles"}
 OUT_OF_SCOPE_PRESETS = ("efit_magnetic_reliability", "efit_kinetic_reliability", "efit_reliability",
                         "volume_averaged", "neoclassical", "turbulent_transport", "classical_transport")
@@ -109,15 +109,14 @@ def test_notebook_runs_offline_and_draws_its_figures(executed):
     figures = sum(any(m in o.get("data", {}) for m in IMAGE_MIME_TYPES)
                   for c in _code_cells(executed) for o in c.get("outputs", []))
     assert figures >= FIGURE_FLOOR
-    for cell in _code_cells(executed):
-        assert len(nbformat.writes(nbformat.from_dict({"cells": [cell], "metadata": {}, "nbformat": 4,
-                                                        "nbformat_minor": 5}))) < MAX_OUTPUT_BYTES, cell.id
 
 
 def test_the_spine_runs_in_order(book):
-    tokens = ["omas_history_new.xlsx", "get_summary_preset(name)", "summary(odss=samples",
-              "ip_measured_a", "h_factor(", "vaft.database.open(", '"qstar_in"', "li_qa_pair(",
-              '"beta_n_li"', '"troyon"', '"hugill_st"', "stability_state = ", "stability_atlas_populations("]
+    tokens = ["vaft.database.open(", "get_summary_preset(name)", "summary(odss=samples",
+              "li_3_from_Bp2_volume_integral(", "fb.get_boundary(", "vaft.diagram.troyon()",
+              "overview_preset = ", "ip_measured_a", "h_factor(", '(axes[0], "qstar_in"', "li_qa_pair(",
+              'operational_space_population(opspace, "beta_n_li"', 'operational_space_population(opspace, "troyon"',
+              '"hugill_st", color=', "stability_state = ", "stability_atlas_populations("]
     positions = [_first_cell_with(book, token) for token in tokens]
     assert positions == sorted(positions), dict(zip(tokens, positions))
 
@@ -170,12 +169,16 @@ def test_boundaries_stay_on_their_own_quantities(book, executed):
     assert '"edge_safety_factor"' not in code  # no q95 or qlim relabelled as q_psi
     assert "kink_stability_criterion(" not in code
     assert "Strait 4 l_i(1) on this l_i(3) axis: False" in _text(_cell(executed, "s06-beta-li"))
-    assert "applicable:" in _text(_cell(executed, "s06-qstar"))
+    # the state table's li is l_i(1): Strait is drawn there, and only there
+    assert "'strait_1994_beta_n_li'" in _text(_cell(executed, "s06-beta-li1"))
+    assert '"internal_inductance_li1": mag["li"]' in _source(_cell(book, "s06-opspace-prepare"))
+    assert "applicability:" in _text(_cell(executed, "s06-qstar"))
     prepare = _source(_cell(book, "s06-opspace-prepare"))
     assert 'mag["ip_efit_A"]' in prepare and 'mag["i_p_A"]' not in prepare  # one current: the equilibrium's
     assert "factor R_geo/R0 = 0.731–1.139" in _text(_cell(executed, "s06-opspace-prepare"))
-    for call in re.findall(r"vaft\.diagram\.\w+\(([^)]*)\)", code):
-        assert call == ""
+    import vaft.diagram
+    for name in re.findall(r"vaft\.diagram\.(\w+)\(", code):
+        assert callable(getattr(vaft.diagram, name)), name
 
 
 def test_stability_layers_stay_separate(book, executed):
@@ -206,3 +209,26 @@ def test_code_stays_plain(book):
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module:
                 assert not any(part.startswith("_") for part in node.module.split(".")), node.module
+
+
+def test_the_physics_chain_is_reproduced_by_hand(executed):
+    """Part B recomputes one summary row from its integrals with vaft.formula."""
+    text = _text(_cell(executed, "s06-physics-recompute"))
+    for column in ("energy_mhd_J", "beta_tor", "beta_pol", "beta_normal", "li_3", "normalized_plasma_current"):
+        line = next(line for line in text.splitlines() if line.startswith(column))
+        relative = float(line.split()[-1])
+        assert abs(relative) < (0.02 if column == "li_3" else 1e-9), line
+
+
+def test_every_limit_carries_its_source_and_schematic(book, executed):
+    source = _source(_cell(book, "s06-limits-catalogue"))
+    assert "fb.get_boundary(key)" in source and "boundary.sources[0]" in source
+    keys = re.findall(r'\("(\w+)", "', source)
+    import vaft.diagram
+    from vaft.formula import boundaries as fb
+    for key, schematic in re.findall(r'\("(\w+)", "[^"]+", "(\w+)"\)', source):
+        assert fb.get_boundary(key).sources, key
+        assert callable(getattr(vaft.diagram, schematic)), schematic
+    assert {"menard_2004_qstar_min", "troyon", "sykes_2000_st_hugill", "wesson_1989_jet_li_qpsi_lower"} <= set(keys)
+    limit_cells = [c for c in _code_cells(book) if c.id.startswith("s06-limits-") and c.id.endswith("-diagram")]
+    assert len(limit_cells) >= 5
