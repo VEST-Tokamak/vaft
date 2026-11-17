@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Per-slice EFIT model-form spread from the #579 ensemble, for confinement analyses (#548).
+"""Per-slice EFIT model-form spread from the profile-model sensitivity ensemble, for confinement analyses.
 
     python workflow/efit_uncertainty_calibration/model_spread.py \\
         --tables full/table_*.json pilot/v2_table_39915.json ... --output model_spread.csv
 
-One row per ``(shot, time_efit_s, efit_lineage)`` -- the #1454 state key, with
+One row per ``(shot, time_efit_s, efit_lineage)`` -- the kinetic-state key, with
 ``time_efit_s`` rounded to 1e-4 s and lineage ``magnetics`` -- and, for each of
 two member sets, the spread of ``w_mhd_J``, ``beta_p`` and ``li``:
 
 * ``viable`` -- fit-quality ``good`` members of the (2,1) and (1,2) bases, the
-  two that converge and give the high-W branch (#579 pilot);
+  two that converge and give the high-W branch (found in the sensitivity pilot);
 * ``admissible`` -- every admissible member of the 120-setting ensemble.
 
 Per quantity and set: ``n``, ``median``, the 16th and 84th percentiles, and

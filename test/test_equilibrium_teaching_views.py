@@ -1,4 +1,4 @@
-"""Equilibrium views for the MHD-equilibrium session (#952).
+"""Equilibrium views for the MHD-equilibrium session.
 
 Shape histories from the IDS boundary leaves, the kinetic pressure family in
 the EFIT constraint views, the per-family constraint weights, the

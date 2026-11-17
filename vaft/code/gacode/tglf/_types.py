@@ -230,7 +230,7 @@ class TGLFResult(CodeResult):
 
 def plasma_formalism(config: Optional[TGLFConfig] = None, *,
                      parameters: Optional[Mapping[str, Any]] = None):
-    """The #1727 record of a TGLF run (:class:`vaft.code.formalism.PlasmaFormalism`, #1735).
+    """The formalism record of a TGLF run (:class:`vaft.code.formalism.PlasmaFormalism`).
 
     A reduced model derived from gyrokinetics, never a gyrokinetic solve. Derived from
     ``parameters``, the ``KEY=VALUE`` pairs the run was written with

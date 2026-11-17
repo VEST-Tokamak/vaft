@@ -42,7 +42,7 @@ CHEASE_COMPATIBILITY_ENVS = ("CHEASE", "CHEASE_EXEC_DIR")
 #: What each supported ``CHEASEConfig.output`` asks CHEASE for, as its
 #: ``NIDEAL`` mapping selector.
 #:
-#: The adapter's contract is GEQDSK in, GEQDSK out (#516): VAFT reads a
+#: The adapter's contract is GEQDSK in, GEQDSK out: VAFT reads a
 #: g-file, writes CHEASE's native ``EXPEQ`` from it (``NEQDSK=0`` -- the
 #: boundary, ``p'`` and ``FF'``, not the g-file itself), and reads the COCOS-2
 #: EQDSK CHEASE writes back.  ``NIDEAL=6`` is that EQDSK mapping in upstream
@@ -163,8 +163,8 @@ class CHEASEConfig:
     relax: float = 0.5
     output: str = "geqdsk"
     # Deprecated: a raw NIDEAL for a non-upstream CHEASE build. Upstream
-    # validates 0 to 10 (`cotrol.f90`) and quits on anything else before any
-    # equilibrium work, which is how the old default of 11 failed (#717).
+    # validates 0 to 10 (`cotrol.f90`) and quits on anything else -- 11, for
+    # example -- before any equilibrium work.
     nideal: Optional[int] = None
     #: Size of the R-Z box CHEASE writes its EQDSK on, radially (``NRBOX``).
     #: This is the *output* grid only: the equilibrium is solved on the ``ns``
@@ -173,13 +173,13 @@ class CHEASEConfig:
     #: Vertical size of that box (``NZBOX``); ``None`` keeps it square
     #: (``NZBOX = NRBOX``).  Upstream CHEASE reads the two independently and
     #: silently clamps each to ``NPBPS = 2300`` (``psibox.f90``), so both are
-    #: validated against that here (#459).
+    #: validated against that here.
     nh: Optional[int] = None
     #: CHEASE's solver mesh: radial (``NS``) and poloidal (``NT``) finite
     #: elements, and the ``NPSI`` x ``NCHI`` flux-coordinate mapping.  ``None``
     #: takes the default for the resolved ``NIDEAL``; see
     #: :func:`_chease_mesh_params`.  ``ns``/``nt`` set the local force balance
-    #: of the result, which the output grid ``nw`` cannot improve (#885).
+    #: of the result, which the output grid ``nw`` cannot improve.
     ns: Optional[int] = None
     nt: Optional[int] = None
     npsi: Optional[int] = None
@@ -215,7 +215,7 @@ class CHEASEConfig:
     args: Sequence[str] = ()
     timeout: Optional[float] = None
     backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
-    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: Compute resources for each launch. ``None`` keeps the adapter's
     #: own declaration; a value replaces it, and its ``threads_per_task`` is
     #: set in the launch environment over ``env`` and the inherited one.
     resources: Optional["ResourceRequest"] = None
@@ -358,7 +358,7 @@ class CHEASEResult(RunOutcome):
     #: see :class:`CHEASEMaterializedInput`.
     materialized: Optional["CHEASEMaterializedInput"] = None
 
-    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"`` (#1016).
+    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"``.
     runtime_status: str = "completed"
     #: Wall time from launch to exit or stop [s].
     elapsed_s: Optional[float] = None
@@ -928,11 +928,11 @@ def _expeq_payload(geqdsk: Any, config: CHEASEConfig) -> dict[str, Any]:
     aspct = amin / rcen
     # |B0| comes from FPOL, not BCENTR: a g-file spells the same vacuum field
     # both ways at nine significant digits, the two spellings do not round to
-    # the same double, and `to_omas()` canonicalizes on the FPOL one (issue
-    # #325). Reading BCENTR here made a g-file and the ODS built from that same
+    # the same double, and `to_omas()` canonicalizes on the FPOL one.
+    # Reading BCENTR here made a g-file and the ODS built from that same
     # g-file produce EXPEQ/namelist pairs differing by 3.3e-9 in B0EXP. On the
     # VEST shots where BCENTR drifts away from FPOL outright -- by up to 101%
-    # within a single shot, which is what #325 is about -- the same
+    # within a single shot in the shot database's records -- the same
     # inconsistency was not a rounding gap but two different equilibria, and
     # the one CHEASE was being handed was normalized to a vacuum field the
     # equilibrium had not been solved with.
@@ -1437,7 +1437,7 @@ def _boundary_and_limiter_layers(geqdsk: Any, label: str, color: str, linestyle:
 def _comparison_model(original: Any, refined: Any):
     """Build the CHEASE input-vs-refined comparison view model.
 
-    Rendering stays in :mod:`vaft.plot` (issue #63): this only shapes the two
+    Rendering stays in :mod:`vaft.plot`: this only shapes the two
     EQDSKs into the typed view models the canonical panel renderer consumes.
 
     The four profile comparisons are drawn exactly as before.  The flux map is
@@ -1531,7 +1531,7 @@ def _find_manifests(workdir: Path) -> tuple[Path, ...]:
 
 @dataclass
 class CHEASESubmission:
-    """A CHEASE solve handed to its backend (#1018); :meth:`collect` finishes it.
+    """A CHEASE solve handed to its backend; :meth:`collect` finishes it.
 
     ``handle`` is ``None`` when the backend refused the launch at submission;
     :meth:`collect` then reports that the way a refused local launch is
@@ -1586,7 +1586,7 @@ class CHEASESubmission:
 
 
 def submit_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEASESubmission:
-    """Hand CHEASE with prepared inputs to the backend without waiting (#1018).
+    """Hand CHEASE with prepared inputs to the backend without waiting.
 
     Configuration errors (no executable, missing inputs, a missing working
     directory) raise here. With a backend that runs eagerly -- the default
@@ -1643,7 +1643,7 @@ def _finish_chease(inputs: CHEASEInputs, config: CHEASEConfig, completed: Execut
     """Turn one finished CHEASE launch into its result: log, refined g-file, outputs."""
     log_path = inputs.workdir / "chease.log"
     if completed.timed_out:
-        # A result, not an exception (#1016): one stopped case must not end a
+        # A result, not an exception: one stopped case must not end a
         # scan. Nothing is collected -- files already in the directory are an
         # earlier run's or half-written, not this run's refined equilibrium.
         reason = timeout_reason("CHEASE", completed, config.timeout)

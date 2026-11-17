@@ -418,22 +418,35 @@ _SPECS = (
     WorkflowSpec(
         key="neo_neoclassical", title="Neoclassical transport: closed-form fits and drift-kinetic solution",
         family="transport", status="implemented",
-        summary="The same resolved local state through the Sauter and Redl fits and the drift-kinetic solver NEO, "
-                "so the two can be compared at one state.",
+        summary="One equilibrium and profile set, read directly by the Sauter and Redl fits and, through the "
+                "resolved local state, by the drift-kinetic solver NEO. Only NEO's result is written to IMAS; the "
+                "fits are returned for comparison.",
         nodes=(
-            N("state", "Resolved local state", "derived", api=_STATE, symbols=r"T_s,\ n_s,\ q,\ \epsilon,\ f_t"),
-            N("fits", "Sauter / Redl fits", "derived", api="vaft.formula.neoclassical.redl_bootstrap_current",
+            N("source", "Equilibrium and profiles", "reconstructed",
+              ids="{equilibrium.time_slice[:], equilibrium.vacuum_toroidal_field, core_profiles.profiles_1d[:]}",
+              symbols=r"\psi,\ q,\ F,\ B_0;\ n_e,\ T_e,\ T_i"),
+            N("state", "Resolved local state", "derived", api=_STATE,
+              symbols=r"T_s,\ n_s,\ Z_s,\ q,\ \kappa,\ \delta"),
+            N("fits", "Sauter / Redl fits", "derived", api="vaft.omas.neoclassical.compute_bootstrap_current",
               equation="vaft.formula.neoclassical.sauter_bootstrap_current"),
             N("case", "NEO input", "code_input", api="vaft.code.gacode.neo.prepare_neo_case"),
             N("neo", "NEO drift-kinetic solve", "solver", api="vaft.code.gacode.neo.run_neo"),
             N("native", "Fluxes, bootstrap current", "native_result", api="vaft.code.gacode.neo.collect_neo_outputs",
               symbols=r"\Gamma_s,\ Q_s,\ \langle j_{\mathrm{bs}}B\rangle"),
-            N("transport", "Neoclassical transport", "standardized", ids="core_transport.model[:].profiles_1d[:]",
-              symbols=r"\Gamma_s,\ Q_s,\ j_{\mathrm{bs}}"),
+            N("transport", "Neoclassical transport", "standardized",
+              ids="core_transport.model[:].profiles_1d[:]; core_profiles.profiles_1d[:].j_bootstrap",
+              symbols=r"\Gamma_s,\ Q_s\ (\mathrm{core\_transport});\ j_{\mathrm{bs}}\ (\mathrm{core\_profiles})"),
         ),
-        rows=(("state",), ("fits", "case"), (None, "neo"), (None, "native"), ("transport",)),
-        edges=(("state", "fits", ""), ("state", "case", ""), ("case", "neo", ""), ("neo", "native", ""),
-               ("native", "transport", ""), ("fits", "transport", "compared at the same state")),
+        rows=(("source", "state"), ("fits", "case"), (None, "neo"), (None, "native"), ("transport",)),
+        # the fits are evaluated by compute_bootstrap_current(ods, ...), not from the resolved state, and returned
+        edges=(("source", "state", ""), ("source", "fits", ""), ("state", "case", ""), ("case", "neo", ""),
+               ("neo", "native", ""), ("native", "transport", "")),
+        todos=("The Sauter / Redl fits have no IMAS writer: they are returned, and "
+               "vaft.validation.neoclassical.bootstrap_models compares them with the stored "
+               "core_profiles j_bootstrap (see the Sauter / Redl against NEO diagram).",
+               "The two routes do not see identical inputs: the fits need a stored ion temperature and assume "
+               "n_i = n_e unless an impurity is given, while the resolved state can fill T_i from the Ti/Te "
+               "policy and defaults to Z_eff = 2 with carbon."),
     ),
     WorkflowSpec(
         key="tglf_cgyro_local_transport", title="Local turbulent transport: quasilinear and gyrokinetic",
@@ -490,7 +503,7 @@ _SPECS = (
                "pipeline stage stores that IDS: turbulent_transport owns core_transport only, and one occurrence "
                "per flux surface awaits the #1128/#1129 occurrence model (#2020)."),
     ),
-    # ------------------------------------------------------------------ plasma parameter inference (#1601)
+    # ------------------------------------------------------------------ plasma parameter inference
     WorkflowSpec(
         key="parameter_inference_overview", title="Plasma parameter inference: completing the kinetic profiles",
         family="parameter_inference", status="implemented",
@@ -583,7 +596,7 @@ _SPECS = (
         todos=("E_r, rotation and gamma_E are not inferred from data (#553): gamma_E = 0 enters the gyrokinetic "
                "input as an assumption, and force balance is future scope.",),
     ),
-    # ------------------------------------------------------------------ reconstruction inputs (#1901)
+    # ------------------------------------------------------------------ reconstruction inputs
     WorkflowSpec(
         key="eddy_current_model", title="Vessel eddy currents: a circuit driven by the coils and the plasma",
         family="reconstruction", status="implemented",
@@ -672,15 +685,19 @@ _SPECS = (
                "no joint multi-diagnostic fit.",
                "The kinetic-profile evidence framework (#1204) is not yet referenced by the fit records."),
     ),
-    # ------------------------------------------------------------------ transport hierarchy (#1901)
+    # ------------------------------------------------------------------ transport hierarchy
     WorkflowSpec(
         key="transport_hierarchy", title="Transport hierarchy: classical, neoclassical, turbulent",
         family="transport", status="implemented",
-        summary="One resolved local state and five independently computed routes; none feeds another. "
+        summary="Five independently computed routes from one equilibrium and profile set; none feeds another. "
+                "Four read the resolved local state; the Sauter / Redl closures read the IMAS data directly. "
                 "'Always available' means the route needs no external code, not that its physics applies "
                 "everywhere. Each route with a writer lands in its own core_transport.model entry, found by its "
                 "identifier.index and code name -- the array position k is assigned at write time.",
         nodes=(
+            N("source", "Equilibrium and profiles", "reconstructed",
+              ids="{equilibrium.time_slice[:], core_profiles.profiles_1d[:]}",
+              symbols=r"\psi,\ q,\ F;\ n_e,\ T_e,\ T_i\ (\mathrm{one\ time\ slice})"),
             N("state", "Resolved local state", "derived", api="vaft.process.transport_state.resolve_transport_state",
               symbols=r"T_s,\ n_s,\ a/L_{T,n},\ q,\ \hat s,\ \hat\nu"),
             N("classical", "Classical: Braginskii", "derived", api="vaft.process.transport_state.classical_heat_fluxes",
@@ -717,10 +734,12 @@ _SPECS = (
               ids="core_transport.model[k] (identifier.index 6, code CGYRO)",
               symbols=r"\langle\Gamma_s\rangle_t,\ \langle Q_s\rangle_t\ \mathrm{over}\ (t_0, t_1)"),
         ),
-        rows=(("state",), ("classical", "neo_fit", "neo_code", "turb_ql", "turb_gk"),
-              ("ct_classical", None, "ct_neo", "ct_tglf", "ct_cgyro")),
-        edges=(("state", "classical", ""), ("state", "neo_fit", ""), ("state", "neo_code", ""),
-               ("state", "turb_ql", ""), ("state", "turb_gk", ""), ("classical", "ct_classical", ""),
+        rows=(("source", None, "state", None, None), ("neo_fit", "classical", "neo_code", "turb_ql", "turb_gk"),
+              (None, "ct_classical", "ct_neo", "ct_tglf", "ct_cgyro")),
+        # compute_bootstrap_current takes the ODS, not the resolved state
+        edges=(("source", "state", ""), ("source", "neo_fit", ""), ("state", "classical", ""),
+               ("state", "neo_code", ""), ("state", "turb_ql", ""), ("state", "turb_gk", ""),
+               ("classical", "ct_classical", ""),
                ("neo_code", "ct_neo", ""), ("turb_ql", "ct_tglf", ""), ("turb_gk", "ct_cgyro", "")),
         side=(("window", "ct_cgyro"),),
         todos=("The closed-form Sauter/Redl results have no core_transport writer (and carry no particle or heat "
@@ -733,7 +752,9 @@ _SPECS = (
                "A nonlinear CGYRO run writes no fluxes without a saturation window: choosing it is the caller's "
                "judgement.",
                "The TGLF-NN surrogate (vaft.code.gacode.tglf.surrogate) refuses VEST inputs as out of domain and "
-               "has no IMAS writer."),
+               "has no IMAS writer.",
+               "NEO's bootstrap current and conductivity go to core_profiles (core_profiles_from_neo), which this "
+               "figure does not draw."),
     ),
     WorkflowSpec(
         key="neoclassical_model_comparison", title="Sauter / Redl against NEO at one state",
@@ -792,7 +813,7 @@ _SPECS = (
                "Without NEO there is no reference and no comparison; the closed-form results are not written to "
                "IMAS."),
     ),
-    # ------------------------------------------------------------------ experimental processing (#1901 part B)
+    # ------------------------------------------------------------------ experimental processing
     WorkflowSpec(
         key="machine_model_history", title="Machine model and shot history: one shot number selects the machine",
         family="experimental_processing", status="implemented",
@@ -1039,7 +1060,7 @@ _SPECS = (
                "current_quench and current_spike (vaft.process.transients) measure a quench or spike in a given "
                "window; nothing in the pipeline calls them, and they do not label it an IRE or a disruption."),
     ),
-    # ------------------------------------------------------------------ derived physics (#1901)
+    # ------------------------------------------------------------------ derived physics
     WorkflowSpec(
         key="vacuum_field_proxies", title="Vacuum fields and startup proxies: coils and vessel, no plasma",
         family="derived", status="implemented",
@@ -1461,7 +1482,7 @@ def tglf_cgyro_local_transport(*, labels: bool = True) -> Diagram:
 
 
 def parameter_inference_overview(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Where plasma parameter inference sits between reconstruction and simulation (#1601).
+    """Where plasma parameter inference sits between reconstruction and simulation.
 
     ``references=True`` numbers each closure's representative papers and lists them under the legend.
     """
@@ -1469,7 +1490,7 @@ def parameter_inference_overview(*, labels: bool = True, references: bool = Fals
 
 
 def parameter_inference_dependency_graph(*, labels: bool = True, references: bool = False) -> Diagram:
-    """How provenance propagates through inferred plasma parameters (#1601).
+    """How provenance propagates through inferred plasma parameters.
 
     ``references=True`` numbers the representative papers and lists them under the legend.
     """
@@ -1477,75 +1498,75 @@ def parameter_inference_dependency_graph(*, labels: bool = True, references: boo
 
 
 def eddy_current_model(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Vessel eddy currents from the PF and plasma current circuit (#1901)."""
+    """Vessel eddy currents from the PF and plasma current circuit."""
     return _render_workflow(WORKFLOWS["eddy_current_model"], labels=labels, references=references)
 
 
 def kinetic_profile_fitting(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Kinetic profile fitting from Thomson and charge exchange (#1901)."""
+    """Kinetic profile fitting from Thomson and charge exchange."""
     return _render_workflow(WORKFLOWS["kinetic_profile_fitting"], labels=labels, references=references)
 
 
 def transport_hierarchy(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Classical, neoclassical and turbulent transport from one state (#1901)."""
+    """Classical, neoclassical and turbulent transport from one state."""
     return _render_workflow(WORKFLOWS["transport_hierarchy"], labels=labels, references=references)
 
 
 def neoclassical_model_comparison(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Sauter / Redl against NEO at one kinetic state (#1901)."""
+    """Sauter / Redl against NEO at one kinetic state."""
     return _render_workflow(WORKFLOWS["neoclassical_model_comparison"], labels=labels, references=references)
 
 
 def machine_model_history(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Shot number to machine era, diagnostic revisions and the static machine description (#1901)."""
+    """Shot number to machine era, diagnostic revisions and the static machine description."""
     return _render_workflow(WORKFLOWS["machine_model_history"], labels=labels, references=references)
 
 
 def signal_processing(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Raw digitizer records to a diagnostic IDS, in the magnetic-probe order (#1901)."""
+    """Raw digitizer records to a diagnostic IDS, in the magnetic-probe order."""
     return _render_workflow(WORKFLOWS["signal_processing"], labels=labels, references=references)
 
 
 def quality_validation(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Source validity, vacuum-model agreement and fit quality as separate evidence (#1901)."""
+    """Source validity, vacuum-model agreement and fit quality as separate evidence."""
     return _render_workflow(WORKFLOWS["quality_validation"], labels=labels, references=references)
 
 
 def fault_anomaly_detection(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Diagnostic-specific fault checks; no universal anomaly model (#1901)."""
+    """Diagnostic-specific fault checks; no universal anomaly model."""
     return _render_workflow(WORKFLOWS["fault_anomaly_detection"], labels=labels, references=references)
 
 
 def shot_classification(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Shot and slice classes as rules over derived features (#1901)."""
+    """Shot and slice classes as rules over derived features."""
     return _render_workflow(WORKFLOWS["shot_classification"], labels=labels, references=references)
 
 
 def event_detection(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Plasma window and coil onsets from robust-baseline thresholds (#1901)."""
+    """Plasma window and coil onsets from robust-baseline thresholds."""
     return _render_workflow(WORKFLOWS["event_detection"], labels=labels, references=references)
 
 
 def vacuum_field_proxies(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Vacuum fields and the startup proxies read from them (#1901)."""
+    """Vacuum fields and the startup proxies read from them."""
     return _render_workflow(WORKFLOWS["vacuum_field_proxies"], labels=labels, references=references)
 
 
 def derived_mhd_parameters(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Global MHD quantities derived from a reconstructed equilibrium (#1901)."""
+    """Global MHD quantities derived from a reconstructed equilibrium."""
     return _render_workflow(WORKFLOWS["derived_mhd_parameters"], labels=labels, references=references)
 
 
 def synthetic_diagnostics(*, labels: bool = True, references: bool = False) -> Diagram:
-    """Predicted diagnostic signals from a modelled or reconstructed state (#1901)."""
+    """Predicted diagnostic signals from a modelled or reconstructed state."""
     return _render_workflow(WORKFLOWS["synthetic_diagnostics"], labels=labels, references=references)
 
 
 def coordinate_cocos_conversions(*, labels: bool = True, references: bool = False) -> Diagram:
-    """COCOS transforms at the ODS and record layers, and the coordinates (#1901)."""
+    """COCOS transforms at the ODS and record layers, and the coordinates."""
     return _render_workflow(WORKFLOWS["coordinate_cocos_conversions"], labels=labels, references=references)
 
 
 def power_balance_confinement(*, labels: bool = True, references: bool = False) -> Diagram:
-    """The experimental Ohmic chain and the modelled power budget (#1901)."""
+    """The experimental Ohmic chain and the modelled power budget."""
     return _render_workflow(WORKFLOWS["power_balance_confinement"], labels=labels, references=references)

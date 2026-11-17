@@ -1,4 +1,4 @@
-"""The wall 2409 additions asset and its importer (issue #956).
+"""The wall 2409 additions asset and its importer.
 
 The fifteen conductors wall 2409 adds are only geometry from VFIT; every
 coupling entry is VAFT's own arithmetic. These tests hold the importer to

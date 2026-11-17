@@ -1,4 +1,4 @@
-"""Contract for Tutorial 06: operational history, summary contracts and stability space (#2277).
+"""Contract for Tutorial 06: operational history, summary contracts and stability space.
 
 The session runs offline from the repository-only sample collections
 ``vaft/data/samples/vest_operational_history`` and ``vaft/data/samples/vest_tier_a``

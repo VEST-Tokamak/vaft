@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import yaml
 
-# Dotted-path access lives in `vaft.ods_access` (issue #118), a leaf module with
+# Dotted-path access lives in `vaft.ods_access`, a leaf module with
 # no VAFT dependencies, so layers that must not import the database -- notably
 # `vaft.validation` -- can reach the same non-mutating primitives this module
 # uses. Re-exported here because these names have always been imported from
@@ -128,7 +128,7 @@ def _resolve_info_file_path(filename: str | os.PathLike[str] | None) -> str:
     * Anything else raises :class:`VestConfigurationError`. An explicit path
       that does not exist never falls back to the packaged file: a mistyped
       campaign configuration would otherwise run with production policy and
-      record nothing (#2159, audit gap G1).
+      record nothing.
     """
     if filename is None:
         return package_data_path("vest.yaml")
@@ -155,7 +155,7 @@ def _resolve_info_file_path(filename: str | os.PathLike[str] | None) -> str:
 def _deep_merge(base: Any, override: Any, *, context: str = "configuration") -> Any:
     """Merge ``override`` over ``base`` into a new, fully independent structure.
 
-    The rules (#2159, audit gap G2):
+    The rules:
 
     * mapping over mapping merges key by key, recursively; keys only in
       ``base`` are kept, keys only in ``override`` are added;
@@ -385,9 +385,9 @@ def resolve_shot_revisions_with_provenance(
     The second return value records the matched revision's index and its
     inclusive shot bounds (or ``None`` for both when the shot falls back to
     ``base``), so a shot's effective processing era is recoverable without
-    re-deriving it from scattered conditionals (issue #195).
+    re-deriving it from scattered conditionals.
 
-    Rules (#2159):
+    Rules:
 
     * bounds are inclusive, a revision needs at least one bound, a missing
       bound is open-ended, ``from_shot <= to_shot``, and bounds and ``shot``
@@ -612,7 +612,7 @@ def resolve_diagnostics_time_policies(
     overrides: Mapping[str, Any] | None = None,
     info_file: str | None = None,
 ) -> DiagnosticsTimePolicyTable:
-    """Return the effective per-component diagnostics time policy (issue #244).
+    """Return the effective per-component diagnostics time policy.
 
     The processed diagnostics product does not share one temporal coverage.
     Equilibrium magnetics intentionally use a short analysis window, while TF,
@@ -760,7 +760,7 @@ _PLASMA_TIMING_RULE_BLOCKS = ("h_alpha", "ip")
 
 @dataclass(frozen=True)
 class PlasmaTimingPolicy:
-    """The configured plasma-timing policy (issue #409).
+    """The configured plasma-timing policy.
 
     ``window`` is the shared plasma-analysis range every consumer searches
     inside; ``baseline_lead_s`` the stretch before it whose samples are the
@@ -928,7 +928,7 @@ PLASMA_TIMING_AGREEMENT_KEYS = ("onset_tolerance_s", "lag_tolerance_s", "offset_
 
 
 def resolve_plasma_timing_policy(*, info_file: str | None = None) -> PlasmaTimingPolicy:
-    """Return the configured plasma-timing policy (issue #409).
+    """Return the configured plasma-timing policy.
 
     ``window`` names one of the ``diagnostics_time_policies`` windows -- the
     shared plasma-analysis range -- and is resolved without any analysis
@@ -988,7 +988,7 @@ DISCHARGE_TIMING_LOOP_SELECTIONS = ("inboard_midplane",)
 
 @dataclass(frozen=True)
 class DischargeTimingPolicy:
-    """The configured discharge-timing policy (issue #409).
+    """The configured discharge-timing policy.
 
     Actuator events, independent of :class:`PlasmaTimingPolicy`: ``coil``
     is the per-coil onset rule (keyword arguments of
@@ -1026,7 +1026,7 @@ class DischargeTimingPolicy:
 
 
 def resolve_discharge_timing_policy(*, info_file: str | None = None) -> DischargeTimingPolicy:
-    """Return the configured discharge-timing policy (issue #409).
+    """Return the configured discharge-timing policy.
 
     Validated like :func:`resolve_plasma_timing_policy`: the window must be a
     configured diagnostics time window, ``ohmic_coil`` a non-empty name,
@@ -1093,7 +1093,7 @@ _PLASMA_FEATURES_RULE_BLOCKS = ("ip", "h_alpha", "diamagnetic")
 
 @dataclass(frozen=True)
 class PlasmaFeaturesPolicy:
-    """The configured plasma-features policy (issue #409).
+    """The configured plasma-features policy.
 
     ``window`` names where the peaks are measured -- ``plasma_timing``, the
     window :func:`vaft.omas.plasma_timing.plasma_timing` found, is the only
@@ -1123,7 +1123,7 @@ class PlasmaFeaturesPolicy:
 
 
 def resolve_plasma_features_policy(*, info_file: str | None = None) -> PlasmaFeaturesPolicy:
-    """Return the configured plasma-features policy (issue #409).
+    """Return the configured plasma-features policy.
 
     Every rule block is checked against ``robust_peak``'s signature at load
     time; ``lines`` may not carry the H-alpha label (that is the ``h_alpha``
@@ -1426,10 +1426,10 @@ def process_static_geometry(ods: Any, diagnostic_type: str, static_info: Dict[st
             set_path(ods, f"flux_loop.loop.{i}.position.r", loop.get("r", 0.0))
             set_path(ods, f"flux_loop.loop.{i}.position.z", loop.get("z", 0.0))
             # No toroidal angle: a flux loop is a continuous loop encircling
-            # the machine axis, so it has no scalar phi to write (issue #718,
-            # and see FLUX_LOOP_IS_AXISYMMETRIC in .magnetics). The 0.0 that
-            # used to go here was a placeholder indistinguishable from a probe
-            # genuinely sitting at 12 o'clock.
+            # the machine axis, so it has no scalar phi to write (see
+            # FLUX_LOOP_IS_AXISYMMETRIC in .magnetics). A 0.0 here would be a
+            # placeholder indistinguishable from a sensor genuinely sitting at
+            # 12 o'clock.
             set_path(ods, f"flux_loop.loop.{i}.area", loop.get("area", 0.0))
 
     elif diagnostic_type == "b_field_pol_probe":
@@ -1443,7 +1443,7 @@ def process_static_geometry(ods: Any, diagnostic_type: str, static_info: Dict[st
             set_path(ods, f"b_field_pol_probe.probe.{i}.orientation.phi", probe.get("orientation_phi", 0.0))
 
     elif diagnostic_type == "rogowski_coil":
-        # Issue #215: these legacy helpers write a top-level
+        # These legacy helpers write a top-level
         # `rogowski_coil.coil.<i>.*` path that is not the canonical IMAS
         # location (`magnetics.rogowski_coil.<i>.*`) and does not match the DD
         # geometry convention (`position[:]` contour, `turns_per_metre`).
@@ -1486,7 +1486,7 @@ def process_static_channels(ods: Any, diagnostic_type: str, static_info: Dict[st
             )
 
     elif diagnostic_type == "rogowski_coil":
-        # Issue #215: these legacy helpers write a top-level
+        # These legacy helpers write a top-level
         # `rogowski_coil.coil.<i>.*` path that is not the canonical IMAS
         # location (`magnetics.rogowski_coil.<i>.*`) and does not match the DD
         # geometry convention (`position[:]` contour, `turns_per_metre`).
@@ -1545,7 +1545,7 @@ def _annotate_series(
 def _load_magnetics_channel_groups() -> dict[str, list[int]]:
     """Constraint groups of the registry sensors, by IDS index within each kind.
 
-    Positions come from the ``vest.yaml`` sensor registry (#2158) and the
+    Positions come from the ``vest.yaml`` sensor registry and the
     family boundaries are the mapper's own constants, so neither is restated
     here. A fresh dict is returned each call.
     """

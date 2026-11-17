@@ -1,4 +1,4 @@
-"""PF-current shot-era gains and PF6 saturation repair (issue #195)."""
+"""PF-current shot-era gains and PF6 saturation repair."""
 
 import gzip
 import json
@@ -47,7 +47,7 @@ def _write_raw_dump(path, shot, fields):
 def test_pf1_gain_boundary_45896_is_preserved(shot, expected):
     """PF1's gain changes at 45896, not at the donor's 45965: the field-59
     raw scale moved fivefold across the 2025-06-17 -> 06-23 access while the
-    flux loops did not (issue #956)."""
+    flux loops did not."""
     assert _coil_gain_by_index(shot)[PF1_INDEX] == pytest.approx(expected)
 
 
@@ -171,13 +171,13 @@ def test_tolerance_band_defines_saturation():
 
 
 def test_every_acquired_coil_keeps_a_measured_waveform(tmp_path):
-    """No acquired coil may be zero-filled (#44), and an empty channel is not
+    """No acquired coil may be zero-filled, and an empty channel is not
     the same defect: a discharge that left a circuit cold is entitled to a
     zero, and the EFIT coilset reads exactly that to weight the coil out.
 
     This is also different from VFIT's solver-side PF2 residual exclusion,
     which belongs in the inversion layer and must never reach the canonical
-    mapping (#195).
+    mapping.
     """
     shot = 45965
     source = tmp_path / "raw.json.gz"
@@ -194,7 +194,7 @@ def test_every_acquired_coil_keeps_a_measured_waveform(tmp_path):
 
 
 def test_a_discharge_that_energised_pf2_keeps_its_waveform(tmp_path):
-    """PF2 was unreadable, and it was not the machine that said so (#708).
+    """Regression guard for #708: PF2 was unreadable, and it was not the machine that said so.
 
     `Coil_info.mat` listed five circuits, so PF2 was zero-filled for every
     shot and the repository recorded that as "an explicitly disabled hardware
@@ -222,7 +222,7 @@ def test_a_discharge_that_energised_pf2_keeps_its_waveform(tmp_path):
 def test_pf2_never_reads_the_field_carrying_the_diamagnetic_rogowski(shot, reads_field_4):
     """`VEST_PFwaveform.m` gives PF2 field 4 for every shot from 19284, but the
     diamagnetic TF Rogowski was on field 4 until 38570 and again on some 2023
-    days (#993). A raw field is one signal, so PF2 does not read field 4 on a
+    days. A raw field is one signal, so PF2 does not read field 4 on a
     shot whose diamagnetic signal is there."""
     from vaft.machine_mapping.magnetics import diamagnetic_field_for_shot
     from vaft.machine_mapping.pf_active import coil_field_code_by_index
@@ -327,7 +327,7 @@ def test_old_shot_pf6_current_near_minus_5000_is_left_alone(tmp_path):
 
 
 # --------------------------------------------------------------------------
-# A required circuit whose channel is empty (#1568)
+# A required circuit whose channel is empty
 # --------------------------------------------------------------------------
 _GAP_SHOT = 48700  # PF5's field 5 was not recorded on 48644-48760
 

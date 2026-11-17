@@ -16,7 +16,7 @@ The site has two tracks, and each is built from the branch it documents:
 
 Both are composed into one tree and published as a single commit on the
 **`gh-pages`** branch. That branch is generated output only: each publish
-replaces it with one parentless commit (#2117), so it never accumulates history,
+replaces it with one parentless commit, so it never accumulates history,
 and an edit made there survives until the next build and reaches nobody's
 review. Change documentation here, on the branch it belongs
 to.
@@ -39,7 +39,7 @@ is whatever its own `generators.yml` declares:
 | `/reference/software-dependencies/`, `/reference/external-codes/` | `vaft._ecosystem_catalog` | no | yes |
 | `/reference/ontology/` | `vaft._ontology_graph` | no | yes |
 
-`vaft._dependency_graph` (#1646) needs Grimp, the optional `architecture`
+`vaft._dependency_graph` needs Grimp, the optional `architecture`
 extra (`pip install -e ".[architecture]"`; also in `[dev]`). Without it the
 generator stops with that install hint instead of falling back to another
 analyser, and `import vaft` never needs it. `--check` compares an existing
@@ -51,7 +51,7 @@ bump the pin, copy `dist/cytoscape.min.js` from `npm pack cytoscape@<version>`
 into a new versioned directory, and update the manifest and
 `_includes/graph/viewer.html`.
 
-`vaft._pipeline_graph` (#1647) dry-runs the production Snakefiles with a
+`vaft._pipeline_graph` dry-runs the production Snakefiles with a
 documentation configuration (`PIPELINES` in the module) in a temporary
 directory, so it needs Snakemake (a core dependency) and nothing else: no
 database, HSDS server, solver or credential. Non-scheduling references between

@@ -1,12 +1,12 @@
-"""``animation=True``: one canonical plot drawn over a sequence of its states (issues #1049/#1050).
+"""``animation=True``: one canonical plot drawn over a sequence of its states.
 
-The contract agreed on #1049:
+The contract shared by every ``animation=True`` plot:
 
 * A plot's **sequence coordinate** is its slice-group control, the one
   :func:`vaft.plot.controls.controls_for` offers for the record and the
   slider and the GUI player already drive (``time_slice``, ``frame_index``,
   ``time_index``, or a categorical control a recipe declares, such as the
-  kinetic state's ``stage``, #1957).  No second coordinate vocabulary exists.
+  kinetic state's ``stage``).  No second coordinate vocabulary exists.
 * A **categorical** driver's states are their own values and carry labels;
   it has no time axis, so ``time_range=`` is refused and ``time=`` is a fixed
   option every frame is drawn at.
@@ -77,7 +77,7 @@ class Driver:
     unit: str | None
     indices: tuple[int, ...]
     values: tuple[float, ...]
-    #: Each chosen state's label, for a categorical driver (#1957); empty otherwise.
+    #: Each chosen state's label, for a categorical driver; empty otherwise.
     labels: tuple[str, ...] = ()
 
 
@@ -214,7 +214,7 @@ def render_animation(
         fps=float(fps), timing=timing, dpi=int(dpi), image=image,
         vmin=presentation.get("vmin"), vmax=presentation.get("vmax"),
         # A categorical driver's frames name their state in the plot's own
-        # caption (the kinetic state's "Stage k/8"): no stamp over it (#1957).
+        # caption (the kinetic state's "Stage k/8"): no stamp over it.
         frame_label=bool(presentation.get("frame_label", not driver.labels)), options=fixed, style=style, build=build, draw=draw,
         scientific_context=scientific_context,
     )
@@ -280,7 +280,7 @@ def _select(
     coordinate, unit, axis = sequence_values(name, entries, control.name, **options)
     declared = sequence_declaration_for(name, control.name)
     if declared is not None:
-        # Categorical states (#1957): offered as declared, each its own value.
+        # Categorical states: offered as declared, each its own value.
         return _select_categorical(control, declared, axis, options)
     if control.name == "frame_index":
         # The record's control counts channel 0, detector 0; the frames that
@@ -502,7 +502,7 @@ class Animation:
             source = "sequence range" if vmin is None and vmax is None else "caller and sequence range"
             if vmin is None and vmax is None and colormaps <= DIVERGING and low < 0 < high:
                 # A diverging map puts zero at its centre colour; an asymmetric
-                # range would move zero off it (a fluctuation image, #161).
+                # range would move zero off it (a camera fluctuation image).
                 high = max(-low, high)
                 low = -high
                 source += ", symmetric about zero (diverging colour map)"
@@ -591,7 +591,7 @@ class Animation:
         """The union of every state's axis limits per data axes, and the largest frame.
 
         Drawn once over the states before any frame is kept: a view whose
-        renderer fits its canvas to the content (the R-Z maps, #1026) gives
+        renderer fits its canvas to the content (the equal-scaled R-Z maps) gives
         each state its own figure size, and every frame of one video must
         share one.  Directions are preserved, so an inverted axis stays so.
         """

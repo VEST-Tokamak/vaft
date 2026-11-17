@@ -128,7 +128,7 @@ def save(
         # Upload to explicitly requested HSDS namespace. The master replaced is
         # the stored one plus this IDS, merged under the shot's lock -- not a
         # master naming this IDS alone, which hid every other IDS of the shot
-        # (#913; see vaft.database._master_lock).
+        # (see vaft.database._master_lock).
         from ._master_lock import shot_master_lock
         from .ods import _merge_current_master
 

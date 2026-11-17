@@ -47,7 +47,7 @@ develop (7b1fcf192, re-checked at 75b154e31, f7472664d and aeec6d91a).
 | C4 | `vest.yaml` `0.magnetics.flux_loop` placeholder (G13, Q3) | registry flux-loop records | config block | `removed` | no reader in `vaft/`, `workflow/`, `test/` (#2181) | #2181 |
 | C5 | `vest.yaml` shot-keyed PF gain blocks 20259/38110/38361/38401 (G15) | `pf_active.processing.revisions` (production reads only these) | config block | `compatibility_required`: read only by the public getters of L7, so they go together | identical values to the live revisions (config_audit.md G15); no production reader | #2205 |
 | C6 | `vaft/data/legacy/sql_table.txt` (raw-database field names, extra fields 16/17/22/23/168) (Q6) | none: a separate contract, not a sensor inventory | private data file | `scientific_specialization` (kept: the raw-DB name table) | #2181 tests it against all 75 registry labels; whether the five extra fields record is open | #2181; Q6 check #2203 |
-| C7 | `VEST_MACHINE_ERAS` Python table (G14) | none | code constant | `scientific_specialization` (documented as code-owned) | #2184 | #2184 |
+| C7 | `VEST_MACHINE_ERAS` Python table (G14) | vest.yaml `machine_history.machine_eras` (`VEST_MACHINE_ERAS` kept as a derived name) | code constant | retired: moved to configuration, identity pinned by `test/test_machine_history.py` | #2184; #2267 | #2267 |
 
 ## Configuration loaders and public adapters
 

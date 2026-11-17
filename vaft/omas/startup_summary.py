@@ -1,4 +1,4 @@
-"""One discharge's startup, as a handful of numbers (issue #888).
+"""One discharge's startup, as a handful of numbers.
 
 :func:`startup_summary` gathers what the startup tutorial reads off a shot --
 when the plasma formed and on what evidence, how large the current got, the

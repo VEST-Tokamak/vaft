@@ -85,7 +85,7 @@ limit points, together with the source (paper, equation, DOI) and the inputs tha
 range the limit was fitted on. The Troyon coefficient is Troyon *et al.* (1984), p. 214:
 $(\beta A)_{max} \approx 2.2\,I_N$, i.e. $\beta_N \le 2.2\,\mu_0\cdot10^6 \approx 2.76$ %·m·T/MA, the
 origin of the rounded 2.8. `kink_stability_criterion` and `beta_stability_boundary` multiply the limit by
-$q_{95}$, which no source does; they are deprecated (#350) and keep their old numbers only for
+$q_{95}$, which no source does; they are deprecated and keep their old numbers only for
 compatibility.
 
 The remaining local criteria return a `(margin, critical_value)` pair, and the margin is literally
@@ -116,7 +116,7 @@ is conventionally formed with the **line-averaged** electron density. Both argum
 
 ## The combined margin helper (deprecated), and its one trap
 
-`plasma_stability_margins` is deprecated (#350): its beta margin uses the unsourced $0.028\,q_{95}$
+`plasma_stability_margins` is deprecated: its beta margin uses the unsourced $0.028\,q_{95}$
 limit. Use `evaluate_boundary` with `"troyon"`, `"low_q"` and `"greenwald"` instead, which share one
 sign convention. The description below documents the old behaviour.
 
@@ -160,7 +160,7 @@ excursion coincides with a disruption.
 
 ## Internal inductance against edge q
 
-Two literature pictures look alike on this plane and are different objects (#1422):
+Two literature pictures look alike on this plane and are different objects:
 
 | | Wesson *et al.* 1989, Fig. 6 | Cheng, Furth & Boozer 1987, Fig. 4 |
 | --- | --- | --- |
@@ -196,7 +196,7 @@ boundary of Fig. 6 (not Fig. 5, which is the Hugill diagram) and agree with the 
 
 ### Atlas population histograms
 
-The Tier A stability atlas population (#1852) is drawn as three stacked histograms, each against
+The Tier A stability atlas population is drawn as three stacked histograms, each against
 its own criterion: DCON ideal $W_t$ for $n = 1$–$6$ (unstable by sign only, $W_t < 0$; no
 $|W_t|$ band), each slice's largest RDCON/STRIDE $\Delta'$ over its rational surfaces at
 $n = 1, 2$ (unstable if $\Delta'_{\max} > 0$), and the local Mercier $\max D_I$ (unstable $> 0$)
@@ -219,7 +219,7 @@ fig, axes = stability_atlas_population(populations)
 `vaft.process.local_mhd_criteria` evaluates, from one reconstructed equilibrium and with no stability code:
 - Mercier `D_I` and GGJ `D_R` (DCON's formulas, checked against DCON's own output);
 - the normal and geodesic field-line curvature and the local shear, along flux surfaces and in R–Z;
-- per-surface s–α in the #1720 normalisation (#1902).
+- per-surface s–α in the volume-radius normalisation of the [ballooning formulation contract]({{ '/reference/ballooning-formulations/' | relative_url }}).
 
 The renderers in `vaft.plot.local_mhd_criteria` draw each against its own criterion: `D > 0` is unstable, and the s–α boundary is the circular model's, labelled as such.
 
@@ -343,7 +343,7 @@ for record in result.records:
 ```
 
 `stable` is a *successful* status, kept apart from `completed` because a stable equilibrium produces
-no unstable-mode output and so cannot be told from a broken run by what it wrote (#423). It is read
+no unstable-mode output and so cannot be told from a broken run by what it wrote. It is read
 from the solver's own free-boundary energy -- `Re(total1)`, which DCON, RDCON and STRIDE all write
 into their netCDF -- so a companion such as `rmatch` exiting badly with nothing to analyse does not
 make the cell a failure. A run that produced no usable output is still `failed`, stable or not.

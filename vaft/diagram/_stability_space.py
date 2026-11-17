@@ -9,7 +9,7 @@ drawn by hand.
   equation (``s_alpha_marginal_alpha``).
 * ``hugill``: the registered ``greenwald_hugill`` and ``murakami_hugill``
   boundaries of :mod:`vaft.formula.boundaries`, selected by the ``hugill``
-  projection (#1425); an optional reference $q_\\mathrm{cyl}$ line.
+  projection; an optional reference $q_\\mathrm{cyl}$ line.
 * ``troyon``: the registered ``troyon`` boundary through the definition of
   $\\beta_N$; an optional reference cutoff from ``q_cyl_from_B_R_epsilon_kappa_I``.
 * ``peeling_ballooning``: a *schematic* -- the edge-stability boundary has no
@@ -229,7 +229,7 @@ def hugill(*, elongation: float = 1.0, q_limit: Optional[float] = None, labels: 
     r"""Hugill diagram: $1/q_\mathrm{cyl}$ against the Murakami parameter $\bar n R/B$.
 
     The lines are the registered boundaries of the ``hugill`` projection
-    (:mod:`vaft.formula.boundaries`, #1425): ``greenwald_hugill``, the
+    (:mod:`vaft.formula.boundaries`): ``greenwald_hugill``, the
     Greenwald density in these coordinates, a straight line through the
     origin $1/q_\mathrm{cyl} = (\pi/50\kappa_a)\,\bar nR/B$ ($\bar n$ in
     $10^{19}\,\mathrm{m^{-3}}$) whose slope depends only on the area
@@ -345,7 +345,7 @@ def troyon(*, beta_N_max: Optional[float] = None, aspect_ratio: float = 3.0, elo
     The registered ``troyon`` stability reference
     ($\beta_N = 2.2\,\mu_0 \cdot 10^6 \approx 2.76$, :mod:`vaft.formula.boundaries`) is
     drawn through the definition of $\beta_N$, $\beta_T[\%] = \beta_N\,I_p/(aB_T)$,
-    with the projection's experimental references (#1691: DIII-D, ST, NSTX levels)
+    with the projection's experimental references (DIII-D, ST, NSTX levels)
     dashed beside it. None is a limit, so no side is marked stable or unstable.
     ``beta_N_max`` overrides the Troyon value for a what-if picture, and the note
     then says so.

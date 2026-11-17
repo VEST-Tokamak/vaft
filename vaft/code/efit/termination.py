@@ -1,4 +1,4 @@
-"""What EFIT's own log says about how each slice ended (issues #76, #171).
+"""What EFIT's own log says about how each slice ended.
 
 EFIT prints, per slice, the Picard iterations it took, which exit path the
 outer loop left by, the numbered criteria ``chkerr`` refused it on, and the
@@ -129,9 +129,8 @@ def parse_slices(text: str) -> list[dict[str, Any]]:
     A slice that printed steps and neither line, and no solver error, left
     ``fit`` by its one silent exit (``go to 2020``): an inner loop's first step
     brought the flux increment below ``ERROR`` with the chi-square at or below
-    ``SAIMIN`` (#1038). Its exit path is ``no_exit_message`` -- it is a stop on
-    EFIT's own criterion, not an exhausted cap, and until #1038 it was
-    reported as ``iterations_exhausted``. A log cut short (a timeout) ends the
+    ``SAIMIN``. Its exit path is ``no_exit_message`` -- it is a stop on
+    EFIT's own criterion, not an exhausted cap. A log cut short (a timeout) ends the
     same way, so the name says what was seen, not what was inferred.
     """
     records = _parse_slice_records(text)

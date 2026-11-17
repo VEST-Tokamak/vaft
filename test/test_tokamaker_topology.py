@@ -129,7 +129,7 @@ def test_inboard_contact_is_named_inboard():
 def test_null_free_boundary_clear_of_the_wall_is_not_limited():
     # No X-point and no wall contact: neither sets the boundary, so the contour
     # cannot be a free-boundary LCFS. Calling it LIMITED hid a TokaMaker run
-    # whose boundary floated 6 cm off the VEST inboard limiter (#1469).
+    # whose boundary floated 6 cm off the VEST inboard limiter.
     eq = _analytic_equilibrium("limited")
     # the same wall, enlarged 20 % about the magnetic axis: 7 cm clear everywhere
     r0, z0 = eq.magnetic_axis

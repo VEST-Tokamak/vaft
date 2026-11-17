@@ -1,4 +1,4 @@
-"""Relative heat-load proxies from field-line tracing products (issue #1099).
+"""Relative heat-load proxies from field-line tracing products.
 
 A field-line tracer answers *where does a line launched here go, and how far
 does it travel before it hits something*. Turning that into a picture of

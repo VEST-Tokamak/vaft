@@ -22,7 +22,7 @@ SHA-256 of each file.
 - **Stability, current side:** the Tier A stability atlas v2. Its four files (`stability_current_*` in
   `snapshot_manifest.json`) now live, byte-identical, in the shared sample collection
   `vaft/data/samples/vest_tier_a/stability/` (`atlas_n.csv.gz`, `atlas_surfaces.csv.gz`, `schema.json`,
-  `README.md`; #2277). The SHA-256 values below are unchanged.
+  `README.md`). The SHA-256 values below are unchanged.
 
 **Files**
 

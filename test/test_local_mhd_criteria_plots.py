@@ -1,4 +1,4 @@
-"""Renderers of the #1902 local-MHD criteria (table input, no solver)."""
+"""Renderers of the equilibrium-native local-MHD criteria (table input, no solver)."""
 
 from __future__ import annotations
 

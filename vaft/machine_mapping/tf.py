@@ -43,7 +43,7 @@ def repair_tf_excursions(
     current: np.ndarray,
     repair: dict | None,
 ) -> tuple[np.ndarray, list[tuple[float, float]]]:
-    """Replace acquisition excursions of the TF current by its slow trend (#1543).
+    """Replace acquisition excursions of the TF current by its slow trend.
 
     The TF circuit's L/R time is seconds: within a few milliseconds its current
     can change by well under a percent.  Some shots nevertheless record the TF
@@ -57,8 +57,8 @@ def repair_tf_excursions(
     ``core_fraction`` of the plateau and ``core_sigma`` times the noise of that
     mean, measured (1.4826 x MAD) in the quiet ``noise_window`` before the PF
     swing; a core must last ``min_core_s``.  The raw noise is a fixed size, so
-    a plateau fraction alone flags healthy low-field shots (cold review of
-    #1616: 18/20 healthy records at a 9 kA plateau).  The region grows while
+    a plateau fraction alone flags healthy low-field shots (18 of 20 healthy
+    records at a 9 kA plateau were flagged that way).  The region grows while
     the departure stays above both ``extend_fraction`` and ``extend_sigma``
     times the noise, plus ``margin_s`` either side, and runs closer than
     ``merge_gap_s`` are joined.  The trend

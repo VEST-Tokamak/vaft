@@ -10,7 +10,7 @@ test/data/vest_reference/** text=auto eol=lf
 test/data/island_sxr/** text=auto eol=lf
 # Real GPEC namelists read back by the DCON reader: keep LF so Windows parses them alike.
 test/data/gpec/** text=auto eol=lf
-# The retired magnetics YAMLs (#2158): frozen fixtures whose sha256 the sensor
+# The retired magnetics YAMLs: frozen fixtures whose sha256 the sensor
 # registry's `source` block and test_magnetics_registry.py pin; keep the bytes.
 test/data/legacy_magnetics/** -text
 docs/assets/notebook-outputs/** text=auto eol=lf
@@ -57,7 +57,7 @@ docs/assets/diagrams/** text=auto eol=lf
 # d75e3c87... on Windows CI against the pinned 5f3b5b52...; keep them byte-exact.
 docs/assets/lib/** -text
 # The unified-diagnostics fixture manifest pins the sha256 of the geometry
-# source artifacts it derives from (#1610); a CRLF checkout hashed
+# source artifacts it derives from; a CRLF checkout hashed
 # vest_MID.dat to fc32c016... on Windows CI against the LF e718d702... it records.
 vaft/data/gpec/*.dat text=auto eol=lf
 vaft/data/nubeam/** text=auto eol=lf

@@ -125,7 +125,7 @@ def test_gyration_offset_places_the_guiding_centre_at_the_orbit_centre(q):
         gyration_offset(0.0, 1.0, B, v)
 
 
-# --- guiding-centre invariants (#1092) -------------------------------------------------------
+# --- guiding-centre invariants -------------------------------------------------------
 
 from vaft.formula.particle import (  # noqa: E402
     bounce_harmonic_detuning,

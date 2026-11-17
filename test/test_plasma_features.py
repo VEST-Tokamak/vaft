@@ -1,4 +1,4 @@
-"""The representative peaks of issue #409 (PR-vi).
+"""The representative peaks inside the plasma window.
 
 The packaged products pin the measured peaks inside the plasma window the
 timing found -- and 39915's slow H-alpha shows why a representative peak is
@@ -41,12 +41,12 @@ from _plasma_timing_fixtures import DT, RNG, current, grid, light, pickup_only, 
 PACKAGED = {
     # Ip peak (A), H-alpha peak, diamagnetic peak (Wb), CIII peak.
     # Re-pinned on the regenerated samples (2026-09-17): CIII moved with the
-    # anti-aliased filterscope decimation (#425; 39915 0.7005 -> 0.7054, 41524
+    # anti-aliased filterscope decimation (39915 0.7005 -> 0.7054, 41524
     # 3.596 -> 3.832, 41672 0.9297 -> 0.9694) and the diamagnetic peak with the
     # diamagnetic plasma window (013a3f58; -1.553e-3 -> -1.546e-3,
     # -8.545e-3 -> -8.515e-3, -3.900e-3 -> -3.934e-3). The diamagnetic peaks
-    # changed sign on 2026-09-22 when the mapper's extra minus was removed
-    # (#1196): the loop is paramagnetic, positive in EFIT's cdflux sign.
+    # changed sign on 2026-09-22 when the mapper's extra minus was removed:
+    # the loop is paramagnetic, positive in EFIT's cdflux sign.
     39915: dict(ip=83852.0, h_alpha=0.2986, diamagnetic=1.546e-3, ciii=0.7054),
     # 41524's H-alpha: 0.850 was the shoulder of the refused spike at 334 ms; the
     # representative peak is the 0.507 plateau
@@ -83,7 +83,7 @@ def test_the_packaged_products_pin_the_peaks_inside_the_window(shot):
     assert features.lines["CIII_1909"].value == pytest.approx(expected["ciii"], rel=1e-3)
     assert features.diamagnetic.value == pytest.approx(expected["diamagnetic"], rel=1e-3)
     assert features.diamagnetic.value > 0 and "reference_flat" in features.diamagnetic.flags
-    # The regenerated products record how the flux was integrated (#409).
+    # The regenerated products record how the flux was integrated.
     assert str(features.diamagnetic.notes["method_name"]).startswith("Rogowski triple-integration")
     # ...including the saturation repair (676af6a9), which reconstructs samples
     # at the acquisition limit on every packaged shot, none inside the window.
@@ -116,7 +116,7 @@ def test_a_railed_line_is_noted():
 
     gamma = features.lines["H-gamma_4340"]
     assert gamma.found and gamma.notes["railed"] is True and "railed" in gamma.flags
-    # The digitizer's rail is 5.0 V; the anti-aliased decimation (#425) rings
+    # The digitizer's rail is 5.0 V; the anti-aliased decimation rings
     # past it on the railed spike, 5.0 -> 5.109 on the regenerated sample.
     assert gamma.peak.evidence["raw_max"] == pytest.approx(5.109, abs=1e-3)
     assert gamma.value < 5.0                                                 # the rail was brief: a spike, refused
@@ -274,7 +274,7 @@ def test_reading_a_product_materialises_nothing():
 
 
 # ---------------------------------------------------------------------------
-# Review findings on PR #535
+# Review findings on the representative peaks
 # ---------------------------------------------------------------------------
 
 

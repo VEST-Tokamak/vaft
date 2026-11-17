@@ -6,7 +6,7 @@ fallback and volume integration.  Numerical atomic physics remains in
 :mod:`vaft.data.open_adas`.  Which impurity species to include and what
 fraction to assume for them is machine policy, resolved by the pipeline
 (:func:`vaft.omas.formula_wrapper.compute_power_balance` from ``vest.yaml``
-on VEST) and passed in; this module holds no such number (issue #420).
+on VEST) and passed in; this module holds no such number.
 
 Notation
 --------

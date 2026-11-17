@@ -88,7 +88,7 @@ def make_eddy_solved(sample: ODS) -> ODS:
 
 
 # ---------------------------------------------------------------------------
-# impa_* -- IMPA left the diagnostics product for its own stage (#305), so the
+# impa_* -- IMPA left the diagnostics product for its own stage, so the
 # regenerated 39915 sample no longer carries it.  Build the IMPA product from
 # the packaged raw dump and append its channels the way
 # vaft.database.composition.compose does: after the base probes, by IMPA identity.
@@ -261,7 +261,7 @@ def make_neoclassical(sample: ODS) -> ODS:
 
 def make_zeff_profile(sample: ODS) -> ODS:
     """core_profiles_profile_zeff -- the stored Z_eff with the provenance record a
-    vaft.process.impurity writer leaves beside it (#1565)."""
+    vaft.process.impurity writer leaves beside it."""
     ods = _with_core_profiles(sample, zeff=True)
     ods["core_profiles.profiles_1d.0.zeff_fit.parameters"] = "origin=assumed; method=impurity_model_preset"
     return ods
@@ -390,7 +390,7 @@ def make_chease(_sample: ODS) -> ODS:
 
 
 # ---------------------------------------------------------------------------
-# thomson_scattering_profile_fit / charge_exchange_profile_fit (issue #952):
+# thomson_scattering_profile_fit / charge_exchange_profile_fit:
 # the packaged kinetic-EFIT input of shot 48224 at 300 ms -- Thomson, CES and
 # the equilibrium they are mapped through, in one loose ODS file.
 # ---------------------------------------------------------------------------
@@ -404,7 +404,7 @@ def make_kinetic_48224(_sample: ODS) -> ODS:
 
 
 def make_kinetic_state(_sample: ODS) -> ODS:
-    """The 40326/322 ms archive case as a stored kinetic state (issue #1837)."""
+    """The 40326/322 ms archive case as a stored kinetic state."""
     from _kinetic_state_fixture import kinetic_state_ods
 
     return kinetic_state_ods(40326, "magnetics")
@@ -436,7 +436,7 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "coil_3d_geometry_topview": make_coils_3d,
     "pf_plasma_geometry_poloidal": make_pf_plasma,
     "neoclassical_profile_bootstrap_current": make_neoclassical,
-    # issue #551: 39915 carries no core_profiles; the gradient views read the
+    # 39915 carries no core_profiles; the gradient views read the
     # synthetic profiles through the equilibrium slice at their time.
     "electron_temperature_profile_gradient": make_core_profiles,
     "electron_density_profile_gradient": make_core_profiles,
@@ -472,7 +472,7 @@ OPTIONS: dict[str, dict] = {
     "charge_exchange_profile_fit": {"order": 2},
     "camera_visible_image_field_line": {"field_line_start": (0.4, 0.0)},
     "camera_visible_image_vacuum_field_line": {"shot": 39915, "max_turns": 0.25, "resolution": 21},
-    # #1446: the island separatrices take no default field -- the total and
+    # The island separatrices take no default field -- the total and
     # vacuum resonant pairs are different objects drawn on the same axes.
     "mhd_linear_geometry_island": {"field": "total"},
 }
@@ -550,7 +550,7 @@ for _name in (
 
 # ---------------------------------------------------------------------------
 # mirnov_spatial_phase -- the packaged 39915 sample has no toroidal array (it
-# sits in the 35521-44155 gap, and its field-171 twin is gone since #724/#825),
+# sits in the 35521-44155 gap, and the field-171 twin is no longer published),
 # so the view is built on the shape of the modern outboard fluctuation array:
 # one poloidal row at 135/225/315 deg carrying an n=1 band.
 # ---------------------------------------------------------------------------
@@ -639,7 +639,7 @@ SYNTHETIC["field_line_topology_field_connection_length"] = make_field_line_plane
 
 
 # ---------------------------------------------------------------------------
-# gyrokinetics_* (#1591): a real CGYRO linear run (the packaged EM fixture) mapped
+# gyrokinetics_*: a real CGYRO linear run (the packaged EM fixture) mapped
 # with vaft.machine_mapping.gyrokinetics, plus a quasilinear ky-resolved flux block
 # of the shape the TGLF mapping writes. turbulent_transport_*: two anomalous
 # core_transport models (TGLF and CGYRO) on one radial grid.

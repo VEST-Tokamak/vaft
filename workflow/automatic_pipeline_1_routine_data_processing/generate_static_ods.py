@@ -4,8 +4,9 @@
 The legacy workflow selected a static electromagnetic-coupling file by shot
 number (`emcoupling_rules` in its `config.yaml`, split at 43017 and 45967) and
 kept those files under `static_file_dir`. This stage is the VAFT-native
-equivalent: `vaft.omas.vest_upstream` owns the machine-era table, so the
-boundaries live in one place and the product is built rather than hand-curated.
+equivalent: the machine-era table is vest.yaml's `machine_history.machine_eras`
+(read through `vaft.machine_mapping.machine_history`), so the boundaries live
+in one place and the product is built rather than hand-curated.
 """
 
 from __future__ import annotations

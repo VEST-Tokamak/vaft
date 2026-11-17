@@ -1,9 +1,9 @@
-"""Per-surface linear spectra: CGYRO vs TGLF on the same input vs TGLF SAT0-3 (#1354).
+"""Per-surface linear spectra: CGYRO vs TGLF on the same input vs TGLF SAT0-3.
 
-Reads ``linear.csv`` from ``build_linear.py`` and, with ``--sat-runs``, the #1482 TGLF
+Reads ``linear.csv`` from ``build_linear.py`` and, with ``--sat-runs``, the SAT-rule sensitivity TGLF
 run tree (``<shot>-<ms>-<lineage>/tglf-sat<n>-<field>/<shot>/<lineage>/<ms>/r<r/a>/``),
-whose spectra are parsed by Lane T's own reader
-(:func:`vaft.code.gacode.tglf.outputs.collect_tglf_outputs` on that branch). Writes one
+whose spectra are parsed by
+:func:`vaft.code.gacode.tglf.outputs.collect_tglf_outputs`. Writes one
 figure per (state, surface, field model) with :func:`vaft.plot.gyrokinetics.plot_linear_spectrum`.
 """
 
@@ -59,7 +59,7 @@ def sat_spectra(root: Optional[Path], key: tuple) -> dict[str, dict]:
         }
         # The linear eigenvalues do not depend on the saturation rule within a rule
         # family, so identical spectra are merged under one label instead of being
-        # drawn on top of each other (SAT0/1 and SAT2/3 coincide on #1482's runs).
+        # drawn on top of each other (SAT0/1 and SAT2/3 coincide on the sensitivity runs).
         for label, other in spectra.items():
             if all(np.array_equal(entry[k], other[k], equal_nan=True) for k in entry):
                 spectra[label + f"/{sat}"] = spectra.pop(label)

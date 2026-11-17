@@ -1,4 +1,4 @@
-"""Collisionality-regime diagrams (#1111): boundaries from vaft.formula, regimes kept apart."""
+"""Collisionality-regime diagrams: boundaries from vaft.formula, regimes kept apart."""
 
 import numpy as np
 import pytest

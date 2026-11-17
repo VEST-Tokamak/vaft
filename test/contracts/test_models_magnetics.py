@@ -14,9 +14,9 @@ class MagneticsModelTests(unittest.TestCase):
 
         self.assertEqual(get_path(payload, "magnetics.ids_properties.homogeneous_time"), 1)
         self.assertEqual(len(get_path(payload, "magnetics.flux_loop")), 11)
-        self.assertEqual(len(get_path(payload, "magnetics.b_field_pol_probe")), 67)  # field-171 twin no longer published (#825)
+        self.assertEqual(len(get_path(payload, "magnetics.b_field_pol_probe")), 67)  # field-171 twin no longer published
         for probe in get_path(payload, "magnetics.b_field_pol_probe"):
-            # DD: clockwise from +R, so a +Bz probe is 3*pi/2 (issue #288).
+            # DD: clockwise from +R, so a +Bz probe is 3*pi/2.
             self.assertAlmostEqual(probe["poloidal_angle"], 3 * math.pi / 2)
         self.assertEqual(get_path(payload, "magnetics.flux_loop.0.position.0.r"), 0.592)
         self.assertEqual(get_path(payload, "magnetics.flux_loop.0.position.0.z"), 0.685)

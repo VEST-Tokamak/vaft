@@ -1,4 +1,4 @@
-"""``rho_tor_norm`` is the toroidal-flux coordinate, or it is not written (#276).
+"""``rho_tor_norm`` is the toroidal-flux coordinate, or it is not written.
 
 Before this, two adapters wrote ``sqrt(psi_N)`` into ``profiles_1d.rho_tor_norm``
 -- that is ``rho_pol``, not ``rho_tor`` -- and the plot layer had two more ways to

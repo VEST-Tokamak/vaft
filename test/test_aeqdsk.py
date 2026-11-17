@@ -1,4 +1,4 @@
-"""EFIT a-file parsing, mapped from ``EFIT/efit/write_a.f90`` (issue #139).
+"""EFIT a-file parsing, mapped from ``EFIT/efit/write_a.f90``.
 
 The a-file states EFIT's own acceptance verdict and its final Grad-Shafranov
 error, neither of which appears anywhere else in the pipeline.

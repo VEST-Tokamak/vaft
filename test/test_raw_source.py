@@ -251,7 +251,7 @@ class TestArchiveTimebaseUpgrade:
         assert "dt" not in payload["fields"]["9"]
 
     def test_a_long_record_at_the_nominal_rate_still_upgrades(self):
-        """#770: an implied-span guard would refuse this, and it is correct data.
+        """An implied-span guard would refuse this, and it is correct data.
 
         Field 138 in the low-30000s is 250 kHz -- the nominal rate -- recorded
         for 0.2 s, so it holds 50000 samples and spans twice the 0.1 s class
@@ -267,7 +267,7 @@ class TestArchiveTimebaseUpgrade:
         assert payload["fields"]["138"]["dt"] == raw.FAST_DT
 
     def test_the_sample_count_cannot_tell_a_long_record_from_a_fast_one(self):
-        """Why #770 has no code fix: the two cases are the same number.
+        """Why the long-record ambiguity has no code fix: the two cases are the same number.
 
         250 kHz for 0.2 s and 500 kHz for 0.1 s both hold 50000 samples and both
         carry the `fast` label, so no rule over (n, label) separates them. What
@@ -320,7 +320,7 @@ def test_cadence_error_names_the_loaded_fields_not_the_requested_ones(tmp_path):
 
 
 def test_an_archive_is_parsed_once_however_many_fields_are_asked_for(tmp_path, monkeypatch):
-    """One archive read per file, not per field (issue #444).
+    """One archive read per file, not per field.
 
     `_safe_vest_load_cached` memoises on the field code, so before this was
     fixed a build that wanted every magnetics channel re-decoded the whole
@@ -400,7 +400,7 @@ class _FakeConnection:
 
 
 def test_the_table_that_holds_the_shot_wins_over_the_shot_number():
-    """Issue #761: `_2` runs past the nominal boundary, so the range rule lies.
+    """Regression guard for #761: `_2` runs past the nominal boundary, so the range rule lies.
 
     42194 sits above 42190 and exists only in `shotDataWaveform_2`. Choosing by
     shot number queried the empty `_3` and the export failed outright.
@@ -411,7 +411,7 @@ def test_the_table_that_holds_the_shot_wins_over_the_shot_number():
 
 
 def test_a_stub_does_not_outrank_the_full_record():
-    """The truncating half of #761, which reported success.
+    """The truncating half of the table-choice defect, which reported success.
 
     19 shots exist in both tables with a two-to-four field stub on the `_3`
     side. Reading it produced a product carrying 2 of shot 42647's 127 fields
@@ -463,7 +463,7 @@ def test_vest_check_table_asks_the_database_before_guessing():
 
 
 def test_a_read_error_is_not_reported_as_an_empty_shot():
-    """#446's mistake, not repeated: a failed read is not an absence.
+    """A failed read is not an absence.
 
     Both callers retry on MysqlError. Recording the failure as "0 fields" would
     resolve to "no table holds this shot", and each caller returns immediately

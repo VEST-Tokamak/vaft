@@ -1,4 +1,4 @@
-"""Generate a fresh EFIT Green table for one VEST machine era (issue #194).
+"""Generate a fresh EFIT Green table for one VEST machine era.
 
     PYTHONPATH=$PWD EFITHOME=~/git/efit/vaft-install \\
         python workflow/efit_tables/regenerate_legacy_table.py --output /scratch/tables/legacy-39915
@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     # The computational box. EFIT has no independent notion of it: it reads
     # `rgrid`/`zgrid` straight out of the Green table (`tables.F90:158`), so
     # the domain is whatever EFUND baked in here, and studying an alternate
-    # one (#459) means generating a table for it.
+    # one (the domain/grid study) means generating a table for it.
     parser.add_argument("--rleft", type=float, default=None, help="inner edge of the box, m")
     parser.add_argument("--rright", type=float, default=None, help="outer edge of the box, m")
     parser.add_argument("--zbotto", type=float, default=None, help="bottom of the box, m")
@@ -94,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     # EFUND ignores `&incheck`; EFIT reads it from the same file at run time and
     # rejects a reconstruction against it. Deriving it from the machine is the
-    # whole point of `vest_acceptance_envelope`, and until #649 the generated
+    # whole point of `vest_acceptance_envelope`. Before it existed the generated
     # table carried no `&incheck` at all -- so EFIT fell back to bounds that are
     # DIII-D's, and the packaged table carried a hand-preserved legacy block.
     #
@@ -108,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     #
     # EFIT also reads `lim.dat` from the same directory. Without it the
     # directory is not runnable -- EFIT dies in `read_limiter.f90` naming the
-    # file (#805) -- so `generate_era_table` writes it from the era's wall.
+    # file -- so `generate_era_table` writes it from the era's wall.
     try:
         result = generate_era_table(
             args.era,

@@ -50,10 +50,10 @@ def _local_execution_backend(monkeypatch):
     """Keep every test on the local backend whatever the developer's shell says.
 
     ``VAFT_EXECUTION_BACKEND=slurm`` routes every adapter call without an
-    explicit ``backend=`` through Slurm (#1017); a suite run from such a shell
+    explicit ``backend=`` through Slurm; a suite run from such a shell
     would otherwise submit its stub programs as cluster jobs.
 
-    The memory-budget variables (#1146) go too: a suite run inside a Slurm
+    The memory-budget variables go too: a suite run inside a Slurm
     allocation, or with ``VAFT_MEMORY_BUDGET_MB`` exported, would otherwise
     give every ``memory_budget()`` call that job's limit instead of the one a
     test sets.

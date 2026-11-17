@@ -34,7 +34,7 @@ python workflow/pipeline_improvement/make_snapshot.py \
 ```
 
 The stability atlas v2 copy lives in the shared Tier A sample collection
-`vaft/data/samples/vest_tier_a/stability/` (#2277). `make_snapshot.py` replaces it only when given
+`vaft/data/samples/vest_tier_a/stability/`. `make_snapshot.py` replaces it only when given
 `--atlas-output`; update that collection's `manifest.json` hashes in the same change.
 
 HSDS is read with `cache="off"` and `--hsds-sleep` seconds between reads, because the single

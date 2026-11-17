@@ -239,7 +239,7 @@ def diamagnetic_flux_time(
 
     Convention
     ----------
-    In VEST products a positive stored flux is a paramagnetic plasma (#1196),
+    In VEST products a positive stored flux is a paramagnetic plasma,
     a negative one a diamagnetic plasma.  The sign carries that meaning only
     under ``orientation="canonical"``.
 

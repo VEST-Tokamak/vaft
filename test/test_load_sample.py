@@ -91,7 +91,7 @@ def test_full_imas_samples_round_trip_through_both_adapters(shot):
     for index in range(len(via_omas["magnetics.b_field_pol_probe"])):
         probe = via_omas[f"magnetics.b_field_pol_probe.{index}"]
         if "poloidal_angle" in probe:
-            # DD: clockwise from +R, so +Bz is 3*pi/2. See issue #288.
+            # DD: clockwise from +R, so +Bz is 3*pi/2.
             np.testing.assert_allclose(probe["poloidal_angle"], 3 * np.pi / 2)
     if shot in (41524, 41672, 42962):
         assert manifest["source"]["kind"] == "pipeline-until-efit"
@@ -188,7 +188,7 @@ def test_reference_probe_metadata_describes_positive_bz():
         angle = ods[f"magnetics.b_field_pol_probe.{index}.poloidal_angle"]
         # The DD's poloidal_angle is clockwise from +R, so the sensitive axis is
         # (cos, -sin).  This assertion used (cos, +sin), which is why a stored
-        # pi/2 looked like +Bz here while telling a DD reader -Bz (issue #288).
+        # pi/2 looked like +Bz here while telling a DD reader -Bz.
         np.testing.assert_allclose(
             (np.cos(angle), -np.sin(angle)), (0.0, 1.0), atol=1e-15
         )
@@ -354,7 +354,7 @@ def test_wheel_build_uses_the_three_slice_39915_variant(tmp_path):
     assert len(wheel_native["magnetics.b_field_pol_probe"]) == 64
     assert len(wheel_native["magnetics.flux_loop"]) == 11
     # The wheel variant is substituted into every build, so a probe convention
-    # fixed only in vaft/data/samples would ship inverted (issue #288). Both
+    # fixed only in vaft/data/samples would ship inverted. Both
     # representations must carry the DD-conformant angle, not just the checkout.
     from vaft.machine_mapping.magnetics import POLOIDAL_ANGLE
 
@@ -437,7 +437,7 @@ def test_em_coupling_is_reconstructible_from_the_packaged_geometry():
 
 @pytest.mark.parametrize("shot", [39915, 41524, 41672])
 def test_pipeline_samples_carry_efit_reconstructed_constraints(shot):
-    """The m-file replay (#952) filled reconstructed/chi_squared, and nothing else.
+    """The m-file replay filled reconstructed/chi_squared, and nothing else.
 
     EFIT's reported chi-square on these runs is the Ip row's vessel accounting
     term: the magnetics are weighted out (sigma = weight * 1e4 under
@@ -485,7 +485,7 @@ def test_pipeline_samples_carry_efit_reconstructed_constraints(shot):
     )
     # The stored Ip chi-square is EFIT's report, which adds the prescribed vessel
     # current to the model; the metrics recompute the plasma-only residual the fit
-    # actually matched (#952 follow-up, see test_efit_ip_vessel_chi_squared.py).
+    # actually matched (see test_efit_ip_vessel_chi_squared.py).
     # So the reported value is the vessel accounting term, and Ip owns almost none
     # of the recomputed total -- the magnetics do.
     ip = metrics["scalars"]["ip"]
@@ -513,8 +513,8 @@ def test_kinetic_sample_48224_loads_as_omas_with_its_diagnostics():
     for ids in acceptance["required_ids"]:
         assert ids in ods
     # the full 17-point limiter, not the database's 5-point stub. The sample
-    # keeps the outline its EFIT used; #970 later moved the inboard and outboard
-    # faces by 1 mm for the grid, so match the mapper's outline to that 1 mm.
+    # keeps the outline its EFIT used; the inboard and outboard faces were later moved
+    # by 1 mm for the grid, so match the mapper's outline to that 1 mm.
     from omas import ODS
     from vaft.machine_mapping.wall import wall
 
@@ -754,7 +754,7 @@ def test_42962_is_the_statistical_891_r1_sample():
 
     The packaged representations drop ``equilibrium.code.parameters``, so the
     manifest is the record of the setting; the canonical source keeps the full
-    preset. Every stored slice carries its #1644 label, and none is filtered
+    preset. Every stored slice carries its equilibrium-quality label, and none is filtered
     out by it.
     """
     import json

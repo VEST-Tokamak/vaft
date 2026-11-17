@@ -1,6 +1,6 @@
-"""vest.yaml owns the equilibrium magnetic sensors (#2158).
+"""vest.yaml owns the equilibrium magnetic sensors.
 
-Until #2158 the 75 sensors were three independently maintained YAMLs joined by
+The 75 sensors used to be three independently maintained YAMLs joined by
 list position (`test_magnetics_geometry_join.py` guarded the join). They are now
 one registry, ``0.diagnostics.equilibrium_magnetics.sensors``, read by
 ``vaft.machine_mapping.magnetics_registry``. This module checks:
@@ -12,7 +12,7 @@ one registry, ``0.diagnostics.equilibrium_magnetics.sensors``, read by
 * the shot-era wiring (39437/39438) and the DAQ-mode boundary (46403/46404);
 * that every public output -- static ODS magnetics leaves, channel
   definitions, wiring, known faults, raw-source records, constraint groups,
-  EFUND projection -- is identical to what the pre-#2158 code produced
+  EFUND projection -- is identical to what the three-YAML code produced
   (``pre_2158_outputs.json``, generated from a git-archive export of develop
   75b154e31, not from this code);
 * the validator, on synthetic configurations.
@@ -104,7 +104,7 @@ def test_geometry_and_calibration_are_well_formed(inventory):
 
 
 def test_ids_are_label_shaped_except_the_five_ladder_disputed_positions(inventory):
-    """#2148 Q4 is not resolved by #2158: the five ids stay position-shaped."""
+    """The ladder dispute over five positions is unresolved: their ids stay position-shaped."""
     position = {record.index: (record.id, record.ladder_candidate) for record in inventory if record.id_basis == "position"}
     assert position == POSITION_IDS
     for record in inventory:
@@ -122,7 +122,7 @@ def test_aliases_are_exactly_the_other_era_labels(inventory):
 
 
 def test_the_unsuffixed_c4_labels_are_kept_verbatim(inventory):
-    """#2148 Q2: ODS identifiers depend on these strings; no `_Bz` is invented."""
+    """ODS identifiers depend on these strings; no `_Bz` is invented."""
     names = {record.field_code: record.name for record in inventory}
     assert [names[code] for code in (223, 224, 225, 226)] == [
         "MagneticFieldProbe_C4-03",
@@ -133,14 +133,14 @@ def test_the_unsuffixed_c4_labels_are_kept_verbatim(inventory):
 
 
 def test_the_field_171_sign_conflict_is_recorded_not_resolved(inventory):
-    """#2148 Q1: both values stay until a follow-up issue decides the sign."""
+    """The field-171 sign is undecided: both values stay until it is settled."""
     assert inventory[36].field_code == 171 and inventory[36].calibration == -0.004528986
     reference = [c for c in TOROIDAL_MIRNOV_REFERENCE_CHANNELS if int(c["field_code"]) == 171]
     assert [float(c["gain"]) for c in reference] == [0.004529]
 
 
 def test_the_positional_late_flux_baseline_rule_hits_loops_13_to_15(inventory):
-    """#2148 Q7: `flux_loop_number in (9, 10, 11)` counts positions (1-based).
+    """`flux_loop_number in (9, 10, 11)` counts positions (1-based).
 
     The rule in vaft.process.magnetics is preserved as it is; with the registry
     order those positions are physical loops #13-#15, not #9-#11.
@@ -195,7 +195,7 @@ def test_the_retired_yamls_have_no_runtime_copy():
 
 
 def test_no_second_sensor_inventory_in_vest_yaml():
-    """The #843 duplicate and the dead `0.magnetics.flux_loop` placeholder stay gone."""
+    """The duplicate sensor list and the dead `0.magnetics.flux_loop` placeholder stay gone."""
     content = yaml.safe_load(VEST_YAML.read_text(encoding="utf-8"))
     assert "magnetics" not in content[0]
     paths = []
@@ -281,7 +281,7 @@ def test_the_legacy_index_adapter_lands_on_the_same_sensor():
 
 
 # ---------------------------------------------------------------------------
-# Public outputs identical to the pre-#2158 code
+# Public outputs identical to the three-YAML code
 # ---------------------------------------------------------------------------
 
 
@@ -435,7 +435,7 @@ def test_a_legacy_index_override_resolves_like_the_id_form(tmp_path):
 
 
 def test_the_raw_db_name_table_agrees_with_every_registry_label(inventory):
-    """An independent reference (#2148 Q6): `sql_table.txt` names every DAQ field.
+    """An independent reference: `sql_table.txt` names every DAQ field.
 
     It stays the raw-database label table -- a different contract, covering
     fields the registry does not -- and is not a second sensor inventory: it
@@ -453,12 +453,12 @@ def test_the_raw_db_name_table_agrees_with_every_registry_label(inventory):
 
 
 # ---------------------------------------------------------------------------
-# Constraint families by sensor identity (#2164)
+# Constraint families by sensor identity
 # ---------------------------------------------------------------------------
 
 
 def _positional_families(ods, count):
-    """The rule the k-file builder used before #2164: the product's own positions."""
+    """The rule the k-file builder used to follow: the product's own positions."""
     import numpy as np
 
     from vaft.machine_mapping.magnetics import (
@@ -569,7 +569,7 @@ def test_registry_families_refuse_one_label_on_two_channels():
 
 
 def test_inventory_labels_on_a_pre_swap_shot_keep_their_families():
-    """The one wiring swap (pre-39438, #956) trades labels inside the outboard column."""
+    """The one wiring swap (pre-39438) trades labels inside the outboard column."""
     import warnings
 
     import numpy as np

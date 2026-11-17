@@ -50,7 +50,7 @@ MODELS = ("sauter", "redl")
 _ELEMENTARY_CHARGE = 1.602176634e-19
 
 #: Below this normalised flux the packaged VEST reconstruction is not trustworthy
-#: (issue #317: an unphysical near-axis dvolume_dpsi ramp from a q[0] outlier). It is
+#: (an unphysical near-axis dvolume_dpsi ramp from a q[0] outlier). It is
 #: not applied automatically -- the caller decides with ``rho_range`` -- but it is the
 #: documented reason such a cut is usually wanted.
 UNTRUSTWORTHY_PSI_NORM = 0.05
@@ -102,7 +102,7 @@ class BootstrapCurrentResult:
 
 
 def _array(ods: Any, path: str) -> Optional[np.ndarray]:
-    """Read a path without materialising it when absent (issue #118)."""
+    """Read a path without materialising it when absent."""
     try:
         if path not in ods:
             return None
@@ -156,7 +156,7 @@ def _kinetic_on(ods: Any, cp_index: int, path: str, grid: np.ndarray) -> Optiona
         return None
     order = np.argsort(source)
     # anti-alias: spatial. Both axes are rho_tor_norm, a flux coordinate, so there is no
-    # sampling rate to reduce and nothing to fold (#425).
+    # sampling rate to reduce and nothing to fold.
     placed = np.interp(grid, source[order], values[order])
     placed[(grid < source.min()) | (grid > source.max())] = np.nan
     return placed
@@ -348,7 +348,7 @@ def compute_bootstrap_current(
         Which ion species supplies the temperature.
     rho_range : (float, float), optional
         Restrict the evaluation to this ``rho_tor_norm`` band. The near-axis region of a
-        reconstruction is often untrustworthy (#317), and cutting it is the caller's
+        reconstruction is often untrustworthy, and cutting it is the caller's
         decision, recorded in the result.
     b0 : float, optional
         Vacuum toroidal field to normalise by. Read at the matched slice when omitted.
@@ -428,7 +428,7 @@ def compute_bootstrap_current(
     # Which ion densities the impurity model implies. Without one, the historical
     # n_i = n_e: exact for a hydrogenic plasma, and wrong by (Z_eff-1)/Z_impurity
     # once there is an impurity -- so a comparison against a solver whose species
-    # list carries one has to be told the same model (issue #803).
+    # list carries one has to be told the same model.
     ion_total, main_fraction = _ion_density_fractions(impurity, charge)
     pressure_e = density * temperature * _ELEMENTARY_CHARGE
     pressure_i = density * ion_total * ion_temperature * _ELEMENTARY_CHARGE
@@ -452,7 +452,7 @@ def compute_bootstrap_current(
     )
     # Sauter Eq. 18c is single-species; NEO's 2013 reading evaluates it for the main
     # ion and scales by the summed ion density, which the kernel's own Convention
-    # note requires a caller reproducing NEO to apply (issue #353).
+    # note requires a caller reproducing NEO to apply.
     nu_i = np.asarray(
         ion_collisionality_sauter(
             density[usable] * main_fraction, ion_temperature[usable], q_profile[usable],
@@ -553,7 +553,7 @@ def compute_conductivity(
 
     The counterpart of :func:`compute_bootstrap_current` for the other quantity the
     Sauter and Redl papers give, and the analytic reference for what NEO produces
-    from a gradient-free ``EPAR0=1`` run (issue #744).
+    from a gradient-free ``EPAR0=1`` run.
 
     Simpler than the bootstrap current in two ways worth stating, because both are
     places a caller would expect a requirement that is not there: the conductivity
@@ -675,7 +675,8 @@ def _ion_density_fractions(
     """``(sum(n_i)/n_e, n_main/n_e)`` for the requested impurity model.
 
     Without an impurity the historical ``n_i = n_e`` stands, which is exact for a
-    hydrogenic plasma and is what every VAFT comparison assumed before #803. With
+    hydrogenic plasma and is the assumption of any comparison made without an
+    impurity model. With
     one, both fractions follow from quasi-neutrality and the effective charge, and
     they are the same numbers ``vaft.code.gacode.inputs`` gives the solver -- shared
     rather than restated, because the whole point is that the two sides model one

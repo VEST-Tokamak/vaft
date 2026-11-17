@@ -1,4 +1,4 @@
-"""Tests for the VEST interferometer mapper (issue #153)."""
+"""Tests for the VEST interferometer mapper."""
 
 from __future__ import annotations
 

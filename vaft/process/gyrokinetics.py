@@ -1,4 +1,4 @@
-r"""Turbulence--zonal-flow diagnostics of gyrokinetic time series and the predator--prey fit (issue #1820).
+r"""Turbulence--zonal-flow diagnostics of gyrokinetic time series and the predator--prey fit.
 
 Turns the potential of a nonlinear gyrokinetic run into the two intensities the
 reduced model of :mod:`vaft.formula.turbulence` speaks about, characterises the
@@ -69,7 +69,7 @@ __all__ = [
     "zonal_turbulence_intensity",
 ]
 
-#: Keys every fit's normalisation record should carry (#1820 Sec. 10).
+#: Keys every fit's normalisation record should carry.
 NORMALIZATION_KEYS = (
     "turbulence_definition",
     "zonal_definition",
@@ -594,7 +594,7 @@ def fit_predator_prey_model(time, turbulence, zonal, *, method="trajectory", ini
 
     Defaults
     --------
-    The trajectory method is the conventional choice (#1820 Sec. 9): it uses no
+    The trajectory method is the conventional choice: it uses no
     numerical derivative.  Log residuals are a numerical convenience for traces
     spanning decades.  ``fit_initial_state=True`` is a numerical convenience:
     a noisy first sample otherwise biases the whole orbit.  ``min_r2=0.5`` is

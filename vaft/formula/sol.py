@@ -1,14 +1,14 @@
 r"""Scrape-off layer: sound speed, sheath fluxes, parallel conduction and the target heat-flux profile.
 
-The small, independently testable relations of the open-field-line edge
-(issue #951, first slice): the ion sound speed with its closure explicit,
+The small, independently testable relations of the open-field-line edge:
+the ion sound speed with its closure explicit,
 the sheath-limited particle flux and ion saturation current, the sheath heat
 transmission, Spitzer--Harm parallel electron conduction and its integrated
 two-point form, and the Eich target heat-flux profile with its integral width.
-SOL blobs and filaments (#1211) follow D'Ippolito, Myra and Zweben (2011):
+SOL blobs and filaments follow D'Ippolito, Myra and Zweben (2011):
 a Gaussian of radius delta, cold ions, x radial, y binormal. Reduced models built on them (the two-point model with loss factors,
 equilibrium-derived connection length and flux expansion, named lambda_q
-scalings) are later slices of #951; SOLPS-ITER and UEDGE are not replaced.
+scalings) are not implemented yet (Open: #951); SOLPS-ITER and UEDGE are not replaced.
 
 Notation
 --------
@@ -1092,7 +1092,7 @@ def radiative_thermal_instability_growth_rate(n, dL_dT):
     The poloidally symmetric counterpart of the MARFE (Drake's Eq. 1): a
     whole flux surface cooling where the radiation curve falls with
     temperature. How it relates to detachment and to density limits is
-    #1068's, not this function's.
+    outside this function (Open: #1068).
 
     References
     ----------

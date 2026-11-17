@@ -58,7 +58,7 @@ def test_b0_is_paired_with_the_slice_on_the_equilibrium_time_base(product):
 
 
 def test_the_volume_beta_columns_share_the_normalization_of_the_troyon_plane(product):
-    # #1691 stage 2B: <beta_N> must be the ratio of the plotted axes, beta_B / I_N, or the companion
+    # <beta_N> must be the ratio of the plotted axes, beta_B / I_N, or the companion
     # Troyon plane would read a different normalization than its own axes
     beb = _build_efit_base()
     times = np.asarray(product["equilibrium.time"], dtype=float)

@@ -1,4 +1,4 @@
-"""MCP Phase 2: datasets by shot or artifact, equilibrium summaries, campaign atlas tables (#188).
+"""MCP Phase 2: datasets by shot or artifact, equilibrium summaries, campaign atlas tables.
 
 The atlas tests build a miniature atlas in each lane's own schema format --
 JSON Schema (K, Z, D), the transport ``columns`` map (T), the stability

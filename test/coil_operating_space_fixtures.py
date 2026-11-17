@@ -1,4 +1,4 @@
-"""Synthetic #1178 operating-space results, for the plots (#1886) and their tests.
+"""Synthetic coil operating-space results, for the plots and their tests.
 
 Every value here is synthetic and the provenance says so: these exercise the
 schema and the drawing, never physics.

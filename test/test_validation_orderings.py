@@ -1,4 +1,4 @@
-"""Ordering contracts of the reduced models (#1627 phase C): registry, quantities and evaluation."""
+"""Ordering contracts of the reduced models: registry, quantities and evaluation."""
 
 import math
 

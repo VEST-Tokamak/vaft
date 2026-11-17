@@ -2,7 +2,7 @@
 
 One home for the rule that turns a stored IMAS ``poloidal_angle`` into a
 sensitive axis, so the angle written into the IDS and the projection a
-consumer applies cannot move apart (issue #288).  The Data Dictionary
+consumer applies cannot move apart.  The Data Dictionary
 defines ``poloidal_angle`` as a **clockwise** angle from the horizontal
 plane, zero when the sensor normal points toward increasing major radius.
 Clockwise from ``+R`` turns toward ``-Z``, so the axis is
@@ -10,8 +10,9 @@ Clockwise from ``+R`` turns toward ``-Z``, so the axis is
 is stored as ``3*pi/2``.  Projecting with ``(cos, +sin)`` -- the
 counter-clockwise reading -- flips the vertical-field part of every probe
 (a purely vertical one reads inverted) while leaving flux loops untouched,
-which is exactly how the mistake hides: VAFT carried it until #288, and a
-downstream solver carried it after #293 moved the angle.
+which is exactly how the mistake hides: VAFT itself once carried it, and a
+downstream solver carried it after VAFT moved its stored angle to the DD
+convention.
 """
 
 from __future__ import annotations
@@ -48,8 +49,9 @@ def probe_axis(poloidal_angle):
     component then enters with the wrong sign -- a purely vertical probe reads
     exactly inverted, an oblique one simply wrong -- while purely radial
     probes and all flux loops, which carry no angle, are unaffected.  That
-    asymmetry is how the error hides in a reconstruction: VAFT carried it
-    until #288, and a downstream solver after #293.
+    asymmetry is how the error hides in a reconstruction: VAFT itself once
+    carried it, and a downstream solver did after VAFT moved its stored angle
+    to the DD convention.
 
     References
     ----------
@@ -90,7 +92,7 @@ def project_poloidal_field(b_r, b_z, poloidal_angle):
     opposite of the measured signal for a vertical probe ($\theta = \pi/2$ or
     $3\pi/2$), a wrong value for an oblique one and the right one for a radial
     probe, so a synthetic diagnostic built on it disagrees with the
-    measurement on every probe with a vertical component (#288, #293).
+    measurement on every probe with a vertical component.
 
     References
     ----------

@@ -1,4 +1,4 @@
-"""The staged kinetic-state inference (#1842): Romero first, T_i = T_e, n_C = n_O.
+"""The staged kinetic-state inference: Romero first, T_i = T_e, n_C = n_O.
 
 Built on the packaged 39915 equilibrium (nine slices, weber flux, given a real toroidal
 flux so its ``rho_tor_norm`` is a coordinate and not the sqrt(psi_N) proxy) with synthetic
@@ -376,7 +376,7 @@ def test_an_inferred_t_i_refuses_a_kinetic_equilibrium(sample, tables):
 
 
 def test_the_product_states_its_romero_closure_t_i_record_and_species_pressures(sample, tables):
-    """What the kinetic-stages figure (#1963) reads off the product, not off the call (#1842)."""
+    """What the kinetic-stages figure reads off the product, not off the call."""
     ods, result = _run(sample, tables)
     product = result.product
     base = "core_profiles.profiles_1d.0"

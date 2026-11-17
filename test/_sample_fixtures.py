@@ -5,8 +5,8 @@ and the same shape as `_plasma_timing_fixtures.py`: a module-level
 ``lru_cache`` holds the pristine product, and every caller receives
 ``.copy()``.
 
-The gate is what motivates it (#827). `pytest -m "core and not perf"` is the
-required check on every pull request into `develop` (#515), and thirteen of its
+The gate is what motivates it. `pytest -m "core and not perf"` is the
+required check on every pull request into `develop`, and thirteen of its
 modules each parsed ``samples/39915/omas.json.gz`` for themselves -- most once
 under a module fixture, one of them ten times from a helper called per test.
 Counted by wrapping `vaft.omas.load` for a gate run on `develop`, it was

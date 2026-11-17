@@ -99,7 +99,7 @@ fitters. $\rho_{tor,N}$ needs the equilibrium's $q$ profile; a legacy flux-surfa
 it, and the record says so (`mapped.rho_tor_norm_unavailable`) rather than substituting $\sqrt{\psi_N}$,
 which is a different coordinate.
 
-> **The coordinate is a choice, and the default is $\rho_{tor,N}$.** Before issue #420 the mappers
+> **The coordinate is a choice, and the default is $\rho_{tor,N}$.** Older mappers
 > returned a bare $\psi_N$ array under the name "rho" and every fit was made in it. Fits are now made in
 > the coordinate you select (`coordinate=`), `rho_tor_norm` by default; pass `coordinate="psi_norm"` to
 > reproduce the old numbers. A bare array is still accepted, but only together with
@@ -108,7 +108,7 @@ which is a different coordinate.
 The same equilibrium carried through all of its representations -- the four radial coordinates side
 by side, a PEST grid, Miller and Fourier fits, $a/L_T$ in four gradient conventions, a prescribed
 island, a 3-D embedding and a camera projection, each checked against the same source, time, COCOS
-and flux unit -- is `notebooks/equilibrium_representation_reference.ipynb` (#1201). Which of these
+and flux unit -- is `notebooks/equilibrium_representation_reference.ipynb`. Which of these
 is a coordinate, a projection, a representation, a derived quantity or a solver convention is set
 out in [Equilibrium representations]({{ '/reference/equilibrium-representations/' | relative_url }}).
 Building an equilibrium is covered in [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/).
@@ -260,13 +260,13 @@ ods = vaft.process.core_profiles(
 The fits are evaluated on the equilibrium grid **in their own coordinate** and stored on
 `grid.rho_tor_norm`, `grid.psi` and `grid.rho_pol_norm`. What produced the slice is written beside it:
 `electrons.temperature_fit.parameters` records the coordinate, method and order, and
-`core_profiles.code.parameters` carries one line per slice. A slice written before #420 has no such
+`core_profiles.code.parameters` carries one line per slice. A slice written before fits recorded their coordinate has no such
 record; that absence marks a legacy product fitted in $\psi_N$.
 
 Thomson-only slices need an ion temperature. The Ti/Te coefficient is **VEST policy**, not a
 processing default: it lives in `vest.yaml` (`diagnostics.core_profiles.ti_te_ratio`). It is currently **Ti = Te**
 (value 1.0, σ 0.5, status `assumed`, so the total pressure is about twice the Thomson electron pressure),
-chosen on #1331 until enough CES/IDS shots exist to infer it. The earlier inference, 0.17 from 9 slices of
+chosen as the working assumption until enough CES/IDS shots exist to infer it. The earlier inference, 0.17 from 9 slices of
 48224/48226/48233, is kept there as `superseded_inference`, as a record only. The kinetic-EFIT pipeline resolves
 the policy per shot with `vaft.machine_mapping.core_profiles.vest_core_profiles_policy(shot)` before calling
 `core_profiles`.
@@ -309,8 +309,8 @@ input, not a measurement.
 ### Analytic L-mode, H-mode and ITB states
 
 The opposite direction — prescribe the kinetic profiles, derive the pressure — is a small preset
-layer (#1045). Each channel is a generalized-parabolic core plus optional Groebner tanh steps (the
-#552 kernels): an edge pedestal whose top value holds exactly at the knee, and an internal
+layer. Each channel is a generalized-parabolic core plus optional Groebner tanh steps (the
+`vaft.formula.equilibrium.generalized_parabolic_profile` and `modified_tanh_profile` kernels): an edge pedestal whose top value holds exactly at the knee, and an internal
 transport barrier with its own position, full width and step amplitude per channel. Axis and separatrix
 values hold exactly; `n_i` follows from quasi-neutrality with a uniform `z_eff`, and `p_e`, `p_i`,
 `p` and `dp/dψ_N` are derived, never specified. The coordinate is `psi_norm`; units are m⁻³, eV
@@ -335,13 +335,13 @@ sources. See `notebooks/analytic_plasma_state_presets.ipynb`.
 
 ### Synthetic kinetic profiles from an equilibrium
 
-`generate_synthetic_kinetic_profiles` (#122) generalizes both directions above: it takes an
+`generate_synthetic_kinetic_profiles` generalizes both directions above: it takes an
 equilibrium (GEQDSK, ODS or `EquilibriumData`) and a `SyntheticKineticSpec` of declared
 assumptions, and returns `n_e`, `T_e`, `T_i`, the main-ion and impurity densities and the pressures
 on the equilibrium's `psi_norm` grid, with `rho_tor_norm` derived from its `q`. The fidelity ladder
 is explicit in the records (`vaft.data`): Level 0 `SqrtPressureSplit` (the `core_profiles_from_eq`
-closure above, bit for bit), Level 1 `ProfileSpec` with an `AnalyticProfile` (the #1045
-composition) or a `TabulatedProfile`, Level 2 a `ScalarTarget` (axis, separatrix, line or volume
+closure above, bit for bit), Level 1 `ProfileSpec` with an `AnalyticProfile` (the analytic-preset
+composition above) or a `TabulatedProfile`, Level 2 a `ScalarTarget` (axis, separatrix, line or volume
 average, Greenwald fraction), a peaking factor, `T_i/T_e` or `p_e/p`, and Level 3 a
 `GradientProfile` of prescribed `a/L`. The composition is a hydrogenic main ion plus at most one
 impurity at uniform `Z_eff`.
@@ -378,9 +378,9 @@ transport-predicted, and the slice says so. See
 
 ### A self-consistent equilibrium and kinetic state
 
-`vaft.code.chease_kinetic_iteration.build_consistent_state` (#123) makes the equilibrium and the
+`vaft.code.chease_kinetic_iteration.build_consistent_state` makes the equilibrium and the
 synthetic profiles agree under a declared `EquilibriumKineticSpec`. With
-`closure="equilibrium_pressure"` the equilibrium pressure is authoritative: #122 decomposes it once,
+`closure="equilibrium_pressure"` the equilibrium pressure is authoritative: `generate_synthetic_kinetic_profiles` decomposes it once,
 and CHEASE is not called. With `closure="kinetic_pressure"` the kinetic pressure is authoritative.
 CHEASE re-solves the fixed-boundary equilibrium with `PRES`/`PPRIME` built from `p_kin` (a PCHIP
 interpolant and its derivative) and `FF'` from an explicit `CurrentPolicy`: the initial `FF'` shape
@@ -451,8 +451,8 @@ vaft.omas.plot_charge_exchange_time_ion_temperature(ods)      # per-channel Ti h
 ### Normalized gradients
 
 `plot_electron_temperature_profile_gradient`, `plot_electron_density_profile_gradient` and
-`plot_ion_temperature_profile_gradient` draw $-L\,d\ln f/dx_g$ of the stored `core_profiles` slice
-(#551). The builder calls `vaft.process.profile_gradients.profile_gradient` once, and the renderer
+`plot_ion_temperature_profile_gradient` draw $-L\,d\ln f/dx_g$ of the stored `core_profiles` slice.
+The builder calls `vaft.process.profile_gradients.profile_gradient` once, and the renderer
 only draws the result. Four options keep the choices apart:
 
 | option | default | meaning |
@@ -715,7 +715,7 @@ more than it would on a large device:
   happily reproduce measurement noise. Called directly, `vaft.formula.fit_profile` returns `nan`
   outside the span of the channels (inside the innermost or beyond the outermost) rather than a flat
   copy of the end value; pass `extrapolate=True` for the old hold. The Thomson and charge-exchange
-  fitters in `vaft.process` do, and the Thomson fit report notes it (#359).
+  fitters in `vaft.process` do, and the Thomson fit report notes it.
 
 Always keep `uncertainty_option=1` if error bars exist. With it disabled every channel is weighted
 equally, including ones the diagnostic itself flagged as unreliable.
@@ -746,11 +746,11 @@ flux map it returns.
 ### Named configurations (presets)
 
 `vaft.code.efit.PRESETS` names complete EFIT configurations: the scientific configuration written into the k-file, sigma floor included.
-Since 2026-10-01 the defaults of `EFITScientificConfig` *are* the #891 working setting, so a run that names no configuration writes it (`vaft.code.efit.DEFAULT_PRESET == "statistical_891"`).
+Since 2026-10-01 the defaults of `EFITScientificConfig` *are* the working setting of the EFIT uncertainty calibration, so a run that names no configuration writes it (`vaft.code.efit.DEFAULT_PRESET == "statistical_891"`).
 
 | preset | what it is |
 | --- | --- |
-| `statistical_891` (default) | The #891 working setting. Statistical σ with a 2 % probe/loop floor, probes ×3.62 and loops ×2.15 over their stored σ, the diamagnetic flux fitted at ×16, Ip σ 20 %, KPPCUR 2 / KFFCUR 1, and exit on ψ convergence alone (ERRMIN 1e-4, SAICON out of reach, NXITER 1, MXITER 514). |
+| `statistical_891` (default) | The working setting of the EFIT uncertainty calibration. Statistical σ with a 2 % probe/loop floor, probes ×3.62 and loops ×2.15 over their stored σ, the diamagnetic flux fitted at ×16, Ip σ 20 %, KPPCUR 2 / KFFCUR 1, and exit on ψ convergence alone (ERRMIN 1e-4, SAICON out of reach, NXITER 1, MXITER 514). |
 | `routine` | The legacy configuration, the default before 2026-10-01: legacy weights, a (2,2) basis, EFIT's own termination, 100 iterations, no floor. It gave βp ≈ 0 on the reference slices; keep it for reproducing old results. |
 
 `generate_kfile` applies the configured floor to a copy of the constraints, so the product itself is
@@ -790,7 +790,7 @@ through `prepare_efit_inputs`, pass its `profile`, `initialization`, `numerics` 
 
 A `routine` run writes the same product paths as a default one, so give it its own `base_dir`.
 
-The default allows up to 514 iterations (routine: 100). A slice that never converges runs to that cap, and pipeline 1 runs all of a shot's slices in one EFIT call, so `efit.timeout` is 3600 s: 600 s timed out 26 of 33 shots in the #1331 Tier A campaign.
+The default allows up to 514 iterations (routine: 100). A slice that never converges runs to that cap, and pipeline 1 runs all of a shot's slices in one EFIT call, so `efit.timeout` is 3600 s: 600 s timed out 26 of 33 shots in the Tier A EFIT campaign (provenance: #1331).
 
 `statistical_891` was calibrated on 39915's flat-top. The weight-study README (`workflow/efit_uncertainty_calibration`) records how.
 

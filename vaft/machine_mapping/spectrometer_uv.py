@@ -7,6 +7,7 @@ import numpy as np
 from vaft.database import raw as raw_db
 from vaft.process.signal_processing import resample_to_time
 
+from .machine_history import fast_trigger_offset_s
 from .registry import port_phi
 from .utils import set_path
 
@@ -21,8 +22,9 @@ DEFAULT_DT = 4e-5
 #: filterscope's toroidal position is the fast camera's.
 #:
 #: So this is the same port :data:`vaft.machine_mapping.camera_visible.CAMERA_PORT`
-#: names, and unlike the provisional placements in issue #746 it is documented
-#: rather than inferred.  Issue #718 for the clock-to-phi conversion.
+#: names, and unlike the provisional SXR, CES and camera-frame placements it is
+#: documented rather than inferred.  The clock-to-phi conversion is the one in
+#: :mod:`vaft.machine_mapping.conventions`.
 FILTERSCOPE_PORT = "6MR"
 
 CHANNEL_NAMES: dict[int, str] = {
@@ -92,10 +94,6 @@ def _build_time_axis(t_start: float, t_end: float, dt: float) -> np.ndarray:
     return np.arange(start, end, step)
 
 
-def _needs_legacy_time_shift(shot: int) -> bool:
-    return (41446 <= shot <= 41451) or (shot >= 41660)
-
-
 def legacy_time_shift_s(shot: int) -> float:
     """The offset the mapper adds to a filterscope record's own time axis.
 
@@ -104,8 +102,11 @@ def legacy_time_shift_s(shot: int) -> float:
     record whose axis ends before 0.1 s -- in practice the fast channel; a
     slow-DAQ record spans the full second -- so this is the value a shifted
     record received, not proof that a given record was shifted.
+
+    It is the fast-DAQ trigger offset the raw loader also applies, vest.yaml's
+    ``machine_history.daq.fast_trigger_offset`` (issue #2267).
     """
-    return 0.26 if _needs_legacy_time_shift(shot) else 0.24
+    return fast_trigger_offset_s(shot)
 
 
 def vfit_filterscope(
@@ -129,7 +130,7 @@ def vfit_filterscope(
         # and the Data Dictionary gives spectrometer_uv no scalar toroidal
         # angle, so line_of_sight.first_point.phi is where the one thing we do
         # know belongs. Writing an invented R and Z beside it to look complete
-        # is what issue #718 exists to stop.
+        # would present a guess as geometry.
         set_path(ods, f"spectrometer_uv.channel.{channel}.line_of_sight.first_point.phi", phi)
 
     for _, channel, line, label, wavelength in SIGNALS:

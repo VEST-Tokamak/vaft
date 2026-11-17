@@ -6,7 +6,7 @@ header. COCOS 1 and 2 (and 11 and 12) share every sign and differ only in the
 toroidal direction, so a COCOS 11 source came back
 declaring COCOS 2 and read back with its plasma current, toroidal field and
 poloidal field all reversed -- with nothing in its signs to say so. Found on
-the #886 island fixture.
+the magnetic-island CHEASE fixture.
 
 Every check here is a physical direction in the IMAS frame, read through the
 file's declared convention, because that is what a reader of the file gets.
@@ -66,7 +66,7 @@ def _physical_directions(eq):
 
 @pytest.fixture(scope="module")
 def source():
-    """A COCOS 11 source, as the #886 fixture generator hands CHEASE."""
+    """A COCOS 11 source, as the island fixture generator hands CHEASE."""
     return _with_q(solovev_example(toroidal_field=0.13, a_parameter=0.5))
 
 

@@ -13,8 +13,8 @@ the header: a diagnostic's trigger is the cell to the right of its name, the
 2.45 GHz ECH window is the cell under its header, a gas trigger is the cell to
 the right of the valve setting that follows a side label. The header-alias
 search the other eras use reads the cell below a header, which on this card is
-the next label -- that is how ``"TS"`` and ``"RF (9 dBm)"`` used to be stored
-as values (#995).
+the next label, so that search would store labels such as ``"TS"`` and
+``"RF (9 dBm)"`` as values.
 
 Columns drift by one between template revisions (gas at T or S), so every
 section is located from its header text on each card rather than by letter.

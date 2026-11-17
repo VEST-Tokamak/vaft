@@ -1,4 +1,4 @@
-"""Several 0D targets at once: an outer solve around the CHEASE synthesis (#120).
+"""Several 0D targets at once: an outer solve around the CHEASE synthesis.
 
 CHEASE imposes exactly one normalization per fixed-boundary solve -- the
 plasma current (``NCSCAL = 2``) or q95 (``NCSCAL = 1``), see

@@ -1,4 +1,4 @@
-"""The neoclassical summary's bootstrap <-> NEO core_transport correspondence (#1655).
+"""The neoclassical summary's bootstrap <-> NEO core_transport correspondence.
 
 Synthetic products for every match status, and the real 48224 NEO product built by
 ``build_neoclassical_ods`` from the recorded fixture run. No solver runs.

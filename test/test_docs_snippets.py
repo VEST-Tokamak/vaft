@@ -269,7 +269,7 @@ def test_the_extractor_still_sees_snippet_code(tmp_path, names):
 
 
 def test_every_documented_vaft_attribute_resolves(names):
-    """A snippet that names something absent cannot run for anyone (#775)."""
+    """A snippet that names something absent cannot run for anyone."""
     problems = [
         f"{page.relative_to(ROOT)}:{lineno}: {dotted} does not resolve\n    ({why})"
         for page, lineno, dotted in names
@@ -407,7 +407,7 @@ def test_a_submodule_used_as_an_attribute_is_one_after_a_plain_import():
 
 
 def test_no_snippet_teaches_a_superseded_plot_name(names):
-    """Resolution cannot see this: a deprecated alias resolves fine (#774)."""
+    """Resolution cannot see this: a deprecated alias resolves fine."""
     problems = []
     for page, lineno, dotted in names:
         superseded = _legacy(dotted)

@@ -1,4 +1,4 @@
-"""The class-shot checklist reads a product without touching it, and says why (#1543)."""
+"""The class-shot checklist reads a product without touching it, and says why."""
 
 from __future__ import annotations
 

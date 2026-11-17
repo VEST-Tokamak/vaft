@@ -1,4 +1,4 @@
-"""Every canonical renderer must honor the issue #62 axes/show/return contract."""
+"""Every canonical renderer must honor the axes/show/return contract."""
 
 import matplotlib
 
@@ -28,7 +28,7 @@ from vaft.plot.models import (
 )
 
 # The table and text views return text, not a figure; their own contract
-# is test_table_text_views.py (issue #1180).
+# is test_table_text_views.py.
 _SPECS = tuple(spec for spec in registry.specs() if spec.view not in registry.NON_GRAPHICAL_VIEWS)
 _SPEC_IDS = [spec.name for spec in _SPECS]
 

@@ -147,7 +147,8 @@ class CameraHeaderInfo:
 #: ports sit 120 degrees apart, the first centred on 30 degrees. Machine
 #: geometry, kept here rather than in the notebooks that project it.
 #:
-#: PROVISIONAL / UNRECONCILED with the port table (issue #746). The rectangular
+#: PROVISIONAL / UNRECONCILED with the port table (Open: #746, no installation
+#: record confirms these placements). The rectangular
 #: main-chamber
 #: ports are 2MR, 6MR and 10MR, which *are* 120 degrees apart, and the camera
 #: itself looks through 6MR -- but 2MR and 10MR are at 300 and 60 degrees of
@@ -181,7 +182,7 @@ CAMERA_PORT = "6MR"
 #
 # That matters beyond documentation: it is why PORT_FIRST_CENTRE_RAD and
 # PORT_SEPARATION_RAD above sit in a frame that matches neither the VEST clock
-# angles nor IMAS phi (issue #746). A tangential camera does not see the
+# angles nor IMAS phi. A tangential camera does not see the
 # rectangular ports at their port-table angles -- it sees them projected along
 # its own sightline -- so a camera-centred frame is the expected shape of that
 # discrepancy rather than evidence of a mistake. Reconciling it means redoing
@@ -797,7 +798,7 @@ def vfit_camera_visible_static(
 
     set_path(ods, "camera_visible.channel.0.name", channel_name)
     # Where the camera views from. The two landmark angles above are a separate,
-    # still-unreconciled frame (issue #746); this one comes straight from the
+    # still-unreconciled frame; this one comes straight from the
     # port document.
     set_path(ods, "camera_visible.channel.0.aperture.0.centre.r", PORT_MAJOR_RADIUS_M)
     set_path(ods, "camera_visible.channel.0.aperture.0.centre.phi", port_phi(CAMERA_PORT))

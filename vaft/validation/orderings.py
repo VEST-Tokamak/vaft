@@ -1,4 +1,4 @@
-"""Ordering contracts of the reduced plasma models (#1627 phase C).
+"""Ordering contracts of the reduced plasma models.
 
 Each contract names the asymptotic orderings one model is derived under, as
 :class:`vaft.validation.applicability.ApproximationContract` objects, so a state
@@ -86,7 +86,8 @@ _BRAG_E = ("ordering.thermal_speed", "ordering.braginskii_electron_collision_tim
 _BRAG_I = ("ordering.thermal_speed", "ordering.braginskii_ion_collision_time", "ordering.mean_free_path",
            "ordering.knudsen_number")
 
-#: Column name -> meaning. The names are the ones the #1629 ordering atlas reads.
+#: Column name -> meaning. The names are the ones the ordering atlas
+#: (``notebooks/vest_ordering_and_model_applicability.ipynb``) reads.
 ORDERING_QUANTITIES: Dict[str, OrderingQuantity] = {
     # foundational: true of almost every fusion plasma, so they rarely discriminate
     "debye_length_over_L": _q("lambda_D / L", "L", "profile", "foundational", "ordering.debye_length"),
@@ -384,7 +385,7 @@ def ordering_threshold(quantity: str) -> float:
 #: scale separation a value has; they are NOT an applicability status. The status stays the
 #: two-sided SUPPORTED / OUTSIDE of :func:`~vaft.validation.applicability.evaluate_contract`,
 #: which has no "marginal" on purpose, and a margin of exactly zero is "outside" as it is OUTSIDE
-#: there. The continuous margin is the result; a band name only reads it (#1627).
+#: there. The continuous margin is the result; a band name only reads it.
 MARGIN_LABELS: Tuple[Tuple[float, str], ...] = ((2.0, "over 2 decades"), (1.0, "1-2 decades"),
                                                 (0.0, "0-1 decade"), (float("-inf"), "outside"))
 
@@ -424,7 +425,8 @@ class OrderingSpace:
                 raise KeyError(f"{self.name}: {axis!r} is not an ordering quantity")
 
 
-#: The model-validity spaces of #1627 §3. They are ordering spaces, not stability boundaries.
+#: The model-validity spaces: pairs of ordering quantities read together. They are
+#: ordering spaces, not stability boundaries.
 #: ``flr_collisional_electron`` is the electron form of ``flr_collisional``, for data without a
 #: trustworthy ion temperature.
 ORDERING_SPACES: Dict[str, OrderingSpace] = {s.name: s for s in (

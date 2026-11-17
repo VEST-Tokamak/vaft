@@ -71,7 +71,7 @@ unstable only within its model.
 | critical decay index | vertical stability with a wall | device- and wall-dependent | — | — | not yet | — | — |
 | Kadomtsev mixing radius | sawtooth crash | cylinder, complete reconnection | integral | reduced | `kadomtsev_mixing_radius` | Kadomtsev (1975) | analytic $\sqrt2\,r_1$ |
 | Porcelli trigger | sawtooth trigger | toroidal $\delta W$ + kinetic terms | composite | — | not yet; the old `sawtooth_stability_criterion` is a deprecated heuristic | Porcelli, Boucher, Rosenbluth, PPCF 38 (1996) 2163 | — |
-| Modified Rutherford | island evolution | — | ODE | — | owned by #1031 | — | — |
+| Modified Rutherford | island evolution | — | ODE | — | not yet (Open: #1031) | — | — |
 | Troyon $\beta_N$ | ideal $\beta$ limit | numerical ideal stability of a family | fit | semi-empirical | boundary `troyon` | Troyon et al., PPCF 26 (1984) 209 | — |
 | Greenwald, Murakami, Hugill | density limit | multi-machine | correlation | empirical | boundaries `greenwald*`, `murakami*` (Hugill coordinates: `hugill_coordinates`) | Greenwald, PPCF 44 (2002) R27 | — |
 
@@ -79,7 +79,7 @@ Deprecated heuristics stay for backward compatibility and warn when called: `kin
 ($\beta_{N,crit} = 2.8\,q_{95}$, unsourced), `sawtooth_stability_criterion`, `beta_stability_boundary` and
 `plasma_stability_margins`. The misnamed `power_limit_from_beta` ($\beta_N B_0^2 V/2\mu_0$, an energy:
 `stored_energy_from_beta_V` gives $\langle p\rangle V$ from the fractional $\beta_t$, not $\beta_N$) and
-`power_limit_from_q` (A²) were removed in #362; `current_limit_from_beta` is deprecated.
+`power_limit_from_q` (A²) have been removed; `current_limit_from_beta` is deprecated.
 
 ## Suydam and Mercier
 
@@ -112,8 +112,7 @@ reconstructed equilibrium belongs to `vaft.process`:
 - profile derivatives;
 - flux-surface averages, the equilibrium-native Mercier $D_I$, and curvature and local shear.
 
-Running and reading solvers belongs to `vaft.code.gpec`. Those are the next steps of #1635 and are left to
-the stability workflow. Use [MHD stability]({{ '/workflows/mhd-stability/' | relative_url }}) for the
+Running and reading solvers belongs to `vaft.code.gpec` and is left to the stability workflow. Use [MHD stability]({{ '/workflows/mhd-stability/' | relative_url }}) for the
 solver side and [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }})
 for which mode family each criterion addresses.
 

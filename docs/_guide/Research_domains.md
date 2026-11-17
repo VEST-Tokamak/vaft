@@ -6,7 +6,7 @@ category: guide
 layout: post
 permalink: /reference/research-domains/
 guide:
-  architecture: "The conceptual map of what VAFT connects: research modes, physics domains, research activities and scientific states, and how they meet through standardized representations (issue #1872). It defines no runtime abstraction and no new vocabulary."
+  architecture: "The conceptual map of what VAFT connects: research modes, physics domains, research activities and scientific states, and how they meet through standardized representations. It defines no runtime abstraction and no new vocabulary."
   prerequisites: None. The Scientific architecture page says how the software is organized; this page says what research it serves.
   expected: "Which word to use for which classification, why experiment, theory, modelling and AI/ML are not physics domains, and how one physics question (equilibrium) is answered by several research modes through one shared representation."
 related:
@@ -87,7 +87,7 @@ with `domain="equilibrium"` each mode's representative equilibrium route appears
 ## Research activities and scientific states
 
 Research activities are what the modes do, and scientific states are what passes between them. The ecosystem
-figure (#1643) arranges research roles, six activity groups and the shared states:
+figure arranges research roles, six activity groups and the shared states:
 
 - **Activities**: Ask & Plan; Produce & Observe; Process & Infer; Model & Predict; Test & Synthesize;
   Preserve & Transfer.

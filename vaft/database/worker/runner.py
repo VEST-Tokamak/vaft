@@ -1,4 +1,4 @@
-"""Run the routine Snakemake pipeline for a batch of shots (issue #58).
+"""Run the routine Snakemake pipeline for a batch of shots.
 
 One run is one ``snakemake`` process in the workflow directory, so the
 worker and a manual ``make run`` share Snakemake's directory lock: whichever
@@ -20,7 +20,7 @@ Flags the worker always passes, and why:
 HSDS concurrency is the pipeline configuration's ``hsds.concurrency``.  The
 worker used to force ``--resources hsds=1`` because replications of one shot
 that overlapped lost ``master.h5`` links; the write path now serializes each
-shot's master under a lock (#913, ``vaft.database._master_lock``).
+shot's master under a lock (``vaft.database._master_lock``).
 """
 
 from __future__ import annotations
@@ -176,8 +176,23 @@ class SnakemakeRunner:
             "greedy",
             "--keep-going",
             "--rerun-incomplete",
+            *self.resource_profile_args(),
             *self.config.extra_args,
         ]
+
+    def resource_profile_args(self) -> list[str]:
+        """``--set-resources``/``--set-threads`` from the pipeline config's ``resource_profile``.
+
+        Resolved by the workflow's own ``paths.py``, so the worker and the
+        cluster lanes book rules the same way.
+        """
+        from .status import load_pipeline_paths_module
+
+        if not (self.config.workflow_dir / "paths.py").is_file():
+            return []  # a workflow without the helper books nothing extra
+        module = load_pipeline_paths_module(self.config.workflow_dir)
+        helper = getattr(module, "resource_profile_args", None)
+        return helper(self.pipeline_config) if helper is not None else []
 
     # -- execution ---------------------------------------------------------
     def run(

@@ -1,4 +1,4 @@
-"""MITIM's own TGLF local inputs at exact r/a, written but not run (#1588 A2).
+"""MITIM's own TGLF local inputs at exact r/a, written but not run.
 
 Runs in the MITIM interpreter; imports MITIM and the standard library only.
 ``prep()`` always converts from rho_tor_norm, so this calls the state converter

@@ -132,7 +132,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 frame[column] = pd.to_numeric(frame[column], errors="coerce").map(lambda v: float(f"{v:.5g}"))
         write(frame, name)
     # The atlas v2 copy is shared with other consumers, so it is written to the
-    # Tier A sample collection (unprefixed names), not into the study directory (#2277).
+    # Tier A sample collection (unprefixed names), not into the study directory.
     atlas_output = args.atlas_output
     if atlas_output is not None:
         atlas_output.mkdir(parents=True, exist_ok=True)

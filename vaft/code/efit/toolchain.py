@@ -1,4 +1,4 @@
-"""The EFIT toolchain: two executable roles, one root, one build lineage (issue #194).
+"""The EFIT toolchain: two executable roles, one root, one build lineage.
 
 EFIT's source tree builds two programs from one repository and one CMake
 configuration: ``efit``, the reconstruction, and ``efund``, the Green-table

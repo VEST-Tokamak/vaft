@@ -1,7 +1,7 @@
-"""RDCON local stability criteria (#939) and per-solver attribution of ntms surfaces (#143).
+"""RDCON local stability criteria and per-solver attribution of ntms surfaces.
 
 ``test/data/gpec/rdcon_39915_319_n1/rdcon_output_n1.nc`` is a real RDCON output.
-Shot 39915 at 319 ms is a good slice of the #1331 ``statistical_891``
+Shot 39915 at 319 ms is a good slice of the ``statistical_891``
 campaign, CHEASE-refined; the run is GPEC e68d7ac2, n=1, mpsi=256. The file was
 trimmed with ``nccopy -V`` to the matching matrices, the rational-surface
 coordinates and the 1-D profiles.

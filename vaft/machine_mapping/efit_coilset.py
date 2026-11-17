@@ -1,4 +1,4 @@
-"""What EFIT is told the machine's PF circuits are (issue #708).
+"""What EFIT is told the machine's PF circuits are.
 
 VEST energises ten PF circuits.  EFIT's Green table describes **current
 groups** over them: the solenoid split into axial segments, and the shaping
@@ -395,7 +395,7 @@ def vest_efit_coilset_policy(*, info_file: str | None = None) -> EFITCoilsetPoli
 
     Not keyed by shot: the table is an artifact shared by many shots, and which
     circuits it describes is a property of the table, not of a discharge. Which
-    circuits a *discharge* energised is a separate question and a later stage
-    of #708.
+    circuits a *discharge* energised is a separate question, not answered
+    here.
     """
     return _cached(info_file)

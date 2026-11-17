@@ -18,8 +18,8 @@ A tokamak equilibrium reaches an analysis as $\psi(R,Z)$, a $q(\psi)$ profile, a
 $\rho_{tor,N}$ grid, a set of Miller numbers, Fourier boundary coefficients, a PEST grid, camera
 pixels, a field-line trajectory, an $m/n$ helical perturbation or a local transport input. These
 forms are related, but they are not interchangeable. This page names the five kinds of object
-VAFT derives from an equilibrium, maps the hierarchy of issue #1201 onto the functions that
-implement it, and lists what is not yet implemented.
+VAFT derives from an equilibrium (coordinates, projections, representations, derived quantities and
+solver conventions), maps each onto the functions that implement it, and lists what is not yet implemented.
 
 Every branch starts from one canonical record, `vaft.data.EquilibriumData`, built by
 `vaft.process.as_equilibrium` from an ODS, a GEQDSK or an analytic generator. The record keeps the
@@ -135,7 +135,7 @@ defined only once its derivative coordinate and its reference length are stated.
 
 ### Profile gradients
 
-`vaft.process.profile_gradients` (#551) computes $-L\,d\ln f/dx_g$ with four separate roles:
+`vaft.process.profile_gradients` computes $-L\,d\ln f/dx_g$ with four separate roles:
 
 | argument | role | values |
 | --- | --- | --- |
@@ -259,8 +259,8 @@ double-null topology. A wall-contacting LCFS without an active X-point is
 limited; a clipped region, missing wall, or indeterminate boundary is
 `AMBIGUOUS` with a reason.
 
-The branches of #1201 §2, their category, and where each starts in the code. **Status** follows the
-acceptance audit posted on #1201: *met* means a public API plus a test or documentation demonstrates
+The branches, their category, and where each starts in the code. **Status** follows the acceptance
+audit of the equilibrium-representation framework (provenance: #1201): *met* means a public API plus a test or documentation demonstrates
 it.
 
 | Branch | Category | Canonical entry points | Status |
@@ -316,14 +316,16 @@ miller = vaft.process.fit_miller_surface(eq.lcfs)
 fourier = vaft.process.fit_fourier_surface(eq.lcfs, modes=6)
 print("Miller  nRMS", round(miller.normalized_rms_error, 4), "accepted", miller.accepted)
 print("Fourier nRMS", round(fourier.normalized_rms_error, 4), "angle", fourier.surface.angle_convention)
-print("Miller provenance carries a convention:", miller.provenance.convention is not None)  # False: #604
+print("Miller provenance carries a convention:", miller.provenance.convention is not None)  # False: a bare contour has no convention
 
 eq_rad = vaft.process.convert_cocos(eq, 1)                  # same state, psi per radian
 print("flux-span ratio", (eq.psi_boundary - eq.psi_axis) / (eq_rad.psi_boundary - eq_rad.psi_axis))  # 2*pi
 ```
 
-The last lines show where the thread breaks today. A Miller fit of a bare contour carries no time
-or convention (#604), so the caller has to keep them.
+The last lines show where the thread breaks. A Miller fit of a bare contour carries no time or
+convention, by design: a contour alone does not define one, so the caller has to keep them.
+`fit_miller_sequence`, which fits the surfaces of an equilibrium, attaches that equilibrium's
+convention to every nested fit.
 
 The whole chain is `notebooks/equilibrium_representation_reference.ipynb`. It takes the 39915
 slice at 0.319 s through the four radial coordinates, the R–Z map, a PEST grid with a $q$
@@ -332,10 +334,42 @@ island with a field-line check, a 3-D embedding and a camera projection, and che
 COCOS and flux unit at each step. The GPEC response step is missing because no GPEC output is
 packaged.
 
+## Public equilibria from other machines
+
+`vaft.data.public.load_public_equilibrium(device)` fetches one audited third-party equilibrium,
+checks its SHA-256 against the pinned revision and returns an ODS with a provenance record
+(#2285). A source is listed only when the licence of its *data* was read at the level of the file
+or Zarr group; a software licence or a readable URL does not count.
+
+| Device | Artefact | Data licence | What it carries |
+| --- | --- | --- | --- |
+| VEST | packaged sample 39915 | VAFT reference | full EFIT |
+| TCV | TCV-X21 `65402_t1.eqdsk` | CC BY 4.0 | full g-file, experimental reference |
+| DIII-D | Fusion Equilibrium Challenge, `diii_d_train` record | CC BY 4.0 | flux map, LCFS, q95 and βN only |
+| MAST | FAIR-MAST level 2, shot 30420, `equilibrium` group | CC BY-SA 4.0 | EFIT++ flux map, LCFS, F, p, B0, q95 |
+| STEP | OpenSTEP SPP-001 EB-CC flat-top JETTO g-file | CC BY 4.0 | full g-file, design |
+| SPARC | SPARCPublic `sparc_1593` g-file | MIT (CFS), treated as the file's licence | full g-file, design |
+| ITER | ITER Organization IMAS example, Zenodo 17062700, scenario 53298 (DD3 netCDF) | CC BY 4.0 | full IMAS equilibrium, modelled 15 MA / 5.3 T JINTRAC scenario |
+
+JET and MAST-U are in `EXCLUDED_EQUILIBRIUM_SOURCES` and raise `EquilibriumLicenceError`: the
+redistribution rights of their underlying data (FUSE.jl samples) were not established. MAST does
+not stand in for MAST-U. ITER is read from the ITER Organization's own CC BY 4.0 release, not from
+the FUSE ITER sample; only its equilibrium IDS is returned.
+
+The adapters construct nothing a source does not ship. The DIII-D record has no F, p, q or
+toroidal field, so those stay missing and `as_equilibrium` reads no B0. FAIR-MAST stores q on a
+midplane coordinate rather than on ψ_N, so only q95 is mapped. Values are copied apart from the 2π
+that takes a per-radian flux into the ODS's weber ψ. A few fields are derived from shipped data and
+are named as such in the ODS comment: the DIII-D axis and boundary flux and its Ip (interpolated from
+the flux map, the LCFS and the magnetics current), and the MAST ψ grid of the 1-D profiles. A COCOS
+index is written only when one index is pinned. `public_equilibrium_provenance(results)` tabulates the producer, licence,
+attribution, share-alike obligation, revision, hash and selected slice of whatever was loaded.
+DIII-D and MAST need `pip install 'vaft[public]'` (pyarrow).
+
 ## Gaps
 
-These are the items the #1201 audit grades *not met* or *partly met*, with the issue that owns
-each. "Unowned" means no issue other than #1201 tracks it.
+These are the items the audit grades *not met* or *partly met*. `Open: #N` names the open issue that
+tracks an item; "unowned" means no issue other than the framework umbrella (#1201) tracks it.
 
 **Partly met**
 
@@ -347,46 +381,47 @@ each. "Unowned" means no issue other than #1201 tracks it.
     leaf does not (unowned).
 * Geometric radii.
   * `r_minor`, `r_minor_norm` and `r_center` are defined in
-    `vaft.process.profile_gradients.RADIAL_COORDINATES` (#551).
+    `vaft.process.profile_gradients.RADIAL_COORDINATES`.
   * The older tuples in `vaft.plot` and `vaft.process.profile` are not unified with it.
-  * `vaft/plot/onedim.py` still uses $r - r_{axis}$ (#479).
+  * `vaft/plot/onedim.py` still uses $r - r_{axis}$.
 * Flux coordinates. The native map is PEST only. There is no direct inverse
   $(\psi,\theta^*)\to(R,Z)$, no Jacobian output, no native Boozer or Hamada map (only the
-  per-surface formulas), and no closure or Jacobian residual on the map (#472).
+  per-surface formulas), and no closure or Jacobian residual on the map (Open: #472).
 * Angle identity on the read path:
   * `straight_field_line_tables` returns bare `(lab, sfl)` tuples.
   * `vaft/machine_mapping/mhd_linear.py` defaults an unrecorded Jacobian to `"hamada"` (unowned).
 * On-surface view. There is no first-class $f(\theta \mid \psi)$ view; the notebook builds one
-  from `StraightFieldLineMap.surface()` (#1201 phase E).
+  from `StraightFieldLineMap.surface()` (unowned).
 * Projections:
   * There is no projection abstraction and no general 3-D embedding. `sweep_toroidal` is a camera
     helper that works in centimetres and calls the toroidal angle `theta`.
   * The camera overlay reads raw ODS paths instead of going through `as_equilibrium`.
-  * The camera's toroidal frame is not reconciled with the port frame (#746).
+  * The camera's toroidal frame is not reconciled with the port frame (Open: #746).
 * Compact representations:
   * `MillerSurface` mixes geometry with $q$, shear and $\alpha$.
   * `BoundaryRepresentation.fourier_coefficients` and `MXHChebyshevRepresentation` do not record
-    their angle convention (#942).
+    their angle convention (unowned).
 * Flow equilibria. `EquilibriumData` has no governing-equation field. A Guazzotto–Freidberg flow
-  case is kept distinct only because exporting it raises (#1149).
+  case is kept distinct only because exporting it raises.
 * Code presets. TGLF and CGYRO resolve fixed. GS2 and GKW resolve only the configurations their
-  manuals fix, and GENE resolves only from the run's own metadata (#551).
-* Advanced divertors. Snowflake, X-divertor and Super-X exist only as a TES input (#950).
-* Islands and perturbations (unowned; #886 covers the prescribed island):
+  manuals fix, and GENE resolves only from the run's own metadata.
+* Advanced divertors. Snowflake, X-divertor and Super-X exist only as a TES input (Open: #950).
+* Islands and perturbations (unowned; the prescribed island itself is `vaft.process.magnetic_island.MagneticIslandSpec`):
   * The solver-derived island separatrix is reconstructed only inside the plot backend.
   * No island record says whether it is prescribed or solver-derived.
   * There is no public real-space or diagnostic-space projection of a complex GPEC perturbation.
 * Conventions:
-  * A default-constructed record falls back to Wb/rad (#603).
-  * Miller provenance carries no convention (#604).
+  * A default-constructed record falls back to Wb/rad (Open: #603).
 * Discovery. No API lists the available coordinates, projections and representations with their
-  required source data (#1201 phase H).
+  required source data (unowned).
 
-Two audit findings have been fixed since the audit:
+Three audit findings no longer apply:
 
-* The kinetic plot recipes drew $\sqrt{\psi_N}$ under a $\psi_N$ label (#1314).
-* `make_equilibrium_field_interpolator` assumed Wb/rad when no COCOS was given. It now reads the
-  convention from the record (#1313).
+* Nested Miller fits carry the equilibrium's angle convention (`fit_miller_sequence` attaches it);
+  a bare-contour fit is convention-free by design.
+* The kinetic plot recipes label $\sqrt{\psi_N}$ as such, not as $\psi_N$.
+* `make_equilibrium_field_interpolator` reads the flux convention from the record instead of
+  assuming Wb/rad when no COCOS is given.
 
 ## See also
 

@@ -1,4 +1,4 @@
-"""Manufactured-source construction shared by the PORTALS closed-loop drivers (#1588 C1).
+"""Manufactured-source construction shared by the PORTALS closed-loop drivers.
 
 Staged next to a driver in its run directory by :func:`vaft.code.mitim.runner.run_mitim_driver`
 and imported there as ``_manufacture``; NumPy and SciPy only, so VAFT's tests import it
@@ -18,7 +18,7 @@ def manufactured_source(rho, r, volp, rho_k, nodes):
     this: the interpolant is a straight line. Several nodes do it whenever their
     shape keeps the endpoint slope nonzero. PORTALS integrates the targets on its own
     coarse grid, where that spike becomes a 12-21x overestimate. In s the slope at the
-    axis is dP/drho = 2 rho dP/ds = 0, so q stays finite for any node set (#1588 C1).
+    axis is dP/drho = 2 rho dP/ds = 0, so q stays finite for any node set.
     Signed nodes (a net sink) are valid. Only grid points with volp > 0 get a value.
     """
     import numpy as np

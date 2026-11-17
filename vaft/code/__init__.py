@@ -203,6 +203,7 @@ _EXPORT_MAP = {
     "ExecutionRequest": (".execution", "ExecutionRequest"),
     "ExecutionResult": (".execution", "ExecutionResult"),
     "LocalBackend": (".execution", "LocalBackend"),
+    "ResourceUsage": (".accounting", "ResourceUsage"),
     "MemoryBudget": (".resources", "MemoryBudget"),
     "MemoryBudgetExceeded": (".resources", "MemoryBudgetExceeded"),
     "MemoryBudgetInfo": (".resources", "MemoryBudgetInfo"),

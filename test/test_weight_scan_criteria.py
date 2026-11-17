@@ -1,4 +1,4 @@
-"""The #891 stage-2 per-slice criteria and the weight scan's settings."""
+"""The sigma-calibration stage-2 per-slice criteria and the weight scan's settings."""
 
 from __future__ import annotations
 
@@ -356,8 +356,8 @@ def test_a_products_dir_extends_the_reference_set(scan, tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("stage", ["3", "4"])
 def test_the_settings_refusal_names_every_stage_that_takes_them(scan, tmp_path, capsys, stage):
-    # --stage 6 (#1663) takes --settings like 1, 2 and 5; the refusal text must
-    # agree with the --settings help and the dispatch (cold review 0.8.0 delta-absorb-17 F5).
+    # --stage 6 takes --settings like 1, 2 and 5; the refusal text must
+    # agree with the --settings help and the dispatch.
     settings = tmp_path / "settings.json"
     settings.write_text("[]", encoding="utf-8")
     with pytest.raises(SystemExit) as exit_info:

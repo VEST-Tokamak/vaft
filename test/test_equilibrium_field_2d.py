@@ -1,10 +1,10 @@
-"""Issue #483: one 2-D equilibrium map, any quantity, with chosen overlays.
+"""One 2-D equilibrium map, any quantity, with chosen overlays.
 
 ``field=`` picks what is drawn -- the stored flux, or a quantity derived on
 a private copy from the profiles the slice indexes -- and ``overlay=`` picks
 what is drawn over it.  The derivations are the honest ones: pressure is a
 flux function and is mapped, the current density is evaluated locally
-(issue #316), and the toroidal field is the real ``F(psi)/R``.
+and the toroidal field is the real ``F(psi)/R``.
 """
 
 from __future__ import annotations

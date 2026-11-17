@@ -1,4 +1,4 @@
-"""The constraint builder consumes decisions and only translates them (issue #296)."""
+"""The constraint builder consumes decisions and only translates them."""
 
 from __future__ import annotations
 
@@ -83,8 +83,8 @@ def test_legacy_args_and_explicit_decisions_agree_on_the_packaged_shot(monkeypat
     # fitted slices: the sample predates the per-slice validity exclusion and
     # still carries the nominal weight there.
     #
-    # The values differ because the sample also predates the box average
-    # (issue #433): it was built by interpolating the 25 kHz diagnostics onto
+    # The values differ because the sample also predates the box average:
+    # it was built by interpolating the 25 kHz diagnostics onto
     # a 0.1 ms grid, this build averages the samples the window contains.
     # That is the same measurement averaged differently, so the difference is
     # bounded and small -- a restructuring would not be.
