@@ -263,7 +263,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
     "software_dependency_ecosystem.svg": ("software_dependency_ecosystem", {}),
     "external_code_integration.svg": ("external_code_integration", {}),
-    # computation contracts, workflow execution and provenance (#2150)
+    # computation contracts, workflow execution and provenance
     **{f"{name}.svg": (name, {}) for name in (
         "scientific_computation_contract", "computation_record_layers", "workflow_specification_and_run",
         "imas_scientific_workflow_example")},
@@ -307,7 +307,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "geometry_to_mesh.svg": ("geometry_to_mesh", {}),
     "logical_to_physical_mapping.svg": ("logical_to_physical_mapping", {}),
     "physical_to_flux_mapping.svg": ("physical_to_flux_mapping", {}),
-    # one measured sample in four representations: VEST 48224 at 300 ms (#2253)
+    # one measured sample in four representations: VEST 48224 at 300 ms
     "electron_density_semantics.svg": ("electron_density_semantics", {}),
 }
 

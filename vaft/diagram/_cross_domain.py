@@ -1,6 +1,6 @@
 """Equilibrium, MHD and transport joined through shared representations of a plasma state.
 
-One figure across the physics-workflow spine (#1585): where the per-solver
+One figure across the physics-workflow spine: where the per-solver
 figures (``magnetic_efit``, ``dcon_rdcon_stability``, ``transport_hierarchy``,
 ...) draw the steps inside one coupling, this one draws the relations between
 the domains -- which state a calculation reads, which methods are alternatives
@@ -51,7 +51,7 @@ What the figure claims, and what it leaves out on purpose:
   ``gyrokinetics_local.non_linear`` (``gyrokinetics_local_from_cgyro``), each
   given a saturation window, but no nonlinear result is a demonstrated
   benchmark, so neither route is drawn. TGLF's ``gyrokinetics_local`` writer
-  is likewise omitted: no stage stores that IDS for TGLF (#2020).
+  is likewise omitted: no stage stores that IDS for TGLF (Open: #2020, IMAS-first gyrokinetic result storage).
 - DCON's ``energy_perturbed`` is a normalized eigenvalue in a field the DD
   documents in joules; the mismatch is recorded in ``code.parameters`` by
   the mapper and stated on the node. RDCON writes only the classical

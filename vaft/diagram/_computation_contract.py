@@ -1,4 +1,4 @@
-"""Scientific computation contracts and computation records (#2150).
+"""Scientific computation contracts and computation records.
 
 ``scientific_computation_contract``
     one computation's scientific inputs and outputs, kept apart from its
@@ -225,7 +225,7 @@ RECORD_LAYERS: Tuple[Tuple[str, str, Tuple[str, ...], str, str, str, Tuple[Tuple
 
 
 def computation_record_layers(*, labels: bool = True) -> Diagram:
-    r"""What one computation run leaves behind, in three layers kept apart (#2150).
+    r"""What one computation run leaves behind, in three layers kept apart.
 
     ``"identity"``
         the scientific identity: input digests, code and model version,
@@ -242,7 +242,7 @@ def computation_record_layers(*, labels: bool = True) -> Diagram:
         status, stdout and stderr. These values are nondeterministic and stay
         out of the identity while remaining provenance for reproducibility;
         today they are recorded per adapter, and uniform persistence is
-        planned (#1019);
+        planned (Open: #1019, uniform execution-record persistence);
     ``"assessment"``
         the scientific assessment: numerical convergence, uncertainty,
         physical checks, applicability (advisory) and validation, as
