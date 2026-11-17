@@ -212,10 +212,18 @@ def test_code_stays_plain(book):
 
 
 def test_the_physics_chain_is_reproduced_by_hand(executed):
-    """Part B recomputes one summary row from its integrals with vaft.formula."""
+    """Part B recomputes one summary row from its integrals, written out without vaft.formula.
+
+    The "by hand" column must not call the functions the summary uses, or the
+    agreement would be automatic; the displayed table wraps, so the relative
+    difference is on the last line that names the column.
+    """
+    source = _source(_cell(executed, "s06-physics-recompute"))
+    hand = source.split("by_hand = {", 1)[1].split("}", 1)[0]
+    assert "eq_formula" not in hand, hand
     text = _text(_cell(executed, "s06-physics-recompute"))
     for column in ("energy_mhd_J", "beta_tor", "beta_pol", "beta_normal", "li_3", "normalized_plasma_current"):
-        line = next(line for line in text.splitlines() if line.startswith(column))
+        line = [line for line in text.splitlines() if line.startswith(column)][-1]
         relative = float(line.split()[-1])
         assert abs(relative) < (0.02 if column == "li_3" else 1e-9), line
 

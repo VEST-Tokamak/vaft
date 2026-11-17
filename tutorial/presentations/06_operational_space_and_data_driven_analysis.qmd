@@ -136,7 +136,7 @@ The 32 Tier A shots sit in two narrow bands of shot numbers.
 - $q^* I_N = 5\kappa/A$: the $q^*$--$I_N$ plane is mostly shape
 - Freidberg: OUTSIDE its calibration; Menard: declared for STs, no tested range
 - Wesson and Cheng: reference only (DCON `qlim` sits at $\psi_N = 0.994$)
-- the Troyon plane re-expresses $\beta_N$; Hugill uses the ST form
+- the Troyon plane re-expresses $\beta_N$; Hugill is drawn in the ST and the conventional form
 
 ::: {.notes}
 [5 min]
@@ -150,7 +150,7 @@ SUPPORTED, it is a reference, not a VEST limit.
 
 - DCON full edge: 129 stable / 13 unstable / 8 unresolved; truncated edge: 146 / 3 / 1
 - $\Delta'>0$ raw on most states, QA-supported on 9 (RDCON) and 38 (STRIDE)
-- a failed run is not assessed, never a drive; $\Delta'>0$ is not a tearing verdict
+- a failed run is not assessed, never a drive; an unresolved $n$ can still carry a raw drive; $\Delta'>0$ is not a tearing verdict
 - $D_R>0$ on 124, $D_I>0$ on 1, $C_A<0$ on 12
 
 ::: {.notes}
@@ -158,7 +158,8 @@ SUPPORTED, it is a reference, not a VEST limit.
 
 NARRATE:
 Join on (shot, EFIT time in microseconds, lineage), one-to-one: 150/0/0. The
-edge treatment decides most ideal verdicts; report both. Magnitudes are not
+edge treatment moves about one state in ten, and most full-edge instabilities
+vanish with the truncated edge; report both. Magnitudes are not
 growth rates.
 :::
 
